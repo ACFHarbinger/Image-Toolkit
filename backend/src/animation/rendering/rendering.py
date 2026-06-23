@@ -34,6 +34,10 @@ except ImportError:
     _batch_render = None  # type: ignore[assignment]
     _BATCH_RENDER = False
 
+# Phase 6: OpenCL/CUDA GPU acceleration for warp and blend.
+# Set ASP_BATCH_GPU=1 to enable UMat paths in C++ (requires rebuilt .so).
+_BATCH_GPU = os.environ.get("ASP_BATCH_GPU", "0") != "0"
+
 
 # A5 — Foreground-excluded temporal median.  When enabled, foreground (character)
 # pixels are excluded from the per-pixel median so the background PLATE never
@@ -484,11 +488,12 @@ def _render_median(
     ):
         try:
             affines_f32 = [np.ascontiguousarray(a, dtype=np.float32) for a in affines]
+            _gpu_kw: dict = {"try_gpu": True} if _BATCH_GPU else {}
             warped = _batch_render.canvas.warp_frames_to_canvas(
                 [np.ascontiguousarray(f) for f in frames],
-                affines_f32, H, W,
+                affines_f32, H, W, **_gpu_kw,
             )
-            canvas = np.ascontiguousarray(_batch_render.canvas.render_median(warped))
+            canvas = np.ascontiguousarray(_batch_render.canvas.render_median(warped, **_gpu_kw))
             for w in warped:
                 valid_mask[w.max(axis=2) > 0] = 255
             # Fade pass — uses the full-canvas stack (no chunking needed here).
@@ -950,9 +955,10 @@ def _render_first(
     if _BATCH_RENDER:
         try:
             affines_f32 = [np.ascontiguousarray(a, dtype=np.float32) for a in affines]
+            _gpu_kw: dict = {"try_gpu": True} if _BATCH_GPU else {}
             warped = _batch_render.canvas.warp_frames_to_canvas(
                 [np.ascontiguousarray(f) for f in frames],
-                affines_f32, H, W,
+                affines_f32, H, W, **_gpu_kw,
             )
             for w in reversed(warped):
                 m = (w.max(axis=2) > 0).astype(np.uint8) * 255
@@ -1006,10 +1012,11 @@ def _render_laplacian(
     if _BATCH_RENDER:
         try:
             affines_f32 = [np.ascontiguousarray(a, dtype=np.float32) for a in affines]
+            _gpu_kw: dict = {"try_gpu": True} if _BATCH_GPU else {}
             warped_list = list(
                 _batch_render.canvas.warp_frames_to_canvas(
                     [np.ascontiguousarray(f) for f in frames],
-                    affines_f32, H, W,
+                    affines_f32, H, W, **_gpu_kw,
                 )
             )
             mask_list = [

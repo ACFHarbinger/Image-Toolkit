@@ -274,25 +274,57 @@ Cross-roadmap overview. Items are the top-priority pending work from each sub-ro
 
 ## Dependency Graph Summary
 
-```
-Phase 1 (Quick Wins)
-  └─► Phase 2 (Core QoS)
-        ├─► Phase 3 (Feature Enrichment)
-        │     ├─ 3.13 Unit tests unblocks 3.14 CI gate
-        │     └─ 3.6 Auto-tagger unblocks 5.5 Review queue
-        ├─► Phase 4 (Platform Hardening)
-        │     ├─ 4.1 Matcher interface unblocks 5.10 Compositor registry
-        │     ├─ 4.2 ModelWrapper ABC unblocks A.9 contract tests + A.16 mixin
-        │     └─ 4.9 QListView unblocks full bulk-select UX
-        ├─► Phase Arch (Code Quality — parallelisable with Phase 3/4)
-        │     ├─ A.1–A.7 Quick Wins (independent, batch as single PR each)
-        │     ├─ A.13 Exception hierarchy → A.14 BaseQThreadWorker (sequential)
-        │     ├─ A.11+A.12 Settings facade sprint (independent)
-        │     └─ A.16 AbstractGalleryBase depends on A.7 (metaclass docstring first)
-        └─► Phase 5 (Advanced Features)
-              ├─ 5.1 CLIP search requires §4.8 psycopg3 pool + §2.14 HNSW tuning
-              ├─ 5.6 REST API enables §6.7 mobile features
-              └─ 5.7 RLHF param search requires §2.5 quality gate (Phase 2)
+```mermaid
+flowchart TD
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    P0["Phase 0\nASP Foreground Assembly\n(Priority 0)"]:::fix:::active
+    PML["Phase ML\nML-Driven Modernisation\n(Research)"]:::research:::planned
+    PCG["Phase CG\nContent Generation"]:::feature:::planned
+    P1["Phase 1\nImmediate Wins"]:::augment:::active
+    P2["Phase 2\nCore QoS"]:::augment:::planned
+    P3["Phase 3\nFeature Enrichment"]:::feature:::planned
+    P4["Phase 4\nPlatform Hardening"]:::infra:::planned
+    PARCH["Phase Arch\nCode Quality"]:::refactor:::planned
+    P5["Phase 5\nAdvanced Features"]:::feature:::planned
+    P6["Phase 6\nLong-term Research"]:::research:::planned
+
+    P0  ==>  PML
+    P0  -->  P1
+    P1  ==>  P2
+    P2  -->  P3
+    P2  -->  P4
+    P2  -->  PARCH
+    P3  -->  P5
+    P4  -->  P5
+    PARCH --- P3
+    PARCH --- P4
+    P5  -->  P6
+    P1  -->  PCG
+    PML -->  P3
+
+    %% key item-level dependencies
+    P3 -->|"3.13 tests\nunblocks 3.14 CI"| P4
+    P4 -->|"4.2 ModelWrapper\nunblocks A.9"| PARCH
+    P2 -->|"2.5 quality gate\nunblocks 5.7 RLHF"| P5
 ```
 
 ---
@@ -544,6 +576,281 @@ The current crawlers run as opaque blocking operations with no mid-crawl feedbac
 
 ##### [HIGH] Safetensors Model Inspector *(Desktop)*
 Standalone tool accessible from any training or generation tab: drop a `.safetensors` file to inspect LoRA rank, alpha, trigger words, and base model compatibility. Show a preview generation using the loaded LoRA at 3 different strength values (0.5, 0.75, 1.0) side-by-side.
+
+---
+
+## Cross-Roadmap Overview
+
+*Big-picture status and dependency graph across all 9 roadmaps. Node fill = roadmap type; node border = current implementation status. Edges show inter-roadmap dependencies and complementary relationships.*
+
+```mermaid
+flowchart TD
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    %% ── CORE PIPELINE ────────────────────────────────────────────────────────
+    subgraph CORE["Core Pipeline"]
+        ASP["🎬 ASP Roadmap\n(§1–§4 shipped;\nrefinements active)"]:::feature:::active
+        CPP["⚡ ASP C++ Migration\n(Phases 1–6 complete;\narchived)"]:::migration:::done
+        PERF["🚀 Performance\n(§3.10–§3.15 done;\n§3.1–§3.7 planned)"]:::perf:::active
+    end
+
+    %% ── INTELLIGENCE ─────────────────────────────────────────────────────────
+    subgraph INTEL["Intelligence"]
+        ANALYTICS["📊 Analytics &\nInterpretability\n(in progress)"]:::research:::active
+        CONTENT["🎨 Content Generation\n(planned)"]:::feature:::planned
+    end
+
+    %% ── PLATFORM ─────────────────────────────────────────────────────────────
+    subgraph PLATFORM["Platform"]
+        ARCH["🏗️ Architecture\n(§5.x planned;\nrefactors queued)"]:::refactor:::planned
+        GUI["🖥️ GUI / UX\n(§2.1–§2.31 done;\n§2.29–§2.31 recent)"]:::feature:::done
+        NEWF["✨ New Features\n(§4.1–§4.13 planned)"]:::feature:::planned
+    end
+
+    %% ── FOUNDATIONS ──────────────────────────────────────────────────────────
+    subgraph FOUND["Foundations"]
+        DOCS["📝 Documentation\n(§6.1–§6.14 done;\n§6.15 active)"]:::docs:::active
+    end
+
+    %% ── INTER-ROADMAP DEPENDENCIES ───────────────────────────────────────────
+    ASP --> CPP
+    CPP --> PERF
+    ASP --> ANALYTICS
+    ASP --> CONTENT
+    PERF --> ASP
+    ARCH --> GUI
+    ARCH --> PERF
+    NEWF --> ASP
+    DOCS --- ASP
+    DOCS --- ARCH
+    DOCS --- GUI
+    DOCS --- ANALYTICS
+```
+
+---
+
+## Diagram Visual Language Reference
+
+*Every `## Implementation Timeline` diagram in `moon/roadmaps/` uses the visual encoding defined here. Read this section to interpret any diagram, and follow it when updating or adding nodes.*
+
+---
+
+### Node Fill — Element Type
+
+The node's **body color** identifies the category of work.
+
+| Fill | Class | Type | Description |
+|---|---|---|---|
+| Blue `#2563eb` | `feature` | **New Feature** | A capability that did not previously exist |
+| Violet `#7c3aed` | `augment` | **Augmentation** | Extends or improves an existing feature without replacing it |
+| Red `#dc2626` | `fix` | **Bug Fix** | Corrects incorrect or broken behaviour |
+| Cyan `#0891b2` | `infra` | **Infrastructure** | Build system, CI/CD, tooling, or project foundations |
+| Orange `#ea580c` | `perf` | **Performance** | Optimises speed, memory, throughput, or latency |
+| Slate `#475569` | `research` | **Research** | Exploratory; outcome uncertain; may not ship |
+| Dark red `#7f1d1d` | `security` | **Security** | Hardens against vulnerabilities, audits, or compliance |
+| Teal `#0f766e` | `refactor` | **Refactor** | Restructures internals without changing external behaviour |
+| Indigo `#4338ca` | `migration` | **Migration** | Moves from one technology, format, or system to another |
+| Amber-dark `#a16207` | `testing` | **Testing** | Test coverage additions or test infrastructure improvements |
+| Dark green `#15803d` | `docs` | **Documentation** | Documentation-only work (no code change) |
+| Pink `#9d174d` | `integration` | **Integration** | Connects to an external system, API, or third-party service |
+
+---
+
+### Node Border — Implementation Status
+
+The node's **border color and thickness** show where the item currently stands.
+
+| Border | Class | Status | Meaning |
+|---|---|---|---|
+| Thick green `#16a34a, 4px` | `done` | **✅ Complete** | Shipped and merged; no further action needed |
+| Thick amber `#d97706, 4px` | `active` | **🔄 In Progress** | Actively being worked on right now |
+| Thin slate `#64748b, 2px` | `planned` | **⬜ Planned** | Scoped and intended, but not yet started |
+| Thick red `#dc2626, 3px` | `blocked` | **🚫 Blocked** | Cannot proceed — waiting on an unresolved external dependency |
+| Medium purple `#9333ea, 3px` | `hold` | **⏸ On Hold** | Paused intentionally; may resume but not actively scheduled |
+
+To update a node when its status changes: replace the second class suffix —
+`:::planned` → `:::active` → `:::done`  (or `:::blocked` / `:::hold` as needed).
+
+---
+
+### Edge Style — Relationship Type
+
+| Style | Syntax | Relationship | When to use |
+|---|---|---|---|
+| Bold thick arrow | `==>` | **Critical dependency** | Blocking prerequisite on the critical path; B cannot start without A |
+| Solid thin arrow | `-->` | **Depends on** | A must be done before B, but B is not on the critical path |
+| Dashed arrow | `-.->` | **Alternative to** | A and B solve the same problem differently — only one should be chosen |
+| No arrowhead | `---` | **Complements** | A and B work well together but neither requires the other |
+| Circle end | `--o` | **Optional dependency** | B can optionally use A, but does not require it |
+| Cross end | `--x` | **Conflicts with** | A and B are mutually exclusive or A blocks B from shipping |
+| Bidirectional | `<-->` | **Tightly coupled** | A and B must evolve together; changes to one require changes to the other |
+
+Labels can be added to any edge for additional specificity: `A -->|"reason"| B`.
+
+---
+
+### Standard classDef Block
+
+Copy this block verbatim into every `flowchart` diagram. Do not rename the classes — consistency across roadmaps lets readers build a shared mental model.
+
+```
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+```
+
+Apply both classes to every node: `NodeID["Label"]:::typeClass:::statusClass`
+
+---
+
+### Example Diagram
+
+The diagram below demonstrates every element type, every status, and every edge relationship in a single coherent graph representing a hypothetical auth-platform development sequence.
+
+```mermaid
+flowchart TD
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    %% ── ✅ COMPLETE nodes (thick green border) ───────────────────────────────
+    REQ["🔬 Requirements\nAnalysis"]:::research:::done
+    THREAT["🔒 Threat Model\n& Audit"]:::security:::done
+    DB["🏗 Database\nSchema v1"]:::infra:::done
+    AUTH["✨ Auth Module\n(JWT / Session)"]:::feature:::done
+    CACHE["⚡ Response\nCaching Layer"]:::perf:::done
+    UNIT["🧪 Unit\nTest Suite"]:::testing:::done
+    DOC1["📄 API Reference\nDocs"]:::docs:::done
+    REFACT["♻ Auth Code\nRefactor"]:::refactor:::done
+
+    %% ── 🔄 IN PROGRESS nodes (thick amber border) ────────────────────────────
+    MIG["🔄 Schema v1→v2\nMigration"]:::migration:::active
+    RATELIM["🔧 Rate\nLimiting"]:::augment:::active
+    INTTEST["🧪 Integration\nTest Suite"]:::testing:::active
+
+    %% ── 🚫 BLOCKED nodes (thick red border) ─────────────────────────────────
+    GDPR["🔒 GDPR\nCompliance Audit"]:::security:::blocked
+
+    %% ── ⏸ ON HOLD nodes (medium purple border) ──────────────────────────────
+    SDK["🔌 Mobile\nSDK Client"]:::integration:::hold
+
+    %% ── ⬜ PLANNED nodes (thin slate border) ─────────────────────────────────
+    OAUTH2["✨ OAuth2\nProvider Support"]:::feature:::planned
+    WEBHOOK["🔌 Webhook\nIntegration"]:::integration:::planned
+    TOKENFIX["🐛 Token Refresh\nRace Condition"]:::fix:::planned
+    GUIDE["📄 User Guide\n& Tutorials"]:::docs:::planned
+    PERF2["⚡ Query\nOptimisation"]:::perf:::planned
+
+    %% ── EDGES — all seven relationship types ─────────────────────────────────
+    REQ    ==>         AUTH          %% ==>  critical dependency (research gates feature)
+    THREAT ==>         AUTH          %% ==>  critical dependency (threat model gates auth)
+    DB     ==>         AUTH          %% ==>  critical dependency (schema gates auth)
+    AUTH    -->        OAUTH2         %% -->  depends on
+    AUTH    -->        REFACT         %% -->  depends on
+    REFACT  -->        UNIT           %% -->  depends on
+    AUTH    -->        CACHE          %% -->  depends on
+    AUTH    -->        DOC1           %% -->  depends on
+    DB      -->        MIG            %% -->  depends on
+    MIG     -->        PERF2          %% -->  depends on
+    DOC1    -->        GUIDE          %% -->  depends on
+    SDK     -->        WEBHOOK        %% -->  depends on
+    CACHE   ---        RATELIM        %% ---  complements (both protect the API surface)
+    UNIT   <-->        INTTEST        %% <--> tightly coupled (suites co-evolve)
+    OAUTH2  -.->       WEBHOOK        %% -.-> alternative (OAuth push vs webhook pull)
+    TOKENFIX --x       OAUTH2         %% --x  conflicts with (race condition blocks OAuth)
+    GDPR    --o        OAUTH2         %% --o  optional dependency (GDPR may gate OAuth)
+
+    %% ── LEGEND — status borders ──────────────────────────────────────────────
+    subgraph SLEG["Status — Border Color + Width"]
+        direction LR
+        SL1["✅ Complete"]:::feature:::done
+        SL2["🔄 In Progress"]:::feature:::active
+        SL3["⬜ Planned"]:::feature:::planned
+        SL4["🚫 Blocked"]:::feature:::blocked
+        SL5["⏸ On Hold"]:::feature:::hold
+    end
+
+    %% ── LEGEND — element type fills ─────────────────────────────────────────
+    subgraph TLEG["Type — Node Fill Color"]
+        direction LR
+        TL1["New Feature"]:::feature:::done
+        TL2["Augmentation"]:::augment:::done
+        TL3["Bug Fix"]:::fix:::done
+        TL4["Infrastructure"]:::infra:::done
+        TL5["Performance"]:::perf:::done
+        TL6["Research"]:::research:::done
+        TL7["Security"]:::security:::done
+        TL8["Refactor"]:::refactor:::done
+        TL9["Migration"]:::migration:::done
+        TL10["Testing"]:::testing:::done
+        TL11["Docs"]:::docs:::done
+        TL12["Integration"]:::integration:::done
+    end
+
+    %% ── LEGEND — edge relationships ──────────────────────────────────────────
+    subgraph ELEG["Edge — Relationship Type"]
+        direction TB
+        EA["A"]:::infra:::done ==>|"critical dep"| EB["B"]:::infra:::done
+        EC["C"]:::infra:::done  -->|"depends on"|   ED["D"]:::infra:::done
+        EE["E"]:::infra:::done -.->|"alternative"|  EF["F"]:::infra:::done
+        EG["G"]:::infra:::done ---|"complements"|   EH["H"]:::infra:::done
+        EI["I"]:::infra:::done --o|"optional dep"|  EJ["J"]:::infra:::done
+        EK["K"]:::infra:::done --x|"conflicts"|     EL["L"]:::infra:::done
+        EM["M"]:::infra:::done <-->|"bidirectional"| EN["N"]:::infra:::done
+    end
+```
+
+*Created: 2026-06-23. Update the classDef block in any diagram by copying the Standard classDef Block above verbatim.*
 
 ##### [HIGH] Batch Rename with Pattern Templates
 Add a rename tool (tab or toolbar action) that applies pattern-based renames to selected files. Support tokens: `{index}`, `{date}`, `{resolution}`, `{group}`, `{tag}`, `{hash}`. Preview the rename mapping in a before/after table before committing. Support undo via the edit recipe system.

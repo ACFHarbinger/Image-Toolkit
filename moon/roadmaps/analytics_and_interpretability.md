@@ -25,85 +25,96 @@
 
 ## Implementation Timeline
 
-> **Legend** — *Node fill:* ✅ complete (green `#16a34a`) · 🔄 in-progress (amber `#d97706`) · ⬜ planned (light `#e2e8f0`) — *Node border:* infrastructure (cyan) · new feature (blue) · augmentation of existing feature (violet) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative/independent research track · `---` complements (parallel work)
+> **Legend** — *Node fill:* new feature (blue) · augmentation (violet) · infrastructure (cyan) · performance (orange) · research (slate) · security (dark red) · testing (amber) · docs (green) — *Node border:* ✅ complete (green, thick) · 🔄 in-progress (amber, thick) · ⬜ planned (slate, thin) · 🚫 blocked (red) · ⏸ on hold (purple) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative/independent research track · `---` complements (parallel work)
 
 ```mermaid
 flowchart TD
-    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
-    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
-    classDef p_feat  fill:#d97706,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef p_aug   fill:#d97706,stroke:#7c3aed,stroke-width:3px,color:#fff
-    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
-    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
-    classDef t_infra fill:#e2e8f0,stroke:#0891b2,stroke-width:2px,color:#1e293b
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
 
     %% ── Completed Infrastructure ──────────────────────────────────────────
     RUST["🦀 Rust Math Backbone
     base/src/math/
-    6 modules · 49 unit tests ✅"]:::c_infra
+    6 modules · 49 unit tests ✅"]:::infra:::done
 
     TS["📘 TypeScript Math Backbone
     frontend/src/math/
-    7 modules + benchmark.ts ✅"]:::c_infra
+    7 modules + benchmark.ts ✅"]:::infra:::done
 
     DASH["📊 Benchmark Dashboard
     Streamlit → Tauri/React
-    7-page SVG charts ✅"]:::c_feat
+    7-page SVG charts ✅"]:::feature:::done
 
     %% ── Planned Foundation ────────────────────────────────────────────────
     ARCH["🏗️ Architectural Blueprint
     Zero-Copy Analytics Pipeline
-    Rust aggregation · TS GPU render"]:::t_infra
+    Rust aggregation · TS GPU render"]:::infra:::planned
 
     %% ── Planned Feature Phases ────────────────────────────────────────────
     P1["Phase 1
     Interactive Meta-Graph
-    Codebase Topology"]:::t_feat
+    Codebase Topology"]:::feature:::planned
 
     P2["Phase 2
     ML Loss Landscape Visualizer
-    Weight/gradient landscape"]:::t_feat
+    Weight/gradient landscape"]:::feature:::planned
 
     P3["Phase 3
     ASP Stage-by-Stage
-    CV Diagnostics"]:::t_feat
+    CV Diagnostics"]:::augment:::planned
 
     P4["Phase 4
     Statistical & Info-Theoretic
-    Failure Analysis"]:::t_aug
+    Failure Analysis"]:::research:::planned
 
     P5["Phase 5
     Resource, Latency &
-    Causal Profiling"]:::t_aug
+    Causal Profiling"]:::perf:::planned
 
     P6["Phase 6
     Semantic Code Analysis
-    & Vulnerability Discovery"]:::t_feat
+    & Vulnerability Discovery"]:::security:::planned
 
     P7["Phase 7
     Omniscient Debugging
-    & Deterministic Replay"]:::t_feat
+    & Deterministic Replay"]:::feature:::planned
 
     P8["Phase 8
     Distributed Observability
-    & High-Cardinality Telemetry"]:::t_aug
+    & High-Cardinality Telemetry"]:::infra:::planned
 
     P9["Phase 9
     Formal Verification
-    & State Space Visualization"]:::t_feat
+    & State Space Visualization"]:::research:::planned
 
     P10["Phase 10
     Topological Data Analysis
-    TDA of Pipeline Architecture"]:::t_feat
+    TDA of Pipeline Architecture"]:::research:::planned
 
     P11["Phase 11
     ASP Benchmark Analytics
-    & Visual Diagnostics"]:::t_feat
+    & Visual Diagnostics"]:::testing:::planned
 
     P12["Phase 12
     Benchmark Coverage
-    Expansion"]:::t_aug
+    Expansion"]:::testing:::planned
 
     %% ── Dependency Edges ──────────────────────────────────────────────────
     RUST  ==> ARCH

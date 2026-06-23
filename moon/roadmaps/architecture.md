@@ -1,7 +1,5 @@
 # Architecture & Infrastructure Roadmap — Quality, Reliability, and Maintainability
 
-*Last updated: 2026-06-18. Added §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper abstraction, worker lifecycle standardisation, gallery base class consolidation, circular import prevention, codebase documentation & diagrams, decorator library), and §5.14–§5.16 (centralised settings facade, fault isolation & error boundary protocol, contract testing for ML wrappers). ASP unit tests now at 827 (session 131). ASP benchmark corpus: 97 tests. Phase 2 architecture defined: direct video ingestion (PyAV `VideoIngestionStream`), multi-modal HITL with Grounded SAM-2. See `asp.md` for per-session tracking and Phase 2 Sprint specs.*
-
 ---
 
 ## Table of Contents
@@ -30,49 +28,60 @@
 
 ## Implementation Timeline
 
-> **Legend** — *Node fill:* ✅ complete (green) · 🔄 in-progress (amber) · ⬜ planned (light) — *Node border:* infrastructure (cyan) · new feature (blue) · augmentation (violet) · bugfix (red) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `---` complements
+> **Legend** — *Node fill:* new feature (blue) · augmentation (violet) · bug fix (red) · infrastructure (cyan) · refactor (teal) · testing (amber) · docs (green) — *Node border:* ✅ complete (green, thick) · ⬜ planned (slate, thin) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `---` complements
 
 ```mermaid
 flowchart LR
-    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
-    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
-    classDef c_fix   fill:#16a34a,stroke:#dc2626,stroke-width:3px,color:#fff
-    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
-    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
-    classDef t_infra fill:#e2e8f0,stroke:#0891b2,stroke-width:2px,color:#1e293b
-    classDef t_fix   fill:#e2e8f0,stroke:#dc2626,stroke-width:2px,color:#1e293b
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
 
     subgraph Testing ["🧪 Testing Infrastructure"]
         direction TB
-        s51["§5.1 ASP Unit\nTest Coverage"]:::t_infra
-        s52["§5.2 Benchmark\nRegression CI"]:::t_infra
-        s516["§5.16 Contract Testing\nML Wrappers"]:::t_infra
+        s51["§5.1 ASP Unit\nTest Coverage"]:::testing:::planned
+        s52["§5.2 Benchmark\nRegression CI"]:::infra:::planned
+        s516["§5.16 Contract Testing\nML Wrappers"]:::testing:::planned
     end
 
     subgraph Backend ["⚙️ Backend Architecture"]
         direction TB
-        s53["§5.3 Plugin System\nfor Matchers/Compositors"]:::t_feat
-        s54["§5.4 Logging &\nDiagnostics"]:::t_infra
-        s57["§5.7 Dependency\nAudit & Pinning"]:::t_infra
-        s58["§5.8 Model Wrapper\nAbstraction Layer"]:::t_aug
-        s513["§5.13 Decorator\nLibrary"]:::t_aug
-        s514["§5.14 Centralised\nSettings Facade"]:::t_aug
-        s515["§5.15 Fault Isolation\n& Error Boundaries"]:::t_aug
+        s53["§5.3 Plugin System\nfor Matchers/Compositors"]:::feature:::planned
+        s54["§5.4 Logging &\nDiagnostics"]:::infra:::planned
+        s57["§5.7 Dependency\nAudit & Pinning"]:::infra:::planned
+        s58["§5.8 Model Wrapper\nAbstraction Layer"]:::refactor:::planned
+        s513["§5.13 Decorator\nLibrary"]:::infra:::planned
+        s514["§5.14 Centralised\nSettings Facade"]:::refactor:::planned
+        s515["§5.15 Fault Isolation\n& Error Boundaries"]:::augment:::planned
     end
 
     subgraph GUI ["🖥️ GUI Architecture"]
         direction TB
-        s56["§5.6 Mobile Feature\nParity Backlog"]:::t_feat
-        s59["§5.9 Worker Thread\nBase Class"]:::t_aug
-        s510["§5.10 Gallery Base\nConsolidation"]:::t_aug
+        s56["§5.6 Mobile Feature\nParity Backlog"]:::feature:::planned
+        s59["§5.9 Worker Thread\nBase Class"]:::refactor:::planned
+        s510["§5.10 Gallery Base\nConsolidation"]:::refactor:::planned
     end
 
     subgraph Quality ["📐 Code Quality"]
         direction TB
-        s55["§5.5 Gradual\nType Safety"]:::t_aug
-        s511["§5.11 Circular Import\nPrevention"]:::t_fix
-        s512["§5.12 Codebase Docs\n& Diagrams"]:::t_infra
+        s55["§5.5 Gradual\nType Safety"]:::refactor:::planned
+        s511["§5.11 Circular Import\nPrevention"]:::fix:::planned
+        s512["§5.12 Codebase Docs\n& Diagrams"]:::docs:::planned
     end
 
     %% Cross-group dependencies
@@ -84,7 +93,7 @@ flowchart LR
     s54 --- s515
 ```
 
-*Node fill encodes status (green = complete, amber = in-progress, light = planned). Node border encodes element type (cyan = infrastructure, blue = new feature, violet = augmentation, red = bugfix). Edge style encodes relationship (`==>` blocking dependency, `-->` sequential dependency, `---` complements). To update: change a node's `:::class` suffix when its status changes — e.g., `t_infra` → `c_infra` when shipped.*
+*Node fill encodes element type (see legend above). Node border encodes status (thick green = complete, thick amber = in-progress, thin slate = planned). To update when an item ships: change `:::planned` → `:::active` → `:::done` on the node.*
 
 ---
 
@@ -1113,3 +1122,9 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 | 5.14 Centralised Settings Facade | [#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy](#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy) |
 | 5.15 Fault Isolation & Error Boundary Protocol | [#515-fault-isolation--error-boundary-protocol](#515-fault-isolation--error-boundary-protocol) |
 | 5.16 Contract Testing for ML Wrappers | [#516-contract-testing-for-ml-model-wrappers-backendsrcmodels](#516-contract-testing-for-ml-model-wrappers-backendsrcmodels) |
+
+---
+
+## Document History
+
+*Last updated: 2026-06-18. Added §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper abstraction, worker lifecycle standardisation, gallery base class consolidation, circular import prevention, codebase documentation & diagrams, decorator library), and §5.14–§5.16 (centralised settings facade, fault isolation & error boundary protocol, contract testing for ML wrappers). ASP unit tests now at 827 (session 131). ASP benchmark corpus: 97 tests. Phase 2 architecture defined: direct video ingestion (PyAV `VideoIngestionStream`), multi-modal HITL with Grounded SAM-2. See `asp.md` for per-session tracking and Phase 2 Sprint specs.*

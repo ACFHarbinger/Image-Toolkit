@@ -1,7 +1,5 @@
 # Content Generation Roadmap — Anime Image & Video
 
-*Created 2026-06-03. Research basis: **[`reports/Image_Generation_Research.md`](../../reports/Image_Generation_Research.md)** (merges all 5 prior generation reports). Scope: local anime image generation, character fine-tuning, and video/GIF generation on RTX 3090 Ti (24 GB) and RTX 4080 (16/12 GB).*
-
 ---
 
 ## Table of Contents
@@ -19,45 +17,61 @@
 
 ## Implementation Timeline
 
-> **Legend** — *Node fill:* ✅ complete (green) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation (violet) · research (grey) · infrastructure (cyan) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative approach · `---` complements
+> **Legend** — *Node fill:* new feature (blue) · augmentation (violet) · infrastructure (cyan) · research (slate) · integration (pink) — *Node border:* ✅ complete (green, thick) · ⬜ planned (slate, thin) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative approach · `---` complements
 
 ```mermaid
 flowchart TD
-    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
-    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
-    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
-    classDef t_res   fill:#e2e8f0,stroke:#6b7280,stroke-width:2px,color:#1e293b
-    classDef t_infra fill:#e2e8f0,stroke:#0891b2,stroke-width:2px,color:#1e293b
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
 
-    S0["§0 Current State — LoRA trainer · SD3 · ComfyUI · data pipeline"]:::c_infra
+    S0["§0 Current State — LoRA trainer · SD3 · ComfyUI · data pipeline"]:::infra:::done
 
     subgraph IMG["§1 Image Generation"]
         direction TB
-        S11["§1.1 Anime Captioning — WD14 + Florence-2 [Quick Win]"]:::t_feat
-        S12["§1.2 v-Prediction / zero-terminal-SNR [Research]"]:::t_res
-        S13["§1.3 LyCORIS — LoCon / LoHa / LoKr [Research]"]:::t_res
-        S14["§1.4 ControlNet + IP-Adapter — ComfyUI workflows"]:::t_feat
-        S15["§1.5 FLUX.1 dev — FP8/GGUF secondary [Research]"]:::t_res
-        S16["§1.6 Anime Upscaling — Real-ESRGAN / 4x-AnimeSharp [Quick Win]"]:::t_feat
+        S11["§1.1 Anime Captioning — WD14 + Florence-2 [Quick Win]"]:::feature:::planned
+        S12["§1.2 v-Prediction / zero-terminal-SNR [Research]"]:::research:::planned
+        S13["§1.3 LyCORIS — LoCon / LoHa / LoKr [Research]"]:::research:::planned
+        S14["§1.4 ControlNet + IP-Adapter — ComfyUI workflows"]:::integration:::planned
+        S15["§1.5 FLUX.1 dev — FP8/GGUF secondary [Research]"]:::research:::planned
+        S16["§1.6 Anime Upscaling — Real-ESRGAN / 4x-AnimeSharp [Quick Win]"]:::augment:::planned
     end
 
     subgraph VID["§2 Video & GIF Generation"]
         direction TB
-        S21["§2.1 AnimateDiff — motion modules [Research]"]:::t_res
-        S22["§2.2 ToonCrafter — inbetweening [Research]"]:::t_res
-        S23["§2.3 Foundation Video — Wan2.1 / SVD [Long-term]"]:::t_res
-        S24["§2.4 Consistency + Control — IP-Adapter / ControlNet for video"]:::t_feat
+        S21["§2.1 AnimateDiff — motion modules [Research]"]:::research:::planned
+        S22["§2.2 ToonCrafter — inbetweening [Research]"]:::feature:::planned
+        S23["§2.3 Foundation Video — Wan2.1 / SVD [Long-term]"]:::research:::planned
+        S24["§2.4 Consistency + Control — IP-Adapter / ControlNet for video"]:::augment:::planned
     end
 
-    S3["§3 Fine-Tuning Pipeline — Video → Character LoRA"]:::t_feat
-    S4["§4 Hardware-Aware Deployment — 3090 Ti / 4080 profiles"]:::t_infra
+    S3["§3 Fine-Tuning Pipeline — Video → Character LoRA"]:::feature:::planned
+    S4["§4 Hardware-Aware Deployment — 3090 Ti / 4080 profiles"]:::infra:::planned
 
     subgraph LEG["Legend"]
         direction LR
-        LA["✅ Complete / existing"]:::c_infra
-        LB["⬜ New feature"]:::t_feat
-        LC["🔬 Research / long-term"]:::t_res
-        LD["🏗 Infrastructure"]:::t_infra
+        LA["✅ Complete"]:::infra:::done
+        LB["New Feature"]:::feature:::planned
+        LC["Research"]:::research:::planned
+        LD["Augmentation"]:::augment:::planned
+        LE["Integration"]:::integration:::planned
+        LF["Infrastructure"]:::infra:::planned
     end
 
     %% Critical blocking deps (existing infra unlocks all new work)
@@ -250,3 +264,9 @@ Dependencies: CG-1 captioning unblocks CG-2 training quality; CG-1 upscaler shar
 | **Medium (1d–1w)** | — | §1.5 FLUX.1 FP8 secondary support | §1.2 v-pred/zero-terminal-SNR · §1.3 LyCORIS (LoCon/LoHa/LoKr) · §2.1A AnimateDiff via ComfyUI · §2.2 ToonCrafter inbetweening | §3.x Video→LoRA guided flow (scene extract + curate + caption + train) |
 | **High (1–2w)** | — | §2.3 Wan2.1/SVD foundation video (3090 Ti only) | §1.4B native ControlNet/IP-Adapter in SDXL gen tab | §2.4 IP-Adapter + ControlNet video consistency |
 | **Very High (2w+)** | — | — | §3.6 DeepSpeed ZeRO-2 full-checkpoint FT | §3.x full video→LoRA pipeline (end-to-end trained character from 4K source) |
+
+---
+
+## Document History
+
+*Created 2026-06-03. Research basis: **[`reports/Image_Generation_Research.md`](../../reports/Image_Generation_Research.md)** (merges all 5 prior generation reports). Scope: local anime image generation, character fine-tuning, and video/GIF generation on RTX 3090 Ti (24 GB) and RTX 4080 (16/12 GB).*

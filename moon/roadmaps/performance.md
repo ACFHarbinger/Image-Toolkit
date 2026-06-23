@@ -1,7 +1,5 @@
 # Performance Roadmap — Compute, Memory, and I/O
 
-*Last updated: 2026-06-18. §3.10–§3.15 fully ✅. §3.15 non-animation import audit: image_merger.py (6 unconditional model imports → lazy) + vault_manager.py (jpype → try/except) + check_import_times.py extended to 16 modules (all pass 1.5 s threshold). §3.10–§3.14 complete from prior sessions. All Tier 1–5 RAM reduction items are fully implemented (✅). These are the next-generation opportunities.*
-
 ---
 
 ## Table of Contents
@@ -27,34 +25,47 @@
 
 ## Implementation Timeline
 
-> **Legend** — *Node fill:* ✅ complete (green) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation (violet) · bugfix (red) · infrastructure (cyan) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `---` complements
+> **Legend** — *Node fill:* bug fix (red) · infrastructure (cyan) · performance (orange) · augmentation (violet) · refactor (teal) — *Node border:* ✅ complete (green, thick) · ⬜ planned (slate, thin) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `---` complements
 
 ```mermaid
 flowchart TD
-    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
-    classDef c_fix   fill:#16a34a,stroke:#dc2626,stroke-width:3px,color:#fff
-    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
-    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
-    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
 
     subgraph SHIPPED["✅ Test Infrastructure (§3.10–§3.15)"]
-        S310["§3.10 Test Suite Freeze\nRoot Cause Analysis"]:::c_fix
-        S311["§3.11 Session-Level\nThreadPoolExecutor Pool"]:::c_aug
-        S312["§3.12 pytest-xdist\nWorker Isolation"]:::c_infra
-        S313["§3.13 conftest.py\nOverhead Reduction"]:::c_aug
-        S314["§3.14 Heavy-Library\nImport Isolation"]:::c_aug
-        S315["§3.15 Import Isolation —\nNon-animation Modules"]:::c_aug
+        S310["§3.10 Test Suite Freeze\nRoot Cause Analysis"]:::fix:::done
+        S311["§3.11 Session-Level\nThreadPoolExecutor Pool"]:::fix:::done
+        S312["§3.12 pytest-xdist\nWorker Isolation"]:::infra:::done
+        S313["§3.13 conftest.py\nOverhead Reduction"]:::perf:::done
+        S314["§3.14 Heavy-Library\nImport Isolation"]:::infra:::done
+        S315["§3.15 Import Isolation —\nNon-animation Modules"]:::augment:::done
     end
 
     subgraph PLANNED["⬜ Runtime Performance (§3.1–§3.7)"]
-        P31["§3.1 Rust Streaming\nImage Merger"]:::t_feat
-        P32["§3.2 ASP Render Stage\nGPU Acceleration"]:::t_feat
-        P33["§3.3 BiRefNet\nInference Batching"]:::t_aug
-        P34["§3.4 Database Query\nOptimisation"]:::t_aug
-        P35["§3.5 WebDriver Lifecycle\nManagement"]:::t_aug
-        P36["§3.6 DynamicImage Move\nSemantics in Rust"]:::t_aug
-        P37["§3.7 Python ML Model\nMemory Lifecycle"]:::t_aug
+        P31["§3.1 Rust Streaming\nImage Merger"]:::perf:::planned
+        P32["§3.2 ASP Render Stage\nGPU Acceleration"]:::perf:::planned
+        P33["§3.3 BiRefNet\nInference Batching"]:::augment:::planned
+        P34["§3.4 Database Query\nOptimisation"]:::perf:::planned
+        P35["§3.5 WebDriver Lifecycle\nManagement"]:::fix:::planned
+        P36["§3.6 DynamicImage Move\nSemantics in Rust"]:::refactor:::planned
+        P37["§3.7 Python ML Model\nMemory Lifecycle"]:::perf:::planned
     end
 
     %% Test infrastructure causal chain
@@ -78,7 +89,7 @@ flowchart TD
     P31 --- P36
 ```
 
-*Node fill encodes status (green = shipped, light = planned). Node border encodes element type (blue = new feature, violet = augmentation, red = bugfix, cyan = infrastructure). Bold `==>` edges are critical blocking dependencies; `-->` is sequential ordering; `---` is a complementary relationship.*
+*Node fill encodes element type (red = bug fix, cyan = infrastructure, orange = performance, violet = augmentation, teal = refactor). Node border encodes status (thick green = complete, thin slate = planned). Bold `==>` edges are critical blocking dependencies; `-->` is sequential ordering; `---` is a complementary relationship.*
 
 ---
 
@@ -681,3 +692,9 @@ Load models only when first needed; hold via `weakref.ref`. Python GC reclaims w
 | 3.5 WebDriver Lifecycle | [#35-webdriver-lifecycle-management](#35-webdriver-lifecycle-management) |
 | 3.6 Rust Move Semantics | [#36-dynamicimage-move-semantics-in-rust](#36-dynamicimage-move-semantics-in-rust) |
 | 3.7 ML Model Memory Lifecycle | [#37-python-ml-model-memory-lifecycle](#37-python-ml-model-memory-lifecycle) |
+
+---
+
+## Document History
+
+*Last updated: 2026-06-18. §3.10–§3.15 fully ✅. §3.15 non-animation import audit: image_merger.py (6 unconditional model imports → lazy) + vault_manager.py (jpype → try/except) + check_import_times.py extended to 16 modules (all pass 1.5 s threshold). §3.10–§3.14 complete from prior sessions. All Tier 1–5 RAM reduction items are fully implemented (✅). These are the next-generation opportunities.*

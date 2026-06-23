@@ -89,6 +89,7 @@ SUBMODULE_APIS = {
         "telea_fill_gaps",
         "detect_scroll_axis",
         "panorama_stitch_fallback",
+        # "gpu_device_count",  # add after next C++ build (Phase 6)
     ],
     "seam": [
         "seam_cut",

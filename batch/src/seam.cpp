@@ -133,7 +133,7 @@ std::vector<int> seam_cut_impl(const cv::Mat& fa_zone, const cv::Mat& fb_zone, c
     return path;
 }
 
-cv::Mat build_seam_cost_map_impl(const cv::Mat& fa_zone, const cv::Mat& bg_mask_a, const cv::Mat& bg_mask_b, float cost_map_blur_sigma, float cost_col_smooth_sigma, bool cost_map_norm, float scatter_cost_weight, const std::vector<int>& pinned_rows) {
+cv::Mat build_seam_cost_map_impl(const cv::Mat& fa_zone, const cv::Mat& bg_mask_a, const cv::Mat& bg_mask_b, float cost_map_blur_sigma, float cost_col_smooth_sigma, bool cost_map_norm, float scatter_cost_weight, const std::vector<int>& pinned_rows, bool try_gpu = false) {
     int H = fa_zone.rows, W = fa_zone.cols;
     cv::Mat cost(H, W, CV_32F, cv::Scalar(0.0f));
 
@@ -223,7 +223,14 @@ cv::Mat build_seam_cost_map_impl(const cv::Mat& fa_zone, const cv::Mat& bg_mask_
         cv::Mat soft_only;
         cost.copyTo(soft_only, soft_mask);
         cv::Mat blurred;
-        cv::GaussianBlur(soft_only, blurred, cv::Size(0, 0), cost_map_blur_sigma, cost_map_blur_sigma);
+        if (try_gpu) {
+            cv::UMat src_u, dst_u;
+            soft_only.copyTo(src_u);
+            cv::GaussianBlur(src_u, dst_u, cv::Size(0, 0), cost_map_blur_sigma, cost_map_blur_sigma);
+            dst_u.copyTo(blurred);
+        } else {
+            cv::GaussianBlur(soft_only, blurred, cv::Size(0, 0), cost_map_blur_sigma, cost_map_blur_sigma);
+        }
         for (int y = 0; y < H; ++y) {
             float* cptr = cost.ptr<float>(y);
             const float* bptr = blurred.ptr<float>(y);
@@ -239,7 +246,14 @@ cv::Mat build_seam_cost_map_impl(const cv::Mat& fa_zone, const cv::Mat& bg_mask_
         cv::Mat soft_only;
         cost.copyTo(soft_only, soft_mask);
         cv::Mat smoothed;
-        cv::GaussianBlur(soft_only, smoothed, cv::Size(1, 0), 0.0, cost_col_smooth_sigma);
+        if (try_gpu) {
+            cv::UMat src_u, dst_u;
+            soft_only.copyTo(src_u);
+            cv::GaussianBlur(src_u, dst_u, cv::Size(1, 0), 0.0, cost_col_smooth_sigma);
+            dst_u.copyTo(smoothed);
+        } else {
+            cv::GaussianBlur(soft_only, smoothed, cv::Size(1, 0), 0.0, cost_col_smooth_sigma);
+        }
         for (int y = 0; y < H; ++y) {
             float* cptr = cost.ptr<float>(y);
             const float* sptr = smoothed.ptr<float>(y);
@@ -366,7 +380,8 @@ static py::array_t<float> build_seam_cost_map(
     float                cost_col_smooth_sigma = 0.0f,
     bool                 cost_map_norm         = true,
     float                scatter_cost_weight   = 0.0f,
-    py::object           pinned_rows           = py::none())
+    py::object           pinned_rows           = py::none(),
+    bool                 try_gpu               = false)
 {
     cv::Mat fa = as_mat(fa_zone);
     cv::Mat bg_a, bg_b;
@@ -377,7 +392,7 @@ static py::array_t<float> build_seam_cost_map(
         auto w_list = pinned_rows.cast<py::list>();
         for (auto item : w_list) pinned.push_back(item.cast<int>());
     }
-    cv::Mat cost = build_seam_cost_map_impl(fa, bg_a, bg_b, cost_map_blur_sigma, cost_col_smooth_sigma, cost_map_norm, scatter_cost_weight, pinned);
+    cv::Mat cost = build_seam_cost_map_impl(fa, bg_a, bg_b, cost_map_blur_sigma, cost_col_smooth_sigma, cost_map_norm, scatter_cost_weight, pinned, try_gpu);
     
     std::vector<ssize_t> shape = {cost.rows, cost.cols};
     std::vector<ssize_t> strides = {static_cast<ssize_t>(cost.step[0]), 4};
@@ -554,12 +569,14 @@ void register_seam(py::module_& m) {
         py::arg("cost_map_norm")         = true,
         py::arg("scatter_cost_weight")   = 0.0f,
         py::arg("pinned_rows")           = py::none(),
+        py::arg("try_gpu")               = false,
         R"doc(
             Build a six-tier seam cost map from foreground masks.
 
             Tiers: 0.0 (bg), 0.3 (outer ring), 0.5 (buffer), 1.0 (fg),
                    1.5 (fg-heavy columns), 2.0 (dominated columns), 1e6 (hard barrier).
 
+            try_gpu: use cv::UMat for GaussianBlur/boxFilter (OpenCL path).
             Returns float32 ndarray (H, W).
         )doc");
 

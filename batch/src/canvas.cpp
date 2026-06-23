@@ -30,6 +30,10 @@
 #include <opencv2/stitching.hpp>
 #include <opencv2/photo.hpp>
 
+#ifdef HAVE_CUDA
+#include <opencv2/cuda.hpp>
+#endif
+
 #include "batch/common.hpp"
 
 namespace py = pybind11;
@@ -112,13 +116,17 @@ static py::tuple compute_canvas(
 // Apply cv::warpAffine to all N frames in parallel via OpenMP.
 // Affines are (2,3) float32 ndarrays (tx/ty already shifted by caller).
 //
+// try_gpu: when true, attempt OpenCL-accelerated warpAffine via cv::UMat;
+//          silently falls back to OpenMP CPU path on any failure.
+//
 // Returns list of N warped uint8 ndarrays of shape (canvas_h, canvas_w, C).
 // ---------------------------------------------------------------------------
 static py::list warp_frames_to_canvas(
     py::list frames,
     py::list affines,
     int      canvas_h,
-    int      canvas_w)
+    int      canvas_w,
+    bool     try_gpu = false)
 {
     size_t N = frames.size();
     if (N == 0) return py::list();
@@ -132,8 +140,36 @@ static py::list warp_frames_to_canvas(
         Ms[i] = affine_from_arr(affines[i].cast<py::array_t<float>>());
     }
 
-    std::vector<cv::Mat> warped(N);
     cv::Size dst_size(canvas_w, canvas_h);
+    std::vector<cv::Mat> warped(N);
+
+    // OpenCL/UMat fast path — each frame is uploaded to GPU memory for warpAffine.
+    // Sequential (no OpenMP) because OpenCL commands are already async-queued.
+    if (try_gpu) {
+        bool gpu_ok = true;
+        {
+            py::gil_scoped_release release;
+            for (int i = 0; i < static_cast<int>(N) && gpu_ok; ++i) {
+                try {
+                    cv::UMat src_u, dst_u;
+                    f_mats[i].copyTo(src_u);
+                    cv::warpAffine(src_u, dst_u, Ms[i], dst_size,
+                                   cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));
+                    dst_u.copyTo(warped[i]);
+                } catch (...) {
+                    gpu_ok = false;
+                }
+            }
+        }
+        if (gpu_ok) {
+            py::list result;
+            for (size_t i = 0; i < N; ++i)
+                result.append(batch::array_from_mat(warped[i]));
+            return result;
+        }
+        // fall through to CPU path
+    }
+
     {
         py::gil_scoped_release release;
         #pragma omp parallel for schedule(static)
@@ -156,10 +192,14 @@ static py::list warp_frames_to_canvas(
 // Per-pixel temporal median across N warped frames (OpenMP parallel over rows).
 // Content-aware: pixels where all channels == 0 are excluded from the sample.
 //
+// try_gpu: reserved for future CUDA nth_element kernel; currently no-op
+//          (nth_element is CPU-only in OpenCV; UMat provides no benefit here).
+//
 // Returns uint8 ndarray (canvas_h, canvas_w, C).
 // ---------------------------------------------------------------------------
-static py::array_t<uint8_t> render_median(py::list warped_frames)
+static py::array_t<uint8_t> render_median(py::list warped_frames, bool try_gpu = false)
 {
+    (void)try_gpu;  // GPU nth_element not yet implemented — CPU path always used
     size_t N = warped_frames.size();
     if (N == 0) throw std::runtime_error("render_median: empty frame list");
 
@@ -350,6 +390,21 @@ static py::tuple panorama_stitch_fallback(py::list frames)
 }
 
 // ---------------------------------------------------------------------------
+// gpu_device_count
+//
+// Returns the number of CUDA-capable devices visible to OpenCV.
+// Returns 0 when built without CUDA support.
+// ---------------------------------------------------------------------------
+static int gpu_device_count()
+{
+#ifdef HAVE_CUDA
+    return cv::cuda::getCudaEnabledDeviceCount();
+#else
+    return 0;
+#endif
+}
+
+// ---------------------------------------------------------------------------
 // register_canvas — called from bindings.cpp
 // ---------------------------------------------------------------------------
 void register_canvas(py::module_& m) {
@@ -359,12 +414,13 @@ void register_canvas(py::module_& m) {
         Functions
         ---------
         compute_canvas(affines, frame_shapes) -> (canvas_h, canvas_w, shift_x, shift_y)
-        warp_frames_to_canvas(frames, affines, canvas_h, canvas_w) -> list[ndarray]
-        render_median(warped_frames) -> ndarray
+        warp_frames_to_canvas(frames, affines, canvas_h, canvas_w, try_gpu) -> list[ndarray]
+        render_median(warped_frames, try_gpu) -> ndarray
         crop_to_valid(canvas, valid_fraction) -> (y0, y1, x0, x1)
         telea_fill_gaps(canvas, gap_mask, inpaint_radius) -> ndarray
         detect_scroll_axis(affines) -> str
         panorama_stitch_fallback(frames) -> (bool, ndarray | None)
+        gpu_device_count() -> int
     )doc";
 
     m.def("compute_canvas", &compute_canvas,
@@ -377,10 +433,12 @@ void register_canvas(py::module_& m) {
         py::arg("affines"),
         py::arg("canvas_h"),
         py::arg("canvas_w"),
-        "Apply cv::warpAffine to all frames in parallel via OpenMP.");
+        py::arg("try_gpu") = false,
+        "Apply cv::warpAffine to all frames; UMat OpenCL path when try_gpu=True.");
 
     m.def("render_median", &render_median,
         py::arg("warped_frames"),
+        py::arg("try_gpu") = false,
         "Per-pixel content-aware median across N warped frames (OpenMP nth_element).");
 
     m.def("crop_to_valid", &crop_to_valid,
@@ -401,4 +459,7 @@ void register_canvas(py::module_& m) {
     m.def("panorama_stitch_fallback", &panorama_stitch_fallback,
         py::arg("frames"),
         "Attempt cv::Stitcher_create(PANORAMA).stitch(); returns (ok, result_or_None).");
+
+    m.def("gpu_device_count", &gpu_device_count,
+        "Number of CUDA-capable devices visible to OpenCV (0 when built without CUDA).");
 }

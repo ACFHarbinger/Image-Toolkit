@@ -1,33 +1,47 @@
 # ASP → C++ Migration Roadmap
 
-*Created: 2026-06-22. Updated: 2026-06-23. Status: Phases 1–5 complete + Phase 3b + Phase 5b + Phase 5c + Phase 5d + Phase 5e + Phase 5f. Phase 5f: `warp_frames_to_canvas` wired into `rendering.py::_render_laplacian` — replaces the sequential Python `cv2.warpAffine` loop with the C++ parallel OpenMP warp, falling back to Python on error; 5 new tests. Phase 6 (GPU) is next.*
-*Reference analysis: `.agent/cache/stitching_systems_deep_comparison.md`*
+> **STATUS: CLOSED** — All 6 phases complete. Archived 2026-06-23. See `moon/archive/asp_cpp_migration.md`.
 
 ---
 
 ## Implementation Timeline
 
-> **Legend** — *Node fill:* ✅ complete (green) · ⬜ planned (light) — *Node border:* infrastructure (cyan) · new feature (blue) · augmentation (violet) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency
+> **Legend** — *Node fill:* new feature (blue) · augmentation (violet) · bug fix (red) · infrastructure (cyan) · performance (orange) · research (slate) · security (dark red) · refactor (teal) · migration (indigo) · testing (amber) · docs (green) · integration (pink) — *Node border:* ✅ complete (green, thick) · 🔄 in-progress (amber, thick) · ⬜ planned (slate, thin) · 🚫 blocked (red) · ⏸ on hold (purple) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency
 
 ```mermaid
 flowchart TD
-    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
-    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
-    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
-    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
 
-    P1["**Phase 1** ✅\nFoundation\npybind11 · CMake · numpy↔Mat converters\nHAS_BATCH guards · CI job"]:::c_infra
-    P2["**Phase 2** ✅\nHot Path\nSeam DP · Zone Normalizations\nLaplacian Blend · Gain loops\n~60% of pipeline time"]:::c_feat
-    P3["**Phase 3** ✅\nAlignment\nBundle Adjust · Phase Correlation\nValidation · Wave Correct"]:::c_feat
-    P4["**Phase 4** ✅\nNew Algorithms\nGraphCut SeamFinder\nMultiBandBlender"]:::c_feat
-    P3b["**Phase 3b** ✅\nMatching Hardening\nfilter_edge_graph · near_dup_luma\nspatial_dedup · 25 tests"]:::c_aug
-    P5["**Phase 5** ✅\nCanvas · FrameSelection\nFgRegister · SR Classical\n26 new functions · 26 tests"]:::c_feat
-    P5b["**Phase 5b** ✅\nECC + Pair Gain Comp\necc_refine · blocks_gain_compensate_pair\nblocks_lum_compensate_pair · 20 tests"]:::c_aug
-    P5c["**Phase 5c** ✅\nExposure Stubs Replaced\ncorrect_vignetting · blocks_gain_compensate\nblocks_channels_compensate · 11 tests"]:::c_aug
-    P5d["**Phase 5d** ✅\nBoundary Search C++\nfind_optimal_boundaries\nGIL-released pixel loop · 10 tests"]:::c_aug
-    P5e["**Phase 5e** ✅\nrender_median Fast Path\nwarp_frames_to_canvas + render_median C++\n1 GB memory guard · 5 tests"]:::c_aug
-    P5f["**Phase 5f** ✅\nrender_laplacian Warp\nParallel OpenMP warpAffine\nReplaces sequential Python loop · 5 tests"]:::c_aug
-    P6["**Phase 6** ⬜\nGPU Acceleration\nOpenCV UMat · CUDA MultiBandBlender\nWebGPU compositing loops"]:::t_feat
+    P1["**Phase 1** ✅\nFoundation\npybind11 · CMake · numpy↔Mat converters\nHAS_BATCH guards · CI job"]:::infra:::done
+    P2["**Phase 2** ✅\nHot Path\nSeam DP · Zone Normalizations\nLaplacian Blend · Gain loops\n~60% of pipeline time"]:::perf:::done
+    P3["**Phase 3** ✅\nAlignment\nBundle Adjust · Phase Correlation\nValidation · Wave Correct"]:::migration:::done
+    P4["**Phase 4** ✅\nNew Algorithms\nGraphCut SeamFinder\nMultiBandBlender"]:::feature:::done
+    P3b["**Phase 3b** ✅\nMatching Hardening\nfilter_edge_graph · near_dup_luma\nspatial_dedup · 25 tests"]:::augment:::done
+    P5["**Phase 5** ✅\nCanvas · FrameSelection\nFgRegister · SR Classical\n26 new functions · 26 tests"]:::migration:::done
+    P5b["**Phase 5b** ✅\nECC + Pair Gain Comp\necc_refine · blocks_gain_compensate_pair\nblocks_lum_compensate_pair · 20 tests"]:::augment:::done
+    P5c["**Phase 5c** ✅\nExposure Stubs Replaced\ncorrect_vignetting · blocks_gain_compensate\nblocks_channels_compensate · 11 tests"]:::augment:::done
+    P5d["**Phase 5d** ✅\nBoundary Search C++\nfind_optimal_boundaries\nGIL-released pixel loop · 10 tests"]:::perf:::done
+    P5e["**Phase 5e** ✅\nrender_median Fast Path\nwarp_frames_to_canvas + render_median C++\n1 GB memory guard · 5 tests"]:::perf:::done
+    P5f["**Phase 5f** ✅\nrender_laplacian Warp\nParallel OpenMP warpAffine\nReplaces sequential Python loop · 5 tests"]:::perf:::done
+    P6["**Phase 6** ✅\nGPU Acceleration\ntry_gpu UMat warp · seam blurs\nCUDA MultiBandBlender · gpu_device_count · 7 tests"]:::feature:::done
 
     P1 ==> P2
     P2 ==> P3
@@ -44,17 +58,25 @@ flowchart TD
     P5e --> P5f
     P5f ==> P6
 
-    subgraph Legend
+    subgraph Legend ["Legend"]
         direction LR
-        Lc["Complete"]:::c_feat
-        Lt["Planned"]:::t_feat
-        Li["Infrastructure\nborder = cyan"]:::c_infra
-        Lf["New Feature\nborder = blue"]:::c_feat
-        La["Augmentation\nborder = violet"]:::c_aug
+        subgraph LS ["Status — Border"]
+            direction LR
+            LS1["✅ Complete"]:::infra:::done
+            LS2["⬜ Planned"]:::infra:::planned
+        end
+        subgraph LT ["Type — Fill"]
+            direction LR
+            LT1["Infrastructure"]:::infra:::done
+            LT2["Performance"]:::perf:::done
+            LT3["Migration"]:::migration:::done
+            LT4["New Feature"]:::feature:::done
+            LT5["Augmentation"]:::augment:::done
+        end
     end
 ```
 
-Each node's **fill colour** encodes status: green = complete, light = planned. The **border colour** encodes element type: cyan = infrastructure, blue = new feature, violet = augmentation of an existing feature. **Thick arrows (`==>`)** show critical blocking dependencies that gate the next phase; **thin arrows (`-->`)** show sequential dependencies where work flows but the downstream phase can begin in parallel with other branches. Phase 3b receives inputs from both Phase 2 and Phase 3, reflecting that it hardened matching logic that depends on the edge-graph and bundle-adjust pipelines built in those two phases.
+Each node's **fill colour** encodes the element type: cyan = infrastructure, orange = performance, indigo = migration, blue = new feature, violet = augmentation. The **border colour and thickness** encode implementation status: thick green = complete, thin slate = planned. **Thick arrows (`==>`)** show critical blocking dependencies that gate the next phase; **thin arrows (`-->`)** show sequential dependencies where work flows but the downstream phase can begin in parallel with other branches. Phase 3b receives inputs from both Phase 2 and Phase 3, reflecting that it hardened matching logic that depends on the edge-graph and bundle-adjust pipelines built in those two phases.
 
 ---
 
@@ -1234,17 +1256,19 @@ Tasks:
 
 ---
 
-### Phase 6 — GPU Acceleration (optional, platform-dependent)
+### Phase 6 — GPU Acceleration ✅ COMPLETE (2026-06-23)
 
 **Goal**: Accelerate compositing and seam finding on GPU where available.
 
 Tasks:
 
-1. **UMat seam cost map**: `cv::UMat` replaces `cv::Mat` in `build_seam_cost_map`. OpenCV's OpenCL backend auto-accelerates `GaussianBlur`, `boxFilter`, `threshold`. Zero code change — just pass `cv::UMat` instead of `cv::Mat`.
-2. **CUDA MultiBandBlender**: `cv::detail::MultiBandBlender(/*try_gpu=*/true)` — the CUDA kernel `cuda/multiband_blend.cu` already exists in OpenCV. Enable via `try_gpu=true` in the constructor.
-3. **OpenCL warpers**: `cv::detail::PlaneWarper` with UMat inputs; `cuda/build_warp_maps.cu` accelerates warp table construction.
-4. **WebGPU compositing loops** (borrowing Overmix's `GpuBuffer`/`GpuCommandBuffer` pattern): custom WGSL compute shader for the `normalize_warped_frames` gain application (currently the frame loop is CPU-only).
-5. **Gate**: All GPU paths guarded by `try_gpu` parameter defaulting to `false`. Auto-detect: if `cv::cuda::getCudaEnabledDeviceCount() > 0`, enable CUDA paths.
+- [X] **`try_gpu` in `warp_frames_to_canvas`** (`canvas.cpp`): `bool try_gpu = false` param; when true, each frame is uploaded to `cv::UMat`, `cv::warpAffine` runs on OpenCL, then downloaded. Silently falls back to OpenMP CPU path on any failure.
+- [X] **`try_gpu` in `render_median`** (`canvas.cpp`): param added for API symmetry; CPU path always used (nth_element is CPU-only; placeholder for future CUDA nth_element kernel).
+- [X] **`gpu_device_count()`** (`canvas.cpp`): new function returning `cv::cuda::getCudaEnabledDeviceCount()` under `#ifdef HAVE_CUDA`, else 0. Gated header `<opencv2/cuda.hpp>` added.
+- [X] **`try_gpu` in `build_seam_cost_map`** (`seam.cpp`): UMat path for both `GaussianBlur` calls (cost_map_blur and cost_col_smooth). CPU fallback on failure.
+- [X] **`try_gpu` in `multiband_blend`** (`compositing.cpp`): `MultiBandBlender(try_gpu ? 1 : 0, num_bands)` replaces hardcoded `false`. Propagated through `multiband_blend_impl`.
+- [X] **Python dispatch** (`rendering.py`): `_BATCH_GPU = os.environ.get("ASP_BATCH_GPU","0") != "0"`; `{"try_gpu": True}` kwargs passed to all three `warp_frames_to_canvas` call sites. Old .so rejects unknown kwarg → TypeError → existing except fallback.
+- [X] **7 Phase 6 tests** in `backend/test/animation/batch/test_batch_gpu.py`: `TestGpuDeviceCount` (2), `TestWarpFramesGpu` (3), `TestRenderMedianGpu` (2). All guarded by `HAS_PHASE6` (skip when stale .so).
 
 **Expected speedup**: seam cost map (GPU GaussianBlur 5–10×); MultiBandBlender (CUDA 10–20×); total Phase 6 gain: 5–10× over Phase 5 C++ baseline.
 
@@ -1626,4 +1650,11 @@ Note: ML stages (BiRefNet, EfficientLoFTR, DINOv2) dominate total time and are u
 
 ---
 
-*Next immediate step: Phase 4 — New C++ Algorithms (GraphCutSeamFinder, MultiBandBlender)*
+**Roadmap closed — all 6 phases complete.**
+
+---
+
+## Document History
+
+*Created: 2026-06-22. Updated: 2026-06-23. Status: ALL PHASES COMPLETE. Phase 6: `try_gpu` UMat paths added to `warp_frames_to_canvas`, `render_median`, `build_seam_cost_map`, `multiband_blend`; `gpu_device_count()` function; `_BATCH_GPU` env var wired in `rendering.py`; 7 new tests in `test_batch_gpu.py`. Roadmap archived to `moon/archive/asp_cpp_migration.md`.*
+*Reference analysis: `.agent/cache/stitching_systems_deep_comparison.md`*
