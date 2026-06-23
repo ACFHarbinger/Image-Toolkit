@@ -11,6 +11,10 @@
 #include <vector>
 #include <opencv2/core.hpp>
 
+#ifndef BATCH_TESTS
+#include <pybind11/pybind11.h>
+#endif
+
 namespace batch {
 
 // ---------------------------------------------------------------------------
@@ -59,7 +63,7 @@ struct ZonePair {
 // ---------------------------------------------------------------------------
 // pybind11 dict <-> struct converters
 // ---------------------------------------------------------------------------
-
+#ifndef BATCH_TESTS
 /// Convert a Python dict → AffineParams.
 /// Expected keys: "tx", "ty", optionally "scale", "rotation", "frame_idx".
 inline AffineParams affine_from_dict(pybind11::dict d) {
@@ -129,5 +133,6 @@ inline pybind11::list affines_to_list(const std::vector<AffineParams>& affines) 
         out.append(affine_to_dict(a));
     return out;
 }
+#endif // BATCH_TESTS
 
 } // namespace batch

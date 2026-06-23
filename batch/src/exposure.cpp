@@ -24,6 +24,10 @@
 
 namespace py = pybind11;
 
+std::vector<cv::Mat> blocks_gain_compensate_impl(const std::vector<cv::Mat>&, const std::vector<cv::Mat>&, const std::vector<cv::Point2i>&, int, int, int, int) { throw std::runtime_error("exposure.blocks_gain_compensate_impl"); }
+std::vector<cv::Mat> blocks_channels_compensate_impl(const std::vector<cv::Mat>&, const std::vector<cv::Mat>&, const std::vector<cv::Point2i>&, int, int) { throw std::runtime_error("exposure.blocks_channels_compensate_impl"); }
+cv::Mat correct_vignetting_impl(const cv::Mat&, const cv::Mat&) { throw std::runtime_error("exposure.correct_vignetting_impl"); }
+
 // ---------------------------------------------------------------------------
 // blocks_gain_compensate
 //

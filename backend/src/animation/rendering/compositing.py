@@ -33,6 +33,11 @@ try:
 except ImportError:
     _tc_torch = None  # type: ignore[assignment]
 
+try:
+    from backend.src.animation import batch
+    BATCH_AVAILABLE = True
+except ImportError:
+    BATCH_AVAILABLE = False
 
 import os
 from typing import Callable, Dict, List, Optional, Tuple
@@ -106,6 +111,18 @@ def set_flow_hitl_callback(
 # Enabled via ASP_POISSON_SEAM=1 (default OFF — adds ~1–3 s per seam on CPU).
 _POISSON_SEAM: bool = os.environ.get("ASP_POISSON_SEAM", "0") != "0"
 _POISSON_BAND_PX: int = 20
+
+# Phase 4 — cv::detail::GraphCutSeamFinder global multi-image seam
+# (ASP_GRAPHCUT_SEAM=1, default OFF — adds OpenCV graph-cut overhead per run).
+_GRAPHCUT_SEAM: bool = BATCH_AVAILABLE and os.environ.get("ASP_GRAPHCUT_SEAM", "0") != "0"
+
+# Phase 4 — OpenMP parallel N-1 seam batch via batch.seam.seam_batch
+# (ASP_SEAM_BATCH=1, default OFF — replaces ThreadPoolExecutor pre-computation).
+_SEAM_BATCH: bool = BATCH_AVAILABLE and os.environ.get("ASP_SEAM_BATCH", "0") != "0"
+
+# Phase 4 — cv::detail::MultiBandBlender global canvas blend
+# (ASP_MULTIBAND_BLEND=1, default OFF — adds blender overhead, best for large canvases).
+_MULTIBAND_BLEND: bool = BATCH_AVAILABLE and os.environ.get("ASP_MULTIBAND_BLEND", "0") != "0"
 
 # §1.4D — Multi-scale spatially-varying gain normalisation (S46).
 # When enabled, replaces the single-scalar bg gain with a Gaussian-blur-derived
@@ -3078,6 +3095,15 @@ def _seam_cut(
     sem_weight: float = 200.0,
     waypoints: Optional[List[Tuple[int, int]]] = None,
 ) -> np.ndarray:
+    if BATCH_AVAILABLE:
+        w_list = []
+        if waypoints:
+            w_list = [-1] * img1.shape[1]
+            for wx, wy in waypoints:
+                if 0 <= wx < len(w_list):
+                    w_list[wx] = wy
+        c_cost = (sem_cost * sem_weight) if sem_cost is not None else None
+        return batch.seam.seam_cut(img1, img2, c_cost, w_list, _SEAM_TRANSITION_PEN, edge_weight)
     """
     DP seam cut that strongly avoids outlines in *either* frame.
 
@@ -3290,6 +3316,23 @@ def _build_seam_cost_map(
     barrier_cost: Optional[float] = None,
     exclusion_masks: Optional[List[np.ndarray]] = None,
 ) -> np.ndarray:
+    if (
+        BATCH_AVAILABLE
+        and barrier_cost is None
+        and not exclusion_masks
+        and dilate_px == 15              # C++ uses fixed 15px dilate
+        and _FG_SEAM_EROSION_PX == 0    # C++ has no erosion stage
+        and not _MESH_BARRIER           # C++ has no mesh barrier
+        and not _SEAM_HARD_BARRIER      # C++ uses fixed tier ceiling; no hard barrier
+        and _COST_MAP_BLUR_SIGMA == 0.0 # C++ has no post-blur step
+        and not _COST_MAP_NORM          # C++ normalization is not always equivalent
+        and not _SCATTER_COST           # C++ scatter not exposed via flag
+    ):
+        _all_bg = np.full(canvas_zone.shape[:2], 255, dtype=np.uint8)
+        ma = bg_mask_a if bg_mask_a is not None else _all_bg
+        mb = bg_mask_b if bg_mask_b is not None else _all_bg
+        # cost_map_norm=False: Python fallback never normalizes; keep tiers intact
+        return batch.seam.build_seam_cost_map(canvas_zone, ma, mb, cost_map_norm=False)
     """
     P2.4 — Per-pixel seam cost map using character boundary avoidance (§1.6A S19).
 
@@ -3706,6 +3749,8 @@ def _zone_chroma_align(
     fa_zone: np.ndarray,
     fb_zone: np.ndarray,
 ) -> np.ndarray:
+    if BATCH_AVAILABLE:
+        return batch.compositing.zone_chroma_align(fa_zone, fb_zone, 3.0)
     """§3.19: Global LAB a/b shift of fb_zone to match fa_zone mean chroma (S149).
 
     Computes the mean LAB a/b values over non-black pixels in each zone and
@@ -3757,6 +3802,8 @@ def _zone_lum_norm(
     fa_zone: np.ndarray,
     fb_zone: np.ndarray,
 ) -> np.ndarray:
+    if BATCH_AVAILABLE:
+        return batch.compositing.zone_lum_norm(fa_zone, fb_zone, 2.0)
     """§1.104: Per-zone bg-pixel luminance normalization (S152).
 
     Computes mean grayscale luminance of non-black pixels in *fa_zone* and
@@ -3785,6 +3832,8 @@ def _zone_sat_norm(
     fa_zone: np.ndarray,
     fb_zone: np.ndarray,
 ) -> np.ndarray:
+    if BATCH_AVAILABLE:
+        return batch.compositing.zone_sat_norm(fa_zone, fb_zone, 2.0)
     """§1.111: Per-zone background HSV saturation normalization (S154).
 
     Converts both zones to HSV, computes mean saturation of background
@@ -3876,6 +3925,8 @@ def _zone_contrast_eq(
     fa_zone: np.ndarray,
     fb_zone: np.ndarray,
 ) -> np.ndarray:
+    if BATCH_AVAILABLE:
+        return batch.compositing.zone_contrast_eq(fa_zone, fb_zone, 2.0)
     """§1.114: Per-zone RMS contrast (luminance std) equalization (S155).
 
     Computes luminance standard deviation over non-black pixels in each zone
@@ -3909,6 +3960,8 @@ def _zone_hue_eq(
     fa_zone: np.ndarray,
     fb_zone: np.ndarray,
 ) -> np.ndarray:
+    if BATCH_AVAILABLE:
+        return batch.compositing.zone_hue_eq(fa_zone, fb_zone, 3.0)
     """§1.127: Per-zone HSV hue equalization (S159).
 
     Converts both zones to HSV and computes the circular mean hue of non-black
@@ -4514,7 +4567,7 @@ def _poisson_seam_blend(
 
 def _get_seam_cost_flags() -> Tuple:
     """§1.5D: Snapshot of module-level flags that affect seam cost computation."""
-    return (_POISSON_SEAM, _TOONCRAFTER_SEAM)
+    return (_POISSON_SEAM, _TOONCRAFTER_SEAM, _GRAPHCUT_SEAM, _SEAM_BATCH, _MULTIBAND_BLEND)
 
 
 def _make_seam_cache_key(
@@ -5354,7 +5407,21 @@ def _composite_foreground(
             ]
         _seam_jobs.append((_k, _fa_z, _fb_z, _sem, W, _y1 - _y0, _ov_wps))
 
-    if len(_seam_jobs) > 1:
+    if _SEAM_BATCH and len(_seam_jobs) > 1:
+        # Phase 4: dispatch all seams to C++ OpenMP parallel batch (GIL released)
+        _zone_pairs = [
+            {
+                "fa": np.ascontiguousarray(_j[1]),
+                "fb": np.ascontiguousarray(_j[2]),
+                "cost": _j[3],
+            }
+            for _j in _seam_jobs
+        ]
+        _batch_paths = batch.seam.seam_batch(_zone_pairs, edge_weight=1.0)
+        for _ji, (_k, _fa_j, _, _, _W_j, _zh_j, _) in enumerate(_seam_jobs):
+            _raw = _batch_paths[_ji]
+            _precomp_paths[_k] = _raw if len(_raw) == _W_j else np.full(_W_j, _zh_j // 2, dtype=np.int32)
+    elif len(_seam_jobs) > 1:
         _pool = _get_seam_pool()
         for _k, _path in _pool.map(_seam_job, _seam_jobs):
             _precomp_paths[_k] = _path

@@ -57,13 +57,30 @@ build-frontend:
     @echo "🏗️  Building production application frontend..."
     npm run build
 
+# Build local OpenCV from source (bypasses system libopencv-dev requirement)
+build-opencv:
+    @echo "🔧 Building local OpenCV source..."
+    cmake -B opencv/build opencv/ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_PERF_TESTS=OFF \
+        -DBUILD_EXAMPLES=OFF \
+        -DBUILD_opencv_apps=OFF \
+        -DBUILD_opencv_python3=OFF \
+        -DCMAKE_INSTALL_PREFIX=opencv/install \
+        && cmake --build opencv/build -j$(nproc) \
+        && cmake --install opencv/build
+    @echo "✅ OpenCV built and installed to opencv/install."
+
 # Build C++ batch extension (pybind11, OpenCV, Eigen3, OpenMP required)
 # Install .so alongside base.so inside the Python animation package.
 build-batch:
     @echo "🔧 Building C++ batch extension..."
     cmake -B build/batch batch/ \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=backend/src/animation/ \
+        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
+        -DCMAKE_INSTALL_PREFIX="." \
         && cmake --build build/batch -j$(nproc) \
         && cmake --install build/batch
     @echo "✅ batch extension built and installed."
@@ -94,6 +111,7 @@ test-batch-cpp:
     @echo "🔧 Building C++ batch tests..."
     cmake -B build/batch batch/ \
         -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
         -DBATCH_BUILD_TESTS=ON \
         && cmake --build build/batch --target batch_tests -j$(nproc)
     @echo "🧪 Running native C++ batch tests..."

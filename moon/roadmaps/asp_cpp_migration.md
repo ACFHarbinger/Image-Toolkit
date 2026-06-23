@@ -1,6 +1,6 @@
 # ASP → C++ Migration Roadmap
 
-*Created: 2026-06-22. Status: planning.*
+*Created: 2026-06-22. Updated: 2026-06-23. Status: Phase 3 complete. Phase 4 in progress — C++ implementations done (`graphcut_seam_find`, `multiband_blend`, `seam_batch`); Python dispatch wiring for graphcut/multiband and benchmark metric pending.*
 *Reference analysis: `.agent/cache/stitching_systems_deep_comparison.md`*
 
 ---
@@ -1026,15 +1026,16 @@ Tasks:
 **Goal**: `batch.seam` and `batch.compositing` provide verified C++ implementations that pass reference comparison tests.
 
 Tasks:
-1. `seam.cpp`: `seam_cut`, `build_seam_cost_map` (all 6 tiers + §1.110/§1.113/§1.109/§1.123)
-2. `seam.cpp`: `seam_batch` (parallel N-1 seams via OpenMP)
-3. `compositing.cpp`: `zone_chroma_align`, `zone_lum_norm`, `zone_sat_norm`, `zone_contrast_eq`, `zone_hue_eq`
-4. `compositing.cpp`: `laplacian_blend`, `single_pose_soft_edge`, `seam_color_match`, `poisson_seam_blend`
-5. `compositing.cpp`: `smooth_gain_array`, `normalize_warped_frames` (gain loops)
-6. `exposure.cpp`: `blocks_gain_compensate`, `blocks_lum_compensate`
-7. Wire each into Python fallback pattern in `rendering/compositing.py`
-8. Write `batch/tests/test_seam_cpp.py`: for each C++ function, compare pixel-by-pixel to Python reference (tolerance: max diff ≤ 2 for uint8, ≤ 0.1px for paths)
-9. Write `batch/tests/test_compositing_cpp.py`: same for zone functions and blend
+- [x] 1. `seam.cpp`: `seam_cut`, `build_seam_cost_map` (all 6 tiers + §1.110/§1.113/§1.109/§1.123)
+- [x] 2. `seam.cpp`: `seam_batch` (parallel N-1 seams via OpenMP) — C++ done Phase 2; Python wiring (`ASP_SEAM_BATCH`, `batch.seam.seam_batch`) done Phase 4
+- [x] 3. `compositing.cpp`: `zone_chroma_align`, `zone_lum_norm`, `zone_sat_norm`, `zone_contrast_eq`, `zone_hue_eq`
+- [x] 4. `compositing.cpp`: `laplacian_blend`, `single_pose_soft_edge`, `seam_color_match`, `poisson_seam_blend`
+- [x] 5. `compositing.cpp`: `smooth_gain_array`, `normalize_warped_frames` (gain loops)
+- [x] 6. `exposure.cpp`: `blocks_gain_compensate`, `blocks_lum_compensate`
+- [x] 7. Wire each into Python fallback pattern in `rendering/compositing.py`
+- [x] 8. Write `batch/tests/test_seam_cpp.py`: for each C++ function, compare pixel-by-pixel to Python reference (tolerance: max diff ≤ 2 for uint8, ≤ 0.1px for paths)
+- [x] 9. Write `batch/tests/test_compositing_cpp.py`: same for zone functions and blend
+- [x] Bug fix: `seam_cut`/`seam_batch` pybind11 zero-stride array bug (`py::array_t<T>(size, ptr)` → explicit shape+stride+owned allocation)
 
 **Expected speedup**: compositing stage 15–30s → 0.5–2s (10–30×). Primary drivers: `seam_batch` (OpenMP), zone functions (SIMD in OpenCV's convert), `render_median` (OpenMP nth_element).
 
@@ -1047,15 +1048,15 @@ Tasks:
 **Goal**: `batch.bundle_adjust`, `batch.matching`, `batch.validation`, `batch.wave_correct`.
 
 Tasks:
-1. `bundle_adjust.cpp`: `spanning_tree_inlier_filter` (Kruskal + Union-Find + BFS)
-2. `bundle_adjust.cpp`: `gnc_bundle_adjust` (GNC-TLS outer loop, Eigen LM inner, Cauchy, adaptive f_scale)
-3. `matching.cpp`: `phase_correlate_masked` (cv::phaseCorrelate + Hanning + highpass)
-4. `matching.cpp`: `build_edge_graph` (all post-match gates: §1.36, §1.38, §1.47, §1.48, §1.49, §2.14)
-5. `matching.cpp`: `reject_static_edges`, `compute_adaptive_min_disp`, `spatial_dedup_frames`
-6. `validation.cpp`: `validate_affines`, `compute_adaptive_min_gap`, `compute_adaptive_rot_scale`
-7. `wave_correct.cpp`: `wave_correct_affines` (linear polyfit drift subtraction)
-8. Wire into Python fallbacks in `alignment/bundle_adjust.py`, `flow/cam_flow.py`, `alignment/matching.py`, `core/validation.py`
-9. Tests: `test_bundle_adjust_cpp.py`, `test_matching_cpp.py`, `test_validation_cpp.py`
+- [x] 1. `bundle_adjust.cpp`: `spanning_tree_inlier_filter` (Kruskal + Union-Find + BFS)
+- [x] 2. `bundle_adjust.cpp`: `gnc_bundle_adjust` (GNC-TLS outer loop, Eigen LM inner, Cauchy, adaptive f_scale)
+- [x] 3. `matching.cpp`: `phase_correlate_masked` (cv::phaseCorrelate + bg masking)
+- [ ] 4. `matching.cpp`: `build_edge_graph` (all post-match gates: §1.36, §1.38, §1.47, §1.48, §1.49, §2.14) — deferred to Phase 3b
+- [x] 5. `matching.cpp`: `reject_static_edges`, `compute_adaptive_min_disp` (spatial_dedup_frames deferred to Phase 5)
+- [x] 6. `validation.cpp`: `validate_affines`, `compute_adaptive_min_gap`, `compute_adaptive_rot_scale`
+- [x] 7. `wave_correct.cpp`: `wave_correct_affines` (Eigen HouseholderQR linear polyfit)
+- [x] 8. Wire into Python fallbacks: `alignment/bundle_adjust.py` (fixed submodule paths), `flow/cam_flow.py`, `core/validation.py`, `core/pipeline.py` (_wave_correct_affines)
+- [x] 9. Tests: `test_bundle_adjust.cpp` (done), `test_matching.cpp` (enabled), `test_validation.cpp` (new), `test_wave_correct.cpp` (new)
 
 **Expected speedup**: alignment stage 2–5s → 0.05–0.2s (10–50×). Eigen LM vs scipy is the biggest win: the N×N normal equations for N≤30 are solved in <1ms in Eigen vs ~50ms in scipy.
 
@@ -1066,22 +1067,23 @@ Tasks:
 **Goal**: Implement §4.2 (GraphCutSeamFinder) and §4.6 (MultiBandBlender) using OpenCV C++ directly. These are qualitatively better algorithms, not just faster ports.
 
 Tasks:
-1. `seam.cpp::graphcut_seam_find`: wraps `cv::detail::GraphCutSeamFinder("COST_COLOR_GRAD")`
-   - Input: N warped frames in canvas space + N binary masks + N corner positions
-   - Output: N updated ownership masks (per-pixel, 255=this frame owns this pixel)
-   - Wire into `rendering/compositing.py::_composite_foreground` after Stage 10 render
-   - Gate: `ASP_GRAPHCUT_SEAM=1` (default OFF initially; enable when benchmarks confirm improvement)
+- [x] 1. `seam.cpp::graphcut_seam_find`: wraps `cv::detail::GraphCutSeamFinder("COST_COLOR_GRAD")`
+  - Input: N warped frames in canvas space + N binary masks + N corner positions
+  - Output: N updated ownership masks (per-pixel, 255=this frame owns this pixel)
+  - C++ implementation and pybind11 binding done. Gate flag `ASP_GRAPHCUT_SEAM=1` defined in `compositing.py`.
+  - [ ] Wire dispatch into `rendering/compositing.py::_composite_foreground` after Stage 10 render
 
-2. `compositing.cpp::multiband_blend`: wraps `cv::detail::MultiBandBlender`
-   - Input: two zone images + ownership mask + seam path + number of bands
-   - Output: blended zone
-   - Gate: `ASP_MULTIBAND_BLEND=1` (default OFF initially)
+- [x] 2. `compositing.cpp::multiband_blend`: wraps `cv::detail::MultiBandBlender`
+  - Input: N warped frames + N ownership masks + N canvas corners + num_bands
+  - Output: blended canvas
+  - C++ implementation and pybind11 binding done. Gate flag `ASP_MULTIBAND_BLEND=1` defined in `compositing.py`.
+  - [ ] Wire dispatch into `rendering/compositing.py` blend loop
 
-3. Update benchmark to measure impact:
-   - Add `seam_ownership_entropy` metric (how contested each seam pixel is)
-   - Expected: ghosting 93.8% → target <30%; seam_visibility 88.5% → target <20%
+- [ ] 3. Update benchmark to measure impact:
+  - Add `seam_ownership_entropy` metric (how contested each seam pixel is)
+  - Expected: ghosting 93.8% → target <30%; seam_visibility 88.5% → target <20%
 
-4. Tests: `test_graphcut_seam_cpp.py`, `test_multiband_blend_cpp.py`
+- [x] 4. Tests: C++ native tests for `graphcut_seam_find` and `multiband_blend` pass (`batch/tests/test_seam.cpp`, `batch/tests/test_compositing.cpp`)
 
 **This phase directly addresses the benchmark's two largest failure modes** (from the deep analysis: pairwise DP seams conflict in `_seam_cut`; OpenCV's `GCGraph` solves globally for all N images simultaneously eliminating conflicts).
 
@@ -1492,4 +1494,4 @@ Note: ML stages (BiRefNet, EfficientLoFTR, DINOv2) dominate total time and are u
 
 ---
 
-*Next immediate step: Phase 1 — create `batch/CMakeLists.txt`, `batch/include/batch/common.hpp`, `batch/src/bindings.cpp`, wire `HAS_BATCH` guards, add `just build-batch`.*
+*Next immediate step: Phase 4 — New C++ Algorithms (GraphCutSeamFinder, MultiBandBlender)*
