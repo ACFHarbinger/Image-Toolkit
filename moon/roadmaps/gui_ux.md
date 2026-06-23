@@ -44,6 +44,79 @@
 
 ---
 
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green) · 🔄 in-progress/partial (amber) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation (violet) — *Edges:* `==>` critical prerequisite · `-->` sequential dependency · `-.->` alternative approach · `---` complements
+
+```mermaid
+flowchart LR
+    classDef c_feat fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef c_aug  fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef p_feat fill:#d97706,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef p_aug  fill:#d97706,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef t_feat fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    classDef t_aug  fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+
+    subgraph GC["🖼️ Gallery Core"]
+        direction TB
+        S21["§2.1 Virtual Scroll Gallery"]:::t_feat
+        S22["§2.2 Thumbnail Size Control"]:::t_aug
+        S23["§2.3 Keyboard Navigation ✅p"]:::p_aug
+        S24["§2.4 Bulk Selection ✅p"]:::p_aug
+        S213["§2.13 Filter & Sort Controls ✅p"]:::p_aug
+        S214["§2.14 Metadata Overlay ✅p"]:::p_aug
+        S21 ==> S22
+        S21 --> S213
+        S21 --> S214
+        S23 --- S24
+    end
+
+    subgraph WF["⚡ Workflow & Productivity"]
+        direction TB
+        S25["§2.5 Session Persistence"]:::t_aug
+        S27["§2.7 Progress & Cancel ✅p"]:::p_aug
+        S215["§2.15 Undo/Redo ✅p"]:::p_aug
+        S216["§2.16 Command Palette ✅p"]:::p_feat
+        S221["§2.21 Dir Nav History ✅p"]:::p_aug
+        S222["§2.22 Tag Chip UI"]:::t_feat
+        S227["§2.27 Multi-Image Compare"]:::t_feat
+        S228["§2.28 Global Search"]:::t_feat
+        S222 --> S228
+        S216 --> S228
+    end
+
+    subgraph SYS["🔔 Notifications & System"]
+        direction TB
+        S28["§2.8 Theme Support"]:::t_feat
+        S29["§2.9 Settings Window"]:::t_aug
+        S210["§2.10 Toast Notifications ✅p"]:::p_feat
+        S212["§2.12 System Tray ✅p"]:::p_feat
+        S217["§2.17 Log Panel ✅p"]:::p_feat
+        S229["§2.29 Configurable Shortcuts ✅"]:::c_aug
+        S212 --- S217
+    end
+
+    subgraph VIS["🎨 Visual Customisation"]
+        direction TB
+        S218["§2.18 Image Rating ✅p"]:::p_feat
+        S225["§2.25 Shortcut Overlay ✅p"]:::p_feat
+        S230["§2.30 Accent Color ✅"]:::c_aug
+        S231["§2.31 Custom QSS Theme ✅"]:::c_aug
+        S232["§2.32 Layout Profiles ✅p"]:::p_aug
+        S230 --- S231
+    end
+
+    %% Cross-group dependencies
+    S28 --> S230
+    S28 --> S231
+    S216 --- S229
+    S25 --- S232
+```
+
+Each node's **fill colour** shows implementation status: green = complete, amber = partially shipped (marked ✅p), light = not yet started. The **border colour** shows element type: blue = new feature, violet = augmentation of existing functionality. **Edge style** encodes relationship: `==>` critical prerequisite (must land first), `-->` sequential dependency, `---` complements (parallel work).
+
+---
+
 ## How to Use This Document
 
 Each section describes an ergonomic pain point, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping.

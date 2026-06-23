@@ -17,6 +17,86 @@
 
 ---
 
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation (violet) · research (grey) · infrastructure (cyan) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative approach · `---` complements
+
+```mermaid
+flowchart TD
+    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
+    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+    classDef t_res   fill:#e2e8f0,stroke:#6b7280,stroke-width:2px,color:#1e293b
+    classDef t_infra fill:#e2e8f0,stroke:#0891b2,stroke-width:2px,color:#1e293b
+
+    S0["§0 Current State — LoRA trainer · SD3 · ComfyUI · data pipeline"]:::c_infra
+
+    subgraph IMG["§1 Image Generation"]
+        direction TB
+        S11["§1.1 Anime Captioning — WD14 + Florence-2 [Quick Win]"]:::t_feat
+        S12["§1.2 v-Prediction / zero-terminal-SNR [Research]"]:::t_res
+        S13["§1.3 LyCORIS — LoCon / LoHa / LoKr [Research]"]:::t_res
+        S14["§1.4 ControlNet + IP-Adapter — ComfyUI workflows"]:::t_feat
+        S15["§1.5 FLUX.1 dev — FP8/GGUF secondary [Research]"]:::t_res
+        S16["§1.6 Anime Upscaling — Real-ESRGAN / 4x-AnimeSharp [Quick Win]"]:::t_feat
+    end
+
+    subgraph VID["§2 Video & GIF Generation"]
+        direction TB
+        S21["§2.1 AnimateDiff — motion modules [Research]"]:::t_res
+        S22["§2.2 ToonCrafter — inbetweening [Research]"]:::t_res
+        S23["§2.3 Foundation Video — Wan2.1 / SVD [Long-term]"]:::t_res
+        S24["§2.4 Consistency + Control — IP-Adapter / ControlNet for video"]:::t_feat
+    end
+
+    S3["§3 Fine-Tuning Pipeline — Video → Character LoRA"]:::t_feat
+    S4["§4 Hardware-Aware Deployment — 3090 Ti / 4080 profiles"]:::t_infra
+
+    subgraph LEG["Legend"]
+        direction LR
+        LA["✅ Complete / existing"]:::c_infra
+        LB["⬜ New feature"]:::t_feat
+        LC["🔬 Research / long-term"]:::t_res
+        LD["🏗 Infrastructure"]:::t_infra
+    end
+
+    %% Critical blocking deps (existing infra unlocks all new work)
+    S0 ==> S11
+    S0 ==> S14
+    S0 ==> S16
+
+    %% Training pipeline: captioning + objectives + algos all feed §3
+    S11 --> S3
+    S12 --> S3
+    S13 --> S3
+
+    %% ControlNet infra reused by FLUX wrapper
+    S14 --> S15
+
+    %% Upscaling complements generation (shared module)
+    S16 --- S14
+
+    %% Image gen control infra enables video workflows
+    S14 --> S21
+    S14 --> S24
+
+    %% AnimateDiff and ToonCrafter: complementary video features
+    S21 --- S22
+
+    %% Foundation video models come after AnimateDiff is solid
+    S21 --> S23
+
+    %% Video control wraps foundation models
+    S24 --> S23
+
+    %% Trained models unlock hardware deployment profiles
+    S3 ==> S4
+```
+
+*Reading guide: follow `==>` arrows (thick) for must-have blockers — the §0 current-state infrastructure is the root. Thin `-->` arrows show feature dependencies within phases. Dashed `-.->` marks alternative approaches. Lines without arrowheads (`---`) mark complementary features that share code or benefit from co-deployment.*
+
+---
+
 ## How to Use This Document
 
 Each section: current state in the codebase → pain point → options with trade-offs → recommendation. Tags: **[Quick Win]** (<1 day), **[Research]** (prototype first), **[Long-term]** (depends on external data/infra). Phased execution sequence is summarised at the end and mirrored into the [Master Roadmap](../ROADMAP.md).

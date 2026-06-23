@@ -58,6 +58,13 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
+try:
+    import batch as _batch
+    _BATCH_FSEL = True
+except ImportError:
+    _batch = None  # type: ignore[assignment]
+    _BATCH_FSEL = False
+
 # §3.14 — Optional ML imports: loaded only when DINOv2 / BiRefNet features are
 # enabled at runtime.  Guarded so tests that don't use these paths don't pay
 # the CUDA-context and model-weight initialisation overhead at collection time.
@@ -236,6 +243,20 @@ def _detect_hold_blocks(
     if hold_threshold <= 0.0 or N <= 1:
         return list(range(N))
 
+    if _BATCH_FSEL:
+        try:
+            # C++ expects uint8; convert float32 [0,1] grayscale thumbnails
+            u8 = [np.ascontiguousarray(
+                      np.clip(t * 255, 0, 255).astype(np.uint8)
+                      if t.dtype != np.uint8 else t)
+                  for t in thumbs]
+            # C++ returns indices of hold frames (MAD < threshold w.r.t. previous)
+            hold_set = set(_batch.frame_selection.detect_hold_blocks_mad(
+                u8, hold_threshold))
+            return [i for i in range(N) if i not in hold_set]
+        except Exception:
+            pass
+
     blocks: List[int] = [0]
     for i in range(1, N):
         h = min(thumbs[i].shape[0], thumbs[i - 1].shape[0])
@@ -324,6 +345,18 @@ def _detect_hold_blocks_dhash(
     N = len(thumbs)
     if distance_threshold <= 0 or N <= 1:
         return list(range(N))
+
+    if _BATCH_FSEL:
+        try:
+            u8 = [np.ascontiguousarray(
+                      np.clip(t * 255, 0, 255).astype(np.uint8)
+                      if t.dtype != np.uint8 else t)
+                  for t in thumbs]
+            hold_set = set(_batch.frame_selection.detect_hold_blocks_dhash(
+                u8, 8, distance_threshold))
+            return [i for i in range(N) if i not in hold_set]
+        except Exception:
+            pass
 
     hashes = [_compute_dhash(t) for t in thumbs]
     blocks: List[int] = [0]
@@ -504,6 +537,23 @@ def _temporal_variance_filter(
     if N < 3 or sigma_threshold <= 0.0:
         return list(thumbs), list(paths), 0
 
+    if _BATCH_FSEL:
+        try:
+            u8 = [np.ascontiguousarray(
+                      np.clip(t * 255, 0, 255).astype(np.uint8)
+                      if t.dtype != np.uint8 else t)
+                  for t in thumbs]
+            # C++ sigma_threshold is in [0,1]² space (same as Python)
+            ft, fp = _batch.frame_selection.temporal_variance_filter(
+                u8, list(paths), sigma_threshold)
+            n_dropped = N - len(ft)
+            # Recover original float32 thumb objects by path matching
+            path_to_thumb = {p: t for p, t in zip(paths, thumbs)}
+            kept_thumbs = [path_to_thumb.get(p, u8[i]) for i, p in enumerate(fp)]
+            return kept_thumbs, list(fp), n_dropped
+        except Exception:
+            pass
+
     keep = [True] * N
     for i in range(1, N - 1):
         a, b, c = thumbs[i - 1], thumbs[i], thumbs[i + 1]
@@ -665,13 +715,35 @@ def _near_dup_luma_filter(
     if threshold <= 0.0 or len(selected_paths) <= 2:
         return selected_paths
 
+    if _BATCH_FSEL:
+        try:
+            # C++ expects uint8; thumbs from _load_thumbs_parallel are float32 [0,1]
+            u8 = [
+                (np.clip(t * 255, 0, 255).astype(np.uint8) if t.dtype != np.uint8 else t)
+                for t in selected_thumbs
+            ]
+            _, kept_paths = _batch.frame_selection.near_dup_luma_filter(
+                u8, list(selected_paths), float(threshold)
+            )
+            return list(kept_paths)
+        except Exception:
+            pass
+
+    def _to_gray_f32(t: np.ndarray) -> np.ndarray:
+        """Return float32 luma from 2D grayscale or 3D BGR thumb."""
+        if t.ndim == 2:
+            return t.astype(np.float32)
+        return cv2.cvtColor(t, cv2.COLOR_BGR2GRAY).astype(np.float32)
+
     keep: List[int] = [0]
+    # Determine threshold scale: float32 [0,1] thumbs need threshold in [0,1];
+    # uint8 thumbs compare in [0,255] space directly.
+    _is_float_thumb = selected_thumbs[0].dtype != np.uint8
+    _thr_scaled = threshold / 255.0 if _is_float_thumb else threshold
     for i in range(1, len(selected_paths)):
         prev = keep[-1]
-        g_cur = cv2.cvtColor(selected_thumbs[i], cv2.COLOR_BGR2GRAY).astype(np.float32)
-        g_prev = cv2.cvtColor(selected_thumbs[prev], cv2.COLOR_BGR2GRAY).astype(
-            np.float32
-        )
+        g_cur = _to_gray_f32(selected_thumbs[i])
+        g_prev = _to_gray_f32(selected_thumbs[prev])
         # Resize to common dims when thumbnails differ
         if g_cur.shape != g_prev.shape:
             h = min(g_cur.shape[0], g_prev.shape[0])
@@ -679,7 +751,7 @@ def _near_dup_luma_filter(
             g_cur = cv2.resize(g_cur, (w, h))
             g_prev = cv2.resize(g_prev, (w, h))
         diff = float(np.abs(g_cur - g_prev).mean())
-        if diff >= threshold:
+        if diff >= _thr_scaled:
             keep.append(i)
 
     # Always include last frame

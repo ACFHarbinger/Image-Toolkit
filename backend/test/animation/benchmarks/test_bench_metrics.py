@@ -34,6 +34,7 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _RLHF_FLAG_THRESHOLD,
     _seam_ncc_coherence,
     _composite_quality_score,
+    _seam_ownership_entropy,
 )
 
 
@@ -1171,3 +1172,43 @@ class TestCanvasGainUniformity:
         img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         result = _canvas_gain_uniformity(img, n_strips=1)
         assert result == 0.0
+
+
+# ---------------------------------------------------------------------------
+# §4.3: _seam_ownership_entropy (Phase 4 GraphCut metric)
+# ---------------------------------------------------------------------------
+
+def _make_affine(ty: float) -> np.ndarray:
+    a = np.eye(2, 3, dtype=np.float32)
+    a[1, 2] = ty
+    return a
+
+
+class TestSeamOwnershipEntropy:
+    def test_no_affines_returns_zero(self):
+        img = np.random.randint(10, 200, (100, 80, 3), dtype=np.uint8)
+        assert _seam_ownership_entropy(img, affines=None) == 0.0
+
+    def test_single_affine_returns_zero(self):
+        img = np.random.randint(10, 200, (100, 80, 3), dtype=np.uint8)
+        assert _seam_ownership_entropy(img, affines=[_make_affine(0.0)]) == 0.0
+
+    def test_result_is_nonnegative(self):
+        img = np.random.randint(10, 200, (200, 120, 3), dtype=np.uint8)
+        affines = [_make_affine(0.0), _make_affine(80.0), _make_affine(160.0)]
+        score = _seam_ownership_entropy(img, affines=affines)
+        assert score >= 0.0
+
+    def test_uniform_image_low_entropy(self):
+        # Solid grey → every seam band has a single luminance value → low entropy
+        img = np.full((200, 100, 3), 128, dtype=np.uint8)
+        affines = [_make_affine(0.0), _make_affine(100.0)]
+        score = _seam_ownership_entropy(img, affines=affines)
+        assert score < 2.0, f"uniform image should have low entropy, got {score}"
+
+    def test_wired_in_compute_all_metrics(self):
+        img = np.random.randint(10, 200, (200, 120, 3), dtype=np.uint8)
+        affines = [_make_affine(0.0), _make_affine(100.0)]
+        metrics = _compute_all_metrics(img, affines=affines, n_strips=2)
+        assert "seam_ownership_entropy" in metrics
+        assert isinstance(metrics["seam_ownership_entropy"], float)

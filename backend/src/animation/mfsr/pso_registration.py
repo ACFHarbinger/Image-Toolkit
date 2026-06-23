@@ -27,6 +27,13 @@ from backend.src.constants import (
     PSO_VEL_CLAMP,
 )
 
+try:
+    import batch as _batch_sr
+    _BATCH_SR = True
+except ImportError:
+    _batch_sr = None
+    _BATCH_SR = False
+
 
 def _ncc(
     a: np.ndarray,
@@ -92,6 +99,24 @@ def pso_register(
     ``search_range``.  Fitness = NCC between the warped source and the
     reference, optionally masked by ``mask_ref``.
     """
+    if _BATCH_SR and motion_model == "translation":
+        try:
+            lo, hi = search_range[0], search_range[1]
+            result = _batch_sr.sr_classical.pso_register(
+                np.ascontiguousarray(img_ref),
+                np.ascontiguousarray(img_src),
+                n_particles,
+                n_iter,
+                float(lo),
+                float(hi),
+            )
+            M = np.array(
+                [[1.0, 0.0, result["tx"]], [0.0, 1.0, result["ty"]]], dtype=np.float32
+            )
+            return M, float(result["fitness"])
+        except Exception:
+            pass
+
     if img_ref.ndim == 3:
         ref_g = cv2.cvtColor(img_ref, cv2.COLOR_BGR2GRAY)
     else:

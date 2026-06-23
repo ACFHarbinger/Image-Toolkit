@@ -23,6 +23,113 @@
 
 ---
 
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green `#16a34a`) · 🔄 in-progress (amber `#d97706`) · ⬜ planned (light `#e2e8f0`) — *Node border:* infrastructure (cyan) · new feature (blue) · augmentation of existing feature (violet) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative/independent research track · `---` complements (parallel work)
+
+```mermaid
+flowchart TD
+    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
+    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef p_feat  fill:#d97706,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef p_aug   fill:#d97706,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+    classDef t_infra fill:#e2e8f0,stroke:#0891b2,stroke-width:2px,color:#1e293b
+
+    %% ── Completed Infrastructure ──────────────────────────────────────────
+    RUST["🦀 Rust Math Backbone
+    base/src/math/
+    6 modules · 49 unit tests ✅"]:::c_infra
+
+    TS["📘 TypeScript Math Backbone
+    frontend/src/math/
+    7 modules + benchmark.ts ✅"]:::c_infra
+
+    DASH["📊 Benchmark Dashboard
+    Streamlit → Tauri/React
+    7-page SVG charts ✅"]:::c_feat
+
+    %% ── Planned Foundation ────────────────────────────────────────────────
+    ARCH["🏗️ Architectural Blueprint
+    Zero-Copy Analytics Pipeline
+    Rust aggregation · TS GPU render"]:::t_infra
+
+    %% ── Planned Feature Phases ────────────────────────────────────────────
+    P1["Phase 1
+    Interactive Meta-Graph
+    Codebase Topology"]:::t_feat
+
+    P2["Phase 2
+    ML Loss Landscape Visualizer
+    Weight/gradient landscape"]:::t_feat
+
+    P3["Phase 3
+    ASP Stage-by-Stage
+    CV Diagnostics"]:::t_feat
+
+    P4["Phase 4
+    Statistical & Info-Theoretic
+    Failure Analysis"]:::t_aug
+
+    P5["Phase 5
+    Resource, Latency &
+    Causal Profiling"]:::t_aug
+
+    P6["Phase 6
+    Semantic Code Analysis
+    & Vulnerability Discovery"]:::t_feat
+
+    P7["Phase 7
+    Omniscient Debugging
+    & Deterministic Replay"]:::t_feat
+
+    P8["Phase 8
+    Distributed Observability
+    & High-Cardinality Telemetry"]:::t_aug
+
+    P9["Phase 9
+    Formal Verification
+    & State Space Visualization"]:::t_feat
+
+    P10["Phase 10
+    Topological Data Analysis
+    TDA of Pipeline Architecture"]:::t_feat
+
+    P11["Phase 11
+    ASP Benchmark Analytics
+    & Visual Diagnostics"]:::t_feat
+
+    P12["Phase 12
+    Benchmark Coverage
+    Expansion"]:::t_aug
+
+    %% ── Dependency Edges ──────────────────────────────────────────────────
+    RUST  ==> ARCH
+    TS    ==> ARCH
+    RUST  ==> P1
+    TS    ==> P1
+    ARCH  --> P1
+
+    P1    --> P2
+    P1    --> P3
+    P1    --> P10
+    DASH  --> P11
+
+    P3    --> P4
+    P4    --- P5
+    P5    --> P7
+    P7    --> P8
+
+    P3    --> P11
+    P11   --> P12
+
+    P6    -.-> P9
+```
+
+---
+
 ## Implementation Status
 
 | Layer | Status | Details |

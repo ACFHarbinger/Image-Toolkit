@@ -21,6 +21,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+try:
+    import batch
+    _BATCH_CANVAS = True
+except ImportError:
+    _BATCH_CANVAS = False
+
 
 def _load_frames(paths: List[str]) -> List[np.ndarray]:
     """Read frames from disk, trim broadcast dark borders, drop unreadables."""
@@ -59,6 +65,17 @@ def _compute_canvas(
     Returns (canvas_h, canvas_w, T_global) where T_global is a (2,) array
     of (tx, ty) offsets to add to every affine's translation column.
     """
+    if _BATCH_CANVAS:
+        try:
+            affines_f32 = [np.ascontiguousarray(a, dtype=np.float32) for a in affines]
+            shapes = [f.shape[:2] for f in frames]
+            canvas_h, canvas_w, sx, sy = batch.canvas.compute_canvas(affines_f32, shapes)
+            canvas_w = min(canvas_w, CANVAS_MAX_DIM)
+            canvas_h = min(canvas_h, CANVAS_MAX_DIM)
+            return canvas_h, canvas_w, np.array([sx, sy], dtype=np.float32)
+        except Exception as _e:
+            logger.debug(f"[Stitch] batch.canvas.compute_canvas fallback: {_e}")
+
     all_corners = []
     for i, img in enumerate(frames):
         h, w = img.shape[:2]
@@ -88,6 +105,13 @@ def _detect_scroll_axis(affines: List[np.ndarray]) -> str:
     - 'diagonal'    : both ty and tx significant (test7 pattern)
     - 'none'        : all frames co-located
     """
+    if _BATCH_CANVAS:
+        try:
+            affines_f32 = [np.ascontiguousarray(a, dtype=np.float32) for a in affines]
+            return batch.canvas.detect_scroll_axis(affines_f32)
+        except Exception as _e:
+            logger.debug(f"[Stitch] batch.canvas.detect_scroll_axis fallback: {_e}")
+
     tys = np.array([float(a[1, 2]) for a in affines])
     txs = np.array([float(a[0, 2]) for a in affines])
     ty_range = float(tys.max() - tys.min())
@@ -155,6 +179,15 @@ def _telea_fill_gaps(canvas: np.ndarray, gap_mask: np.ndarray) -> np.ndarray:
     """
     if not gap_mask.any():
         return canvas
+    if _BATCH_CANVAS:
+        try:
+            return batch.canvas.telea_fill_gaps(
+                np.ascontiguousarray(canvas),
+                np.ascontiguousarray(gap_mask.astype(np.uint8)),
+                3,
+            )
+        except Exception as _e:
+            logger.debug(f"[Stitch] batch.canvas.telea_fill_gaps fallback: {_e}")
     return cv2.inpaint(
         canvas, gap_mask.astype(np.uint8), inpaintRadius=3, flags=cv2.INPAINT_TELEA
     )
@@ -211,17 +244,37 @@ def _panorama_stitch_fallback(
     through to the SCANS path.
     """
     logger.info("[Stitch] §1.3B: Trying PANORAMA stitcher before SCANS.")
-    cv2.ocl.setUseOpenCL(False)
-    try:
-        stitcher = cv2.Stitcher_create(mode=0)
-    except AttributeError:
-        stitcher = cv2.createStitcher(False)
-    stitcher.setRegistrationResol(0.8)
-    status, pano = stitcher.stitch(frames)
-    if status != cv2.Stitcher_OK:
-        raise CanvasError(
-            f"PANORAMA stitcher failed (status={status}); caller should try SCANS."
-        )
+
+    pano = None
+    if _BATCH_CANVAS:
+        try:
+            ok, result = batch.canvas.panorama_stitch_fallback(
+                [np.ascontiguousarray(f) for f in frames]
+            )
+            if ok:
+                pano = result
+            else:
+                raise CanvasError(
+                    "PANORAMA stitcher failed (C++); caller should try SCANS."
+                )
+        except CanvasError:
+            raise
+        except Exception as _e:
+            logger.debug(f"[Stitch] batch.canvas.panorama_stitch_fallback fallback: {_e}")
+
+    if pano is None:
+        # Python fallback path
+        cv2.ocl.setUseOpenCL(False)
+        try:
+            stitcher = cv2.Stitcher_create(mode=0)
+        except AttributeError:
+            stitcher = cv2.createStitcher(False)
+        stitcher.setRegistrationResol(0.8)
+        status, pano = stitcher.stitch(frames)
+        if status != cv2.Stitcher_OK:
+            raise CanvasError(
+                f"PANORAMA stitcher failed (status={status}); caller should try SCANS."
+            )
 
     # relocated: from backend.src.animation.core.stateless import _largest_valid_rect
 

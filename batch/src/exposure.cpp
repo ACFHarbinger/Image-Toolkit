@@ -21,12 +21,102 @@
 #include <pybind11/stl.h>
 
 #include "batch/common.hpp"
+#include <opencv2/stitching/detail/exposure_compensate.hpp>
 
 namespace py = pybind11;
 
-std::vector<cv::Mat> blocks_gain_compensate_impl(const std::vector<cv::Mat>&, const std::vector<cv::Mat>&, const std::vector<cv::Point2i>&, int, int, int, int) { throw std::runtime_error("exposure.blocks_gain_compensate_impl"); }
-std::vector<cv::Mat> blocks_channels_compensate_impl(const std::vector<cv::Mat>&, const std::vector<cv::Mat>&, const std::vector<cv::Point2i>&, int, int) { throw std::runtime_error("exposure.blocks_channels_compensate_impl"); }
-cv::Mat correct_vignetting_impl(const cv::Mat&, const cv::Mat&) { throw std::runtime_error("exposure.correct_vignetting_impl"); }
+using namespace batch;
+
+// ---------------------------------------------------------------------------
+// Helpers shared across implementations
+// ---------------------------------------------------------------------------
+
+/// Convert a list of Python ndarrays to cv::UMat via cv::Mat.
+static std::vector<cv::UMat> list_to_umats_bgr(const py::list& lst)
+{
+    std::vector<cv::UMat> out;
+    out.reserve(lst.size());
+    for (auto item : lst) {
+        cv::Mat m = mat_from_array(item.cast<py::array_t<uint8_t>>()).clone();
+        cv::UMat u;
+        m.copyTo(u);
+        out.push_back(u);
+    }
+    return out;
+}
+
+/// Convert a list of Python mask ndarrays to cv::UMat (single-channel).
+static std::vector<cv::UMat> list_to_umats_mask(const py::list& lst)
+{
+    std::vector<cv::UMat> out;
+    out.reserve(lst.size());
+    for (auto item : lst) {
+        cv::Mat m = mat_from_array(item.cast<py::array_t<uint8_t>>()).clone();
+        if (m.channels() > 1) cv::cvtColor(m, m, cv::COLOR_BGR2GRAY);
+        cv::UMat u;
+        m.copyTo(u);
+        out.push_back(u);
+    }
+    return out;
+}
+
+/// Parse a Python list of (x,y) tuples to cv::Point.
+static std::vector<cv::Point> list_to_points(const py::list& lst)
+{
+    std::vector<cv::Point> pts;
+    pts.reserve(lst.size());
+    for (auto item : lst) {
+        auto t = item.cast<py::tuple>();
+        pts.emplace_back(t[0].cast<int>(), t[1].cast<int>());
+    }
+    return pts;
+}
+
+
+// ---------------------------------------------------------------------------
+// correct_vignetting
+//
+// Apply a pre-computed vignette gain map (float32, H×W) to a single
+// uint8 BGR frame.  Each pixel channel is multiplied by gain_map[y][x]
+// and the result is clamped to [0, 255].
+//
+// Args
+// ----
+// frame        : uint8 ndarray (H, W, 3) BGR
+// vignette_map : float32 ndarray (H, W), values > 1.0 brighten
+//
+// Returns uint8 ndarray (H, W, 3).
+// ---------------------------------------------------------------------------
+static py::array_t<uint8_t> correct_vignetting(
+    py::array_t<uint8_t> frame_arr,
+    py::array_t<float>   vmap_arr)
+{
+    cv::Mat frame = mat_from_array(frame_arr).clone();
+    cv::Mat vmap  = mat_from_f32(vmap_arr).clone();
+
+    if (frame.empty() || vmap.empty())
+        return frame_arr;
+
+    // Resize gain map if sizes differ (e.g. scaled-down gain map)
+    if (vmap.size() != frame.size())
+        cv::resize(vmap, vmap, frame.size(), 0, 0, cv::INTER_LINEAR);
+
+    cv::Mat frame_f32;
+    frame.convertTo(frame_f32, CV_32F);
+
+    std::vector<cv::Mat> channels(3);
+    cv::split(frame_f32, channels);
+    for (auto& ch : channels) {
+        cv::multiply(ch, vmap, ch);
+    }
+    cv::Mat result_f32;
+    cv::merge(channels, result_f32);
+
+    cv::Mat result;
+    result_f32.convertTo(result, CV_8UC3);
+    return array_from_mat(result);
+}
+
 
 // ---------------------------------------------------------------------------
 // blocks_gain_compensate
@@ -51,20 +141,51 @@ static py::list blocks_gain_compensate(
     py::list warped_frames,
     py::list warped_masks,
     py::list corners,
-    int      bl_width     = 32,
-    int      bl_height    = 32,
-    int      nr_feeds     = 1,
+    int      bl_width      = 32,
+    int      bl_height     = 32,
+    int      nr_feeds      = 1,
     int      nr_iterations = 2)
 {
-    // TODO (Phase 2): cv::detail::BlocksGainCompensator.feed().apply() per frame.
-    BATCH_NOT_IMPLEMENTED("exposure.blocks_gain_compensate");
+    size_t N = warped_frames.size();
+    if (N == 0) return py::list();
+
+    std::vector<cv::UMat> imgs  = list_to_umats_bgr(warped_frames);
+    std::vector<cv::UMat> masks = list_to_umats_mask(warped_masks);
+    std::vector<cv::Point> pts  = list_to_points(corners);
+
+    // BlocksGainCompensator.feed() takes vector<pair<UMat, uchar>>
+    // where the uchar is an overlap flag (255 = all pixels overlap)
+    std::vector<std::pair<cv::UMat, uchar>> mask_pairs(N);
+    for (size_t i = 0; i < N; ++i) {
+        mask_pairs[i] = {masks[i], uchar(255)};
+    }
+
+    cv::detail::BlocksGainCompensator compensator(bl_width, bl_height, nr_feeds);
+    compensator.setNrGainsFilteringIterations(nr_iterations);
+
+    {
+        py::gil_scoped_release release;
+        compensator.feed(pts, imgs, mask_pairs);
+    }
+
+    py::list result;
+    for (size_t i = 0; i < N; ++i) {
+        cv::UMat img_out;
+        imgs[i].copyTo(img_out);
+        compensator.apply(static_cast<int>(i), pts[i], img_out, masks[i]);
+        cv::Mat out = img_out.getMat(cv::ACCESS_READ).clone();
+        result.append(array_from_mat(out));
+    }
+    return result;
 }
 
+
 // ---------------------------------------------------------------------------
-// blocks_channels_compensate  (Phase 4: §4.4 white-balance correction)
+// blocks_channels_compensate  (§4.4 white-balance correction)
 //
 // Wraps cv::detail::BlocksChannelsCompensator.
 // Three separate per-block gain maps (B, G, R) for white-balance correction.
+// Same interface as blocks_gain_compensate but operates per-channel.
 //
 // Returns list[ndarray uint8 (H,W,C)].
 // ---------------------------------------------------------------------------
@@ -75,25 +196,36 @@ static py::list blocks_channels_compensate(
     int      bl_width  = 32,
     int      bl_height = 32)
 {
-    // TODO (Phase 4): cv::detail::BlocksChannelsCompensator.feed().apply().
-    BATCH_NOT_IMPLEMENTED("exposure.blocks_channels_compensate");
+    size_t N = warped_frames.size();
+    if (N == 0) return py::list();
+
+    std::vector<cv::UMat> imgs  = list_to_umats_bgr(warped_frames);
+    std::vector<cv::UMat> masks = list_to_umats_mask(warped_masks);
+    std::vector<cv::Point> pts  = list_to_points(corners);
+
+    std::vector<std::pair<cv::UMat, uchar>> mask_pairs(N);
+    for (size_t i = 0; i < N; ++i) {
+        mask_pairs[i] = {masks[i], uchar(255)};
+    }
+
+    cv::detail::BlocksChannelsCompensator compensator(bl_width, bl_height);
+
+    {
+        py::gil_scoped_release release;
+        compensator.feed(pts, imgs, mask_pairs);
+    }
+
+    py::list result;
+    for (size_t i = 0; i < N; ++i) {
+        cv::UMat img_out;
+        imgs[i].copyTo(img_out);
+        compensator.apply(static_cast<int>(i), pts[i], img_out, masks[i]);
+        cv::Mat out = img_out.getMat(cv::ACCESS_READ).clone();
+        result.append(array_from_mat(out));
+    }
+    return result;
 }
 
-// ---------------------------------------------------------------------------
-// correct_vignetting
-//
-// Apply a pre-computed vignette map (float32, H×W, values in [0,1] where
-// 1.0 = no correction) to a single uint8 BGR frame.
-//
-// Returns uint8 ndarray (H, W, 3).
-// ---------------------------------------------------------------------------
-static py::array_t<uint8_t> correct_vignetting(
-    py::array_t<uint8_t> frame,
-    py::array_t<float>   vignette_map)
-{
-    // TODO (Phase 2): per-pixel multiply + clip-to-255.
-    BATCH_NOT_IMPLEMENTED("exposure.correct_vignetting");
-}
 
 // ---------------------------------------------------------------------------
 // register_exposure — called from bindings.cpp
@@ -151,11 +283,12 @@ void register_exposure(py::module_& m) {
         py::arg("vignette_map"),
         R"doc(
             Multiply each pixel by vignette_map[y][x] and clip to [0,255].
+            Handles mismatched sizes via bilinear resize of the gain map.
 
             Args
             ----
             frame        : uint8 ndarray (H, W, 3) BGR
-            vignette_map : float32 ndarray (H, W), values in [0,1]
+            vignette_map : float32 ndarray (H, W), values > 1.0 brighten
 
             Returns uint8 ndarray (H, W, 3).
         )doc");

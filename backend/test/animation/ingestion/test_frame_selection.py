@@ -882,3 +882,102 @@ class TestHoldBlockAverage:
         out_f, out_p = _hold_block_average(frames, hold_ids, paths)
         assert len(out_f) == 1
         assert out_f[0].shape == (32, 32, 3)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — batch.frame_selection C++ dispatch tests
+# ---------------------------------------------------------------------------
+
+
+class TestBatchFrameSelectionWiring:
+    """Phase 5: verify batch.frame_selection dispatch is wired correctly."""
+
+    def _make_f32_thumb(self, h: int = 64, w: int = 64, fill: float = 0.5):
+        return np.full((h, w), fill, dtype=np.float32)
+
+    def test_detect_hold_blocks_returns_list_of_ints(self):
+        """_detect_hold_blocks always returns a list of int indices."""
+        thumbs = [self._make_f32_thumb(fill=0.5) for _ in range(5)]
+        result = _detect_hold_blocks(thumbs, hold_threshold=0.025)
+        assert isinstance(result, list)
+        assert all(isinstance(i, int) for i in result)
+
+    def test_detect_hold_blocks_always_includes_zero(self):
+        """Block-start list must always include frame 0."""
+        thumbs = [self._make_f32_thumb(fill=0.5) for _ in range(4)]
+        result = _detect_hold_blocks(thumbs, hold_threshold=0.025)
+        assert 0 in result
+
+    def test_detect_hold_blocks_all_identical_one_block(self):
+        """N identical frames → single hold block starting at 0."""
+        thumb = self._make_f32_thumb(fill=0.5)
+        thumbs = [thumb.copy() for _ in range(6)]
+        result = _detect_hold_blocks(thumbs, hold_threshold=0.025)
+        assert result == [0], f"Expected [0] for identical frames, got {result}"
+
+    def test_detect_hold_blocks_all_different_all_blocks(self):
+        """N maximally-different frames → N blocks (each frame starts its own block)."""
+        thumbs = [self._make_f32_thumb(fill=float(i) / 10.0) for i in range(5)]
+        result = _detect_hold_blocks(thumbs, hold_threshold=0.025)
+        assert result == list(range(5)), f"Expected all block starts, got {result}"
+
+    def test_temporal_variance_filter_no_drop_when_disabled(self):
+        """sigma_threshold=0 → no frames dropped; returns same thumbs + paths."""
+        thumbs = [self._make_f32_thumb() for _ in range(5)]
+        paths = [f"f{i}.png" for i in range(5)]
+        ft, fp, n = _temporal_variance_filter(thumbs, paths, sigma_threshold=0.0)
+        assert len(ft) == 5
+        assert fp == paths
+        assert n == 0
+
+
+# ---------------------------------------------------------------------------
+# TestNearDupLumaFilterBatchWiring — C++ batch dispatch (S46)
+# ---------------------------------------------------------------------------
+
+
+class TestNearDupLumaFilterBatchWiring:
+    """Phase 5: _near_dup_luma_filter C++ batch dispatch with float32 thumbs."""
+
+    def _f32_thumb(self, h: int, w: int, fill: float) -> np.ndarray:
+        """Simulate thumbs from _load_thumbs_parallel: 2D float32 [0,1] grayscale."""
+        return np.full((h, w), fill, dtype=np.float32)
+
+    def test_returns_list_of_strings(self):
+        """Result must always be list[str] regardless of batch availability."""
+        thumbs = [self._f32_thumb(32, 24, 0.5) for _ in range(4)]
+        paths = [f"p{i}.png" for i in range(4)]
+        result = _near_dup_luma_filter(thumbs, paths, threshold=3.0)
+        assert isinstance(result, list)
+        assert all(isinstance(p, str) for p in result)
+
+    def test_first_always_kept(self):
+        """First frame is always in result even when all frames are identical."""
+        thumbs = [self._f32_thumb(32, 24, 0.5) for _ in range(5)]
+        paths = [f"p{i}.png" for i in range(5)]
+        result = _near_dup_luma_filter(thumbs, paths, threshold=3.0)
+        assert paths[0] in result
+
+    def test_last_always_kept(self):
+        """Last frame is always in result even when all frames are identical."""
+        thumbs = [self._f32_thumb(32, 24, 0.5) for _ in range(5)]
+        paths = [f"p{i}.png" for i in range(5)]
+        result = _near_dup_luma_filter(thumbs, paths, threshold=3.0)
+        assert paths[-1] in result
+
+    def test_distinct_float32_thumbs_all_kept(self):
+        """Float32 thumbs with large luma difference → no frames dropped."""
+        thumbs = [self._f32_thumb(32, 24, v) for v in [0.1, 0.5, 0.9, 0.3]]
+        paths = [f"q{i}.png" for i in range(4)]
+        result = _near_dup_luma_filter(thumbs, paths, threshold=3.0)
+        assert result == paths
+
+    def test_identical_float32_thumbs_only_first_last(self):
+        """Float32 thumbs with near-zero diff → interior frames dropped."""
+        fill = 0.5
+        thumbs = [self._f32_thumb(32, 24, fill) for _ in range(5)]
+        paths = [f"r{i}.png" for i in range(5)]
+        result = _near_dup_luma_filter(thumbs, paths, threshold=3.0)
+        assert result[0] == paths[0]
+        assert result[-1] == paths[-1]
+        assert len(result) == 2

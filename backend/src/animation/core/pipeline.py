@@ -2277,6 +2277,40 @@ def _spatial_dedup_frames(
     if not adj_m:
         return frames, scans_frames, bg_masks, image_paths, edges, 0
 
+    if _HAS_BATCH and hasattr(_batch, "frame_selection"):
+        try:
+            # Convert M-affine edges to dx/dy format for C++ function
+            dx_dy_edges = [
+                {"i": e["i"], "j": e["j"], "dx": float(e["M"][0, 2]), "dy": float(e["M"][1, 2])}
+                for e in edges
+            ]
+            keep_idx_raw = list(
+                _batch.frame_selection.spatial_dedup_frames(
+                    frames, scans_frames or [], bg_masks, image_paths,
+                    dx_dy_edges, float(min_displacement_px),
+                )
+            )
+            keep_idx = [int(i) for i in keep_idx_raw]
+            if len(keep_idx) == len(frames):
+                return frames, scans_frames, bg_masks, image_paths, edges, 0
+            o2n: dict = {old: new for new, old in enumerate(keep_idx)}
+            drop_set = set(range(len(frames))) - set(keep_idx)
+            new_edges = [
+                {**e, "i": o2n[e["i"]], "j": o2n[e["j"]]}
+                for e in edges
+                if e["i"] not in drop_set and e["j"] not in drop_set
+            ]
+            return (
+                [frames[i] for i in keep_idx],
+                [scans_frames[i] for i in keep_idx] if scans_frames else [],
+                [bg_masks[i] for i in keep_idx],
+                [image_paths[i] for i in keep_idx],
+                new_edges,
+                len(drop_set),
+            )
+        except Exception:
+            pass
+
     adx = [abs(float(e["M"][0, 2])) for e in adj_m.values()]
     ady = [abs(float(e["M"][1, 2])) for e in adj_m.values()]
     spa_axis = 0 if float(np.median(adx)) > float(np.median(ady)) else 1
@@ -2562,77 +2596,91 @@ class AnimeStitchPipeline:
         _min_disp = _compute_adaptive_min_disp(edges)
         edges = _reject_static_edges(edges, min_disp_px=_min_disp)
 
-        # ── §2.14: Triangular Consistency Filter ─────────────────────────────
-        # Runs before geometric consistency filter so that wrong adjacent edges
-        # are downweighted before bundle adjustment uses them.
-        if _TRI_CONSISTENCY_MAX_RESIDUAL > 0.0:
-            edges = _triangular_consistency_filter(
-                edges, max_residual_px=_TRI_CONSISTENCY_MAX_RESIDUAL
-            )
-
-        # ── Geometric Consistency Filter ─────────────────────────────────────
-        if len(edges) > 0:
-            adj_map: Dict[int, Tuple[float, float]] = {}
-            for e in edges:
-                if e["j"] == e["i"] + 1:
-                    adj_map[e["i"]] = (e["M"][0, 2], e["M"][1, 2])
-
-            filtered: List[Dict] = []
-            for e in edges:
-                i, j = e["i"], e["j"]
-                if j == i + 1:
-                    filtered.append(e)
-                    continue
-                can_verify = True
-                sum_dx, sum_dy = 0.0, 0.0
-                for k in range(i, j):
-                    if k in adj_map:
-                        sum_dx += adj_map[k][0]
-                        sum_dy += adj_map[k][1]
-                    else:
-                        can_verify = False
-                        break
-                if can_verify:
-                    diff_x = abs(e["M"][0, 2] - sum_dx)
-                    diff_y = abs(e["M"][1, 2] - sum_dy)
-                    if diff_x < 15.0 and diff_y < 15.0:
-                        filtered.append(e)
-                    else:
-                        logger.debug(
-                            f"[Stitch]   Edge {i}→{j} rejected: inconsistency "
-                            f"(dx={diff_x:.1f}, dy={diff_y:.1f})"
-                        )
-                else:
-                    filtered.append(e)
-            edges = filtered
-
-        # ── Min-step guard ─────────────────────────────────────────────────────
-        # Reject adjacent edges with near-zero displacement BEFORE the direction consensus
-        # filter.  When the majority of edges are near-zero (test8/test9/test16),
-        # the consensus median is also near-zero and the filter cannot distinguish
-        # good from bad.  This guard prevents the inverted-consensus pattern.
-
-        if len(edges) >= 3:
-            adj_edges = [e for e in edges if e["j"] == e["i"] + 1]
-            if len(adj_edges) > 0:
-                median_dx_abs = float(np.median([abs(e["M"][0, 2]) for e in adj_edges]))
-                median_dy_abs = float(np.median([abs(e["M"][1, 2]) for e in adj_edges]))
-                primary_axis = 0 if median_dx_abs > median_dy_abs else 1
-
-                adj_before = len(adj_edges)
-                edges = [
-                    e
-                    for e in edges
-                    if e["j"] != e["i"] + 1
-                    or abs(float(e["M"][primary_axis, 2])) >= MIN_EXPECTED_STEP
-                ]
-                adj_after = sum(1 for e in edges if e["j"] == e["i"] + 1)
-                n_rejected = adj_before - adj_after
-                if n_rejected > 0:
-                    logger.debug(
-                        f"[Stitch]   Min-step guard: rejected {n_rejected} near-zero "
-                        f"edges (threshold={MIN_EXPECTED_STEP}px on axis {primary_axis})"
+        # ── §2.14 + Geometric Consistency + Min-step (batch or Python) ──────
+        # C++ batch.matching.filter_edge_graph covers all three classical gates
+        # in a single pass; Python fallbacks run individually when batch is absent.
+        _batch_filter_ok = False
+        if _HAS_BATCH and hasattr(_batch, "matching"):
+            try:
+                edges = list(
+                    _batch.matching.filter_edge_graph(
+                        edges,
+                        float(MIN_EXPECTED_STEP),
+                        15.0,
+                        float(_TRI_CONSISTENCY_MAX_RESIDUAL),
                     )
+                )
+                _batch_filter_ok = True
+            except Exception:
+                pass
+
+        if not _batch_filter_ok:
+            # ── §2.14: Triangular Consistency Filter ─────────────────────────
+            if _TRI_CONSISTENCY_MAX_RESIDUAL > 0.0:
+                edges = _triangular_consistency_filter(
+                    edges, max_residual_px=_TRI_CONSISTENCY_MAX_RESIDUAL
+                )
+
+            # ── Geometric Consistency Filter ──────────────────────────────────
+            if len(edges) > 0:
+                adj_map: Dict[int, Tuple[float, float]] = {}
+                for e in edges:
+                    if e["j"] == e["i"] + 1:
+                        adj_map[e["i"]] = (e["M"][0, 2], e["M"][1, 2])
+
+                filtered: List[Dict] = []
+                for e in edges:
+                    i, j = e["i"], e["j"]
+                    if j == i + 1:
+                        filtered.append(e)
+                        continue
+                    can_verify = True
+                    sum_dx, sum_dy = 0.0, 0.0
+                    for k in range(i, j):
+                        if k in adj_map:
+                            sum_dx += adj_map[k][0]
+                            sum_dy += adj_map[k][1]
+                        else:
+                            can_verify = False
+                            break
+                    if can_verify:
+                        diff_x = abs(e["M"][0, 2] - sum_dx)
+                        diff_y = abs(e["M"][1, 2] - sum_dy)
+                        if diff_x < 15.0 and diff_y < 15.0:
+                            filtered.append(e)
+                        else:
+                            logger.debug(
+                                f"[Stitch]   Edge {i}→{j} rejected: inconsistency "
+                                f"(dx={diff_x:.1f}, dy={diff_y:.1f})"
+                            )
+                    else:
+                        filtered.append(e)
+                edges = filtered
+
+            # ── Min-step guard ─────────────────────────────────────────────────
+            # Reject adjacent edges with near-zero displacement BEFORE the direction
+            # consensus filter so the consensus median is not pulled toward zero.
+            if len(edges) >= 3:
+                adj_edges = [e for e in edges if e["j"] == e["i"] + 1]
+                if len(adj_edges) > 0:
+                    median_dx_abs = float(np.median([abs(e["M"][0, 2]) for e in adj_edges]))
+                    median_dy_abs = float(np.median([abs(e["M"][1, 2]) for e in adj_edges]))
+                    primary_axis = 0 if median_dx_abs > median_dy_abs else 1
+
+                    adj_before = len(adj_edges)
+                    edges = [
+                        e
+                        for e in edges
+                        if e["j"] != e["i"] + 1
+                        or abs(float(e["M"][primary_axis, 2])) >= MIN_EXPECTED_STEP
+                    ]
+                    adj_after = sum(1 for e in edges if e["j"] == e["i"] + 1)
+                    n_rejected = adj_before - adj_after
+                    if n_rejected > 0:
+                        logger.debug(
+                            f"[Stitch]   Min-step guard: rejected {n_rejected} near-zero "
+                            f"edges (threshold={MIN_EXPECTED_STEP}px on axis {primary_axis})"
+                        )
 
         # ── Direction Consensus Filter ────────────────────────────────────────
         if len(edges) >= 3:

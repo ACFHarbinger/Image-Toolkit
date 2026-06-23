@@ -25,6 +25,63 @@
 
 ---
 
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation (violet) · bugfix (red) · infrastructure (cyan) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `---` complements
+
+```mermaid
+flowchart TD
+    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef c_fix   fill:#16a34a,stroke:#dc2626,stroke-width:3px,color:#fff
+    classDef c_infra fill:#16a34a,stroke:#0891b2,stroke-width:3px,color:#fff
+    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+
+    subgraph SHIPPED["✅ Test Infrastructure (§3.10–§3.15)"]
+        S310["§3.10 Test Suite Freeze\nRoot Cause Analysis"]:::c_fix
+        S311["§3.11 Session-Level\nThreadPoolExecutor Pool"]:::c_aug
+        S312["§3.12 pytest-xdist\nWorker Isolation"]:::c_infra
+        S313["§3.13 conftest.py\nOverhead Reduction"]:::c_aug
+        S314["§3.14 Heavy-Library\nImport Isolation"]:::c_aug
+        S315["§3.15 Import Isolation —\nNon-animation Modules"]:::c_aug
+    end
+
+    subgraph PLANNED["⬜ Runtime Performance (§3.1–§3.7)"]
+        P31["§3.1 Rust Streaming\nImage Merger"]:::t_feat
+        P32["§3.2 ASP Render Stage\nGPU Acceleration"]:::t_feat
+        P33["§3.3 BiRefNet\nInference Batching"]:::t_aug
+        P34["§3.4 Database Query\nOptimisation"]:::t_aug
+        P35["§3.5 WebDriver Lifecycle\nManagement"]:::t_aug
+        P36["§3.6 DynamicImage Move\nSemantics in Rust"]:::t_aug
+        P37["§3.7 Python ML Model\nMemory Lifecycle"]:::t_aug
+    end
+
+    %% Test infrastructure causal chain
+    S310 ==> S311
+    S310 ==> S312
+    S310 ==> S313
+    S310 ==> S314
+    S314 --> S315
+
+    %% Test suite parallelism siblings
+    S311 --- S312
+
+    %% Runtime performance dependencies
+    P36 --> P31
+    P32 --> P33
+    P33 --> P37
+    P34 --- P35
+
+    %% Cross-group complements
+    P33 --- P32
+    P31 --- P36
+```
+
+*Node fill encodes status (green = shipped, light = planned). Node border encodes element type (blue = new feature, violet = augmentation, red = bugfix, cyan = infrastructure). Bold `==>` edges are critical blocking dependencies; `-->` is sequential ordering; `---` is a complementary relationship.*
+
+---
+
 ## How to Use This Document
 
 Each section describes a performance bottleneck, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping. Items tagged **⚠ CRITICAL** represent confirmed system-freeze root causes that must be resolved before running the full test suite.

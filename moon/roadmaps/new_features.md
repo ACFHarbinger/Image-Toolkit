@@ -25,6 +25,70 @@
 
 ---
 
+## Implementation Timeline
+
+> **Legend** — *Node fill:* ✅ complete (green) · 🔄 in-progress (amber) · ⬜ planned (light) — *Node border:* new feature (blue) · augmentation (violet) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative approach · `---` complements
+
+```mermaid
+flowchart TD
+    classDef c_feat  fill:#16a34a,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef c_aug   fill:#16a34a,stroke:#7c3aed,stroke-width:3px,color:#fff
+    classDef p_feat  fill:#d97706,stroke:#2563eb,stroke-width:3px,color:#fff
+    classDef t_feat  fill:#e2e8f0,stroke:#2563eb,stroke-width:2px,color:#1e293b
+    classDef t_aug   fill:#e2e8f0,stroke:#7c3aed,stroke-width:2px,color:#1e293b
+
+    subgraph STITCH["🎞 Stitching & Export"]
+        S1["§4.1 Batch Stitching\nAutomate ASP across directories"]:::t_feat
+        S2["§4.2 Scrolling Video Export\nPanorama → scrolling MP4"]:::t_feat
+        S11["§4.11 RLHF Feedback Interface\nQuality rating loop for ASP"]:::t_feat
+    end
+
+    subgraph ML["🤖 ML & Search"]
+        M3["§4.3 CLIP Semantic Search\nML-based image retrieval"]:::t_feat
+        M4["§4.4 Auto-Tagger\nWD14 / Florence-2 tagging"]:::t_feat
+        M9["§4.9 Safetensors Viewer\nModel metadata inspector"]:::t_feat
+    end
+
+    subgraph AUTOMATION["⚙ Automation & API"]
+        A8["§4.8 ComfyUI Integration\nPost-processing workflow hooks"]:::t_feat
+        A10["§4.10 REST API Layer\nRemote control & scripting"]:::t_feat
+        A13["§4.13 Shortcut Macros\nCustom action sequences"]:::t_aug
+    end
+
+    subgraph MEDIA["🖼 Media & Presentation"]
+        P5["§4.5 Multi-Monitor Wallpaper\nPer-display wallpaper support"]:::t_feat
+        P6["§4.6 Image Deduplication\nCross-directory dedup"]:::t_feat
+        P7["§4.7 Slideshow Improvements\nShuffle, fade, duration controls"]:::t_aug
+    end
+
+    subgraph UX["🎨 UI Customisation"]
+        U12["§4.12 Appearance Profiles\nSave & switch theme presets"]:::t_aug
+    end
+
+    %% Stitching dependencies
+    S1 --> S2
+    S11 --- S1
+
+    %% ML dependencies
+    M4 --> M3
+    M9 --- M4
+
+    %% Automation dependencies
+    A8 --> S1
+    A10 --> S1
+    A10 --- A13
+
+    %% Cross-group edges
+    M3 --> P6
+    M3 --- M4
+    P5 --- P7
+    U12 --- A13
+```
+
+*Read the diagram: **fill colour** shows status (green = done, amber = in-progress, light = planned); **border colour** shows element type (blue stroke = new feature, violet stroke = augmentation of an existing feature); **edge style** shows relationship (`==>` blocking dependency, `-->` sequential order, `---` complements, `-.->` alternative).*
+
+---
+
 ## How to Use This Document
 
 Each section describes a proposed feature, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping.

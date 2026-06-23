@@ -81,6 +81,13 @@ try:
     from scipy.interpolate import RegularGridInterpolator  # lazy import
 except ImportError:
     RegularGridInterpolator = None
+
+try:
+    import batch as _batch_fgreg
+    _BATCH_FGREG = True
+except ImportError:
+    _batch_fgreg = None
+    _BATCH_FGREG = False
 # --------------------------------
 
 # Allow benchmark sweeps to tune the warp-vs-single-pose threshold without an
@@ -415,6 +422,22 @@ def _slic_sgm_proxy(
     - Runtime: ~3–8ms per seam-band crop at 640×80px (acceptable vs RAFT ~15ms).
     """
     if _slic_fn is None:
+        if _BATCH_FGREG:
+            try:
+                result = _batch_fgreg.fg_register.slic_sgm_proxy(
+                    np.ascontiguousarray(crop_a),
+                    np.ascontiguousarray(crop_b),
+                    np.ascontiguousarray(
+                        fg_mask.astype(np.uint8) if fg_mask.dtype != np.uint8 else fg_mask
+                    ),
+                    n_segments,
+                    compactness,
+                    max_dist_frac,
+                    min_match_score,
+                )
+                return result if isinstance(result, np.ndarray) else None
+            except Exception as _e:
+                logger.debug("batch.fg_register.slic_sgm_proxy failed (%s)", _e)
         return None
 
     H, W = crop_a.shape[:2]
@@ -909,6 +932,25 @@ def _arap_regularise(
     (H, W, 2) float32 — regularised flow (identical to input for bg pixels).
     """
     H, W = flow.shape[:2]
+
+    if _BATCH_FGREG:
+        try:
+            oy, ox = image_offset
+            result = _batch_fgreg.fg_register.arap_push_regularise(
+                np.ascontiguousarray(flow.astype(np.float32)),
+                np.ascontiguousarray(
+                    fg_mask.astype(np.uint8) if fg_mask.dtype != np.uint8 else fg_mask
+                ),
+                cell_size,
+                n_iter,
+                np.ascontiguousarray(image) if image is not None else None,
+                oy,
+                ox,
+            )
+            return result.astype(np.float32)
+        except Exception as _e:
+            logger.debug("batch.fg_register.arap_push_regularise failed (%s), using Python", _e)
+
     out = flow.copy()
 
     # LSD collinearity constraint (Sýkora 2009 §3.3).

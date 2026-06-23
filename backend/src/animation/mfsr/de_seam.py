@@ -15,6 +15,13 @@ import numpy as np
 from backend.src.constants import DE_CR, DE_F, DE_MAX_GEN, DE_POP_SIZE
 from backend.src.animation.core.stateless import _seam_dp
 
+try:
+    import batch as _batch_sr
+    _BATCH_SR = True
+except ImportError:
+    _batch_sr = None
+    _BATCH_SR = False
+
 
 def _energy_map(img_a: np.ndarray, img_b: np.ndarray) -> np.ndarray:
     """Per-pixel energy: |a - b| + gradient magnitude."""
@@ -61,6 +68,21 @@ def de_seam(
     """
     if img_a.shape != img_b.shape:
         raise ValueError("de_seam: img_a and img_b must have the same shape")
+
+    if _BATCH_SR:
+        try:
+            return _batch_sr.sr_classical.de_seam(
+                np.ascontiguousarray(img_a),
+                np.ascontiguousarray(img_b),
+                horizontal,
+                pop_size,
+                n_gen,
+                smoothness_weight,
+                DE_F,
+                DE_CR,
+            )
+        except Exception:
+            pass
 
     energy = _energy_map(img_a, img_b)
     if not horizontal:

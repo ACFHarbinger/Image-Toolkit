@@ -2063,3 +2063,105 @@ class TestWaveCorrectAffines:
 
     def test_schema_entry(self):
         assert "ASP_WAVE_CORRECT" in config._CONFIG_SCHEMA
+
+
+# ---------------------------------------------------------------------------
+# TestSpatialDedupFramesBatchWiring — C++ batch dispatch (S46)
+# ---------------------------------------------------------------------------
+
+
+class TestSpatialDedupFramesBatchWiring:
+    """Phase 5: _spatial_dedup_frames C++ dispatch via batch.frame_selection.
+
+    These tests verify the M-affine → dx/dy conversion layer and the
+    reconstruction of the 6-tuple return value from C++ keep indices.
+    The C++ function uses cumulative-displacement greedy dedup; the
+    tests exercise the same edge cases as TestSpatialDedupFrames.
+    """
+
+    def test_no_drop_returns_original_lists(self):
+        """When no frames are dropped keep_idx covers all frames → return originals."""
+        frames = [_make_frame(val=v) for v in [10, 20, 30]]
+        scans = [_make_frame(val=v) for v in [10, 20, 30]]
+        masks = [_make_mask() for _ in range(3)]
+        paths = ["x0.png", "x1.png", "x2.png"]
+        edges = [_make_edge(0, 1, dy=100.0), _make_edge(1, 2, dy=100.0)]
+
+        out_f, out_s, _, _, out_e, n = _spatial_dedup_frames(
+            frames, scans, masks, paths, edges, min_displacement_px=25.0
+        )
+
+        assert n == 0
+        assert len(out_f) == 3
+        assert len(out_s) == 3
+        assert len(out_e) == 2
+
+    def test_near_static_frame_dropped(self):
+        """Frame 1 with dy=3 < 25 threshold must be dropped."""
+        frames = [_make_frame(val=v) for v in [10, 20, 30]]
+        scans = [_make_frame(val=v + 1) for v in [10, 20, 30]]
+        masks = [_make_mask() for _ in range(3)]
+        paths = ["y0.png", "y1.png", "y2.png"]
+        edges = [_make_edge(0, 1, dy=3.0), _make_edge(1, 2, dy=80.0)]
+
+        out_f, out_s, _, out_p, _, n = _spatial_dedup_frames(
+            frames, scans, masks, paths, edges, min_displacement_px=25.0
+        )
+
+        assert n == 1
+        assert len(out_f) == 2
+        assert out_f[0][0, 0, 0] == 10  # frame 0 kept
+        assert out_f[1][0, 0, 0] == 30  # frame 2 kept
+
+    def test_scans_sync_preserved_after_drop(self):
+        """scans_frames must be subset-synced with frames (§1.9A S28)."""
+        frames = [_make_frame(val=v) for v in [10, 20, 30]]
+        scans = [_make_frame(val=v + 5) for v in [10, 20, 30]]
+        masks = [_make_mask() for _ in range(3)]
+        paths = ["z0.png", "z1.png", "z2.png"]
+        edges = [_make_edge(0, 1, dy=3.0), _make_edge(1, 2, dy=80.0)]
+
+        _, out_s, _, _, _, n = _spatial_dedup_frames(
+            frames, scans, masks, paths, edges, min_displacement_px=25.0
+        )
+
+        assert n == 1
+        assert len(out_s) == 2
+        assert out_s[0][0, 0, 0] == 15   # scans[0] = val+5=15
+        assert out_s[1][0, 0, 0] == 35   # scans[2] = val+5=35
+
+    def test_edge_reindex_correct_after_drop(self):
+        """Surviving edges must have i/j remapped to the post-drop index space."""
+        frames = [_make_frame() for _ in range(4)]
+        scans = [_make_frame() for _ in range(4)]
+        masks = [_make_mask() for _ in range(4)]
+        paths = [f"w{i}.png" for i in range(4)]
+        edges = [
+            _make_edge(0, 1, dy=2.0),   # frame 1 near-static → dropped
+            _make_edge(1, 2, dy=80.0),  # involves dropped frame → excluded
+            _make_edge(2, 3, dy=80.0),  # both survive → remapped (1→2)
+        ]
+
+        _, _, _, _, out_e, n = _spatial_dedup_frames(
+            frames, scans, masks, paths, edges, min_displacement_px=25.0
+        )
+
+        assert n == 1
+        assert len(out_e) == 1
+        assert out_e[0]["i"] == 1
+        assert out_e[0]["j"] == 2
+
+    def test_horizontal_displacement_respected(self):
+        """dx-based displacement (horizontal scroll) is also respected."""
+        frames = [_make_frame(val=v) for v in [10, 20, 30]]
+        scans = [_make_frame(val=v) for v in [10, 20, 30]]
+        masks = [_make_mask() for _ in range(3)]
+        paths = ["h0.png", "h1.png", "h2.png"]
+        # dx=3 horizontal, dy=0 — below threshold on both axes
+        edges = [_make_edge(0, 1, dy=0.0, dx=3.0), _make_edge(1, 2, dy=0.0, dx=80.0)]
+
+        _, _, _, _, _, n = _spatial_dedup_frames(
+            frames, scans, masks, paths, edges, min_displacement_px=25.0
+        )
+
+        assert n == 1  # frame 1 dropped (ddx=3 < 25, ddy=0 < 25)
