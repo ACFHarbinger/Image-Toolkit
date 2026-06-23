@@ -15,7 +15,7 @@ All tests are skipped automatically when ``batch`` has not been built.
 import pytest
 
 try:
-    import batch
+    from backend.src.animation import batch
 
     HAS_BATCH = True
 except ImportError:
@@ -199,7 +199,9 @@ class TestDefaultArguments:
         self._call_tolerating_not_impl(batch.bundle_adjust.bundle_adjust_affine, edges, 2)
 
     def test_wave_correct_affines_minimal_args(self):
-        affines = [{"tx": 0.0, "ty": 0.0}, {"tx": 0.0, "ty": 100.0}]
+        import numpy as np
+        affines = [np.eye(2, 3, dtype=np.float32),
+                   np.array([[1, 0, 0], [0, 1, 100]], dtype=np.float32)]
         self._call_tolerating_not_impl(batch.wave_correct.wave_correct_affines, affines)
 
     def test_blocks_gain_compensate_minimal_args(self):

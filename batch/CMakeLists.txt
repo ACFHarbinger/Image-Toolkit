@@ -9,8 +9,25 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ---------------------------------------------------------------------------
 find_package(OpenCV 4.8 REQUIRED
     COMPONENTS core imgproc stitching features2d video)
-find_package(Eigen3 3.4 REQUIRED)
-find_package(pybind11 REQUIRED)
+# Fetch Eigen3 unconditionally if not on system path (usually missing in isolated envs)
+include(FetchContent)
+FetchContent_Declare(
+    eigen
+    GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+    GIT_TAG        3.4.0
+)
+FetchContent_MakeAvailable(eigen)
+
+find_package(pybind11 QUIET)
+if(NOT pybind11_FOUND)
+    message(STATUS "pybind11 not found locally, downloading via FetchContent...")
+    FetchContent_Declare(
+        pybind11
+        GIT_REPOSITORY https://github.com/pybind/pybind11.git
+        GIT_TAG        v2.11.1
+    )
+    FetchContent_MakeAvailable(pybind11)
+endif()
 
 # ---------------------------------------------------------------------------
 # Optional dependencies
@@ -63,6 +80,7 @@ target_include_directories(batch PRIVATE
     include/
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
+    ${eigen_SOURCE_DIR}
 )
 
 target_link_libraries(batch PRIVATE

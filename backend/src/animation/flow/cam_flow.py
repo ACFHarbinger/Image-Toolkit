@@ -18,6 +18,13 @@ __all__ = [
 
 CAM_FLOW_MIN_BG_PIXELS = 500  # Fall back to whole-frame if fewer bg pixels available
 
+try:
+    from backend.src.animation import batch as _batch
+    _HAS_BATCH: bool = True
+except ImportError:
+    _batch = None  # type: ignore[assignment]
+    _HAS_BATCH: bool = False
+
 
 def bg_masked_phase_correlate(
     frame_a: np.ndarray,
@@ -35,6 +42,18 @@ def bg_masked_phase_correlate(
     gray_a = cv2.cvtColor(frame_a, cv2.COLOR_BGR2GRAY) if frame_a.ndim == 3 else frame_a.copy()
     gray_b = cv2.cvtColor(frame_b, cv2.COLOR_BGR2GRAY) if frame_b.ndim == 3 else frame_b.copy()
 
+    if _HAS_BATCH:
+        # C++ fast path — convert bool masks to uint8 (nonzero = background)
+        ma = (bg_mask_a.astype(np.uint8) * 255) if bg_mask_a is not None else None
+        mb = (bg_mask_b.astype(np.uint8) * 255) if bg_mask_b is not None else None
+        result = _batch.matching.phase_correlate_masked(
+            np.ascontiguousarray(gray_a),
+            np.ascontiguousarray(gray_b),
+            ma, mb,
+        )
+        return float(result["dx"]), float(result["dy"]), float(result["response"])
+
+    # Python fallback
     if bg_mask_a is None or bg_mask_b is None:
         (dx, dy), response = cv2.phaseCorrelate(
             gray_a.astype(np.float32), gray_b.astype(np.float32)

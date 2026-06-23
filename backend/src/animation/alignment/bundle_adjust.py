@@ -23,6 +23,13 @@ from scipy.optimize import least_squares
 from backend.src.constants import DY_RATIO_THRESH, DY_ABS_THRESH, GNC_C_PX, GNC_MU_ANNEAL
 
 try:
+    from backend.src.animation import batch
+
+    BATCH_AVAILABLE = True
+except ImportError:
+    BATCH_AVAILABLE = False
+
+try:
     _BA_F_SCALE = float(os.environ.get("ASP_BA_F_SCALE", "10.0"))
 except ValueError:
     _BA_F_SCALE = 10.0
@@ -80,6 +87,25 @@ def _spanning_tree_inlier_filter(
     """
     if len(edges) < 2 or num_frames < 2:
         return edges
+
+    if BATCH_AVAILABLE:
+        # Convert to C++ edge format (dx/dy from M if present), keep original Python dicts for return.
+        cpp_edges = []
+        for e in edges:
+            ce: Dict = {"i": int(e["i"]), "j": int(e["j"]),
+                        "dx": float(e["M"][0, 2]) if "M" in e else float(e.get("dx", 0.0)),
+                        "dy": float(e["M"][1, 2]) if "M" in e else float(e.get("dy", 0.0)),
+                        "weight": float(e.get("weight", 1.0))}
+            cpp_edges.append(ce)
+        cpp_result = batch.bundle_adjust.spanning_tree_inlier_filter(cpp_edges, num_frames, inlier_threshold)
+        # Use (i,j,dx,dy) as key to distinguish duplicate (i,j) pairs with different displacements.
+        kept = {(int(r["i"]), int(r["j"]), round(float(r["dx"]), 3), round(float(r["dy"]), 3))
+                for r in cpp_result}
+        return [e for e in edges
+                if (int(e["i"]), int(e["j"]),
+                    round(float(e["M"][0, 2]) if "M" in e else e.get("dx", 0.0), 3),
+                    round(float(e["M"][1, 2]) if "M" in e else e.get("dy", 0.0), 3))
+                in kept]
 
     # ── Step 1: build spanning tree (greedy, highest-weight-first) ──────────
     sorted_edges = sorted(edges, key=lambda e: float(e.get("weight", 1.0)), reverse=True)
@@ -186,35 +212,61 @@ def _bundle_adjust_affine(
     """
     # §1.1B: spanning-tree pre-filter — remove edges inconsistent with the
     # highest-weight spanning tree before running the LM solve.  Tree edges
-    # (residual=0 by construction) are always kept, so the graph stays connected.
-    edges = _spanning_tree_inlier_filter(edges, num_frames)
-
-    # DOF for Partial Affine: [a, b, tx, ty]
-    # Matrix: [[a, b, tx], [-b, a, ty]]
-    # This preserves aspect ratio and is much more stable for 2D digital pans.
-    dof = 4 if use_affine else 2
-    x0 = np.zeros(num_frames * dof, np.float64)
-
-    # Initialise identity for all frames
-    if use_affine:
-        for f in range(num_frames):
-            x0[f * 4] = 1.0  # a (scale*cos(theta))
-
-    # Initial sequential guess.
-    # M convention: dy = y_j - y_i (forward-shift: LoFTR/PC).
-    # Canvas placement: ty_j = ty_i - dy, so we accumulate with -M_raw.
-    for f in range(1, num_frames):
+    # ── C++ Fast Path ───────────────────────────────────────────────────────
+    if BATCH_AVAILABLE and not use_affine:
+        cpp_edges = []
         for e in edges:
-            if e["i"] == f - 1 and e["j"] == f:
-                M_raw = e["M"]
-                if use_affine:
-                    x0[f * 4] = 1.0
-                    x0[f * 4 + 2] = x0[(f - 1) * 4 + 2] - float(M_raw[0, 2])
-                    x0[f * 4 + 3] = x0[(f - 1) * 4 + 3] - float(M_raw[1, 2])
-                else:
-                    x0[f * 2] = x0[(f - 1) * 2] - float(M_raw[0, 2])
-                    x0[f * 2 + 1] = x0[(f - 1) * 2 + 1] - float(M_raw[1, 2])
-                break
+            ce = e.copy()
+            # M convention: dy = y_j - y_i. We want observed displacement.
+            ce["dx"] = float(e["M"][0, 2])
+            ce["dy"] = float(e["M"][1, 2])
+            ce["weight"] = float(e.get("weight", 1.0))
+            cpp_edges.append(ce)
+        
+        cpp_out = batch.bundle_adjust.bundle_adjust_affine(
+            cpp_edges,
+            num_frames,
+            f_scale=_BA_F_SCALE,
+            use_gnc=(_GNC_OUTER > 0),
+            adaptive_f_scale=True,
+        )
+        
+        out = []
+        for f in range(num_frames):
+            cd = cpp_out[f]
+            M = np.eye(2, 3, dtype=np.float32)
+            M[0, 2] = cd["tx"]
+            M[1, 2] = cd["ty"]
+            out.append(M)
+            
+        # We skip the python solver but continue to Python outlier rejection
+    else:
+        # DOF for Partial Affine: [a, b, tx, ty]
+        # Matrix: [[a, b, tx], [-b, a, ty]]
+        # This preserves aspect ratio and is much more stable for 2D digital pans.
+        dof = 4 if use_affine else 2
+        x0 = np.zeros(num_frames * dof, np.float64)
+
+        # Initialise identity for all frames
+        if use_affine:
+            for f in range(num_frames):
+                x0[f * 4] = 1.0  # a (scale*cos(theta))
+
+        # Initial sequential guess.
+        # M convention: dy = y_j - y_i (forward-shift: LoFTR/PC).
+        # Canvas placement: ty_j = ty_i - dy, so we accumulate with -M_raw.
+        for f in range(1, num_frames):
+            for e in edges:
+                if e["i"] == f - 1 and e["j"] == f:
+                    M_raw = e["M"]
+                    if use_affine:
+                        x0[f * 4] = 1.0
+                        x0[f * 4 + 2] = x0[(f - 1) * 4 + 2] - float(M_raw[0, 2])
+                        x0[f * 4 + 3] = x0[(f - 1) * 4 + 3] - float(M_raw[1, 2])
+                    else:
+                        x0[f * 2] = x0[(f - 1) * 2] - float(M_raw[0, 2])
+                        x0[f * 2 + 1] = x0[(f - 1) * 2 + 1] - float(M_raw[1, 2])
+                    break
 
     # Mutable GNC weight vector; updated in-place by the outer loop below.
     # residuals() reads it at call time so scipy sees updated weights each LM step.
@@ -303,95 +355,96 @@ def _bundle_adjust_affine(
             mats.append(M)
         return mats
 
-    if _GNC_OUTER > 0:
-        # §1.17: GNC-TLS outer continuation loop (S61, Yang et al. 2020).
-        # Graduated Non-Convexity with Geman-McClure surrogate: starts convex
-        # (large μ → all edge weights ≈ 1) and anneals toward the TLS cost by
-        # dividing μ by _GNC_MU_ANNEAL each iteration.  Tolerates 70–80% outlier
-        # edges.  Loss is 'linear' because weights are injected directly via the
-        # residuals closure (sqrt(w) multiplier → w×r² cost when squared by LM).
-        stride = 4 if use_affine else 2
-        tx_off = 2 if use_affine else 0
-        ty_off = 3 if use_affine else 1
-        c_sq = _GNC_C_PX ** 2
-        x_cur = x0.copy()
-        mu: Optional[float] = None
-
-        for _outer in range(_GNC_OUTER):
-            # Per-edge squared translation disagreement (scalar, no point unpacking)
-            edge_res_sq = np.zeros(len(edges), dtype=np.float64)
-            for idx_e, e in enumerate(edges):
-                ii, jj = int(e["i"]), int(e["j"])
-                pred_dx = x_cur[jj * stride + tx_off] - x_cur[ii * stride + tx_off]
-                pred_dy = x_cur[jj * stride + ty_off] - x_cur[ii * stride + ty_off]
-                obs_dx = -float(e["M"][0, 2])
-                obs_dy = -float(e["M"][1, 2])
-                edge_res_sq[idx_e] = (pred_dx - obs_dx) ** 2 + (pred_dy - obs_dy) ** 2
-
-            # μ₀: largest initialisation such that the surrogate is still convex
-            # (2μ₀c² ≥ max rᵢ²).
-            if mu is None:
-                max_sq = float(edge_res_sq.max()) if len(edge_res_sq) > 0 else 0.0
-                mu = (max_sq / (2.0 * c_sq)) if max_sq > 0 and c_sq > 0 else 1.0
-                mu = max(mu, 1.0)
-
-            gnc_w = _gnc_weights_geman_mcclure(edge_res_sq, mu, c_sq)
-            for idx_e in range(len(edges)):
-                _gnc_ws[idx_e] = float(np.sqrt(max(float(gnc_w[idx_e]), 1e-12)))
-
-            _result_gnc = least_squares(
-                residuals,
-                x_cur,
-                method="trf",
-                loss="linear",
-                ftol=1e-6,
-                xtol=1e-6,
-                gtol=1e-6,
-                max_nfev=iterations * num_frames,
-            )
-            x_new = _result_gnc.x
-            dx_norm = float(np.linalg.norm(x_new - x_cur))
-            x_cur = x_new
-            mu /= _GNC_MU_ANNEAL
-            if dx_norm < 1e-3 or mu < 1e-2:
-                break
-
-        # Restore unity weights so post-solve residual computations are unweighted
-        for idx_e in range(len(_gnc_ws)):
-            _gnc_ws[idx_e] = 1.0
-        x_opt = x_cur
-    else:
-        # §1.1C / §1.1D: single Cauchy solve + adaptive f_scale re-solve (S6/S30)
-        result = least_squares(
-            residuals,
-            x0,
-            method="trf",
-            loss="cauchy",
-            f_scale=_BA_F_SCALE,
-            ftol=1e-6,
-            xtol=1e-6,
-            gtol=1e-6,
-            max_nfev=iterations * num_frames,
-        )
-        x_opt = result.x
-        _adapt_scale = _compute_adaptive_f_scale(
-            edges, _extract_affines(x_opt), floor=_BA_F_SCALE
-        )
-        if _adapt_scale > _BA_F_SCALE * 1.5:
+    if not (BATCH_AVAILABLE and not use_affine):
+        if _GNC_OUTER > 0:
+            # §1.17: GNC-TLS outer continuation loop (S61, Yang et al. 2020).
+            # Graduated Non-Convexity with Geman-McClure surrogate: starts convex
+            # (large μ → all edge weights ≈ 1) and anneals toward the TLS cost by
+            # dividing μ by _GNC_MU_ANNEAL each iteration.  Tolerates 70–80% outlier
+            # edges.  Loss is 'linear' because weights are injected directly via the
+            # residuals closure (sqrt(w) multiplier → w×r² cost when squared by LM).
+            stride = 4 if use_affine else 2
+            tx_off = 2 if use_affine else 0
+            ty_off = 3 if use_affine else 1
+            c_sq = _GNC_C_PX ** 2
+            x_cur = x0.copy()
+            mu: Optional[float] = None
+    
+            for _outer in range(_GNC_OUTER):
+                # Per-edge squared translation disagreement (scalar, no point unpacking)
+                edge_res_sq = np.zeros(len(edges), dtype=np.float64)
+                for idx_e, e in enumerate(edges):
+                    ii, jj = int(e["i"]), int(e["j"])
+                    pred_dx = x_cur[jj * stride + tx_off] - x_cur[ii * stride + tx_off]
+                    pred_dy = x_cur[jj * stride + ty_off] - x_cur[ii * stride + ty_off]
+                    obs_dx = -float(e["M"][0, 2])
+                    obs_dy = -float(e["M"][1, 2])
+                    edge_res_sq[idx_e] = (pred_dx - obs_dx) ** 2 + (pred_dy - obs_dy) ** 2
+    
+                # μ₀: largest initialisation such that the surrogate is still convex
+                # (2μ₀c² ≥ max rᵢ²).
+                if mu is None:
+                    max_sq = float(edge_res_sq.max()) if len(edge_res_sq) > 0 else 0.0
+                    mu = (max_sq / (2.0 * c_sq)) if max_sq > 0 and c_sq > 0 else 1.0
+                    mu = max(mu, 1.0)
+    
+                gnc_w = _gnc_weights_geman_mcclure(edge_res_sq, mu, c_sq)
+                for idx_e in range(len(edges)):
+                    _gnc_ws[idx_e] = float(np.sqrt(max(float(gnc_w[idx_e]), 1e-12)))
+    
+                _result_gnc = least_squares(
+                    residuals,
+                    x_cur,
+                    method="trf",
+                    loss="linear",
+                    ftol=1e-6,
+                    xtol=1e-6,
+                    gtol=1e-6,
+                    max_nfev=iterations * num_frames,
+                )
+                x_new = _result_gnc.x
+                dx_norm = float(np.linalg.norm(x_new - x_cur))
+                x_cur = x_new
+                mu /= _GNC_MU_ANNEAL
+                if dx_norm < 1e-3 or mu < 1e-2:
+                    break
+    
+            # Restore unity weights so post-solve residual computations are unweighted
+            for idx_e in range(len(_gnc_ws)):
+                _gnc_ws[idx_e] = 1.0
+            x_opt = x_cur
+        else:
+            # §1.1C / §1.1D: single Cauchy solve + adaptive f_scale re-solve (S6/S30)
             result = least_squares(
                 residuals,
-                x_opt,
+                x0,
                 method="trf",
                 loss="cauchy",
-                f_scale=_adapt_scale,
+                f_scale=_BA_F_SCALE,
                 ftol=1e-6,
                 xtol=1e-6,
                 gtol=1e-6,
                 max_nfev=iterations * num_frames,
             )
             x_opt = result.x
-
-    out = _extract_affines(x_opt)
+            _adapt_scale = _compute_adaptive_f_scale(
+                edges, _extract_affines(x_opt), floor=_BA_F_SCALE
+            )
+            if _adapt_scale > _BA_F_SCALE * 1.5:
+                result = least_squares(
+                    residuals,
+                    x_opt,
+                    method="trf",
+                    loss="cauchy",
+                    f_scale=_adapt_scale,
+                    ftol=1e-6,
+                    xtol=1e-6,
+                    gtol=1e-6,
+                    max_nfev=iterations * num_frames,
+                )
+                x_opt = result.x
+    
+        out = _extract_affines(x_opt)
 
     # ── Outlier rejection ───────────────────────────────────────────────────
     # Two-pronged approach:
@@ -495,6 +548,25 @@ def _compute_adaptive_f_scale(
     """
     if not edges:
         return floor
+
+    if BATCH_AVAILABLE:
+        # Convert edges to C++ format (dx/dy from M if present)
+        cpp_edges = []
+        for e in edges:
+            cpp_edges.append({"i": int(e["i"]), "j": int(e["j"]),
+                               "dx": float(e["M"][0, 2]) if "M" in e else float(e.get("dx", 0.0)),
+                               "dy": float(e["M"][1, 2]) if "M" in e else float(e.get("dy", 0.0)),
+                               "weight": float(e.get("weight", 1.0))})
+        affines_dicts = []
+        for f, mat in enumerate(affines):
+            affines_dicts.append({
+                "tx": float(mat[0, 2]),
+                "ty": float(mat[1, 2]),
+                "scale": float(mat[0, 0]),
+                "rotation": 0.0,
+                "frame_idx": f,
+            })
+        return batch.bundle_adjust.compute_adaptive_f_scale(cpp_edges, affines_dicts, floor)
     res_mags: List[float] = []
     for e in edges:
         ei, ej = e["i"], e["j"]

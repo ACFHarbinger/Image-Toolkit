@@ -21,6 +21,13 @@ from typing import List, NamedTuple, Tuple
 
 import numpy as np
 
+try:
+    from backend.src.animation import batch as _batch
+    _HAS_BATCH: bool = True
+except ImportError:
+    _batch = None  # type: ignore[assignment]
+    _HAS_BATCH: bool = False
+
 # §0.5D — tight/loose rotation and scale thresholds used by
 # _compute_adaptive_rot_scale.  "Loose" applies when all frames share a
 # near-identical rotation/scale (systematic camera property); "tight" when
@@ -141,6 +148,14 @@ def _validate_affines(
     -------
     AffineHealth named tuple with validation result and diagnostic metrics.
     """
+    if _HAS_BATCH:
+        valid, reason, ratio, min_gap, max_rot, max_sc = _batch.validation.validate_affines(
+            [np.asarray(a, dtype=np.float32) for a in affines],
+            min_step=min_step, max_ratio=max_ratio,
+            max_rotation=max_rotation, max_scale_dev=max_scale_dev,
+        )
+        return AffineHealth(valid, ratio, min_gap, max_rot, max_sc, reason)
+
     N = len(affines)
     if N < 2:
         return AffineHealth(True, 1.0, 0.0, 0.0, 0.0, "single frame")
@@ -223,6 +238,11 @@ def _compute_adaptive_min_gap(affines: List[np.ndarray]) -> float:
     The floor of 20.0 px matches Retry-3's ``min_step=20.0`` so that very
     slow-scroll sequences always pass at least that check.
     """
+    if _HAS_BATCH:
+        return float(_batch.validation.compute_adaptive_min_gap(
+            [np.asarray(a, dtype=np.float32) for a in affines]
+        ))
+
     N = len(affines)
     if N < 2:
         return 20.0
@@ -268,6 +288,11 @@ def _compute_adaptive_rot_scale(
     zoom-pan sequences (e.g. test5: max_rot ≈ 0.111, consistent across frames)
     without admitting sequences with wild per-frame BA noise.
     """
+    if _HAS_BATCH:
+        return tuple(_batch.validation.compute_adaptive_rot_scale(
+            [np.asarray(a, dtype=np.float32) for a in affines]
+        ))
+
     if len(affines) < 2:
         return _ROT_TIGHT, _SC_TIGHT
 

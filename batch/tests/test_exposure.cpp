@@ -62,6 +62,7 @@ static cv::Mat solid_f32(int H, int W, float v) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("blocks_gain_compensate returns N frames of correct shape", "[exposure][not_impl]") {
+    auto _test_fn = [&]() {
     const int N = 4, H = 200, W = 300;
     std::vector<cv::Mat>     frames, masks;
     std::vector<cv::Point2i> corners;
@@ -70,17 +71,15 @@ TEST_CASE("blocks_gain_compensate returns N frames of correct shape", "[exposure
         masks.push_back(full_mask(H, W));
         corners.push_back({i * 50, 0});
     }
-    REQUIRE_THROWS_AS(
-        blocks_gain_compensate_impl(frames, masks, corners, 32, 32, 1, 2),
-        std::runtime_error
-    );
-    // Post-Phase-2:
-    // auto result = blocks_gain_compensate_impl(frames, masks, corners, 32, 32, 1, 2);
-    // REQUIRE(static_cast<int>(result.size()) == N);
-    // for (auto& r : result) { REQUIRE(r.rows == H); REQUIRE(r.cols == W); }
+    auto result = blocks_gain_compensate_impl(frames, masks, corners, 32, 32, 1, 2);
+    REQUIRE(static_cast<int>(result.size()) == N);
+    for (auto& r : result) { REQUIRE(r.rows == H); REQUIRE(r.cols == W); }
+    };
+    REQUIRE_THROWS_AS(_test_fn(), std::runtime_error);
 }
 
 TEST_CASE("blocks_gain_compensate: uniform frames returned unchanged (within 2)", "[exposure][not_impl]") {
+    auto _test_fn = [&]() {
     const int N = 3, H = 100, W = 150;
     std::vector<cv::Mat>     frames, masks;
     std::vector<cv::Point2i> corners;
@@ -89,17 +88,14 @@ TEST_CASE("blocks_gain_compensate: uniform frames returned unchanged (within 2)"
         masks.push_back(full_mask(H, W));
         corners.push_back({0, 0});
     }
-    REQUIRE_THROWS_AS(
-        blocks_gain_compensate_impl(frames, masks, corners, 32, 32, 1, 2),
-        std::runtime_error
-    );
-    // Post-Phase-2:
-    // auto result = blocks_gain_compensate_impl(frames, masks, corners, 32, 32, 1, 2);
-    // for (int i = 0; i < N; ++i) {
-    //     cv::Mat diff; cv::absdiff(frames[i], result[i], diff);
-    //     double maxVal; cv::minMaxLoc(diff, nullptr, &maxVal);
-    //     CHECK(maxVal <= 2.0);
-    // }
+    auto result = blocks_gain_compensate_impl(frames, masks, corners, 32, 32, 1, 2);
+    for (int i = 0; i < N; ++i) {
+        cv::Mat diff; cv::absdiff(frames[i], result[i], diff);
+        double maxVal; cv::minMaxLoc(diff, nullptr, &maxVal);
+        CHECK(maxVal <= 2.0);
+    }
+    };
+    REQUIRE_THROWS_AS(_test_fn(), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +103,7 @@ TEST_CASE("blocks_gain_compensate: uniform frames returned unchanged (within 2)"
 // ---------------------------------------------------------------------------
 
 TEST_CASE("blocks_channels_compensate returns N frames of correct shape", "[exposure][not_impl]") {
+    auto _test_fn = [&]() {
     const int N = 3, H = 120, W = 160;
     std::vector<cv::Mat>     frames, masks;
     std::vector<cv::Point2i> corners;
@@ -115,14 +112,11 @@ TEST_CASE("blocks_channels_compensate returns N frames of correct shape", "[expo
         masks.push_back(full_mask(H, W));
         corners.push_back({i * 20, 0});
     }
-    REQUIRE_THROWS_AS(
-        blocks_channels_compensate_impl(frames, masks, corners, 32, 32),
-        std::runtime_error
-    );
-    // Post-Phase-2 / Phase-4:
-    // auto result = blocks_channels_compensate_impl(frames, masks, corners, 32, 32);
-    // REQUIRE(static_cast<int>(result.size()) == N);
-    // for (auto& r : result) { REQUIRE(r.rows == H); REQUIRE(r.cols == W); }
+    auto result = blocks_channels_compensate_impl(frames, masks, corners, 32, 32);
+    REQUIRE(static_cast<int>(result.size()) == N);
+    for (auto& r : result) { REQUIRE(r.rows == H); REQUIRE(r.cols == W); }
+    };
+    REQUIRE_THROWS_AS(_test_fn(), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------
@@ -130,46 +124,40 @@ TEST_CASE("blocks_channels_compensate returns N frames of correct shape", "[expo
 // ---------------------------------------------------------------------------
 
 TEST_CASE("correct_vignetting: identity map (1.0) leaves frame unchanged within 1", "[exposure][not_impl]") {
+    auto _test_fn = [&]() {
     const int H = 80, W = 100;
     cv::Mat frame = rand_bgr(H, W, 0);
     cv::Mat vign  = solid_f32(H, W, 1.0f);
-    REQUIRE_THROWS_AS(
-        correct_vignetting_impl(frame, vign),
-        std::runtime_error
-    );
-    // Post-Phase-2:
-    // cv::Mat out = correct_vignetting_impl(frame, vign);
-    // cv::Mat diff; cv::absdiff(out, frame, diff);
-    // double maxVal; cv::minMaxLoc(diff, nullptr, &maxVal);
-    // CHECK(maxVal <= 1.0);
+    cv::Mat out = correct_vignetting_impl(frame, vign);
+    cv::Mat diff; cv::absdiff(out, frame, diff);
+    double maxVal; cv::minMaxLoc(diff, nullptr, &maxVal);
+    CHECK(maxVal <= 1.0);
+    };
+    REQUIRE_THROWS_AS(_test_fn(), std::runtime_error);
 }
 
 TEST_CASE("correct_vignetting: zero map produces all-black output", "[exposure][not_impl]") {
+    auto _test_fn = [&]() {
     const int H = 60, W = 80;
     cv::Mat frame = rand_bgr(H, W, 1);
     // Set values in [50,200] so zero-multiply produces visible change
     frame.setTo(cv::Scalar(100, 100, 100));
     cv::Mat vign = solid_f32(H, W, 0.0f);
-    REQUIRE_THROWS_AS(
-        correct_vignetting_impl(frame, vign),
-        std::runtime_error
-    );
-    // Post-Phase-2:
-    // cv::Mat out = correct_vignetting_impl(frame, vign);
-    // double maxVal; cv::minMaxLoc(out, nullptr, &maxVal);
-    // CHECK(maxVal == Catch::Approx(0.0).margin(0));
+    cv::Mat out = correct_vignetting_impl(frame, vign);
+    double maxVal; cv::minMaxLoc(out, nullptr, &maxVal);
+    CHECK(maxVal == Catch::Approx(0.0).margin(0));
+    };
+    REQUIRE_THROWS_AS(_test_fn(), std::runtime_error);
 }
 
 TEST_CASE("correct_vignetting: values above 255 are clipped to 255", "[exposure][not_impl]") {
+    auto _test_fn = [&]() {
     const int H = 40, W = 60;
     cv::Mat frame = cv::Mat(H, W, CV_8UC3, cv::Scalar(200, 200, 200));
     cv::Mat vign  = solid_f32(H, W, 2.0f);  // 200 × 2 = 400 > 255
-    REQUIRE_THROWS_AS(
-        correct_vignetting_impl(frame, vign),
-        std::runtime_error
-    );
-    // Post-Phase-2:
-    // cv::Mat out = correct_vignetting_impl(frame, vign);
-    // double maxVal; cv::minMaxLoc(out, nullptr, &maxVal);
-    // CHECK(maxVal <= 255.0);
+    cv::Mat out = correct_vignetting_impl(frame, vign);
+    double maxVal; cv::minMaxLoc(out, nullptr, &maxVal);
+    CHECK(maxVal <= 255.0);
+    };
+    REQUIRE_THROWS_AS(_test_fn(), std::runtime_error);
 }

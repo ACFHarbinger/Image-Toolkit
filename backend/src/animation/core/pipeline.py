@@ -126,6 +126,13 @@ try:
 except ImportError:
     Image = None  # type: ignore[assignment]
 
+try:
+    from backend.src.animation import batch as _batch
+    _HAS_BATCH: bool = True
+except ImportError:
+    _batch = None  # type: ignore[assignment]
+    _HAS_BATCH: bool = False
+
 # BaSiCWrapper only uses cv2/numpy/torch — safe to import at module level.
 try:
     from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
@@ -2069,6 +2076,14 @@ def _wave_correct_affines(
     List of 2×3 float32 arrays with the cross-axis drift removed.
     """
     from backend.src.constants.animation import WAVE_CORRECT_MIN_TX_RANGE
+
+    if _HAS_BATCH:
+        result = _batch.wave_correct.wave_correct_affines(
+            [np.asarray(a, dtype=np.float32) for a in affines],
+            axis=axis,
+            min_range_px=float(WAVE_CORRECT_MIN_TX_RANGE),
+        )
+        return [np.asarray(r, dtype=np.float32) for r in result]
 
     N = len(affines)
     if N < 3:

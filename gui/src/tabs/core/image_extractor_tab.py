@@ -324,6 +324,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
 
         self.media_player = QMediaPlayer()
         self.audio_output = QAudioOutput()
+        self.audio_output.setVolume(0.0)
         self.media_player.setAudioOutput(self.audio_output)
         self.media_player.setVideoOutput(self.video_item)
 

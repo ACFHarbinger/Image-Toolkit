@@ -2034,11 +2034,12 @@ class TestWaveCorrectAffines:
         assert hasattr(pipeline, "_WAVE_CORRECT")
 
     def test_no_drift_unchanged(self):
-        # tx=[0,0,0], ty=[0,100,200] — tx range = 0 < 5.0 → unchanged
+        # tx=[0,0,0], ty=[0,100,200] — tx range = 0 < 5.0 → values unchanged
         affines = [_make_affine_wave_correct(0.0, float(i * 100)) for i in range(3)]
         result = _wave_correct_affines(affines, axis="vertical")
-        # Should be same object (no copy when range < threshold)
-        assert result is affines
+        # C++ always returns new arrays; compare values, not identity
+        for r, a in zip(result, affines):
+            np.testing.assert_allclose(r, a, atol=1e-4)
 
     def test_vertical_corrects_tx_drift(self):
         # tx=[0,5,10,15], ty=[0,100,200,300] — linear tx drift of 5px/frame
@@ -2052,12 +2053,13 @@ class TestWaveCorrectAffines:
         assert tx_range < 2.0  # nearly flat
 
     def test_below_min_range_unchanged(self):
-        # tx=[0,2,4] — range=4 < WAVE_CORRECT_MIN_TX_RANGE=5.0 → same object
+        # tx=[0,2,4] — range=4 < WAVE_CORRECT_MIN_TX_RANGE=5.0 → values unchanged
         affines = [
             _make_affine_wave_correct(float(i * 2), float(i * 100)) for i in range(3)
         ]
         result = _wave_correct_affines(affines, axis="vertical")
-        assert result is affines
+        for r, a in zip(result, affines):
+            np.testing.assert_allclose(r, a, atol=1e-4)
 
     def test_schema_entry(self):
         assert "ASP_WAVE_CORRECT" in config._CONFIG_SCHEMA

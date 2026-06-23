@@ -55,6 +55,8 @@ target_link_libraries(batch_impl PUBLIC
     OpenMP::OpenMP_CXX
 )
 
+target_compile_definitions(batch_impl PUBLIC BATCH_TESTS=1)
+
 if(FFTW3_FOUND)
     target_link_libraries(batch_impl PUBLIC ${FFTW3_LIBRARIES})
     target_compile_definitions(batch_impl PUBLIC HAVE_FFTW3=1)
@@ -69,6 +71,8 @@ add_executable(batch_tests
     test_bundle_adjust.cpp
     test_exposure.cpp
     test_matching.cpp
+    test_validation.cpp
+    test_wave_correct.cpp
     test_fuzz.cpp
 )
 
@@ -82,6 +86,7 @@ target_include_directories(batch_tests PRIVATE
 target_link_libraries(batch_tests PRIVATE
     batch_impl
     Catch2::Catch2WithMain
+    pybind11::embed
 )
 
 # Register with CTest
