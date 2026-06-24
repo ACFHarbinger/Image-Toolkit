@@ -51,6 +51,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_gradient_cv,
+    _strip_hist_intersection_min,
     _strip_luma_monotonicity,
     _strip_seam_gradient_score,
     _strip_self_ssim,
@@ -732,6 +733,12 @@ _GAIN_SIGN_FLIP_MAX: float = float(os.environ.get("ASP_GAIN_SIGN_FLIP_MAX", "0.0
 # which fires on LOW ssim.  Default ON with floor=0.85.
 _STRIP_SSIM_GATE_ENABLED: bool = os.environ.get("ASP_GATE_STRIP_SSIM", "1") != "0"
 _STRIP_SSIM_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_STRIP_SSIM_FLOOR", "0.85"))
+
+# §5.36 — Pipeline Strip Histogram Intersection Gate (Stage 11.33).
+# Fires when minimum inter-strip histogram intersection < floor → SCANS fallback.
+# Low intersection = color mismatch between adjacent strips. Set ASP_GATE_HIST_INTERSECT=0 to disable.
+_HIST_INTERSECT_GATE_ENABLED: bool = os.environ.get("ASP_GATE_HIST_INTERSECT", "1") != "0"
+_HIST_INTERSECT_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_HIST_INTERSECT_FLOOR", "0.35"))
 
 
 def _compute_bg_lum_spread(
@@ -4890,6 +4897,21 @@ class AnimeStitchPipeline:
             except Exception as _car_e:
                 logger.debug("[Stitch] Stage 11.32: CanvasAspectGate skipped (%s).", _car_e)
 
+        # ── Stage 11.33: §5.36 Strip Histogram Intersection Gate ────────────
+        if _HIST_INTERSECT_GATE_ENABLED and N > 1:
+            try:
+                _hi_val = _strip_hist_intersection_min(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.33: hist_intersect_min=%.4f (floor=%.3f).", _hi_val, _HIST_INTERSECT_GATE_FLOOR)
+                if _hi_val < _HIST_INTERSECT_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.33: HistIntersectGate FAILED (intersect=%.4f < floor=%.3f) → SCANS fallback.",
+                        _hi_val, _HIST_INTERSECT_GATE_FLOOR,
+                    )
+                    _sf = scans_frames or _reload_scans_frames(image_paths)
+                    return _scan_stitch_fallback(_sf, output_path, reason=f"hist_intersect_gate:{_hi_val:.4f}")
+            except Exception as _hi_e:
+                logger.debug("[Stitch] Stage 11.33: HistIntersectGate skipped (%s).", _hi_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5616,4 +5638,7 @@ __all__ = [
     "_CANVAS_ASPECT_GATE_ENABLED",
     "_CANVAS_ASPECT_GATE_FLOOR",
     "_canvas_aspect_ratio",
+    "_HIST_INTERSECT_GATE_ENABLED",
+    "_HIST_INTERSECT_GATE_FLOOR",
+    "_strip_hist_intersection_min",
 ]

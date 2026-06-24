@@ -2796,3 +2796,48 @@ class TestCanvasAspectGatePipeline:
         monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_ENABLED", True)
         N = 1
         assert not (_pl._CANVAS_ASPECT_GATE_ENABLED and N > 1)
+
+
+# ===========================================================================
+# §5.36 — Pipeline Strip Histogram Intersection Gate (Stage 11.33)
+# ===========================================================================
+
+
+class TestHistIntersectGatePipeline:
+    """Unit tests for §5.36 _strip_hist_intersection_min and Stage 11.33 gate flags."""
+
+    def test_disabled_skips(self, monkeypatch):
+        """When gate is disabled, even intersection=0.0 does not trigger gate condition."""
+        monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_ENABLED", False)
+        assert not pipeline._HIST_INTERSECT_GATE_ENABLED
+
+    def test_passes_high_intersection(self, monkeypatch):
+        """Intersection=0.80 ≥ floor 0.35 → gate does not fire."""
+        monkeypatch.setattr(pipeline, "_strip_hist_intersection_min", lambda *a, **k: 0.80)
+        monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_ENABLED", True)
+        monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_FLOOR", 0.35)
+        val = pipeline._strip_hist_intersection_min(None)
+        assert val == pytest.approx(0.80)
+        assert not (val < pipeline._HIST_INTERSECT_GATE_FLOOR)
+
+    def test_fails_low_intersection(self, monkeypatch):
+        """Intersection=0.10 < floor 0.35 → gate would fire."""
+        monkeypatch.setattr(pipeline, "_strip_hist_intersection_min", lambda *a, **k: 0.10)
+        monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_ENABLED", True)
+        monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_FLOOR", 0.35)
+        val = pipeline._strip_hist_intersection_min(None)
+        assert val < pipeline._HIST_INTERSECT_GATE_FLOOR
+
+    def test_exact_floor(self, monkeypatch):
+        """Intersection exactly equal to floor (0.35) → NOT less than → no fallback."""
+        monkeypatch.setattr(pipeline, "_strip_hist_intersection_min", lambda *a, **k: 0.35)
+        monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_ENABLED", True)
+        monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_FLOOR", 0.35)
+        val = pipeline._strip_hist_intersection_min(None)
+        assert not (val < pipeline._HIST_INTERSECT_GATE_FLOOR)
+
+    def test_n1_skips(self, monkeypatch):
+        """When N=1, gate block is guarded by `N > 1` → gate is skipped."""
+        monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_ENABLED", True)
+        N = 1
+        assert not (pipeline._HIST_INTERSECT_GATE_ENABLED and N > 1)

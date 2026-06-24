@@ -626,3 +626,4 @@ SEAM_BAND_NCC_GATE_FLOOR: float = 0.30  # §5.31: pipeline seam band NCC gate fl
 SIQE_GATE_FLOOR: float = 30.0  # §5.29: pipeline ghosting SIQE gate floor
 SEAM_GRAD_RATIO_GATE_FLOOR: float = 3.0  # §5.33: pipeline seam gradient ratio gate floor
 CANVAS_ASPECT_GATE_FLOOR: float = 1.2  # §5.34: minimum H/W ratio for canvas aspect gate
+HIST_INTERSECT_GATE_FLOOR: float = 0.35  # §5.36: pipeline strip histogram intersection gate floor
