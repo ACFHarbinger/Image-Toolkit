@@ -6,6 +6,7 @@ Tests for pipeline.py module-level functions:
   §1.13 — _reject_scene_change_edges (scene-change luma gate)
   §1.3C — _normalize_frame_scales (scale normalisation before BA)
   §4.7  — _compute_dy_cv (step-size CV gate for SCANS fallback)
+  §5.8  — _compute_adaptive_dy_cv_max (adaptive dy_cv ceiling for large-N sequences)
 """
 
 from backend.src.animation.core import pipeline
@@ -19,6 +20,7 @@ import cv2
 
 from backend.src.animation.core.pipeline import (
     _compute_dy_cv,
+    _compute_adaptive_dy_cv_max,
     _check_edge_graph_connectivity,
     _compute_mst_weight,
     _compute_canvas_span_utilization,
@@ -2206,3 +2208,35 @@ class TestComputeDyCv:
         # All steps ≈ 0 (static frames) — mean < 1.0 → returns 0.0 (guard)
         affines = [_make_affine(dy=0.1 * i) for i in range(4)]
         assert _compute_dy_cv(affines) == pytest.approx(0.0)
+
+
+# ===========================================================================
+# §5.8 — _compute_adaptive_dy_cv_max
+# ===========================================================================
+
+
+class TestAdaptiveDyCvMax:
+    """§5.8: Adaptive dy_cv ceiling for large-N sequences."""
+
+    def test_small_n_unchanged(self):
+        # N < 8 → base_max returned unchanged (no scaling applied)
+        assert _compute_adaptive_dy_cv_max(4, 1.5) == pytest.approx(1.5)
+        assert _compute_adaptive_dy_cv_max(7, 1.5) == pytest.approx(1.5)
+
+    def test_n_equals_8_unchanged(self):
+        # N = 8 → scale factor = 8/8 = 1.0 → base_max unchanged
+        assert _compute_adaptive_dy_cv_max(8, 1.5) == pytest.approx(1.5)
+
+    def test_n_16_halved(self):
+        # N = 16 → scale = 8/16 = 0.5 → 1.5 * 0.5 = 0.75, but floor=0.8 applies
+        result = _compute_adaptive_dy_cv_max(16, 1.5)
+        assert result == pytest.approx(0.8)
+
+    def test_floor_enforced(self):
+        # Very large N (100) → 1.5 * 8/100 = 0.12, clamped to floor 0.8
+        result = _compute_adaptive_dy_cv_max(100, 1.5)
+        assert result == pytest.approx(0.8)
+
+    def test_custom_base_max(self):
+        # N = 8, base = 2.0 → scale = 8/8 = 1.0 → returns 2.0 (above floor)
+        assert _compute_adaptive_dy_cv_max(8, 2.0) == pytest.approx(2.0)

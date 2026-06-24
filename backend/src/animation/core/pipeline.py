@@ -2226,6 +2226,20 @@ def _compute_dy_cv(affines: List[np.ndarray]) -> float:
     return float(np.std(dy_steps)) / mean_dy
 
 
+def _compute_adaptive_dy_cv_max(n_frames: int, base_max: float = 1.5) -> float:
+    """§5.8: Lower dy_cv ceiling for sequences with many frames.
+
+    With N≥8 frames, step irregularity compounds across more seams.
+    Scale: max(base_max * 8 / max(n_frames, 8), 0.8)
+    - N=8: base_max (no change, floor ≥0.8)
+    - N=16: base_max * 0.5 = 0.75 (→ floor 0.8)
+    - N=4: base_max (unchanged, below 8)
+    """
+    if n_frames < 8:
+        return base_max
+    return max(base_max * 8.0 / n_frames, 0.8)
+
+
 def _check_canvas_spread(
     edges: "List[dict]",
     min_spread_fraction: float,
@@ -3841,12 +3855,14 @@ class AnimeStitchPipeline:
         # compositing — SCANS trivially handles these sequences.
         if _DY_CV_MAX > 0.0:
             _dy_cv_gate = _compute_dy_cv(affines)
-            if _dy_cv_gate >= _DY_CV_MAX:
+            _dy_cv_adaptive_max = _compute_adaptive_dy_cv_max(N, _DY_CV_MAX)
+            if _dy_cv_gate >= _dy_cv_adaptive_max:
                 logger.info(
-                    "[Stitch] §4.7: dy_cv=%.3f ≥ %.2f (irregular scroll) "
+                    "[Stitch] §4.7/§5.8: dy_cv=%.3f ≥ %.2f (irregular scroll, N=%d) "
                     "→ SCANS fallback (ASP seam routing degrades severely at high dy_cv).",
                     _dy_cv_gate,
-                    _DY_CV_MAX,
+                    _dy_cv_adaptive_max,
+                    N,
                 )
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
@@ -5163,6 +5179,7 @@ __all__ = [
     "_compute_mst_weight",
     "_compute_canvas_span_utilization",
     "_compute_dy_cv",
+    "_compute_adaptive_dy_cv_max",
     "_DY_CV_MAX",
     "_SEAM_SMOOTH_PX",
     "_SEAM_LUM_STEP_PX",
