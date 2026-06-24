@@ -1476,3 +1476,50 @@ class TestStripLumaMonotonicity:
         img = np.full((80, 100, 3), 128, dtype=np.uint8)
         result = _strip_luma_monotonicity(img, n_strips=8)
         assert result == 0.0
+
+
+# ---------------------------------------------------------------------------
+# §5.12 — Horizontal FFT Banding Score (S170)
+# ---------------------------------------------------------------------------
+from backend.benchmark.bench_anime_stitch import _horizontal_fft_banding
+
+
+class TestHorizontalFftBanding:
+    """§5.12: Periodic horizontal banding detection via column-mean luminance FFT."""
+
+    def test_uniform_image(self):
+        # All-gray image → no luminance variation → near-zero FFT energy → 0.0
+        img = np.full((800, 100, 3), 128, dtype=np.uint8)
+        result = _horizontal_fft_banding(img, n_strips=8)
+        assert result == 0.0
+
+    def test_periodic_bands(self):
+        # 8 alternating bright/dark strips → strong energy at strip frequency
+        img = np.zeros((800, 100, 3), dtype=np.uint8)
+        strip_h = 100  # 800 / 8
+        for i in range(8):
+            val = 200 if i % 2 == 0 else 50
+            img[i * strip_h:(i + 1) * strip_h] = val
+        result = _horizontal_fft_banding(img, n_strips=8)
+        assert result > 0.3
+
+    def test_random_noise(self):
+        # Random noise → energy spread across spectrum → low banding score
+        rng = np.random.default_rng(42)
+        img = (rng.random((800, 100, 3)) * 255).astype(np.uint8)
+        result = _horizontal_fft_banding(img, n_strips=8)
+        # Energy is spread — strip-frequency band captures a small fraction
+        assert 0.0 <= result <= 1.0
+
+    def test_degenerate_small(self):
+        # 4-row image with n_strips=8 → H < n_strips*4 → returns 0.0
+        img = np.full((4, 100, 3), 100, dtype=np.uint8)
+        result = _horizontal_fft_banding(img, n_strips=8)
+        assert result == 0.0
+
+    def test_score_range(self):
+        # Any image → score must be in [0, 1]
+        rng = np.random.default_rng(7)
+        img = rng.integers(0, 255, (400, 200, 3), dtype=np.uint8)
+        result = _horizontal_fft_banding(img, n_strips=8)
+        assert 0.0 <= result <= 1.0
