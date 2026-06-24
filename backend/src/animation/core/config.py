@@ -1031,6 +1031,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         200.0,
         "§5.2: SCGate absolute floor (seam_coherence units); gate only fires when ASP seam_coherence exceeds this value (default 15.0)",
     ),
+    "ASP_GATE_FFT_BAND": (
+        float,
+        0.0,
+        90.0,
+        "§5.13: FFTBandGate ratio limit — ASP horizontal_fft_banding must not exceed ratio×SCANS; ≥90=disabled (default 3.0)",
+    ),
+    "ASP_GATE_FFT_BAND_FLOOR": (
+        float,
+        0.0,
+        1.0,
+        "§5.13: FFTBandGate absolute floor (banding score [0,1]); gate only fires when ASP score exceeds this value (default 0.30)",
+    ),
 }
 
 
@@ -1262,6 +1274,8 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_GATE_CGU_FLOOR",
         "ASP_GATE_SEAM_COH",
         "ASP_GATE_SEAM_COH_FLOOR",
+        "ASP_GATE_FFT_BAND",
+        "ASP_GATE_FFT_BAND_FLOOR",
     ],
     "bundle_adjust": [
         "ASP_BA_F_SCALE",

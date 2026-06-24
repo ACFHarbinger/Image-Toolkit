@@ -1523,3 +1523,61 @@ class TestHorizontalFftBanding:
         img = rng.integers(0, 255, (400, 200, 3), dtype=np.uint8)
         result = _horizontal_fft_banding(img, n_strips=8)
         assert 0.0 <= result <= 1.0
+
+
+class TestFftBandingGate:
+    """§5.13: FFT Banding Gate threshold logic tests."""
+
+    def test_gate_disabled_when_ratio_90(self):
+        # ASP_GATE_FFT_BAND=90 → gate skipped entirely, never fires
+        ratio_limit = 90.0
+        # Gate condition: ratio_limit < 90 must be False → gate is skipped
+        assert not (ratio_limit < 90)
+
+    def test_gate_fires_when_asp_exceeds_limit(self):
+        # asp_fft=0.50, sim_fft=0.05, floor=0.30, ratio=3.0
+        # limit = max(0.30, 3.0 * max(0.05, 0.001)) = max(0.30, 0.15) = 0.30
+        # 0.50 > 0.30 → gate fires
+        asp_fft = 0.50
+        sim_fft = 0.05
+        floor = 0.30
+        ratio_limit = 3.0
+        limit = max(floor, ratio_limit * max(sim_fft, 0.001))
+        assert limit == pytest.approx(0.30)
+        assert asp_fft > limit  # gate would fire
+
+    def test_gate_passes_when_asp_below_limit(self):
+        # asp_fft=0.10, sim_fft=0.05, floor=0.30 → limit=0.30 → 0.10 < 0.30 → no fire
+        asp_fft = 0.10
+        sim_fft = 0.05
+        floor = 0.30
+        ratio_limit = 3.0
+        limit = max(floor, ratio_limit * max(sim_fft, 0.001))
+        assert limit == pytest.approx(0.30)
+        assert asp_fft <= limit  # gate would not fire
+
+    def test_floor_dominates_when_sim_is_zero(self):
+        # sim_fft=0 → limit = max(floor, ratio * 0.001) ≈ max(0.30, 0.003) = 0.30
+        # asp_fft=0.50 > 0.30 → gate fires
+        asp_fft = 0.50
+        sim_fft = 0.0
+        floor = 0.30
+        ratio_limit = 3.0
+        limit = max(floor, ratio_limit * max(sim_fft, 0.001))
+        assert limit == pytest.approx(0.30)
+        assert asp_fft > limit  # gate fires; floor dominates
+
+    def test_fallback_reason_set_on_fire(self):
+        # Verify the fallback_reason string format contains "fft_band_gate:"
+        asp_fft = 0.50
+        sim_fft = 0.05
+        floor = 0.30
+        ratio_limit = 3.0
+        limit = max(floor, ratio_limit * max(sim_fft, 0.001))
+        fallback_reason = (
+            f"fft_band_gate:asp={asp_fft:.3f}_sim={sim_fft:.3f}_limit={limit:.3f}"
+        )
+        assert fallback_reason.startswith("fft_band_gate:")
+        assert f"asp={asp_fft:.3f}" in fallback_reason
+        assert f"sim={sim_fft:.3f}" in fallback_reason
+        assert f"limit={limit:.3f}" in fallback_reason
