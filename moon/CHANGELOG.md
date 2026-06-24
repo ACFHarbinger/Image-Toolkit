@@ -4,6 +4,22 @@
 
 ---
 
+## S165 — 2026-06-24 (§4.10 Pre-Seam Global Gain Equalization)
+
+*Root-cause fix for the dominant seam_visibility / strip_banding failure pattern. `_equalize_warped_gains()` runs sequential pairwise `_blocks_gain_compensate()` across all warped frames before GraphCut or DP seam finding, equalising inter-frame luminance regardless of which compositing path is active. Previously, `_blocks_gain_compensate()` was wired only in the DP fallback path — so all composites going through GraphCut (default-ON since S161) received no gain correction, producing strip_banding_score 31–41 and seam_visibility 119+ on worst-case tests. Also enables `_BLOCKS_GAIN_COMP` / `_BLOCKS_LUM_COMP` by default so the DP path also benefits. 5 new tests in `TestEqualizeWarpedGains`; 1410 passed.*
+
+### compositing.py
+- **`_equalize_warped_gains(warped_frames, block_size=32)`** — sequential pairwise gain equalisation: frame 0 is reference; each subsequent frame corrected to match predecessor via `_blocks_gain_compensate()`; only where both frames have valid content (max channel > 0)
+- **`_GLOBAL_GAIN_COMP`** — `ASP_GLOBAL_GAIN_COMP` env flag (default ON); gates `_equalize_warped_gains` call
+- Wired in `_composite_foreground` immediately before `if _GRAPHCUT_SEAM and BATCH_AVAILABLE and N >= 2:` block
+- `_BLOCKS_GAIN_COMP` default changed "0" → "1"; `_BLOCKS_LUM_COMP` default changed "0" → "1"
+- Exported `_equalize_warped_gains`, `_GLOBAL_GAIN_COMP` in `__all__`
+
+### test_compositing.py
+- **`TestEqualizeWarpedGains`** — 5 tests: single-frame copy, luminance step reduced, black frame not corrected, output length matches input, flag is bool
+
+---
+
 ## S164 — 2026-06-24 (§3.33 Feathered GraphCut Boundary Blend · §4.9 Post-Composite Seam Band Smoothing)
 
 *Two complementary improvements targeting seam_visibility (dominant failure +512%): §3.33 feathers the hard pixel boundary at GraphCut ownership transitions; §4.9 adds an optional post-composite Gaussian blur pass at each seam row. 1405 tests passing (85 skipped).*
