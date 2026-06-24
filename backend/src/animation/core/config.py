@@ -1117,6 +1117,8 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         255.0,
         "§5.24: Pipeline chroma coh gate floor (luma units per channel, default 20.0)",
     ),
+    "ASP_GATE_STRIP_SSIM": (int, 0, 1, "§5.25: Enable pipeline strip self-SSIM gate (0 or 1, default 1)"),
+    "ASP_GATE_STRIP_SSIM_FLOOR": (float, 0.0, 1.0, "§5.25: Strip self-SSIM gate floor (default 0.85)"),
 }
 
 
