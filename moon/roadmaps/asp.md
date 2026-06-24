@@ -2413,6 +2413,96 @@ GraphCut default-ON (S161) reduces seam_visibility in well-textured areas, but a
 
 ---
 
+### §5.14 Strip Luma Monotonicity Gate ✅ [Priority: Medium — strip_banding SCANS fallback]
+
+**Problem**: `strip_luma_monotonicity` captures alternating light/dark strip patterns not caught by FFT or CGU. High values (>0.5) indicate the output is worse than a monotonic scroll.
+
+**Implementation** *(shipped S172)*:
+- MonotonGate after FFTBandGate in `run_dataset()`: fires when `asp_mono > max(0.50, 3.0 × sim_mono)`
+- `ASP_GATE_MONO=3.0`, `ASP_GATE_MONO_FLOOR=0.50`; `_fallback_reason` prefix: `monot_gate:`
+- 5 tests in `TestMonotonGate` (`test_bench_metrics.py`)
+
+---
+
+### §5.15 Seam Ownership Entropy Gate ✅ [Priority: Medium — seam_vis SCANS fallback]
+
+**Problem**: High seam ownership entropy means frame boundaries are fragmented — each strip boundary has high variance in which frame "owns" each pixel. This correlates with ghosting and banding.
+
+**Implementation** *(shipped S172)*:
+- EntropyGate after MonotonGate: fires when `asp_ent > max(3.0, 2.5 × sim_ent)`
+- `ASP_GATE_ENTROPY=2.5`, `ASP_GATE_ENTROPY_FLOOR=3.0`; `_fallback_reason` prefix: `entropy_gate:`
+- 5 tests in `TestSeamOwnershipEntropyGate` (`test_bench_metrics.py`)
+
+---
+
+### §5.16 Per-Seam Adaptive Lum-Step Correction Width ✅ [Priority: High — seam_visibility reduction]
+
+**Problem**: Stage 11.20's `_correct_seam_lum_steps` uses a fixed `band_px=20` for all seams. Small luminance steps need a narrow band; large steps need a wide band.
+
+**Implementation** *(shipped S172)*:
+- `_per_seam_lum_step_px(canvas, seam_ys, min_px=5, max_px=40)` in `canvas.py`: maps step∈[5,30]→px∈[5,40]
+- `SEAM_LUM_STEP_ADAPTIVE: bool = True` in constants; `_SEAM_LUM_STEP_ADAPTIVE` module flag in pipeline.py
+- 5 tests in `TestPerSeamLumStepPx` (`test_canvas.py`)
+
+---
+
+### §5.17 Strip Self-SSIM Gate ✅ [Priority: Medium — structural coherence SCANS fallback]
+
+**Problem**: `strip_self_ssim` measures structural self-similarity between adjacent strips. Low values indicate the output looks incoherent across strip boundaries even when luminance is similar.
+
+**Implementation** *(shipped S173)*:
+- StripSSIMGate after EntropyGate: fires when `asp_sssim < min(0.60, 0.5 × sim_sssim)` (inverted: lower = worse)
+- `ASP_GATE_STRIP_SSIM=0.5`, `ASP_GATE_STRIP_SSIM_FLOOR=0.60`; `_fallback_reason` prefix: `strip_ssim_gate:`
+- 5 tests in `TestStripSsimGate` (`test_bench_metrics.py`)
+
+---
+
+### §5.18 Chroma Seam Coherence Gate ✅ [Priority: Medium — color mismatch SCANS fallback]
+
+**Problem**: `chroma_seam_coherence` captures per-channel color discontinuities at seam boundaries. High values indicate visible color shifts between strips.
+
+**Implementation** *(shipped S173)*:
+- ChromaSeamGate after StripSSIMGate: fires when `asp_chroma > max(12.0, 2.5 × sim_chroma)`
+- `ASP_GATE_CHROMA_COH=2.5`, `ASP_GATE_CHROMA_COH_FLOOR=12.0`; `_fallback_reason` prefix: `chroma_coh_gate:`
+- 5 tests in `TestChromaSeamCohGate` (`test_bench_metrics.py`)
+
+---
+
+### §5.19 Pipeline Seam Coherence Gate [Priority: High — in-pipeline strip_banding fallback]
+
+**Problem**: §5.2 SCGate fires at benchmark level — too late for production. A matching gate in pipeline.py (Stage 11.22) lets the pipeline fall back when seam coherence (std of row-mean lum) is high.
+
+**Plan**:
+- `_seam_coherence_score(img)` in `canvas.py`: returns `std(row_means)` of canvas
+- Stage 11.22: after Stage 11.21 CGU gate: if `sc > _SC_GATE_FLOOR` (default 25.0) → SCANS fallback
+- `ASP_GATE_SEAM_COH` enable flag, `ASP_GATE_SEAM_COH_FLOOR=25.0`
+- 5 tests in `TestScGatePipeline` (`test_pipeline.py`)
+
+---
+
+### §5.20 Per-Seam Adaptive Lum-Step Band Widths in Stage 11.20 [Priority: High — seam_visibility reduction]
+
+**Problem**: §5.16 added `_per_seam_lum_step_px` but Stage 11.20 still calls `_correct_seam_lum_steps` with a uniform `band_px`. Per-seam widths need to be wired in.
+
+**Plan**:
+- Update `_correct_seam_lum_steps` to accept `Union[int, List[int]]` for `band_px`
+- Stage 11.20: when `_SEAM_LUM_STEP_ADAPTIVE=True`, compute `_per_seam_lum_step_px(canvas, seam_ys)` and pass list
+- 5 tests for `_correct_seam_lum_steps` with list `band_px` (`test_canvas.py`)
+
+---
+
+### §5.21 Pipeline FFT Banding Gate [Priority: High — in-pipeline strip_banding fallback]
+
+**Problem**: §5.13 FFTBandGate fires at benchmark level only. Pipeline-level Stage 11.23 would catch periodic banding at run time before it reaches the user.
+
+**Plan**:
+- Move `_horizontal_fft_banding` to `canvas.py`, export in `__all__`
+- Stage 11.23: after Stage 11.22: if `fft > _FFT_BAND_GATE_FLOOR` (default 0.35) → SCANS fallback
+- `ASP_GATE_FFT_BAND` enable flag, `ASP_GATE_FFT_BAND_FLOOR=0.35`
+- 5 tests in `TestFftBandGatePipeline` (`test_pipeline.py`)
+
+---
+
 ### §5.8 Adaptive dy_cv Ceiling for Large-N Sequences ✅ [Priority: Medium — fallback precision]
 
 **Problem**: The dy_cv gate uses a fixed `_DY_CV_MAX=1.5` regardless of how many frames are in the sequence. With N≥8 frames, step irregularity compounds across more seams — the same dy_cv=1.4 is more damaging with 16 frames than with 4.
@@ -2431,7 +2521,7 @@ GraphCut default-ON (S161) reduces seam_visibility in well-textured areas, but a
 *Effort scale* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or data-gated
 *Impact scale* — **Low**: aesthetic or niche QoL · **Medium**: targeted corpus subset · **High**: pipeline-wide quality gain · **Very High**: architectural unlock or near-perfect ceiling
 
-*Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S171 (2026-06-24).*
+*Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S173 (2026-06-24).*
 
 > **⚠ CRITICAL — Test Suite Freeze:** Before running `pytest backend/test/`, see `moon/roadmaps/performance.md §3.10–§3.14`. Root Cause #1 (unconditional `from diffusers import DiffusionPipeline` in `anim_fill.py`) **fixed in S140**. Root Causes #2–#5 (model singletons, ThreadPoolExecutor storm, per-test gc.collect(), no process isolation) are documented in performance.md with CRITICAL-priority fix options.
 
@@ -2442,7 +2532,7 @@ GraphCut default-ON (S161) reduces seam_visibility in well-textured areas, but a
 | **High (1–2w)** | — | — | §2.10 SAM2Flow interactive (A/B, model-dependent) · §3.5 CamFlow MET (model-dependent) | — |
 | **Very High (2w+ / data-gated)** | — | — | §3.7 UDIS++ diffusion seam (end-to-end replacement) | §10C1 SAM-2 anime fine-tune · §10C2 Pose contrastive fine-tune · §10C3 PPO parameter optimization |
 
-*Already shipped (removed from matrix):* **§4.7 dy_cv gate** ✅S161 · **§4.2 GraphCut default-ON** ✅S161 · **§3.32 edge_energy_score alias** ✅S161 · **§4.5 Canvas-space DP** ✅S162 · **§3.32B/C/D ghosting_siqe scoring** ✅S162 · **§4.8 SeamVisGate** ✅S163 · **§3.33 Feathered GC boundary** ✅S164 · **§4.9 Seam band smoothing (default OFF)** ✅S164 · **§4.10 Global gain equalization** ✅S165 · **§5.1 Seam lum-step correction (default OFF)** ✅S166 · **§5.3 CGUGate** ✅S166 · **§5.2 SCGate seam coherence fallback** ✅S166/S167 · **§5.4 CGU in CQAS** ✅S167 · **§5.5 seam_vis in verdict** ✅S167 · **§5.6 pipeline CGU gate + seam-smooth default ON** ✅S168 · **§5.8 adaptive dy_cv ceiling** ✅S168 · **§5.9 auto seam lum-step from CGU** ✅S169 · **§5.10 strip luma monotonicity metric** ✅S169 · **§5.11 adaptive seam-smooth width** ✅S170 · **§5.12 horizontal FFT banding metric** ✅S170 · **§5.13 FFT banding gate** ✅S171 · §2.11B GUI waypoints ✅S124 · §3.4 FD-means ✅S6 · §3.8 SIQE ✅ · §9B telecine ✅ · §10B2 Label Studio ✅ · §2.5 Coverage map ✅S79 · §2.6 Crop ✅S7 · §3.15A SemanticStitch ✅S67 · §10A2 SAM-2 click-refine ✅ · §9A PyAV ✅ · §10A1 Grounded SAM-2 ✅ · §10B1 COCO ✅ · §9C Hybrid 4K ✅S119 · §3.3 DINOv2 ✅S8 · §3.6 ToonCrafter ✅S9 · §3.11 SAM-2 interactive ✅ · §10A3 NL seam ✅ · §2.1A SelectionReview ✅S79 · §2.2 EdgeReview ✅S79 · §2.3 CanvasInspector ✅S63 · §2.4A SeamDiag ✅S95 · §2.7 StagedExec ✅S79 · §1.10A quality-gate ✅S29 · §1.10E bench-import ✅S119 · §2.11A IS waypoints ✅S123 · §1.10D active-learning ✅S130 · §1.66 NCC gate ✅S131 · §1.67 canvas-spread ✅S131 · §1.8C/D dump-config ✅S131 · §1.68 feather-ratio ✅S132 · §1.69 dp-bg-ratio ✅S132 · §1.70 zone-fg-pre-escalation ✅S132 · §1.71 bg-lum-spread ✅S132 · §1.72 entropy-asymmetry ✅S132 · §1.73 gain-monotonicity ✅S133 · §1.74 canvas-fill ✅S133 · §1.75 strip-variance-ratio ✅S133 · §1.76 per-col-luma-step ✅S134 · §1.77 sat-jump ✅S135 · §1.78 hue-shift ✅S135 · §1.79 sharpness-mismatch ✅S136 · §1.80 grad-direction ✅S137 · §1.81 band-ssim ✅S138 · §1.82 freq-profile ✅S138 · §3.16A StabStitch++ trajectory ✅S121 · §1.83 noise-asymmetry ✅S139 · §1.84 rms-contrast-ratio ✅S139 · §1.85 ensemble-combiner ✅S139 · **§3.13 ProPainter Stage 4.7** ✅S140 · **§2.9A LandmarkEditorDialog** ✅S140 · **§2.10C user-drawn flow field** ✅S140 · **§1.87 masked-median bg** ✅S142 · **§3.14B horizontal-strip composite** ✅S142 · **§1.10B Bayesian param search** ✅S142 · **§3.10 MLLM scoring** ✅S143 · **§3.1A AnimeInterp SGM** ✅S143 · **§3.2A ConvGRU flow refinement** ✅S143 · **§3.12A hold-block averaging** ✅S144 · **§3.9 SI-FID proxy metric** ✅S144 · **§3.15B OBJ-GSP triangular mesh barrier** ✅S145 · **§2.8 HybridStitch export** ✅S145 · **§3.16B HITL presets** ✅S146 · **§3.5B CamFlow bg-masked** ✅S146 · **§2.10A flow HITL checkpoint** ✅S146 · **§1.88 band hist match** ✅S147 · **§1.89 seam residual order** ✅S147 · **§1.90 bilateral seam smooth** ✅S147 · **§3.17 HF column seam cost** ✅S147 · **§1.91 seam lum converge** ✅S148 · **§1.92 feather Gaussian smooth** ✅S148 · **§3.18 CQAS aggregate score** ✅S148 · **§1.94 bg consistency score** ✅S148 · **§1.95 fg-zone SP threshold scale** ✅S149 · **§3.19 per-zone pre-blend chroma align** ✅S149 · **§1.96 chroma seam coherence metric** ✅S149 · **§1.97 entropy asymmetry gate** ✅S149 · **§1.98 per-frame gain smooth** ✅S150 · **§3.20 extra fg dilation cost** ✅S150 · **§1.99 seam endpoint bg-pin** ✅S150 · **§3.21 strip gradient CV metric** ✅S150 · **§1.101 full zone MAD gate** ✅S151 · **§1.102 warp momentum damping** ✅S151 · **§3.22 seam contrast ratio metric** ✅S151 · **§1.103 ref-proximity dom frame** ✅S151 · **§1.104 zone-lum-norm** ✅S152 · **§3.23 seam col spread metric** ✅S152 · **§1.105 fg-overlap blend cap** ✅S152 · **§1.106 post-composite seam lum audit** ✅S152 · **§1.107 adaptive seam band** ✅S153 · **§3.24 seam boundary row std** ✅S153 · **§1.108 Laplacian alpha schedule** ✅S153 · **§1.109 cost map normalization** ✅S153 · **§1.110 cost map Gaussian blur** ✅S154 · **§3.25 seam boundary entropy** ✅S154 · **§1.111 zone sat norm** ✅S154 · **§1.112 seam path drift gate** ✅S154 · **§1.113 cost-col smooth** ✅S155 · **§1.114 zone contrast eq** ✅S155 · **§3.26 strip sat CV** ✅S155 · **§1.115 feather jump cap** ✅S155 · **§1.116 zone bg-frac diag** ✅S156 · **§1.117 fast NCC pre-gate** ✅S156 · **§1.118 seam sharpness guard** ✅S156 · **§3.27 seam band NCC metric** ✅S156 · **§1.119 zone width CV gate** ✅S157 · **§1.120 sat step audit** ✅S157 · **§1.121 hist intersection gate** ✅S157 · **§3.28 grad coherence metric** ✅S157 · **§1.122 high-path-cost gate** ✅S158 · **§3.29 zone coverage fraction** ✅S158 · **§1.123 scatter cost penalty** ✅S158 · **§1.124 adaptive SP soft residual** ✅S158 · **§1.125 seam transition penalty** ✅S159 · **§3.30 strip self-SSIM** ✅S159 · **§1.126 fg-majority floor** ✅S159 · **§1.127 zone hue eq** ✅S159
+*Already shipped (removed from matrix):* **§5.14 strip luma monotonicity gate** ✅S172 · **§5.15 seam ownership entropy gate** ✅S172 · **§5.16 per-seam adaptive lum-step width** ✅S172 · **§5.17 strip self-SSIM gate** ✅S173 · **§5.18 chroma seam coherence gate** ✅S173 · **§4.7 dy_cv gate** ✅S161 · **§4.2 GraphCut default-ON** ✅S161 · **§3.32 edge_energy_score alias** ✅S161 · **§4.5 Canvas-space DP** ✅S162 · **§3.32B/C/D ghosting_siqe scoring** ✅S162 · **§4.8 SeamVisGate** ✅S163 · **§3.33 Feathered GC boundary** ✅S164 · **§4.9 Seam band smoothing (default OFF)** ✅S164 · **§4.10 Global gain equalization** ✅S165 · **§5.1 Seam lum-step correction (default OFF)** ✅S166 · **§5.3 CGUGate** ✅S166 · **§5.2 SCGate seam coherence fallback** ✅S166/S167 · **§5.4 CGU in CQAS** ✅S167 · **§5.5 seam_vis in verdict** ✅S167 · **§5.6 pipeline CGU gate + seam-smooth default ON** ✅S168 · **§5.8 adaptive dy_cv ceiling** ✅S168 · **§5.9 auto seam lum-step from CGU** ✅S169 · **§5.10 strip luma monotonicity metric** ✅S169 · **§5.11 adaptive seam-smooth width** ✅S170 · **§5.12 horizontal FFT banding metric** ✅S170 · **§5.13 FFT banding gate** ✅S171 · §2.11B GUI waypoints ✅S124 · §3.4 FD-means ✅S6 · §3.8 SIQE ✅ · §9B telecine ✅ · §10B2 Label Studio ✅ · §2.5 Coverage map ✅S79 · §2.6 Crop ✅S7 · §3.15A SemanticStitch ✅S67 · §10A2 SAM-2 click-refine ✅ · §9A PyAV ✅ · §10A1 Grounded SAM-2 ✅ · §10B1 COCO ✅ · §9C Hybrid 4K ✅S119 · §3.3 DINOv2 ✅S8 · §3.6 ToonCrafter ✅S9 · §3.11 SAM-2 interactive ✅ · §10A3 NL seam ✅ · §2.1A SelectionReview ✅S79 · §2.2 EdgeReview ✅S79 · §2.3 CanvasInspector ✅S63 · §2.4A SeamDiag ✅S95 · §2.7 StagedExec ✅S79 · §1.10A quality-gate ✅S29 · §1.10E bench-import ✅S119 · §2.11A IS waypoints ✅S123 · §1.10D active-learning ✅S130 · §1.66 NCC gate ✅S131 · §1.67 canvas-spread ✅S131 · §1.8C/D dump-config ✅S131 · §1.68 feather-ratio ✅S132 · §1.69 dp-bg-ratio ✅S132 · §1.70 zone-fg-pre-escalation ✅S132 · §1.71 bg-lum-spread ✅S132 · §1.72 entropy-asymmetry ✅S132 · §1.73 gain-monotonicity ✅S133 · §1.74 canvas-fill ✅S133 · §1.75 strip-variance-ratio ✅S133 · §1.76 per-col-luma-step ✅S134 · §1.77 sat-jump ✅S135 · §1.78 hue-shift ✅S135 · §1.79 sharpness-mismatch ✅S136 · §1.80 grad-direction ✅S137 · §1.81 band-ssim ✅S138 · §1.82 freq-profile ✅S138 · §3.16A StabStitch++ trajectory ✅S121 · §1.83 noise-asymmetry ✅S139 · §1.84 rms-contrast-ratio ✅S139 · §1.85 ensemble-combiner ✅S139 · **§3.13 ProPainter Stage 4.7** ✅S140 · **§2.9A LandmarkEditorDialog** ✅S140 · **§2.10C user-drawn flow field** ✅S140 · **§1.87 masked-median bg** ✅S142 · **§3.14B horizontal-strip composite** ✅S142 · **§1.10B Bayesian param search** ✅S142 · **§3.10 MLLM scoring** ✅S143 · **§3.1A AnimeInterp SGM** ✅S143 · **§3.2A ConvGRU flow refinement** ✅S143 · **§3.12A hold-block averaging** ✅S144 · **§3.9 SI-FID proxy metric** ✅S144 · **§3.15B OBJ-GSP triangular mesh barrier** ✅S145 · **§2.8 HybridStitch export** ✅S145 · **§3.16B HITL presets** ✅S146 · **§3.5B CamFlow bg-masked** ✅S146 · **§2.10A flow HITL checkpoint** ✅S146 · **§1.88 band hist match** ✅S147 · **§1.89 seam residual order** ✅S147 · **§1.90 bilateral seam smooth** ✅S147 · **§3.17 HF column seam cost** ✅S147 · **§1.91 seam lum converge** ✅S148 · **§1.92 feather Gaussian smooth** ✅S148 · **§3.18 CQAS aggregate score** ✅S148 · **§1.94 bg consistency score** ✅S148 · **§1.95 fg-zone SP threshold scale** ✅S149 · **§3.19 per-zone pre-blend chroma align** ✅S149 · **§1.96 chroma seam coherence metric** ✅S149 · **§1.97 entropy asymmetry gate** ✅S149 · **§1.98 per-frame gain smooth** ✅S150 · **§3.20 extra fg dilation cost** ✅S150 · **§1.99 seam endpoint bg-pin** ✅S150 · **§3.21 strip gradient CV metric** ✅S150 · **§1.101 full zone MAD gate** ✅S151 · **§1.102 warp momentum damping** ✅S151 · **§3.22 seam contrast ratio metric** ✅S151 · **§1.103 ref-proximity dom frame** ✅S151 · **§1.104 zone-lum-norm** ✅S152 · **§3.23 seam col spread metric** ✅S152 · **§1.105 fg-overlap blend cap** ✅S152 · **§1.106 post-composite seam lum audit** ✅S152 · **§1.107 adaptive seam band** ✅S153 · **§3.24 seam boundary row std** ✅S153 · **§1.108 Laplacian alpha schedule** ✅S153 · **§1.109 cost map normalization** ✅S153 · **§1.110 cost map Gaussian blur** ✅S154 · **§3.25 seam boundary entropy** ✅S154 · **§1.111 zone sat norm** ✅S154 · **§1.112 seam path drift gate** ✅S154 · **§1.113 cost-col smooth** ✅S155 · **§1.114 zone contrast eq** ✅S155 · **§3.26 strip sat CV** ✅S155 · **§1.115 feather jump cap** ✅S155 · **§1.116 zone bg-frac diag** ✅S156 · **§1.117 fast NCC pre-gate** ✅S156 · **§1.118 seam sharpness guard** ✅S156 · **§3.27 seam band NCC metric** ✅S156 · **§1.119 zone width CV gate** ✅S157 · **§1.120 sat step audit** ✅S157 · **§1.121 hist intersection gate** ✅S157 · **§3.28 grad coherence metric** ✅S157 · **§1.122 high-path-cost gate** ✅S158 · **§3.29 zone coverage fraction** ✅S158 · **§1.123 scatter cost penalty** ✅S158 · **§1.124 adaptive SP soft residual** ✅S158 · **§1.125 seam transition penalty** ✅S159 · **§3.30 strip self-SSIM** ✅S159 · **§1.126 fg-majority floor** ✅S159 · **§1.127 zone hue eq** ✅S159
 
 ---
 

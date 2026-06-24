@@ -44,6 +44,53 @@
 
 ---
 
+## S173 — 2026-06-24 (§5.17 Strip Self-SSIM Gate · §5.18 Chroma Seam Coherence Gate)
+
+*Two benchmark SCANS fallback gates completing the §5 cascade. 1485 tests passing (85 skipped).*
+
+### §5.18 Chroma Seam Coherence Gate (`backend/benchmark/bench_anime_stitch.py`, `backend/src/animation/core/config.py`)
+
+- ChromaSeamGate after StripSSIMGate in `run_dataset()`: fires when `asp_chroma > max(12.0, 2.5 × sim_chroma)` and `_fallback_reason is None`
+- `_CHROMA_COH_RATIO_LIMIT=2.5`, `_CHROMA_COH_ABS_FLOOR=12.0`; disable with `ASP_GATE_CHROMA_COH=90`
+- `_fallback_reason` prefix: `chroma_coh_gate:`; adds 256 to `render_gate_fallback` timing
+- 5 tests in `TestChromaSeamCohGate` (`test_bench_metrics.py`)
+
+### §5.17 Strip Self-SSIM Gate (`backend/benchmark/bench_anime_stitch.py`, `backend/src/animation/core/config.py`)
+
+- StripSSIMGate after EntropyGate: fires when `asp_sssim < min(0.60, 0.5 × sim_sssim)` (inverted: lower = structurally worse)
+- `ASP_GATE_STRIP_SSIM=0.5`, `ASP_GATE_STRIP_SSIM_FLOOR=0.60`; disable with `ASP_GATE_STRIP_SSIM=0`
+- `_fallback_reason` prefix: `strip_ssim_gate:`; adds 128 to `render_gate_fallback` timing
+- 5 tests in `TestStripSsimGate` (`test_bench_metrics.py`)
+
+---
+
+## S172 — 2026-06-24 (§5.14 Strip Luma Monotonicity Gate · §5.15 Seam Ownership Entropy Gate · §5.16 Per-Seam Adaptive Lum-Step Width)
+
+*Three improvements: two benchmark SCANS gates targeting new metrics, plus per-seam adaptive correction band widths for lum-step correction. 1485 tests passing (85 skipped).*
+
+### §5.16 Per-Seam Adaptive Lum-Step Width (`backend/src/animation/alignment/canvas.py`)
+
+- `_per_seam_lum_step_px(canvas, seam_ys, base_px=20, ref_px=8, min_px=5, max_px=40)` — measures actual lum step at each seam position; maps step∈[5,30]→px∈[5,40] via linear interpolation
+- Exported in `canvas.__all__`; `SEAM_LUM_STEP_ADAPTIVE: bool = True` in constants
+- `_SEAM_LUM_STEP_ADAPTIVE` module flag in pipeline.py for future Stage 11.20 dispatch
+- 5 tests in `TestPerSeamLumStepPx` (`test_canvas.py`)
+
+### §5.15 Seam Ownership Entropy Gate (`backend/benchmark/bench_anime_stitch.py`, `backend/src/animation/core/config.py`)
+
+- EntropyGate after MonotonGate in `run_dataset()`: fires when `asp_ent > max(3.0, 2.5 × sim_ent)` and `_fallback_reason is None`
+- `ASP_GATE_ENTROPY=2.5`, `ASP_GATE_ENTROPY_FLOOR=3.0`; disable with `ASP_GATE_ENTROPY=99`
+- `_fallback_reason` prefix: `entropy_gate:`; adds 64 to `render_gate_fallback` timing
+- 5 tests in `TestSeamOwnershipEntropyGate` (`test_bench_metrics.py`)
+
+### §5.14 Strip Luma Monotonicity Gate (`backend/benchmark/bench_anime_stitch.py`, `backend/src/animation/core/config.py`)
+
+- MonotonGate after FFTBandGate in `run_dataset()`: fires when `asp_mono > max(0.50, 3.0 × sim_mono)` and `_fallback_reason is None`
+- `ASP_GATE_MONO=3.0`, `ASP_GATE_MONO_FLOOR=0.50`; disable with `ASP_GATE_MONO=99`
+- `_fallback_reason` prefix: `monot_gate:`; adds 32 to `render_gate_fallback` timing
+- 5 tests in `TestMonotonGate` (`test_bench_metrics.py`)
+
+---
+
 ## S168 — 2026-06-24 (§5.6 Pipeline CGU Gate · §5.8 Adaptive dy_cv Ceiling)
 
 *Two improvements: §5.6 brings the benchmark-level CGUGate into the pipeline itself (Stage 11.21, fallback when canvas_gain_uniformity > 0.20), also enables seam-Gaussian-smoothing by default (4px); §5.8 lowers the dy_cv ceiling proportionally for large-N sequences (N≥8) to prevent compounding step irregularity. 1435 tests passing (85 skipped).*
