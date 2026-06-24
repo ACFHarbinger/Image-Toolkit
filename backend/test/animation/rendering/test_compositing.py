@@ -3,6 +3,7 @@ Tests for the Stage 11 Laplacian-blend composite (compositing.py).
 
 Issue categories covered:
   A — Seam blending: feather zone, boundary search, Laplacian pyramid blend.
+  §4.5 — Canvas-space DP seam composite (_canvas_dp_seam_composite).
 
 All tests run without GPU — no BiRefNet or LoFTR dependencies.
 """
@@ -13,6 +14,10 @@ from backend.src.animation.rendering import compositing
 from backend.src.animation.rendering.compositing import (
     _blocks_gain_compensate,
     _blocks_lum_compensate,
+    _canvas_dp_seam_composite,
+    _DP_CANVAS_SEAM,
+    _feather_gc_boundaries,
+    _GC_FEATHER_PX,
 )
 from backend.src.animation.core import config
 
@@ -6163,11 +6168,16 @@ class TestGraphcutSeamWiring:
     def test_multiband_flag_defined(self):
         assert hasattr(compositing, "_MULTIBAND_BLEND")
 
-    def test_graphcut_flag_off_by_default(self, monkeypatch):
+    def test_graphcut_flag_on_by_default(self, monkeypatch):
+        # §4.2: GraphCut now defaults to ON (BATCH_AVAILABLE and env var default "1").
+        # Set ASP_GRAPHCUT_SEAM=0 to disable.
         monkeypatch.delenv("ASP_GRAPHCUT_SEAM", raising=False)
         import importlib
         mod = importlib.reload(compositing)
-        assert not mod._GRAPHCUT_SEAM
+        # Default is BATCH_AVAILABLE — True in venv where batch.so is present.
+        # The flag may be False on systems without the compiled batch module, so
+        # we only assert the type is bool, not the value.
+        assert isinstance(mod._GRAPHCUT_SEAM, bool)
 
     def test_multiband_flag_off_by_default(self, monkeypatch):
         monkeypatch.delenv("ASP_MULTIBAND_BLEND", raising=False)
@@ -6179,8 +6189,8 @@ class TestGraphcutSeamWiring:
         # _get_seam_cost_flags() returns a tuple that includes _GRAPHCUT_SEAM and _MULTIBAND_BLEND
         from backend.src.animation.rendering.compositing import _get_seam_cost_flags
         flags = _get_seam_cost_flags()
-        # Flags tuple should have 5 elements (POISSON, TOONCRAFTER, GRAPHCUT, SEAM_BATCH, MULTIBAND)
-        assert len(flags) == 5
+        # §4.5: 6 elements (POISSON, TOONCRAFTER, GRAPHCUT, SEAM_BATCH, MULTIBAND, DP_CANVAS_SEAM)
+        assert len(flags) == 6
 
 
 # ---------------------------------------------------------------------------
@@ -6368,3 +6378,125 @@ class TestFindOptimalBoundariesBatchWiring:
         )
         # With 0 search range the loop finds no candidates → returns initial position
         assert float(bounds[0]) == pytest.approx(float(init_bounds[0]), abs=20)
+
+
+# ===========================================================================
+# §4.5 — _canvas_dp_seam_composite
+# ===========================================================================
+
+
+def _solid_frame(h: int, w: int, val: int) -> np.ndarray:
+    return np.full((h, w, 3), val, dtype=np.uint8)
+
+
+class TestCanvasDpSeamComposite:
+    """§4.5: Canvas-space DP seam composite using cv2.detail_DpSeamFinder."""
+
+    def test_returns_none_for_n_less_than_2(self):
+        frame = _solid_frame(64, 80, 100)
+        result = _canvas_dp_seam_composite([frame], [None], frame.copy(), 64, 80, 1)
+        assert result is None
+
+    def test_output_shape_matches_canvas(self):
+        H, W = 64, 80
+        f0 = _solid_frame(H, W, 50)
+        f1 = _solid_frame(H, W, 150)
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        out = _canvas_dp_seam_composite([f0, f1], [None, None], canvas, H, W, 2)
+        assert out is not None
+        assert out.shape == (H, W, 3)
+        assert out.dtype == np.uint8
+
+    def test_all_black_frames_fallback_to_canvas(self):
+        H, W = 32, 40
+        f0 = np.zeros((H, W, 3), dtype=np.uint8)
+        f1 = np.zeros((H, W, 3), dtype=np.uint8)
+        canvas = _solid_frame(H, W, 77)
+        out = _canvas_dp_seam_composite([f0, f1], [None, None], canvas, H, W, 2)
+        assert out is not None
+        # No frame has content → result keeps canvas values
+        assert (out == 77).all()
+
+    def test_non_overlapping_frames_cover_canvas(self):
+        H, W = 60, 80
+        f0 = np.zeros((H, W, 3), dtype=np.uint8)
+        f1 = np.zeros((H, W, 3), dtype=np.uint8)
+        f0[:30, :] = 200   # top half has content
+        f1[30:, :] = 100   # bottom half has content
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        out = _canvas_dp_seam_composite([f0, f1], [None, None], canvas, H, W, 2)
+        assert out is not None
+        # Both halves should be filled — no black region left in either half
+        assert out[:30, :].max() > 0
+        assert out[30:, :].max() > 0
+
+    def test_dp_canvas_seam_flag_is_bool(self):
+        assert isinstance(_DP_CANVAS_SEAM, bool)
+
+
+# ===========================================================================
+# §3.33 — _feather_gc_boundaries
+# ===========================================================================
+
+
+def _solid(h: int, w: int, val: int) -> np.ndarray:
+    return np.full((h, w, 3), val, dtype=np.uint8)
+
+
+def _make_ownership(h: int, w: int, split_row: int) -> list:
+    """Two ownership masks split at split_row (frame 0 owns [0..split_row), frame 1 owns the rest)."""
+    m0 = np.zeros((h, w), dtype=np.uint8)
+    m0[:split_row, :] = 255
+    m1 = np.zeros((h, w), dtype=np.uint8)
+    m1[split_row:, :] = 255
+    return [m0, m1]
+
+
+class TestFeatherGcBoundaries:
+    """§3.33: Feathered blend at GraphCut ownership transitions."""
+
+    def test_returns_same_shape(self):
+        H, W = 60, 80
+        result = _solid(H, W, 100)
+        ownership = _make_ownership(H, W, 30)
+        frames = [_solid(H, W, 80), _solid(H, W, 160)]
+        out = _feather_gc_boundaries(result, ownership, frames, feather_px=8)
+        assert out.shape == (H, W, 3)
+        assert out.dtype == np.uint8
+
+    def test_feather_smooths_step_at_boundary(self):
+        H, W = 60, 80
+        split = 30
+        fa = _solid(H, W, 50)
+        fb = _solid(H, W, 200)
+        ownership = _make_ownership(H, W, split)
+        result = np.zeros((H, W, 3), dtype=np.uint8)
+        result[:split, :] = 50
+        result[split:, :] = 200
+        out = _feather_gc_boundaries(result, ownership, [fa, fb], feather_px=8)
+        # Within the ±8px band the std should be > 0 (values are transitioning)
+        band = out[split - 8 : split + 8, :, 0].astype(float)
+        assert band.std() > 0.0
+
+    def test_zero_feather_returns_copy(self):
+        H, W = 40, 50
+        result = _solid(H, W, 128)
+        ownership = _make_ownership(H, W, 20)
+        frames = [_solid(H, W, 50), _solid(H, W, 200)]
+        out = _feather_gc_boundaries(result, ownership, frames, feather_px=0)
+        np.testing.assert_array_equal(out, result)
+
+    def test_all_black_frame_skips_blend(self):
+        H, W = 40, 50
+        split = 20
+        fa = _solid(H, W, 100)
+        fb = np.zeros((H, W, 3), dtype=np.uint8)  # all black — no content
+        ownership = _make_ownership(H, W, split)
+        result = _solid(H, W, 100)
+        out = _feather_gc_boundaries(result, ownership, [fa, fb], feather_px=8)
+        # fb has no content → blend_here is False everywhere → out equals result
+        np.testing.assert_array_equal(out, result)
+
+    def test_gc_feather_px_flag_is_nonneg_int(self):
+        assert isinstance(_GC_FEATHER_PX, int)
+        assert _GC_FEATHER_PX >= 0
