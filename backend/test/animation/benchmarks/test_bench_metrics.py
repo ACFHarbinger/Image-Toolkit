@@ -11,6 +11,7 @@ Covers:
 from __future__ import annotations
 from backend.benchmark.bench_anime_stitch import _zone_coverage_fraction
 from backend.benchmark.bench_anime_stitch import _canvas_gain_uniformity
+from backend.benchmark.bench_anime_stitch import _strip_luma_monotonicity
 from backend.benchmark.bench_anime_stitch import _compute_si_fid_score
 
 import os
@@ -1424,3 +1425,54 @@ class TestCompositeQualityScoreWithCGU:
         result = self._cqas(metrics)
         assert result is not None
         assert 0.0 <= result <= 1.0
+
+
+class TestStripLumaMonotonicity:
+    """§5.10: Per-strip luma monotonicity metric."""
+
+    def _build_strips(self, lum_values):
+        """Build a (n*10, 100, 3) uint8 BGR image with each strip set to a given luminance."""
+        n = len(lum_values)
+        img = np.zeros((n * 10, 100, 3), dtype=np.uint8)
+        for i, lum in enumerate(lum_values):
+            img[i * 10:(i + 1) * 10] = lum
+        return img
+
+    def test_perfectly_monotonic_ascending(self):
+        # Strictly ascending strip means → no reversals → 0.0
+        lum_values = [50, 80, 110, 140, 170, 200, 220, 240]
+        img = self._build_strips(lum_values)
+        result = _strip_luma_monotonicity(img, n_strips=8)
+        assert result == 0.0
+
+    def test_perfectly_monotonic_descending(self):
+        # Strictly descending strip means → no reversals → 0.0
+        lum_values = [240, 220, 200, 170, 140, 110, 80, 50]
+        img = self._build_strips(lum_values)
+        result = _strip_luma_monotonicity(img, n_strips=8)
+        assert result == 0.0
+
+    def test_fully_alternating(self):
+        # Alternating high/low/high/low → every adjacent pair reverses → 1.0
+        lum_values = [200, 50, 200, 50, 200, 50, 200, 50]
+        img = self._build_strips(lum_values)
+        result = _strip_luma_monotonicity(img, n_strips=8)
+        assert result == 1.0
+
+    def test_one_reversal(self):
+        # 4-strip sequence: 50, 100, 80, 120
+        # diffs: +50, -20, +40 → signs: +1, -1, +1 → 2 reversals out of 2 pairs
+        # Wait: nonzero=[+1,-1,+1], len=3, reversals=2, result=2/2=1.0
+        # Use a sequence with exactly 1 reversal out of 2 gaps:
+        # 4 strips: 50, 100, 150, 120
+        # diffs: +50, +50, -30 → signs: +1, +1, -1 → nonzero=[+1,+1,-1], reversals=1, result=1/2=0.5
+        lum_values = [50, 100, 150, 120]
+        img = self._build_strips(lum_values)
+        result = _strip_luma_monotonicity(img, n_strips=4)
+        assert abs(result - 0.5) < 1e-6
+
+    def test_uniform_image(self):
+        # All strips have same luminance → all diffs zero → nonzero is empty → 0.0
+        img = np.full((80, 100, 3), 128, dtype=np.uint8)
+        result = _strip_luma_monotonicity(img, n_strips=8)
+        assert result == 0.0
