@@ -618,3 +618,5 @@ FFT_BAND_GATE_FLOOR: float = 0.35
 MONO_GATE_FLOOR: float = 0.60
 # §5.23: pipeline seam visibility gate floor (luma units)
 SV_GATE_FLOOR: float = 30.0
+# §5.24: pipeline chroma seam coherence gate floor
+CHROMA_COH_GATE_FLOOR: float = 20.0

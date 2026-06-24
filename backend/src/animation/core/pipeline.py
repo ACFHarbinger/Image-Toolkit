@@ -37,6 +37,7 @@ from backend.src.animation.alignment.canvas import (
     _correct_seam_lum_steps,
     _crop_to_valid,
     _detect_scroll_axis,
+    _chroma_seam_coherence,
     _horizontal_fft_banding,
     _load_frames,
     _normalise_widths,
@@ -401,6 +402,9 @@ _FFT_BAND_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_FFT_BAND_FLOOR", "0
 # If seam_vis > _SV_GATE_FLOOR → SCANS fallback. Set ASP_GATE_SEAM_VIS=0 to disable.
 _SV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_VIS", "1") != "0"
 _SV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_VIS_FLOOR", "30.0"))
+# §5.24 — Pipeline Chroma Seam Coherence Gate (S174).
+_CHROMA_COH_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CHROMA_PIPE", "1") != "0"
+_CHROMA_COH_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_PIPE_FLOOR", "20.0"))
 # §5.9 — Auto-enable seam lum-step correction when canvas_gain_uniformity
 # exceeds this threshold. Default 0.08 (mild banding). 0.0 = always on,
 # 1.0 = effectively disabled (manual-only via ASP_SEAM_LUM_STEP).
@@ -4719,6 +4723,24 @@ class AnimeStitchPipeline:
             except Exception as _sv_e:
                 logger.debug("[Stitch] Stage 11.25: SVGate skipped (%s).", _sv_e)
 
+        # ── Stage 11.26: §5.24 Chroma Seam Coherence Gate ───────────────────
+        if _CHROMA_COH_GATE_ENABLED and N > 1:
+            try:
+                _chroma_val = _chroma_seam_coherence(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.26: chroma_coh=%.2f (floor=%.2f).", _chroma_val, _CHROMA_COH_GATE_FLOOR)
+                if _chroma_val > _CHROMA_COH_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.26: ChromaCohGate FAILED (chroma=%.2f > floor=%.2f) → SCANS fallback.",
+                        _chroma_val, _CHROMA_COH_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"chroma_coh_gate:{_chroma_val:.2f}",
+                    )
+            except Exception as _chroma_e:
+                logger.debug("[Stitch] Stage 11.26: ChromaCohGate skipped (%s).", _chroma_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5381,6 +5403,9 @@ __all__ = [
     "_SV_GATE_ENABLED",
     "_SV_GATE_FLOOR",
     "_seam_visibility_score",
+    "_CHROMA_COH_GATE_ENABLED",
+    "_CHROMA_COH_GATE_FLOOR",
+    "_chroma_seam_coherence",
     "_correct_seam_lum_steps",
     "_measure_max_seam_step",
     "_detect_static_input",

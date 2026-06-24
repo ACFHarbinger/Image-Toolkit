@@ -1105,6 +1105,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     ),
     "ASP_GATE_SEAM_VIS": (int, 0, 1, "§5.23: Enable pipeline seam visibility gate (0 or 1, default 1)"),
     "ASP_GATE_SEAM_VIS_FLOOR": (float, 0.0, 255.0, "§5.23: Pipeline seam visibility gate floor (luma units, default 30.0)"),
+    "ASP_GATE_CHROMA_PIPE": (
+        int,
+        0,
+        1,
+        "§5.24: Enable pipeline chroma seam coherence gate (0 or 1, default 1)",
+    ),
+    "ASP_GATE_CHROMA_PIPE_FLOOR": (
+        float,
+        0.0,
+        255.0,
+        "§5.24: Pipeline chroma coh gate floor (luma units per channel, default 20.0)",
+    ),
 }
 
 
