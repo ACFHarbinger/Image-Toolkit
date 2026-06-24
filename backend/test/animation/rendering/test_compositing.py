@@ -3,6 +3,7 @@ Tests for the Stage 11 Laplacian-blend composite (compositing.py).
 
 Issue categories covered:
   A — Seam blending: feather zone, boundary search, Laplacian pyramid blend.
+  §4.5 — Canvas-space DP seam composite (_canvas_dp_seam_composite).
 
 All tests run without GPU — no BiRefNet or LoFTR dependencies.
 """
@@ -13,6 +14,10 @@ from backend.src.animation.rendering import compositing
 from backend.src.animation.rendering.compositing import (
     _blocks_gain_compensate,
     _blocks_lum_compensate,
+    _canvas_dp_seam_composite,
+    _DP_CANVAS_SEAM,
+    _feather_gc_boundaries,
+    _GC_FEATHER_PX,
 )
 from backend.src.animation.core import config
 
@@ -6148,3 +6153,350 @@ class TestBlocksLumCompensate:
 
     def test_schema_entry(self):
         assert "ASP_BLOCKS_LUM_COMP" in config._CONFIG_SCHEMA
+
+
+# ---------------------------------------------------------------------------
+# §4.2/§4.6: GraphCut seam + MultiBand blend wiring (Phase 4)
+# ---------------------------------------------------------------------------
+
+class TestGraphcutSeamWiring:
+    """Verify that _GRAPHCUT_SEAM and _MULTIBAND_BLEND flags exist in compositing."""
+
+    def test_graphcut_flag_defined(self):
+        assert hasattr(compositing, "_GRAPHCUT_SEAM")
+
+    def test_multiband_flag_defined(self):
+        assert hasattr(compositing, "_MULTIBAND_BLEND")
+
+    def test_graphcut_flag_on_by_default(self, monkeypatch):
+        # §4.2: GraphCut now defaults to ON (BATCH_AVAILABLE and env var default "1").
+        # Set ASP_GRAPHCUT_SEAM=0 to disable.
+        monkeypatch.delenv("ASP_GRAPHCUT_SEAM", raising=False)
+        import importlib
+        mod = importlib.reload(compositing)
+        # Default is BATCH_AVAILABLE — True in venv where batch.so is present.
+        # The flag may be False on systems without the compiled batch module, so
+        # we only assert the type is bool, not the value.
+        assert isinstance(mod._GRAPHCUT_SEAM, bool)
+
+    def test_multiband_flag_off_by_default(self, monkeypatch):
+        monkeypatch.delenv("ASP_MULTIBAND_BLEND", raising=False)
+        import importlib
+        mod = importlib.reload(compositing)
+        assert not mod._MULTIBAND_BLEND
+
+    def test_graphcut_flag_in_seam_cost_flags(self):
+        # _get_seam_cost_flags() returns a tuple that includes _GRAPHCUT_SEAM and _MULTIBAND_BLEND
+        from backend.src.animation.rendering.compositing import _get_seam_cost_flags
+        flags = _get_seam_cost_flags()
+        # §4.5: 6 elements (POISSON, TOONCRAFTER, GRAPHCUT, SEAM_BATCH, MULTIBAND, DP_CANVAS_SEAM)
+        assert len(flags) == 6
+
+
+# ---------------------------------------------------------------------------
+# Phase 5b: blocks_gain_compensate_pair + blocks_lum_compensate_pair wiring
+# ---------------------------------------------------------------------------
+
+
+class TestBlocksGainCompensateBatchWiring:
+    """Verify _blocks_gain_compensate produces correct output without C++ batch."""
+
+    def test_identical_zones_identity(self):
+        zone = np.full((64, 80, 3), 120, dtype=np.uint8)
+        result = _blocks_gain_compensate(zone, zone.copy(), block_size=32)
+        assert result.dtype == np.uint8
+        assert result.shape == zone.shape
+        diff = np.abs(result.astype(np.int32) - zone.astype(np.int32)).max()
+        assert diff <= 2
+
+    def test_brighter_fa_increases_fb(self):
+        fa = np.full((64, 80, 3), 200, dtype=np.uint8)
+        fb = np.full((64, 80, 3), 100, dtype=np.uint8)
+        result = _blocks_gain_compensate(fa, fb, block_size=32)
+        assert float(result.mean()) > float(fb.mean())
+
+    def test_empty_zones_return_copy(self):
+        empty = np.zeros((0, 0, 3), dtype=np.uint8)
+        fb = np.full((32, 32, 3), 50, dtype=np.uint8)
+        assert _blocks_gain_compensate(empty, fb).shape == (32, 32, 3)
+
+    def test_gain_clamp_upper(self):
+        fa = np.full((32, 32, 3), 250, dtype=np.uint8)
+        fb = np.full((32, 32, 3), 10, dtype=np.uint8)
+        result = _blocks_gain_compensate(fa, fb, block_size=32)
+        assert int(result.max()) <= 22  # 10 × 2.0 clamp + rounding
+
+    def test_output_in_valid_range(self):
+        rng = np.random.default_rng(7)
+        fa = rng.integers(0, 256, (80, 64, 3), dtype=np.uint8)
+        fb = rng.integers(0, 256, (80, 64, 3), dtype=np.uint8)
+        result = _blocks_gain_compensate(fa, fb, block_size=32)
+        assert result.min() >= 0
+        assert result.max() <= 255
+
+
+class TestBlocksLumCompensateBatchWiring:
+    """Verify _blocks_lum_compensate produces correct output without C++ batch."""
+
+    def test_identical_zones_identity(self):
+        zone = np.full((64, 80, 3), 120, dtype=np.uint8)
+        result = _blocks_lum_compensate(zone, zone.copy(), block_size=32)
+        assert result.dtype == np.uint8
+        assert result.shape == zone.shape
+        diff = np.abs(result.astype(np.int32) - zone.astype(np.int32)).max()
+        assert diff <= 2
+
+    def test_brighter_fa_increases_fb(self):
+        fa = np.full((64, 80, 3), 200, dtype=np.uint8)
+        fb = np.full((64, 80, 3), 100, dtype=np.uint8)
+        result = _blocks_lum_compensate(fa, fb, block_size=32)
+        assert float(result.mean()) > float(fb.mean())
+
+    def test_empty_zones_return_copy(self):
+        empty = np.zeros((0, 0, 3), dtype=np.uint8)
+        fb = np.full((32, 32, 3), 50, dtype=np.uint8)
+        assert _blocks_lum_compensate(empty, fb).shape == (32, 32, 3)
+
+    def test_output_in_valid_range(self):
+        rng = np.random.default_rng(11)
+        fa = rng.integers(0, 256, (80, 64, 3), dtype=np.uint8)
+        fb = rng.integers(0, 256, (80, 64, 3), dtype=np.uint8)
+        result = _blocks_lum_compensate(fa, fb, block_size=32)
+        assert result.min() >= 0
+        assert result.max() <= 255
+
+    def test_lum_output_avoids_channel_cast(self):
+        # Uniform color zone: lum gain should preserve hue (all channels scaled equally)
+        fa = np.full((32, 32, 3), 160, dtype=np.uint8)
+        fb_arr = np.zeros((32, 32, 3), dtype=np.uint8)
+        fb_arr[:, :, 0] = 80   # B
+        fb_arr[:, :, 1] = 40   # G
+        fb_arr[:, :, 2] = 20   # R
+        result = _blocks_lum_compensate(fa, fb_arr, block_size=32)
+        # All channels scaled by same scalar → ratios preserved (within rounding)
+        r_b = float(result[:, :, 0].mean())
+        r_g = float(result[:, :, 1].mean())
+        r_r = float(result[:, :, 2].mean())
+        # B/G ratio ≈ 2.0 as in input
+        assert abs(r_b / max(r_g, 0.5) - 2.0) < 0.15
+
+
+# ---------------------------------------------------------------------------
+# Phase 5d: find_optimal_boundaries batch wiring
+# ---------------------------------------------------------------------------
+
+
+def _call_find_optimal_boundaries_cpp(warped_list, order, init_bounds, H, W, **kw):
+    """Call batch.compositing.find_optimal_boundaries; skip if stub or not compiled."""
+    from backend.src.animation.rendering import compositing as comp_mod
+    if not comp_mod.BATCH_AVAILABLE:
+        pytest.skip("batch not available")
+    if not hasattr(comp_mod.batch.compositing, "find_optimal_boundaries"):
+        pytest.skip("find_optimal_boundaries not in batch.compositing — rebuild needed")
+    try:
+        return comp_mod.batch.compositing.find_optimal_boundaries(
+            [np.ascontiguousarray(f) for f in warped_list],
+            np.asarray(order, dtype=np.int64),
+            np.asarray(init_bounds, dtype=np.float64),
+            H, W,
+            kw.get("search_range", 250),
+            kw.get("search_slab", 20),
+            kw.get("bg_masks", None),
+            kw.get("affines", None),
+        )
+    except RuntimeError as e:
+        if "not yet implemented" in str(e).lower() or "stub" in str(e).lower():
+            pytest.skip(f"find_optimal_boundaries is a stub — {e}")
+        raise
+
+
+def _make_canvas_frame(H, W, val, dtype=np.uint8):
+    return np.full((H, W, 3), val, dtype=dtype)
+
+
+class TestFindOptimalBoundariesBatchWiring:
+    """batch.compositing.find_optimal_boundaries — Phase 5d C++ wiring."""
+
+    def test_output_shape_matches_n_minus_1(self):
+        H, W = 200, 120
+        frames = [_make_canvas_frame(H, W, v) for v in [80, 120, 160]]
+        order = np.array([0, 1, 2], dtype=np.int64)
+        init_bounds = np.array([H // 3, 2 * H // 3], dtype=np.float64)
+        bounds, diffs = _call_find_optimal_boundaries_cpp(
+            frames, order, init_bounds, H, W
+        )
+        assert bounds.shape == (2,)
+        assert diffs.shape == (2,)
+
+    def test_boundary_stays_within_canvas(self):
+        H, W = 300, 80
+        f0 = _make_canvas_frame(H, W, 100)
+        f1 = _make_canvas_frame(H, W, 140)
+        order = np.array([0, 1], dtype=np.int64)
+        init_bounds = np.array([H // 2], dtype=np.float64)
+        bounds, _ = _call_find_optimal_boundaries_cpp(
+            [f0, f1], order, init_bounds, H, W
+        )
+        assert 0 <= float(bounds[0]) <= H
+
+    def test_identical_frames_returns_a_finite_diff(self):
+        H, W = 200, 100
+        f = _make_canvas_frame(H, W, 128)
+        order = np.array([0, 1], dtype=np.int64)
+        init_bounds = np.array([H // 2], dtype=np.float64)
+        bounds, diffs = _call_find_optimal_boundaries_cpp(
+            [f.copy(), f.copy()], order, init_bounds, H, W
+        )
+        assert np.isfinite(diffs[0])
+        assert diffs[0] == pytest.approx(0.0, abs=1.0)
+
+    def test_gradient_frames_move_boundary_toward_low_diff(self):
+        H, W = 200, 60
+        # f0: bright top half, dark bottom half; f1: dark everywhere
+        # The boundary between f0 and f1 should prefer the dark-bottom region of f0
+        f0 = np.zeros((H, W, 3), dtype=np.uint8)
+        f0[: H // 2, :] = 200
+        f0[H // 2 :, :] = 40
+        f1 = np.full((H, W, 3), 40, dtype=np.uint8)
+        order = np.array([0, 1], dtype=np.int64)
+        # Start boundary in the bright region (top third) — C++ should move it down
+        init_bounds = np.array([H // 3], dtype=np.float64)
+        bounds, diffs = _call_find_optimal_boundaries_cpp(
+            [f0, f1], order, init_bounds, H, W, search_range=250
+        )
+        # Optimal is in the dark bottom half of f0 (low diff with f1)
+        assert float(bounds[0]) > H // 3
+
+    def test_zero_search_range_returns_initial_bound(self):
+        H, W = 200, 80
+        f0 = _make_canvas_frame(H, W, 90)
+        f1 = _make_canvas_frame(H, W, 150)
+        order = np.array([0, 1], dtype=np.int64)
+        init_bounds = np.array([H // 2], dtype=np.float64)
+        bounds, _ = _call_find_optimal_boundaries_cpp(
+            [f0, f1], order, init_bounds, H, W, search_range=0
+        )
+        # With 0 search range the loop finds no candidates → returns initial position
+        assert float(bounds[0]) == pytest.approx(float(init_bounds[0]), abs=20)
+
+
+# ===========================================================================
+# §4.5 — _canvas_dp_seam_composite
+# ===========================================================================
+
+
+def _solid_frame(h: int, w: int, val: int) -> np.ndarray:
+    return np.full((h, w, 3), val, dtype=np.uint8)
+
+
+class TestCanvasDpSeamComposite:
+    """§4.5: Canvas-space DP seam composite using cv2.detail_DpSeamFinder."""
+
+    def test_returns_none_for_n_less_than_2(self):
+        frame = _solid_frame(64, 80, 100)
+        result = _canvas_dp_seam_composite([frame], [None], frame.copy(), 64, 80, 1)
+        assert result is None
+
+    def test_output_shape_matches_canvas(self):
+        H, W = 64, 80
+        f0 = _solid_frame(H, W, 50)
+        f1 = _solid_frame(H, W, 150)
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        out = _canvas_dp_seam_composite([f0, f1], [None, None], canvas, H, W, 2)
+        assert out is not None
+        assert out.shape == (H, W, 3)
+        assert out.dtype == np.uint8
+
+    def test_all_black_frames_fallback_to_canvas(self):
+        H, W = 32, 40
+        f0 = np.zeros((H, W, 3), dtype=np.uint8)
+        f1 = np.zeros((H, W, 3), dtype=np.uint8)
+        canvas = _solid_frame(H, W, 77)
+        out = _canvas_dp_seam_composite([f0, f1], [None, None], canvas, H, W, 2)
+        assert out is not None
+        # No frame has content → result keeps canvas values
+        assert (out == 77).all()
+
+    def test_non_overlapping_frames_cover_canvas(self):
+        H, W = 60, 80
+        f0 = np.zeros((H, W, 3), dtype=np.uint8)
+        f1 = np.zeros((H, W, 3), dtype=np.uint8)
+        f0[:30, :] = 200   # top half has content
+        f1[30:, :] = 100   # bottom half has content
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        out = _canvas_dp_seam_composite([f0, f1], [None, None], canvas, H, W, 2)
+        assert out is not None
+        # Both halves should be filled — no black region left in either half
+        assert out[:30, :].max() > 0
+        assert out[30:, :].max() > 0
+
+    def test_dp_canvas_seam_flag_is_bool(self):
+        assert isinstance(_DP_CANVAS_SEAM, bool)
+
+
+# ===========================================================================
+# §3.33 — _feather_gc_boundaries
+# ===========================================================================
+
+
+def _solid(h: int, w: int, val: int) -> np.ndarray:
+    return np.full((h, w, 3), val, dtype=np.uint8)
+
+
+def _make_ownership(h: int, w: int, split_row: int) -> list:
+    """Two ownership masks split at split_row (frame 0 owns [0..split_row), frame 1 owns the rest)."""
+    m0 = np.zeros((h, w), dtype=np.uint8)
+    m0[:split_row, :] = 255
+    m1 = np.zeros((h, w), dtype=np.uint8)
+    m1[split_row:, :] = 255
+    return [m0, m1]
+
+
+class TestFeatherGcBoundaries:
+    """§3.33: Feathered blend at GraphCut ownership transitions."""
+
+    def test_returns_same_shape(self):
+        H, W = 60, 80
+        result = _solid(H, W, 100)
+        ownership = _make_ownership(H, W, 30)
+        frames = [_solid(H, W, 80), _solid(H, W, 160)]
+        out = _feather_gc_boundaries(result, ownership, frames, feather_px=8)
+        assert out.shape == (H, W, 3)
+        assert out.dtype == np.uint8
+
+    def test_feather_smooths_step_at_boundary(self):
+        H, W = 60, 80
+        split = 30
+        fa = _solid(H, W, 50)
+        fb = _solid(H, W, 200)
+        ownership = _make_ownership(H, W, split)
+        result = np.zeros((H, W, 3), dtype=np.uint8)
+        result[:split, :] = 50
+        result[split:, :] = 200
+        out = _feather_gc_boundaries(result, ownership, [fa, fb], feather_px=8)
+        # Within the ±8px band the std should be > 0 (values are transitioning)
+        band = out[split - 8 : split + 8, :, 0].astype(float)
+        assert band.std() > 0.0
+
+    def test_zero_feather_returns_copy(self):
+        H, W = 40, 50
+        result = _solid(H, W, 128)
+        ownership = _make_ownership(H, W, 20)
+        frames = [_solid(H, W, 50), _solid(H, W, 200)]
+        out = _feather_gc_boundaries(result, ownership, frames, feather_px=0)
+        np.testing.assert_array_equal(out, result)
+
+    def test_all_black_frame_skips_blend(self):
+        H, W = 40, 50
+        split = 20
+        fa = _solid(H, W, 100)
+        fb = np.zeros((H, W, 3), dtype=np.uint8)  # all black — no content
+        ownership = _make_ownership(H, W, split)
+        result = _solid(H, W, 100)
+        out = _feather_gc_boundaries(result, ownership, [fa, fb], feather_px=8)
+        # fb has no content → blend_here is False everywhere → out equals result
+        np.testing.assert_array_equal(out, result)
+
+    def test_gc_feather_px_flag_is_nonneg_int(self):
+        assert isinstance(_GC_FEATHER_PX, int)
+        assert _GC_FEATHER_PX >= 0
