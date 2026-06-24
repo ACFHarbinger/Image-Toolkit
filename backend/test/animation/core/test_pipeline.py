@@ -2278,3 +2278,39 @@ class TestCguAutoLumStep:
         from backend.src.constants.animation import CGU_AUTO_LUM_STEP
         assert isinstance(CGU_AUTO_LUM_STEP, float)
         assert CGU_AUTO_LUM_STEP == pytest.approx(0.08)
+
+
+class TestScGatePipeline:
+    """§5.19: Pipeline seam coherence gate tests."""
+
+    def test_seam_coherence_score_uniform(self):
+        """Uniform canvas → seam coherence ≈ 0."""
+        from backend.src.animation.alignment.canvas import _seam_coherence_score
+        import numpy as np
+        canvas = np.full((200, 300, 3), 128, dtype=np.uint8)
+        sc = _seam_coherence_score(canvas)
+        assert sc < 1.0, f"Expected sc≈0 for uniform canvas, got {sc}"
+
+    def test_seam_coherence_score_banded(self):
+        """Alternating rows 0/255 → seam coherence > 100."""
+        from backend.src.animation.alignment.canvas import _seam_coherence_score
+        import numpy as np
+        canvas = np.zeros((200, 300, 3), dtype=np.uint8)
+        canvas[::2] = 255  # alternate rows white/black
+        sc = _seam_coherence_score(canvas)
+        assert sc > 100, f"Expected sc>100 for banded canvas, got {sc}"
+
+    def test_sc_gate_floor_in_constants(self):
+        """SC_GATE_FLOOR constant exists and equals 25.0."""
+        from backend.src.constants.animation import SC_GATE_FLOOR
+        assert SC_GATE_FLOOR == 25.0
+
+    def test_sc_gate_exported(self):
+        """_SC_GATE_FLOOR is exported in pipeline.__all__."""
+        import backend.src.animation.core.pipeline as pipeline
+        assert "_SC_GATE_FLOOR" in pipeline.__all__
+
+    def test_seam_coherence_score_in_canvas_all(self):
+        """_seam_coherence_score is in canvas __all__."""
+        import backend.src.animation.alignment.canvas as canvas
+        assert "_seam_coherence_score" in canvas.__all__

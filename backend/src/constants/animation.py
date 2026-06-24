@@ -610,3 +610,5 @@ SEAM_LUM_STEP_PX: int = 0
 CGU_AUTO_LUM_STEP: float = 0.08
 # §5.16: per-seam adaptive lum-step correction width; True=adapt per seam
 SEAM_LUM_STEP_ADAPTIVE: bool = True
+# §5.19: pipeline seam coherence gate floor
+SC_GATE_FLOOR: float = 25.0

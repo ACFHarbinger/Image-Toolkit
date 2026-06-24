@@ -42,6 +42,7 @@ from backend.src.animation.alignment.canvas import (
     _panorama_stitch_fallback,
     _per_seam_lum_step_px,
     _scan_stitch_fallback,
+    _seam_coherence_score,
     _smooth_seam_bands,
     _telea_fill_gaps,
     find_optimal_sequence,
@@ -386,6 +387,11 @@ _SEAM_LUM_STEP_PX: int = int(os.environ.get("ASP_SEAM_LUM_STEP", "0"))
 # If canvas_gain_uniformity > _CGU_GATE_FLOOR → SCANS fallback.
 # Default 0.20 (ASP test82=0.238 is clearly wrong). Set ASP_GATE_CGU_FLOOR=1.0 to disable.
 _CGU_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CGU_FLOOR", "0.20"))
+# §5.19 — Pipeline Seam Coherence gate (S174).
+# After Stage 11 compositing, measures std of per-row mean luminance (strip banding).
+# If seam_coherence > _SC_GATE_FLOOR → SCANS fallback. Set ASP_GATE_SEAM_COH=0 to disable.
+_SC_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_COH", "1") != "0"
+_SC_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_COH_FLOOR", "25.0"))
 # §5.9 — Auto-enable seam lum-step correction when canvas_gain_uniformity
 # exceeds this threshold. Default 0.08 (mild banding). 0.0 = always on,
 # 1.0 = effectively disabled (manual-only via ASP_SEAM_LUM_STEP).
@@ -4619,6 +4625,24 @@ class AnimeStitchPipeline:
             except Exception as _cgu_e:
                 logger.debug("[Stitch] Stage 11.21 CGU gate skipped (%s).", _cgu_e)
 
+        # ── Stage 11.22: §5.19 Seam Coherence Gate ──────────────────────────
+        if _SC_GATE_ENABLED and N > 1:
+            try:
+                _sc_val = _seam_coherence_score(canvas)
+                logger.debug("[Stitch] Stage 11.22: seam_coherence=%.3f (floor=%.2f).", _sc_val, _SC_GATE_FLOOR)
+                if _sc_val > _SC_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.22: SCGate FAILED (sc=%.3f > floor=%.2f) → SCANS fallback.",
+                        _sc_val, _SC_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"sc_gate:{_sc_val:.3f}",
+                    )
+            except Exception as _sc_e:
+                logger.debug("[Stitch] Stage 11.22: SCGate skipped (%s).", _sc_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5276,6 +5300,9 @@ __all__ = [
     "_SEAM_LUM_STEP_PX",
     "_CGU_GATE_FLOOR",
     "_CGU_AUTO_LUM_STEP",
+    "_SC_GATE_ENABLED",
+    "_SC_GATE_FLOOR",
+    "_seam_coherence_score",
     "_correct_seam_lum_steps",
     "_measure_max_seam_step",
     "_detect_static_input",
