@@ -624,3 +624,5 @@ STRIP_SELF_SSIM_GATE_FLOOR: float = 0.85  # §5.25: pipeline strip self-SSIM gat
 STRIP_GRAD_CV_GATE_FLOOR: float = 0.50  # §5.32: pipeline strip gradient CV gate floor
 SEAM_BAND_NCC_GATE_FLOOR: float = 0.30  # §5.31: pipeline seam band NCC gate floor
 SIQE_GATE_FLOOR: float = 30.0  # §5.29: pipeline ghosting SIQE gate floor
+SEAM_GRAD_RATIO_GATE_FLOOR: float = 3.0  # §5.33: pipeline seam gradient ratio gate floor
+CANVAS_ASPECT_GATE_FLOOR: float = 1.2  # §5.34: minimum H/W ratio for canvas aspect gate
