@@ -1162,14 +1162,51 @@ def _strip_luma_monotonicity(img: np.ndarray, n_strips: int = 8) -> float:
     diffs = np.diff(strip_means)
     if len(diffs) < 2:
         return 0.0
-    # Count direction reversals (sign changes in adjacent diffs)
     signs = np.sign(diffs)
-    # Ignore zero diffs
     nonzero = signs[signs != 0]
     if len(nonzero) < 2:
         return 0.0
     reversals = int(np.sum(nonzero[1:] != nonzero[:-1]))
     return reversals / (len(nonzero) - 1)
+
+
+def _horizontal_fft_banding(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.12: Detect periodic horizontal banding via column-mean luminance FFT.
+
+    Computes the column-mean luminance profile (1D, length=H), takes its FFT,
+    and measures the relative energy at the spatial frequency corresponding to
+    n_strips equally-spaced bands. High score = strong periodic banding at
+    strip boundaries.
+
+    Returns a score in [0, 1]. 0 = no banding at strip frequency; 1 = all
+    energy concentrated at strip frequency. Returns 0.0 for degenerate input.
+    """
+    if img is None:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    H = gray.shape[0]
+    if H < n_strips * 4:
+        return 0.0
+    # Column-mean luminance profile (length H)
+    profile = gray.mean(axis=1)  # shape (H,)
+    # Remove DC (mean)
+    profile -= profile.mean()
+    # FFT magnitude spectrum
+    spectrum = np.abs(np.fft.rfft(profile))
+    total_energy = float(np.sum(spectrum ** 2))
+    if total_energy < 1e-6:
+        return 0.0
+    # Strip frequency: the banding period is strip_h = H/n_strips rows.
+    # An alternating (high/low) pattern repeats every 2*strip_h rows, so the
+    # dominant FFT bin is H / (2*strip_h) = n_strips // 2.
+    # We also sample the harmonic at n_strips (period = strip_h) which captures
+    # same-polarity periodicity and the square-wave harmonic series.
+    strip_freq_idx = max(1, n_strips // 2)
+    # Sum energy in a ±1 bin window around strip frequency
+    lo = max(1, strip_freq_idx - 1)
+    hi = min(len(spectrum) - 1, strip_freq_idx + 1)
+    band_energy = float(np.sum(spectrum[lo:hi + 1] ** 2))
+    return float(np.clip(band_energy / total_energy, 0.0, 1.0))
 
 
 def _compute_cqas(metrics: dict) -> Optional[float]:
@@ -1386,6 +1423,8 @@ def _compute_all_metrics(
     )
     # §5.10 — Per-strip luma monotonicity (S169).
     metrics["strip_luma_monotonicity"] = round(_strip_luma_monotonicity(img, n_strips=8), 4)
+    # §5.12 — Horizontal FFT banding score (S170).
+    metrics["horizontal_fft_banding"] = round(_horizontal_fft_banding(img, n_strips=8), 4)
     return metrics
 
 
