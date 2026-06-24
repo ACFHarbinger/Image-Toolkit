@@ -580,6 +580,25 @@ def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.std(strip_means) / mean_val)
 
 
+def _strip_luma_monotonicity(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.22: Fraction of adjacent strip pairs with luminance direction reversal (0=monotonic, 1=alternating)."""
+    if img is None or n_strips < 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    H = gray.shape[0]
+    strip_h = H // n_strips
+    if H < n_strips or strip_h < 1:
+        return 0.0
+    strip_means = [float(gray[i * strip_h:(i + 1) * strip_h].mean()) for i in range(n_strips)]
+    diffs = [strip_means[i + 1] - strip_means[i] for i in range(n_strips - 1)]
+    if len(diffs) < 2:
+        return 0.0
+    reversals = sum(
+        1 for i in range(len(diffs) - 1) if diffs[i] * diffs[i + 1] < 0
+    )
+    return float(reversals) / (len(diffs) - 1)
+
+
 def _compute_adaptive_seam_smooth_px(
     canvas: np.ndarray,
     base_px: int = 4,
@@ -668,6 +687,7 @@ __all__ = [
     "_correct_seam_lum_steps",
     "_canvas_gain_uniformity",
     "_horizontal_fft_banding",
+    "_strip_luma_monotonicity",
     "_compute_adaptive_seam_smooth_px",
     "_per_seam_lum_step_px",
     "_scan_stitch_fallback",

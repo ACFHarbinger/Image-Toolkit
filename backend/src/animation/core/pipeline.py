@@ -45,6 +45,7 @@ from backend.src.animation.alignment.canvas import (
     _scan_stitch_fallback,
     _seam_coherence_score,
     _smooth_seam_bands,
+    _strip_luma_monotonicity,
     _telea_fill_gaps,
     find_optimal_sequence,
 )
@@ -398,6 +399,12 @@ _FFT_BAND_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_FFT_BAND_FLOOR", "0
 # exceeds this threshold. Default 0.08 (mild banding). 0.0 = always on,
 # 1.0 = effectively disabled (manual-only via ASP_SEAM_LUM_STEP).
 _CGU_AUTO_LUM_STEP: float = float(os.environ.get("ASP_CGU_AUTO_LUM_STEP", "0.08"))
+# §5.22 — Pipeline Strip Luma Monotonicity Gate (Stage 11.24).
+# Measures fraction of adjacent strip pairs with luminance direction reversal.
+# High = alternating bright/dark stripes. Falls back to SCANS if value > floor.
+# Set ASP_GATE_MONO_PIPE=0 to disable; default floor 0.60.
+_MONO_GATE_ENABLED: bool = os.environ.get("ASP_GATE_MONO_PIPE", "1") != "0"
+_MONO_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_MONO_PIPE_FLOOR", "0.60"))
 # §1.17 — Canvas span utilisation gate (S61).
 # After bundle adjustment and canvas construction (Stage 9), the actual
 # dominant-axis span of the solved affines is compared against the expected
@@ -4670,6 +4677,24 @@ class AnimeStitchPipeline:
             except Exception as _fft_e:
                 logger.debug("[Stitch] Stage 11.23: FFTBandGate skipped (%s).", _fft_e)
 
+        # ── Stage 11.24: §5.22 Strip Luma Monotonicity Gate ─────────────────
+        if _MONO_GATE_ENABLED and N > 1:
+            try:
+                _mono_val = _strip_luma_monotonicity(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.24: strip_mono=%.3f (floor=%.2f).", _mono_val, _MONO_GATE_FLOOR)
+                if _mono_val > _MONO_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.24: MonoGate FAILED (mono=%.3f > floor=%.2f) → SCANS fallback.",
+                        _mono_val, _MONO_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"mono_gate:{_mono_val:.3f}",
+                    )
+            except Exception as _mono_e:
+                logger.debug("[Stitch] Stage 11.24: MonoGate skipped (%s).", _mono_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5369,4 +5394,7 @@ __all__ = [
     "_SEAM_LUM_STEP_ADAPTIVE",
     "_per_seam_lum_step_px",
     "_correct_seam_lum_steps",
+    "_MONO_GATE_ENABLED",
+    "_MONO_GATE_FLOOR",
+    "_strip_luma_monotonicity",
 ]

@@ -1055,6 +1055,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1.0,
         "§5.14: MonotonGate absolute floor (monotonicity score [0,1]); gate only fires when ASP score exceeds this value (default 0.50)",
     ),
+    "ASP_GATE_MONO_PIPE": (
+        int,
+        0,
+        1,
+        "§5.22: Enable pipeline strip luma monotonicity gate (0 or 1, default 1)",
+    ),
+    "ASP_GATE_MONO_PIPE_FLOOR": (
+        float,
+        0.0,
+        1.0,
+        "§5.22: Pipeline mono gate floor (reversal fraction, default 0.60)",
+    ),
     "ASP_GATE_ENTROPY": (
         float,
         0.0,
@@ -1326,6 +1338,8 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_GATE_FFT_BAND_FLOOR",
         "ASP_GATE_MONO",
         "ASP_GATE_MONO_FLOOR",
+        "ASP_GATE_MONO_PIPE",
+        "ASP_GATE_MONO_PIPE_FLOOR",
     ],
     "bundle_adjust": [
         "ASP_BA_F_SCALE",
