@@ -4,6 +4,45 @@
 
 ---
 
+## S176 — 2026-06-24 (§5.29 Ghosting SIQE Pipeline Gate · §5.30 Bench SIQE Gate · §5.31 Seam Band NCC Gate · §5.32 Strip Gradient CV Gate)
+
+*Four new post-composite pipeline gates (Stages 11.28–11.30) and one new bench comparative gate: SIQE ghost autocorrelation, seam band NCC discontinuity, per-strip Laplacian sharpness CV, and a bench SIQE ratio gate. 1545 tests passing (85 skipped).*
+
+### §5.29 Ghosting SIQE Pipeline Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_canvas_ghosting_siqe(img)` in `canvas.py` — FFT autocorrelation of column-mean Sobel gradient; secondary peak at lag D in [5, H//4] = ghost signature; score 0–100
+- Stage 11.28 gate in `pipeline.py`: fires when `siqe > _SIQE_GATE_FLOOR` (default 30.0) → SCANS fallback
+- Flags: `_SIQE_GATE_ENABLED` (`ASP_GATE_GHOSTING_SIQE`, default 1), `_SIQE_GATE_FLOOR` (`ASP_GATE_GHOSTING_SIQE_FLOOR`, default 30.0)
+- Schema entries `ASP_GATE_GHOSTING_SIQE` and `ASP_GATE_GHOSTING_SIQE_FLOOR` in `config.py`
+- `SIQE_GATE_FLOOR = 30.0` in `constants/animation.py`
+- 5 tests in `TestSiqeGatePipeline` (`test_pipeline.py`)
+
+### §5.30 Bench Ghosting SIQE Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- GhostSiqeGate block after ChromaSeamGate in `run_dataset()` — reuses `_ghosting_score_v2` (same FFT autocorrelation)
+- Fires when `asp_siqe > max(_GHOST_SIQE_ABS_FLOOR, _GHOST_SIQE_RATIO_LIMIT × sim_siqe)`
+- Module constants: `_GHOST_SIQE_RATIO_LIMIT=2.0` (`ASP_GATE_GHOST_SIQE_RATIO`), `_GHOST_SIQE_ABS_FLOOR=30.0`
+- Schema entry `ASP_GATE_GHOST_SIQE_RATIO` in `config.py`
+- 5 tests in `TestGhostSiqeGate` (`test_bench_metrics.py`)
+
+### §5.31 Seam Band NCC Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_band_ncc_min(img, n_strips=8, band_px=10)` in `canvas.py` — minimum NCC between ±band_px bands above/below each strip boundary; values near 1.0 = seamless; near 0 = structural discontinuity
+- Stage 11.29 gate in `pipeline.py`: **fires when `ncc < floor`** (LOW NCC = bad, unlike all other gates that fire when metric > floor)
+- Flags: `_SEAM_BAND_NCC_GATE_ENABLED` (`ASP_GATE_SEAM_BAND_NCC`, default 1), `_SEAM_BAND_NCC_GATE_FLOOR` (`ASP_GATE_SEAM_BAND_NCC_FLOOR`, default 0.30)
+- `SEAM_BAND_NCC_GATE_FLOOR = 0.30` in `constants/animation.py`
+- 5 tests in `TestSeamBandNccGatePipeline` (`test_pipeline.py`)
+
+### §5.32 Strip Gradient CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_gradient_cv(img, n_strips=8)` in `canvas.py` — coefficient of variation of per-strip mean Laplacian energy; high CV = sharpness inconsistency across strips
+- Stage 11.30 gate in `pipeline.py`: fires when `cv > _STRIP_GRAD_CV_GATE_FLOOR` (default 0.50) → SCANS fallback
+- Flags: `_STRIP_GRAD_CV_GATE_ENABLED` (`ASP_GATE_STRIP_GRAD_CV`, default 1), `_STRIP_GRAD_CV_GATE_FLOOR` (`ASP_GATE_STRIP_GRAD_CV_FLOOR`, default 0.50)
+- `STRIP_GRAD_CV_GATE_FLOOR = 0.50` in `constants/animation.py`
+- 5 tests in `TestStripGradCvGatePipeline` (`test_pipeline.py`)
+
+---
+
 ## S171 — 2026-06-24 (§5.13 FFT Banding Gate · §5.12 Horizontal FFT Banding Metric · §5.11 Adaptive Seam-Smooth · §5.10 Strip Luma Monotonicity · §5.9 Auto Seam Lum-Step)
 
 *Five incremental improvements across S169–S171: two new benchmark metrics, adaptive seam-smooth width driven by seam_coherence, CGU-triggered auto-enable of seam lum-step correction, and an FFT banding SCANS fallback gate. 1460 tests passing (85 skipped).*
