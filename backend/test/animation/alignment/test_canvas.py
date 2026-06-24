@@ -21,6 +21,7 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 from backend.src.animation.alignment.canvas import (  # noqa: E402
+    _canvas_gain_uniformity,
     _compute_canvas,
     _crop_to_valid,
     _detect_scroll_axis,
@@ -648,3 +649,31 @@ class TestSmoothSeamBands:
         out = _smooth_seam_bands(canvas, seam_ys=[16], band_px=4)
         # Rows in the smoothed band where canvas was 0 must stay 0.
         assert out[16:, :].max() == 0
+
+
+class TestCanvasGainUniformity:
+    """§5.3: Strip-level luminance gain uniformity metric."""
+
+    def test_uniform_image_returns_zero(self):
+        img = np.full((64, 40, 3), 128, dtype=np.uint8)
+        assert _canvas_gain_uniformity(img, n_strips=4) == pytest.approx(0.0, abs=1e-6)
+
+    def test_banded_image_has_high_cgu(self):
+        img = np.zeros((64, 40, 3), dtype=np.uint8)
+        img[:32] = 200
+        img[32:] = 50
+        cgu = _canvas_gain_uniformity(img, n_strips=2)
+        assert cgu > 0.4
+
+    def test_all_black_returns_zero(self):
+        img = np.zeros((64, 40, 3), dtype=np.uint8)
+        assert _canvas_gain_uniformity(img, n_strips=4) == 0.0
+
+    def test_grayscale_input_accepted(self):
+        gray = np.full((32, 40), 100, dtype=np.uint8)
+        result = _canvas_gain_uniformity(gray, n_strips=4)
+        assert result == pytest.approx(0.0, abs=1e-6)
+
+    def test_fewer_rows_than_strips_returns_zero(self):
+        img = np.full((2, 40, 3), 120, dtype=np.uint8)
+        assert _canvas_gain_uniformity(img, n_strips=8) == 0.0
