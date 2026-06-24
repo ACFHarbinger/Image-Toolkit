@@ -611,6 +611,8 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         None,
         "§1.85: Minimum number of active quality gates that must simultaneously flag the same seam to trigger the multi-gate ensemble fallback; each gate uses its own threshold (0 disables the gate from voting); catches corner cases where no single gate fires but multiple metrics are simultaneously near-threshold; suggest 3 when several §1.76–§1.84 gate thresholds are enabled",
     ),
+    "ASP_GATE_STRIP_GRAD_CV": (int, 0, 1, "§5.32: Enable pipeline strip gradient CV gate (0 or 1, default 1)"),
+    "ASP_GATE_STRIP_GRAD_CV_FLOOR": (float, 0.0, 5.0, "§5.32: Strip gradient CV gate floor (default 0.50)"),
     "ASP_PROPAINTER": (
         int,
         0,
