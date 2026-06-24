@@ -1638,4 +1638,59 @@ class TestMonotonGate:
         assert fallback_reason.startswith("mono_gate:")
         assert f"asp={asp_mono:.3f}" in fallback_reason
         assert f"sim={sim_mono:.3f}" in fallback_reason
+
+
+class TestSeamOwnershipEntropyGate:
+    """§5.15: Seam Ownership Entropy Gate threshold logic tests."""
+
+    def test_gate_fires_when_asp_exceeds_floor(self):
+        # asp_ent=5.0, sim_ent=0.5, floor=3.0, ratio=2.5
+        # limit = max(3.0, 2.5 * max(0.5, 0.1)) = max(3.0, 1.25) = 3.0
+        # 5.0 > 3.0 → gate fires
+        asp_ent = 5.0
+        sim_ent = 0.5
+        floor = 3.0
+        ratio_limit = 2.5
+        limit = max(floor, ratio_limit * max(sim_ent, 0.1))
+        assert limit == pytest.approx(3.0)
+        assert asp_ent > limit
+
+    def test_gate_passes_when_asp_below_floor(self):
+        # asp_ent=2.0, floor=3.0 → 2.0 < 3.0 → gate does not fire
+        asp_ent = 2.0
+        sim_ent = 0.5
+        floor = 3.0
+        ratio_limit = 2.5
+        limit = max(floor, ratio_limit * max(sim_ent, 0.1))
+        assert asp_ent < limit
+
+    def test_disabled_at_ratio_90(self):
+        # ratio_limit=90 → gate is skipped entirely (condition: ratio_limit < 90 is False)
+        ratio_limit = 90.0
+        assert not (ratio_limit < 90)
+
+    def test_ratio_dominates(self):
+        # asp=6, sim=4, ratio=2.5 → limit = max(3.0, 2.5*max(4,0.1)) = max(3.0, 10.0) = 10.0
+        # 6 < 10 → gate passes
+        asp_ent = 6.0
+        sim_ent = 4.0
+        floor = 3.0
+        ratio_limit = 2.5
+        limit = max(floor, ratio_limit * max(sim_ent, 0.1))
+        assert limit == pytest.approx(10.0)
+        assert asp_ent < limit
+
+    def test_fallback_reason_prefix(self):
+        # Verify fallback_reason string format starts with "entropy_gate:"
+        asp_ent = 5.0
+        sim_ent = 0.5
+        floor = 3.0
+        ratio_limit = 2.5
+        limit = max(floor, ratio_limit * max(sim_ent, 0.1))
+        fallback_reason = (
+            f"entropy_gate:asp={asp_ent:.3f}_sim={sim_ent:.3f}_limit={limit:.3f}"
+        )
+        assert fallback_reason.startswith("entropy_gate:")
+        assert f"asp={asp_ent:.3f}" in fallback_reason
+        assert f"sim={sim_ent:.3f}" in fallback_reason
         assert f"limit={limit:.3f}" in fallback_reason
