@@ -90,6 +90,10 @@ _GHOST_SIQE_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_GHOST_SIQE_FLOOR",
 
 logger = logging.getLogger(__name__)
 
+# §5.35: Bench seam band NCC comparative gate constants
+_SEAM_NCC_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_NCC_FLOOR", "0.10"))
+_SEAM_NCC_RATIO: float = float(os.environ.get("ASP_GATE_SEAM_NCC_RATIO", "0.5"))
+
 
 def _get_reward_model():
     """Lazily load StitchRewardModel; returns None on any import / init error."""
@@ -3264,6 +3268,36 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _gs_e:
                 logger.debug("[Bench] GhostSiqeGate skipped: %s", _gs_e)
+
+        # §5.35 SeamBandNccGate — comparative seam band NCC check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_ncc = cv2.imread(central_simple_path)
+                if _simple_img_ncc is not None:
+                    from backend.src.animation.alignment.canvas import _seam_band_ncc_min
+                    _asp_ncc = _seam_band_ncc_min(canvas_out, n_strips=8, band_px=10)
+                    _sim_ncc = _seam_band_ncc_min(_simple_img_ncc, n_strips=8, band_px=10)
+                    print(
+                        f"  [SeamBandNccGate] asp_ncc={_asp_ncc:.3f}  "
+                        f"sim_ncc={_sim_ncc:.3f}"
+                    )
+                    if _asp_ncc < _SEAM_NCC_ABS_FLOOR or (
+                        _sim_ncc > 0.1 and _asp_ncc < _SEAM_NCC_RATIO * _sim_ncc
+                    ):
+                        _fallback_reason = f"seam_ncc_gate:{_asp_ncc:.3f}"
+                        print(
+                            f"  [SeamBandNccGate] FAILED "
+                            f"(asp_ncc={_asp_ncc:.3f} < floor={_SEAM_NCC_ABS_FLOOR:.2f} "
+                            f"or < {_SEAM_NCC_RATIO:.1f}×sim={_sim_ncc:.3f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 512
+                        raise RuntimeError(
+                            f"SeamBandNccGate: asp_ncc={_asp_ncc:.3f}, sim_ncc={_sim_ncc:.3f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _ncc_e:
+                logger.debug("[Bench] SeamBandNccGate skipped: %s", _ncc_e)
 
         from PIL import Image
 

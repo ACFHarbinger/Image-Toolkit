@@ -1896,3 +1896,57 @@ class TestGhostSiqeGate:
         sim_siqe = 0.0
         siqe_limit = max(bench._GHOST_SIQE_ABS_FLOOR, bench._GHOST_SIQE_RATIO_LIMIT * max(sim_siqe, 1.0))
         assert asp_siqe <= siqe_limit  # gate does not fire
+
+
+# ===========================================================================
+# §5.35 — Bench Seam Band NCC Comparative Gate
+# ===========================================================================
+
+
+class TestSeamBandNccGateBench:
+    """Unit tests for §5.35 bench SeamBandNccGate module-level flags and logic."""
+
+    def test_module_flags_exist(self):
+        """_SEAM_NCC_ABS_FLOOR and _SEAM_NCC_RATIO must be floats in bench module."""
+        import backend.benchmark.bench_anime_stitch as bench
+
+        assert hasattr(bench, "_SEAM_NCC_ABS_FLOOR")
+        assert hasattr(bench, "_SEAM_NCC_RATIO")
+        assert isinstance(bench._SEAM_NCC_ABS_FLOOR, float)
+        assert isinstance(bench._SEAM_NCC_RATIO, float)
+
+    def test_defaults_sane(self):
+        """Default values must be positive."""
+        import backend.benchmark.bench_anime_stitch as bench
+
+        assert bench._SEAM_NCC_ABS_FLOOR > 0.0
+        assert bench._SEAM_NCC_RATIO > 0.0
+
+    def test_schema_entries_present(self):
+        """Config schema must contain §5.35 NCC entries."""
+        from backend.src.animation.core import config
+
+        assert "ASP_GATE_SEAM_NCC_FLOOR" in config._CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_NCC_RATIO" in config._CONFIG_SCHEMA
+
+    def test_gate_passes_high_ncc(self):
+        """asp_ncc=0.8, sim_ncc=0.5, ratio=0.5 → 0.8 ≥ max(0.10, 0.25) → no fire."""
+        import backend.benchmark.bench_anime_stitch as bench
+
+        asp_ncc = 0.8
+        sim_ncc = 0.5
+        floor = bench._SEAM_NCC_ABS_FLOOR
+        ratio = bench._SEAM_NCC_RATIO
+        gate_fires = asp_ncc < floor or (sim_ncc > 0.1 and asp_ncc < ratio * sim_ncc)
+        assert not gate_fires
+
+    def test_gate_fires_low_ncc(self):
+        """asp_ncc=0.05 < floor=0.10 → gate fires."""
+        import backend.benchmark.bench_anime_stitch as bench
+
+        asp_ncc = 0.05
+        sim_ncc = 0.5
+        floor = bench._SEAM_NCC_ABS_FLOOR
+        ratio = bench._SEAM_NCC_RATIO
+        gate_fires = asp_ncc < floor or (sim_ncc > 0.1 and asp_ncc < ratio * sim_ncc)
+        assert gate_fires

@@ -899,6 +899,35 @@ def _canvas_aspect_ratio(img: np.ndarray) -> float:
     return float(H) / max(float(W), 1.0)
 
 
+def _strip_hist_intersection_min(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.36: Minimum histogram intersection between adjacent strips.
+
+    Returns float in [0, 1]. 0 = completely different histograms; 1 = identical.
+    Low score = color mismatch between adjacent strips (seam visible as color step).
+    Returns 1.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips * 2 or n_strips < 2:
+        return 1.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 1.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    min_intersection = 1.0
+    for i in range(n_strips - 1):
+        ha = cv2.calcHist([gray[i * strip_h:(i + 1) * strip_h]], [0], None, [64], [0, 256])
+        hb = cv2.calcHist([gray[(i + 1) * strip_h:(i + 2) * strip_h]], [0], None, [64], [0, 256])
+        intersection = cv2.compareHist(ha, hb, cv2.HISTCMP_INTERSECT)
+        sum_a = float(ha.sum())
+        sum_b = float(hb.sum())
+        denom = min(sum_a, sum_b)
+        if denom < 1e-6:
+            continue
+        normalized = float(intersection / denom)
+        min_intersection = min(min_intersection, normalized)
+    return float(np.clip(min_intersection, 0.0, 1.0))
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -927,4 +956,5 @@ __all__ = [
     "_canvas_ghosting_siqe",
     "_strip_seam_gradient_score",
     "_canvas_aspect_ratio",
+    "_strip_hist_intersection_min",
 ]
