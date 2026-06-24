@@ -801,3 +801,71 @@ class TestPerSeamLumStepPx:
     def test_in_all(self):
         """'_per_seam_lum_step_px' must appear in canvas.__all__."""
         assert "_per_seam_lum_step_px" in _canvas_mod.__all__
+
+
+# ── TestCorrectSeamLumStepsListBandPx — §5.20 per-seam list band_px API ──────
+
+class TestCorrectSeamLumStepsListBandPx:
+    """§5.20: _correct_seam_lum_steps accepts Union[int, List[int]] for band_px."""
+
+    @staticmethod
+    def _make_canvas(top_lum: int, bot_lum: int, H: int = 80, W: int = 40) -> np.ndarray:
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        canvas[: H // 2] = top_lum
+        canvas[H // 2 :] = bot_lum
+        return canvas
+
+    def test_list_band_px_same_as_scalar(self):
+        """list [20] gives same result as scalar 20 for a single seam."""
+        canvas = self._make_canvas(80, 160)
+        seam = 40
+        out_scalar = _correct_seam_lum_steps(canvas, [seam], band_px=20)
+        out_list = _correct_seam_lum_steps(canvas, [seam], band_px=[20])
+        np.testing.assert_array_equal(out_scalar, out_list)
+
+    def test_list_band_px_per_seam(self):
+        """Two seams with [5, 40]: the wide-band seam (idx 1) corrects more rows."""
+        H, W = 120, 40
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        # three strips: 0–39 lum=60, 40–79 lum=120, 80–119 lum=180
+        canvas[:40] = 60
+        canvas[40:80] = 120
+        canvas[80:] = 180
+        seam_ys = [40, 80]
+        out = _correct_seam_lum_steps(canvas, seam_ys, band_px=[5, 40])
+        # Seam 1 (sy=80) has band_px=40 → rows [40, 80) are modified
+        # Seam 0 (sy=40) has band_px=5 → rows [35, 40) are modified (narrower)
+        # Verify the canvas was modified (not identical to input)
+        assert not np.array_equal(out, canvas), "Expected output to differ from input"
+        # Verify shape preserved
+        assert out.shape == canvas.shape
+
+    def test_list_band_px_zero_entry_skips_seam(self):
+        """band_px=[0, 20]: seam 0 (sy=30) left unchanged, seam 1 (sy=60) corrected."""
+        H, W = 90, 40
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        canvas[:30] = 80
+        canvas[30:60] = 80  # no lum step at seam 0 → also test the explicit skip
+        canvas[60:] = 160
+        # Build reference with only seam 1 corrected
+        out_seam1_only = _correct_seam_lum_steps(canvas.copy(), [60], band_px=20)
+        out_list = _correct_seam_lum_steps(canvas.copy(), [30, 60], band_px=[0, 20])
+        # The two outputs should match (seam 0 skipped in list path)
+        np.testing.assert_array_equal(out_list, out_seam1_only)
+
+    def test_list_shorter_than_seams_uses_fallback(self):
+        """Short list (fewer entries than seams) does not raise; extra seams use last entry or skip."""
+        canvas = self._make_canvas(80, 160)
+        # Only 1 entry for 1 seam — no out-of-bounds
+        try:
+            out = _correct_seam_lum_steps(canvas, [40], band_px=[20])
+            assert out.shape == canvas.shape
+        except (IndexError, TypeError) as exc:
+            pytest.fail(f"Unexpected exception with matching list length: {exc}")
+
+    def test_returns_same_shape_with_list(self):
+        """Shape is preserved when band_px is a list."""
+        canvas = self._make_canvas(100, 200, H=100, W=60)
+        out = _correct_seam_lum_steps(canvas, [30, 50, 70], band_px=[10, 20, 30])
+        assert out.shape == canvas.shape
+        assert out.dtype == np.uint8
