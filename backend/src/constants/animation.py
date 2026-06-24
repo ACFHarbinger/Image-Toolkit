@@ -605,3 +605,5 @@ DY_CV_ADAPTIVE_FLOOR: float = 0.8  # §5.8: minimum adaptive dy_cv ceiling for l
 SEAM_SMOOTH_PX: int = 4
 # §5.1: Post-composite seam luminance step correction half-band (px); 0=disabled
 SEAM_LUM_STEP_PX: int = 0
+# §5.9: auto-enable seam lum-step when CGU exceeds this threshold; 1.0=disabled
+CGU_AUTO_LUM_STEP: float = 0.08
