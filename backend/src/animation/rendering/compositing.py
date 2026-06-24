@@ -669,14 +669,22 @@ _ZONE_HUE_EQ: bool = os.environ.get("ASP_ZONE_HUE_EQ", "0") != "0"
 # blocks and compute a per-block BGR gain ratio (fa/fb).  A bilinear-resized
 # gain map (clamped [0.5, 2.0]) is applied to fb_zone before blending.
 # Targets strip-level banding that the global scalar gain cannot handle.
-# Default OFF.  Enable: ASP_BLOCKS_GAIN_COMP=1.
-_BLOCKS_GAIN_COMP: bool = os.environ.get("ASP_BLOCKS_GAIN_COMP", "0") != "0"
+# Default ON (§4.10 pre-seam equalization covers GraphCut; DP path also corrects).
+_BLOCKS_GAIN_COMP: bool = os.environ.get("ASP_BLOCKS_GAIN_COMP", "1") != "0"
 
 # §4.4 — Per-channel luminance blocks gain compensation (S160).
 # Like §4.1 but uses the LAB L-channel ratio as a scalar gain applied to all
 # BGR channels — avoids color cast from near-zero individual channel means.
-# Default OFF.  Enable: ASP_BLOCKS_LUM_COMP=1.
-_BLOCKS_LUM_COMP: bool = os.environ.get("ASP_BLOCKS_LUM_COMP", "0") != "0"
+# Default ON — LAB L-channel complement to BGR gain (no colour-cast risk).
+_BLOCKS_LUM_COMP: bool = os.environ.get("ASP_BLOCKS_LUM_COMP", "1") != "0"
+
+# §4.10 — Pre-seam global gain equalization (S165).
+# Applied to ALL warped frames before GraphCut / DP seam finding.  Sequential
+# pairwise _blocks_gain_compensate calls equalize inter-frame luminance to
+# reduce strip_banding_score and seam_visibility.  Frame 0 (reference) unchanged.
+# Only corrects pixels where BOTH adjacent frames have valid content (non-black).
+# Default ON.  Set ASP_GLOBAL_GAIN_COMP=0 to disable.
+_GLOBAL_GAIN_COMP: bool = os.environ.get("ASP_GLOBAL_GAIN_COMP", "1") != "0"
 
 # §1.60 — Foreground pose-gap pre-escalation (S124).
 # Before the DP seam cut, measures the mean absolute difference (MAD) between
@@ -4763,6 +4771,36 @@ def _feather_gc_boundaries(
     return out
 
 
+def _equalize_warped_gains(
+    warped_frames: List[np.ndarray],
+    block_size: int = 32,
+) -> List[np.ndarray]:
+    """§4.10: Equalize inter-frame luminance before seam finding.
+
+    Sequential pairwise gain compensation: frame 0 is the reference; each
+    subsequent frame is corrected to match its (already-corrected) predecessor.
+    Only pixels where BOTH adjacent frames have valid content (max channel > 0)
+    are altered — black/transparent border fill regions are left untouched.
+    """
+    if len(warped_frames) < 2:
+        return [f.copy() for f in warped_frames]
+    result: List[np.ndarray] = [warped_frames[0].copy()]
+    for i in range(1, len(warped_frames)):
+        prev = result[i - 1]
+        curr = warped_frames[i]
+        has_prev = prev.max(axis=2) > 0
+        has_curr = curr.max(axis=2) > 0
+        both_valid = has_prev & has_curr
+        if not both_valid.any():
+            result.append(curr.copy())
+            continue
+        corrected = _blocks_gain_compensate(prev, curr, block_size=block_size)
+        out = curr.copy()
+        out[both_valid] = corrected[both_valid]
+        result.append(out)
+    return result
+
+
 def _composite_foreground(
     warped_corr: List[np.ndarray],
     warped_fgs: List[np.ndarray],
@@ -5479,6 +5517,10 @@ def _composite_foreground(
             )
         except Exception as _tc_seam_e:
             print(f"[Stitch]   ToonCrafter seam synthesis skipped ({_tc_seam_e}).")
+
+    # §4.10: Equalise inter-frame luminance before seam finding.
+    if _GLOBAL_GAIN_COMP and len(warped_norm) >= 2:
+        warped_norm = _equalize_warped_gains(warped_norm, block_size=32)
 
     # §4.2/§4.6: GraphCut global seam + optional MultiBand blend (Phase 4).
     # When ASP_GRAPHCUT_SEAM=1, replaces the hard-partition + DP blend loop below
@@ -6432,6 +6474,8 @@ __all__ = [
     "_BLOCKS_GAIN_COMP",
     "_blocks_lum_compensate",
     "_BLOCKS_LUM_COMP",
+    "_equalize_warped_gains",
+    "_GLOBAL_GAIN_COMP",
     "_DP_CANVAS_SEAM",
     "_canvas_dp_seam_composite",
 ]
