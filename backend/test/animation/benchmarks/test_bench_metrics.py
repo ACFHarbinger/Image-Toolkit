@@ -1178,6 +1178,7 @@ class TestCanvasGainUniformity:
         assert result == 0.0
 
 
+<<<<<<< HEAD
 # ---------------------------------------------------------------------------
 # §4.3: _seam_ownership_entropy (Phase 4 GraphCut metric)
 # ---------------------------------------------------------------------------
@@ -1796,3 +1797,50 @@ class TestChromaSeamCohGate:
         assert f"asp={asp_chroma:.2f}" in fallback_reason
         assert f"sim={sim_chroma:.2f}" in fallback_reason
         assert f"limit={chroma_limit:.2f}" in fallback_reason
+=======
+# ===========================================================================
+# §5.26: strip_self_ssim & chroma_seam_coherence wired from canvas (S174)
+# ===========================================================================
+
+
+class TestBenchStripSsimChromaMetrics:
+    """§5.26 (S174): Verify strip_self_ssim and chroma_seam_coherence are emitted
+    by _compute_all_metrics and importable from canvas.py."""
+
+    def _uniform(self, H: int = 128, W: int = 96, val: int = 128) -> np.ndarray:
+        return np.full((H, W, 3), val, dtype=np.uint8)
+
+    def test_compute_all_metrics_has_strip_self_ssim_key(self):
+        """_compute_all_metrics on a uniform canvas must include 'strip_self_ssim'."""
+        metrics = _compute_all_metrics(self._uniform())
+        assert "strip_self_ssim" in metrics
+
+    def test_compute_all_metrics_has_chroma_seam_coherence_key(self):
+        """_compute_all_metrics on a uniform canvas must include 'chroma_seam_coherence'."""
+        metrics = _compute_all_metrics(self._uniform())
+        assert "chroma_seam_coherence" in metrics
+
+    def test_uniform_canvas_strip_self_ssim_high(self):
+        """A uniform image has identical half-strips → strip_self_ssim >= 0.95."""
+        metrics = _compute_all_metrics(self._uniform())
+        val = metrics["strip_self_ssim"]
+        assert val is not None
+        assert val >= 0.95, f"Expected strip_self_ssim >= 0.95 for uniform canvas, got {val}"
+
+    def test_uniform_gray_canvas_chroma_seam_coherence_low(self):
+        """A uniform gray canvas has zero chroma variation → chroma_seam_coherence < 1.0."""
+        metrics = _compute_all_metrics(self._uniform(val=128))
+        val = metrics["chroma_seam_coherence"]
+        assert val is not None
+        assert val < 1.0, f"Expected chroma_seam_coherence < 1.0 for gray canvas, got {val}"
+
+    def test_functions_importable_from_canvas(self):
+        """_strip_self_ssim and _chroma_seam_coherence must be importable from canvas.py."""
+        from backend.src.animation.alignment.canvas import (
+            _strip_self_ssim,
+            _chroma_seam_coherence,
+        )
+        img = self._uniform()
+        assert isinstance(_strip_self_ssim(img, n_strips=8), float)
+        assert isinstance(_chroma_seam_coherence(img, n_strips=8), float)
+>>>>>>> bf60e97 (S174: §5.26 benchmark strip-ssim & chroma-coh metrics wiring)

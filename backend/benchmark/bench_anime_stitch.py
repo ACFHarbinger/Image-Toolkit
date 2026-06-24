@@ -36,6 +36,8 @@ from backend.src.animation.alignment.canvas import (
     _compute_canvas,
     _crop_to_valid,
     _scan_stitch_fallback,
+    _strip_self_ssim,
+    _chroma_seam_coherence,
 )
 from backend.src.animation.core.validation import _validate_affines
 from backend.src.animation.ingestion.masking import _compute_fg_masks
@@ -738,39 +740,6 @@ def _composite_quality_score(
     return round((ncc_term + color_term + ghost_term) / 3.0, 4)
 
 
-def _chroma_seam_coherence(img: np.ndarray, n_strips: int = 8) -> float:
-    """§1.96: Per-strip LAB a/b variance across strip boundaries (S149).
-
-    Converts *img* to LAB and measures the per-strip mean of the 'a' and 'b'
-    channels.  Computes the max absolute step between adjacent strip-mean
-    values at the n_strips-1 inter-strip boundaries.  A high step means a
-    visible colour-temperature discontinuity between stitched strips.
-    Returns 0.0 for degenerate images (height < 4 or n_strips < 2).
-
-    Score range: 0 = no chroma step; higher = worse chroma banding.
-    """
-    if img is None or img.ndim != 3 or img.shape[0] < 4 or n_strips < 2:
-        return 0.0
-    H = img.shape[0]
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
-    strip_h = H // n_strips
-    if strip_h < 1:
-        return 0.0
-    strip_means = []
-    for i in range(n_strips):
-        y0 = i * strip_h
-        y1 = y0 + strip_h
-        strip = lab[y0:y1]
-        m = float(np.abs(strip[..., 1:]).mean())
-        strip_means.append(m)
-    if len(strip_means) < 2:
-        return 0.0
-    diffs = [
-        abs(strip_means[i + 1] - strip_means[i]) for i in range(len(strip_means) - 1)
-    ]
-    return max(diffs)
-
-
 def _strip_gradient_cv(img: np.ndarray, n_strips: int = 8) -> float:
     """§3.21: Coefficient of variation of per-strip Laplacian energy (S150).
 
@@ -1059,51 +1028,6 @@ def _zone_coverage_fraction(img: np.ndarray, n_strips: int = 8) -> float:
     n_boundaries = n_strips - 1
     total_blend_rows = min(H, n_boundaries * 2 * approx_feather)
     return float(total_blend_rows / H)
-
-
-def _strip_self_ssim(img: np.ndarray, n_strips: int = 8) -> float:
-    """§3.30: Per-strip top/bottom NCC self-consistency metric (S159).
-
-    Splits each of the *n_strips* horizontal bands in half and computes the
-    Normalized Cross-Correlation (NCC) between the top and bottom halves.  A
-    clean, spatially smooth strip should score close to 1.0; a strip that
-    straddles a visible seam or has a brightness jump will score lower.
-
-    Returns the minimum NCC across all strips.  Range [−1, 1]; values near 1.0
-    indicate uniform strips.  Returns 0.0 for degenerate inputs (image too small
-    or single-channel).
-
-    NCC is computed on the grayscale version of each half-strip resized to a
-    common thumbnail height (32 px) to make the measure resolution-independent.
-    """
-    if img is None or img.ndim != 3 or img.shape[0] < n_strips * 2:
-        return 0.0
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    H = gray.shape[0]
-    strip_h = H // n_strips
-    if strip_h < 2:
-        return 0.0
-    thumb_h = 32
-    scores = []
-    for i in range(n_strips):
-        y0 = i * strip_h
-        y1 = y0 + strip_h
-        half = (y1 - y0) // 2
-        if half < 1:
-            continue
-        top = gray[y0 : y0 + half, :]
-        bot = gray[y0 + half : y1, :]
-        # Resize to common height so NCC isn't biased by unequal sizes
-        top_t = cv2.resize(top, (top.shape[1], thumb_h), interpolation=cv2.INTER_AREA)
-        bot_t = cv2.resize(bot, (bot.shape[1], thumb_h), interpolation=cv2.INTER_AREA)
-        top_f = top_t.ravel() - top_t.mean()
-        bot_f = bot_t.ravel() - bot_t.mean()
-        denom = np.linalg.norm(top_f) * np.linalg.norm(bot_f)
-        if denom < 1e-6:
-            scores.append(1.0)
-        else:
-            scores.append(float(np.clip(np.dot(top_f, bot_f) / denom, -1.0, 1.0)))
-    return min(scores) if scores else 0.0
 
 
 def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
