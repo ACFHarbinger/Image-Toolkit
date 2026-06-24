@@ -596,6 +596,7 @@ WAVE_CORRECT_MIN_TX_RANGE: float = 5.0
 # seam_vis 60–120 vs SCANS 2–3) while SCANS trivially handles these sequences.
 # 0.0 = disabled.
 DY_CV_MAX: float = 1.5
+DY_CV_ADAPTIVE_FLOOR: float = 0.8  # §5.8: minimum adaptive dy_cv ceiling for large-N sequences
 
 # §4.9 — Seam band smoothing half-width (px).  After Stage 11 compositing, a narrow
 # Gaussian blur (±SEAM_SMOOTH_PX rows) is applied at each inter-frame seam row to
