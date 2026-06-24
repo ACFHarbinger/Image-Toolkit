@@ -372,8 +372,8 @@ _DY_CV_MAX: float = float(os.environ.get("ASP_DY_CV_MAX", "1.5"))
 # §4.9 — Post-composite seam band smoothing half-width (px).  After Stage 11,
 # a narrow vertical Gaussian blur is applied at each inter-frame seam row to
 # reduce the hard luminance step measured by seam_visibility_score.
-# Default 0 (disabled). Set ASP_SEAM_SMOOTH_PX=4 to enable 4px half-width.
-_SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "0"))
+# Default 4 (enabled, S166). Set ASP_SEAM_SMOOTH_PX=0 to disable.
+_SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "4"))
 # §1.17 — Canvas span utilisation gate (S61).
 # After bundle adjustment and canvas construction (Stage 9), the actual
 # dominant-axis span of the solved affines is compared against the expected
