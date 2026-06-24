@@ -4,6 +4,21 @@
 
 ---
 
+## S166 — 2026-06-24 (§4.9 Seam Band Smoothing Promoted to Default-ON)
+
+*Promotes the §4.9 post-composite seam band smoothing (shipped S164 as default-OFF) to default-ON with 4px half-width. Safe to enable now that §4.10 (S165) pre-seam gain equalization reduces inter-frame luminance steps before GraphCut seam finding — the smoothing pass no longer risks amplifying uncorrected gain discontinuities. `ASP_SEAM_SMOOTH_PX` default changed "0" → "4"; `SEAM_SMOOTH_PX` constant updated to 4. Set `ASP_SEAM_SMOOTH_PX=0` to disable. 1410 tests passing.*
+
+### pipeline.py
+- `_SEAM_SMOOTH_PX` default changed from `"0"` to `"4"` — seam band smoothing now always-on unless explicitly disabled
+
+### constants/animation.py
+- `SEAM_SMOOTH_PX: int = 4` (was 0)
+
+### config.py
+- `_CONFIG_SCHEMA["ASP_SEAM_SMOOTH_PX"]` description updated to reflect new default-ON status
+
+---
+
 ## S165 — 2026-06-24 (§4.10 Pre-Seam Global Gain Equalization)
 
 *Root-cause fix for the dominant seam_visibility / strip_banding failure pattern. `_equalize_warped_gains()` runs sequential pairwise `_blocks_gain_compensate()` across all warped frames before GraphCut or DP seam finding, equalising inter-frame luminance regardless of which compositing path is active. Previously, `_blocks_gain_compensate()` was wired only in the DP fallback path — so all composites going through GraphCut (default-ON since S161) received no gain correction, producing strip_banding_score 31–41 and seam_visibility 119+ on worst-case tests. Also enables `_BLOCKS_GAIN_COMP` / `_BLOCKS_LUM_COMP` by default so the DP path also benefits. 5 new tests in `TestEqualizeWarpedGains`; 1410 passed.*
