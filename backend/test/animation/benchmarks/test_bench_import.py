@@ -186,14 +186,14 @@ class TestSuggestedRating:
         assert 0.0 <= r <= 10.0
 
     def test_high_ghosting_lowers_score(self):
-        """Increasing ghosting score should reduce the rating."""
+        """Increasing ghosting_siqe (true ghosting, 0-100) should reduce the rating."""
         base = {
             "sharpness": 60.0,
             "coverage": 0.9,
-            "ghosting_score": 0.0,
+            "ghosting_siqe": 0.0,   # §3.32C: now uses ghosting_siqe, not ghosting_score
             "seam_coherence": 0.8,
         }
-        high = {**base, "ghosting_score": 0.9}
+        high = {**base, "ghosting_siqe": 90.0}   # heavy ghosting → lower score
         assert suggested_rating(high) < suggested_rating(base)
 
 
@@ -220,3 +220,52 @@ class TestVerdictLabel:
     def test_missing_comparison_key(self):
         """Missing 'comparison' key → '?'."""
         assert verdict_label({"name": "x"}) == "?"
+
+
+# ===========================================================================
+# §3.32C — suggested_rating uses ghosting_siqe (not ghosting_score)
+# ===========================================================================
+
+
+class TestSuggestedRatingGhostingSiqe:
+    """§3.32C: suggested_rating must use ghosting_siqe (0-100 scale, higher=worse)."""
+
+    def _base(self, ghosting_siqe: float = 0.0) -> dict:
+        return {
+            "sharpness": 60.0,
+            "coverage": 0.9,
+            "ghosting_siqe": ghosting_siqe,
+            "seam_coherence": 0.8,
+        }
+
+    def test_zero_ghosting_siqe_maximises_ghost_term(self):
+        # ghosting_siqe=0 → (1 - 0/100)*0.20 = 0.20 contribution
+        r_clean = suggested_rating(self._base(ghosting_siqe=0.0))
+        r_heavy = suggested_rating(self._base(ghosting_siqe=100.0))
+        assert r_clean > r_heavy
+
+    def test_ghosting_siqe_100_minimises_ghost_term(self):
+        # ghosting_siqe=100 → (1 - 100/100)*0.20 = 0.0 contribution
+        r = suggested_rating(self._base(ghosting_siqe=100.0))
+        r_clean = suggested_rating(self._base(ghosting_siqe=0.0))
+        assert r < r_clean
+
+    def test_legacy_ghosting_score_key_still_works(self):
+        # Old JSON without ghosting_siqe falls back to ghosting_score default (30.0)
+        m = {"sharpness": 60.0, "coverage": 0.9, "seam_coherence": 0.8}
+        r = suggested_rating(m)
+        assert 0.0 <= r <= 10.0
+
+    def test_monotone_in_ghosting_siqe(self):
+        # Higher ghosting_siqe → lower or equal score
+        scores = [suggested_rating(self._base(g)) for g in [0, 25, 50, 75, 100]]
+        for i in range(len(scores) - 1):
+            assert scores[i] >= scores[i + 1]
+
+    def test_ghosting_siqe_normalised_not_raw(self):
+        # ghosting_siqe=50 should give exactly midway ghost contribution: (1-0.5)*0.20=0.10
+        # Verify by checking it's between clean (ghost_contrib=0.20) and heavy (0.0)
+        r_clean = suggested_rating(self._base(ghosting_siqe=0.0))
+        r_mid = suggested_rating(self._base(ghosting_siqe=50.0))
+        r_heavy = suggested_rating(self._base(ghosting_siqe=100.0))
+        assert r_heavy < r_mid < r_clean

@@ -92,7 +92,9 @@ ASP_SEARCH_PARAMS: Dict[str, Tuple] = {
         0.01,
         0.5,
         0.15,
-        "weight of ghosting_score penalty in composite quality score",
+        # §3.32D: now penalises ghosting_siqe (0-100, true ghosting) / 100.
+        # Old: ghosting_score (double-Sobel sharpness proxy) — penalised sharp outputs.
+        "weight of ghosting_siqe penalty in composite quality score",
     ),
 }
 
@@ -116,11 +118,14 @@ def _verdict_from_config(asp_m: Dict, sim_m: Dict, cfg: Dict[str, float]) -> str
     wg = cfg["w_ghosting"]
 
     def _score(m: Dict) -> float:
+        # §3.32D: ghosting term uses ghosting_siqe (0-100) normalised to [0,1].
+        # Falls back to ghosting_score/100 for legacy JSON without ghosting_siqe.
+        _g = m.get("ghosting_siqe") or (m.get("ghosting_score") or 0.0)
         return (
             (m.get("coverage") or 0.0) * 100.0 * wc
             - (m.get("seam_coherence") or 0.0) * wco
             - (m.get("seam_gradient") or 0.0) * wsg
-            - (m.get("ghosting_score") or 0.0) * wg
+            - (_g / 100.0) * wg
         )
 
     asp_score = _score(asp_m)

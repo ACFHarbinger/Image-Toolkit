@@ -589,3 +589,16 @@ BLOCKS_GAIN_COMP_BLOCK_SIZE: int = 32
 
 # §4.3: Minimum tx/ty range (pixels) required before wave correction fires
 WAVE_CORRECT_MIN_TX_RANGE: float = 5.0
+
+# §4.7: dy_cv pre-detection gate — SCANS fallback when step-size CV exceeds threshold.
+# dy_cv is the coefficient of variation of adjacent vertical frame steps.
+# 97-test benchmark shows dy_cv ≥ 1.5 → catastrophic ASP failure (AlSSIM −22 to −37%,
+# seam_vis 60–120 vs SCANS 2–3) while SCANS trivially handles these sequences.
+# 0.0 = disabled.
+DY_CV_MAX: float = 1.5
+
+# §4.9 — Seam band smoothing half-width (px).  After Stage 11 compositing, a narrow
+# Gaussian blur (±SEAM_SMOOTH_PX rows) is applied at each inter-frame seam row to
+# reduce the hard luminance step measured by seam_visibility_score.
+# 0 = disabled.  Recommended: 4 px (safe; below double-image ghost threshold).
+SEAM_SMOOTH_PX: int = 0

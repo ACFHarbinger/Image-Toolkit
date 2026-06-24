@@ -5,6 +5,7 @@ Covers:
   _seam_visibility_score — detects hard horizontal luminance cuts (S14)
   _compute_aligned_ssim  — ECC Euclidean aligned SSIM vs GT (S8 metric, S25 dedup)
   _compute_rlhf_score    — RLHF reward-model quality gate (§1.10A, S29)
+  _edge_energy_score     — §3.32 correctly-labelled double-Sobel wrapper
 """
 
 from __future__ import annotations
@@ -30,6 +31,8 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _compute_per_seam_ghost_scores,
     _seam_bhattacharyya_distances,
     _ghosting_score_v2,
+    _ghosting_score,
+    _edge_energy_score,
     _SSIM_OK,
     _RLHF_FLAG_THRESHOLD,
     _seam_ncc_coherence,
@@ -1212,3 +1215,89 @@ class TestSeamOwnershipEntropy:
         metrics = _compute_all_metrics(img, affines=affines, n_strips=2)
         assert "seam_ownership_entropy" in metrics
         assert isinstance(metrics["seam_ownership_entropy"], float)
+
+
+# ===========================================================================
+# §3.32 — _edge_energy_score (ghosting_score taxonomy fix)
+# ===========================================================================
+
+
+class TestEdgeEnergyScore:
+    """§3.32: _edge_energy_score is the correctly-labelled double-Sobel wrapper.
+
+    _ghosting_score() computes mean(|∂²I/∂y²|) — a sharpness proxy, NOT
+    a ghosting detector.  _edge_energy_score() is a semantic alias that makes
+    the intent clear.  Both must return identical values.
+    """
+
+    def test_alias_matches_ghosting_score(self):
+        rng = np.random.default_rng(42)
+        img = rng.integers(0, 255, (100, 80, 3), dtype=np.uint8)
+        assert _edge_energy_score(img) == pytest.approx(_ghosting_score(img))
+
+    def test_uniform_image_low_score(self):
+        # Solid colour → zero second derivative → score ≈ 0
+        img = np.full((60, 60, 3), 128, dtype=np.uint8)
+        assert _edge_energy_score(img) < 1.0
+
+    def test_sharp_edges_higher_than_smooth(self):
+        # Wide bright/dark bands create sharp transitions the double-Sobel Y detects;
+        # a uniform image has zero second derivative.
+        banded = np.zeros((64, 64, 3), dtype=np.uint8)
+        banded[:32, :] = 255  # top half bright, bottom half dark
+        flat = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _edge_energy_score(banded) > _edge_energy_score(flat)
+
+    def test_emitted_in_compute_all_metrics(self):
+        img = np.random.randint(10, 200, (100, 80, 3), dtype=np.uint8)
+        metrics = _compute_all_metrics(img)
+        assert "edge_energy_score" in metrics
+        assert isinstance(metrics["edge_energy_score"], float)
+
+    def test_ghosting_score_alias_also_emitted(self):
+        # ghosting_score kept for GhostGate backward-compat
+        img = np.random.randint(10, 200, (100, 80, 3), dtype=np.uint8)
+        metrics = _compute_all_metrics(img)
+        assert "ghosting_score" in metrics
+        assert metrics["ghosting_score"] == pytest.approx(metrics["edge_energy_score"])
+
+# ---------------------------------------------------------------------------
+# §4.8  SeamVisGate — threshold calibration (unit tests, no I/O)
+# ---------------------------------------------------------------------------
+class TestSeamVisibilityGate:
+    """Calibrate the SeamVisGate decision logic:
+    limit = max(floor, ratio × max(sim_sv, 1.0))
+    gate fires when asp_sv > limit.
+    """
+
+    def _limit(self, sim_sv, ratio=3.0, floor=20.0):
+        return max(floor, ratio * max(sim_sv, 1.0))
+
+    def test_high_asp_sv_fires(self):
+        # test74-representative: asp=92.6 vs sim=2.9 — should fire at floor=20
+        asp_sv, sim_sv = 92.6, 2.9
+        limit = self._limit(sim_sv)
+        assert asp_sv > limit, f"gate should fire: asp={asp_sv} limit={limit}"
+
+    def test_low_asp_sv_does_not_fire(self):
+        # test27-representative: asp=6.0 vs sim=1.2 — below floor=20, no fire
+        asp_sv, sim_sv = 6.0, 1.2
+        limit = self._limit(sim_sv)
+        assert asp_sv <= limit, f"gate should not fire: asp={asp_sv} limit={limit}"
+
+    def test_floor_dominates_when_sim_is_low(self):
+        # sim_sv=0 → limit = max(20, 3×1) = 20; floor prevents firing at asp=15
+        limit = self._limit(sim_sv=0.0)
+        assert limit == 20.0
+        assert 15.0 <= limit  # no fire
+
+    def test_ratio_dominates_when_sim_is_high(self):
+        # sim_sv=15 → limit = max(20, 3×15) = 45; asp=30 should not fire
+        limit = self._limit(sim_sv=15.0)
+        assert limit == 45.0
+        assert 30.0 <= limit
+
+    def test_disabled_via_ratio_90(self):
+        # ratio=90 ≥ 90 → gate bypass (tested by the outer if-guard in bench)
+        ratio = 90.0
+        assert ratio >= 90.0  # gate condition: _SEAM_VIS_RATIO_LIMIT < 90

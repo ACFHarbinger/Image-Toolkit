@@ -983,6 +983,24 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         None,
         "§4.3: Post-BA wave correction axis — '' (off), 'vertical', or 'horizontal'",
     ),
+    "ASP_GATE_SEAM_VIS": (
+        float,
+        0.0,
+        90.0,
+        "§4.8: SeamVisGate ratio limit — ASP seam_visibility must not exceed ratio×SCANS; ≥90=disabled (default 3.0)",
+    ),
+    "ASP_GATE_SEAM_VIS_FLOOR": (
+        float,
+        0.0,
+        200.0,
+        "§4.8: SeamVisGate absolute floor (seam_vis units); gate only fires when ASP seam_vis exceeds this value (default 20.0)",
+    ),
+    "ASP_SEAM_SMOOTH_PX": (
+        int,
+        0,
+        32,
+        "§4.9: Post-composite seam band smoothing half-width (px); narrow vertical Gaussian blur at each seam row; 0=disabled (default 0)",
+    ),
 }
 
 
@@ -1206,6 +1224,9 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_SEAM_ENSEMBLE_VOTES",
         "ASP_BLOCKS_GAIN_COMP",
         "ASP_BLOCKS_LUM_COMP",
+        "ASP_GATE_SEAM_VIS",
+        "ASP_GATE_SEAM_VIS_FLOOR",
+        "ASP_SEAM_SMOOTH_PX",
     ],
     "bundle_adjust": [
         "ASP_BA_F_SCALE",

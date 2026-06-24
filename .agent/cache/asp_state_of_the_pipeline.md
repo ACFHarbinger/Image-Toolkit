@@ -1,7 +1,72 @@
 # ASP — State of the Pipeline: What Works, What Failed, What's Next
 
-*Date: 2026-06-22. Updated through S159 (§1.125 seam transition penalty + §3.30 strip self-SSIM + §1.126 fg-majority floor + §1.127 zone hue eq).*  
-*Primary benchmark corpora: 97 tests (`asp_test01–96` + `asp_test97`), 55 with ground truth in `data/ground_truth/`. 5-test subset (`test04/08/09/27/57`) used for rapid iteration.*
+*Date: 2026-06-24. Updated through S164 (§3.33 feathered GC boundaries + §4.9 seam band smoothing). Full 97-test benchmark: 2026-06-23 (~3 hours). JSON: `backend/benchmark/output/anime_stitch_20260623_234305.json`. 1405 tests passing (85 skipped).*  
+*Primary benchmark corpora: 97 tests (`asp_test01–96` + `asp_test97`), 55 with ground truth in `data/ground_truth/`. Rapid-iteration subset: `test04/08/09/27/57`.*
+
+---
+
+## Benchmark Status — 2026-06-23 (Full 97-Test Benchmark, S160 Code)
+
+**Verdict metric: `aligned_ssim_vs_gt`** — ECC-aligns output to GT before SSIM, removing canvas crop/framing bias. N=55 tests have GT available.
+
+**Full 97-test results (S160, 2026-06-23 ~3 hours, `anime_stitch_20260623_234305.json`):**
+
+| Metric | ASP | Simple/SCANS | Δ | Notes |
+|--------|-----|--------------|---|-------|
+| **Verdicts (97t)** | 10 asp_better (10.3%) | 45 simple_better (46.4%) | — | 41 comparable (42.3%), 1 insufficient |
+| AlSSIM avg (55 GT tests) | **0.6795** | **0.7195** | **−5.6%** | WORSE overall |
+| AlSSIM — dy_cv<0.17 (N=31) | **0.6865** | **0.6795** | **+1.0%** | ASP competitive |
+| AlSSIM — 0.17≤dy_cv<0.50 (N=44) | **0.6925** | **0.7293** | **−5.1%** | SCANS ahead |
+| AlSSIM — dy_cv≥0.50 (N=22) | **0.6471** | **0.7459** | **−13.2%** | SCANS dominates |
+| seam_visibility avg | 25.77 | 4.21 | **6.1× worse** | **DOMINANT FAILURE** |
+| ghosting_siqe (true metric) | 36.21 | 72.34 | **−49.9%** | **BETTER** (less ghosting) |
+| sharpness (Laplacian) | 96.67 | 64.34 | **+50.2%** | BETTER (genuine) |
+| fallbacks (internal SCANS) | 9/97 (9.3%) | — | — | |
+| simple stitch failed | test95 only | — | — | verdict=insufficient_data |
+
+**vs S142 baseline (2026-06-21):** asp_better 9→10 (+1), simple_better 46→45 (−1), comparable 41→41. Net: marginal improvement over 18 sessions of compositing work (S143–S160).
+
+**dy_cv regime breakdown (N=97):**
+
+| dy_cv range | N | asp_better | comparable | simple_better | AlSSIM-ASP | AlSSIM-SS | Δ |
+|-------------|---|------------|------------|---------------|-----------|----------|---|
+| < 0.17 (uniform scroll) | 31 | 4 | 16 | 11 | 0.6865 | 0.6795 | **+1.0%** |
+| 0.17–0.50 (mixed) | 44 | 4 | 18 | 21 | 0.6925 | 0.7293 | **−5.1%** |
+| ≥ 0.50 (irregular) | 22 | 2 | 7 | 13 | 0.6471 | 0.7459 | **−13.2%** |
+
+*The 13-test sample from earlier today showed 5/5 comparable/asp_better at dy_cv<0.17 — that was optimistic sampling. Full corpus: 20/31 (64.5%) comparable+asp_better at dy_cv<0.17, confirming the regime split but at lower rates than the sample suggested.*
+
+**Key per-test notes (full corpus):**
+- **test17** (dy_cv=0.133): best asp_better, +5.4% AlSSIM (0.908 vs 0.862)
+- **test77** (dy_cv=2.223): worst, AlSSIM 0.444 vs 0.711, seam_vis 62.5 — catastrophic
+- **test43/82** (dy_cv≈2.16/2.20): similar catastrophic pattern
+- **test53** (dy_cv=3.588): anomalous asp_better despite extreme dy_cv (no GT, seam_vis 0.9 vs 1.2)
+- **test18** (dy_cv=17.106): comparable despite absurd dy_cv (different failure mode)
+- **test90** (fallback=Y): asp_better because SCANS itself failed (seam_vis 1.2 ASP vs 32.1 SCANS)
+- **test95**: simple stitch crashed → verdict=insufficient_data; ASP output exists
+
+**Root causes (updated 2026-06-23, full 97-test data):**
+1. **`ghosting_score` is a sharpness proxy** (double-Sobel Y `mean(|∂²I/∂y²|)`): S142 "42% worse ghosting" measured sharpness. True metric `ghosting_siqe` shows ASP 49.9% BETTER (less periodic edge repetition). Fix: §3.32 rename.
+2. **seam_visibility 6.1× worse** (avg 25.77 vs 4.21): pairwise 1D DP seams create visible horizontal luminance transitions. Fix: §4.2 GraphCut global seam (highest-impact remaining item).
+3. **dy_cv > 0.50 → −13.2% AlSSIM, 13/22 simple_better**: variable scroll creates pose gaps ARAP cannot reconcile → single-pose escalation cascade. Fix: RAFT-Small + §4.2 GraphCut.
+4. **dy_cv<0.17 still loses 11/31 tests**: seam_visibility dominates even in the best regime. ASP alignment is marginally better (+1.0% AlSSIM) but seam artifacts are perceptible.
+5. **Global scalar gain** insufficient for spatially-varying illumination → seam colour steps. Fix: §4.1 `_blocks_gain_compensate` as default (enabled in S160).
+
+**Improvements since S142 (S143–S161, 19 sessions, +103 tests → 1375 total):**
+- S143: AnimeInterp SGM + ConvGRU flow engine, MLLM semantic scoring
+- S144: Overmix-inspired hold-block sub-pixel averaging (§3.12A), SI-FID proxy
+- S145: OBJ-GSP triangular mesh barrier, HybridStitch export
+- S146: HITL per-test preset system, CamFlow bg-masked phase correlation
+- S147–S155: 9 sessions of compositing improvements (histogram matching, bilateral smooth, cost map blur/smooth, zone normalizations, feather management)
+- S156–S159: 4 more compositing sessions (NCC gate, sharpness guard, saturation norm, hue eq, seam transition penalty)
+- S160: OpenCV-derived improvements — blocks gain/lum compensate (§4.1/§4.4), wave correct affines (§4.3), canvas gain uniformity metric (§3.31)
+- S161: **Structural improvements** — §4.7 dy_cv gate (SCANS fallback for irregular scrolls, prevents catastrophic failures), §4.2 GraphCut seam default-ON (`batch.seam.graphcut_seam_find`), §3.32 `_edge_energy_score` metric alias
+- S162: **Correctness + fallback** — §4.5 Canvas-space DP seam (`cv2.detail_DpSeamFinder`, intermediate fallback when GraphCut off); §3.32B GhostGate migrated to `ghosting_siqe` (true ghost metric, eliminates false SCANS fallbacks on sharp outputs); §3.32C/D RLHF rating + param_search scoring formulas use `ghosting_siqe/100` not sharpness proxy
+- S163: **Safety net** — §4.8 SeamVisGate in `bench_anime_stitch.py`: post-render fallback to SCANS when `asp_sv > max(20, 3×sim_sv)`; catches test74 (sv=92.6), test34 (62.8), test12 (38.2), test92 (33.6)
+- S164: **Seam step reduction** — §3.33 `_feather_gc_boundaries()` in `compositing.py` (±8px linear ramp at GraphCut ownership boundaries, vectorized numpy, default ON); §4.9 `_smooth_seam_bands()` in `canvas.py` (narrow vertical Gaussian blur at seam rows, Stage 11.19, default OFF pending benchmark)
+- **Net verdict impact: +1 asp_better, −1 simple_better** over 18 compositing sessions (S143–S160). S161–S164 target seam_visibility and catastrophic-test floor; post-benchmark run needed to quantify verdict impact.
+
+---
 
 **S159 (2026-06-22):** §1.125 Seam Transition Straightness Penalty. `_SEAM_TRANSITION_PEN` (default 0.0) adds a row-distance-from-midline cost to the energy matrix in `_seam_cut` before the DP forward pass. Distance normalised to [0, 1] over zone height — scale-invariant. Creates mild prior toward straight seam paths. `ASP_SEAM_TRANSITION_PEN=<float>` to enable (e.g. 5.0). §3.30 Per-Strip Top/Bottom NCC Self-Consistency. `_strip_self_ssim(img, n_strips=8) → float` in `bench_anime_stitch.py` — splits each strip in half, computes NCC between halves at 32px thumbnail height, returns min across strips. Near 1.0 = smooth strips; lower = brightness jump at seam. Added as `strip_self_ssim` to all benchmark result dicts. §1.126 Fg-Majority Column Floor. `_FG_MAJORITY_FLOOR` (default 0.0 = off) — in `_build_seam_cost_map`, when zone is >60% fg, raises columns >80% fg to at least the floor value to push DP toward minority bg corridor. Guard: skipped when all columns heavy. `ASP_FG_MAJORITY_FLOOR=<float>` to enable (e.g. 1.5). §1.127 Zone Hue Equalization. `_zone_hue_eq(fa_zone, fb_zone) → ndarray` in `compositing.py` — circular-mean hue shift in HSV to match fb_zone mean hue to fa_zone; clamp [−30°, +30°]; threshold `ZONE_HUE_EQ_MIN_DIFF_DEG=5°`. Chained after `_zone_contrast_eq` when `ASP_ZONE_HUE_EQ=1`. Default OFF. `SEAM_TRANSITION_PEN_DEFAULT=0.0`, `FG_MAJORITY_FLOOR_DEFAULT=0.0`, `ZONE_HUE_EQ_MIN_DIFF_DEG=5.0` in `constants/animation.py`. 3 schema entries in `config.py`. 20 new tests. **1252 backend tests (9 skipped, 5 pre-existing fg_register torch/ptlflow failures).**
 

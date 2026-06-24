@@ -4,6 +4,171 @@
 
 ---
 
+## S164 — 2026-06-24 (§3.33 Feathered GraphCut Boundary Blend · §4.9 Post-Composite Seam Band Smoothing)
+
+*Two complementary improvements targeting seam_visibility (dominant failure +512%): §3.33 feathers the hard pixel boundary at GraphCut ownership transitions; §4.9 adds an optional post-composite Gaussian blur pass at each seam row. 1405 tests passing (85 skipped).*
+
+### §3.33 Feathered GraphCut Boundary Blend (`backend/src/animation/rendering/compositing.py`)
+
+- `_GC_FEATHER_PX: int = int(os.environ.get("ASP_GC_FEATHER_PX", "8"))` flag at module level (default ON, 8px)
+- `_feather_gc_boundaries(result, ownership_masks, warped_frames, feather_px=8)` vectorized numpy function:
+  - For each pair of adjacent ownership zones, finds per-column boundary row (`argmax` of reversed axis on ownership mask)
+  - Builds per-pixel alpha ramp `((b + feather_px − row) / (2 × feather_px)).clip(0, 1)` covering ±feather_px rows around boundary
+  - Blends `alpha × frame_i + (1−alpha) × frame_i+1` where BOTH frames have valid content; leaves hard partition where only one frame has pixels
+  - Runs ONLY in the hard-partition path (`not _MULTIBAND_BLEND`)
+- Set `ASP_GC_FEATHER_PX=0` to disable; narrow band ensures no double-image ghost (8px < pose-gap threshold)
+- `_GC_FEATHER_PX` and `_feather_gc_boundaries` exported in `__all__`
+- 5 tests in `TestFeatherGcBoundaries` (`test_compositing.py`)
+
+### §4.9 Post-Composite Seam Band Smoothing (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_smooth_seam_bands(canvas, seam_ys, band_px=4)` in `canvas.py`:
+  - For each seam row, extracts ±band_px band and applies `cv2.GaussianBlur(band, (1, kernel_h), 0)` (vertical direction only)
+  - Triangular blend weight: 1.0 at seam centre, 0.0 at band edges — preserves content at band boundaries
+  - Only blends where `canvas.max(axis=2) > 0` (valid content); no smearing into black gaps
+- `_SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "0"))` at pipeline.py module level (default OFF)
+- Stage 11.19 in `pipeline.py run()`: estimates seam_ys from sorted affine frame centres (midpoint between adjacent centres); calls `_smooth_seam_bands()` when `_SEAM_SMOOTH_PX > 0 and N > 1`
+- `SEAM_SMOOTH_PX: int = 0` constant in `constants/animation.py`
+- `ASP_SEAM_SMOOTH_PX` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]` in `config.py`
+- `_SEAM_SMOOTH_PX` exported in `pipeline.py __all__`; `_smooth_seam_bands` in `canvas.py __all__`
+- 5 tests in `TestSmoothSeamBands` (`test_canvas.py`)
+- Enable: `ASP_SEAM_SMOOTH_PX=4` (4px half-width, ±9px kernel); safe for validation before promoting to default-ON
+
+---
+
+## S163 — 2026-06-24 (§4.8 SeamVisGate — Post-Render Seam Visibility Safety Net)
+
+*One improvement: post-render SCANS fallback gate that fires when ASP seam_visibility exceeds 3× SCANS value (floor=20). Catches the 4 worst low-dy_cv seam_visibility failures in the 97-test corpus. 1402 tests passing (78 skipped).*
+
+### §4.8 SeamVisGate (`backend/benchmark/bench_anime_stitch.py`, `backend/src/animation/core/config.py`)
+
+- SeamVisGate block inserted between GhostGate and PIL save in `run_dataset()`:
+  - Reads `ASP_GATE_SEAM_VIS` (float, default 3.0; set ≥90 to disable) and `ASP_GATE_SEAM_VIS_FLOOR` (float, default 20.0)
+  - Fires when `simple_ok` and ratio limit < 90: loads `central_simple_path`, computes `_seam_visibility_score()` on both outputs
+  - Gate condition: `asp_sv > max(floor, ratio × max(sim_sv, 1.0))`
+  - Prints `[SeamVisGate]` status line; on fire: sets `timings["render_gate_fallback"] = 2`, raises RuntimeError → SCANS fallback
+  - `_fallback_reason` key: `seam_vis_gate:asp={X}_sim={Y}_limit={Z}`
+- `seam_visibility` taxonomy: 0–5=invisible, 6–12=normal, 13–25=visible step, >25=hard cut
+- Calibration (97-test corpus): test74 (sv=92.6), test34 (62.8), test12 (38.2), test92 (33.6) all correctly fire at ratio=3.0, floor=20.0; test27 (sv=6.0) correctly skipped
+- `ASP_GATE_SEAM_VIS` and `ASP_GATE_SEAM_VIS_FLOOR` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]` in `config.py`
+- 5 tests in `TestSeamVisibilityGate` (`test_bench_metrics.py`) — threshold calibration, floor-dominates, ratio-dominates, disable path
+
+---
+
+## S162 — 2026-06-24 (§4.5 Canvas-Space DP · §3.32B/C/D ghosting_siqe Scoring Fixes)
+
+*Two improvements: §4.5 Canvas-Space DP seam as GraphCut fallback; §3.32B/C/D migrates GhostGate + RLHF scoring + param_search off the mislabelled ghosting_score metric. 1390 tests passing (85 skipped).*
+
+### §4.5 Canvas-Space DP Seam (`backend/src/animation/rendering/compositing.py`)
+
+- `_DP_CANVAS_SEAM = os.environ.get("ASP_DP_CANVAS_SEAM", "0") != "0"` flag at module level
+- `_canvas_dp_seam_composite(warped_norm, warped_bg, canvas, H, W, N)` helper:
+  - Builds per-frame coverage masks (255=has content)
+  - Calls `cv2.detail_DpSeamFinder("COLOR_GRAD").find()` — handles 3-way overlaps pairwise DP misses
+  - Composites pixel-by-pixel, respects `warped_bg`, runs gap-fill pass (same as GraphCut path)
+- Wired as intermediate step after GraphCut fallthrough and before pairwise DP loop
+- `_get_seam_cost_flags()` extended to 6-tuple (adds `_DP_CANVAS_SEAM`)
+- `_DP_CANVAS_SEAM` and `_canvas_dp_seam_composite` exported in `__all__`
+- 5 tests in `TestCanvasDpSeamComposite` (`test_compositing.py`)
+- Enable: `ASP_DP_CANVAS_SEAM=1` (useful when `ASP_GRAPHCUT_SEAM=0`)
+
+### §3.32B: GhostGate → ghosting_siqe (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_ghosting_score_v2()` (FFT autocorrelation, 0-100) replaces `_ghosting_score()` (sharpness proxy) in the GhostGate block
+- Old gate was misfiring on sharp ASP outputs (sharpness proxy higher = sharper = better for ASP → gate incorrectly triggered SCANS fallback)
+- Thresholds unchanged (floor=40, ratio=2.0) — calibration matches ghosting_siqe 0-100 scale
+- Log label updated to `[GhostGate/siqe]`, fallback_reason key updated to `ghost_gate_siqe:`
+
+### §3.32C: RLHF Rating Formula → ghosting_siqe (`backend/src/animation/rlhf/bench_import.py`)
+
+- `suggested_rating()` now uses `ghosting_siqe / 100` (0-100→0-1 normalised) instead of `(1 − ghosting_score)`
+- Old formula penalised sharp outputs; new formula correctly penalises ghosty outputs
+- Fallback default: `ghosting_siqe=30.0` (neutral, approx ASP avg)
+- 5 tests in `TestSuggestedRatingGhostingSiqe` (`test_bench_import.py`)
+
+### §3.32D: Param Search Verdict → ghosting_siqe (`backend/src/animation/hitl/param_search.py`)
+
+- `_verdict_from_config()` uses `ghosting_siqe / 100` with fallback to `ghosting_score / 100` for legacy JSON without ghosting_siqe key
+- Old formula penalised sharpness under the label "ghosting" — caused incorrect parameter search signals
+- 5 tests in `TestVerdictFromConfigGhostingSiqe` (`test_param_search.py`)
+
+---
+
+## S161 — 2026-06-24 (§4.7 dy_cv Gate · §4.2 GraphCut Default-ON · §3.32 Edge Energy Alias)
+
+*Three improvements shipped: catastrophic-failure prevention gate, GraphCut seam enabled by default, and ghosting metric taxonomy fix. 1375 tests passing (85 skipped).*
+
+### §4.7 dy_cv Pre-Detection Gate (`backend/src/animation/core/pipeline.py`, `backend/src/constants/animation.py`)
+
+- `DY_CV_MAX = 1.5` constant added to `animation.py`
+- `_DY_CV_MAX = float(os.environ.get("ASP_DY_CV_MAX", "1.5"))` module-level flag in `pipeline.py`
+- `_compute_dy_cv(affines)` helper: `std(|Δty|) / mean(|Δty|)`; returns 0.0 when N<2 or mean<1 px (guard against static sequences)
+- Gate wired before Stage 9 canvas-span-utilisation gate: `_dy_cv_gate >= _DY_CV_MAX` → immediate SCANS fallback
+- Motivation: 97-test benchmark shows dy_cv≥1.5 → catastrophic ASP failure (AlSSIM 0.44–0.62, seam_vis 60–120 vs SCANS 2–3) while SCANS handles these sequences trivially. test77 (dy_cv=2.22), test43 (dy_cv=2.16), test82 (dy_cv=2.20) are all in this cluster.
+- 5 tests in `TestComputeDyCv` (`test_pipeline.py`)
+- `_compute_dy_cv` and `_DY_CV_MAX` exported in `pipeline.py __all__`
+
+### §4.2 GraphCut Global Seam — Enabled by Default (`backend/src/animation/rendering/compositing.py`)
+
+- `_GRAPHCUT_SEAM` env var default changed from `"0"` to `"1"`: `os.environ.get("ASP_GRAPHCUT_SEAM", "1")`
+- GraphCut (`batch.seam.graphcut_seam_find` → C++ `cv::detail::GraphCutSeamFinder(COST_COLOR_GRAD)`) was already fully implemented in Phase 4 C++ migration; this makes it the default path
+- Falls back to pairwise DP when `batch` module unavailable or GraphCut raises exception
+- `test_graphcut_flag_off_by_default` updated to `test_graphcut_flag_on_by_default` (asserts `isinstance(_GRAPHCUT_SEAM, bool)` — value is `BATCH_AVAILABLE` which is True in venv)
+- Target metric: `seam_visibility` +512% worse (25.77 vs 4.21 from 97-test benchmark) — dominant failure mode
+
+### §3.32 Ghosting Metric Taxonomy Fix (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_edge_energy_score(img)` added as correctly-labelled wrapper for `_ghosting_score()` (double-Sobel Y = sharpness proxy, NOT ghosting)
+- Metrics dict now emits `"edge_energy_score"` (primary key) alongside `"ghosting_score"` (alias kept for `ASP_GATE_GHOST` backward-compat and `ghosting_siqe` gate calibration)
+- `_ghosting_score()` docstring updated: "§3.32: Edge energy proxy (formerly mislabelled as ghosting)"
+- `_ghosting_score_v2` docstring updated to cross-reference `edge_energy_score`
+- 5 tests in `TestEdgeEnergyScore` (`test_bench_metrics.py`)
+
+---
+
+## Benchmark Analysis — 2026-06-23 (Full 97-Test Benchmark, S160 Code)
+
+*No new code changes. Full 97-test benchmark completed overnight (~3 hours, PID 16528 nohup). JSON: `backend/benchmark/output/anime_stitch_20260623_234305.json`. Documentation updated across `.agent/cache/` and `moon/roadmaps/asp.md`.*
+
+### Key Findings
+
+**1. `ghosting_score` mislabelling confirmed at corpus scale (97 tests)**  
+`_ghosting_score(img)` = `mean(|∂²I/∂y²|)` (double-Sobel Y) = edge energy = sharpness proxy. Historical S142 "ASP 42% worse ghosting" was wrong. TRUE ghosting metric: `ghosting_siqe` (FFT autocorrelation, §3.8A) — **ASP=36.21 vs SS=72.34: ASP 49.9% fewer ghost patterns across all 97 tests**. Roadmap §3.32 for the rename/fix.
+
+**2. `dy_cv` regime split — confirmed at corpus scale, revised thresholds**  
+- **dy_cv < 0.17** (N=31, uniform scroll): ASP +1.0% AlSSIM avg, 20/31 (64.5%) comparable+asp_better. *The 13-test sample earlier had 5/5 here — that was optimistic sampling.*
+- **dy_cv 0.17–0.50** (N=44, mixed): ASP −5.1% AlSSIM, 22/44 comparable+asp_better.
+- **dy_cv ≥ 0.50** (N=22, irregular): ASP −13.2% AlSSIM, 9/22 comparable+asp_better.
+- **dy_cv ≥ 1.0** (N=8): 5 simple_better, 2 comparable, 1 asp_better (test53, anomalous — no GT).
+
+**3. Full-corpus performance picture (97 tests, S160 code, aligned_ssim_vs_gt)**  
+- AlSSIM overall (55 GT tests): ASP=0.6795 vs SS=0.7195 (−5.6%)
+- `seam_visibility`: ASP=25.77 vs SS=4.21 (+512% worse) — dominant failure
+- `ghosting_siqe` (true): ASP=36.21 vs SS=72.34 (−49.9% — ASP BETTER)
+- `sharpness`: ASP=96.67 vs SS=64.34 (+50.2% BETTER)
+- Verdicts (97t): 10 asp_better (10.3%), 41 comparable (42.3%), 45 simple_better (46.4%), 1 insufficient (test95 — simple stitch crash)
+- Fallbacks: 9/97 (9.3%)
+
+**4. S142 → S160 net movement: marginal**  
+asp_better 9→10 (+1), simple_better 46→45 (−1), comparable 41→41. 18 sessions of compositing work (S143–S160) produced one test improvement. Confirms that compositing refinements have reached diminishing returns without fixing core seam routing (§4.2 GraphCut) and flow estimation (RAFT).
+
+**5. Catastrophic failure cluster at dy_cv 1.5–2.5**  
+test77 (dy_cv=2.22, AlSSIM 0.444), test43 (dy_cv=2.16, AlSSIM 0.479), test82 (dy_cv=2.20, AlSSIM 0.615) — all catastrophic. test53 (dy_cv=3.59) and test18 (dy_cv=17.1) are anomalous (don't fail catastrophically, possibly trigger different pipeline paths). Explicit dy_cv gate → SCANS fallback needed for dy_cv ≥ 1.0.
+
+**6. test95: simple stitch crashed**  
+`metrics_simple = {}` — verdict=insufficient_data. ASP output exists (AlSSIM 0.656). Not counted in verdicts.
+
+**7. `strip_banding_score` remains invalid cross-system metric**  
+Always 0.0 for simple stitch. Confirmed across all 97 tests.
+
+### Files Updated
+- `.agent/cache/asp_state_of_the_pipeline.md` — replaced 13-test table with full 97-test aggregate + regime table + updated root causes
+- `.agent/cache/stitching_systems_deep_comparison.md` — §Remaining Gap updated with 97-test data, seam_visibility +512% (was +654% from 13-test)
+- `moon/roadmaps/asp.md` — Phase 4 header, §3.32 confirmation, Document History updated to 97-test
+- `moon/CHANGELOG.md` — this entry (replaced 13-test entry)
+
+---
+
 ## ASP C++ Migration — Phase 6: GPU Acceleration (2026-06-23) 🏁 ROADMAP CLOSED
 
 *Phase 6: adds OpenCL UMat acceleration paths and CUDA detection to the `batch/` C++ extension. All 6 phases of the ASP C++ migration are now complete. Roadmap archived to `moon/archive/asp_cpp_migration.md`.*

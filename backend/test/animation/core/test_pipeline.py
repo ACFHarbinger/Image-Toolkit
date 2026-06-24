@@ -5,6 +5,7 @@ Tests for pipeline.py module-level functions:
   §1.9C — _reload_scans_frames (on-demand SCANS frame reload)
   §1.13 — _reject_scene_change_edges (scene-change luma gate)
   §1.3C — _normalize_frame_scales (scale normalisation before BA)
+  §4.7  — _compute_dy_cv (step-size CV gate for SCANS fallback)
 """
 
 from backend.src.animation.core import pipeline
@@ -17,6 +18,7 @@ import pytest
 import cv2
 
 from backend.src.animation.core.pipeline import (
+    _compute_dy_cv,
     _check_edge_graph_connectivity,
     _compute_mst_weight,
     _compute_canvas_span_utilization,
@@ -2165,3 +2167,42 @@ class TestSpatialDedupFramesBatchWiring:
         )
 
         assert n == 1  # frame 1 dropped (ddx=3 < 25, ddy=0 < 25)
+
+
+# ===========================================================================
+# §4.7 — _compute_dy_cv
+# ===========================================================================
+
+
+class TestComputeDyCv:
+    """§4.7: Coefficient of variation of adjacent vertical frame steps."""
+
+    def test_zero_below_two_affines(self):
+        # N < 2 → gate must not fire; return 0.0
+        affines = [_make_affine(dy=0.0)]
+        assert _compute_dy_cv(affines) == pytest.approx(0.0)
+
+    def test_uniform_steps_zero_cv(self):
+        # Identical steps → std=0 → CV=0.0
+        affines = [_make_affine(dy=float(i * 100)) for i in range(5)]
+        assert _compute_dy_cv(affines) == pytest.approx(0.0)
+
+    def test_highly_irregular_steps_high_cv(self):
+        # 9 small steps (5 px) + 1 large step (305 px) → CV ≈ 2.57 > 1.5 gate threshold
+        tys = [5.0 * i for i in range(10)] + [350.0]
+        affines = [_make_affine(dy=ty) for ty in tys]
+        cv = _compute_dy_cv(affines)
+        assert cv > 1.5
+
+    def test_regular_steps_below_threshold(self):
+        # Small random jitter on a regular scroll: CV ≈ 0.05 < 1.5 threshold
+        base_step = 80.0
+        tys = [base_step * i + (2.0 * (i % 2)) for i in range(6)]
+        affines = [_make_affine(dy=ty) for ty in tys]
+        cv = _compute_dy_cv(affines)
+        assert cv < 1.5
+
+    def test_near_zero_mean_returns_zero(self):
+        # All steps ≈ 0 (static frames) — mean < 1.0 → returns 0.0 (guard)
+        affines = [_make_affine(dy=0.1 * i) for i in range(4)]
+        assert _compute_dy_cv(affines) == pytest.approx(0.0)

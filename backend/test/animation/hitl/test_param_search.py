@@ -202,3 +202,63 @@ class TestScoreConfig:
         ]
         score = _score_config(_default_cfg(), _make_result_data(datasets))
         assert score == pytest.approx(4.0)
+
+
+# ===========================================================================
+# §3.32D — _verdict_from_config uses ghosting_siqe / 100 (not raw ghosting_score)
+# ===========================================================================
+
+
+def _m(ghosting_siqe=None, ghosting_score=None, coverage=0.9, seam_coh=5.0, seam_grad=2.0):
+    m = {"coverage": coverage, "seam_coherence": seam_coh, "seam_gradient": seam_grad}
+    if ghosting_siqe is not None:
+        m["ghosting_siqe"] = ghosting_siqe
+    if ghosting_score is not None:
+        m["ghosting_score"] = ghosting_score
+    return m
+
+
+class TestVerdictFromConfigGhostingSiqe:
+    """§3.32D: _verdict_from_config uses ghosting_siqe/100, falls back to ghosting_score/100."""
+
+    def test_high_ghosting_siqe_penalises_asp(self):
+        # ASP with heavy ghost (siqe=90) vs SCANS clean (siqe=10) → simple_better.
+        # score_margin=1.0 disables the 5% tie zone so any numeric difference decides.
+        asp_m = _m(ghosting_siqe=90.0, coverage=0.85)
+        sim_m = _m(ghosting_siqe=10.0, coverage=0.85)
+        cfg = _default_cfg()
+        cfg["w_ghosting"] = 0.5   # strong ghost weight
+        cfg["score_margin"] = 1.0  # remove tie zone
+        verdict = _verdict_from_config(asp_m, sim_m, cfg)
+        assert verdict == "simple_better"
+
+    def test_low_ghosting_siqe_neutral(self):
+        # Both clean — ghosting term ~0, other factors equal → comparable
+        asp_m = _m(ghosting_siqe=5.0, coverage=0.9, seam_coh=5.0, seam_grad=2.0)
+        sim_m = _m(ghosting_siqe=5.0, coverage=0.9, seam_coh=5.0, seam_grad=2.0)
+        verdict = _verdict_from_config(asp_m, sim_m, _default_cfg())
+        assert verdict == "comparable"
+
+    def test_fallback_to_ghosting_score_for_legacy_json(self):
+        # Legacy JSON: no ghosting_siqe key, has ghosting_score (raw value)
+        # Fallback: ghosting_score / 100 — a 50 value = 0.5 penalty weight
+        asp_m = _m(ghosting_score=50.0, coverage=0.9)
+        sim_m = _m(ghosting_score=50.0, coverage=0.9)
+        verdict = _verdict_from_config(asp_m, sim_m, _default_cfg())
+        assert verdict in ("comparable", "asp_better", "simple_better")  # no crash
+
+    def test_ghosting_siqe_takes_priority_over_ghosting_score(self):
+        # If both keys present, ghosting_siqe (via `or` short-circuit) takes precedence
+        asp_m = _m(ghosting_siqe=5.0, ghosting_score=90.0, coverage=0.9)
+        sim_m = _m(ghosting_siqe=5.0, ghosting_score=90.0, coverage=0.9)
+        verdict = _verdict_from_config(asp_m, sim_m, _default_cfg())
+        # Both clean (siqe=5), scores equal → comparable not simple_better
+        assert verdict == "comparable"
+
+    def test_siqe_normalised_not_raw(self):
+        # ghosting_siqe=100 / 100 = 1.0 penalty; ensure it doesn't overflow the formula
+        asp_m = _m(ghosting_siqe=100.0, coverage=0.8)
+        sim_m = _m(ghosting_siqe=0.0, coverage=0.8)
+        verdict = _verdict_from_config(asp_m, sim_m, _default_cfg())
+        # ASP has max ghosting, SCANS is clean → simple_better (with default weights)
+        assert verdict in ("simple_better", "comparable")

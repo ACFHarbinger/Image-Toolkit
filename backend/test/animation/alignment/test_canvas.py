@@ -25,6 +25,7 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _crop_to_valid,
     _detect_scroll_axis,
     _panorama_stitch_fallback,
+    _smooth_seam_bands,
     _telea_fill_gaps,
 )
 from backend.src.animation.core.pipeline import _compute_row_coverage  # noqa: E402
@@ -598,3 +599,52 @@ class TestBatchCanvasWiring:
         gap[:4, :4] = 255
         out = _telea_fill_gaps(canvas, gap)
         assert out.shape == canvas.shape
+
+
+# ===========================================================================
+# §4.9 — _smooth_seam_bands (post-composite seam band Gaussian smoothing)
+# ===========================================================================
+
+
+class TestSmoothSeamBands:
+    """§4.9: Narrow vertical Gaussian blur at inter-frame seam rows."""
+
+    def _two_strip_canvas(self, H: int = 64, W: int = 80, top_val: int = 50, bot_val: int = 200):
+        """Create a canvas with hard luminance step at row H//2."""
+        canvas = np.full((H, W, 3), top_val, dtype=np.uint8)
+        canvas[H // 2 :, :] = bot_val
+        return canvas
+
+    def test_returns_same_shape(self):
+        canvas = self._two_strip_canvas()
+        out = _smooth_seam_bands(canvas, seam_ys=[32], band_px=4)
+        assert out.shape == canvas.shape
+        assert out.dtype == np.uint8
+
+    def test_smooths_luminance_step(self):
+        # Without smoothing: row 31=50, row 32=200 → step=150.
+        # With smoothing ±4px: intermediate values should appear in the band.
+        canvas = self._two_strip_canvas(H=64, W=80)
+        out = _smooth_seam_bands(canvas, seam_ys=[32], band_px=4)
+        band = out[28:36, :, 0].astype(np.float32)
+        # Band should now have non-constant values (i.e., a gradient exists).
+        assert band.std() > 0
+
+    def test_zero_band_returns_copy(self):
+        canvas = self._two_strip_canvas()
+        out = _smooth_seam_bands(canvas, seam_ys=[32], band_px=0)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_empty_seam_list_returns_copy(self):
+        canvas = self._two_strip_canvas()
+        out = _smooth_seam_bands(canvas, seam_ys=[], band_px=4)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_black_pixels_not_modified(self):
+        # Pixels outside valid content (value=0) must not be altered.
+        canvas = np.zeros((32, 40, 3), dtype=np.uint8)
+        canvas[:16, :] = 100
+        canvas[16:, :] = 0  # second strip is all-black (invalid content)
+        out = _smooth_seam_bands(canvas, seam_ys=[16], band_px=4)
+        # Rows in the smoothed band where canvas was 0 must stay 0.
+        assert out[16:, :].max() == 0

@@ -1,5 +1,9 @@
 # ASP Pipeline Analysis — Session 142 (2026-06-21)
 
+> **⚠️ ARCHIVED BASELINE (S142, 2026-06-21):** This document reflects pipeline state at S142. For current state (S143–S160, 2026-06-23), see `asp_state_of_the_pipeline.md` §Benchmark Status. A new full 97-test benchmark is running (started 2026-06-23).
+
+> **Key changes since S142:** S143–S160 (18 sessions, +319 tests → 1252 total). Partial 7-test re-benchmark at S159/S160 code: 4 simple_better, 3 comparable, 0 asp_better. ssim_vs_gt ASP=0.714 vs SS=0.738. ghosting_score ASP=41.7 vs SS=27.7 (+50.5%, WORSE). New metric finding: `strip_banding_score` is always 0.0 for simple stitch — it only measures ASP-specific horizontal strip artifacts and is not a valid cross-system comparison. See `asp_state_of_the_pipeline.md` for full metric analysis.
+
 > **Current benchmark corpus:** 97 tests (`asp_test01–asp_test97`). 55 with ground truth; 42 cv_metrics-only.
 > **Result file:** `backend/benchmark/results/anime_stitch_20260621_193956.json` (7435 s runtime).
 
