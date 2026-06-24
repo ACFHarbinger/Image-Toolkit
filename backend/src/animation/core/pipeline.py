@@ -4593,14 +4593,19 @@ class AnimeStitchPipeline:
                 _seam_ys_lum = [
                     int((_sc_lum[k] + _sc_lum[k + 1]) / 2.0) for k in range(N - 1)
                 ]
-                canvas = _correct_seam_lum_steps(
-                    canvas, _seam_ys_lum, band_px=_lum_step_px
-                )
-                logger.debug(
-                    "[Stitch] Stage 11.20: §5.1 seam lum-step correction at %d seam(s), ±%dpx.",
-                    len(_seam_ys_lum),
-                    _lum_step_px,
-                )
+                if _SEAM_LUM_STEP_ADAPTIVE:
+                    _per_seam_band = _per_seam_lum_step_px(canvas, _seam_ys_lum)
+                    canvas = _correct_seam_lum_steps(canvas, _seam_ys_lum, band_px=_per_seam_band)
+                    logger.debug(
+                        "[Stitch] Stage 11.20: §5.20 adaptive seam lum-step at %d seam(s), widths=%s.",
+                        len(_seam_ys_lum), _per_seam_band,
+                    )
+                else:
+                    canvas = _correct_seam_lum_steps(canvas, _seam_ys_lum, band_px=_lum_step_px)
+                    logger.debug(
+                        "[Stitch] Stage 11.20: §5.1 seam lum-step correction at %d seam(s), ±%dpx.",
+                        len(_seam_ys_lum), _lum_step_px,
+                    )
             except Exception as _lum_e:
                 logger.debug(
                     "[Stitch] Stage 11.20 seam lum-step correction skipped (%s).", _lum_e
@@ -4697,27 +4702,23 @@ class AnimeStitchPipeline:
                 _seam_ys_lum = [
                     int((_sc_lum[k] + _sc_lum[k + 1]) / 2.0) for k in range(N - 1)
                 ]
-                # §5.16: per-seam adaptive band widths
+                # §5.20: per-seam adaptive band widths via list API
                 if _SEAM_LUM_STEP_ADAPTIVE:
-                    _per_seam_pxs = _per_seam_lum_step_px(
-                        canvas, _seam_ys_lum, base_px=_lum_step_px
-                    )
-                    # Apply correction seam-by-seam with individual band widths
-                    for _k, (_sy, _spx) in enumerate(zip(_seam_ys_lum, _per_seam_pxs)):
-                        canvas = _correct_seam_lum_steps(canvas, [_sy], band_px=_spx)
+                    _per_seam_band = _per_seam_lum_step_px(canvas, _seam_ys_lum)
+                    canvas = _correct_seam_lum_steps(canvas, _seam_ys_lum, band_px=_per_seam_band)
                     logger.debug(
-                        "[Stitch] Stage 11.20: §5.16 per-seam lum-step pxs=%s.",
-                        _per_seam_pxs,
+                        "[Stitch] Stage 11.20: §5.20 adaptive seam lum-step at %d seam(s), widths=%s.",
+                        len(_seam_ys_lum), _per_seam_band,
                     )
                 else:
                     canvas = _correct_seam_lum_steps(
                         canvas, _seam_ys_lum, band_px=_lum_step_px
                     )
-                logger.debug(
-                    "[Stitch] Stage 11.20: §5.1 seam lum-step correction at %d seam(s), ±%dpx.",
-                    len(_seam_ys_lum),
-                    _lum_step_px,
-                )
+                    logger.debug(
+                        "[Stitch] Stage 11.20: §5.1 seam lum-step correction at %d seam(s), ±%dpx.",
+                        len(_seam_ys_lum),
+                        _lum_step_px,
+                    )
             except Exception as _lum_e:
                 logger.debug(
                     "[Stitch] Stage 11.20 seam lum-step correction skipped (%s).", _lum_e

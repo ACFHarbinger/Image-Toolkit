@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from backend.src.animation.core.stateless import _largest_valid_rect
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import cv2
 import numpy as np
@@ -338,16 +338,25 @@ def _panorama_stitch_fallback(
 def _correct_seam_lum_steps(
     canvas: np.ndarray,
     seam_ys: List[int],
-    band_px: int = 20,
+    band_px: Union[int, List[int]] = 20,
 ) -> np.ndarray:
-    """§5.1: Linear luminance ramp at each seam to bridge inter-strip lum gap."""
-    if band_px <= 0 or not seam_ys:
+    """§5.1/§5.20: Linear luminance ramp at each seam to bridge inter-strip lum gap.
+
+    band_px may be a scalar (applied to all seams) or a list of per-seam widths.
+    """
+    _scalar_band = band_px if isinstance(band_px, int) else None
+    if _scalar_band is not None and _scalar_band <= 0:
+        return canvas
+    if not seam_ys:
         return canvas
     H = canvas.shape[0]
     out = canvas.copy().astype(np.float32)
-    ref_px = min(8, band_px // 2)
 
-    for sy in seam_ys:
+    for idx, sy in enumerate(seam_ys):
+        _band = band_px[idx] if isinstance(band_px, list) else band_px
+        if _band <= 0:
+            continue
+        ref_px = min(8, _band // 2)
         sy = max(ref_px, min(H - ref_px - 1, sy))
         r_top0 = max(0, sy - ref_px)
         r_top1 = sy
@@ -373,7 +382,7 @@ def _correct_seam_lum_steps(
         bot_lum = (_bot_lum_map * bot_valid).sum(axis=0) / _bot_cnt
         step = bot_lum - top_lum
         half_step = step / 2.0
-        r0_up = max(0, sy - band_px)
+        r0_up = max(0, sy - _band)
         r1_up = sy
         if r1_up > r0_up:
             band_h_up = r1_up - r0_up
@@ -387,7 +396,7 @@ def _correct_seam_lum_steps(
                     out[r0_up:r1_up, :, ch],
                 )
         r0_dn = sy
-        r1_dn = min(H, sy + band_px)
+        r1_dn = min(H, sy + _band)
         if r1_dn > r0_dn:
             band_h_dn = r1_dn - r0_dn
             alphas_dn = np.linspace(1.0, 0.0, band_h_dn, dtype=np.float32)
