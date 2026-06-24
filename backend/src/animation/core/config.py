@@ -999,7 +999,7 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         int,
         0,
         32,
-        "§4.9: Post-composite seam band smoothing half-width (px); narrow vertical Gaussian blur at each seam row; 0=disabled (default 0)",
+        "§4.9: Post-composite seam band smoothing half-width (px); narrow vertical Gaussian blur at each seam row; default 4 (S166); 0=disabled",
     ),
     "ASP_SEAM_LUM_STEP": (
         int,
