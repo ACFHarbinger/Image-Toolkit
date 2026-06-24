@@ -616,3 +616,5 @@ SC_GATE_FLOOR: float = 25.0
 FFT_BAND_GATE_FLOOR: float = 0.35
 # §5.22: pipeline strip luma monotonicity gate floor
 MONO_GATE_FLOOR: float = 0.60
+# §5.23: pipeline seam visibility gate floor (luma units)
+SV_GATE_FLOOR: float = 30.0

@@ -677,6 +677,25 @@ def _seam_coherence_score(img: np.ndarray) -> float:
     return float(np.std(row_means))
 
 
+def _seam_visibility_score(img: np.ndarray) -> float:
+    """§5.23: Worst-case adjacent-row luminance jump (no-reference seam visibility metric).
+
+    Converts to grayscale, computes per-row mean, then returns max(|diff|) over
+    adjacent row pairs. Black rows (mean ≤ 5) are excluded to ignore blank borders.
+    """
+    if img is None:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    row_means = gray.mean(axis=1)
+    # exclude near-black border rows
+    valid = row_means > 5.0
+    valid_means = row_means[valid]
+    if len(valid_means) < 2:
+        return 0.0
+    diffs = np.abs(np.diff(valid_means))
+    return float(diffs.max())
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -697,4 +716,5 @@ __all__ = [
     "_smooth_seam_bands",
     "_compute_adaptive_seam_smooth_px",
     "_seam_coherence_score",
+    "_seam_visibility_score",
 ]
