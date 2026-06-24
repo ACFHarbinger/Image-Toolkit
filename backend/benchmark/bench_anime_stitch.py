@@ -3266,6 +3266,28 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                     timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 64
                     raise RuntimeError(f"EntropyGate: asp_ent={_asp_ent:.3f}, ratio={_asp_ent / max(_sim_ent, 0.1):.2f}")
 
+        # ── Strip Self-SSIM Gate (§5.17) ─────────────────────────────────────────
+        try:
+            _STRIP_SSIM_RATIO_LIMIT = float(os.environ.get("ASP_GATE_STRIP_SSIM", "0.5"))
+        except ValueError:
+            _STRIP_SSIM_RATIO_LIMIT = 0.5
+        try:
+            _STRIP_SSIM_ABS_FLOOR = float(os.environ.get("ASP_GATE_STRIP_SSIM_FLOOR", "0.60"))
+        except ValueError:
+            _STRIP_SSIM_ABS_FLOOR = 0.60
+        if simple_ok and _STRIP_SSIM_RATIO_LIMIT > 0 and _fallback_reason is None:
+            _simple_img_ssim = cv2.imread(central_simple_path)
+            if _simple_img_ssim is not None:
+                _asp_sssim = _strip_self_ssim(canvas_out, n_strips=8)
+                _sim_sssim = _strip_self_ssim(_simple_img_ssim, n_strips=8)
+                # Gate fires when ASP strip_self_ssim < min(floor, ratio × sim)
+                # i.e., ASP is structurally more incoherent than allowed
+                _sssim_limit = min(_STRIP_SSIM_ABS_FLOOR, _STRIP_SSIM_RATIO_LIMIT * max(_sim_sssim, 0.001))
+                if _asp_sssim < _sssim_limit:
+                    _fallback_reason = f"strip_ssim_gate:asp={_asp_sssim:.3f}_sim={_sim_sssim:.3f}_limit={_sssim_limit:.3f}"
+                    timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 128
+                    raise RuntimeError(f"StripSSIMGate: asp_sssim={_asp_sssim:.3f}, ratio={_asp_sssim / max(_sim_sssim, 0.001):.2f}")
+
         from PIL import Image
 
         rgb = cv2.cvtColor(canvas_out, cv2.COLOR_BGR2RGB)

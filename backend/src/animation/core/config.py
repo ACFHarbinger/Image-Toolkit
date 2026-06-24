@@ -1067,6 +1067,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         100.0,
         "§5.15: EntropyGate absolute floor (entropy score); gate only fires when ASP entropy exceeds this value (default 3.0)",
     ),
+    "ASP_GATE_STRIP_SSIM": (
+        float,
+        0.0,
+        1.0,
+        "§5.17: StripSSIMGate ratio limit — ASP strip_self_ssim must not be below ratio×SCANS; 0=disabled (default 0.5)",
+    ),
+    "ASP_GATE_STRIP_SSIM_FLOOR": (
+        float,
+        0.0,
+        1.0,
+        "§5.17: StripSSIMGate absolute floor (strip_self_ssim [0,1]); gate fires when ASP ssim < min(floor, ratio×sim) (default 0.60)",
+    ),
 }
 
 

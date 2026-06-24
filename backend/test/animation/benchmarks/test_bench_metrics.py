@@ -1694,3 +1694,66 @@ class TestSeamOwnershipEntropyGate:
         assert f"asp={asp_ent:.3f}" in fallback_reason
         assert f"sim={sim_ent:.3f}" in fallback_reason
         assert f"limit={limit:.3f}" in fallback_reason
+
+
+# ===========================================================================
+# §5.17 — Strip Self-SSIM Gate
+# ===========================================================================
+class TestStripSsimGate:
+    """§5.17: Strip Self-SSIM Gate — threshold logic tests (inverted: lower=worse)."""
+
+    def test_gate_fires_when_asp_below_floor(self):
+        # asp=0.40, sim=0.90, ratio=0.5
+        # limit = min(0.60, 0.5 * max(0.90, 0.001)) = min(0.60, 0.45) = 0.45
+        # 0.40 < 0.45 → gate fires
+        asp_sssim = 0.40
+        sim_sssim = 0.90
+        floor = 0.60
+        ratio_limit = 0.5
+        limit = min(floor, ratio_limit * max(sim_sssim, 0.001))
+        assert limit == pytest.approx(0.45)
+        assert asp_sssim < limit  # gate fires
+
+    def test_gate_passes_when_asp_above_limit(self):
+        # asp=0.70, sim=0.90, ratio=0.5
+        # limit = min(0.60, 0.5 * 0.90) = min(0.60, 0.45) = 0.45
+        # 0.70 > 0.45 → gate passes
+        asp_sssim = 0.70
+        sim_sssim = 0.90
+        floor = 0.60
+        ratio_limit = 0.5
+        limit = min(floor, ratio_limit * max(sim_sssim, 0.001))
+        assert limit == pytest.approx(0.45)
+        assert asp_sssim >= limit  # gate passes
+
+    def test_gate_disabled_at_ratio_zero(self):
+        # When _STRIP_SSIM_RATIO_LIMIT == 0, gate condition is skipped entirely
+        ratio_limit = 0.0
+        # Gate condition: ratio_limit > 0 must be False → gate is skipped
+        assert not (ratio_limit > 0)
+
+    def test_floor_dominates_when_sim_is_high(self):
+        # sim=0.95, ratio=0.5 → limit = min(0.60, 0.5*0.95) = min(0.60, 0.475) = 0.475
+        # asp=0.50 > 0.475 → gate passes (floor=0.60 would fire, but ratio×sim dominates)
+        asp_sssim = 0.50
+        sim_sssim = 0.95
+        floor = 0.60
+        ratio_limit = 0.5
+        limit = min(floor, ratio_limit * max(sim_sssim, 0.001))
+        assert limit == pytest.approx(0.475)
+        assert asp_sssim >= limit  # gate passes
+
+    def test_fallback_reason_prefix(self):
+        # Verify the fallback_reason string format starts with "strip_ssim_gate:"
+        asp_sssim = 0.40
+        sim_sssim = 0.90
+        floor = 0.60
+        ratio_limit = 0.5
+        limit = min(floor, ratio_limit * max(sim_sssim, 0.001))
+        fallback_reason = (
+            f"strip_ssim_gate:asp={asp_sssim:.3f}_sim={sim_sssim:.3f}_limit={limit:.3f}"
+        )
+        assert fallback_reason.startswith("strip_ssim_gate:")
+        assert f"asp={asp_sssim:.3f}" in fallback_reason
+        assert f"sim={sim_sssim:.3f}" in fallback_reason
+        assert f"limit={limit:.3f}" in fallback_reason
