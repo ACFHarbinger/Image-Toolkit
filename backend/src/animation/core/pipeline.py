@@ -38,6 +38,7 @@ from backend.src.animation.alignment.canvas import (
     _normalise_widths,
     _panorama_stitch_fallback,
     _scan_stitch_fallback,
+    _smooth_seam_bands,
     _telea_fill_gaps,
     find_optimal_sequence,
 )
@@ -361,6 +362,18 @@ _TRAJ_SMOOTH_IQR_THRESH: float = float(
 # exceeds WAVE_CORRECT_MIN_TX_RANGE (avoids correcting already-clean sequences).
 # Default "" = off.  Enable: ASP_WAVE_CORRECT=vertical or horizontal.
 _WAVE_CORRECT: str = os.environ.get("ASP_WAVE_CORRECT", "")
+# §4.7 — dy_cv pre-detection gate.
+# Coefficient of variation of adjacent vertical frame steps.  When dy_cv ≥ threshold
+# the pipeline immediately falls back to SCANS before expensive ARAP/BiRefNet work.
+# 97-test benchmark: dy_cv ≥ 1.5 → catastrophic ASP failure (AlSSIM −22 to −37%,
+# seam_vis 60–120 vs SCANS 2–3) while SCANS handles these sequences trivially.
+# Default 1.5 (enabled). Set ASP_DY_CV_MAX=0 to disable.
+_DY_CV_MAX: float = float(os.environ.get("ASP_DY_CV_MAX", "1.5"))
+# §4.9 — Post-composite seam band smoothing half-width (px).  After Stage 11,
+# a narrow vertical Gaussian blur is applied at each inter-frame seam row to
+# reduce the hard luminance step measured by seam_visibility_score.
+# Default 0 (disabled). Set ASP_SEAM_SMOOTH_PX=4 to enable 4px half-width.
+_SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "0"))
 # §1.17 — Canvas span utilisation gate (S61).
 # After bundle adjustment and canvas construction (Stage 9), the actual
 # dominant-axis span of the solved affines is compared against the expected
@@ -2169,6 +2182,40 @@ def _compute_canvas_span_utilization(affines: List[np.ndarray]) -> float:
     return span / expected_span
 
 
+def _compute_dy_cv(affines: List[np.ndarray]) -> float:
+    """§4.7: Coefficient of variation of adjacent vertical frame steps.
+
+    Computes ``std(|Δty|) / mean(|Δty|)`` from the bundle-adjusted affines.
+    A high dy_cv indicates an irregular scroll pattern (variable step sizes)
+    where ASP's compositing assumptions break down.
+
+    97-test benchmark (S160, 2026-06-23): dy_cv ≥ 1.5 → catastrophic ASP
+    failure on every test in that regime (AlSSIM −22 to −37%, seam_vis
+    60–120 vs SCANS 2–3).  SCANS handles these sequences trivially because
+    it requires no frame-to-frame registration.
+
+    Returns 0.0 when N < 2 (gate will not fire).
+
+    Parameters
+    ----------
+    affines:
+        List of N 2×3 float32 affine matrices from bundle adjustment.
+
+    Returns
+    -------
+    float
+        dy_cv ≥ 0.  Zero when N < 2.
+    """
+    N = len(affines)
+    if N < 2:
+        return 0.0
+    dy_steps = [abs(float(affines[k][1, 2]) - float(affines[k - 1][1, 2])) for k in range(1, N)]
+    mean_dy = float(np.mean(dy_steps))
+    if mean_dy < 1.0:
+        return 0.0
+    return float(np.std(dy_steps)) / mean_dy
+
+
 def _check_canvas_spread(
     edges: "List[dict]",
     min_spread_fraction: float,
@@ -3779,6 +3826,21 @@ class AnimeStitchPipeline:
                 )
                 return _scan_stitch_fallback(scans_frames, output_path)
 
+        # ── §4.7: dy_cv pre-detection gate ───────────────────────────────────
+        # When step-size CV is high the scroll is too irregular for ARAP/seam
+        # compositing — SCANS trivially handles these sequences.
+        if _DY_CV_MAX > 0.0:
+            _dy_cv_gate = _compute_dy_cv(affines)
+            if _dy_cv_gate >= _DY_CV_MAX:
+                logger.info(
+                    "[Stitch] §4.7: dy_cv=%.3f ≥ %.2f (irregular scroll) "
+                    "→ SCANS fallback (ASP seam routing degrades severely at high dy_cv).",
+                    _dy_cv_gate,
+                    _DY_CV_MAX,
+                )
+                _sf = scans_frames or _reload_scans_frames(image_paths)
+                return _scan_stitch_fallback(_sf, output_path)
+
         # ── §1.17: Canvas span utilisation gate ──────────────────────────────
         if _CANVAS_SPAN_MIN_UTIL > 0.0:
             _span_util = _compute_canvas_span_utilization(affines)
@@ -4426,6 +4488,27 @@ class AnimeStitchPipeline:
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
 
+        # ── Stage 11.19: §4.9 Post-composite seam band smoothing ────────────
+        # Apply a narrow vertical Gaussian blur (±_SEAM_SMOOTH_PX rows) at each
+        # inter-frame seam to reduce the hard luminance step.  Seam positions are
+        # estimated from the midpoint between adjacent sorted frame centres.
+        # Disabled by default (ASP_SEAM_SMOOTH_PX=0); enable with e.g. =4.
+        if _SEAM_SMOOTH_PX > 0 and N > 1:
+            try:
+                _tys_sm = [float(affines[k][1, 2]) for k in range(N)]
+                _ctrs_sm = [_tys_sm[k] + frames[k].shape[0] / 2.0 for k in range(N)]
+                _ord_sm = list(np.argsort(_ctrs_sm))
+                _sc_sm = [_ctrs_sm[_ord_sm[k]] for k in range(N)]
+                _seam_ys_sm = [int((_sc_sm[k] + _sc_sm[k + 1]) / 2.0) for k in range(N - 1)]
+                canvas = _smooth_seam_bands(canvas, _seam_ys_sm, band_px=_SEAM_SMOOTH_PX)
+                logger.debug(
+                    "[Stitch] Stage 11.19: §4.9 seam band smoothing at %d seam(s), ±%dpx.",
+                    len(_seam_ys_sm),
+                    _SEAM_SMOOTH_PX,
+                )
+            except Exception as _sm_e:
+                logger.debug("[Stitch] Stage 11.19 seam band smoothing skipped (%s).", _sm_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5024,6 +5107,9 @@ __all__ = [
     "_check_edge_graph_connectivity",
     "_compute_mst_weight",
     "_compute_canvas_span_utilization",
+    "_compute_dy_cv",
+    "_DY_CV_MAX",
+    "_SEAM_SMOOTH_PX",
     "_measure_max_seam_step",
     "_detect_static_input",
     "_build_manual_edge",

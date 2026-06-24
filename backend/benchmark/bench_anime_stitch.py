@@ -254,15 +254,24 @@ def _psnr(img_a: np.ndarray, img_b: np.ndarray) -> float:
 
 
 def _ghosting_score(img: np.ndarray) -> float:
-    """
-    Proxy for ghosting: detect double-edge bands.
-    High-frequency energy in a narrow band around seam transitions.
-    Returns mean absolute value of second-order vertical derivative.
+    """§3.32: Edge energy proxy (formerly mislabelled as ghosting).
+
+    Computes mean absolute value of the second-order vertical derivative
+    (double-Sobel Y) — this measures *edge energy / sharpness*, NOT ghosting.
+    Kept for backward compatibility with ASP_GATE_GHOST and historical JSON keys;
+    emitted as ``edge_energy_score`` in all new benchmark output.
+
+    For true ghosting detection use ``_ghosting_score_v2`` (``ghosting_siqe``).
     """
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
     g = gray.astype(np.float32)
     gy2 = cv2.Sobel(cv2.Sobel(g, cv2.CV_32F, 0, 1, ksize=3), cv2.CV_32F, 0, 1, ksize=3)
     return float(np.abs(gy2).mean())
+
+
+def _edge_energy_score(img: np.ndarray) -> float:
+    """§3.32: Correctly-labelled wrapper — same computation as ``_ghosting_score``."""
+    return _ghosting_score(img)
 
 
 def _ghosting_score_v2(img: np.ndarray) -> float:
@@ -279,10 +288,11 @@ def _ghosting_score_v2(img: np.ndarray) -> float:
       30–60 : moderate secondary peak (ghost possible, inspect)
       60+   : strong secondary peak (ghost highly likely)
 
-    Unlike ``_ghosting_score`` (double-Sobel proxy), this metric is specifically
-    sensitive to *repeated* edge patterns at a fixed displacement — the signature
-    of a misaligned character copy — while being less sensitive to high-frequency
-    texture that is NOT ghost-related.
+    Unlike ``_ghosting_score`` / ``edge_energy_score`` (double-Sobel sharpness
+    proxy, §3.32), this metric is specifically sensitive to *repeated* edge
+    patterns at a fixed displacement — the signature of a misaligned character
+    copy — while being less sensitive to high-frequency texture that is NOT
+    ghost-related.
     """
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
     g = gray.astype(np.float32)
@@ -1261,7 +1271,8 @@ def _compute_all_metrics(
         "coverage": round(_coverage(img), 4),
         "seam_gradient": round(_mean_seam_gradient(img, affines), 3),
         "color_entropy": round(_color_entropy(img), 4),
-        "ghosting_score": round(_ghosting_score(img), 4),
+        "edge_energy_score": round(_edge_energy_score(img), 4),
+        "ghosting_score": round(_ghosting_score(img), 4),  # alias kept for gate compat
         "ghosting_siqe": round(_ghosting_score_v2(img), 2),
         "seam_coherence": round(_seam_coherence(img), 2),
         "seam_visibility": round(_seam_visibility_score(img, affines), 2),
@@ -2934,11 +2945,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         # frame-selection issue, not a post-processing crop problem.
 
         # ── Ghosting ratio gate (post-crop) ────────────────────────────────
-        # Fires AFTER cropping so the ghost score is on the final display image
-        # (same basis as the S4 benchmark measurements, no black border inflation).
-        # The banding/coherence gate misses DOUBLE-IMAGE ghosting — the blend of
-        # slightly-different poses creates a smooth blurring artifact that scores
-        # fine on seam_coherence but looks worse than simple stitch (test82, test95).
+        # §3.32B: GhostGate now uses ghosting_siqe (FFT autocorrelation, 0-100)
+        # instead of the old ghosting_score (double-Sobel sharpness proxy).
+        # ghosting_siqe: 0=clean, 30+=ghost likely, 60+=ghost confirmed.
+        # ASP avg=36.21, SCANS avg=72.34 across 97 tests — ASP is normally
+        # BETTER (lower) on true ghosting; gate fires only when ASP shows
+        # heavy ghost AND is worse than SCANS by ratio×.
         # Override: ASP_GATE_GHOST=99 to disable.
         try:
             _GHOST_RATIO_LIMIT = float(os.environ.get("ASP_GATE_GHOST", "2.0"))
@@ -2951,10 +2963,10 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         if simple_ok and _GHOST_RATIO_LIMIT < 90:
             _simple_img_gate = cv2.imread(central_simple_path)
             if _simple_img_gate is not None:
-                _asp_ghost = _ghosting_score(canvas_out)  # post-crop, no black borders
-                _sim_ghost = _ghosting_score(_simple_img_gate)
+                _asp_ghost = _ghosting_score_v2(canvas_out)  # siqe, post-crop
+                _sim_ghost = _ghosting_score_v2(_simple_img_gate)
                 print(
-                    f"  [GhostGate] asp_ghost={_asp_ghost:.1f}  "
+                    f"  [GhostGate/siqe] asp_ghost={_asp_ghost:.1f}  "
                     f"sim_ghost={_sim_ghost:.1f}  "
                     f"ratio={_asp_ghost / max(_sim_ghost, 1.0):.2f}"
                 )
@@ -2965,17 +2977,64 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                     _GHOST_ABS_FLOOR, _GHOST_RATIO_LIMIT * max(_sim_ghost, 1.0)
                 )
                 if _asp_ghost > _ghost_limit:
-                    _fallback_reason = f"ghost_gate:asp={_asp_ghost:.1f}_sim={_sim_ghost:.1f}_limit={_ghost_limit:.1f}"
+                    _fallback_reason = f"ghost_gate_siqe:asp={_asp_ghost:.1f}_sim={_sim_ghost:.1f}_limit={_ghost_limit:.1f}"
                     print(
-                        f"  [GhostGate] FAILED "
+                        f"  [GhostGate/siqe] FAILED "
                         f"(asp={_asp_ghost:.1f} > limit={_ghost_limit:.1f} "
                         f"[floor={_GHOST_ABS_FLOOR:.0f}, {_GHOST_RATIO_LIMIT:.1f}× sim={_sim_ghost:.1f}]) "
                         f"→ SCANS fallback."
                     )
                     timings["render_gate_fallback"] = 1
                     raise RuntimeError(
-                        f"Ghosting gate: asp_ghost={_asp_ghost:.1f}, "
+                        f"Ghosting gate (siqe): asp_ghost={_asp_ghost:.1f}, "
                         f"ratio={_asp_ghost / max(_sim_ghost, 1.0):.2f}"
+                    )
+
+        # ── SeamVisGate (post-crop, §4.8) ──────────────────────────────────
+        # Fires when ASP seam_visibility is BOTH above an absolute floor AND
+        # above ratio× SCANS seam_visibility.
+        # seam_visibility taxonomy: 0–5=invisible, 6–12=normal, 13–25=visible,
+        # >25=hard cut.  ASP avg=25.77, SCANS avg=4.21 across 97 tests.
+        # 97-test corpus: test74 (sv=92.6), test34 (62.8), test12 (38.2),
+        # test92 (33.6) all fire at floor=20, ratio=3.0 → SCANS fallback.
+        # Override: ASP_GATE_SEAM_VIS=99 to disable.
+        try:
+            _SEAM_VIS_RATIO_LIMIT = float(os.environ.get("ASP_GATE_SEAM_VIS", "3.0"))
+        except ValueError:
+            _SEAM_VIS_RATIO_LIMIT = 3.0
+        try:
+            _SEAM_VIS_ABS_FLOOR = float(os.environ.get("ASP_GATE_SEAM_VIS_FLOOR", "20.0"))
+        except ValueError:
+            _SEAM_VIS_ABS_FLOOR = 20.0
+        if simple_ok and _SEAM_VIS_RATIO_LIMIT < 90:
+            _simple_img_sv = cv2.imread(central_simple_path)
+            if _simple_img_sv is not None:
+                _asp_sv = _seam_visibility_score(canvas_out)
+                _sim_sv = _seam_visibility_score(_simple_img_sv)
+                print(
+                    f"  [SeamVisGate] asp_sv={_asp_sv:.1f}  "
+                    f"sim_sv={_sim_sv:.1f}  "
+                    f"ratio={_asp_sv / max(_sim_sv, 1.0):.2f}"
+                )
+                _sv_limit = max(
+                    _SEAM_VIS_ABS_FLOOR, _SEAM_VIS_RATIO_LIMIT * max(_sim_sv, 1.0)
+                )
+                if _asp_sv > _sv_limit:
+                    _fallback_reason = (
+                        f"seam_vis_gate:asp={_asp_sv:.1f}"
+                        f"_sim={_sim_sv:.1f}_limit={_sv_limit:.1f}"
+                    )
+                    print(
+                        f"  [SeamVisGate] FAILED "
+                        f"(asp={_asp_sv:.1f} > limit={_sv_limit:.1f} "
+                        f"[floor={_SEAM_VIS_ABS_FLOOR:.0f}, "
+                        f"{_SEAM_VIS_RATIO_LIMIT:.1f}× sim={_sim_sv:.1f}]) "
+                        f"→ SCANS fallback."
+                    )
+                    timings["render_gate_fallback"] = 2
+                    raise RuntimeError(
+                        f"SeamVis gate: asp_sv={_asp_sv:.1f}, "
+                        f"ratio={_asp_sv / max(_sim_sv, 1.0):.2f}"
                     )
 
         from PIL import Image

@@ -1,6 +1,6 @@
 # Deep Comparative Analysis: OpenCV Stitcher · Overmix · Anime Stitch Pipeline
 
-*Date: 2026-06-22. Analysed codebases: `opencv/modules/stitching/` (C++), `Overmix/src/` (C++/Qt), `backend/src/animation/` (Python 3.11). This document supersedes `asp_opencv_overmix_comparison.md` and `comparative_stitching_analysis.md`.*
+*Date: 2026-06-23. Analysed codebases: `opencv/modules/stitching/` (C++), `Overmix/src/` (C++/Qt), `backend/src/animation/` (Python 3.11). This document supersedes `asp_opencv_overmix_comparison.md` and `comparative_stitching_analysis.md`. Benchmark status as of 2026-06-23: see `asp_state_of_the_pipeline.md` §Benchmark Status.*
 
 ---
 
@@ -346,7 +346,7 @@ Four photometric correction stages before any matching:
 - **Stage 4.5b (per-segment k-means)**: 8-cluster k-means colour quantisation; per-cluster gain [0.88, 1.12]. Corrects dynamic contrast enhancement (phone screens brighten/dim panels).
 - **§4.1/§4.4 blocks gain** (S160, applied at seam zone): `_blocks_gain_compensate(fa_zone, fb_zone, block_size=32)` — BGR ratio per 32×32 block, bilinear resize, clamp [0.5, 2.0]. `_blocks_lum_compensate` uses LAB L-channel scalar to avoid colour cast from near-zero channel means.
 
-**Key difference**: ASP applies photometric correction before matching (so phase correlation operates on normalised frames). OpenCV applies it after seam finding (global canvas). Overmix relies on averaging. The strip_banding_score failure (97.9% of tests worse) is partially attributable to ASP's global scalar gain being insufficient for spatially-varying illumination within a single frame.
+**Key difference**: ASP applies photometric correction before matching (so phase correlation operates on normalised frames). OpenCV applies it after seam finding (global canvas). Overmix relies on averaging. The strip_banding_score metric always reads 0.0 for simple stitch — it measures ASP-specific horizontal strip boundary artifacts and is not a valid cross-system comparison. However, the underlying cause (global scalar gain insufficient for spatially-varying illumination) is real; `_blocks_gain_compensate(§4.1)` is the fix.
 
 ---
 
@@ -1354,13 +1354,38 @@ The automated quality gate suite (§1.14B through §1.85) provides a ground-trut
 
 ### The Remaining Gap
 
-ASP's benchmark failures (97.9% strip banding, 93.8% ghosting, 88.5% seam visibility vs simple stitch) are not fundamental — they reflect specific algorithmic choices that are directly addressable:
+**Updated 2026-06-23 (Full 97-test benchmark, S160 code, `anime_stitch_20260623_234305.json`):**
 
-1. **GraphCut seam (§4.2)** — replace pairwise 1D DP with global 2D min-cut. Eliminates the primary ghosting and seam visibility failures.
-2. **Blocks gain as default (§4.1)** — replace scalar gain with 32×32 block gain. Eliminates the strip banding failures.
-3. **Hold-block averaging (§3.12A as default)** — eliminate MPEG noise at source. Reduces ARAP false alarm rate, improving fg registration quality.
+| Metric | ASP | Simple | Δ | Status |
+|--------|-----|--------|---|--------|
+| ghosting_score (⚠ sharpness proxy) | ~55 | ~34 | +62% | Measures edge energy, NOT ghosting |
+| ghosting_siqe (true ghosting, FFT) | **36.21** | **72.34** | **−49.9%** | **ASP BETTER** |
+| seam_visibility (avg all 97t) | **25.77** | **4.21** | **+512%** | **WORST metric — dominant failure** |
+| sharpness (Laplacian, avg) | **96.67** | **64.34** | **+50.2%** | ASP better (genuine) |
+| aligned_ssim_vs_gt (55 GT tests) | **0.6795** | **0.7195** | **−5.6%** | WORSE overall |
+| aligned_ssim_vs_gt (dy_cv<0.17, N=31) | **0.6865** | **0.6795** | **+1.0%** | ASP competitive |
+| aligned_ssim_vs_gt (dy_cv≥0.50, N=22) | **0.6471** | **0.7459** | **−13.2%** | SCANS dominates |
+| verdicts (97t) | 10 asp_better (10.3%) | 45 simple_better (46.4%) | — | 41 comparable |
 
-These three changes, informed by OpenCV and Overmix's design, would be expected to close the majority of the benchmark gap between ASP and the simple-stitch baseline — and, given ASP's fg/bg decomposition advantage, potentially push ASP above both OpenCV and simple-stitch on anime-specific test cases.
+**Key finding — verdict strongly correlates with dy_cv (97-test confirmed):**
+- dy_cv < 0.17 (N=31, uniform scroll): 20/31 → comparable or asp_better; ASP +1.0% AlSSIM on average
+- dy_cv 0.17–0.50 (N=44, mixed): 22/44 → comparable or asp_better; ASP −5.1% AlSSIM
+- dy_cv ≥ 0.50 (N=22, irregular): 9/22 → comparable or asp_better; ASP −13.2% AlSSIM
+- dy_cv ≥ 1.0 (N=8): 1 asp_better (test53, anomalous), 2 comparable, 5 simple_better
+
+**IMPORTANT — `ghosting_score` is NOT a ghosting metric**: `_ghosting_score(img)` computes `mean(|∂²I/∂y²|)` = **edge energy = sharpness proxy**, not ghosting. The apparent "worse ghosting" for ASP is actually sharper edges. The TRUE ghosting metric is `ghosting_siqe` (§3.8A — FFT autocorrelation, detects repeated-edge ghost signatures). By `ghosting_siqe`, ASP is **49.9% BETTER** than simple stitch across all 97 tests. Fix tracked in roadmap §3.32. Historical S142 "42% worse ghosting" conclusion was incorrect.
+
+**Note on strip_banding_score:** Always 0.0 for simple stitch — only fires on ASP-specific horizontal strip boundaries. Not a valid cross-system metric.
+
+ASP's remaining failures are not fundamental — they reflect specific algorithmic choices directly addressable from OpenCV and Overmix's design:
+
+1. **GraphCut seam (§4.2)** — replace pairwise 1D DP seam with `cv2.detail_GraphCutSeamFinder("COST_COLOR_GRAD")` (OpenCV `GCGraph` Boykov-Kolmogorov s-t min-cut). Solves ALL N seams simultaneously, eliminating adjacent-seam conflicts. Expected to close seam_visibility (+512% gap) and most ghosting residuals.
+2. **Blocks gain as default (§4.1)** — promote `_blocks_gain_compensate(block_size=32)` to ON-by-default (enabled in S160). Replaces global scalar gain with spatially-varying 32×32 block correction (OpenCV BlocksGainCompensator).
+3. **Hold-block averaging (§3.12A as default)** — enable `ASP_HOLD_AVERAGE=1` by default. Eliminates MPEG quantisation noise at source (√N SNR). Reduces false ARAP alarm rate.
+4. **ptlflow/RAFT in test env** — current env uses DIS fallback (no ptlflow). Installing RAFT-Small activates full ARAP pipeline — single highest-impact environment fix.
+5. **dy_cv pre-detection gate** — for tests with dy_cv ≥ 1.0, immediately fall back to SCANS. test77 (dy_cv=2.22) is a catastrophic failure that SCANS handles trivially; 5/8 dy_cv≥1.0 tests currently simple_better.
+
+These five changes (three algorithmic, one environment, one gate), informed by OpenCV and Overmix's design, are expected to close the majority of the benchmark gap.
 
 ---
 

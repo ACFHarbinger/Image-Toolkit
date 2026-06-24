@@ -75,11 +75,15 @@ def resolve_anime_path(dataset: Dict[str, Any]) -> Optional[str]:
 def suggested_rating(metrics: Optional[Dict[str, Any]]) -> float:
     """Translate automated metrics_asp into a suggested 0–10 quality rating.
 
-    Formula mirrors ``_auto_verdict()`` in ``bench_anime_stitch.py``:
+    §3.32C: Updated to use ``ghosting_siqe`` (FFT autocorrelation, 0–100,
+    higher = more ghosting) instead of ``ghosting_score`` (double-Sobel
+    sharpness proxy — larger = sharper, NOT more ghosting).  The old formula
+    used ``(1 − ghosting_score)`` which penalised sharp outputs; the correct
+    term is ``(1 − ghosting_siqe / 100)``.
 
         composite = coverage * 0.35
                   + sharpness_norm * 0.25
-                  + (1 − ghosting_score) * 0.20
+                  + (1 − ghosting_siqe / 100) * 0.20
                   + seam_coherence * 0.20
 
     where ``sharpness_norm`` is ``min(sharpness / 80, 1.0)`` (80 is a
@@ -93,14 +97,15 @@ def suggested_rating(metrics: Optional[Dict[str, Any]]) -> float:
 
     coverage = float(metrics.get("coverage", 0.9))
     sharpness = float(metrics.get("sharpness", 40.0))
-    ghosting = float(metrics.get("ghosting_score", 0.3))
+    # ghosting_siqe: 0=clean, 100=heavy ghost. Normalise to [0,1] for formula.
+    ghosting_siqe = float(metrics.get("ghosting_siqe", 30.0))
     seam_coh = float(metrics.get("seam_coherence", 0.7))
 
     sharpness_norm = min(sharpness / 80.0, 1.0)
     composite = (
         coverage * 0.35
         + sharpness_norm * 0.25
-        + max(0.0, 1.0 - ghosting) * 0.20
+        + max(0.0, 1.0 - ghosting_siqe / 100.0) * 0.20
         + seam_coh * 0.20
     )
     return round(min(10.0, max(0.0, composite * 10.0)), 1)

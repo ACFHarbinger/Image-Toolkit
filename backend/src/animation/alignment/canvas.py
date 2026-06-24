@@ -193,6 +193,51 @@ def _telea_fill_gaps(canvas: np.ndarray, gap_mask: np.ndarray) -> np.ndarray:
     )
 
 
+def _smooth_seam_bands(
+    canvas: np.ndarray,
+    seam_ys: List[int],
+    band_px: int = 4,
+) -> np.ndarray:
+    """§4.9: Narrow vertical Gaussian blur at each inter-frame seam row.
+
+    Reduces the hard luminance step at frame boundaries by blending a Gaussian-
+    blurred copy of each seam band back into the canvas, weighted by a triangular
+    ramp that peaks at the seam centre and falls to zero at ±band_px rows.
+    Only pixels with valid content (non-black) are affected.
+
+    Directly lowers seam_visibility_score (worst-case adjacent-row luminance
+    jump) without altering image content outside the narrow blur band.
+    """
+    if band_px <= 0 or not seam_ys:
+        return canvas
+    H = canvas.shape[0]
+    out = canvas.copy()
+    kernel_h = 2 * band_px + 1  # odd kernel spanning the full band
+
+    for sy in seam_ys:
+        r0 = max(0, sy - band_px)
+        r1 = min(H, sy + band_px + 1)
+        if r1 - r0 < 2:
+            continue
+        band = canvas[r0:r1].astype(np.float32)
+        blurred = cv2.GaussianBlur(band, (1, kernel_h), 0)
+
+        # Triangular weight: 1.0 at seam centre, 0.0 at band edges.
+        band_h = r1 - r0
+        half = band_h / 2.0
+        weights = np.array(
+            [1.0 - abs(r - (sy - r0)) / half for r in range(band_h)],
+            dtype=np.float32,
+        ).clip(0.0, 1.0)[:, None, None]
+
+        # Only apply where at least one channel is non-zero (valid content).
+        valid = (canvas[r0:r1].max(axis=2) > 0)[:, :, None]
+        blended = (weights * blurred + (1.0 - weights) * band).clip(0, 255).astype(np.uint8)
+        out[r0:r1] = np.where(valid, blended, canvas[r0:r1])
+
+    return out
+
+
 def _scan_stitch_fallback(
     frames: List[np.ndarray],
     output_path: str,
@@ -408,6 +453,7 @@ __all__ = [
     "_compute_canvas",
     "_crop_to_valid",
     "_telea_fill_gaps",
+    "_smooth_seam_bands",
     "_scan_stitch_fallback",
     "_panorama_stitch_fallback",
     "find_optimal_sequence",
