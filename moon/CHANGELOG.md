@@ -4,6 +4,56 @@
 
 ---
 
+## S168 — 2026-06-24 (§5.6 Pipeline CGU Gate · §5.8 Adaptive dy_cv Ceiling)
+
+*Two improvements: §5.6 brings the benchmark-level CGUGate into the pipeline itself (Stage 11.21, fallback when canvas_gain_uniformity > 0.20), also enables seam-Gaussian-smoothing by default (4px); §5.8 lowers the dy_cv ceiling proportionally for large-N sequences (N≥8) to prevent compounding step irregularity. 1435 tests passing (85 skipped).*
+
+### §5.6 Pipeline CGU Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_canvas_gain_uniformity(img, n_strips=8)` — coefficient of variation of 8-strip mean luminance — moved from benchmark to `canvas.py`; exported in `__all__`
+- `_CGU_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CGU_FLOOR", "0.20"))` at pipeline.py module level
+- Stage 11.21 in `run()` (after §5.1 correction): computes CGU on finished canvas; fires `_scan_stitch_fallback(reason=f"cgu_gate:{cgu:.3f}")` when `cgu > _CGU_GATE_FLOOR < 1.0`
+- `_SEAM_SMOOTH_PX` default changed "0" → "4" (§4.9 Gaussian seam smoothing now on by default); `SEAM_SMOOTH_PX: int = 4` in constants
+
+### §5.8 Adaptive dy_cv Ceiling (`backend/src/animation/core/pipeline.py`, `backend/src/constants/animation.py`)
+
+- `_compute_adaptive_dy_cv_max(n_frames, base_max=1.5)` in `pipeline.py`: returns `base_max` unchanged for N<8; returns `max(base_max × 8/N, 0.8)` for N≥8
+  - Scale examples: N=8→1.5, N=12→1.0, N=16→0.8 (floor=`DY_CV_ADAPTIVE_FLOOR`)
+  - Prevents large-N sequences with moderately irregular steps from bypassing the dy_cv gate
+- Wired at §4.7 gate in `run()`: `_dy_cv_adaptive_max = _compute_adaptive_dy_cv_max(N, _DY_CV_MAX)` replaces hardcoded `_DY_CV_MAX`
+- `DY_CV_ADAPTIVE_FLOOR: float = 0.8` in `constants/animation.py`
+- `_compute_adaptive_dy_cv_max` exported in `__all__`
+- 5 tests in `TestAdaptiveDyCvMax` (`test_pipeline.py`)
+
+---
+
+## S167 — 2026-06-24 (§5.2 Seam Coherence Gate · §5.4 CGU in CQAS · §5.5 seam_vis in Verdict)
+
+*Three benchmark-level improvements targeting verdict accuracy and gradual luminance banding detection. §5.2 adds a SCANS fallback gate for high seam_coherence; §5.4 adds canvas_gain_uniformity as a 5th CQAS component; §5.5 adds a direct seam_visibility penalty to the auto-verdict formula. 1430 tests passing (85 skipped).*
+
+### §5.2 Seam Coherence Gate (`backend/benchmark/bench_anime_stitch.py`, `backend/src/animation/core/config.py`)
+
+- SCGate block inserted after CGUGate in `run_dataset()`:
+  - Reads `ASP_GATE_SEAM_COH` (float, default 2.5; set ≥90 to disable) and `ASP_GATE_SEAM_COH_FLOOR` (float, default 15.0)
+  - Gate condition: `asp_sc > max(floor, 2.5 × max(sim_sc, 1.0))`
+  - Prints `[SCGate]` status line; on fire: `_fallback_reason = "seam_coh_gate:asp=..."`, `timings["render_gate_fallback"] += 8`, raises RuntimeError
+- `ASP_GATE_SEAM_COH` and `ASP_GATE_SEAM_COH_FLOOR` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]` in `config.py`
+- 5 tests in `TestSeamCoherenceGate` (`test_bench_metrics.py`)
+
+### §5.4 CGU Term in CQAS (`backend/benchmark/bench_anime_stitch.py`)
+
+- `cgu_score = clip(1.0 − cgu / 0.40, 0, 1)` computed from `canvas_gain_uniformity` metric
+- Added as 5th CQAS component with weight 0.15; component list: `[(g,0.35),(sv,0.30),(sc,0.20),(sh,0.15),(cgu,0.15)]`
+- Score 1.0 at cgu=0 (perfectly uniform strips), 0.0 at cgu≥0.40 (severe banding)
+- 5 tests in `TestCompositeQualityScoreWithCGU` (`test_bench_metrics.py`)
+
+### §5.5 seam_vis in Verdict (`backend/benchmark/bench_anime_stitch.py`)
+
+- `sv_score × 0.10` additive penalty term in `_auto_verdict()`: directly penalises visible seams even when below the SeamVisGate absolute floor
+- Complementary to SeamVisGate: gate is binary (fire/no-fire); verdict term is continuous
+
+---
+
 ## S166 — 2026-06-24 (§5.1 Seam Luminance Step Correction · §5.3 Canvas Gain Uniformity Gate)
 
 *Two improvements targeting inter-strip luminance banding (root cause of strip_banding_score=31–41 on worst failures): §5.1 bridges the per-column luminance mean gap at each seam with a linear ramp; §5.3 adds a SCANS fallback gate when ASP canvas_gain_uniformity exceeds 2.0× SCANS. 1420 tests passing (85 skipped).*
