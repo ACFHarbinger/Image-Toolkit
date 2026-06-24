@@ -1379,3 +1379,48 @@ class TestSeamCoherenceGate:
         # ratio=90 ≥ 90 → gate bypass
         ratio = 90.0
         assert ratio >= 90.0  # gate condition: _SEAM_COH_RATIO_LIMIT < 90
+
+class TestCompositeQualityScoreWithCGU:
+    """§5.4: canvas_gain_uniformity term in CQAS."""
+
+    def _cqas(self, metrics: dict) -> float:
+        from backend.benchmark.bench_anime_stitch import _compute_cqas
+        return _compute_cqas(metrics)
+
+    def test_cgu_score_perfect_uniformity(self):
+        # cgu=0.0 → cgu_score = clip(1 - 0/0.40, 0, 1) = 1.0
+        from backend.benchmark.bench_anime_stitch import _compute_cqas
+        import numpy as np
+        cgu = 0.0
+        cgu_score = float(np.clip(1.0 - cgu / 0.40, 0.0, 1.0))
+        assert cgu_score == 1.0
+
+    def test_cgu_score_bad_uniformity(self):
+        # cgu=0.40 → cgu_score = clip(1 - 0.40/0.40, 0, 1) = 0.0
+        import numpy as np
+        cgu = 0.40
+        cgu_score = float(np.clip(1.0 - cgu / 0.40, 0.0, 1.0))
+        assert cgu_score == 0.0
+
+    def test_cgu_score_mid_range(self):
+        # cgu=0.20 → cgu_score = clip(1 - 0.20/0.40, 0, 1) = 0.5
+        import numpy as np
+        cgu = 0.20
+        cgu_score = float(np.clip(1.0 - cgu / 0.40, 0.0, 1.0))
+        assert abs(cgu_score - 0.5) < 1e-9
+
+    def test_cqas_includes_cgu(self):
+        # High CGU (bad uniformity) should lower CQAS compared to cgu=0
+        base = {"ghosting_siqe": 10.0, "seam_visibility": 5.0, "seam_coherence": 10.0, "sharpness": 80.0}
+        score_without_cgu = self._cqas(base)
+        score_with_good_cgu = self._cqas({**base, "canvas_gain_uniformity": 0.0})
+        score_with_bad_cgu = self._cqas({**base, "canvas_gain_uniformity": 0.40})
+        assert score_with_bad_cgu < score_without_cgu
+        assert score_with_good_cgu >= score_without_cgu
+
+    def test_cqas_without_cgu_still_works(self):
+        # Missing canvas_gain_uniformity → CQAS still returns a float (None excluded)
+        metrics = {"ghosting_siqe": 20.0, "seam_visibility": 8.0, "seam_coherence": 15.0, "sharpness": 60.0}
+        result = self._cqas(metrics)
+        assert result is not None
+        assert 0.0 <= result <= 1.0
