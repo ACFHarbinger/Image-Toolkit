@@ -39,6 +39,7 @@ from backend.src.animation.alignment.canvas import (
     _panorama_stitch_fallback,
     _scan_stitch_fallback,
     _smooth_seam_bands,
+    _canvas_gain_uniformity,
     _correct_seam_lum_steps,
     _telea_fill_gaps,
     find_optimal_sequence,
@@ -373,11 +374,16 @@ _DY_CV_MAX: float = float(os.environ.get("ASP_DY_CV_MAX", "1.5"))
 # §4.9 — Post-composite seam band smoothing half-width (px).  After Stage 11,
 # a narrow vertical Gaussian blur is applied at each inter-frame seam row to
 # reduce the hard luminance step measured by seam_visibility_score.
-# Default 0 (disabled). Set ASP_SEAM_SMOOTH_PX=4 to enable 4px half-width.
-_SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "0"))
+# Default 4 (enabled, S166). Set ASP_SEAM_SMOOTH_PX=0 to disable.
+_SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "4"))
 # §5.1 — Post-composite seam luminance step correction (S166).
 # 0 = disabled (default). Set ASP_SEAM_LUM_STEP=20 to enable 20px half-band.
 _SEAM_LUM_STEP_PX: int = int(os.environ.get("ASP_SEAM_LUM_STEP", "0"))
+# §5.3 — Canvas Gain Uniformity absolute gate (S167).
+# After Stage 11 compositing, measures strip-level luminance banding.
+# If canvas_gain_uniformity > _CGU_GATE_FLOOR → SCANS fallback.
+# Default 0.20 (ASP test82=0.238 is clearly wrong). Set ASP_GATE_CGU_FLOOR=1.0 to disable.
+_CGU_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CGU_FLOOR", "0.20"))
 # §1.17 — Canvas span utilisation gate (S61).
 # After bundle adjustment and canvas construction (Stage 9), the actual
 # dominant-axis span of the solved affines is compared against the expected
@@ -4539,6 +4545,25 @@ class AnimeStitchPipeline:
                     "[Stitch] Stage 11.20 seam lum-step correction skipped (%s).", _lum_e
                 )
 
+        # ── Stage 11.21: §5.3 Canvas Gain Uniformity gate ───────────────────
+        # Measures strip-level luminance banding on the finished canvas.
+        # Falls back to SCANS if CGU > _CGU_GATE_FLOOR (absolute; default 0.20).
+        if _CGU_GATE_FLOOR < 1.0 and N > 1:
+            try:
+                _cgu_val = _canvas_gain_uniformity(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.21: canvas_gain_uniformity=%.3f (floor=%.2f).",
+                             _cgu_val, _CGU_GATE_FLOOR)
+                if _cgu_val > _CGU_GATE_FLOOR:
+                    logger.info(
+                        "[Stitch] Stage 11.21: CGUGate FAILED (cgu=%.3f > floor=%.2f) "
+                        "→ SCANS fallback.", _cgu_val, _CGU_GATE_FLOOR
+                    )
+                    _sf = scans_frames or _reload_scans_frames(image_paths)
+                    return _scan_stitch_fallback(_sf, output_path,
+                                                 reason=f"cgu_gate:{_cgu_val:.3f}")
+            except Exception as _cgu_e:
+                logger.debug("[Stitch] Stage 11.21 CGU gate skipped (%s).", _cgu_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5141,6 +5166,7 @@ __all__ = [
     "_DY_CV_MAX",
     "_SEAM_SMOOTH_PX",
     "_SEAM_LUM_STEP_PX",
+    "_CGU_GATE_FLOOR",
     "_correct_seam_lum_steps",
     "_measure_max_seam_step",
     "_detect_static_input",

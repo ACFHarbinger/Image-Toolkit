@@ -514,6 +514,26 @@ def find_optimal_sequence(
     return sequence
 
 
+def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.31: Strip-level luminance gain uniformity metric.
+
+    Coefficient of variation (std/mean) of horizontal-strip mean luminance.
+    0.0 = uniform; higher = strip banding. Returns 0.0 for degenerate input.
+    """
+    if img is None or n_strips < 1:
+        return 0.0
+    gray: np.ndarray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    H = gray.shape[0]
+    strip_h = H // n_strips
+    if H < n_strips or strip_h < 1:
+        return 0.0
+    strip_means = [float(gray[i * strip_h:(i + 1) * strip_h].mean()) for i in range(n_strips)]
+    mean_val = float(np.mean(strip_means))
+    if mean_val < 1.0:
+        return 0.0
+    return float(np.std(strip_means) / mean_val)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -522,6 +542,7 @@ __all__ = [
     "_telea_fill_gaps",
     "_smooth_seam_bands",
     "_correct_seam_lum_steps",
+    "_canvas_gain_uniformity",
     "_scan_stitch_fallback",
     "_panorama_stitch_fallback",
     "find_optimal_sequence",
