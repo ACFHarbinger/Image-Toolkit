@@ -602,3 +602,5 @@ DY_CV_MAX: float = 1.5
 # reduce the hard luminance step measured by seam_visibility_score.
 # 0 = disabled.  Recommended: 4 px (safe; below double-image ghost threshold).
 SEAM_SMOOTH_PX: int = 0
+# §5.1: Post-composite seam luminance step correction half-band (px); 0=disabled
+SEAM_LUM_STEP_PX: int = 0

@@ -1001,6 +1001,24 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         32,
         "§4.9: Post-composite seam band smoothing half-width (px); narrow vertical Gaussian blur at each seam row; 0=disabled (default 0)",
     ),
+    "ASP_SEAM_LUM_STEP": (
+        int,
+        0,
+        80,
+        "§5.1: Post-composite seam luminance step correction half-band (px); linear ramp in ±band_px window bridges inter-strip lum gap; 0=disabled (default); suggest 20",
+    ),
+    "ASP_GATE_CGU": (
+        float,
+        0.0,
+        90.0,
+        "§5.3: CGUGate ratio limit — ASP canvas_gain_uniformity must not exceed ratio×SCANS CGU; ≥90=disabled (default 2.0)",
+    ),
+    "ASP_GATE_CGU_FLOOR": (
+        float,
+        0.0,
+        1.0,
+        "§5.3: CGUGate absolute floor (CGU units); gate only fires when ASP CGU exceeds this value (default 0.15)",
+    ),
 }
 
 
@@ -1227,6 +1245,9 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_GATE_SEAM_VIS",
         "ASP_GATE_SEAM_VIS_FLOOR",
         "ASP_SEAM_SMOOTH_PX",
+        "ASP_SEAM_LUM_STEP",
+        "ASP_GATE_CGU",
+        "ASP_GATE_CGU_FLOOR",
     ],
     "bundle_adjust": [
         "ASP_BA_F_SCALE",

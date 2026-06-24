@@ -22,6 +22,7 @@ sys.path.insert(0, _repo_root)
 
 from backend.src.animation.alignment.canvas import (  # noqa: E402
     _compute_canvas,
+    _correct_seam_lum_steps,
     _crop_to_valid,
     _detect_scroll_axis,
     _panorama_stitch_fallback,
@@ -648,3 +649,50 @@ class TestSmoothSeamBands:
         out = _smooth_seam_bands(canvas, seam_ys=[16], band_px=4)
         # Rows in the smoothed band where canvas was 0 must stay 0.
         assert out[16:, :].max() == 0
+
+
+# ── TestCorrectSeamLumSteps — §5.1 Post-composite seam luminance step correction (S166) ──
+
+class TestCorrectSeamLumSteps:
+    """§5.1: _correct_seam_lum_steps bridges inter-strip luminance gap with a linear ramp."""
+
+    def _make_canvas(self, top_lum: int, bot_lum: int, H: int = 64, W: int = 32) -> np.ndarray:
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        canvas[: H // 2] = top_lum
+        canvas[H // 2 :] = bot_lum
+        return canvas
+
+    def test_returns_same_shape(self):
+        canvas = self._make_canvas(80, 160)
+        out = _correct_seam_lum_steps(canvas, [32], band_px=20)
+        assert out.shape == canvas.shape
+        assert out.dtype == np.uint8
+
+    def test_reduces_luminance_step(self):
+        H, W = 64, 32
+        canvas = self._make_canvas(80, 160, H=H, W=W)
+        seam = H // 2
+        before_step = abs(int(canvas[seam, 0, 0]) - int(canvas[seam - 1, 0, 0]))
+        out = _correct_seam_lum_steps(canvas, [seam], band_px=20)
+        after_step = abs(int(out[seam, 0, 0]) - int(out[seam - 1, 0, 0]))
+        assert after_step < before_step, (
+            f"Expected reduced step: before={before_step}, after={after_step}"
+        )
+
+    def test_zero_band_returns_copy(self):
+        canvas = self._make_canvas(80, 160)
+        out = _correct_seam_lum_steps(canvas, [32], band_px=0)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_empty_seam_list_returns_copy(self):
+        canvas = self._make_canvas(80, 160)
+        out = _correct_seam_lum_steps(canvas, [], band_px=20)
+        np.testing.assert_array_equal(out, canvas)
+
+    def test_black_pixels_not_modified(self):
+        H, W = 64, 32
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        canvas[: H // 2] = 100
+        # bottom half stays fully black — bot_valid.any() is False → skip
+        out = _correct_seam_lum_steps(canvas, [H // 2], band_px=20)
+        np.testing.assert_array_equal(out[H // 2 :], 0)

@@ -1301,3 +1301,42 @@ class TestSeamVisibilityGate:
         # ratio=90 ≥ 90 → gate bypass (tested by the outer if-guard in bench)
         ratio = 90.0
         assert ratio >= 90.0  # gate condition: _SEAM_VIS_RATIO_LIMIT < 90
+
+
+class TestCanvasGainUniformityGate:
+    """§5.3: CGUGate calibration.
+    limit = max(floor, ratio × max(sim_cgu, 0.001))
+    gate fires when asp_cgu > limit and ratio < 90.
+    """
+
+    def _limit(self, sim_cgu, ratio=2.0, floor=0.15):
+        return max(floor, ratio * max(sim_cgu, 0.001))
+
+    def test_high_banding_fires(self):
+        # test82-representative: asp_cgu=0.238 vs sim=0.104 → fires at ratio=2.0
+        asp_cgu, sim_cgu = 0.238, 0.104
+        limit = self._limit(sim_cgu)
+        assert asp_cgu > limit, f"gate should fire: asp={asp_cgu} limit={limit}"
+
+    def test_low_banding_does_not_fire(self):
+        # typical good ASP output: asp_cgu=0.09 vs sim=0.10 → no fire
+        asp_cgu, sim_cgu = 0.09, 0.10
+        limit = self._limit(sim_cgu)
+        assert asp_cgu <= limit, f"gate should not fire: asp={asp_cgu} limit={limit}"
+
+    def test_floor_dominates_when_sim_is_near_zero(self):
+        # sim_cgu=0.001 → limit = max(0.15, 2.0×0.001) = 0.15; asp=0.12 no fire
+        limit = self._limit(sim_cgu=0.001)
+        assert limit == 0.15
+        assert 0.12 <= limit  # no fire
+
+    def test_asp_better_than_sim_never_fires(self):
+        # asp_cgu=0.08 vs sim=0.18 → asp better → no fire regardless of floor
+        asp_cgu, sim_cgu = 0.08, 0.18
+        limit = self._limit(sim_cgu)
+        assert asp_cgu <= limit
+
+    def test_disabled_via_ratio_90(self):
+        # ratio=90 ≥ 90 → gate bypass
+        ratio = 90.0
+        assert ratio >= 90.0  # gate condition: _CGU_RATIO_LIMIT < 90

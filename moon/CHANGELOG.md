@@ -4,6 +4,57 @@
 
 ---
 
+## S166 — 2026-06-24 (§5.1 Seam Luminance Step Correction · §5.3 Canvas Gain Uniformity Gate)
+
+*Two improvements targeting inter-strip luminance banding (root cause of strip_banding_score=31–41 on worst failures): §5.1 bridges the per-column luminance mean gap at each seam with a linear ramp; §5.3 adds a SCANS fallback gate when ASP canvas_gain_uniformity exceeds 2.0× SCANS. 1420 tests passing (85 skipped).*
+
+### §5.1 Post-Composite Seam Luminance Step Correction (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_correct_seam_lum_steps(canvas, seam_ys, band_px=20)` in `canvas.py`:
+  - For each seam, computes per-column masked mean luminance in an `±ref_px` (up to 8px) reference band just above and below the seam
+  - Derives the step vector `step = bot_lum - top_lum` (per-column) and distributes `±step/2` as a linear ramp across `±band_px` on each side
+  - Only modifies pixels where `canvas.max(axis=2) > 0`; result clipped to `[0, 255]`
+- `_SEAM_LUM_STEP_PX: int = int(os.environ.get("ASP_SEAM_LUM_STEP", "0"))` at pipeline.py module level (default OFF)
+- Stage 11.20 in `pipeline.py run()`: estimates seam_ys from sorted affine frame centres; calls `_correct_seam_lum_steps()` when `_SEAM_LUM_STEP_PX > 0 and N > 1`
+- `SEAM_LUM_STEP_PX: int = 0` constant in `constants/animation.py`
+- `ASP_SEAM_LUM_STEP` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]` in `config.py`
+- `_SEAM_LUM_STEP_PX` and `_correct_seam_lum_steps` exported in `pipeline.py __all__`; `_correct_seam_lum_steps` in `canvas.py __all__`
+- 5 tests in `TestCorrectSeamLumSteps` (`test_canvas.py`)
+- Enable: `ASP_SEAM_LUM_STEP=20` (20px half-band)
+
+### §5.3 Canvas Gain Uniformity Gate (`backend/benchmark/bench_anime_stitch.py`, `backend/src/animation/core/config.py`)
+
+- CGUGate block inserted between SeamVisGate and PIL save in `run_dataset()`:
+  - Reads `ASP_GATE_CGU` (float, default 2.0; set ≥90 to disable) and `ASP_GATE_CGU_FLOOR` (float, default 0.15)
+  - Fires only when `_fallback_reason is None` (not already fallen back), `simple_ok` and ratio limit < 90
+  - Loads `central_simple_path`, computes `_canvas_gain_uniformity()` (std/mean of 8-strip luminance) on both outputs
+  - Gate condition: `asp_cgu > max(floor, ratio × max(sim_cgu, 0.001))`
+  - Prints `[CGUGate]` status line; on fire: `_fallback_reason = "cgu_gate:asp=..."`, `timings["render_gate_fallback"] += 4`, raises RuntimeError
+  - Calibration: test82 (asp_cgu=0.238 vs sim=0.104 → ratio=2.29, fires at ratio=2.0, floor=0.15)
+- `ASP_GATE_CGU` and `ASP_GATE_CGU_FLOOR` added to `_CONFIG_SCHEMA` and `_DUMP_SECTIONS["compositing"]` in `config.py`
+- 5 tests in `TestCanvasGainUniformityGate` (`test_bench_metrics.py`)
+
+---
+
+## S165 — 2026-06-24 (§4.10 Pre-Seam Global Gain Equalization)
+
+*Root-cause fix for the dominant seam_visibility failure pattern: §4.10 equalises inter-frame luminance for ALL warped frames before GraphCut, making `_BLOCKS_GAIN_COMP`/`_BLOCKS_LUM_COMP` effective in the GraphCut path (previously only wired in the DP fallback). 1410 tests passing (85 skipped).*
+
+### §4.10 Pre-Seam Global Gain Equalization (`backend/src/animation/rendering/compositing.py`)
+
+- `_equalize_warped_gains(warped_frames, block_size=32)` module-level function:
+  - Frame 0 is the reference; iterates frames 1…N-1 applying `_blocks_gain_compensate(prev_corrected, curr)` sequentially
+  - Mask: both frames must have `max(axis=2) > 0` in the overlap region to contribute to correction
+  - Returns corrected list (same length; modifies copies not originals)
+- `_GLOBAL_GAIN_COMP: bool = os.environ.get("ASP_GLOBAL_GAIN_COMP", "1") != "0"` at module level (default ON)
+- Wired before the GraphCut/DP composite block in `_composite_foreground()`: `if _GLOBAL_GAIN_COMP and len(warped_norm) >= 2: warped_norm = _equalize_warped_gains(warped_norm)`
+- `_BLOCKS_GAIN_COMP` default changed "0" → "1" (now on by default)
+- `_BLOCKS_LUM_COMP` default changed "0" → "1" (now on by default)
+- `_GLOBAL_GAIN_COMP` and `_equalize_warped_gains` exported in `__all__`
+- 5 tests in `TestEqualizeWarpedGains` (`test_compositing.py`)
+
+---
+
 ## S164 — 2026-06-24 (§3.33 Feathered GraphCut Boundary Blend · §4.9 Post-Composite Seam Band Smoothing)
 
 *Two complementary improvements targeting seam_visibility (dominant failure +512%): §3.33 feathers the hard pixel boundary at GraphCut ownership transitions; §4.9 adds an optional post-composite Gaussian blur pass at each seam row. 1405 tests passing (85 skipped).*
