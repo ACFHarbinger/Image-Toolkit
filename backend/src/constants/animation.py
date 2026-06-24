@@ -601,4 +601,4 @@ DY_CV_MAX: float = 1.5
 # Gaussian blur (±SEAM_SMOOTH_PX rows) is applied at each inter-frame seam row to
 # reduce the hard luminance step measured by seam_visibility_score.
 # 0 = disabled.  Recommended: 4 px (safe; below double-image ghost threshold).
-SEAM_SMOOTH_PX: int = 0
+SEAM_SMOOTH_PX: int = 4
