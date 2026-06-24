@@ -1055,6 +1055,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1.0,
         "§5.14: MonotonGate absolute floor (monotonicity score [0,1]); gate only fires when ASP score exceeds this value (default 0.50)",
     ),
+    "ASP_GATE_ENTROPY": (
+        float,
+        0.0,
+        90.0,
+        "§5.15: EntropyGate ratio limit — ASP seam_ownership_entropy must not exceed ratio×SCANS; ≥90=disabled (default 2.5)",
+    ),
+    "ASP_GATE_ENTROPY_FLOOR": (
+        float,
+        0.0,
+        100.0,
+        "§5.15: EntropyGate absolute floor (entropy score); gate only fires when ASP entropy exceeds this value (default 3.0)",
+    ),
 }
 
 

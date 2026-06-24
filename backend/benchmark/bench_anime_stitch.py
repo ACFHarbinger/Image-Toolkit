@@ -3246,6 +3246,25 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                     _fallback_reason = f"mono_gate:asp={_asp_mono:.3f}_sim={_sim_mono:.3f}_limit={_mono_limit:.3f}"
                     timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 32
                     raise RuntimeError(f"MonoGate: asp_mono={_asp_mono:.3f}, ratio={_asp_mono / max(_sim_mono, 0.001):.2f}")
+        # ── Seam Ownership Entropy Gate (§5.15) ──────────────────────────────────
+        try:
+            _ENTROPY_RATIO_LIMIT = float(os.environ.get("ASP_GATE_ENTROPY", "2.5"))
+        except ValueError:
+            _ENTROPY_RATIO_LIMIT = 2.5
+        try:
+            _ENTROPY_ABS_FLOOR = float(os.environ.get("ASP_GATE_ENTROPY_FLOOR", "3.0"))
+        except ValueError:
+            _ENTROPY_ABS_FLOOR = 3.0
+        if simple_ok and _ENTROPY_RATIO_LIMIT < 90 and _fallback_reason is None:
+            _simple_img_ent = cv2.imread(central_simple_path)
+            if _simple_img_ent is not None and affines is not None:
+                _asp_ent = _seam_ownership_entropy(canvas_out, affines=affines)
+                _sim_ent = _seam_ownership_entropy(_simple_img_ent, affines=affines)
+                _ent_limit = max(_ENTROPY_ABS_FLOOR, _ENTROPY_RATIO_LIMIT * max(_sim_ent, 0.1))
+                if _asp_ent > _ent_limit:
+                    _fallback_reason = f"entropy_gate:asp={_asp_ent:.3f}_sim={_sim_ent:.3f}_limit={_ent_limit:.3f}"
+                    timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 64
+                    raise RuntimeError(f"EntropyGate: asp_ent={_asp_ent:.3f}, ratio={_asp_ent / max(_sim_ent, 0.1):.2f}")
 
         from PIL import Image
 
