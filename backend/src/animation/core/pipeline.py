@@ -48,6 +48,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_luma_monotonicity,
+    _strip_self_ssim,
     _telea_fill_gaps,
     find_optimal_sequence,
 )
@@ -692,6 +693,15 @@ _CANVAS_EDGE_BORDER_PX: int = int(os.environ.get("ASP_CANVAS_EDGE_BORDER_PX", "1
 # gain normalisation will chase as noise rather than a real scene luminance drift.
 # Default 0.0 = off.  Recommend ASP_GAIN_SIGN_FLIP_MAX=0.6.
 _GAIN_SIGN_FLIP_MAX: float = float(os.environ.get("ASP_GAIN_SIGN_FLIP_MAX", "0.0"))
+
+# §5.25 — Post-composite strip self-SSIM gate (Stage 11.27).
+# Fires when the mean SSIM between adjacent horizontal strips of the composite
+# canvas exceeds the floor, indicating an overly uniform/banded output (all strips
+# look alike → frame registration failure or degenerate warp collapsed content).
+# Gate fires on HIGH ssim (repetition artefact), unlike seam-band SSIM (§1.81)
+# which fires on LOW ssim.  Default ON with floor=0.85.
+_STRIP_SSIM_GATE_ENABLED: bool = os.environ.get("ASP_GATE_STRIP_SSIM", "1") != "0"
+_STRIP_SSIM_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_STRIP_SSIM_FLOOR", "0.85"))
 
 
 def _compute_bg_lum_spread(
@@ -4741,6 +4751,24 @@ class AnimeStitchPipeline:
             except Exception as _chroma_e:
                 logger.debug("[Stitch] Stage 11.26: ChromaCohGate skipped (%s).", _chroma_e)
 
+        # ── Stage 11.27: §5.25 Strip Self-SSIM Gate ──────────────────────────
+        if _STRIP_SSIM_GATE_ENABLED and N > 1:
+            try:
+                _sssim_val = _strip_self_ssim(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.27: strip_ssim=%.4f (floor=%.3f).", _sssim_val, _STRIP_SSIM_GATE_FLOOR)
+                if _sssim_val > _STRIP_SSIM_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.27: StripSSIMGate FAILED (ssim=%.4f > floor=%.3f) → SCANS fallback.",
+                        _sssim_val, _STRIP_SSIM_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"strip_ssim_gate:{_sssim_val:.4f}",
+                    )
+            except Exception as _sssim_e:
+                logger.debug("[Stitch] Stage 11.27: StripSSIMGate skipped (%s).", _sssim_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5449,4 +5477,7 @@ __all__ = [
     "_MONO_GATE_ENABLED",
     "_MONO_GATE_FLOOR",
     "_strip_luma_monotonicity",
+    "_STRIP_SSIM_GATE_ENABLED",
+    "_STRIP_SSIM_GATE_FLOOR",
+    "_strip_self_ssim",
 ]

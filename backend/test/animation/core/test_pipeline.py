@@ -2460,3 +2460,41 @@ class TestChromaCohGatePipeline:
         """_chroma_seam_coherence is exported from canvas __all__."""
         import backend.src.animation.alignment.canvas as _cv
         assert "_chroma_seam_coherence" in _cv.__all__
+
+
+# ===========================================================================
+# §5.25 — _strip_self_ssim / Stage 11.27 strip self-SSIM gate
+# ===========================================================================
+
+from backend.src.animation.alignment.canvas import _strip_self_ssim
+from backend.src.constants.animation import STRIP_SELF_SSIM_GATE_FLOOR
+
+
+class TestStripSsimGatePipeline:
+    """§5.25: Strip self-SSIM gate — canvas.py function + pipeline wiring."""
+
+    def test_uniform_canvas_high_ssim(self):
+        """A solid-colour canvas has identical strips → SSIM ≈ 1.0 (≥ 0.99)."""
+        img = np.full((800, 64, 3), 128, dtype=np.uint8)
+        score = _strip_self_ssim(img, n_strips=8)
+        assert score >= 0.99
+
+    def test_noise_canvas_low_ssim(self):
+        """Random noise canvas has dissimilar strips → SSIM < 0.85."""
+        rng = np.random.default_rng(seed=42)
+        img = rng.integers(0, 256, (800, 64, 3), dtype=np.uint8)
+        score = _strip_self_ssim(img, n_strips=8)
+        assert score < 0.85
+
+    def test_gate_floor_constant(self):
+        """STRIP_SELF_SSIM_GATE_FLOOR constant equals 0.85."""
+        assert STRIP_SELF_SSIM_GATE_FLOOR == pytest.approx(0.85)
+
+    def test_strip_ssim_gate_floor_in_pipeline_all(self):
+        """_STRIP_SSIM_GATE_FLOOR is exported in pipeline.__all__."""
+        assert "_STRIP_SSIM_GATE_FLOOR" in pipeline.__all__
+
+    def test_strip_self_ssim_in_canvas_all(self):
+        """_strip_self_ssim is exported in canvas.__all__."""
+        from backend.src.animation.alignment import canvas
+        assert "_strip_self_ssim" in canvas.__all__

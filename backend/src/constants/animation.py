@@ -620,3 +620,4 @@ MONO_GATE_FLOOR: float = 0.60
 SV_GATE_FLOOR: float = 30.0
 # §5.24: pipeline chroma seam coherence gate floor
 CHROMA_COH_GATE_FLOOR: float = 20.0
+STRIP_SELF_SSIM_GATE_FLOOR: float = 0.85  # §5.25: pipeline strip self-SSIM gate floor
