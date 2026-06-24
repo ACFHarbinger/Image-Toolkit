@@ -787,6 +787,38 @@ def _strip_gradient_cv(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.std(energies) / mean_e)
 
 
+def _seam_band_ncc_min(img: np.ndarray, n_strips: int = 8, band_px: int = 10) -> float:
+    """§5.31: Minimum NCC between strip boundary bands (§3.27 in canvas).
+
+    For each inter-strip boundary, computes the normalized cross-correlation
+    between the band_px-row band immediately above and below. Returns the
+    minimum NCC across all boundaries. Values near 1.0 = seamless; near 0
+    or negative = visible discontinuity. Returns 1.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips * 2 or n_strips < 2:
+        return 1.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    min_ncc = 1.0
+    for i in range(1, n_strips):
+        boundary = i * strip_h
+        above = gray[max(0, boundary - band_px) : boundary].ravel()
+        below = gray[boundary : min(H, boundary + band_px)].ravel()
+        if len(above) < 4 or len(below) < 4:
+            continue
+        n = min(len(above), len(below))
+        a, b = above[:n], below[:n]
+        a = a - a.mean()
+        b = b - b.mean()
+        denom = float(np.linalg.norm(a) * np.linalg.norm(b))
+        if denom < 1e-6:
+            continue
+        ncc = float(np.dot(a, b) / denom)
+        min_ncc = min(min_ncc, ncc)
+    return min_ncc
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -811,4 +843,5 @@ __all__ = [
     "_strip_self_ssim",
     "_chroma_seam_coherence",
     "_strip_gradient_cv",
+    "_seam_band_ncc_min",
 ]

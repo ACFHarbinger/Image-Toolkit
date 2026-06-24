@@ -44,6 +44,7 @@ from backend.src.animation.alignment.canvas import (
     _panorama_stitch_fallback,
     _per_seam_lum_step_px,
     _scan_stitch_fallback,
+    _seam_band_ncc_min,
     _seam_coherence_score,
     _seam_visibility_score,
     _smooth_seam_bands,
@@ -534,6 +535,11 @@ _SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "4"))
 # §5.11 — Adaptive seam-smooth: widen/narrow based on seam_coherence.
 # True by default when _SEAM_SMOOTH_PX > 0. Set ASP_SEAM_SMOOTH_ADAPTIVE=0 to disable.
 _SEAM_SMOOTH_ADAPTIVE: bool = os.environ.get("ASP_SEAM_SMOOTH_ADAPTIVE", "1") != "0"
+# §5.31 — Pipeline Seam Band NCC Gate (Stage 11.29).
+# Fires when minimum cross-boundary NCC < floor → SCANS fallback.
+# Low NCC = structural discontinuity at seam boundary. Set ASP_GATE_SEAM_BAND_NCC=0 to disable.
+_SEAM_BAND_NCC_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_BAND_NCC", "1") != "0"
+_SEAM_BAND_NCC_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_BAND_NCC_FLOOR", "0.30"))
 # §5.32 — Pipeline Strip Gradient CV Gate (Stage 11.30).
 # Fires when per-strip Laplacian energy CV > floor → SCANS fallback.
 # High CV = sharpness discontinuity across strips. Set ASP_GATE_STRIP_GRAD_CV=0 to disable.
@@ -4775,6 +4781,24 @@ class AnimeStitchPipeline:
             except Exception as _sssim_e:
                 logger.debug("[Stitch] Stage 11.27: StripSSIMGate skipped (%s).", _sssim_e)
 
+        # ── Stage 11.29: §5.31 Seam Band NCC Gate ────────────────────────────
+        if _SEAM_BAND_NCC_GATE_ENABLED and N > 1:
+            try:
+                _sbn_val = _seam_band_ncc_min(canvas, n_strips=8, band_px=10)
+                logger.debug("[Stitch] Stage 11.29: seam_band_ncc_min=%.4f (floor=%.3f).", _sbn_val, _SEAM_BAND_NCC_GATE_FLOOR)
+                if _sbn_val < _SEAM_BAND_NCC_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.29: SeamBandNccGate FAILED (ncc=%.4f < floor=%.3f) → SCANS fallback.",
+                        _sbn_val, _SEAM_BAND_NCC_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_band_ncc_gate:{_sbn_val:.4f}",
+                    )
+            except Exception as _sbn_e:
+                logger.debug("[Stitch] Stage 11.29: SeamBandNccGate skipped (%s).", _sbn_e)
+
         # ── Stage 11.30: §5.32 Strip Gradient CV Gate ────────────────────────
         if _STRIP_GRAD_CV_GATE_ENABLED and N > 1:
             try:
@@ -5507,4 +5531,7 @@ __all__ = [
     "_STRIP_GRAD_CV_GATE_ENABLED",
     "_STRIP_GRAD_CV_GATE_FLOOR",
     "_strip_gradient_cv",
+    "_SEAM_BAND_NCC_GATE_ENABLED",
+    "_SEAM_BAND_NCC_GATE_FLOOR",
+    "_seam_band_ncc_min",
 ]
