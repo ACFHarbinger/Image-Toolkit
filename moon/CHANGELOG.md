@@ -4,6 +4,22 @@
 
 ---
 
+## S167 — 2026-06-24 (§5.3 CGU Pipeline Gate + `_canvas_gain_uniformity`)
+
+*Adds a Canvas Gain Uniformity absolute gate to the pipeline (Stage 11.20), complementing the benchmark-side §5.3 CGU ratio gate. After Stage 11.19 seam band smoothing, measures strip-level luminance banding on the finished composite. Falls back to SCANS if `canvas_gain_uniformity > _CGU_GATE_FLOOR` (default 0.20). test82's ASP CGU of 0.238 clearly exceeds this — the gate catches it without needing a SCANS reference in-pipeline. Set `ASP_GATE_CGU_FLOOR=1.0` to disable. Also moves `_canvas_gain_uniformity()` from benchmark-only to `canvas.py` for shared use. 5 new tests in `TestCanvasGainUniformity`. 1415 passed.*
+
+### canvas.py
+- **`_canvas_gain_uniformity(img, n_strips=8)`** — §3.31 strip-level CGU metric extracted from `bench_anime_stitch.py`; coefficient of variation of per-strip mean luminance; exported in `__all__`
+
+### pipeline.py
+- **Stage 11.20 CGUGate** — absolute fallback gate: `_cgu_val > _CGU_GATE_FLOOR` → SCANS fallback
+- **`_CGU_GATE_FLOOR = 0.20`** — `ASP_GATE_CGU_FLOOR` env flag; exported in `__all__`
+
+### test_canvas.py
+- **`TestCanvasGainUniformity`** — 5 tests: uniform image returns zero, banded image has high CGU, all-black returns zero, grayscale input accepted, fewer rows than strips returns zero
+
+---
+
 ## S166 — 2026-06-24 (§4.9 Seam Band Smoothing Promoted to Default-ON)
 
 *Promotes the §4.9 post-composite seam band smoothing (shipped S164 as default-OFF) to default-ON with 4px half-width. Safe to enable now that §4.10 (S165) pre-seam gain equalization reduces inter-frame luminance steps before GraphCut seam finding — the smoothing pass no longer risks amplifying uncorrected gain discontinuities. `ASP_SEAM_SMOOTH_PX` default changed "0" → "4"; `SEAM_SMOOTH_PX` constant updated to 4. Set `ASP_SEAM_SMOOTH_PX=0` to disable. 1410 tests passing.*
