@@ -3227,6 +3227,26 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                     timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 16
                     raise RuntimeError(f"FFTBandGate: asp_fft={_asp_fft:.3f}, ratio={_asp_fft / max(_sim_fft, 0.001):.2f}")
 
+        # ── Strip Luma Monotonicity Gate (§5.14) ─────────────────────────────────
+        try:
+            _MONO_RATIO_LIMIT = float(os.environ.get("ASP_GATE_MONO", "3.0"))
+        except ValueError:
+            _MONO_RATIO_LIMIT = 3.0
+        try:
+            _MONO_ABS_FLOOR = float(os.environ.get("ASP_GATE_MONO_FLOOR", "0.50"))
+        except ValueError:
+            _MONO_ABS_FLOOR = 0.50
+        if simple_ok and _MONO_RATIO_LIMIT < 90 and _fallback_reason is None:
+            _simple_img_mono = cv2.imread(central_simple_path)
+            if _simple_img_mono is not None:
+                _asp_mono = _strip_luma_monotonicity(canvas_out, n_strips=8)
+                _sim_mono = _strip_luma_monotonicity(_simple_img_mono, n_strips=8)
+                _mono_limit = max(_MONO_ABS_FLOOR, _MONO_RATIO_LIMIT * max(_sim_mono, 0.001))
+                if _asp_mono > _mono_limit:
+                    _fallback_reason = f"mono_gate:asp={_asp_mono:.3f}_sim={_sim_mono:.3f}_limit={_mono_limit:.3f}"
+                    timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 32
+                    raise RuntimeError(f"MonoGate: asp_mono={_asp_mono:.3f}, ratio={_asp_mono / max(_sim_mono, 0.001):.2f}")
+
         from PIL import Image
 
         rgb = cv2.cvtColor(canvas_out, cv2.COLOR_BGR2RGB)

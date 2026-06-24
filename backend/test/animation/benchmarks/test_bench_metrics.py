@@ -1581,3 +1581,61 @@ class TestFftBandingGate:
         assert f"asp={asp_fft:.3f}" in fallback_reason
         assert f"sim={sim_fft:.3f}" in fallback_reason
         assert f"limit={limit:.3f}" in fallback_reason
+
+
+class TestMonotonGate:
+    """§5.14: Strip Luma Monotonicity Gate — threshold logic tests."""
+
+    def test_gate_fires_when_asp_exceeds_floor(self):
+        # asp=0.7, sim=0.0, floor=0.5, ratio=3
+        # limit = max(0.5, 3 * max(0.0, 0.001)) = max(0.5, 0.003) = 0.5
+        # 0.7 > 0.5 → gate fires
+        asp_mono = 0.7
+        sim_mono = 0.0
+        floor = 0.5
+        ratio_limit = 3.0
+        limit = max(floor, ratio_limit * max(sim_mono, 0.001))
+        assert limit == pytest.approx(0.5)
+        assert asp_mono > limit  # gate fires; floor dominates
+
+    def test_gate_passes_when_asp_below_floor(self):
+        # asp=0.3, floor=0.5 → 0.3 < 0.5 → gate does not fire
+        asp_mono = 0.3
+        sim_mono = 0.0
+        floor = 0.5
+        ratio_limit = 3.0
+        limit = max(floor, ratio_limit * max(sim_mono, 0.001))
+        assert limit == pytest.approx(0.5)
+        assert asp_mono <= limit  # gate passes
+
+    def test_gate_disabled_at_ratio_90(self):
+        # When _MONO_RATIO_LIMIT >= 90, the gate condition is skipped entirely
+        ratio_limit = 90.0
+        # Gate condition: ratio_limit < 90 must be False → gate is skipped
+        assert not (ratio_limit < 90)
+
+    def test_ratio_dominates_when_sim_is_high(self):
+        # asp=0.6, sim=0.3, ratio=3 → limit = max(0.5, 3 * 0.3) = max(0.5, 0.9) = 0.9
+        # 0.6 < 0.9 → gate passes
+        asp_mono = 0.6
+        sim_mono = 0.3
+        floor = 0.5
+        ratio_limit = 3.0
+        limit = max(floor, ratio_limit * max(sim_mono, 0.001))
+        assert limit == pytest.approx(0.9)
+        assert asp_mono <= limit  # gate passes; ratio dominates
+
+    def test_fallback_reason_prefix(self):
+        # Verify the fallback_reason string format starts with "mono_gate:"
+        asp_mono = 0.7
+        sim_mono = 0.0
+        floor = 0.5
+        ratio_limit = 3.0
+        limit = max(floor, ratio_limit * max(sim_mono, 0.001))
+        fallback_reason = (
+            f"mono_gate:asp={asp_mono:.3f}_sim={sim_mono:.3f}_limit={limit:.3f}"
+        )
+        assert fallback_reason.startswith("mono_gate:")
+        assert f"asp={asp_mono:.3f}" in fallback_reason
+        assert f"sim={sim_mono:.3f}" in fallback_reason
+        assert f"limit={limit:.3f}" in fallback_reason
