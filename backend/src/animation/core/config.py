@@ -1043,6 +1043,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1.0,
         "§5.13: FFTBandGate absolute floor (banding score [0,1]); gate only fires when ASP score exceeds this value (default 0.30)",
     ),
+    "ASP_GATE_MONO": (
+        float,
+        0.0,
+        90.0,
+        "§5.14: MonotonGate ratio limit — ASP strip_luma_monotonicity must not exceed ratio×SCANS; ≥90=disabled (default 3.0)",
+    ),
+    "ASP_GATE_MONO_FLOOR": (
+        float,
+        0.0,
+        1.0,
+        "§5.14: MonotonGate absolute floor (monotonicity score [0,1]); gate only fires when ASP score exceeds this value (default 0.50)",
+    ),
 }
 
 
@@ -1276,6 +1288,8 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_GATE_SEAM_COH_FLOOR",
         "ASP_GATE_FFT_BAND",
         "ASP_GATE_FFT_BAND_FLOOR",
+        "ASP_GATE_MONO",
+        "ASP_GATE_MONO_FLOOR",
     ],
     "bundle_adjust": [
         "ASP_BA_F_SCALE",
