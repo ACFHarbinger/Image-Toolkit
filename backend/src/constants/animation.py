@@ -612,3 +612,5 @@ CGU_AUTO_LUM_STEP: float = 0.08
 SEAM_LUM_STEP_ADAPTIVE: bool = True
 # §5.19: pipeline seam coherence gate floor
 SC_GATE_FLOOR: float = 25.0
+# §5.21: pipeline FFT banding gate floor (energy fraction [0,1])
+FFT_BAND_GATE_FLOOR: float = 0.35

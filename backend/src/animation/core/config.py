@@ -1035,13 +1035,13 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         float,
         0.0,
         90.0,
-        "§5.13: FFTBandGate ratio limit — ASP horizontal_fft_banding must not exceed ratio×SCANS; ≥90=disabled (default 3.0)",
+        "§5.13/§5.21: FFTBandGate — bench ratio limit (≥90=disabled, default 3.0); pipeline gate uses 0=disable/1=enable (default 1)",
     ),
     "ASP_GATE_FFT_BAND_FLOOR": (
         float,
         0.0,
         1.0,
-        "§5.13: FFTBandGate absolute floor (banding score [0,1]); gate only fires when ASP score exceeds this value (default 0.30)",
+        "§5.13/§5.21: FFTBandGate absolute floor (banding score [0,1]); bench gate: ASP score floor (default 0.30); pipeline gate: canvas fft_banding floor (default 0.35)",
     ),
     "ASP_GATE_MONO": (
         float,
