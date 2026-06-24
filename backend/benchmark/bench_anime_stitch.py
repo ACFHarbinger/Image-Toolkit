@@ -3280,13 +3280,31 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             if _simple_img_ssim is not None:
                 _asp_sssim = _strip_self_ssim(canvas_out, n_strips=8)
                 _sim_sssim = _strip_self_ssim(_simple_img_ssim, n_strips=8)
-                # Gate fires when ASP strip_self_ssim < min(floor, ratio × sim)
-                # i.e., ASP is structurally more incoherent than allowed
                 _sssim_limit = min(_STRIP_SSIM_ABS_FLOOR, _STRIP_SSIM_RATIO_LIMIT * max(_sim_sssim, 0.001))
                 if _asp_sssim < _sssim_limit:
                     _fallback_reason = f"strip_ssim_gate:asp={_asp_sssim:.3f}_sim={_sim_sssim:.3f}_limit={_sssim_limit:.3f}"
                     timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 128
                     raise RuntimeError(f"StripSSIMGate: asp_sssim={_asp_sssim:.3f}, ratio={_asp_sssim / max(_sim_sssim, 0.001):.2f}")
+
+        # ── Chroma Seam Coherence Gate (§5.18) ───────────────────────────────────
+        try:
+            _CHROMA_COH_RATIO_LIMIT = float(os.environ.get("ASP_GATE_CHROMA_COH", "2.5"))
+        except ValueError:
+            _CHROMA_COH_RATIO_LIMIT = 2.5
+        try:
+            _CHROMA_COH_ABS_FLOOR = float(os.environ.get("ASP_GATE_CHROMA_COH_FLOOR", "12.0"))
+        except ValueError:
+            _CHROMA_COH_ABS_FLOOR = 12.0
+        if simple_ok and _CHROMA_COH_RATIO_LIMIT < 90 and _fallback_reason is None:
+            _simple_img_chroma = cv2.imread(central_simple_path)
+            if _simple_img_chroma is not None:
+                _asp_chroma = _chroma_seam_coherence(canvas_out)
+                _sim_chroma = _chroma_seam_coherence(_simple_img_chroma)
+                _chroma_limit = max(_CHROMA_COH_ABS_FLOOR, _CHROMA_COH_RATIO_LIMIT * max(_sim_chroma, 1.0))
+                if _asp_chroma > _chroma_limit:
+                    _fallback_reason = f"chroma_coh_gate:asp={_asp_chroma:.2f}_sim={_sim_chroma:.2f}_limit={_chroma_limit:.2f}"
+                    timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 256
+                    raise RuntimeError(f"ChromaSeamGate: asp_chroma={_asp_chroma:.2f}, ratio={_asp_chroma / max(_sim_chroma, 1.0):.2f}")
 
         from PIL import Image
 
