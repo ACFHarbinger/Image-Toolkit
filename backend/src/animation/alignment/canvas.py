@@ -603,6 +603,15 @@ def _per_seam_lum_step_px(
     return result
 
 
+def _seam_coherence_score(img: np.ndarray) -> float:
+    """§5.19: Seam coherence score = std of per-row mean luminance (proxy for strip banding)."""
+    if img is None:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    row_means = gray.mean(axis=1)
+    return float(np.std(row_means))
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -620,4 +629,5 @@ __all__ = [
     "_detect_scroll_axis",
     "_smooth_seam_bands",
     "_compute_adaptive_seam_smooth_px",
+    "_seam_coherence_score",
 ]
