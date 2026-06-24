@@ -3207,6 +3207,26 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                         f"ratio={_asp_sc / max(_sim_sc, 1.0):.2f}"
                     )
 
+        # ── FFT Banding Gate (§5.13) ─────────────────────────────────────────────
+        try:
+            _FFT_BAND_RATIO_LIMIT = float(os.environ.get("ASP_GATE_FFT_BAND", "3.0"))
+        except ValueError:
+            _FFT_BAND_RATIO_LIMIT = 3.0
+        try:
+            _FFT_BAND_ABS_FLOOR = float(os.environ.get("ASP_GATE_FFT_BAND_FLOOR", "0.30"))
+        except ValueError:
+            _FFT_BAND_ABS_FLOOR = 0.30
+        if simple_ok and _FFT_BAND_RATIO_LIMIT < 90 and _fallback_reason is None:
+            _simple_img_fft = cv2.imread(central_simple_path)
+            if _simple_img_fft is not None:
+                _asp_fft = _horizontal_fft_banding(canvas_out, n_strips=8)
+                _sim_fft = _horizontal_fft_banding(_simple_img_fft, n_strips=8)
+                _fft_limit = max(_FFT_BAND_ABS_FLOOR, _FFT_BAND_RATIO_LIMIT * max(_sim_fft, 0.001))
+                if _asp_fft > _fft_limit:
+                    _fallback_reason = f"fft_band_gate:asp={_asp_fft:.3f}_sim={_sim_fft:.3f}_limit={_fft_limit:.3f}"
+                    timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 16
+                    raise RuntimeError(f"FFTBandGate: asp_fft={_asp_fft:.3f}, ratio={_asp_fft / max(_sim_fft, 0.001):.2f}")
+
         from PIL import Image
 
         rgb = cv2.cvtColor(canvas_out, cv2.COLOR_BGR2RGB)
