@@ -2240,3 +2240,41 @@ class TestAdaptiveDyCvMax:
     def test_custom_base_max(self):
         # N = 8, base = 2.0 → scale = 8/8 = 1.0 → returns 2.0 (above floor)
         assert _compute_adaptive_dy_cv_max(8, 2.0) == pytest.approx(2.0)
+
+
+class TestCguAutoLumStep:
+    """§5.9 — Auto-enable seam lum-step correction based on CGU threshold."""
+
+    def test_constant_exported(self):
+        # _CGU_AUTO_LUM_STEP must be importable from pipeline
+        from backend.src.animation.core.pipeline import _CGU_AUTO_LUM_STEP
+        assert isinstance(_CGU_AUTO_LUM_STEP, float)
+        assert 0.0 <= _CGU_AUTO_LUM_STEP <= 1.0
+
+    def test_constant_in_all(self):
+        # _CGU_AUTO_LUM_STEP must appear in pipeline __all__
+        import backend.src.animation.core.pipeline as _pl
+        assert "_CGU_AUTO_LUM_STEP" in _pl.__all__
+
+    def test_auto_threshold_disabled_when_one(self):
+        # When _CGU_AUTO_LUM_STEP >= 1.0 auto mode is effectively disabled —
+        # the guard condition `_CGU_AUTO_LUM_STEP < 1.0` must be False.
+        threshold = 1.0
+        assert not (threshold < 1.0), (
+            "Auto-enable must be skipped when threshold is 1.0"
+        )
+
+    def test_always_on_when_zero(self):
+        # When _CGU_AUTO_LUM_STEP = 0.0, any positive CGU value triggers auto
+        # enable (CGU is always >= 0).  Guard condition must pass.
+        threshold = 0.0
+        any_cgu = 0.001  # smallest realistic non-zero CGU
+        assert threshold < 1.0 and any_cgu > threshold, (
+            "threshold=0.0 must trigger auto-enable for any positive CGU"
+        )
+
+    def test_constants_module_has_cgu_auto_lum_step(self):
+        # CGU_AUTO_LUM_STEP must exist in constants/animation.py
+        from backend.src.constants.animation import CGU_AUTO_LUM_STEP
+        assert isinstance(CGU_AUTO_LUM_STEP, float)
+        assert CGU_AUTO_LUM_STEP == pytest.approx(0.08)

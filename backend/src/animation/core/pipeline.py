@@ -384,6 +384,10 @@ _SEAM_LUM_STEP_PX: int = int(os.environ.get("ASP_SEAM_LUM_STEP", "0"))
 # If canvas_gain_uniformity > _CGU_GATE_FLOOR → SCANS fallback.
 # Default 0.20 (ASP test82=0.238 is clearly wrong). Set ASP_GATE_CGU_FLOOR=1.0 to disable.
 _CGU_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CGU_FLOOR", "0.20"))
+# §5.9 — Auto-enable seam lum-step correction when canvas_gain_uniformity
+# exceeds this threshold. Default 0.08 (mild banding). 0.0 = always on,
+# 1.0 = effectively disabled (manual-only via ASP_SEAM_LUM_STEP).
+_CGU_AUTO_LUM_STEP: float = float(os.environ.get("ASP_CGU_AUTO_LUM_STEP", "0.08"))
 # §1.17 — Canvas span utilisation gate (S61).
 # After bundle adjustment and canvas construction (Stage 9), the actual
 # dominant-axis span of the solved affines is compared against the expected
@@ -4535,11 +4539,24 @@ class AnimeStitchPipeline:
             except Exception as _sm_e:
                 logger.debug("[Stitch] Stage 11.19 seam band smoothing skipped (%s).", _sm_e)
 
-        # ── Stage 11.20: §5.1 Post-composite seam luminance step correction ──
+        # ── Stage 11.20: §5.1/§5.9 Seam luminance step correction ──────────
+        # Fires when: (a) user explicitly set ASP_SEAM_LUM_STEP > 0, OR
+        # (b) auto mode: CGU check shows banding and auto threshold is enabled.
         # Computes the per-column mean luminance just above and below each seam,
         # then applies a linear ramp (±band_px) to bridge the difference.
-        # Disabled by default (ASP_SEAM_LUM_STEP=0); suggest 20px to enable.
-        if _SEAM_LUM_STEP_PX > 0 and N > 1:
+        _lum_step_px = _SEAM_LUM_STEP_PX
+        if _lum_step_px == 0 and _CGU_AUTO_LUM_STEP < 1.0 and N > 1:
+            try:
+                _auto_cgu = _canvas_gain_uniformity(canvas, n_strips=8)
+                if _auto_cgu > _CGU_AUTO_LUM_STEP:
+                    _lum_step_px = 20  # default auto half-band
+                    logger.debug(
+                        "[Stitch] Stage 11.20: auto-enabling seam lum-step (cgu=%.3f > %.2f).",
+                        _auto_cgu, _CGU_AUTO_LUM_STEP,
+                    )
+            except Exception:
+                pass
+        if _lum_step_px > 0 and N > 1:
             try:
                 _tys_lum = [float(affines[k][1, 2]) for k in range(N)]
                 _ctrs_lum = [_tys_lum[k] + frames[k].shape[0] / 2.0 for k in range(N)]
@@ -4549,12 +4566,12 @@ class AnimeStitchPipeline:
                     int((_sc_lum[k] + _sc_lum[k + 1]) / 2.0) for k in range(N - 1)
                 ]
                 canvas = _correct_seam_lum_steps(
-                    canvas, _seam_ys_lum, band_px=_SEAM_LUM_STEP_PX
+                    canvas, _seam_ys_lum, band_px=_lum_step_px
                 )
                 logger.debug(
                     "[Stitch] Stage 11.20: §5.1 seam lum-step correction at %d seam(s), ±%dpx.",
                     len(_seam_ys_lum),
-                    _SEAM_LUM_STEP_PX,
+                    _lum_step_px,
                 )
             except Exception as _lum_e:
                 logger.debug(
@@ -5184,6 +5201,7 @@ __all__ = [
     "_SEAM_SMOOTH_PX",
     "_SEAM_LUM_STEP_PX",
     "_CGU_GATE_FLOOR",
+    "_CGU_AUTO_LUM_STEP",
     "_correct_seam_lum_steps",
     "_measure_max_seam_step",
     "_detect_static_input",
