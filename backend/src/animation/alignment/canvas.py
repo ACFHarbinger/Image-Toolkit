@@ -551,14 +551,56 @@ def _compute_adaptive_seam_smooth_px(
     gray = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY).astype(np.float32) if canvas.ndim == 3 else canvas.astype(np.float32)
     row_means = gray.mean(axis=1)
     sc = float(np.std(row_means))
-    # Linear interp: sc=5 → max_px, sc=30 → min_px
     lo, hi = 5.0, 30.0
     if sc <= lo:
         return max_px
     if sc >= hi:
         return min_px
-    t = (sc - lo) / (hi - lo)  # 0..1
+    t = (sc - lo) / (hi - lo)
     return max(min_px, min(max_px, int(round(max_px + t * (min_px - max_px)))))
+
+
+def _per_seam_lum_step_px(
+    canvas: np.ndarray,
+    seam_ys: List[int],
+    base_px: int = 20,
+    ref_px: int = 8,
+    min_px: int = 5,
+    max_px: int = 40,
+) -> List[int]:
+    """§5.16: Compute per-seam correction band width from actual lum step.
+
+    For each seam at y, measures the mean luminance in the ±ref_px reference
+    band just above and below. The step magnitude drives the band width:
+    step < 5 → min_px (barely visible, minimal correction needed)
+    step ≥ 30 → max_px (severe banding, needs wide ramp)
+    Linear interpolation in between.
+
+    Returns list of ints, same length as seam_ys.
+    """
+    if canvas is None or not seam_ys:
+        return [base_px] * len(seam_ys)
+    gray = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY).astype(np.float32) if canvas.ndim == 3 else canvas.astype(np.float32)
+    H = gray.shape[0]
+    result = []
+    lo_step, hi_step = 5.0, 30.0
+    for sy in seam_ys:
+        sy = max(ref_px, min(H - ref_px - 1, int(sy)))
+        top_band = gray[max(0, sy - ref_px):sy]
+        bot_band = gray[sy:min(H, sy + ref_px)]
+        if top_band.size == 0 or bot_band.size == 0:
+            result.append(base_px)
+            continue
+        step = abs(float(bot_band.mean()) - float(top_band.mean()))
+        if step <= lo_step:
+            px = min_px
+        elif step >= hi_step:
+            px = max_px
+        else:
+            t = (step - lo_step) / (hi_step - lo_step)
+            px = int(round(min_px + t * (max_px - min_px)))
+        result.append(max(min_px, min(max_px, px)))
+    return result
 
 
 __all__ = [
@@ -571,6 +613,7 @@ __all__ = [
     "_correct_seam_lum_steps",
     "_canvas_gain_uniformity",
     "_compute_adaptive_seam_smooth_px",
+    "_per_seam_lum_step_px",
     "_scan_stitch_fallback",
     "_panorama_stitch_fallback",
     "find_optimal_sequence",

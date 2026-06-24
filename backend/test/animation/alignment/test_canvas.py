@@ -28,6 +28,7 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _crop_to_valid,
     _detect_scroll_axis,
     _panorama_stitch_fallback,
+    _per_seam_lum_step_px,
     _smooth_seam_bands,
     _telea_fill_gaps,
 )
@@ -756,3 +757,47 @@ class TestComputeAdaptiveSeamSmoothPx:
     def test_in_all(self):
         """'_compute_adaptive_seam_smooth_px' must be listed in canvas.__all__."""
         assert "_compute_adaptive_seam_smooth_px" in _canvas_mod.__all__
+
+
+class TestPerSeamLumStepPx:
+    """§5.16: Tests for _per_seam_lum_step_px."""
+
+    @staticmethod
+    def _make_canvas(top_val: int, bot_val: int, H: int = 100, W: int = 80) -> np.ndarray:
+        """Build a (H, W, 3) uint8 canvas with top half = top_val, bottom half = bot_val."""
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        img[:H // 2] = top_val
+        img[H // 2:] = bot_val
+        return img
+
+    def test_uniform_seam_returns_min_px(self):
+        """Canvas with uniform luminance (step≈0) → all seams return min_px=5."""
+        img = self._make_canvas(128, 128)
+        seam_ys = [40, 60]
+        result = _per_seam_lum_step_px(img, seam_ys, base_px=20, min_px=5, max_px=40)
+        assert result == [5, 5], f"expected [5, 5], got {result}"
+
+    def test_large_step_returns_max_px(self):
+        """Canvas with large step (40 vs 200 → step=160 >> 30) → returns max_px=40."""
+        img = self._make_canvas(40, 200)
+        seam_ys = [50]
+        result = _per_seam_lum_step_px(img, seam_ys, base_px=20, min_px=5, max_px=40)
+        assert result == [40], f"expected [40], got {result}"
+
+    def test_moderate_step_interpolates(self):
+        """step ≈ 15 → value strictly between min_px=5 and max_px=40."""
+        img = self._make_canvas(100, 115)
+        seam_ys = [50]
+        result = _per_seam_lum_step_px(img, seam_ys, base_px=20, min_px=5, max_px=40)
+        assert len(result) == 1
+        assert 5 < result[0] < 40, f"expected interpolated value, got {result[0]}"
+
+    def test_empty_seam_list(self):
+        """seam_ys=[] → returns []."""
+        img = self._make_canvas(100, 150)
+        result = _per_seam_lum_step_px(img, [], base_px=20, min_px=5, max_px=40)
+        assert result == []
+
+    def test_in_all(self):
+        """'_per_seam_lum_step_px' must appear in canvas.__all__."""
+        assert "_per_seam_lum_step_px" in _canvas_mod.__all__
