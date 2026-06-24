@@ -2378,3 +2378,41 @@ class TestMonoGatePipeline:
     def test_strip_mono_in_canvas_all(self):
         import backend.src.animation.alignment.canvas as _cv
         assert "_strip_luma_monotonicity" in _cv.__all__
+
+
+class TestSvGatePipeline:
+    """§5.23: Pipeline seam visibility gate (Stage 11.25) tests."""
+
+    def test_seam_vis_uniform_canvas(self):
+        """Uniform canvas → seam_visibility_score ≈ 0."""
+        from backend.src.animation.alignment.canvas import _seam_visibility_score
+        import numpy as np
+        canvas = np.full((200, 300, 3), 128, dtype=np.uint8)
+        sv = _seam_visibility_score(canvas)
+        assert sv < 1.0, f"Expected sv≈0 for uniform canvas, got {sv}"
+
+    def test_seam_vis_hard_step(self):
+        """Canvas with hard luminance cut (top half 50, bottom half 200) → sv ≥ 100."""
+        from backend.src.animation.alignment.canvas import _seam_visibility_score
+        import numpy as np
+        canvas = np.zeros((200, 300, 3), dtype=np.uint8)
+        canvas[:100, :] = 50
+        canvas[100:, :] = 200
+        sv = _seam_visibility_score(canvas)
+        assert sv >= 100, f"Expected sv≥100 for hard-step canvas, got {sv}"
+
+    def test_sv_gate_floor_in_constants(self):
+        """SV_GATE_FLOOR constant exists in constants/animation.py at 30.0."""
+        import pytest
+        from backend.src.constants.animation import SV_GATE_FLOOR
+        assert SV_GATE_FLOOR == pytest.approx(30.0)
+
+    def test_sv_gate_exported(self):
+        """_SV_GATE_FLOOR is exported in pipeline.__all__."""
+        import backend.src.animation.core.pipeline as pipeline
+        assert "_SV_GATE_FLOOR" in pipeline.__all__
+
+    def test_seam_visibility_in_canvas_all(self):
+        """_seam_visibility_score is in canvas __all__."""
+        import backend.src.animation.alignment.canvas as canvas
+        assert "_seam_visibility_score" in canvas.__all__

@@ -44,6 +44,7 @@ from backend.src.animation.alignment.canvas import (
     _per_seam_lum_step_px,
     _scan_stitch_fallback,
     _seam_coherence_score,
+    _seam_visibility_score,
     _smooth_seam_bands,
     _strip_luma_monotonicity,
     _telea_fill_gaps,
@@ -395,6 +396,11 @@ _SC_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_COH_FLOOR", "25.0"))
 # §5.21 — Pipeline FFT Banding Gate (S174).
 _FFT_BAND_GATE_ENABLED: bool = os.environ.get("ASP_GATE_FFT_BAND", "1") != "0"
 _FFT_BAND_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_FFT_BAND_FLOOR", "0.35"))
+# §5.23 — Pipeline Seam Visibility Gate (Stage 11.25).
+# After Stage 11 compositing, measures worst-case adjacent-row luminance jump.
+# If seam_vis > _SV_GATE_FLOOR → SCANS fallback. Set ASP_GATE_SEAM_VIS=0 to disable.
+_SV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_VIS", "1") != "0"
+_SV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_VIS_FLOOR", "30.0"))
 # §5.9 — Auto-enable seam lum-step correction when canvas_gain_uniformity
 # exceeds this threshold. Default 0.08 (mild banding). 0.0 = always on,
 # 1.0 = effectively disabled (manual-only via ASP_SEAM_LUM_STEP).
@@ -4695,6 +4701,24 @@ class AnimeStitchPipeline:
             except Exception as _mono_e:
                 logger.debug("[Stitch] Stage 11.24: MonoGate skipped (%s).", _mono_e)
 
+        # ── Stage 11.25: §5.23 Seam Visibility Gate ──────────────────────────
+        if _SV_GATE_ENABLED and N > 1:
+            try:
+                _sv_val = _seam_visibility_score(canvas)
+                logger.debug("[Stitch] Stage 11.25: seam_vis=%.2f (floor=%.2f).", _sv_val, _SV_GATE_FLOOR)
+                if _sv_val > _SV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.25: SVGate FAILED (sv=%.2f > floor=%.2f) → SCANS fallback.",
+                        _sv_val, _SV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"sv_gate:{_sv_val:.2f}",
+                    )
+            except Exception as _sv_e:
+                logger.debug("[Stitch] Stage 11.25: SVGate skipped (%s).", _sv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5354,6 +5378,9 @@ __all__ = [
     "_FFT_BAND_GATE_ENABLED",
     "_FFT_BAND_GATE_FLOOR",
     "_horizontal_fft_banding",
+    "_SV_GATE_ENABLED",
+    "_SV_GATE_FLOOR",
+    "_seam_visibility_score",
     "_correct_seam_lum_steps",
     "_measure_max_seam_step",
     "_detect_static_input",

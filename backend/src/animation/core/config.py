@@ -1103,6 +1103,8 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         200.0,
         "§5.18: ChromaSeamGate absolute floor (coherence score); gate only fires when ASP chroma_seam_coherence exceeds this value (default 12.0)",
     ),
+    "ASP_GATE_SEAM_VIS": (int, 0, 1, "§5.23: Enable pipeline seam visibility gate (0 or 1, default 1)"),
+    "ASP_GATE_SEAM_VIS_FLOOR": (float, 0.0, 255.0, "§5.23: Pipeline seam visibility gate floor (luma units, default 30.0)"),
 }
 
 
