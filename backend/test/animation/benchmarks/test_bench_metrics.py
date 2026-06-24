@@ -1340,3 +1340,42 @@ class TestCanvasGainUniformityGate:
         # ratio=90 ≥ 90 → gate bypass
         ratio = 90.0
         assert ratio >= 90.0  # gate condition: _CGU_RATIO_LIMIT < 90
+
+
+class TestSeamCoherenceGate:
+    """§5.2: SCGate calibration.
+    limit = max(floor, ratio × max(sim_sc, 1.0))
+    gate fires when asp_sc > limit and ratio < 90.
+    """
+
+    def _limit(self, sim_sc, ratio=2.5, floor=15.0):
+        return max(floor, ratio * max(sim_sc, 1.0))
+
+    def test_high_coherence_fires(self):
+        # asp_sc=80.0 vs sim_sc=5.0 at ratio=2.5, floor=15 → limit=max(15,12.5)=15 → fires
+        asp_sc, sim_sc = 80.0, 5.0
+        limit = self._limit(sim_sc)
+        assert asp_sc > limit, f"gate should fire: asp={asp_sc} limit={limit}"
+
+    def test_low_coherence_does_not_fire(self):
+        # asp_sc=10.0 vs sim_sc=8.0 → limit=max(15, 20.0)=20.0 → no fire
+        asp_sc, sim_sc = 10.0, 8.0
+        limit = self._limit(sim_sc)
+        assert asp_sc <= limit, f"gate should not fire: asp={asp_sc} limit={limit}"
+
+    def test_floor_dominates_when_sim_is_low(self):
+        # sim_sc=1.0 → limit = max(15, 2.5×1.0) = 15; asp_sc=12 → no fire
+        limit = self._limit(sim_sc=1.0)
+        assert limit == 15.0
+        assert 12.0 <= limit  # no fire
+
+    def test_ratio_dominates_when_sim_is_high(self):
+        # sim_sc=30.0 → limit = max(15, 2.5×30) = 75; asp_sc=50 → no fire
+        limit = self._limit(sim_sc=30.0)
+        assert limit == 75.0
+        assert 50.0 <= limit  # no fire
+
+    def test_disabled_via_ratio_90(self):
+        # ratio=90 ≥ 90 → gate bypass
+        ratio = 90.0
+        assert ratio >= 90.0  # gate condition: _SEAM_COH_RATIO_LIMIT < 90

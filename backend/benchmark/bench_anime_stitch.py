@@ -3080,6 +3080,50 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                         f"ratio={_asp_cgu / max(_sim_cgu, 0.001):.2f}"
                     )
 
+        # ── SeamCoherenceGate (§5.2) ────────────────────────────────────────
+        # Fires when ASP seam_coherence is BOTH above an absolute floor AND
+        # above ratio× SCANS seam_coherence.
+        # seam_coherence = std of per-row mean luminance (rolling window).
+        # Override: ASP_GATE_SEAM_COH=99 to disable.
+        try:
+            _SEAM_COH_RATIO_LIMIT = float(os.environ.get("ASP_GATE_SEAM_COH", "2.5"))
+        except ValueError:
+            _SEAM_COH_RATIO_LIMIT = 2.5
+        try:
+            _SEAM_COH_ABS_FLOOR = float(os.environ.get("ASP_GATE_SEAM_COH_FLOOR", "15.0"))
+        except ValueError:
+            _SEAM_COH_ABS_FLOOR = 15.0
+        if simple_ok and _SEAM_COH_RATIO_LIMIT < 90 and _fallback_reason is None:
+            _simple_img_sc = cv2.imread(central_simple_path)
+            if _simple_img_sc is not None:
+                _asp_sc = _seam_coherence(canvas_out)
+                _sim_sc = _seam_coherence(_simple_img_sc)
+                print(
+                    f"  [SCGate] asp_sc={_asp_sc:.1f}  "
+                    f"sim_sc={_sim_sc:.1f}  "
+                    f"ratio={_asp_sc / max(_sim_sc, 1.0):.2f}"
+                )
+                _sc_limit = max(
+                    _SEAM_COH_ABS_FLOOR, _SEAM_COH_RATIO_LIMIT * max(_sim_sc, 1.0)
+                )
+                if _asp_sc > _sc_limit:
+                    _fallback_reason = (
+                        f"seam_coh_gate:asp={_asp_sc:.1f}"
+                        f"_sim={_sim_sc:.1f}_limit={_sc_limit:.1f}"
+                    )
+                    print(
+                        f"  [SCGate] FAILED "
+                        f"(asp={_asp_sc:.1f} > limit={_sc_limit:.1f} "
+                        f"[floor={_SEAM_COH_ABS_FLOOR:.0f}, "
+                        f"{_SEAM_COH_RATIO_LIMIT:.1f}× sim={_sim_sc:.1f}]) "
+                        f"→ SCANS fallback."
+                    )
+                    timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 8
+                    raise RuntimeError(
+                        f"SCGate: asp_sc={_asp_sc:.1f}, "
+                        f"ratio={_asp_sc / max(_sim_sc, 1.0):.2f}"
+                    )
+
         from PIL import Image
 
         rgb = cv2.cvtColor(canvas_out, cv2.COLOR_BGR2RGB)

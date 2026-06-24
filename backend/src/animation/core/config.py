@@ -1019,6 +1019,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1.0,
         "§5.3: CGUGate absolute floor (CGU units); gate only fires when ASP CGU exceeds this value (default 0.15)",
     ),
+    "ASP_GATE_SEAM_COH": (
+        float,
+        0.0,
+        90.0,
+        "§5.2: SCGate ratio limit — ASP seam_coherence must not exceed ratio×SCANS; ≥90=disabled (default 2.5)",
+    ),
+    "ASP_GATE_SEAM_COH_FLOOR": (
+        float,
+        0.0,
+        200.0,
+        "§5.2: SCGate absolute floor (seam_coherence units); gate only fires when ASP seam_coherence exceeds this value (default 15.0)",
+    ),
 }
 
 
@@ -1248,6 +1260,8 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_SEAM_LUM_STEP",
         "ASP_GATE_CGU",
         "ASP_GATE_CGU_FLOOR",
+        "ASP_GATE_SEAM_COH",
+        "ASP_GATE_SEAM_COH_FLOOR",
     ],
     "bundle_adjust": [
         "ASP_BA_F_SCALE",
