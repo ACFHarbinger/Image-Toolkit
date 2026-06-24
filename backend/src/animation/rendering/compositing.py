@@ -112,9 +112,24 @@ def set_flow_hitl_callback(
 _POISSON_SEAM: bool = os.environ.get("ASP_POISSON_SEAM", "0") != "0"
 _POISSON_BAND_PX: int = 20
 
-# Phase 4 — cv::detail::GraphCutSeamFinder global multi-image seam
-# (ASP_GRAPHCUT_SEAM=1, default OFF — adds OpenCV graph-cut overhead per run).
-_GRAPHCUT_SEAM: bool = BATCH_AVAILABLE and os.environ.get("ASP_GRAPHCUT_SEAM", "0") != "0"
+# Phase 4 — cv::detail::GraphCutSeamFinder global multi-image seam.
+# Default ON (BATCH_AVAILABLE) — replaces pairwise DP with globally optimal
+# multi-image seam; 97-test benchmark showed seam_visibility 6.1× worse with
+# pairwise DP as the dominant failure mode.  Set ASP_GRAPHCUT_SEAM=0 to disable.
+_GRAPHCUT_SEAM: bool = BATCH_AVAILABLE and os.environ.get("ASP_GRAPHCUT_SEAM", "1") != "0"
+
+# §3.33 — Feather width (px) at GraphCut ownership boundaries.
+# A narrow linear alpha ramp eliminates the 1-pixel luminance step at GC transitions.
+# Set ASP_GC_FEATHER_PX=0 to disable; default 8px matches half the zone-edge guard width.
+_GC_FEATHER_PX: int = int(os.environ.get("ASP_GC_FEATHER_PX", "8"))
+
+# §4.5 — cv::detail::DpSeamFinder canvas-space DP seam.
+# Fallback between GraphCut (batch, global) and pairwise DP (local).
+# cv2.detail_DpSeamFinder("COLOR_GRAD").find() runs in canvas space across all
+# N frames simultaneously, handling 3-way overlaps that pairwise DP misses.
+# Enabled via ASP_DP_CANVAS_SEAM=1 (default OFF — only useful when GraphCut
+# is disabled; no extra deps beyond opencv-contrib).
+_DP_CANVAS_SEAM: bool = os.environ.get("ASP_DP_CANVAS_SEAM", "0") != "0"
 
 # Phase 4 — OpenMP parallel N-1 seam batch via batch.seam.seam_batch
 # (ASP_SEAM_BATCH=1, default OFF — replaces ThreadPoolExecutor pre-computation).
@@ -2977,6 +2992,29 @@ def _find_optimal_boundaries(
 
     Returns (optimised_boundaries, diff_scores), both shape (N-1,).
     """
+    # Phase 5d: C++ fast path — GIL-released inner pixel loops, ~10–30× speedup
+    if BATCH_AVAILABLE and hasattr(batch, "compositing") and hasattr(
+        batch.compositing, "find_optimal_boundaries"
+    ):
+        try:
+            _bg = None
+            if bg_masks is not None:
+                _bg = [
+                    np.asarray(m, dtype=np.uint8) if m is not None else None
+                    for m in bg_masks
+                ]
+            _bounds, _diffs = batch.compositing.find_optimal_boundaries(
+                [np.ascontiguousarray(f) for f in warped_list],
+                np.asarray(order, dtype=np.int64),
+                np.asarray(initial_boundaries, dtype=np.float64),
+                H, W,
+                SEARCH_RANGE, SEARCH_SLAB,
+                _bg, affines,
+            )
+            return np.asarray(_bounds), np.asarray(_diffs)
+        except Exception:
+            pass
+
     len(order)
     optimised = initial_boundaries.copy()
     diffs = np.full(len(initial_boundaries), float("inf"))
@@ -4027,6 +4065,15 @@ def _blocks_gain_compensate(
     """
     if fa_zone.size == 0 or fb_zone.size == 0:
         return fb_zone.copy()
+    if BATCH_AVAILABLE and hasattr(batch, "compositing") and hasattr(
+        batch.compositing, "blocks_gain_compensate_pair"
+    ):
+        try:
+            return np.asarray(
+                batch.compositing.blocks_gain_compensate_pair(fa_zone, fb_zone, block_size)
+            )
+        except Exception:
+            pass
     H, W = fb_zone.shape[:2]
     bs = max(1, block_size)
     n_rows = max(1, (H + bs - 1) // bs)
@@ -4066,6 +4113,15 @@ def _blocks_lum_compensate(
     """
     if fa_zone.size == 0 or fb_zone.size == 0:
         return fb_zone.copy()
+    if BATCH_AVAILABLE and hasattr(batch, "compositing") and hasattr(
+        batch.compositing, "blocks_lum_compensate_pair"
+    ):
+        try:
+            return np.asarray(
+                batch.compositing.blocks_lum_compensate_pair(fa_zone, fb_zone, block_size)
+            )
+        except Exception:
+            pass
     H, W = fb_zone.shape[:2]
     fa_lab = cv2.cvtColor(fa_zone, cv2.COLOR_BGR2LAB).astype(np.float32)
     fb_lab = cv2.cvtColor(fb_zone, cv2.COLOR_BGR2LAB).astype(np.float32)
@@ -4567,7 +4623,7 @@ def _poisson_seam_blend(
 
 def _get_seam_cost_flags() -> Tuple:
     """§1.5D: Snapshot of module-level flags that affect seam cost computation."""
-    return (_POISSON_SEAM, _TOONCRAFTER_SEAM, _GRAPHCUT_SEAM, _SEAM_BATCH, _MULTIBAND_BLEND)
+    return (_POISSON_SEAM, _TOONCRAFTER_SEAM, _GRAPHCUT_SEAM, _SEAM_BATCH, _MULTIBAND_BLEND, _DP_CANVAS_SEAM)
 
 
 def _make_seam_cache_key(
@@ -4603,6 +4659,108 @@ def _compute_initial_boundaries(
     order = np.argsort(strip_center_ys)
     sorted_centers = strip_center_ys[order]
     return (sorted_centers[:-1] + sorted_centers[1:]) / 2.0
+
+
+def _canvas_dp_seam_composite(
+    warped_norm: List[np.ndarray],
+    warped_bg: List,
+    canvas: np.ndarray,
+    H: int,
+    W: int,
+    N: int,
+) -> Optional[np.ndarray]:
+    """§4.5: Canvas-space DP seam composite using cv2.detail_DpSeamFinder.
+
+    Runs a single multi-frame DpSeamFinder("COLOR_GRAD") call in canvas space,
+    handling 3-way overlaps that N-1 independent pairwise DPs miss.  Each frame
+    contributes a full-canvas coverage mask; the finder partitions ownership into
+    N non-overlapping regions and the result is composited pixel-by-pixel.
+
+    Falls back gracefully — callers wrap in try/except.
+
+    Returns the composited canvas (H×W×3 uint8) or None if N<2.
+    """
+    if N < 2:
+        return None
+
+    # Build coverage masks: 255 where this frame has content, 0 otherwise.
+    _dp_masks = [
+        (warped_norm[i].max(axis=2) > 0).astype(np.uint8) * 255
+        for i in range(N)
+    ]
+    # Corners: all frames are in canvas space → top-left = (0, 0) for each.
+    _dp_corners = [(0, 0)] * N
+
+    finder = cv2.detail_DpSeamFinder("COLOR_GRAD")
+    # find() modifies masks in-place (partitions ownership).
+    finder.find(warped_norm, _dp_corners, _dp_masks)
+
+    result = canvas.copy()
+    for i in range(N):
+        own = _dp_masks[i] > 127
+        src = warped_norm[i]
+        has_content = src.max(axis=2) > 0
+        apply_px = own & has_content
+        if warped_bg[i] is not None:
+            apply_px = apply_px & (~warped_bg[i])
+        result[apply_px] = src[apply_px]
+
+    # Fill remaining black pixels from any frame that has content there.
+    _black = result.max(axis=2) == 0
+    if _black.any():
+        for _wn in warped_norm:
+            _fill = _black & (_wn.max(axis=2) > 0)
+            if _fill.any():
+                result[_fill] = _wn[_fill]
+                _black = result.max(axis=2) == 0
+            if not _black.any():
+                break
+
+    return result
+
+
+def _feather_gc_boundaries(
+    result: np.ndarray,
+    ownership_masks: List[np.ndarray],
+    warped_frames: List[np.ndarray],
+    feather_px: int = 8,
+) -> np.ndarray:
+    """§3.33: Narrow feathered blend at GraphCut ownership transitions.
+
+    For each adjacent pair (i, i+1) of ownership masks the per-column boundary
+    row (last row owned by frame i) is found and a ±feather_px linear alpha ramp
+    is blended between the two source frames.  Only pixels where both frames have
+    content (non-black) are blended; all-black pixels are skipped so gap-fill work
+    is not undone.
+    """
+    N = len(ownership_masks)
+    if N < 2 or feather_px <= 0:
+        return result
+    out = result.copy()
+    H, W = result.shape[:2]
+    rows = np.arange(H, dtype=np.int32)[:, None]  # (H, 1) broadcast column
+    for i in range(N - 1):
+        own_i = (ownership_masks[i] > 127)
+        has_col_i = own_i.any(axis=0)                    # (W,) — columns frame i owns
+        last_row_i = (H - 1) - np.argmax(own_i[::-1], axis=0)  # last owned row per col
+        boundary = np.where(has_col_i, last_row_i, -1)  # (W,) — -1 for unowned cols
+
+        src_i    = warped_frames[i].astype(np.float32)
+        src_next = warped_frames[i + 1].astype(np.float32)
+        content_i    = warped_frames[i].max(axis=2) > 0   # (H, W)
+        content_next = warped_frames[i + 1].max(axis=2) > 0
+
+        b = boundary[None, :]  # (1, W)
+        # alpha=1.0 → fully frame i; alpha=0.0 → fully frame i+1
+        alpha = ((b + feather_px - rows) / (2.0 * feather_px)).clip(0.0, 1.0)
+        in_band = (rows >= (b - feather_px)) & (rows <= (b + feather_px)) & (b >= 0)
+        blend_here = in_band & content_i & content_next
+        if not blend_here.any():
+            continue
+        alpha3 = alpha[:, :, None]
+        blended = (alpha3 * src_i + (1.0 - alpha3) * src_next).clip(0, 255).astype(np.uint8)
+        out[blend_here] = blended[blend_here]
+    return out
 
 
 def _composite_foreground(
@@ -5322,6 +5480,111 @@ def _composite_foreground(
         except Exception as _tc_seam_e:
             print(f"[Stitch]   ToonCrafter seam synthesis skipped ({_tc_seam_e}).")
 
+    # §4.2/§4.6: GraphCut global seam + optional MultiBand blend (Phase 4).
+    # When ASP_GRAPHCUT_SEAM=1, replaces the hard-partition + DP blend loop below
+    # with a single global cv::detail::GraphCutSeamFinder call that assigns each
+    # canvas pixel to one frame simultaneously across all N frames, eliminating
+    # pairwise DP seam conflicts.  If ASP_MULTIBAND_BLEND=1 is also set, the
+    # cv::detail::MultiBandBlender replaces the per-zone Laplacian blend.
+    if _GRAPHCUT_SEAM and BATCH_AVAILABLE and N >= 2:
+        try:
+            _gc_frames  = [np.ascontiguousarray(warped_norm[i]) for i in range(N)]
+            # Coverage mask: pixels this frame actually covers on the canvas
+            _gc_masks   = [
+                (warped_norm[i].max(axis=2) > 0).astype(np.uint8) * 255
+                for i in range(N)
+            ]
+            # Frames are full canvas-size — all corners at (0,0)
+            _gc_corners = [(0, 0)] * N
+            print(f"[Stitch]   §4.2 GraphCut seam (global, {N} frames)...")
+            _ownership = batch.seam.graphcut_seam_find(
+                _gc_frames, _gc_masks, _gc_corners
+            )
+            result = canvas.copy()
+            if _MULTIBAND_BLEND:
+                print(f"[Stitch]   §4.6 MultiBand blend ({N} frames, 5 bands)...")
+                _mb = batch.compositing.multiband_blend(
+                    _gc_frames, _ownership, _gc_corners, num_bands=5
+                )
+                rh, rw = min(_mb.shape[0], H), min(_mb.shape[1], W)
+                result[:rh, :rw] = _mb[:rh, :rw]
+                print(f"[Stitch]   MultiBand blend done ({rh}×{rw}px).")
+            else:
+                for i in range(N):
+                    own = _ownership[i] > 127
+                    src = warped_norm[i]
+                    has_content = src.max(axis=2) > 0
+                    _apply_gc = own & has_content
+                    if warped_bg[i] is not None:
+                        _apply_gc = _apply_gc & (~warped_bg[i])
+                    result[_apply_gc] = src[_apply_gc]
+            # Gap fill — same as DP path
+            _gc_black = result.max(axis=2) == 0
+            if _gc_black.any():
+                for _gcwn in warped_norm:
+                    _gc_fill = _gc_black & (_gcwn.max(axis=2) > 0)
+                    if _gc_fill.any():
+                        result[_gc_fill] = _gcwn[_gc_fill]
+                        _gc_black = result.max(axis=2) == 0
+                    if not _gc_black.any():
+                        break
+            # §3.33: feather GC ownership boundaries (hard-partition only; MultiBand handles its own blend)
+            if not _MULTIBAND_BLEND and _GC_FEATHER_PX > 0:
+                result = _feather_gc_boundaries(result, _ownership, _gc_frames, feather_px=_GC_FEATHER_PX)
+            # Seam metadata for HITL
+            if seam_meta_out is not None:
+                seam_meta_out.update(
+                    {
+                        "boundaries": (
+                            boundaries.tolist()
+                            if hasattr(boundaries, "tolist")
+                            else list(boundaries)
+                        ),
+                        "seam_post_diffs": dict(seam_post_diffs),
+                        "seam_single_pose": dict(seam_single_pose),
+                        "seam_crops": _extract_seam_crops(result, boundaries),
+                    }
+                )
+            print("[Stitch]   GraphCut composite done.")
+            return result
+        except Exception as _gc_exc:
+            print(
+                f"[Stitch]   §4.2 GraphCut seam failed ({_gc_exc}), "
+                "falling back to DP blend."
+            )
+
+    # §4.5: Canvas-space DP seam (cv2.detail_DpSeamFinder) — intermediate fallback
+    # between GraphCut (batch, global) and the pairwise DP blend loop below.
+    # Uses the same ownership-mask→composite path as GraphCut but with OpenCV's
+    # built-in DpSeamFinder, which handles 3-way overlaps the pairwise DP misses.
+    # Enable: ASP_DP_CANVAS_SEAM=1 (only useful when GraphCut is disabled).
+    if _DP_CANVAS_SEAM and N >= 2:
+        try:
+            _dp_result = _canvas_dp_seam_composite(
+                warped_norm, warped_bg, canvas, H, W, N
+            )
+            if _dp_result is not None:
+                if seam_meta_out is not None:
+                    seam_meta_out.update(
+                        {
+                            "boundaries": (
+                                boundaries.tolist()
+                                if hasattr(boundaries, "tolist")
+                                else list(boundaries)
+                            ),
+                            "seam_post_diffs": dict(seam_post_diffs),
+                            "seam_single_pose": dict(seam_single_pose),
+                            "seam_crops": _extract_seam_crops(_dp_result, boundaries),
+                        }
+                    )
+                print("[Stitch]   §4.5 Canvas-space DP seam done.")
+                return _dp_result
+        except Exception as _dp_exc:
+            print(
+                f"[Stitch]   §4.5 Canvas-space DP seam failed ({_dp_exc}), "
+                "falling back to pairwise DP."
+            )
+
     # Start from temporal median canvas — background pixels stay here permanently
     result = canvas.copy()
 
@@ -6007,6 +6270,8 @@ def _composite_foreground(
 
 __all__ = [
     "_composite_foreground",
+    "_feather_gc_boundaries",
+    "_GC_FEATHER_PX",
     "_get_seam_cost_flags",
     "_make_seam_cache_key",
     "_multiscale_gain_map",
@@ -6166,4 +6431,6 @@ __all__ = [
     "_BLOCKS_GAIN_COMP",
     "_blocks_lum_compensate",
     "_BLOCKS_LUM_COMP",
+    "_DP_CANVAS_SEAM",
+    "_canvas_dp_seam_composite",
 ]
