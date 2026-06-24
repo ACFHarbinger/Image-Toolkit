@@ -2416,3 +2416,47 @@ class TestSvGatePipeline:
         """_seam_visibility_score is in canvas __all__."""
         import backend.src.animation.alignment.canvas as canvas
         assert "_seam_visibility_score" in canvas.__all__
+
+
+class TestChromaCohGatePipeline:
+    """§5.24: Pipeline Chroma Seam Coherence Gate (Stage 11.26) tests."""
+
+    def test_chroma_coh_uniform(self):
+        """Uniform gray canvas → chroma_coh ≈ 0."""
+        from backend.src.animation.alignment.canvas import _chroma_seam_coherence
+        img = np.full((256, 256, 3), 128, dtype=np.uint8)
+        score = _chroma_seam_coherence(img, n_strips=8)
+        assert score == pytest.approx(0.0, abs=1e-4), (
+            f"Uniform canvas should have chroma_coh ≈ 0, got {score}"
+        )
+
+    def test_chroma_coh_high_strip_shift(self):
+        """Canvas where strips alternate between very different colors → chroma_coh > 10."""
+        from backend.src.animation.alignment.canvas import _chroma_seam_coherence
+        H, W = 256, 256
+        n_strips = 8
+        strip_h = H // n_strips
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        for i in range(n_strips):
+            # Alternate between dark blue (0,0,50) and bright red (200,0,0)
+            color = (0, 0, 50) if i % 2 == 0 else (0, 0, 200)
+            img[i * strip_h:(i + 1) * strip_h, :] = color
+        score = _chroma_seam_coherence(img, n_strips=8)
+        assert score > 10, (
+            f"High-contrast alternating strip canvas should have chroma_coh > 10, got {score}"
+        )
+
+    def test_chroma_gate_floor_in_constants(self):
+        """CHROMA_COH_GATE_FLOOR constant exists and equals 20.0."""
+        from backend.src.constants.animation import CHROMA_COH_GATE_FLOOR
+        assert CHROMA_COH_GATE_FLOOR == pytest.approx(20.0)
+
+    def test_chroma_gate_exported(self):
+        """_CHROMA_COH_GATE_FLOOR is exported from pipeline __all__."""
+        import backend.src.animation.core.pipeline as _pl
+        assert "_CHROMA_COH_GATE_FLOOR" in _pl.__all__
+
+    def test_chroma_seam_coherence_in_canvas_all(self):
+        """_chroma_seam_coherence is exported from canvas __all__."""
+        import backend.src.animation.alignment.canvas as _cv
+        assert "_chroma_seam_coherence" in _cv.__all__

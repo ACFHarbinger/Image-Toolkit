@@ -696,6 +696,28 @@ def _seam_visibility_score(img: np.ndarray) -> float:
     return float(diffs.max())
 
 
+def _chroma_seam_coherence(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.24: Mean per-channel color discontinuity at strip boundaries (chroma seam coherence).
+
+    For each adjacent strip pair, measures the absolute difference in per-channel
+    mean values. Returns the mean of all such differences across all seam boundaries
+    and all channels. Higher = more visible color shift between strips.
+    """
+    if img is None or img.ndim != 3 or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    strips = [img[i * strip_h:(i + 1) * strip_h] for i in range(n_strips)]
+    strip_means = [s.mean(axis=(0, 1)).astype(np.float32) for s in strips]  # (3,) per strip
+    diffs = []
+    for i in range(len(strip_means) - 1):
+        diff = float(np.abs(strip_means[i + 1] - strip_means[i]).mean())
+        diffs.append(diff)
+    return float(np.mean(diffs)) if diffs else 0.0
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -717,4 +739,5 @@ __all__ = [
     "_compute_adaptive_seam_smooth_px",
     "_seam_coherence_score",
     "_seam_visibility_score",
+    "_chroma_seam_coherence",
 ]
