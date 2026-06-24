@@ -1178,7 +1178,6 @@ class TestCanvasGainUniformity:
         assert result == 0.0
 
 
-<<<<<<< HEAD
 # ---------------------------------------------------------------------------
 # §4.3: _seam_ownership_entropy (Phase 4 GraphCut metric)
 # ---------------------------------------------------------------------------
@@ -1797,7 +1796,8 @@ class TestChromaSeamCohGate:
         assert f"asp={asp_chroma:.2f}" in fallback_reason
         assert f"sim={sim_chroma:.2f}" in fallback_reason
         assert f"limit={chroma_limit:.2f}" in fallback_reason
-=======
+
+
 # ===========================================================================
 # §5.26: strip_self_ssim & chroma_seam_coherence wired from canvas (S174)
 # ===========================================================================
@@ -1843,4 +1843,3 @@ class TestBenchStripSsimChromaMetrics:
         img = self._uniform()
         assert isinstance(_strip_self_ssim(img, n_strips=8), float)
         assert isinstance(_chroma_seam_coherence(img, n_strips=8), float)
->>>>>>> bf60e97 (S174: §5.26 benchmark strip-ssim & chroma-coh metrics wiring)
