@@ -623,3 +623,4 @@ CHROMA_COH_GATE_FLOOR: float = 20.0
 STRIP_SELF_SSIM_GATE_FLOOR: float = 0.85  # §5.25: pipeline strip self-SSIM gate floor
 STRIP_GRAD_CV_GATE_FLOOR: float = 0.50  # §5.32: pipeline strip gradient CV gate floor
 SEAM_BAND_NCC_GATE_FLOOR: float = 0.30  # §5.31: pipeline seam band NCC gate floor
+SIQE_GATE_FLOOR: float = 30.0  # §5.29: pipeline ghosting SIQE gate floor

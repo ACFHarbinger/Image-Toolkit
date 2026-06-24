@@ -32,6 +32,7 @@ from backend.src.animation.core.validation import (
 )
 from backend.src.animation.alignment.canvas import (
     _canvas_gain_uniformity,
+    _canvas_ghosting_siqe,
     _compute_adaptive_seam_smooth_px,
     _compute_canvas,
     _correct_seam_lum_steps,
@@ -535,6 +536,11 @@ _SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "4"))
 # §5.11 — Adaptive seam-smooth: widen/narrow based on seam_coherence.
 # True by default when _SEAM_SMOOTH_PX > 0. Set ASP_SEAM_SMOOTH_ADAPTIVE=0 to disable.
 _SEAM_SMOOTH_ADAPTIVE: bool = os.environ.get("ASP_SEAM_SMOOTH_ADAPTIVE", "1") != "0"
+# §5.29 — Pipeline Ghosting SIQE Gate (Stage 11.28).
+# Fires when FFT-autocorrelation ghost score > floor → SCANS fallback.
+# Set ASP_GATE_GHOSTING_SIQE=0 to disable.
+_SIQE_GATE_ENABLED: bool = os.environ.get("ASP_GATE_GHOSTING_SIQE", "1") != "0"
+_SIQE_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_GHOSTING_SIQE_FLOOR", "30.0"))
 # §5.31 — Pipeline Seam Band NCC Gate (Stage 11.29).
 # Fires when minimum cross-boundary NCC < floor → SCANS fallback.
 # Low NCC = structural discontinuity at seam boundary. Set ASP_GATE_SEAM_BAND_NCC=0 to disable.
@@ -4781,6 +4787,24 @@ class AnimeStitchPipeline:
             except Exception as _sssim_e:
                 logger.debug("[Stitch] Stage 11.27: StripSSIMGate skipped (%s).", _sssim_e)
 
+        # ── Stage 11.28: §5.29 Ghosting SIQE Gate ────────────────────────────
+        if _SIQE_GATE_ENABLED and N > 1:
+            try:
+                _siqe_val = _canvas_ghosting_siqe(canvas)
+                logger.debug("[Stitch] Stage 11.28: ghosting_siqe=%.2f (floor=%.1f).", _siqe_val, _SIQE_GATE_FLOOR)
+                if _siqe_val > _SIQE_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.28: SiqeGate FAILED (siqe=%.2f > floor=%.1f) → SCANS fallback.",
+                        _siqe_val, _SIQE_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"siqe_gate:{_siqe_val:.2f}",
+                    )
+            except Exception as _siqe_e:
+                logger.debug("[Stitch] Stage 11.28: SiqeGate skipped (%s).", _siqe_e)
+
         # ── Stage 11.29: §5.31 Seam Band NCC Gate ────────────────────────────
         if _SEAM_BAND_NCC_GATE_ENABLED and N > 1:
             try:
@@ -5534,4 +5558,7 @@ __all__ = [
     "_SEAM_BAND_NCC_GATE_ENABLED",
     "_SEAM_BAND_NCC_GATE_FLOOR",
     "_seam_band_ncc_min",
+    "_SIQE_GATE_ENABLED",
+    "_SIQE_GATE_FLOOR",
+    "_canvas_ghosting_siqe",
 ]

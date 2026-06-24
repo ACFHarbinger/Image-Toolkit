@@ -84,6 +84,10 @@ _SI_FID: bool = os.environ.get("ASP_SI_FID", "0") != "0"
 _SI_FID_PATCH_SIZE: int = int(os.environ.get("ASP_SI_FID_PATCH_SIZE", "128"))
 _SI_FID_N_PATCHES: int = int(os.environ.get("ASP_SI_FID_N_PATCHES", "32"))
 
+# §5.30: Benchmark Ghosting SIQE Comparative Gate
+_GHOST_SIQE_RATIO_LIMIT: float = float(os.environ.get("ASP_GATE_GHOST_SIQE_RATIO", "2.0"))
+_GHOST_SIQE_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_GHOST_SIQE_FLOOR", "30.0"))
+
 logger = logging.getLogger(__name__)
 
 
@@ -3229,6 +3233,37 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                     _fallback_reason = f"chroma_coh_gate:asp={_asp_chroma:.2f}_sim={_sim_chroma:.2f}_limit={_chroma_limit:.2f}"
                     timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 256
                     raise RuntimeError(f"ChromaSeamGate: asp_chroma={_asp_chroma:.2f}, ratio={_asp_chroma / max(_sim_chroma, 1.0):.2f}")
+
+        # §5.30 GhostSiqeGate — FFT autocorrelation ghosting (SIQE proxy)
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_siqe = cv2.imread(central_simple_path)
+                if _simple_img_siqe is not None:
+                    _asp_siqe = _ghosting_score_v2(canvas_out)
+                    _sim_siqe = _ghosting_score_v2(_simple_img_siqe)
+                    print(
+                        f"  [GhostSiqeGate] asp_siqe={_asp_siqe:.1f}  "
+                        f"sim_siqe={_sim_siqe:.1f}  "
+                        f"ratio={_asp_siqe / max(_sim_siqe, 1.0):.2f}"
+                    )
+                    _siqe_limit = max(_GHOST_SIQE_ABS_FLOOR, _GHOST_SIQE_RATIO_LIMIT * max(_sim_siqe, 1.0))
+                    if _asp_siqe > _siqe_limit:
+                        _fallback_reason = f"ghost_siqe_gate:{_asp_siqe:.1f}"
+                        print(
+                            f"  [GhostSiqeGate] FAILED "
+                            f"(asp_siqe={_asp_siqe:.1f} > limit={_siqe_limit:.1f} "
+                            f"[floor={_GHOST_SIQE_ABS_FLOOR:.0f}, {_GHOST_SIQE_RATIO_LIMIT:.1f}× sim={_sim_siqe:.1f}]) "
+                            f"→ SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = 1
+                        raise RuntimeError(
+                            f"GhostSiqeGate: asp_siqe={_asp_siqe:.1f}, "
+                            f"ratio={_asp_siqe / max(_sim_siqe, 1.0):.2f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _gs_e:
+                logger.debug("[Bench] GhostSiqeGate skipped: %s", _gs_e)
 
         from PIL import Image
 
