@@ -44,6 +44,58 @@
 
 ---
 
+## S174 — 2026-06-24 (§5.19 SC Pipeline Gate · §5.20 Adaptive Lum-Step Wired · §5.21 FFT Pipeline Gate · §5.22 Mono Pipeline Gate · §5.23 SV Pipeline Gate · §5.24 Chroma Pipeline Gate)
+
+*Six post-composite pipeline gates (Stages 11.22–11.26) and per-seam adaptive lum-step wiring complete the §5 pipeline-level defense cascade. 1515 tests passing (85 skipped).*
+
+### §5.24 Chroma Seam Coherence Pipeline Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_chroma_seam_coherence(img, n_strips=8)` in `canvas.py`: mean per-channel color discontinuity at strip boundaries; higher = more visible color shift
+- Stage 11.26 in `run()`: fires `_scan_stitch_fallback(reason=f"chroma_coh_gate:{val:.2f}")` when `chroma_coh > _CHROMA_COH_GATE_FLOOR` (default 20.0)
+- `_CHROMA_COH_GATE_ENABLED`, `_CHROMA_COH_GATE_FLOOR` module flags; env: `ASP_GATE_CHROMA_PIPE`, `ASP_GATE_CHROMA_PIPE_FLOOR`
+- `CHROMA_COH_GATE_FLOOR: float = 20.0` in `constants/animation.py`
+- 5 tests in `TestChromaCohGatePipeline` (`test_pipeline.py`)
+
+### §5.23 Seam Visibility Pipeline Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_visibility_score(img)` in `canvas.py`: max absolute adjacent-row luminance jump (black border rows excluded); direct no-reference seam visibility metric
+- Stage 11.25 in `run()`: fires `_scan_stitch_fallback(reason=f"sv_gate:{val:.2f}")` when `sv > _SV_GATE_FLOOR` (default 30.0)
+- `_SV_GATE_ENABLED`, `_SV_GATE_FLOOR` module flags; env: `ASP_GATE_SEAM_VIS`, `ASP_GATE_SEAM_VIS_FLOOR`
+- `SV_GATE_FLOOR: float = 30.0` in `constants/animation.py`
+- 5 tests in `TestSvGatePipeline` (`test_pipeline.py`)
+
+### §5.22 Strip Luma Monotonicity Pipeline Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_luma_monotonicity(img, n_strips=8)` in `canvas.py`: fraction of adjacent strip pairs with luminance direction reversal (0=monotonic, 1=fully alternating)
+- Stage 11.24 in `run()`: fires `_scan_stitch_fallback(reason=f"mono_gate:{val:.3f}")` when `mono > _MONO_GATE_FLOOR` (default 0.60)
+- `_MONO_GATE_ENABLED`, `_MONO_GATE_FLOOR` module flags; env: `ASP_GATE_MONO_PIPE`, `ASP_GATE_MONO_PIPE_FLOOR`
+- `MONO_GATE_FLOOR: float = 0.60` in `constants/animation.py`
+- 5 tests in `TestMonoGatePipeline` (`test_pipeline.py`)
+
+### §5.21 FFT Banding Pipeline Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_horizontal_fft_banding(img, n_strips=8)` in `canvas.py`: energy fraction at strip-boundary frequency in row-mean luminance FFT profile; range [0,1]
+- Stage 11.23 in `run()`: fires `_scan_stitch_fallback(reason=f"fft_band_gate:{val:.4f}")` when `fft > _FFT_BAND_GATE_FLOOR` (default 0.35)
+- `_FFT_BAND_GATE_ENABLED`, `_FFT_BAND_GATE_FLOOR` module flags; env: `ASP_GATE_FFT_BAND`, `ASP_GATE_FFT_BAND_FLOOR`
+- `FFT_BAND_GATE_FLOOR: float = 0.35` in `constants/animation.py`
+- 5 tests in `TestFftBandGatePipeline` (`test_pipeline.py`)
+
+### §5.20 Per-Seam Adaptive Lum-Step Wired into Stage 11.20 (`backend/src/animation/core/pipeline.py`, `backend/src/animation/alignment/canvas.py`)
+
+- `_per_seam_lum_step_px(canvas, seam_ys)` call wired in Stage 11.20 when `_SEAM_LUM_STEP_ADAPTIVE=True`: computes per-seam correction band widths; passed as `List[int]` to `_correct_seam_lum_steps`
+- `_correct_seam_lum_steps` updated to accept `Union[int, List[int]]` for `band_px`; resolves per-seam width inside loop
+- 5 tests in `TestCorrectSeamLumStepsListBandPx` (`test_canvas.py`)
+
+### §5.19 Seam Coherence Pipeline Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_coherence_score(img)` in `canvas.py`: `std(per-row-mean-luminance)` — proxy for horizontal strip banding severity
+- Stage 11.22 in `run()`: fires `_scan_stitch_fallback(reason=f"sc_gate:{val:.3f}")` when `sc > _SC_GATE_FLOOR` (default 25.0)
+- `_SC_GATE_ENABLED`, `_SC_GATE_FLOOR` module flags; env: `ASP_GATE_SEAM_COH`, `ASP_GATE_SEAM_COH_FLOOR`
+- `SC_GATE_FLOOR: float = 25.0` in `constants/animation.py`
+- 5 tests in `TestScGatePipeline` (`test_pipeline.py`)
+
+---
+
 ## S173 — 2026-06-24 (§5.17 Strip Self-SSIM Gate · §5.18 Chroma Seam Coherence Gate)
 
 *Two benchmark SCANS fallback gates completing the §5 cascade. 1485 tests passing (85 skipped).*
