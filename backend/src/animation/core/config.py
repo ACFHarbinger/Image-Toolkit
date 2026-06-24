@@ -1079,6 +1079,18 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         1.0,
         "§5.17: StripSSIMGate absolute floor (strip_self_ssim [0,1]); gate fires when ASP ssim < min(floor, ratio×sim) (default 0.60)",
     ),
+    "ASP_GATE_CHROMA_COH": (
+        float,
+        0.0,
+        90.0,
+        "§5.18: ChromaSeamGate ratio limit — ASP chroma_seam_coherence must not exceed ratio×SCANS; ≥90=disabled (default 2.5)",
+    ),
+    "ASP_GATE_CHROMA_COH_FLOOR": (
+        float,
+        0.0,
+        200.0,
+        "§5.18: ChromaSeamGate absolute floor (coherence score); gate only fires when ASP chroma_seam_coherence exceeds this value (default 12.0)",
+    ),
 }
 
 
