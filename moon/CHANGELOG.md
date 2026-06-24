@@ -4,6 +4,44 @@
 
 ---
 
+## S177 — 2026-06-24 (§5.33 Seam Gradient Ratio Gate · §5.34 Canvas Aspect-Ratio Gate · §5.35 Bench Seam Band NCC Gate · §5.36 Pipeline Histogram Intersection Gate)
+
+*Four new post-composite quality gates (Stages 11.31–11.33) and one new bench comparative gate: seam boundary gradient ratio, canvas H/W aspect ratio, bench seam band NCC comparison, and per-strip histogram intersection. 1565 tests passing (85 skipped).*
+
+### §5.33 Seam Gradient Ratio Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_seam_gradient_score(img, n_strips=8)` in `canvas.py` — max ratio of boundary-row Laplacian gradient to strip-interior gradient; high ratio = hard visible seam cuts; capped at 10.0
+- Stage 11.31 gate in `pipeline.py`: fires when `ratio > _SEAM_GRAD_RATIO_GATE_FLOOR` (default 3.0) → SCANS fallback
+- Flags: `_SEAM_GRAD_RATIO_GATE_ENABLED` (`ASP_GATE_SEAM_GRAD_RATIO`, default 1), `_SEAM_GRAD_RATIO_GATE_FLOOR` (`ASP_GATE_SEAM_GRAD_RATIO_FLOOR`, default 3.0)
+- `SEAM_GRAD_RATIO_GATE_FLOOR = 3.0` in `constants/animation.py`; 4 schema entries in `config.py`
+- 5 tests in `TestSeamGradRatioGatePipeline` (`test_pipeline.py`)
+
+### §5.34 Canvas Aspect-Ratio Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_canvas_aspect_ratio(img)` in `canvas.py` — H/W ratio of the composite canvas; correctly-stitched vertical scroll should be portrait (H >> W)
+- Stage 11.32 gate in `pipeline.py`: **fires when `ratio < floor`** (LOW ratio = landscape = wrong scroll axis); dynamic floor = `max(_CANVAS_ASPECT_GATE_FLOOR, N * 0.3)`
+- Flags: `_CANVAS_ASPECT_GATE_ENABLED` (`ASP_GATE_CANVAS_ASPECT`, default 1), `_CANVAS_ASPECT_GATE_FLOOR` (`ASP_GATE_CANVAS_ASPECT_FLOOR`, default 1.2)
+- `CANVAS_ASPECT_GATE_FLOOR = 1.2` in `constants/animation.py`
+- 5 tests in `TestCanvasAspectGatePipeline` (`test_pipeline.py`)
+
+### §5.35 Bench Seam Band NCC Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- SeamBandNccGate block after GhostSiqeGate in `run_dataset()` — reuses `_seam_band_ncc_min` from canvas.py
+- Fires when `asp_ncc < _SEAM_NCC_ABS_FLOOR` (default 0.10) OR `asp_ncc < _SEAM_NCC_RATIO × sim_ncc` (default 0.5) when sim_ncc > 0.1
+- Module constants: `_SEAM_NCC_ABS_FLOOR=0.10`, `_SEAM_NCC_RATIO=0.5` (both env-overridable)
+- Schema entries `ASP_GATE_SEAM_NCC_FLOOR` and `ASP_GATE_SEAM_NCC_RATIO` in `config.py`
+- 5 tests in `TestSeamBandNccGateBench` (`test_bench_metrics.py`)
+
+### §5.36 Pipeline Strip Histogram Intersection Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_hist_intersection_min(img, n_strips=8)` in `canvas.py` — minimum histogram intersection (cv2.HISTCMP_INTERSECT, 64-bin) between adjacent strip pairs; 0=completely different, 1=identical
+- Stage 11.33 gate in `pipeline.py`: **fires when `intersection < floor`** (LOW = color mismatch between strips); default floor 0.35
+- Flags: `_HIST_INTERSECT_GATE_ENABLED` (`ASP_GATE_HIST_INTERSECT`, default 1), `_HIST_INTERSECT_GATE_FLOOR` (`ASP_GATE_HIST_INTERSECT_FLOOR`, default 0.35)
+- `HIST_INTERSECT_GATE_FLOOR = 0.35` in `constants/animation.py`
+- 5 tests in `TestHistIntersectGatePipeline` (`test_pipeline.py`)
+
+---
+
 ## S176 — 2026-06-24 (§5.29 Ghosting SIQE Pipeline Gate · §5.30 Bench SIQE Gate · §5.31 Seam Band NCC Gate · §5.32 Strip Gradient CV Gate)
 
 *Four new post-composite pipeline gates (Stages 11.28–11.30) and one new bench comparative gate: SIQE ghost autocorrelation, seam band NCC discontinuity, per-strip Laplacian sharpness CV, and a bench SIQE ratio gate. 1545 tests passing (85 skipped).*
