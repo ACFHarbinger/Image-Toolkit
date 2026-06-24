@@ -47,6 +47,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_coherence_score,
     _seam_visibility_score,
     _smooth_seam_bands,
+    _strip_gradient_cv,
     _strip_luma_monotonicity,
     _strip_self_ssim,
     _telea_fill_gaps,
@@ -533,6 +534,11 @@ _SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "4"))
 # §5.11 — Adaptive seam-smooth: widen/narrow based on seam_coherence.
 # True by default when _SEAM_SMOOTH_PX > 0. Set ASP_SEAM_SMOOTH_ADAPTIVE=0 to disable.
 _SEAM_SMOOTH_ADAPTIVE: bool = os.environ.get("ASP_SEAM_SMOOTH_ADAPTIVE", "1") != "0"
+# §5.32 — Pipeline Strip Gradient CV Gate (Stage 11.30).
+# Fires when per-strip Laplacian energy CV > floor → SCANS fallback.
+# High CV = sharpness discontinuity across strips. Set ASP_GATE_STRIP_GRAD_CV=0 to disable.
+_STRIP_GRAD_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_STRIP_GRAD_CV", "1") != "0"
+_STRIP_GRAD_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_STRIP_GRAD_CV_FLOOR", "0.50"))
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -4769,6 +4775,24 @@ class AnimeStitchPipeline:
             except Exception as _sssim_e:
                 logger.debug("[Stitch] Stage 11.27: StripSSIMGate skipped (%s).", _sssim_e)
 
+        # ── Stage 11.30: §5.32 Strip Gradient CV Gate ────────────────────────
+        if _STRIP_GRAD_CV_GATE_ENABLED and N > 1:
+            try:
+                _sgcv_val = _strip_gradient_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.30: strip_gradient_cv=%.4f (floor=%.3f).", _sgcv_val, _STRIP_GRAD_CV_GATE_FLOOR)
+                if _sgcv_val > _STRIP_GRAD_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.30: StripGradCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _sgcv_val, _STRIP_GRAD_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"strip_grad_cv_gate:{_sgcv_val:.4f}",
+                    )
+            except Exception as _sgcv_e:
+                logger.debug("[Stitch] Stage 11.30: StripGradCvGate skipped (%s).", _sgcv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5480,4 +5504,7 @@ __all__ = [
     "_STRIP_SSIM_GATE_ENABLED",
     "_STRIP_SSIM_GATE_FLOOR",
     "_strip_self_ssim",
+    "_STRIP_GRAD_CV_GATE_ENABLED",
+    "_STRIP_GRAD_CV_GATE_FLOOR",
+    "_strip_gradient_cv",
 ]

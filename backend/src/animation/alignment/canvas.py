@@ -759,6 +759,34 @@ def _strip_self_ssim(img: np.ndarray, n_strips: int = 8) -> float:
     return min(scores) if scores else 0.0
 
 
+def _strip_gradient_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.32/§3.21: Coefficient of variation of per-strip Laplacian energy.
+
+    Splits the image into n_strips horizontal strips and computes the mean
+    absolute Laplacian energy per strip.  Returns the coefficient of variation
+    (std / mean) across strips.  A high CV means some strips are much sharper
+    or blurrier than adjacent ones — a signature of seam-induced sharpness
+    discontinuities.  Returns 0.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    energies = []
+    for i in range(n_strips):
+        y0 = i * strip_h
+        y1 = y0 + strip_h
+        lap = cv2.Laplacian(gray[y0:y1], cv2.CV_64F)
+        energies.append(float(np.mean(np.abs(lap))))
+    mean_e = float(np.mean(energies))
+    if mean_e < 1e-6:
+        return 0.0
+    return float(np.std(energies) / mean_e)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -782,4 +810,5 @@ __all__ = [
     "_seam_visibility_score",
     "_strip_self_ssim",
     "_chroma_seam_coherence",
+    "_strip_gradient_cv",
 ]
