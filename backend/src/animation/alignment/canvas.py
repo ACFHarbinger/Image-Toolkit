@@ -819,6 +819,37 @@ def _seam_band_ncc_min(img: np.ndarray, n_strips: int = 8, band_px: int = 10) ->
     return min_ncc
 
 
+def _canvas_ghosting_siqe(img: np.ndarray) -> float:
+    """§5.29: FFT autocorrelation ghosting score (SIQE proxy).
+
+    Double-image artifacts create a secondary peak in the normalized
+    autocorrelation of the column-mean gradient-magnitude profile at the
+    ghost displacement lag.  Score 0–100; 0=clean, 30+=likely ghost.
+    """
+    if img is None:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    g = gray.astype(np.float32)
+    gy = cv2.Sobel(g, cv2.CV_32F, 0, 1, ksize=3)
+    mag = np.abs(gy)
+    profile = mag.mean(axis=1)
+    H = len(profile)
+    if H < 20:
+        return 0.0
+    p = profile - profile.mean()
+    n = 2 * H
+    P = np.fft.rfft(p, n=n)
+    acorr = np.fft.irfft(P * P.conj(), n=n)[:H]
+    zero_lag = float(acorr[0])
+    if zero_lag < 1e-6:
+        return 0.0
+    acorr /= zero_lag
+    lag_min = 5
+    lag_max = max(lag_min + 1, H // 4)
+    secondary = float(acorr[lag_min:lag_max].max()) if lag_max > lag_min else 0.0
+    return float(np.clip(secondary, 0.0, 1.0) * 100.0)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -844,4 +875,5 @@ __all__ = [
     "_chroma_seam_coherence",
     "_strip_gradient_cv",
     "_seam_band_ncc_min",
+    "_canvas_ghosting_siqe",
 ]

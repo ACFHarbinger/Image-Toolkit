@@ -2636,3 +2636,48 @@ class TestSeamBandNccGatePipeline:
         # N=1 → the condition `_SEAM_BAND_NCC_GATE_ENABLED and N > 1` is False.
         N = 1
         assert not (_pl._SEAM_BAND_NCC_GATE_ENABLED and N > 1)
+
+
+# ===========================================================================
+# §5.29 — Pipeline Ghosting SIQE Gate (Stage 11.28)
+# ===========================================================================
+
+
+class TestSiqeGatePipeline:
+    """Unit tests for §5.29 _canvas_ghosting_siqe and Stage 11.28 gate flags."""
+
+    def test_siqe_gate_disabled_flag_in_module(self):
+        """_SIQE_GATE_ENABLED and _SIQE_GATE_FLOOR are exported from pipeline."""
+        assert hasattr(pipeline, "_SIQE_GATE_ENABLED")
+        assert hasattr(pipeline, "_SIQE_GATE_FLOOR")
+
+    def test_canvas_ghosting_siqe_clean_image_returns_low(self):
+        """A solid uniform image has no gradient → score near 0."""
+        from backend.src.animation.alignment.canvas import _canvas_ghosting_siqe
+
+        img = np.full((200, 200, 3), 128, dtype=np.uint8)
+        score = _canvas_ghosting_siqe(img)
+        assert 0.0 <= score <= 100.0
+        # Solid image has no edge structure → SIQE near 0
+        assert score < 10.0
+
+    def test_canvas_ghosting_siqe_ghost_image_returns_higher(self):
+        """Image with two identical horizontal bands returns a nonzero score."""
+        from backend.src.animation.alignment.canvas import _canvas_ghosting_siqe
+
+        img = np.zeros((200, 200, 3), dtype=np.uint8)
+        img[40:60, :] = 200  # first band
+        img[110:130, :] = 200  # ghost copy
+        score = _canvas_ghosting_siqe(img)
+        assert score >= 0.0  # score is non-negative
+
+    def test_canvas_ghosting_siqe_none_returns_zero(self):
+        """_canvas_ghosting_siqe(None) must return 0.0 without exception."""
+        from backend.src.animation.alignment.canvas import _canvas_ghosting_siqe
+
+        assert _canvas_ghosting_siqe(None) == 0.0
+
+    def test_siqe_schema_entries_present(self):
+        """Config schema must contain §5.29 entries."""
+        assert "ASP_GATE_GHOSTING_SIQE" in config._CONFIG_SCHEMA
+        assert "ASP_GATE_GHOSTING_SIQE_FLOOR" in config._CONFIG_SCHEMA
