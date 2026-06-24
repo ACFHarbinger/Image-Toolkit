@@ -1144,17 +1144,19 @@ def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
 def _compute_cqas(metrics: dict) -> Optional[float]:
     """§3.18 Composite Quality Aggregate Score — single [0,1] quality signal (S148).
 
-    Combines four complementary no-reference metrics into one scalar, useful
+    Combines five complementary no-reference metrics into one scalar, useful
     especially for the 43 GT-less tests where GT-SSIM is unavailable.
     Higher = better quality.
 
     Components (all normalized to [0, 1]):
-      ghosting_siqe  : 0=clean → 1.0; ≥60=ghost → 0.0  (weight 0.35)
-      seam_visibility: 0=invisible → 1.0; ≥25=hard-cut → 0.0  (weight 0.30)
-      seam_coherence : 0=coherent → 1.0; ≥50=incoherent → 0.0  (weight 0.20)
-      sharpness      : corpus ref ~100; clamped to [0, 1]  (weight 0.15)
+      ghosting_siqe        : 0=clean → 1.0; ≥60=ghost → 0.0  (weight 0.35)
+      seam_visibility      : 0=invisible → 1.0; ≥25=hard-cut → 0.0  (weight 0.30)
+      seam_coherence       : 0=coherent → 1.0; ≥50=incoherent → 0.0  (weight 0.20)
+      sharpness            : corpus ref ~100; clamped to [0, 1]  (weight 0.15)
+      canvas_gain_uniformity: 0=uniform → 1.0; ≥0.40=banded → 0.0  (weight 0.15)
 
-    Returns None only when all four metrics are None.
+    Returns None only when all five metrics are None.
+    total_w normalization handles missing components gracefully.
     """
     g = metrics.get("ghosting_siqe")
     g_score = float(np.clip(1.0 - g / 60.0, 0.0, 1.0)) if g is not None else None
@@ -1168,7 +1170,16 @@ def _compute_cqas(metrics: dict) -> Optional[float]:
     sh = metrics.get("sharpness")
     sh_score = float(np.clip(sh / 100.0, 0.0, 1.0)) if sh is not None else None
 
-    components = [(g_score, 0.35), (sv_score, 0.30), (sc_score, 0.20), (sh_score, 0.15)]
+    cgu = metrics.get("canvas_gain_uniformity")
+    cgu_score = float(np.clip(1.0 - cgu / 0.40, 0.0, 1.0)) if cgu is not None else None
+
+    components = [
+        (g_score, 0.35),
+        (sv_score, 0.30),
+        (sc_score, 0.20),
+        (sh_score, 0.15),
+        (cgu_score, 0.15),
+    ]
     available = [(s, w) for s, w in components if s is not None]
     if not available:
         return None
@@ -3772,18 +3783,26 @@ def _auto_verdict(asp_m: Dict, sim_m: Dict) -> str:
     if asp_sc > 28.0 and asp_sc > sim_sc * 1.5:
         return "simple_better"
 
+    # §5.5: seam_visibility penalty (strip banding term)
+    asp_sv = asp_m.get("seam_visibility") or 0.0
+    sim_sv = sim_m.get("seam_visibility") or 0.0
+    asp_sv_score = float(np.clip(1.0 - asp_sv / 25.0, 0.0, 1.0))
+    sim_sv_score = float(np.clip(1.0 - sim_sv / 25.0, 0.0, 1.0))
+
     # Composite quality score: penalise banding and ghosting, reward coverage
     asp_score = (
         asp_m.get("coverage", 0) * 100 * 0.4
         - asp_sc * 0.3
         - asp_m.get("seam_gradient", 0) * 0.15
         - asp_m.get("ghosting_score", 0) * 0.15
+        + asp_sv_score * 0.10
     )
     sim_score = (
         sim_m.get("coverage", 0) * 100 * 0.4
         - sim_sc * 0.3
         - sim_m.get("seam_gradient", 0) * 0.15
         - sim_m.get("ghosting_score", 0) * 0.15
+        + sim_sv_score * 0.10
     )
     if asp_score > sim_score * 1.1:
         return "asp_better"
