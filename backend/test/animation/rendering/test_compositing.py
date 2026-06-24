@@ -16,8 +16,10 @@ from backend.src.animation.rendering.compositing import (
     _blocks_lum_compensate,
     _canvas_dp_seam_composite,
     _DP_CANVAS_SEAM,
+    _equalize_warped_gains,
     _feather_gc_boundaries,
     _GC_FEATHER_PX,
+    _GLOBAL_GAIN_COMP,
 )
 from backend.src.animation.core import config
 
@@ -6500,3 +6502,40 @@ class TestFeatherGcBoundaries:
     def test_gc_feather_px_flag_is_nonneg_int(self):
         assert isinstance(_GC_FEATHER_PX, int)
         assert _GC_FEATHER_PX >= 0
+
+
+class TestEqualizeWarpedGains:
+    """§4.10: Pre-seam global frame gain equalization."""
+
+    def test_single_frame_returns_copy(self):
+        frame = np.full((32, 40, 3), 100, dtype=np.uint8)
+        result = _equalize_warped_gains([frame])
+        assert len(result) == 1
+        np.testing.assert_array_equal(result[0], frame)
+        assert result[0] is not frame
+
+    def test_luminance_step_reduced(self):
+        H, W = 32, 40
+        f0 = np.full((H, W, 3), 100, dtype=np.uint8)
+        f1 = np.full((H, W, 3), 150, dtype=np.uint8)
+        result = _equalize_warped_gains([f0, f1])
+        np.testing.assert_array_equal(result[0], f0)
+        mean_orig = float(f1.mean())
+        mean_corr = float(result[1].mean())
+        mean_ref = float(f0.mean())
+        assert abs(mean_corr - mean_ref) < abs(mean_orig - mean_ref)
+
+    def test_black_frame_not_corrected(self):
+        H, W = 16, 20
+        f0 = np.full((H, W, 3), 120, dtype=np.uint8)
+        f1 = np.zeros((H, W, 3), dtype=np.uint8)
+        result = _equalize_warped_gains([f0, f1])
+        np.testing.assert_array_equal(result[1], f1)
+
+    def test_output_length_matches_input(self):
+        frames = [np.full((16, 20, 3), 80 + i * 20, dtype=np.uint8) for i in range(5)]
+        result = _equalize_warped_gains(frames)
+        assert len(result) == 5
+
+    def test_global_gain_comp_flag_is_bool(self):
+        assert isinstance(_GLOBAL_GAIN_COMP, bool)
