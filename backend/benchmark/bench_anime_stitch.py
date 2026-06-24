@@ -3037,6 +3037,49 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                         f"ratio={_asp_sv / max(_sim_sv, 1.0):.2f}"
                     )
 
+        # ── CanvasGainUniformityGate (post-crop, §5.3) ──────────────────────
+        # Fires when ASP per-strip luminance banding (canvas_gain_uniformity)
+        # is BOTH above an absolute floor AND above ratio× SCANS CGU.
+        # canvas_gain_uniformity = std/mean of 8-strip mean luminance.
+        # Good range: <0.10.  test82: asp=0.238 vs sim=0.104 (2.3×) → fires.
+        # Override: ASP_GATE_CGU=99 to disable.
+        try:
+            _CGU_RATIO_LIMIT = float(os.environ.get("ASP_GATE_CGU", "2.0"))
+        except ValueError:
+            _CGU_RATIO_LIMIT = 2.0
+        try:
+            _CGU_ABS_FLOOR = float(os.environ.get("ASP_GATE_CGU_FLOOR", "0.15"))
+        except ValueError:
+            _CGU_ABS_FLOOR = 0.15
+        if simple_ok and _CGU_RATIO_LIMIT < 90 and _fallback_reason is None:
+            _simple_img_cgu = cv2.imread(central_simple_path)
+            if _simple_img_cgu is not None:
+                _asp_cgu = _canvas_gain_uniformity(canvas_out, n_strips=8)
+                _sim_cgu = _canvas_gain_uniformity(_simple_img_cgu, n_strips=8)
+                print(
+                    f"  [CGUGate] asp_cgu={_asp_cgu:.3f}  "
+                    f"sim_cgu={_sim_cgu:.3f}  "
+                    f"ratio={_asp_cgu / max(_sim_cgu, 0.001):.2f}"
+                )
+                _cgu_limit = max(_CGU_ABS_FLOOR, _CGU_RATIO_LIMIT * max(_sim_cgu, 0.001))
+                if _asp_cgu > _cgu_limit:
+                    _fallback_reason = (
+                        f"cgu_gate:asp={_asp_cgu:.3f}"
+                        f"_sim={_sim_cgu:.3f}_limit={_cgu_limit:.3f}"
+                    )
+                    print(
+                        f"  [CGUGate] FAILED "
+                        f"(asp={_asp_cgu:.3f} > limit={_cgu_limit:.3f} "
+                        f"[floor={_CGU_ABS_FLOOR:.2f}, "
+                        f"{_CGU_RATIO_LIMIT:.1f}× sim={_sim_cgu:.3f}]) "
+                        f"→ SCANS fallback."
+                    )
+                    timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 4
+                    raise RuntimeError(
+                        f"CGU gate: asp_cgu={_asp_cgu:.3f}, "
+                        f"ratio={_asp_cgu / max(_sim_cgu, 0.001):.2f}"
+                    )
+
         from PIL import Image
 
         rgb = cv2.cvtColor(canvas_out, cv2.COLOR_BGR2RGB)

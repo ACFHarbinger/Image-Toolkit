@@ -1,6 +1,6 @@
 # ASP — State of the Pipeline: What Works, What Failed, What's Next
 
-*Date: 2026-06-24. Updated through S164 (§3.33 feathered GC boundaries + §4.9 seam band smoothing). Full 97-test benchmark: 2026-06-23 (~3 hours). JSON: `backend/benchmark/output/anime_stitch_20260623_234305.json`. 1405 tests passing (85 skipped).*  
+*Date: 2026-06-24. Updated through S166 (§5.1 seam lum-step correction + §5.3 CGUGate; builds on S165 §4.10 global gain equalization). Full 97-test benchmark: 2026-06-23 (~3 hours). JSON: `backend/benchmark/output/anime_stitch_20260623_234305.json`. 1420 tests passing (85 skipped).*  
 *Primary benchmark corpora: 97 tests (`asp_test01–96` + `asp_test97`), 55 with ground truth in `data/ground_truth/`. Rapid-iteration subset: `test04/08/09/27/57`.*
 
 ---

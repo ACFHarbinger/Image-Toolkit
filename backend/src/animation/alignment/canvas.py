@@ -335,6 +335,73 @@ def _panorama_stitch_fallback(
     return out
 
 
+def _correct_seam_lum_steps(
+    canvas: np.ndarray,
+    seam_ys: List[int],
+    band_px: int = 20,
+) -> np.ndarray:
+    """§5.1: Linear luminance ramp at each seam to bridge inter-strip lum gap."""
+    if band_px <= 0 or not seam_ys:
+        return canvas
+    H = canvas.shape[0]
+    out = canvas.copy().astype(np.float32)
+    ref_px = min(8, band_px // 2)
+
+    for sy in seam_ys:
+        sy = max(ref_px, min(H - ref_px - 1, sy))
+        r_top0 = max(0, sy - ref_px)
+        r_top1 = sy
+        r_bot0 = sy
+        r_bot1 = min(H, sy + ref_px)
+        if r_top1 - r_top0 < 1 or r_bot1 - r_bot0 < 1:
+            continue
+        top_band = out[r_top0:r_top1]
+        bot_band = out[r_bot0:r_bot1]
+        top_valid = top_band.max(axis=2) > 0
+        bot_valid = bot_band.max(axis=2) > 0
+        if not top_valid.any() or not bot_valid.any():
+            continue
+        _top_lum_map = (
+            0.114 * top_band[:, :, 0] + 0.587 * top_band[:, :, 1] + 0.299 * top_band[:, :, 2]
+        )
+        _bot_lum_map = (
+            0.114 * bot_band[:, :, 0] + 0.587 * bot_band[:, :, 1] + 0.299 * bot_band[:, :, 2]
+        )
+        _top_cnt = top_valid.sum(axis=0).clip(1, None)
+        _bot_cnt = bot_valid.sum(axis=0).clip(1, None)
+        top_lum = (_top_lum_map * top_valid).sum(axis=0) / _top_cnt
+        bot_lum = (_bot_lum_map * bot_valid).sum(axis=0) / _bot_cnt
+        step = bot_lum - top_lum
+        half_step = step / 2.0
+        r0_up = max(0, sy - band_px)
+        r1_up = sy
+        if r1_up > r0_up:
+            band_h_up = r1_up - r0_up
+            alphas_up = np.linspace(0.0, 1.0, band_h_up, dtype=np.float32)
+            correction_up = alphas_up[:, None] * half_step[None, :]
+            valid_up = out[r0_up:r1_up].max(axis=2) > 0
+            for ch in range(3):
+                out[r0_up:r1_up, :, ch] = np.where(
+                    valid_up,
+                    out[r0_up:r1_up, :, ch] + correction_up,
+                    out[r0_up:r1_up, :, ch],
+                )
+        r0_dn = sy
+        r1_dn = min(H, sy + band_px)
+        if r1_dn > r0_dn:
+            band_h_dn = r1_dn - r0_dn
+            alphas_dn = np.linspace(1.0, 0.0, band_h_dn, dtype=np.float32)
+            correction_dn = -alphas_dn[:, None] * half_step[None, :]
+            valid_dn = out[r0_dn:r1_dn].max(axis=2) > 0
+            for ch in range(3):
+                out[r0_dn:r1_dn, :, ch] = np.where(
+                    valid_dn,
+                    out[r0_dn:r1_dn, :, ch] + correction_dn,
+                    out[r0_dn:r1_dn, :, ch],
+                )
+    return out.clip(0, 255).astype(np.uint8)
+
+
 def find_optimal_sequence(
     ref_path: str,
     candidates: List[str],
@@ -454,6 +521,7 @@ __all__ = [
     "_crop_to_valid",
     "_telea_fill_gaps",
     "_smooth_seam_bands",
+    "_correct_seam_lum_steps",
     "_scan_stitch_fallback",
     "_panorama_stitch_fallback",
     "find_optimal_sequence",
