@@ -31,6 +31,7 @@ from backend.src.animation.core.validation import (
     _compute_adaptive_rot_scale,
 )
 from backend.src.animation.alignment.canvas import (
+    _compute_adaptive_seam_smooth_px,
     _compute_canvas,
     _crop_to_valid,
     _detect_scroll_axis,
@@ -497,6 +498,14 @@ _SEAM_CONTRAST_GATE: float = float(os.environ.get("ASP_SEAM_CONTRAST_GATE", "0.0
 # gate with threshold=0.0 contributes no votes.
 # Default 0 = off.  Recommend ASP_SEAM_ENSEMBLE_VOTES=3.
 _SEAM_ENSEMBLE_VOTES: int = int(os.environ.get("ASP_SEAM_ENSEMBLE_VOTES", "0"))
+
+# §5.6 — Post-composite seam Gaussian blur (Stage 11.19).
+# Applies a ±_SEAM_SMOOTH_PX Gaussian blur at each seam row after compositing.
+# Default 4 px (§5.6, S168). Set ASP_SEAM_SMOOTH_PX=0 to disable.
+_SEAM_SMOOTH_PX: int = int(os.environ.get("ASP_SEAM_SMOOTH_PX", "4"))
+# §5.11 — Adaptive seam-smooth: widen/narrow based on seam_coherence.
+# True by default when _SEAM_SMOOTH_PX > 0. Set ASP_SEAM_SMOOTH_ADAPTIVE=0 to disable.
+_SEAM_SMOOTH_ADAPTIVE: bool = os.environ.get("ASP_SEAM_SMOOTH_ADAPTIVE", "1") != "0"
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -4518,11 +4527,9 @@ class AnimeStitchPipeline:
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
 
-        # ── Stage 11.19: §4.9 Post-composite seam band smoothing ────────────
-        # Apply a narrow vertical Gaussian blur (±_SEAM_SMOOTH_PX rows) at each
-        # inter-frame seam to reduce the hard luminance step.  Seam positions are
-        # estimated from the midpoint between adjacent sorted frame centres.
-        # Disabled by default (ASP_SEAM_SMOOTH_PX=0); enable with e.g. =4.
+        # ── Stage 11.19: §4.9/§5.11 Adaptive post-composite seam Gaussian blur ──
+        # §5.11 scales the half-width by seam_coherence: high-coherence canvas
+        # (gradual luma banding) → wider blur; sharp-content canvas → narrower.
         if _SEAM_SMOOTH_PX > 0 and N > 1:
             try:
                 _tys_sm = [float(affines[k][1, 2]) for k in range(N)]
@@ -4530,11 +4537,19 @@ class AnimeStitchPipeline:
                 _ord_sm = list(np.argsort(_ctrs_sm))
                 _sc_sm = [_ctrs_sm[_ord_sm[k]] for k in range(N)]
                 _seam_ys_sm = [int((_sc_sm[k] + _sc_sm[k + 1]) / 2.0) for k in range(N - 1)]
-                canvas = _smooth_seam_bands(canvas, _seam_ys_sm, band_px=_SEAM_SMOOTH_PX)
+                _smooth_px = _SEAM_SMOOTH_PX
+                if _SEAM_SMOOTH_ADAPTIVE and _smooth_px > 0:
+                    _smooth_px = _compute_adaptive_seam_smooth_px(
+                        canvas, base_px=_smooth_px, min_px=2, max_px=12
+                    )
+                    logger.debug(
+                        "[Stitch] Stage 11.19: §5.11 adaptive seam_smooth_px=%d (sc-driven).",
+                        _smooth_px,
+                    )
+                canvas = _smooth_seam_bands(canvas, _seam_ys_sm, band_px=_smooth_px)
                 logger.debug(
-                    "[Stitch] Stage 11.19: §4.9 seam band smoothing at %d seam(s), ±%dpx.",
-                    len(_seam_ys_sm),
-                    _SEAM_SMOOTH_PX,
+                    "[Stitch] Stage 11.19: seam Gaussian blur at %d seam(s), ±%dpx.",
+                    len(_seam_ys_sm), _smooth_px,
                 )
             except Exception as _sm_e:
                 logger.debug("[Stitch] Stage 11.19 seam band smoothing skipped (%s).", _sm_e)
@@ -5234,4 +5249,7 @@ __all__ = [
     "_compute_strip_variance_ratio",
     "_build_landmark_affine",
     "_HYBRID_EXPORT_PATH",
+    "_SEAM_SMOOTH_PX",
+    "_SEAM_SMOOTH_ADAPTIVE",
+    "_compute_adaptive_seam_smooth_px",
 ]

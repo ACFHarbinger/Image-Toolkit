@@ -598,11 +598,12 @@ WAVE_CORRECT_MIN_TX_RANGE: float = 5.0
 DY_CV_MAX: float = 1.5
 DY_CV_ADAPTIVE_FLOOR: float = 0.8  # §5.8: minimum adaptive dy_cv ceiling for large-N sequences
 
-# §4.9 — Seam band smoothing half-width (px).  After Stage 11 compositing, a narrow
-# Gaussian blur (±SEAM_SMOOTH_PX rows) is applied at each inter-frame seam row to
-# reduce the hard luminance step measured by seam_visibility_score.
-# 0 = disabled.  Recommended: 4 px (safe; below double-image ghost threshold).
+# §4.9/§5.11 — Seam band smoothing half-width (px).  After Stage 11 compositing, a narrow
+# Gaussian blur (±SEAM_SMOOTH_PX rows) is applied at each inter-frame seam row.
+# 0 = disabled.  Default: 4 px (safe; below double-image ghost threshold).
 SEAM_SMOOTH_PX: int = 4
+# §5.11: adaptive seam-smooth enabled by default when SEAM_SMOOTH_PX > 0
+SEAM_SMOOTH_ADAPTIVE: bool = True
 # §5.1: Post-composite seam luminance step correction half-band (px); 0=disabled
 SEAM_LUM_STEP_PX: int = 0
 # §5.9: auto-enable seam lum-step when CGU exceeds this threshold; 1.0=disabled
