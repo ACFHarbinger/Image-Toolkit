@@ -1141,6 +1141,37 @@ def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.std(strip_means) / mean_val)
 
 
+def _strip_luma_monotonicity(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.10: Non-monotonicity of strip mean luminance sequence.
+
+    Computes the fraction of adjacent strip pairs that violate monotonicity
+    (i.e., the sequence of strip means is neither consistently ascending nor
+    descending). Returns 0.0 for perfectly monotonic (or degenerate) input,
+    1.0 for perfectly alternating (every pair reverses direction).
+
+    Range [0, 1]. Higher = more banding / non-monotonic strip luminance.
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    H = gray.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    strip_means = np.array([gray[i * strip_h:(i + 1) * strip_h].mean() for i in range(n_strips)])
+    diffs = np.diff(strip_means)
+    if len(diffs) < 2:
+        return 0.0
+    # Count direction reversals (sign changes in adjacent diffs)
+    signs = np.sign(diffs)
+    # Ignore zero diffs
+    nonzero = signs[signs != 0]
+    if len(nonzero) < 2:
+        return 0.0
+    reversals = int(np.sum(nonzero[1:] != nonzero[:-1]))
+    return reversals / (len(nonzero) - 1)
+
+
 def _compute_cqas(metrics: dict) -> Optional[float]:
     """§3.18 Composite Quality Aggregate Score — single [0,1] quality signal (S148).
 
@@ -1353,6 +1384,8 @@ def _compute_all_metrics(
     metrics["canvas_gain_uniformity"] = round(
         _canvas_gain_uniformity(img, n_strips=8), 4
     )
+    # §5.10 — Per-strip luma monotonicity (S169).
+    metrics["strip_luma_monotonicity"] = round(_strip_luma_monotonicity(img, n_strips=8), 4)
     return metrics
 
 
