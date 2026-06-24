@@ -718,6 +718,47 @@ def _chroma_seam_coherence(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.mean(diffs)) if diffs else 0.0
 
 
+def _strip_self_ssim(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.25/§3.30: Per-strip top/bottom NCC self-consistency metric.
+
+    Splits each of the *n_strips* horizontal bands in half and computes the
+    Normalized Cross-Correlation (NCC) between the top and bottom halves.  A
+    clean, spatially smooth strip should score close to 1.0; a strip that
+    straddles a visible seam or has a brightness jump will score lower.
+
+    Returns the minimum NCC across all strips.  Range [−1, 1]; values near 1.0
+    indicate uniform strips.  Returns 0.0 for degenerate inputs (image too small
+    or single-channel).
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    H = gray.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 2:
+        return 0.0
+    thumb_h = 32
+    scores = []
+    for i in range(n_strips):
+        y0 = i * strip_h
+        y1 = y0 + strip_h
+        half = (y1 - y0) // 2
+        if half < 1:
+            continue
+        top = gray[y0 : y0 + half, :]
+        bot = gray[y0 + half : y1, :]
+        top_t = cv2.resize(top, (top.shape[1], thumb_h), interpolation=cv2.INTER_AREA)
+        bot_t = cv2.resize(bot, (bot.shape[1], thumb_h), interpolation=cv2.INTER_AREA)
+        top_f = top_t.ravel() - top_t.mean()
+        bot_f = bot_t.ravel() - bot_t.mean()
+        denom = np.linalg.norm(top_f) * np.linalg.norm(bot_f)
+        if denom < 1e-6:
+            scores.append(1.0)
+        else:
+            scores.append(float(np.clip(np.dot(top_f, bot_f) / denom, -1.0, 1.0)))
+    return min(scores) if scores else 0.0
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -739,5 +780,6 @@ __all__ = [
     "_compute_adaptive_seam_smooth_px",
     "_seam_coherence_score",
     "_seam_visibility_score",
+    "_strip_self_ssim",
     "_chroma_seam_coherence",
 ]
