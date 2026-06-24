@@ -335,6 +335,28 @@ def _panorama_stitch_fallback(
     return out
 
 
+def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
+    """§3.31/§5.3: Strip-level luminance gain uniformity (S167).
+
+    Returns coefficient of variation (std / mean) of per-strip mean luminance.
+    0.0 = perfectly uniform; high values = inter-strip banding.
+    """
+    if img is None or n_strips < 1:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    H = gray.shape[0]
+    if H < n_strips:
+        return 0.0
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    strip_means = [float(gray[i * strip_h:(i + 1) * strip_h].mean()) for i in range(n_strips)]
+    mean_val = float(np.mean(strip_means))
+    if mean_val < 1.0:
+        return 0.0
+    return float(np.std(strip_means) / mean_val)
+
+
 def find_optimal_sequence(
     ref_path: str,
     candidates: List[str],
@@ -456,6 +478,7 @@ __all__ = [
     "_smooth_seam_bands",
     "_scan_stitch_fallback",
     "_panorama_stitch_fallback",
+    "_canvas_gain_uniformity",
     "find_optimal_sequence",
     "_detect_scroll_axis",
 ]
