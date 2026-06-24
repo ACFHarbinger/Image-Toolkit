@@ -44,6 +44,26 @@
 
 ---
 
+## S175 — 2026-06-24 (§5.25 Pipeline Strip Self-SSIM Gate · §5.26 Benchmark Strip-SSIM & Chroma-Coh Metrics)
+
+*Stage 11.27 strip self-SSIM pipeline gate and benchmark metric deduplication complete the §5 post-composite cascade through eight complementary quality dimensions. 1525 tests passing (85 skipped).*
+
+### §5.25 Pipeline Strip Self-SSIM Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_self_ssim(img, n_strips=8)` in `canvas.py`: per-strip top/bottom NCC self-consistency; minimum NCC across strips; range [−1, 1]; values near 1.0 indicate uniform strips free of seam jumps
+- Stage 11.27 in `run()`: fires `_scan_stitch_fallback(reason=f"strip_ssim_gate:{val:.4f}")` when `ssim > _STRIP_SSIM_GATE_FLOOR` (default 0.85)
+- `_STRIP_SSIM_GATE_ENABLED`, `_STRIP_SSIM_GATE_FLOOR` module flags; env: `ASP_GATE_STRIP_SSIM`, `ASP_GATE_STRIP_SSIM_FLOOR`
+- `STRIP_SELF_SSIM_GATE_FLOOR: float = 0.85` in `constants/animation.py`
+- 5 tests in `TestStripSsimGatePipeline` (`test_pipeline.py`)
+
+### §5.26 Benchmark Strip-SSIM & Chroma-Coh Metric Deduplication (`backend/benchmark/bench_anime_stitch.py`)
+
+- Removed local duplicate definitions of `_strip_self_ssim` and `_chroma_seam_coherence`; both now imported from `backend.src.animation.alignment.canvas`
+- `_compute_all_metrics()` emits `strip_self_ssim` and `chroma_seam_coherence` keys sourced from canonical canvas.py implementations
+- 5 tests in `TestBenchStripSsimChromaMetrics` (`test_bench_metrics.py`)
+
+---
+
 ## S174 — 2026-06-24 (§5.19 SC Pipeline Gate · §5.20 Adaptive Lum-Step Wired · §5.21 FFT Pipeline Gate · §5.22 Mono Pipeline Gate · §5.23 SV Pipeline Gate · §5.24 Chroma Pipeline Gate)
 
 *Six post-composite pipeline gates (Stages 11.22–11.26) and per-seam adaptive lum-step wiring complete the §5 pipeline-level defense cascade. 1515 tests passing (85 skipped).*
