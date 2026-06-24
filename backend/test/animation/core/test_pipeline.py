@@ -2284,7 +2284,6 @@ class TestScGatePipeline:
     """§5.19: Pipeline seam coherence gate tests."""
 
     def test_seam_coherence_score_uniform(self):
-        """Uniform canvas → seam coherence ≈ 0."""
         from backend.src.animation.alignment.canvas import _seam_coherence_score
         import numpy as np
         canvas = np.full((200, 300, 3), 128, dtype=np.uint8)
@@ -2292,25 +2291,59 @@ class TestScGatePipeline:
         assert sc < 1.0, f"Expected sc≈0 for uniform canvas, got {sc}"
 
     def test_seam_coherence_score_banded(self):
-        """Alternating rows 0/255 → seam coherence > 100."""
         from backend.src.animation.alignment.canvas import _seam_coherence_score
         import numpy as np
         canvas = np.zeros((200, 300, 3), dtype=np.uint8)
-        canvas[::2] = 255  # alternate rows white/black
+        canvas[::2] = 255
         sc = _seam_coherence_score(canvas)
         assert sc > 100, f"Expected sc>100 for banded canvas, got {sc}"
 
     def test_sc_gate_floor_in_constants(self):
-        """SC_GATE_FLOOR constant exists and equals 25.0."""
         from backend.src.constants.animation import SC_GATE_FLOOR
         assert SC_GATE_FLOOR == 25.0
 
     def test_sc_gate_exported(self):
-        """_SC_GATE_FLOOR is exported in pipeline.__all__."""
         import backend.src.animation.core.pipeline as pipeline
         assert "_SC_GATE_FLOOR" in pipeline.__all__
 
     def test_seam_coherence_score_in_canvas_all(self):
-        """_seam_coherence_score is in canvas __all__."""
         import backend.src.animation.alignment.canvas as canvas
         assert "_seam_coherence_score" in canvas.__all__
+
+
+class TestFftBandGatePipeline:
+    """§5.21: Pipeline FFT Banding Gate (Stage 11.23)."""
+
+    def test_fft_banding_uniform_canvas(self):
+        from backend.src.animation.alignment.canvas import _horizontal_fft_banding
+        img = np.full((256, 256, 3), 128, dtype=np.uint8)
+        score = _horizontal_fft_banding(img, n_strips=8)
+        assert score == pytest.approx(0.0, abs=1e-6), (
+            f"Uniform canvas should have fft_banding ≈ 0, got {score}"
+        )
+
+    def test_fft_banding_periodic_canvas(self):
+        from backend.src.animation.alignment.canvas import _horizontal_fft_banding
+        H, W = 256, 256
+        n_strips = 8
+        strip_h = H // n_strips
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        for i in range(n_strips):
+            lum = 200 if i % 2 == 0 else 50
+            img[i * strip_h:(i + 1) * strip_h, :] = lum
+        score = _horizontal_fft_banding(img, n_strips=8)
+        assert score > 0.2, (
+            f"Periodic 8-strip canvas should have fft_banding > 0.2, got {score}"
+        )
+
+    def test_fft_band_gate_floor_in_constants(self):
+        from backend.src.constants.animation import FFT_BAND_GATE_FLOOR
+        assert FFT_BAND_GATE_FLOOR == pytest.approx(0.35)
+
+    def test_fft_band_gate_exported(self):
+        import backend.src.animation.core.pipeline as _pl
+        assert "_FFT_BAND_GATE_FLOOR" in _pl.__all__
+
+    def test_horizontal_fft_banding_in_canvas_all(self):
+        import backend.src.animation.alignment.canvas as _cv
+        assert "_horizontal_fft_banding" in _cv.__all__

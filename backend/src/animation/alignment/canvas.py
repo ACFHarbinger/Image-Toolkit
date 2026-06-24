@@ -523,6 +523,43 @@ def find_optimal_sequence(
     return sequence
 
 
+def _horizontal_fft_banding(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.21: Fraction of FFT energy at strip-boundary frequency (proxy for periodic horizontal banding).
+
+    Computes the row-mean luminance profile (1D, length=H), removes DC, takes
+    its FFT, and measures the relative energy at the spatial frequency
+    corresponding to n_strips equally-spaced bands. High score = strong
+    periodic banding at strip boundaries.
+
+    Returns a score in [0, 1]. 0 = no banding at strip frequency; 1 = all
+    energy concentrated at strip frequency. Returns 0.0 for degenerate input.
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    H = gray.shape[0]
+    if H < n_strips * 4:
+        return 0.0
+    # Row-mean luminance profile (length H)
+    profile = gray.mean(axis=1)  # shape (H,)
+    # Remove DC (mean)
+    profile -= profile.mean()
+    # FFT magnitude spectrum
+    spectrum = np.abs(np.fft.rfft(profile))
+    total_energy = float(np.sum(spectrum ** 2))
+    if total_energy < 1e-6:
+        return 0.0
+    # Strip frequency: the banding period is strip_h = H/n_strips rows.
+    # An alternating (high/low) pattern repeats every 2*strip_h rows, so the
+    # dominant FFT bin is H / (2*strip_h) = n_strips // 2.
+    target_bin = max(1, n_strips // 2)
+    half_bw = max(1, n_strips // 4)
+    lo = max(1, target_bin - half_bw)
+    hi = min(len(spectrum) - 1, target_bin + half_bw)
+    band_energy = float(np.sum(spectrum[lo:hi + 1] ** 2))
+    return float(np.clip(band_energy / total_energy, 0.0, 1.0))
+
+
 def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
     """§3.31: Strip-level luminance gain uniformity metric.
 
@@ -630,6 +667,7 @@ __all__ = [
     "_smooth_seam_bands",
     "_correct_seam_lum_steps",
     "_canvas_gain_uniformity",
+    "_horizontal_fft_banding",
     "_compute_adaptive_seam_smooth_px",
     "_per_seam_lum_step_px",
     "_scan_stitch_fallback",
