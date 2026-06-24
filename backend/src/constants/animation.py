@@ -608,3 +608,5 @@ SEAM_SMOOTH_ADAPTIVE: bool = True
 SEAM_LUM_STEP_PX: int = 0
 # §5.9: auto-enable seam lum-step when CGU exceeds this threshold; 1.0=disabled
 CGU_AUTO_LUM_STEP: float = 0.08
+# §5.16: per-seam adaptive lum-step correction width; True=adapt per seam
+SEAM_LUM_STEP_ADAPTIVE: bool = True

@@ -31,17 +31,18 @@ from backend.src.animation.core.validation import (
     _compute_adaptive_rot_scale,
 )
 from backend.src.animation.alignment.canvas import (
+    _canvas_gain_uniformity,
     _compute_adaptive_seam_smooth_px,
     _compute_canvas,
+    _correct_seam_lum_steps,
     _crop_to_valid,
     _detect_scroll_axis,
     _load_frames,
     _normalise_widths,
     _panorama_stitch_fallback,
+    _per_seam_lum_step_px,
     _scan_stitch_fallback,
     _smooth_seam_bands,
-    _canvas_gain_uniformity,
-    _correct_seam_lum_steps,
     _telea_fill_gaps,
     find_optimal_sequence,
 )
@@ -546,6 +547,12 @@ _PROPAINTER: bool = os.environ.get("ASP_PROPAINTER", "0") != "0"
 _HORIZONTAL_COMPOSITE: bool = os.environ.get("ASP_HORIZONTAL_COMPOSITE", "0") != "0"
 # §2.8 — HybridStitch export path.  Empty = disabled.
 _HYBRID_EXPORT_PATH: str = os.environ.get("ASP_HYBRID_EXPORT_PATH", "")
+# §5.1 — Seam luminance step correction half-band (px); 0 = disabled.
+_SEAM_LUM_STEP_PX: int = int(os.environ.get("ASP_SEAM_LUM_STEP", "0"))
+# §5.9 — CGU threshold to auto-enable seam lum-step correction; 1.0 = disabled.
+_CGU_AUTO_LUM_STEP: float = float(os.environ.get("ASP_CGU_AUTO_LUM_STEP", "0.08"))
+# §5.16 — Per-seam adaptive correction width. True=adapt width per seam; False=uniform.
+_SEAM_LUM_STEP_ADAPTIVE: bool = os.environ.get("ASP_SEAM_LUM_STEP_ADAPTIVE", "1") != "0"
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -4640,6 +4647,58 @@ class AnimeStitchPipeline:
                     f"[Stitch]   SRStitcher seam fusion failed ({_srs_e}); skipping."
                 )
 
+        # ── Stage 11.20: §5.1/§5.9 Seam luminance step correction ──────────
+        # Fires when: (a) user explicitly set ASP_SEAM_LUM_STEP > 0, OR
+        # (b) auto mode: CGU check shows banding and auto threshold is enabled.
+        # Computes the per-column mean luminance just above and below each seam,
+        # then applies a linear ramp (±band_px) to bridge the difference.
+        _lum_step_px = _SEAM_LUM_STEP_PX
+        if _lum_step_px == 0 and _CGU_AUTO_LUM_STEP < 1.0 and N > 1:
+            try:
+                _auto_cgu = _canvas_gain_uniformity(canvas, n_strips=8)
+                if _auto_cgu > _CGU_AUTO_LUM_STEP:
+                    _lum_step_px = 20  # default auto half-band
+                    logger.debug(
+                        "[Stitch] Stage 11.20: auto-enabling seam lum-step (cgu=%.3f > %.2f).",
+                        _auto_cgu, _CGU_AUTO_LUM_STEP,
+                    )
+            except Exception:
+                pass
+        if _lum_step_px > 0 and N > 1:
+            try:
+                _tys_lum = [float(affines[k][1, 2]) for k in range(N)]
+                _ctrs_lum = [_tys_lum[k] + frames[k].shape[0] / 2.0 for k in range(N)]
+                _ord_lum = list(np.argsort(_ctrs_lum))
+                _sc_lum = [_ctrs_lum[_ord_lum[k]] for k in range(N)]
+                _seam_ys_lum = [
+                    int((_sc_lum[k] + _sc_lum[k + 1]) / 2.0) for k in range(N - 1)
+                ]
+                # §5.16: per-seam adaptive band widths
+                if _SEAM_LUM_STEP_ADAPTIVE:
+                    _per_seam_pxs = _per_seam_lum_step_px(
+                        canvas, _seam_ys_lum, base_px=_lum_step_px
+                    )
+                    # Apply correction seam-by-seam with individual band widths
+                    for _k, (_sy, _spx) in enumerate(zip(_seam_ys_lum, _per_seam_pxs)):
+                        canvas = _correct_seam_lum_steps(canvas, [_sy], band_px=_spx)
+                    logger.debug(
+                        "[Stitch] Stage 11.20: §5.16 per-seam lum-step pxs=%s.",
+                        _per_seam_pxs,
+                    )
+                else:
+                    canvas = _correct_seam_lum_steps(
+                        canvas, _seam_ys_lum, band_px=_lum_step_px
+                    )
+                logger.debug(
+                    "[Stitch] Stage 11.20: §5.1 seam lum-step correction at %d seam(s), ±%dpx.",
+                    len(_seam_ys_lum),
+                    _lum_step_px,
+                )
+            except Exception as _lum_e:
+                logger.debug(
+                    "[Stitch] Stage 11.20 seam lum-step correction skipped (%s).", _lum_e
+                )
+
         # ── Stage 12: Remaining seam blend (handled inside _render). ────────
 
         # ── Stage 12.5: Scroll-axis-aware content crop (§2.6) ───────────────
@@ -5252,4 +5311,9 @@ __all__ = [
     "_SEAM_SMOOTH_PX",
     "_SEAM_SMOOTH_ADAPTIVE",
     "_compute_adaptive_seam_smooth_px",
+    "_SEAM_LUM_STEP_PX",
+    "_CGU_AUTO_LUM_STEP",
+    "_SEAM_LUM_STEP_ADAPTIVE",
+    "_per_seam_lum_step_px",
+    "_correct_seam_lum_steps",
 ]
