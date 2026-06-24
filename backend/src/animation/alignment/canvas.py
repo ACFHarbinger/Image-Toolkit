@@ -534,6 +534,33 @@ def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.std(strip_means) / mean_val)
 
 
+def _compute_adaptive_seam_smooth_px(
+    canvas: np.ndarray,
+    base_px: int = 4,
+    min_px: int = 2,
+    max_px: int = 12,
+) -> int:
+    """§5.11: Adapt seam-smooth half-width to canvas seam coherence.
+
+    Measures row-mean luminance std of the canvas (seam_coherence proxy)
+    and scales base_px: high coherence (>30) → narrow (min_px); low (<5) →
+    wide (max_px). Linear interpolation between [5, 30] → [max_px, min_px].
+    """
+    if canvas is None or base_px <= 0:
+        return base_px
+    gray = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY).astype(np.float32) if canvas.ndim == 3 else canvas.astype(np.float32)
+    row_means = gray.mean(axis=1)
+    sc = float(np.std(row_means))
+    # Linear interp: sc=5 → max_px, sc=30 → min_px
+    lo, hi = 5.0, 30.0
+    if sc <= lo:
+        return max_px
+    if sc >= hi:
+        return min_px
+    t = (sc - lo) / (hi - lo)  # 0..1
+    return max(min_px, min(max_px, int(round(max_px + t * (min_px - max_px)))))
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -543,8 +570,11 @@ __all__ = [
     "_smooth_seam_bands",
     "_correct_seam_lum_steps",
     "_canvas_gain_uniformity",
+    "_compute_adaptive_seam_smooth_px",
     "_scan_stitch_fallback",
     "_panorama_stitch_fallback",
     "find_optimal_sequence",
     "_detect_scroll_axis",
+    "_smooth_seam_bands",
+    "_compute_adaptive_seam_smooth_px",
 ]

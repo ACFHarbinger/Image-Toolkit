@@ -20,7 +20,9 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
+import backend.src.animation.alignment.canvas as _canvas_mod  # noqa: E402
 from backend.src.animation.alignment.canvas import (  # noqa: E402
+    _compute_adaptive_seam_smooth_px,
     _compute_canvas,
     _correct_seam_lum_steps,
     _crop_to_valid,
@@ -550,6 +552,7 @@ class TestTelaeFillGaps:
         np.testing.assert_array_equal(out[8:, 8:], canvas[8:, 8:])
 
 
+<<<<<<< HEAD
 # ---------------------------------------------------------------------------
 # Phase 5 — batch.canvas C++ dispatch tests
 # ---------------------------------------------------------------------------
@@ -696,3 +699,61 @@ class TestCorrectSeamLumSteps:
         # bottom half stays fully black — bot_valid.any() is False → skip
         out = _correct_seam_lum_steps(canvas, [H // 2], band_px=20)
         np.testing.assert_array_equal(out[H // 2 :], 0)
+
+
+class TestComputeAdaptiveSeamSmoothPx:
+    """§5.11: _compute_adaptive_seam_smooth_px — seam-coherence-driven width."""
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _uniform_canvas(h: int = 100, w: int = 80, value: int = 128) -> np.ndarray:
+        """Uniform BGR canvas → very low row-mean std (sc ≈ 0)."""
+        return np.full((h, w, 3), value, dtype=np.uint8)
+
+    @staticmethod
+    def _alternating_canvas(h: int = 100, w: int = 80) -> np.ndarray:
+        """Black/white alternating rows → very high row-mean std (sc >> 30)."""
+        canvas = np.zeros((h, w, 3), dtype=np.uint8)
+        canvas[1::2] = 255
+        return canvas
+
+    @staticmethod
+    def _moderate_canvas(h: int = 100, w: int = 80) -> np.ndarray:
+        """Canvas with row-mean std in [5, 30] (sc ≈ 15) for interpolation tests."""
+        # Linearly vary rows from 0 to 100 (std of linear ramp ≈ range/sqrt(12))
+        canvas = np.zeros((h, w, 3), dtype=np.uint8)
+        for r in range(h):
+            v = int(r * 150 / h)
+            canvas[r] = v
+        return canvas
+
+    # ── tests ─────────────────────────────────────────────────────────────────
+
+    def test_low_sc_returns_max_px(self):
+        """Uniform image (sc ≈ 0) → returns max_px=12."""
+        canvas = self._uniform_canvas()
+        result = _compute_adaptive_seam_smooth_px(canvas, base_px=4, min_px=2, max_px=12)
+        assert result == 12, f"Expected 12 for low-sc canvas, got {result}"
+
+    def test_high_sc_returns_min_px(self):
+        """Alternating black/white rows (sc >> 30) → returns min_px=2."""
+        canvas = self._alternating_canvas()
+        result = _compute_adaptive_seam_smooth_px(canvas, base_px=4, min_px=2, max_px=12)
+        assert result == 2, f"Expected 2 for high-sc canvas, got {result}"
+
+    def test_mid_sc_interpolates(self):
+        """Moderate sc canvas → result strictly between min_px and max_px."""
+        canvas = self._moderate_canvas()
+        result = _compute_adaptive_seam_smooth_px(canvas, base_px=4, min_px=2, max_px=12)
+        assert 2 <= result <= 12, f"Expected value in [2, 12], got {result}"
+
+    def test_disabled_base_px_zero(self):
+        """base_px=0 → returns 0 immediately (disabled path)."""
+        canvas = self._uniform_canvas()
+        result = _compute_adaptive_seam_smooth_px(canvas, base_px=0, min_px=2, max_px=12)
+        assert result == 0, f"Expected 0 for base_px=0, got {result}"
+
+    def test_in_all(self):
+        """'_compute_adaptive_seam_smooth_px' must be listed in canvas.__all__."""
+        assert "_compute_adaptive_seam_smooth_px" in _canvas_mod.__all__
