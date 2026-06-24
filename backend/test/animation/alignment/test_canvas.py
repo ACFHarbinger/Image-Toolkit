@@ -552,7 +552,6 @@ class TestTelaeFillGaps:
         np.testing.assert_array_equal(out[8:, 8:], canvas[8:, 8:])
 
 
-<<<<<<< HEAD
 # ---------------------------------------------------------------------------
 # Phase 5 — batch.canvas C++ dispatch tests
 # ---------------------------------------------------------------------------
