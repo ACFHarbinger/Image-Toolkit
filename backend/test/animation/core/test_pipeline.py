@@ -2318,9 +2318,7 @@ class TestFftBandGatePipeline:
         from backend.src.animation.alignment.canvas import _horizontal_fft_banding
         img = np.full((256, 256, 3), 128, dtype=np.uint8)
         score = _horizontal_fft_banding(img, n_strips=8)
-        assert score == pytest.approx(0.0, abs=1e-6), (
-            f"Uniform canvas should have fft_banding ≈ 0, got {score}"
-        )
+        assert score == pytest.approx(0.0, abs=1e-6)
 
     def test_fft_banding_periodic_canvas(self):
         from backend.src.animation.alignment.canvas import _horizontal_fft_banding
@@ -2332,9 +2330,7 @@ class TestFftBandGatePipeline:
             lum = 200 if i % 2 == 0 else 50
             img[i * strip_h:(i + 1) * strip_h, :] = lum
         score = _horizontal_fft_banding(img, n_strips=8)
-        assert score > 0.2, (
-            f"Periodic 8-strip canvas should have fft_banding > 0.2, got {score}"
-        )
+        assert score > 0.2
 
     def test_fft_band_gate_floor_in_constants(self):
         from backend.src.constants.animation import FFT_BAND_GATE_FLOOR
@@ -2347,3 +2343,38 @@ class TestFftBandGatePipeline:
     def test_horizontal_fft_banding_in_canvas_all(self):
         import backend.src.animation.alignment.canvas as _cv
         assert "_horizontal_fft_banding" in _cv.__all__
+
+
+class TestMonoGatePipeline:
+    """§5.22: Pipeline Strip Luma Monotonicity Gate (Stage 11.24)."""
+
+    def test_strip_mono_uniform_canvas(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_monotonicity
+        canvas = np.full((256, 256, 3), 128, dtype=np.uint8)
+        val = _strip_luma_monotonicity(canvas, n_strips=8)
+        assert val == pytest.approx(0.0)
+
+    def test_strip_mono_alternating_canvas(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_monotonicity
+        H, W = 256, 256
+        canvas = np.zeros((H, W, 3), dtype=np.uint8)
+        n_strips = 8
+        strip_h = H // n_strips
+        for i in range(n_strips):
+            val = 255 if i % 2 == 0 else 0
+            canvas[i * strip_h:(i + 1) * strip_h] = val
+        result = _strip_luma_monotonicity(canvas, n_strips=n_strips)
+        assert result == pytest.approx(1.0)
+
+    def test_mono_gate_floor_in_constants(self):
+        from backend.src.constants.animation import MONO_GATE_FLOOR
+        assert MONO_GATE_FLOOR == pytest.approx(0.60)
+
+    def test_mono_gate_exported(self):
+        import backend.src.animation.core.pipeline as _pl
+        assert "_MONO_GATE_FLOOR" in _pl.__all__
+        assert "_MONO_GATE_ENABLED" in _pl.__all__
+
+    def test_strip_mono_in_canvas_all(self):
+        import backend.src.animation.alignment.canvas as _cv
+        assert "_strip_luma_monotonicity" in _cv.__all__

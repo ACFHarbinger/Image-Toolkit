@@ -614,3 +614,5 @@ SEAM_LUM_STEP_ADAPTIVE: bool = True
 SC_GATE_FLOOR: float = 25.0
 # §5.21: pipeline FFT banding gate floor (energy fraction [0,1])
 FFT_BAND_GATE_FLOOR: float = 0.35
+# §5.22: pipeline strip luma monotonicity gate floor
+MONO_GATE_FLOOR: float = 0.60
