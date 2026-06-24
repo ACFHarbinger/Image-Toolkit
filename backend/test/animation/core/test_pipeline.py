@@ -2681,3 +2681,118 @@ class TestSiqeGatePipeline:
         """Config schema must contain §5.29 entries."""
         assert "ASP_GATE_GHOSTING_SIQE" in config._CONFIG_SCHEMA
         assert "ASP_GATE_GHOSTING_SIQE_FLOOR" in config._CONFIG_SCHEMA
+
+
+# ---------------------------------------------------------------------------
+# TestSeamGradRatioGatePipeline — §5.33 Stage 11.31
+# ---------------------------------------------------------------------------
+
+
+class TestSeamGradRatioGatePipeline:
+    """§5.33: Pipeline seam gradient ratio gate (Stage 11.31)."""
+
+    def test_seam_grad_ratio_gate_disabled_skips(self, monkeypatch):
+        """When gate is disabled, high ratio does not trigger fallback."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_SEAM_GRAD_RATIO_GATE_ENABLED", False)
+        assert _pl._SEAM_GRAD_RATIO_GATE_ENABLED is False
+
+    def test_seam_grad_ratio_gate_passes_low_ratio(self, monkeypatch):
+        """ratio=1.0 (< floor 3.0) → gate does not fire."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_strip_seam_gradient_score", lambda *a, **k: 1.0)
+        monkeypatch.setattr(_pl, "_SEAM_GRAD_RATIO_GATE_ENABLED", True)
+        monkeypatch.setattr(_pl, "_SEAM_GRAD_RATIO_GATE_FLOOR", 3.0)
+        val = _pl._strip_seam_gradient_score(None)
+        assert val == pytest.approx(1.0)
+        assert val <= _pl._SEAM_GRAD_RATIO_GATE_FLOOR
+
+    def test_seam_grad_ratio_gate_fails_high_ratio(self, monkeypatch):
+        """ratio=5.0 (> floor 3.0) → gate logic detects failure condition."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_strip_seam_gradient_score", lambda *a, **k: 5.0)
+        monkeypatch.setattr(_pl, "_SEAM_GRAD_RATIO_GATE_ENABLED", True)
+        monkeypatch.setattr(_pl, "_SEAM_GRAD_RATIO_GATE_FLOOR", 3.0)
+        val = _pl._strip_seam_gradient_score(None)
+        assert val > _pl._SEAM_GRAD_RATIO_GATE_FLOOR
+
+    def test_seam_grad_ratio_gate_exact_floor(self, monkeypatch):
+        """ratio exactly equal to floor → gate does NOT fire (not strictly greater)."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_strip_seam_gradient_score", lambda *a, **k: 3.0)
+        monkeypatch.setattr(_pl, "_SEAM_GRAD_RATIO_GATE_ENABLED", True)
+        monkeypatch.setattr(_pl, "_SEAM_GRAD_RATIO_GATE_FLOOR", 3.0)
+        val = _pl._strip_seam_gradient_score(None)
+        assert not (val > _pl._SEAM_GRAD_RATIO_GATE_FLOOR)
+
+    def test_seam_grad_ratio_gate_single_frame_skips(self, monkeypatch):
+        """When N=1, gate is guarded by `N > 1` → gate is skipped."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_SEAM_GRAD_RATIO_GATE_ENABLED", True)
+        N = 1
+        assert not (_pl._SEAM_GRAD_RATIO_GATE_ENABLED and N > 1)
+
+
+# ---------------------------------------------------------------------------
+# TestCanvasAspectGatePipeline — §5.34 Stage 11.32
+# ---------------------------------------------------------------------------
+
+
+class TestCanvasAspectGatePipeline:
+    """§5.34: Pipeline canvas aspect-ratio gate (Stage 11.32)."""
+
+    def test_canvas_aspect_gate_disabled_skips(self, monkeypatch):
+        """When gate is disabled, low ratio does not trigger fallback."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_ENABLED", False)
+        assert _pl._CANVAS_ASPECT_GATE_ENABLED is False
+
+    def test_canvas_aspect_gate_passes_tall_canvas(self, monkeypatch):
+        """ratio=2.0, N=5 → floor=max(1.2, 1.5)=1.5 → 2.0 >= 1.5 = no fallback."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_canvas_aspect_ratio", lambda *a, **k: 2.0)
+        monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_ENABLED", True)
+        monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_FLOOR", 1.2)
+        val = _pl._canvas_aspect_ratio(None)
+        N = 5
+        floor = max(_pl._CANVAS_ASPECT_GATE_FLOOR, N * 0.3)
+        assert val >= floor
+
+    def test_canvas_aspect_gate_fails_landscape(self, monkeypatch):
+        """ratio=0.5 (landscape) with N=5 → floor=1.5 → gate fires."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_canvas_aspect_ratio", lambda *a, **k: 0.5)
+        monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_ENABLED", True)
+        monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_FLOOR", 1.2)
+        val = _pl._canvas_aspect_ratio(None)
+        N = 5
+        floor = max(_pl._CANVAS_ASPECT_GATE_FLOOR, N * 0.3)
+        assert val < floor
+
+    def test_canvas_aspect_gate_exact_floor(self, monkeypatch):
+        """ratio exactly equal to effective floor → gate does NOT fire."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_canvas_aspect_ratio", lambda *a, **k: 1.5)
+        monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_ENABLED", True)
+        monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_FLOOR", 1.2)
+        val = _pl._canvas_aspect_ratio(None)
+        N = 5
+        floor = max(_pl._CANVAS_ASPECT_GATE_FLOOR, N * 0.3)
+        assert not (val < floor)
+
+    def test_canvas_aspect_gate_single_frame_skips(self, monkeypatch):
+        """When N=1, gate is guarded by `N > 1` → gate is skipped."""
+        import backend.src.animation.core.pipeline as _pl
+
+        monkeypatch.setattr(_pl, "_CANVAS_ASPECT_GATE_ENABLED", True)
+        N = 1
+        assert not (_pl._CANVAS_ASPECT_GATE_ENABLED and N > 1)

@@ -1136,6 +1136,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_GHOSTING_SIQE": (int, 0, 1, "§5.29: Enable pipeline ghosting SIQE gate (0 or 1, default 1)"),
     "ASP_GATE_GHOSTING_SIQE_FLOOR": (float, 0.0, 100.0, "§5.29: Ghosting SIQE gate floor (default 30.0)"),
     "ASP_GATE_GHOST_SIQE_RATIO": (float, 0.0, None, "§5.30: Bench ghosting SIQE comparative ratio limit (default 2.0)"),
+    "ASP_GATE_SEAM_GRAD_RATIO": (int, 0, 1, "§5.33: Enable pipeline seam gradient ratio gate (0 or 1, default 1)"),
+    "ASP_GATE_SEAM_GRAD_RATIO_FLOOR": (float, 0.0, 20.0, "§5.33: Seam gradient ratio gate floor (default 3.0; higher=more permissive)"),
+    "ASP_GATE_CANVAS_ASPECT": (int, 0, 1, "§5.34: Enable pipeline canvas aspect-ratio gate (0 or 1, default 1)"),
+    "ASP_GATE_CANVAS_ASPECT_FLOOR": (float, 0.0, 10.0, "§5.34: Minimum H/W ratio for canvas aspect gate (default 1.2)"),
 }
 
 

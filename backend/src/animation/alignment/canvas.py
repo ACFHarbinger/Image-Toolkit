@@ -850,6 +850,55 @@ def _canvas_ghosting_siqe(img: np.ndarray) -> float:
     return float(np.clip(secondary, 0.0, 1.0) * 100.0)
 
 
+def _strip_seam_gradient_score(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.33: Max ratio of boundary-row gradient to interior-row gradient.
+
+    Computes mean absolute luminance gradient in a ±5px window at each expected
+    seam boundary row vs. the mean gradient in the strip interior. High ratio
+    means hard visible seam cuts. Returns max ratio across all boundaries,
+    capped at 10.0. Returns 0.0 for degenerate inputs.
+    """
+    if img is None or img.ndim != 3 or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 12:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    gy = np.abs(np.diff(gray, axis=0))  # shape (H-1, W)
+    band = 5
+    max_ratio = 0.0
+    for i in range(1, n_strips):
+        boundary = i * strip_h
+        b0 = max(0, boundary - band)
+        b1 = min(H - 1, boundary + band)
+        if b1 <= b0:
+            continue
+        boundary_grad = float(gy[b0:b1].mean()) if b1 > b0 else 0.0
+        s0 = (i - 1) * strip_h + strip_h // 3
+        s1 = i * strip_h - strip_h // 3
+        if s1 > s0 and s0 < H - 1 and s1 < H:
+            interior_grad = float(gy[s0:s1].mean())
+        else:
+            interior_grad = 0.0
+        ratio = boundary_grad / (interior_grad + 1e-6)
+        if ratio > max_ratio:
+            max_ratio = ratio
+    return float(min(max_ratio, 10.0))
+
+
+def _canvas_aspect_ratio(img: np.ndarray) -> float:
+    """§5.34: Height-to-width ratio of the canvas (H / W).
+
+    A correctly stitched vertical scroll should have H >> W (portrait).
+    Returns 0.0 for None input; 0.0 for zero-width images.
+    """
+    if img is None or img.ndim < 2:
+        return 0.0
+    H, W = img.shape[:2]
+    return float(H) / max(float(W), 1.0)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -876,4 +925,6 @@ __all__ = [
     "_strip_gradient_cv",
     "_seam_band_ncc_min",
     "_canvas_ghosting_siqe",
+    "_strip_seam_gradient_score",
+    "_canvas_aspect_ratio",
 ]

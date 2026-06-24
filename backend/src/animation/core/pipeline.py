@@ -31,6 +31,7 @@ from backend.src.animation.core.validation import (
     _compute_adaptive_rot_scale,
 )
 from backend.src.animation.alignment.canvas import (
+    _canvas_aspect_ratio,
     _canvas_gain_uniformity,
     _canvas_ghosting_siqe,
     _compute_adaptive_seam_smooth_px,
@@ -51,6 +52,7 @@ from backend.src.animation.alignment.canvas import (
     _smooth_seam_bands,
     _strip_gradient_cv,
     _strip_luma_monotonicity,
+    _strip_seam_gradient_score,
     _strip_self_ssim,
     _telea_fill_gaps,
     find_optimal_sequence,
@@ -551,6 +553,16 @@ _SEAM_BAND_NCC_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_BAND_NCC_
 # High CV = sharpness discontinuity across strips. Set ASP_GATE_STRIP_GRAD_CV=0 to disable.
 _STRIP_GRAD_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_STRIP_GRAD_CV", "1") != "0"
 _STRIP_GRAD_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_STRIP_GRAD_CV_FLOOR", "0.50"))
+# §5.33 — Pipeline Seam Gradient Ratio Gate (Stage 11.31).
+# Fires when max boundary/interior gradient ratio > floor → hard seam cuts visible.
+# Set ASP_GATE_SEAM_GRAD_RATIO=0 to disable.
+_SEAM_GRAD_RATIO_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_GRAD_RATIO", "1") != "0"
+_SEAM_GRAD_RATIO_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_GRAD_RATIO_FLOOR", "3.0"))
+# §5.34 — Pipeline Canvas Aspect-Ratio Gate (Stage 11.32).
+# Fires when H/W ratio < floor → landscape canvas indicating wrong scroll axis.
+# Set ASP_GATE_CANVAS_ASPECT=0 to disable.
+_CANVAS_ASPECT_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CANVAS_ASPECT", "1") != "0"
+_CANVAS_ASPECT_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CANVAS_ASPECT_FLOOR", "1.2"))
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -4841,6 +4853,43 @@ class AnimeStitchPipeline:
             except Exception as _sgcv_e:
                 logger.debug("[Stitch] Stage 11.30: StripGradCvGate skipped (%s).", _sgcv_e)
 
+        # ── Stage 11.31: §5.33 Seam Gradient Ratio Gate ──────────────────────
+        if _SEAM_GRAD_RATIO_GATE_ENABLED and N > 1:
+            try:
+                _sgr_val = _strip_seam_gradient_score(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.31: seam_grad_ratio=%.3f (floor=%.2f).", _sgr_val, _SEAM_GRAD_RATIO_GATE_FLOOR)
+                if _sgr_val > _SEAM_GRAD_RATIO_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.31: SeamGradRatioGate FAILED (ratio=%.3f > floor=%.2f) → SCANS fallback.",
+                        _sgr_val, _SEAM_GRAD_RATIO_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_grad_ratio_gate:{_sgr_val:.3f}",
+                    )
+            except Exception as _sgr_e:
+                logger.debug("[Stitch] Stage 11.31: SeamGradRatioGate skipped (%s).", _sgr_e)
+
+        # ── Stage 11.32: §5.34 Canvas Aspect-Ratio Gate ──────────────────────
+        if _CANVAS_ASPECT_GATE_ENABLED and N > 1:
+            try:
+                _car_val = _canvas_aspect_ratio(canvas)
+                _car_floor = max(_CANVAS_ASPECT_GATE_FLOOR, N * 0.3)
+                logger.debug("[Stitch] Stage 11.32: canvas_aspect_ratio=%.3f (floor=%.2f).", _car_val, _car_floor)
+                if _car_val < _car_floor:
+                    logger.warning(
+                        "[Stitch] Stage 11.32: CanvasAspectGate FAILED (ratio=%.3f < floor=%.2f) → SCANS fallback.",
+                        _car_val, _car_floor,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"canvas_aspect_gate:{_car_val:.3f}",
+                    )
+            except Exception as _car_e:
+                logger.debug("[Stitch] Stage 11.32: CanvasAspectGate skipped (%s).", _car_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5561,4 +5610,10 @@ __all__ = [
     "_SIQE_GATE_ENABLED",
     "_SIQE_GATE_FLOOR",
     "_canvas_ghosting_siqe",
+    "_SEAM_GRAD_RATIO_GATE_ENABLED",
+    "_SEAM_GRAD_RATIO_GATE_FLOOR",
+    "_strip_seam_gradient_score",
+    "_CANVAS_ASPECT_GATE_ENABLED",
+    "_CANVAS_ASPECT_GATE_FLOOR",
+    "_canvas_aspect_ratio",
 ]
