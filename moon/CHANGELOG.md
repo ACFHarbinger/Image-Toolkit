@@ -4,6 +4,46 @@
 
 ---
 
+## S171 — 2026-06-24 (§5.13 FFT Banding Gate · §5.12 Horizontal FFT Banding Metric · §5.11 Adaptive Seam-Smooth · §5.10 Strip Luma Monotonicity · §5.9 Auto Seam Lum-Step)
+
+*Five incremental improvements across S169–S171: two new benchmark metrics, adaptive seam-smooth width driven by seam_coherence, CGU-triggered auto-enable of seam lum-step correction, and an FFT banding SCANS fallback gate. 1460 tests passing (85 skipped).*
+
+### §5.13 FFT Banding Gate (`backend/benchmark/bench_anime_stitch.py`, `backend/src/animation/core/config.py`)
+
+- FFTBandingGate after SCGate in `run_dataset()`: fires when `asp_fft > max(0.30, 3.0 × sim_fft)` and `_fallback_reason is None`
+- `ASP_GATE_FFT_BAND=3.0`, `ASP_GATE_FFT_BAND_FLOOR=0.30`; disable with `ASP_GATE_FFT_BAND=99`
+- `_fallback_reason` prefix: `fft_band_gate:`; adds 16 ms to `render_gate_fallback` timing
+- 5 tests in `TestFftBandingGate` (`test_bench_metrics.py`)
+
+### §5.12 Horizontal FFT Banding Metric (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_horizontal_fft_banding(img, n_strips=8)` — rfft of column-mean luminance profile; energy fraction at ±1 bin window around strip-boundary frequency (`n_strips//2`)
+- Wired into `_compute_all_metrics()` as `horizontal_fft_banding` (range [0,1])
+- 5 tests in `TestHorizontalFftBanding` (`test_bench_metrics.py`)
+
+### §5.11 Adaptive Seam-Smooth Width (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_compute_adaptive_seam_smooth_px(canvas, base_px=4, min_px=2, max_px=12)` in `canvas.py`: measures `std(row_means)` of canvas; linearly maps sc∈[5,30] → px∈[12,2] (sc≤5→max_px, sc≥30→min_px)
+- `_SEAM_SMOOTH_ADAPTIVE: bool = True` at pipeline.py module level (env: `ASP_SEAM_SMOOTH_ADAPTIVE`)
+- Stage 11.19 upgraded: when adaptive enabled, calls `_compute_adaptive_seam_smooth_px` before `_smooth_seam_bands`
+- `SEAM_SMOOTH_ADAPTIVE: bool = True` in `constants/animation.py`
+- 5 tests in `TestComputeAdaptiveSeamSmoothPx` (`test_canvas.py`)
+
+### §5.10 Strip Luma Monotonicity (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_strip_luma_monotonicity(img, n_strips=8)` — fraction of adjacent strip pairs with direction reversal; 0=monotonic, 1=fully alternating
+- Wired into `_compute_all_metrics()` as `strip_luma_monotonicity`
+- 5 tests in `TestStripLumaMonotonicity` (`test_bench_metrics.py`)
+
+### §5.9 Auto-Enable Seam Lum-Step from CGU (`backend/src/animation/core/pipeline.py`)
+
+- `_CGU_AUTO_LUM_STEP: float = 0.08` (env: `ASP_CGU_AUTO_LUM_STEP`) at module level
+- Stage 11.20: when `_SEAM_LUM_STEP_PX == 0` and CGU > threshold → auto-sets `_lum_step_px = 20`
+- Addresses moderate-banding sequences (CGU 0.10–0.20) not caught by the SCANS gate
+- 5 tests in `TestCguAutoLumStep` (`test_pipeline.py`)
+
+---
+
 ## S168 — 2026-06-24 (§5.6 Pipeline CGU Gate · §5.8 Adaptive dy_cv Ceiling)
 
 *Two improvements: §5.6 brings the benchmark-level CGUGate into the pipeline itself (Stage 11.21, fallback when canvas_gain_uniformity > 0.20), also enables seam-Gaussian-smoothing by default (4px); §5.8 lowers the dy_cv ceiling proportionally for large-N sequences (N≥8) to prevent compounding step irregularity. 1435 tests passing (85 skipped).*
