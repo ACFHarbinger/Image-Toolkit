@@ -31,8 +31,10 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _per_seam_lum_step_px,
     _seam_boundary_sharpness_ratio,
     _seam_chroma_step_cv,
+    _seam_gradient_cv,
     _seam_luma_step_cv,
     _smooth_seam_bands,
+    _strip_chroma_energy_cv,
     _strip_entropy_cv,
     _strip_hue_cv,
     _strip_noise_cv,
@@ -1362,3 +1364,57 @@ class TestSeamChromaStepCv:
         img = np.random.randint(0, 255, (128, 64), dtype=np.uint8)
         result = _seam_chroma_step_cv(img, n_strips=8, boundary_px=3)
         assert result == 0.0
+
+
+class TestStripChromaEnergyCv:
+    def test_none_returns_zero(self):
+        assert _strip_chroma_energy_cv(None) == 0.0
+
+    def test_grayscale_returns_zero(self):
+        img = np.full((128, 128), 128, dtype=np.uint8)
+        assert _strip_chroma_energy_cv(img) == 0.0
+
+    def test_near_monochrome_returns_zero(self):
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        assert _strip_chroma_energy_cv(img, n_strips=8) == 0.0
+
+    def test_mixed_saturation_returns_high_cv(self):
+        rng = np.random.default_rng(42)
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        img[:64, :, 0] = 220
+        img[:64, :, 2] = 30
+        result = _strip_chroma_energy_cv(img, n_strips=8)
+        assert result > 0.2
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(9)
+        img = rng.integers(0, 256, (128, 128, 3), dtype=np.uint8)
+        assert _strip_chroma_energy_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamGradientCv:
+    def test_none_returns_zero(self):
+        assert _seam_gradient_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _seam_gradient_cv(img, n_strips=1) == 0.0
+
+    def test_flat_image_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _seam_gradient_cv(img, n_strips=8, band_px=5) == 0.0
+
+    def test_mixed_gradients_returns_high_cv(self):
+        h, w = 160, 64
+        img = np.full((h, w, 3), 100, dtype=np.uint8)
+        strip_h = h // 8
+        boundary_row = strip_h
+        for r in range(max(0, boundary_row - 5), min(h, boundary_row + 5)):
+            img[r, :] = int(100 + 80 * abs(r - boundary_row) / 5)
+        result = _seam_gradient_cv(img, n_strips=8, band_px=5)
+        assert result >= 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(3)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_gradient_cv(img, n_strips=8, band_px=5) >= 0.0

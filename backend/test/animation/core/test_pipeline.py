@@ -3272,3 +3272,50 @@ class TestChromaStepCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_CHROMA_STEP_CV_GATE_ENABLED", False)
         assert pipeline._CHROMA_STEP_CV_GATE_ENABLED is False
+
+
+class TestChromaEnergyCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._CHROMA_ENERGY_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._CHROMA_ENERGY_CV_GATE_FLOOR, float)
+        assert pipeline._CHROMA_ENERGY_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_CHROMA_ENERGY_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_CHROMA_ENERGY_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_chroma_energy_cv
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        img[:64, :, 0] = 220
+        img[:64, :, 2] = 30
+        assert _strip_chroma_energy_cv(img, n_strips=8) > 0.1
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_CHROMA_ENERGY_CV_GATE_ENABLED", False)
+        assert pipeline._CHROMA_ENERGY_CV_GATE_ENABLED is False
+
+
+class TestSeamGradientCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_GRADIENT_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_GRADIENT_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_GRADIENT_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_GRADIENT_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_GRADIENT_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_gradient_cv
+        rng = np.random.default_rng(5)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_gradient_cv(img, n_strips=8, band_px=5) >= 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_GRADIENT_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_GRADIENT_CV_GATE_ENABLED is False

@@ -52,11 +52,13 @@ from backend.src.animation.alignment.canvas import (
     _seam_chroma_jump,
     _seam_chroma_step_cv,
     _seam_coherence_score,
+    _seam_gradient_cv,
     _seam_edge_density,
     _seam_luma_step_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_contrast_cv,
+    _strip_chroma_energy_cv,
     _strip_entropy_cv,
     _strip_gradient_cv,
     _strip_hist_intersection_min,
@@ -658,6 +660,12 @@ _ENTROPY_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_ENTROPY_CV_FLOOR"
 # §5.62 — Pipeline Seam Chroma Step CV Gate (Stage 11.47).
 _CHROMA_STEP_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CHROMA_STEP_CV", "1") != "0"
 _CHROMA_STEP_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_STEP_CV_FLOOR", "1.0"))
+# §5.65 — Pipeline Strip Chroma Energy CV Gate (Stage 11.48).
+_CHROMA_ENERGY_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CHROMA_ENERGY_CV", "1") != "0"
+_CHROMA_ENERGY_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_FLOOR", "0.6"))
+# §5.66 — Pipeline Seam Gradient CV Gate (Stage 11.49).
+_SEAM_GRADIENT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_GRADIENT_CV", "1") != "0"
+_SEAM_GRADIENT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_GRADIENT_CV_FLOOR", "1.0"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5240,6 +5248,42 @@ class AnimeStitchPipeline:
             except Exception as _cscv_e:
                 logger.debug("[Stitch] Stage 11.47: ChromaStepCvGate skipped (%s).", _cscv_e)
 
+        # ── Stage 11.48: §5.65 Strip Chroma Energy CV Gate ───────────────────
+        if _CHROMA_ENERGY_CV_GATE_ENABLED and N > 1:
+            try:
+                _cecv_val = _strip_chroma_energy_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.48: strip_chroma_energy_cv=%.4f (floor=%.3f).", _cecv_val, _CHROMA_ENERGY_CV_GATE_FLOOR)
+                if _cecv_val > _CHROMA_ENERGY_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.48: ChromaEnergyCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _cecv_val, _CHROMA_ENERGY_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"chroma_energy_cv_gate:{_cecv_val:.4f}",
+                    )
+            except Exception as _cecv_e:
+                logger.debug("[Stitch] Stage 11.48: ChromaEnergyCvGate skipped (%s).", _cecv_e)
+
+        # ── Stage 11.49: §5.66 Seam Gradient CV Gate ─────────────────────────
+        if _SEAM_GRADIENT_CV_GATE_ENABLED and N > 1:
+            try:
+                _sgcv_val = _seam_gradient_cv(canvas, n_strips=8, band_px=5)
+                logger.debug("[Stitch] Stage 11.49: seam_gradient_cv=%.4f (floor=%.3f).", _sgcv_val, _SEAM_GRADIENT_CV_GATE_FLOOR)
+                if _sgcv_val > _SEAM_GRADIENT_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.49: SeamGradientCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _sgcv_val, _SEAM_GRADIENT_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_gradient_cv_gate:{_sgcv_val:.4f}",
+                    )
+            except Exception as _sgcv_e:
+                logger.debug("[Stitch] Stage 11.49: SeamGradientCvGate skipped (%s).", _sgcv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -6003,4 +6047,8 @@ __all__ = [
     "_ENTROPY_CV_GATE_FLOOR",
     "_CHROMA_STEP_CV_GATE_ENABLED",
     "_CHROMA_STEP_CV_GATE_FLOOR",
+    "_CHROMA_ENERGY_CV_GATE_ENABLED",
+    "_CHROMA_ENERGY_CV_GATE_FLOOR",
+    "_SEAM_GRADIENT_CV_GATE_ENABLED",
+    "_SEAM_GRADIENT_CV_GATE_FLOOR",
 ]

@@ -641,3 +641,5 @@ NOISE_CV_GATE_FLOOR: float = 1.2  # §5.57: pipeline strip noise CV gate floor
 LUMA_STEP_CV_GATE_FLOOR: float = 1.0  # §5.58: pipeline seam luma step CV gate floor
 ENTROPY_CV_GATE_FLOOR: float = 0.5  # §5.61: pipeline strip entropy CV gate floor
 CHROMA_STEP_CV_GATE_FLOOR: float = 1.0  # §5.62: pipeline seam chroma step CV gate floor
+CHROMA_ENERGY_CV_GATE_FLOOR: float = 0.6  # §5.65: pipeline strip chroma energy CV gate floor
+SEAM_GRADIENT_CV_GATE_FLOOR: float = 1.0  # §5.66: pipeline seam gradient CV gate floor

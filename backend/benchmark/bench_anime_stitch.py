@@ -130,6 +130,12 @@ _ENTROPY_CV_RATIO: float = float(os.environ.get("ASP_GATE_ENTROPY_CV_RATIO", "2.
 # §5.64: Bench seam chroma step CV comparative gate
 _CHROMA_STEP_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_STEP_CV_ABS_FLOOR", "0.30"))
 _CHROMA_STEP_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_STEP_CV_RATIO", "2.0"))
+# §5.67: Bench strip chroma energy CV comparative gate
+_CHROMA_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR", "0.30"))
+_CHROMA_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_RATIO", "2.5"))
+# §5.68: Bench seam gradient CV comparative gate
+_SEAM_GRADIENT_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_GRADIENT_CV_ABS_FLOOR", "0.40"))
+_SEAM_GRADIENT_CV_RATIO: float = float(os.environ.get("ASP_GATE_SEAM_GRADIENT_CV_RATIO", "2.0"))
 
 logger = logging.getLogger(__name__)
 
@@ -3737,6 +3743,58 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _cscv_e:
                 logger.debug("[Bench] ChromaStepCvGate skipped: %s", _cscv_e)
+        # §5.67 ChromaEnergyCvGate — comparative strip chroma energy CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_cecv = cv2.imread(central_simple_path)
+                if _simple_img_cecv is not None:
+                    from backend.src.animation.alignment.canvas import _strip_chroma_energy_cv
+                    _asp_cecv = _strip_chroma_energy_cv(canvas_out, n_strips=8)
+                    _sim_cecv = _strip_chroma_energy_cv(_simple_img_cecv, n_strips=8)
+                    print(f"  [ChromaEnergyCvGate] asp_cecv={_asp_cecv:.4f}  sim_cecv={_sim_cecv:.4f}")
+                    if _asp_cecv > _CHROMA_ENERGY_CV_ABS_FLOOR and (
+                        _sim_cecv < 0.05 or _asp_cecv > _CHROMA_ENERGY_CV_RATIO * max(_sim_cecv, 0.01)
+                    ):
+                        _fallback_reason = f"chroma_energy_cv_gate:{_asp_cecv:.4f}"
+                        print(
+                            f"  [ChromaEnergyCvGate] FAILED "
+                            f"(asp_cecv={_asp_cecv:.4f} > floor={_CHROMA_ENERGY_CV_ABS_FLOOR:.2f} "
+                            f"and > {_CHROMA_ENERGY_CV_RATIO:.1f}×sim={_sim_cecv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"ChromaEnergyCvGate: asp_cecv={_asp_cecv:.4f}, sim_cecv={_sim_cecv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _cecv_e:
+                logger.debug("[Bench] ChromaEnergyCvGate skipped: %s", _cecv_e)
+        # §5.68 SeamGradientCvGate — comparative seam gradient CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_sgcv = cv2.imread(central_simple_path)
+                if _simple_img_sgcv is not None:
+                    from backend.src.animation.alignment.canvas import _seam_gradient_cv
+                    _asp_sgcv = _seam_gradient_cv(canvas_out, n_strips=8, band_px=5)
+                    _sim_sgcv = _seam_gradient_cv(_simple_img_sgcv, n_strips=8, band_px=5)
+                    print(f"  [SeamGradientCvGate] asp_sgcv={_asp_sgcv:.4f}  sim_sgcv={_sim_sgcv:.4f}")
+                    if _asp_sgcv > _SEAM_GRADIENT_CV_ABS_FLOOR and (
+                        _sim_sgcv < 0.05 or _asp_sgcv > _SEAM_GRADIENT_CV_RATIO * max(_sim_sgcv, 0.01)
+                    ):
+                        _fallback_reason = f"seam_gradient_cv_gate:{_asp_sgcv:.4f}"
+                        print(
+                            f"  [SeamGradientCvGate] FAILED "
+                            f"(asp_sgcv={_asp_sgcv:.4f} > floor={_SEAM_GRADIENT_CV_ABS_FLOOR:.2f} "
+                            f"and > {_SEAM_GRADIENT_CV_RATIO:.1f}×sim={_sim_sgcv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"SeamGradientCvGate: asp_sgcv={_asp_sgcv:.4f}, sim_sgcv={_sim_sgcv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _sgcv_e:
+                logger.debug("[Bench] SeamGradientCvGate skipped: %s", _sgcv_e)
 
         from PIL import Image
 
