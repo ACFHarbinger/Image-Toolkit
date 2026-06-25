@@ -636,3 +636,4 @@ EDGE_DENSITY_GATE_FLOOR: float = 0.30  # §5.46: pipeline seam edge density gate
 LUMA_MAD_GATE_FLOOR: float = 20.0  # §5.49: pipeline strip luma MAD gate floor
 SHARPNESS_CV_GATE_FLOOR: float = 1.0  # §5.50: pipeline strip sharpness CV gate floor
 CONTRAST_CV_GATE_FLOOR: float = 1.5  # §5.53: pipeline strip contrast CV gate floor
+CHROMA_JUMP_GATE_FLOOR: float = 15.0  # §5.54: pipeline seam chroma jump gate floor (luma-scale units)

@@ -49,6 +49,7 @@ from backend.src.animation.alignment.canvas import (
     _scan_stitch_fallback,
     _seam_band_ncc_min,
     _seam_boundary_sharpness_ratio,
+    _seam_chroma_jump,
     _seam_coherence_score,
     _seam_edge_density,
     _seam_visibility_score,
@@ -592,6 +593,9 @@ _SHARPNESS_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SHARPNESS_CV_FL
 # §5.53 — Pipeline Strip Contrast CV Gate (Stage 11.42).
 _CONTRAST_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CONTRAST_CV", "1") != "0"
 _CONTRAST_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CONTRAST_CV_FLOOR", "1.5"))
+# §5.54 — Pipeline Seam Chroma Jump Gate (Stage 11.43).
+_CHROMA_JUMP_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CHROMA_JUMP", "1") != "0"
+_CHROMA_JUMP_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_JUMP_FLOOR", "15.0"))
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -5131,6 +5135,24 @@ class AnimeStitchPipeline:
             except Exception as _ccv_e:
                 logger.debug("[Stitch] Stage 11.42: ContrastCvGate skipped (%s).", _ccv_e)
 
+        # ── Stage 11.43: §5.54 Seam Chroma Jump Gate ─────────────────────────
+        if _CHROMA_JUMP_GATE_ENABLED and N > 1:
+            try:
+                _scj_val = _seam_chroma_jump(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.43: seam_chroma_jump=%.2f (floor=%.1f).", _scj_val, _CHROMA_JUMP_GATE_FLOOR)
+                if _scj_val > _CHROMA_JUMP_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.43: ChromaJumpGate FAILED (jump=%.2f > floor=%.1f) → SCANS fallback.",
+                        _scj_val, _CHROMA_JUMP_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"chroma_jump_gate:{_scj_val:.2f}",
+                    )
+            except Exception as _scj_e:
+                logger.debug("[Stitch] Stage 11.43: ChromaJumpGate skipped (%s).", _scj_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5884,4 +5906,6 @@ __all__ = [
     "_SHARPNESS_CV_GATE_FLOOR",
     "_CONTRAST_CV_GATE_ENABLED",
     "_CONTRAST_CV_GATE_FLOOR",
+    "_CHROMA_JUMP_GATE_ENABLED",
+    "_CHROMA_JUMP_GATE_FLOOR",
 ]
