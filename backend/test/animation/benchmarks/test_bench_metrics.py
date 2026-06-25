@@ -2069,7 +2069,7 @@ class TestValidAreaGateBench:
         img = np.zeros((100, 100, 3), dtype=np.uint8)
         # Only a 5×5 patch is non-black
         img[0:5, 0:5] = 5
-        va = _canvas_valid_area_ratio(img, black_thresh=10)
+        va = _canvas_valid_area_ratio(img, black_threshold=10)
         assert va < 0.30, f"Expected va < 0.30, got {va}"
 
 
