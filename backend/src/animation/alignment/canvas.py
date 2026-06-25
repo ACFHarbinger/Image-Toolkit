@@ -1198,6 +1198,39 @@ def _strip_noise_cv(img: np.ndarray, n_strips: int = 8) -> float:
     return float(noises.std() / mean_noise)
 
 
+def _seam_luma_step_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.58: Coefficient of variation (std/mean) of per-seam absolute luma step.
+
+    Measures inconsistency in luminance discontinuities across strip boundaries.
+    High CV = some seams have large luma steps while others are smooth, indicating
+    unevenly-corrected gain normalization across composite zones.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips * 2,
+    boundary_px < 1, mean step < 0.5 guard for uniformly smooth seams).
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    steps = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = gray[max(0, boundary_row - boundary_px):boundary_row]
+        below = gray[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        steps.append(float(abs(float(above.mean()) - float(below.mean()))))
+    if len(steps) < 2:
+        return 0.0
+    steps = np.array(steps)
+    mean_step = float(steps.mean())
+    if mean_step < 0.5:
+        return 0.0
+    return float(steps.std() / mean_step)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1239,4 +1272,5 @@ __all__ = [
     "_strip_sharpness_cv",
     "_strip_contrast_cv",
     "_seam_chroma_jump",
+    "_seam_luma_step_cv",
 ]

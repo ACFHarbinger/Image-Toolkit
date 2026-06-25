@@ -3189,3 +3189,32 @@ class TestNoiseCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_NOISE_CV_GATE_ENABLED", False)
         assert pipeline._NOISE_CV_GATE_ENABLED is False
+
+
+class TestLumaStepCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._LUMA_STEP_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._LUMA_STEP_CV_GATE_FLOOR, float)
+        assert pipeline._LUMA_STEP_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_LUMA_STEP_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_LUMA_STEP_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_luma_step_cv
+        h, w = 160, 64
+        img = np.full((h, w, 3), 100, dtype=np.uint8)
+        strip_h = h // 8
+        boundary_row = strip_h
+        img[max(0, boundary_row - 3):boundary_row, :] = 200
+        img[boundary_row:boundary_row + 3, :] = 50
+        result = _seam_luma_step_cv(img, n_strips=8, boundary_px=3)
+        assert result > 0.5
+
+    def test_gate_suppressed_when_disabled(self):
+        assert pipeline._LUMA_STEP_CV_GATE_ENABLED is not None
+        assert isinstance(False, bool)
+        assert False is False

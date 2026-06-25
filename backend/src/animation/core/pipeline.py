@@ -52,6 +52,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_chroma_jump,
     _seam_coherence_score,
     _seam_edge_density,
+    _seam_luma_step_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_contrast_cv,
@@ -646,6 +647,9 @@ _SEAM_LUM_STEP_PX: int = int(os.environ.get("ASP_SEAM_LUM_STEP", "0"))
 _CGU_AUTO_LUM_STEP: float = float(os.environ.get("ASP_CGU_AUTO_LUM_STEP", "0.08"))
 # §5.16 — Per-seam adaptive correction width. True=adapt width per seam; False=uniform.
 _SEAM_LUM_STEP_ADAPTIVE: bool = os.environ.get("ASP_SEAM_LUM_STEP_ADAPTIVE", "1") != "0"
+# §5.58 — Pipeline Seam Luma Step CV Gate (Stage 11.45).
+_LUMA_STEP_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_STEP_CV", "1") != "0"
+_LUMA_STEP_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_STEP_CV_FLOOR", "1.0"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5174,6 +5178,24 @@ class AnimeStitchPipeline:
             except Exception as _ncv_e:
                 logger.debug("[Stitch] Stage 11.44: NoiseCvGate skipped (%s).", _ncv_e)
 
+        # ── Stage 11.45: §5.58 Seam Luma Step CV Gate ────────────────────────
+        if _LUMA_STEP_CV_GATE_ENABLED and N > 1:
+            try:
+                _lscv_val = _seam_luma_step_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.45: seam_luma_step_cv=%.4f (floor=%.3f).", _lscv_val, _LUMA_STEP_CV_GATE_FLOOR)
+                if _lscv_val > _LUMA_STEP_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.45: LumaStepCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _lscv_val, _LUMA_STEP_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"luma_step_cv_gate:{_lscv_val:.4f}",
+                    )
+            except Exception as _lscv_e:
+                logger.debug("[Stitch] Stage 11.45: LumaStepCvGate skipped (%s).", _lscv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5931,4 +5953,6 @@ __all__ = [
     "_CHROMA_JUMP_GATE_FLOOR",
     "_NOISE_CV_GATE_ENABLED",
     "_NOISE_CV_GATE_FLOOR",
+    "_LUMA_STEP_CV_GATE_ENABLED",
+    "_LUMA_STEP_CV_GATE_FLOOR",
 ]

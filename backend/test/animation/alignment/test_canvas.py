@@ -30,6 +30,7 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _panorama_stitch_fallback,
     _per_seam_lum_step_px,
     _seam_boundary_sharpness_ratio,
+    _seam_luma_step_cv,
     _smooth_seam_bands,
     _strip_hue_cv,
     _strip_noise_cv,
@@ -1273,4 +1274,33 @@ class TestStripNoiseCv:
     def test_grayscale_input(self):
         gray = np.full((64, 64), 128, dtype=np.uint8)
         result = _strip_noise_cv(gray, n_strips=4)
+        assert result >= 0.0
+
+
+class TestSeamLumaStepCv:
+    def test_none_returns_zero(self):
+        assert _seam_luma_step_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        assert _seam_luma_step_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        result = _seam_luma_step_cv(img, n_strips=8, boundary_px=3)
+        assert result == 0.0
+
+    def test_mixed_steps_returns_high_cv(self):
+        h, w = 160, 64
+        img = np.full((h, w, 3), 100, dtype=np.uint8)
+        strip_h = h // 8
+        boundary_row = strip_h
+        img[max(0, boundary_row - 3):boundary_row, :] = 200
+        img[boundary_row:boundary_row + 3, :] = 50
+        result = _seam_luma_step_cv(img, n_strips=8, boundary_px=3)
+        assert result > 0.3
+
+    def test_grayscale_input(self):
+        img = np.random.randint(0, 255, (128, 64), dtype=np.uint8)
+        result = _seam_luma_step_cv(img, n_strips=8, boundary_px=3)
         assert result >= 0.0
