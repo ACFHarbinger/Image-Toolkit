@@ -2029,3 +2029,97 @@ class TestSeamGradRatioGateBench:
         sim_sgr = 2.0
         fires = asp_sgr > abs_floor and asp_sgr > ratio_limit * max(sim_sgr, 0.1)
         assert fires
+
+
+# ---------------------------------------------------------------------------
+# TestValidAreaGateBench  (§5.43)
+# ---------------------------------------------------------------------------
+
+
+class TestValidAreaGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as _b
+        assert hasattr(_b, "_VALID_AREA_ABS_FLOOR")
+        assert hasattr(_b, "_VALID_AREA_RATIO")
+        assert isinstance(_b._VALID_AREA_ABS_FLOOR, float)
+        assert isinstance(_b._VALID_AREA_RATIO, float)
+
+    def test_defaults_are_positive(self):
+        import backend.benchmark.bench_anime_stitch as _b
+        assert _b._VALID_AREA_ABS_FLOOR > 0.0
+        assert _b._VALID_AREA_RATIO > 0.0
+
+    def test_schema_entry_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_VALID_AREA_RATIO" in _CONFIG_SCHEMA
+        typ, lo, hi, desc = _CONFIG_SCHEMA["ASP_GATE_VALID_AREA_RATIO"]
+        assert typ is float
+        assert "5.43" in desc
+
+    def test_gate_passes_when_asp_va_above_floor(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        # Fully filled image → valid area = 1.0 → well above any floor
+        img = np.full((100, 100, 3), 128, dtype=np.uint8)
+        va = _canvas_valid_area_ratio(img)
+        assert va > 0.30, f"Expected va > 0.30, got {va}"
+
+    def test_gate_fires_when_asp_va_below_floor(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        # Nearly all-black image → valid area ≈ 0 → below floor
+        img = np.zeros((100, 100, 3), dtype=np.uint8)
+        # Only a 5×5 patch is non-black
+        img[0:5, 0:5] = 5
+        va = _canvas_valid_area_ratio(img, black_thresh=10)
+        assert va < 0.30, f"Expected va < 0.30, got {va}"
+
+
+# ---------------------------------------------------------------------------
+# TestSatCvGateBench  (§5.44)
+# ---------------------------------------------------------------------------
+
+
+class TestSatCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as _b
+        assert hasattr(_b, "_SAT_CV_ABS_FLOOR")
+        assert hasattr(_b, "_SAT_CV_RATIO")
+        assert isinstance(_b._SAT_CV_ABS_FLOOR, float)
+        assert isinstance(_b._SAT_CV_RATIO, float)
+
+    def test_defaults_are_positive(self):
+        import backend.benchmark.bench_anime_stitch as _b
+        assert _b._SAT_CV_ABS_FLOOR > 0.0
+        assert _b._SAT_CV_RATIO > 0.0
+
+    def test_schema_entries_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_SAT_CV_ABS_FLOOR" in _CONFIG_SCHEMA
+        assert "ASP_GATE_SAT_CV_RATIO" in _CONFIG_SCHEMA
+        _, _, _, desc_floor = _CONFIG_SCHEMA["ASP_GATE_SAT_CV_ABS_FLOOR"]
+        _, _, _, desc_ratio = _CONFIG_SCHEMA["ASP_GATE_SAT_CV_RATIO"]
+        assert "5.44" in desc_floor
+        assert "5.44" in desc_ratio
+
+    def test_gate_passes_when_asp_cv_below_abs_floor(self):
+        from backend.src.animation.alignment.canvas import _strip_sat_cv
+        # Uniform grey image → saturation = 0 everywhere → CV = 0 < 0.30 floor
+        img = np.full((100, 100, 3), 128, dtype=np.uint8)
+        cv = _strip_sat_cv(img, n_strips=8)
+        assert cv < 0.30, f"Expected cv < 0.30, got {cv}"
+
+    def test_gate_fires_when_asp_cv_above_floor_and_ratio(self):
+        from backend.src.animation.alignment.canvas import _strip_sat_cv
+        # Build image with dramatically varying saturation per strip:
+        # first half: vivid red (high sat), second half: grey (zero sat)
+        img = np.zeros((160, 100, 3), dtype=np.uint8)
+        # Top 80 rows: vivid red BGR = (0, 0, 255) → HSV sat ≈ 255
+        img[:80, :] = [0, 0, 255]
+        # Bottom 80 rows: grey BGR = (128, 128, 128) → HSV sat = 0
+        img[80:, :] = [128, 128, 128]
+        asp_cv = _strip_sat_cv(img, n_strips=8)
+        # sim is uniform grey
+        sim = np.full((160, 100, 3), 128, dtype=np.uint8)
+        sim_cv = _strip_sat_cv(sim, n_strips=8)
+        # Gate fires: asp_cv > floor AND asp_cv > 2.0 × sim_cv
+        assert asp_cv > 0.30, f"Expected asp_cv > 0.30, got {asp_cv}"
+        assert asp_cv > 2.0 * max(sim_cv, 0.001), f"Expected asp_cv > 2×sim_cv"

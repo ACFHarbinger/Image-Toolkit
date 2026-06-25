@@ -1064,6 +1064,7 @@ __all__ = [
     "_canvas_aspect_ratio",
     "_strip_hist_intersection_min",
     "_strip_sat_cv",
+    "_canvas_valid_area_ratio",
     "_seam_boundary_sharpness_ratio",
     "_strip_hue_cv",
 ]

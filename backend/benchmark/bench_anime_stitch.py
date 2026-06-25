@@ -94,6 +94,12 @@ _GHOST_SIQE_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_GHOST_SIQE_FLOOR",
 # §5.37: Bench histogram intersection comparative gate
 _HIST_INTERSECT_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_HIST_INTERSECT_FLOOR", "0.10"))
 _HIST_INTERSECT_RATIO: float = float(os.environ.get("ASP_GATE_HIST_INTERSECT_RATIO", "0.5"))
+# §5.43: Bench canvas valid-area comparative gate
+_VALID_AREA_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_VALID_AREA_FLOOR", "0.30"))
+_VALID_AREA_RATIO: float = float(os.environ.get("ASP_GATE_VALID_AREA_RATIO", "0.7"))
+# §5.44: Bench strip saturation CV comparative gate
+_SAT_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SAT_CV_ABS_FLOOR", "0.30"))
+_SAT_CV_RATIO: float = float(os.environ.get("ASP_GATE_SAT_CV_RATIO", "2.0"))
 
 logger = logging.getLogger(__name__)
 
@@ -3366,6 +3372,66 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _sgr_e:
                 logger.debug("[Bench] SeamGradRatioGate skipped: %s", _sgr_e)
+
+        # §5.43 ValidAreaGate — comparative canvas valid-area ratio check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_va = cv2.imread(central_simple_path)
+                if _simple_img_va is not None:
+                    from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+                    _asp_va = _canvas_valid_area_ratio(canvas_out)
+                    _sim_va = _canvas_valid_area_ratio(_simple_img_va)
+                    print(
+                        f"  [ValidAreaGate] asp_va={_asp_va:.3f}  "
+                        f"sim_va={_sim_va:.3f}"
+                    )
+                    if _asp_va < _VALID_AREA_ABS_FLOOR or (
+                        _sim_va > 0.5 and _asp_va < _VALID_AREA_RATIO * _sim_va
+                    ):
+                        _fallback_reason = f"valid_area_gate:{_asp_va:.3f}"
+                        print(
+                            f"  [ValidAreaGate] FAILED "
+                            f"(asp_va={_asp_va:.3f} < floor={_VALID_AREA_ABS_FLOOR:.2f} "
+                            f"or < {_VALID_AREA_RATIO:.1f}×sim={_sim_va:.3f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 512
+                        raise RuntimeError(
+                            f"ValidAreaGate: asp_va={_asp_va:.3f}, sim_va={_sim_va:.3f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _va_e:
+                logger.debug("[Bench] ValidAreaGate skipped: %s", _va_e)
+
+        # §5.44 SatCvGate — comparative strip saturation CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_sc = cv2.imread(central_simple_path)
+                if _simple_img_sc is not None:
+                    from backend.src.animation.alignment.canvas import _strip_sat_cv
+                    _asp_sc = _strip_sat_cv(canvas_out, n_strips=8)
+                    _sim_sc = _strip_sat_cv(_simple_img_sc, n_strips=8)
+                    print(
+                        f"  [SatCvGate] asp_sc={_asp_sc:.3f}  "
+                        f"sim_sc={_sim_sc:.3f}"
+                    )
+                    if _asp_sc > _SAT_CV_ABS_FLOOR and (
+                        _sim_sc < 0.01 or _asp_sc > _SAT_CV_RATIO * max(_sim_sc, 0.001)
+                    ):
+                        _fallback_reason = f"sat_cv_gate:{_asp_sc:.3f}"
+                        print(
+                            f"  [SatCvGate] FAILED "
+                            f"(asp_sc={_asp_sc:.3f} > floor={_SAT_CV_ABS_FLOOR:.2f} "
+                            f"and > {_SAT_CV_RATIO:.1f}×sim={_sim_sc:.3f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 256
+                        raise RuntimeError(
+                            f"SatCvGate: asp_sc={_asp_sc:.3f}, sim_sc={_sim_sc:.3f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _sc_e:
+                logger.debug("[Bench] SatCvGate skipped: %s", _sc_e)
 
         from PIL import Image
 
