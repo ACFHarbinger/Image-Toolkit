@@ -411,6 +411,23 @@ def _correct_seam_lum_steps(
     return out.clip(0, 255).astype(np.uint8)
 
 
+def _strip_sat_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.38: Coefficient of variation of per-strip mean HSV saturation."""
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    s = hsv[:, :, 1].astype(np.float32)
+    strip_means = [float(s[i * strip_h:(i + 1) * strip_h].mean()) for i in range(n_strips)]
+    mean_val = float(np.mean(strip_means))
+    if mean_val < 1.0:
+        return 0.0
+    return float(np.std(strip_means) / mean_val)
+
+
 def find_optimal_sequence(
     ref_path: str,
     candidates: List[str],
@@ -957,4 +974,5 @@ __all__ = [
     "_strip_seam_gradient_score",
     "_canvas_aspect_ratio",
     "_strip_hist_intersection_min",
+    "_strip_sat_cv",
 ]

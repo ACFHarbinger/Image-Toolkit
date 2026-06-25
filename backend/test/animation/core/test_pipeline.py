@@ -2841,3 +2841,33 @@ class TestHistIntersectGatePipeline:
         monkeypatch.setattr(pipeline, "_HIST_INTERSECT_GATE_ENABLED", True)
         N = 1
         assert not (pipeline._HIST_INTERSECT_GATE_ENABLED and N > 1)
+
+
+# ===========================================================================
+# §5.38 Strip Saturation CV Gate — pipeline flag tests
+# ===========================================================================
+
+from backend.src.animation.alignment.canvas import _strip_sat_cv as _pipeline_strip_sat_cv
+
+
+class TestSatCvGatePipeline:
+
+    def test_flag_enabled_exists_in_module(self):
+        assert hasattr(pipeline, "_SAT_CV_GATE_ENABLED")
+
+    def test_flag_floor_exists_in_module(self):
+        assert hasattr(pipeline, "_SAT_CV_GATE_FLOOR")
+
+    def test_strip_sat_cv_in_pipeline_all(self):
+        from backend.src.animation.core.pipeline import __all__ as pipe_all
+        assert "_SAT_CV_GATE_ENABLED" in pipe_all
+        assert "_SAT_CV_GATE_FLOOR" in pipe_all
+
+    def test_strip_sat_cv_uniform_is_low(self):
+        img = np.full((80, 80, 3), 128, dtype=np.uint8)
+        result = _pipeline_strip_sat_cv(img, n_strips=8)
+        assert result < pipeline._SAT_CV_GATE_FLOOR
+
+    def test_schema_entries_present(self):
+        assert "ASP_GATE_SAT_CV" in config._CONFIG_SCHEMA
+        assert "ASP_GATE_SAT_CV_FLOOR" in config._CONFIG_SCHEMA

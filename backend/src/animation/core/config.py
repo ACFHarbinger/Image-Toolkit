@@ -613,6 +613,24 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     ),
     "ASP_GATE_STRIP_GRAD_CV": (int, 0, 1, "§5.32: Enable pipeline strip gradient CV gate (0 or 1, default 1)"),
     "ASP_GATE_STRIP_GRAD_CV_FLOOR": (float, 0.0, 5.0, "§5.32: Strip gradient CV gate floor (default 0.50)"),
+    "ASP_GATE_HIST_INTERSECT_RATIO": (
+        float,
+        0.0,
+        1.0,
+        "§5.37: Bench histogram intersection ratio limit (default 0.5); gate fires when ASP intersection < ratio × SIM intersection",
+    ),
+    "ASP_GATE_SAT_CV": (
+        int,
+        0,
+        1,
+        "§5.38: Enable pipeline strip saturation CV gate (0 or 1, default 1)",
+    ),
+    "ASP_GATE_SAT_CV_FLOOR": (
+        float,
+        0.0,
+        2.0,
+        "§5.38: Strip saturation CV gate floor (default 0.40; high CV = color mismatch)",
+    ),
     "ASP_PROPAINTER": (
         int,
         0,

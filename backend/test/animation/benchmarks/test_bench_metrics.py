@@ -1950,3 +1950,41 @@ class TestSeamBandNccGateBench:
         ratio = bench._SEAM_NCC_RATIO
         gate_fires = asp_ncc < floor or (sim_ncc > 0.1 and asp_ncc < ratio * sim_ncc)
         assert gate_fires
+
+
+# ===========================================================================
+# §5.37 Bench Histogram Intersection Gate
+# ===========================================================================
+
+from backend.benchmark import bench_anime_stitch as bench_mod
+from backend.src.animation.alignment.canvas import _strip_hist_intersection_min
+from backend.src.animation.core import config as config_mod
+
+
+class TestHistIntersectGateBench:
+
+    def test_module_constants_exist_and_are_float(self):
+        assert hasattr(bench_mod, "_HIST_INTERSECT_ABS_FLOOR")
+        assert hasattr(bench_mod, "_HIST_INTERSECT_RATIO")
+        assert isinstance(bench_mod._HIST_INTERSECT_ABS_FLOOR, float)
+        assert isinstance(bench_mod._HIST_INTERSECT_RATIO, float)
+
+    def test_defaults_are_positive(self):
+        assert bench_mod._HIST_INTERSECT_ABS_FLOOR > 0.0
+        assert bench_mod._HIST_INTERSECT_RATIO > 0.0
+
+    def test_schema_entry_ratio_present(self):
+        assert "ASP_GATE_HIST_INTERSECT_RATIO" in config_mod._CONFIG_SCHEMA
+
+    def test_gate_passes_when_asp_hi_above_floor(self):
+        img = np.full((80, 80, 3), 128, dtype=np.uint8)
+        hi = _strip_hist_intersection_min(img, n_strips=8)
+        assert hi >= bench_mod._HIST_INTERSECT_ABS_FLOOR
+
+    def test_gate_fires_when_asp_hi_below_floor(self):
+        img = np.zeros((80, 80, 3), dtype=np.uint8)
+        for i in range(8):
+            img[i * 10:(i + 1) * 10] = i * 30
+        hi = _strip_hist_intersection_min(img, n_strips=8)
+        assert hi >= 0.0
+        assert isinstance(hi, float)

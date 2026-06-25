@@ -53,6 +53,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_gradient_cv,
     _strip_hist_intersection_min,
     _strip_luma_monotonicity,
+    _strip_sat_cv,
     _strip_seam_gradient_score,
     _strip_self_ssim,
     _telea_fill_gaps,
@@ -564,6 +565,11 @@ _SEAM_GRAD_RATIO_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_GRAD_RA
 # Set ASP_GATE_CANVAS_ASPECT=0 to disable.
 _CANVAS_ASPECT_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CANVAS_ASPECT", "1") != "0"
 _CANVAS_ASPECT_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CANVAS_ASPECT_FLOOR", "1.2"))
+# §5.38 — Pipeline Strip Saturation CV Gate (Stage 11.34).
+# Fires when CV of per-strip mean HSV saturation exceeds floor → SCANS fallback.
+# High CV = seam-induced color saturation mismatches between strips.
+_SAT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SAT_CV", "1") != "0"
+_SAT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SAT_CV_FLOOR", "0.40"))
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -4912,6 +4918,24 @@ class AnimeStitchPipeline:
             except Exception as _hi_e:
                 logger.debug("[Stitch] Stage 11.33: HistIntersectGate skipped (%s).", _hi_e)
 
+        # ── Stage 11.34: §5.38 Strip Saturation CV Gate ─────────────────────
+        if _SAT_CV_GATE_ENABLED and N > 1:
+            try:
+                _ssat_val = _strip_sat_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.34: strip_sat_cv=%.4f (floor=%.3f).", _ssat_val, _SAT_CV_GATE_FLOOR)
+                if _ssat_val > _SAT_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.34: SatCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _ssat_val, _SAT_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"sat_cv_gate:{_ssat_val:.4f}",
+                    )
+            except Exception as _ssat_e:
+                logger.debug("[Stitch] Stage 11.34: SatCvGate skipped (%s).", _ssat_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5641,4 +5665,7 @@ __all__ = [
     "_HIST_INTERSECT_GATE_ENABLED",
     "_HIST_INTERSECT_GATE_FLOOR",
     "_strip_hist_intersection_min",
+    "_SAT_CV_GATE_ENABLED",
+    "_SAT_CV_GATE_FLOOR",
+    "_strip_sat_cv",
 ]
