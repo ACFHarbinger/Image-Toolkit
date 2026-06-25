@@ -56,6 +56,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_gradient_cv,
     _seam_edge_density,
     _seam_luma_step_cv,
+    _seam_signed_step_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_contrast_cv,
@@ -68,6 +69,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_luma_mad,
     _strip_luma_monotonicity,
     _strip_luma_range,
+    _strip_luma_skewness_cv,
     _strip_noise_cv,
     _strip_sat_cv,
     _strip_seam_gradient_score,
@@ -674,6 +676,10 @@ _LUMA_IQR_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_IQR_CV_FLOO
 # §5.70 — Pipeline Seam Column Variance CV Gate (Stage 11.51).
 _SEAM_COL_VAR_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_COL_VAR_CV", "1") != "0"
 _SEAM_COL_VAR_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_COL_VAR_CV_FLOOR", "1.0"))
+_LUMA_SKEW_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_SKEW_CV", "1") != "0"
+_LUMA_SKEW_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_SKEW_CV_FLOOR", "1.5"))
+_SEAM_SIGNED_STEP_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_SIGNED_STEP_CV", "1") != "0"
+_SEAM_SIGNED_STEP_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_SIGNED_STEP_CV_FLOOR", "1.2"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5328,6 +5334,42 @@ class AnimeStitchPipeline:
             except Exception as _scvarcv_e:
                 logger.debug("[Stitch] Stage 11.51: SeamColVarCvGate skipped (%s).", _scvarcv_e)
 
+        # ── Stage 11.52: §5.73 Strip Luma Skewness CV Gate ──────────────────
+        if _LUMA_SKEW_CV_GATE_ENABLED and N > 1:
+            try:
+                _lskew_val = _strip_luma_skewness_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.52: strip_luma_skewness_cv=%.4f (floor=%.3f).", _lskew_val, _LUMA_SKEW_CV_GATE_FLOOR)
+                if _lskew_val > _LUMA_SKEW_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.52: LumaSkewCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _lskew_val, _LUMA_SKEW_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"luma_skew_cv_gate:{_lskew_val:.4f}",
+                    )
+            except Exception as _lskew_e:
+                logger.debug("[Stitch] Stage 11.52: LumaSkewCvGate skipped (%s).", _lskew_e)
+
+        # ── Stage 11.53: §5.74 Seam Signed Step CV Gate ──────────────────────
+        if _SEAM_SIGNED_STEP_CV_GATE_ENABLED and N > 1:
+            try:
+                _sssv_val = _seam_signed_step_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.53: seam_signed_step_cv=%.4f (floor=%.3f).", _sssv_val, _SEAM_SIGNED_STEP_CV_GATE_FLOOR)
+                if _sssv_val > _SEAM_SIGNED_STEP_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.53: SeamSignedStepCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _sssv_val, _SEAM_SIGNED_STEP_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_signed_step_cv_gate:{_sssv_val:.4f}",
+                    )
+            except Exception as _sssv_e:
+                logger.debug("[Stitch] Stage 11.53: SeamSignedStepCvGate skipped (%s).", _sssv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -6099,4 +6141,8 @@ __all__ = [
     "_LUMA_IQR_CV_GATE_FLOOR",
     "_SEAM_COL_VAR_CV_GATE_ENABLED",
     "_SEAM_COL_VAR_CV_GATE_FLOOR",
+    "_LUMA_SKEW_CV_GATE_ENABLED",
+    "_LUMA_SKEW_CV_GATE_FLOOR",
+    "_SEAM_SIGNED_STEP_CV_GATE_ENABLED",
+    "_SEAM_SIGNED_STEP_CV_GATE_FLOOR",
 ]

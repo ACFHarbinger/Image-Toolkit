@@ -53,6 +53,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _LUMA_IQR_CV_RATIO,
     _SEAM_COL_VAR_CV_ABS_FLOOR,
     _SEAM_COL_VAR_CV_RATIO,
+    _LUMA_SKEW_CV_ABS_FLOOR,
+    _LUMA_SKEW_CV_RATIO,
+    _SEAM_SIGNED_STEP_CV_ABS_FLOOR,
+    _SEAM_SIGNED_STEP_CV_RATIO,
 )
 from backend.src.animation.core import config as _asp_config  # noqa: E402
 
@@ -2739,5 +2743,73 @@ class TestSeamColVarCvGateBench:
         sim_scvar = 0.0
         fires = asp_scvar > _SEAM_COL_VAR_CV_ABS_FLOOR and (
             sim_scvar < 0.05 or asp_scvar > _SEAM_COL_VAR_CV_RATIO * max(sim_scvar, 0.01)
+        )
+        assert not fires
+
+
+class TestLumaSkewCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_LUMA_SKEW_CV_ABS_FLOOR, float)
+        assert isinstance(_LUMA_SKEW_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_LUMA_SKEW_CV" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_SKEW_CV_FLOOR" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_lskew = _LUMA_SKEW_CV_ABS_FLOOR + 0.10
+        sim_lskew = 0.01
+        fires = asp_lskew > _LUMA_SKEW_CV_ABS_FLOOR and (
+            sim_lskew < 0.20 or asp_lskew > _LUMA_SKEW_CV_RATIO * max(sim_lskew, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_lskew = 0.60
+        sim_lskew = 0.55
+        fires = asp_lskew > _LUMA_SKEW_CV_ABS_FLOOR and (
+            sim_lskew < 0.20 or asp_lskew > _LUMA_SKEW_CV_RATIO * max(sim_lskew, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_lskew = _LUMA_SKEW_CV_ABS_FLOOR - 0.10
+        sim_lskew = 0.0
+        fires = asp_lskew > _LUMA_SKEW_CV_ABS_FLOOR and (
+            sim_lskew < 0.20 or asp_lskew > _LUMA_SKEW_CV_RATIO * max(sim_lskew, 0.01)
+        )
+        assert not fires
+
+
+class TestSeamSignedStepCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_SEAM_SIGNED_STEP_CV_ABS_FLOOR, float)
+        assert isinstance(_SEAM_SIGNED_STEP_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_SEAM_SIGNED_STEP_CV" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_SIGNED_STEP_CV_FLOOR" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_sssv = _SEAM_SIGNED_STEP_CV_ABS_FLOOR + 0.10
+        sim_sssv = 0.01
+        fires = asp_sssv > _SEAM_SIGNED_STEP_CV_ABS_FLOOR and (
+            sim_sssv < 0.20 or asp_sssv > _SEAM_SIGNED_STEP_CV_RATIO * max(sim_sssv, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_sssv = 0.50
+        sim_sssv = 0.45
+        fires = asp_sssv > _SEAM_SIGNED_STEP_CV_ABS_FLOOR and (
+            sim_sssv < 0.20 or asp_sssv > _SEAM_SIGNED_STEP_CV_RATIO * max(sim_sssv, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_sssv = _SEAM_SIGNED_STEP_CV_ABS_FLOOR - 0.10
+        sim_sssv = 0.0
+        fires = asp_sssv > _SEAM_SIGNED_STEP_CV_ABS_FLOOR and (
+            sim_sssv < 0.20 or asp_sssv > _SEAM_SIGNED_STEP_CV_RATIO * max(sim_sssv, 0.01)
         )
         assert not fires

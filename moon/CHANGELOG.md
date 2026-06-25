@@ -4,6 +4,17 @@
 
 ---
 
+## S187 — 2026-06-25 (§5.73 Pipeline Strip Luma Skewness CV Gate · §5.74 Pipeline Seam Signed Step CV Gate · §5.75 Bench Strip Luma Skewness CV Gate · §5.76 Bench Seam Signed Step CV Gate)
+
+**Tests**: 1865 passing, 85 skipped (30 new)
+
+- **§5.73 `_strip_luma_skewness_cv`** — CV of |per-strip luma skewness| (3rd standardized moment); 0.0 guard when mean_abs_skewness < 0.05 or std < 1.0 per strip; Stage 11.52 pipeline gate (`_LUMA_SKEW_CV_GATE_FLOOR=1.5`, env `ASP_GATE_LUMA_SKEW_CV`); orthogonal to IQR-CV (§5.69) and MAD-CV (§5.49); detects inconsistent tonal character where some strips have bright-highlight tails and others have dark-shadow tails
+- **§5.74 `_seam_signed_step_cv`** — `std(signed_steps) / mean(|signed_steps|)` at seam boundaries; 0.0 when mean_abs < 1.0; Stage 11.53 pipeline gate (`_SEAM_SIGNED_STEP_CV_GATE_FLOOR=1.2`, env `ASP_GATE_SEAM_SIGNED_STEP_CV`); orthogonal to §5.58 which uses abs() before CV — this fires specifically on alternating-direction normalization (bright→dark, dark→bright pattern)
+- **§5.75 bench LumaSkewCvGate** — `_LUMA_SKEW_CV_ABS_FLOOR=0.50`, `_LUMA_SKEW_CV_RATIO=2.5`; fires when asp > 0.50 AND (sim < 0.20 OR asp > 2.5× sim); schema entries `ASP_BENCH_LUMA_SKEW_CV_ABS_FLOOR` / `ASP_BENCH_LUMA_SKEW_CV_RATIO`
+- **§5.76 bench SeamSignedStepCvGate** — `_SEAM_SIGNED_STEP_CV_ABS_FLOOR=0.40`, `_SEAM_SIGNED_STEP_CV_RATIO=2.0`; fires when asp > 0.40 AND (sim < 0.20 OR asp > 2.0× sim); schema entries `ASP_BENCH_SEAM_SIGNED_STEP_CV_ABS_FLOOR` / `ASP_BENCH_SEAM_SIGNED_STEP_CV_RATIO`
+
+---
+
 ## S186 — 2026-06-25 (§5.69 Pipeline Strip Luma IQR CV Gate · §5.70 Pipeline Seam Column Variance CV Gate · §5.71 Bench Strip Luma IQR CV Gate · §5.72 Bench Seam Column Variance CV Gate)
 
 *Four new post-composite quality gates: two pipeline gates (Stage 11.50 strip luma IQR CV, Stage 11.51 seam column variance CV) and two bench comparative gates. 1835 tests passing (85 skipped).*

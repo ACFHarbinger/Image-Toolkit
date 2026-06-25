@@ -1446,6 +1446,76 @@ def _seam_column_variance_cv(img: np.ndarray, n_strips: int = 8, boundary_px: in
     return float(variances.std() / mean_var)
 
 
+def _strip_luma_skewness_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.73: CV of per-strip luma skewness (|std/mean| of 3rd standardized moments).
+
+    Positive skewness = dark strip with bright highlight tail; negative = bright strip
+    with dark shadow tail. CV of absolute per-strip skewness detects inconsistent tonal
+    character across strips — orthogonal to IQR-CV (§5.69, spread) and MAD-CV (§5.49).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2, fewer than
+    2 strips, mean_abs_skewness < 0.05 for uniform/gradient images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    skews = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h].ravel()
+        if strip.size < 4:
+            continue
+        std = strip.std()
+        if std < 1.0:
+            skews.append(0.0)
+            continue
+        skews.append(float(np.mean(((strip - strip.mean()) / std) ** 3)))
+    if len(skews) < 2:
+        return 0.0
+    abs_skews = np.abs(np.array(skews, dtype=np.float32))
+    mean_abs = float(abs_skews.mean())
+    if mean_abs < 0.05:
+        return 0.0
+    return float(abs_skews.std() / mean_abs)
+
+
+def _seam_signed_step_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.74: CV of signed per-seam luma step (std of signed / mean of absolute).
+
+    At each strip boundary: signed_step = mean_above − mean_below (in grayscale).
+    Returns std(signed_steps) / mean(|signed_steps|). Detects alternating-direction
+    normalization artifacts (bright→dark, dark→bright, bright→dark across seams) that
+    §5.58 luma-step-CV misses because §5.58 uses abs() before CV. High value = seam
+    steps alternate sign rather than being monotone.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, boundary_px < 1,
+    h < n_strips*2, fewer than 2 seams, mean_abs_step < 1.0 for flat images).
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    signed_steps = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = gray[max(0, boundary_row - boundary_px):boundary_row]
+        below = gray[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        signed_steps.append(float(above.mean() - below.mean()))
+    if len(signed_steps) < 2:
+        return 0.0
+    arr = np.array(signed_steps, dtype=np.float32)
+    mean_abs = float(np.abs(arr).mean())
+    if mean_abs < 1.0:
+        return 0.0
+    return float(arr.std() / mean_abs)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1494,4 +1564,6 @@ __all__ = [
     "_seam_gradient_cv",
     "_strip_luma_iqr_cv",
     "_seam_column_variance_cv",
+    "_strip_luma_skewness_cv",
+    "_seam_signed_step_cv",
 ]
