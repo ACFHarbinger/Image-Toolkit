@@ -639,3 +639,5 @@ CONTRAST_CV_GATE_FLOOR: float = 1.5  # §5.53: pipeline strip contrast CV gate f
 CHROMA_JUMP_GATE_FLOOR: float = 15.0  # §5.54: pipeline seam chroma jump gate floor (luma-scale units)
 NOISE_CV_GATE_FLOOR: float = 1.2  # §5.57: pipeline strip noise CV gate floor
 LUMA_STEP_CV_GATE_FLOOR: float = 1.0  # §5.58: pipeline seam luma step CV gate floor
+ENTROPY_CV_GATE_FLOOR: float = 0.5  # §5.61: pipeline strip entropy CV gate floor
+CHROMA_STEP_CV_GATE_FLOOR: float = 1.0  # §5.62: pipeline seam chroma step CV gate floor

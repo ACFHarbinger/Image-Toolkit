@@ -30,8 +30,10 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _panorama_stitch_fallback,
     _per_seam_lum_step_px,
     _seam_boundary_sharpness_ratio,
+    _seam_chroma_step_cv,
     _seam_luma_step_cv,
     _smooth_seam_bands,
+    _strip_entropy_cv,
     _strip_hue_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
@@ -1304,3 +1306,59 @@ class TestSeamLumaStepCv:
         img = np.random.randint(0, 255, (128, 64), dtype=np.uint8)
         result = _seam_luma_step_cv(img, n_strips=8, boundary_px=3)
         assert result >= 0.0
+
+
+class TestStripEntropyCv:
+    def test_none_returns_zero(self):
+        assert _strip_entropy_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_entropy_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        assert _strip_entropy_cv(img, n_strips=8) == 0.0
+
+    def test_mixed_entropy_returns_high_cv(self):
+        rng = np.random.default_rng(42)
+        img = np.zeros((128, 128, 3), dtype=np.uint8)
+        img[:64] = 128
+        noise = rng.integers(0, 256, (64, 128, 3), dtype=np.uint8)
+        img[64:] = noise
+        cv = _strip_entropy_cv(img, n_strips=8)
+        assert cv > 0.3
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(7)
+        img = rng.integers(0, 256, (128, 128, 3), dtype=np.uint8)
+        assert _strip_entropy_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamChromaStepCv:
+    def test_none_returns_zero(self):
+        assert _seam_chroma_step_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        assert _seam_chroma_step_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_chroma_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        result = _seam_chroma_step_cv(img, n_strips=8, boundary_px=3)
+        assert result == 0.0
+
+    def test_mixed_chroma_steps_returns_high_cv(self):
+        h, w = 160, 64
+        img = np.full((h, w, 3), 128, dtype=np.uint8)
+        strip_h = h // 8
+        boundary_row = strip_h
+        img[max(0, boundary_row - 3):boundary_row, :] = [200, 50, 50]
+        img[boundary_row:boundary_row + 3, :] = [50, 200, 200]
+        result = _seam_chroma_step_cv(img, n_strips=8, boundary_px=3)
+        assert result >= 0.0
+
+    def test_grayscale_returns_zero(self):
+        img = np.random.randint(0, 255, (128, 64), dtype=np.uint8)
+        result = _seam_chroma_step_cv(img, n_strips=8, boundary_px=3)
+        assert result == 0.0

@@ -1231,6 +1231,79 @@ def _seam_luma_step_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3)
     return float(steps.std() / mean_step)
 
 
+def _strip_entropy_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.61: Coefficient of variation (std/mean) of per-strip Shannon entropy.
+
+    Entropy is computed from the 256-bin luma histogram (normalised to a
+    probability distribution) using -sum(p*log2(p+eps)).  High CV = some
+    strips carry rich information while others are flat/uniform, indicating
+    composite segments from frames with very different scene complexity or
+    strong background/foreground mismatch.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips,
+    mean_entropy < 0.5 guard for uniformly flat images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    strip_h = h // n_strips
+    entropies = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h]
+        hist = cv2.calcHist([strip], [0], None, [256], [0, 256]).flatten()
+        hist = hist / (hist.sum() + 1e-9)
+        ent = float(-np.sum(hist * np.log2(hist + 1e-9)))
+        entropies.append(ent)
+    entropies = np.array(entropies)
+    mean_ent = float(entropies.mean())
+    if mean_ent < 0.5:
+        return 0.0
+    return float(entropies.std() / mean_ent)
+
+
+def _seam_chroma_step_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.62: Coefficient of variation (std/mean) of per-seam absolute chroma step.
+
+    Chroma step at each boundary = mean of |ΔCb| + |ΔCr| (YCrCb space)
+    across ±boundary_px rows.  High CV = some seams have large chroma steps
+    while others are colour-matched, indicating inconsistently applied
+    white-balance normalisation across composite zones.
+    Complements §5.60 (luma step CV) and §5.54 (seam chroma jump max).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2,
+    boundary_px < 1, fewer than 2 seams, mean_step < 0.5 for clean seams).
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2 or img.ndim < 3:
+        return 0.0
+    ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb).astype(np.float32)
+    cb = ycrcb[:, :, 2]
+    cr = ycrcb[:, :, 1]
+    strip_h = h // n_strips
+    steps = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above_cb = cb[max(0, boundary_row - boundary_px):boundary_row]
+        below_cb = cb[boundary_row:min(h, boundary_row + boundary_px)]
+        above_cr = cr[max(0, boundary_row - boundary_px):boundary_row]
+        below_cr = cr[boundary_row:min(h, boundary_row + boundary_px)]
+        if above_cb.size == 0 or below_cb.size == 0:
+            continue
+        delta_cb = abs(float(above_cb.mean()) - float(below_cb.mean()))
+        delta_cr = abs(float(above_cr.mean()) - float(below_cr.mean()))
+        steps.append(delta_cb + delta_cr)
+    if len(steps) < 2:
+        return 0.0
+    steps = np.array(steps)
+    mean_step = float(steps.mean())
+    if mean_step < 0.5:
+        return 0.0
+    return float(steps.std() / mean_step)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1273,4 +1346,6 @@ __all__ = [
     "_strip_contrast_cv",
     "_seam_chroma_jump",
     "_seam_luma_step_cv",
+    "_strip_entropy_cv",
+    "_seam_chroma_step_cv",
 ]

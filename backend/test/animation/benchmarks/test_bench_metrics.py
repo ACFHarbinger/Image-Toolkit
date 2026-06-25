@@ -41,6 +41,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _seam_ownership_entropy,
     _NOISE_CV_ABS_FLOOR,
     _NOISE_CV_RATIO,
+    _ENTROPY_CV_ABS_FLOOR,
+    _ENTROPY_CV_RATIO,
+    _CHROMA_STEP_CV_ABS_FLOOR,
+    _CHROMA_STEP_CV_RATIO,
 )
 from backend.src.animation.core import config as _asp_config  # noqa: E402
 
@@ -2523,5 +2527,73 @@ class TestLumaStepCvGateBench:
         ratio = bm._LUMA_STEP_CV_RATIO
         fires = asp_lscv > abs_floor and (
             sim_lscv < 0.05 or asp_lscv > ratio * max(sim_lscv, 0.01)
+        )
+        assert not fires
+
+
+class TestEntropyCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_ENTROPY_CV_ABS_FLOOR, float)
+        assert isinstance(_ENTROPY_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_ENTROPY_CV_ABS_FLOOR" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_ENTROPY_CV_RATIO" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_ecv = 0.80
+        sim_ecv = 0.01
+        fires = asp_ecv > _ENTROPY_CV_ABS_FLOOR and (
+            sim_ecv < 0.05 or asp_ecv > _ENTROPY_CV_RATIO * max(sim_ecv, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_ecv = 0.40
+        sim_ecv = 0.35
+        fires = asp_ecv > _ENTROPY_CV_ABS_FLOOR and (
+            sim_ecv < 0.05 or asp_ecv > _ENTROPY_CV_RATIO * max(sim_ecv, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_ecv = 0.10
+        sim_ecv = 0.0
+        fires = asp_ecv > _ENTROPY_CV_ABS_FLOOR and (
+            sim_ecv < 0.05 or asp_ecv > _ENTROPY_CV_RATIO * max(sim_ecv, 0.01)
+        )
+        assert not fires
+
+
+class TestChromaStepCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_CHROMA_STEP_CV_ABS_FLOOR, float)
+        assert isinstance(_CHROMA_STEP_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_CHROMA_STEP_CV_ABS_FLOOR" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_CHROMA_STEP_CV_RATIO" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_cscv = 0.80
+        sim_cscv = 0.01
+        fires = asp_cscv > _CHROMA_STEP_CV_ABS_FLOOR and (
+            sim_cscv < 0.05 or asp_cscv > _CHROMA_STEP_CV_RATIO * max(sim_cscv, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_cscv = 0.40
+        sim_cscv = 0.35
+        fires = asp_cscv > _CHROMA_STEP_CV_ABS_FLOOR and (
+            sim_cscv < 0.05 or asp_cscv > _CHROMA_STEP_CV_RATIO * max(sim_cscv, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_cscv = 0.10
+        sim_cscv = 0.0
+        fires = asp_cscv > _CHROMA_STEP_CV_ABS_FLOOR and (
+            sim_cscv < 0.05 or asp_cscv > _CHROMA_STEP_CV_RATIO * max(sim_cscv, 0.01)
         )
         assert not fires

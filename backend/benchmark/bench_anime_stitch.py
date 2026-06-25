@@ -124,6 +124,12 @@ _NOISE_CV_RATIO: float = float(os.environ.get("ASP_GATE_NOISE_CV_RATIO", "2.5"))
 # §5.60: Bench seam luma step CV comparative gate
 _LUMA_STEP_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_STEP_CV_ABS_FLOOR", "0.40"))
 _LUMA_STEP_CV_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_STEP_CV_RATIO", "2.0"))
+# §5.63: Bench strip entropy CV comparative gate
+_ENTROPY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_ENTROPY_CV_ABS_FLOOR", "0.30"))
+_ENTROPY_CV_RATIO: float = float(os.environ.get("ASP_GATE_ENTROPY_CV_RATIO", "2.5"))
+# §5.64: Bench seam chroma step CV comparative gate
+_CHROMA_STEP_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_STEP_CV_ABS_FLOOR", "0.30"))
+_CHROMA_STEP_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_STEP_CV_RATIO", "2.0"))
 
 logger = logging.getLogger(__name__)
 
@@ -3679,6 +3685,58 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _lscv_e:
                 logger.debug("[Bench] LumaStepCvGate skipped: %s", _lscv_e)
+        # §5.63 EntropyCvGate — comparative strip entropy CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_ecv = cv2.imread(central_simple_path)
+                if _simple_img_ecv is not None:
+                    from backend.src.animation.alignment.canvas import _strip_entropy_cv
+                    _asp_ecv = _strip_entropy_cv(canvas_out, n_strips=8)
+                    _sim_ecv = _strip_entropy_cv(_simple_img_ecv, n_strips=8)
+                    print(f"  [EntropyCvGate] asp_ecv={_asp_ecv:.4f}  sim_ecv={_sim_ecv:.4f}")
+                    if _asp_ecv > _ENTROPY_CV_ABS_FLOOR and (
+                        _sim_ecv < 0.05 or _asp_ecv > _ENTROPY_CV_RATIO * max(_sim_ecv, 0.01)
+                    ):
+                        _fallback_reason = f"entropy_cv_gate:{_asp_ecv:.4f}"
+                        print(
+                            f"  [EntropyCvGate] FAILED "
+                            f"(asp_ecv={_asp_ecv:.4f} > floor={_ENTROPY_CV_ABS_FLOOR:.2f} "
+                            f"and > {_ENTROPY_CV_RATIO:.1f}×sim={_sim_ecv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"EntropyCvGate: asp_ecv={_asp_ecv:.4f}, sim_ecv={_sim_ecv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _ecv_e:
+                logger.debug("[Bench] EntropyCvGate skipped: %s", _ecv_e)
+        # §5.64 ChromaStepCvGate — comparative seam chroma step CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_cscv = cv2.imread(central_simple_path)
+                if _simple_img_cscv is not None:
+                    from backend.src.animation.alignment.canvas import _seam_chroma_step_cv
+                    _asp_cscv = _seam_chroma_step_cv(canvas_out, n_strips=8, boundary_px=3)
+                    _sim_cscv = _seam_chroma_step_cv(_simple_img_cscv, n_strips=8, boundary_px=3)
+                    print(f"  [ChromaStepCvGate] asp_cscv={_asp_cscv:.4f}  sim_cscv={_sim_cscv:.4f}")
+                    if _asp_cscv > _CHROMA_STEP_CV_ABS_FLOOR and (
+                        _sim_cscv < 0.05 or _asp_cscv > _CHROMA_STEP_CV_RATIO * max(_sim_cscv, 0.01)
+                    ):
+                        _fallback_reason = f"chroma_step_cv_gate:{_asp_cscv:.4f}"
+                        print(
+                            f"  [ChromaStepCvGate] FAILED "
+                            f"(asp_cscv={_asp_cscv:.4f} > floor={_CHROMA_STEP_CV_ABS_FLOOR:.2f} "
+                            f"and > {_CHROMA_STEP_CV_RATIO:.1f}×sim={_sim_cscv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"ChromaStepCvGate: asp_cscv={_asp_cscv:.4f}, sim_cscv={_sim_cscv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _cscv_e:
+                logger.debug("[Bench] ChromaStepCvGate skipped: %s", _cscv_e)
 
         from PIL import Image
 
