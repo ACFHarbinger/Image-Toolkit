@@ -634,3 +634,4 @@ SEAM_SHARP_RATIO_GATE_FLOOR: float = 4.0  # §5.42: pipeline seam boundary sharp
 LUMA_RANGE_GATE_FLOOR: float = 60.0  # §5.45: pipeline strip luma range gate floor
 EDGE_DENSITY_GATE_FLOOR: float = 0.30  # §5.46: pipeline seam edge density gate floor
 LUMA_MAD_GATE_FLOOR: float = 20.0  # §5.49: pipeline strip luma MAD gate floor
+SHARPNESS_CV_GATE_FLOOR: float = 1.0  # §5.50: pipeline strip sharpness CV gate floor

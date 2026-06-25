@@ -1122,3 +1122,47 @@ class TestStripLumaMad:
         gray[40:, :] = 20
         mad = _strip_luma_mad(gray, n_strips=4)
         assert mad > 30.0, f"Expected high MAD for grayscale banded, got {mad}"
+
+
+# ===========================================================================
+# §5.50: _strip_sharpness_cv
+# ===========================================================================
+
+
+class TestStripSharpnessCv:
+    """§5.50: Strip sharpness CV gate — metric function."""
+
+    def test_none_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_sharpness_cv
+        assert _strip_sharpness_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_sharpness_cv
+        img = np.zeros((10, 10, 3), dtype=np.uint8)
+        assert _strip_sharpness_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_image_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_sharpness_cv
+        img = np.full((160, 100, 3), 128, dtype=np.uint8)
+        # Flat image → Laplacian variance ≈ 0 → mean < 1.0 guard → 0.0
+        assert _strip_sharpness_cv(img, n_strips=8) == pytest.approx(0.0, abs=1e-3)
+
+    def test_mixed_sharpness_returns_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_sharpness_cv
+        img = np.zeros((160, 100, 3), dtype=np.uint8)
+        # Top half: high-frequency checkerboard (sharp); bottom half: flat (blurry)
+        for row in range(80):
+            for col in range(100):
+                img[row, col] = 255 if (row + col) % 2 == 0 else 0
+        # Bottom 80 rows stay at 0 (flat)
+        cv = _strip_sharpness_cv(img, n_strips=8)
+        assert cv > 0.5, f"Expected high CV for mixed-sharpness image, got {cv}"
+
+    def test_grayscale_input(self):
+        from backend.src.animation.alignment.canvas import _strip_sharpness_cv
+        gray = np.zeros((80, 80), dtype=np.uint8)
+        for row in range(40):
+            for col in range(80):
+                gray[row, col] = 255 if (row + col) % 2 == 0 else 0
+        cv = _strip_sharpness_cv(gray, n_strips=4)
+        assert cv >= 0.0

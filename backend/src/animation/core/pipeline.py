@@ -62,6 +62,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_sat_cv,
     _strip_seam_gradient_score,
     _strip_self_ssim,
+    _strip_sharpness_cv,
     _telea_fill_gaps,
     find_optimal_sequence,
 )
@@ -581,6 +582,12 @@ _SAT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SAT_CV_FLOOR", "0.40"
 # Low ratio = significant black borders / underfilled canvas = alignment failure.
 _VALID_AREA_GATE_ENABLED: bool = os.environ.get("ASP_GATE_VALID_AREA", "1") != "0"
 _VALID_AREA_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_VALID_AREA_FLOOR", "0.55"))
+
+# §5.50 — Pipeline Strip Sharpness CV Gate (Stage 11.41).
+# Fires when coefficient of variation of per-strip Laplacian variance > floor → SCANS.
+# High CV = mixed-sharpness strips from mismatched frames or failed normalization.
+_SHARPNESS_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SHARPNESS_CV", "1") != "0"
+_SHARPNESS_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SHARPNESS_CV_FLOOR", "1.0"))
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -5084,6 +5091,24 @@ class AnimeStitchPipeline:
             except Exception as _lmad_e:
                 logger.debug("[Stitch] Stage 11.40: LumaMadGate skipped (%s).", _lmad_e)
 
+        # ── Stage 11.41: §5.50 Strip Sharpness CV Gate ───────────────────────
+        if _SHARPNESS_CV_GATE_ENABLED and N > 1:
+            try:
+                _scv_val = _strip_sharpness_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.41: strip_sharpness_cv=%.4f (floor=%.3f).", _scv_val, _SHARPNESS_CV_GATE_FLOOR)
+                if _scv_val > _SHARPNESS_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.41: SharpnessCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _scv_val, _SHARPNESS_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"sharpness_cv_gate:{_scv_val:.4f}",
+                    )
+            except Exception as _scv_e:
+                logger.debug("[Stitch] Stage 11.41: SharpnessCvGate skipped (%s).", _scv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5833,4 +5858,6 @@ __all__ = [
     "_seam_edge_density",
     "_LUMA_MAD_GATE_ENABLED",
     "_LUMA_MAD_GATE_FLOOR",
+    "_SHARPNESS_CV_GATE_ENABLED",
+    "_SHARPNESS_CV_GATE_FLOOR",
 ]
