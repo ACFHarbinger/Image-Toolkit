@@ -631,3 +631,5 @@ SAT_CV_GATE_FLOOR: float = 0.40  # §5.38: pipeline strip saturation CV gate flo
 VALID_AREA_GATE_FLOOR: float = 0.55  # §5.39: pipeline canvas valid-area ratio gate floor
 HUE_CV_GATE_FLOOR: float = 0.50  # §5.41: pipeline strip hue CV gate floor
 SEAM_SHARP_RATIO_GATE_FLOOR: float = 4.0  # §5.42: pipeline seam boundary sharpness ratio gate floor
+LUMA_RANGE_GATE_FLOOR: float = 60.0  # §5.45: pipeline strip luma range gate floor
+EDGE_DENSITY_GATE_FLOOR: float = 0.30  # §5.46: pipeline seam edge density gate floor

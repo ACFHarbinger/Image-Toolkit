@@ -1033,6 +1033,46 @@ def _seam_boundary_sharpness_ratio(img: np.ndarray, n_strips: int = 8, boundary_
     return float(min(max_ratio, 50.0))
 
 
+def _strip_luma_range(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.45: Absolute luminance range across horizontal strips (max − min strip mean).
+
+    High range = strip-level luma banding from failed brightness normalization.
+    Returns 0.0 for degenerate inputs (None, fewer rows than n_strips, n_strips < 2).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    strip_h = h // n_strips
+    means = [float(gray[i * strip_h:(i + 1) * strip_h].mean()) for i in range(n_strips)]
+    return float(max(means) - min(means))
+
+
+def _seam_edge_density(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.46: Maximum Canny edge-pixel fraction across horizontal strips.
+
+    High max density in any strip = cluttered/noisy content or hard seam artifact.
+    Returns 0.0 for None or n_strips < 2.
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    edges = cv2.Canny(gray, threshold1=50, threshold2=150)
+    h = edges.shape[0]
+    strip_h = max(1, h // n_strips)
+    max_density = 0.0
+    for i in range(n_strips):
+        strip = edges[i * strip_h:(i + 1) * strip_h]
+        if strip.size == 0:
+            continue
+        density = float((strip > 0).sum()) / strip.size
+        if density > max_density:
+            max_density = density
+    return max_density
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1067,4 +1107,6 @@ __all__ = [
     "_canvas_valid_area_ratio",
     "_seam_boundary_sharpness_ratio",
     "_strip_hue_cv",
+    "_strip_luma_range",
+    "_seam_edge_density",
 ]

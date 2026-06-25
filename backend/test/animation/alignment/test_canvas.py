@@ -1020,3 +1020,65 @@ class TestSeamBoundarySharpnessRatio:
         img[seam_y, :] = 255
         result = _seam_boundary_sharpness_ratio(img, n_strips=n_strips, boundary_px=2)
         assert result > 1.0
+
+
+class TestStripLumaRange:
+    def test_degenerate_none_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_range
+        assert _strip_luma_range(None) == 0.0
+
+    def test_degenerate_too_few_rows_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_range
+        img = np.zeros((4, 32, 3), dtype=np.uint8)
+        assert _strip_luma_range(img, n_strips=8) == 0.0
+
+    def test_n_strips_less_than_2_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_range
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_luma_range(img, n_strips=1) == 0.0
+
+    def test_uniform_image_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_range
+        img = np.full((80, 80, 3), 100, dtype=np.uint8)
+        assert _strip_luma_range(img, n_strips=8) == pytest.approx(0.0, abs=1.0)
+
+    def test_gradient_image_returns_high_range(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_range
+        h, w = 160, 64
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        img[:h // 2, :] = 10
+        img[h // 2:, :] = 200
+        assert _strip_luma_range(img, n_strips=8) > 60.0
+
+
+class TestSeamEdgeDensity:
+    def test_degenerate_none_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _seam_edge_density
+        assert _seam_edge_density(None) == 0.0
+
+    def test_n_strips_less_than_2_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _seam_edge_density
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _seam_edge_density(img, n_strips=1) == 0.0
+
+    def test_blank_image_returns_zero_density(self):
+        from backend.src.animation.alignment.canvas import _seam_edge_density
+        img = np.full((80, 80, 3), 128, dtype=np.uint8)
+        assert _seam_edge_density(img, n_strips=8) == pytest.approx(0.0, abs=1e-6)
+
+    def test_high_frequency_checkerboard_returns_high_density(self):
+        from backend.src.animation.alignment.canvas import _seam_edge_density
+        h, w = 80, 80
+        img = np.zeros((h, w), dtype=np.uint8)
+        band = 4
+        for row in range(0, h, band * 2):
+            img[row:row + band] = 255
+        img_bgr = np.stack([img, img, img], axis=-1)
+        assert _seam_edge_density(img_bgr, n_strips=8) > 0.10
+
+    def test_solid_bright_band_high_edge_density(self):
+        from backend.src.animation.alignment.canvas import _seam_edge_density
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        img[30:34, :] = 255
+        result = _seam_edge_density(img, n_strips=8)
+        assert result > 0.0
