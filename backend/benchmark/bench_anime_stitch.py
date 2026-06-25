@@ -100,6 +100,12 @@ _VALID_AREA_RATIO: float = float(os.environ.get("ASP_GATE_VALID_AREA_RATIO", "0.
 # §5.44: Bench strip saturation CV comparative gate
 _SAT_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SAT_CV_ABS_FLOOR", "0.30"))
 _SAT_CV_RATIO: float = float(os.environ.get("ASP_GATE_SAT_CV_RATIO", "2.0"))
+# §5.47: Bench strip luma range comparative gate
+_LUMA_RANGE_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_RANGE_ABS_FLOOR", "30.0"))
+_LUMA_RANGE_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_RANGE_RATIO", "2.0"))
+# §5.48: Bench strip edge density comparative gate
+_EDGE_DENSITY_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_ABS_FLOOR", "0.15"))
+_EDGE_DENSITY_RATIO: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_RATIO", "2.5"))
 
 logger = logging.getLogger(__name__)
 
@@ -3432,6 +3438,66 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _sc_e:
                 logger.debug("[Bench] SatCvGate skipped: %s", _sc_e)
+
+        # §5.47 LumaRangeGate — comparative strip luma range check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_lr = cv2.imread(central_simple_path)
+                if _simple_img_lr is not None:
+                    from backend.src.animation.alignment.canvas import _strip_luma_range
+                    _asp_lr = _strip_luma_range(canvas_out, n_strips=8)
+                    _sim_lr = _strip_luma_range(_simple_img_lr, n_strips=8)
+                    print(
+                        f"  [LumaRangeGate] asp_lr={_asp_lr:.2f}  "
+                        f"sim_lr={_sim_lr:.2f}"
+                    )
+                    if _asp_lr > _LUMA_RANGE_ABS_FLOOR and (
+                        _sim_lr < 5.0 or _asp_lr > _LUMA_RANGE_RATIO * max(_sim_lr, 1.0)
+                    ):
+                        _fallback_reason = f"luma_range_gate:{_asp_lr:.2f}"
+                        print(
+                            f"  [LumaRangeGate] FAILED "
+                            f"(asp_lr={_asp_lr:.2f} > floor={_LUMA_RANGE_ABS_FLOOR:.1f} "
+                            f"and > {_LUMA_RANGE_RATIO:.1f}×sim={_sim_lr:.2f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 128
+                        raise RuntimeError(
+                            f"LumaRangeGate: asp_lr={_asp_lr:.2f}, sim_lr={_sim_lr:.2f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _lr_e:
+                logger.debug("[Bench] LumaRangeGate skipped: %s", _lr_e)
+
+        # §5.48 EdgeDensityGate — comparative strip edge density check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_ed = cv2.imread(central_simple_path)
+                if _simple_img_ed is not None:
+                    from backend.src.animation.alignment.canvas import _seam_edge_density
+                    _asp_ed = _seam_edge_density(canvas_out, n_strips=8)
+                    _sim_ed = _seam_edge_density(_simple_img_ed, n_strips=8)
+                    print(
+                        f"  [EdgeDensityGate] asp_ed={_asp_ed:.4f}  "
+                        f"sim_ed={_sim_ed:.4f}"
+                    )
+                    if _asp_ed > _EDGE_DENSITY_ABS_FLOOR and (
+                        _sim_ed < 0.01 or _asp_ed > _EDGE_DENSITY_RATIO * max(_sim_ed, 0.001)
+                    ):
+                        _fallback_reason = f"edge_density_gate:{_asp_ed:.4f}"
+                        print(
+                            f"  [EdgeDensityGate] FAILED "
+                            f"(asp_ed={_asp_ed:.4f} > floor={_EDGE_DENSITY_ABS_FLOOR:.2f} "
+                            f"and > {_EDGE_DENSITY_RATIO:.1f}×sim={_sim_ed:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 64
+                        raise RuntimeError(
+                            f"EdgeDensityGate: asp_ed={_asp_ed:.4f}, sim_ed={_sim_ed:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _ed_e:
+                logger.debug("[Bench] EdgeDensityGate skipped: %s", _ed_e)
 
         from PIL import Image
 

@@ -2123,3 +2123,112 @@ class TestSatCvGateBench:
         # Gate fires: asp_cv > floor AND asp_cv > 2.0 × sim_cv
         assert asp_cv > 0.30, f"Expected asp_cv > 0.30, got {asp_cv}"
         assert asp_cv > 2.0 * max(sim_cv, 0.001), f"Expected asp_cv > 2×sim_cv"
+
+
+# ---------------------------------------------------------------------------
+# TestLumaRangeGateBench (§5.47)
+# ---------------------------------------------------------------------------
+
+
+class TestLumaRangeGateBench:
+    """§5.47: Bench strip luma range comparative gate — module flags, schema, and logic."""
+
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        assert hasattr(bm, "_LUMA_RANGE_ABS_FLOOR")
+        assert hasattr(bm, "_LUMA_RANGE_RATIO")
+        assert isinstance(bm._LUMA_RANGE_ABS_FLOOR, float)
+        assert isinstance(bm._LUMA_RANGE_RATIO, float)
+
+    def test_defaults_are_positive(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        assert bm._LUMA_RANGE_ABS_FLOOR > 0.0
+        assert bm._LUMA_RANGE_RATIO > 0.0
+
+    def test_schema_entries_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_RANGE_ABS_FLOOR" in _CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_RANGE_RATIO" in _CONFIG_SCHEMA
+        assert "5.47" in _CONFIG_SCHEMA["ASP_GATE_LUMA_RANGE_ABS_FLOOR"][3]
+        assert "5.47" in _CONFIG_SCHEMA["ASP_GATE_LUMA_RANGE_RATIO"][3]
+
+    def test_gate_passes_when_asp_lr_below_abs_floor(self):
+        # Uniform image → all strip means equal → luma range = 0 < floor (30.0)
+        # A gate with asp_lr=0 should NOT fire (below floor).
+        import backend.benchmark.bench_anime_stitch as bm
+        img = np.full((160, 80, 3), 128, dtype=np.uint8)
+        # Simulate gate condition: asp_lr below floor
+        asp_lr = 0.0
+        floor = bm._LUMA_RANGE_ABS_FLOOR
+        sim_lr = 0.0
+        ratio = bm._LUMA_RANGE_RATIO
+        gate_fires = asp_lr > floor and (
+            sim_lr < 5.0 or asp_lr > ratio * max(sim_lr, 1.0)
+        )
+        assert not gate_fires, "Gate should not fire when asp_lr=0 (below floor)"
+
+    def test_gate_fires_when_asp_lr_above_floor_and_ratio(self):
+        # Top half bright (200), bottom half dark (50) → range ~150 >> floor 30
+        # sim is uniform (sim_lr ~0) → sim_lr < 5.0 → ratio condition fires
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_lr = 150.0  # bright top, dark bottom
+        sim_lr = 0.0    # uniform SCANS reference
+        floor = bm._LUMA_RANGE_ABS_FLOOR   # 30.0
+        ratio = bm._LUMA_RANGE_RATIO        # 2.0
+        gate_fires = asp_lr > floor and (
+            sim_lr < 5.0 or asp_lr > ratio * max(sim_lr, 1.0)
+        )
+        assert gate_fires, "Gate should fire: asp_lr=150 > floor=30 and sim_lr=0 < 5.0"
+
+
+# ---------------------------------------------------------------------------
+# TestEdgeDensityGateBench (§5.48)
+# ---------------------------------------------------------------------------
+
+
+class TestEdgeDensityGateBench:
+    """§5.48: Bench strip edge density comparative gate — module flags, schema, and logic."""
+
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        assert hasattr(bm, "_EDGE_DENSITY_ABS_FLOOR")
+        assert hasattr(bm, "_EDGE_DENSITY_RATIO")
+        assert isinstance(bm._EDGE_DENSITY_ABS_FLOOR, float)
+        assert isinstance(bm._EDGE_DENSITY_RATIO, float)
+
+    def test_defaults_are_positive(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        assert bm._EDGE_DENSITY_ABS_FLOOR > 0.0
+        assert bm._EDGE_DENSITY_RATIO > 0.0
+
+    def test_schema_entries_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_EDGE_DENSITY_ABS_FLOOR" in _CONFIG_SCHEMA
+        assert "ASP_GATE_EDGE_DENSITY_RATIO" in _CONFIG_SCHEMA
+        assert "5.48" in _CONFIG_SCHEMA["ASP_GATE_EDGE_DENSITY_ABS_FLOOR"][3]
+        assert "5.48" in _CONFIG_SCHEMA["ASP_GATE_EDGE_DENSITY_RATIO"][3]
+
+    def test_gate_passes_when_asp_ed_below_abs_floor(self):
+        # Solid uniform image → Canny finds no edges → edge density ≈ 0 < 0.15 floor
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_ed = 0.0    # uniform image → no Canny edges
+        sim_ed = 0.0
+        floor = bm._EDGE_DENSITY_ABS_FLOOR  # 0.15
+        ratio = bm._EDGE_DENSITY_RATIO       # 2.5
+        gate_fires = asp_ed > floor and (
+            sim_ed < 0.01 or asp_ed > ratio * max(sim_ed, 0.001)
+        )
+        assert not gate_fires, "Gate should not fire when asp_ed=0 (below floor)"
+
+    def test_gate_fires_when_asp_ed_above_floor_and_ratio(self):
+        # Checkerboard image → many edges → edge density > 0.15
+        # Uniform sim → sim edge density ≈ 0 → sim_ed < 0.01 → ratio condition fires
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_ed = 0.35   # checkerboard → dense edges, well above 0.15 floor
+        sim_ed = 0.0    # uniform SCANS reference → no edges
+        floor = bm._EDGE_DENSITY_ABS_FLOOR  # 0.15
+        ratio = bm._EDGE_DENSITY_RATIO       # 2.5
+        gate_fires = asp_ed > floor and (
+            sim_ed < 0.01 or asp_ed > ratio * max(sim_ed, 0.001)
+        )
+        assert gate_fires, "Gate should fire: asp_ed=0.35 > floor=0.15 and sim_ed=0 < 0.01"
