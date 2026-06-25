@@ -2286,3 +2286,57 @@ class TestLumaMadGateBench:
             sim_lmad < 2.0 or asp_lmad > ratio * max(sim_lmad, 1.0)
         )
         assert not gate_fires, "Gate should NOT fire: asp_lmad below abs floor"
+
+
+# ===========================================================================
+# §5.52: _SHARPNESS_CV bench gate
+# ===========================================================================
+
+
+class TestSharpnessCvGateBench:
+    """§5.52: Bench strip sharpness CV comparative gate — module flags, schema, and logic."""
+
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        assert hasattr(bm, "_SHARPNESS_CV_ABS_FLOOR")
+        assert hasattr(bm, "_SHARPNESS_CV_RATIO")
+        assert isinstance(bm._SHARPNESS_CV_ABS_FLOOR, float)
+        assert isinstance(bm._SHARPNESS_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_SHARPNESS_CV_ABS_FLOOR" in _CONFIG_SCHEMA
+        assert "ASP_GATE_SHARPNESS_CV_RATIO" in _CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_zero(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_scv = 1.5    # very high CV — sharp/blurry mixed strips
+        sim_scv = 0.0    # uniform reference
+        floor = bm._SHARPNESS_CV_ABS_FLOOR  # 0.60
+        ratio = bm._SHARPNESS_CV_RATIO       # 2.5
+        gate_fires = asp_scv > floor and (
+            sim_scv < 0.05 or asp_scv > ratio * max(sim_scv, 0.01)
+        )
+        assert gate_fires, "Gate should fire: asp_scv=1.5 > floor=0.60 and sim_scv=0 < 0.05"
+
+    def test_gate_does_not_fire_when_both_mixed(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_scv = 0.9
+        sim_scv = 0.8
+        floor = bm._SHARPNESS_CV_ABS_FLOOR  # 0.60
+        ratio = bm._SHARPNESS_CV_RATIO       # 2.5
+        gate_fires = asp_scv > floor and (
+            sim_scv < 0.05 or asp_scv > ratio * max(sim_scv, 0.01)
+        )
+        assert not gate_fires, "Gate should NOT fire: asp ≈ sim (both mixed equally)"
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_scv = 0.30   # below abs floor of 0.60
+        sim_scv = 0.0
+        floor = bm._SHARPNESS_CV_ABS_FLOOR  # 0.60
+        ratio = bm._SHARPNESS_CV_RATIO       # 2.5
+        gate_fires = asp_scv > floor and (
+            sim_scv < 0.05 or asp_scv > ratio * max(sim_scv, 0.01)
+        )
+        assert not gate_fires, "Gate should NOT fire: asp_scv below abs floor"

@@ -109,6 +109,9 @@ _EDGE_DENSITY_RATIO: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_RATIO",
 # §5.51: Bench strip luma MAD comparative gate
 _LUMA_MAD_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_MAD_ABS_FLOOR", "10.0"))
 _LUMA_MAD_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_MAD_RATIO", "2.0"))
+# §5.52: Bench strip sharpness CV comparative gate
+_SHARPNESS_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SHARPNESS_CV_ABS_FLOOR", "0.60"))
+_SHARPNESS_CV_RATIO: float = float(os.environ.get("ASP_GATE_SHARPNESS_CV_RATIO", "2.5"))
 
 logger = logging.getLogger(__name__)
 
@@ -3531,6 +3534,35 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _lmad_e:
                 logger.debug("[Bench] LumaMadGate skipped: %s", _lmad_e)
+        # §5.52 SharpnessCvGate — comparative strip sharpness CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_scv = cv2.imread(central_simple_path)
+                if _simple_img_scv is not None:
+                    from backend.src.animation.alignment.canvas import _strip_sharpness_cv
+                    _asp_scv = _strip_sharpness_cv(canvas_out, n_strips=8)
+                    _sim_scv = _strip_sharpness_cv(_simple_img_scv, n_strips=8)
+                    print(
+                        f"  [SharpnessCvGate] asp_scv={_asp_scv:.4f}  "
+                        f"sim_scv={_sim_scv:.4f}"
+                    )
+                    if _asp_scv > _SHARPNESS_CV_ABS_FLOOR and (
+                        _sim_scv < 0.05 or _asp_scv > _SHARPNESS_CV_RATIO * max(_sim_scv, 0.01)
+                    ):
+                        _fallback_reason = f"sharpness_cv_gate:{_asp_scv:.4f}"
+                        print(
+                            f"  [SharpnessCvGate] FAILED "
+                            f"(asp_scv={_asp_scv:.4f} > floor={_SHARPNESS_CV_ABS_FLOOR:.2f} "
+                            f"and > {_SHARPNESS_CV_RATIO:.1f}×sim={_sim_scv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 8
+                        raise RuntimeError(
+                            f"SharpnessCvGate: asp_scv={_asp_scv:.4f}, sim_scv={_sim_scv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _scv_e:
+                logger.debug("[Bench] SharpnessCvGate skipped: %s", _scv_e)
 
         from PIL import Image
 

@@ -1185,6 +1185,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_LUMA_MAD_FLOOR": (float, 0.0, 255.0, "§5.49: Strip luma MAD gate floor (luma units, default 20.0; high MAD = strip-level banding)"),
     "ASP_GATE_LUMA_MAD_ABS_FLOOR": (float, 0.0, 255.0, "§5.51: Bench strip luma MAD absolute floor (luma units, default 10.0); gate only fires when ASP MAD exceeds this"),
     "ASP_GATE_LUMA_MAD_RATIO": (float, 0.0, 10.0, "§5.51: Bench strip luma MAD ratio limit vs SCANS (default 2.0); fires when ASP MAD > ratio × SCANS MAD"),
+    "ASP_GATE_SHARPNESS_CV": (int, 0, 1, "§5.50: Enable pipeline strip sharpness CV gate (0 or 1, default 1)"),
+    "ASP_GATE_SHARPNESS_CV_FLOOR": (float, 0.0, 10.0, "§5.50: Strip sharpness CV gate floor (default 1.0; high CV = mixed-sharpness strips from mismatched frames)"),
+    "ASP_GATE_SHARPNESS_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.52: Bench strip sharpness CV absolute floor (default 0.60); gate only fires when ASP CV exceeds this"),
+    "ASP_GATE_SHARPNESS_CV_RATIO": (float, 0.0, 10.0, "§5.52: Bench strip sharpness CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

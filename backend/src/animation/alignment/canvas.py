@@ -1091,6 +1091,33 @@ def _strip_luma_mad(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.mean(np.abs(means - means.mean())))
 
 
+def _strip_sharpness_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.50: Coefficient of variation (std/mean) of per-strip Laplacian variance.
+
+    High CV = some strips are far sharper or blurrier than others, indicating
+    composite segments from mismatched frames or failed normalization.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips,
+    mean sharpness < 1.0 guard for flat images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    strip_h = h // n_strips
+    variances = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h]
+        lap = cv2.Laplacian(strip, cv2.CV_64F)
+        variances.append(float(lap.var()))
+    variances = np.array(variances)
+    mean_v = float(variances.mean())
+    if mean_v < 1.0:
+        return 0.0
+    return float(variances.std() / mean_v)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1128,4 +1155,5 @@ __all__ = [
     "_strip_luma_range",
     "_seam_edge_density",
     "_strip_luma_mad",
+    "_strip_sharpness_cv",
 ]
