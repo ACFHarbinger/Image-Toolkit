@@ -57,12 +57,14 @@ from backend.src.animation.alignment.canvas import (
     _seam_edge_density,
     _seam_luma_step_cv,
     _seam_signed_step_cv,
+    _seam_texture_ratio_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_contrast_cv,
     _strip_chroma_energy_cv,
     _strip_entropy_cv,
     _strip_luma_iqr_cv,
+    _strip_luma_kurtosis_cv,
     _strip_gradient_cv,
     _strip_hist_intersection_min,
     _strip_hue_cv,
@@ -680,6 +682,10 @@ _LUMA_SKEW_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_SKEW_CV", "1") 
 _LUMA_SKEW_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_SKEW_CV_FLOOR", "1.5"))
 _SEAM_SIGNED_STEP_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_SIGNED_STEP_CV", "1") != "0"
 _SEAM_SIGNED_STEP_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_SIGNED_STEP_CV_FLOOR", "1.2"))
+_LUMA_KURTOSIS_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_KURTOSIS_CV", "1") != "0"
+_LUMA_KURTOSIS_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_KURTOSIS_CV_FLOOR", "1.5"))
+_SEAM_TEXTURE_RATIO_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_TEXTURE_RATIO_CV", "1") != "0"
+_SEAM_TEXTURE_RATIO_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_TEXTURE_RATIO_CV_FLOOR", "1.2"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5369,6 +5375,40 @@ class AnimeStitchPipeline:
                     )
             except Exception as _sssv_e:
                 logger.debug("[Stitch] Stage 11.53: SeamSignedStepCvGate skipped (%s).", _sssv_e)
+        # ── Stage 11.54: §5.77 Strip Luma Kurtosis CV Gate ──────────────────
+        if _LUMA_KURTOSIS_CV_GATE_ENABLED and N > 1:
+            try:
+                _lkurt_val = _strip_luma_kurtosis_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.54: strip_luma_kurtosis_cv=%.4f (floor=%.3f).", _lkurt_val, _LUMA_KURTOSIS_CV_GATE_FLOOR)
+                if _lkurt_val > _LUMA_KURTOSIS_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.54: LumaKurtosisCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _lkurt_val, _LUMA_KURTOSIS_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"luma_kurtosis_cv_gate:{_lkurt_val:.4f}",
+                    )
+            except Exception as _lkurt_e:
+                logger.debug("[Stitch] Stage 11.54: LumaKurtosisCvGate skipped (%s).", _lkurt_e)
+        # ── Stage 11.55: §5.78 Seam Texture Ratio CV Gate ────────────────────
+        if _SEAM_TEXTURE_RATIO_CV_GATE_ENABLED and N > 1:
+            try:
+                _stxr_val = _seam_texture_ratio_cv(canvas, n_strips=8, band_px=5)
+                logger.debug("[Stitch] Stage 11.55: seam_texture_ratio_cv=%.4f (floor=%.3f).", _stxr_val, _SEAM_TEXTURE_RATIO_CV_GATE_FLOOR)
+                if _stxr_val > _SEAM_TEXTURE_RATIO_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.55: SeamTextureRatioCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _stxr_val, _SEAM_TEXTURE_RATIO_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_texture_ratio_cv_gate:{_stxr_val:.4f}",
+                    )
+            except Exception as _stxr_e:
+                logger.debug("[Stitch] Stage 11.55: SeamTextureRatioCvGate skipped (%s).", _stxr_e)
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -6145,4 +6185,8 @@ __all__ = [
     "_LUMA_SKEW_CV_GATE_FLOOR",
     "_SEAM_SIGNED_STEP_CV_GATE_ENABLED",
     "_SEAM_SIGNED_STEP_CV_GATE_FLOOR",
+    "_LUMA_KURTOSIS_CV_GATE_ENABLED",
+    "_LUMA_KURTOSIS_CV_GATE_FLOOR",
+    "_SEAM_TEXTURE_RATIO_CV_GATE_ENABLED",
+    "_SEAM_TEXTURE_RATIO_CV_GATE_FLOOR",
 ]

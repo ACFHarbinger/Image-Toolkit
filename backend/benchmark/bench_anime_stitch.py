@@ -142,6 +142,12 @@ _LUMA_SKEW_CV_RATIO: float = float(os.environ.get("ASP_BENCH_LUMA_SKEW_CV_RATIO"
 # §5.76: Bench seam signed step CV comparative gate
 _SEAM_SIGNED_STEP_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_SIGNED_STEP_CV_ABS_FLOOR", "0.40"))
 _SEAM_SIGNED_STEP_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_SIGNED_STEP_CV_RATIO", "2.0"))
+# §5.79: Bench strip luma kurtosis CV comparative gate
+_LUMA_KURTOSIS_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_LUMA_KURTOSIS_CV_ABS_FLOOR", "0.50"))
+_LUMA_KURTOSIS_CV_RATIO: float = float(os.environ.get("ASP_BENCH_LUMA_KURTOSIS_CV_RATIO", "2.5"))
+# §5.80: Bench seam texture ratio CV comparative gate
+_SEAM_TEXTURE_RATIO_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_TEXTURE_RATIO_CV_ABS_FLOOR", "0.40"))
+_SEAM_TEXTURE_RATIO_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_TEXTURE_RATIO_CV_RATIO", "2.0"))
 # §5.67: Bench strip chroma energy CV comparative gate
 _CHROMA_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR", "0.30"))
 _CHROMA_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_RATIO", "2.5"))
@@ -3913,6 +3919,60 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _sssv_e:
                 logger.debug("[Bench] SeamSignedStepCvGate skipped: %s", _sssv_e)
+
+        # §5.79 LumaKurtosisCvGate — comparative strip luma kurtosis CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_lkurt = cv2.imread(central_simple_path)
+                if _simple_img_lkurt is not None:
+                    from backend.src.animation.alignment.canvas import _strip_luma_kurtosis_cv
+                    _asp_lkurt = _strip_luma_kurtosis_cv(canvas_out, n_strips=8)
+                    _sim_lkurt = _strip_luma_kurtosis_cv(_simple_img_lkurt, n_strips=8)
+                    print(f"  [LumaKurtosisCvGate] asp_lkurt={_asp_lkurt:.4f}  sim_lkurt={_sim_lkurt:.4f}")
+                    if _asp_lkurt > _LUMA_KURTOSIS_CV_ABS_FLOOR and (
+                        _sim_lkurt < 0.20 or _asp_lkurt > _LUMA_KURTOSIS_CV_RATIO * max(_sim_lkurt, 0.01)
+                    ):
+                        _fallback_reason = f"luma_kurtosis_cv_gate:{_asp_lkurt:.4f}"
+                        print(
+                            f"  [LumaKurtosisCvGate] FAILED "
+                            f"(asp_lkurt={_asp_lkurt:.4f} > floor={_LUMA_KURTOSIS_CV_ABS_FLOOR:.2f} "
+                            f"and > {_LUMA_KURTOSIS_CV_RATIO:.1f}×sim={_sim_lkurt:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"LumaKurtosisCvGate: asp_lkurt={_asp_lkurt:.4f}, sim_lkurt={_sim_lkurt:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _lkurt_e:
+                logger.debug("[Bench] LumaKurtosisCvGate skipped: %s", _lkurt_e)
+
+        # §5.80 SeamTextureRatioCvGate — comparative seam texture ratio CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_stxr = cv2.imread(central_simple_path)
+                if _simple_img_stxr is not None:
+                    from backend.src.animation.alignment.canvas import _seam_texture_ratio_cv
+                    _asp_stxr = _seam_texture_ratio_cv(canvas_out, n_strips=8, band_px=5)
+                    _sim_stxr = _seam_texture_ratio_cv(_simple_img_stxr, n_strips=8, band_px=5)
+                    print(f"  [SeamTextureRatioCvGate] asp_stxr={_asp_stxr:.4f}  sim_stxr={_sim_stxr:.4f}")
+                    if _asp_stxr > _SEAM_TEXTURE_RATIO_CV_ABS_FLOOR and (
+                        _sim_stxr < 0.20 or _asp_stxr > _SEAM_TEXTURE_RATIO_CV_RATIO * max(_sim_stxr, 0.01)
+                    ):
+                        _fallback_reason = f"seam_texture_ratio_cv_gate:{_asp_stxr:.4f}"
+                        print(
+                            f"  [SeamTextureRatioCvGate] FAILED "
+                            f"(asp_stxr={_asp_stxr:.4f} > floor={_SEAM_TEXTURE_RATIO_CV_ABS_FLOOR:.2f} "
+                            f"and > {_SEAM_TEXTURE_RATIO_CV_RATIO:.1f}×sim={_sim_stxr:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"SeamTextureRatioCvGate: asp_stxr={_asp_stxr:.4f}, sim_stxr={_sim_stxr:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _stxr_e:
+                logger.debug("[Bench] SeamTextureRatioCvGate skipped: %s", _stxr_e)
 
         from PIL import Image
 

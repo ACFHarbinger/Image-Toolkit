@@ -647,3 +647,5 @@ LUMA_IQR_CV_GATE_FLOOR: float = 0.8  # §5.69: pipeline strip luma IQR CV gate f
 SEAM_COL_VAR_CV_GATE_FLOOR: float = 1.0  # §5.70: pipeline seam column variance CV gate floor
 LUMA_SKEW_CV_GATE_FLOOR: float = 1.5  # §5.73: pipeline strip luma skewness CV gate floor
 SEAM_SIGNED_STEP_CV_GATE_FLOOR: float = 1.2  # §5.74: pipeline seam signed step CV gate floor
+LUMA_KURTOSIS_CV_GATE_FLOOR: float = 1.5  # §5.77: pipeline strip luma kurtosis CV gate floor
+SEAM_TEXTURE_RATIO_CV_GATE_FLOOR: float = 1.2  # §5.78: pipeline seam texture ratio CV gate floor

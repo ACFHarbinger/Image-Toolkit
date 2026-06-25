@@ -1516,6 +1516,85 @@ def _seam_signed_step_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 
     return float(arr.std() / mean_abs)
 
 
+def _strip_luma_kurtosis_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.77: CV of per-strip luma excess kurtosis (4th standardized moment − 3).
+
+    High excess kurtosis = peaky or bimodal distribution (anime cel+background); low
+    kurtosis = flat/uniform strip. CV of |excess kurtosis| across strips detects
+    inconsistent image structure — orthogonal to §5.73 (skewness, 3rd moment) and
+    §5.69 (IQR-CV, spread width).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2, fewer than
+    2 strips with valid std, mean_abs_kurtosis < 0.1).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    kurts = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h].ravel()
+        if strip.size < 4:
+            continue
+        std = strip.std()
+        if std < 1.0:
+            kurts.append(0.0)
+            continue
+        norm = (strip - strip.mean()) / std
+        kurts.append(float(np.mean(norm ** 4)) - 3.0)
+    if len(kurts) < 2:
+        return 0.0
+    abs_kurts = np.abs(np.array(kurts, dtype=np.float32))
+    mean_abs = float(abs_kurts.mean())
+    if mean_abs < 0.1:
+        return 0.0
+    return float(abs_kurts.std() / mean_abs)
+
+
+def _seam_texture_ratio_cv(img: np.ndarray, n_strips: int = 8, band_px: int = 5) -> float:
+    """§5.78: CV of per-seam Laplacian-variance ratio (above / below seam band).
+
+    At each strip boundary: computes Laplacian variance in band_px rows above and below.
+    Ratio = above_var / (below_var + 1e-3). CV of log(ratio) across all seams detects
+    inconsistent texture complexity matching — some seams well-matched, others crossing
+    a hard texture boundary (e.g., detailed scene vs. flat sky strip).
+    Orthogonal to §5.66 (seam gradient CV, step magnitude) and §5.74 (signed step CV,
+    direction). Returns 0.0 for degenerate inputs (None, n_strips < 2, band_px < 1,
+    h < n_strips*2, fewer than 2 seams, mean_abs(log_ratio) < 0.05).
+    """
+    if img is None or n_strips < 2 or band_px < 1:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    log_ratios = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = gray[max(0, boundary_row - band_px):boundary_row]
+        below = gray[boundary_row:min(h, boundary_row + band_px)]
+        if above.shape[0] < 1 or below.shape[0] < 1:
+            continue
+        lap_above = cv2.Laplacian(above, cv2.CV_32F)
+        lap_below = cv2.Laplacian(below, cv2.CV_32F)
+        var_above = float(lap_above.var())
+        var_below = float(lap_below.var())
+        ratio = var_above / (var_below + 1e-3)
+        if ratio < 1e-6:
+            continue
+        log_ratios.append(float(np.log(ratio)))
+    if len(log_ratios) < 2:
+        return 0.0
+    arr = np.array(log_ratios, dtype=np.float32)
+    mean_abs = float(np.abs(arr).mean())
+    if mean_abs < 0.05:
+        return 0.0
+    return float(arr.std() / (mean_abs + 1e-9))
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1566,4 +1645,6 @@ __all__ = [
     "_seam_column_variance_cv",
     "_strip_luma_skewness_cv",
     "_seam_signed_step_cv",
+    "_strip_luma_kurtosis_cv",
+    "_seam_texture_ratio_cv",
 ]
