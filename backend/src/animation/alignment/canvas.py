@@ -1814,6 +1814,73 @@ def _seam_entropy_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int 
     return float(shifts.std() / mean_s)
 
 
+def _strip_red_channel_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.101: CV of per-strip mean Red channel value.
+
+    Each strip's mean R value (BGR channel 2).  CV across strips detects
+    inconsistent red-channel content — orthogonal to luma (weighted sum),
+    §5.94 Value (max channel), §5.86 hue angle, and §5.90 saturation shift.
+    Returns 0.0 for grayscale input, fewer than 2 strips, or mean_red < 1.0.
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    if img.ndim != 3 or img.shape[2] != 3:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    red = img[:, :, 2].astype(np.float32)  # BGR: channel 2 = Red
+    strip_h = h // n_strips
+    means = []
+    for i in range(n_strips):
+        strip = red[i * strip_h:(i + 1) * strip_h]
+        if strip.size == 0:
+            continue
+        means.append(float(strip.mean()))
+    if len(means) < 2:
+        return 0.0
+    means = np.array(means, dtype=np.float32)
+    mean_r = float(means.mean())
+    if mean_r < 1.0:
+        return 0.0
+    return float(means.std() / mean_r)
+
+
+def _seam_blue_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.102: CV of per-seam absolute Blue channel shift (|B_above − B_below|).
+
+    At each strip boundary: absolute difference of mean Blue (BGR channel 0)
+    in ±boundary_px rows.  Detects inconsistent blue-axis normalization at
+    seams — orthogonal to luma step (§5.58 weighted average), Value shift
+    (§5.94 max channel), hue angle (§5.86), and saturation shift (§5.90).
+    Returns 0.0 for grayscale, fewer than 2 seams, or mean_shift < 1.0.
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    if img.ndim != 3 or img.shape[2] != 3:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    blue = img[:, :, 0].astype(np.float32)  # BGR: channel 0 = Blue
+    strip_h = h // n_strips
+    shifts = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = blue[max(0, boundary_row - boundary_px):boundary_row]
+        below = blue[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        shifts.append(abs(float(above.mean()) - float(below.mean())))
+    if len(shifts) < 2:
+        return 0.0
+    shifts = np.array(shifts, dtype=np.float32)
+    mean_s = float(shifts.mean())
+    if mean_s < 1.0:
+        return 0.0
+    return float(shifts.std() / mean_s)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1876,6 +1943,8 @@ __all__ = [
     "_seam_value_shift_cv",
     "_strip_median_luma_cv",
     "_seam_entropy_shift_cv",
+    "_strip_red_channel_cv",
+    "_seam_blue_shift_cv",
 ]
 
 

@@ -178,6 +178,12 @@ _MEDIAN_LUMA_CV_RATIO: float = float(os.environ.get("ASP_BENCH_MEDIAN_LUMA_CV_RA
 # §5.100: Bench seam entropy shift CV comparative gate
 _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR", "0.30"))
 _SEAM_ENTROPY_SHIFT_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_ENTROPY_SHIFT_CV_RATIO", "2.0"))
+# §5.103: Bench strip red channel CV comparative gate
+_RED_CHANNEL_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_RED_CHANNEL_CV_ABS_FLOOR", "0.20"))
+_RED_CHANNEL_CV_RATIO: float = float(os.environ.get("ASP_BENCH_RED_CHANNEL_CV_RATIO", "3.0"))
+# §5.104: Bench seam blue shift CV comparative gate
+_SEAM_BLUE_SHIFT_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_BLUE_SHIFT_CV_ABS_FLOOR", "0.30"))
+_SEAM_BLUE_SHIFT_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_BLUE_SHIFT_CV_RATIO", "2.0"))
 # §5.67: Bench strip chroma energy CV comparative gate
 _CHROMA_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR", "0.30"))
 _CHROMA_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_RATIO", "2.5"))
@@ -4201,6 +4207,42 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _e:
                 logger.debug("[Bench] SeamEntropyShiftCvGate skipped: %s", _e)
+        # §5.103 — Strip Red Channel CV comparative gate
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_redcv = cv2.imread(central_simple_path)
+                if _simple_img_redcv is not None:
+                    from backend.src.animation.alignment.canvas import _strip_red_channel_cv
+                    _asp_redcv = _strip_red_channel_cv(canvas_out, n_strips=8)
+                    _sim_redcv = _strip_red_channel_cv(_simple_img_redcv, n_strips=8)
+                    if _asp_redcv > _RED_CHANNEL_CV_ABS_FLOOR and (
+                        _sim_redcv < 0.07 or _asp_redcv > _RED_CHANNEL_CV_RATIO * max(_sim_redcv, 0.01)
+                    ):
+                        _fallback_reason = f"red_channel_cv_gate:{_asp_redcv:.4f}"
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(_fallback_reason)
+            except RuntimeError:
+                raise
+            except Exception as _e:
+                logger.debug("[Bench] RedChannelCvGate skipped: %s", _e)
+        # §5.104 — Seam Blue Shift CV comparative gate
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_blsh = cv2.imread(central_simple_path)
+                if _simple_img_blsh is not None:
+                    from backend.src.animation.alignment.canvas import _seam_blue_shift_cv
+                    _asp_blsh = _seam_blue_shift_cv(canvas_out, n_strips=8, boundary_px=3)
+                    _sim_blsh = _seam_blue_shift_cv(_simple_img_blsh, n_strips=8, boundary_px=3)
+                    if _asp_blsh > _SEAM_BLUE_SHIFT_CV_ABS_FLOOR and (
+                        _sim_blsh < 0.10 or _asp_blsh > _SEAM_BLUE_SHIFT_CV_RATIO * max(_sim_blsh, 0.01)
+                    ):
+                        _fallback_reason = f"seam_blue_shift_cv_gate:{_asp_blsh:.4f}"
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(_fallback_reason)
+            except RuntimeError:
+                raise
+            except Exception as _e:
+                logger.debug("[Bench] SeamBlueShiftCvGate skipped: %s", _e)
 
         from PIL import Image
 

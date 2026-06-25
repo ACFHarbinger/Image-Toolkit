@@ -4,6 +4,17 @@
 
 ---
 
+## S194 — 2026-06-25 (§5.101 Pipeline Strip Red Channel CV Gate · §5.102 Pipeline Seam Blue Shift CV Gate · §5.103 Bench Strip Red Channel CV Gate · §5.104 Bench Seam Blue Shift CV Gate)
+
+**Tests**: 2075 passing, 85 skipped (30 new)
+
+- **§5.101 `_strip_red_channel_cv`** — CV of mean BGR Red (channel 2) per strip; 0.0 for grayscale or mean_red < 1.0; Stage 11.66 pipeline gate (`_RED_CHANNEL_CV_GATE_FLOOR=0.6`, env `ASP_GATE_RED_CHANNEL_CV`); detects R-axis normalization failure invisible to luma/hue/saturation; orthogonal to §5.94 (Value=max), §5.86 (hue), §5.90 (saturation), §5.97 (median luma)
+- **§5.102 `_seam_blue_shift_cv`** — CV of |mean_B_above − mean_B_below| per seam (BGR channel 0); 0.0 for grayscale or mean_shift < 1.0; Stage 11.67 pipeline gate (`_SEAM_BLUE_SHIFT_CV_GATE_FLOOR=1.2`, env `ASP_GATE_SEAM_BLUE_SHIFT_CV`); blue-axis seam normalization artifacts; orthogonal to §5.58 (luma step), §5.94 (Value), §5.86 (hue), §5.90 (saturation)
+- **§5.103 bench RedChannelCvGate** — `_RED_CHANNEL_CV_ABS_FLOOR=0.20`, ratio=3.0; fires when asp > 0.20 AND (sim < 0.07 OR asp > 3.0× sim)
+- **§5.104 bench SeamBlueShiftCvGate** — `_SEAM_BLUE_SHIFT_CV_ABS_FLOOR=0.30`, ratio=2.0; fires when asp > 0.30 AND (sim < 0.10 OR asp > 2.0× sim)
+
+---
+
 ## S193 — 2026-06-25 (§5.97 Pipeline Strip Median Luma CV Gate · §5.98 Pipeline Seam Entropy Shift CV Gate · §5.99 Bench Strip Median Luma CV Gate · §5.100 Bench Seam Entropy Shift CV Gate)
 
 **Tests**: 2045 passing, 85 skipped (30 new)
