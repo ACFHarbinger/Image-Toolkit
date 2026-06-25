@@ -1293,6 +1293,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_BENCH_RED_CHANNEL_CV_RATIO": (float, 0.0, 20.0, "§5.103: Bench strip red channel CV ratio limit vs SCANS (default 3.0); fires when ASP CV > ratio × SCANS CV"),
     "ASP_BENCH_SEAM_BLUE_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.104: Bench seam blue shift CV absolute floor (default 0.30); gate fires when ASP CV > floor"),
     "ASP_BENCH_SEAM_BLUE_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.104: Bench seam blue shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_GREEN_CHANNEL_CV": (bool, None, None, "§5.105: Enable strip green channel CV gate (default ON); SCANS fallback on inconsistent Green-channel strips"),
+    "ASP_GATE_GREEN_CHANNEL_CV_FLOOR": (float, 0.0, 10.0, "§5.105: Strip green channel CV floor (default 0.5); SCANS fallback when CV > floor"),
+    "ASP_GATE_SEAM_RED_SHIFT_CV": (bool, None, None, "§5.106: Enable seam red shift CV gate (default ON); SCANS fallback on inconsistent Red-channel steps at seams"),
+    "ASP_GATE_SEAM_RED_SHIFT_CV_FLOOR": (float, 0.0, 10.0, "§5.106: Seam red shift CV floor (default 1.2); SCANS fallback when CV > floor"),
+    "ASP_BENCH_GREEN_CHANNEL_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.107: Bench strip green channel CV absolute floor (default 0.20); gate fires when ASP CV > floor"),
+    "ASP_BENCH_GREEN_CHANNEL_CV_RATIO": (float, 0.0, 20.0, "§5.107: Bench strip green channel CV ratio limit vs SCANS (default 3.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_BENCH_SEAM_RED_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.108: Bench seam red shift CV absolute floor (default 0.30); gate fires when ASP CV > floor"),
+    "ASP_BENCH_SEAM_RED_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.108: Bench seam red shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

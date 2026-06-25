@@ -1881,6 +1881,60 @@ def _seam_blue_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3
     return float(shifts.std() / mean_s)
 
 
+def _strip_green_channel_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.105: CV of per-strip mean Green channel value."""
+    if img is None or n_strips < 2:
+        return 0.0
+    if img.ndim != 3 or img.shape[2] != 3:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    green = img[:, :, 1].astype(np.float32)  # BGR: channel 1 = Green
+    strip_h = h // n_strips
+    means = []
+    for i in range(n_strips):
+        strip = green[i * strip_h:(i + 1) * strip_h]
+        if strip.size == 0:
+            continue
+        means.append(float(strip.mean()))
+    if len(means) < 2:
+        return 0.0
+    means = np.array(means, dtype=np.float32)
+    mean_g = float(means.mean())
+    if mean_g < 1.0:
+        return 0.0
+    return float(means.std() / mean_g)
+
+
+def _seam_red_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.106: CV of per-seam absolute Red channel shift (|R_above − R_below|)."""
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    if img.ndim != 3 or img.shape[2] != 3:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    red = img[:, :, 2].astype(np.float32)  # BGR: channel 2 = Red
+    strip_h = h // n_strips
+    shifts = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = red[max(0, boundary_row - boundary_px):boundary_row]
+        below = red[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        shifts.append(abs(float(above.mean()) - float(below.mean())))
+    if len(shifts) < 2:
+        return 0.0
+    shifts = np.array(shifts, dtype=np.float32)
+    mean_s = float(shifts.mean())
+    if mean_s < 1.0:
+        return 0.0
+    return float(shifts.std() / mean_s)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1945,6 +1999,8 @@ __all__ = [
     "_seam_entropy_shift_cv",
     "_strip_red_channel_cv",
     "_seam_blue_shift_cv",
+    "_strip_green_channel_cv",
+    "_seam_red_shift_cv",
 ]
 
 

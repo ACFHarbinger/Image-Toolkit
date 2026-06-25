@@ -85,6 +85,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _RED_CHANNEL_CV_RATIO,
     _SEAM_BLUE_SHIFT_CV_ABS_FLOOR,
     _SEAM_BLUE_SHIFT_CV_RATIO,
+    _GREEN_CHANNEL_CV_ABS_FLOOR,
+    _GREEN_CHANNEL_CV_RATIO,
+    _SEAM_RED_SHIFT_CV_ABS_FLOOR,
+    _SEAM_RED_SHIFT_CV_RATIO,
 )
 from backend.src.animation.core import config as _asp_config  # noqa: E402
 
@@ -3315,5 +3319,85 @@ class TestSeamBlueShiftCvGateBench:
         sim_val = 0.0
         fires = asp_val > _SEAM_BLUE_SHIFT_CV_ABS_FLOOR and (
             sim_val < 0.10 or asp_val > _SEAM_BLUE_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+
+class TestGreenChannelCvGateBench:
+    def test_constants_are_floats(self):
+        assert isinstance(_GREEN_CHANNEL_CV_ABS_FLOOR, float)
+        assert isinstance(_GREEN_CHANNEL_CV_RATIO, float)
+
+    def test_gate_fires_when_asp_high_and_sim_low(self):
+        asp_val = _GREEN_CHANNEL_CV_ABS_FLOOR + 0.10
+        sim_val = 0.0
+        fires = asp_val > _GREEN_CHANNEL_CV_ABS_FLOOR and (
+            sim_val < _GREEN_CHANNEL_CV_ABS_FLOOR / 3.0
+            or asp_val > _GREEN_CHANNEL_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert fires
+
+    def test_gate_fires_on_ratio_breach(self):
+        asp_val = _GREEN_CHANNEL_CV_ABS_FLOOR + 0.10
+        sim_val = 0.08
+        fires = asp_val > _GREEN_CHANNEL_CV_ABS_FLOOR and (
+            sim_val < _GREEN_CHANNEL_CV_ABS_FLOOR / 3.0
+            or asp_val > _GREEN_CHANNEL_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_val = 0.60
+        sim_val = 0.58
+        fires = asp_val > _GREEN_CHANNEL_CV_ABS_FLOOR and (
+            sim_val < _GREEN_CHANNEL_CV_ABS_FLOOR / 3.0
+            or asp_val > _GREEN_CHANNEL_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_val = _GREEN_CHANNEL_CV_ABS_FLOOR - 0.05
+        sim_val = 0.0
+        fires = asp_val > _GREEN_CHANNEL_CV_ABS_FLOOR and (
+            sim_val < _GREEN_CHANNEL_CV_ABS_FLOOR / 3.0
+            or asp_val > _GREEN_CHANNEL_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+
+class TestSeamRedShiftCvGateBench:
+    def test_constants_are_floats(self):
+        assert isinstance(_SEAM_RED_SHIFT_CV_ABS_FLOOR, float)
+        assert isinstance(_SEAM_RED_SHIFT_CV_RATIO, float)
+
+    def test_gate_fires_when_asp_high_and_sim_low(self):
+        asp_val = _SEAM_RED_SHIFT_CV_ABS_FLOOR + 0.10
+        sim_val = 0.0
+        fires = asp_val > _SEAM_RED_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _SEAM_RED_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert fires
+
+    def test_gate_fires_on_ratio_breach(self):
+        asp_val = _SEAM_RED_SHIFT_CV_ABS_FLOOR + 0.10
+        sim_val = 0.12
+        fires = asp_val > _SEAM_RED_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _SEAM_RED_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_val = 0.60
+        sim_val = 0.58
+        fires = asp_val > _SEAM_RED_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _SEAM_RED_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_val = _SEAM_RED_SHIFT_CV_ABS_FLOOR - 0.05
+        sim_val = 0.0
+        fires = asp_val > _SEAM_RED_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _SEAM_RED_SHIFT_CV_RATIO * max(sim_val, 0.01)
         )
         assert not fires

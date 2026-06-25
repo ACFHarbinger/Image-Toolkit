@@ -3828,3 +3828,55 @@ class TestSeamBlueShiftCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_SEAM_BLUE_SHIFT_CV_GATE_ENABLED", False)
         assert pipeline._SEAM_BLUE_SHIFT_CV_GATE_ENABLED is False
+
+
+class TestGreenChannelCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._GREEN_CHANNEL_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._GREEN_CHANNEL_CV_GATE_FLOOR, float)
+        assert pipeline._GREEN_CHANNEL_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_GREEN_CHANNEL_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_GREEN_CHANNEL_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_green_channel_cv
+        img = np.zeros((64, 32, 3), dtype=np.uint8)
+        strip_h = 64 // 8
+        for i in range(8):
+            g_val = 200 if i % 2 == 0 else 20
+            img[i * strip_h:(i + 1) * strip_h, :, 1] = g_val
+        assert _strip_green_channel_cv(img, n_strips=8) > 0.5
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_GREEN_CHANNEL_CV_GATE_ENABLED", False)
+        assert pipeline._GREEN_CHANNEL_CV_GATE_ENABLED is False
+
+
+class TestSeamRedShiftCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_RED_SHIFT_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_RED_SHIFT_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_RED_SHIFT_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_RED_SHIFT_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_RED_SHIFT_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_red_shift_cv
+        img = np.zeros((64, 32, 3), dtype=np.uint8)
+        strip_h = 64 // 8
+        red_vals = [200, 200, 200, 200, 10, 200, 200, 200]
+        for i, rv in enumerate(red_vals):
+            img[i * strip_h:(i + 1) * strip_h, :, 2] = rv
+        assert _seam_red_shift_cv(img, n_strips=8, boundary_px=3) > 0.5
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_RED_SHIFT_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_RED_SHIFT_CV_GATE_ENABLED is False
