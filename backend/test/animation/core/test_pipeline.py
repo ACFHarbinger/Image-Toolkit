@@ -3658,3 +3658,63 @@ class TestSeamSatShiftCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_SEAM_SAT_SHIFT_CV_GATE_ENABLED", False)
         assert pipeline._SEAM_SAT_SHIFT_CV_GATE_ENABLED is False
+
+
+class TestSobelEnergyCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SOBEL_ENERGY_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SOBEL_ENERGY_CV_GATE_FLOOR, float)
+        assert pipeline._SOBEL_ENERGY_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SOBEL_ENERGY_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SOBEL_ENERGY_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_sobel_energy_cv
+        rng = np.random.default_rng(42)
+        h, w = 64, 32
+        img = np.zeros((h, w), dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            start = i * strip_h
+            end = start + strip_h
+            if i % 2 == 0:
+                img[start:end] = rng.integers(0, 256, (strip_h, w), dtype=np.uint8)
+            else:
+                img[start:end] = 128
+        assert _strip_sobel_energy_cv(img, n_strips=8) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SOBEL_ENERGY_CV_GATE_ENABLED", False)
+        assert pipeline._SOBEL_ENERGY_CV_GATE_ENABLED is False
+
+
+class TestSeamValueShiftCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_VALUE_SHIFT_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_VALUE_SHIFT_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_VALUE_SHIFT_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_VALUE_SHIFT_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_VALUE_SHIFT_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_value_shift_cv
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        img[:strip_h] = [200, 200, 200]
+        img[strip_h:strip_h * 2] = [190, 190, 190]
+        img[strip_h * 2:strip_h * 3] = [50, 50, 50]
+        img[strip_h * 3:] = [200, 200, 200]
+        assert _seam_value_shift_cv(img, n_strips=4, boundary_px=3) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_VALUE_SHIFT_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_VALUE_SHIFT_CV_GATE_ENABLED is False

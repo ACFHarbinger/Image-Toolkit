@@ -1269,6 +1269,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_BENCH_DARK_PIXEL_FRAC_CV_RATIO": (float, 0.0, 20.0, "§5.91: Bench strip dark pixel fraction CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
     "ASP_BENCH_SEAM_SAT_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.92: Bench seam saturation shift CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
     "ASP_BENCH_SEAM_SAT_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.92: Bench seam saturation shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_SOBEL_ENERGY_CV": (bool, None, None, "§5.93: Enable strip Sobel energy CV gate (default ON); set to 0 to disable"),
+    "ASP_GATE_SOBEL_ENERGY_CV_FLOOR": (float, 0.0, 10.0, "§5.93: Strip Sobel energy CV gate floor (default 1.2); triggers SCANS fallback when CV exceeds floor"),
+    "ASP_GATE_SEAM_VALUE_SHIFT_CV": (bool, None, None, "§5.94: Enable seam Value shift CV gate (default ON); set to 0 to disable"),
+    "ASP_GATE_SEAM_VALUE_SHIFT_CV_FLOOR": (float, 0.0, 10.0, "§5.94: Seam Value shift CV gate floor (default 1.2); triggers SCANS fallback when CV exceeds floor"),
+    "ASP_BENCH_SOBEL_ENERGY_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.95: Bench strip Sobel energy CV absolute floor (default 0.35); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_SOBEL_ENERGY_CV_RATIO": (float, 0.0, 20.0, "§5.95: Bench strip Sobel energy CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_BENCH_SEAM_VALUE_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.96: Bench seam Value shift CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_SEAM_VALUE_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.96: Bench seam Value shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

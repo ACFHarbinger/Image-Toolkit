@@ -656,3 +656,5 @@ SEAM_HUE_SHIFT_CV_GATE_FLOOR: float = 1.5  # §5.86: pipeline seam hue shift CV 
 
 DARK_PIXEL_FRAC_CV_GATE_FLOOR: float = 1.5  # §5.89: pipeline strip dark pixel fraction CV gate floor
 SEAM_SAT_SHIFT_CV_GATE_FLOOR: float = 1.5  # §5.90: pipeline seam saturation shift CV gate floor
+SOBEL_ENERGY_CV_GATE_FLOOR: float = 1.2  # §5.93: pipeline strip Sobel energy CV gate floor
+SEAM_VALUE_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.94: pipeline seam Value shift CV gate floor
