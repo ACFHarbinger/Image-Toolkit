@@ -1193,6 +1193,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_CONTRAST_CV_FLOOR": (float, 0.0, 10.0, "§5.53: Strip contrast CV gate floor (default 1.5; high CV = mismatched contrast between composite strips)"),
     "ASP_GATE_CONTRAST_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.55: Bench strip contrast CV absolute floor (default 0.80); gate only fires when ASP CV exceeds this"),
     "ASP_GATE_CONTRAST_CV_RATIO": (float, 0.0, 10.0, "§5.55: Bench strip contrast CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_CHROMA_JUMP": (int, 0, 1, "§5.54: Enable pipeline seam chroma jump gate (0 or 1, default 1)"),
+    "ASP_GATE_CHROMA_JUMP_FLOOR": (float, 0.0, 255.0, "§5.54: Seam chroma jump gate floor (luma-scale units, default 15.0; high = colour step at seam boundary)"),
+    "ASP_GATE_CHROMA_JUMP_ABS_FLOOR": (float, 0.0, 255.0, "§5.56: Bench seam chroma jump absolute floor (default 8.0); gate only fires when ASP jump exceeds this"),
+    "ASP_GATE_CHROMA_JUMP_RATIO": (float, 0.0, 10.0, "§5.56: Bench seam chroma jump ratio limit vs SCANS (default 2.0); fires when ASP jump > ratio × SCANS jump"),
 }
 
 

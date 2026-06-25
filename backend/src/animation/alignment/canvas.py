@@ -1141,6 +1141,34 @@ def _strip_contrast_cv(img: np.ndarray, n_strips: int = 8) -> float:
     return float(stds.std() / mean_std)
 
 
+def _seam_chroma_jump(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.54: Maximum per-channel mean absolute difference at strip seam boundaries.
+
+    Measures colour discontinuities where adjacent strips meet. High value =
+    colour step at the seam caused by poor inter-frame white-balance normalisation.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips * 2,
+    boundary_px < 1).
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    bgr = img if img.ndim == 3 else cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    strip_h = h // n_strips
+    max_jump = 0.0
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = bgr[max(0, boundary_row - boundary_px):boundary_row].astype(np.float32)
+        below = bgr[boundary_row:min(h, boundary_row + boundary_px)].astype(np.float32)
+        if above.size == 0 or below.size == 0:
+            continue
+        jump = float(np.abs(above.mean(axis=(0, 1)) - below.mean(axis=(0, 1))).max())
+        if jump > max_jump:
+            max_jump = jump
+    return max_jump
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1180,4 +1208,5 @@ __all__ = [
     "_strip_luma_mad",
     "_strip_sharpness_cv",
     "_strip_contrast_cv",
+    "_seam_chroma_jump",
 ]

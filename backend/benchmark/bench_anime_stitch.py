@@ -115,6 +115,9 @@ _SHARPNESS_CV_RATIO: float = float(os.environ.get("ASP_GATE_SHARPNESS_CV_RATIO",
 # §5.55: Bench strip contrast CV comparative gate
 _CONTRAST_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CONTRAST_CV_ABS_FLOOR", "0.80"))
 _CONTRAST_CV_RATIO: float = float(os.environ.get("ASP_GATE_CONTRAST_CV_RATIO", "2.5"))
+# §5.56: Bench seam chroma jump comparative gate
+_CHROMA_JUMP_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_JUMP_ABS_FLOOR", "8.0"))
+_CHROMA_JUMP_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_JUMP_RATIO", "2.0"))
 
 logger = logging.getLogger(__name__)
 
@@ -3592,6 +3595,32 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _ccv_e:
                 logger.debug("[Bench] ContrastCvGate skipped: %s", _ccv_e)
+        # §5.56 ChromaJumpGate — comparative seam chroma jump check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_scj = cv2.imread(central_simple_path)
+                if _simple_img_scj is not None:
+                    from backend.src.animation.alignment.canvas import _seam_chroma_jump
+                    _asp_scj = _seam_chroma_jump(canvas_out, n_strips=8, boundary_px=3)
+                    _sim_scj = _seam_chroma_jump(_simple_img_scj, n_strips=8, boundary_px=3)
+                    print(f"  [ChromaJumpGate] asp_scj={_asp_scj:.2f}  sim_scj={_sim_scj:.2f}")
+                    if _asp_scj > _CHROMA_JUMP_ABS_FLOOR and (
+                        _sim_scj < 1.0 or _asp_scj > _CHROMA_JUMP_RATIO * max(_sim_scj, 0.5)
+                    ):
+                        _fallback_reason = f"chroma_jump_gate:{_asp_scj:.2f}"
+                        print(
+                            f"  [ChromaJumpGate] FAILED "
+                            f"(asp_scj={_asp_scj:.2f} > floor={_CHROMA_JUMP_ABS_FLOOR:.1f} "
+                            f"and > {_CHROMA_JUMP_RATIO:.1f}×sim={_sim_scj:.2f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 2
+                        raise RuntimeError(
+                            f"ChromaJumpGate: asp_scj={_asp_scj:.2f}, sim_scj={_sim_scj:.2f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _scj_e:
+                logger.debug("[Bench] ChromaJumpGate skipped: %s", _scj_e)
 
         from PIL import Image
 

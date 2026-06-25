@@ -1210,3 +1210,38 @@ class TestStripContrastCv:
         gray[40:, :] = 128
         cv = _strip_contrast_cv(gray, n_strips=4)
         assert cv >= 0.0
+
+
+class TestSeamChromaJump:
+    """§5.54: Seam chroma jump gate — metric function."""
+
+    def test_none_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _seam_chroma_jump
+        assert _seam_chroma_jump(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _seam_chroma_jump
+        img = np.zeros((10, 10, 3), dtype=np.uint8)
+        assert _seam_chroma_jump(img, n_strips=1) == 0.0
+
+    def test_uniform_image_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _seam_chroma_jump
+        img = np.full((160, 100, 3), 128, dtype=np.uint8)
+        assert _seam_chroma_jump(img, n_strips=8) == pytest.approx(0.0, abs=1e-3)
+
+    def test_color_step_returns_high_jump(self):
+        from backend.src.animation.alignment.canvas import _seam_chroma_jump
+        img = np.zeros((160, 100, 3), dtype=np.uint8)
+        # Top strip: bright blue; bottom 7 strips: dark
+        img[:20, :] = [200, 20, 20]   # bright blue (BGR)
+        img[20:, :] = [20, 20, 20]    # dark
+        jump = _seam_chroma_jump(img, n_strips=8, boundary_px=3)
+        assert jump > 20.0, f"Expected high jump for color step, got {jump}"
+
+    def test_grayscale_input(self):
+        from backend.src.animation.alignment.canvas import _seam_chroma_jump
+        gray = np.zeros((80, 80), dtype=np.uint8)
+        gray[:10, :] = 200
+        gray[10:, :] = 20
+        jump = _seam_chroma_jump(gray, n_strips=4, boundary_px=2)
+        assert jump >= 0.0

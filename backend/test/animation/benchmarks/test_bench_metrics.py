@@ -2394,3 +2394,52 @@ class TestContrastCvGateBench:
             sim_ccv < 0.05 or asp_ccv > ratio * max(sim_ccv, 0.01)
         )
         assert not gate_fires, "Gate should NOT fire: asp_ccv below abs floor"
+
+
+class TestChromaJumpGateBench:
+    """§5.56: Bench seam chroma jump comparative gate — module flags, schema, and logic."""
+
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        assert hasattr(bm, "_CHROMA_JUMP_ABS_FLOOR")
+        assert hasattr(bm, "_CHROMA_JUMP_RATIO")
+        assert isinstance(bm._CHROMA_JUMP_ABS_FLOOR, float)
+        assert isinstance(bm._CHROMA_JUMP_RATIO, float)
+
+    def test_schema_keys_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_CHROMA_JUMP_ABS_FLOOR" in _CONFIG_SCHEMA
+        assert "ASP_GATE_CHROMA_JUMP_RATIO" in _CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_scj = 25.0   # large color step at seam
+        sim_scj = 0.5    # reference nearly uniform
+        floor = bm._CHROMA_JUMP_ABS_FLOOR  # 8.0
+        ratio = bm._CHROMA_JUMP_RATIO       # 2.0
+        gate_fires = asp_scj > floor and (
+            sim_scj < 1.0 or asp_scj > ratio * max(sim_scj, 0.5)
+        )
+        assert gate_fires, "Gate should fire: asp_scj=25 > floor=8 and sim_scj=0.5 < 1.0"
+
+    def test_gate_does_not_fire_when_both_high(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_scj = 12.0
+        sim_scj = 10.0
+        floor = bm._CHROMA_JUMP_ABS_FLOOR  # 8.0
+        ratio = bm._CHROMA_JUMP_RATIO       # 2.0
+        gate_fires = asp_scj > floor and (
+            sim_scj < 1.0 or asp_scj > ratio * max(sim_scj, 0.5)
+        )
+        assert not gate_fires, "Gate should NOT fire: asp ≈ sim (both have similar jumps)"
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_scj = 5.0    # below abs floor of 8.0
+        sim_scj = 0.0
+        floor = bm._CHROMA_JUMP_ABS_FLOOR  # 8.0
+        ratio = bm._CHROMA_JUMP_RATIO       # 2.0
+        gate_fires = asp_scj > floor and (
+            sim_scj < 1.0 or asp_scj > ratio * max(sim_scj, 0.5)
+        )
+        assert not gate_fires, "Gate should NOT fire: asp_scj below abs floor"
