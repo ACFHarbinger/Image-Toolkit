@@ -57,6 +57,8 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_blue_shift_cv,
     _strip_green_channel_cv,
     _seam_red_shift_cv,
+    _strip_blue_channel_cv,
+    _seam_green_shift_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -2050,3 +2052,56 @@ class TestSeamRedShiftCv:
     def test_returns_zero_for_too_small_image(self):
         img = np.ones((4, 64, 3), dtype=np.uint8) * 100
         assert _seam_red_shift_cv(img) == 0.0
+
+
+class TestStripBlueChannelCv:
+    def test_returns_zero_for_none(self):
+        assert _strip_blue_channel_cv(None) == 0.0
+
+    def test_returns_zero_for_grayscale(self):
+        img = np.ones((64, 64), dtype=np.uint8) * 128
+        assert _strip_blue_channel_cv(img) == 0.0
+
+    def test_returns_zero_for_uniform_blue(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_blue_channel_cv(img) == pytest.approx(0.0, abs=1e-5)
+
+    def test_high_cv_on_mixed_blue(self):
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        strip_h = 64 // 8
+        for i in range(8):
+            b_val = 200 if i % 2 == 0 else 20
+            img[i * strip_h:(i + 1) * strip_h, :, 0] = b_val
+        result = _strip_blue_channel_cv(img)
+        assert result > 0.5
+
+    def test_returns_zero_for_too_small_image(self):
+        img = np.ones((4, 64, 3), dtype=np.uint8) * 100
+        assert _strip_blue_channel_cv(img) == 0.0
+
+
+class TestSeamGreenShiftCv:
+    def test_returns_zero_for_none(self):
+        assert _seam_green_shift_cv(None) == 0.0
+
+    def test_returns_zero_for_grayscale(self):
+        img = np.ones((64, 64), dtype=np.uint8) * 128
+        assert _seam_green_shift_cv(img) == 0.0
+
+    def test_returns_zero_for_uniform_green(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _seam_green_shift_cv(img) == pytest.approx(0.0, abs=1e-5)
+
+    def test_high_cv_on_green_mismatch(self):
+        # Most seams match (shift≈0), two seams have large G jumps → high CV
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        strip_h = 64 // 8
+        green_vals = [200, 200, 200, 200, 10, 200, 200, 200]
+        for i, gv in enumerate(green_vals):
+            img[i * strip_h:(i + 1) * strip_h, :, 1] = gv
+        result = _seam_green_shift_cv(img)
+        assert result > 0.5
+
+    def test_returns_zero_for_too_small_image(self):
+        img = np.ones((4, 64, 3), dtype=np.uint8) * 100
+        assert _seam_green_shift_cv(img) == 0.0

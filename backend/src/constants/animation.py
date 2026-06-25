@@ -667,3 +667,6 @@ SEAM_BLUE_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.102: pipeline seam blue shift 
 
 GREEN_CHANNEL_CV_GATE_FLOOR: float = 0.5  # §5.105: pipeline strip green channel CV gate floor
 SEAM_RED_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.106: pipeline seam red shift CV gate floor
+
+BLUE_CHANNEL_CV_GATE_FLOOR: float = 0.6  # §5.109: pipeline strip blue channel CV gate floor
+SEAM_GREEN_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.110: pipeline seam green shift CV gate floor

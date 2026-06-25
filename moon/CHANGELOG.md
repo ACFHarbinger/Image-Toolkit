@@ -4,6 +4,17 @@
 
 ---
 
+## S196 — 2026-06-25 (§5.109 Pipeline Strip Blue Channel CV Gate · §5.110 Pipeline Seam Green Shift CV Gate · §5.111 Bench Strip Blue Channel CV Gate · §5.112 Bench Seam Green Shift CV Gate)
+
+**Tests**: 2135 passing, 78 skipped (30 new)
+
+- **§5.109 `_strip_blue_channel_cv`** — CV of mean BGR Blue (channel 0) per strip; 0.0 for grayscale or mean_blue < 1.0; Stage 11.70 pipeline gate (`_BLUE_CHANNEL_CV_GATE_FLOOR=0.6`, env `ASP_GATE_BLUE_CHANNEL_CV`); completes the R/G/B per-strip trilogy; detects B-axis normalization failure; orthogonal to §5.97 (median luma), §5.101 (Red), §5.105 (Green), §5.86 (hue), §5.90 (saturation), §5.102 (seam blue shift — boundary metric)
+- **§5.110 `_seam_green_shift_cv`** — CV of |mean_G_above − mean_G_below| per seam (BGR channel 1); 0.0 for grayscale or mean_shift < 1.0; Stage 11.71 pipeline gate (`_SEAM_GREEN_SHIFT_CV_GATE_FLOOR=1.2`, env `ASP_GATE_SEAM_GREEN_SHIFT_CV`); completes the R/G/B per-seam trilogy; orthogonal to §5.58 (luma step), §5.102 (seam blue), §5.106 (seam red), §5.86 (hue), §5.90 (saturation)
+- **§5.111 bench BlueChannelCvGate** — `_BLUE_CHANNEL_CV_ABS_FLOOR=0.20`, ratio=3.0; fires when asp > 0.20 AND (sim < 0.07 OR asp > 3.0× sim)
+- **§5.112 bench SeamGreenShiftCvGate** — `_SEAM_GREEN_SHIFT_CV_ABS_FLOOR=0.30`, ratio=2.0; fires when asp > 0.30 AND (sim < 0.10 OR asp > 2.0× sim)
+
+---
+
 ## S195 — 2026-06-25 (§5.105 Pipeline Strip Green Channel CV Gate · §5.106 Pipeline Seam Red Shift CV Gate · §5.107 Bench Strip Green Channel CV Gate · §5.108 Bench Seam Red Shift CV Gate)
 
 **Tests**: 2105 passing, 78 skipped (30 new)
