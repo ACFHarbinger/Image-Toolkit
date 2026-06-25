@@ -56,6 +56,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_gradient_cv,
     _strip_hist_intersection_min,
     _strip_hue_cv,
+    _strip_luma_mad,
     _strip_luma_monotonicity,
     _strip_luma_range,
     _strip_sat_cv,
@@ -778,6 +779,12 @@ _LUMA_RANGE_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_RANGE_FLOOR"
 # High density = cluttered/artifacted strip or hard seam in dense-edge region.
 _EDGE_DENSITY_GATE_ENABLED: bool = os.environ.get("ASP_GATE_EDGE_DENSITY", "1") != "0"
 _EDGE_DENSITY_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_FLOOR", "0.30"))
+
+# §5.49 — Pipeline Strip Luma MAD Gate (Stage 11.40).
+# Fires when mean absolute deviation of strip luma means from global mean > floor → SCANS.
+# High MAD = strip-level banding (complements luma range which only captures extremes).
+_LUMA_MAD_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_MAD", "1") != "0"
+_LUMA_MAD_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_MAD_FLOOR", "20.0"))
 
 
 def _compute_bg_lum_spread(
@@ -5059,6 +5066,24 @@ class AnimeStitchPipeline:
             except Exception as _ed_e:
                 logger.debug("[Stitch] Stage 11.39: EdgeDensityGate skipped (%s).", _ed_e)
 
+        # ── Stage 11.40: §5.49 Strip Luma MAD Gate ──────────────────────────
+        if _LUMA_MAD_GATE_ENABLED and N > 1:
+            try:
+                _lmad_val = _strip_luma_mad(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.40: strip_luma_mad=%.2f (floor=%.1f).", _lmad_val, _LUMA_MAD_GATE_FLOOR)
+                if _lmad_val > _LUMA_MAD_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.40: LumaMadGate FAILED (mad=%.2f > floor=%.1f) → SCANS fallback.",
+                        _lmad_val, _LUMA_MAD_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"luma_mad_gate:{_lmad_val:.2f}",
+                    )
+            except Exception as _lmad_e:
+                logger.debug("[Stitch] Stage 11.40: LumaMadGate skipped (%s).", _lmad_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5806,4 +5831,6 @@ __all__ = [
     "_EDGE_DENSITY_GATE_ENABLED",
     "_EDGE_DENSITY_GATE_FLOOR",
     "_seam_edge_density",
+    "_LUMA_MAD_GATE_ENABLED",
+    "_LUMA_MAD_GATE_FLOOR",
 ]
