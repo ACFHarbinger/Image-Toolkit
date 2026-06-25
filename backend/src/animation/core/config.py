@@ -1177,6 +1177,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_VALID_AREA_RATIO": (float, 0.0, 1.0, "§5.43: Bench canvas valid-area ratio limit (default 0.7); gate fires when ASP valid area < ratio × SCANS valid area"),
     "ASP_GATE_SAT_CV_ABS_FLOOR": (float, 0.0, 2.0, "§5.44: Bench strip saturation CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
     "ASP_GATE_SAT_CV_RATIO": (float, 0.0, 10.0, "§5.44: Bench strip saturation CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_LUMA_RANGE_ABS_FLOOR": (float, 0.0, 255.0, "§5.47: Bench strip luma range absolute floor (luma units, default 30.0); gate only fires when ASP luma range exceeds this"),
+    "ASP_GATE_LUMA_RANGE_RATIO": (float, 0.0, 10.0, "§5.47: Bench strip luma range ratio limit vs SCANS (default 2.0); fires when ASP range > ratio × SCANS range"),
+    "ASP_GATE_EDGE_DENSITY_ABS_FLOOR": (float, 0.0, 1.0, "§5.48: Bench strip edge density absolute floor (fraction, default 0.15); gate only fires when ASP edge density exceeds this"),
+    "ASP_GATE_EDGE_DENSITY_RATIO": (float, 0.0, 10.0, "§5.48: Bench strip edge density ratio limit vs SCANS (default 2.5); fires when ASP density > ratio × SCANS density"),
 }
 
 
