@@ -4,6 +4,42 @@
 
 ---
 
+## S179 — 2026-06-25 (§5.41 Pipeline Strip Hue CV Gate · §5.42 Pipeline Seam Boundary Sharpness Ratio Gate · §5.43 Bench Canvas Valid-Area Gate · §5.44 Bench Strip Saturation CV Gate)
+
+*Four new post-composite quality gates: two pipeline gates (Stage 11.36 hue CV, Stage 11.37 seam sharpness ratio) and two bench comparative gates (valid-area parity, saturation CV parity). 1625 tests passing (85 skipped).*
+
+### §5.41 Pipeline Strip Hue CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_hue_cv(img, n_strips=8)` in `canvas.py` — circular mean hue per strip via cos/sin averaging for the 0–179 hue wrap; returns std/mean of per-strip angles; returns 0.0 for monochrome (mean sat < 1) or degenerate input
+- Stage 11.36 gate in `pipeline.py`: fires when `cv > _HUE_CV_GATE_FLOOR` (default 0.50) → SCANS fallback
+- Flags: `_HUE_CV_GATE_ENABLED` (`ASP_GATE_HUE_CV`, default 1), `_HUE_CV_GATE_FLOOR` (`ASP_GATE_HUE_CV_FLOOR`, default 0.50)
+- `HUE_CV_GATE_FLOOR = 0.50` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripHueCv` (`test_canvas.py`), 5 tests in `TestHueCvGatePipeline` (`test_pipeline.py`)
+
+### §5.42 Pipeline Seam Boundary Sharpness Ratio Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_boundary_sharpness_ratio(img, n_strips=8, boundary_px=3)` in `canvas.py` — Laplacian variance in ±boundary_px around each seam boundary vs strip interior (middle half); max ratio across boundaries capped at 50.0; skips when interior_var < 1.0 (flat image guard)
+- Stage 11.37 gate in `pipeline.py`: fires when `ratio > _SEAM_SHARP_RATIO_GATE_FLOOR` (default 4.0) → SCANS fallback
+- Flags: `_SEAM_SHARP_RATIO_GATE_ENABLED` (`ASP_GATE_SEAM_SHARP_RATIO`, default 1), `_SEAM_SHARP_RATIO_GATE_FLOOR` (`ASP_GATE_SEAM_SHARP_RATIO_FLOOR`, default 4.0)
+- `SEAM_SHARP_RATIO_GATE_FLOOR = 4.0` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestSeamBoundarySharpnessRatio` (`test_canvas.py`), 5 tests in `TestSeamSharpRatioGatePipeline` (`test_pipeline.py`)
+
+### §5.43 Bench Canvas Valid-Area Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `ValidAreaGate` block in `run_dataset()` after `SeamGradRatioGate`; reuses `_canvas_valid_area_ratio` from `canvas.py`
+- Dual condition: fires when `asp_va < _VALID_AREA_ABS_FLOOR` (default 0.30) OR `asp_va < 0.7 × sim_va` when `sim_va > 0.5`
+- Module constants: `_VALID_AREA_ABS_FLOOR`, `_VALID_AREA_RATIO`; 2 schema entries in `config.py`
+- 5 tests in `TestValidAreaGateBench` (`test_bench_metrics.py`)
+
+### §5.44 Bench Strip Saturation CV Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `SatCvGate` block in `run_dataset()` after `ValidAreaGate`; reuses `_strip_sat_cv` from `canvas.py`
+- Dual condition: fires when `asp_sc > _SAT_CV_ABS_FLOOR` (default 0.30) AND `asp_sc > 2.0 × max(sim_sc, 0.001)` — absolute floor prevents false positives on genuinely saturated sequences
+- Module constants: `_SAT_CV_ABS_FLOOR`, `_SAT_CV_RATIO`; 2 schema entries in `config.py`
+- 5 tests in `TestSatCvGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S178 — 2026-06-25 (§5.37 Bench Histogram Intersection Gate · §5.38 Pipeline Strip Saturation CV Gate · §5.39 Pipeline Canvas Valid-Area Ratio Gate · §5.40 Bench Seam Gradient Ratio Gate)
 
 *Four new post-composite quality gates: a bench comparative histogram intersection gate (§5.37), a pipeline strip HSV-saturation CV gate Stage 11.34 (§5.38), a pipeline canvas valid-area ratio gate Stage 11.35 (§5.39), and a bench comparative seam gradient ratio gate (§5.40). 1595 tests passing (85 skipped).*
