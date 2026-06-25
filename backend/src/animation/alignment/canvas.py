@@ -1169,11 +1169,41 @@ def _seam_chroma_jump(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) 
     return max_jump
 
 
+def _strip_noise_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.57: Coefficient of variation (std/mean) of per-strip noise estimate.
+
+    Noise per strip estimated as mean absolute deviation from a Gaussian-blurred
+    version of the strip (blur sigma=1.5). High CV = some strips are noisy
+    (high-frequency artifacts) while others are smooth, indicating composite
+    segments from frames with mismatched encoding or sharpening.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips,
+    mean per-strip noise < 0.5 guard for uniformly smooth images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    strip_h = h // n_strips
+    noises = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h].astype(np.float32)
+        blurred = cv2.GaussianBlur(strip, (0, 0), 1.5)
+        noises.append(float(np.abs(strip - blurred).mean()))
+    noises = np.array(noises)
+    mean_noise = float(noises.mean())
+    if mean_noise < 0.5:
+        return 0.0
+    return float(noises.std() / mean_noise)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
     "_compute_canvas",
     "_crop_to_valid",
+    "_strip_noise_cv",
     "_telea_fill_gaps",
     "_canvas_valid_area_ratio",
     "_smooth_seam_bands",

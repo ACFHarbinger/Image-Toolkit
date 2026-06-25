@@ -3163,3 +3163,29 @@ class TestChromaJumpGatePipeline:
         import backend.src.animation.core.pipeline as pl
         monkeypatch.setattr(pl, "_CHROMA_JUMP_GATE_ENABLED", False)
         assert pl._CHROMA_JUMP_GATE_ENABLED is False
+
+
+class TestNoiseCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._NOISE_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._NOISE_CV_GATE_FLOOR, float)
+        assert pipeline._NOISE_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_NOISE_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_NOISE_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_noise_cv
+        rng = np.random.default_rng(7)
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        noise = rng.integers(0, 80, (64, 128, 3), dtype=np.int16)
+        top = img[:64].astype(np.int16) + noise
+        img[:64] = np.clip(top, 0, 255).astype(np.uint8)
+        assert _strip_noise_cv(img, n_strips=8) > 0.5
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_NOISE_CV_GATE_ENABLED", False)
+        assert pipeline._NOISE_CV_GATE_ENABLED is False

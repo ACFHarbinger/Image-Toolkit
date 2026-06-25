@@ -39,7 +39,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _seam_ncc_coherence,
     _composite_quality_score,
     _seam_ownership_entropy,
+    _NOISE_CV_ABS_FLOOR,
+    _NOISE_CV_RATIO,
 )
+from backend.src.animation.core import config as _asp_config  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -2443,3 +2446,37 @@ class TestChromaJumpGateBench:
             sim_scj < 1.0 or asp_scj > ratio * max(sim_scj, 0.5)
         )
         assert not gate_fires, "Gate should NOT fire: asp_scj below abs floor"
+
+
+class TestNoiseCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_NOISE_CV_ABS_FLOOR, float)
+        assert isinstance(_NOISE_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_NOISE_CV_ABS_FLOOR" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_NOISE_CV_RATIO" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_ncv = 0.80
+        sim_ncv = 0.01
+        fires = asp_ncv > _NOISE_CV_ABS_FLOOR and (
+            sim_ncv < 0.05 or asp_ncv > _NOISE_CV_RATIO * max(sim_ncv, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_ncv = 0.60
+        sim_ncv = 0.50
+        fires = asp_ncv > _NOISE_CV_ABS_FLOOR and (
+            sim_ncv < 0.05 or asp_ncv > _NOISE_CV_RATIO * max(sim_ncv, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_ncv = 0.30
+        sim_ncv = 0.0
+        fires = asp_ncv > _NOISE_CV_ABS_FLOOR and (
+            sim_ncv < 0.05 or asp_ncv > _NOISE_CV_RATIO * max(sim_ncv, 0.01)
+        )
+        assert not fires

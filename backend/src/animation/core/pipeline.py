@@ -61,6 +61,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_luma_mad,
     _strip_luma_monotonicity,
     _strip_luma_range,
+    _strip_noise_cv,
     _strip_sat_cv,
     _strip_seam_gradient_score,
     _strip_self_ssim,
@@ -596,6 +597,9 @@ _CONTRAST_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CONTRAST_CV_FLOO
 # §5.54 — Pipeline Seam Chroma Jump Gate (Stage 11.43).
 _CHROMA_JUMP_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CHROMA_JUMP", "1") != "0"
 _CHROMA_JUMP_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_JUMP_FLOOR", "15.0"))
+# §5.57 — Pipeline Strip Noise CV Gate (Stage 11.44).
+_NOISE_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_NOISE_CV", "1") != "0"
+_NOISE_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_NOISE_CV_FLOOR", "1.2"))
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -5152,6 +5156,23 @@ class AnimeStitchPipeline:
                     )
             except Exception as _scj_e:
                 logger.debug("[Stitch] Stage 11.43: ChromaJumpGate skipped (%s).", _scj_e)
+        # ── Stage 11.44: §5.57 Strip Noise CV Gate ───────────────────────────
+        if _NOISE_CV_GATE_ENABLED and N > 1:
+            try:
+                _ncv_val = _strip_noise_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.44: strip_noise_cv=%.4f (floor=%.3f).", _ncv_val, _NOISE_CV_GATE_FLOOR)
+                if _ncv_val > _NOISE_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.44: NoiseCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _ncv_val, _NOISE_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"noise_cv_gate:{_ncv_val:.4f}",
+                    )
+            except Exception as _ncv_e:
+                logger.debug("[Stitch] Stage 11.44: NoiseCvGate skipped (%s).", _ncv_e)
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -5908,4 +5929,6 @@ __all__ = [
     "_CONTRAST_CV_GATE_FLOOR",
     "_CHROMA_JUMP_GATE_ENABLED",
     "_CHROMA_JUMP_GATE_FLOOR",
+    "_NOISE_CV_GATE_ENABLED",
+    "_NOISE_CV_GATE_FLOOR",
 ]

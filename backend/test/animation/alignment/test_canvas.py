@@ -32,6 +32,7 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_boundary_sharpness_ratio,
     _smooth_seam_bands,
     _strip_hue_cv,
+    _strip_noise_cv,
     _telea_fill_gaps,
 )
 from backend.src.animation.core.pipeline import _compute_row_coverage  # noqa: E402
@@ -1245,3 +1246,31 @@ class TestSeamChromaJump:
         gray[10:, :] = 20
         jump = _seam_chroma_jump(gray, n_strips=4, boundary_px=2)
         assert jump >= 0.0
+
+
+class TestStripNoiseCv:
+    def test_none_returns_zero(self):
+        assert _strip_noise_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_noise_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_smooth_returns_zero(self):
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        assert _strip_noise_cv(img, n_strips=8) == 0.0
+
+    def test_mixed_noise_returns_high_cv(self):
+        rng = np.random.default_rng(42)
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        # Top 4 strips (rows 0–63): add high-frequency noise
+        noise = rng.integers(0, 80, (64, 128, 3), dtype=np.int16)
+        top = img[:64].astype(np.int16) + noise
+        img[:64] = np.clip(top, 0, 255).astype(np.uint8)
+        cv = _strip_noise_cv(img, n_strips=8)
+        assert cv > 0.3
+
+    def test_grayscale_input(self):
+        gray = np.full((64, 64), 128, dtype=np.uint8)
+        result = _strip_noise_cv(gray, n_strips=4)
+        assert result >= 0.0

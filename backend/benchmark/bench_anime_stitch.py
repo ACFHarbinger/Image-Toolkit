@@ -118,6 +118,9 @@ _CONTRAST_CV_RATIO: float = float(os.environ.get("ASP_GATE_CONTRAST_CV_RATIO", "
 # §5.56: Bench seam chroma jump comparative gate
 _CHROMA_JUMP_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_JUMP_ABS_FLOOR", "8.0"))
 _CHROMA_JUMP_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_JUMP_RATIO", "2.0"))
+# §5.59: Bench strip noise CV comparative gate
+_NOISE_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_NOISE_CV_ABS_FLOOR", "0.50"))
+_NOISE_CV_RATIO: float = float(os.environ.get("ASP_GATE_NOISE_CV_RATIO", "2.5"))
 
 logger = logging.getLogger(__name__)
 
@@ -3621,6 +3624,32 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _scj_e:
                 logger.debug("[Bench] ChromaJumpGate skipped: %s", _scj_e)
+        # §5.59 NoiseCvGate — comparative strip noise CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_ncv = cv2.imread(central_simple_path)
+                if _simple_img_ncv is not None:
+                    from backend.src.animation.alignment.canvas import _strip_noise_cv
+                    _asp_ncv = _strip_noise_cv(canvas_out, n_strips=8)
+                    _sim_ncv = _strip_noise_cv(_simple_img_ncv, n_strips=8)
+                    print(f"  [NoiseCvGate] asp_ncv={_asp_ncv:.4f}  sim_ncv={_sim_ncv:.4f}")
+                    if _asp_ncv > _NOISE_CV_ABS_FLOOR and (
+                        _sim_ncv < 0.05 or _asp_ncv > _NOISE_CV_RATIO * max(_sim_ncv, 0.01)
+                    ):
+                        _fallback_reason = f"noise_cv_gate:{_asp_ncv:.4f}"
+                        print(
+                            f"  [NoiseCvGate] FAILED "
+                            f"(asp_ncv={_asp_ncv:.4f} > floor={_NOISE_CV_ABS_FLOOR:.2f} "
+                            f"and > {_NOISE_CV_RATIO:.1f}×sim={_sim_ncv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"NoiseCvGate: asp_ncv={_asp_ncv:.4f}, sim_ncv={_sim_ncv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _ncv_e:
+                logger.debug("[Bench] NoiseCvGate skipped: %s", _ncv_e)
 
         from PIL import Image
 
