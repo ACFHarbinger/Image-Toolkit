@@ -130,6 +130,12 @@ _ENTROPY_CV_RATIO: float = float(os.environ.get("ASP_GATE_ENTROPY_CV_RATIO", "2.
 # §5.64: Bench seam chroma step CV comparative gate
 _CHROMA_STEP_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_STEP_CV_ABS_FLOOR", "0.30"))
 _CHROMA_STEP_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_STEP_CV_RATIO", "2.0"))
+# §5.71: Bench strip luma IQR CV comparative gate
+_LUMA_IQR_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_IQR_CV_ABS_FLOOR", "0.40"))
+_LUMA_IQR_CV_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_IQR_CV_RATIO", "2.5"))
+# §5.72: Bench seam column variance CV comparative gate
+_SEAM_COL_VAR_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_COL_VAR_CV_ABS_FLOOR", "0.40"))
+_SEAM_COL_VAR_CV_RATIO: float = float(os.environ.get("ASP_GATE_SEAM_COL_VAR_CV_RATIO", "2.0"))
 # §5.67: Bench strip chroma energy CV comparative gate
 _CHROMA_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR", "0.30"))
 _CHROMA_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_RATIO", "2.5"))
@@ -3795,6 +3801,58 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _sgcv_e:
                 logger.debug("[Bench] SeamGradientCvGate skipped: %s", _sgcv_e)
+        # §5.71 LumaIqrCvGate — comparative strip luma IQR CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_iqr = cv2.imread(central_simple_path)
+                if _simple_img_iqr is not None:
+                    from backend.src.animation.alignment.canvas import _strip_luma_iqr_cv
+                    _asp_iqr = _strip_luma_iqr_cv(canvas_out, n_strips=8)
+                    _sim_iqr = _strip_luma_iqr_cv(_simple_img_iqr, n_strips=8)
+                    print(f"  [LumaIqrCvGate] asp_iqr={_asp_iqr:.4f}  sim_iqr={_sim_iqr:.4f}")
+                    if _asp_iqr > _LUMA_IQR_CV_ABS_FLOOR and (
+                        _sim_iqr < 0.05 or _asp_iqr > _LUMA_IQR_CV_RATIO * max(_sim_iqr, 0.01)
+                    ):
+                        _fallback_reason = f"luma_iqr_cv_gate:{_asp_iqr:.4f}"
+                        print(
+                            f"  [LumaIqrCvGate] FAILED "
+                            f"(asp_iqr={_asp_iqr:.4f} > floor={_LUMA_IQR_CV_ABS_FLOOR:.2f} "
+                            f"and > {_LUMA_IQR_CV_RATIO:.1f}×sim={_sim_iqr:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"LumaIqrCvGate: asp_iqr={_asp_iqr:.4f}, sim_iqr={_sim_iqr:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _iqr_e:
+                logger.debug("[Bench] LumaIqrCvGate skipped: %s", _iqr_e)
+        # §5.72 SeamColVarCvGate — comparative seam column variance CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_scvar = cv2.imread(central_simple_path)
+                if _simple_img_scvar is not None:
+                    from backend.src.animation.alignment.canvas import _seam_column_variance_cv
+                    _asp_scvar = _seam_column_variance_cv(canvas_out, n_strips=8, boundary_px=3)
+                    _sim_scvar = _seam_column_variance_cv(_simple_img_scvar, n_strips=8, boundary_px=3)
+                    print(f"  [SeamColVarCvGate] asp_scvar={_asp_scvar:.4f}  sim_scvar={_sim_scvar:.4f}")
+                    if _asp_scvar > _SEAM_COL_VAR_CV_ABS_FLOOR and (
+                        _sim_scvar < 0.05 or _asp_scvar > _SEAM_COL_VAR_CV_RATIO * max(_sim_scvar, 0.01)
+                    ):
+                        _fallback_reason = f"seam_col_var_cv_gate:{_asp_scvar:.4f}"
+                        print(
+                            f"  [SeamColVarCvGate] FAILED "
+                            f"(asp_scvar={_asp_scvar:.4f} > floor={_SEAM_COL_VAR_CV_ABS_FLOOR:.2f} "
+                            f"and > {_SEAM_COL_VAR_CV_RATIO:.1f}×sim={_sim_scvar:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"SeamColVarCvGate: asp_scvar={_asp_scvar:.4f}, sim_scvar={_sim_scvar:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _scvar_e:
+                logger.debug("[Bench] SeamColVarCvGate skipped: %s", _scvar_e)
 
         from PIL import Image
 

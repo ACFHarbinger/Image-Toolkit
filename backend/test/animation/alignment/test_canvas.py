@@ -31,12 +31,14 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _per_seam_lum_step_px,
     _seam_boundary_sharpness_ratio,
     _seam_chroma_step_cv,
+    _seam_column_variance_cv,
     _seam_gradient_cv,
     _seam_luma_step_cv,
     _smooth_seam_bands,
     _strip_chroma_energy_cv,
     _strip_entropy_cv,
     _strip_hue_cv,
+    _strip_luma_iqr_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1418,3 +1420,58 @@ class TestSeamGradientCv:
         rng = np.random.default_rng(3)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_gradient_cv(img, n_strips=8, band_px=5) >= 0.0
+
+
+class TestStripLumaIqrCv:
+    def test_none_returns_zero(self):
+        assert _strip_luma_iqr_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_luma_iqr_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        assert _strip_luma_iqr_cv(img, n_strips=8) == 0.0
+
+    def test_mixed_tonal_spread_returns_high_cv(self):
+        rng = np.random.default_rng(42)
+        img = np.zeros((128, 128, 3), dtype=np.uint8)
+        img[:64] = 128
+        noise = rng.integers(0, 220, (64, 128, 3), dtype=np.uint8)
+        img[64:] = noise
+        cv = _strip_luma_iqr_cv(img, n_strips=8)
+        assert cv > 0.3
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(11)
+        img = rng.integers(0, 256, (128, 128, 3), dtype=np.uint8)
+        assert _strip_luma_iqr_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamColumnVarianceCv:
+    def test_none_returns_zero(self):
+        assert _seam_column_variance_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        assert _seam_column_variance_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _seam_column_variance_cv(img, n_strips=8, boundary_px=3) == 0.0
+
+    def test_varied_col_steps_returns_positive(self):
+        h, w = 160, 64
+        img = np.full((h, w, 3), 100, dtype=np.uint8)
+        strip_h = h // 8
+        boundary_row = strip_h
+        for col in range(0, w, 2):
+            img[max(0, boundary_row - 3):boundary_row, col] = 200
+        result = _seam_column_variance_cv(img, n_strips=8, boundary_px=3)
+        assert result >= 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(13)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_column_variance_cv(img, n_strips=8, boundary_px=3) >= 0.0

@@ -52,6 +52,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_chroma_jump,
     _seam_chroma_step_cv,
     _seam_coherence_score,
+    _seam_column_variance_cv,
     _seam_gradient_cv,
     _seam_edge_density,
     _seam_luma_step_cv,
@@ -60,6 +61,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_contrast_cv,
     _strip_chroma_energy_cv,
     _strip_entropy_cv,
+    _strip_luma_iqr_cv,
     _strip_gradient_cv,
     _strip_hist_intersection_min,
     _strip_hue_cv,
@@ -666,6 +668,12 @@ _CHROMA_ENERGY_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENER
 # §5.66 — Pipeline Seam Gradient CV Gate (Stage 11.49).
 _SEAM_GRADIENT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_GRADIENT_CV", "1") != "0"
 _SEAM_GRADIENT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_GRADIENT_CV_FLOOR", "1.0"))
+# §5.69 — Pipeline Strip Luma IQR CV Gate (Stage 11.50).
+_LUMA_IQR_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_IQR_CV", "1") != "0"
+_LUMA_IQR_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_IQR_CV_FLOOR", "0.8"))
+# §5.70 — Pipeline Seam Column Variance CV Gate (Stage 11.51).
+_SEAM_COL_VAR_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_COL_VAR_CV", "1") != "0"
+_SEAM_COL_VAR_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_COL_VAR_CV_FLOOR", "1.0"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5284,6 +5292,42 @@ class AnimeStitchPipeline:
             except Exception as _sgcv_e:
                 logger.debug("[Stitch] Stage 11.49: SeamGradientCvGate skipped (%s).", _sgcv_e)
 
+        # ── Stage 11.50: §5.69 Strip Luma IQR CV Gate ────────────────────────
+        if _LUMA_IQR_CV_GATE_ENABLED and N > 1:
+            try:
+                _iqr_val = _strip_luma_iqr_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.50: strip_luma_iqr_cv=%.4f (floor=%.3f).", _iqr_val, _LUMA_IQR_CV_GATE_FLOOR)
+                if _iqr_val > _LUMA_IQR_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.50: LumaIqrCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _iqr_val, _LUMA_IQR_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"luma_iqr_cv_gate:{_iqr_val:.4f}",
+                    )
+            except Exception as _iqr_e:
+                logger.debug("[Stitch] Stage 11.50: LumaIqrCvGate skipped (%s).", _iqr_e)
+
+        # ── Stage 11.51: §5.70 Seam Column Variance CV Gate ──────────────────
+        if _SEAM_COL_VAR_CV_GATE_ENABLED and N > 1:
+            try:
+                _scvarcv_val = _seam_column_variance_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.51: seam_column_variance_cv=%.4f (floor=%.3f).", _scvarcv_val, _SEAM_COL_VAR_CV_GATE_FLOOR)
+                if _scvarcv_val > _SEAM_COL_VAR_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.51: SeamColVarCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _scvarcv_val, _SEAM_COL_VAR_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_col_var_cv_gate:{_scvarcv_val:.4f}",
+                    )
+            except Exception as _scvarcv_e:
+                logger.debug("[Stitch] Stage 11.51: SeamColVarCvGate skipped (%s).", _scvarcv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -6051,4 +6095,8 @@ __all__ = [
     "_CHROMA_ENERGY_CV_GATE_FLOOR",
     "_SEAM_GRADIENT_CV_GATE_ENABLED",
     "_SEAM_GRADIENT_CV_GATE_FLOOR",
+    "_LUMA_IQR_CV_GATE_ENABLED",
+    "_LUMA_IQR_CV_GATE_FLOOR",
+    "_SEAM_COL_VAR_CV_GATE_ENABLED",
+    "_SEAM_COL_VAR_CV_GATE_FLOOR",
 ]

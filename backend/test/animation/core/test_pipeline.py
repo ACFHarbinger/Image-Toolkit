@@ -3319,3 +3319,52 @@ class TestSeamGradientCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_SEAM_GRADIENT_CV_GATE_ENABLED", False)
         assert pipeline._SEAM_GRADIENT_CV_GATE_ENABLED is False
+
+
+class TestLumaIqrCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._LUMA_IQR_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._LUMA_IQR_CV_GATE_FLOOR, float)
+        assert pipeline._LUMA_IQR_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_LUMA_IQR_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_LUMA_IQR_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_iqr_cv
+        rng = np.random.default_rng(42)
+        img = np.zeros((128, 128, 3), dtype=np.uint8)
+        img[:64] = 128
+        noise = rng.integers(0, 220, (64, 128, 3), dtype=np.uint8)
+        img[64:] = noise
+        assert _strip_luma_iqr_cv(img, n_strips=8) > 0.3
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_LUMA_IQR_CV_GATE_ENABLED", False)
+        assert pipeline._LUMA_IQR_CV_GATE_ENABLED is False
+
+
+class TestSeamColVarCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_COL_VAR_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_COL_VAR_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_COL_VAR_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_COL_VAR_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_COL_VAR_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_column_variance_cv
+        rng = np.random.default_rng(7)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_column_variance_cv(img, n_strips=8, boundary_px=3) >= 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_COL_VAR_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_COL_VAR_CV_GATE_ENABLED is False
