@@ -136,6 +136,12 @@ _LUMA_IQR_CV_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_IQR_CV_RATIO", "
 # §5.72: Bench seam column variance CV comparative gate
 _SEAM_COL_VAR_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_COL_VAR_CV_ABS_FLOOR", "0.40"))
 _SEAM_COL_VAR_CV_RATIO: float = float(os.environ.get("ASP_GATE_SEAM_COL_VAR_CV_RATIO", "2.0"))
+# §5.75: Bench strip luma skewness CV comparative gate
+_LUMA_SKEW_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_LUMA_SKEW_CV_ABS_FLOOR", "0.50"))
+_LUMA_SKEW_CV_RATIO: float = float(os.environ.get("ASP_BENCH_LUMA_SKEW_CV_RATIO", "2.5"))
+# §5.76: Bench seam signed step CV comparative gate
+_SEAM_SIGNED_STEP_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_SIGNED_STEP_CV_ABS_FLOOR", "0.40"))
+_SEAM_SIGNED_STEP_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_SIGNED_STEP_CV_RATIO", "2.0"))
 # §5.67: Bench strip chroma energy CV comparative gate
 _CHROMA_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR", "0.30"))
 _CHROMA_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_RATIO", "2.5"))
@@ -3853,6 +3859,60 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _scvar_e:
                 logger.debug("[Bench] SeamColVarCvGate skipped: %s", _scvar_e)
+
+        # §5.75 LumaSkewCvGate — comparative strip luma skewness CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_lskew = cv2.imread(central_simple_path)
+                if _simple_img_lskew is not None:
+                    from backend.src.animation.alignment.canvas import _strip_luma_skewness_cv
+                    _asp_lskew = _strip_luma_skewness_cv(canvas_out, n_strips=8)
+                    _sim_lskew = _strip_luma_skewness_cv(_simple_img_lskew, n_strips=8)
+                    print(f"  [LumaSkewCvGate] asp_lskew={_asp_lskew:.4f}  sim_lskew={_sim_lskew:.4f}")
+                    if _asp_lskew > _LUMA_SKEW_CV_ABS_FLOOR and (
+                        _sim_lskew < 0.20 or _asp_lskew > _LUMA_SKEW_CV_RATIO * max(_sim_lskew, 0.01)
+                    ):
+                        _fallback_reason = f"luma_skew_cv_gate:{_asp_lskew:.4f}"
+                        print(
+                            f"  [LumaSkewCvGate] FAILED "
+                            f"(asp_lskew={_asp_lskew:.4f} > floor={_LUMA_SKEW_CV_ABS_FLOOR:.2f} "
+                            f"and > {_LUMA_SKEW_CV_RATIO:.1f}×sim={_sim_lskew:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"LumaSkewCvGate: asp_lskew={_asp_lskew:.4f}, sim_lskew={_sim_lskew:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _lskew_e:
+                logger.debug("[Bench] LumaSkewCvGate skipped: %s", _lskew_e)
+
+        # §5.76 SeamSignedStepCvGate — comparative seam signed step CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_sssv = cv2.imread(central_simple_path)
+                if _simple_img_sssv is not None:
+                    from backend.src.animation.alignment.canvas import _seam_signed_step_cv
+                    _asp_sssv = _seam_signed_step_cv(canvas_out, n_strips=8, boundary_px=3)
+                    _sim_sssv = _seam_signed_step_cv(_simple_img_sssv, n_strips=8, boundary_px=3)
+                    print(f"  [SeamSignedStepCvGate] asp_sssv={_asp_sssv:.4f}  sim_sssv={_sim_sssv:.4f}")
+                    if _asp_sssv > _SEAM_SIGNED_STEP_CV_ABS_FLOOR and (
+                        _sim_sssv < 0.20 or _asp_sssv > _SEAM_SIGNED_STEP_CV_RATIO * max(_sim_sssv, 0.01)
+                    ):
+                        _fallback_reason = f"seam_signed_step_cv_gate:{_asp_sssv:.4f}"
+                        print(
+                            f"  [SeamSignedStepCvGate] FAILED "
+                            f"(asp_sssv={_asp_sssv:.4f} > floor={_SEAM_SIGNED_STEP_CV_ABS_FLOOR:.2f} "
+                            f"and > {_SEAM_SIGNED_STEP_CV_RATIO:.1f}×sim={_sim_sssv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"SeamSignedStepCvGate: asp_sssv={_asp_sssv:.4f}, sim_sssv={_sim_sssv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _sssv_e:
+                logger.debug("[Bench] SeamSignedStepCvGate skipped: %s", _sssv_e)
 
         from PIL import Image
 

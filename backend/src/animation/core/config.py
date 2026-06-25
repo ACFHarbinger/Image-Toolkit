@@ -1229,6 +1229,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_SEAM_COL_VAR_CV_FLOOR": (float, 0.0, 10.0, "§5.70: Seam column variance CV gate floor (default 1.0; high CV = inconsistent column-wise luma step regularity across seams — partial registration failure or diagonal artifact)"),
     "ASP_GATE_SEAM_COL_VAR_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.72: Bench seam column variance CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
     "ASP_GATE_SEAM_COL_VAR_CV_RATIO": (float, 0.0, 10.0, "§5.72: Bench seam column variance CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_LUMA_SKEW_CV": (int, 0, 1, "§5.73: Enable pipeline strip luma skewness CV gate (0 or 1, default 1)"),
+    "ASP_GATE_LUMA_SKEW_CV_FLOOR": (float, 0.0, 10.0, "§5.73: Strip luma skewness CV gate floor (default 1.5; high CV = inconsistent tonal character — some strips right-skewed, others left-skewed)"),
+    "ASP_GATE_SEAM_SIGNED_STEP_CV": (int, 0, 1, "§5.74: Enable pipeline seam signed step CV gate (0 or 1, default 1)"),
+    "ASP_GATE_SEAM_SIGNED_STEP_CV_FLOOR": (float, 0.0, 10.0, "§5.74: Seam signed step CV gate floor (default 1.2; high CV = alternating-direction luma steps at seams — poor gain normalization order)"),
+    "ASP_BENCH_LUMA_SKEW_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.75: Bench strip luma skewness CV absolute floor (default 0.50); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_LUMA_SKEW_CV_RATIO": (float, 0.0, 20.0, "§5.75: Bench strip luma skewness CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_BENCH_SEAM_SIGNED_STEP_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.76: Bench seam signed step CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_SEAM_SIGNED_STEP_CV_RATIO": (float, 0.0, 20.0, "§5.76: Bench seam signed step CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

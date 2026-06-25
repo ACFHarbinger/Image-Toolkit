@@ -33,12 +33,14 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_chroma_step_cv,
     _seam_column_variance_cv,
     _seam_gradient_cv,
+    _seam_signed_step_cv,
     _seam_luma_step_cv,
     _smooth_seam_bands,
     _strip_chroma_energy_cv,
     _strip_entropy_cv,
     _strip_hue_cv,
     _strip_luma_iqr_cv,
+    _strip_luma_skewness_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1475,3 +1477,61 @@ class TestSeamColumnVarianceCv:
         rng = np.random.default_rng(13)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_column_variance_cv(img, n_strips=8, boundary_px=3) >= 0.0
+
+
+class TestStripLumaSkewnessCv:
+    def test_none_returns_zero(self):
+        assert _strip_luma_skewness_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_luma_skewness_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        assert _strip_luma_skewness_cv(img, n_strips=8) == 0.0
+
+    def test_mixed_skewness_returns_positive(self):
+        # Build image: top half is dark base with bright highlight row → positive skew
+        # Bottom half is bright base with dark shadow row → negative skew
+        img = np.zeros((128, 128, 3), dtype=np.uint8)
+        img[:64] = 20
+        img[0] = 255  # bright highlight in dark strip → positive skew
+        img[64:] = 235
+        img[127] = 0  # dark shadow in bright strip → negative skew
+        cv = _strip_luma_skewness_cv(img, n_strips=8)
+        assert cv > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(17)
+        img = rng.integers(0, 256, (128, 128, 3), dtype=np.uint8)
+        assert _strip_luma_skewness_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamSignedStepCv:
+    def test_none_returns_zero(self):
+        assert _seam_signed_step_cv(None) == 0.0
+
+    def test_invalid_boundary_px_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _seam_signed_step_cv(img, boundary_px=0) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _seam_signed_step_cv(img, n_strips=8, boundary_px=3) == 0.0
+
+    def test_alternating_sign_returns_positive(self):
+        # 8 strips of alternating intensity 200/100 → signed steps alternate +100/-100
+        # std=100, mean_abs=100 → cv=1.0 > 0
+        strip_h = 16
+        img = np.zeros((128, 64, 3), dtype=np.uint8)
+        for i in range(8):
+            val = 200 if i % 2 == 0 else 100
+            img[i * strip_h:(i + 1) * strip_h] = val
+        cv = _seam_signed_step_cv(img, n_strips=8, boundary_px=2)
+        assert cv > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(19)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_signed_step_cv(img, n_strips=8, boundary_px=3) >= 0.0
