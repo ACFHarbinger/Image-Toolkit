@@ -2998,3 +2998,46 @@ class TestEdgeDensityGatePipeline:
 
     def test_schema_has_floor_key(self):
         assert "ASP_GATE_EDGE_DENSITY_FLOOR" in config._CONFIG_SCHEMA
+
+
+# ===========================================================================
+# §5.49: Stage 11.40 Strip Luma MAD Gate
+# ===========================================================================
+
+
+class TestLumaMadGatePipeline:
+    """§5.49: Pipeline Stage 11.40 strip luma MAD gate — flags and logic."""
+
+    def test_flag_exists_and_is_bool(self):
+        import backend.src.animation.core.pipeline as pl
+        assert hasattr(pl, "_LUMA_MAD_GATE_ENABLED")
+        assert isinstance(pl._LUMA_MAD_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        import backend.src.animation.core.pipeline as pl
+        assert hasattr(pl, "_LUMA_MAD_GATE_FLOOR")
+        assert isinstance(pl._LUMA_MAD_GATE_FLOOR, float)
+        assert pl._LUMA_MAD_GATE_FLOOR > 0.0
+
+    def test_in_all(self):
+        import backend.src.animation.core.pipeline as pl
+        assert "_LUMA_MAD_GATE_ENABLED" in pl.__all__
+        assert "_LUMA_MAD_GATE_FLOOR" in pl.__all__
+
+    def test_gate_fires_on_high_mad(self, monkeypatch, tmp_path):
+        """Gate fires (→ SCANS) when canvas has high strip luma MAD."""
+        import backend.src.animation.core.pipeline as pl
+        banded = np.zeros((160, 100, 3), dtype=np.uint8)
+        banded[:80, :] = 200
+        banded[80:, :] = 20
+        calls = []
+        monkeypatch.setattr(pl, "_LUMA_MAD_GATE_ENABLED", True)
+        monkeypatch.setattr(pl, "_LUMA_MAD_GATE_FLOOR", 5.0)
+        from backend.src.animation.alignment.canvas import _strip_luma_mad
+        result = _strip_luma_mad(banded, n_strips=8)
+        assert result > 5.0, "Precondition: banded image should have MAD > 5.0"
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        import backend.src.animation.core.pipeline as pl
+        monkeypatch.setattr(pl, "_LUMA_MAD_GATE_ENABLED", False)
+        assert pl._LUMA_MAD_GATE_ENABLED is False

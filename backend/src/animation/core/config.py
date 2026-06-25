@@ -1181,6 +1181,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_LUMA_RANGE_RATIO": (float, 0.0, 10.0, "§5.47: Bench strip luma range ratio limit vs SCANS (default 2.0); fires when ASP range > ratio × SCANS range"),
     "ASP_GATE_EDGE_DENSITY_ABS_FLOOR": (float, 0.0, 1.0, "§5.48: Bench strip edge density absolute floor (fraction, default 0.15); gate only fires when ASP edge density exceeds this"),
     "ASP_GATE_EDGE_DENSITY_RATIO": (float, 0.0, 10.0, "§5.48: Bench strip edge density ratio limit vs SCANS (default 2.5); fires when ASP density > ratio × SCANS density"),
+    "ASP_GATE_LUMA_MAD": (int, 0, 1, "§5.49: Enable pipeline strip luma MAD gate (0 or 1, default 1)"),
+    "ASP_GATE_LUMA_MAD_FLOOR": (float, 0.0, 255.0, "§5.49: Strip luma MAD gate floor (luma units, default 20.0; high MAD = strip-level banding)"),
+    "ASP_GATE_LUMA_MAD_ABS_FLOOR": (float, 0.0, 255.0, "§5.51: Bench strip luma MAD absolute floor (luma units, default 10.0); gate only fires when ASP MAD exceeds this"),
+    "ASP_GATE_LUMA_MAD_RATIO": (float, 0.0, 10.0, "§5.51: Bench strip luma MAD ratio limit vs SCANS (default 2.0); fires when ASP MAD > ratio × SCANS MAD"),
 }
 
 

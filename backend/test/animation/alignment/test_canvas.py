@@ -1082,3 +1082,43 @@ class TestSeamEdgeDensity:
         img[30:34, :] = 255
         result = _seam_edge_density(img, n_strips=8)
         assert result > 0.0
+
+
+# ===========================================================================
+# §5.49: _strip_luma_mad
+# ===========================================================================
+
+
+class TestStripLumaMad:
+    """§5.49: Strip luma MAD gate — metric function."""
+
+    def test_none_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_mad
+        assert _strip_luma_mad(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_mad
+        img = np.zeros((10, 10, 3), dtype=np.uint8)
+        assert _strip_luma_mad(img, n_strips=1) == 0.0
+
+    def test_uniform_image_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_mad
+        img = np.full((160, 100, 3), 128, dtype=np.uint8)
+        assert _strip_luma_mad(img, n_strips=8) == pytest.approx(0.0, abs=1e-3)
+
+    def test_high_banding_returns_high_mad(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_mad
+        img = np.zeros((160, 100, 3), dtype=np.uint8)
+        # Top half bright (200), bottom half dark (20)
+        img[:80, :] = 200
+        img[80:, :] = 20
+        mad = _strip_luma_mad(img, n_strips=8)
+        assert mad > 50.0, f"Expected high MAD for banded image, got {mad}"
+
+    def test_grayscale_input(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_mad
+        gray = np.zeros((80, 80), dtype=np.uint8)
+        gray[:40, :] = 200
+        gray[40:, :] = 20
+        mad = _strip_luma_mad(gray, n_strips=4)
+        assert mad > 30.0, f"Expected high MAD for grayscale banded, got {mad}"

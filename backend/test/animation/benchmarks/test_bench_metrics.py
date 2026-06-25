@@ -2232,3 +2232,57 @@ class TestEdgeDensityGateBench:
             sim_ed < 0.01 or asp_ed > ratio * max(sim_ed, 0.001)
         )
         assert gate_fires, "Gate should fire: asp_ed=0.35 > floor=0.15 and sim_ed=0 < 0.01"
+
+
+# ===========================================================================
+# §5.51: _LUMA_MAD bench gate
+# ===========================================================================
+
+
+class TestLumaMadGateBench:
+    """§5.51: Bench strip luma MAD comparative gate — module flags, schema, and logic."""
+
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        assert hasattr(bm, "_LUMA_MAD_ABS_FLOOR")
+        assert hasattr(bm, "_LUMA_MAD_RATIO")
+        assert isinstance(bm._LUMA_MAD_ABS_FLOOR, float)
+        assert isinstance(bm._LUMA_MAD_RATIO, float)
+
+    def test_schema_keys_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_MAD_ABS_FLOOR" in _CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_MAD_RATIO" in _CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_zero(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_lmad = 50.0   # severe banding
+        sim_lmad = 0.0    # clean SCANS reference
+        floor = bm._LUMA_MAD_ABS_FLOOR  # 10.0
+        ratio = bm._LUMA_MAD_RATIO       # 2.0
+        gate_fires = asp_lmad > floor and (
+            sim_lmad < 2.0 or asp_lmad > ratio * max(sim_lmad, 1.0)
+        )
+        assert gate_fires, "Gate should fire: asp_lmad=50 > floor=10 and sim_lmad=0 < 2.0"
+
+    def test_gate_does_not_fire_when_both_banded(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_lmad = 20.0
+        sim_lmad = 18.0
+        floor = bm._LUMA_MAD_ABS_FLOOR  # 10.0
+        ratio = bm._LUMA_MAD_RATIO       # 2.0
+        gate_fires = asp_lmad > floor and (
+            sim_lmad < 2.0 or asp_lmad > ratio * max(sim_lmad, 1.0)
+        )
+        assert not gate_fires, "Gate should NOT fire: asp ≈ sim (both banded equally)"
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_lmad = 5.0    # below abs floor of 10.0
+        sim_lmad = 0.0
+        floor = bm._LUMA_MAD_ABS_FLOOR  # 10.0
+        ratio = bm._LUMA_MAD_RATIO       # 2.0
+        gate_fires = asp_lmad > floor and (
+            sim_lmad < 2.0 or asp_lmad > ratio * max(sim_lmad, 1.0)
+        )
+        assert not gate_fires, "Gate should NOT fire: asp_lmad below abs floor"

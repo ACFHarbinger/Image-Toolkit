@@ -106,6 +106,9 @@ _LUMA_RANGE_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_RANGE_RATIO", "2.
 # §5.48: Bench strip edge density comparative gate
 _EDGE_DENSITY_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_ABS_FLOOR", "0.15"))
 _EDGE_DENSITY_RATIO: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_RATIO", "2.5"))
+# §5.51: Bench strip luma MAD comparative gate
+_LUMA_MAD_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_MAD_ABS_FLOOR", "10.0"))
+_LUMA_MAD_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_MAD_RATIO", "2.0"))
 
 logger = logging.getLogger(__name__)
 
@@ -3498,6 +3501,36 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _ed_e:
                 logger.debug("[Bench] EdgeDensityGate skipped: %s", _ed_e)
+
+        # §5.51 LumaMadGate — comparative strip luma MAD check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_lmad = cv2.imread(central_simple_path)
+                if _simple_img_lmad is not None:
+                    from backend.src.animation.alignment.canvas import _strip_luma_mad
+                    _asp_lmad = _strip_luma_mad(canvas_out, n_strips=8)
+                    _sim_lmad = _strip_luma_mad(_simple_img_lmad, n_strips=8)
+                    print(
+                        f"  [LumaMadGate] asp_lmad={_asp_lmad:.2f}  "
+                        f"sim_lmad={_sim_lmad:.2f}"
+                    )
+                    if _asp_lmad > _LUMA_MAD_ABS_FLOOR and (
+                        _sim_lmad < 2.0 or _asp_lmad > _LUMA_MAD_RATIO * max(_sim_lmad, 1.0)
+                    ):
+                        _fallback_reason = f"luma_mad_gate:{_asp_lmad:.2f}"
+                        print(
+                            f"  [LumaMadGate] FAILED "
+                            f"(asp_lmad={_asp_lmad:.2f} > floor={_LUMA_MAD_ABS_FLOOR:.1f} "
+                            f"and > {_LUMA_MAD_RATIO:.1f}×sim={_sim_lmad:.2f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 16
+                        raise RuntimeError(
+                            f"LumaMadGate: asp_lmad={_asp_lmad:.2f}, sim_lmad={_sim_lmad:.2f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _lmad_e:
+                logger.debug("[Bench] LumaMadGate skipped: %s", _lmad_e)
 
         from PIL import Image
 

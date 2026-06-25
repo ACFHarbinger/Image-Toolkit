@@ -1073,6 +1073,24 @@ def _seam_edge_density(img: np.ndarray, n_strips: int = 8) -> float:
     return max_density
 
 
+def _strip_luma_mad(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.49: Mean absolute deviation of per-strip luma means from the global mean.
+
+    High MAD = strip-level banding where some strips are much darker/brighter
+    than the average (complements luma range which only captures extremes).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    strip_h = h // n_strips
+    means = np.array([float(gray[i * strip_h:(i + 1) * strip_h].mean()) for i in range(n_strips)])
+    return float(np.mean(np.abs(means - means.mean())))
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1109,4 +1127,5 @@ __all__ = [
     "_strip_hue_cv",
     "_strip_luma_range",
     "_seam_edge_density",
+    "_strip_luma_mad",
 ]
