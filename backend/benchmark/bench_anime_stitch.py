@@ -87,6 +87,9 @@ _SI_FID_N_PATCHES: int = int(os.environ.get("ASP_SI_FID_N_PATCHES", "32"))
 # §5.30: Benchmark Ghosting SIQE Comparative Gate
 _GHOST_SIQE_RATIO_LIMIT: float = float(os.environ.get("ASP_GATE_GHOST_SIQE_RATIO", "2.0"))
 _GHOST_SIQE_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_GHOST_SIQE_FLOOR", "30.0"))
+# §5.37: Bench histogram intersection comparative gate
+_HIST_INTERSECT_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_HIST_INTERSECT_FLOOR", "0.10"))
+_HIST_INTERSECT_RATIO: float = float(os.environ.get("ASP_GATE_HIST_INTERSECT_RATIO", "0.5"))
 
 logger = logging.getLogger(__name__)
 
@@ -3298,6 +3301,36 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _ncc_e:
                 logger.debug("[Bench] SeamBandNccGate skipped: %s", _ncc_e)
+
+        # §5.37 HistIntersectGate — comparative strip histogram intersection check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_hi = cv2.imread(central_simple_path)
+                if _simple_img_hi is not None:
+                    from backend.src.animation.alignment.canvas import _strip_hist_intersection_min
+                    _asp_hi = _strip_hist_intersection_min(canvas_out, n_strips=8)
+                    _sim_hi = _strip_hist_intersection_min(_simple_img_hi, n_strips=8)
+                    print(
+                        f"  [HistIntersectGate] asp_hi={_asp_hi:.3f}  "
+                        f"sim_hi={_sim_hi:.3f}"
+                    )
+                    if _asp_hi < _HIST_INTERSECT_ABS_FLOOR or (
+                        _sim_hi > 0.1 and _asp_hi < _HIST_INTERSECT_RATIO * _sim_hi
+                    ):
+                        _fallback_reason = f"hist_intersect_gate:{_asp_hi:.3f}"
+                        print(
+                            f"  [HistIntersectGate] FAILED "
+                            f"(asp_hi={_asp_hi:.3f} < floor={_HIST_INTERSECT_ABS_FLOOR:.2f} "
+                            f"or < {_HIST_INTERSECT_RATIO:.1f}×sim={_sim_hi:.3f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1024
+                        raise RuntimeError(
+                            f"HistIntersectGate: asp_hi={_asp_hi:.3f}, sim_hi={_sim_hi:.3f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _hi_e:
+                logger.debug("[Bench] HistIntersectGate skipped: %s", _hi_e)
 
         from PIL import Image
 

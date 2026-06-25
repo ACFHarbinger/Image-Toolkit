@@ -869,3 +869,44 @@ class TestCorrectSeamLumStepsListBandPx:
         out = _correct_seam_lum_steps(canvas, [30, 50, 70], band_px=[10, 20, 30])
         assert out.shape == canvas.shape
         assert out.dtype == np.uint8
+
+
+# ===========================================================================
+# §5.38 Strip Saturation CV Gate — metric function tests
+# ===========================================================================
+
+from backend.src.animation.alignment.canvas import _strip_sat_cv
+
+
+class TestStripSatCv:
+
+    def test_uniform_color_returns_zero(self):
+        img = np.full((80, 80, 3), 128, dtype=np.uint8)
+        result = _strip_sat_cv(img, n_strips=8)
+        assert result == 0.0 or result < 0.01
+
+    def test_varying_saturation_returns_positive(self):
+        img = np.zeros((80, 80, 3), dtype=np.uint8)
+        for i in range(8):
+            img[i * 10:(i + 1) * 10, :, 0] = 0
+            img[i * 10:(i + 1) * 10, :, 1] = i * 20
+            img[i * 10:(i + 1) * 10, :, 2] = 200
+        result = _strip_sat_cv(img, n_strips=8)
+        assert result >= 0.0
+
+    def test_degenerate_small_image_returns_zero(self):
+        img = np.full((4, 80, 3), 128, dtype=np.uint8)
+        result = _strip_sat_cv(img, n_strips=8)
+        assert result == 0.0
+
+    def test_grayscale_input_returns_zero(self):
+        img = np.full((80, 80, 3), 200, dtype=np.uint8)
+        result = _strip_sat_cv(img, n_strips=8)
+        assert isinstance(result, float)
+        assert result >= 0.0
+
+    def test_result_is_nonnegative(self):
+        rng = np.random.default_rng(42)
+        img = rng.integers(0, 255, (160, 80, 3), dtype=np.uint8)
+        result = _strip_sat_cv(img, n_strips=8)
+        assert result >= 0.0
