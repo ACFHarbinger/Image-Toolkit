@@ -154,6 +154,12 @@ _EDGE_DENSITY_CV_RATIO: float = float(os.environ.get("ASP_BENCH_EDGE_DENSITY_CV_
 # §5.84: Bench seam local contrast CV comparative gate
 _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR", "0.30"))
 _SEAM_LOCAL_CONTRAST_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_RATIO", "2.0"))
+# §5.87: Bench strip luma P90–P10 CV comparative gate
+_LUMA_P90P10_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_LUMA_P90P10_CV_ABS_FLOOR", "0.30"))
+_LUMA_P90P10_CV_RATIO: float = float(os.environ.get("ASP_BENCH_LUMA_P90P10_CV_RATIO", "2.5"))
+# §5.88: Bench seam hue shift CV comparative gate
+_SEAM_HUE_SHIFT_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_HUE_SHIFT_CV_ABS_FLOOR", "0.40"))
+_SEAM_HUE_SHIFT_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_HUE_SHIFT_CV_RATIO", "2.0"))
 # §5.67: Bench strip chroma energy CV comparative gate
 _CHROMA_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR", "0.30"))
 _CHROMA_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_RATIO", "2.5"))
@@ -4033,6 +4039,42 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _slcc_e:
                 logger.debug("[Bench] SeamLocalContrastCvGate skipped: %s", _slcc_e)
+        # §5.87 — Strip Luma P90–P10 CV comparative gate
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_p90p10 = cv2.imread(central_simple_path)
+                if _simple_img_p90p10 is not None:
+                    from backend.src.animation.alignment.canvas import _strip_luma_p90p10_cv
+                    _asp_p90p10 = _strip_luma_p90p10_cv(canvas_out, n_strips=8)
+                    _sim_p90p10 = _strip_luma_p90p10_cv(_simple_img_p90p10, n_strips=8)
+                    if _asp_p90p10 > _LUMA_P90P10_CV_ABS_FLOOR and (
+                        _sim_p90p10 < 0.10 or _asp_p90p10 > _LUMA_P90P10_CV_RATIO * max(_sim_p90p10, 0.01)
+                    ):
+                        _fallback_reason = f"luma_p90p10_cv_gate:{_asp_p90p10:.4f}"
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(_fallback_reason)
+            except RuntimeError:
+                raise
+            except Exception as _e:
+                logger.debug("[Bench] LumaP90P10CvGate skipped: %s", _e)
+        # §5.88 — Seam Hue Shift CV comparative gate
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_hshift = cv2.imread(central_simple_path)
+                if _simple_img_hshift is not None:
+                    from backend.src.animation.alignment.canvas import _seam_hue_shift_cv
+                    _asp_hshift = _seam_hue_shift_cv(canvas_out, n_strips=8, boundary_px=3)
+                    _sim_hshift = _seam_hue_shift_cv(_simple_img_hshift, n_strips=8, boundary_px=3)
+                    if _asp_hshift > _SEAM_HUE_SHIFT_CV_ABS_FLOOR and (
+                        _sim_hshift < 0.15 or _asp_hshift > _SEAM_HUE_SHIFT_CV_RATIO * max(_sim_hshift, 0.01)
+                    ):
+                        _fallback_reason = f"seam_hue_shift_cv_gate:{_asp_hshift:.4f}"
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(_fallback_reason)
+            except RuntimeError:
+                raise
+            except Exception as _e:
+                logger.debug("[Bench] SeamHueShiftCvGate skipped: %s", _e)
 
         from PIL import Image
 

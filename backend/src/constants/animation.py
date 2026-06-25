@@ -651,3 +651,5 @@ LUMA_KURTOSIS_CV_GATE_FLOOR: float = 1.5  # §5.77: pipeline strip luma kurtosis
 SEAM_TEXTURE_RATIO_CV_GATE_FLOOR: float = 1.2  # §5.78: pipeline seam texture ratio CV gate floor
 EDGE_DENSITY_CV_GATE_FLOOR: float = 1.2  # §5.81: pipeline strip edge density CV gate floor
 SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR: float = 1.0  # §5.82: pipeline seam local contrast CV gate floor
+LUMA_P90P10_CV_GATE_FLOOR: float = 0.8  # §5.85: pipeline strip luma P90-P10 CV gate floor
+SEAM_HUE_SHIFT_CV_GATE_FLOOR: float = 1.5  # §5.86: pipeline seam hue shift CV gate floor

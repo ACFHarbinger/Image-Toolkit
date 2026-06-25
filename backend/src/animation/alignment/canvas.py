@@ -1720,4 +1720,79 @@ __all__ = [
     "_seam_texture_ratio_cv",
     "_strip_edge_density_cv",
     "_seam_local_contrast_cv",
+    "_strip_luma_p90p10_cv",
+    "_seam_hue_shift_cv",
 ]
+
+
+def _strip_luma_p90p10_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.85: CV of per-strip luma P90–P10 percentile spread.
+
+    P90−P10 is a robust tonal range (excludes top/bottom 10% outliers).
+    Orthogonal to §5.45 (full range = max−min), §5.69 (IQR = P75−P25, narrower),
+    and §5.49 (MAD = median-centred deviation).  CV across strips detects
+    strips with very different outlier-robust tonal extents.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2,
+    fewer than 2 strips, mean_spread < 1.0 for nearly-flat images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    spreads = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h].ravel()
+        if strip.size < 4:
+            continue
+        p10, p90 = float(np.percentile(strip, 10)), float(np.percentile(strip, 90))
+        spreads.append(p90 - p10)
+    if len(spreads) < 2:
+        return 0.0
+    spreads = np.array(spreads, dtype=np.float32)
+    mean_s = float(spreads.mean())
+    if mean_s < 1.0:
+        return 0.0
+    return float(spreads.std() / mean_s)
+
+
+def _seam_hue_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.86: CV of per-seam absolute mean hue shift (degrees, [0,180]).
+
+    At each strip boundary: mean hue of ±boundary_px rows above minus mean hue
+    below (converted to [0,180] for circular robustness).  CV of these absolute
+    hue differences detects inconsistent cross-seam colour matching.
+    Orthogonal to §5.62 (YCrCb chroma step magnitude), §5.54 (max chroma jump),
+    and §5.41 (within-strip hue spread).
+    Returns 0.0 for grayscale input, fewer than 2 seams, or mean_shift < 1.0.
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    if img.ndim != 3 or img.shape[2] != 3:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+    hue = hsv[:, :, 0]  # OpenCV: hue in [0, 180)
+    strip_h = h // n_strips
+    shifts = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = hue[max(0, boundary_row - boundary_px):boundary_row]
+        below = hue[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        diff = float(above.mean()) - float(below.mean())
+        # Wrap to [−90, 90] then take abs → [0, 90]
+        diff = ((diff + 90.0) % 180.0) - 90.0
+        shifts.append(abs(diff))
+    if len(shifts) < 2:
+        return 0.0
+    shifts = np.array(shifts, dtype=np.float32)
+    mean_s = float(shifts.mean())
+    if mean_s < 1.0:
+        return 0.0
+    return float(shifts.std() / mean_s)

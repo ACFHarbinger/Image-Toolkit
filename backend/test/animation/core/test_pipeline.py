@@ -3548,3 +3548,59 @@ class TestSeamLocalContrastCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED", False)
         assert pipeline._SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED is False
+
+
+class TestLumaP90P10CvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._LUMA_P90P10_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._LUMA_P90P10_CV_GATE_FLOOR, float)
+        assert pipeline._LUMA_P90P10_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_LUMA_P90P10_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_LUMA_P90P10_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_p90p10_cv
+        h, w = 64, 32
+        img = np.full((h, w, 3), 128, dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            if i % 2 == 0:
+                grad = np.linspace(0, 255, strip_h * w, dtype=np.float32).reshape(strip_h, w).astype(np.uint8)
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = grad
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = grad
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = grad
+        assert _strip_luma_p90p10_cv(img, n_strips=8) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_LUMA_P90P10_CV_GATE_ENABLED", False)
+        assert pipeline._LUMA_P90P10_CV_GATE_ENABLED is False
+
+
+class TestSeamHueShiftCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_HUE_SHIFT_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_HUE_SHIFT_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_HUE_SHIFT_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_HUE_SHIFT_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_HUE_SHIFT_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_hue_shift_cv
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        img[:strip_h * 2] = [0, 0, 255]   # red
+        img[strip_h * 2:] = [255, 0, 0]   # blue
+        assert _seam_hue_shift_cv(img, n_strips=4, boundary_px=3) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_HUE_SHIFT_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_HUE_SHIFT_CV_GATE_ENABLED is False
