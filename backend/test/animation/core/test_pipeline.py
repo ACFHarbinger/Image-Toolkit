@@ -3488,3 +3488,63 @@ class TestSeamTextureRatioCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_SEAM_TEXTURE_RATIO_CV_GATE_ENABLED", False)
         assert pipeline._SEAM_TEXTURE_RATIO_CV_GATE_ENABLED is False
+
+
+class TestEdgeDensityCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._EDGE_DENSITY_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._EDGE_DENSITY_CV_GATE_FLOOR, float)
+        assert pipeline._EDGE_DENSITY_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_EDGE_DENSITY_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_EDGE_DENSITY_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_edge_density_cv
+        rng = np.random.default_rng(33)
+        h, w = 64, 32
+        img = np.full((h, w, 3), 128, dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            if i % 2 == 0:
+                noise = rng.integers(0, 256, (strip_h, w), dtype=np.uint8)
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = noise
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = noise
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = noise
+        assert _strip_edge_density_cv(img, n_strips=8) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_EDGE_DENSITY_CV_GATE_ENABLED", False)
+        assert pipeline._EDGE_DENSITY_CV_GATE_ENABLED is False
+
+
+class TestSeamLocalContrastCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_local_contrast_cv
+        h, w = 64, 32
+        img = np.full((h, w, 3), 128, dtype=np.uint8)
+        strip_h = h // 4
+        band_px = 5
+        for r in range(max(0, strip_h - band_px), min(h, strip_h + band_px)):
+            img[r, :, :] = 0 if (r % 2 == 0) else 255
+        for r in range(max(0, 3 * strip_h - band_px), min(h, 3 * strip_h + band_px)):
+            img[r, :, :] = 0 if (r % 2 == 0) else 255
+        assert _seam_local_contrast_cv(img, n_strips=4, band_px=band_px) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED is False

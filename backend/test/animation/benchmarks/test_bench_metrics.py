@@ -61,6 +61,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _LUMA_KURTOSIS_CV_RATIO,
     _SEAM_TEXTURE_RATIO_CV_ABS_FLOOR,
     _SEAM_TEXTURE_RATIO_CV_RATIO,
+    _EDGE_DENSITY_CV_ABS_FLOOR,
+    _EDGE_DENSITY_CV_RATIO,
+    _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR,
+    _SEAM_LOCAL_CONTRAST_CV_RATIO,
 )
 from backend.src.animation.core import config as _asp_config  # noqa: E402
 
@@ -2883,5 +2887,73 @@ class TestSeamTextureRatioCvGateBench:
         sim_stxr = 0.0
         fires = asp_stxr > _SEAM_TEXTURE_RATIO_CV_ABS_FLOOR and (
             sim_stxr < 0.20 or asp_stxr > _SEAM_TEXTURE_RATIO_CV_RATIO * max(sim_stxr, 0.01)
+        )
+        assert not fires
+
+
+class TestEdgeDensityCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_EDGE_DENSITY_CV_ABS_FLOOR, float)
+        assert isinstance(_EDGE_DENSITY_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_EDGE_DENSITY_CV" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_EDGE_DENSITY_CV_FLOOR" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_edcv = _EDGE_DENSITY_CV_ABS_FLOOR + 0.10
+        sim_edcv = 0.01
+        fires = asp_edcv > _EDGE_DENSITY_CV_ABS_FLOOR and (
+            sim_edcv < 0.15 or asp_edcv > _EDGE_DENSITY_CV_RATIO * max(sim_edcv, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_edcv = 0.50
+        sim_edcv = 0.45
+        fires = asp_edcv > _EDGE_DENSITY_CV_ABS_FLOOR and (
+            sim_edcv < 0.15 or asp_edcv > _EDGE_DENSITY_CV_RATIO * max(sim_edcv, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_edcv = _EDGE_DENSITY_CV_ABS_FLOOR - 0.10
+        sim_edcv = 0.0
+        fires = asp_edcv > _EDGE_DENSITY_CV_ABS_FLOOR and (
+            sim_edcv < 0.15 or asp_edcv > _EDGE_DENSITY_CV_RATIO * max(sim_edcv, 0.01)
+        )
+        assert not fires
+
+
+class TestSeamLocalContrastCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR, float)
+        assert isinstance(_SEAM_LOCAL_CONTRAST_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_SEAM_LOCAL_CONTRAST_CV" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_LOCAL_CONTRAST_CV_FLOOR" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_slcc = _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR + 0.10
+        sim_slcc = 0.01
+        fires = asp_slcc > _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR and (
+            sim_slcc < 0.15 or asp_slcc > _SEAM_LOCAL_CONTRAST_CV_RATIO * max(sim_slcc, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_slcc = 0.40
+        sim_slcc = 0.35
+        fires = asp_slcc > _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR and (
+            sim_slcc < 0.15 or asp_slcc > _SEAM_LOCAL_CONTRAST_CV_RATIO * max(sim_slcc, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_slcc = _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR - 0.10
+        sim_slcc = 0.0
+        fires = asp_slcc > _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR and (
+            sim_slcc < 0.15 or asp_slcc > _SEAM_LOCAL_CONTRAST_CV_RATIO * max(sim_slcc, 0.01)
         )
         assert not fires

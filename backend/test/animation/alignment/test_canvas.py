@@ -41,8 +41,10 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _strip_entropy_cv,
     _strip_hue_cv,
     _strip_luma_iqr_cv,
+    _strip_edge_density_cv,
     _strip_luma_kurtosis_cv,
     _strip_luma_skewness_cv,
+    _seam_local_contrast_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1611,3 +1613,69 @@ class TestSeamTextureRatioCv:
         rng = np.random.default_rng(25)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_texture_ratio_cv(img, n_strips=8, band_px=5) >= 0.0
+
+
+class TestStripEdgeDensityCv:
+    def test_none_returns_zero(self):
+        assert _strip_edge_density_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_edge_density_cv(img, n_strips=1) == 0.0
+
+    def test_flat_image_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _strip_edge_density_cv(img, n_strips=8) == 0.0
+
+    def test_high_cv_on_mixed_density(self):
+        # Even strips: noise (many edges); odd strips: flat (no edges) → high CV
+        rng = np.random.default_rng(27)
+        h, w = 64, 32
+        img = np.full((h, w, 3), 128, dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            if i % 2 == 0:
+                noise = rng.integers(0, 256, (strip_h, w), dtype=np.uint8)
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = noise
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = noise
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = noise
+        assert _strip_edge_density_cv(img, n_strips=8) > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(29)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _strip_edge_density_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamLocalContrastCv:
+    def test_none_returns_zero(self):
+        assert _seam_local_contrast_cv(None) == 0.0
+
+    def test_invalid_band_px_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _seam_local_contrast_cv(img, band_px=0) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _seam_local_contrast_cv(img, n_strips=8, band_px=5) == 0.0
+
+    def test_high_cv_on_contrast_mismatch(self):
+        # n_strips=4 → 3 seams; seam0 and seam2 bands: alternating 0/255 (high std);
+        # seam1 band: all 128 (std=0) → CV > 0
+        h, w = 64, 32
+        img = np.full((h, w, 3), 128, dtype=np.uint8)
+        strip_h = h // 4  # 16 rows per strip; boundaries at 16, 32, 48
+        band_px = 5
+        # seam0 band (rows 11–20): alternating 0/255 columns
+        for r in range(max(0, 16 - band_px), min(h, 16 + band_px)):
+            img[r, :, :] = 0 if (r % 2 == 0) else 255
+        # seam1 band (rows 27–36): keep flat at 128 (already set)
+        # seam2 band (rows 43–52): alternating 0/255
+        for r in range(max(0, 48 - band_px), min(h, 48 + band_px)):
+            img[r, :, :] = 0 if (r % 2 == 0) else 255
+        assert _seam_local_contrast_cv(img, n_strips=4, band_px=band_px) > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(31)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_local_contrast_cv(img, n_strips=8, band_px=5) >= 0.0

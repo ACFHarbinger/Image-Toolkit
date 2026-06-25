@@ -1245,6 +1245,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_BENCH_LUMA_KURTOSIS_CV_RATIO": (float, 0.0, 20.0, "§5.79: Bench strip luma kurtosis CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
     "ASP_BENCH_SEAM_TEXTURE_RATIO_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.80: Bench seam texture ratio CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
     "ASP_BENCH_SEAM_TEXTURE_RATIO_CV_RATIO": (float, 0.0, 20.0, "§5.80: Bench seam texture ratio CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_EDGE_DENSITY_CV": (bool, None, None, "§5.81: Enable strip edge density CV pipeline gate (default 1=enabled); high CV = inconsistent Canny edge pixel fraction across strips"),
+    "ASP_GATE_EDGE_DENSITY_CV_FLOOR": (float, 0.0, 10.0, "§5.81: Strip edge density CV gate floor (default 1.2; high CV = some strips detail-rich, others flat)"),
+    "ASP_GATE_SEAM_LOCAL_CONTRAST_CV": (bool, None, None, "§5.82: Enable seam local contrast CV pipeline gate (default 1=enabled); high CV = inconsistent pixel std in seam bands"),
+    "ASP_GATE_SEAM_LOCAL_CONTRAST_CV_FLOOR": (float, 0.0, 10.0, "§5.82: Seam local contrast CV gate floor (default 1.0; high CV = seams placed in inconsistently complex regions)"),
+    "ASP_BENCH_EDGE_DENSITY_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.83: Bench strip edge density CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_EDGE_DENSITY_CV_RATIO": (float, 0.0, 20.0, "§5.83: Bench strip edge density CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.84: Bench seam local contrast CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_RATIO": (float, 0.0, 20.0, "§5.84: Bench seam local contrast CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 
