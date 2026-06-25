@@ -1189,6 +1189,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_SHARPNESS_CV_FLOOR": (float, 0.0, 10.0, "§5.50: Strip sharpness CV gate floor (default 1.0; high CV = mixed-sharpness strips from mismatched frames)"),
     "ASP_GATE_SHARPNESS_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.52: Bench strip sharpness CV absolute floor (default 0.60); gate only fires when ASP CV exceeds this"),
     "ASP_GATE_SHARPNESS_CV_RATIO": (float, 0.0, 10.0, "§5.52: Bench strip sharpness CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_CONTRAST_CV": (int, 0, 1, "§5.53: Enable pipeline strip contrast CV gate (0 or 1, default 1)"),
+    "ASP_GATE_CONTRAST_CV_FLOOR": (float, 0.0, 10.0, "§5.53: Strip contrast CV gate floor (default 1.5; high CV = mismatched contrast between composite strips)"),
+    "ASP_GATE_CONTRAST_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.55: Bench strip contrast CV absolute floor (default 0.80); gate only fires when ASP CV exceeds this"),
+    "ASP_GATE_CONTRAST_CV_RATIO": (float, 0.0, 10.0, "§5.55: Bench strip contrast CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
 }
 
 
