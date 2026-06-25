@@ -58,11 +58,13 @@ from backend.src.animation.alignment.canvas import (
     _seam_hue_shift_cv,
     _seam_local_contrast_cv,
     _seam_luma_step_cv,
+    _seam_saturation_shift_cv,
     _seam_signed_step_cv,
     _seam_texture_ratio_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_contrast_cv,
+    _strip_dark_pixel_fraction_cv,
     _strip_edge_density_cv,
     _strip_chroma_energy_cv,
     _strip_entropy_cv,
@@ -698,6 +700,10 @@ _LUMA_P90P10_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_P90P10_CV", "
 _LUMA_P90P10_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_P90P10_CV_FLOOR", "0.8"))
 _SEAM_HUE_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_HUE_SHIFT_CV", "1") != "0"
 _SEAM_HUE_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_HUE_SHIFT_CV_FLOOR", "1.5"))
+_DARK_PIXEL_FRAC_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_DARK_PIXEL_FRAC_CV", "1") != "0"
+_DARK_PIXEL_FRAC_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_DARK_PIXEL_FRAC_CV_FLOOR", "1.5"))
+_SEAM_SAT_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_SAT_SHIFT_CV", "1") != "0"
+_SEAM_SAT_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_SAT_SHIFT_CV_FLOOR", "1.5"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5489,6 +5495,40 @@ class AnimeStitchPipeline:
                     )
             except Exception as _hshift_e:
                 logger.debug("[Stitch] Stage 11.59: SeamHueShiftCvGate skipped (%s).", _hshift_e)
+        # ── Stage 11.60: §5.89 Strip Dark Pixel Fraction CV Gate ─────────────
+        if _DARK_PIXEL_FRAC_CV_GATE_ENABLED and N > 1:
+            try:
+                _dpfcv_val = _strip_dark_pixel_fraction_cv(canvas, n_strips=8, threshold=64)
+                logger.debug("[Stitch] Stage 11.60: strip_dark_pixel_fraction_cv=%.4f (floor=%.3f).", _dpfcv_val, _DARK_PIXEL_FRAC_CV_GATE_FLOOR)
+                if _dpfcv_val > _DARK_PIXEL_FRAC_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.60: DarkPixelFracCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _dpfcv_val, _DARK_PIXEL_FRAC_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"dark_pixel_frac_cv_gate:{_dpfcv_val:.4f}",
+                    )
+            except Exception as _dpfcv_e:
+                logger.debug("[Stitch] Stage 11.60: DarkPixelFracCvGate skipped (%s).", _dpfcv_e)
+        # ── Stage 11.61: §5.90 Seam Saturation Shift CV Gate ─────────────────
+        if _SEAM_SAT_SHIFT_CV_GATE_ENABLED and N > 1:
+            try:
+                _ssscv_val = _seam_saturation_shift_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.61: seam_saturation_shift_cv=%.4f (floor=%.3f).", _ssscv_val, _SEAM_SAT_SHIFT_CV_GATE_FLOOR)
+                if _ssscv_val > _SEAM_SAT_SHIFT_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.61: SeamSatShiftCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _ssscv_val, _SEAM_SAT_SHIFT_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_sat_shift_cv_gate:{_ssscv_val:.4f}",
+                    )
+            except Exception as _ssscv_e:
+                logger.debug("[Stitch] Stage 11.61: SeamSatShiftCvGate skipped (%s).", _ssscv_e)
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -6277,4 +6317,8 @@ __all__ = [
     "_LUMA_P90P10_CV_GATE_FLOOR",
     "_SEAM_HUE_SHIFT_CV_GATE_ENABLED",
     "_SEAM_HUE_SHIFT_CV_GATE_FLOOR",
+    "_DARK_PIXEL_FRAC_CV_GATE_ENABLED",
+    "_DARK_PIXEL_FRAC_CV_GATE_FLOOR",
+    "_SEAM_SAT_SHIFT_CV_GATE_ENABLED",
+    "_SEAM_SAT_SHIFT_CV_GATE_FLOOR",
 ]
