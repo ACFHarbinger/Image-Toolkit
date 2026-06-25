@@ -49,6 +49,8 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_hue_shift_cv,
     _strip_dark_pixel_fraction_cv,
     _seam_saturation_shift_cv,
+    _strip_sobel_energy_cv,
+    _seam_value_shift_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1808,3 +1810,64 @@ class TestSeamSaturationShiftCv:
         rng = np.random.default_rng(43)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_saturation_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0
+
+
+class TestStripSobelEnergyCv:
+    def test_none_returns_zero(self):
+        assert _strip_sobel_energy_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        assert _strip_sobel_energy_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_image_returns_zero(self):
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        assert _strip_sobel_energy_cv(img, n_strips=8) == 0.0
+
+    def test_high_cv_on_mixed_energy(self):
+        rng = np.random.default_rng(42)
+        h, w = 64, 32
+        img = np.zeros((h, w), dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            start = i * strip_h
+            end = start + strip_h
+            if i % 2 == 0:
+                img[start:end] = rng.integers(0, 256, (strip_h, w), dtype=np.uint8)
+            else:
+                img[start:end] = 128
+        assert _strip_sobel_energy_cv(img, n_strips=8) > 0.0
+
+    def test_nonnegative(self):
+        rng = np.random.default_rng(44)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _strip_sobel_energy_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamValueShiftCv:
+    def test_none_returns_zero(self):
+        assert _seam_value_shift_cv(None) == 0.0
+
+    def test_grayscale_returns_zero(self):
+        img = np.full((64, 32), 128, dtype=np.uint8)
+        assert _seam_value_shift_cv(img) == 0.0
+
+    def test_uniform_value_returns_zero(self):
+        img = np.full((64, 32, 3), 100, dtype=np.uint8)
+        assert _seam_value_shift_cv(img, n_strips=4, boundary_px=3) == 0.0
+
+    def test_high_cv_on_value_mismatch(self):
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        img[:strip_h] = [200, 200, 200]
+        img[strip_h:strip_h * 2] = [190, 190, 190]
+        img[strip_h * 2:strip_h * 3] = [50, 50, 50]
+        img[strip_h * 3:] = [200, 200, 200]
+        result = _seam_value_shift_cv(img, n_strips=4, boundary_px=3)
+        assert result > 0.0
+
+    def test_nonnegative(self):
+        rng = np.random.default_rng(45)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_value_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0

@@ -166,6 +166,12 @@ _DARK_PIXEL_FRAC_CV_RATIO: float = float(os.environ.get("ASP_BENCH_DARK_PIXEL_FR
 # §5.92: Bench seam saturation shift CV comparative gate
 _SEAM_SAT_SHIFT_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_SAT_SHIFT_CV_ABS_FLOOR", "0.30"))
 _SEAM_SAT_SHIFT_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_SAT_SHIFT_CV_RATIO", "2.0"))
+# §5.95: Bench strip Sobel energy CV comparative gate
+_SOBEL_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SOBEL_ENERGY_CV_ABS_FLOOR", "0.35"))
+_SOBEL_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SOBEL_ENERGY_CV_RATIO", "2.5"))
+# §5.96: Bench seam Value shift CV comparative gate
+_SEAM_VALUE_SHIFT_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_VALUE_SHIFT_CV_ABS_FLOOR", "0.30"))
+_SEAM_VALUE_SHIFT_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_VALUE_SHIFT_CV_RATIO", "2.0"))
 # §5.67: Bench strip chroma energy CV comparative gate
 _CHROMA_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR", "0.30"))
 _CHROMA_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_RATIO", "2.5"))
@@ -4117,6 +4123,42 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _e:
                 logger.debug("[Bench] SeamSatShiftCvGate skipped: %s", _e)
+        # §5.95 — Strip Sobel Energy CV comparative gate
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_sobel = cv2.imread(central_simple_path)
+                if _simple_img_sobel is not None:
+                    from backend.src.animation.alignment.canvas import _strip_sobel_energy_cv
+                    _asp_sobel = _strip_sobel_energy_cv(canvas_out, n_strips=8)
+                    _sim_sobel = _strip_sobel_energy_cv(_simple_img_sobel, n_strips=8)
+                    if _asp_sobel > _SOBEL_ENERGY_CV_ABS_FLOOR and (
+                        _sim_sobel < 0.12 or _asp_sobel > _SOBEL_ENERGY_CV_RATIO * max(_sim_sobel, 0.01)
+                    ):
+                        _fallback_reason = f"sobel_energy_cv_gate:{_asp_sobel:.4f}"
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(_fallback_reason)
+            except RuntimeError:
+                raise
+            except Exception as _e:
+                logger.debug("[Bench] SobelEnergyCvGate skipped: %s", _e)
+        # §5.96 — Seam Value Shift CV comparative gate
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_valsh = cv2.imread(central_simple_path)
+                if _simple_img_valsh is not None:
+                    from backend.src.animation.alignment.canvas import _seam_value_shift_cv
+                    _asp_valsh = _seam_value_shift_cv(canvas_out, n_strips=8, boundary_px=3)
+                    _sim_valsh = _seam_value_shift_cv(_simple_img_valsh, n_strips=8, boundary_px=3)
+                    if _asp_valsh > _SEAM_VALUE_SHIFT_CV_ABS_FLOOR and (
+                        _sim_valsh < 0.10 or _asp_valsh > _SEAM_VALUE_SHIFT_CV_RATIO * max(_sim_valsh, 0.01)
+                    ):
+                        _fallback_reason = f"seam_value_shift_cv_gate:{_asp_valsh:.4f}"
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(_fallback_reason)
+            except RuntimeError:
+                raise
+            except Exception as _e:
+                logger.debug("[Bench] SeamValueShiftCvGate skipped: %s", _e)
 
         from PIL import Image
 

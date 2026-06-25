@@ -60,6 +60,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_luma_step_cv,
     _seam_saturation_shift_cv,
     _seam_signed_step_cv,
+    _seam_value_shift_cv,
     _seam_texture_ratio_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
@@ -83,6 +84,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_seam_gradient_score,
     _strip_self_ssim,
     _strip_sharpness_cv,
+    _strip_sobel_energy_cv,
     _telea_fill_gaps,
     find_optimal_sequence,
 )
@@ -704,6 +706,10 @@ _DARK_PIXEL_FRAC_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_DARK_PIXEL_FRA
 _DARK_PIXEL_FRAC_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_DARK_PIXEL_FRAC_CV_FLOOR", "1.5"))
 _SEAM_SAT_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_SAT_SHIFT_CV", "1") != "0"
 _SEAM_SAT_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_SAT_SHIFT_CV_FLOOR", "1.5"))
+_SOBEL_ENERGY_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SOBEL_ENERGY_CV", "1") != "0"
+_SOBEL_ENERGY_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SOBEL_ENERGY_CV_FLOOR", "1.2"))
+_SEAM_VALUE_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_VALUE_SHIFT_CV", "1") != "0"
+_SEAM_VALUE_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_VALUE_SHIFT_CV_FLOOR", "1.2"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5529,6 +5535,40 @@ class AnimeStitchPipeline:
                     )
             except Exception as _ssscv_e:
                 logger.debug("[Stitch] Stage 11.61: SeamSatShiftCvGate skipped (%s).", _ssscv_e)
+        # ── Stage 11.62: §5.93 Strip Sobel Energy CV Gate ────────────────────
+        if _SOBEL_ENERGY_CV_GATE_ENABLED and N > 1:
+            try:
+                _sobel_val = _strip_sobel_energy_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.62: strip_sobel_energy_cv=%.4f (floor=%.3f).", _sobel_val, _SOBEL_ENERGY_CV_GATE_FLOOR)
+                if _sobel_val > _SOBEL_ENERGY_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.62: SobelEnergyCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _sobel_val, _SOBEL_ENERGY_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"sobel_energy_cv_gate:{_sobel_val:.4f}",
+                    )
+            except Exception as _sobel_e:
+                logger.debug("[Stitch] Stage 11.62: SobelEnergyCvGate skipped (%s).", _sobel_e)
+        # ── Stage 11.63: §5.94 Seam Value Shift CV Gate ──────────────────────
+        if _SEAM_VALUE_SHIFT_CV_GATE_ENABLED and N > 1:
+            try:
+                _valsh_val = _seam_value_shift_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.63: seam_value_shift_cv=%.4f (floor=%.3f).", _valsh_val, _SEAM_VALUE_SHIFT_CV_GATE_FLOOR)
+                if _valsh_val > _SEAM_VALUE_SHIFT_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.63: SeamValueShiftCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _valsh_val, _SEAM_VALUE_SHIFT_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_value_shift_cv_gate:{_valsh_val:.4f}",
+                    )
+            except Exception as _valsh_e:
+                logger.debug("[Stitch] Stage 11.63: SeamValueShiftCvGate skipped (%s).", _valsh_e)
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -6321,4 +6361,8 @@ __all__ = [
     "_DARK_PIXEL_FRAC_CV_GATE_FLOOR",
     "_SEAM_SAT_SHIFT_CV_GATE_ENABLED",
     "_SEAM_SAT_SHIFT_CV_GATE_FLOOR",
+    "_SOBEL_ENERGY_CV_GATE_ENABLED",
+    "_SOBEL_ENERGY_CV_GATE_FLOOR",
+    "_SEAM_VALUE_SHIFT_CV_GATE_ENABLED",
+    "_SEAM_VALUE_SHIFT_CV_GATE_FLOOR",
 ]

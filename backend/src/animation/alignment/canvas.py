@@ -1666,6 +1666,76 @@ def _seam_local_contrast_cv(img: np.ndarray, n_strips: int = 8, band_px: int = 5
     return float(contrasts.std() / mean_c)
 
 
+def _strip_sobel_energy_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.93: CV of per-strip mean Sobel gradient energy (mean |∇|).
+
+    Each strip's Sobel energy = mean of sqrt(Gx²+Gy²) across all pixels.
+    CV across strips detects inconsistent directional gradient activity —
+    orthogonal to §5.50 (Laplacian std/mean, different operator/normalisation),
+    §5.81 (Canny binary edge density), and §5.66 (seam boundary step only).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2,
+    fewer than 2 strips, mean_energy < 0.5 for nearly-blank images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    energies = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h]
+        if strip.size == 0:
+            continue
+        gx = cv2.Sobel(strip, cv2.CV_32F, 1, 0, ksize=3)
+        gy = cv2.Sobel(strip, cv2.CV_32F, 0, 1, ksize=3)
+        energies.append(float(np.sqrt(gx ** 2 + gy ** 2).mean()))
+    if len(energies) < 2:
+        return 0.0
+    energies = np.array(energies, dtype=np.float32)
+    mean_e = float(energies.mean())
+    if mean_e < 0.5:
+        return 0.0
+    return float(energies.std() / mean_e)
+
+
+def _seam_value_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.94: CV of per-seam absolute HSV Value shift (|V_above − V_below|).
+
+    HSV Value = max(R,G,B).  Detects cross-seam brightness mismatches that
+    luma (weighted mean of channels) can miss when the dominant channel differs.
+    Orthogonal to §5.86 (hue shift), §5.90 (saturation shift), and §5.58/§5.60
+    (luma = 0.114B+0.587G+0.299R, different from max-channel brightness).
+    Returns 0.0 for grayscale, fewer than 2 seams, or mean_shift < 1.0.
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    if img.ndim != 3 or img.shape[2] != 3:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+    val = hsv[:, :, 2]  # [0, 255]
+    strip_h = h // n_strips
+    shifts = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = val[max(0, boundary_row - boundary_px):boundary_row]
+        below = val[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        shifts.append(abs(float(above.mean()) - float(below.mean())))
+    if len(shifts) < 2:
+        return 0.0
+    shifts = np.array(shifts, dtype=np.float32)
+    mean_s = float(shifts.mean())
+    if mean_s < 1.0:
+        return 0.0
+    return float(shifts.std() / mean_s)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1724,6 +1794,8 @@ __all__ = [
     "_seam_hue_shift_cv",
     "_strip_dark_pixel_fraction_cv",
     "_seam_saturation_shift_cv",
+    "_strip_sobel_energy_cv",
+    "_seam_value_shift_cv",
 ]
 
 

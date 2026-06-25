@@ -4,6 +4,17 @@
 
 ---
 
+## S192 — 2026-06-25 (§5.93 Pipeline Strip Sobel Energy CV Gate · §5.94 Pipeline Seam Value Shift CV Gate · §5.95 Bench Strip Sobel Energy CV Gate · §5.96 Bench Seam Value Shift CV Gate)
+
+**Tests**: 2015 passing, 85 skipped (30 new)
+
+- **§5.93 `_strip_sobel_energy_cv`** — CV of mean sqrt(Gx²+Gy²) per strip (Sobel ksize=3); 0.0 when mean_energy < 0.5; Stage 11.62 pipeline gate (`_SOBEL_ENERGY_CV_GATE_FLOOR=1.2`, env `ASP_GATE_SOBEL_ENERGY_CV`); detects inconsistent directional gradient activity; orthogonal to §5.50 (Laplacian-based), §5.81 (Canny binary), §5.66 (seam boundary only)
+- **§5.94 `_seam_value_shift_cv`** — CV of |mean_V_above − mean_V_below| per seam (HSV V = max(R,G,B), [0,255]); 0.0 for grayscale or mean_shift < 1.0; Stage 11.63 pipeline gate (`_SEAM_VALUE_SHIFT_CV_GATE_FLOOR=1.2`, env `ASP_GATE_SEAM_VALUE_SHIFT_CV`); max-channel brightness mismatch; orthogonal to §5.86 (hue), §5.90 (saturation), §5.58/§5.60 (luma)
+- **§5.95 bench SobelEnergyCvGate** — `_SOBEL_ENERGY_CV_ABS_FLOOR=0.35`, ratio=2.5; fires when asp > 0.35 AND (sim < 0.12 OR asp > 2.5× sim)
+- **§5.96 bench SeamValueShiftCvGate** — `_SEAM_VALUE_SHIFT_CV_ABS_FLOOR=0.30`, ratio=2.0; fires when asp > 0.30 AND (sim < 0.10 OR asp > 2.0× sim)
+
+---
+
 ## S191 — 2026-06-25 (§5.89 Pipeline Strip Dark Pixel Fraction CV Gate · §5.90 Pipeline Seam Saturation Shift CV Gate · §5.91 Bench Strip Dark Pixel Fraction CV Gate · §5.92 Bench Seam Saturation Shift CV Gate)
 
 **Tests**: 1985 passing, 85 skipped (30 new)
