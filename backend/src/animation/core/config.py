@@ -1253,6 +1253,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_BENCH_EDGE_DENSITY_CV_RATIO": (float, 0.0, 20.0, "§5.83: Bench strip edge density CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
     "ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.84: Bench seam local contrast CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
     "ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_RATIO": (float, 0.0, 20.0, "§5.84: Bench seam local contrast CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_LUMA_P90P10_CV": (bool, None, None, "§5.85: Enable strip luma P90-P10 CV gate (default ON); set to 0 to disable"),
+    "ASP_GATE_LUMA_P90P10_CV_FLOOR": (float, 0.0, 10.0, "§5.85: Strip luma P90-P10 CV gate floor (default 0.8); triggers SCANS fallback when CV exceeds floor"),
+    "ASP_GATE_SEAM_HUE_SHIFT_CV": (bool, None, None, "§5.86: Enable seam hue shift CV gate (default ON); set to 0 to disable"),
+    "ASP_GATE_SEAM_HUE_SHIFT_CV_FLOOR": (float, 0.0, 10.0, "§5.86: Seam hue shift CV gate floor (default 1.5); triggers SCANS fallback when CV exceeds floor"),
+    "ASP_BENCH_LUMA_P90P10_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.87: Bench strip luma P90-P10 CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_LUMA_P90P10_CV_RATIO": (float, 0.0, 20.0, "§5.87: Bench strip luma P90-P10 CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_BENCH_SEAM_HUE_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.88: Bench seam hue shift CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_SEAM_HUE_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.88: Bench seam hue shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

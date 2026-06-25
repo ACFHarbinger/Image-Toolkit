@@ -55,6 +55,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_column_variance_cv,
     _seam_gradient_cv,
     _seam_edge_density,
+    _seam_hue_shift_cv,
     _seam_local_contrast_cv,
     _seam_luma_step_cv,
     _seam_signed_step_cv,
@@ -72,6 +73,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_hue_cv,
     _strip_luma_mad,
     _strip_luma_monotonicity,
+    _strip_luma_p90p10_cv,
     _strip_luma_range,
     _strip_luma_skewness_cv,
     _strip_noise_cv,
@@ -692,6 +694,10 @@ _EDGE_DENSITY_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_EDGE_DENSITY_CV",
 _EDGE_DENSITY_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_CV_FLOOR", "1.2"))
 _SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_LOCAL_CONTRAST_CV", "1") != "0"
 _SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_LOCAL_CONTRAST_CV_FLOOR", "1.0"))
+_LUMA_P90P10_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_P90P10_CV", "1") != "0"
+_LUMA_P90P10_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_P90P10_CV_FLOOR", "0.8"))
+_SEAM_HUE_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_HUE_SHIFT_CV", "1") != "0"
+_SEAM_HUE_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_HUE_SHIFT_CV_FLOOR", "1.5"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5449,6 +5455,40 @@ class AnimeStitchPipeline:
                     )
             except Exception as _slcc_e:
                 logger.debug("[Stitch] Stage 11.57: SeamLocalContrastCvGate skipped (%s).", _slcc_e)
+        # ── Stage 11.58: §5.85 Strip Luma P90–P10 CV Gate ───────────────────
+        if _LUMA_P90P10_CV_GATE_ENABLED and N > 1:
+            try:
+                _p90p10_val = _strip_luma_p90p10_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.58: strip_luma_p90p10_cv=%.4f (floor=%.3f).", _p90p10_val, _LUMA_P90P10_CV_GATE_FLOOR)
+                if _p90p10_val > _LUMA_P90P10_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.58: LumaP90P10CvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _p90p10_val, _LUMA_P90P10_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"luma_p90p10_cv_gate:{_p90p10_val:.4f}",
+                    )
+            except Exception as _p90p10_e:
+                logger.debug("[Stitch] Stage 11.58: LumaP90P10CvGate skipped (%s).", _p90p10_e)
+        # ── Stage 11.59: §5.86 Seam Hue Shift CV Gate ────────────────────────
+        if _SEAM_HUE_SHIFT_CV_GATE_ENABLED and N > 1:
+            try:
+                _hshift_val = _seam_hue_shift_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.59: seam_hue_shift_cv=%.4f (floor=%.3f).", _hshift_val, _SEAM_HUE_SHIFT_CV_GATE_FLOOR)
+                if _hshift_val > _SEAM_HUE_SHIFT_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.59: SeamHueShiftCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _hshift_val, _SEAM_HUE_SHIFT_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_hue_shift_cv_gate:{_hshift_val:.4f}",
+                    )
+            except Exception as _hshift_e:
+                logger.debug("[Stitch] Stage 11.59: SeamHueShiftCvGate skipped (%s).", _hshift_e)
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -6233,4 +6273,8 @@ __all__ = [
     "_EDGE_DENSITY_CV_GATE_FLOOR",
     "_SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED",
     "_SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR",
+    "_LUMA_P90P10_CV_GATE_ENABLED",
+    "_LUMA_P90P10_CV_GATE_FLOOR",
+    "_SEAM_HUE_SHIFT_CV_GATE_ENABLED",
+    "_SEAM_HUE_SHIFT_CV_GATE_FLOOR",
 ]

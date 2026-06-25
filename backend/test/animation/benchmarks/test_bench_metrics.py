@@ -65,6 +65,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _EDGE_DENSITY_CV_RATIO,
     _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR,
     _SEAM_LOCAL_CONTRAST_CV_RATIO,
+    _LUMA_P90P10_CV_ABS_FLOOR,
+    _LUMA_P90P10_CV_RATIO,
+    _SEAM_HUE_SHIFT_CV_ABS_FLOOR,
+    _SEAM_HUE_SHIFT_CV_RATIO,
 )
 from backend.src.animation.core import config as _asp_config  # noqa: E402
 
@@ -2955,5 +2959,73 @@ class TestSeamLocalContrastCvGateBench:
         sim_slcc = 0.0
         fires = asp_slcc > _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR and (
             sim_slcc < 0.15 or asp_slcc > _SEAM_LOCAL_CONTRAST_CV_RATIO * max(sim_slcc, 0.01)
+        )
+        assert not fires
+
+
+class TestLumaP90P10CvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_LUMA_P90P10_CV_ABS_FLOOR, float)
+        assert isinstance(_LUMA_P90P10_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_LUMA_P90P10_CV" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_P90P10_CV_FLOOR" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_val = _LUMA_P90P10_CV_ABS_FLOOR + 0.10
+        sim_val = 0.01
+        fires = asp_val > _LUMA_P90P10_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _LUMA_P90P10_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_val = 0.40
+        sim_val = 0.38
+        fires = asp_val > _LUMA_P90P10_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _LUMA_P90P10_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_val = _LUMA_P90P10_CV_ABS_FLOOR - 0.10
+        sim_val = 0.0
+        fires = asp_val > _LUMA_P90P10_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _LUMA_P90P10_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+
+class TestSeamHueShiftCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_SEAM_HUE_SHIFT_CV_ABS_FLOOR, float)
+        assert isinstance(_SEAM_HUE_SHIFT_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_SEAM_HUE_SHIFT_CV" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_HUE_SHIFT_CV_FLOOR" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_val = _SEAM_HUE_SHIFT_CV_ABS_FLOOR + 0.10
+        sim_val = 0.01
+        fires = asp_val > _SEAM_HUE_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.15 or asp_val > _SEAM_HUE_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_val = 0.55
+        sim_val = 0.50
+        fires = asp_val > _SEAM_HUE_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.15 or asp_val > _SEAM_HUE_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_val = _SEAM_HUE_SHIFT_CV_ABS_FLOOR - 0.10
+        sim_val = 0.0
+        fires = asp_val > _SEAM_HUE_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.15 or asp_val > _SEAM_HUE_SHIFT_CV_RATIO * max(sim_val, 0.01)
         )
         assert not fires

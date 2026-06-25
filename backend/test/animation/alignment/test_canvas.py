@@ -45,6 +45,8 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _strip_luma_kurtosis_cv,
     _strip_luma_skewness_cv,
     _seam_local_contrast_cv,
+    _strip_luma_p90p10_cv,
+    _seam_hue_shift_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1679,3 +1681,64 @@ class TestSeamLocalContrastCv:
         rng = np.random.default_rng(31)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_local_contrast_cv(img, n_strips=8, band_px=5) >= 0.0
+
+
+class TestStripLumaP90P10Cv:
+    def test_none_returns_zero(self):
+        assert _strip_luma_p90p10_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        assert _strip_luma_p90p10_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_image_returns_zero(self):
+        img = np.full((128, 32, 3), 128, dtype=np.uint8)
+        assert _strip_luma_p90p10_cv(img, n_strips=8) == 0.0
+
+    def test_high_cv_on_mixed_spread(self):
+        # Even strips: full 0–255 gradient (P90–P10 ≈ 204); odd strips: all-128 (spread=0)
+        h, w = 64, 32
+        img = np.full((h, w, 3), 128, dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            if i % 2 == 0:
+                grad = np.linspace(0, 255, strip_h * w, dtype=np.float32).reshape(strip_h, w).astype(np.uint8)
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = grad
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = grad
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = grad
+        assert _strip_luma_p90p10_cv(img, n_strips=8) > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(33)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _strip_luma_p90p10_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamHueShiftCv:
+    def test_none_returns_zero(self):
+        assert _seam_hue_shift_cv(None) == 0.0
+
+    def test_grayscale_returns_zero(self):
+        img = np.full((64, 32), 128, dtype=np.uint8)
+        assert _seam_hue_shift_cv(img, n_strips=4, boundary_px=3) == 0.0
+
+    def test_uniform_hue_returns_zero(self):
+        # All blue: constant hue → all shifts ≈ 0 → mean_s < 1.0
+        img = np.full((64, 32, 3), [255, 0, 0], dtype=np.uint8)
+        assert _seam_hue_shift_cv(img, n_strips=4, boundary_px=3) == 0.0
+
+    def test_high_cv_on_hue_mismatch(self):
+        # 4 strips: 0=red,1=red,2=blue,3=blue → seam0 shift≈0,seam1 shift≈60,seam2 shift≈0
+        # shifts=[0,60,0], mean=20 > 1.0, std≈28.3, cv≈1.41 > 0
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        img[:strip_h * 2] = [0, 0, 255]      # strips 0+1: BGR red
+        img[strip_h * 2:] = [255, 0, 0]      # strips 2+3: BGR blue
+        result = _seam_hue_shift_cv(img, n_strips=4, boundary_px=3)
+        assert result > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(35)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_hue_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0

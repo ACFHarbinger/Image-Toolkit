@@ -4,6 +4,17 @@
 
 ---
 
+## S190 — 2026-06-25 (§5.85 Pipeline Strip Luma P90–P10 CV Gate · §5.86 Pipeline Seam Hue Shift CV Gate · §5.87 Bench Strip Luma P90–P10 CV Gate · §5.88 Bench Seam Hue Shift CV Gate)
+
+**Tests**: 1955 passing, 85 skipped (30 new)
+
+- **§5.85 `_strip_luma_p90p10_cv`** — CV of per-strip P90−P10 luma spread; 0.0 guard when mean_spread < 1.0; Stage 11.58 pipeline gate (`_LUMA_P90P10_CV_GATE_FLOOR=0.8`, env `ASP_GATE_LUMA_P90P10_CV`); outlier-robust tonal range; orthogonal to §5.45 (full range), §5.69 (IQR = P75−P25), §5.49 (MAD)
+- **§5.86 `_seam_hue_shift_cv`** — CV of |mean_hue_above − mean_hue_below| per seam (OpenCV HSV, wrapped to [0,90]); 0.0 for grayscale or mean_shift < 1.0; Stage 11.59 pipeline gate (`_SEAM_HUE_SHIFT_CV_GATE_FLOOR=1.5`, env `ASP_GATE_SEAM_HUE_SHIFT_CV`); cross-seam white-balance hue mismatch; orthogonal to §5.62 (YCrCb chroma step) and §5.41 (within-strip hue spread)
+- **§5.87 bench LumaP90P10CvGate** — `_LUMA_P90P10_CV_ABS_FLOOR=0.30`, ratio=2.5; fires when asp > 0.30 AND (sim < 0.10 OR asp > 2.5× sim)
+- **§5.88 bench SeamHueShiftCvGate** — `_SEAM_HUE_SHIFT_CV_ABS_FLOOR=0.40`, ratio=2.0; fires when asp > 0.40 AND (sim < 0.15 OR asp > 2.0× sim)
+
+---
+
 ## S189 — 2026-06-25 (§5.81 Pipeline Strip Edge Density CV Gate · §5.82 Pipeline Seam Local Contrast CV Gate · §5.83 Bench Strip Edge Density CV Gate · §5.84 Bench Seam Local Contrast CV Gate)
 
 **Tests**: 1925 passing, 85 skipped (30 new)
