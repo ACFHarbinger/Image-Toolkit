@@ -4,6 +4,44 @@
 
 ---
 
+## S178 — 2026-06-25 (§5.37 Bench Histogram Intersection Gate · §5.38 Pipeline Strip Saturation CV Gate · §5.39 Pipeline Canvas Valid-Area Ratio Gate · §5.40 Bench Seam Gradient Ratio Gate)
+
+*Four new post-composite quality gates: a bench comparative histogram intersection gate (§5.37), a pipeline strip HSV-saturation CV gate Stage 11.34 (§5.38), a pipeline canvas valid-area ratio gate Stage 11.35 (§5.39), and a bench comparative seam gradient ratio gate (§5.40). 1595 tests passing (85 skipped).*
+
+### §5.37 Bench Histogram Intersection Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `HistIntersectGate` block added in `run_dataset()` after `SeamBandNccGate`; reuses `_strip_hist_intersection_min` from `canvas.py`
+- Fires when `asp_hi < _HIST_INTERSECT_ABS_FLOOR` (default 0.10) OR `asp_hi < _HIST_INTERSECT_RATIO × sim_hi` (default 0.5) when `sim_hi > 0.1`
+- Module constants: `_HIST_INTERSECT_ABS_FLOOR`, `_HIST_INTERSECT_RATIO` (env: `ASP_GATE_HIST_INTERSECT_FLOOR`, `ASP_GATE_HIST_INTERSECT_RATIO`)
+- Schema entry `ASP_GATE_HIST_INTERSECT_RATIO` added to `config.py`
+- 5 tests in `TestHistIntersectGateBench` (`test_bench_metrics.py`)
+
+### §5.38 Pipeline Strip Saturation CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_sat_cv(img, n_strips=8)` in `canvas.py` — coefficient of variation (std/mean) of per-strip mean HSV S-channel saturation; high CV = seam-induced color saturation mismatches; returns 0.0 for monochrome/degenerate
+- Stage 11.34 gate in `pipeline.py`: fires when `cv > _SAT_CV_GATE_FLOOR` (default 0.40) → SCANS fallback
+- Flags: `_SAT_CV_GATE_ENABLED` (`ASP_GATE_SAT_CV`, default 1), `_SAT_CV_GATE_FLOOR` (`ASP_GATE_SAT_CV_FLOOR`, default 0.40)
+- `SAT_CV_GATE_FLOOR = 0.40` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripSatCv` (`test_canvas.py`), 5 tests in `TestSatCvGatePipeline` (`test_pipeline.py`)
+
+### §5.39 Pipeline Canvas Valid-Area Ratio Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_canvas_valid_area_ratio(img, black_threshold=8)` in `canvas.py` — fraction of canvas pixels above black threshold (grayscale); low ratio = large black/empty regions = alignment failure; returns 1.0 for degenerate input
+- Stage 11.35 gate in `pipeline.py`: **fires when `ratio < floor`** (LOW ratio = underfilled canvas); default floor 0.55
+- Flags: `_VALID_AREA_GATE_ENABLED` (`ASP_GATE_VALID_AREA`, default 1), `_VALID_AREA_GATE_FLOOR` (`ASP_GATE_VALID_AREA_FLOOR`, default 0.55)
+- `VALID_AREA_GATE_FLOOR = 0.55` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestCanvasValidAreaRatio` (`test_canvas.py`), 5 tests in `TestValidAreaGatePipeline` (`test_pipeline.py`)
+
+### §5.40 Bench Seam Gradient Ratio Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `SeamGradRatioGate` block in `run_dataset()` after `HistIntersectGate`; reuses `_strip_seam_gradient_score` from `canvas.py`
+- Fires when `asp_sgr > _SEAM_GRAD_RATIO_ABS_FLOOR` (default 5.0) AND `asp_sgr > _SEAM_GRAD_RATIO_LIMIT × max(sim_sgr, 0.1)` (default 2.0×); dual condition ensures gate only fires when ASP is meaningfully worse than SCANS
+- Module constants: `_SEAM_GRAD_RATIO_ABS_FLOOR`, `_SEAM_GRAD_RATIO_LIMIT` (env: `ASP_GATE_SEAM_GRAD_ABS_FLOOR`, `ASP_GATE_SEAM_GRAD_RATIO_LIMIT`)
+- 2 schema entries added to `config.py`
+- 5 tests in `TestSeamGradRatioGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S177 — 2026-06-24 (§5.33 Seam Gradient Ratio Gate · §5.34 Canvas Aspect-Ratio Gate · §5.35 Bench Seam Band NCC Gate · §5.36 Pipeline Histogram Intersection Gate)
 
 *Four new post-composite quality gates (Stages 11.31–11.33) and one new bench comparative gate: seam boundary gradient ratio, canvas H/W aspect ratio, bench seam band NCC comparison, and per-strip histogram intersection. 1565 tests passing (85 skipped).*
