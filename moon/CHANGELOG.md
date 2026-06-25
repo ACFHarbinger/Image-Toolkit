@@ -4,6 +4,42 @@
 
 ---
 
+## S186 — 2026-06-25 (§5.69 Pipeline Strip Luma IQR CV Gate · §5.70 Pipeline Seam Column Variance CV Gate · §5.71 Bench Strip Luma IQR CV Gate · §5.72 Bench Seam Column Variance CV Gate)
+
+*Four new post-composite quality gates: two pipeline gates (Stage 11.50 strip luma IQR CV, Stage 11.51 seam column variance CV) and two bench comparative gates. 1835 tests passing (85 skipped).*
+
+### §5.69 Pipeline Strip Luma IQR CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_luma_iqr_cv(img, n_strips=8)` in `canvas.py` — CV of per-strip luma IQR (P75-P25 of within-strip pixel intensities); 0.0 when mean IQR < 1.0 or degenerate; high CV = wide-IQR strips adjacent to flat strips; orthogonal to §5.45 (luma range of means) and §5.49 (luma MAD of means)
+- Stage 11.50 gate in `pipeline.py`: fires when `_iqr_val > _LUMA_IQR_CV_GATE_FLOOR` (default 0.8) → SCANS fallback; reason `luma_iqr_cv_gate:{val:.4f}`
+- Flags: `_LUMA_IQR_CV_GATE_ENABLED` (`ASP_GATE_LUMA_IQR_CV`, default 1), `_LUMA_IQR_CV_GATE_FLOOR` (`ASP_GATE_LUMA_IQR_CV_FLOOR`, default 0.8)
+- `LUMA_IQR_CV_GATE_FLOOR = 0.8` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripLumaIqrCv` (`test_canvas.py`), 5 tests in `TestLumaIqrCvGatePipeline` (`test_pipeline.py`)
+
+### §5.70 Pipeline Seam Column Variance CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_column_variance_cv(img, n_strips=8, boundary_px=3)` in `canvas.py` — CV of per-seam variance of per-column absolute luma step; 0.0 when mean_var < 0.1, fewer than 2 seams, or degenerate; high CV = inconsistent horizontal step regularity across seams (partial registration failure or diagonal artifact)
+- Stage 11.51 gate in `pipeline.py`: fires when `_scvarcv_val > _SEAM_COL_VAR_CV_GATE_FLOOR` (default 1.0) → SCANS fallback; reason `seam_col_var_cv_gate:{val:.4f}`
+- Flags: `_SEAM_COL_VAR_CV_GATE_ENABLED` (`ASP_GATE_SEAM_COL_VAR_CV`, default 1), `_SEAM_COL_VAR_CV_GATE_FLOOR` (`ASP_GATE_SEAM_COL_VAR_CV_FLOOR`, default 1.0)
+- `SEAM_COL_VAR_CV_GATE_FLOOR = 1.0` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestSeamColumnVarianceCv` (`test_canvas.py`), 5 tests in `TestSeamColVarCvGatePipeline` (`test_pipeline.py`)
+
+### §5.71 Bench Strip Luma IQR CV Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_LUMA_IQR_CV_ABS_FLOOR = 0.40`, `_LUMA_IQR_CV_RATIO = 2.5` constants in `bench_anime_stitch.py`
+- LumaIqrCvGate block in `run_dataset()`: fires when `asp_iqr > floor` and (`sim_iqr < 0.05` or `asp_iqr > 2.5 × sim_iqr`) → SCANS fallback; reason `luma_iqr_cv_gate:{val:.4f}`
+- Schema entries `ASP_GATE_LUMA_IQR_CV_ABS_FLOOR` and `ASP_GATE_LUMA_IQR_CV_RATIO` in `config.py`
+- 5 tests in `TestLumaIqrCvGateBench` (`test_bench_metrics.py`)
+
+### §5.72 Bench Seam Column Variance CV Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_SEAM_COL_VAR_CV_ABS_FLOOR = 0.40`, `_SEAM_COL_VAR_CV_RATIO = 2.0` constants in `bench_anime_stitch.py`
+- SeamColVarCvGate block in `run_dataset()`: fires when `asp_scvar > floor` and (`sim_scvar < 0.05` or `asp_scvar > 2.0 × sim_scvar`) → SCANS fallback; reason `seam_col_var_cv_gate:{val:.4f}`
+- Schema entries `ASP_GATE_SEAM_COL_VAR_CV_ABS_FLOOR` and `ASP_GATE_SEAM_COL_VAR_CV_RATIO` in `config.py`
+- 5 tests in `TestSeamColVarCvGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S185 — 2026-06-25 (§5.65 Pipeline Strip Chroma Energy CV Gate · §5.66 Pipeline Seam Gradient CV Gate · §5.67 Bench Strip Chroma Energy CV Gate · §5.68 Bench Seam Gradient CV Gate)
 
 *Four new post-composite quality gates: two pipeline gates (Stage 11.48 strip chroma energy CV, Stage 11.49 seam gradient CV) and two bench comparative gates (strip chroma energy CV parity, seam gradient CV parity). 1805 tests passing (85 skipped).*

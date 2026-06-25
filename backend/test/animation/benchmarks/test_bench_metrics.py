@@ -49,6 +49,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _CHROMA_ENERGY_CV_RATIO,
     _SEAM_GRADIENT_CV_ABS_FLOOR,
     _SEAM_GRADIENT_CV_RATIO,
+    _LUMA_IQR_CV_ABS_FLOOR,
+    _LUMA_IQR_CV_RATIO,
+    _SEAM_COL_VAR_CV_ABS_FLOOR,
+    _SEAM_COL_VAR_CV_RATIO,
 )
 from backend.src.animation.core import config as _asp_config  # noqa: E402
 
@@ -2667,5 +2671,73 @@ class TestSeamGradientCvGateBench:
         sim_sgcv = 0.0
         fires = asp_sgcv > _SEAM_GRADIENT_CV_ABS_FLOOR and (
             sim_sgcv < 0.05 or asp_sgcv > _SEAM_GRADIENT_CV_RATIO * max(sim_sgcv, 0.01)
+        )
+        assert not fires
+
+
+class TestLumaIqrCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_LUMA_IQR_CV_ABS_FLOOR, float)
+        assert isinstance(_LUMA_IQR_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_LUMA_IQR_CV_ABS_FLOOR" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_IQR_CV_RATIO" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_iqr = 0.90
+        sim_iqr = 0.01
+        fires = asp_iqr > _LUMA_IQR_CV_ABS_FLOOR and (
+            sim_iqr < 0.05 or asp_iqr > _LUMA_IQR_CV_RATIO * max(sim_iqr, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_iqr = 0.50
+        sim_iqr = 0.45
+        fires = asp_iqr > _LUMA_IQR_CV_ABS_FLOOR and (
+            sim_iqr < 0.05 or asp_iqr > _LUMA_IQR_CV_RATIO * max(sim_iqr, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_iqr = 0.20
+        sim_iqr = 0.0
+        fires = asp_iqr > _LUMA_IQR_CV_ABS_FLOOR and (
+            sim_iqr < 0.05 or asp_iqr > _LUMA_IQR_CV_RATIO * max(sim_iqr, 0.01)
+        )
+        assert not fires
+
+
+class TestSeamColVarCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_SEAM_COL_VAR_CV_ABS_FLOOR, float)
+        assert isinstance(_SEAM_COL_VAR_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_SEAM_COL_VAR_CV_ABS_FLOOR" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_COL_VAR_CV_RATIO" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_scvar = 0.80
+        sim_scvar = 0.01
+        fires = asp_scvar > _SEAM_COL_VAR_CV_ABS_FLOOR and (
+            sim_scvar < 0.05 or asp_scvar > _SEAM_COL_VAR_CV_RATIO * max(sim_scvar, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_scvar = 0.50
+        sim_scvar = 0.45
+        fires = asp_scvar > _SEAM_COL_VAR_CV_ABS_FLOOR and (
+            sim_scvar < 0.05 or asp_scvar > _SEAM_COL_VAR_CV_RATIO * max(sim_scvar, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_scvar = 0.20
+        sim_scvar = 0.0
+        fires = asp_scvar > _SEAM_COL_VAR_CV_ABS_FLOOR and (
+            sim_scvar < 0.05 or asp_scvar > _SEAM_COL_VAR_CV_RATIO * max(sim_scvar, 0.01)
         )
         assert not fires

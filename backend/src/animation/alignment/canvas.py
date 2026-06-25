@@ -1374,6 +1374,78 @@ def _seam_gradient_cv(img: np.ndarray, n_strips: int = 8, band_px: int = 5) -> f
     return float(grads.std() / mean_grad)
 
 
+def _strip_luma_iqr_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.69: Coefficient of variation (std/mean) of per-strip luma IQR (P75-P25).
+
+    The inter-quartile range within each strip measures that strip's tonal
+    spread over its actual pixel distribution — distinct from contrast (std),
+    luma MAD (deviation of means from global), or luma range (max-min of
+    means).  High CV = some strips have wide tonal ranges (complex shading)
+    while others are flat solid-colour regions, indicating composite from
+    frames with mismatched scene content.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips,
+    mean IQR < 1.0 guard for uniformly flat images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    strip_h = h // n_strips
+    iqrs = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h].astype(np.float32).ravel()
+        p25, p75 = float(np.percentile(strip, 25)), float(np.percentile(strip, 75))
+        iqrs.append(p75 - p25)
+    iqrs = np.array(iqrs)
+    mean_iqr = float(iqrs.mean())
+    if mean_iqr < 1.0:
+        return 0.0
+    return float(iqrs.std() / mean_iqr)
+
+
+def _seam_column_variance_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.70: Coefficient of variation (std/mean) of per-seam column-luma-step variance.
+
+    At each strip boundary: compute the column-wise absolute luma step
+    (difference between the mean of ±boundary_px rows above vs below,
+    measured separately per column).  The variance of this per-column step
+    profile is a measure of horizontal regularity at that seam — a smooth
+    blend has uniform per-column steps; a partial registration failure or
+    diagonal artifact has high variance.  CV of these per-seam variances
+    across all seams detects when some seams are well-blended but others
+    have irregular column patterns.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2,
+    boundary_px < 1, fewer than 2 seams, mean variance < 0.1 for flat images).
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    variances = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = gray[max(0, boundary_row - boundary_px):boundary_row]
+        below = gray[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        above_mean = above.mean(axis=0)
+        below_mean = below.mean(axis=0)
+        col_steps = np.abs(above_mean - below_mean)
+        variances.append(float(col_steps.var()))
+    if len(variances) < 2:
+        return 0.0
+    variances = np.array(variances)
+    mean_var = float(variances.mean())
+    if mean_var < 0.1:
+        return 0.0
+    return float(variances.std() / mean_var)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1420,4 +1492,6 @@ __all__ = [
     "_seam_chroma_step_cv",
     "_strip_chroma_energy_cv",
     "_seam_gradient_cv",
+    "_strip_luma_iqr_cv",
+    "_seam_column_variance_cv",
 ]
