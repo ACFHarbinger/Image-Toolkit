@@ -1736,6 +1736,84 @@ def _seam_value_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 
     return float(shifts.std() / mean_s)
 
 
+def _strip_median_luma_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.97: CV of per-strip median luma (P50).
+
+    Median is the typical brightness of each strip — robust to outliers.
+    CV of medians across strips detects strips with different typical
+    brightnesses, orthogonal to spread metrics (§5.85 P90−P10, §5.69 IQR,
+    §5.49 MAD) which measure width, not central location.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2,
+    fewer than 2 strips, mean_median < 1.0 for nearly-black images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    medians = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h].ravel()
+        if strip.size == 0:
+            continue
+        medians.append(float(np.median(strip)))
+    if len(medians) < 2:
+        return 0.0
+    medians = np.array(medians, dtype=np.float32)
+    mean_m = float(medians.mean())
+    if mean_m < 1.0:
+        return 0.0
+    return float(medians.std() / mean_m)
+
+
+def _seam_entropy_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.98: CV of per-seam absolute Shannon entropy shift (|H_above − H_below|).
+
+    At each strip boundary: Shannon entropy of pixel histogram (256 bins,
+    base-2) for ±boundary_px rows above and below.  Absolute difference
+    detects information-content mismatch at each seam.  CV across seams
+    flags inconsistent content complexity matching.
+    Orthogonal to §5.61 (strip entropy CV, cross-strip not cross-seam),
+    §5.82 (seam local contrast, pixel std not entropy), §5.78 (Laplacian
+    variance ratio, not histogram entropy).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, boundary_px < 1,
+    h < n_strips*2, fewer than 2 seams, mean_shift < 0.05).
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
+    if gray.dtype != np.uint8:
+        gray = np.clip(gray, 0, 255).astype(np.uint8)
+    strip_h = h // n_strips
+
+    def _entropy(band: np.ndarray) -> float:
+        hist = np.bincount(band.ravel(), minlength=256).astype(np.float32)
+        hist = hist[hist > 0]
+        p = hist / hist.sum()
+        return float(-np.sum(p * np.log2(p)))
+
+    shifts = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = gray[max(0, boundary_row - boundary_px):boundary_row]
+        below = gray[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        shifts.append(abs(_entropy(above) - _entropy(below)))
+    if len(shifts) < 2:
+        return 0.0
+    shifts = np.array(shifts, dtype=np.float32)
+    mean_s = float(shifts.mean())
+    if mean_s < 0.05:
+        return 0.0
+    return float(shifts.std() / mean_s)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1796,6 +1874,8 @@ __all__ = [
     "_seam_saturation_shift_cv",
     "_strip_sobel_energy_cv",
     "_seam_value_shift_cv",
+    "_strip_median_luma_cv",
+    "_seam_entropy_shift_cv",
 ]
 
 

@@ -1277,6 +1277,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_BENCH_SOBEL_ENERGY_CV_RATIO": (float, 0.0, 20.0, "§5.95: Bench strip Sobel energy CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
     "ASP_BENCH_SEAM_VALUE_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.96: Bench seam Value shift CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
     "ASP_BENCH_SEAM_VALUE_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.96: Bench seam Value shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_MEDIAN_LUMA_CV": (bool, None, None, "§5.97: Enable strip median luma CV gate (default ON); detects strip brightness location inconsistency"),
+    "ASP_GATE_MEDIAN_LUMA_CV_FLOOR": (float, 0.0, 10.0, "§5.97: Strip median luma CV floor (default 0.5); SCANS fallback when CV > floor"),
+    "ASP_GATE_SEAM_ENTROPY_SHIFT_CV": (bool, None, None, "§5.98: Enable seam entropy shift CV gate (default ON); detects cross-seam information content mismatch"),
+    "ASP_GATE_SEAM_ENTROPY_SHIFT_CV_FLOOR": (float, 0.0, 10.0, "§5.98: Seam entropy shift CV floor (default 1.5); SCANS fallback when CV > floor"),
+    "ASP_BENCH_MEDIAN_LUMA_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.99: Bench strip median luma CV absolute floor (default 0.20); gate fires when ASP CV > floor"),
+    "ASP_BENCH_MEDIAN_LUMA_CV_RATIO": (float, 0.0, 20.0, "§5.99: Bench strip median luma CV ratio limit vs SCANS (default 3.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_BENCH_SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.100: Bench seam entropy shift CV absolute floor (default 0.30); gate fires when ASP CV > floor"),
+    "ASP_BENCH_SEAM_ENTROPY_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.100: Bench seam entropy shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

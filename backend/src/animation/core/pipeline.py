@@ -55,6 +55,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_column_variance_cv,
     _seam_gradient_cv,
     _seam_edge_density,
+    _seam_entropy_shift_cv,
     _seam_hue_shift_cv,
     _seam_local_contrast_cv,
     _seam_luma_step_cv,
@@ -75,6 +76,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_hist_intersection_min,
     _strip_hue_cv,
     _strip_luma_mad,
+    _strip_median_luma_cv,
     _strip_luma_monotonicity,
     _strip_luma_p90p10_cv,
     _strip_luma_range,
@@ -710,6 +712,10 @@ _SOBEL_ENERGY_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SOBEL_ENERGY_CV",
 _SOBEL_ENERGY_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SOBEL_ENERGY_CV_FLOOR", "1.2"))
 _SEAM_VALUE_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_VALUE_SHIFT_CV", "1") != "0"
 _SEAM_VALUE_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_VALUE_SHIFT_CV_FLOOR", "1.2"))
+_MEDIAN_LUMA_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_MEDIAN_LUMA_CV", "1") != "0"
+_MEDIAN_LUMA_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_MEDIAN_LUMA_CV_FLOOR", "0.5"))
+_SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_ENTROPY_SHIFT_CV", "1") != "0"
+_SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_ENTROPY_SHIFT_CV_FLOOR", "1.5"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5569,6 +5575,40 @@ class AnimeStitchPipeline:
                     )
             except Exception as _valsh_e:
                 logger.debug("[Stitch] Stage 11.63: SeamValueShiftCvGate skipped (%s).", _valsh_e)
+        # ── Stage 11.64: §5.97 Strip Median Luma CV Gate ────────────────────
+        if _MEDIAN_LUMA_CV_GATE_ENABLED and N > 1:
+            try:
+                _medlum_val = _strip_median_luma_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.64: strip_median_luma_cv=%.4f (floor=%.3f).", _medlum_val, _MEDIAN_LUMA_CV_GATE_FLOOR)
+                if _medlum_val > _MEDIAN_LUMA_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.64: MedianLumaCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _medlum_val, _MEDIAN_LUMA_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"median_luma_cv_gate:{_medlum_val:.4f}",
+                    )
+            except Exception as _medlum_e:
+                logger.debug("[Stitch] Stage 11.64: MedianLumaCvGate skipped (%s).", _medlum_e)
+        # ── Stage 11.65: §5.98 Seam Entropy Shift CV Gate ────────────────────
+        if _SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED and N > 1:
+            try:
+                _entsh_val = _seam_entropy_shift_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.65: seam_entropy_shift_cv=%.4f (floor=%.3f).", _entsh_val, _SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR)
+                if _entsh_val > _SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.65: SeamEntropyShiftCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _entsh_val, _SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_entropy_shift_cv_gate:{_entsh_val:.4f}",
+                    )
+            except Exception as _entsh_e:
+                logger.debug("[Stitch] Stage 11.65: SeamEntropyShiftCvGate skipped (%s).", _entsh_e)
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -6365,4 +6405,8 @@ __all__ = [
     "_SOBEL_ENERGY_CV_GATE_FLOOR",
     "_SEAM_VALUE_SHIFT_CV_GATE_ENABLED",
     "_SEAM_VALUE_SHIFT_CV_GATE_FLOOR",
+    "_MEDIAN_LUMA_CV_GATE_ENABLED",
+    "_MEDIAN_LUMA_CV_GATE_FLOOR",
+    "_SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED",
+    "_SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR",
 ]

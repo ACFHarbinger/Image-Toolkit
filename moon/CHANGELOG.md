@@ -4,6 +4,17 @@
 
 ---
 
+## S193 — 2026-06-25 (§5.97 Pipeline Strip Median Luma CV Gate · §5.98 Pipeline Seam Entropy Shift CV Gate · §5.99 Bench Strip Median Luma CV Gate · §5.100 Bench Seam Entropy Shift CV Gate)
+
+**Tests**: 2045 passing, 85 skipped (30 new)
+
+- **§5.97 `_strip_median_luma_cv`** — CV of np.median() per strip; 0.0 when mean_median < 1.0; Stage 11.64 pipeline gate (`_MEDIAN_LUMA_CV_GATE_FLOOR=0.5`, env `ASP_GATE_MEDIAN_LUMA_CV`); detects strip brightness location inconsistency; orthogonal to §5.45 (range), §5.85 (P90−P10), §5.69 (IQR), §5.49 (MAD), §5.89 (dark fraction)
+- **§5.98 `_seam_entropy_shift_cv`** — CV of |H_above − H_below| (Shannon entropy, 256-bin histogram, base-2) per seam; 0.0 when mean_shift < 0.05; Stage 11.65 pipeline gate (`_SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR=1.5`, env `ASP_GATE_SEAM_ENTROPY_SHIFT_CV`); cross-seam information content mismatch; orthogonal to §5.61 (strip entropy CV), §5.82 (pixel std), §5.78 (Laplacian variance)
+- **§5.99 bench MedianLumaCvGate** — `_MEDIAN_LUMA_CV_ABS_FLOOR=0.20`, ratio=3.0; fires when asp > 0.20 AND (sim < 0.08 OR asp > 3.0× sim)
+- **§5.100 bench SeamEntropyShiftCvGate** — `_SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR=0.30`, ratio=2.0; fires when asp > 0.30 AND (sim < 0.10 OR asp > 2.0× sim)
+
+---
+
 ## S192 — 2026-06-25 (§5.93 Pipeline Strip Sobel Energy CV Gate · §5.94 Pipeline Seam Value Shift CV Gate · §5.95 Bench Strip Sobel Energy CV Gate · §5.96 Bench Seam Value Shift CV Gate)
 
 **Tests**: 2015 passing, 85 skipped (30 new)
