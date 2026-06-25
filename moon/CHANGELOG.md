@@ -4,6 +4,42 @@
 
 ---
 
+## S183 — 2026-06-25 (§5.57 Pipeline Strip Noise CV Gate · §5.58 Pipeline Seam Luma Step CV Gate · §5.59 Bench Strip Noise CV Gate · §5.60 Bench Seam Luma Step CV Gate)
+
+*Four new post-composite quality gates: two pipeline gates (Stage 11.44 strip noise CV, Stage 11.45 seam luma step CV) and two bench comparative gates (strip noise CV parity, seam luma step CV parity). 1745 tests passing (85 skipped).*
+
+### §5.57 Pipeline Strip Noise CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_noise_cv(img, n_strips=8)` in `canvas.py` — coefficient of variation (std/mean) of per-strip high-frequency noise estimate (strip vs Gaussian-blurred version, σ=1.5); 0.0 when mean per-strip noise < 0.5 (uniformly smooth guard) or degenerate input; high CV = some strips have noisy encoding while others are smooth, indicating mismatched frame sharpening
+- Stage 11.44 gate in `pipeline.py`: fires when `_ncv_val > _NOISE_CV_GATE_FLOOR` (default 1.2) → SCANS fallback; reason `noise_cv_gate:{val:.4f}`
+- Flags: `_NOISE_CV_GATE_ENABLED` (`ASP_GATE_NOISE_CV`, default 1), `_NOISE_CV_GATE_FLOOR` (`ASP_GATE_NOISE_CV_FLOOR`, default 1.2)
+- `NOISE_CV_GATE_FLOOR = 1.2` in `constants/animation.py`; 4 schema entries in `config.py`
+- 5 tests in `TestStripNoiseCv` (`test_canvas.py`), 5 tests in `TestNoiseCvGatePipeline` (`test_pipeline.py`)
+
+### §5.58 Pipeline Seam Luma Step CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_luma_step_cv(img, n_strips=8, boundary_px=3)` in `canvas.py` — coefficient of variation (std/mean) of per-strip-boundary absolute luminance step; 0.0 when mean step < 0.5 (uniformly smooth guard), fewer than 2 steps, or degenerate input; high CV = some seams have large luma steps while others are smooth, indicating uneven gain normalization
+- Stage 11.45 gate in `pipeline.py`: fires when `_lscv_val > _LUMA_STEP_CV_GATE_FLOOR` (default 1.0) → SCANS fallback; reason `luma_step_cv_gate:{val:.4f}`
+- Flags: `_LUMA_STEP_CV_GATE_ENABLED` (`ASP_GATE_LUMA_STEP_CV`, default 1), `_LUMA_STEP_CV_GATE_FLOOR` (`ASP_GATE_LUMA_STEP_CV_FLOOR`, default 1.0)
+- `LUMA_STEP_CV_GATE_FLOOR = 1.0` in `constants/animation.py`; 4 schema entries in `config.py`
+- 5 tests in `TestSeamLumaStepCv` (`test_canvas.py`), 5 tests in `TestLumaStepCvGatePipeline` (`test_pipeline.py`)
+
+### §5.59 Bench Strip Noise CV Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_NOISE_CV_ABS_FLOOR = 0.50`, `_NOISE_CV_RATIO = 2.5` constants in `bench_anime_stitch.py`
+- NoiseCvGate block in `run_dataset()`: fires when `asp_ncv > floor` and (`sim_ncv < 0.05` or `asp_ncv > 2.5 × sim_ncv`) → SCANS fallback; reason `noise_cv_gate:{val:.4f}`
+- Schema entries `ASP_GATE_NOISE_CV_ABS_FLOOR` and `ASP_GATE_NOISE_CV_RATIO` in `config.py`
+- 5 tests in `TestNoiseCvGateBench` (`test_bench_metrics.py`)
+
+### §5.60 Bench Seam Luma Step CV Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_LUMA_STEP_CV_ABS_FLOOR = 0.40`, `_LUMA_STEP_CV_RATIO = 2.0` constants in `bench_anime_stitch.py`
+- LumaStepCvGate block in `run_dataset()`: fires when `asp_lscv > floor` and (`sim_lscv < 0.05` or `asp_lscv > 2.0 × sim_lscv`) → SCANS fallback; reason `luma_step_cv_gate:{val:.4f}`
+- Schema entries `ASP_GATE_LUMA_STEP_CV_ABS_FLOOR` and `ASP_GATE_LUMA_STEP_CV_RATIO` in `config.py`
+- 5 tests in `TestLumaStepCvGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S182 — 2026-06-25 (§5.53 Pipeline Strip Contrast CV Gate · §5.54 Pipeline Seam Chroma Jump Gate · §5.55 Bench Strip Contrast CV Gate · §5.56 Bench Seam Chroma Jump Gate)
 
 *Four new post-composite quality gates: two pipeline gates (Stage 11.42 strip contrast CV, Stage 11.43 seam chroma jump) and two bench comparative gates (strip contrast CV parity, seam chroma jump parity). 1715 tests passing (85 skipped).*
