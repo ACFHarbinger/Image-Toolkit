@@ -658,3 +658,6 @@ DARK_PIXEL_FRAC_CV_GATE_FLOOR: float = 1.5  # §5.89: pipeline strip dark pixel 
 SEAM_SAT_SHIFT_CV_GATE_FLOOR: float = 1.5  # §5.90: pipeline seam saturation shift CV gate floor
 SOBEL_ENERGY_CV_GATE_FLOOR: float = 1.2  # §5.93: pipeline strip Sobel energy CV gate floor
 SEAM_VALUE_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.94: pipeline seam Value shift CV gate floor
+
+MEDIAN_LUMA_CV_GATE_FLOOR: float = 0.5  # §5.97: pipeline strip median luma CV gate floor
+SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR: float = 1.5  # §5.98: pipeline seam entropy shift CV gate floor

@@ -51,6 +51,8 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_saturation_shift_cv,
     _strip_sobel_energy_cv,
     _seam_value_shift_cv,
+    _strip_median_luma_cv,
+    _seam_entropy_shift_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1871,3 +1873,64 @@ class TestSeamValueShiftCv:
         rng = np.random.default_rng(45)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_value_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0
+
+
+class TestStripMedianLumaCv:
+    def test_none_returns_zero(self):
+        assert _strip_median_luma_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 32), 128, dtype=np.uint8)
+        assert _strip_median_luma_cv(img, n_strips=1) == 0.0
+
+    def test_nearly_black_returns_zero(self):
+        img = np.zeros((64, 32), dtype=np.uint8)
+        assert _strip_median_luma_cv(img) == 0.0
+
+    def test_high_cv_on_mixed_medians(self):
+        img = np.zeros((64, 32), dtype=np.uint8)
+        strip_h = 64 // 8
+        for i in range(8):
+            val = 200 if i % 2 == 0 else 50
+            img[i * strip_h:(i + 1) * strip_h] = val
+        result = _strip_median_luma_cv(img, n_strips=8)
+        assert result > 0.0
+
+    def test_nonnegative(self):
+        rng = np.random.default_rng(97)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _strip_median_luma_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamEntropyShiftCv:
+    def test_none_returns_zero(self):
+        assert _seam_entropy_shift_cv(None) == 0.0
+
+    def test_invalid_boundary_px(self):
+        img = np.full((64, 32), 128, dtype=np.uint8)
+        assert _seam_entropy_shift_cv(img, boundary_px=0) == 0.0
+
+    def test_uniform_image_returns_zero(self):
+        img = np.full((64, 32), 128, dtype=np.uint8)
+        assert _seam_entropy_shift_cv(img) == 0.0
+
+    def test_high_cv_on_entropy_mismatch(self):
+        img = np.zeros((64, 32), dtype=np.uint8)
+        strip_h = 64 // 4
+        # strip 0: uniform 128 (H=0)
+        img[:strip_h] = 128
+        # strip 1: 4 distinct values (H≈2 bits)
+        tile = np.tile(np.array([0, 64, 128, 192], dtype=np.uint8), (strip_h, 8))
+        img[strip_h:strip_h * 2] = tile
+        # strip 2: uniform 64 (H=0)
+        img[strip_h * 2:strip_h * 3] = 64
+        # strip 3: random noise (H≈8 bits)
+        np.random.seed(42)
+        img[strip_h * 3:] = np.random.randint(0, 256, (strip_h, 32), dtype=np.uint8)
+        result = _seam_entropy_shift_cv(img, n_strips=4, boundary_px=3)
+        assert result > 0.0
+
+    def test_nonnegative(self):
+        rng = np.random.default_rng(98)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_entropy_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0

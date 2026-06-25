@@ -77,6 +77,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _SOBEL_ENERGY_CV_RATIO,
     _SEAM_VALUE_SHIFT_CV_ABS_FLOOR,
     _SEAM_VALUE_SHIFT_CV_RATIO,
+    _MEDIAN_LUMA_CV_ABS_FLOOR,
+    _MEDIAN_LUMA_CV_RATIO,
+    _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR,
+    _SEAM_ENTROPY_SHIFT_CV_RATIO,
 )
 from backend.src.animation.core import config as _asp_config  # noqa: E402
 
@@ -3171,5 +3175,73 @@ class TestSeamValueShiftCvGateBench:
         sim_val = 0.0
         fires = asp_val > _SEAM_VALUE_SHIFT_CV_ABS_FLOOR and (
             sim_val < 0.10 or asp_val > _SEAM_VALUE_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+
+class TestMedianLumaCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_MEDIAN_LUMA_CV_ABS_FLOOR, float)
+        assert isinstance(_MEDIAN_LUMA_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_MEDIAN_LUMA_CV" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_MEDIAN_LUMA_CV_FLOOR" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_val = _MEDIAN_LUMA_CV_ABS_FLOOR + 0.10
+        sim_val = 0.01
+        fires = asp_val > _MEDIAN_LUMA_CV_ABS_FLOOR and (
+            sim_val < 0.08 or asp_val > _MEDIAN_LUMA_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_val = 0.35
+        sim_val = 0.33
+        fires = asp_val > _MEDIAN_LUMA_CV_ABS_FLOOR and (
+            sim_val < 0.08 or asp_val > _MEDIAN_LUMA_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_val = _MEDIAN_LUMA_CV_ABS_FLOOR - 0.05
+        sim_val = 0.0
+        fires = asp_val > _MEDIAN_LUMA_CV_ABS_FLOOR and (
+            sim_val < 0.08 or asp_val > _MEDIAN_LUMA_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+
+class TestSeamEntropyShiftCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR, float)
+        assert isinstance(_SEAM_ENTROPY_SHIFT_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_SEAM_ENTROPY_SHIFT_CV" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_ENTROPY_SHIFT_CV_FLOOR" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_val = _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR + 0.10
+        sim_val = 0.01
+        fires = asp_val > _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _SEAM_ENTROPY_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_val = 0.50
+        sim_val = 0.48
+        fires = asp_val > _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _SEAM_ENTROPY_SHIFT_CV_RATIO * max(sim_val, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_val = _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR - 0.05
+        sim_val = 0.0
+        fires = asp_val > _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR and (
+            sim_val < 0.10 or asp_val > _SEAM_ENTROPY_SHIFT_CV_RATIO * max(sim_val, 0.01)
         )
         assert not fires

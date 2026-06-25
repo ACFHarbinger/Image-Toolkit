@@ -3718,3 +3718,57 @@ class TestSeamValueShiftCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_SEAM_VALUE_SHIFT_CV_GATE_ENABLED", False)
         assert pipeline._SEAM_VALUE_SHIFT_CV_GATE_ENABLED is False
+
+
+class TestMedianLumaCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._MEDIAN_LUMA_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._MEDIAN_LUMA_CV_GATE_FLOOR, float)
+        assert pipeline._MEDIAN_LUMA_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_MEDIAN_LUMA_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_MEDIAN_LUMA_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_median_luma_cv
+        img = np.zeros((64, 32), dtype=np.uint8)
+        strip_h = 64 // 8
+        for i in range(8):
+            img[i * strip_h:(i + 1) * strip_h] = 200 if i % 2 == 0 else 50
+        assert _strip_median_luma_cv(img, n_strips=8) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_MEDIAN_LUMA_CV_GATE_ENABLED", False)
+        assert pipeline._MEDIAN_LUMA_CV_GATE_ENABLED is False
+
+
+class TestSeamEntropyShiftCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_entropy_shift_cv
+        img = np.zeros((64, 32), dtype=np.uint8)
+        strip_h = 64 // 4
+        img[:strip_h] = 128
+        tile = np.tile(np.array([0, 64, 128, 192], dtype=np.uint8), (strip_h, 8))
+        img[strip_h:strip_h * 2] = tile
+        img[strip_h * 2:strip_h * 3] = 64
+        np.random.seed(42)
+        img[strip_h * 3:] = np.random.randint(0, 256, (strip_h, 32), dtype=np.uint8)
+        assert _seam_entropy_shift_cv(img, n_strips=4, boundary_px=3) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED is False
