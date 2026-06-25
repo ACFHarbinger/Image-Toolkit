@@ -45,6 +45,10 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     _ENTROPY_CV_RATIO,
     _CHROMA_STEP_CV_ABS_FLOOR,
     _CHROMA_STEP_CV_RATIO,
+    _CHROMA_ENERGY_CV_ABS_FLOOR,
+    _CHROMA_ENERGY_CV_RATIO,
+    _SEAM_GRADIENT_CV_ABS_FLOOR,
+    _SEAM_GRADIENT_CV_RATIO,
 )
 from backend.src.animation.core import config as _asp_config  # noqa: E402
 
@@ -2595,5 +2599,73 @@ class TestChromaStepCvGateBench:
         sim_cscv = 0.0
         fires = asp_cscv > _CHROMA_STEP_CV_ABS_FLOOR and (
             sim_cscv < 0.05 or asp_cscv > _CHROMA_STEP_CV_RATIO * max(sim_cscv, 0.01)
+        )
+        assert not fires
+
+
+class TestChromaEnergyCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_CHROMA_ENERGY_CV_ABS_FLOOR, float)
+        assert isinstance(_CHROMA_ENERGY_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_CHROMA_ENERGY_CV_RATIO" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_cecv = 0.80
+        sim_cecv = 0.01
+        fires = asp_cecv > _CHROMA_ENERGY_CV_ABS_FLOOR and (
+            sim_cecv < 0.05 or asp_cecv > _CHROMA_ENERGY_CV_RATIO * max(sim_cecv, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_cecv = 0.40
+        sim_cecv = 0.35
+        fires = asp_cecv > _CHROMA_ENERGY_CV_ABS_FLOOR and (
+            sim_cecv < 0.05 or asp_cecv > _CHROMA_ENERGY_CV_RATIO * max(sim_cecv, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_cecv = 0.10
+        sim_cecv = 0.0
+        fires = asp_cecv > _CHROMA_ENERGY_CV_ABS_FLOOR and (
+            sim_cecv < 0.05 or asp_cecv > _CHROMA_ENERGY_CV_RATIO * max(sim_cecv, 0.01)
+        )
+        assert not fires
+
+
+class TestSeamGradientCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        assert isinstance(_SEAM_GRADIENT_CV_ABS_FLOOR, float)
+        assert isinstance(_SEAM_GRADIENT_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        assert "ASP_GATE_SEAM_GRADIENT_CV_ABS_FLOOR" in _asp_config._CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_GRADIENT_CV_RATIO" in _asp_config._CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        asp_sgcv = 0.80
+        sim_sgcv = 0.01
+        fires = asp_sgcv > _SEAM_GRADIENT_CV_ABS_FLOOR and (
+            sim_sgcv < 0.05 or asp_sgcv > _SEAM_GRADIENT_CV_RATIO * max(sim_sgcv, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        asp_sgcv = 0.50
+        sim_sgcv = 0.45
+        fires = asp_sgcv > _SEAM_GRADIENT_CV_ABS_FLOOR and (
+            sim_sgcv < 0.05 or asp_sgcv > _SEAM_GRADIENT_CV_RATIO * max(sim_sgcv, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        asp_sgcv = 0.20
+        sim_sgcv = 0.0
+        fires = asp_sgcv > _SEAM_GRADIENT_CV_ABS_FLOOR and (
+            sim_sgcv < 0.05 or asp_sgcv > _SEAM_GRADIENT_CV_RATIO * max(sim_sgcv, 0.01)
         )
         assert not fires

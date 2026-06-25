@@ -1213,6 +1213,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_CHROMA_STEP_CV_FLOOR": (float, 0.0, 10.0, "§5.62: Seam chroma step CV gate floor (default 1.0; high CV = unevenly-corrected white-balance across seams)"),
     "ASP_GATE_CHROMA_STEP_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.64: Bench seam chroma step CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
     "ASP_GATE_CHROMA_STEP_CV_RATIO": (float, 0.0, 10.0, "§5.64: Bench seam chroma step CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_CHROMA_ENERGY_CV": (int, 0, 1, "§5.65: Enable pipeline strip chroma energy CV gate (0 or 1, default 1)"),
+    "ASP_GATE_CHROMA_ENERGY_CV_FLOOR": (float, 0.0, 10.0, "§5.65: Strip chroma energy CV gate floor (default 0.6; high CV = mismatched colour palette saturation across composite strips)"),
+    "ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.67: Bench strip chroma energy CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
+    "ASP_GATE_CHROMA_ENERGY_CV_RATIO": (float, 0.0, 10.0, "§5.67: Bench strip chroma energy CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_SEAM_GRADIENT_CV": (int, 0, 1, "§5.66: Enable pipeline seam gradient CV gate (0 or 1, default 1)"),
+    "ASP_GATE_SEAM_GRADIENT_CV_FLOOR": (float, 0.0, 10.0, "§5.66: Seam gradient CV gate floor (default 1.0; high CV = inconsistent transition steepness across seams — mix of hard cuts and feathered blends)"),
+    "ASP_GATE_SEAM_GRADIENT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.68: Bench seam gradient CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
+    "ASP_GATE_SEAM_GRADIENT_CV_RATIO": (float, 0.0, 10.0, "§5.68: Bench seam gradient CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

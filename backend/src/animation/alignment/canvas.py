@@ -1304,6 +1304,76 @@ def _seam_chroma_step_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 
     return float(steps.std() / mean_step)
 
 
+def _strip_chroma_energy_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.65: Coefficient of variation (std/mean) of per-strip chroma magnitude.
+
+    Chroma magnitude per pixel = sqrt((Cb-128)² + (Cr-128)²) in YCrCb space.
+    Per-strip mean chroma magnitude; CV across strips.  High CV = some strips
+    are highly saturated while others are desaturated/near-grayscale, indicating
+    composite segments from frames with mismatched colour palettes.
+    Orthogonal to §5.38 (HSV saturation CV) which uses a different colour model.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips,
+    grayscale input, mean chroma < 1.0 guard for near-monochrome images).
+    """
+    if img is None or n_strips < 2 or img.ndim < 3:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips:
+        return 0.0
+    ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb).astype(np.float32)
+    cb = ycrcb[:, :, 2] - 128.0
+    cr = ycrcb[:, :, 1] - 128.0
+    chroma_mag = np.sqrt(cb ** 2 + cr ** 2)
+    strip_h = h // n_strips
+    energies = []
+    for i in range(n_strips):
+        band = chroma_mag[i * strip_h:(i + 1) * strip_h]
+        energies.append(float(band.mean()))
+    energies = np.array(energies)
+    mean_energy = float(energies.mean())
+    if mean_energy < 1.0:
+        return 0.0
+    return float(energies.std() / mean_energy)
+
+
+def _seam_gradient_cv(img: np.ndarray, n_strips: int = 8, band_px: int = 5) -> float:
+    """§5.66: Coefficient of variation (std/mean) of per-seam vertical gradient strength.
+
+    Gradient strength at each boundary = mean absolute row-to-row luma change
+    within ±band_px rows of the boundary.  High CV = some seams are sharp
+    hard cuts while others are gradual feathered transitions, indicating
+    inconsistent blend width or partial seam failure.
+    Orthogonal to §5.60 (luma step CV) which measures the total step size;
+    this measures transition steepness regardless of step magnitude.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips * 2,
+    band_px < 2, fewer than 2 seams, mean gradient < 0.1 for flat images).
+    """
+    if img is None or n_strips < 2 or band_px < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    grads = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        r0 = max(0, boundary_row - band_px)
+        r1 = min(h, boundary_row + band_px)
+        band = gray[r0:r1]
+        if band.shape[0] < 2:
+            continue
+        row_diffs = np.abs(np.diff(band, axis=0))
+        grads.append(float(row_diffs.mean()))
+    if len(grads) < 2:
+        return 0.0
+    grads = np.array(grads)
+    mean_grad = float(grads.mean())
+    if mean_grad < 0.1:
+        return 0.0
+    return float(grads.std() / mean_grad)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1348,4 +1418,6 @@ __all__ = [
     "_seam_luma_step_cv",
     "_strip_entropy_cv",
     "_seam_chroma_step_cv",
+    "_strip_chroma_energy_cv",
+    "_seam_gradient_cv",
 ]

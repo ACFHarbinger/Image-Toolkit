@@ -4,6 +4,42 @@
 
 ---
 
+## S185 — 2026-06-25 (§5.65 Pipeline Strip Chroma Energy CV Gate · §5.66 Pipeline Seam Gradient CV Gate · §5.67 Bench Strip Chroma Energy CV Gate · §5.68 Bench Seam Gradient CV Gate)
+
+*Four new post-composite quality gates: two pipeline gates (Stage 11.48 strip chroma energy CV, Stage 11.49 seam gradient CV) and two bench comparative gates (strip chroma energy CV parity, seam gradient CV parity). 1805 tests passing (85 skipped).*
+
+### §5.65 Pipeline Strip Chroma Energy CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_chroma_energy_cv(img, n_strips=8)` in `canvas.py` — CV of per-strip mean chroma magnitude (`sqrt((Cb-128)² + (Cr-128)²)` in YCrCb); 0.0 when mean < 1.0 (near-monochrome guard), grayscale input, or degenerate; high CV = vivid strips adjacent to desaturated strips; orthogonal to §5.38 (HSV saturation CV)
+- Stage 11.48 gate in `pipeline.py`: fires when `_cecv_val > _CHROMA_ENERGY_CV_GATE_FLOOR` (default 0.6) → SCANS fallback; reason `chroma_energy_cv_gate:{val:.4f}`
+- Flags: `_CHROMA_ENERGY_CV_GATE_ENABLED` (`ASP_GATE_CHROMA_ENERGY_CV`, default 1), `_CHROMA_ENERGY_CV_GATE_FLOOR` (`ASP_GATE_CHROMA_ENERGY_CV_FLOOR`, default 0.6)
+- `CHROMA_ENERGY_CV_GATE_FLOOR = 0.6` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripChromaEnergyCv` (`test_canvas.py`), 5 tests in `TestChromaEnergyCvGatePipeline` (`test_pipeline.py`)
+
+### §5.66 Pipeline Seam Gradient CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_gradient_cv(img, n_strips=8, band_px=5)` in `canvas.py` — CV of per-seam mean absolute row-to-row luma change within ±band_px rows; 0.0 when mean_grad < 0.1 (flat guard), fewer than 2 seams, or degenerate; high CV = mix of hard-cut and feathered seams; orthogonal to §5.60 (luma step CV)
+- Stage 11.49 gate in `pipeline.py`: fires when `_sgcv_val > _SEAM_GRADIENT_CV_GATE_FLOOR` (default 1.0) → SCANS fallback; reason `seam_gradient_cv_gate:{val:.4f}`
+- Flags: `_SEAM_GRADIENT_CV_GATE_ENABLED` (`ASP_GATE_SEAM_GRADIENT_CV`, default 1), `_SEAM_GRADIENT_CV_GATE_FLOOR` (`ASP_GATE_SEAM_GRADIENT_CV_FLOOR`, default 1.0)
+- `SEAM_GRADIENT_CV_GATE_FLOOR = 1.0` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestSeamGradientCv` (`test_canvas.py`), 5 tests in `TestSeamGradientCvGatePipeline` (`test_pipeline.py`)
+
+### §5.67 Bench Strip Chroma Energy CV Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_CHROMA_ENERGY_CV_ABS_FLOOR = 0.30`, `_CHROMA_ENERGY_CV_RATIO = 2.5` constants in `bench_anime_stitch.py`
+- ChromaEnergyCvGate block in `run_dataset()`: fires when `asp_cecv > floor` and (`sim_cecv < 0.05` or `asp_cecv > 2.5 × sim_cecv`) → SCANS fallback; reason `chroma_energy_cv_gate:{val:.4f}`
+- Schema entries `ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR` and `ASP_GATE_CHROMA_ENERGY_CV_RATIO` in `config.py`
+- 5 tests in `TestChromaEnergyCvGateBench` (`test_bench_metrics.py`)
+
+### §5.68 Bench Seam Gradient CV Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_SEAM_GRADIENT_CV_ABS_FLOOR = 0.40`, `_SEAM_GRADIENT_CV_RATIO = 2.0` constants in `bench_anime_stitch.py`
+- SeamGradientCvGate block in `run_dataset()`: fires when `asp_sgcv > floor` and (`sim_sgcv < 0.05` or `asp_sgcv > 2.0 × sim_sgcv`) → SCANS fallback; reason `seam_gradient_cv_gate:{val:.4f}`
+- Schema entries `ASP_GATE_SEAM_GRADIENT_CV_ABS_FLOOR` and `ASP_GATE_SEAM_GRADIENT_CV_RATIO` in `config.py`
+- 5 tests in `TestSeamGradientCvGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S184 — 2026-06-25 (§5.61 Pipeline Strip Entropy CV Gate · §5.62 Pipeline Seam Chroma Step CV Gate · §5.63 Bench Strip Entropy CV Gate · §5.64 Bench Seam Chroma Step CV Gate)
 
 *Four new post-composite quality gates: two pipeline gates (Stage 11.46 strip entropy CV, Stage 11.47 seam chroma step CV) and two bench comparative gates (strip entropy CV parity, seam chroma step CV parity). 1775 tests passing (85 skipped).*
