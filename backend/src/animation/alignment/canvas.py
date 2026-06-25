@@ -802,12 +802,6 @@ def _strip_gradient_cv(img: np.ndarray, n_strips: int = 8) -> float:
     or blurrier than adjacent ones — a signature of seam-induced sharpness
     discontinuities.  Returns 0.0 for degenerate inputs.
     """
-    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
-        return 0.0
-    H = img.shape[0]
-    strip_h = H // n_strips
-    if strip_h < 1:
-        return 0.0
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     energies = []
     for i in range(n_strips):
@@ -962,6 +956,83 @@ def _strip_hist_intersection_min(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.clip(min_intersection, 0.0, 1.0))
 
 
+def _strip_hue_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.41: Coefficient of variation of per-strip mean HSV hue (H channel).
+
+    Computes the circular mean hue per strip using cos/sin averaging to handle
+    the wrap-around at 0/180 in OpenCV's 8-bit hue representation (0–179).
+    Returns the std/mean of the mean-hue angles across strips.
+    Returns 0.0 for degenerate (< n_strips rows, mean saturation < 1, or n_strips < 2).
+    """
+    if img is None or img.ndim != 3 or img.shape[0] < n_strips or n_strips < 2:
+        return 0.0
+    H = img.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    s_ch = hsv[:, :, 1].astype(np.float32)
+    h_ch = hsv[:, :, 0].astype(np.float32)
+    mean_s = float(s_ch.mean())
+    if mean_s < 1.0:
+        return 0.0
+    strip_hues = []
+    for i in range(n_strips):
+        h_strip = h_ch[i * strip_h:(i + 1) * strip_h]
+        angles = h_strip * (np.pi / 90.0)
+        cos_m = float(np.cos(angles).mean())
+        sin_m = float(np.sin(angles).mean())
+        mean_angle = float(np.arctan2(sin_m, cos_m)) % (2 * np.pi)
+        strip_hues.append(mean_angle)
+    mean_hue = float(np.mean(strip_hues))
+    if mean_hue < 1e-6:
+        return 0.0
+    return float(np.std(strip_hues) / mean_hue)
+
+
+def _seam_boundary_sharpness_ratio(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.42: Ratio of seam-boundary Laplacian variance to strip-interior variance.
+
+    For each strip boundary row (±boundary_px around each seam), computes the
+    Laplacian variance of those rows. Compares to the Laplacian variance of the
+    strip interiors (middle half of each strip). Returns max ratio across boundaries.
+    High ratio = seam rows are unusually sharp relative to content = hard cut.
+    Returns 0.0 for degenerate inputs.
+    """
+    if img is None or img.ndim < 2 or img.shape[0] < n_strips * 4 or n_strips < 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    H = gray.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 4:
+        return 0.0
+    lap = cv2.Laplacian(gray.astype(np.float32), cv2.CV_32F)
+    max_ratio = 0.0
+    for k in range(n_strips - 1):
+        seam_y = (k + 1) * strip_h
+        b0 = max(0, seam_y - boundary_px)
+        b1 = min(H, seam_y + boundary_px)
+        if b1 - b0 < 1:
+            continue
+        boundary_var = float(lap[b0:b1].var())
+        qa = k * strip_h + strip_h // 4
+        qb = k * strip_h + 3 * strip_h // 4
+        qc = (k + 1) * strip_h + strip_h // 4
+        qd = min(H, (k + 1) * strip_h + 3 * strip_h // 4)
+        interior_a = lap[qa:qb] if qb > qa else np.array([])
+        interior_b = lap[qc:qd] if qd > qc else np.array([])
+        if interior_a.size == 0 and interior_b.size == 0:
+            continue
+        parts = [x for x in [interior_a, interior_b] if x.size > 0]
+        interior_var = float(np.concatenate(parts).var())
+        if interior_var < 1.0:
+            continue
+        ratio = boundary_var / interior_var
+        if ratio > max_ratio:
+            max_ratio = ratio
+    return float(min(max_ratio, 50.0))
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -993,4 +1064,6 @@ __all__ = [
     "_canvas_aspect_ratio",
     "_strip_hist_intersection_min",
     "_strip_sat_cv",
+    "_seam_boundary_sharpness_ratio",
+    "_strip_hue_cv",
 ]

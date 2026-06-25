@@ -1166,6 +1166,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_VALID_AREA_FLOOR": (float, 0.0, 1.0, "§5.39: Canvas valid-area ratio gate floor (default 0.55; low = too many black pixels)"),
     "ASP_GATE_SEAM_GRAD_ABS_FLOOR": (float, 0.0, 20.0, "§5.40: Bench seam gradient ratio absolute floor (default 5.0); gate only fires when ASP ratio exceeds this"),
     "ASP_GATE_SEAM_GRAD_RATIO_LIMIT": (float, 0.0, 10.0, "§5.40: Bench seam gradient ratio limit vs SCANS (default 2.0); fires when ASP ratio > limit × SCANS ratio"),
+    "ASP_GATE_HUE_CV": (int, 0, 1, "§5.41: Enable pipeline strip hue CV gate (0 or 1, default 1)"),
+    "ASP_GATE_HUE_CV_FLOOR": (float, 0.0, 5.0, "§5.41: Strip hue CV gate floor (default 0.50; high CV = seam-induced hue shift)"),
+    "ASP_GATE_SEAM_SHARP_RATIO": (int, 0, 1, "§5.42: Enable pipeline seam boundary sharpness ratio gate (0 or 1, default 1)"),
+    "ASP_GATE_SEAM_SHARP_RATIO_FLOOR": (float, 0.0, 50.0, "§5.42: Seam boundary sharpness ratio gate floor (default 4.0; high = hard seam cut)"),
 }
 
 

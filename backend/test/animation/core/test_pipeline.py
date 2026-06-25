@@ -2908,3 +2908,51 @@ class TestValidAreaGatePipeline:
     def test_n_equals_one_skips(self):
         assert pipeline._VALID_AREA_GATE_ENABLED is not None
         assert isinstance(pipeline._VALID_AREA_GATE_FLOOR, float)
+
+
+class TestHueCvGatePipeline:
+    def test_flag_enabled_by_default(self):
+        from backend.src.animation.core.pipeline import _HUE_CV_GATE_ENABLED
+        import os
+        env_val = os.environ.get("ASP_GATE_HUE_CV", "1")
+        assert _HUE_CV_GATE_ENABLED == (env_val != "0")
+
+    def test_floor_default_value(self):
+        from backend.src.animation.core.pipeline import _HUE_CV_GATE_FLOOR
+        import os
+        env_val = os.environ.get("ASP_GATE_HUE_CV_FLOOR", "0.50")
+        assert abs(_HUE_CV_GATE_FLOOR - float(env_val)) < 1e-9
+
+    def test_strip_hue_cv_importable_from_pipeline(self):
+        from backend.src.animation.core.pipeline import _strip_hue_cv
+        assert callable(_strip_hue_cv)
+
+    def test_schema_has_gate_enabled_key(self):
+        assert "ASP_GATE_HUE_CV" in config._CONFIG_SCHEMA
+
+    def test_schema_has_gate_floor_key(self):
+        assert "ASP_GATE_HUE_CV_FLOOR" in config._CONFIG_SCHEMA
+
+
+class TestSeamSharpRatioGatePipeline:
+    def test_flag_enabled_by_default(self):
+        from backend.src.animation.core.pipeline import _SEAM_SHARP_RATIO_GATE_ENABLED
+        import os
+        env_val = os.environ.get("ASP_GATE_SEAM_SHARP_RATIO", "1")
+        assert _SEAM_SHARP_RATIO_GATE_ENABLED == (env_val != "0")
+
+    def test_floor_default_value(self):
+        from backend.src.animation.core.pipeline import _SEAM_SHARP_RATIO_GATE_FLOOR
+        import os
+        env_val = os.environ.get("ASP_GATE_SEAM_SHARP_RATIO_FLOOR", "4.0")
+        assert abs(_SEAM_SHARP_RATIO_GATE_FLOOR - float(env_val)) < 1e-9
+
+    def test_seam_boundary_sharpness_ratio_importable_from_pipeline(self):
+        from backend.src.animation.core.pipeline import _seam_boundary_sharpness_ratio
+        assert callable(_seam_boundary_sharpness_ratio)
+
+    def test_schema_has_gate_enabled_key(self):
+        assert "ASP_GATE_SEAM_SHARP_RATIO" in config._CONFIG_SCHEMA
+
+    def test_schema_has_gate_floor_key(self):
+        assert "ASP_GATE_SEAM_SHARP_RATIO_FLOOR" in config._CONFIG_SCHEMA

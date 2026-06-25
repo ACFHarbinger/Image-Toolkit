@@ -48,11 +48,13 @@ from backend.src.animation.alignment.canvas import (
     _per_seam_lum_step_px,
     _scan_stitch_fallback,
     _seam_band_ncc_min,
+    _seam_boundary_sharpness_ratio,
     _seam_coherence_score,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_gradient_cv,
     _strip_hist_intersection_min,
+    _strip_hue_cv,
     _strip_luma_monotonicity,
     _strip_sat_cv,
     _strip_seam_gradient_score,
@@ -751,6 +753,17 @@ _STRIP_SSIM_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_STRIP_SSIM_FLOOR"
 # Low intersection = color mismatch between adjacent strips. Set ASP_GATE_HIST_INTERSECT=0 to disable.
 _HIST_INTERSECT_GATE_ENABLED: bool = os.environ.get("ASP_GATE_HIST_INTERSECT", "1") != "0"
 _HIST_INTERSECT_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_HIST_INTERSECT_FLOOR", "0.35"))
+# §5.41 — Pipeline Strip Hue CV Gate (Stage 11.36).
+# Fires when CV of per-strip mean HSV hue exceeds floor → SCANS fallback.
+# High CV = seam-induced hue shifts between strips.
+_HUE_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_HUE_CV", "1") != "0"
+_HUE_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_HUE_CV_FLOOR", "0.50"))
+
+# §5.42 — Pipeline Seam Boundary Sharpness Ratio Gate (Stage 11.37).
+# Fires when max seam-boundary Laplacian variance / interior variance > floor → SCANS fallback.
+# High ratio = seam rows have unusually high sharpness relative to content = hard cut.
+_SEAM_SHARP_RATIO_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_SHARP_RATIO", "1") != "0"
+_SEAM_SHARP_RATIO_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_SHARP_RATIO_FLOOR", "4.0"))
 
 
 def _compute_bg_lum_spread(
@@ -4960,6 +4973,42 @@ class AnimeStitchPipeline:
             except Exception as _var_e:
                 logger.debug("[Stitch] Stage 11.35: ValidAreaGate skipped (%s).", _var_e)
 
+        # ── Stage 11.36: §5.41 Strip Hue CV Gate ────────────────────────────
+        if _HUE_CV_GATE_ENABLED and N > 1:
+            try:
+                _hue_cv_val = _strip_hue_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.36: strip_hue_cv=%.4f (floor=%.3f).", _hue_cv_val, _HUE_CV_GATE_FLOOR)
+                if _hue_cv_val > _HUE_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.36: HueCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _hue_cv_val, _HUE_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"hue_cv_gate:{_hue_cv_val:.4f}",
+                    )
+            except Exception as _hue_cv_e:
+                logger.debug("[Stitch] Stage 11.36: HueCvGate skipped (%s).", _hue_cv_e)
+
+        # ── Stage 11.37: §5.42 Seam Boundary Sharpness Ratio Gate ───────────
+        if _SEAM_SHARP_RATIO_GATE_ENABLED and N > 1:
+            try:
+                _ssr_val = _seam_boundary_sharpness_ratio(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.37: seam_sharp_ratio=%.4f (floor=%.3f).", _ssr_val, _SEAM_SHARP_RATIO_GATE_FLOOR)
+                if _ssr_val > _SEAM_SHARP_RATIO_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.37: SeamSharpRatioGate FAILED (ratio=%.4f > floor=%.3f) → SCANS fallback.",
+                        _ssr_val, _SEAM_SHARP_RATIO_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_sharp_ratio_gate:{_ssr_val:.4f}",
+                    )
+            except Exception as _ssr_e:
+                logger.debug("[Stitch] Stage 11.37: SeamSharpRatioGate skipped (%s).", _ssr_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5695,4 +5744,10 @@ __all__ = [
     "_VALID_AREA_GATE_ENABLED",
     "_VALID_AREA_GATE_FLOOR",
     "_canvas_valid_area_ratio",
+    "_HUE_CV_GATE_ENABLED",
+    "_HUE_CV_GATE_FLOOR",
+    "_strip_hue_cv",
+    "_SEAM_SHARP_RATIO_GATE_ENABLED",
+    "_SEAM_SHARP_RATIO_GATE_FLOOR",
+    "_seam_boundary_sharpness_ratio",
 ]

@@ -29,7 +29,9 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _detect_scroll_axis,
     _panorama_stitch_fallback,
     _per_seam_lum_step_px,
+    _seam_boundary_sharpness_ratio,
     _smooth_seam_bands,
+    _strip_hue_cv,
     _telea_fill_gaps,
 )
 from backend.src.animation.core.pipeline import _compute_row_coverage  # noqa: E402
@@ -945,3 +947,76 @@ class TestCanvasValidAreaRatio:
         img = np.full((40, 40), 100, dtype=np.uint8)
         ratio = _canvas_valid_area_ratio(img)
         assert ratio == 1.0
+
+
+class TestStripHueCv:
+    def _uniform_hue_img(self, hue: int = 90, h: int = 80, w: int = 40) -> np.ndarray:
+        hsv = np.zeros((h, w, 3), dtype=np.uint8)
+        hsv[:, :, 0] = hue
+        hsv[:, :, 1] = 128
+        hsv[:, :, 2] = 200
+        return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+    def test_degenerate_none_returns_zero(self):
+        assert _strip_hue_cv(None) == 0.0
+
+    def test_degenerate_too_few_rows_returns_zero(self):
+        img = np.zeros((4, 40, 3), dtype=np.uint8)
+        assert _strip_hue_cv(img, n_strips=8) == 0.0
+
+    def test_degenerate_n_strips_less_than_2_returns_zero(self):
+        img = self._uniform_hue_img(h=80)
+        assert _strip_hue_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_hue_low_cv(self):
+        img = self._uniform_hue_img(hue=60, h=80, w=40)
+        result = _strip_hue_cv(img, n_strips=8)
+        assert result < 0.1
+
+    def test_varying_hue_high_cv(self):
+        h, w, n_strips = 80, 40, 8
+        strip_h = h // n_strips
+        hsv = np.zeros((h, w, 3), dtype=np.uint8)
+        hsv[:, :, 1] = 128
+        hsv[:, :, 2] = 200
+        for i in range(n_strips):
+            hsv[i * strip_h:(i + 1) * strip_h, :, 0] = i * 20
+        img = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        result = _strip_hue_cv(img, n_strips=n_strips)
+        assert result > 0.05
+
+
+class TestSeamBoundarySharpnessRatio:
+    def _flat_img(self, h: int = 64, w: int = 40, val: int = 128) -> np.ndarray:
+        return np.full((h, w, 3), val, dtype=np.uint8)
+
+    def test_degenerate_none_returns_zero(self):
+        assert _seam_boundary_sharpness_ratio(None) == 0.0
+
+    def test_degenerate_too_few_rows_returns_zero(self):
+        img = np.zeros((4, 40, 3), dtype=np.uint8)
+        assert _seam_boundary_sharpness_ratio(img, n_strips=8) == 0.0
+
+    def test_degenerate_n_strips_less_than_2_returns_zero(self):
+        img = self._flat_img(h=64)
+        assert _seam_boundary_sharpness_ratio(img, n_strips=1) == 0.0
+
+    def test_flat_image_returns_zero(self):
+        img = self._flat_img(h=64)
+        result = _seam_boundary_sharpness_ratio(img, n_strips=8)
+        assert result == 0.0
+
+    def test_hard_seam_rows_detected(self):
+        h, w, n_strips = 64, 40, 8
+        strip_h = h // n_strips
+        # Add checkerboard texture to all strips so interior_var >= 1.0
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        for r in range(h):
+            for c in range(w):
+                img[r, c] = 80 if (r + c) % 2 == 0 else 120
+        # Insert a much sharper hard contrast edge at first seam boundary
+        seam_y = strip_h
+        img[seam_y - 1, :] = 0
+        img[seam_y, :] = 255
+        result = _seam_boundary_sharpness_ratio(img, n_strips=n_strips, boundary_px=2)
+        assert result > 1.0
