@@ -1205,6 +1205,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_LUMA_STEP_CV_FLOOR": (float, 0.0, 10.0, "§5.58: Seam luma step CV gate floor (default 1.0; high CV = unevenly-corrected gain normalization across seams)"),
     "ASP_GATE_LUMA_STEP_CV_ABS_FLOOR": (float, 0.0, 255.0, "§5.60: Bench seam luma step CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
     "ASP_GATE_LUMA_STEP_CV_RATIO": (float, 0.0, 10.0, "§5.60: Bench seam luma step CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_ENTROPY_CV": (int, 0, 1, "§5.61: Enable pipeline strip entropy CV gate (0 or 1, default 1)"),
+    "ASP_GATE_ENTROPY_CV_FLOOR": (float, 0.0, 10.0, "§5.61: Strip entropy CV gate floor (default 0.5; high CV = mismatched scene complexity across composite strips)"),
+    "ASP_GATE_ENTROPY_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.63: Bench strip entropy CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
+    "ASP_GATE_ENTROPY_CV_RATIO": (float, 0.0, 10.0, "§5.63: Bench strip entropy CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_CHROMA_STEP_CV": (int, 0, 1, "§5.62: Enable pipeline seam chroma step CV gate (0 or 1, default 1)"),
+    "ASP_GATE_CHROMA_STEP_CV_FLOOR": (float, 0.0, 10.0, "§5.62: Seam chroma step CV gate floor (default 1.0; high CV = unevenly-corrected white-balance across seams)"),
+    "ASP_GATE_CHROMA_STEP_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.64: Bench seam chroma step CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
+    "ASP_GATE_CHROMA_STEP_CV_RATIO": (float, 0.0, 10.0, "§5.64: Bench seam chroma step CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

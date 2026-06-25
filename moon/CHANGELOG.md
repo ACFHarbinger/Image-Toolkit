@@ -4,6 +4,42 @@
 
 ---
 
+## S184 — 2026-06-25 (§5.61 Pipeline Strip Entropy CV Gate · §5.62 Pipeline Seam Chroma Step CV Gate · §5.63 Bench Strip Entropy CV Gate · §5.64 Bench Seam Chroma Step CV Gate)
+
+*Four new post-composite quality gates: two pipeline gates (Stage 11.46 strip entropy CV, Stage 11.47 seam chroma step CV) and two bench comparative gates (strip entropy CV parity, seam chroma step CV parity). 1775 tests passing (85 skipped).*
+
+### §5.61 Pipeline Strip Entropy CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_entropy_cv(img, n_strips=8)` in `canvas.py` — CV of per-strip Shannon entropy (256-bin luma histogram, `-sum(p*log2(p+eps))`); 0.0 when mean_entropy < 0.5 (uniformly flat guard) or degenerate input; high CV = some strips have rich information while others are flat/uniform, indicating composite from frames with mismatched scene complexity
+- Stage 11.46 gate in `pipeline.py`: fires when `_ecv_val > _ENTROPY_CV_GATE_FLOOR` (default 0.5) → SCANS fallback; reason `entropy_cv_gate:{val:.4f}`
+- Flags: `_ENTROPY_CV_GATE_ENABLED` (`ASP_GATE_ENTROPY_CV`, default 1), `_ENTROPY_CV_GATE_FLOOR` (`ASP_GATE_ENTROPY_CV_FLOOR`, default 0.5)
+- `ENTROPY_CV_GATE_FLOOR = 0.5` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripEntropyCv` (`test_canvas.py`), 5 tests in `TestEntropyCvGatePipeline` (`test_pipeline.py`)
+
+### §5.62 Pipeline Seam Chroma Step CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_chroma_step_cv(img, n_strips=8, boundary_px=3)` in `canvas.py` — CV of per-seam absolute chroma step (`|ΔCb| + |ΔCr|` in YCrCb space at ±boundary_px rows); 0.0 when mean_step < 0.5 (uniform chroma guard), fewer than 2 seams, or grayscale/degenerate input; complements §5.60 (luma step CV) and §5.54 (chroma jump max)
+- Stage 11.47 gate in `pipeline.py`: fires when `_cscv_val > _CHROMA_STEP_CV_GATE_FLOOR` (default 1.0) → SCANS fallback; reason `chroma_step_cv_gate:{val:.4f}`
+- Flags: `_CHROMA_STEP_CV_GATE_ENABLED` (`ASP_GATE_CHROMA_STEP_CV`, default 1), `_CHROMA_STEP_CV_GATE_FLOOR` (`ASP_GATE_CHROMA_STEP_CV_FLOOR`, default 1.0)
+- `CHROMA_STEP_CV_GATE_FLOOR = 1.0` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestSeamChromaStepCv` (`test_canvas.py`), 5 tests in `TestChromaStepCvGatePipeline` (`test_pipeline.py`)
+
+### §5.63 Bench Strip Entropy CV Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_ENTROPY_CV_ABS_FLOOR = 0.30`, `_ENTROPY_CV_RATIO = 2.5` constants in `bench_anime_stitch.py`
+- EntropyCvGate block in `run_dataset()`: fires when `asp_ecv > floor` and (`sim_ecv < 0.05` or `asp_ecv > 2.5 × sim_ecv`) → SCANS fallback; reason `entropy_cv_gate:{val:.4f}`
+- Schema entries `ASP_GATE_ENTROPY_CV_ABS_FLOOR` and `ASP_GATE_ENTROPY_CV_RATIO` in `config.py`
+- 5 tests in `TestEntropyCvGateBench` (`test_bench_metrics.py`)
+
+### §5.64 Bench Seam Chroma Step CV Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `_CHROMA_STEP_CV_ABS_FLOOR = 0.30`, `_CHROMA_STEP_CV_RATIO = 2.0` constants in `bench_anime_stitch.py`
+- ChromaStepCvGate block in `run_dataset()`: fires when `asp_cscv > floor` and (`sim_cscv < 0.05` or `asp_cscv > 2.0 × sim_cscv`) → SCANS fallback; reason `chroma_step_cv_gate:{val:.4f}`
+- Schema entries `ASP_GATE_CHROMA_STEP_CV_ABS_FLOOR` and `ASP_GATE_CHROMA_STEP_CV_RATIO` in `config.py`
+- 5 tests in `TestChromaStepCvGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S183 — 2026-06-25 (§5.57 Pipeline Strip Noise CV Gate · §5.58 Pipeline Seam Luma Step CV Gate · §5.59 Bench Strip Noise CV Gate · §5.60 Bench Seam Luma Step CV Gate)
 
 *Four new post-composite quality gates: two pipeline gates (Stage 11.44 strip noise CV, Stage 11.45 seam luma step CV) and two bench comparative gates (strip noise CV parity, seam luma step CV parity). 1745 tests passing (85 skipped).*

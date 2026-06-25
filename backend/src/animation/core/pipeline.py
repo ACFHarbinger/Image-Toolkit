@@ -50,12 +50,14 @@ from backend.src.animation.alignment.canvas import (
     _seam_band_ncc_min,
     _seam_boundary_sharpness_ratio,
     _seam_chroma_jump,
+    _seam_chroma_step_cv,
     _seam_coherence_score,
     _seam_edge_density,
     _seam_luma_step_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_contrast_cv,
+    _strip_entropy_cv,
     _strip_gradient_cv,
     _strip_hist_intersection_min,
     _strip_hue_cv,
@@ -650,6 +652,12 @@ _SEAM_LUM_STEP_ADAPTIVE: bool = os.environ.get("ASP_SEAM_LUM_STEP_ADAPTIVE", "1"
 # §5.58 — Pipeline Seam Luma Step CV Gate (Stage 11.45).
 _LUMA_STEP_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_STEP_CV", "1") != "0"
 _LUMA_STEP_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_STEP_CV_FLOOR", "1.0"))
+# §5.61 — Pipeline Strip Entropy CV Gate (Stage 11.46).
+_ENTROPY_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_ENTROPY_CV", "1") != "0"
+_ENTROPY_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_ENTROPY_CV_FLOOR", "0.5"))
+# §5.62 — Pipeline Seam Chroma Step CV Gate (Stage 11.47).
+_CHROMA_STEP_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CHROMA_STEP_CV", "1") != "0"
+_CHROMA_STEP_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_STEP_CV_FLOOR", "1.0"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5196,6 +5204,42 @@ class AnimeStitchPipeline:
             except Exception as _lscv_e:
                 logger.debug("[Stitch] Stage 11.45: LumaStepCvGate skipped (%s).", _lscv_e)
 
+        # ── Stage 11.46: §5.61 Strip Entropy CV Gate ─────────────────────────
+        if _ENTROPY_CV_GATE_ENABLED and N > 1:
+            try:
+                _ecv_val = _strip_entropy_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.46: strip_entropy_cv=%.4f (floor=%.3f).", _ecv_val, _ENTROPY_CV_GATE_FLOOR)
+                if _ecv_val > _ENTROPY_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.46: EntropyCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _ecv_val, _ENTROPY_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"entropy_cv_gate:{_ecv_val:.4f}",
+                    )
+            except Exception as _ecv_e:
+                logger.debug("[Stitch] Stage 11.46: EntropyCvGate skipped (%s).", _ecv_e)
+
+        # ── Stage 11.47: §5.62 Seam Chroma Step CV Gate ──────────────────────
+        if _CHROMA_STEP_CV_GATE_ENABLED and N > 1:
+            try:
+                _cscv_val = _seam_chroma_step_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.47: seam_chroma_step_cv=%.4f (floor=%.3f).", _cscv_val, _CHROMA_STEP_CV_GATE_FLOOR)
+                if _cscv_val > _CHROMA_STEP_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.47: ChromaStepCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _cscv_val, _CHROMA_STEP_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"chroma_step_cv_gate:{_cscv_val:.4f}",
+                    )
+            except Exception as _cscv_e:
+                logger.debug("[Stitch] Stage 11.47: ChromaStepCvGate skipped (%s).", _cscv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5955,4 +5999,8 @@ __all__ = [
     "_NOISE_CV_GATE_FLOOR",
     "_LUMA_STEP_CV_GATE_ENABLED",
     "_LUMA_STEP_CV_GATE_FLOOR",
+    "_ENTROPY_CV_GATE_ENABLED",
+    "_ENTROPY_CV_GATE_FLOOR",
+    "_CHROMA_STEP_CV_GATE_ENABLED",
+    "_CHROMA_STEP_CV_GATE_FLOOR",
 ]

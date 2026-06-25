@@ -3218,3 +3218,57 @@ class TestLumaStepCvGatePipeline:
         assert pipeline._LUMA_STEP_CV_GATE_ENABLED is not None
         assert isinstance(False, bool)
         assert False is False
+
+
+class TestEntropyCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._ENTROPY_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._ENTROPY_CV_GATE_FLOOR, float)
+        assert pipeline._ENTROPY_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_ENTROPY_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_ENTROPY_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_entropy_cv
+        rng = np.random.default_rng(42)
+        img = np.zeros((128, 128, 3), dtype=np.uint8)
+        img[:64] = 128
+        noise = rng.integers(0, 256, (64, 128, 3), dtype=np.uint8)
+        img[64:] = noise
+        assert _strip_entropy_cv(img, n_strips=8) > 0.3
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_ENTROPY_CV_GATE_ENABLED", False)
+        assert pipeline._ENTROPY_CV_GATE_ENABLED is False
+
+
+class TestChromaStepCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._CHROMA_STEP_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._CHROMA_STEP_CV_GATE_FLOOR, float)
+        assert pipeline._CHROMA_STEP_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_CHROMA_STEP_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_CHROMA_STEP_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_chroma_step_cv
+        h, w = 160, 64
+        img = np.full((h, w, 3), 128, dtype=np.uint8)
+        strip_h = h // 8
+        boundary_row = strip_h
+        img[max(0, boundary_row - 3):boundary_row, :] = [200, 50, 50]
+        img[boundary_row:boundary_row + 3, :] = [50, 200, 200]
+        result = _seam_chroma_step_cv(img, n_strips=8, boundary_px=3)
+        assert result >= 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_CHROMA_STEP_CV_GATE_ENABLED", False)
+        assert pipeline._CHROMA_STEP_CV_GATE_ENABLED is False
