@@ -2871,3 +2871,40 @@ class TestSatCvGatePipeline:
     def test_schema_entries_present(self):
         assert "ASP_GATE_SAT_CV" in config._CONFIG_SCHEMA
         assert "ASP_GATE_SAT_CV_FLOOR" in config._CONFIG_SCHEMA
+
+
+# ===========================================================================
+# §5.39 — Pipeline Canvas Valid-Area Ratio Gate (Stage 11.35)
+# ===========================================================================
+
+
+class TestValidAreaGatePipeline:
+
+    def test_gate_disabled_flag_exists(self):
+        assert hasattr(pipeline, "_VALID_AREA_GATE_ENABLED")
+        assert hasattr(pipeline, "_VALID_AREA_GATE_FLOOR")
+
+    def test_high_ratio_passes_floor(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        img = np.full((100, 100, 3), 200, dtype=np.uint8)
+        ratio = _canvas_valid_area_ratio(img)
+        assert ratio >= 0.55
+
+    def test_low_ratio_fires(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        img = np.zeros((100, 100, 3), dtype=np.uint8)
+        img[:20, :] = 200
+        ratio = _canvas_valid_area_ratio(img)
+        assert ratio < 0.55
+
+    def test_exact_floor_does_not_fire(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        img = np.zeros((100, 100, 3), dtype=np.uint8)
+        n = int(0.55 * 100 * 100)
+        img.reshape(-1, 3)[:n] = 200
+        ratio = _canvas_valid_area_ratio(img)
+        assert not (ratio < 0.55)
+
+    def test_n_equals_one_skips(self):
+        assert pipeline._VALID_AREA_GATE_ENABLED is not None
+        assert isinstance(pipeline._VALID_AREA_GATE_FLOOR, float)

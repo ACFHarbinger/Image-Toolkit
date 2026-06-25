@@ -171,6 +171,23 @@ def _crop_to_valid(canvas: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
     return canvas[r0:r1, c0:c1]
 
 
+def _canvas_valid_area_ratio(img: np.ndarray, black_threshold: int = 8) -> float:
+    """§5.39: Fraction of canvas pixels above the black threshold (valid content ratio).
+
+    Converts to grayscale and returns the fraction of pixels with mean value
+    > black_threshold. Low ratio = large black/empty regions = alignment failure
+    or canvas significantly underfilled. Returns 1.0 for degenerate (None) input.
+    """
+    if img is None or img.ndim < 2:
+        return 1.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    total = gray.size
+    if total == 0:
+        return 1.0
+    valid = int(np.sum(gray > black_threshold))
+    return float(valid) / float(total)
+
+
 def _telea_fill_gaps(canvas: np.ndarray, gap_mask: np.ndarray) -> np.ndarray:
     """§1.7B: Fill residual black border pixels with cv2.INPAINT_TELEA (S23).
 
@@ -951,6 +968,7 @@ __all__ = [
     "_compute_canvas",
     "_crop_to_valid",
     "_telea_fill_gaps",
+    "_canvas_valid_area_ratio",
     "_smooth_seam_bands",
     "_correct_seam_lum_steps",
     "_canvas_gain_uniformity",

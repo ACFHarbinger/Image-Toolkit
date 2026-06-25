@@ -910,3 +910,38 @@ class TestStripSatCv:
         img = rng.integers(0, 255, (160, 80, 3), dtype=np.uint8)
         result = _strip_sat_cv(img, n_strips=8)
         assert result >= 0.0
+
+
+# _canvas_valid_area_ratio (§5.39)
+# ---------------------------------------------------------------------------
+
+
+class TestCanvasValidAreaRatio:
+    from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+
+    def test_none_returns_one(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        assert _canvas_valid_area_ratio(None) == 1.0
+
+    def test_all_black_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        img = np.zeros((50, 50, 3), dtype=np.uint8)
+        assert _canvas_valid_area_ratio(img) == 0.0
+
+    def test_all_white_returns_one(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        img = np.full((50, 50, 3), 255, dtype=np.uint8)
+        assert _canvas_valid_area_ratio(img) == 1.0
+
+    def test_half_black_returns_approx_half(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        img = np.zeros((50, 50, 3), dtype=np.uint8)
+        img[:25, :] = 200
+        ratio = _canvas_valid_area_ratio(img)
+        assert abs(ratio - 0.5) < 0.01
+
+    def test_single_channel_input(self):
+        from backend.src.animation.alignment.canvas import _canvas_valid_area_ratio
+        img = np.full((40, 40), 100, dtype=np.uint8)
+        ratio = _canvas_valid_area_ratio(img)
+        assert ratio == 1.0

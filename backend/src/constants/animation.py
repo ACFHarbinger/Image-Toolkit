@@ -628,3 +628,4 @@ SEAM_GRAD_RATIO_GATE_FLOOR: float = 3.0  # §5.33: pipeline seam gradient ratio 
 CANVAS_ASPECT_GATE_FLOOR: float = 1.2  # §5.34: minimum H/W ratio for canvas aspect gate
 HIST_INTERSECT_GATE_FLOOR: float = 0.35  # §5.36: pipeline strip histogram intersection gate floor
 SAT_CV_GATE_FLOOR: float = 0.40  # §5.38: pipeline strip saturation CV gate floor
+VALID_AREA_GATE_FLOOR: float = 0.55  # §5.39: pipeline canvas valid-area ratio gate floor

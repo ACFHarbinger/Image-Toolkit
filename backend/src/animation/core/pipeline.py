@@ -34,6 +34,7 @@ from backend.src.animation.alignment.canvas import (
     _canvas_aspect_ratio,
     _canvas_gain_uniformity,
     _canvas_ghosting_siqe,
+    _canvas_valid_area_ratio,
     _compute_adaptive_seam_smooth_px,
     _compute_canvas,
     _correct_seam_lum_steps,
@@ -570,6 +571,11 @@ _CANVAS_ASPECT_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CANVAS_ASPECT_
 # High CV = seam-induced color saturation mismatches between strips.
 _SAT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SAT_CV", "1") != "0"
 _SAT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SAT_CV_FLOOR", "0.40"))
+# §5.39 — Pipeline Canvas Valid-Area Ratio Gate (Stage 11.35).
+# Fires when the fraction of non-black pixels is below floor → SCANS fallback.
+# Low ratio = significant black borders / underfilled canvas = alignment failure.
+_VALID_AREA_GATE_ENABLED: bool = os.environ.get("ASP_GATE_VALID_AREA", "1") != "0"
+_VALID_AREA_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_VALID_AREA_FLOOR", "0.55"))
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -4936,6 +4942,24 @@ class AnimeStitchPipeline:
             except Exception as _ssat_e:
                 logger.debug("[Stitch] Stage 11.34: SatCvGate skipped (%s).", _ssat_e)
 
+        # ── Stage 11.35: §5.39 Canvas Valid-Area Ratio Gate ─────────────────
+        if _VALID_AREA_GATE_ENABLED and N > 1:
+            try:
+                _var_val = _canvas_valid_area_ratio(canvas)
+                logger.debug("[Stitch] Stage 11.35: valid_area_ratio=%.4f (floor=%.3f).", _var_val, _VALID_AREA_GATE_FLOOR)
+                if _var_val < _VALID_AREA_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.35: ValidAreaGate FAILED (ratio=%.4f < floor=%.3f) → SCANS fallback.",
+                        _var_val, _VALID_AREA_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"valid_area_gate:{_var_val:.4f}",
+                    )
+            except Exception as _var_e:
+                logger.debug("[Stitch] Stage 11.35: ValidAreaGate skipped (%s).", _var_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5668,4 +5692,7 @@ __all__ = [
     "_SAT_CV_GATE_ENABLED",
     "_SAT_CV_GATE_FLOOR",
     "_strip_sat_cv",
+    "_VALID_AREA_GATE_ENABLED",
+    "_VALID_AREA_GATE_FLOOR",
+    "_canvas_valid_area_ratio",
 ]
