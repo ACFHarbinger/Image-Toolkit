@@ -3419,3 +3419,72 @@ class TestSeamSignedStepCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_SEAM_SIGNED_STEP_CV_GATE_ENABLED", False)
         assert pipeline._SEAM_SIGNED_STEP_CV_GATE_ENABLED is False
+
+
+class TestLumaKurtosisCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._LUMA_KURTOSIS_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._LUMA_KURTOSIS_CV_GATE_FLOOR, float)
+        assert pipeline._LUMA_KURTOSIS_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_LUMA_KURTOSIS_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_LUMA_KURTOSIS_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_luma_kurtosis_cv
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            if i % 2 == 0:
+                block = np.zeros((strip_h, w), dtype=np.uint8)
+                block[:strip_h // 2] = 255
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = block
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = block
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = block
+            else:
+                ramp = np.linspace(64, 192, w, dtype=np.uint8)
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = ramp
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = ramp
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = ramp
+        assert _strip_luma_kurtosis_cv(img, n_strips=8) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_LUMA_KURTOSIS_CV_GATE_ENABLED", False)
+        assert pipeline._LUMA_KURTOSIS_CV_GATE_ENABLED is False
+
+
+class TestSeamTextureRatioCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_TEXTURE_RATIO_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_TEXTURE_RATIO_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_TEXTURE_RATIO_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_TEXTURE_RATIO_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_TEXTURE_RATIO_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_texture_ratio_cv
+        rng = np.random.default_rng(27)
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        for i in range(4):
+            if i % 2 == 0:
+                noise = rng.integers(0, 256, (strip_h, w), dtype=np.uint8)
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = noise
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = noise
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = noise
+            else:
+                img[i * strip_h:(i + 1) * strip_h] = 128
+        assert _seam_texture_ratio_cv(img, n_strips=4, band_px=3) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_TEXTURE_RATIO_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_TEXTURE_RATIO_CV_GATE_ENABLED is False

@@ -4,6 +4,17 @@
 
 ---
 
+## S188 — 2026-06-25 (§5.77 Pipeline Strip Luma Kurtosis CV Gate · §5.78 Pipeline Seam Texture Ratio CV Gate · §5.79 Bench Strip Luma Kurtosis CV Gate · §5.80 Bench Seam Texture Ratio CV Gate)
+
+**Tests**: 1895 passing, 85 skipped (30 new)
+
+- **§5.77 `_strip_luma_kurtosis_cv`** — CV of |per-strip excess kurtosis| (4th standardized moment − 3); 0.0 guard when mean_abs < 0.1 or std < 1.0 per strip; Stage 11.54 pipeline gate (`_LUMA_KURTOSIS_CV_GATE_FLOOR=1.5`, env `ASP_GATE_LUMA_KURTOSIS_CV`); detects bimodal structure inconsistency (cel+bg strips vs. complex scene strips); orthogonal to §5.73 (skewness, 3rd moment) and §5.69 (IQR-CV)
+- **§5.78 `_seam_texture_ratio_cv`** — CV of log(Laplacian-variance ratio above/below) at each seam (±5px band); 0.0 when mean_abs(log_ratio) < 0.05 or fewer than 2 seams; Stage 11.55 pipeline gate (`_SEAM_TEXTURE_RATIO_CV_GATE_FLOOR=1.2`, env `ASP_GATE_SEAM_TEXTURE_RATIO_CV`); detects texture complexity mismatch across seams; orthogonal to §5.66 (gradient CV) and §5.74 (signed step CV)
+- **§5.79 bench LumaKurtosisCvGate** — `_LUMA_KURTOSIS_CV_ABS_FLOOR=0.50`, `_LUMA_KURTOSIS_CV_RATIO=2.5`; fires when asp > 0.50 AND (sim < 0.20 OR asp > 2.5× sim); schema entries `ASP_BENCH_LUMA_KURTOSIS_CV_ABS_FLOOR` / `ASP_BENCH_LUMA_KURTOSIS_CV_RATIO`
+- **§5.80 bench SeamTextureRatioCvGate** — `_SEAM_TEXTURE_RATIO_CV_ABS_FLOOR=0.40`, `_SEAM_TEXTURE_RATIO_CV_RATIO=2.0`; fires when asp > 0.40 AND (sim < 0.20 OR asp > 2.0× sim); schema entries `ASP_BENCH_SEAM_TEXTURE_RATIO_CV_ABS_FLOOR` / `ASP_BENCH_SEAM_TEXTURE_RATIO_CV_RATIO`
+
+---
+
 ## S187 — 2026-06-25 (§5.73 Pipeline Strip Luma Skewness CV Gate · §5.74 Pipeline Seam Signed Step CV Gate · §5.75 Bench Strip Luma Skewness CV Gate · §5.76 Bench Seam Signed Step CV Gate)
 
 **Tests**: 1865 passing, 85 skipped (30 new)

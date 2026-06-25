@@ -34,12 +34,14 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_column_variance_cv,
     _seam_gradient_cv,
     _seam_signed_step_cv,
+    _seam_texture_ratio_cv,
     _seam_luma_step_cv,
     _smooth_seam_bands,
     _strip_chroma_energy_cv,
     _strip_entropy_cv,
     _strip_hue_cv,
     _strip_luma_iqr_cv,
+    _strip_luma_kurtosis_cv,
     _strip_luma_skewness_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
@@ -1535,3 +1537,77 @@ class TestSeamSignedStepCv:
         rng = np.random.default_rng(19)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_signed_step_cv(img, n_strips=8, boundary_px=3) >= 0.0
+
+
+class TestStripLumaKurtosisCv:
+    def test_none_returns_zero(self):
+        assert _strip_luma_kurtosis_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_luma_kurtosis_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 128, 3), 128, dtype=np.uint8)
+        assert _strip_luma_kurtosis_cv(img, n_strips=8) == 0.0
+
+    def test_mixed_kurtosis_returns_positive(self):
+        # Alternating bimodal (0/255) and uniform-ramp strips → high |kurtosis| CV
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            if i % 2 == 0:
+                # bimodal: half 0, half 255 → high excess kurtosis
+                block = np.zeros((strip_h, w), dtype=np.uint8)
+                block[:strip_h // 2] = 255
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = block
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = block
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = block
+            else:
+                # ramp: near-uniform → low kurtosis
+                ramp = np.linspace(64, 192, w, dtype=np.uint8)
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = ramp
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = ramp
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = ramp
+        assert _strip_luma_kurtosis_cv(img, n_strips=8) > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(21)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _strip_luma_kurtosis_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamTextureRatioCv:
+    def test_none_returns_zero(self):
+        assert _seam_texture_ratio_cv(None) == 0.0
+
+    def test_invalid_band_px_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _seam_texture_ratio_cv(img, band_px=0) == 0.0
+
+    def test_uniform_returns_zero(self):
+        img = np.full((128, 64, 3), 128, dtype=np.uint8)
+        assert _seam_texture_ratio_cv(img, n_strips=8, band_px=5) == 0.0
+
+    def test_texture_mismatch_returns_positive(self):
+        # 4-strip image: alternating noise/flat → seam log-ratios vary → CV > 0
+        rng = np.random.default_rng(23)
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        for i in range(4):
+            if i % 2 == 0:
+                noise = rng.integers(0, 256, (strip_h, w), dtype=np.uint8)
+                img[i * strip_h:(i + 1) * strip_h, :, 0] = noise
+                img[i * strip_h:(i + 1) * strip_h, :, 1] = noise
+                img[i * strip_h:(i + 1) * strip_h, :, 2] = noise
+            else:
+                img[i * strip_h:(i + 1) * strip_h] = 128
+        result = _seam_texture_ratio_cv(img, n_strips=4, band_px=3)
+        assert result > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(25)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_texture_ratio_cv(img, n_strips=8, band_px=5) >= 0.0

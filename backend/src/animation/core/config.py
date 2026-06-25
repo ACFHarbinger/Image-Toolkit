@@ -1237,6 +1237,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_BENCH_LUMA_SKEW_CV_RATIO": (float, 0.0, 20.0, "§5.75: Bench strip luma skewness CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
     "ASP_BENCH_SEAM_SIGNED_STEP_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.76: Bench seam signed step CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
     "ASP_BENCH_SEAM_SIGNED_STEP_CV_RATIO": (float, 0.0, 20.0, "§5.76: Bench seam signed step CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_LUMA_KURTOSIS_CV": (int, 0, 1, "§5.77: Enable pipeline strip luma kurtosis CV gate (0 or 1, default 1)"),
+    "ASP_GATE_LUMA_KURTOSIS_CV_FLOOR": (float, 0.0, 10.0, "§5.77: Strip luma kurtosis CV gate floor (default 1.5; high CV = inconsistent bimodal structure — some strips cel+bg, others uniform)"),
+    "ASP_GATE_SEAM_TEXTURE_RATIO_CV": (int, 0, 1, "§5.78: Enable pipeline seam texture ratio CV gate (0 or 1, default 1)"),
+    "ASP_GATE_SEAM_TEXTURE_RATIO_CV_FLOOR": (float, 0.0, 10.0, "§5.78: Seam texture ratio CV gate floor (default 1.2; high CV = inconsistent Laplacian variance ratio across seams — texture mismatch)"),
+    "ASP_BENCH_LUMA_KURTOSIS_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.79: Bench strip luma kurtosis CV absolute floor (default 0.50); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_LUMA_KURTOSIS_CV_RATIO": (float, 0.0, 20.0, "§5.79: Bench strip luma kurtosis CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_BENCH_SEAM_TEXTURE_RATIO_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.80: Bench seam texture ratio CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_SEAM_TEXTURE_RATIO_CV_RATIO": (float, 0.0, 20.0, "§5.80: Bench seam texture ratio CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 
