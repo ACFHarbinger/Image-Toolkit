@@ -1162,6 +1162,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_SEAM_NCC_RATIO": (float, 0.0, 1.0, "§5.35: Bench seam band NCC ratio limit (default 0.5); gate fires when ASP NCC < ratio × SIM NCC"),
     "ASP_GATE_HIST_INTERSECT": (int, 0, 1, "§5.36: Enable pipeline strip histogram intersection gate (0 or 1, default 1)"),
     "ASP_GATE_HIST_INTERSECT_FLOOR": (float, 0.0, 1.0, "§5.36: Strip histogram intersection gate floor (default 0.35; low intersection = color mismatch)"),
+    "ASP_GATE_VALID_AREA": (int, 0, 1, "§5.39: Enable pipeline canvas valid-area ratio gate (0 or 1, default 1)"),
+    "ASP_GATE_VALID_AREA_FLOOR": (float, 0.0, 1.0, "§5.39: Canvas valid-area ratio gate floor (default 0.55; low = too many black pixels)"),
+    "ASP_GATE_SEAM_GRAD_ABS_FLOOR": (float, 0.0, 20.0, "§5.40: Bench seam gradient ratio absolute floor (default 5.0); gate only fires when ASP ratio exceeds this"),
+    "ASP_GATE_SEAM_GRAD_RATIO_LIMIT": (float, 0.0, 10.0, "§5.40: Bench seam gradient ratio limit vs SCANS (default 2.0); fires when ASP ratio > limit × SCANS ratio"),
 }
 
 

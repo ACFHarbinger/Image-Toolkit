@@ -1988,3 +1988,44 @@ class TestHistIntersectGateBench:
         hi = _strip_hist_intersection_min(img, n_strips=8)
         assert hi >= 0.0
         assert isinstance(hi, float)
+
+
+# ===========================================================================
+# §5.40 — Bench Seam Gradient Ratio Gate
+# ===========================================================================
+
+
+class TestSeamGradRatioGateBench:
+
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as bench
+        assert hasattr(bench, "_SEAM_GRAD_RATIO_ABS_FLOOR")
+        assert hasattr(bench, "_SEAM_GRAD_RATIO_LIMIT")
+        assert isinstance(bench._SEAM_GRAD_RATIO_ABS_FLOOR, float)
+        assert isinstance(bench._SEAM_GRAD_RATIO_LIMIT, float)
+
+    def test_defaults_are_positive(self):
+        import backend.benchmark.bench_anime_stitch as bench
+        assert bench._SEAM_GRAD_RATIO_ABS_FLOOR > 0.0
+        assert bench._SEAM_GRAD_RATIO_LIMIT > 0.0
+
+    def test_schema_entries_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_GRAD_ABS_FLOOR" in _CONFIG_SCHEMA
+        assert "ASP_GATE_SEAM_GRAD_RATIO_LIMIT" in _CONFIG_SCHEMA
+
+    def test_gate_passes_when_asp_below_abs_floor(self):
+        abs_floor = 5.0
+        ratio_limit = 2.0
+        asp_sgr = 3.0
+        sim_sgr = 0.5
+        fires = asp_sgr > abs_floor and asp_sgr > ratio_limit * max(sim_sgr, 0.1)
+        assert not fires
+
+    def test_gate_fires_when_asp_above_floor_and_ratio(self):
+        abs_floor = 5.0
+        ratio_limit = 2.0
+        asp_sgr = 12.0
+        sim_sgr = 2.0
+        fires = asp_sgr > abs_floor and asp_sgr > ratio_limit * max(sim_sgr, 0.1)
+        assert fires

@@ -79,6 +79,10 @@ _reward_model = None  # lazy-loaded singleton
 _MLLM_SCORER: bool = os.environ.get("ASP_MLLM_SCORER", "0") != "0"
 _MLLM_MODEL: str = os.environ.get("ASP_MLLM_MODEL", "qwen2-vl:7b")
 
+# §5.40: Bench seam gradient ratio comparative gate
+_SEAM_GRAD_RATIO_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_GRAD_ABS_FLOOR", "5.0"))
+_SEAM_GRAD_RATIO_LIMIT: float = float(os.environ.get("ASP_GATE_SEAM_GRAD_RATIO_LIMIT", "2.0"))
+
 # §3.9: SI-FID proxy (patch Laplacian sharpness ratio)
 _SI_FID: bool = os.environ.get("ASP_SI_FID", "0") != "0"
 _SI_FID_PATCH_SIZE: int = int(os.environ.get("ASP_SI_FID_PATCH_SIZE", "128"))
@@ -3331,6 +3335,37 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _hi_e:
                 logger.debug("[Bench] HistIntersectGate skipped: %s", _hi_e)
+
+        # §5.40 SeamGradRatioGate — comparative seam gradient ratio check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_sgr = cv2.imread(central_simple_path)
+                if _simple_img_sgr is not None:
+                    from backend.src.animation.alignment.canvas import _strip_seam_gradient_score
+                    _asp_sgr = _strip_seam_gradient_score(canvas_out, n_strips=8)
+                    _sim_sgr = _strip_seam_gradient_score(_simple_img_sgr, n_strips=8)
+                    print(
+                        f"  [SeamGradRatioGate] asp_sgr={_asp_sgr:.2f}  "
+                        f"sim_sgr={_sim_sgr:.2f}  "
+                        f"ratio={_asp_sgr / max(_sim_sgr, 0.1):.2f}"
+                    )
+                    if _asp_sgr > _SEAM_GRAD_RATIO_ABS_FLOOR and (
+                        _asp_sgr > _SEAM_GRAD_RATIO_LIMIT * max(_sim_sgr, 0.1)
+                    ):
+                        _fallback_reason = f"seam_grad_ratio_gate:{_asp_sgr:.2f}"
+                        print(
+                            f"  [SeamGradRatioGate] FAILED "
+                            f"(asp_sgr={_asp_sgr:.2f} > floor={_SEAM_GRAD_RATIO_ABS_FLOOR:.1f} "
+                            f"and > {_SEAM_GRAD_RATIO_LIMIT:.1f}×sim={_sim_sgr:.2f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 2048
+                        raise RuntimeError(
+                            f"SeamGradRatioGate: asp_sgr={_asp_sgr:.2f}, sim_sgr={_sim_sgr:.2f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _sgr_e:
+                logger.debug("[Bench] SeamGradRatioGate skipped: %s", _sgr_e)
 
         from PIL import Image
 
