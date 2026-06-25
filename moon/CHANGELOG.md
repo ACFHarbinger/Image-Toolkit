@@ -4,6 +4,17 @@
 
 ---
 
+## S191 — 2026-06-25 (§5.89 Pipeline Strip Dark Pixel Fraction CV Gate · §5.90 Pipeline Seam Saturation Shift CV Gate · §5.91 Bench Strip Dark Pixel Fraction CV Gate · §5.92 Bench Seam Saturation Shift CV Gate)
+
+**Tests**: 1985 passing, 85 skipped (30 new)
+
+- **§5.89 `_strip_dark_pixel_fraction_cv`** — CV of dark pixel fraction (luma < 64) per strip; 0.0 guard when mean < 0.005 or > 0.995; Stage 11.60 pipeline gate (`_DARK_PIXEL_FRAC_CV_GATE_FLOOR=1.5`, env `ASP_GATE_DARK_PIXEL_FRAC_CV`); detects tonal polarity alternation (some strips dark, others bright); orthogonal to §5.85 (P90−P10 spread), §5.73 (skewness), §5.45 (range)
+- **§5.90 `_seam_saturation_shift_cv`** — CV of |mean_sat_above − mean_sat_below| per seam (HSV S, [0,255]); 0.0 for grayscale or mean_shift < 1.0; Stage 11.61 pipeline gate (`_SEAM_SAT_SHIFT_CV_GATE_FLOOR=1.5`, env `ASP_GATE_SEAM_SAT_SHIFT_CV`); cross-seam colorfulness mismatch; orthogonal to §5.86 (hue angle), §5.62 (YCrCb chroma), §5.38 (within-strip sat spread)
+- **§5.91 bench DarkPixelFracCvGate** — `_DARK_PIXEL_FRAC_CV_ABS_FLOOR=0.40`, ratio=2.5; fires when asp > 0.40 AND (sim < 0.15 OR asp > 2.5× sim)
+- **§5.92 bench SeamSatShiftCvGate** — `_SEAM_SAT_SHIFT_CV_ABS_FLOOR=0.30`, ratio=2.0; fires when asp > 0.30 AND (sim < 0.10 OR asp > 2.0× sim)
+
+---
+
 ## S190 — 2026-06-25 (§5.85 Pipeline Strip Luma P90–P10 CV Gate · §5.86 Pipeline Seam Hue Shift CV Gate · §5.87 Bench Strip Luma P90–P10 CV Gate · §5.88 Bench Seam Hue Shift CV Gate)
 
 **Tests**: 1955 passing, 85 skipped (30 new)

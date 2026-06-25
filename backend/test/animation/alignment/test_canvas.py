@@ -47,6 +47,8 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_local_contrast_cv,
     _strip_luma_p90p10_cv,
     _seam_hue_shift_cv,
+    _strip_dark_pixel_fraction_cv,
+    _seam_saturation_shift_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1742,3 +1744,67 @@ class TestSeamHueShiftCv:
         rng = np.random.default_rng(35)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_hue_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0
+
+
+class TestStripDarkPixelFractionCv:
+    def test_none_returns_zero(self):
+        assert _strip_dark_pixel_fraction_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        assert _strip_dark_pixel_fraction_cv(img, n_strips=1) == 0.0
+
+    def test_all_bright_returns_zero(self):
+        # All pixels = 200, none < 64 → mean_fraction < 0.005 → 0.0
+        img = np.full((64, 32, 3), 200, dtype=np.uint8)
+        assert _strip_dark_pixel_fraction_cv(img, n_strips=8) == 0.0
+
+    def test_high_cv_on_mixed_darkness(self):
+        # Even strips: all-32 (dark, fraction=1.0); odd strips: all-200 (bright, fraction=0.0)
+        # fractions=[1,0,1,0,1,0,1,0], mean=0.5, std=0.5, cv=1.0 > 0
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 8
+        for i in range(8):
+            val = 32 if i % 2 == 0 else 200
+            img[i * strip_h:(i + 1) * strip_h] = val
+        assert _strip_dark_pixel_fraction_cv(img, n_strips=8) > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(42)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _strip_dark_pixel_fraction_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamSaturationShiftCv:
+    def test_none_returns_zero(self):
+        assert _seam_saturation_shift_cv(None) == 0.0
+
+    def test_grayscale_returns_zero(self):
+        img = np.full((64, 32), 128, dtype=np.uint8)
+        assert _seam_saturation_shift_cv(img, n_strips=4, boundary_px=3) == 0.0
+
+    def test_uniform_sat_returns_zero(self):
+        # All grey (sat=0): all shifts = 0 → mean_s < 1.0 → 0.0
+        img = np.full((64, 32, 3), 128, dtype=np.uint8)
+        assert _seam_saturation_shift_cv(img, n_strips=4, boundary_px=3) == 0.0
+
+    def test_high_cv_on_sat_mismatch(self):
+        # 4 strips with varying saturation:
+        # strip 0: pure red (sat≈255), strip 1: light pink (sat≈50),
+        # strip 2: grey (sat=0), strip 3: pure blue (sat≈255)
+        # seam0: |255-50|=205, seam1: |50-0|=50, seam2: |0-255|=255 → cv > 0
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        img[:strip_h] = [0, 0, 255]          # pure red
+        img[strip_h:strip_h * 2] = [200, 180, 240]  # light pink-ish
+        img[strip_h * 2:strip_h * 3] = [128, 128, 128]  # grey
+        img[strip_h * 3:] = [255, 0, 0]      # pure blue
+        result = _seam_saturation_shift_cv(img, n_strips=4, boundary_px=3)
+        assert result > 0.0
+
+    def test_non_negative(self):
+        rng = np.random.default_rng(43)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_saturation_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0

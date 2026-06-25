@@ -1722,6 +1722,8 @@ __all__ = [
     "_seam_local_contrast_cv",
     "_strip_luma_p90p10_cv",
     "_seam_hue_shift_cv",
+    "_strip_dark_pixel_fraction_cv",
+    "_seam_saturation_shift_cv",
 ]
 
 
@@ -1789,6 +1791,76 @@ def _seam_hue_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3)
         # Wrap to [−90, 90] then take abs → [0, 90]
         diff = ((diff + 90.0) % 180.0) - 90.0
         shifts.append(abs(diff))
+    if len(shifts) < 2:
+        return 0.0
+    shifts = np.array(shifts, dtype=np.float32)
+    mean_s = float(shifts.mean())
+    if mean_s < 1.0:
+        return 0.0
+    return float(shifts.std() / mean_s)
+
+
+def _strip_dark_pixel_fraction_cv(img: np.ndarray, n_strips: int = 8, threshold: int = 64) -> float:
+    """§5.89: CV of per-strip dark pixel fraction (luma < threshold).
+
+    Each strip's dark fraction = count(pixels < threshold) / total_pixels.
+    CV across strips detects tonal inconsistency where some strips are mostly
+    bright and others mostly dark — orthogonal to §5.85 (P90−P10 spread),
+    §5.73 (skewness, asymmetry), and §5.45 (full luma range).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2,
+    fewer than 2 strips, mean_fraction < 0.005 or mean_fraction > 0.995).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
+    gray = gray.astype(np.float32)
+    strip_h = h // n_strips
+    fractions = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h].ravel()
+        if strip.size == 0:
+            continue
+        fractions.append(float((strip < threshold).sum()) / strip.size)
+    if len(fractions) < 2:
+        return 0.0
+    fractions = np.array(fractions, dtype=np.float32)
+    mean_f = float(fractions.mean())
+    if mean_f < 0.005 or mean_f > 0.995:
+        return 0.0
+    return float(fractions.std() / mean_f)
+
+
+def _seam_saturation_shift_cv(img: np.ndarray, n_strips: int = 8, boundary_px: int = 3) -> float:
+    """§5.90: CV of per-seam absolute mean HSV saturation shift.
+
+    At each strip boundary: |mean_saturation_above − mean_saturation_below|
+    (HSV S channel, [0, 255]). CV across seams detects inconsistent colorfulness
+    matching — some seams between similarly-saturated regions, others crossing
+    a vivid/pastel boundary. Orthogonal to §5.86 (hue angle shift), §5.62
+    (YCrCb chroma magnitude), and §5.38 (within-strip saturation spread).
+    Returns 0.0 for grayscale, fewer than 2 seams, or mean_shift < 1.0.
+    """
+    if img is None or n_strips < 2 or boundary_px < 1:
+        return 0.0
+    if img.ndim != 3 or img.shape[2] != 3:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+    sat = hsv[:, :, 1]  # [0, 255]
+    strip_h = h // n_strips
+    shifts = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        above = sat[max(0, boundary_row - boundary_px):boundary_row]
+        below = sat[boundary_row:min(h, boundary_row + boundary_px)]
+        if above.size == 0 or below.size == 0:
+            continue
+        shifts.append(abs(float(above.mean()) - float(below.mean())))
     if len(shifts) < 2:
         return 0.0
     shifts = np.array(shifts, dtype=np.float32)

@@ -1261,6 +1261,14 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_BENCH_LUMA_P90P10_CV_RATIO": (float, 0.0, 20.0, "§5.87: Bench strip luma P90-P10 CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
     "ASP_BENCH_SEAM_HUE_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.88: Bench seam hue shift CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
     "ASP_BENCH_SEAM_HUE_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.88: Bench seam hue shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_GATE_DARK_PIXEL_FRAC_CV": (bool, None, None, "§5.89: Enable strip dark pixel fraction CV gate (default ON); set to 0 to disable"),
+    "ASP_GATE_DARK_PIXEL_FRAC_CV_FLOOR": (float, 0.0, 10.0, "§5.89: Strip dark pixel fraction CV gate floor (default 1.5); triggers SCANS fallback when CV exceeds floor"),
+    "ASP_GATE_SEAM_SAT_SHIFT_CV": (bool, None, None, "§5.90: Enable seam saturation shift CV gate (default ON); set to 0 to disable"),
+    "ASP_GATE_SEAM_SAT_SHIFT_CV_FLOOR": (float, 0.0, 10.0, "§5.90: Seam saturation shift CV gate floor (default 1.5); triggers SCANS fallback when CV exceeds floor"),
+    "ASP_BENCH_DARK_PIXEL_FRAC_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.91: Bench strip dark pixel fraction CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_DARK_PIXEL_FRAC_CV_RATIO": (float, 0.0, 20.0, "§5.91: Bench strip dark pixel fraction CV ratio limit vs SCANS (default 2.5); fires when ASP CV > ratio × SCANS CV"),
+    "ASP_BENCH_SEAM_SAT_SHIFT_CV_ABS_FLOOR": (float, 0.0, 10.0, "§5.92: Bench seam saturation shift CV absolute floor (default 0.30); gate only fires when ASP CV exceeds this"),
+    "ASP_BENCH_SEAM_SAT_SHIFT_CV_RATIO": (float, 0.0, 20.0, "§5.92: Bench seam saturation shift CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 
