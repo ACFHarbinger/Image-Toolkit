@@ -148,6 +148,12 @@ _LUMA_KURTOSIS_CV_RATIO: float = float(os.environ.get("ASP_BENCH_LUMA_KURTOSIS_C
 # §5.80: Bench seam texture ratio CV comparative gate
 _SEAM_TEXTURE_RATIO_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_TEXTURE_RATIO_CV_ABS_FLOOR", "0.40"))
 _SEAM_TEXTURE_RATIO_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_TEXTURE_RATIO_CV_RATIO", "2.0"))
+# §5.83: Bench strip edge density CV comparative gate
+_EDGE_DENSITY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_EDGE_DENSITY_CV_ABS_FLOOR", "0.40"))
+_EDGE_DENSITY_CV_RATIO: float = float(os.environ.get("ASP_BENCH_EDGE_DENSITY_CV_RATIO", "2.5"))
+# §5.84: Bench seam local contrast CV comparative gate
+_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR: float = float(os.environ.get("ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR", "0.30"))
+_SEAM_LOCAL_CONTRAST_CV_RATIO: float = float(os.environ.get("ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_RATIO", "2.0"))
 # §5.67: Bench strip chroma energy CV comparative gate
 _CHROMA_ENERGY_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_ABS_FLOOR", "0.30"))
 _CHROMA_ENERGY_CV_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_ENERGY_CV_RATIO", "2.5"))
@@ -3973,6 +3979,60 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _stxr_e:
                 logger.debug("[Bench] SeamTextureRatioCvGate skipped: %s", _stxr_e)
+
+        # §5.83 EdgeDensityCvGate — comparative strip edge density CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_edcv = cv2.imread(central_simple_path)
+                if _simple_img_edcv is not None:
+                    from backend.src.animation.alignment.canvas import _strip_edge_density_cv
+                    _asp_edcv = _strip_edge_density_cv(canvas_out, n_strips=8)
+                    _sim_edcv = _strip_edge_density_cv(_simple_img_edcv, n_strips=8)
+                    print(f"  [EdgeDensityCvGate] asp_edcv={_asp_edcv:.4f}  sim_edcv={_sim_edcv:.4f}")
+                    if _asp_edcv > _EDGE_DENSITY_CV_ABS_FLOOR and (
+                        _sim_edcv < 0.15 or _asp_edcv > _EDGE_DENSITY_CV_RATIO * max(_sim_edcv, 0.01)
+                    ):
+                        _fallback_reason = f"edge_density_cv_gate:{_asp_edcv:.4f}"
+                        print(
+                            f"  [EdgeDensityCvGate] FAILED "
+                            f"(asp_edcv={_asp_edcv:.4f} > floor={_EDGE_DENSITY_CV_ABS_FLOOR:.2f} "
+                            f"and > {_EDGE_DENSITY_CV_RATIO:.1f}×sim={_sim_edcv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"EdgeDensityCvGate: asp_edcv={_asp_edcv:.4f}, sim_edcv={_sim_edcv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _edcv_e:
+                logger.debug("[Bench] EdgeDensityCvGate skipped: %s", _edcv_e)
+
+        # §5.84 SeamLocalContrastCvGate — comparative seam local contrast CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_slcc = cv2.imread(central_simple_path)
+                if _simple_img_slcc is not None:
+                    from backend.src.animation.alignment.canvas import _seam_local_contrast_cv
+                    _asp_slcc = _seam_local_contrast_cv(canvas_out, n_strips=8, band_px=5)
+                    _sim_slcc = _seam_local_contrast_cv(_simple_img_slcc, n_strips=8, band_px=5)
+                    print(f"  [SeamLocalContrastCvGate] asp_slcc={_asp_slcc:.4f}  sim_slcc={_sim_slcc:.4f}")
+                    if _asp_slcc > _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR and (
+                        _sim_slcc < 0.15 or _asp_slcc > _SEAM_LOCAL_CONTRAST_CV_RATIO * max(_sim_slcc, 0.01)
+                    ):
+                        _fallback_reason = f"seam_local_contrast_cv_gate:{_asp_slcc:.4f}"
+                        print(
+                            f"  [SeamLocalContrastCvGate] FAILED "
+                            f"(asp_slcc={_asp_slcc:.4f} > floor={_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR:.2f} "
+                            f"and > {_SEAM_LOCAL_CONTRAST_CV_RATIO:.1f}×sim={_sim_slcc:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"SeamLocalContrastCvGate: asp_slcc={_asp_slcc:.4f}, sim_slcc={_sim_slcc:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _slcc_e:
+                logger.debug("[Bench] SeamLocalContrastCvGate skipped: %s", _slcc_e)
 
         from PIL import Image
 

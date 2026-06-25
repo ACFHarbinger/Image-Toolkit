@@ -649,3 +649,5 @@ LUMA_SKEW_CV_GATE_FLOOR: float = 1.5  # §5.73: pipeline strip luma skewness CV 
 SEAM_SIGNED_STEP_CV_GATE_FLOOR: float = 1.2  # §5.74: pipeline seam signed step CV gate floor
 LUMA_KURTOSIS_CV_GATE_FLOOR: float = 1.5  # §5.77: pipeline strip luma kurtosis CV gate floor
 SEAM_TEXTURE_RATIO_CV_GATE_FLOOR: float = 1.2  # §5.78: pipeline seam texture ratio CV gate floor
+EDGE_DENSITY_CV_GATE_FLOOR: float = 1.2  # §5.81: pipeline strip edge density CV gate floor
+SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR: float = 1.0  # §5.82: pipeline seam local contrast CV gate floor

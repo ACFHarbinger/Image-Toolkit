@@ -1595,6 +1595,77 @@ def _seam_texture_ratio_cv(img: np.ndarray, n_strips: int = 8, band_px: int = 5)
     return float(arr.std() / (mean_abs + 1e-9))
 
 
+def _strip_edge_density_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.81: CV of per-strip Canny edge pixel fraction.
+
+    Each strip's edge density = fraction of pixels flagged by Canny(50,150).
+    CV of densities across strips detects inconsistent detail level — some
+    strips with dense edge maps (complex scene) and others flat (sky/wall).
+    Orthogonal to §5.50 (sharpness-CV uses Laplacian std, not edge count)
+    and §5.46 (seam edge density is a single value at seam boundaries).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips*2,
+    fewer than 2 strips, mean_density < 0.005 for nearly-blank images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
+    if gray.dtype != np.uint8:
+        gray = np.clip(gray, 0, 255).astype(np.uint8)
+    strip_h = h // n_strips
+    densities = []
+    for i in range(n_strips):
+        strip = gray[i * strip_h:(i + 1) * strip_h]
+        if strip.size == 0:
+            continue
+        edges = cv2.Canny(strip, 50, 150)
+        densities.append(float(edges.mean()) / 255.0)
+    if len(densities) < 2:
+        return 0.0
+    densities = np.array(densities, dtype=np.float32)
+    mean_d = float(densities.mean())
+    if mean_d < 0.005:
+        return 0.0
+    return float(densities.std() / mean_d)
+
+
+def _seam_local_contrast_cv(img: np.ndarray, n_strips: int = 8, band_px: int = 5) -> float:
+    """§5.82: CV of per-seam local luma contrast (pixel std in ±band_px seam band).
+
+    At each strip boundary: std of all grayscale pixels in the ±band_px band
+    around the seam. High std = high-contrast region (detail); low std = flat
+    region (sky, wall). CV across seams detects inconsistent local complexity —
+    some seams are in rich-texture areas while others are in flat zones.
+    Orthogonal to §5.78 (texture ratio compares above vs. below) and §5.66
+    (gradient CV measures step steepness, not absolute contrast level).
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, band_px < 1,
+    h < n_strips*2, fewer than 2 seams, mean_contrast < 1.0).
+    """
+    if img is None or n_strips < 2 or band_px < 1:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips * 2:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
+    strip_h = h // n_strips
+    contrasts = []
+    for i in range(n_strips - 1):
+        boundary_row = (i + 1) * strip_h
+        band = gray[max(0, boundary_row - band_px):min(h, boundary_row + band_px)]
+        if band.size == 0:
+            continue
+        contrasts.append(float(band.std()))
+    if len(contrasts) < 2:
+        return 0.0
+    contrasts = np.array(contrasts, dtype=np.float32)
+    mean_c = float(contrasts.mean())
+    if mean_c < 1.0:
+        return 0.0
+    return float(contrasts.std() / mean_c)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1647,4 +1718,6 @@ __all__ = [
     "_seam_signed_step_cv",
     "_strip_luma_kurtosis_cv",
     "_seam_texture_ratio_cv",
+    "_strip_edge_density_cv",
+    "_seam_local_contrast_cv",
 ]

@@ -55,12 +55,14 @@ from backend.src.animation.alignment.canvas import (
     _seam_column_variance_cv,
     _seam_gradient_cv,
     _seam_edge_density,
+    _seam_local_contrast_cv,
     _seam_luma_step_cv,
     _seam_signed_step_cv,
     _seam_texture_ratio_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_contrast_cv,
+    _strip_edge_density_cv,
     _strip_chroma_energy_cv,
     _strip_entropy_cv,
     _strip_luma_iqr_cv,
@@ -686,6 +688,10 @@ _LUMA_KURTOSIS_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_KURTOSIS_CV
 _LUMA_KURTOSIS_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_KURTOSIS_CV_FLOOR", "1.5"))
 _SEAM_TEXTURE_RATIO_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_TEXTURE_RATIO_CV", "1") != "0"
 _SEAM_TEXTURE_RATIO_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_TEXTURE_RATIO_CV_FLOOR", "1.2"))
+_EDGE_DENSITY_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_EDGE_DENSITY_CV", "1") != "0"
+_EDGE_DENSITY_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_CV_FLOOR", "1.2"))
+_SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_LOCAL_CONTRAST_CV", "1") != "0"
+_SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_LOCAL_CONTRAST_CV_FLOOR", "1.0"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5409,6 +5415,40 @@ class AnimeStitchPipeline:
                     )
             except Exception as _stxr_e:
                 logger.debug("[Stitch] Stage 11.55: SeamTextureRatioCvGate skipped (%s).", _stxr_e)
+        # ── Stage 11.56: §5.81 Strip Edge Density CV Gate ───────────────────
+        if _EDGE_DENSITY_CV_GATE_ENABLED and N > 1:
+            try:
+                _edcv_val = _strip_edge_density_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.56: strip_edge_density_cv=%.4f (floor=%.3f).", _edcv_val, _EDGE_DENSITY_CV_GATE_FLOOR)
+                if _edcv_val > _EDGE_DENSITY_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.56: EdgeDensityCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _edcv_val, _EDGE_DENSITY_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"edge_density_cv_gate:{_edcv_val:.4f}",
+                    )
+            except Exception as _edcv_e:
+                logger.debug("[Stitch] Stage 11.56: EdgeDensityCvGate skipped (%s).", _edcv_e)
+        # ── Stage 11.57: §5.82 Seam Local Contrast CV Gate ───────────────────
+        if _SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED and N > 1:
+            try:
+                _slcc_val = _seam_local_contrast_cv(canvas, n_strips=8, band_px=5)
+                logger.debug("[Stitch] Stage 11.57: seam_local_contrast_cv=%.4f (floor=%.3f).", _slcc_val, _SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR)
+                if _slcc_val > _SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.57: SeamLocalContrastCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _slcc_val, _SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_local_contrast_cv_gate:{_slcc_val:.4f}",
+                    )
+            except Exception as _slcc_e:
+                logger.debug("[Stitch] Stage 11.57: SeamLocalContrastCvGate skipped (%s).", _slcc_e)
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -6189,4 +6229,8 @@ __all__ = [
     "_LUMA_KURTOSIS_CV_GATE_FLOOR",
     "_SEAM_TEXTURE_RATIO_CV_GATE_ENABLED",
     "_SEAM_TEXTURE_RATIO_CV_GATE_FLOOR",
+    "_EDGE_DENSITY_CV_GATE_ENABLED",
+    "_EDGE_DENSITY_CV_GATE_FLOOR",
+    "_SEAM_LOCAL_CONTRAST_CV_GATE_ENABLED",
+    "_SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR",
 ]

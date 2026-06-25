@@ -4,6 +4,17 @@
 
 ---
 
+## S189 — 2026-06-25 (§5.81 Pipeline Strip Edge Density CV Gate · §5.82 Pipeline Seam Local Contrast CV Gate · §5.83 Bench Strip Edge Density CV Gate · §5.84 Bench Seam Local Contrast CV Gate)
+
+**Tests**: 1925 passing, 85 skipped (30 new)
+
+- **§5.81 `_strip_edge_density_cv`** — CV of Canny(50,150) edge pixel fraction per strip; 0.0 guard when mean_density < 0.005; Stage 11.56 pipeline gate (`_EDGE_DENSITY_CV_GATE_FLOOR=1.2`, env `ASP_GATE_EDGE_DENSITY_CV`); detects inconsistent detail level across strips; orthogonal to §5.50 (sharpness-CV, Laplacian amplitude) and §5.46 (seam edge density)
+- **§5.82 `_seam_local_contrast_cv`** — CV of pixel std in ±5px seam band per seam; 0.0 when mean_contrast < 1.0; Stage 11.57 pipeline gate (`_SEAM_LOCAL_CONTRAST_CV_GATE_FLOOR=1.0`, env `ASP_GATE_SEAM_LOCAL_CONTRAST_CV`); detects inconsistent seam placement complexity; orthogonal to §5.78 (texture ratio, above/below comparison) and §5.66 (gradient CV, step steepness)
+- **§5.83 bench EdgeDensityCvGate** — `_EDGE_DENSITY_CV_ABS_FLOOR=0.40`, `_EDGE_DENSITY_CV_RATIO=2.5`; fires when asp > 0.40 AND (sim < 0.15 OR asp > 2.5× sim); schema entries `ASP_BENCH_EDGE_DENSITY_CV_ABS_FLOOR` / `ASP_BENCH_EDGE_DENSITY_CV_RATIO`
+- **§5.84 bench SeamLocalContrastCvGate** — `_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR=0.30`, `_SEAM_LOCAL_CONTRAST_CV_RATIO=2.0`; fires when asp > 0.30 AND (sim < 0.15 OR asp > 2.0× sim); schema entries `ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR` / `ASP_BENCH_SEAM_LOCAL_CONTRAST_CV_RATIO`
+
+---
+
 ## S188 — 2026-06-25 (§5.77 Pipeline Strip Luma Kurtosis CV Gate · §5.78 Pipeline Seam Texture Ratio CV Gate · §5.79 Bench Strip Luma Kurtosis CV Gate · §5.80 Bench Seam Texture Ratio CV Gate)
 
 **Tests**: 1895 passing, 85 skipped (30 new)
