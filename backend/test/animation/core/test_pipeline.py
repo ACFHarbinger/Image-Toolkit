@@ -3084,3 +3084,46 @@ class TestSharpnessCvGatePipeline:
         import backend.src.animation.core.pipeline as pl
         monkeypatch.setattr(pl, "_SHARPNESS_CV_GATE_ENABLED", False)
         assert pl._SHARPNESS_CV_GATE_ENABLED is False
+
+
+# ===========================================================================
+# §5.53: Stage 11.42 Strip Contrast CV Gate
+# ===========================================================================
+
+
+class TestContrastCvGatePipeline:
+    """§5.53: Pipeline Stage 11.42 strip contrast CV gate — flags and logic."""
+
+    def test_flag_exists_and_is_bool(self):
+        import backend.src.animation.core.pipeline as pl
+        assert hasattr(pl, "_CONTRAST_CV_GATE_ENABLED")
+        assert isinstance(pl._CONTRAST_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        import backend.src.animation.core.pipeline as pl
+        assert hasattr(pl, "_CONTRAST_CV_GATE_FLOOR")
+        assert isinstance(pl._CONTRAST_CV_GATE_FLOOR, float)
+        assert pl._CONTRAST_CV_GATE_FLOOR > 0.0
+
+    def test_in_all(self):
+        import backend.src.animation.core.pipeline as pl
+        assert "_CONTRAST_CV_GATE_ENABLED" in pl.__all__
+        assert "_CONTRAST_CV_GATE_FLOOR" in pl.__all__
+
+    def test_gate_fires_on_high_cv(self, monkeypatch):
+        import backend.src.animation.core.pipeline as pl
+        img = np.zeros((160, 100, 3), dtype=np.uint8)
+        for row in range(80):
+            for col in range(100):
+                img[row, col] = 255 if (row + col) % 2 == 0 else 0
+        img[80:, :] = 128
+        monkeypatch.setattr(pl, "_CONTRAST_CV_GATE_ENABLED", True)
+        monkeypatch.setattr(pl, "_CONTRAST_CV_GATE_FLOOR", 0.1)
+        from backend.src.animation.alignment.canvas import _strip_contrast_cv
+        result = _strip_contrast_cv(img, n_strips=8)
+        assert result > 0.1, "Precondition: mixed-contrast image should have CV > 0.1"
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        import backend.src.animation.core.pipeline as pl
+        monkeypatch.setattr(pl, "_CONTRAST_CV_GATE_ENABLED", False)
+        assert pl._CONTRAST_CV_GATE_ENABLED is False

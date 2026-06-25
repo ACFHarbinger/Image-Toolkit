@@ -1166,3 +1166,47 @@ class TestStripSharpnessCv:
                 gray[row, col] = 255 if (row + col) % 2 == 0 else 0
         cv = _strip_sharpness_cv(gray, n_strips=4)
         assert cv >= 0.0
+
+
+# ===========================================================================
+# §5.53: _strip_contrast_cv
+# ===========================================================================
+
+
+class TestStripContrastCv:
+    """§5.53: Strip contrast CV gate — metric function."""
+
+    def test_none_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_contrast_cv
+        assert _strip_contrast_cv(None) == 0.0
+
+    def test_too_few_strips_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_contrast_cv
+        img = np.zeros((10, 10, 3), dtype=np.uint8)
+        assert _strip_contrast_cv(img, n_strips=1) == 0.0
+
+    def test_uniform_image_returns_zero(self):
+        from backend.src.animation.alignment.canvas import _strip_contrast_cv
+        img = np.full((160, 100, 3), 128, dtype=np.uint8)
+        assert _strip_contrast_cv(img, n_strips=8) == pytest.approx(0.0, abs=1e-3)
+
+    def test_mixed_contrast_returns_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_contrast_cv
+        img = np.zeros((160, 100, 3), dtype=np.uint8)
+        # Top 80 rows: alternating 0/255 (high contrast); bottom 80 rows: flat 128 (low contrast)
+        for row in range(80):
+            for col in range(100):
+                img[row, col] = 255 if (row + col) % 2 == 0 else 0
+        img[80:, :] = 128
+        cv = _strip_contrast_cv(img, n_strips=8)
+        assert cv > 0.5, f"Expected high CV for mixed-contrast image, got {cv}"
+
+    def test_grayscale_input(self):
+        from backend.src.animation.alignment.canvas import _strip_contrast_cv
+        gray = np.zeros((80, 80), dtype=np.uint8)
+        for row in range(40):
+            for col in range(80):
+                gray[row, col] = 255 if (row + col) % 2 == 0 else 0
+        gray[40:, :] = 128
+        cv = _strip_contrast_cv(gray, n_strips=4)
+        assert cv >= 0.0

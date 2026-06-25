@@ -1118,6 +1118,29 @@ def _strip_sharpness_cv(img: np.ndarray, n_strips: int = 8) -> float:
     return float(variances.std() / mean_v)
 
 
+def _strip_contrast_cv(img: np.ndarray, n_strips: int = 8) -> float:
+    """§5.53: Coefficient of variation (std/mean) of per-strip luma standard deviation.
+
+    High CV = some strips are high-contrast (sharp/noisy) while others are
+    low-contrast (flat/blurry), indicating composite segments from frames with
+    mismatched normalization or different scene content.
+    Returns 0.0 for degenerate inputs (None, n_strips < 2, h < n_strips,
+    mean per-strip std < 1.0 guard for uniformly flat images).
+    """
+    if img is None or n_strips < 2:
+        return 0.0
+    h = img.shape[0]
+    if h < n_strips:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    strip_h = h // n_strips
+    stds = np.array([float(gray[i * strip_h:(i + 1) * strip_h].std()) for i in range(n_strips)])
+    mean_std = float(stds.mean())
+    if mean_std < 1.0:
+        return 0.0
+    return float(stds.std() / mean_std)
+
+
 __all__ = [
     "_load_frames",
     "_normalise_widths",
@@ -1156,4 +1179,5 @@ __all__ = [
     "_seam_edge_density",
     "_strip_luma_mad",
     "_strip_sharpness_cv",
+    "_strip_contrast_cv",
 ]

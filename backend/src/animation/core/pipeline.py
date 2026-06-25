@@ -53,6 +53,7 @@ from backend.src.animation.alignment.canvas import (
     _seam_edge_density,
     _seam_visibility_score,
     _smooth_seam_bands,
+    _strip_contrast_cv,
     _strip_gradient_cv,
     _strip_hist_intersection_min,
     _strip_hue_cv,
@@ -588,6 +589,9 @@ _VALID_AREA_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_VALID_AREA_FLOOR"
 # High CV = mixed-sharpness strips from mismatched frames or failed normalization.
 _SHARPNESS_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SHARPNESS_CV", "1") != "0"
 _SHARPNESS_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SHARPNESS_CV_FLOOR", "1.0"))
+# §5.53 — Pipeline Strip Contrast CV Gate (Stage 11.42).
+_CONTRAST_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_CONTRAST_CV", "1") != "0"
+_CONTRAST_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_CONTRAST_CV_FLOOR", "1.5"))
 
 # §1.67 — Frame canvas spread validation (S131).
 # After phase correlation (Stage 5), checks whether the estimated camera
@@ -5109,6 +5113,24 @@ class AnimeStitchPipeline:
             except Exception as _scv_e:
                 logger.debug("[Stitch] Stage 11.41: SharpnessCvGate skipped (%s).", _scv_e)
 
+        # ── Stage 11.42: §5.53 Strip Contrast CV Gate ────────────────────────
+        if _CONTRAST_CV_GATE_ENABLED and N > 1:
+            try:
+                _ccv_val = _strip_contrast_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.42: strip_contrast_cv=%.4f (floor=%.3f).", _ccv_val, _CONTRAST_CV_GATE_FLOOR)
+                if _ccv_val > _CONTRAST_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.42: ContrastCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _ccv_val, _CONTRAST_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"contrast_cv_gate:{_ccv_val:.4f}",
+                    )
+            except Exception as _ccv_e:
+                logger.debug("[Stitch] Stage 11.42: ContrastCvGate skipped (%s).", _ccv_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5860,4 +5882,6 @@ __all__ = [
     "_LUMA_MAD_GATE_FLOOR",
     "_SHARPNESS_CV_GATE_ENABLED",
     "_SHARPNESS_CV_GATE_FLOOR",
+    "_CONTRAST_CV_GATE_ENABLED",
+    "_CONTRAST_CV_GATE_FLOOR",
 ]

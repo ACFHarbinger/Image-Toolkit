@@ -112,6 +112,9 @@ _LUMA_MAD_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_MAD_RATIO", "2.0"))
 # §5.52: Bench strip sharpness CV comparative gate
 _SHARPNESS_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_SHARPNESS_CV_ABS_FLOOR", "0.60"))
 _SHARPNESS_CV_RATIO: float = float(os.environ.get("ASP_GATE_SHARPNESS_CV_RATIO", "2.5"))
+# §5.55: Bench strip contrast CV comparative gate
+_CONTRAST_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_CONTRAST_CV_ABS_FLOOR", "0.80"))
+_CONTRAST_CV_RATIO: float = float(os.environ.get("ASP_GATE_CONTRAST_CV_RATIO", "2.5"))
 
 logger = logging.getLogger(__name__)
 
@@ -3563,6 +3566,32 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _scv_e:
                 logger.debug("[Bench] SharpnessCvGate skipped: %s", _scv_e)
+        # §5.55 ContrastCvGate — comparative strip contrast CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_ccv = cv2.imread(central_simple_path)
+                if _simple_img_ccv is not None:
+                    from backend.src.animation.alignment.canvas import _strip_contrast_cv
+                    _asp_ccv = _strip_contrast_cv(canvas_out, n_strips=8)
+                    _sim_ccv = _strip_contrast_cv(_simple_img_ccv, n_strips=8)
+                    print(f"  [ContrastCvGate] asp_ccv={_asp_ccv:.4f}  sim_ccv={_sim_ccv:.4f}")
+                    if _asp_ccv > _CONTRAST_CV_ABS_FLOOR and (
+                        _sim_ccv < 0.05 or _asp_ccv > _CONTRAST_CV_RATIO * max(_sim_ccv, 0.01)
+                    ):
+                        _fallback_reason = f"contrast_cv_gate:{_asp_ccv:.4f}"
+                        print(
+                            f"  [ContrastCvGate] FAILED "
+                            f"(asp_ccv={_asp_ccv:.4f} > floor={_CONTRAST_CV_ABS_FLOOR:.2f} "
+                            f"and > {_CONTRAST_CV_RATIO:.1f}×sim={_sim_ccv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 4
+                        raise RuntimeError(
+                            f"ContrastCvGate: asp_ccv={_asp_ccv:.4f}, sim_ccv={_sim_ccv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _ccv_e:
+                logger.debug("[Bench] ContrastCvGate skipped: %s", _ccv_e)
 
         from PIL import Image
 
