@@ -664,3 +664,6 @@ SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR: float = 1.5  # §5.98: pipeline seam entropy s
 
 RED_CHANNEL_CV_GATE_FLOOR: float = 0.6  # §5.101: pipeline strip red channel CV gate floor
 SEAM_BLUE_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.102: pipeline seam blue shift CV gate floor
+
+GREEN_CHANNEL_CV_GATE_FLOOR: float = 0.5  # §5.105: pipeline strip green channel CV gate floor
+SEAM_RED_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.106: pipeline seam red shift CV gate floor

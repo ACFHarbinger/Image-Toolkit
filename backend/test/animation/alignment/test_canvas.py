@@ -55,6 +55,8 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_entropy_shift_cv,
     _strip_red_channel_cv,
     _seam_blue_shift_cv,
+    _strip_green_channel_cv,
+    _seam_red_shift_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1994,3 +1996,57 @@ class TestSeamBlueShiftCv:
         rng = np.random.default_rng(102)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_blue_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0
+
+
+class TestStripGreenChannelCv:
+    def test_returns_zero_for_none(self):
+        assert _strip_green_channel_cv(None) == 0.0
+
+    def test_returns_zero_for_grayscale(self):
+        img = np.ones((64, 64), dtype=np.uint8) * 128
+        assert _strip_green_channel_cv(img) == 0.0
+
+    def test_returns_zero_for_uniform_green(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _strip_green_channel_cv(img) == pytest.approx(0.0, abs=1e-5)
+
+    def test_high_cv_on_mixed_green(self):
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        strip_h = 64 // 8
+        for i in range(8):
+            g_val = 200 if i % 2 == 0 else 20
+            img[i * strip_h:(i + 1) * strip_h, :, 1] = g_val
+        result = _strip_green_channel_cv(img)
+        assert result > 0.5
+
+    def test_returns_zero_for_too_small_image(self):
+        img = np.ones((4, 64, 3), dtype=np.uint8) * 100
+        assert _strip_green_channel_cv(img) == 0.0
+
+
+class TestSeamRedShiftCv:
+    def test_returns_zero_for_none(self):
+        assert _seam_red_shift_cv(None) == 0.0
+
+    def test_returns_zero_for_grayscale(self):
+        img = np.ones((64, 64), dtype=np.uint8) * 128
+        assert _seam_red_shift_cv(img) == 0.0
+
+    def test_returns_zero_for_uniform_red(self):
+        img = np.full((64, 64, 3), 128, dtype=np.uint8)
+        assert _seam_red_shift_cv(img) == pytest.approx(0.0, abs=1e-5)
+
+    def test_high_cv_on_red_mismatch(self):
+        # Most consecutive strips match (shift≈0), but two seams have large jumps
+        # → shifts vary widely → high CV
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        strip_h = 64 // 8
+        red_vals = [200, 200, 200, 200, 10, 200, 200, 200]
+        for i, rv in enumerate(red_vals):
+            img[i * strip_h:(i + 1) * strip_h, :, 2] = rv
+        result = _seam_red_shift_cv(img)
+        assert result > 0.5
+
+    def test_returns_zero_for_too_small_image(self):
+        img = np.ones((4, 64, 3), dtype=np.uint8) * 100
+        assert _seam_red_shift_cv(img) == 0.0

@@ -49,6 +49,7 @@ from backend.src.animation.alignment.canvas import (
     _scan_stitch_fallback,
     _seam_band_ncc_min,
     _seam_blue_shift_cv,
+    _seam_red_shift_cv,
     _seam_boundary_sharpness_ratio,
     _seam_chroma_jump,
     _seam_chroma_step_cv,
@@ -84,6 +85,7 @@ from backend.src.animation.alignment.canvas import (
     _strip_luma_skewness_cv,
     _strip_noise_cv,
     _strip_red_channel_cv,
+    _strip_green_channel_cv,
     _strip_sat_cv,
     _strip_seam_gradient_score,
     _strip_self_ssim,
@@ -722,6 +724,10 @@ _RED_CHANNEL_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_RED_CHANNEL_CV", "
 _RED_CHANNEL_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_RED_CHANNEL_CV_FLOOR", "0.6"))
 _SEAM_BLUE_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_BLUE_SHIFT_CV", "1") != "0"
 _SEAM_BLUE_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_BLUE_SHIFT_CV_FLOOR", "1.2"))
+_GREEN_CHANNEL_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_GREEN_CHANNEL_CV", "1") != "0"
+_GREEN_CHANNEL_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_GREEN_CHANNEL_CV_FLOOR", "0.5"))
+_SEAM_RED_SHIFT_CV_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_RED_SHIFT_CV", "1") != "0"
+_SEAM_RED_SHIFT_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_RED_SHIFT_CV_FLOOR", "1.2"))
 # §2.14 — Triangular consistency filter (S93).
 # For every triangle (i→j, j→k, i→k) in the edge graph, compute the L2
 # residual between the predicted displacement (sum of two sides) and the
@@ -5649,6 +5655,40 @@ class AnimeStitchPipeline:
                     )
             except Exception as _blsh_e:
                 logger.debug("[Stitch] Stage 11.67: SeamBlueShiftCvGate skipped (%s).", _blsh_e)
+        # ── Stage 11.68: §5.105 Strip Green Channel CV Gate ──────────────────
+        if _GREEN_CHANNEL_CV_GATE_ENABLED:
+            try:
+                _gcv_val = _strip_green_channel_cv(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.68: strip_green_channel_cv=%.4f (floor=%.3f).", _gcv_val, _GREEN_CHANNEL_CV_GATE_FLOOR)
+                if _gcv_val > _GREEN_CHANNEL_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.68: GreenChannelCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _gcv_val, _GREEN_CHANNEL_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"strip_green_channel_cv_gate:{_gcv_val:.4f}",
+                    )
+            except Exception as _gcv_e:
+                logger.debug("[Stitch] Stage 11.68: GreenChannelCvGate skipped (%s).", _gcv_e)
+        # ── Stage 11.69: §5.106 Seam Red Shift CV Gate ───────────────────────
+        if _SEAM_RED_SHIFT_CV_GATE_ENABLED and N > 1:
+            try:
+                _rshcv_val = _seam_red_shift_cv(canvas, n_strips=8, boundary_px=3)
+                logger.debug("[Stitch] Stage 11.69: seam_red_shift_cv=%.4f (floor=%.3f).", _rshcv_val, _SEAM_RED_SHIFT_CV_GATE_FLOOR)
+                if _rshcv_val > _SEAM_RED_SHIFT_CV_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.69: SeamRedShiftCvGate FAILED (cv=%.4f > floor=%.3f) → SCANS fallback.",
+                        _rshcv_val, _SEAM_RED_SHIFT_CV_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"seam_red_shift_cv_gate:{_rshcv_val:.4f}",
+                    )
+            except Exception as _rshcv_e:
+                logger.debug("[Stitch] Stage 11.69: SeamRedShiftCvGate skipped (%s).", _rshcv_e)
 
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
@@ -6453,4 +6493,8 @@ __all__ = [
     "_RED_CHANNEL_CV_GATE_FLOOR",
     "_SEAM_BLUE_SHIFT_CV_GATE_ENABLED",
     "_SEAM_BLUE_SHIFT_CV_GATE_FLOOR",
+    "_GREEN_CHANNEL_CV_GATE_ENABLED",
+    "_GREEN_CHANNEL_CV_GATE_FLOOR",
+    "_SEAM_RED_SHIFT_CV_GATE_ENABLED",
+    "_SEAM_RED_SHIFT_CV_GATE_FLOOR",
 ]
