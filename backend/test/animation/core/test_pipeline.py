@@ -2956,3 +2956,45 @@ class TestSeamSharpRatioGatePipeline:
 
     def test_schema_has_gate_floor_key(self):
         assert "ASP_GATE_SEAM_SHARP_RATIO_FLOOR" in config._CONFIG_SCHEMA
+
+
+class TestLumaRangeGatePipeline:
+    def test_flag_enabled_by_default(self):
+        import os
+        default_val = int(os.environ.get("ASP_GATE_LUMA_RANGE", "1"))
+        assert default_val == 1
+
+    def test_floor_default_value(self):
+        from backend.src.constants.animation import LUMA_RANGE_GATE_FLOOR
+        assert LUMA_RANGE_GATE_FLOOR == pytest.approx(60.0)
+
+    def test_metric_importable_from_pipeline(self):
+        from backend.src.animation.core.pipeline import _strip_luma_range
+        assert callable(_strip_luma_range)
+
+    def test_schema_has_enabled_key(self):
+        assert "ASP_GATE_LUMA_RANGE" in config._CONFIG_SCHEMA
+
+    def test_schema_has_floor_key(self):
+        assert "ASP_GATE_LUMA_RANGE_FLOOR" in config._CONFIG_SCHEMA
+
+
+class TestEdgeDensityGatePipeline:
+    def test_flag_enabled_by_default(self):
+        import os
+        default_val = int(os.environ.get("ASP_GATE_EDGE_DENSITY", "1"))
+        assert default_val == 1
+
+    def test_floor_default_value(self):
+        from backend.src.constants.animation import EDGE_DENSITY_GATE_FLOOR
+        assert EDGE_DENSITY_GATE_FLOOR == pytest.approx(0.30)
+
+    def test_metric_importable_from_canvas(self):
+        from backend.src.animation.alignment.canvas import _seam_edge_density
+        assert callable(_seam_edge_density)
+
+    def test_schema_has_enabled_key(self):
+        assert "ASP_GATE_EDGE_DENSITY" in config._CONFIG_SCHEMA
+
+    def test_schema_has_floor_key(self):
+        assert "ASP_GATE_EDGE_DENSITY_FLOOR" in config._CONFIG_SCHEMA

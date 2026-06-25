@@ -50,12 +50,14 @@ from backend.src.animation.alignment.canvas import (
     _seam_band_ncc_min,
     _seam_boundary_sharpness_ratio,
     _seam_coherence_score,
+    _seam_edge_density,
     _seam_visibility_score,
     _smooth_seam_bands,
     _strip_gradient_cv,
     _strip_hist_intersection_min,
     _strip_hue_cv,
     _strip_luma_monotonicity,
+    _strip_luma_range,
     _strip_sat_cv,
     _strip_seam_gradient_score,
     _strip_self_ssim,
@@ -764,6 +766,18 @@ _HUE_CV_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_HUE_CV_FLOOR", "0.50"
 # High ratio = seam rows have unusually high sharpness relative to content = hard cut.
 _SEAM_SHARP_RATIO_GATE_ENABLED: bool = os.environ.get("ASP_GATE_SEAM_SHARP_RATIO", "1") != "0"
 _SEAM_SHARP_RATIO_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_SEAM_SHARP_RATIO_FLOOR", "4.0"))
+
+# §5.45 — Pipeline Strip Luma Range Gate (Stage 11.38).
+# Fires when absolute luma range across 8 strips > floor → SCANS fallback.
+# High range = strip-level banding from failed brightness normalization.
+_LUMA_RANGE_GATE_ENABLED: bool = os.environ.get("ASP_GATE_LUMA_RANGE", "1") != "0"
+_LUMA_RANGE_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_RANGE_FLOOR", "60.0"))
+
+# §5.46 — Pipeline Seam Edge Density Gate (Stage 11.39).
+# Fires when max Canny edge-pixel fraction in any strip > floor → SCANS fallback.
+# High density = cluttered/artifacted strip or hard seam in dense-edge region.
+_EDGE_DENSITY_GATE_ENABLED: bool = os.environ.get("ASP_GATE_EDGE_DENSITY", "1") != "0"
+_EDGE_DENSITY_GATE_FLOOR: float = float(os.environ.get("ASP_GATE_EDGE_DENSITY_FLOOR", "0.30"))
 
 
 def _compute_bg_lum_spread(
@@ -5009,6 +5023,42 @@ class AnimeStitchPipeline:
             except Exception as _ssr_e:
                 logger.debug("[Stitch] Stage 11.37: SeamSharpRatioGate skipped (%s).", _ssr_e)
 
+        # ── Stage 11.38: §5.45 Strip Luma Range Gate ─────────────────────────
+        if _LUMA_RANGE_GATE_ENABLED and N > 1:
+            try:
+                _lr_val = _strip_luma_range(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.38: strip_luma_range=%.2f (floor=%.1f).", _lr_val, _LUMA_RANGE_GATE_FLOOR)
+                if _lr_val > _LUMA_RANGE_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.38: LumaRangeGate FAILED (range=%.2f > floor=%.1f) → SCANS fallback.",
+                        _lr_val, _LUMA_RANGE_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"luma_range_gate:{_lr_val:.2f}",
+                    )
+            except Exception as _lr_e:
+                logger.debug("[Stitch] Stage 11.38: LumaRangeGate skipped (%s).", _lr_e)
+
+        # ── Stage 11.39: §5.46 Seam Edge Density Gate ────────────────────────
+        if _EDGE_DENSITY_GATE_ENABLED and N > 1:
+            try:
+                _ed_val = _seam_edge_density(canvas, n_strips=8)
+                logger.debug("[Stitch] Stage 11.39: seam_edge_density=%.4f (floor=%.3f).", _ed_val, _EDGE_DENSITY_GATE_FLOOR)
+                if _ed_val > _EDGE_DENSITY_GATE_FLOOR:
+                    logger.warning(
+                        "[Stitch] Stage 11.39: EdgeDensityGate FAILED (density=%.4f > floor=%.3f) → SCANS fallback.",
+                        _ed_val, _EDGE_DENSITY_GATE_FLOOR,
+                    )
+                    return _scan_stitch_fallback(
+                        frames=scans_frames or _reload_scans_frames(image_paths),
+                        output_path=output_path,
+                        reason=f"edge_density_gate:{_ed_val:.4f}",
+                    )
+            except Exception as _ed_e:
+                logger.debug("[Stitch] Stage 11.39: EdgeDensityGate skipped (%s).", _ed_e)
+
         # P3.4 — SRStitcher seam diffusion fusion (Stage 11.6).
         # Inpaints the seam bands using a diffusion model so hard Laplacian
         # transitions are replaced by style-consistent anime content.
@@ -5750,4 +5800,10 @@ __all__ = [
     "_SEAM_SHARP_RATIO_GATE_ENABLED",
     "_SEAM_SHARP_RATIO_GATE_FLOOR",
     "_seam_boundary_sharpness_ratio",
+    "_LUMA_RANGE_GATE_ENABLED",
+    "_LUMA_RANGE_GATE_FLOOR",
+    "_strip_luma_range",
+    "_EDGE_DENSITY_GATE_ENABLED",
+    "_EDGE_DENSITY_GATE_FLOOR",
+    "_seam_edge_density",
 ]
