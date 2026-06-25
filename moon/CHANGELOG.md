@@ -4,6 +4,44 @@
 
 ---
 
+## S182 — 2026-06-25 (§5.53 Pipeline Strip Contrast CV Gate · §5.54 Pipeline Seam Chroma Jump Gate · §5.55 Bench Strip Contrast CV Gate · §5.56 Bench Seam Chroma Jump Gate)
+
+*Four new post-composite quality gates: two pipeline gates (Stage 11.42 strip contrast CV, Stage 11.43 seam chroma jump) and two bench comparative gates (strip contrast CV parity, seam chroma jump parity). 1715 tests passing (85 skipped).*
+
+### §5.53 Pipeline Strip Contrast CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_contrast_cv(img, n_strips=8)` in `canvas.py` — coefficient of variation (std/mean) of per-strip luma standard deviation; 0.0 when mean per-strip std < 1.0 (uniformly flat guard) or degenerate input; high CV = some strips are high-contrast while others are flat, indicating mismatched normalization
+- Stage 11.42 gate in `pipeline.py`: fires when `_ccv_val > _CONTRAST_CV_GATE_FLOOR` (default 1.5) → SCANS fallback; reason `contrast_cv_gate:{val:.4f}`
+- Flags: `_CONTRAST_CV_GATE_ENABLED` (`ASP_GATE_CONTRAST_CV`, default 1), `_CONTRAST_CV_GATE_FLOOR` (`ASP_GATE_CONTRAST_CV_FLOOR`, default 1.5)
+- `CONTRAST_CV_GATE_FLOOR = 1.5` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripContrastCv` (`test_canvas.py`), 5 tests in `TestContrastCvGatePipeline` (`test_pipeline.py`)
+
+### §5.54 Pipeline Seam Chroma Jump Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_chroma_jump(img, n_strips=8, boundary_px=3)` in `canvas.py` — maximum per-channel mean absolute difference across ±`boundary_px` rows at each strip boundary; 0.0 for degenerate input; high value = colour step at seam caused by poor inter-frame white-balance normalisation
+- Stage 11.43 gate in `pipeline.py`: fires when `_scj_val > _CHROMA_JUMP_GATE_FLOOR` (default 15.0) → SCANS fallback; reason `chroma_jump_gate:{val:.2f}`
+- Flags: `_CHROMA_JUMP_GATE_ENABLED` (`ASP_GATE_CHROMA_JUMP`, default 1), `_CHROMA_JUMP_GATE_FLOOR` (`ASP_GATE_CHROMA_JUMP_FLOOR`, default 15.0)
+- `CHROMA_JUMP_GATE_FLOOR = 15.0` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestSeamChromaJump` (`test_canvas.py`), 5 tests in `TestChromaJumpGatePipeline` (`test_pipeline.py`)
+
+### §5.55 Bench Strip Contrast CV Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `ContrastCvGate` block in `run_dataset()` after `SharpnessCvGate`; reuses `_strip_contrast_cv` from `canvas.py`
+- Dual condition: fires when `asp_ccv > _CONTRAST_CV_ABS_FLOOR` (default 0.80) AND (`sim_ccv < 0.05` OR `asp_ccv > 2.5 × max(sim_ccv, 0.01)`)
+- Module constants: `_CONTRAST_CV_ABS_FLOOR`, `_CONTRAST_CV_RATIO`; 4 schema entries in `config.py`
+- `timings["render_gate_fallback"] += 4` when gate fires
+- 5 tests in `TestContrastCvGateBench` (`test_bench_metrics.py`)
+
+### §5.56 Bench Seam Chroma Jump Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `ChromaJumpGate` block in `run_dataset()` after `ContrastCvGate`; reuses `_seam_chroma_jump` from `canvas.py`
+- Dual condition: fires when `asp_scj > _CHROMA_JUMP_ABS_FLOOR` (default 8.0) AND (`sim_scj < 1.0` OR `asp_scj > 2.0 × max(sim_scj, 0.5)`)
+- Module constants: `_CHROMA_JUMP_ABS_FLOOR`, `_CHROMA_JUMP_RATIO`; 4 schema entries in `config.py`
+- `timings["render_gate_fallback"] += 2` when gate fires
+- 5 tests in `TestChromaJumpGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S181 — 2026-06-25 (§5.49 Pipeline Strip Luma MAD Gate · §5.50 Pipeline Strip Sharpness CV Gate · §5.51 Bench Strip Luma MAD Gate · §5.52 Bench Strip Sharpness CV Gate)
 
 *Four new post-composite quality gates: two pipeline gates (Stage 11.40 luma MAD, Stage 11.41 sharpness CV) and two bench comparative gates (luma MAD parity, sharpness CV parity). 1685 tests passing (85 skipped).*
