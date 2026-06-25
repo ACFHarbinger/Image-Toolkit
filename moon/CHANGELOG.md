@@ -4,6 +4,44 @@
 
 ---
 
+## S181 — 2026-06-25 (§5.49 Pipeline Strip Luma MAD Gate · §5.50 Pipeline Strip Sharpness CV Gate · §5.51 Bench Strip Luma MAD Gate · §5.52 Bench Strip Sharpness CV Gate)
+
+*Four new post-composite quality gates: two pipeline gates (Stage 11.40 luma MAD, Stage 11.41 sharpness CV) and two bench comparative gates (luma MAD parity, sharpness CV parity). 1685 tests passing (85 skipped).*
+
+### §5.49 Pipeline Strip Luma MAD Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_luma_mad(img, n_strips=8)` in `canvas.py` — mean absolute deviation of per-strip luma means from global mean; 0.0 for degenerate input; complements luma range (captures systematic per-strip banding, not just extremes)
+- Stage 11.40 gate in `pipeline.py`: fires when `_lmad_val > _LUMA_MAD_GATE_FLOOR` (default 20.0) → SCANS fallback; reason `luma_mad_gate:{val:.2f}`
+- Flags: `_LUMA_MAD_GATE_ENABLED` (`ASP_GATE_LUMA_MAD`, default 1), `_LUMA_MAD_GATE_FLOOR` (`ASP_GATE_LUMA_MAD_FLOOR`, default 20.0)
+- `LUMA_MAD_GATE_FLOOR = 20.0` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripLumaMad` (`test_canvas.py`), 5 tests in `TestLumaMadGatePipeline` (`test_pipeline.py`)
+
+### §5.50 Pipeline Strip Sharpness CV Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_sharpness_cv(img, n_strips=8)` in `canvas.py` — coefficient of variation (std/mean) of per-strip Laplacian variance; 0.0 when mean sharpness < 1.0 (flat image guard) or degenerate input; high CV = mixed-sharpness strips from mismatched frames
+- Stage 11.41 gate in `pipeline.py`: fires when `_scv_val > _SHARPNESS_CV_GATE_FLOOR` (default 1.0) → SCANS fallback; reason `sharpness_cv_gate:{val:.4f}`
+- Flags: `_SHARPNESS_CV_GATE_ENABLED` (`ASP_GATE_SHARPNESS_CV`, default 1), `_SHARPNESS_CV_GATE_FLOOR` (`ASP_GATE_SHARPNESS_CV_FLOOR`, default 1.0)
+- `SHARPNESS_CV_GATE_FLOOR = 1.0` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripSharpnessCv` (`test_canvas.py`), 5 tests in `TestSharpnessCvGatePipeline` (`test_pipeline.py`)
+
+### §5.51 Bench Strip Luma MAD Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `LumaMadGate` block in `run_dataset()` after `EdgeDensityGate`; reuses `_strip_luma_mad` from `canvas.py`
+- Dual condition: fires when `asp_lmad > _LUMA_MAD_ABS_FLOOR` (default 10.0) AND (`sim_lmad < 2.0` OR `asp_lmad > 2.0 × max(sim_lmad, 1.0)`)
+- Module constants: `_LUMA_MAD_ABS_FLOOR`, `_LUMA_MAD_RATIO`; 4 schema entries in `config.py` (abs floor + ratio for both §5.51/§5.52)
+- `timings["render_gate_fallback"] += 16` when gate fires
+- 5 tests in `TestLumaMadGateBench` (`test_bench_metrics.py`)
+
+### §5.52 Bench Strip Sharpness CV Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `SharpnessCvGate` block in `run_dataset()` after `LumaMadGate`; reuses `_strip_sharpness_cv` from `canvas.py`
+- Dual condition: fires when `asp_scv > _SHARPNESS_CV_ABS_FLOOR` (default 0.60) AND (`sim_scv < 0.05` OR `asp_scv > 2.5 × max(sim_scv, 0.01)`)
+- Module constants: `_SHARPNESS_CV_ABS_FLOOR`, `_SHARPNESS_CV_RATIO`
+- `timings["render_gate_fallback"] += 8` when gate fires
+- 5 tests in `TestSharpnessCvGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S180 — 2026-06-25 (§5.45 Pipeline Strip Luma Range Gate · §5.46 Pipeline Seam Edge Density Gate · §5.47 Bench Strip Luma Range Gate · §5.48 Bench Strip Edge Density Gate)
 
 *Four new post-composite quality gates: two pipeline gates (Stage 11.38 luma range, Stage 11.39 edge density) and two bench comparative gates (luma range parity, edge density parity). 1655 tests passing (85 skipped).*
