@@ -53,6 +53,8 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _seam_value_shift_cv,
     _strip_median_luma_cv,
     _seam_entropy_shift_cv,
+    _strip_red_channel_cv,
+    _seam_blue_shift_cv,
     _strip_noise_cv,
     _telea_fill_gaps,
 )
@@ -1934,3 +1936,61 @@ class TestSeamEntropyShiftCv:
         rng = np.random.default_rng(98)
         img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
         assert _seam_entropy_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0
+
+
+class TestStripRedChannelCv:
+    def test_none_returns_zero(self):
+        assert _strip_red_channel_cv(None) == 0.0
+
+    def test_grayscale_returns_zero(self):
+        img = np.full((64, 32), 128, dtype=np.uint8)
+        assert _strip_red_channel_cv(img) == 0.0
+
+    def test_uniform_red_returns_zero(self):
+        img = np.full((64, 32, 3), [0, 0, 100], dtype=np.uint8)
+        assert _strip_red_channel_cv(img) == 0.0
+
+    def test_high_cv_on_mixed_red(self):
+        img = np.zeros((64, 32, 3), dtype=np.uint8)
+        strip_h = 64 // 8
+        for i in range(8):
+            if i % 2 == 0:
+                img[i * strip_h:(i + 1) * strip_h] = [0, 0, 200]   # BGR: R=200
+            else:
+                img[i * strip_h:(i + 1) * strip_h] = [200, 0, 0]   # BGR: R=0
+        result = _strip_red_channel_cv(img, n_strips=8)
+        assert result > 0.0
+
+    def test_nonnegative(self):
+        rng = np.random.default_rng(101)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _strip_red_channel_cv(img, n_strips=8) >= 0.0
+
+
+class TestSeamBlueShiftCv:
+    def test_none_returns_zero(self):
+        assert _seam_blue_shift_cv(None) == 0.0
+
+    def test_grayscale_returns_zero(self):
+        img = np.full((64, 32), 100, dtype=np.uint8)
+        assert _seam_blue_shift_cv(img) == 0.0
+
+    def test_uniform_blue_returns_zero(self):
+        img = np.full((64, 32, 3), [100, 50, 50], dtype=np.uint8)
+        assert _seam_blue_shift_cv(img) == 0.0
+
+    def test_high_cv_on_blue_mismatch(self):
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        img[:strip_h] = [200, 50, 50]       # B=200
+        img[strip_h:strip_h * 2] = [190, 50, 50]   # B=190 (seam0: |200-190|=10)
+        img[strip_h * 2:strip_h * 3] = [10, 50, 50]  # B=10  (seam1: |190-10|=180)
+        img[strip_h * 3:] = [200, 50, 50]   # B=200  (seam2: |10-200|=190)
+        result = _seam_blue_shift_cv(img, n_strips=4, boundary_px=3)
+        assert result > 0.0
+
+    def test_nonnegative(self):
+        rng = np.random.default_rng(102)
+        img = rng.integers(0, 256, (128, 64, 3), dtype=np.uint8)
+        assert _seam_blue_shift_cv(img, n_strips=8, boundary_px=3) >= 0.0

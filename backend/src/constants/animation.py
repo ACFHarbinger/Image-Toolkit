@@ -661,3 +661,6 @@ SEAM_VALUE_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.94: pipeline seam Value shift
 
 MEDIAN_LUMA_CV_GATE_FLOOR: float = 0.5  # §5.97: pipeline strip median luma CV gate floor
 SEAM_ENTROPY_SHIFT_CV_GATE_FLOOR: float = 1.5  # §5.98: pipeline seam entropy shift CV gate floor
+
+RED_CHANNEL_CV_GATE_FLOOR: float = 0.6  # §5.101: pipeline strip red channel CV gate floor
+SEAM_BLUE_SHIFT_CV_GATE_FLOOR: float = 1.2  # §5.102: pipeline seam blue shift CV gate floor

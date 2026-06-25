@@ -3772,3 +3772,59 @@ class TestSeamEntropyShiftCvGatePipeline:
     def test_gate_suppressed_when_disabled(self, monkeypatch):
         monkeypatch.setattr(pipeline, "_SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED", False)
         assert pipeline._SEAM_ENTROPY_SHIFT_CV_GATE_ENABLED is False
+
+
+class TestRedChannelCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._RED_CHANNEL_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._RED_CHANNEL_CV_GATE_FLOOR, float)
+        assert pipeline._RED_CHANNEL_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_RED_CHANNEL_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_RED_CHANNEL_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _strip_red_channel_cv
+        img = np.zeros((64, 32, 3), dtype=np.uint8)
+        strip_h = 64 // 8
+        for i in range(8):
+            if i % 2 == 0:
+                img[i * strip_h:(i + 1) * strip_h] = [0, 0, 200]
+            else:
+                img[i * strip_h:(i + 1) * strip_h] = [200, 0, 0]
+        assert _strip_red_channel_cv(img, n_strips=8) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_RED_CHANNEL_CV_GATE_ENABLED", False)
+        assert pipeline._RED_CHANNEL_CV_GATE_ENABLED is False
+
+
+class TestSeamBlueShiftCvGatePipeline:
+    def test_flag_exists_and_is_bool(self):
+        assert isinstance(pipeline._SEAM_BLUE_SHIFT_CV_GATE_ENABLED, bool)
+
+    def test_floor_exists_and_is_float(self):
+        assert isinstance(pipeline._SEAM_BLUE_SHIFT_CV_GATE_FLOOR, float)
+        assert pipeline._SEAM_BLUE_SHIFT_CV_GATE_FLOOR > 0
+
+    def test_in_all(self):
+        assert "_SEAM_BLUE_SHIFT_CV_GATE_ENABLED" in pipeline.__all__
+        assert "_SEAM_BLUE_SHIFT_CV_GATE_FLOOR" in pipeline.__all__
+
+    def test_gate_fires_on_high_cv(self):
+        from backend.src.animation.alignment.canvas import _seam_blue_shift_cv
+        h, w = 64, 32
+        img = np.zeros((h, w, 3), dtype=np.uint8)
+        strip_h = h // 4
+        img[:strip_h] = [200, 50, 50]
+        img[strip_h:strip_h * 2] = [190, 50, 50]
+        img[strip_h * 2:strip_h * 3] = [10, 50, 50]
+        img[strip_h * 3:] = [200, 50, 50]
+        assert _seam_blue_shift_cv(img, n_strips=4, boundary_px=3) > 0.0
+
+    def test_gate_suppressed_when_disabled(self, monkeypatch):
+        monkeypatch.setattr(pipeline, "_SEAM_BLUE_SHIFT_CV_GATE_ENABLED", False)
+        assert pipeline._SEAM_BLUE_SHIFT_CV_GATE_ENABLED is False
