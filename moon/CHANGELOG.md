@@ -4,6 +4,44 @@
 
 ---
 
+## S180 — 2026-06-25 (§5.45 Pipeline Strip Luma Range Gate · §5.46 Pipeline Seam Edge Density Gate · §5.47 Bench Strip Luma Range Gate · §5.48 Bench Strip Edge Density Gate)
+
+*Four new post-composite quality gates: two pipeline gates (Stage 11.38 luma range, Stage 11.39 edge density) and two bench comparative gates (luma range parity, edge density parity). 1655 tests passing (85 skipped).*
+
+### §5.45 Pipeline Strip Luma Range Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_strip_luma_range(img, n_strips=8)` in `canvas.py` — absolute luminance range across horizontal strips (max − min strip mean luma); 0.0 for degenerate input
+- Stage 11.38 gate in `pipeline.py`: fires when `_lr_val > _LUMA_RANGE_GATE_FLOOR` (default 60.0) → SCANS fallback; reason `luma_range_gate:{val:.2f}`
+- Flags: `_LUMA_RANGE_GATE_ENABLED` (`ASP_GATE_LUMA_RANGE`, default 1), `_LUMA_RANGE_GATE_FLOOR` (`ASP_GATE_LUMA_RANGE_FLOOR`, default 60.0)
+- `LUMA_RANGE_GATE_FLOOR = 60.0` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestStripLumaRange` (`test_canvas.py`), 5 tests in `TestLumaRangeGatePipeline` (`test_pipeline.py`)
+
+### §5.46 Pipeline Seam Edge Density Gate (`backend/src/animation/alignment/canvas.py`, `backend/src/animation/core/pipeline.py`)
+
+- `_seam_edge_density(img, n_strips=8)` in `canvas.py` — maximum Canny edge-pixel fraction across horizontal strips; 0.0 for degenerate input
+- Stage 11.39 gate in `pipeline.py`: fires when `_ed_val > _EDGE_DENSITY_GATE_FLOOR` (default 0.30) → SCANS fallback; reason `edge_density_gate:{val:.4f}`
+- Flags: `_EDGE_DENSITY_GATE_ENABLED` (`ASP_GATE_EDGE_DENSITY`, default 1), `_EDGE_DENSITY_GATE_FLOOR` (`ASP_GATE_EDGE_DENSITY_FLOOR`, default 0.30)
+- `EDGE_DENSITY_GATE_FLOOR = 0.30` in `constants/animation.py`; 2 schema entries in `config.py`
+- 5 tests in `TestSeamEdgeDensity` (`test_canvas.py`), 5 tests in `TestEdgeDensityGatePipeline` (`test_pipeline.py`)
+
+### §5.47 Bench Strip Luma Range Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `LumaRangeGate` block in `run_dataset()` after `SatCvGate`; reuses `_strip_luma_range` from `canvas.py`
+- Dual condition: fires when `asp_lr > _LUMA_RANGE_ABS_FLOOR` (default 30.0) AND (`sim_lr < 5.0` OR `asp_lr > 2.0 × max(sim_lr, 1.0)`)
+- Module constants: `_LUMA_RANGE_ABS_FLOOR`, `_LUMA_RANGE_RATIO`; 4 schema entries in `config.py` (abs floor + ratio for both §5.47/§5.48)
+- `timings["render_gate_fallback"] += 128` when gate fires
+- 5 tests in `TestLumaRangeGateBench` (`test_bench_metrics.py`)
+
+### §5.48 Bench Strip Edge Density Comparative Gate (`backend/benchmark/bench_anime_stitch.py`)
+
+- `EdgeDensityGate` block in `run_dataset()` after `LumaRangeGate`; reuses `_seam_edge_density` from `canvas.py`
+- Dual condition: fires when `asp_ed > _EDGE_DENSITY_ABS_FLOOR` (default 0.15) AND (`sim_ed < 0.01` OR `asp_ed > 2.5 × max(sim_ed, 0.001)`)
+- Module constants: `_EDGE_DENSITY_ABS_FLOOR`, `_EDGE_DENSITY_RATIO`
+- `timings["render_gate_fallback"] += 64` when gate fires
+- 5 tests in `TestEdgeDensityGateBench` (`test_bench_metrics.py`)
+
+---
+
 ## S179 — 2026-06-25 (§5.41 Pipeline Strip Hue CV Gate · §5.42 Pipeline Seam Boundary Sharpness Ratio Gate · §5.43 Bench Canvas Valid-Area Gate · §5.44 Bench Strip Saturation CV Gate)
 
 *Four new post-composite quality gates: two pipeline gates (Stage 11.36 hue CV, Stage 11.37 seam sharpness ratio) and two bench comparative gates (valid-area parity, saturation CV parity). 1625 tests passing (85 skipped).*
