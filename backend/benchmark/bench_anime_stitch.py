@@ -121,6 +121,9 @@ _CHROMA_JUMP_RATIO: float = float(os.environ.get("ASP_GATE_CHROMA_JUMP_RATIO", "
 # §5.59: Bench strip noise CV comparative gate
 _NOISE_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_NOISE_CV_ABS_FLOOR", "0.50"))
 _NOISE_CV_RATIO: float = float(os.environ.get("ASP_GATE_NOISE_CV_RATIO", "2.5"))
+# §5.60: Bench seam luma step CV comparative gate
+_LUMA_STEP_CV_ABS_FLOOR: float = float(os.environ.get("ASP_GATE_LUMA_STEP_CV_ABS_FLOOR", "0.40"))
+_LUMA_STEP_CV_RATIO: float = float(os.environ.get("ASP_GATE_LUMA_STEP_CV_RATIO", "2.0"))
 
 logger = logging.getLogger(__name__)
 
@@ -3650,6 +3653,32 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                 raise
             except Exception as _ncv_e:
                 logger.debug("[Bench] NoiseCvGate skipped: %s", _ncv_e)
+        # §5.60 LumaStepCvGate — comparative seam luma step CV check
+        if _fallback_reason is None and simple_ok:
+            try:
+                _simple_img_lscv = cv2.imread(central_simple_path)
+                if _simple_img_lscv is not None:
+                    from backend.src.animation.alignment.canvas import _seam_luma_step_cv
+                    _asp_lscv = _seam_luma_step_cv(canvas_out, n_strips=8, boundary_px=3)
+                    _sim_lscv = _seam_luma_step_cv(_simple_img_lscv, n_strips=8, boundary_px=3)
+                    print(f"  [LumaStepCvGate] asp_lscv={_asp_lscv:.4f}  sim_lscv={_sim_lscv:.4f}")
+                    if _asp_lscv > _LUMA_STEP_CV_ABS_FLOOR and (
+                        _sim_lscv < 0.05 or _asp_lscv > _LUMA_STEP_CV_RATIO * max(_sim_lscv, 0.01)
+                    ):
+                        _fallback_reason = f"luma_step_cv_gate:{_asp_lscv:.4f}"
+                        print(
+                            f"  [LumaStepCvGate] FAILED "
+                            f"(asp_lscv={_asp_lscv:.4f} > floor={_LUMA_STEP_CV_ABS_FLOOR:.2f} "
+                            f"and > {_LUMA_STEP_CV_RATIO:.1f}×sim={_sim_lscv:.4f}) → SCANS fallback."
+                        )
+                        timings["render_gate_fallback"] = timings.get("render_gate_fallback", 0) + 1
+                        raise RuntimeError(
+                            f"LumaStepCvGate: asp_lscv={_asp_lscv:.4f}, sim_lscv={_sim_lscv:.4f}"
+                        )
+            except RuntimeError:
+                raise
+            except Exception as _lscv_e:
+                logger.debug("[Bench] LumaStepCvGate skipped: %s", _lscv_e)
 
         from PIL import Image
 

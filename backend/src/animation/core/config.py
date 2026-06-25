@@ -1201,6 +1201,10 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GATE_CHROMA_JUMP_FLOOR": (float, 0.0, 255.0, "§5.54: Seam chroma jump gate floor (luma-scale units, default 15.0; high = colour step at seam boundary)"),
     "ASP_GATE_CHROMA_JUMP_ABS_FLOOR": (float, 0.0, 255.0, "§5.56: Bench seam chroma jump absolute floor (default 8.0); gate only fires when ASP jump exceeds this"),
     "ASP_GATE_CHROMA_JUMP_RATIO": (float, 0.0, 10.0, "§5.56: Bench seam chroma jump ratio limit vs SCANS (default 2.0); fires when ASP jump > ratio × SCANS jump"),
+    "ASP_GATE_LUMA_STEP_CV": (int, 0, 1, "§5.58: Enable pipeline seam luma step CV gate (0 or 1, default 1)"),
+    "ASP_GATE_LUMA_STEP_CV_FLOOR": (float, 0.0, 10.0, "§5.58: Seam luma step CV gate floor (default 1.0; high CV = unevenly-corrected gain normalization across seams)"),
+    "ASP_GATE_LUMA_STEP_CV_ABS_FLOOR": (float, 0.0, 255.0, "§5.60: Bench seam luma step CV absolute floor (default 0.40); gate only fires when ASP CV exceeds this"),
+    "ASP_GATE_LUMA_STEP_CV_RATIO": (float, 0.0, 10.0, "§5.60: Bench seam luma step CV ratio limit vs SCANS (default 2.0); fires when ASP CV > ratio × SCANS CV"),
 }
 
 

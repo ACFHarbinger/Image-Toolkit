@@ -2480,3 +2480,48 @@ class TestNoiseCvGateBench:
             sim_ncv < 0.05 or asp_ncv > _NOISE_CV_RATIO * max(sim_ncv, 0.01)
         )
         assert not fires
+
+
+class TestLumaStepCvGateBench:
+    def test_module_flags_exist_and_are_floats(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        assert isinstance(bm._LUMA_STEP_CV_ABS_FLOOR, float)
+        assert isinstance(bm._LUMA_STEP_CV_RATIO, float)
+
+    def test_schema_keys_present(self):
+        from backend.src.animation.core.config import _CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_STEP_CV_ABS_FLOOR" in _CONFIG_SCHEMA
+        assert "ASP_GATE_LUMA_STEP_CV_RATIO" in _CONFIG_SCHEMA
+
+    def test_gate_fires_when_asp_high_sim_low(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_lscv = 0.80
+        sim_lscv = 0.01
+        abs_floor = bm._LUMA_STEP_CV_ABS_FLOOR
+        ratio = bm._LUMA_STEP_CV_RATIO
+        fires = asp_lscv > abs_floor and (
+            sim_lscv < 0.05 or asp_lscv > ratio * max(sim_lscv, 0.01)
+        )
+        assert fires
+
+    def test_gate_does_not_fire_when_both_high(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_lscv = 0.50
+        sim_lscv = 0.40
+        abs_floor = bm._LUMA_STEP_CV_ABS_FLOOR
+        ratio = bm._LUMA_STEP_CV_RATIO
+        fires = asp_lscv > abs_floor and (
+            sim_lscv < 0.05 or asp_lscv > ratio * max(sim_lscv, 0.01)
+        )
+        assert not fires
+
+    def test_gate_does_not_fire_below_abs_floor(self):
+        import backend.benchmark.bench_anime_stitch as bm
+        asp_lscv = 0.20
+        sim_lscv = 0.0
+        abs_floor = bm._LUMA_STEP_CV_ABS_FLOOR
+        ratio = bm._LUMA_STEP_CV_RATIO
+        fires = asp_lscv > abs_floor and (
+            sim_lscv < 0.05 or asp_lscv > ratio * max(sim_lscv, 0.01)
+        )
+        assert not fires
