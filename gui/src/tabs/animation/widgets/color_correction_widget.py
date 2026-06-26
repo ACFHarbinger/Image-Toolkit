@@ -7,7 +7,6 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import (
-    QColor,
     QImage,
     QPixmap,
 )
@@ -21,7 +20,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 
-from ...styles.style import apply_shadow_effect
+from ....styles.style import apply_shadow_effect
 
 
 def _bgr_to_qimage(bgr: np.ndarray) -> QImage:

@@ -27,12 +27,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
 )
 
-from ...constants import (
+from ....constants import (
     CONF_HIGH,
     CONF_MED,
     CONF_LOW,
 )
-from ...styles.style import apply_shadow_effect
+from ....styles.style import apply_shadow_effect
 
 
 def _conf_color(c: float) -> QColor:
@@ -43,7 +43,7 @@ def _conf_color(c: float) -> QColor:
     return CONF_LOW
 
 
-def _parse_edge_json(path: str) -> List[dict]:
+def parse_edge_json(path: str) -> List[dict]:
     """Load and normalise an ASP stage05_edges.json file."""
     with open(path, "r") as fh:
         raw = json.load(fh)
@@ -225,7 +225,7 @@ class EdgeGraphInspectorDialog(QDialog):
         if not path:
             return
         try:
-            self._edges = _parse_edge_json(path)
+            self._edges = parse_edge_json(path)
             self._populate()
         except Exception as exc:
             QMessageBox.critical(self, "Load Error", str(exc))

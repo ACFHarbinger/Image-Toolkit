@@ -26,16 +26,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...constants import (
+from ....constants import (
     STITCH_THUMB_W,
     STITCH_THUMB_H,
     DARK_GROUP_STYLE,
 )
-from ...styles.style import apply_shadow_effect
+from ....styles.style import apply_shadow_effect
 from .control_point_editor import ControlPointEditor, _load_thumb, _apply_color_correction
-from .color_correction_widget import ColorCorrectionWidget
-from .seam_painter_widget import SeamPainterWidget
-from .mesh_warp_widget import MeshWarpWidget
+from ..widgets import ColorCorrectionWidget, MeshWarpWidget, SeamPainterWidget
 from .render_panel import RenderPanel
 
 
@@ -50,7 +48,7 @@ class _FrameListItem(QListWidgetItem):
         self.setSizeHint(QSize(STITCH_THUMB_W + 4, STITCH_THUMB_H + 8))
 
 
-class HybridStitchPanel(QWidget):
+class RealHybridStitchPanel(QWidget):
     """
     Human-in-the-loop stitching panel.
 

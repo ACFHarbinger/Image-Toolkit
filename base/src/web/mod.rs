@@ -1,23 +1,23 @@
 pub mod crawlers;
-pub mod sync;
+pub mod cloud;
 pub mod clients;
 
 #[cfg(feature = "python")]
 use crate::web::crawlers::danbooru::DanbooruCrawlerImpl;
 #[cfg(feature = "python")]
-use crate::web::sync::dropbox_sync::DropboxSyncImpl;
+use crate::web::cloud::dropbox_sync::DropboxSyncImpl;
 #[cfg(feature = "python")]
 use crate::web::crawlers::gelbooru::GelbooruCrawlerImpl;
 #[cfg(feature = "python")]
-use crate::web::sync::google_drive_sync::GoogleDriveSyncImpl;
+use crate::web::cloud::google_drive_sync::GoogleDriveSyncImpl;
 #[cfg(feature = "python")]
 use crate::web::crawlers::image_board_crawler::BoardCrawler;
 #[cfg(feature = "python")]
-use crate::web::sync::one_drive_sync::OneDriveSyncImpl;
+use crate::web::cloud::one_drive_sync::OneDriveSyncImpl;
 #[cfg(feature = "python")]
 use crate::web::crawlers::sankaku::SankakuCrawlerImpl;
 #[cfg(feature = "python")]
-use crate::web::sync::sync::SyncRunner;
+use crate::web::cloud::sync::SyncRunner;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
@@ -98,25 +98,25 @@ pub fn run_sync(
 
     let stats = match provider_name.to_lowercase().as_str() {
         "dropbox" => {
-            let mut sync = DropboxSyncImpl::new(&config_val);
-            runner.run(py, &mut sync, &client, callback_obj)
+            let mut cloud = DropboxSyncImpl::new(&config_val);
+            runner.run(py, &mut cloud, &client, callback_obj)
         }
         "google_drive" | "google" | "drive" => {
-            let mut sync = GoogleDriveSyncImpl::new(&config_val);
-            runner.run(py, &mut sync, &client, callback_obj)
+            let mut cloud = GoogleDriveSyncImpl::new(&config_val);
+            runner.run(py, &mut cloud, &client, callback_obj)
         }
         "one_drive" | "onedrive" | "microsoft" => {
-            let mut sync = OneDriveSyncImpl::new(&config_val);
-            runner.run(py, &mut sync, &client, callback_obj)
+            let mut cloud = OneDriveSyncImpl::new(&config_val);
+            runner.run(py, &mut cloud, &client, callback_obj)
         }
         _ => {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Unknown sync provider: {}",
+                "Unknown cloud provider: {}",
                 provider_name
             )))
         }
     }
-    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Sync Error: {}", e)))?;
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Cloud sync Error: {}", e)))?;
 
     serde_json::to_string(&stats).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(

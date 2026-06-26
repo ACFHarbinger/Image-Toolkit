@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget
-from .hybrid_stitch_panel import HybridStitchPanel as RealHybridStitchPanel
+from .hybrid_stitch_panel import RealHybridStitchPanel
 
 
 class EditTabPanel:

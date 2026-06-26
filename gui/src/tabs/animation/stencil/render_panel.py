@@ -3,7 +3,6 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple
 from PySide6.QtCore import (
     Qt,
-    Signal,
 )
 from PySide6.QtGui import (
     QPixmap,
@@ -25,7 +24,7 @@ from PySide6.QtWidgets import (
     QApplication,
 )
 
-from ...styles.style import apply_shadow_effect
+from ....styles.style import apply_shadow_effect
 
 
 def _bgr_to_qimage(bgr: np.ndarray) -> QImage:

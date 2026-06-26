@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-def _parse_canvas_json(path: str) -> dict:
+def parse_canvas_json(path: str) -> dict:
     with open(path, "r") as fh:
         raw = json.load(fh)
     return {
@@ -172,7 +172,7 @@ class CanvasLayoutInspectorDialog(QDialog):
         if not path:
             return
         try:
-            self._data = _parse_canvas_json(path)
+            self._data = parse_canvas_json(path)
             self._populate()
         except Exception as exc:
             QMessageBox.critical(self, "Load Error", str(exc))

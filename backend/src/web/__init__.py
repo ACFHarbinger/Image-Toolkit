@@ -7,9 +7,9 @@ from .crawlers.reverse_image_search_crawler import (
     ReverseImageSearchCrawler as ReverseImageSearchCrawler,
 )
 
-from .sync.dropbox_drive_sync import DropboxDriveSync as DropboxDriveSync
-from .sync.google_drive_sync import GoogleDriveSync as GoogleDriveSync
-from .sync.one_drive_sync import OneDriveSync as OneDriveSync
+from .cloud.dropbox_drive_sync import DropboxDriveSync as DropboxDriveSync
+from .cloud.google_drive_sync import GoogleDriveSync as GoogleDriveSync
+from .cloud.one_drive_sync import OneDriveSync as OneDriveSync
 
 __all__ = [
     "ImageCrawler",

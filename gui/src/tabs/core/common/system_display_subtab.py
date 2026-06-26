@@ -6,6 +6,7 @@ import platform
 import subprocess
 import logging
 import random
+from send2trash import send2trash
 
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -15,9 +16,8 @@ from PySide6.QtCore import (
     QTimer,
     Slot,
     QPoint,
-    Signal,
 )
-from PySide6.QtGui import QPixmap, QAction, QColor, QImage, QCursor
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QGroupBox,
     QComboBox,
@@ -29,7 +29,6 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QHBoxLayout,
     QLineEdit,
-    QFileDialog,
     QScrollArea,
     QMessageBox,
     QApplication,
@@ -43,7 +42,6 @@ from ....helpers import WallpaperWorker
 from ....windows import SlideshowQueueWindow, ImagePreviewWindow
 from ....components import (
     MonitorDropWidget,
-    DraggableLabel,
     MarqueeScrollArea,
     DraggableMonitorContainer,
 )
@@ -52,7 +50,6 @@ from ....styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP
 from backend.src.constants import (
     WALLPAPER_STYLES,
     SUPPORTED_VIDEO_FORMATS,
-    SUPPORTED_IMG_FORMATS,
     DAEMON_CONFIG_PATH,
     ROOT_DIR,
 )
@@ -224,23 +221,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
         settings_layout.addWidget(self.slideshow_group)
         self.slideshow_group.setVisible(False)
-
-        self.slideshow_filter_group = QWidget()
-        filter_row = QHBoxLayout(self.slideshow_filter_group)
-        filter_row.setContentsMargins(0, 0, 0, 4)
-        filter_row.addWidget(QLabel("Filter Queue:"))
-        self.filter_dir_input = QLineEdit()
-        self.filter_dir_input.setPlaceholderText(
-            "Optional: restrict slideshow to images inside this directory…"
-        )
-        self.filter_dir_input.textChanged.connect(self._on_filter_dir_changed)
-        filter_row.addWidget(self.filter_dir_input, 1)
-        btn_browse_filter = QPushButton("Browse…")
-        btn_browse_filter.setFixedWidth(72)
-        btn_browse_filter.clicked.connect(self._browse_filter_dir)
-        filter_row.addWidget(btn_browse_filter)
-        settings_layout.addWidget(self.slideshow_filter_group)
-        self.slideshow_filter_group.setVisible(False)
 
         QTimer.singleShot(0, self._apply_vault_slideshow_defaults)
 
@@ -566,7 +546,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             else self.wallpaper_style
         )
 
-        filter_dir = self.filter_dir_input.text().strip()
         config = {
             "running": True,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
@@ -575,7 +554,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
             "playback_order": self.playback_order_combo.currentText(),
-            "filter_directories": [filter_dir] if filter_dir else [],
+            "filter_directories": [],
             "monitor_geometries": {
                 str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
                 for i, m in enumerate(self.monitors)
@@ -616,7 +595,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             else self.wallpaper_style
         )
 
-        filter_dir = self.filter_dir_input.text().strip()
         config = {
             "running": start,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
@@ -625,7 +603,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
             "playback_order": self.playback_order_combo.currentText(),
-            "filter_directories": [filter_dir] if filter_dir else [],
+            "filter_directories": [],
             "monitor_geometries": {
                 str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
                 for i, m in enumerate(self.monitors)
@@ -724,7 +702,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         is_video_static = type_name == "Smart Video"
 
         self.slideshow_group.setVisible(is_slideshow or is_video_slideshow)
-        self.slideshow_filter_group.setVisible(is_slideshow or is_video_slideshow)
         self.btn_daemon_toggle.setVisible(is_slideshow or is_video_slideshow)
         self.btn_view_logs.setVisible(is_slideshow or is_video_slideshow)
 
@@ -1646,7 +1623,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
         self.slideshow_group.setEnabled(False)
-        self.slideshow_filter_group.setEnabled(False)
         self.gallery_scroll_area.setEnabled(False)
         self.scan_directory_path.setEnabled(False)
         self.style_combo.setEnabled(False)
@@ -1661,7 +1637,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.set_wallpaper_btn.setText("Set Wallpaper")
         self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
         self.slideshow_group.setEnabled(True)
-        self.slideshow_filter_group.setEnabled(True)
         self.gallery_scroll_area.setEnabled(True)
         self.scan_directory_path.setEnabled(True)
         self.style_combo.setEnabled(True)
@@ -1706,21 +1681,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         if not is_slideshow_active:
             self.unlock_ui_for_wallpaper()
 
-    # ---- Filter dir -------------------------------------------------------
-
-    def _browse_filter_dir(self):
-        options = (
-            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
-        )
-        directory = QFileDialog.getExistingDirectory(
-            self, "Select filter directory", self.filter_dir_input.text() or "", options
-        )
-        if directory:
-            self.filter_dir_input.setText(directory)
-
-    def _on_filter_dir_changed(self, _text: str):
-        self._sync_daemon_config()
-
     def _apply_vault_slideshow_defaults(self):
         main_win = self.window()
         if not (main_win and hasattr(main_win, "cached_creds")):
@@ -1758,7 +1718,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "background_type": self.background_type,
             "solid_color_hex": self.solid_color_hex,
             "playback_order": self.playback_order_combo.currentText(),
-            "filter_dir": self.filter_dir_input.text(),
             "monitor_order": monitor_order,
             "monitor_layout": monitor_layout,
             "monitor_queues": self.monitor_slideshow_queues,
@@ -1778,7 +1737,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "interval_seconds": 0,
             "background_type": "Image",
             "solid_color_hex": "#000000",
-            "filter_dir": "",
             "monitor_order": [],
             "monitor_layout": [],
         }
@@ -1816,8 +1774,6 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 self.playback_order_combo.setCurrentText(
                     config.get("playback_order", "Sequential")
                 )
-            if "filter_dir" in config:
-                self.filter_dir_input.setText(config.get("filter_dir", ""))
 
             layout_restored = False
             if "monitor_layout" in config and config["monitor_layout"]:
