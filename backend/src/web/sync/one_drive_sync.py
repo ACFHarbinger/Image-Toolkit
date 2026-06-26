@@ -17,6 +17,8 @@ class OneDriveSync:
         logger: Callable[[str], None] = print,
         action_local_orphans: str = "upload",
         action_remote_orphans: str = "download",
+        client_id: str = None,
+        **kwargs,
     ):
         self.config = {
             "local_path": local_source_path,
