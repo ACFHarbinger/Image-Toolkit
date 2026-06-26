@@ -2,9 +2,8 @@ import math
 import cv2
 import os
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 from PySide6.QtCore import (
-    QObject,
     QPointF,
     QRectF,
     Qt,
@@ -37,13 +36,13 @@ from PySide6.QtWidgets import (
     QGraphicsItem,
 )
 
-from ...constants import (
+from ....constants import (
     STITCH_THUMB_W,
     STITCH_THUMB_H,
     STITCH_CP_COLORS,
 )
-from ...styles.style import apply_shadow_effect
-from ...utils.splitter_persistence import persist_splitter
+from ....styles.style import apply_shadow_effect
+from ....utils.splitter_persistence import persist_splitter
 
 
 def _load_thumb(path: str, w: int = STITCH_THUMB_W, h: int = STITCH_THUMB_H) -> QPixmap:

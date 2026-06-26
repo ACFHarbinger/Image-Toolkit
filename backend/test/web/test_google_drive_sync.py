@@ -2,7 +2,7 @@ import os
 import json
 from unittest.mock import MagicMock, patch, mock_open
 import pytest
-from backend.src.web.sync.google_drive_sync import GoogleDriveSync
+from backend.src.web.cloud.google_drive_sync import GoogleDriveSync
 
 
 class TestGoogleDriveSync:

@@ -5,7 +5,6 @@ from PySide6.QtCore import (
     QPointF,
     Qt,
     QTimer,
-    Signal,
 )
 from PySide6.QtGui import (
     QBrush,
@@ -26,7 +25,7 @@ from PySide6.QtWidgets import (
     QGraphicsPixmapItem,
 )
 
-from ...styles.style import apply_shadow_effect
+from ....styles.style import apply_shadow_effect
 
 
 def _bgr_to_qimage(bgr: np.ndarray) -> QImage:
@@ -128,6 +127,7 @@ class _PaintCanvas(QGraphicsView):
         self.scale(factor, factor)
 
     def _paint_at(self, scene_pt: QPointF):
+        assert self._overlay is not None
         cx = int(scene_pt.x())
         cy = int(scene_pt.y())
         r = self._brush_size

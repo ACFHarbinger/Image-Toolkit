@@ -125,15 +125,13 @@ from backend.src.animation.ingestion.masking import (
     _compute_fg_masks_grounded_sam2,
     _refine_masks_with_clicks,
 )
-from .edge_graph_inspector_dialog import (
-    EdgeGraphInspectorDialog,
-    _parse_edge_json,
-)
-from .canvas_layout_inspector_dialog import (
+from .dialog import (
     CanvasLayoutInspectorDialog,
-    _parse_canvas_json,
+    parse_canvas_json,
+    EdgeGraphInspectorDialog,
+    parse_edge_json,
 )
-from .panels import (
+from .stencil import (
     StitchPanel,
     GraphPanel,
     AdjustPanel,
@@ -3381,7 +3379,7 @@ class EditTab(QWidget):
             )
             return
         try:
-            edges = _parse_edge_json(edge_json)
+            edges = parse_edge_json(edge_json)
         except Exception as exc:
             QMessageBox.critical(self, "Load Error", str(exc))
             return
@@ -3401,7 +3399,7 @@ class EditTab(QWidget):
             )
             return
         try:
-            data = _parse_canvas_json(canvas_json)
+            data = parse_canvas_json(canvas_json)
         except Exception as exc:
             QMessageBox.critical(self, "Load Error", str(exc))
             return

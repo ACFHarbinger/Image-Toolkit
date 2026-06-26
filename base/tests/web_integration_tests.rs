@@ -1,6 +1,6 @@
 use anyhow::Result;
 use base::web::image_board_crawler::{BoardCrawler, Crawler};
-use base::web::sync::{CloudSync, SyncItem, SyncRunner};
+use base::web::cloud::{CloudSync, SyncItem, SyncRunner};
 use mockito::Server;
 use pyo3::prelude::*;
 use reqwest::blocking::Client;
