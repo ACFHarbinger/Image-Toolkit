@@ -1,0 +1,1432 @@
+import os
+import math
+import uuid
+import json
+import shutil
+import tempfile
+import subprocess
+import platform
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+
+from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QTimer, Slot, QSize
+from PySide6.QtGui import (
+    QPainter, QPen, QBrush, QColor, QPainterPath, QPixmap, QImage,
+    QFont, QPolygonF, QKeyEvent,
+)
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QGraphicsView,
+    QGraphicsScene, QGraphicsObject, QGraphicsItem,
+    QLabel, QPushButton, QComboBox, QDoubleSpinBox,
+    QGroupBox, QScrollArea, QDialog, QDialogButtonBox,
+    QFileDialog, QMessageBox, QColorDialog, QSizePolicy,
+    QMenu, QListWidget, QListWidgetItem, QFrame,
+    QRadioButton, QButtonGroup, QCheckBox, QStackedWidget,
+)
+from screeninfo import Monitor
+
+from backend.src.constants import SUPPORTED_VIDEO_FORMATS, SUPPORTED_IMG_FORMATS
+
+
+# ---------------------------------------------------------------------------
+# Data model
+# ---------------------------------------------------------------------------
+
+@dataclass
+class NodeData:
+    node_id: str
+    file_path: str
+    display_mode: str = "fixed"      # "fixed" | "video_runtime"
+    duration_sec: float = 30.0
+    pos_x: float = 0.0
+    pos_y: float = 0.0
+
+
+@dataclass
+class EdgeData:
+    edge_id: int
+    source_id: str
+    target_id: str
+
+
+@dataclass
+class GraphData:
+    nodes: Dict[str, NodeData] = field(default_factory=dict)
+    edges: List[EdgeData] = field(default_factory=list)
+    end_behavior: str = "repeat_graph"
+    end_color: str = "#000000"
+    end_jump_node_id: Optional[str] = None
+    _next_edge_id: int = 1
+
+    def alloc_edge_id(self) -> int:
+        n = self._next_edge_id
+        self._next_edge_id += 1
+        return n
+
+    def to_dict(self) -> dict:
+        return {
+            "nodes": {
+                nid: {
+                    "node_id": nd.node_id,
+                    "file_path": nd.file_path,
+                    "display_mode": nd.display_mode,
+                    "duration_sec": nd.duration_sec,
+                    "pos_x": nd.pos_x,
+                    "pos_y": nd.pos_y,
+                }
+                for nid, nd in self.nodes.items()
+            },
+            "edges": [
+                {"edge_id": e.edge_id, "source_id": e.source_id, "target_id": e.target_id}
+                for e in self.edges
+            ],
+            "end_behavior": self.end_behavior,
+            "end_color": self.end_color,
+            "end_jump_node_id": self.end_jump_node_id,
+            "_next_edge_id": self._next_edge_id,
+        }
+
+    @staticmethod
+    def from_dict(d: dict) -> "GraphData":
+        g = GraphData()
+        g.end_behavior = d.get("end_behavior", "repeat_graph")
+        g.end_color = d.get("end_color", "#000000")
+        g.end_jump_node_id = d.get("end_jump_node_id")
+        g._next_edge_id = d.get("_next_edge_id", 1)
+        for nid, nd in d.get("nodes", {}).items():
+            g.nodes[nid] = NodeData(**nd)
+        for ed in d.get("edges", []):
+            g.edges.append(EdgeData(**ed))
+        return g
+
+
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
+
+def _is_video(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in SUPPORTED_VIDEO_FORMATS
+
+
+def _get_video_duration(path: str) -> Optional[float]:
+    """Return video duration in seconds via ffprobe or cv2."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=10,
+        )
+        val = result.stdout.strip()
+        if val:
+            return float(val)
+    except Exception:
+        pass
+    try:
+        import cv2  # type: ignore
+        cap = cv2.VideoCapture(path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        cap.release()
+        if fps > 0:
+            return frames / fps
+    except Exception:
+        pass
+    return None
+
+
+def _build_traversal(graph: GraphData) -> List[Tuple[str, float]]:
+    """
+    Return [(file_path, duration_sec), ...] for the graph traversal.
+    Edges are followed in edge_id order; the traversal is:
+      - Display source of edge[0]
+      - For each subsequent edge: display its source (= prev target)
+      - Display final target of last edge
+    Returns empty list if no edges (only 1 node means it is displayed once).
+    """
+    if not graph.edges:
+        # Single-node: show first node once
+        if graph.nodes:
+            nd = next(iter(graph.nodes.values()))
+            dur = _node_duration(nd)
+            return [(nd.file_path, dur)]
+        return []
+
+    seq: List[Tuple[str, float]] = []
+    sorted_edges = sorted(graph.edges, key=lambda e: e.edge_id)
+
+    # Source of first edge
+    first_src = graph.nodes.get(sorted_edges[0].source_id)
+    if first_src:
+        seq.append((first_src.file_path, _node_duration(first_src)))
+
+    for edge in sorted_edges:
+        tgt = graph.nodes.get(edge.target_id)
+        if tgt:
+            seq.append((tgt.file_path, _node_duration(tgt)))
+
+    return seq
+
+
+def _node_duration(nd: NodeData) -> float:
+    if nd.display_mode == "video_runtime":
+        dur = _get_video_duration(nd.file_path)
+        return dur if dur else nd.duration_sec
+    return nd.duration_sec
+
+
+# ---------------------------------------------------------------------------
+# Graphics: NodeItem
+# ---------------------------------------------------------------------------
+
+_NODE_W = 140
+_NODE_H = 115
+
+
+class NodeItem(QGraphicsObject):
+    """Visual node in the wallpaper sequence graph."""
+
+    def __init__(self, node_data: NodeData):
+        super().__init__()
+        self.node_data = node_data
+        self._pixmap: Optional[QPixmap] = None
+        self._load_thumbnail()
+
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
+        self.setPos(node_data.pos_x, node_data.pos_y)
+        self.setToolTip(node_data.file_path)
+
+    def _load_thumbnail(self):
+        path = self.node_data.file_path
+        if not os.path.exists(path):
+            return
+        if _is_video(path):
+            return  # show placeholder; video thumbs are expensive here
+        try:
+            pm = QPixmap(path)
+            if not pm.isNull():
+                self._pixmap = pm.scaled(120, 72, Qt.AspectRatioMode.KeepAspectRatio,
+                                         Qt.TransformationMode.SmoothTransformation)
+        except Exception:
+            pass
+
+    def refresh_thumbnail(self):
+        self._pixmap = None
+        self._load_thumbnail()
+        self.update()
+
+    def boundingRect(self) -> QRectF:
+        return QRectF(0, 0, _NODE_W, _NODE_H)
+
+    def paint(self, painter: QPainter, option, widget=None):
+        is_sel = self.isSelected()
+        bg_col = QColor("#2d5a3d") if is_sel else QColor("#36393f")
+        border_col = QColor("#2ecc71") if is_sel else QColor("#4f545c")
+
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QBrush(bg_col))
+        painter.setPen(QPen(border_col, 2))
+        painter.drawRoundedRect(QRectF(1, 1, _NODE_W - 2, _NODE_H - 2), 6, 6)
+
+        # Thumbnail area
+        thumb_rect = QRectF(5, 5, _NODE_W - 10, 72)
+        if self._pixmap:
+            pw, ph = self._pixmap.width(), self._pixmap.height()
+            rx = thumb_rect.x() + (thumb_rect.width() - pw) / 2
+            ry = thumb_rect.y() + (thumb_rect.height() - ph) / 2
+            painter.drawPixmap(int(rx), int(ry), self._pixmap)
+        else:
+            painter.fillRect(thumb_rect, QColor("#23272a"))
+            painter.setPen(QPen(QColor("#7289da")))
+            painter.setFont(QFont("Arial", 14))
+            icon = "\U0001f3ac" if _is_video(self.node_data.file_path) else "\U0001f5bc️"
+            painter.drawText(thumb_rect, Qt.AlignmentFlag.AlignCenter, icon)
+
+        # Filename
+        fname = os.path.basename(self.node_data.file_path)
+        if len(fname) > 19:
+            fname = fname[:16] + "..."
+        painter.setPen(QPen(QColor("#ffffff")))
+        painter.setFont(QFont("Arial", 7, QFont.Weight.Bold))
+        painter.drawText(QRectF(2, 80, _NODE_W - 4, 16),
+                         Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextSingleLine, fname)
+
+        # Duration line
+        if self.node_data.display_mode == "video_runtime":
+            dur_text = "▶ Full Runtime"
+        else:
+            s = self.node_data.duration_sec
+            dur_text = f"⏱ {int(s//60)}m {int(s%60)}s" if s >= 60 else f"⏱ {s:.0f}s"
+        painter.setPen(QPen(QColor("#b9bbbe")))
+        painter.setFont(QFont("Arial", 7))
+        painter.drawText(QRectF(2, 97, _NODE_W - 4, 14),
+                         Qt.AlignmentFlag.AlignCenter, dur_text)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            self.node_data.pos_x = self.pos().x()
+            self.node_data.pos_y = self.pos().y()
+            sc = self.scene()
+            if sc and hasattr(sc, "_on_node_moved"):
+                sc._on_node_moved(self.node_data.node_id)
+        return super().itemChange(change, value)
+
+    def mouseDoubleClickEvent(self, event):
+        sc = self.scene()
+        if sc and hasattr(sc, "node_edit_requested"):
+            sc.node_edit_requested.emit(self.node_data.node_id)
+        super().mouseDoubleClickEvent(event)
+
+    def contextMenuEvent(self, event):
+        sc = self.scene()
+        if sc and hasattr(sc, "_node_context_menu"):
+            sc._node_context_menu(self.node_data.node_id, event.screenPos())
+        event.accept()
+
+
+# ---------------------------------------------------------------------------
+# Graphics: EdgeItem
+# ---------------------------------------------------------------------------
+
+class EdgeItem(QGraphicsObject):
+    """Visual directed edge (arrow) between two NodeItems, with an ID label."""
+
+    def __init__(self, edge_data: EdgeData, src: NodeItem, tgt: NodeItem):
+        super().__init__()
+        self.edge_data = edge_data
+        self.src = src
+        self.tgt = tgt
+        self._path = QPainterPath()
+        self._arrow_tip = QPointF(0, 0)
+        self._arrow_angle = 0.0
+        self._label_pos = QPointF(0, 0)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setZValue(-1)
+        self._update_path()
+
+    def _is_self(self) -> bool:
+        return self.edge_data.source_id == self.edge_data.target_id
+
+    def update_path(self):
+        self.prepareGeometryChange()
+        self._update_path()
+        self.update()
+
+    def _node_center(self, item: NodeItem) -> QPointF:
+        return item.mapToScene(QPointF(_NODE_W / 2, _NODE_H / 2))
+
+    def _update_path(self):
+        if self._is_self():
+            self._build_self_loop()
+        else:
+            self._build_arrow()
+
+    def _build_self_loop(self):
+        cx = self.src.mapToScene(QPointF(_NODE_W / 2, 0)).x()
+        top = self.src.mapToScene(QPointF(_NODE_W / 2, 0)).y()
+        r = 28
+        self._path = QPainterPath()
+        self._path.moveTo(cx - 15, top)
+        self._path.cubicTo(
+            QPointF(cx - 15, top - r * 2.5),
+            QPointF(cx + 15, top - r * 2.5),
+            QPointF(cx + 15, top),
+        )
+        self._arrow_tip = QPointF(cx + 15, top)
+        self._arrow_angle = math.pi / 2
+        self._label_pos = QPointF(cx, top - r * 2.0)
+
+    def _rect_edge_point(self, item: NodeItem, towards: QPointF) -> QPointF:
+        center = self._node_center(item)
+        dx = towards.x() - center.x()
+        dy = towards.y() - center.y()
+        length = math.hypot(dx, dy) or 1.0
+        hw, hh = _NODE_W / 2 + 4, _NODE_H / 2 + 4
+        if abs(dx) * hh >= abs(dy) * hw:
+            t = hw / abs(dx) if dx != 0 else 1.0
+        else:
+            t = hh / abs(dy) if dy != 0 else 1.0
+        return QPointF(center.x() + dx * t, center.y() + dy * t)
+
+    def _build_arrow(self):
+        sc = self._node_center(self.src)
+        tc = self._node_center(self.tgt)
+        sp = self._rect_edge_point(self.src, tc)
+        tp = self._rect_edge_point(self.tgt, sc)
+
+        dx = tp.x() - sp.x()
+        dy = tp.y() - sp.y()
+        length = math.hypot(dx, dy) or 1.0
+        # Perpendicular offset for a slight curve to distinguish parallel edges
+        offset = min(40.0, length * 0.15)
+        mx = (sp.x() + tp.x()) / 2 - dy * offset / length
+        my = (sp.y() + tp.y()) / 2 + dx * offset / length
+
+        self._path = QPainterPath()
+        self._path.moveTo(sp)
+        self._path.quadTo(QPointF(mx, my), tp)
+
+        self._arrow_tip = tp
+        self._arrow_angle = math.atan2(tp.y() - my, tp.x() - mx)
+        self._label_pos = QPointF(mx, my)
+
+    def boundingRect(self) -> QRectF:
+        return self._path.boundingRect().adjusted(-20, -20, 20, 20)
+
+    def shape(self) -> QPainterPath:
+        # Widen path for easier clicking
+        stroker = self._path
+        return stroker
+
+    def paint(self, painter: QPainter, option, widget=None):
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        is_sel = self.isSelected()
+        color = QColor("#f39c12") if is_sel else QColor("#7289da")
+
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(self._path)
+        self._draw_arrowhead(painter, color)
+
+        # Edge ID label
+        lp = self._label_pos
+        label = f"#{self.edge_data.edge_id}"
+        bg = QColor("#2c2f33")
+        text_rect = QRectF(lp.x() - 14, lp.y() - 9, 28, 18)
+        painter.fillRect(text_rect, bg)
+        painter.setPen(QPen(color))
+        painter.setFont(QFont("Arial", 8, QFont.Weight.Bold))
+        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, label)
+
+    def _draw_arrowhead(self, painter: QPainter, color: QColor):
+        tip = self._arrow_tip
+        angle = self._arrow_angle
+        arrow_len, half_spread = 10, 0.45
+        p1 = QPointF(tip.x() - arrow_len * math.cos(angle - half_spread),
+                     tip.y() - arrow_len * math.sin(angle - half_spread))
+        p2 = QPointF(tip.x() - arrow_len * math.cos(angle + half_spread),
+                     tip.y() - arrow_len * math.sin(angle + half_spread))
+        painter.setBrush(QBrush(color))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawPolygon(QPolygonF([tip, p1, p2]))
+
+    def contextMenuEvent(self, event):
+        sc = self.scene()
+        if sc and hasattr(sc, "_edge_context_menu"):
+            sc._edge_context_menu(self.edge_data.edge_id, event.screenPos())
+        event.accept()
+
+
+# ---------------------------------------------------------------------------
+# Scene
+# ---------------------------------------------------------------------------
+
+class WallpaperGraphScene(QGraphicsScene):
+    node_edit_requested = Signal(str)   # node_id
+    graph_changed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._graph: Optional[GraphData] = None
+        self._node_items: Dict[str, NodeItem] = {}
+        self._edge_items: Dict[int, EdgeItem] = {}
+
+    # ---- Public API -------------------------------------------------------
+
+    def load_graph(self, graph: GraphData):
+        self._graph = graph
+        self._node_items.clear()
+        self._edge_items.clear()
+        self.clear()
+        for nd in graph.nodes.values():
+            self._add_node_item(nd)
+        for ed in sorted(graph.edges, key=lambda e: e.edge_id):
+            self._add_edge_item(ed)
+
+    def clear_graph(self):
+        self._graph = None
+        self._node_items.clear()
+        self._edge_items.clear()
+        self.clear()
+
+    def add_node(self, file_path: str, pos: QPointF) -> str:
+        nid = str(uuid.uuid4())
+        nd = NodeData(node_id=nid, file_path=file_path,
+                      duration_sec=30.0, pos_x=pos.x(), pos_y=pos.y())
+        self._graph.nodes[nid] = nd
+        self._add_node_item(nd)
+        self.graph_changed.emit()
+        return nid
+
+    def add_edge(self, source_id: str, target_id: str) -> int:
+        eid = self._graph.alloc_edge_id()
+        ed = EdgeData(edge_id=eid, source_id=source_id, target_id=target_id)
+        self._graph.edges.append(ed)
+        self._add_edge_item(ed)
+        self.graph_changed.emit()
+        return eid
+
+    def remove_selected(self):
+        for item in list(self.selectedItems()):
+            if isinstance(item, EdgeItem):
+                self._remove_edge(item.edge_data.edge_id)
+            elif isinstance(item, NodeItem):
+                self._remove_node(item.node_data.node_id)
+        self.graph_changed.emit()
+
+    def node_labels(self) -> List[Tuple[str, str]]:
+        """Return [(node_id, short_label), ...] for all nodes."""
+        if self._graph is None:
+            return []
+        result = []
+        for nid, nd in self._graph.nodes.items():
+            label = os.path.basename(nd.file_path)
+            if len(label) > 25:
+                label = label[:22] + "..."
+            result.append((nid, label))
+        return result
+
+    # ---- Internal helpers -------------------------------------------------
+
+    def _add_node_item(self, nd: NodeData):
+        item = NodeItem(nd)
+        self.addItem(item)
+        self._node_items[nd.node_id] = item
+
+    def _add_edge_item(self, ed: EdgeData):
+        src = self._node_items.get(ed.source_id)
+        tgt = self._node_items.get(ed.target_id)
+        if src is None or tgt is None:
+            return
+        item = EdgeItem(ed, src, tgt)
+        self.addItem(item)
+        self._edge_items[ed.edge_id] = item
+
+    def _remove_node(self, node_id: str):
+        if self._graph is None:
+            return
+        # Remove edges that reference this node first
+        to_del = [e.edge_id for e in self._graph.edges
+                  if e.source_id == node_id or e.target_id == node_id]
+        for eid in to_del:
+            self._remove_edge(eid)
+        item = self._node_items.pop(node_id, None)
+        if item:
+            self.removeItem(item)
+        self._graph.nodes.pop(node_id, None)
+
+    def _remove_edge(self, edge_id: int):
+        if self._graph is None:
+            return
+        item = self._edge_items.pop(edge_id, None)
+        if item:
+            self.removeItem(item)
+        self._graph.edges = [e for e in self._graph.edges if e.edge_id != edge_id]
+
+    def _on_node_moved(self, node_id: str):
+        for eid, eitem in self._edge_items.items():
+            ed = eitem.edge_data
+            if ed.source_id == node_id or ed.target_id == node_id:
+                eitem.update_path()
+
+    def _node_context_menu(self, node_id: str, screen_pos):
+        if self._graph is None:
+            return
+        menu = QMenu()
+        act_edit = menu.addAction("Edit Properties…")
+        act_self = menu.addAction("Add Self-Edge (repeat this wallpaper)")
+        act_connect = menu.addAction("Add Edge To…")
+        menu.addSeparator()
+        act_del = menu.addAction("Delete Node")
+
+        chosen = menu.exec(screen_pos)
+        if chosen is None:
+            return
+        if chosen == act_edit:
+            self.node_edit_requested.emit(node_id)
+        elif chosen == act_self:
+            self.add_edge(node_id, node_id)
+        elif chosen == act_connect:
+            others = [(nid, lbl) for nid, lbl in self.node_labels() if nid != node_id]
+            if not others:
+                QMessageBox.information(None, "No Other Nodes",
+                                        "Add more nodes to the graph before connecting.")
+                return
+            dlg = _PickNodeDialog(others, title="Connect to Node")
+            if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_id:
+                self.add_edge(node_id, dlg.selected_id)
+        elif chosen == act_del:
+            self._remove_node(node_id)
+            self.graph_changed.emit()
+
+    def _edge_context_menu(self, edge_id: int, screen_pos):
+        menu = QMenu()
+        act_del = menu.addAction(f"Delete Edge #{edge_id}")
+        if menu.exec(screen_pos) == act_del:
+            self._remove_edge(edge_id)
+            self.graph_changed.emit()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            self.remove_selected()
+        else:
+            super().keyPressEvent(event)
+
+
+# ---------------------------------------------------------------------------
+# Graph View
+# ---------------------------------------------------------------------------
+
+class WallpaperGraphView(QGraphicsView):
+    def __init__(self, scene: WallpaperGraphScene, parent=None):
+        super().__init__(scene, parent)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setBackgroundBrush(QBrush(QColor("#23272a")))
+        self.setMinimumSize(400, 300)
+
+    def wheelEvent(self, event):
+        factor = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
+        self.scale(factor, factor)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls():
+            sc = self.scene()
+            if sc is None or not hasattr(sc, "_graph") or sc._graph is None:
+                return
+            scene_pos = self.mapToScene(event.position().toPoint())
+            for url in event.mimeData().urls():
+                path = url.toLocalFile()
+                if not path:
+                    continue
+                ext = os.path.splitext(path)[1].lower()
+                all_exts = set(SUPPORTED_VIDEO_FORMATS) | {
+                    f".{e.lower().lstrip('.')}" for e in SUPPORTED_IMG_FORMATS
+                }
+                if ext in all_exts:
+                    sc.add_node(path, scene_pos)
+                    scene_pos = QPointF(scene_pos.x() + _NODE_W + 20, scene_pos.y())
+            event.acceptProposedAction()
+        else:
+            super().dropEvent(event)
+
+
+# ---------------------------------------------------------------------------
+# Dialogs
+# ---------------------------------------------------------------------------
+
+class _PickNodeDialog(QDialog):
+    """Simple list dialog to pick a node by label."""
+
+    def __init__(self, node_labels: List[Tuple[str, str]], title: str = "Pick Node",
+                 parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.selected_id: Optional[str] = None
+        self._id_map: Dict[str, str] = {lbl: nid for nid, lbl in node_labels}
+
+        lyt = QVBoxLayout(self)
+        self._list = QListWidget()
+        for nid, lbl in node_labels:
+            item = QListWidgetItem(lbl)
+            item.setData(Qt.ItemDataRole.UserRole, nid)
+            self._list.addItem(item)
+        self._list.itemDoubleClicked.connect(self._accept)
+        lyt.addWidget(self._list)
+
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok |
+                                QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self._accept)
+        btns.rejected.connect(self.reject)
+        lyt.addWidget(btns)
+        self.resize(320, 240)
+
+    def _accept(self):
+        items = self._list.selectedItems()
+        if items:
+            self.selected_id = items[0].data(Qt.ItemDataRole.UserRole)
+            self.accept()
+
+
+class NodeEditDialog(QDialog):
+    """Edit a node's file path, display mode and duration."""
+
+    def __init__(self, nd: NodeData, parent=None):
+        super().__init__(parent)
+        self.nd = nd
+        self.setWindowTitle("Edit Wallpaper Node")
+        lyt = QVBoxLayout(self)
+
+        # File path
+        fp_row = QHBoxLayout()
+        self._path_lbl = QLabel(nd.file_path)
+        self._path_lbl.setWordWrap(True)
+        fp_row.addWidget(self._path_lbl, 1)
+        btn_browse = QPushButton("Browse…")
+        btn_browse.clicked.connect(self._browse)
+        fp_row.addWidget(btn_browse)
+        lyt.addLayout(fp_row)
+
+        # Mode
+        mode_grp = QGroupBox("Display Mode")
+        mode_lyt = QVBoxLayout(mode_grp)
+        self._radio_fixed = QRadioButton("Fixed duration")
+        self._radio_runtime = QRadioButton("Video runtime (videos only)")
+        self._bg = QButtonGroup(self)
+        self._bg.addButton(self._radio_fixed)
+        self._bg.addButton(self._radio_runtime)
+        mode_lyt.addWidget(self._radio_fixed)
+        mode_lyt.addWidget(self._radio_runtime)
+        lyt.addWidget(mode_grp)
+
+        if nd.display_mode == "video_runtime":
+            self._radio_runtime.setChecked(True)
+        else:
+            self._radio_fixed.setChecked(True)
+
+        # Duration
+        dur_row = QHBoxLayout()
+        dur_row.addWidget(QLabel("Duration (seconds):"))
+        self._dur_spin = QDoubleSpinBox()
+        self._dur_spin.setRange(0.5, 86400)
+        self._dur_spin.setValue(nd.duration_sec)
+        self._dur_spin.setSingleStep(1.0)
+        dur_row.addWidget(self._dur_spin)
+        lyt.addLayout(dur_row)
+
+        self._radio_fixed.toggled.connect(lambda on: self._dur_spin.setEnabled(on))
+        self._dur_spin.setEnabled(nd.display_mode != "video_runtime")
+
+        # Video-runtime only available for videos
+        if not _is_video(nd.file_path):
+            self._radio_runtime.setEnabled(False)
+            self._radio_fixed.setChecked(True)
+
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok |
+                                QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self._save)
+        btns.rejected.connect(self.reject)
+        lyt.addWidget(btns)
+        self.resize(420, 240)
+
+    def _browse(self):
+        all_exts = list(SUPPORTED_VIDEO_FORMATS) + [
+            f".{e.lower().lstrip('.')}" for e in SUPPORTED_IMG_FORMATS
+        ]
+        ext_str = " ".join(f"*{e}" for e in all_exts)
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Wallpaper File", "",
+            f"Media Files ({ext_str});;All Files (*)",
+        )
+        if path:
+            self.nd.file_path = path
+            self._path_lbl.setText(path)
+            if not _is_video(path):
+                self._radio_runtime.setEnabled(False)
+                self._radio_fixed.setChecked(True)
+            else:
+                self._radio_runtime.setEnabled(True)
+
+    def _save(self):
+        self.nd.display_mode = "video_runtime" if self._radio_runtime.isChecked() else "fixed"
+        self.nd.duration_sec = self._dur_spin.value()
+        self.accept()
+
+
+# ---------------------------------------------------------------------------
+# Monitor Selector widget
+# ---------------------------------------------------------------------------
+
+class _MonitorSelectorBar(QWidget):
+    """Horizontal row of clickable monitor boxes."""
+    monitor_selected = Signal(str)  # monitor_id
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._layout = QHBoxLayout(self)
+        self._layout.setSpacing(8)
+        self._layout.setContentsMargins(4, 4, 4, 4)
+        self._buttons: Dict[str, QPushButton] = {}
+        self._current_id: Optional[str] = None
+
+    def update_monitors(self, monitors: List[Monitor]):
+        for btn in self._buttons.values():
+            self._layout.removeWidget(btn)
+            btn.deleteLater()
+        self._buttons.clear()
+        self._current_id = None
+
+        for i, m in enumerate(monitors):
+            mid = str(i)
+            name = m.name or f"Display {i}"
+            label = f"{name}\n{m.width}×{m.height}"
+            btn = QPushButton(label)
+            btn.setFixedHeight(54)
+            btn.setCheckable(True)
+            btn.setStyleSheet(
+                "QPushButton { background:#36393f; border:2px solid #4f545c; border-radius:6px; color:white; padding:4px; }"
+                "QPushButton:checked { background:#2d5a3d; border-color:#2ecc71; }"
+                "QPushButton:hover:!checked { border-color:#7289da; }"
+            )
+            btn.clicked.connect(lambda _, _id=mid: self._select(_id))
+            self._layout.addWidget(btn)
+            self._buttons[mid] = btn
+
+        self._layout.addStretch(1)
+
+        if self._buttons:
+            first_id = next(iter(self._buttons))
+            self._select(first_id)
+
+    def _select(self, monitor_id: str):
+        if self._current_id == monitor_id:
+            return
+        if self._current_id in self._buttons:
+            self._buttons[self._current_id].setChecked(False)
+        self._current_id = monitor_id
+        self._buttons[monitor_id].setChecked(True)
+        self.monitor_selected.emit(monitor_id)
+
+    def current_monitor_id(self) -> Optional[str]:
+        return self._current_id
+
+
+# ---------------------------------------------------------------------------
+# Main tab widget
+# ---------------------------------------------------------------------------
+
+class MonitorDisplaySubTab(QWidget):
+    """
+    Graph-based wallpaper sequencer per monitor.
+
+    Each monitor gets its own directed graph where:
+    - Nodes are wallpaper files (image/video/GIF) with a display duration.
+    - Directed edges define the playback sequence (ordered by edge ID).
+    - Self-edges allow repeating the same wallpaper.
+    - End behavior defines what happens after the last edge is traversed.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._monitors: List[Monitor] = []
+        self._graphs: Dict[str, GraphData] = {}   # monitor_id -> GraphData
+        self._current_monitor_id: Optional[str] = None
+        self._preview_tmp_dir: Optional[str] = None
+
+        self._build_ui()
+
+    # ---- UI construction --------------------------------------------------
+
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(6, 6, 6, 6)
+        root.setSpacing(6)
+
+        # Monitor selector
+        sel_box = QGroupBox("Select Monitor")
+        sel_box.setStyleSheet(
+            "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
+            "QGroupBox::title { color:white; padding:0 6px; }"
+        )
+        sel_lyt = QVBoxLayout(sel_box)
+        sel_lyt.setContentsMargins(4, 12, 4, 4)
+        self._monitor_selector = _MonitorSelectorBar()
+        self._monitor_selector.monitor_selected.connect(self._on_monitor_selected)
+        sel_lyt.addWidget(self._monitor_selector)
+        root.addWidget(sel_box)
+
+        # Placeholder shown when no monitors are detected
+        self._placeholder = QLabel(
+            "No monitors detected.\nClick 'Fetch Current Wallpapers' in the System Display(s) tab."
+        )
+        self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._placeholder.setStyleSheet("color:#b9bbbe;")
+
+        # Main content: graph + end-behavior (shown once monitors are available)
+        graph_content = QWidget()
+        graph_content_lyt = QVBoxLayout(graph_content)
+        graph_content_lyt.setContentsMargins(0, 0, 0, 0)
+        graph_content_lyt.setSpacing(4)
+
+        # Splitter: graph canvas (left) | props panel (right)
+        self._splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # Graph panel
+        graph_panel = QWidget()
+        graph_lyt = QVBoxLayout(graph_panel)
+        graph_lyt.setContentsMargins(0, 0, 0, 0)
+        graph_lyt.setSpacing(4)
+
+        # Toolbar
+        tb = QHBoxLayout()
+        self._btn_add_node = QPushButton("➕ Add Node")
+        self._btn_add_node.setToolTip("Add a wallpaper file to the graph")
+        self._btn_add_node.clicked.connect(self._add_node)
+
+        self._btn_self_edge = QPushButton("↩ Self-Edge")
+        self._btn_self_edge.setToolTip("Add a self-edge to the selected node (repeat it)")
+        self._btn_self_edge.clicked.connect(self._add_self_edge)
+
+        self._btn_connect = QPushButton("→ Connect")
+        self._btn_connect.setToolTip("Add an edge from the selected node to another")
+        self._btn_connect.clicked.connect(self._add_edge)
+
+        self._btn_delete = QPushButton("🗑 Delete")
+        self._btn_delete.setToolTip("Delete selected node or edge (Del key also works)")
+        self._btn_delete.clicked.connect(self._delete_selected)
+
+        btn_reset_view = QPushButton("⊡ Fit View")
+        btn_reset_view.clicked.connect(self._fit_view)
+
+        self._btn_preview = QPushButton("▶ Preview Timelapse")
+        self._btn_preview.setToolTip("Generate a temporary preview video and open it")
+        self._btn_preview.setStyleSheet(
+            "QPushButton { background:#7289da; color:white; border-radius:4px; padding:4px 8px; }"
+            "QPushButton:hover { background:#5f73bc; }"
+        )
+        self._btn_preview.clicked.connect(self._preview_timelapse)
+
+        for btn in [self._btn_add_node, self._btn_self_edge, self._btn_connect,
+                    self._btn_delete, btn_reset_view]:
+            btn.setFixedHeight(28)
+            tb.addWidget(btn)
+        tb.addStretch(1)
+        tb.addWidget(self._btn_preview)
+        graph_lyt.addLayout(tb)
+
+        # Scene + View
+        self._scene = WallpaperGraphScene(self)
+        self._scene.node_edit_requested.connect(self._edit_node)
+        self._scene.graph_changed.connect(self._on_graph_changed)
+        self._scene.selectionChanged.connect(self._on_selection_changed)
+
+        self._view = WallpaperGraphView(self._scene)
+        self._view.setAcceptDrops(True)
+        graph_lyt.addWidget(self._view, 1)
+
+        # Sequence summary label
+        self._seq_label = QLabel("No graph loaded.")
+        self._seq_label.setWordWrap(True)
+        self._seq_label.setStyleSheet("color:#b9bbbe; font-size:11px; padding:2px;")
+        graph_lyt.addWidget(self._seq_label)
+
+        self._splitter.addWidget(graph_panel)
+        self._splitter.addWidget(self._build_props_panel())
+        self._splitter.setSizes([700, 260])
+
+        graph_content_lyt.addWidget(self._splitter, 1)
+        graph_content_lyt.addWidget(self._build_end_behavior_bar())
+
+        # Stack: index 0 = placeholder, index 1 = graph content
+        self._stack = QStackedWidget()
+        self._stack.addWidget(self._placeholder)
+        self._stack.addWidget(graph_content)
+        self._stack.setCurrentIndex(0)
+
+        root.addWidget(self._stack, 1)
+
+    def _build_props_panel(self) -> QGroupBox:
+        grp = QGroupBox("Node Properties")
+        grp.setStyleSheet(
+            "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
+            "QGroupBox::title { color:white; padding:0 6px; }"
+        )
+        lyt = QVBoxLayout(grp)
+
+        self._props_hint = QLabel("Double-click or right-click a node to edit it.")
+        self._props_hint.setWordWrap(True)
+        self._props_hint.setStyleSheet("color:#b9bbbe;")
+        lyt.addWidget(self._props_hint)
+
+        self._props_file = QLabel()
+        self._props_file.setWordWrap(True)
+        lyt.addWidget(self._props_file)
+
+        mode_grp = QGroupBox("Display Mode")
+        mode_lyt = QVBoxLayout(mode_grp)
+        self._props_radio_fixed = QRadioButton("Fixed duration")
+        self._props_radio_runtime = QRadioButton("Full video runtime")
+        self._props_bg = QButtonGroup(self)
+        self._props_bg.addButton(self._props_radio_fixed)
+        self._props_bg.addButton(self._props_radio_runtime)
+        mode_lyt.addWidget(self._props_radio_fixed)
+        mode_lyt.addWidget(self._props_radio_runtime)
+        lyt.addWidget(mode_grp)
+
+        dur_row = QHBoxLayout()
+        dur_row.addWidget(QLabel("Duration (s):"))
+        self._props_dur = QDoubleSpinBox()
+        self._props_dur.setRange(0.5, 86400)
+        self._props_dur.setSingleStep(1.0)
+        dur_row.addWidget(self._props_dur)
+        lyt.addLayout(dur_row)
+
+        self._props_apply = QPushButton("Apply")
+        self._props_apply.clicked.connect(self._apply_props)
+        lyt.addWidget(self._props_apply)
+
+        lyt.addStretch(1)
+
+        # Track which node is being shown in the panel
+        self._props_node_id: Optional[str] = None
+        self._props_radio_fixed.toggled.connect(
+            lambda on: self._props_dur.setEnabled(on)
+        )
+
+        # Initially hide the editable parts
+        mode_grp.setVisible(False)
+        self._props_file.setVisible(False)
+        self._props_dur.setEnabled(True)
+        for w in [mode_grp, self._props_file, self._props_dur,
+                  self._props_apply, dur_row]:
+            pass  # shown on demand
+
+        self._props_mode_grp = mode_grp
+        self._props_dur_row_widget = None  # updated below
+
+        self._props_mode_grp.setVisible(False)
+        self._props_apply.setVisible(False)
+
+        return grp
+
+    def _build_end_behavior_bar(self) -> QGroupBox:
+        grp = QGroupBox("End of Graph Behavior")
+        grp.setStyleSheet(
+            "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
+            "QGroupBox::title { color:white; padding:0 6px; }"
+        )
+        lyt = QHBoxLayout(grp)
+        lyt.setContentsMargins(6, 14, 6, 6)
+
+        self._end_combo = QComboBox()
+        self._end_combo.addItems([
+            "Repeat Graph",
+            "Solid Color",
+            "Stay on Last Wallpaper",
+            "Return to First Wallpaper",
+            "Jump to Specific Wallpaper",
+        ])
+        self._end_combo.currentIndexChanged.connect(self._on_end_behavior_changed)
+        lyt.addWidget(self._end_combo)
+
+        # Color picker (only for "Solid Color")
+        self._end_color_btn = QPushButton("  Pick Color")
+        self._end_color_btn.setVisible(False)
+        self._end_color_btn.clicked.connect(self._pick_end_color)
+        self._end_color_preview = QLabel("   ")
+        self._end_color_preview.setFixedSize(20, 20)
+        self._end_color_preview.setVisible(False)
+        self._end_color_current = "#000000"
+        lyt.addWidget(self._end_color_preview)
+        lyt.addWidget(self._end_color_btn)
+
+        # Jump-to node picker (only for "Jump to Specific Wallpaper")
+        self._end_jump_combo = QComboBox()
+        self._end_jump_combo.setVisible(False)
+        lyt.addWidget(self._end_jump_combo)
+
+        lyt.addStretch(1)
+        return grp
+
+    # ---- Monitor management -----------------------------------------------
+
+    def update_monitors(self, monitors: List[Monitor]):
+        self._monitors = monitors
+        self._monitor_selector.update_monitors(monitors)
+        if monitors:
+            self._stack.setCurrentIndex(1)
+        else:
+            self._stack.setCurrentIndex(0)
+
+    @Slot(str)
+    def _on_monitor_selected(self, monitor_id: str):
+        self._current_monitor_id = monitor_id
+        if monitor_id not in self._graphs:
+            self._graphs[monitor_id] = GraphData()
+        graph = self._graphs[monitor_id]
+        self._scene.load_graph(graph)
+        self._sync_end_behavior_ui(graph)
+        self._update_end_jump_combo()
+        self._update_seq_label()
+        QTimer.singleShot(50, self._fit_view)
+
+    # ---- Graph operations -------------------------------------------------
+
+    def _current_graph(self) -> Optional[GraphData]:
+        if self._current_monitor_id is None:
+            return None
+        return self._graphs.get(self._current_monitor_id)
+
+    def _add_node(self):
+        if self._current_monitor_id is None:
+            return
+        all_exts = list(SUPPORTED_VIDEO_FORMATS) + [
+            f".{e.lower().lstrip('.')}" for e in SUPPORTED_IMG_FORMATS
+        ]
+        ext_str = " ".join(f"*{e}" for e in all_exts)
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Select Wallpaper File(s)", "",
+            f"Media Files ({ext_str});;All Files (*)",
+        )
+        if not paths:
+            return
+        center = self._view.mapToScene(self._view.viewport().rect().center())
+        spacing = _NODE_W + 20
+        for i, path in enumerate(paths):
+            pos = QPointF(center.x() + i * spacing - len(paths) * spacing / 2, center.y())
+            self._scene.add_node(path, pos)
+
+    def _selected_node_id(self) -> Optional[str]:
+        for item in self._scene.selectedItems():
+            if isinstance(item, NodeItem):
+                return item.node_data.node_id
+        return None
+
+    def _add_self_edge(self):
+        nid = self._selected_node_id()
+        if nid is None:
+            QMessageBox.information(self, "No Node Selected",
+                                    "Select a node first, then click 'Self-Edge'.")
+            return
+        self._scene.add_edge(nid, nid)
+
+    def _add_edge(self):
+        src_id = self._selected_node_id()
+        if src_id is None:
+            QMessageBox.information(self, "No Node Selected",
+                                    "Select the SOURCE node first, then click 'Connect'.")
+            return
+        labels = [(nid, lbl) for nid, lbl in self._scene.node_labels()]
+        dlg = _PickNodeDialog(labels, title="Connect To Node", parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_id:
+            self._scene.add_edge(src_id, dlg.selected_id)
+
+    def _delete_selected(self):
+        self._scene.remove_selected()
+
+    def _fit_view(self):
+        rect = self._scene.itemsBoundingRect()
+        if rect.isEmpty():
+            self._view.resetTransform()
+        else:
+            self._view.fitInView(rect.adjusted(-20, -20, 20, 20),
+                                 Qt.AspectRatioMode.KeepAspectRatio)
+
+    @Slot(str)
+    def _edit_node(self, node_id: str):
+        graph = self._current_graph()
+        if graph is None:
+            return
+        nd = graph.nodes.get(node_id)
+        if nd is None:
+            return
+        dlg = NodeEditDialog(nd, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            # Update the visual
+            item = self._scene._node_items.get(node_id)
+            if item:
+                item.refresh_thumbnail()
+                item.update()
+            self._on_graph_changed()
+
+    @Slot()
+    def _on_graph_changed(self):
+        self._update_seq_label()
+        self._update_end_jump_combo()
+        graph = self._current_graph()
+        if graph:
+            # Persist end-behavior selections back to graph
+            self._read_end_behavior_to_graph(graph)
+
+    # ---- Properties panel -------------------------------------------------
+
+    @Slot()
+    def _on_selection_changed(self):
+        items = self._scene.selectedItems()
+        for item in items:
+            if isinstance(item, NodeItem):
+                self._show_node_in_props(item.node_data)
+                return
+        # Nothing or only edge selected → hide props details
+        self._props_hint.setVisible(True)
+        self._props_file.setVisible(False)
+        self._props_mode_grp.setVisible(False)
+        self._props_apply.setVisible(False)
+        self._props_node_id = None
+
+    def _show_node_in_props(self, nd: NodeData):
+        self._props_node_id = nd.node_id
+        self._props_hint.setVisible(False)
+        fname = os.path.basename(nd.file_path)
+        self._props_file.setText(f"<b>{fname}</b><br><small style='color:#888'>{nd.file_path}</small>")
+        self._props_file.setVisible(True)
+        self._props_mode_grp.setVisible(True)
+        self._props_apply.setVisible(True)
+        self._props_dur.setVisible(True)
+
+        is_vid = _is_video(nd.file_path)
+        self._props_radio_runtime.setEnabled(is_vid)
+        if nd.display_mode == "video_runtime" and is_vid:
+            self._props_radio_runtime.setChecked(True)
+        else:
+            self._props_radio_fixed.setChecked(True)
+        self._props_dur.setValue(nd.duration_sec)
+        self._props_dur.setEnabled(nd.display_mode != "video_runtime")
+
+    def _apply_props(self):
+        graph = self._current_graph()
+        if graph is None or self._props_node_id is None:
+            return
+        nd = graph.nodes.get(self._props_node_id)
+        if nd is None:
+            return
+        nd.display_mode = (
+            "video_runtime" if self._props_radio_runtime.isChecked() else "fixed"
+        )
+        nd.duration_sec = self._props_dur.value()
+        item = self._scene._node_items.get(self._props_node_id)
+        if item:
+            item.update()
+        self._update_seq_label()
+
+    # ---- End behavior UI --------------------------------------------------
+
+    _END_KEYS = [
+        "repeat_graph",
+        "solid_color",
+        "stay_last",
+        "return_first",
+        "jump_to",
+    ]
+
+    def _sync_end_behavior_ui(self, graph: GraphData):
+        try:
+            idx = self._END_KEYS.index(graph.end_behavior)
+        except ValueError:
+            idx = 0
+        self._end_combo.blockSignals(True)
+        self._end_combo.setCurrentIndex(idx)
+        self._end_combo.blockSignals(False)
+        self._end_color_current = graph.end_color
+        self._refresh_end_color_preview()
+        self._on_end_behavior_changed(idx)
+
+    @Slot(int)
+    def _on_end_behavior_changed(self, idx: int):
+        is_color = idx == 1
+        is_jump = idx == 4
+        self._end_color_preview.setVisible(is_color)
+        self._end_color_btn.setVisible(is_color)
+        self._end_jump_combo.setVisible(is_jump)
+        # Persist to graph
+        graph = self._current_graph()
+        if graph:
+            self._read_end_behavior_to_graph(graph)
+
+    def _read_end_behavior_to_graph(self, graph: GraphData):
+        idx = self._end_combo.currentIndex()
+        graph.end_behavior = self._END_KEYS[idx] if 0 <= idx < len(self._END_KEYS) else "repeat_graph"
+        graph.end_color = self._end_color_current
+        if graph.end_behavior == "jump_to":
+            data = self._end_jump_combo.currentData()
+            graph.end_jump_node_id = data if data else None
+
+    def _pick_end_color(self):
+        initial = QColor(self._end_color_current)
+        col = QColorDialog.getColor(initial, self, "Pick End Color")
+        if col.isValid():
+            self._end_color_current = col.name().upper()
+            self._refresh_end_color_preview()
+            graph = self._current_graph()
+            if graph:
+                graph.end_color = self._end_color_current
+
+    def _refresh_end_color_preview(self):
+        self._end_color_preview.setStyleSheet(
+            f"background-color:{self._end_color_current}; border:1px solid #4f545c;"
+        )
+
+    def _update_end_jump_combo(self):
+        self._end_jump_combo.blockSignals(True)
+        self._end_jump_combo.clear()
+        graph = self._current_graph()
+        if graph:
+            for nid, lbl in self._scene.node_labels():
+                self._end_jump_combo.addItem(lbl, nid)
+            if graph.end_jump_node_id:
+                for i in range(self._end_jump_combo.count()):
+                    if self._end_jump_combo.itemData(i) == graph.end_jump_node_id:
+                        self._end_jump_combo.setCurrentIndex(i)
+                        break
+        self._end_jump_combo.blockSignals(False)
+
+    # ---- Sequence summary -------------------------------------------------
+
+    def _update_seq_label(self):
+        graph = self._current_graph()
+        if graph is None or (not graph.nodes and not graph.edges):
+            self._seq_label.setText("Graph is empty. Add nodes and edges to build the sequence.")
+            return
+        seq = _build_traversal(graph)
+        if not seq:
+            self._seq_label.setText("No traversal possible. Add edges connecting the nodes.")
+            return
+        parts = []
+        for i, (fp, dur) in enumerate(seq, 1):
+            fname = os.path.basename(fp)
+            if len(fname) > 20:
+                fname = fname[:17] + "..."
+            parts.append(f"[{i}] {fname} ({dur:.0f}s)")
+        total = sum(d for _, d in seq)
+        self._seq_label.setText(
+            f"Sequence ({len(seq)} step{'s' if len(seq) != 1 else ''},"
+            f" ~{total:.0f}s total):  "
+            + "  →  ".join(parts)
+        )
+
+    # ---- Preview ----------------------------------------------------------
+
+    @Slot()
+    def _preview_timelapse(self):
+        graph = self._current_graph()
+        if graph is None:
+            return
+        seq = _build_traversal(graph)
+        if not seq:
+            QMessageBox.information(self, "Empty Sequence",
+                                    "Add nodes and edges to build a sequence before previewing.")
+            return
+        if not shutil.which("ffmpeg"):
+            QMessageBox.warning(self, "ffmpeg Not Found",
+                                "ffmpeg must be installed to generate a preview video.\n"
+                                "Install it via your package manager (e.g. sudo apt install ffmpeg).")
+            return
+
+        # Clean up previous temp dir
+        if self._preview_tmp_dir and os.path.isdir(self._preview_tmp_dir):
+            shutil.rmtree(self._preview_tmp_dir, ignore_errors=True)
+
+        self._preview_tmp_dir = tempfile.mkdtemp(prefix="wallpaper_preview_")
+        tmp = self._preview_tmp_dir
+
+        self._btn_preview.setText("Generating…")
+        self._btn_preview.setEnabled(False)
+        QTimer.singleShot(0, lambda: self._generate_preview(seq, tmp))
+
+    def _generate_preview(self, seq: List[Tuple[str, float]], tmp: str):
+        try:
+            concat_list = os.path.join(tmp, "concat.txt")
+            segment_paths = []
+            resolution = "1280:720"
+            vf_pad = (
+                f"scale={resolution}:force_original_aspect_ratio=decrease,"
+                f"pad={resolution}:(ow-iw)/2:(oh-ih)/2:black"
+            )
+
+            for i, (fp, dur) in enumerate(seq):
+                seg = os.path.join(tmp, f"seg{i:04d}.mp4")
+                ext = os.path.splitext(fp)[1].lower()
+                if ext in SUPPORTED_VIDEO_FORMATS:
+                    cmd = ["ffmpeg", "-y", "-i", fp,
+                           "-t", str(dur),
+                           "-vf", vf_pad,
+                           "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                           "-an", seg]
+                else:
+                    cmd = ["ffmpeg", "-y",
+                           "-loop", "1", "-i", fp,
+                           "-t", str(dur),
+                           "-vf", vf_pad,
+                           "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                           "-an", seg]
+                result = subprocess.run(cmd, capture_output=True, timeout=120)
+                if result.returncode != 0:
+                    raise RuntimeError(
+                        f"ffmpeg failed on segment {i}:\n"
+                        + result.stderr.decode(errors="replace")[-500:]
+                    )
+                segment_paths.append(seg)
+
+            with open(concat_list, "w") as f:
+                for sp in segment_paths:
+                    f.write(f"file '{sp}'\n")
+
+            out_path = os.path.join(tmp, "preview.mp4")
+            cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                   "-i", concat_list, "-c", "copy", out_path]
+            result = subprocess.run(cmd, capture_output=True, timeout=120)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    "ffmpeg concat failed:\n"
+                    + result.stderr.decode(errors="replace")[-500:]
+                )
+
+            self._open_file(out_path)
+        except Exception as e:
+            QMessageBox.critical(self, "Preview Error", f"Failed to generate preview:\n{e}")
+        finally:
+            self._btn_preview.setText("▶ Preview Timelapse")
+            self._btn_preview.setEnabled(True)
+
+    def _open_file(self, path: str):
+        sys_name = platform.system()
+        try:
+            if sys_name == "Windows":
+                os.startfile(path)
+            elif sys_name == "Darwin":
+                subprocess.Popen(["open", path])
+            else:
+                subprocess.Popen(["xdg-open", path],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            QMessageBox.warning(self, "Open Error", f"Could not open preview:\n{path}\n{e}")
+
+    # ---- Serialization ----------------------------------------------------
+
+    def collect_graphs(self) -> dict:
+        self._persist_current()
+        return {
+            mid: g.to_dict()
+            for mid, g in self._graphs.items()
+        }
+
+    def restore_graphs(self, data: dict):
+        self._graphs = {
+            mid: GraphData.from_dict(gd)
+            for mid, gd in data.items()
+        }
+        # Reload current monitor's graph if applicable
+        if self._current_monitor_id and self._current_monitor_id in self._graphs:
+            graph = self._graphs[self._current_monitor_id]
+            self._scene.load_graph(graph)
+            self._sync_end_behavior_ui(graph)
+            self._update_end_jump_combo()
+            self._update_seq_label()
+
+    def _persist_current(self):
+        """Flush UI end-behavior state back into the current graph."""
+        graph = self._current_graph()
+        if graph:
+            self._read_end_behavior_to_graph(graph)
+
+    # ---- Cleanup ----------------------------------------------------------
+
+    def closeEvent(self, event):
+        if self._preview_tmp_dir and os.path.isdir(self._preview_tmp_dir):
+            shutil.rmtree(self._preview_tmp_dir, ignore_errors=True)
+        super().closeEvent(event)

@@ -17,6 +17,7 @@ class DropboxDriveSync:
         logger: Callable[[str], None] = print,
         action_local_orphans: str = "upload",
         action_remote_orphans: str = "download",
+        **kwargs,
     ):
         self.config = {
             "local_path": local_source_path,
