@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QApplication,
     QMessageBox,
+    QGroupBox,
+    QVBoxLayout,
 )
 from screeninfo import get_monitors, Monitor
 
@@ -48,6 +50,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
     Subclasses build their own UI layouts using these facilities.
     """
 
+    wallpapers_changed = Signal()
     monitors_updated = Signal(list)      # List[Monitor]
     qml_monitors_changed = Signal(list)  # List of dicts
     qml_status_changed = Signal(str)
@@ -77,6 +80,45 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self._pagination_debounce_timer.setInterval(200)
         self._pagination_debounce_timer.timeout.connect(self._update_pagination_ui)
 
+    def create_monitor_layout_section(self, title: str) -> QGroupBox:
+        group_box_style = """
+            QGroupBox {
+                border: 1px solid #4f545c;
+                border-radius: 8px;
+                margin-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 4px 10px;
+                color: white;
+                border-radius: 4px;
+            }
+        """
+        layout_group = QGroupBox(title)
+        layout_group.setStyleSheet(group_box_style)
+
+        self.monitor_layout_container = DraggableMonitorContainer()
+
+        gb_layout = QVBoxLayout(layout_group)
+        gb_layout.addWidget(self.monitor_layout_container)
+        return layout_group
+
+    def on_images_dropped(self, monitor_id: str, image_paths: list):
+        pass
+
+    def handle_monitor_double_click(self, monitor_id: str):
+        pass
+
+    def handle_clear_monitor_queue(self, monitor_id: str):
+        pass
+
+    def swap_monitors(self, m0: str, m1: str = ""):
+        pass
+
+    def on_monitor_context_menu(self, monitor_id: str, menu: Any):
+        pass
+
     # ---- Thumbnail helpers -----------------------------------------------
 
     def _cache_get_thumb(self, path: str) -> Optional[QPixmap]:
@@ -105,7 +147,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self.monitor_widgets.clear()
         try:
             system_monitors = get_monitors()
-            _ = sorted(system_monitors, key=lambda m: m.x)
+            system_monitors = sorted(system_monitors, key=lambda m: m.x)
             self.monitors = system_monitors
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")

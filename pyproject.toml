@@ -136,8 +136,17 @@ where = ["backend"]
 [tool.setuptools.package-data]
 # "*" = ["*.ui", "*.qrc", "*.png", "*.ico"]
 
-[tool.pyright]
-typeCheckingMode = "basic"
+[tool.pyrefly]
+# Core settings
+engine = "pylance"          # pyrefly usually wraps a core engine; pylance/pyright is standard
+ai_assisted = true          # Enables the "agentic" suggestions seen in your Antigravity view
+venvPath = "."              # The directory containing the venv
+venv = ".venv"              # The name of the venv folder
+type_checking_mode = "basic"
+include = ["gui", "logic"]
+
+# Ignore rules (Migration of your pyright/pylance ignores)
+ignore = ["**/__init__.py"]
 
 [tool.mypy]
 # Permissive baseline — warnings only, no CI failures yet (§5.5A).

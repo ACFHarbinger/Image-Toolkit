@@ -144,6 +144,7 @@ class DraggableLabel(QLabel):
         """Try to drop the file on the target widget."""
         # Import here to avoid circular dependency
         from .monitor_drop_widget import MonitorDropWidget
+        from PySide6.QtCore import QPointF
 
         # Get all files to drop
         files_to_drop = [self.file_path]
@@ -152,13 +153,25 @@ class DraggableLabel(QLabel):
             if self.file_path in selected_files:
                 files_to_drop = selected_files
 
-        # Check if widget or any of its parents is a MonitorDropWidget
+        # Check if widget or any of its parents is a MonitorDropWidget or WallpaperGraphView
         current = widget
         while current:
             if isinstance(current, MonitorDropWidget):
                 # Simulate a drop by calling the widget's method directly
                 current.handle_custom_drop(files_to_drop)
                 return
+            if current.__class__.__name__ == "WallpaperGraphView" or (hasattr(current, "scene") and hasattr(current, "mapToScene")):
+                view = current
+                sc = view.scene()
+                if sc and hasattr(sc, "add_node"):
+                    # Map global cursor position to local viewport coordinate, then to scene
+                    local_pos = view.viewport().mapFromGlobal(QCursor.pos())
+                    scene_pos = view.mapToScene(local_pos)
+                    for file_path in files_to_drop:
+                        sc.add_node(file_path, scene_pos)
+                        # Offset subsequent nodes to avoid direct stacking
+                        scene_pos = QPointF(scene_pos.x() + 160, scene_pos.y())
+                    return
             current = current.parentWidget()
 
     def _create_drag_preview(self) -> QPixmap:

@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget, QSizePolicy
 from .monitor_drop_widget import MonitorDropWidget
 
@@ -58,6 +58,8 @@ class DraggableMonitorContainer(QWidget):
     - Each Row is Horizontal (Columns).
     - Each Column is Vertical (Stack of MonitorDropWidgets).
     """
+
+    layout_changed = Signal()
 
     def __init__(self, monitor=None, monitor_id=None, parent=None):
         super().__init__(parent)
@@ -293,6 +295,7 @@ class DraggableMonitorContainer(QWidget):
         self._cleanup()
         event.accept()
         self.update()
+        self.layout_changed.emit()
 
     def _detach_widget(self, widget: MonitorDropWidget):
         """Removes the widget from its current column. Does NOT delete it."""

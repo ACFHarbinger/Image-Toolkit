@@ -4,9 +4,10 @@ import time
 import json
 import copy
 import subprocess
+import re
 
 from pathlib import Path
-from send2trash import send2trash
+from send2trash import send2trash # pyrefly: ignore [untyped-import]
 from typing import Optional, List, Set, Tuple, Any, Dict
 from PySide6.QtWidgets import (
     QLabel,
@@ -1010,6 +1011,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         clickable_label.path_clicked.connect(self.load_media)
         clickable_label.path_right_clicked.connect(self.show_source_context_menu)
 
+        self._update_source_label_style(
+            path, clickable_label, getattr(self, "video_path", None) == path
+        )
+
         layout.addWidget(clickable_label)
 
         # File Name Label (Alphabetical position preserved here)
@@ -1130,21 +1135,28 @@ class ImageExtractorTab(AbstractClassSingleGallery):
         self._extracted_stems_cache.clear()
         if not self.extraction_dir.exists():
             return
+        
+        # Regex to extract stem from all known extraction outputs:
+        # {stem}_{ms}ms.png, {stem}_{ms}ms_{i}.png, {stem}_smart_{ms}ms.png,
+        # {stem}_smart_{ms}ms_{temp_id}.png, {stem}_snap_{ms}ms.png,
+        # {stem}_{start}ms_{end}ms.gif, {stem}_{start}ms_{end}ms.mp4
+        pattern = re.compile(
+            r"^(?P<stem>.+?)_("
+            r"\d+ms|"
+            r"\d+ms_\d+|"
+            r"smart_\d+ms|"
+            r"smart_\d+ms_\d+|"
+            r"snap_\d+ms|"
+            r"\d+ms_\d+ms"
+            r")\.(png|gif|mp4)$"
+        )
         try:
-            # We only care about the prefix before the first '_' or similar.
-            # However, stems can contain underscores.
-            # To be robust, we just store all filenames and check prefixes in _has_extracted_files
-            # OR we can collect all strings before the LAST underscore.
             for entry in os.scandir(self.extraction_dir):
                 if entry.is_file():
-                    name = entry.name
-                    # Extracted files: {stem}_{ms}ms.png or {stem}_smart_{ms}ms.png
-                    # or {stem}_snap_{ms}ms.png
-                    if "_" in name:
-                        # Take everything before the last underscore that looks like a timestamp
-                        idx = name.rfind("_")
-                        if idx > 0:
-                            self._extracted_stems_cache.add(name[:idx])
+                    match = pattern.match(entry.name)
+                    if match:
+                        stem = match.group("stem")
+                        self._extracted_stems_cache.add(stem)
         except Exception as e:
             print(f"Error refreshing extracted stems cache: {e}")
 
@@ -1154,16 +1166,7 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             self._refresh_extracted_stems_cache()
 
         stem = Path(video_path).stem
-        # Check direct stem match
-        if stem in self._extracted_stems_cache:
-            return True
-        # Check with _smart or _snap suffixes which might be in the cache if we used rfind
-        if f"{stem}_smart" in self._extracted_stems_cache:
-            return True
-        if f"{stem}_snap" in self._extracted_stems_cache:
-            return True
-
-        return False
+        return stem in self._extracted_stems_cache
 
     def _update_source_label_style(
         self, path: str, label: ClickableLabel, selected: bool
@@ -1342,10 +1345,10 @@ class ImageExtractorTab(AbstractClassSingleGallery):
                     self._update_source_label_style(path, label, False)
 
     @Slot(str)
-    def load_media(self, file_path: str):
+    def load_media(self, file_path: str, force: bool = False):
         old_path = self.video_path
 
-        if old_path == file_path:
+        if old_path == file_path and not force:
             return
 
         if old_path:
@@ -3272,20 +3275,39 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             "video_path": self.video_path,
         }
 
-    def set_config(self, config: Dict[str, Any]):
+    def set_config(self, config: Dict[str, Any], quiet: bool = False):
         try:
-            source_dir = config.get("source_directory", "")
-            self.line_edit_dir.setText(source_dir)
-            if os.path.isdir(source_dir):
-                self.scan_directory(source_dir)
+            # 1. Restore active videos tab state FIRST so scan_directory can style them
+            active_configs = config.get("active_videos_config", {})
+            if active_configs:
+                self.active_videos_config = copy.deepcopy(active_configs)
 
+                # Clear tabbar and repopulate under switching guard
+                self._is_switching_tabs = True
+                while self.active_videos_tabbar.count() > 0:
+                    self.active_videos_tabbar.removeTab(0)
+                for path in self.active_videos_config.keys():
+                    if os.path.exists(path):
+                        name = Path(path).name
+                        idx = self.active_videos_tabbar.addTab(name)
+                        self.active_videos_tabbar.setTabData(idx, path)
+                self._is_switching_tabs = False
+
+            # 2. Restore extraction directory config so scan_directory can use it for correct thumbnail styling
             extract_dir_str = config.get("extraction_directory")
             if extract_dir_str and os.path.isdir(extract_dir_str):
                 new_path = Path(extract_dir_str)
                 self.extraction_dir = new_path
                 self.last_browsed_extraction_dir = str(new_path)
                 self.line_edit_extract_dir.setText(str(new_path))
+                self._refresh_extracted_stems_cache()
                 self._load_existing_output_images()
+
+            # 3. Restore source directories and scan
+            source_dir = config.get("source_directory", "")
+            self.line_edit_dir.setText(source_dir)
+            if os.path.isdir(source_dir):
+                self.scan_directory(source_dir)
 
             # --- Restore Checkboxes ---
             self.check_player_vertical.setChecked(config.get("player_vertical", False))
@@ -3315,32 +3337,39 @@ class ImageExtractorTab(AbstractClassSingleGallery):
             if engine in ["MoviePy", "FFmpeg"]:
                 self.combo_engine.setCurrentText(engine)
 
-            # Restore active videos tab state
-            active_configs = config.get("active_videos_config", {})
-            if active_configs:
-                self.active_videos_config = copy.deepcopy(active_configs)
-
-                # Clear tabbar and repopulate under switching guard
-                self._is_switching_tabs = True
-                while self.active_videos_tabbar.count() > 0:
-                    self.active_videos_tabbar.removeTab(0)
-                for path in self.active_videos_config.keys():
-                    if os.path.exists(path):
-                        name = Path(path).name
-                        idx = self.active_videos_tabbar.addTab(name)
-                        self.active_videos_tabbar.setTabData(idx, path)
-                self._is_switching_tabs = False
-
             # Load the current video path
             curr_video = config.get("video_path", "")
-            if curr_video and os.path.exists(curr_video):
-                self.load_media(curr_video)
+            if not curr_video or not os.path.exists(curr_video):
+                if self.active_videos_config:
+                    for path in self.active_videos_config.keys():
+                        if os.path.exists(path):
+                            curr_video = path
+                            break
 
-            QMessageBox.information(
-                self,
-                "Config Loaded",
-                "Image Extractor configuration applied successfully.",
-            )
+            if curr_video and os.path.exists(curr_video):
+                # Select the matching tab in the tabbar *before* releasing the guard
+                # so that load_media finds tab_idx != -1 and doesn't add a duplicate.
+                self._is_switching_tabs = True
+                for i in range(self.active_videos_tabbar.count()):
+                    if self.active_videos_tabbar.tabData(i) == curr_video:
+                        self.active_videos_tabbar.setCurrentIndex(i)
+                        break
+                self._is_switching_tabs = False
+
+                # Unconditionally make the player section visible before load_media
+                # so that even when scan_directory was called first (which clears
+                # widgets and can leave the container hidden), the UI shows correctly.
+                self.video_container_widget.setVisible(True)
+                self.extract_group.setVisible(True)
+
+                self.load_media(curr_video, force=True)
+
+            if not quiet:
+                QMessageBox.information(
+                    self,
+                    "Config Loaded",
+                    "Image Extractor configuration applied successfully.",
+                )
 
         except Exception as e:
             QMessageBox.critical(
