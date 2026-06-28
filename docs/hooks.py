@@ -16,7 +16,10 @@ DOCS = ROOT / "docs"
 def on_pre_build(config: dict) -> None:
     """Copy roadmap and report sources into the docs tree before building."""
     _sync_dir(ROOT / "moon" / "roadmaps", DOCS / "roadmaps")
-    _sync_dir(ROOT / "moon", DOCS, only=["CHANGELOG.md", "ROADMAP.md"])
+    _sync_dir(ROOT / "moon", DOCS, only=["CHANGELOG.md"])
+    _sync_dir(ROOT / "moon", DOCS / "roadmaps", only=["ROADMAP.md"])
+    _sync_dir(ROOT, DOCS, only=["README.md"])
+    _sync_dir(ROOT / "frontend", DOCS / "api" / "typescript", only=["README.md"])
     _sync_dir(
         ROOT / "reports",
         DOCS / "reports",
@@ -35,6 +38,7 @@ def on_pre_build(config: dict) -> None:
             "BENCHMARKS.md",
             "DEPENDENCY_POLICY.md",
             "DOCUMENTATION_STANDARDS.md",
+            "TROUBLESHOOT.md",
             "TROUBLESHOOTING.md",
             "STRUCTURIZR.md",
         ],
@@ -55,6 +59,8 @@ def _sync_dir(
         if only and src_file.name not in only:
             continue
         dst_file = dst / target_name
+        if src_file.resolve() == dst_file.resolve():
+            continue
         shutil.copy2(src_file, dst_file)
 
 
@@ -70,7 +76,7 @@ def _ensure_stub_api_pages() -> None:
         ),
         DOCS / "api" / "python" / "core.md": (
             "# Backend Core API\n\n"
-            "::: backend.src.core.image_database\n\n"
+            "::: backend.src.database.image_database\n\n"
             "::: backend.src.core.vault_manager\n"
         ),
         DOCS / "api" / "python" / "models.md": (
