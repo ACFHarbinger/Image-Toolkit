@@ -127,7 +127,7 @@ extra_javascript:
 nav:
   - Home: index.md
   - Getting Started:
-      - Quick Start: README.md
+      - Quick Start: readme.md
       - Architecture: ARCHITECTURE.md
       - C4 Architecture Model: STRUCTURIZR.md
       - Troubleshooting: TROUBLESHOOTING.md
@@ -140,7 +140,7 @@ nav:
       - Rust API:
           - Math Backbone: api/rust/math.md
       - TypeScript API:
-          - Overview: api/typescript/README.md
+          - Overview: api/typescript/readme.md
       - Kotlin API:
           - Overview: api/kotlin/index.md
       - Python Reference (Sphinx):

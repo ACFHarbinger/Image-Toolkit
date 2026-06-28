@@ -641,7 +641,7 @@ The existing `HybridStitchPanel` (`gui/src/tabs/models/gen/hybrid_stitch_panel.p
 
 ---
 
-### 2.1 Frame Selection Assistant [Quick Win] [Option A ✅ Session 79]
+### 2.1 Frame Selection Assistant [Quick Win] \[Option A ✅ Session 79\]
 
 **Shipped (Session 79):** `SelectionReviewDialog` — horizontal scroll of 160×120px thumbnail cards with per-frame pose-diff colour bars (green/amber/red), include/exclude checkboxes, Move Up/Down, Select All/Deselect All. Wired to `StitchWorker.sig_review_frames` checkpoint; worker pauses until dialog accepted. `selected_paths()` returns ordered list of checked paths. HITL mode checkbox in Stitch tab toggles all pause points.
 
@@ -675,7 +675,7 @@ Stream video thumbnails from the source file and let the user scrub a timeline t
 
 ---
 
-### 2.2 Edge Graph Inspector & Editor [Quick Win] [Read-Only Viewer ✅ Session 62]
+### 2.2 Edge Graph Inspector & Editor [Quick Win] \[Read-Only Viewer ✅ Session 62\]
 
 **Shipped (Session 62):** `EdgeGraphInspectorDialog` — read-only viewer with circular node layout, confidence-coloured edges, edge table, and `⬡ Edges` button wired into the Stitch tab. Visual check pending first real stitch run with `save_intermediate=True`. Interactive re-solve (delete/add/re-bundle) deferred as §2.2B below.
 
@@ -712,7 +712,7 @@ No manual deletion; just highlight edges above a residual threshold in red after
 
 ---
 
-### 2.3 Anchor Frame & Canvas Layout Inspector [Priority: Medium] [Read-Only Viewer ✅ Session 63]
+### 2.3 Anchor Frame & Canvas Layout Inspector [Priority: Medium] \[Read-Only Viewer ✅ Session 63\]
 
 **Shipped (Session 63):** `CanvasLayoutInspectorDialog` — read-only viewer showing N frame rectangles at their final canvas positions as colour-coded polygons, stats label (N frames · W×H canvas), Frame/tx/ty table, and `⬗ Canvas` button wired into the Stitch tab. Visual render verified with synthetic 3-frame fixture. Interactive anchor override and overlap-zone heatmap deferred as §2.3B.
 
@@ -741,7 +741,7 @@ Add a "Lock anchor to frame N" checkbox in the Stitch tab's settings panel. Pipe
 
 ---
 
-### 2.4 Seam Registration Inspector [Highest Impact] [Option A ✅ Session 95–96]
+### 2.4 Seam Registration Inspector [Highest Impact] \[Option A ✅ Session 95–96\]
 
 **Shipped (Sessions 95–96):** `SeamDiagnosticDialog` — vertical scroll of `_SeamCard` widgets (one per seam boundary), each showing: seam index, boundary y-position, `post_warp_diff` coloured green/amber/red (same thresholds as §2.4B overlay), single-pose escalation badge, optional ±50px crop thumbnail (§2.4C, S96), and mutually-exclusive "Force single-pose" / "Force blend" checkboxes. Wired to `StitchWorker.sig_review_seams` checkpoint 4.6. Pipeline runs initial composite to collect `seam_post_diffs`, emits dialog, re-composites with `seam_overrides` if accepted. Constants `SEAM_OVERLAY_AMBER_THRESH`/`SEAM_OVERLAY_RED_THRESH` shared with §2.4B.
 
@@ -829,7 +829,7 @@ Let user specify target height (e.g., "1280px" or "2× source height") before ru
 
 ---
 
-### 2.7 Architecture: StitchWorker Staged Execution [Implementation Foundation] [✅ Session 79]
+### 2.7 Architecture: StitchWorker Staged Execution [Implementation Foundation] \[✅ Session 79\]
 
 **Shipped (Session 79):** `QWaitCondition`/`QMutex` pause/resume in `StitchWorker` — `_hitl_mutex`, `_hitl_wait`, `_hitl_paused`, `_hitl_override`. `resume()` wakes the blocked worker thread. 9 HITL signals: `sig_review_video`, `sig_review_frames`, `sig_review_masks`, `sig_review_edges`, `sig_review_canvas`, `sig_review_boundaries`, `sig_review_seams`, `sig_review_composite`, `sig_review_render`, `sig_review_output`. `hitl_mode: bool = False` param — when False, all pause callbacks are no-ops (zero overhead on automated path). `set_frame_override`, `set_edge_override`, `set_affine_override`, `set_boundary_override`, `set_seam_override`, `set_render_cancel` setters called from dialog handlers before `resume()`.
 
