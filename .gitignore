@@ -450,6 +450,7 @@ mcp.json
 /target
 
 # ASP C++ Compilation Output
+**/*.so
 include/eigen3/Eigen
 include/eigen3/unsupported
 backend/src/animation/include/eigen3/Eigen
