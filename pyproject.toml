@@ -105,6 +105,7 @@ benchmark = [
 dev = [
     "black>=25.9.0",
     "cryptography>=46.0.3",
+    "git-filter-repo>=2.47.0",
     "import-linter>=2.0",
     "mypy>=1.18.2",
     "numpy>=2.3.4",

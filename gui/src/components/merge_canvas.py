@@ -40,6 +40,8 @@ class MergeCanvas(QGraphicsView):
 
         self._items: Dict[str, MergeCanvasItem] = {}
         self._scene.selectionChanged.connect(self._on_scene_selection_changed)
+        self._is_panning = False
+        self._pan_start_pos = None
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -206,3 +208,87 @@ class MergeCanvas(QGraphicsView):
     def _on_item_geometry_changed(self):
         item = self.get_selected_item()
         self.item_selected.emit(item)
+
+    def mousePressEvent(self, event):
+        from PySide6.QtGui import QMouseEvent
+        from PySide6.QtWidgets import QGraphicsItem
+        
+        if event.button() == Qt.MouseButton.LeftButton:
+            item = self.itemAt(event.position().toPoint())
+            is_interactive = False
+            curr = item
+            while curr:
+                if curr.__class__.__name__ in ("NodeItem", "EdgeItem", "MergeCanvasItem"):
+                    is_interactive = True
+                    break
+                if curr.flags() & (QGraphicsItem.GraphicsItemFlag.ItemIsMovable | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
+                    if not (hasattr(self, "_bg") and curr is self._bg):
+                        is_interactive = True
+                        break
+                curr = curr.parentItem()
+            
+            if is_interactive:
+                super().mousePressEvent(event)
+            else:
+                self._pan_start_pos = event.position().toPoint()
+                self._is_panning = True
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                event.accept()
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+            fake_event = QMouseEvent(
+                event.type(),
+                event.position(),
+                event.globalPosition(),
+                Qt.MouseButton.LeftButton,
+                event.buttons() | Qt.MouseButton.LeftButton,
+                event.modifiers()
+            )
+            super().mousePressEvent(fake_event)
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        from PySide6.QtGui import QMouseEvent
+        
+        if getattr(self, "_is_panning", False):
+            delta = event.position().toPoint() - self._pan_start_pos
+            self._pan_start_pos = event.position().toPoint()
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+            event.accept()
+        elif event.buttons() & Qt.MouseButton.RightButton:
+            fake_event = QMouseEvent(
+                event.type(),
+                event.position(),
+                event.globalPosition(),
+                Qt.MouseButton.LeftButton,
+                (event.buttons() & ~Qt.MouseButton.RightButton) | Qt.MouseButton.LeftButton,
+                event.modifiers()
+            )
+            super().mouseMoveEvent(fake_event)
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        from PySide6.QtGui import QMouseEvent
+        
+        if getattr(self, "_is_panning", False):
+            self._is_panning = False
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            event.accept()
+        elif event.button() == Qt.MouseButton.RightButton:
+            fake_event = QMouseEvent(
+                event.type(),
+                event.position(),
+                event.globalPosition(),
+                Qt.MouseButton.LeftButton,
+                event.buttons() & ~Qt.MouseButton.LeftButton,
+                event.modifiers()
+            )
+            super().mouseReleaseEvent(fake_event)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)

@@ -1,7 +1,6 @@
 import os
 import math
 import uuid
-import json
 import shutil
 import tempfile
 import subprocess
@@ -9,20 +8,18 @@ import platform
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Any
 
-from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QTimer, Slot, QSize, QPoint
+from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QTimer, Slot, QPoint
 from PySide6.QtGui import (
-    QPainter, QPen, QBrush, QColor, QPainterPath, QPixmap, QImage,
-    QFont, QPolygonF, QKeyEvent, QAction,
+    QPixmap, QFont, QPolygonF, QKeyEvent, QAction,
+    QPainter, QPen, QBrush, QColor, QPainterPath, 
 )
 from PySide6.QtWidgets import (
+    QComboBox, QDoubleSpinBox, QGroupBox, QDialog, QDialogButtonBox,
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QGraphicsView,
-    QGraphicsScene, QGraphicsObject, QGraphicsItem,
-    QLabel, QPushButton, QComboBox, QDoubleSpinBox,
-    QGroupBox, QScrollArea, QDialog, QDialogButtonBox,
-    QFileDialog, QMessageBox, QColorDialog, QSizePolicy,
-    QMenu, QListWidget, QListWidgetItem, QFrame,
-    QRadioButton, QButtonGroup, QCheckBox, QStackedWidget, QLineEdit,
-    QGridLayout,
+    QListWidgetItem, QRadioButton, QButtonGroup, QStackedWidget,
+    QFileDialog, QMessageBox, QColorDialog, QMenu, QListWidget, 
+    QGraphicsScene, QGraphicsObject, QGraphicsItem, QLabel,
+    QLineEdit, QGridLayout, QPushButton,
 )
 from screeninfo import Monitor
 
@@ -30,6 +27,7 @@ from backend.src.constants import SUPPORTED_VIDEO_FORMATS, SUPPORTED_IMG_FORMATS
 from .wallpaper_common import WallpaperCommonBase
 from ....components import MonitorDropWidget, MarqueeScrollArea
 from ....styles.style import apply_shadow_effect
+from ....helpers.video.video_thumbnailer import get_video_thumbnail_cache_path, VideoThumbnailer
 
 
 # ---------------------------------------------------------------------------
@@ -205,10 +203,22 @@ class NodeItem(QGraphicsObject):
         path = self.node_data.file_path
         if not os.path.exists(path):
             return
-        if _is_video(path):
-            return  # show placeholder; video thumbs are expensive here
         try:
-            pm = QPixmap(path)
+            if _is_video(path):
+                cache_path = get_video_thumbnail_cache_path(path)
+                if os.path.exists(cache_path):
+                    pm = QPixmap(cache_path)
+                else:
+                    thumbnailer = VideoThumbnailer()
+                    qimg = thumbnailer.generate(path, 120)
+                    if qimg and not qimg.isNull():
+                        pm = QPixmap.fromImage(qimg)
+                        qimg.save(cache_path, "JPG")
+                    else:
+                        pm = QPixmap()
+            else:
+                pm = QPixmap(path)
+
             if not pm.isNull():
                 self._pixmap = pm.scaled(120, 72, Qt.AspectRatioMode.KeepAspectRatio,
                                          Qt.TransformationMode.SmoothTransformation)
@@ -224,9 +234,13 @@ class NodeItem(QGraphicsObject):
         return QRectF(0, 0, _NODE_W, _NODE_H)
 
     def paint(self, painter: QPainter, option, widget=None):
-        is_sel = self.isSelected()
-        bg_col = QColor("#2d5a3d") if is_sel else QColor("#36393f")
-        border_col = QColor("#2ecc71") if is_sel else QColor("#4f545c")
+        if getattr(self, "_hovered_orange", False):
+            bg_col = QColor("#e67e22")
+            border_col = QColor("#d35400")
+        else:
+            is_sel = self.isSelected()
+            bg_col = QColor("#2d5a3d") if is_sel else QColor("#36393f")
+            border_col = QColor("#2ecc71") if is_sel else QColor("#4f545c")
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setBrush(QBrush(bg_col))
@@ -426,6 +440,43 @@ class EdgeItem(QGraphicsObject):
 # Scene
 # ---------------------------------------------------------------------------
 
+class TempEdgeItem(QGraphicsItem):
+    """Temporary dashed edge that follows the mouse cursor during connection mode."""
+    def __init__(self, source_item: NodeItem):
+        super().__init__()
+        self.source_item = source_item
+        self.target_pos = QPointF(0, 0)
+        self.setZValue(-1)
+
+    def set_target_pos(self, pos: QPointF):
+        self.target_pos = pos
+        self.prepareGeometryChange()
+        self.update()
+
+    def boundingRect(self) -> QRectF:
+        sp = self.source_item.pos() + QPointF(_NODE_W / 2, _NODE_H / 2)
+        tp = self.target_pos
+        rect = QRectF(sp, tp).normalized()
+        return rect.adjusted(-50, -50, 50, 50)
+
+    def paint(self, painter: QPainter, option, widget=None):
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        sp = self.source_item.pos() + QPointF(_NODE_W / 2, _NODE_H / 2)
+        tp = self.target_pos
+        
+        mx = (sp.x() + tp.x()) / 2
+        my = (sp.y() + tp.y()) / 2 - 30
+        path = QPainterPath()
+        path.moveTo(sp)
+        path.quadTo(QPointF(mx, my), tp)
+        
+        color = QColor("#f39c12")
+        pen = QPen(color, 2, Qt.PenStyle.DashLine)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(path)
+
+
 class WallpaperGraphScene(QGraphicsScene):
     node_edit_requested = Signal(str)   # node_id
     graph_changed = Signal()
@@ -435,10 +486,14 @@ class WallpaperGraphScene(QGraphicsScene):
         self._graph: Optional[GraphData] = None
         self._node_items: Dict[str, NodeItem] = {}
         self._edge_items: Dict[int, EdgeItem] = {}
+        self._connecting_source_node_id: Optional[str] = None
+        self._temp_edge_item: Optional[TempEdgeItem] = None
+        self._hovered_target_node: Optional[NodeItem] = None
 
     # ---- Public API -------------------------------------------------------
 
     def load_graph(self, graph: GraphData):
+        self._end_connection_mode()
         self._graph = graph
         self._node_items.clear()
         self._edge_items.clear()
@@ -449,6 +504,7 @@ class WallpaperGraphScene(QGraphicsScene):
             self._add_edge_item(ed)
 
     def clear_graph(self):
+        self._end_connection_mode()
         self._graph = None
         self._node_items.clear()
         self._edge_items.clear()
@@ -456,11 +512,19 @@ class WallpaperGraphScene(QGraphicsScene):
 
     def add_node(self, file_path: str, pos: QPointF) -> str:
         nid = str(uuid.uuid4())
+        is_video = file_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        display_mode = "video_runtime" if is_video else "fixed"
         nd = NodeData(node_id=nid, file_path=file_path,
-                      duration_sec=30.0, pos_x=pos.x(), pos_y=pos.y())
+                      display_mode=display_mode, duration_sec=30.0,
+                      pos_x=pos.x(), pos_y=pos.y())
         self._graph.nodes[nid] = nd
         self._add_node_item(nd)
         self.graph_changed.emit()
+
+        parent = self.parent()
+        if parent and hasattr(parent, "deselect_all_items"):
+            parent.deselect_all_items()
+
         return nid
 
     def add_edge(self, source_id: str, target_id: str) -> int:
@@ -528,6 +592,112 @@ class WallpaperGraphScene(QGraphicsScene):
             self.removeItem(item)
         self._graph.edges = [e for e in self._graph.edges if e.edge_id != edge_id]
 
+        for i, edge in enumerate(self._graph.edges):
+            edge.edge_id = i + 1
+
+        self._graph._next_edge_id = len(self._graph.edges) + 1
+
+        new_edge_items = {}
+        for item in list(self._edge_items.values()):
+            new_edge_items[item.edge_data.edge_id] = item
+            item.update()
+        self._edge_items = new_edge_items
+
+    def start_connection_mode(self, source_node_id: str):
+        self._end_connection_mode()
+        source_item = self._node_items.get(source_node_id)
+        if not source_item:
+            return
+        self._connecting_source_node_id = source_node_id
+        self._temp_edge_item = TempEdgeItem(source_item)
+        self.addItem(self._temp_edge_item)
+        
+        from PySide6.QtGui import QCursor
+        views = self.views()
+        if views:
+            view = views[0]
+            local_pos = view.mapFromGlobal(QCursor.pos())
+            scene_pos = view.mapToScene(local_pos)
+            self._temp_edge_item.set_target_pos(scene_pos)
+
+    def _end_connection_mode(self):
+        old_hovered = getattr(self, "_hovered_target_node", None)
+        if old_hovered:
+            try:
+                old_hovered._hovered_orange = False
+                old_hovered.update()
+            except RuntimeError:
+                pass
+        self._hovered_target_node = None
+        
+        temp_item = getattr(self, "_temp_edge_item", None)
+        if temp_item:
+            self._temp_edge_item = None
+            def safe_remove():
+                try:
+                    self.removeItem(temp_item)
+                except RuntimeError:
+                    pass
+            QTimer.singleShot(0, safe_remove)
+            
+        self._connecting_source_node_id = None
+
+    def handle_connection_press(self, scene_pos, button):
+        if not self._connecting_source_node_id:
+            return
+            
+        if button == Qt.MouseButton.LeftButton:
+            target_node = getattr(self, "_hovered_target_node", None)
+            if not target_node:
+                for item in self.items(scene_pos):
+                    if isinstance(item, NodeItem) and item.node_data.node_id != self._connecting_source_node_id:
+                        target_node = item
+                        break
+            if target_node:
+                src_id = self._connecting_source_node_id
+                tgt_id = target_node.node_data.node_id
+                QTimer.singleShot(0, lambda s=src_id, t=tgt_id: self.add_edge(s, t))
+            QTimer.singleShot(0, self._end_connection_mode)
+        elif button == Qt.MouseButton.RightButton:
+            QTimer.singleShot(0, self._end_connection_mode)
+
+    def handle_connection_move(self, scene_pos):
+        if not self._connecting_source_node_id:
+            return
+            
+        if hasattr(self, "_temp_edge_item") and self._temp_edge_item:
+            self._temp_edge_item.set_target_pos(scene_pos)
+            
+        hovered_node = None
+        for item in self.items(scene_pos):
+            if isinstance(item, NodeItem) and item.node_data.node_id != self._connecting_source_node_id:
+                hovered_node = item
+                break
+                
+        old_hovered = getattr(self, "_hovered_target_node", None)
+        if old_hovered != hovered_node:
+            if old_hovered:
+                old_hovered._hovered_orange = False
+                old_hovered.update()
+            if hovered_node:
+                hovered_node._hovered_orange = True
+                hovered_node.update()
+            self._hovered_target_node = hovered_node
+
+    def mouseMoveEvent(self, event):
+        if getattr(self, "_connecting_source_node_id", None):
+            self.handle_connection_move(event.scenePos())
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mousePressEvent(self, event):
+        if getattr(self, "_connecting_source_node_id", None):
+            self.handle_connection_press(event.scenePos(), event.button())
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
     def _on_node_moved(self, node_id: str):
         for eid, eitem in self._edge_items.items():
             ed = eitem.edge_data
@@ -591,6 +761,10 @@ class WallpaperGraphView(QGraphicsView):
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setBackgroundBrush(QBrush(QColor("#23272a")))
         self.setMinimumSize(400, 300)
+        self._is_panning = False
+        self._pan_start_pos = None
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
 
     def wheelEvent(self, event):
         factor = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
@@ -628,6 +802,109 @@ class WallpaperGraphView(QGraphicsView):
             event.acceptProposedAction()
         else:
             super().dropEvent(event)
+
+    def mousePressEvent(self, event):
+        from PySide6.QtGui import QMouseEvent
+        from PySide6.QtWidgets import QGraphicsItem
+        
+        sc = self.scene()
+        if sc and getattr(sc, "_connecting_source_node_id", None):
+            scene_pos = self.mapToScene(event.position().toPoint())
+            sc.handle_connection_press(scene_pos, event.button())
+            event.accept()
+            return
+
+        if event.button() == Qt.MouseButton.LeftButton:
+            item = self.itemAt(event.position().toPoint())
+            is_interactive = False
+            curr = item
+            while curr:
+                if curr.__class__.__name__ in ("NodeItem", "EdgeItem", "MergeCanvasItem"):
+                    is_interactive = True
+                    break
+                if curr.flags() & (QGraphicsItem.GraphicsItemFlag.ItemIsMovable | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
+                    if not (hasattr(self, "_bg") and curr is self._bg):
+                        is_interactive = True
+                        break
+                curr = curr.parentItem()
+            
+            if is_interactive:
+                super().mousePressEvent(event)
+            else:
+                self._pan_start_pos = event.position().toPoint()
+                self._is_panning = True
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                event.accept()
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+            fake_event = QMouseEvent(
+                event.type(),
+                event.position(),
+                event.globalPosition(),
+                Qt.MouseButton.LeftButton,
+                event.buttons() | Qt.MouseButton.LeftButton,
+                event.modifiers()
+            )
+            super().mousePressEvent(fake_event)
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        from PySide6.QtGui import QMouseEvent
+        
+        sc = self.scene()
+        if sc and getattr(sc, "_connecting_source_node_id", None):
+            scene_pos = self.mapToScene(event.position().toPoint())
+            sc.handle_connection_move(scene_pos)
+            event.accept()
+            return
+
+        if getattr(self, "_is_panning", False):
+            delta = event.position().toPoint() - self._pan_start_pos
+            self._pan_start_pos = event.position().toPoint()
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+            event.accept()
+        elif event.buttons() & Qt.MouseButton.RightButton:
+            fake_event = QMouseEvent(
+                event.type(),
+                event.position(),
+                event.globalPosition(),
+                Qt.MouseButton.LeftButton,
+                (event.buttons() & ~Qt.MouseButton.RightButton) | Qt.MouseButton.LeftButton,
+                event.modifiers()
+            )
+            super().mouseMoveEvent(fake_event)
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        from PySide6.QtGui import QMouseEvent
+        
+        sc = self.scene()
+        if sc and getattr(sc, "_connecting_source_node_id", None):
+            event.accept()
+            return
+
+        if getattr(self, "_is_panning", False):
+            self._is_panning = False
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            event.accept()
+        elif event.button() == Qt.MouseButton.RightButton:
+            fake_event = QMouseEvent(
+                event.type(),
+                event.position(),
+                event.globalPosition(),
+                Qt.MouseButton.LeftButton,
+                event.buttons() & ~Qt.MouseButton.LeftButton,
+                event.modifiers()
+            )
+            super().mouseReleaseEvent(fake_event)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
 
 
 # ---------------------------------------------------------------------------
@@ -1169,10 +1446,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             QMessageBox.information(self, "No Node Selected",
                                     "Select the SOURCE node first, then click 'Connect'.")
             return
-        labels = [(nid, lbl) for nid, lbl in self._scene.node_labels()]
-        dlg = _PickNodeDialog(labels, title="Connect To Node", parent=self)
-        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_id:
-            self._scene.add_edge(src_id, dlg.selected_id)
+        self._scene.start_connection_mode(src_id)
 
     def _delete_selected(self):
         self._scene.remove_selected()
