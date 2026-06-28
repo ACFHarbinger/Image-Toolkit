@@ -192,5 +192,5 @@ class TestMainWindowSessionRecovery:
         QApplication.processEvents()
 
         expected_dir = str(LOCAL_SOURCE_PATH)
-        assert window.convert_tab.format_tab.last_browsed_dir == expected_dir
+        assert window.convert_tab.format_subtab.last_browsed_dir == expected_dir
         assert window.image_extractor_tab.last_browsed_scan_dir == expected_dir

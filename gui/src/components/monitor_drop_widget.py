@@ -38,6 +38,9 @@ class MonitorDropWidget(QLabel):
     # Emits (monitor_id, menu) to allow parent to add dynamic items
     context_menu_requested = Signal(str, QMenu)
 
+    # Emits monitor_id when the widget is clicked
+    clicked = Signal(str)
+
     def __init__(self, monitor: Monitor, monitor_id: str, hardware_name: Optional[str] = None):
         super().__init__()
         self.monitor = monitor
@@ -249,6 +252,7 @@ class MonitorDropWidget(QLabel):
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
             self.drag_start_position = event.pos()
+            self.clicked.emit(self.monitor_id)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
@@ -514,7 +518,16 @@ class MonitorDropWidget(QLabel):
             )  # <--- CRITICAL: Clears any previous text, including "Loading..."
 
             # Apply border style
-            if is_video:
+            if self.property("selected"):
+                self.setStyleSheet("""
+                    QLabel {
+                        background-color: #2d5a3d;
+                        border: 3px solid #2ecc71;
+                        border-radius: 8px;
+                        color: white;
+                    }
+                """)
+            elif is_video:
                 self.setStyleSheet(
                     """
                     QLabel { 
@@ -532,7 +545,16 @@ class MonitorDropWidget(QLabel):
         self._current_pixmap = None
         self.setPixmap(QPixmap())
 
-        if is_video:
+        if self.property("selected"):
+            self.setStyleSheet("""
+                QLabel {
+                    background-color: #2d5a3d;
+                    border: 3px solid #2ecc71;
+                    border-radius: 8px;
+                    color: white;
+                }
+            """)
+        elif is_video:
             # Video Fallback (If thumbnail is None, or generation failed)
             filename = os.path.basename(file_path)
             self.setText(f"\n\n🎥 VIDEO SET:\n{filename}")
@@ -558,7 +580,46 @@ class MonitorDropWidget(QLabel):
         self._current_pixmap = None  # Clear cached pixmap
         self.setPixmap(QPixmap())
         self.update_text()
-        self.setStyleSheet(self.default_style)
+        if self.property("selected"):
+            self.setStyleSheet("""
+                QLabel {
+                    background-color: #2d5a3d;
+                    border: 3px solid #2ecc71;
+                    border-radius: 8px;
+                    color: white;
+                }
+            """)
+        else:
+            self.setStyleSheet(self.default_style)
+
+    def set_selected(self, selected: bool):
+        self.setProperty("selected", selected)
+        if selected:
+            self.setStyleSheet("""
+                QLabel {
+                    background-color: #2d5a3d;
+                    border: 3px solid #2ecc71;
+                    border-radius: 8px;
+                    color: white;
+                }
+            """)
+        else:
+            # Restore standard style based on whether it has image/video
+            if self.image_path:
+                is_video = self.image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+                if is_video:
+                    self.setStyleSheet("""
+                        QLabel { 
+                            background-color: #36393f; 
+                            border: 2px solid #3498db; 
+                            border-radius: 8px;
+                        }
+                    """)
+                else:
+                    self.setStyleSheet(self.default_style)
+            else:
+                self.setStyleSheet(self.default_style)
+        self.style().polish(self)
 
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)

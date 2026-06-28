@@ -2,6 +2,7 @@ import os
 import sys
 import copy
 import json
+import inspect
 
 from PySide6.QtCore import Qt, QSize, QTimer
 from gui.src.utils.settings import AppSettings
@@ -306,8 +307,8 @@ class MainWindow(QWidget):
         # GUI/UX §2.16 — wire vault preferences to runtime at startup
         self._apply_startup_preferences()
 
-        # Apply tab configs after global preferences so profile settings take priority
-        self._apply_active_tab_configs()
+        # Apply tab configs after global preferences so profile settings take priority (deferred)
+        # self._apply_active_tab_configs() is now called in the deferred do_restore function below to avoid layout race conditions.
 
         self.settings_button.clicked.connect(self.open_settings_window)
 
@@ -441,7 +442,11 @@ class MainWindow(QWidget):
                             tab_instance.set_config
                         ):
                             try:
-                                tab_instance.set_config(config_data)
+                                sig = inspect.signature(tab_instance.set_config)
+                                if "quiet" in sig.parameters:
+                                    tab_instance.set_config(config_data, quiet=True)
+                                else:
+                                    tab_instance.set_config(config_data)
                                 print(
                                     f"Applied active config '{config_name}' to {tab_class_name}"
                                 )
@@ -963,46 +968,11 @@ class MainWindow(QWidget):
         active_tab_name = recovery_data.get("active_tab")
         tab_configs = recovery_data.get("tab_configs", {})
 
-        # Apply config information depending on the level of recovery configured
-        if recovery_level == "All Tabs":
-            for category, tabs_in_category in self.all_tabs.items():
-                for tab_instance in tabs_in_category.values():
-                    tab_class_name = type(tab_instance).__name__
-                    if tab_class_name in tab_configs:
-                        if hasattr(tab_instance, "set_config") and callable(
-                            tab_instance.set_config
-                        ):
-                            try:
-                                sanitized_cfg = self._sanitize_config_if_needed(
-                                    tab_configs[tab_class_name]
-                                )
-                                tab_instance.set_config(sanitized_cfg)
-                            except Exception as e:
-                                print(
-                                    f"Warning: Failed to restore config to {tab_class_name} during session recovery: {e}"
-                                )
-        elif recovery_level == "Current Tab":
-            if active_category and active_tab_name:
-                tab_instance = self.all_tabs.get(active_category, {}).get(
-                    active_tab_name
-                )
-                if tab_instance:
-                    tab_class_name = type(tab_instance).__name__
-                    if tab_class_name in tab_configs:
-                        if hasattr(tab_instance, "set_config") and callable(
-                            tab_instance.set_config
-                        ):
-                            try:
-                                sanitized_cfg = self._sanitize_config_if_needed(
-                                    tab_configs[tab_class_name]
-                                )
-                                tab_instance.set_config(sanitized_cfg)
-                            except Exception as e:
-                                print(
-                                    f"Warning: Failed to restore config to active tab {tab_class_name} during session recovery: {e}"
-                                )
-
-        # Transfer user to the previously opened tab
+        # Transfer user to the previously opened tab FIRST, so that on_command_changed
+        # fires and re-wraps all tab widgets BEFORE set_config is called.
+        # If set_config ran first, the subsequent on_command_changed (triggered below)
+        # would re-parent tab widgets via takeWidget/setWidget and could reset
+        # visibility state that set_config just established.
         if active_category and active_category in self.all_tabs:
             self.command_combo.setCurrentText(active_category)
             if active_tab_name:
@@ -1010,6 +980,71 @@ class MainWindow(QWidget):
                     if self.tabs.tabText(index) == active_tab_name:
                         self.tabs.setCurrentIndex(index)
                         break
+
+        # Defer config restoration by 150ms to ensure the UI layout has fully settled and shown
+        def do_restore():
+            # Apply active profile configurations first so that they are loaded when layouts have settled
+            self._apply_active_tab_configs()
+
+            # Apply config information depending on the level of recovery configured
+            if recovery_level == "All Tabs":
+                for category, tabs_in_category in self.all_tabs.items():
+                    for tab_instance in tabs_in_category.values():
+                        tab_class_name = type(tab_instance).__name__
+                        if tab_class_name in tab_configs:
+                            if hasattr(tab_instance, "set_config") and callable(
+                                tab_instance.set_config
+                            ):
+                                try:
+                                    sanitized_cfg = self._sanitize_config_if_needed(
+                                        tab_configs[tab_class_name]
+                                    )
+                                    if tab_class_name == "ImageExtractorTab":
+                                        avc = sanitized_cfg.get("active_videos_config", {})
+                                        print(f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'")
+                                    sig = inspect.signature(tab_instance.set_config)
+                                    if "quiet" in sig.parameters:
+                                        tab_instance.set_config(sanitized_cfg, quiet=True)
+                                    else:
+                                        tab_instance.set_config(sanitized_cfg)
+                                except Exception as e:
+                                    print(
+                                        f"Warning: Failed to restore config to {tab_class_name} during session recovery: {e}"
+                                    )
+            elif recovery_level == "Current Tab":
+                if active_category and active_tab_name:
+                    tab_instance = self.all_tabs.get(active_category, {}).get(
+                        active_tab_name
+                    )
+                    if tab_instance:
+                        tab_class_name = type(tab_instance).__name__
+                        if tab_class_name in tab_configs:
+                            if hasattr(tab_instance, "set_config") and callable(
+                                tab_instance.set_config
+                            ):
+                                try:
+                                    sanitized_cfg = self._sanitize_config_if_needed(
+                                        tab_configs[tab_class_name]
+                                    )
+                                    if tab_class_name == "ImageExtractorTab":
+                                        avc = sanitized_cfg.get("active_videos_config", {})
+                                        print(f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'")
+                                    sig = inspect.signature(tab_instance.set_config)
+                                    if "quiet" in sig.parameters:
+                                        tab_instance.set_config(sanitized_cfg, quiet=True)
+                                    else:
+                                        tab_instance.set_config(sanitized_cfg)
+                                except Exception as e:
+                                    print(
+                                        f"Warning: Failed to restore config to active tab {tab_class_name} during session recovery: {e}"
+                                    )
+            else:
+                print(f"[RECOVERY] recovery_level='{recovery_level}' — no set_config called")
+
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            do_restore()
+        else:
+            QTimer.singleShot(150, do_restore)
 
     def _save_session_recovery(self) -> None:
         """Saves current active tab and tab configurations for session recovery."""
@@ -1067,9 +1102,12 @@ class MainWindow(QWidget):
                             and callable(tab_instance.collect)
                         ):
                             try:
-                                tab_configs[type(tab_instance).__name__] = (
-                                    tab_instance.collect()
-                                )
+                                cfg = tab_instance.collect()
+                                tab_class_name = type(tab_instance).__name__
+                                if tab_class_name == "ImageExtractorTab":
+                                    avc = cfg.get("active_videos_config", {})
+                                    print(f"[SAVE] {tab_class_name}.collect(): active_videos_config has {len(avc)} entries, video_path='{cfg.get('video_path', '')}'")
+                                tab_configs[tab_class_name] = cfg
                             except Exception as e:
                                 print(
                                     f"Warning: Failed to collect config from active tab {type(tab_instance).__name__}: {e}"

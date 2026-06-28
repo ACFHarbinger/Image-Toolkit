@@ -114,15 +114,9 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             }
         """
 
-        layout_group = QGroupBox(
+        layout_group = self.create_monitor_layout_section(
             "Monitor Layout (Drag to Reorder, Drop images/videos to set)"
         )
-        layout_group.setStyleSheet(group_box_style)
-
-        self.monitor_layout_container = DraggableMonitorContainer()
-
-        gb_layout = QVBoxLayout(layout_group)
-        gb_layout.addWidget(self.monitor_layout_container)
         content_layout.addWidget(layout_group)
 
         settings_group = QGroupBox("Wallpaper Settings")
@@ -451,6 +445,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         else:
             self.set_wallpaper_btn.setText("Set Wallpaper (0 items)")
             self.set_wallpaper_btn.setEnabled(False)
+        self.wallpapers_changed.emit()
 
     @Slot()
     def _is_slideshow_validation_ready(self):
@@ -704,6 +699,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.slideshow_group.setVisible(is_slideshow or is_video_slideshow)
         self.btn_daemon_toggle.setVisible(is_slideshow or is_video_slideshow)
         self.btn_view_logs.setVisible(is_slideshow or is_video_slideshow)
+        self.solid_color_widget.setVisible(is_solid_color)
 
         if is_video_static or is_video_slideshow:
             self.video_style_combo.show()
@@ -1825,3 +1821,4 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
         if self._is_daemon_running_config():
             self._start_daemon_countdown_if_active()
+        self.wallpapers_changed.emit()

@@ -18,36 +18,36 @@ pytestmark = pytest.mark.gui
 class TestConvertTab:
     @pytest.fixture
     def mock_worker(self):
-        with patch("gui.src.tabs.core.convert_tab.ConversionWorker") as mock:
+        with patch("gui.src.tabs.core.common.format_subtab.ConversionWorker") as mock:
             yield mock
 
     def test_init(self, q_app):
         tab = ConvertTab()
         assert isinstance(tab, QWidget)
-        assert tab.input_path is not None
+        assert tab.format_subtab.input_path is not None
 
     def test_start_conversion_no_files(self, q_app, mock_worker):
         # Mock message box to avoid blocking
-        with patch("gui.src.tabs.core.convert_tab.QMessageBox") as mock_mb:
+        with patch("gui.src.tabs.core.common.format_subtab.QMessageBox") as mock_mb:
             tab = ConvertTab()
-            tab.collect_paths = MagicMock(return_value=[])
+            tab.format_subtab.collect_paths = MagicMock(return_value=[])
 
-            tab.start_conversion_worker()
+            tab.format_subtab.start_conversion_worker()
 
             mock_worker.assert_not_called()
             mock_mb.warning.assert_called()
 
     def test_start_conversion_success(self, q_app, mock_worker):
-        with patch("gui.src.tabs.core.convert_tab.os.path.isdir", return_value=True):
+        with patch("gui.src.tabs.core.common.format_subtab.os.path.isdir", return_value=True):
             tab = ConvertTab()
-            tab.input_path.setText("/tmp/in")
-            tab.collect_paths = MagicMock(return_value=["/tmp/in/a.jpg"])
+            tab.format_subtab.input_path.setText("/tmp/in")
+            tab.format_subtab.collect_paths = MagicMock(return_value=["/tmp/in/a.jpg"])
 
             # Setup worker mock instance
             worker_instance = mock_worker.return_value
             worker_instance.isRunning.return_value = False
 
-            tab.start_conversion_worker()
+            tab.format_subtab.start_conversion_worker()
 
             mock_worker.assert_called()
             worker_instance.start.assert_called()
@@ -59,13 +59,15 @@ class TestConvertTab:
 class TestWallpaperTab:
     @pytest.fixture
     def mock_deps(self):
+        from screeninfo import Monitor
+        mock_monitor = Monitor(name="Display1", x=0, y=0, width=1920, height=1080, is_primary=True)
         with (
-            patch("gui.src.tabs.core.wallpaper_tab.WallpaperWorker"),
-            patch("gui.src.tabs.core.wallpaper_tab.ImageScannerWorker"),
-            patch("gui.src.tabs.core.wallpaper_tab.VideoScannerWorker"),
+            patch("gui.src.tabs.core.common.system_display_subtab.WallpaperWorker"),
+            patch("gui.src.tabs.core.common.wallpaper_common.ImageScannerWorker"),
+            patch("gui.src.tabs.core.common.wallpaper_common.VideoScannerWorker"),
             patch(
-                "gui.src.tabs.core.wallpaper_tab.get_monitors",
-                return_value=[MagicMock(name="Monitor1")],
+                "gui.src.tabs.core.common.wallpaper_common.get_monitors",
+                return_value=[mock_monitor],
             ),
         ):
             yield
@@ -75,15 +77,20 @@ class TestWallpaperTab:
         tab = WallpaperTab(db_tab_ref=MagicMock())
         assert isinstance(tab, QWidget)
 
+    def test_monitor_display_populated_on_init(self, q_app, mock_deps):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+        assert len(tab.monitor_display._monitors) == 1
+        assert tab.monitor_display._monitors[0].name == "Display1"
+
     def test_update_background_type(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
         tab.show()  # Ensure widgets can be effectively visible
 
-        tab._update_background_type("Solid Color")
-        assert tab.solid_color_widget.isVisible()
+        tab.system_display._update_background_type("Solid Color")
+        assert tab.system_display.solid_color_widget.isVisible()
 
-        tab._update_background_type("Slideshow")
-        assert tab.slideshow_group.isVisible()
+        tab.system_display._update_background_type("Slideshow")
+        assert tab.system_display.slideshow_group.isVisible()
 
     def test_swap_monitors(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
@@ -91,28 +98,28 @@ class TestWallpaperTab:
         # Setup 2 monitors (mock_deps already provides 1, let's ensure we have 2)
         m1 = MagicMock(name="Monitor1")
         m2 = MagicMock(name="Monitor2")
-        tab.monitors = [m1, m2]
+        tab.system_display.monitors = [m1, m2]
 
         # Manually populate monitor_widgets
         w1 = MagicMock()
         w1.monitor = m1
         w2 = MagicMock()
         w2.monitor = m2
-        tab.monitor_widgets = {"0": w1, "1": w2}
+        tab.system_display.monitor_widgets = {"0": w1, "1": w2}
 
         # Set initial states
-        tab.monitor_image_paths = {"0": "path1.jpg", "1": "path2.jpg"}
-        tab.monitor_slideshow_queues = {"0": ["path1.jpg"], "1": ["path2.jpg"]}
-        tab.monitor_current_index = {"0": 0, "1": 0}
+        tab.system_display.monitor_image_paths = {"0": "path1.jpg", "1": "path2.jpg"}
+        tab.system_display.monitor_slideshow_queues = {"0": ["path1.jpg"], "1": ["path2.jpg"]}
+        tab.system_display.monitor_current_index = {"0": 0, "1": 0}
 
         # Perform swap
-        tab.swap_monitors()
+        tab.system_display.swap_monitors("0", "1")
 
         # Verify swapped states
-        assert tab.monitor_image_paths["0"] == "path2.jpg"
-        assert tab.monitor_image_paths["1"] == "path1.jpg"
-        assert tab.monitor_slideshow_queues["0"] == ["path2.jpg"]
-        assert tab.monitor_slideshow_queues["1"] == ["path1.jpg"]
+        assert tab.system_display.monitor_image_paths["0"] == "path2.jpg"
+        assert tab.system_display.monitor_image_paths["1"] == "path1.jpg"
+        assert tab.system_display.monitor_slideshow_queues["0"] == ["path2.jpg"]
+        assert tab.system_display.monitor_slideshow_queues["1"] == ["path1.jpg"]
 
         # Verify UI updates
         w1.set_image.assert_called_with("path2.jpg", None)
@@ -120,18 +127,18 @@ class TestWallpaperTab:
 
     def test_cancel_loading_with_daemon_active(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
-        tab.countdown_timer = MagicMock()
-        tab.countdown_timer.isActive.return_value = True
+        tab.system_display.countdown_timer = MagicMock()
+        tab.system_display.countdown_timer.isActive.return_value = True
 
         # When daemon is active, cancel_loading should NOT stop the countdown timer
-        with patch.object(tab, "_is_daemon_running_config", return_value=True):
-            tab.cancel_loading()
-            tab.countdown_timer.stop.assert_not_called()
+        with patch.object(tab.system_display, "_is_daemon_running_config", return_value=True):
+            tab.system_display.cancel_loading()
+            tab.system_display.countdown_timer.stop.assert_not_called()
 
         # When daemon is NOT active, cancel_loading SHOULD stop the countdown timer
-        with patch.object(tab, "_is_daemon_running_config", return_value=False):
-            tab.cancel_loading()
-            tab.countdown_timer.stop.assert_called_once()
+        with patch.object(tab.system_display, "_is_daemon_running_config", return_value=False):
+            tab.system_display.cancel_loading()
+            tab.system_display.countdown_timer.stop.assert_called_once()
 
     def test_start_daemon_countdown_if_active_calculates_remaining_time(
         self, q_app, mock_deps
@@ -139,16 +146,16 @@ class TestWallpaperTab:
         tab = WallpaperTab(db_tab_ref=MagicMock())
 
         # Mock daemon running
-        with patch.object(tab, "_is_daemon_running_config", return_value=True):
+        with patch.object(tab.system_display, "_is_daemon_running_config", return_value=True):
             # Mock the daemon config JSON reading
             mock_config = {
                 "interval_seconds": 300,
                 "last_change_timestamp": int(time.time()) - 100,
             }
             with patch("builtins.open", mock_open(read_data=json.dumps(mock_config))):
-                tab._start_daemon_countdown_if_active()
+                tab.system_display._start_daemon_countdown_if_active()
                 # 300 interval - 100 elapsed = 200 remaining (give or take a second due to timing)
-                assert 195 <= tab.time_remaining_sec <= 200
+                assert 195 <= tab.system_display.time_remaining_sec <= 200
 
 
 # --- DeleteTab Tests ---
@@ -249,6 +256,41 @@ class TestImageExtractorTab:
                 tab.check_extract_vertical.setChecked(True)
                 assert tab._get_target_size() == (720, 1280)
 
+    def test_has_extracted_files_regex(self, q_app):
+        with (
+            patch("gui.src.tabs.core.image_extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+        ):
+            tab = ImageExtractorTab()
+            tab._extracted_stems_cache.clear()
+            tab._extracted_stems_cache.add("my_cool_video")
+            
+            assert tab._has_extracted_files("/path/to/my_cool_video.mp4") is True
+            assert tab._has_extracted_files("/path/to/other.mp4") is False
+
+    def test_set_config_quiet_and_force_load(self, q_app, tmp_path):
+        with (
+            patch("gui.src.tabs.core.image_extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+        ):
+            tab = ImageExtractorTab()
+            dummy_video = tmp_path / "dummy_video.mp4"
+            dummy_video.write_text("dummy")
+            
+            config = {
+                "source_directory": str(tmp_path),
+                "extraction_directory": str(tmp_path),
+                "active_videos_config": {str(dummy_video): {}},
+                "video_path": str(dummy_video)
+            }
+            
+            tab.load_media = MagicMock()
+            
+            with patch("gui.src.tabs.core.image_extractor_tab.QMessageBox") as mock_box:
+                tab.set_config(config, quiet=True)
+                mock_box.information.assert_not_called()
+                tab.load_media.assert_called_with(str(dummy_video), force=True)
+
 
 class TestListingsTab:
     def test_listings_tab_init(self, q_app):
@@ -263,7 +305,7 @@ class TestListingsTab:
         assert tab.entity_listings is not None
 
     def test_listing_images_subdirectory(self):
-        from gui.src.tabs.core.listings_tab import LISTING_IMAGES_DIR
+        from gui.src.tabs.core.common.listings_common import LISTING_IMAGES_DIR
         from pathlib import Path
 
         assert LISTING_IMAGES_DIR is not None
@@ -271,7 +313,7 @@ class TestListingsTab:
         assert LISTING_IMAGES_DIR.name == "listing-images"
 
     def test_generate_thumbnail_from_file(self, tmp_path):
-        from gui.src.tabs.core.listings_tab import generate_thumbnail_from_file
+        from gui.src.tabs.core.common.listings_common import generate_thumbnail_from_file
 
         # Create a mock image file
         img_src = tmp_path / "test_image.png"
@@ -342,6 +384,7 @@ class TestListingsTab:
 
         # 1. Update Backup should generate the encrypted file since it doesn't exist
         tab.content_listings._update_encrypted_backup()
+        tab.content_listings._backup_worker.wait()  # Wait for QThread to finish!
 
         enc_file = tmp_path / "assets" / "secrets" / "listings.json.enc"
         assert enc_file.exists()
@@ -359,4 +402,5 @@ class TestListingsTab:
 
         # 3. Synchronize - should load from backup and merge
         tab.content_listings._synchronize_listings()
+        tab.content_listings._sync_worker.wait()  # Wait for QThread to finish!
         assert len(tab.content_listings._entries) == 2

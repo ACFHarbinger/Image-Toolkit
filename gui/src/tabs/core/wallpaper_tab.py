@@ -11,9 +11,26 @@ class WallpaperTab(QWidget):
 
         self.system_display = SystemDisplaySubTab(db_tab_ref)
         self.monitor_display = MonitorDisplaySubTab()
+        self.monitor_display.set_system_display_ref(self.system_display)
 
         self.system_display.monitors_updated.connect(
             self.monitor_display.update_monitors
+        )
+
+        if self.system_display.monitors:
+            self.monitor_display.update_monitors(self.system_display.monitors)
+
+        # Sync layout reordering
+        self.system_display.monitor_layout_container.layout_changed.connect(
+            self._sync_layout_system_to_monitor
+        )
+        self.monitor_display.monitor_layout_container.layout_changed.connect(
+            self._sync_layout_monitor_to_system
+        )
+
+        # Sync wallpapers/images set on monitors
+        self.system_display.wallpapers_changed.connect(
+            self._sync_wallpapers_to_monitor_display
         )
 
         self._tab_widget.addTab(self.system_display, "System Display(s)")
@@ -23,6 +40,38 @@ class WallpaperTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._tab_widget)
 
+    def _sync_layout_system_to_monitor(self):
+        container = self.monitor_display.monitor_layout_container
+        container.blockSignals(True)
+        struct = self.system_display.monitor_layout_container.get_layout_structure()
+        container.set_layout_structure(struct, self.monitor_display.monitor_widgets)
+        container.blockSignals(False)
+        # Preserve selected monitor highlight
+        if self.monitor_display._current_monitor_id:
+            self.monitor_display._select_monitor(self.monitor_display._current_monitor_id)
+
+    def _sync_layout_monitor_to_system(self):
+        container = self.system_display.monitor_layout_container
+        container.blockSignals(True)
+        struct = self.monitor_display.monitor_layout_container.get_layout_structure()
+        container.set_layout_structure(struct, self.system_display.monitor_widgets)
+        container.blockSignals(False)
+
+    def _sync_wallpapers_to_monitor_display(self):
+        for mid, sys_widget in self.system_display.monitor_widgets.items():
+            mon_widget = self.monitor_display.monitor_widgets.get(mid)
+            if mon_widget:
+                if sys_widget.image_path != mon_widget.image_path:
+                    if sys_widget.image_path:
+                        thumb = self.system_display._get_or_generate_thumbnail(sys_widget.image_path)
+                        mon_widget.blockSignals(True)
+                        mon_widget.set_image(sys_widget.image_path, thumb)
+                        mon_widget.blockSignals(False)
+                    else:
+                        mon_widget.blockSignals(True)
+                        mon_widget.clear()
+                        mon_widget.blockSignals(False)
+
     def collect(self) -> dict:
         result = self.system_display.collect()
         result["monitor_display_graphs"] = self.monitor_display.collect_graphs()
@@ -30,6 +79,9 @@ class WallpaperTab(QWidget):
 
     def set_config(self, config: dict):
         self.system_display.set_config(config)
+        # Explicitly sync the monitor layout to MonitorDisplay after config restore,
+        # since set_layout_structure does not emit layout_changed (only user drag does).
+        self._sync_layout_system_to_monitor()
         if "monitor_display_graphs" in config:
             self.monitor_display.restore_graphs(config["monitor_display_graphs"])
 

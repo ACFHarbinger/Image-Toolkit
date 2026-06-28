@@ -7,12 +7,12 @@ import tempfile
 import subprocess
 import platform
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
-from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QTimer, Slot, QSize
+from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QTimer, Slot, QSize, QPoint
 from PySide6.QtGui import (
     QPainter, QPen, QBrush, QColor, QPainterPath, QPixmap, QImage,
-    QFont, QPolygonF, QKeyEvent,
+    QFont, QPolygonF, QKeyEvent, QAction,
 )
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QGraphicsView,
@@ -21,11 +21,15 @@ from PySide6.QtWidgets import (
     QGroupBox, QScrollArea, QDialog, QDialogButtonBox,
     QFileDialog, QMessageBox, QColorDialog, QSizePolicy,
     QMenu, QListWidget, QListWidgetItem, QFrame,
-    QRadioButton, QButtonGroup, QCheckBox, QStackedWidget,
+    QRadioButton, QButtonGroup, QCheckBox, QStackedWidget, QLineEdit,
+    QGridLayout,
 )
 from screeninfo import Monitor
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS, SUPPORTED_IMG_FORMATS
+from .wallpaper_common import WallpaperCommonBase
+from ....components import MonitorDropWidget, MarqueeScrollArea
+from ....styles.style import apply_shadow_effect
 
 
 # ---------------------------------------------------------------------------
@@ -749,68 +753,10 @@ class NodeEditDialog(QDialog):
 
 
 # ---------------------------------------------------------------------------
-# Monitor Selector widget
-# ---------------------------------------------------------------------------
-
-class _MonitorSelectorBar(QWidget):
-    """Horizontal row of clickable monitor boxes."""
-    monitor_selected = Signal(str)  # monitor_id
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._layout = QHBoxLayout(self)
-        self._layout.setSpacing(8)
-        self._layout.setContentsMargins(4, 4, 4, 4)
-        self._buttons: Dict[str, QPushButton] = {}
-        self._current_id: Optional[str] = None
-
-    def update_monitors(self, monitors: List[Monitor]):
-        for btn in self._buttons.values():
-            self._layout.removeWidget(btn)
-            btn.deleteLater()
-        self._buttons.clear()
-        self._current_id = None
-
-        for i, m in enumerate(monitors):
-            mid = str(i)
-            name = m.name or f"Display {i}"
-            label = f"{name}\n{m.width}×{m.height}"
-            btn = QPushButton(label)
-            btn.setFixedHeight(54)
-            btn.setCheckable(True)
-            btn.setStyleSheet(
-                "QPushButton { background:#36393f; border:2px solid #4f545c; border-radius:6px; color:white; padding:4px; }"
-                "QPushButton:checked { background:#2d5a3d; border-color:#2ecc71; }"
-                "QPushButton:hover:!checked { border-color:#7289da; }"
-            )
-            btn.clicked.connect(lambda _, _id=mid: self._select(_id))
-            self._layout.addWidget(btn)
-            self._buttons[mid] = btn
-
-        self._layout.addStretch(1)
-
-        if self._buttons:
-            first_id = next(iter(self._buttons))
-            self._select(first_id)
-
-    def _select(self, monitor_id: str):
-        if self._current_id == monitor_id:
-            return
-        if self._current_id in self._buttons:
-            self._buttons[self._current_id].setChecked(False)
-        self._current_id = monitor_id
-        self._buttons[monitor_id].setChecked(True)
-        self.monitor_selected.emit(monitor_id)
-
-    def current_monitor_id(self) -> Optional[str]:
-        return self._current_id
-
-
-# ---------------------------------------------------------------------------
 # Main tab widget
 # ---------------------------------------------------------------------------
 
-class MonitorDisplaySubTab(QWidget):
+class MonitorDisplaySubTab(WallpaperCommonBase):
     """
     Graph-based wallpaper sequencer per monitor.
 
@@ -822,11 +768,14 @@ class MonitorDisplaySubTab(QWidget):
     """
 
     def __init__(self, parent=None):
-        super().__init__(parent)
+        WallpaperCommonBase.__init__(self)
+        if parent:
+            self.setParent(parent)
         self._monitors: List[Monitor] = []
         self._graphs: Dict[str, GraphData] = {}   # monitor_id -> GraphData
         self._current_monitor_id: Optional[str] = None
         self._preview_tmp_dir: Optional[str] = None
+        self.background_type: str = "Image"
 
         self._build_ui()
 
@@ -838,16 +787,7 @@ class MonitorDisplaySubTab(QWidget):
         root.setSpacing(6)
 
         # Monitor selector
-        sel_box = QGroupBox("Select Monitor")
-        sel_box.setStyleSheet(
-            "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
-            "QGroupBox::title { color:white; padding:0 6px; }"
-        )
-        sel_lyt = QVBoxLayout(sel_box)
-        sel_lyt.setContentsMargins(4, 12, 4, 4)
-        self._monitor_selector = _MonitorSelectorBar()
-        self._monitor_selector.monitor_selected.connect(self._on_monitor_selected)
-        sel_lyt.addWidget(self._monitor_selector)
+        sel_box = self.create_monitor_layout_section("Select Monitor")
         root.addWidget(sel_box)
 
         # Placeholder shown when no monitors are detected
@@ -863,8 +803,8 @@ class MonitorDisplaySubTab(QWidget):
         graph_content_lyt.setContentsMargins(0, 0, 0, 0)
         graph_content_lyt.setSpacing(4)
 
-        # Splitter: graph canvas (left) | props panel (right)
-        self._splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Splitter: main vertical splitter (gallery top, graph horizontal layout bottom)
+        self._splitter = QSplitter(Qt.Orientation.Vertical)
 
         # Graph panel
         graph_panel = QWidget()
@@ -903,9 +843,10 @@ class MonitorDisplaySubTab(QWidget):
 
         for btn in [self._btn_add_node, self._btn_self_edge, self._btn_connect,
                     self._btn_delete, btn_reset_view]:
-            btn.setFixedHeight(28)
+            btn.setFixedHeight(36)
             tb.addWidget(btn)
         tb.addStretch(1)
+        self._btn_preview.setFixedHeight(36)
         tb.addWidget(self._btn_preview)
         graph_lyt.addLayout(tb)
 
@@ -917,6 +858,7 @@ class MonitorDisplaySubTab(QWidget):
 
         self._view = WallpaperGraphView(self._scene)
         self._view.setAcceptDrops(True)
+        self._view.setMinimumHeight(600)
         graph_lyt.addWidget(self._view, 1)
 
         # Sequence summary label
@@ -925,9 +867,72 @@ class MonitorDisplaySubTab(QWidget):
         self._seq_label.setStyleSheet("color:#b9bbbe; font-size:11px; padding:2px;")
         graph_lyt.addWidget(self._seq_label)
 
-        self._splitter.addWidget(graph_panel)
-        self._splitter.addWidget(self._build_props_panel())
-        self._splitter.setSizes([700, 260])
+        # Gallery panel for dragging and dropping files
+        gallery_panel = QGroupBox("Gallery / Drag and Drop")
+        gallery_panel.setStyleSheet(
+            "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
+            "QGroupBox::title { color:white; padding:0 6px; }"
+        )
+        gallery_lyt = QVBoxLayout(gallery_panel)
+        gallery_lyt.setContentsMargins(6, 12, 6, 6)
+        gallery_lyt.setSpacing(4)
+
+        # Scan Directory Row
+        scan_dir_layout = QHBoxLayout()
+        self.scan_directory_path = QLineEdit()
+        self.scan_directory_path.setPlaceholderText("Select directory to scan for graph files...")
+        self.scan_directory_path.returnPressed.connect(
+            lambda: self.populate_scan_image_gallery(self.scan_directory_path.text().strip())
+        )
+        btn_browse_scan = QPushButton("Browse...")
+        apply_shadow_effect(
+            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        btn_browse_scan.clicked.connect(self.browse_scan_directory)
+        scan_dir_layout.addWidget(QLabel("Scan Directory:"))
+        scan_dir_layout.addWidget(self.scan_directory_path)
+        scan_dir_layout.addWidget(btn_browse_scan)
+        gallery_lyt.addLayout(scan_dir_layout)
+
+        # Search Input
+        gallery_lyt.addWidget(self.search_input)
+
+        # Scroll Area for Thumbnails
+        self.gallery_scroll_area = MarqueeScrollArea()
+        self.gallery_scroll_area.setWidgetResizable(True)
+        self.gallery_scroll_area.setStyleSheet(
+            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+        )
+        self.gallery_scroll_area.setMinimumHeight(600)
+
+        self.scan_thumbnail_widget = QWidget()
+        self.scan_thumbnail_widget.setStyleSheet(
+            "QWidget { background-color: #2c2f33; }"
+        )
+
+        self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
+        self.scan_thumbnail_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
+        self.gallery_scroll_area.setWidget(self.scan_thumbnail_widget)
+        gallery_lyt.addWidget(self.gallery_scroll_area, 1)
+
+        # Pagination controls
+        gallery_lyt.addWidget(
+            self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
+        )
+
+        self.gallery_layout = self.scan_thumbnail_layout
+
+        # Horizontal Splitter for the graph workspace + props panel
+        graph_horizontal_splitter = QSplitter(Qt.Orientation.Horizontal)
+        graph_horizontal_splitter.addWidget(graph_panel)
+        graph_horizontal_splitter.addWidget(self._build_props_panel())
+        graph_horizontal_splitter.setSizes([700, 260])
+
+        self._splitter.addWidget(gallery_panel)
+        self._splitter.addWidget(graph_horizontal_splitter)
+        self._splitter.setSizes([600, 600])
 
         graph_content_lyt.addWidget(self._splitter, 1)
         graph_content_lyt.addWidget(self._build_end_behavior_bar())
@@ -1047,11 +1052,64 @@ class MonitorDisplaySubTab(QWidget):
 
     def update_monitors(self, monitors: List[Monitor]):
         self._monitors = monitors
-        self._monitor_selector.update_monitors(monitors)
+        self.monitors = monitors
+        self.populate_monitor_layout()
         if monitors:
             self._stack.setCurrentIndex(1)
+            # Auto-select the first monitor on update if nothing is selected or current is invalid
+            if not self._current_monitor_id or self._current_monitor_id not in self.monitor_widgets:
+                if self.monitor_widgets:
+                    first_id = next(iter(self.monitor_widgets.keys()))
+                    self._select_monitor(first_id)
         else:
             self._stack.setCurrentIndex(0)
+
+    def populate_monitor_layout(self):
+        super().populate_monitor_layout()
+        for m_id, widget in self.monitor_widgets.items():
+            widget.clicked.connect(self._select_monitor)
+
+        # If we have a system display reference, sync the images to our newly created widgets!
+        if hasattr(self, "_system_display_ref") and self._system_display_ref:
+            for mid, sys_widget in self._system_display_ref.monitor_widgets.items():
+                widget = self.monitor_widgets.get(mid)
+                if widget and sys_widget.image_path:
+                    thumb = self._system_display_ref._get_or_generate_thumbnail(sys_widget.image_path)
+                    widget.set_image(sys_widget.image_path, thumb)
+
+        # Re-apply selection style to current selected monitor if it exists
+        if self._current_monitor_id and self._current_monitor_id in self.monitor_widgets:
+            self.monitor_widgets[self._current_monitor_id].set_selected(True)
+
+    def set_system_display_ref(self, system_display):
+        self._system_display_ref = system_display
+
+    def on_images_dropped(self, monitor_id: str, image_paths: list):
+        if hasattr(self, "_system_display_ref") and self._system_display_ref:
+            self._system_display_ref.on_images_dropped(monitor_id, image_paths)
+
+    def handle_monitor_double_click(self, monitor_id: str):
+        if hasattr(self, "_system_display_ref") and self._system_display_ref:
+            self._system_display_ref.handle_monitor_double_click(monitor_id)
+
+    def handle_clear_monitor_queue(self, monitor_id: str):
+        if hasattr(self, "_system_display_ref") and self._system_display_ref:
+            self._system_display_ref.handle_clear_monitor_queue(monitor_id)
+
+    def swap_monitors(self, m0: str, m1: str = ""):
+        if hasattr(self, "_system_display_ref") and self._system_display_ref:
+            self._system_display_ref.swap_monitors(m0, m1)
+
+    def on_monitor_context_menu(self, monitor_id: str, menu: Any):
+        if hasattr(self, "_system_display_ref") and self._system_display_ref:
+            self._system_display_ref.on_monitor_context_menu(monitor_id, menu)
+
+    def _select_monitor(self, monitor_id: str):
+        self._current_monitor_id = monitor_id
+        for mid, widget in self.monitor_widgets.items():
+            if isinstance(widget, MonitorDropWidget):
+                widget.set_selected(mid == monitor_id)
+        self._on_monitor_selected(monitor_id)
 
     @Slot(str)
     def _on_monitor_selected(self, monitor_id: str):
@@ -1423,6 +1481,42 @@ class MonitorDisplaySubTab(QWidget):
         graph = self._current_graph()
         if graph:
             self._read_end_behavior_to_graph(graph)
+
+    # ---- Thumbnail Actions ------------------------------------------------
+    
+    @Slot(str)
+    def handle_thumbnail_double_click(self, image_path: str):
+        if self._current_monitor_id is None:
+            return
+        center = self._view.mapToScene(self._view.viewport().rect().center())
+        self._scene.add_node(image_path, center)
+
+    @Slot(QPoint, str)
+    def show_image_context_menu(self, global_pos: QPoint, path: str):
+        menu = QMenu(self)
+
+        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        view_text = "Play Video" if is_video else "View Full Size Preview"
+        view_action = QAction(view_text, self)
+        if self._system_display_ref and hasattr(self._system_display_ref, "handle_full_image_preview"):
+            view_action.triggered.connect(lambda: self._system_display_ref.handle_full_image_preview(path))
+        else:
+            view_action.setEnabled(False)
+        menu.addAction(view_action)
+
+        add_action = QAction("➕ Add to Graph Canvas", self)
+        add_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
+        menu.addAction(add_action)
+
+        menu.addSeparator()
+        delete_action = QAction("🗑️ Delete File (Permanent)", self)
+        if self._system_display_ref and hasattr(self._system_display_ref, "handle_delete_image"):
+            delete_action.triggered.connect(lambda: self._system_display_ref.handle_delete_image(path))
+        else:
+            delete_action.setEnabled(False)
+        menu.addAction(delete_action)
+
+        menu.exec(global_pos)
 
     # ---- Cleanup ----------------------------------------------------------
 
