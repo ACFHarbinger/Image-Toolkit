@@ -7,19 +7,53 @@ docs/reports/, and stub API pages that the nav references.
 from __future__ import annotations
 
 import shutil
+import os
+import re
+import urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 DOCS = ROOT / "docs"
 
+SOURCE_TO_DEST: dict[Path, Path] = {}
+DEST_TO_SOURCE: dict[Path, Path] = {}
+
 
 def on_pre_build(config: dict) -> None:
     """Copy roadmap and report sources into the docs tree before building."""
+    # Clean up old README.md files to prevent index.md conflicts
+    readme_path = DOCS / "README.md"
+    if readme_path.exists():
+        readme_path.unlink()
+    ts_readme_path = DOCS / "api" / "typescript" / "README.md"
+    if ts_readme_path.exists():
+        ts_readme_path.unlink()
+
+    # Pre-populate exact redirects for merged reports
+    merged_reports = [
+        "ASP Consolidated Research Plan.md",
+        "Anime Stitch Pipeline ML Research.md",
+        "Multi-modal Anime Panorama Stitching.md",
+        "Multimodal_ASP_HITL_Research.md",
+        "Upgrading Anime Stitch Pipeline.md",
+        "ASP_Consolidated_Research_Plan.md",
+        "Anime_Stitch_Pipeline_ML_Research.md",
+        "Multi-modal_Anime_Panorama_Stitching.md",
+    ]
+    for r in merged_reports:
+        SOURCE_TO_DEST[ROOT / "reports" / r] = DOCS / "reports" / "asp_research.md"
+
+    # Pre-populate exact redirects for READMEs
+    SOURCE_TO_DEST[ROOT / "README.md"] = DOCS / "readme.md"
+    SOURCE_TO_DEST[DOCS / "README.md"] = DOCS / "readme.md"
+    SOURCE_TO_DEST[ROOT / "frontend" / "README.md"] = DOCS / "api" / "typescript" / "readme.md"
+    SOURCE_TO_DEST[DOCS / "api" / "typescript" / "README.md"] = DOCS / "api" / "typescript" / "readme.md"
+
     _sync_dir(ROOT / "moon" / "roadmaps", DOCS / "roadmaps")
     _sync_dir(ROOT / "moon", DOCS, only=["CHANGELOG.md"])
     _sync_dir(ROOT / "moon", DOCS / "roadmaps", only=["ROADMAP.md"])
-    _sync_dir(ROOT, DOCS, only=["README.md"])
-    _sync_dir(ROOT / "frontend", DOCS / "api" / "typescript", only=["README.md"])
+    _sync_dir(ROOT, DOCS, only=["README.md"], rename={"README.md": "readme.md"})
+    _sync_dir(ROOT / "frontend", DOCS / "api" / "typescript", only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(
         ROOT / "reports",
         DOCS / "reports",
@@ -43,6 +77,14 @@ def on_pre_build(config: dict) -> None:
             "STRUCTURIZR.md",
         ],
     )
+
+    # Populate self-mappings for other files under docs/
+    for doc_file in DOCS.rglob("*.md"):
+        resolved = doc_file.resolve()
+        if resolved not in DEST_TO_SOURCE:
+            DEST_TO_SOURCE[resolved] = resolved
+            SOURCE_TO_DEST[resolved] = resolved
+
     _ensure_stub_api_pages()
 
 
@@ -59,9 +101,94 @@ def _sync_dir(
         if only and src_file.name not in only:
             continue
         dst_file = dst / target_name
-        if src_file.resolve() == dst_file.resolve():
+
+        src_file_resolved = src_file.resolve()
+        dst_file_resolved = dst_file.resolve()
+        SOURCE_TO_DEST[src_file_resolved] = dst_file_resolved
+        DEST_TO_SOURCE[dst_file_resolved] = src_file_resolved
+
+        if src_file_resolved == dst_file_resolved:
             continue
         shutil.copy2(src_file, dst_file)
+
+
+def on_page_markdown(markdown: str, page, config, files) -> str:
+    """Rewrite relative markdown links to match the new docs structure."""
+    abs_src_path = Path(page.file.abs_src_path).resolve()
+    orig_src_path = DEST_TO_SOURCE.get(abs_src_path, abs_src_path)
+    orig_src_dir = orig_src_path.parent
+
+    # Regex to match markdown links: [text](url)
+    pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+
+    def replace_link(match: re.Match) -> str:
+        text = match.group(1)
+        url_part = match.group(2).strip()
+
+        # Handle title in link
+        parts = url_part.split(None, 1)
+        url = parts[0]
+        title = f" {parts[1]}" if len(parts) > 1 else ""
+
+        if (
+            url.startswith(("http://", "https://", "mailto:", "ftp:", "git:", "ssh:"))
+            or url.startswith("#")
+        ):
+            return match.group(0)
+
+        unquoted_url = urllib.parse.unquote(url)
+        url_parsed = urllib.parse.urlparse(unquoted_url)
+        path_part = url_parsed.path
+        fragment = url_parsed.fragment
+        query = url_parsed.query
+
+        if not path_part:
+            return match.group(0)
+
+        target_src_abs = (orig_src_dir / path_part).resolve()
+
+        if target_src_abs in SOURCE_TO_DEST:
+            target_dst_abs = SOURCE_TO_DEST[target_src_abs]
+            dst_dir = abs_src_path.parent
+            try:
+                new_rel_path = os.path.relpath(target_dst_abs, dst_dir)
+            except ValueError:
+                new_rel_path = str(target_dst_abs)
+
+            quoted_rel_path = urllib.parse.quote(new_rel_path)
+            new_url = quoted_rel_path
+            if query:
+                new_url += f"?{query}"
+            if fragment:
+                new_url += f"#{fragment}"
+
+            return f"[{text}]({new_url}{title})"
+
+        # Check if it's a file under the project root
+        is_rel = False
+        try:
+            target_src_abs.relative_to(ROOT)
+            is_rel = True
+        except ValueError:
+            pass
+
+        if is_rel:
+            try:
+                rel_to_root = target_src_abs.relative_to(ROOT)
+                is_directory = (ROOT / rel_to_root).is_dir() if (ROOT / rel_to_root).exists() else False
+                subpath_type = "tree" if is_directory else "blob"
+                github_url = f"https://github.com/ACFPeacekeeper/Image-Toolkit/{subpath_type}/main/{rel_to_root.as_posix()}"
+                if query:
+                    github_url += f"?{query}"
+                if fragment:
+                    github_url += f"#{fragment}"
+                return f"[{text}]({github_url}{title})"
+            except Exception:
+                pass
+
+        return match.group(0)
+
+    return pattern.sub(replace_link, markdown)
 
 
 def _ensure_stub_api_pages() -> None:

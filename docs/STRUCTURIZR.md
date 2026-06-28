@@ -1,7 +1,7 @@
 # C4 Architecture Model (Structurizr)
 
 Image Toolkit's architecture is modelled using the [C4 model](https://c4model.com) and
-encoded in Structurizr DSL. The model lives in [`docs/structurizr/workspace.dsl`](../docs/structurizr/workspace.dsl)
+encoded in Structurizr DSL. The model lives in [`docs/structurizr/workspace.dsl`](structurizr/workspace.dsl)
 and covers four views across three C4 levels.
 
 ## Views
@@ -31,7 +31,7 @@ docker run -it --rm -p 8080:8080 \
 open http://localhost:8080
 ```
 
-See [`docs/structurizr/README.md`](../docs/structurizr/README.md) for export instructions
+See [`docs/structurizr/README.md`](structurizr/README.md) for export instructions
 (Mermaid CLI, PlantUML).
 
 ## Exporting diagrams for the portal
