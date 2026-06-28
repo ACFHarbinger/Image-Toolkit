@@ -50,7 +50,7 @@ jobs:
         run: >
           uv run mypy
           backend/src/exceptions.py
-          backend/src/models/base.py
+          backend/src/models/core/base.py
           --ignore-missing-imports
           --no-error-summary
         env:

@@ -3,6 +3,9 @@ import sys
 
 from unittest.mock import MagicMock, patch
 
+# Back up original sys.modules to prevent leaks to other test files
+_original_sys_modules = dict(sys.modules)
+
 # --- Mock imports BEFORE importing modules under test ---
 # This generic mock prevents real generic imports from triggering environment errors
 mock_torch = MagicMock()
@@ -16,6 +19,13 @@ sys.modules["torchvision"] = MagicMock()
 sys.modules["torchvision.models"] = MagicMock()
 sys.modules["torchvision.utils"] = MagicMock()
 sys.modules["torchvision.transforms"] = MagicMock()
+
+def teardown_module(module):
+    # Restore sys.modules to pre-test state
+    for k in list(sys.modules.keys()):
+        if k not in _original_sys_modules:
+            del sys.modules[k]
+    sys.modules.update(_original_sys_modules)
 
 from backend.src.models.wrappers.gan_wrapper import GanWrapper  # noqa: E402
 from backend.src.models.core.siamese_network import SiameseModelLoader  # noqa: E402
