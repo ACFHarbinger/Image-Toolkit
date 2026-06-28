@@ -687,6 +687,10 @@ python args="": _print_header
     @echo "🐍 Starting Python/PySide6 app..."
     source .venv/bin/activate && python main.py {{ args }}
 
+# Commit staged changes with Gemini as co-author
+commit message:
+    git commit -m "{{message}}" -m "$(cat .gitmessage)"
+
 # Print help menu of available commands
 help: _print_header
     @echo "Image Toolkit - Available Commands:"
@@ -712,4 +716,5 @@ help: _print_header
     @echo "Maintenance:"
     @echo "  just clean                     - Clean build artifacts"
     @echo "  just format                    - Format code (Rust + TypeScript)"
+    @echo "  just commit \"msg\"              - Commit changes with Gemini as co-author"
     @echo ""
