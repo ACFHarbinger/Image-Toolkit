@@ -50,7 +50,7 @@
 - `backend/src/utils/base_dispatch.py` simplified: dual-module dispatch removed; `import base` resolves directly to C++ extension; `NativeExt` now a thin alias with static submodule forwarders
 - `tools/build/justfile`: `build-base` now runs cmake against `base/`; `build-batch` recipe removed; `build-all` no longer includes `build-batch`
 - `tools/test/justfile`: `test-batch-cpp/py/bench` → `test-base-cpp/py/bench`; backwards-compat aliases kept
-- `linux/scripts/build_base.sh`: replaces Rust maturin/cargo build with cmake build
+- `desktop/linux/scripts/build_base.sh`: replaces Rust maturin/cargo build with cmake build
 - `Cargo.toml`: `base` workspace member removed (archived)
 - `.github/workflows/security.yml`: `cargo-audit` step updated to scan `frontend/src-tauri` only (base Rust crate retired)
 - Animation Python files: `import batch` → `import base as batch` (25 call sites)

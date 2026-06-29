@@ -13,7 +13,7 @@ on:
       - 'base/src/math/**/*.rs'
       - 'frontend/src/math/**/*.ts'
       - 'app/android/src/**/*.kt'
-      - 'mkdocs.yml'
+      - 'docs/mkdocs.yml'
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [main]
@@ -22,7 +22,7 @@ on:
       - 'docs/**'
       - 'moon/roadmaps/**'
       - 'backend/src/**/*.py'
-      - 'mkdocs.yml'
+      - 'docs/mkdocs.yml'
   schedule:
     - cron: '0 2 * * 1'   # Weekly: every Monday at 02:00 UTC (§6.12D)
   workflow_dispatch:
@@ -79,7 +79,7 @@ jobs:
             mkdocs-jupyter
 
       - name: Build MkDocs portal (strict — breaks on warnings)
-        run: uv run mkdocs build --strict --verbose
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose
         env:
           PYTHONPATH: .
 
@@ -140,7 +140,7 @@ jobs:
           python-version: '3.11'
 
       - name: Run check_links.py diagnostic script
-        run: python scripts/check_links.py
+        run: python backend/scripts/check_links.py
 
       - name: lychee — check all Markdown links
         uses: lycheeverse/lychee-action@v1
@@ -535,7 +535,7 @@ jobs:
             mkdocs-jupyter
 
       - name: Build MkDocs site (strict)
-        run: uv run mkdocs build --strict --site-dir site/
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --site-dir site/
         env:
           PYTHONPATH: .
 
@@ -625,7 +625,7 @@ jobs:
             mkdocs-jupyter
 
       - name: Build MkDocs portal (strict — breaks on warnings)
-        run: uv run mkdocs build --strict --verbose
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose
         env:
           PYTHONPATH: .
 

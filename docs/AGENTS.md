@@ -17,7 +17,7 @@ The project mission is to provide a unified environment for managing massive ima
 ### Key CLI Entry Points
 | Action | Command |
 | :--- | :--- |
-| **Sync Environment** | `bash scripts/setup_env.sh` |
+| **Sync Environment** | `bash desktop/linux/scripts/setup_env.sh` |
 | **Activate Venv** | `source .venv/bin/activate` |
 | **Launch Desktop App** | `python main.py` |
 | **Frontend Dev** | `npm run start-all` |
@@ -25,7 +25,7 @@ The project mission is to provide a unified environment for managing massive ima
 | **Mobile Build** | `./gradlew assembleDebug` |
 | **Single Conversion** | `python main.py convert --output_format png --input_path <path>` |
 | **Batch Conversion** | `python main.py convert --output_format png --input_path <dir> --input_formats webp` |
-| **Helper Conversion** | `bash scripts/convert_images.sh` |
+| **Helper Conversion** | `bash desktop/linux/cli/convert_images.sh` |
 | **Build Desktop App** | `pyinstaller --clean ImageToolkit.spec` |
 | **Run Python Tests** | `pytest` |
 | **Run Frontend Tests** | `npm run test-frontend` |
