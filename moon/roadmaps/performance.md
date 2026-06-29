@@ -11,7 +11,7 @@
 - [✅ §3.13 conftest.py Overhead Reduction](#-313-conftestpy-overhead-reduction)
 - [✅ §3.14 Heavy-Library Import Isolation](#-314-heavy-library-import-isolation)
 - [✅ §3.15 Heavy-Library Import Isolation — Non-animation Modules](#-315-heavy-library-import-isolation--non-animation-modules)
-- [§3.1 Rust Streaming Image Merger](#31-rust-streaming-image-merger)
+- [§3.1 C++ Streaming Image Merger](#31-cpp-streaming-image-merger)
 - [§3.2 ASP Render Stage GPU Acceleration](#32-asp-render-stage-gpu-acceleration)
 - [§3.3 BiRefNet Inference Batching](#33-birefnet-inference-batching)
 - [§3.4 Database Query Optimisation](#34-database-query-optimisation)

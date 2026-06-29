@@ -9,7 +9,7 @@ set working-directory := '../..'
 benchmark:
     @echo "🏃 Running benchmarks..."
     source .venv/bin/activate && python backend/benchmark/run_all.py
-    cd base && cargo bench
+    just test-base-cpp
 
 # Run benchmarks and save detailed reports
 benchmark-save:

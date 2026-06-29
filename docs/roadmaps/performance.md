@@ -427,28 +427,28 @@ Add `CORE_MODULES` list to `check_import_times.py`; fold into the same measureme
 
 ---
 
-## 3.1 Rust Streaming Image Merger
+## 3.1 C++ Streaming Image Merger
 
-**Pain point:** `base/src/core/image_merger.rs` loads all input images into a `Vec<DynamicImage>` before compositing. Merging 100 × 4K images temporarily consumes 2–4 GB of RAM.
+**Pain point:** `base/src/core/merger.cpp` loads all input images into a `std::vector<cv::Mat>` before compositing. Merging 100 × 4K images temporarily consumes 2–4 GB of RAM.
 
 ### Options
 
 **A — Two-pass streaming (sequential)**
-Pass 1: read image headers only (parse width/height without decoding pixels — supported by the `image` crate via `image::image_dimensions()`). Compute final canvas dimensions from all headers. Allocate output buffer. Pass 2: decode each image one at a time, blit to canvas, drop immediately.
+Pass 1: read image headers only (parse width/height without decoding pixels — use `cv::imdecode` header probe or `libpng`/`libjpeg` dimension queries). Compute final canvas dimensions from all headers. Allocate output buffer. Pass 2: decode each image one at a time, blit to canvas, release immediately.
 - Peak RAM: 1 image at a time (~30 MB for 4K RGBA) + output buffer (~200 MB for a 10K panorama).
 - Pros: Near-minimal RAM usage during processing. No new dependencies.
 - Cons: Two filesystem passes. Slower on spinning disks; acceptable on NVMe.
 
-**B — Rayon-parallel with bounded semaphore**
-Keep parallel load but limit concurrent live images to `N_cores` using a `tokio::sync::Semaphore` or `std::sync::Mutex<usize>`. Each thread acquires a permit before loading, releases after blitting.
+**B — OpenMP-parallel with bounded semaphore**
+Keep parallel load but limit concurrent live images to `N_cores` using a `std::counting_semaphore` (C++20) or `std::mutex`-guarded counter. Each thread acquires a permit before loading, releases after blitting.
 - Peak RAM: `N_cores × image_size` (e.g., 8 cores × 30 MB = 240 MB).
 - Pros: Balances throughput vs memory. Better I/O pipeline utilisation than sequential.
-- Cons: Non-trivial semaphore integration with Rayon's work-stealing scheduler.
+- Cons: Non-trivial semaphore integration with OpenMP's work-sharing scheduler.
 
-**C — Memory-mapped output buffer (memmap2)**
-Use `memmap2` crate to map the output file directly into virtual memory. Each thread writes its strip directly to the mapped region; the OS flushes to disk lazily.
+**C — Memory-mapped output buffer (mmap)**
+Use POSIX `mmap()` (Linux/macOS) or `CreateFileMapping` (Windows) to map the output file directly into virtual memory. Each thread writes its strip directly to the mapped region; the OS flushes to disk lazily.
 - Pros: Zero extra RAM for the output buffer. Particularly useful for panoramas >10K px.
-- Cons: `memmap2` dependency. Output file must be pre-allocated to its final size. Random-write performance depends on OS page eviction policy.
+- Cons: Output file must be pre-allocated to its final size. Random-write performance depends on OS page eviction policy.
 
 **D — Streaming via pipes to ffmpeg**
 For video-format outputs, pipe frame bytes to `ffmpeg` via stdin rather than accumulating in RAM. Handles arbitrary output sizes.
@@ -593,10 +593,10 @@ class CrawlerSession:
 - Pros: Clean, Pythonic. Handles exceptions automatically.
 - Cons: Must audit all existing crawler call sites.
 
-**B — Rust RAII guard (scopeguard)**
-In the PyO3 bindings, use `scopeguard::defer!` to call `quit()` on unwind. Handles panics as well as normal exits.
-- Pros: Handles Rust-side panics that Python's `try/finally` doesn't see.
-- Cons: Only applies to Rust-initiated crawls. PyO3 exception propagation across the boundary already converts panics to Python exceptions.
+**B — C++ RAII guard**
+In the pybind11 bindings, use a stack-allocated RAII wrapper whose destructor calls `quit()`. Handles C++ exceptions as well as normal exits.
+- Pros: Handles C++-side exceptions that Python's `try/finally` doesn't see.
+- Cons: Only applies to C++-initiated crawls. pybind11 already translates C++ exceptions to Python exceptions at the boundary.
 
 **C — Crawler health monitor thread**
 Background thread that checks the WebDriver process list every 30s and kills orphans running >timeout.

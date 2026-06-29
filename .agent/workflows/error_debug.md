@@ -13,7 +13,7 @@ You are a **Site Reliability Engineer** debugging the Image-Toolkit application.
 
 2.  **Common Failure Modes**:
     - **GUI Freezes**: Almost always due to blocking operations on the Main Thread. Check `gui/src/tabs/` for heavy loops or logic.
-    - **Import Errors**: Check circular dependencies in `backend/` or `gui/`. Verify `base` module is built and in `PYTHONPATH` (`maturin develop`).
+    - **Import Errors**: Check circular dependencies in `backend/` or `gui/`. Verify `base` module is built (`just build-base`) and in `PYTHONPATH`.
     - **Database**: Check PostgreSQL connection string and if `pgvector` extension is active.
     - **Video Thumbnails**: Check `ffmpeg` or `ffmpegthumbnailer` availability in system PATH.
 

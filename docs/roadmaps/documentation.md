@@ -7,7 +7,7 @@
 - [How to Use This Document](#how-to-use-this-document)
 - [Domain A — Inline Documentation Tools (Micro-Level)](#domain-a--inline-documentation-tools-micro-level)
   - [§6.1 Python Reference Docs (Sphinx / mkdocstrings)](#61-python-reference-docs-sphinx--mkdocstrings)
-  - [§6.2 Rust Reference Docs (rustdoc + doc-tests)](#62-rust-reference-docs-rustdoc--doc-tests)
+  - [§6.2 C++ Reference Docs (Doxygen + Catch2 tests)](#62-cpp-reference-docs-doxygen--catch2-tests)
   - [§6.3 TypeScript Reference Docs (TypeDoc)](#63-typescript-reference-docs-typedoc)
   - [§6.4 Kotlin Reference Docs (Dokka)](#64-kotlin-reference-docs-dokka)
   - [§6.5 Swift Reference Docs (DocC)](#65-swift-reference-docs-docc)
@@ -21,7 +21,7 @@
   - [§6.11 Unified Cross-Stack Documentation Portal](#611-unified-cross-stack-documentation-portal)
 - [Domain D — Implementation Best Practices & Automation](#domain-d--implementation-best-practices--automation)
   - [§6.12 CI/CD Documentation Pipeline (GitHub Actions)](#612-cicd-documentation-pipeline-github-actions)
-  - [§6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)](#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit)
+  - [§6.13 Enforcing Documentation Standards (doclint, just test-base-cpp, pre-commit)](#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit)
   - [§6.14 Diagrams-as-Code (Mermaid.js / PlantUML)](#614-diagrams-as-code-mermaidjs--plantuml)
   - [§6.15 Interactive Documentation (API Playgrounds, Algorithm Stepping)](#615-interactive-documentation-api-playgrounds-algorithm-stepping)
 - [Effort × Impact Matrix](#effort--impact-matrix)
@@ -58,7 +58,7 @@ flowchart TD
     subgraph A["🅐 Domain A — Inline Docs (Micro-Level)"]
         direction LR
         s61["§6.1 Python\nSphinx / mkdocstrings"]:::docs:::done
-        s62["§6.2 Rust\nrustdoc + doc-tests"]:::docs:::done
+        s62["§6.2 C++\nDoxygen + Catch2"]:::docs:::done
         s63["§6.3 TypeScript\nTypeDoc"]:::docs:::done
         s64["§6.4 Kotlin\nDokka"]:::docs:::done
         s65["§6.5 Swift\nDocC"]:::docs:::done
@@ -169,40 +169,35 @@ Use the de-facto scientific Python standard. `sphinx-apidoc` auto-generates `.rs
 
 ---
 
-## ✅ §6.2 Rust Reference Docs (rustdoc + doc-tests) {: #62-rust-reference-docs-rustdoc--doc-tests }
+## ✅ §6.2 C++ Reference Docs (Doxygen + Catch2 tests) {: #62-cpp-reference-docs-doxygen--catch2-tests }
 
-**Pain point:** `base/src/` contains ~12 modules (`linalg`, `stats`, `information`, `distance`, `graph`, `dim_reduce`, file-system, image ops, crawlers, sync). `cargo doc` runs but most items have no `///` doc comments. Doc-tests (executable `# Examples` in doc comments) are absent, meaning the Rust math backbone has no fast correctness check tied to documentation.
+**Pain point:** `base/include/base/` contains ~12 modules (`math/linalg.hpp`, `math/stats.hpp`, `math/distance.hpp`, `math/graph.hpp`, `math/dim_reduce.hpp`, `core/`, `web/`, etc.). Most items have minimal `///` Doxygen comments. The Catch2 tests in `base/tests/` cover correctness but Doxygen HTML is not yet generated or published.
 
 ### Options
 
-**A — `///` doc comments + `cargo doc` [Quick Win]**
-Add `///` comments to all public items in `base/src/lib.rs` and sub-modules. Run `cargo doc --no-deps --open` locally. Publish HTML output to the unified portal.
-- Effort: 2–4 hours for the math modules (`linalg`, `stats`, `information`, `distance`); 1 day for the full `base/` crate.
-- Pros: Zero new dependencies. `cargo doc` is part of the standard Rust toolchain. Output is self-hosted HTML.
+**A — `///` Doxygen comments + `doxygen` HTML [Quick Win]**
+Add Doxygen `///` comments to all public items in `base/include/`. Run `doxygen Doxyfile` locally. Publish HTML output to the unified portal.
+- Effort: 2–4 hours for the math headers (`linalg`, `stats`, `information`, `distance`); 1 day for all `base/include/`.
+- Pros: Zero new dependencies. Doxygen is widely installed. Output is self-hosted HTML.
 - Cons: Doc comments require manual updates when signatures change.
 
-**B — Doc-tests for mathematical invariants [Quick Win]**
-Add `# Examples` blocks to key public functions. `cargo test --doc` runs them as unit tests. Example:
-```rust
-/// Computes the cosine similarity between two unit vectors.
-///
-/// # Examples
-/// ```
-/// use base::math::distance::cosine;
-/// assert!((cosine(&[1.0, 0.0], &[1.0, 0.0]) - 1.0).abs() < 1e-9);
-/// ```
-pub fn cosine(a: &[f64], b: &[f64]) -> f64 { ... }
+**B — Catch2 tests for mathematical invariants [Quick Win]**
+Add `TEST_CASE` entries for all public math functions. Run via `just test-base-cpp`. Example:
+```cpp
+TEST_CASE("cosine_similarity unit vectors", "[math][distance]") {
+    std::vector<double> a = {1.0, 0.0};
+    CHECK(base::math::distance::cosine_similarity(a, a) == Catch::Approx(1.0).epsilon(1e-9));
+}
 ```
-- Pros: Documentation that is simultaneously a regression test. Zero test framework overhead.
-- Cons: Doc-tests are slower than unit tests for heavy functions (e.g., MST, t-SNE). Best for pure mathematical functions.
+- Pros: Tests double as documentation of expected behaviour. Already part of the build.
+- Cons: Larger test binary than doc-tests for trivial cases.
 
-**C — `cargo-rdme` — README driven by rustdoc**
-Sync `base/README.md` from the crate-level `//!` doc comments automatically. Prevents the README and the code from diverging.
-- Reference: [crates.io/crates/cargo-rdme](https://crates.io/crates/cargo-rdme)
-- Pros: Single source of truth: edit doc comments, README updates automatically.
-- Cons: Extra build step. Not yet widely used.
+**C — README driven by Doxygen mainpage**
+Sync `base/README.md` from the Doxygen `@mainpage` block in `base/include/base/base.hpp`. Prevents README/code divergence.
+- Pros: Single source of truth: edit the mainpage block, README stays current via a script.
+- Cons: Requires a small generation script.
 
-**Recommendation:** A + B together. Doc-tests for pure mathematical functions in `linalg`, `stats`, `information`, `distance` (these are fast and benefit most). `cargo doc` HTML integrated into the portal at §6.11.
+**Recommendation:** A + B together. Catch2 tests for pure mathematical functions in `linalg`, `stats`, `information`, `distance`. Doxygen HTML integrated into the portal at §6.11.
 
 ---
 
@@ -360,7 +355,7 @@ Create `docs/DOCUMENTATION_STANDARDS.md` codifying:
 **A — Expand TROUBLESHOOT.md with per-subsystem sections [Quick Win]**
 Add sections:
 - **ASP Pipeline**: common `ValueError`/`RuntimeError` patterns from `pipeline.py`, how to interpret the stage trace JSON, how to engage fallback modes via env vars.
-- **Rust/PyO3**: `maturin develop` failure modes, `pyo3` version mismatch, `libpqxx` link errors.
+- **C++/pybind11**: `just build-base` failure modes, pybind11 version mismatch, `libpqxx` link errors.
 - **Hydra CLI**: `HydraException`, config override syntax, `config_path` resolution.
 - **Mobile (Android/iOS)**: common Gradle/Xcode build failures, signing issues.
 - Pros: Reduces support burden. Each ASP session that hits a new failure mode generates one new entry.
@@ -435,7 +430,7 @@ Use `papermill` to run notebooks with different parameters (different test seque
 ### Options
 
 **A — MkDocs Material (recommended) [Quick Win relative to alternatives]**
-- Python-native, `pip install mkdocs-material`. Integrates with `mkdocstrings` (Python), `typedoc-plugin-markdown` (TypeScript), and `myst-nb` (notebooks). Rust docs linked as an external HTML tree via an iframe or a redirect.
+- Python-native, `pip install mkdocs-material`. Integrates with `mkdocstrings` (Python), `typedoc-plugin-markdown` (TypeScript), and `myst-nb` (notebooks). C++ docs (Doxygen HTML) linked as an external HTML tree via an iframe or a redirect.
 - Navigation defined in `mkdocs.yml`. Full-text search. Dark mode. GitHub Pages deployment in < 30 min.
 - Pros: Zero-config for Python projects. Best-in-class Markdown rendering. Active community. Used by FastAPI, Pydantic, Typer.
 - Cons: Rust/Kotlin/Swift docs must be embedded as HTML iframes or separate subdomains (not native pages). Less suitable if the primary audience is not Python-centric.
@@ -460,7 +455,7 @@ Use `papermill` to run notebooks with different parameters (different test seque
 - Cons: Young ecosystem. Less documentation tooling integration than MkDocs Material or Docusaurus.
 - Reference: [starlight.astro.build](https://starlight.astro.build/)
 
-**Recommendation:** **A (MkDocs Material)**. The Python-native toolchain is already present; `mkdocstrings`, `myst-nb`, and `typedoc-plugin-markdown` give the highest language coverage for the lowest setup cost. Rust docs can be embedded as a separate cargo doc HTML tree linked from the portal. If the team later wants React-based interactive examples in docs, migrate the root portal to Docusaurus (B) while keeping the MkDocs config as a template.
+**Recommendation:** **A (MkDocs Material)**. The Python-native toolchain is already present; `mkdocstrings`, `myst-nb`, and `typedoc-plugin-markdown` give the highest language coverage for the lowest setup cost. C++ docs can be embedded as a separate Doxygen HTML tree linked from the portal. If the team later wants React-based interactive examples in docs, migrate the root portal to Docusaurus (B) while keeping the MkDocs config as a template.
 
 ---
 
@@ -567,7 +562,7 @@ Run `jupyter nbconvert --to html --execute docs/notebooks/*.ipynb` on a weekly s
 
 ---
 
-## ✅ §6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)
+## ✅ §6.13 Enforcing Documentation Standards (doclint, just test-base-cpp, pre-commit)
 
 **Pain point:** Even with `DOCUMENTATION_STANDARDS.md` (§6.7C), standards are only enforced by code review unless automated. Pre-commit hooks catch regressions before they reach CI.
 
@@ -586,10 +581,10 @@ Run `jupyter nbconvert --to html --execute docs/notebooks/*.ipynb` on a weekly s
 - Effort: < 1 hour setup; fixing existing violations: 2–4 hours for `animation/` modules.
 - Reference: [jsh9/pydoclint](https://github.com/jsh9/pydoclint)
 
-**B — `cargo test --doc` in CI for Rust doc-tests [Quick Win]**
-Add `cargo test --doc` as a separate CI step alongside `cargo test`. Fails if any `# Examples` block in a doc comment does not compile and pass.
-- Effort: < 30 min. Already part of the standard Rust toolchain.
-- Pros: Documentation examples are regression tests. Zero new dependencies.
+**B — `just test-base-cpp` in CI for C++ tests [Quick Win]**
+Add `just test-base-cpp` as a separate CI step. Fails if any Catch2 test in `base/tests/` does not pass. Covers all pybind11-exported public APIs.
+- Effort: < 30 min. Already part of the CMake build.
+- Pros: Tests cover all public API surface. Zero new dependencies beyond CMake and Catch2.
 
 **C — `typedoc --treatWarningsAsErrors` for TypeScript [Quick Win]**
 Pass `--treatWarningsAsErrors` to TypeDoc in CI. Fails if any exported symbol is undocumented.
@@ -691,7 +686,7 @@ Build an algorithm visualisation page into `frontend/src/tabs/analytics/` that s
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | ✅ §6.7A CHANGELOG reformatting · ✅ §6.8C TROUBLESHOOTING.md rename · ✅ §6.13B `cargo test --doc` in CI · ✅ §6.13D `lychee` link checker · ✅ §6.13E `alex` inclusive language pre-commit | ✅ §6.2A `///` doc comments in Rust math modules · ✅ §6.2B doc-tests for pure functions · ✅ §6.7B DEPENDENCY_POLICY.md · ✅ §6.7C DOCUMENTATION_STANDARDS.md · ✅ §6.8A TROUBLESHOOT.md expansion · ✅ §6.13A `pydoclint` pre-commit hook · ✅ §6.13C TypeDoc strict mode · ✅ §6.14A Mermaid module graph | ✅ §6.3A TypeDoc setup for TS math modules · ✅ §6.4A Dokka setup for Android · ✅ §6.6A docs/ARCHITECTURE.md standardisation | — |
+| **Low (<1d)** | ✅ §6.7A CHANGELOG reformatting · ✅ §6.8C TROUBLESHOOTING.md rename · ✅ §6.13B `just test-base-cpp` in CI · ✅ §6.13D `lychee` link checker · ✅ §6.13E `alex` inclusive language pre-commit | ✅ §6.2A `///` Doxygen comments in C++ math headers · ✅ §6.2B Catch2 tests for pure functions · ✅ §6.7B DEPENDENCY_POLICY.md · ✅ §6.7C DOCUMENTATION_STANDARDS.md · ✅ §6.8A TROUBLESHOOT.md expansion · ✅ §6.13A `pydoclint` pre-commit hook · ✅ §6.13C TypeDoc strict mode · ✅ §6.14A Mermaid module graph | ✅ §6.3A TypeDoc setup for TS math modules · ✅ §6.4A Dokka setup for Android · ✅ §6.6A docs/ARCHITECTURE.md standardisation | — |
 | **Medium (1d–1w)** | — | ✅ §6.1A mkdocstrings for `animation/` · ✅ §6.3B TypeDoc → Markdown portal integration · ✅ §6.8B BENCHMARKS.md restructuring · ✅ §6.9A Jupyter notebooks for ASP + CLIP · ✅ §6.14D Mermaid CLI in CI | ✅ §6.10A MkDocs Material portal setup · ✅ §6.11A unified `docs/` structure · ✅ §6.12A `docs.yml` GitHub Actions workflow · ✅ §6.12C PR preview deployments · ✅ §6.15A Jupyter widgets in notebooks | ✅ §6.5A DocC for iOS · ✅ §6.9C mkdocs-jupyter portal integration |
 | **High (1–2w)** | — | ✅ §6.12B parallel per-language doc jobs · ✅ §6.15B Binder live notebooks | ✅ §6.1B Sphinx for full Python backend · ✅ §6.12D scheduled notebook execution · ✅ §6.4B Dokka GFM portal integration | ✅ §6.11A full polyglot portal with all five languages |
 | **Very High (2w+)** | — | — | ✅ §6.14C Structurizr / C4 model architecture documentation | §6.15C TypeScript algorithm stepper in analytics tab (gated on Phase 13) · ✅ §6.15D OpenAPI playground (drf-spectacular already wired) |
@@ -704,7 +699,7 @@ Build an algorithm visualisation page into `frontend/src/tabs/analytics/` that s
 |---------|--------|
 | How to Use | [#how-to-use-this-document](#how-to-use-this-document) |
 | §6.1 Python Docs | [#61-python-reference-docs-sphinx--mkdocstrings](#61-python-reference-docs-sphinx--mkdocstrings) |
-| §6.2 Rust Docs | [#62-rust-reference-docs-rustdoc--doc-tests](#62-rust-reference-docs-rustdoc--doc-tests) |
+| §6.2 C++ Docs | [#62-cpp-reference-docs-doxygen--catch2-tests](#62-cpp-reference-docs-doxygen--catch2-tests) |
 | §6.3 TypeScript Docs | [#63-typescript-reference-docs-typedoc](#63-typescript-reference-docs-typedoc) |
 | §6.4 Kotlin Docs | [#64-kotlin-reference-docs-dokka](#64-kotlin-reference-docs-dokka) |
 | §6.5 Swift Docs | [#65-swift-reference-docs-docc](#65-swift-reference-docs-docc) |

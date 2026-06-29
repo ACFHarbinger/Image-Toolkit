@@ -5,7 +5,7 @@ Benchmark utilities for measuring memory and time across backend operations.
 import os
 import gc
 import time
-import psutil
+import psutil # pyrefly: ignore [untyped-import]
 import json
 from typing import Callable, Any, Dict, List, Optional
 from functools import wraps
@@ -26,7 +26,8 @@ class MemoryTracker:
         """Start tracking memory."""
         gc.collect()
         time.sleep(0.1)  # Let GC finish
-        self.baseline = self.process.memory_info().rss / 1024 / 1024  # MB
+        # In Megabytes
+        self.baseline = self.process.memory_info().rss / 1024 / 1024  # pyrefly: ignore [bad-assignment]
         self.peak = self.baseline
         self.samples = [self.baseline]
 
@@ -35,7 +36,7 @@ class MemoryTracker:
         current = self.process.memory_info().rss / 1024 / 1024
         self.samples.append(current)
         if current > self.peak:
-            self.peak = current
+            self.peak = current # pyrefly: ignore [bad-assignment]
 
     def stop(self):
         """Stop tracking and return stats."""
@@ -71,7 +72,7 @@ def measure_memory(func: Callable) -> Callable:
     return wrapper
 
 
-class BenchmarkRunner:
+class BenchmarkManager:
     """Manages benchmark execution and result collection."""
 
     def __init__(self, suite_name: str):
@@ -318,10 +319,12 @@ class BenchmarkRunner:
 
         # Find slowest and fastest
         sorted_by_time = sorted(self.results, key=lambda r: r["time"]["avg_sec"])
+        # pyrefly: ignore [bad-assignment]
         insights["fastest_benchmark"] = {
             "name": sorted_by_time[0]["name"],
             "avg_time_sec": sorted_by_time[0]["time"]["avg_sec"],
         }
+        # pyrefly: ignore [bad-assignment]
         insights["slowest_benchmark"] = {
             "name": sorted_by_time[-1]["name"],
             "avg_time_sec": sorted_by_time[-1]["time"]["avg_sec"],
@@ -329,10 +332,12 @@ class BenchmarkRunner:
 
         # Find memory intensive/efficient
         sorted_by_mem = sorted(self.results, key=lambda r: r["memory"]["avg_peak_mb"])
+        # pyrefly: ignore [bad-assignment]
         insights["most_memory_efficient"] = {
             "name": sorted_by_mem[0]["name"],
             "avg_peak_mb": sorted_by_mem[0]["memory"]["avg_peak_mb"],
         }
+        # pyrefly: ignore [bad-assignment]
         insights["most_memory_intensive"] = {
             "name": sorted_by_mem[-1]["name"],
             "avg_peak_mb": sorted_by_mem[-1]["memory"]["avg_peak_mb"],

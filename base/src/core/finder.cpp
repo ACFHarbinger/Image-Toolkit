@@ -95,7 +95,7 @@ static std::string hash_bytes(const std::vector<uint8_t>& data) {
 } // namespace sha256_impl
 #endif // !HAVE_OPENSSL
 
-static std::string sha256_file(const std::string& path) {
+std::string sha256_file(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     if (!f) return "";
     std::vector<uint8_t> data((std::istreambuf_iterator<char>(f)),
@@ -184,7 +184,7 @@ find_duplicate_images(
 // find_similar_images_phash
 // ---------------------------------------------------------------------------
 
-static std::pair<std::string, uint64_t> compute_phash(const std::string& path) {
+std::pair<std::string, uint64_t> compute_phash(const std::string& path) {
     cv::Mat img = cv::imread(path, cv::IMREAD_GRAYSCALE);
     if (img.empty()) return {path, 0};
     cv::Mat small;
@@ -249,6 +249,25 @@ find_similar_images_phash(
 // ---------------------------------------------------------------------------
 
 void register_finder(py::module_& m) {
+    m.def("sha256_file",
+        [](const std::string& path) {
+            py::gil_scoped_release rel;
+            return base::core::sha256_file(path);
+        },
+        py::arg("path"),
+        "Return the SHA-256 hex digest of the file at *path*. Replaces Rust blake3_file.");
+
+    m.def("phash64",
+        [](const std::string& path) -> std::string {
+            py::gil_scoped_release rel;
+            auto [p, hash] = base::core::compute_phash(path);
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::setw(16) << std::setfill('0') << hash;
+            return oss.str();
+        },
+        py::arg("path"),
+        "Return the 64-bit pHash of the image at *path* as a hex string. Replaces Rust phash64.");
+
     m.def("find_duplicate_images",
         [](const std::string& directory,
            const std::vector<std::string>& extensions,

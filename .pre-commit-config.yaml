@@ -81,29 +81,15 @@ repos:
         files: \.(md|markdown)$
         pass_filenames: true
 
-  # ── Rust: format ─────────────────────────────────────────────────────────
+  # ── C++ base: format ─────────────────────────────────────────────────────
   - repo: local
     hooks:
-      - id: cargo-fmt
-        name: cargo fmt
+      - id: clang-format-base
+        name: clang-format (base/ C++ sources)
         language: system
-        entry: bash -c 'cd base && cargo fmt -- --check'
-        files: ^base/.*\.rs$
-        pass_filenames: false
-        types: [rust]
-
-  # ── Rust: doc-tests ──────────────────────────────────────────────────────
-  # Runs `cargo test --doc` on the math modules to verify Examples blocks.
-  # Scoped to math/ — only triggered when math source files change.
-  - repo: local
-    hooks:
-      - id: cargo-doc-test
-        name: cargo test --doc (math modules)
-        language: system
-        entry: bash -c 'cd base && cargo test --doc 2>&1'
-        files: ^base/src/math/.*\.rs$
-        pass_filenames: false
-        types: [rust]
+        entry: bash -c 'clang-format --dry-run --Werror "$@"' --
+        files: ^base/(src|include)/.*\.(cpp|hpp|h)$
+        pass_filenames: true
 
   # ── TypeScript: type check ────────────────────────────────────────────────
   - repo: local

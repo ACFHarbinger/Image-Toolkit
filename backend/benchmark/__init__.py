@@ -2,9 +2,9 @@
 Image-Toolkit Performance Benchmark Suite
 
 Comprehensive benchmarking infrastructure for measuring memory usage and
-compute time across Python backend and Rust base layers.
+compute time across Python backend and C++ base layers.
 """
 
-from .utils import BenchmarkRunner, MemoryTracker, measure_memory
+from .tracker_manager import BenchmarkManager, MemoryTracker, measure_memory
 
-__all__ = ["BenchmarkRunner", "MemoryTracker", "measure_memory"]
+__all__ = ["BenchmarkManager", "MemoryTracker", "measure_memory"]

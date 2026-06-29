@@ -1,4 +1,4 @@
-"""Benchmark suite for Rust core image processing operations (via PyO3/base module).
+"""Benchmark suite for C++ core image processing operations (via base module).
 
 Covers the hot paths most likely to be bottlenecks for large library workflows:
 - load_image_batch (Rayon parallel decode)
@@ -7,9 +7,9 @@ Covers the hot paths most likely to be bottlenecks for large library workflows:
 - merge_images (horizontal/vertical stacking)
 
 Run standalone:
-    python backend/benchmark/bench_rust_image_processing.py
+    python backend/benchmark/bench_cpp_image_processing.py
 or via the benchmark runner:
-    python backend/benchmark/run_all.py --suite rust_image
+    python backend/benchmark/run_all.py --suite cpp_image
 """
 
 from __future__ import annotations
@@ -20,19 +20,19 @@ from pathlib import Path
 
 import numpy as np
 
-# Ensure repo root on path so `base` Rust module is importable after `maturin develop`.
+# Ensure repo root on path so `base` C++ module is importable after build.
 _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from backend.benchmark.utils import BenchmarkRunner, measure_memory  # noqa: E402
+from backend.benchmark.tracker_manager import BenchmarkManager, measure_memory  # noqa: E402
 
 try:
-    import base as rust_core  # type: ignore[import]
-    _RUST_AVAILABLE = True
+    import base as cpp_core  # type: ignore[import]
+    _CPP_AVAILABLE = True
 except ImportError:
-    rust_core = None  # type: ignore[assignment]
-    _RUST_AVAILABLE = False
+    cpp_core = None  # type: ignore[assignment]
+    _CPP_AVAILABLE = False
 
 
 # ── Shared test fixtures (created once, reused across benchmarks) ─────────────
@@ -76,108 +76,108 @@ def _setup() -> None:
 
 # ── Runner registration ───────────────────────────────────────────────────────
 
-runner = BenchmarkRunner("Rust Image Processing")
+runner = BenchmarkManager("C++ Image Processing")
 
 
 @runner.benchmark("load_batch_512px_8images", iterations=5, warmup=1)
 @measure_memory
 def bench_load_batch_512_8() -> None:
     """Parallel decode of 8 × 512px PNGs via Rayon."""
-    if not _RUST_AVAILABLE or not _PATHS_512_8:
+    if not _CPP_AVAILABLE or not _PATHS_512_8:
         return
-    rust_core.load_image_batch(_PATHS_512_8)
+    cpp_core.load_image_batch(_PATHS_512_8) # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("load_batch_512px_32images", iterations=3, warmup=1)
 @measure_memory
 def bench_load_batch_512_32() -> None:
     """Parallel decode of 32 × 512px PNGs via Rayon."""
-    if not _RUST_AVAILABLE or not _PATHS_512_32:
+    if not _CPP_AVAILABLE or not _PATHS_512_32:
         return
-    rust_core.load_image_batch(_PATHS_512_32)
+    cpp_core.load_image_batch(_PATHS_512_32) # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("load_batch_1080p_8images", iterations=3, warmup=1)
 @measure_memory
 def bench_load_batch_1080_8() -> None:
     """Parallel decode of 8 × 1080p PNGs via Rayon."""
-    if not _RUST_AVAILABLE or not _PATHS_1080_8:
+    if not _CPP_AVAILABLE or not _PATHS_1080_8:
         return
-    rust_core.load_image_batch(_PATHS_1080_8)
+    cpp_core.load_image_batch(_PATHS_1080_8) # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("scan_directory_flat_200files", iterations=10, warmup=2)
 @measure_memory
 def bench_scan_flat() -> None:
     """Recursive FS scan over 200 files in a flat directory."""
-    if not _RUST_AVAILABLE or _TMP_DIR is None:
+    if not _CPP_AVAILABLE or _TMP_DIR is None:
         return
-    rust_core.scan_directory(str(Path(_TMP_DIR.name) / "512_32"), recursive=False)
+    cpp_core.scan_directory(str(Path(_TMP_DIR.name) / "512_32"), recursive=False) # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("scan_directory_recursive_multi_subdir", iterations=10, warmup=2)
 @measure_memory
 def bench_scan_recursive() -> None:
     """Recursive FS scan over all benchmark fixture subdirectories."""
-    if not _RUST_AVAILABLE or _TMP_DIR is None:
+    if not _CPP_AVAILABLE or _TMP_DIR is None:
         return
-    rust_core.scan_directory(_TMP_DIR.name, recursive=True)
+    cpp_core.scan_directory(_TMP_DIR.name, recursive=True) # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("convert_8x512px_to_webp", iterations=3, warmup=1)
 @measure_memory
 def bench_convert_512_webp() -> None:
-    """Convert 8 × 512px PNG → WebP via Rust encoder."""
-    if not _RUST_AVAILABLE or not _PATHS_512_8 or _OUT_DIR is None:
+    """Convert 8 × 512px PNG → WebP via C++ encoder."""
+    if not _CPP_AVAILABLE or not _PATHS_512_8 or _OUT_DIR is None:
         return
     for p in _PATHS_512_8:
-        rust_core.convert_image(p, str(_OUT_DIR), output_format="webp")
+        cpp_core.convert_image(p, str(_OUT_DIR), output_format="webp") # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("convert_8x1080p_to_webp", iterations=3, warmup=1)
 @measure_memory
 def bench_convert_1080_webp() -> None:
-    """Convert 8 × 1080p PNG → WebP via Rust encoder."""
-    if not _RUST_AVAILABLE or not _PATHS_1080_8 or _OUT_DIR is None:
+    """Convert 8 × 1080p PNG → WebP via C++ encoder."""
+    if not _CPP_AVAILABLE or not _PATHS_1080_8 or _OUT_DIR is None:
         return
     for p in _PATHS_1080_8:
-        rust_core.convert_image(p, str(_OUT_DIR), output_format="webp")
+        cpp_core.convert_image(p, str(_OUT_DIR), output_format="webp") # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("convert_8x512px_to_jpg", iterations=3, warmup=1)
 @measure_memory
 def bench_convert_512_jpg() -> None:
-    """Convert 8 × 512px PNG → JPEG via Rust encoder."""
-    if not _RUST_AVAILABLE or not _PATHS_512_8 or _OUT_DIR is None:
+    """Convert 8 × 512px PNG → JPEG via C++ encoder."""
+    if not _CPP_AVAILABLE or not _PATHS_512_8 or _OUT_DIR is None:
         return
     for p in _PATHS_512_8:
-        rust_core.convert_image(p, str(_OUT_DIR), output_format="jpg")
+        cpp_core.convert_image(p, str(_OUT_DIR), output_format="jpg") # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("merge_images_vertical_8x512px", iterations=5, warmup=1)
 @measure_memory
 def bench_merge_vertical_512() -> None:
-    """Vertical stack of 8 × 512px images via Rust."""
-    if not _RUST_AVAILABLE or not _PATHS_512_8:
+    """Vertical stack of 8 × 512px images via C++."""
+    if not _CPP_AVAILABLE or not _PATHS_512_8:
         return
-    rust_core.merge_images(_PATHS_512_8, direction="vertical")
+    cpp_core.merge_images(_PATHS_512_8, direction="vertical") # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("merge_images_horizontal_8x1080p", iterations=3, warmup=1)
 @measure_memory
 def bench_merge_horizontal_1080() -> None:
-    """Horizontal stack of 8 × 1080p images via Rust."""
-    if not _RUST_AVAILABLE or not _PATHS_1080_8:
+    """Horizontal stack of 8 × 1080p images via C++."""
+    if not _CPP_AVAILABLE or not _PATHS_1080_8:
         return
-    rust_core.merge_images(_PATHS_1080_8, direction="horizontal")
+    cpp_core.merge_images(_PATHS_1080_8, direction="horizontal") # pyrefly: ignore [missing-attribute]
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    if not _RUST_AVAILABLE:
-        print("ERROR: Rust base module not available.")
-        print("       Run `maturin develop` inside the base/ directory first.")
+    if not _CPP_AVAILABLE:
+        print("ERROR: C++ base module not available.")
+        print("       Run the build_base.sh|build_base.bat C++ build script first.")
         sys.exit(1)
 
     _setup()
