@@ -28,7 +28,7 @@ from backend.src.animation.core.stateless import _laplacian_blend
 logger = logging.getLogger(__name__)
 
 try:
-    import batch as _batch_render
+    import base as _batch_render
     _BATCH_RENDER = True
 except ImportError:
     _batch_render = None  # type: ignore[assignment]

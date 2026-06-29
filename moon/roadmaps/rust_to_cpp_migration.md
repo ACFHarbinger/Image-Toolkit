@@ -1,10 +1,9 @@
-# Rust → C++ Migration Roadmap: `base/` → `batch/`
+# Rust → C++ Migration Roadmap: `base/` (formerly `batch/`)
 
-**Status: IN PROGRESS — Phases 1–6 complete; Phase 7 pending**
+**Status: COMPLETE — All phases done. Rust base retired to `archive/base_rust/`.**
 
-**Rename plan:** The `batch/` directory will be renamed `base/` upon Phase 7 completion. Until then, the
-C++ extension is imported as `batch` from Python; the Rust module is imported as `base`. After the rename,
-the Python import path becomes `base` for both the C++ and legacy paths.
+**Rename complete (Phase 7):** `batch/` has been renamed `base/`. The Rust PyO3 module has been archived
+to `archive/base_rust/`. `import base` now resolves to the C++ pybind11 extension directly.
 
 ---
 
@@ -571,7 +570,7 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 
 ---
 
-### Phase 7 — Final rename and Rust retirement (PENDING)
+### ✅ Phase 7 — Final rename and Rust retirement (COMPLETE)
 
 **Goal:** Rename `batch/` → `base/` and retire Rust `base/` to archive.
 

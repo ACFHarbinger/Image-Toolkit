@@ -4,6 +4,22 @@
 
 ---
 
+## S199 — 2026-06-29 (Rust→C++ migration Phase 7 — final rename & retirement)
+
+- **Phase 7 complete** — `batch/` renamed to `base/` via `git mv`; Rust `base/` archived to `archive/base_rust/`
+- `PYBIND11_MODULE(batch, m)` → `PYBIND11_MODULE(base, m)`; all `batch::` namespaces → `base::`; all `#include "batch/..."` → `#include "base/..."`; `batch/include/batch/` → `base/include/base/`
+- `base/CMakeLists.txt` + `base/tests/CMakeLists.txt`: target names updated (`batch` → `base`, `batch_impl` → `base_impl`, `batch_tests` → `base_tests`, `BATCH_BUILD_TESTS` → `BASE_BUILD_TESTS`)
+- `backend/src/utils/base_dispatch.py` simplified: dual-module dispatch removed; `import base` resolves directly to C++ extension; `NativeExt` now a thin alias with static submodule forwarders
+- `tools/build/justfile`: `build-base` now runs cmake against `base/`; `build-batch` recipe removed; `build-all` no longer includes `build-batch`
+- `tools/test/justfile`: `test-batch-cpp/py/bench` → `test-base-cpp/py/bench`; backwards-compat aliases kept
+- `scripts/build_base.sh`: replaces Rust maturin/cargo build with cmake build
+- `Cargo.toml`: `base` workspace member removed (archived)
+- `.github/workflows/security.yml`: `cargo-audit` step updated to scan `frontend/src-tauri` only (base Rust crate retired)
+- Animation Python files: `import batch` → `import base as batch` (25 call sites)
+- Rust→C++ migration fully complete — all 7 phases done
+
+---
+
 ## S198 — 2026-06-29 (Rust→C++ migration · Phases 1–6 implementation)
 
 - **CMake Phase 1 deps** — `batch/CMakeLists.txt` and `batch/tests/CMakeLists.txt` extended: optional SQLCipher+libsodium via `pkg_check_modules` (sets `HAVE_SQLCIPHER=1` when both found); `cpp-httplib v0.18.0` and `nlohmann/json v3.11.3` auto-fetched via FetchContent; include dirs wired to both `batch` and `batch_impl` targets; conditional SQLCipher/libsodium link block added

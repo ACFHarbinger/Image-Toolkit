@@ -30,7 +30,13 @@ for f in paths_to_scan:
         print(f"Could not read {f}: {e}")
         continue
         
-    for match in re.finditer(r'\[([^\]]+)\]\(([^)]+)\)', content):
+    # Strip fenced code blocks (``` ... ```) before link scanning so that
+    # C++ lambda syntax like [&](auto&&) is not misread as a Markdown link.
+    stripped = re.sub(r'```.*?```', '', content, flags=re.DOTALL)
+    # Also strip inline code spans to be safe.
+    stripped = re.sub(r'`[^`\n]+`', '', stripped)
+
+    for match in re.finditer(r'\[([^\]]+)\]\(([^)]+)\)', stripped):
         text = match.group(1)
         url = match.group(2).strip()
         

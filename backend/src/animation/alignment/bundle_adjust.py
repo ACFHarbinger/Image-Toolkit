@@ -23,7 +23,7 @@ from scipy.optimize import least_squares
 from backend.src.constants import DY_RATIO_THRESH, DY_ABS_THRESH, GNC_C_PX, GNC_MU_ANNEAL
 
 try:
-    from backend.src.animation import batch
+    from backend.src.animation import base as batch
 
     BATCH_AVAILABLE = True
 except ImportError:

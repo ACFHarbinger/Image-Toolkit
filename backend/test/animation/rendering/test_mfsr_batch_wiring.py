@@ -22,7 +22,7 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 try:
-    import batch as _batch_sr_test  # noqa: F401
+    import base as _batch_sr_test  # noqa: F401
     _HAS_BATCH = True
     _HAS_BATCH_SR = hasattr(_batch_sr_test, "sr_classical")
 except ImportError:
@@ -59,7 +59,7 @@ class TestBatchSrClassicalDirect:
     def test_dct_restore_returns_same_shape(self):
         """dct_restore returns uint8 same shape as input."""
         frame = np.full((64, 64, 3), 128, dtype=np.uint8)
-        import batch
+    import base as batch
         out = batch.sr_classical.dct_restore(frame, 8, 0.02)
         assert out.shape == frame.shape
         assert out.dtype == np.uint8
@@ -68,7 +68,7 @@ class TestBatchSrClassicalDirect:
     def test_de_seam_returns_int32_array(self):
         """de_seam returns int32 array of length H."""
         a, b = _solid_pair(h=32, w=24)
-        import batch
+    import base as batch
         path = batch.sr_classical.de_seam(a, b, True, 5, 5, 0.5)
         assert path.dtype == np.int32
         assert path.shape == (32,)
@@ -77,7 +77,7 @@ class TestBatchSrClassicalDirect:
     def test_de_seam_path_in_bounds(self):
         """All seam column indices must be within [0, W-1]."""
         a, b = _solid_pair(h=40, w=32)
-        import batch
+    import base as batch
         path = batch.sr_classical.de_seam(a, b, True, 5, 5, 0.5)
         assert int(path.min()) >= 0
         assert int(path.max()) <= 31
@@ -86,7 +86,7 @@ class TestBatchSrClassicalDirect:
     def test_pso_register_returns_dict(self):
         """pso_register returns dict with tx, ty, fitness keys."""
         a, b = _solid_pair(h=32, w=32)
-        import batch
+    import base as batch
         result = batch.sr_classical.pso_register(a, b, 10, 10, -50.0, 50.0)
         assert "tx" in result and "ty" in result and "fitness" in result
 
@@ -94,7 +94,7 @@ class TestBatchSrClassicalDirect:
     def test_pso_register_fitness_in_range(self):
         """NCC fitness must be in [-1, 1]."""
         a, b = _solid_pair(h=32, w=32)
-        import batch
+    import base as batch
         result = batch.sr_classical.pso_register(a, b, 10, 10, -50.0, 50.0)
         assert -1.0 <= float(result["fitness"]) <= 1.0
 

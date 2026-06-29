@@ -5,24 +5,31 @@ set shell := ["bash", "-c"]
 set unstable := true
 set working-directory := '../..'
 
-# Build production application base (Rust via Maturin)
+# Build C++ base extension (pybind11, OpenCV, Eigen3, OpenMP required).
+# Replaces the former Rust/maturin build-base (Phase 7: batch/ renamed to base/).
 build-base:
-    @echo "🏗️  Building production application base..."
-    bash ./scripts/build_base.sh
+    @echo "Building C++ base extension..."
+    cmake -B build/base base/ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
+        -DCMAKE_INSTALL_PREFIX="." \
+        && cmake --build build/base -j$(nproc) \
+        && cmake --install build/base
+    @echo "base extension built and installed."
 
 # Build production application cryptography JAR
 build-jar:
-    @echo "🏗️  Building production application criptography JAR..."
+    @echo "Building production application cryptography JAR..."
     ./gradlew build
 
 # Build production application frontend
 build-frontend:
-    @echo "🏗️  Building production application frontend..."
+    @echo "Building production application frontend..."
     npm run build
 
 # Build local OpenCV from source (bypasses system libopencv-dev requirement)
 build-opencv:
-    @echo "🔧 Building local OpenCV source..."
+    @echo "Building local OpenCV source..."
     cmake -B opencv/build opencv/ \
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_SHARED_LIBS=OFF \
@@ -34,22 +41,10 @@ build-opencv:
         -DCMAKE_INSTALL_PREFIX=opencv/install \
         && cmake --build opencv/build -j$(nproc) \
         && cmake --install opencv/build
-    @echo "✅ OpenCV built and installed to opencv/install."
+    @echo "OpenCV built and installed to opencv/install."
 
-# Build C++ batch extension (pybind11, OpenCV, Eigen3, OpenMP required).
-# Install .so alongside base.so inside the Python animation package.
-build-batch:
-    @echo "🔧 Building C++ batch extension..."
-    cmake -B build/batch batch/ \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
-        -DCMAKE_INSTALL_PREFIX="." \
-        && cmake --build build/batch -j$(nproc) \
-        && cmake --install build/batch
-    @echo "✅ batch extension built and installed."
-
-# Build everything: Rust base + Kotlin JAR + TypeScript frontend + C++ batch
-build-all: build-base build-jar build-frontend build-batch
+# Build everything: C++ base + Kotlin JAR + TypeScript frontend
+build-all: build-base build-jar build-frontend
 
 # Alias for build-all
 build: build-all
