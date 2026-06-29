@@ -1,9 +1,9 @@
 # Rust → C++ Migration Roadmap: `base/` (formerly `batch/`)
 
-**Status: COMPLETE — All phases done. Rust base retired to `archive/base_rust/`.**
+**Status: COMPLETE — All 11 phases done. Rust base retired to `archive/rust/`. All 27 Python-exposed functions ported.**
 
 **Rename complete (Phase 7):** `batch/` has been renamed `base/`. The Rust PyO3 module has been archived
-to `archive/base_rust/`. `import base` now resolves to the C++ pybind11 extension directly.
+to `archive/rust/`. `import base` now resolves to the C++ pybind11 extension directly.
 
 ---
 
@@ -567,6 +567,64 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 6. Port `dim_reduce.rs` → `math/dim_reduce.hpp`: MDS (double-center + eigen), t-SNE affinity matrix.
 7. Replace `UnionFind` duplicated in `bundle_adjust.cpp` with `#include <batch/math/graph.hpp>`.
 8. Write Catch2 unit tests in `batch/tests/cpp/test_math.cpp` covering all functions.
+
+---
+
+### ✅ Phase 8 — Core functions: convert, filesystem, finder, merger, wallpaper (COMPLETE)
+
+**Goal:** Port 9 remaining core Python-exposed Rust functions to C++.
+
+**Files created:**
+- `base/include/base/core/convert.hpp` / `base/src/core/convert.cpp` — `convert_single_image`, `convert_image_batch` (OpenMP parallel), `convert_video` (ffmpeg subprocess)
+- `base/include/base/core/filesystem.hpp` / `base/src/core/filesystem.cpp` — `get_files_by_extension`, `delete_files_by_extensions` (OpenMP parallel), `delete_path`
+- `base/include/base/core/finder.hpp` / `base/src/core/finder.cpp` — `find_duplicate_images` (SHA-256, OpenSSL/inline fallback), `find_similar_images_phash` (8×8 pHash + Union-Find)
+- `base/include/base/core/merger.hpp` / `base/src/core/merger.cpp` — `merge_images_horizontal`, `merge_images_vertical`, `merge_images_grid` (two-pass OpenCV canvas)
+- `base/include/base/core/wallpaper.hpp` / `base/src/core/wallpaper.cpp` — `set_wallpaper_gnome` (gsettings), `evaluate_kde_script` (qdbus via popen)
+
+All registered under `base.core.*`.
+
+---
+
+### ✅ Phase 9 — Web extensions: board crawlers, cloud sync, stubs (COMPLETE)
+
+**Goal:** Port board crawlers and cloud sync from Rust to C++; stub WebDriver-dependent functions.
+
+**Files created:**
+- `base/src/web/board_crawler.cpp` — Danbooru (GET), Gelbooru (GET dapi), Sankaku (POST JWT auth + capi-v2), `run_board_crawler(crawler_name, config_json, callback_obj) -> int`
+- `base/src/web/cloud_sync.cpp` — Dropbox (list_folder pagination + upload + download), Google Drive (multipart upload), OneDrive (Graph API), `run_sync(provider, config_json, callback_obj) -> str`
+- `base/src/web/reverse_image_search.cpp` — STUB (raises RuntimeError; Rust used thirtyfour/Selenium WebDriver, no C++ equivalent)
+- `base/src/web/image_crawler.cpp` — STUB (same reason)
+
+All registered into `base.web` by `register_web()`.
+
+---
+
+### ✅ Phase 10 — Utils: legacy migration and slideshow daemon (COMPLETE)
+
+**Goal:** Port `run_legacy_migration` and `run_slideshow_daemon` from Rust to C++.
+
+**Files created:**
+- `base/include/base/utils/migration.hpp` / `base/src/utils/migration.cpp` — JSON vault → SQLCipher migration under `#ifdef HAVE_SQLCIPHER`; key derived as `username:password`; raises `RuntimeError` if SQLCipher not compiled
+- `base/include/base/utils/slideshow.hpp` / `base/src/utils/slideshow.cpp` — process-lifetime singleton background `std::thread` daemon; actions: start/stop/status/next/configure; config persisted at `~/.image-toolkit/.slideshow_config.json`; uses gsettings for wallpaper advancement
+
+Both registered under `base.utils.*`.
+
+---
+
+### ✅ Phase 11 — Math bindings (COMPLETE)
+
+**Goal:** Expose the Phase 6 math headers (previously header-only, no Python bindings) via pybind11.
+
+**File created:**
+- `base/src/math/math_bindings.cpp` — registers `base.math.distance`, `base.math.stats`, `base.math.information`, `base.math.graph`, `base.math.linalg`, `base.math.dim_reduce`
+
+Submodule coverage:
+- `distance`: euclidean, euclidean_sq, cosine_similarity, cosine_distance, hamming, bhattacharyya, hellinger, manhattan
+- `stats`: mean, median, std_dev, variance, pearson, z_score, min_max_normalize
+- `information`: shannon_entropy, kl_divergence, js_divergence, js_distance, mutual_information
+- `graph`: Graph class, bfs, dfs, kruskal_mst, kruskal_max_mst, tarjan_scc, topological_sort
+- `linalg`: Matrix class, pca (PCAResult with scores/components/explained_variance_ratio)
+- `dim_reduce`: mds, tsne_affinities
 
 ---
 

@@ -54,6 +54,18 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# Phase 8: OpenSSL (optional — for SHA-256 in finder.cpp)
+# Falls back to inline FIPS 180-4 implementation if not found.
+# ---------------------------------------------------------------------------
+find_package(OpenSSL QUIET)
+if(OpenSSL_FOUND OR OPENSSL_FOUND)
+    message(STATUS "base: OpenSSL found — SHA-256 via EVP API")
+    add_compile_definitions(HAVE_OPENSSL=1)
+else()
+    message(STATUS "base: OpenSSL NOT found — using inline SHA-256 fallback")
+endif()
+
+# ---------------------------------------------------------------------------
 # Phase 5: cpp-httplib + nlohmann/json (header-only, auto-fetched via FetchContent)
 # ---------------------------------------------------------------------------
 FetchContent_Declare(
@@ -122,6 +134,26 @@ pybind11_add_module(base
 
     # HTTP request sequencing (Phase 5)
     src/web/web_requests.cpp
+
+    # Phase 8: core (image/video conversion, filesystem, finder, merger, wallpaper)
+    src/core/convert.cpp
+    src/core/filesystem.cpp
+    src/core/finder.cpp
+    src/core/merger.cpp
+    src/core/wallpaper.cpp
+
+    # Phase 9: web extensions (board crawlers, cloud sync, stubs)
+    src/web/board_crawler.cpp
+    src/web/cloud_sync.cpp
+    src/web/reverse_image_search.cpp
+    src/web/image_crawler.cpp
+
+    # Phase 10: utils (migration, slideshow daemon)
+    src/utils/migration.cpp
+    src/utils/slideshow.cpp
+
+    # Phase 11: math bindings
+    src/math/math_bindings.cpp
 )
 
 target_include_directories(base PRIVATE
@@ -157,6 +189,10 @@ endif()
 if(SQLCIPHER_FOUND AND SODIUM_FOUND)
     target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS})
     target_link_libraries(base PRIVATE ${SQLCIPHER_LIBRARIES} ${SODIUM_LIBRARIES})
+endif()
+
+if(OpenSSL_FOUND OR OPENSSL_FOUND)
+    target_link_libraries(base PRIVATE OpenSSL::Crypto)
 endif()
 
 # ---------------------------------------------------------------------------
