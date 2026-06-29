@@ -21,6 +21,7 @@
 #include <pybind11/stl.h>
 
 #include "common.hpp"
+#include <opencv2/imgproc.hpp>
 #include <opencv2/stitching/detail/exposure_compensate.hpp>
 
 namespace py = pybind11;
@@ -292,4 +293,30 @@ void register_exposure(py::module_& m) {
 
             Returns uint8 ndarray (H, W, 3).
         )doc");
+}
+
+std::vector<cv::Mat> blocks_gain_compensate_impl(
+    const std::vector<cv::Mat>& /*frames*/,
+    const std::vector<cv::Mat>& /*masks*/,
+    const std::vector<cv::Point>& /*corners*/,
+    int /*bl_width*/, int /*bl_height*/,
+    int /*nr_feeds*/, int /*nr_iterations*/)
+{
+    throw std::runtime_error("blocks_gain_compensate_impl: not implemented");
+}
+
+std::vector<cv::Mat> blocks_channels_compensate_impl(
+    const std::vector<cv::Mat>& /*frames*/,
+    const std::vector<cv::Mat>& /*masks*/,
+    const std::vector<cv::Point>& /*corners*/,
+    int /*bl_width*/, int /*bl_height*/)
+{
+    throw std::runtime_error("blocks_channels_compensate_impl: not implemented");
+}
+
+cv::Mat correct_vignetting_impl(
+    const cv::Mat& /*frame*/,
+    const cv::Mat& /*vignette_map*/)
+{
+    throw std::runtime_error("correct_vignetting_impl: not implemented");
 }

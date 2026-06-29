@@ -43,17 +43,21 @@ static std::string normalise_ext(const std::string& ext) {
 
 std::vector<std::string> get_files_by_extension(
     const std::string& directory,
-    const std::string& extension,
+    const std::vector<std::string>& extensions,
     bool recursive)
 {
-    std::string target_ext = normalise_ext(extension);
+    std::vector<std::string> target_exts;
+    target_exts.reserve(extensions.size());
+    for (const auto& ext : extensions) {
+        target_exts.push_back(normalise_ext(ext));
+    }
     std::vector<std::string> results;
 
     auto collect = [&](auto& it) {
         for (const auto& entry : it) {
             if (!entry.is_regular_file()) continue;
             std::string file_ext = normalise_ext(entry.path().extension().string());
-            if (file_ext == target_ext)
+            if (std::find(target_exts.begin(), target_exts.end(), file_ext) != target_exts.end())
                 results.push_back(entry.path().string());
         }
     };
@@ -113,9 +117,19 @@ bool delete_path(const std::string& path) {
 
 void register_filesystem(py::module_& m) {
     m.def("get_files_by_extension",
-        [](const std::string& directory, const std::string& extension, bool recursive) {
+        [](const std::string& directory, py::object extension_obj, bool recursive) {
+            std::vector<std::string> exts;
+            if (py::isinstance<py::str>(extension_obj)) {
+                exts.push_back(extension_obj.cast<std::string>());
+            } else if (py::isinstance<py::sequence>(extension_obj)) {
+                for (auto item : extension_obj.cast<py::sequence>()) {
+                    exts.push_back(item.cast<std::string>());
+                }
+            } else {
+                exts.push_back(extension_obj.cast<std::string>());
+            }
             py::gil_scoped_release rel;
-            return base::core::get_files_by_extension(directory, extension, recursive);
+            return base::core::get_files_by_extension(directory, exts, recursive);
         },
         py::arg("directory"), py::arg("extension"), py::arg("recursive"),
         "List all files under directory with the given extension (case-insensitive).");

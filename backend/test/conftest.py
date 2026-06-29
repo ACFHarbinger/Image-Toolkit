@@ -29,6 +29,9 @@ if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 if test_dir not in sys.path:
     sys.path.insert(0, test_dir)
+build_base = os.path.join(repo_root, "build", "base")
+if os.path.exists(build_base) and build_base not in sys.path:
+    sys.path.insert(0, build_base)
 
 # Limit OpenCV threads to prevent CPU thrashing
 try:

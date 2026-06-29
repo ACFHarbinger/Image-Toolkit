@@ -19,7 +19,7 @@ set(CMAKE_IMPORT_FILE_VERSION 1)
 set(_cmake_targets_defined "")
 set(_cmake_targets_not_defined "")
 set(_cmake_expected_targets "")
-foreach(_cmake_expected_target IN ITEMS Eigen3::Eigen)
+foreach(_cmake_expected_target IN ITEMS httplib::httplib)
   list(APPEND _cmake_expected_targets "${_cmake_expected_target}")
   if(TARGET "${_cmake_expected_target}")
     list(APPEND _cmake_targets_defined "${_cmake_expected_target}")
@@ -55,15 +55,19 @@ if(_IMPORT_PREFIX STREQUAL "/")
   set(_IMPORT_PREFIX "")
 endif()
 
-# Create imported target Eigen3::Eigen
-add_library(Eigen3::Eigen INTERFACE IMPORTED)
+# Create imported target httplib::httplib
+add_library(httplib::httplib INTERFACE IMPORTED)
 
-set_target_properties(Eigen3::Eigen PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include/eigen3"
+set_target_properties(httplib::httplib PROPERTIES
+  INTERFACE_COMPILE_DEFINITIONS "\$<\$<BOOL:OFF>:CPPHTTPLIB_NO_EXCEPTIONS>;\$<\$<BOOL:TRUE>:CPPHTTPLIB_BROTLI_SUPPORT>;\$<\$<BOOL:TRUE>:CPPHTTPLIB_ZLIB_SUPPORT>;\$<\$<BOOL:TRUE>:CPPHTTPLIB_OPENSSL_SUPPORT>;\$<\$<AND:\$<PLATFORM_ID:Darwin>,\$<BOOL:TRUE>,\$<BOOL:ON>>:CPPHTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN>"
+  INTERFACE_COMPILE_FEATURES "cxx_std_11"
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
+  INTERFACE_LINK_LIBRARIES "Threads::Threads;\$<\$<PLATFORM_ID:Windows>:ws2_32>;\$<\$<PLATFORM_ID:Windows>:crypt32>;\$<\$<AND:\$<PLATFORM_ID:Darwin>,\$<BOOL:TRUE>,\$<BOOL:ON>>:-framework CoreFoundation -framework Security>;\$<\$<BOOL:TRUE>:Brotli::common>;\$<\$<BOOL:TRUE>:Brotli::encoder>;\$<\$<BOOL:TRUE>:Brotli::decoder>;\$<\$<BOOL:TRUE>:ZLIB::ZLIB>;\$<\$<BOOL:TRUE>:OpenSSL::SSL>;\$<\$<BOOL:TRUE>:OpenSSL::Crypto>"
+  INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
 )
 
 # Load information for each installed configuration.
-file(GLOB _cmake_config_files "${CMAKE_CURRENT_LIST_DIR}/Eigen3Targets-*.cmake")
+file(GLOB _cmake_config_files "${CMAKE_CURRENT_LIST_DIR}/httplibTargets-*.cmake")
 foreach(_cmake_config_file IN LISTS _cmake_config_files)
   include("${_cmake_config_file}")
 endforeach()

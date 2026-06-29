@@ -266,6 +266,21 @@ py::str run_web_requests_sequence_py(
     return py::str("All requests finished.");
 }
 
+std::string run_web_requests_sequence(
+    const std::string&                       config_json,
+    std::function<void(const std::string&)>  /*status_cb*/)
+{
+    if (config_json.empty()) {
+        throw std::runtime_error("run_web_requests_sequence: Empty config");
+    }
+    try {
+        auto parsed = json::parse(config_json);
+    } catch (const std::exception& e) {
+        throw std::runtime_error(std::string("run_web_requests_sequence: Malformed JSON: ") + e.what());
+    }
+    throw std::runtime_error("run_web_requests_sequence: stubbed for Phase 5");
+}
+
 } // namespace base::web
 
 // ---------------------------------------------------------------------------

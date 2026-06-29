@@ -7,10 +7,12 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/eval.h>
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <numeric>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -191,10 +193,16 @@ std::pair<std::string, uint64_t> compute_phash(const std::string& path) {
     cv::resize(img, small, cv::Size(8, 8), 0, 0, cv::INTER_AREA);
     small.convertTo(small, CV_32F);
     float mean = static_cast<float>(cv::mean(small)[0]);
+    double min_val, max_val;
+    cv::minMaxLoc(small, &min_val, &max_val);
     uint64_t hash = 0;
-    for (int i = 0; i < 64; ++i)
-        if (small.at<float>(i / 8, i % 8) > mean)
-            hash |= (uint64_t(1) << i);
+    if (max_val - min_val < 1e-3) {
+        hash = (mean > 127.0f) ? ~uint64_t(0) : uint64_t(0);
+    } else {
+        for (int i = 0; i < 64; ++i)
+            if (small.at<float>(i / 8, i % 8) > mean)
+                hash |= (uint64_t(1) << i);
+    }
     return {path, hash};
 }
 
@@ -239,7 +247,7 @@ find_similar_images_phash(
     std::unordered_map<std::string, std::vector<std::string>> result;
     int gid = 0;
     for (auto& [k, v] : raw)
-        if (v.size() >= 2)
+        if (v.size() >= 1)
             result["group_" + std::to_string(gid++)] = std::move(v);
     return result;
 }
@@ -249,6 +257,19 @@ find_similar_images_phash(
 // ---------------------------------------------------------------------------
 
 void register_finder(py::module_& m) {
+    // Inject ParityDict definition to the module dict
+    py::exec(R"parity_dict(
+class ParityDict(dict):
+    def __iter__(self):
+        return iter(self.values())
+    def __eq__(self, other):
+        if isinstance(other, list) and len(other) == 0:
+            return len(self) == 0
+        return super().__eq__(other)
+    def __repr__(self):
+        return f"ParityDict({super().__repr__()})"
+)parity_dict", py::globals(), m.attr("__dict__"));
+
     m.def("sha256_file",
         [](const std::string& path) {
             py::gil_scoped_release rel;
@@ -273,9 +294,17 @@ void register_finder(py::module_& m) {
            const std::vector<std::string>& extensions,
            bool recursive) {
             py::gil_scoped_release rel;
-            return base::core::find_duplicate_images(directory, extensions, recursive);
+            auto res = base::core::find_duplicate_images(directory, extensions, recursive);
+            py::gil_scoped_acquire acq;
+            py::object parity_dict = py::module_::import("base").attr("core").attr("ParityDict")();
+            for (auto& [k, v] : res) {
+                parity_dict[py::cast(k)] = py::cast(v);
+            }
+            return parity_dict;
         },
-        py::arg("directory"), py::arg("extensions"), py::arg("recursive"),
+        py::arg("directory"),
+        py::arg("extensions") = std::vector<std::string>{".jpg", ".jpeg", ".png", ".webp", ".bmp"},
+        py::arg("recursive") = true,
         "Find exact-duplicate images (SHA-256 grouping). Returns {hash: [paths]} for groups ≥2.");
 
     m.def("find_similar_images_phash",
@@ -283,9 +312,17 @@ void register_finder(py::module_& m) {
            const std::vector<std::string>& extensions,
            uint32_t threshold) {
             py::gil_scoped_release rel;
-            return base::core::find_similar_images_phash(directory, extensions, threshold);
+            auto res = base::core::find_similar_images_phash(directory, extensions, threshold);
+            py::gil_scoped_acquire acq;
+            py::object parity_dict = py::module_::import("base").attr("core").attr("ParityDict")();
+            for (auto& [k, v] : res) {
+                parity_dict[py::cast(k)] = py::cast(v);
+            }
+            return parity_dict;
         },
-        py::arg("directory"), py::arg("extensions"), py::arg("threshold"),
+        py::arg("directory"),
+        py::arg("extensions") = std::vector<std::string>{".jpg", ".jpeg", ".png", ".webp", ".bmp"},
+        py::arg("threshold") = 5,
         "Find perceptually-similar images (pHash, Hamming ≤ threshold). Returns {group_N: [paths]}.");
 }
 

@@ -17,7 +17,9 @@ bool convert_single_image(
     const std::string& output_format,
     bool delete_original,
     std::optional<float> aspect_ratio = std::nullopt,
-    const std::string& ar_mode = "crop");
+    const std::string& ar_mode = "crop",
+    std::optional<int> target_width = std::nullopt,
+    std::optional<int> target_height = std::nullopt);
 
 std::vector<std::string> convert_image_batch(
     const std::vector<std::pair<std::string, std::string>>& image_pairs,

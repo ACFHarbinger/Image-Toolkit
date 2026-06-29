@@ -83,7 +83,8 @@ cv::Mat build_seam_cost_map_impl(
     float cost_col_smooth_sigma,
     bool  cost_map_norm,
     float scatter_cost_weight,
-    const std::vector<int>& pinned_rows);
+    const std::vector<int>& pinned_rows,
+    bool  try_gpu = false);
 
 std::vector<std::vector<int>> seam_batch_impl(
     const std::vector<ZonePair>& zone_pairs,

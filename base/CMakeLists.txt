@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Required dependencies
 # ---------------------------------------------------------------------------
 find_package(OpenCV 4.8 REQUIRED
-    COMPONENTS core imgproc stitching features2d video)
+    COMPONENTS core imgproc imgcodecs videoio stitching features2d video photo)
 # Fetch Eigen3 unconditionally if not on system path (usually missing in isolated envs)
 include(FetchContent)
 FetchContent_Declare(

@@ -10,6 +10,7 @@
 #include "video/video_batch.hpp"
 
 #include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 
 // ---------------------------------------------------------------------------
 // Tests that do not require an actual video file — validate struct defaults

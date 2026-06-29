@@ -1193,4 +1193,3 @@ void register_compositing(py::module_& m) {
             GIL released during pixel-loop computation.
         )doc");
 }
-}

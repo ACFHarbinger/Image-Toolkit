@@ -43,13 +43,17 @@ void register_web(py::module_& m);        // Phase 5+9: HTTP + board crawlers + 
 // ---------------------------------------------------------------------------
 // Phases 8–11: core, utils, math
 // ---------------------------------------------------------------------------
-void register_convert(py::module_& m);    // Phase 8: image/video conversion
-void register_filesystem(py::module_& m); // Phase 8: filesystem utils
-void register_finder(py::module_& m);     // Phase 8: duplicate/similar image finder
-void register_merger(py::module_& m);     // Phase 8: image canvas merging
-void register_wallpaper(py::module_& m);  // Phase 8: wallpaper (gnome/kde)
-void register_migration(py::module_& m);  // Phase 10: legacy JSON→SQLCipher migration
-void register_slideshow(py::module_& m);  // Phase 10: background slideshow daemon
+namespace base::core {
+    void register_convert(py::module_& m);    // Phase 8: image/video conversion
+    void register_filesystem(py::module_& m); // Phase 8: filesystem utils
+    void register_finder(py::module_& m);     // Phase 8: duplicate/similar image finder
+    void register_merger(py::module_& m);     // Phase 8: image canvas merging
+    void register_wallpaper(py::module_& m);  // Phase 8: wallpaper (gnome/kde)
+}
+namespace base::utils {
+    void register_migration(py::module_& m);  // Phase 10: legacy JSON→SQLCipher migration
+    void register_slideshow(py::module_& m);  // Phase 10: background slideshow daemon
+}
 void register_math(py::module_& m);       // Phase 11: distance/stats/info/graph/linalg/dim_reduce
 
 PYBIND11_MODULE(base, m) {
@@ -162,15 +166,15 @@ PYBIND11_MODULE(base, m) {
     register_web(m_http);
 
     // Phase 8: core
-    register_convert(m_core);
-    register_filesystem(m_core);
-    register_finder(m_core);
-    register_merger(m_core);
-    register_wallpaper(m_core);
+    base::core::register_convert(m_core);
+    base::core::register_filesystem(m_core);
+    base::core::register_finder(m_core);
+    base::core::register_merger(m_core);
+    base::core::register_wallpaper(m_core);
 
     // Phase 10: utils
-    register_migration(m_utils);
-    register_slideshow(m_utils);
+    base::utils::register_migration(m_utils);
+    base::utils::register_slideshow(m_utils);
 
     // Phase 11: math
     register_math(m_math);

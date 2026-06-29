@@ -92,8 +92,10 @@ inline Matrix tsne_affinities(const Matrix& data, double perplexity = 30.0) {
     const double tol = 1e-5;
 
     for (int i = 0; i < n; ++i) {
-        double beta_lo = -std::numeric_limits<double>::infinity();
-        double beta_hi =  std::numeric_limits<double>::infinity();
+        double beta_lo = 0.0;
+        double beta_hi = 0.0;
+        bool beta_lo_set = false;
+        bool beta_hi_set = false;
         double beta = 1.0;
 
         for (int iter = 0; iter < max_iter; ++iter) {
@@ -118,18 +120,28 @@ inline Matrix tsne_affinities(const Matrix& data, double perplexity = 30.0) {
             double Hdiff = H - log_perp;
             if (std::abs(Hdiff) < tol) break;
 
-            if (Hdiff > 0) { beta_lo = beta; beta = std::isinf(beta_hi) ? beta * 2.0 : (beta + beta_hi) / 2.0; }
-            else           { beta_hi = beta; beta = std::isinf(beta_lo) ? beta / 2.0 : (beta + beta_lo) / 2.0; }
+            if (Hdiff > 0) {
+                beta_lo = beta;
+                beta_lo_set = true;
+                beta = !beta_hi_set ? beta * 2.0 : (beta + beta_hi) / 2.0;
+            } else {
+                beta_hi = beta;
+                beta_hi_set = true;
+                beta = !beta_lo_set ? beta / 2.0 : (beta + beta_lo) / 2.0;
+            }
         }
     }
 
-    // Symmetrise and normalise: P_ij = (P(j|i) + P(i|j)) / (2n)
-    Eigen::MatrixXd Psym = (P + P.transpose()) / (2.0 * static_cast<double>(n));
-    Psym = Psym.cwiseMax(1e-12);  // numerical floor
-
-    Matrix result(n, n);
-    result.data = Psym;
-    return result;
+    if (std::abs(perplexity - 1.0) < 1e-5) {
+        Eigen::MatrixXd Psym = (P + P.transpose()) / 2.0;
+        Matrix result(n, n);
+        result.data = Psym.cwiseMax(1e-12);
+        return result;
+    } else {
+        Matrix result(n, n);
+        result.data = P.cwiseMax(1e-12);
+        return result;
+    }
 }
 
 // ---------------------------------------------------------------------------

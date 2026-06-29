@@ -202,13 +202,24 @@ std::string run_slideshow_daemon(
 // pybind11 registration
 // ---------------------------------------------------------------------------
 
+namespace base::utils {
+
 void register_slideshow(py::module_& m) {
     m.def("run_slideshow_daemon",
-        [](const std::string& action, const std::string& config_json) -> std::string {
+        [](const std::string& action, py::object config_json_obj) -> std::string {
+            std::string config_json;
+            if (!config_json_obj.is_none()) {
+                if (py::isinstance<py::str>(config_json_obj)) {
+                    config_json = config_json_obj.cast<std::string>();
+                } else {
+                    py::object json_module = py::module_::import("json");
+                    config_json = json_module.attr("dumps")(config_json_obj).cast<std::string>();
+                }
+            }
             py::gil_scoped_release rel;
             return base::utils::slideshow::run_slideshow_daemon(action, config_json);
         },
-        py::arg("action"), py::arg("config_json") = std::string{},
+        py::arg("action"), py::arg("config_json") = py::none(),
         R"doc(
 Control the slideshow daemon (background thread, process-lifetime singleton).
 
@@ -227,3 +238,5 @@ Returns
 str   JSON status string.
         )doc");
 }
+
+} // namespace base::utils
