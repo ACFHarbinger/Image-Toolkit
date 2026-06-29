@@ -134,7 +134,7 @@ def launch_app(opts):
         app.quit()
 
         # Force exit if app doesn't quit quickly (e.g., stuck thread)
-        threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1), daemon=True).start()
+        threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1), daemon=True).start() # pyrefly: ignore [unexpected-keyword]
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_interrupt)

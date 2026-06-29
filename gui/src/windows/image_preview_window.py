@@ -46,7 +46,7 @@ class ImagePreviewWindow(QDialog):
         image_path: str,
         db_tab_ref=None,
         parent=None,
-        all_paths: List[str] = None,
+        all_paths: Optional[List[str]] = None,
         start_index: int = 0,
     ):
         super().__init__(parent)
@@ -155,7 +155,7 @@ class ImagePreviewWindow(QDialog):
         )
         # Secondary zoom-in alias: Ctrl+Shift++ (always active, not configurable)
         self.zoom_in_shortcut_plus = QShortcut(
-            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Plus), self
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Plus), self # pyrefly: ignore [no-matching-overload, unsupported-operation]
         )
 
         self.zoom_in_shortcut.activated.connect(

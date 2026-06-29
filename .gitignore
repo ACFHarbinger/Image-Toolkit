@@ -447,10 +447,8 @@ mcp.json
 
 # ASP C++ Compilation Output
 **/*.so
-#include/eigen3/Eigen
-#include/eigen3/unsupported
-backend/src/animation/include/eigen3/Eigen
-backend/src/animation/include/eigen3/unsupported
+/**/eigen3/Eigen/
+/**/eigen3/unsupported/
 
 # Linting and formatting
 .ruff_cache/
