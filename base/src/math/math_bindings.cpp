@@ -6,12 +6,12 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "base/math/distance.hpp"
-#include "base/math/stats.hpp"
-#include "base/math/information.hpp"
-#include "base/math/graph.hpp"
-#include "base/math/linalg.hpp"
-#include "base/math/dim_reduce.hpp"
+#include "math/distance.hpp"
+#include "math/stats.hpp"
+#include "math/information.hpp"
+#include "math/graph.hpp"
+#include "math/linalg.hpp"
+#include "math/dim_reduce.hpp"
 
 namespace py = pybind11;
 using namespace base::math;

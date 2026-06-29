@@ -10,8 +10,8 @@
 // See moon/roadmaps/rust_to_cpp_migration.md §Phase 3
 // ---------------------------------------------------------------------------
 
-#include "base/video/video_batch.hpp"
-#include "base/common.hpp"
+#include "video/video_batch.hpp"
+#include "common.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>

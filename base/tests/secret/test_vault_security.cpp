@@ -7,7 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "base/secret/locked_secret.hpp"
+#include "secret/locked_secret.hpp"
 
 #include <array>
 #include <cstring>

@@ -7,7 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "base/web/web_requests.hpp"
+#include "web/web_requests.hpp"
 
 #include <stdexcept>
 

@@ -7,7 +7,7 @@
 // Implementation: Phase 2 of the Rust → C++ migration.
 // ---------------------------------------------------------------------------
 
-#include "base/image/scan_files.hpp"
+#include "image/scan_files.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

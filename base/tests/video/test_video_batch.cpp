@@ -7,7 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "base/video/video_batch.hpp"
+#include "video/video_batch.hpp"
 
 #include <opencv2/core.hpp>
 

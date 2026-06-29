@@ -23,7 +23,7 @@
 // POD types matching the internal C++ representation.
 // (In the real implementation these come from affine_types.hpp)
 // ---------------------------------------------------------------------------
-#include "base/affine_types.hpp"
+#include "affine_types.hpp"
 using AffineResult = base::AffineParams;
 using Edge = base::Edge;
 

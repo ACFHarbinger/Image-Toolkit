@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// base/include/base/utils/slideshow.hpp
+// base/include/utils/slideshow.hpp
 // Slideshow daemon — background wallpaper rotation — Phase 10.
 // ---------------------------------------------------------------------------
 #include <string>

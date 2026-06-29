@@ -5,7 +5,7 @@
 // Actions: start / stop / status / next / configure
 // Config persisted at ~/.image-toolkit/.slideshow_config.json
 // ---------------------------------------------------------------------------
-#include "base/utils/slideshow.hpp"
+#include "utils/slideshow.hpp"
 
 #include <pybind11/pybind11.h>
 

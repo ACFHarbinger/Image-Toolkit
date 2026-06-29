@@ -9,9 +9,9 @@
 // Requires Eigen3.
 // ---------------------------------------------------------------------------
 
-#include "base/math/linalg.hpp"
-#include "base/math/distance.hpp"
-#include "base/math/stats.hpp"
+#include "math/linalg.hpp"
+#include "math/distance.hpp"
+#include "math/stats.hpp"
 
 #include <Eigen/Dense>
 #include <cmath>

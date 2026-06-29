@@ -36,7 +36,7 @@
 #include <opencv2/ximgproc/slic.hpp>
 #endif
 
-#include "base/common.hpp"
+#include "common.hpp"
 
 namespace py = pybind11;
 

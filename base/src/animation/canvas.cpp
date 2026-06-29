@@ -34,7 +34,7 @@
 #include <opencv2/cuda.hpp>
 #endif
 
-#include "base/common.hpp"
+#include "common.hpp"
 
 namespace py = pybind11;
 

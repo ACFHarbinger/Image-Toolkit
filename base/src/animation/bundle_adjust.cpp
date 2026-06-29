@@ -16,9 +16,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "base/common.hpp"
-#include "base/affine_types.hpp"
-#include "base/math/graph.hpp"
+#include "common.hpp"
+#include "affine_types.hpp"
+#include "math/graph.hpp"
 
 #include <Eigen/Dense>
 #include <vector>

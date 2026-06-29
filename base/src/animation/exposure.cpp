@@ -20,7 +20,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include "base/common.hpp"
+#include "common.hpp"
 #include <opencv2/stitching/detail/exposure_compensate.hpp>
 
 namespace py = pybind11;

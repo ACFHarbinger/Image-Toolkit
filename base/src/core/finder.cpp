@@ -3,7 +3,7 @@
 // Phase 8 of Rust→C++ migration.
 // SHA-256 via OpenSSL when available, otherwise minimal inline implementation.
 // ---------------------------------------------------------------------------
-#include "base/core/finder.hpp"
+#include "core/finder.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

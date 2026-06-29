@@ -16,8 +16,8 @@
 
 #include <Eigen/Dense>
 
-#include "base/common.hpp"
-#include "base/affine_types.hpp"
+#include "common.hpp"
+#include "affine_types.hpp"
 
 #include <algorithm>
 #include <cmath>

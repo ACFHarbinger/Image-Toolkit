@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// base/include/base/core/filesystem.hpp
+// base/include/core/filesystem.hpp
 // Filesystem utilities — Phase 8.
 // ---------------------------------------------------------------------------
 #include <string>
