@@ -2,7 +2,7 @@
 // base/src/core/convert.cpp — image and video format conversion
 // Phase 8 of Rust→C++ migration.
 // ---------------------------------------------------------------------------
-#include "base/core/convert.hpp"
+#include "core/convert.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

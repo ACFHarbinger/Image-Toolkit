@@ -2,7 +2,7 @@
 // base/src/core/wallpaper.cpp — wallpaper control via gsettings / qdbus
 // Phase 8 of Rust→C++ migration.
 // ---------------------------------------------------------------------------
-#include "base/core/wallpaper.hpp"
+#include "core/wallpaper.hpp"
 
 #include <pybind11/pybind11.h>
 

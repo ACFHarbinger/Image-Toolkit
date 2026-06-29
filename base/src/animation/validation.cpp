@@ -16,8 +16,8 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include "base/common.hpp"
-#include "base/affine_types.hpp"
+#include "common.hpp"
+#include "affine_types.hpp"
 
 #include <algorithm>
 #include <cmath>

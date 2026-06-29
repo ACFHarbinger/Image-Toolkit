@@ -307,7 +307,7 @@ cmake --build build/base --target base_tests && ctest --test-dir build/base -V
 
 ## C++ Math Micro-benchmarks
 
-The `base/include/base/math/` headers (`stats.hpp`, `distance.hpp`, `information.hpp`) back
+The `base/include/math/` headers (`stats.hpp`, `distance.hpp`, `information.hpp`) back
 the Python ML pipeline and Recommendation Engine. Catch2 benchmarks live in
 `base/tests/math/` alongside unit tests.
 

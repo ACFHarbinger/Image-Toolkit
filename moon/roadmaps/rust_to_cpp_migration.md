@@ -575,11 +575,11 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 **Goal:** Port 9 remaining core Python-exposed Rust functions to C++.
 
 **Files created:**
-- `base/include/base/core/convert.hpp` / `base/src/core/convert.cpp` — `convert_single_image`, `convert_image_batch` (OpenMP parallel), `convert_video` (ffmpeg subprocess)
-- `base/include/base/core/filesystem.hpp` / `base/src/core/filesystem.cpp` — `get_files_by_extension`, `delete_files_by_extensions` (OpenMP parallel), `delete_path`
-- `base/include/base/core/finder.hpp` / `base/src/core/finder.cpp` — `find_duplicate_images` (SHA-256, OpenSSL/inline fallback), `find_similar_images_phash` (8×8 pHash + Union-Find)
-- `base/include/base/core/merger.hpp` / `base/src/core/merger.cpp` — `merge_images_horizontal`, `merge_images_vertical`, `merge_images_grid` (two-pass OpenCV canvas)
-- `base/include/base/core/wallpaper.hpp` / `base/src/core/wallpaper.cpp` — `set_wallpaper_gnome` (gsettings), `evaluate_kde_script` (qdbus via popen)
+- `base/include/core/convert.hpp` / `base/src/core/convert.cpp` — `convert_single_image`, `convert_image_batch` (OpenMP parallel), `convert_video` (ffmpeg subprocess)
+- `base/include/core/filesystem.hpp` / `base/src/core/filesystem.cpp` — `get_files_by_extension`, `delete_files_by_extensions` (OpenMP parallel), `delete_path`
+- `base/include/core/finder.hpp` / `base/src/core/finder.cpp` — `find_duplicate_images` (SHA-256, OpenSSL/inline fallback), `find_similar_images_phash` (8×8 pHash + Union-Find)
+- `base/include/core/merger.hpp` / `base/src/core/merger.cpp` — `merge_images_horizontal`, `merge_images_vertical`, `merge_images_grid` (two-pass OpenCV canvas)
+- `base/include/core/wallpaper.hpp` / `base/src/core/wallpaper.cpp` — `set_wallpaper_gnome` (gsettings), `evaluate_kde_script` (qdbus via popen)
 
 All registered under `base.core.*`.
 
@@ -604,8 +604,8 @@ All registered into `base.web` by `register_web()`.
 **Goal:** Port `run_legacy_migration` and `run_slideshow_daemon` from Rust to C++.
 
 **Files created:**
-- `base/include/base/utils/migration.hpp` / `base/src/utils/migration.cpp` — JSON vault → SQLCipher migration under `#ifdef HAVE_SQLCIPHER`; key derived as `username:password`; raises `RuntimeError` if SQLCipher not compiled
-- `base/include/base/utils/slideshow.hpp` / `base/src/utils/slideshow.cpp` — process-lifetime singleton background `std::thread` daemon; actions: start/stop/status/next/configure; config persisted at `~/.image-toolkit/.slideshow_config.json`; uses gsettings for wallpaper advancement
+- `base/include/utils/migration.hpp` / `base/src/utils/migration.cpp` — JSON vault → SQLCipher migration under `#ifdef HAVE_SQLCIPHER`; key derived as `username:password`; raises `RuntimeError` if SQLCipher not compiled
+- `base/include/utils/slideshow.hpp` / `base/src/utils/slideshow.cpp` — process-lifetime singleton background `std::thread` daemon; actions: start/stop/status/next/configure; config persisted at `~/.image-toolkit/.slideshow_config.json`; uses gsettings for wallpaper advancement
 
 Both registered under `base.utils.*`.
 

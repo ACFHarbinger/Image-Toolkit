@@ -171,7 +171,7 @@ Use the de-facto scientific Python standard. `sphinx-apidoc` auto-generates `.rs
 
 ## ✅ §6.2 C++ Reference Docs (Doxygen + Catch2 tests) {: #62-cpp-reference-docs-doxygen--catch2-tests }
 
-**Pain point:** `base/include/base/` contains ~12 modules (`math/linalg.hpp`, `math/stats.hpp`, `math/distance.hpp`, `math/graph.hpp`, `math/dim_reduce.hpp`, `core/`, `web/`, etc.). Most items have minimal `///` Doxygen comments. The Catch2 tests in `base/tests/` cover correctness but Doxygen HTML is not yet generated or published.
+**Pain point:** `base/include/` contains ~12 modules (`math/linalg.hpp`, `math/stats.hpp`, `math/distance.hpp`, `math/graph.hpp`, `math/dim_reduce.hpp`, `core/`, `web/`, etc.). Most items have minimal `///` Doxygen comments. The Catch2 tests in `base/tests/` cover correctness but Doxygen HTML is not yet generated or published.
 
 ### Options
 
@@ -193,7 +193,7 @@ TEST_CASE("cosine_similarity unit vectors", "[math][distance]") {
 - Cons: Larger test binary than doc-tests for trivial cases.
 
 **C — README driven by Doxygen mainpage**
-Sync `base/README.md` from the Doxygen `@mainpage` block in `base/include/base/base.hpp`. Prevents README/code divergence.
+Sync `base/README.md` from the Doxygen `@mainpage` block in `base/include/base.hpp`. Prevents README/code divergence.
 - Pros: Single source of truth: edit the mainpage block, README stays current via a script.
 - Cons: Requires a small generation script.
 

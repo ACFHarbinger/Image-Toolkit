@@ -33,7 +33,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "base/common.hpp"
+#include "common.hpp"
 
 namespace py = pybind11;
 

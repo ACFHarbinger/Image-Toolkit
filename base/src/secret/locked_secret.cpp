@@ -9,7 +9,7 @@
 // Phase 4 of the Rust → C++ migration.
 // ---------------------------------------------------------------------------
 
-#include "base/secret/locked_secret.hpp"
+#include "secret/locked_secret.hpp"
 
 #include <stdexcept>
 

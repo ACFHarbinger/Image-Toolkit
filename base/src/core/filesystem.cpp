@@ -2,7 +2,7 @@
 // base/src/core/filesystem.cpp — filesystem utilities
 // Phase 8 of Rust→C++ migration.
 // ---------------------------------------------------------------------------
-#include "base/core/filesystem.hpp"
+#include "core/filesystem.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

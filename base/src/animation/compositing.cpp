@@ -19,8 +19,8 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include "base/common.hpp"
-#include "base/image_utils.hpp"
+#include "common.hpp"
+#include "image_utils.hpp"
 #include <opencv2/stitching/detail/blenders.hpp>
 
 namespace py = pybind11;

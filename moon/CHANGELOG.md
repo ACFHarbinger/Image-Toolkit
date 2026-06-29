@@ -56,7 +56,7 @@
 ## S199 — 2026-06-29 (Rust→C++ migration Phase 7 — final rename & retirement)
 
 - **Phase 7 complete** — `batch/` renamed to `base/` via `git mv`; Rust `base/` archived to `archive/base_rust/`
-- `PYBIND11_MODULE(batch, m)` → `PYBIND11_MODULE(base, m)`; all `batch::` namespaces → `base::`; all `#include "batch/..."` → `#include "base/..."`; `batch/include/batch/` → `base/include/base/`
+- `PYBIND11_MODULE(batch, m)` → `PYBIND11_MODULE(base, m)`; all `batch::` namespaces → `base::`; all `#include "batch/..."` → `#include "base/..."`; `batch/include/batch/` → `base/include/`
 - `base/CMakeLists.txt` + `base/tests/CMakeLists.txt`: target names updated (`batch` → `base`, `batch_impl` → `base_impl`, `batch_tests` → `base_tests`, `BATCH_BUILD_TESTS` → `BASE_BUILD_TESTS`)
 - `backend/src/utils/base_dispatch.py` simplified: dual-module dispatch removed; `import base` resolves directly to C++ extension; `NativeExt` now a thin alias with static submodule forwarders
 - `tools/build/justfile`: `build-base` now runs cmake against `base/`; `build-batch` recipe removed; `build-all` no longer includes `build-batch`

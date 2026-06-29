@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// base/include/base/utils/migration.hpp
+// base/include/utils/migration.hpp
 // Legacy JSON → SQLCipher migration — Phase 10.
 // Only compiled when HAVE_SQLCIPHER is defined.
 // ---------------------------------------------------------------------------

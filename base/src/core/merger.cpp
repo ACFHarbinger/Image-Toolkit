@@ -4,7 +4,7 @@
 // Two-pass streaming: Pass 1 reads headers (imread IMREAD_UNCHANGED, drop
 // immediately) to compute canvas dims; Pass 2 loads, blits, and drops.
 // ---------------------------------------------------------------------------
-#include "base/core/merger.hpp"
+#include "core/merger.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

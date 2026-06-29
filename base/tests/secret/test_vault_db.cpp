@@ -7,8 +7,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "base/secret/vault_db.hpp"
-#include "base/secret/locked_secret.hpp"
+#include "secret/vault_db.hpp"
+#include "secret/locked_secret.hpp"
 
 #include <pybind11/embed.h>
 #include <pybind11/numpy.h>

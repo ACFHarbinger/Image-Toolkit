@@ -20,7 +20,7 @@
 // defined externally via cmake if OpenSSL found
 #endif
 
-#include "base/web/web_requests.hpp"
+#include "web/web_requests.hpp"
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>

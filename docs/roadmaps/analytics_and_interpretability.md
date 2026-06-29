@@ -145,14 +145,14 @@ flowchart TD
 
 | Layer | Status | Details |
 |-------|--------|---------|
-| **C++ math backbone** (`base/include/base/math/`) | ✅ Complete | 6 modules, 49 unit tests passing |
+| **C++ math backbone** (`base/include/math/`) | ✅ Complete | 6 modules, 49 unit tests passing |
 | **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts`, `tsc --noEmit` clean |
 | **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Tauri commands, SVG charts, 7-page dashboard, `App.tsx` wired |
 | Phase 1–10 feature implementation | ⬜ Not started | Backbone provides all mathematical primitives |
 | **ASP Benchmark Analytics (Phase 11)** | ⬜ Not started | Per-seam diagnostics, alignment drift, photometric, edge quality, GT, regression |
 | **Benchmark Coverage Expansion (Phase 12)** | ⬜ Not started | C++ core, ASP stage isolation, GUI thumbnails, DB scale, memory lifecycle |
 
-### C++ backbone — `base/include/base/math/`
+### C++ backbone — `base/include/math/`
 
 | Module | Contents |
 |--------|----------|

@@ -19,7 +19,7 @@
 #include <vector>
 #include <cmath>
 
-#include "base/affine_types.hpp"
+#include "affine_types.hpp"
 using Edge = base::Edge;
 
 // ---------------------------------------------------------------------------

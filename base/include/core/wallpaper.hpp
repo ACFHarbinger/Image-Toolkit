@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// base/include/base/core/wallpaper.hpp
+// base/include/core/wallpaper.hpp
 // Wallpaper setters — Phase 8.
 // ---------------------------------------------------------------------------
 #include <string>

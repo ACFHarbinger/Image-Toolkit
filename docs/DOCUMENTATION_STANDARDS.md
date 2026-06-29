@@ -99,7 +99,7 @@ All public functions and classes in `base/include/` and `base/src/` must have Do
 | Summary line | Always |
 | `@param` | Function has ≥ 2 non-trivial parameters |
 | `@throws` | Function throws or propagates exceptions |
-| `@example` | Public function in `base/include/base/math/` or any pybind11-exported function |
+| `@example` | Public function in `base/include/math/` or any pybind11-exported function |
 
 ### Format
 

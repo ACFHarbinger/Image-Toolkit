@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// base/include/base/core/convert.hpp
+// base/include/core/convert.hpp
 // Image and video format conversion — Phase 8.
 // ---------------------------------------------------------------------------
 #include <optional>

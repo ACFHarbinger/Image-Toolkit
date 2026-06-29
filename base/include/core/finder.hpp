@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// base/include/base/core/finder.hpp
+// base/include/core/finder.hpp
 // Duplicate and perceptual-hash image finder — Phase 8.
 // ---------------------------------------------------------------------------
 #include <cstdint>

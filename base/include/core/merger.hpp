@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// base/include/base/core/merger.hpp
+// base/include/core/merger.hpp
 // Image canvas merging — Phase 8.
 // ---------------------------------------------------------------------------
 #include <cstdint>

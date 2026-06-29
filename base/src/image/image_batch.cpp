@@ -8,8 +8,8 @@
 // See moon/roadmaps/rust_to_cpp_migration.md §Phase 2
 // ---------------------------------------------------------------------------
 
-#include "base/image/image_batch.hpp"
-#include "base/common.hpp"
+#include "image/image_batch.hpp"
+#include "common.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>

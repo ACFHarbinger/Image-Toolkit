@@ -9,8 +9,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
-#include "base/image/image_batch.hpp"
-#include "base/image/scan_files.hpp"
+#include "image/image_batch.hpp"
+#include "image/scan_files.hpp"
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>

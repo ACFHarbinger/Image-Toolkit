@@ -3,7 +3,7 @@
 // Phase 10 of Rust→C++ migration.
 // Requires HAVE_SQLCIPHER; uses the same DEK derivation as base::secret.
 // ---------------------------------------------------------------------------
-#include "base/utils/migration.hpp"
+#include "utils/migration.hpp"
 
 #include <pybind11/pybind11.h>
 

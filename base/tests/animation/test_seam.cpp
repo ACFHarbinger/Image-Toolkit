@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "base/affine_types.hpp"
+#include "affine_types.hpp"
 using ZonePair = base::ZonePair;
 
 // Pull in internal seam helpers.  The real implementations are compiled via

@@ -8,12 +8,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
-#include "base/math/distance.hpp"
-#include "base/math/stats.hpp"
-#include "base/math/information.hpp"
-#include "base/math/graph.hpp"
-#include "base/math/linalg.hpp"
-#include "base/math/dim_reduce.hpp"
+#include "math/distance.hpp"
+#include "math/stats.hpp"
+#include "math/information.hpp"
+#include "math/graph.hpp"
+#include "math/linalg.hpp"
+#include "math/dim_reduce.hpp"
 
 #include <cmath>
 #include <numeric>
