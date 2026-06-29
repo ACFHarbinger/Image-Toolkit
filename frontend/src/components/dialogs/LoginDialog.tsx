@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../../store/appStore';
 import { LogIn, UserPlus, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 
 interface LoginDialogProps {

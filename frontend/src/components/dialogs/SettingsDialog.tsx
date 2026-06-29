@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../../store/appStore';
 import { X, Save, RotateCcw, Trash2, Plus } from 'lucide-react';
 
 interface SettingsDialogProps {

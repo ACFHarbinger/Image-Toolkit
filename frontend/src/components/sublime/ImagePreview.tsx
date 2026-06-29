@@ -7,7 +7,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCw, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../../store/appStore';
 
 interface ImagePreviewProps {
   path: string;

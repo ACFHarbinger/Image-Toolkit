@@ -134,6 +134,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run check_links.py diagnostic script
+        run: python scripts/check_links.py
+
       - name: lychee — check all Markdown links
         uses: lycheeverse/lychee-action@v1
         with:
@@ -147,6 +155,8 @@ jobs:
             --exclude 'https://cdn.jsdelivr.net'
             '**/*.md'
           fail: true
+
+
 
   # ── Job 4: Jupyter notebooks (non-GPU cells only) ──────────────────────
   docs-notebooks:

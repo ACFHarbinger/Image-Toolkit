@@ -18,7 +18,7 @@
 
 ---
 
-## PySide6 / Qt Crashes (SIGSEGV)
+## <a id="pyside6--qt-crashes-sigsegv"></a>PySide6 / Qt Crashes (SIGSEGV)
 
 ### `__dynamic_cast` failure in `libstdc++.so.6`
 
@@ -195,7 +195,7 @@ unset ASP_HOLD_THRESHOLD
 
 ---
 
-## Rust / PyO3 Build Failures
+## <a id="rust--pyo3-build-failures"></a>Rust / PyO3 Build Failures
 
 ### `ModuleNotFoundError: No module named 'base'`
 
@@ -339,7 +339,7 @@ python -m backend.dispatcher command=comfyui comfyui.cpu=true
 
 ---
 
-## Database (PostgreSQL / pgvector)
+## <a id="database-postgresql--pgvector"></a>Database (PostgreSQL / pgvector)
 
 ### "DB Offline" / red indicator in GUI header
 
@@ -406,7 +406,7 @@ sqlx migrate run
 
 ---
 
-## Tauri / Frontend Build Failures
+## <a id="tauri--frontend-build-failures"></a>Tauri / Frontend Build Failures
 
 ### `webkit2gtk-4.1 not found`
 

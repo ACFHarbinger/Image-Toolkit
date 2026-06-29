@@ -88,7 +88,7 @@ pytest --doctest-modules backend/src/animation/
 
 ---
 
-## Rust (rustdoc `///` comments)
+## <a id="rust-rustdoc--comments"></a>Rust (rustdoc `///` comments)
 
 All public items (`pub fn`, `pub struct`, `pub enum`, `pub trait`, `pub const`) in `base/src/` must have `///` doc comments. Crate-level and module-level documentation uses `//!` at the top of `lib.rs` and each `mod.rs`.
 

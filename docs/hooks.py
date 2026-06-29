@@ -114,6 +114,10 @@ def _sync_dir(
 
 def on_page_markdown(markdown: str, page, config, files) -> str:
     """Rewrite relative markdown links to match the new docs structure."""
+    # Fix TypeDoc rendering of array types like `type`[][] or `type`[] causing empty reference link warnings
+    markdown = re.sub(r'`([^`]+)`\[\]\[\]', r'`\1[][]`', markdown)
+    markdown = re.sub(r'`([^`]+)`\[\]', r'`\1[]`', markdown)
+
     abs_src_path = Path(page.file.abs_src_path).resolve()
     orig_src_path = DEST_TO_SOURCE.get(abs_src_path, abs_src_path)
     orig_src_dir = orig_src_path.parent
