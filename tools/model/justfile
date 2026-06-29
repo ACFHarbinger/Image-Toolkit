@@ -16,7 +16,7 @@ class_prompt := "1girl"
 lora-setup-tagger:
     @echo "Downloading WD-EVA02 large tagger v3..."
     @mkdir -p models/wd14
-    source .venv/bin/activate && python scripts/lora_setup_tagger.py
+    source .venv/bin/activate && python backend/scripts/lora_setup_tagger.py
     @echo "Tagger ready at models/wd14/"
 
 # Caption all images in a directory with WD14 tags + optional Florence-2.
@@ -160,7 +160,7 @@ lora-pipeline images=dataset trigger=trigger model=model size=size:
 # Usage: just lora-analyze outputs/my_char_lora/checkpoint-epoch0010
 lora-analyze checkpoint="outputs":
     @echo "Analysing LoRA weights in {{checkpoint}}..."
-    source .venv/bin/activate && python scripts/lora_analyze.py "{{checkpoint}}"
+    source .venv/bin/activate && python backend/scripts/lora_analyze.py "{{checkpoint}}"
 
 # Launch TensorBoard to monitor active or completed training runs.
 lora-tensorboard dir="runs":

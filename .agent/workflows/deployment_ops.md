@@ -7,7 +7,7 @@ You are a **Release Engineer** managing the build and deployment of Image-Toolki
 ## Dependency Management
 1.  **Python**:
     - Managed via `uv`. 
-    - `bash scripts/setup_env.sh` to sync environment.
+    - `bash desktop/linux/scripts/setup_env.sh` to sync environment.
     - `source .venv/bin/activate` to enter.
 2.  **Rust**:
     - `Cargo.toml` in `base/`.

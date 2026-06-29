@@ -410,10 +410,10 @@ npx ts-node src/math/benchmark.ts
 **Utility scripts**
 ```bash
 # Batch image conversion helper
-bash scripts/convert_images.sh
+bash desktop/linux/cli/convert_images.sh
 
 # Environment setup / dependency sync
-bash scripts/setup_env.sh
+bash desktop/linux/scripts/setup_env.sh
 
 # Check module import times (validates <1.5s threshold for all animation modules)
 source .venv/bin/activate

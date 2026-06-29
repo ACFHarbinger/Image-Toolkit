@@ -368,7 +368,7 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
 - `pipeline.py`: All 5 heavy model-wrapper try/except blocks (BiRefNetWrapper, LoFTRWrapper, EfficientLoFTRWrapper, ALIKEDLightGlueWrapper, unused AnimeStitchNet) replaced with `importlib.util.find_spec()` probes. All 4 classes imported lazily at instantiation sites. "Relocated Nested Imports" block cleaned up (deduplicated; JamMaWrapper lazy).
 - `backend/src/models/__init__.py`: All 8 eager wrapper re-exports removed; only base utilities remain. Previously this caused EVERY import of any wrapper to trigger the full chain (birefnet → transformers + aliked → kornia + eloftr → transformers).
 - `fg_register.py`: `torchvision.models` (464 ms) moved from try/except module-level into `_get_vgg19_feat()`.
-- `scripts/check_import_times.py`: §3.14B CI regression gate — measures all 14 animation modules in subprocesses, flags any exceeding 1.5 s net above baseline. Run: `python scripts/check_import_times.py --ci`.
+- `backend/scripts/check_import_times.py`: §3.14B CI regression gate — measures all 14 animation modules in subprocesses, flags any exceeding 1.5 s net above baseline. Run: `python backend/scripts/check_import_times.py --ci`.
 
 **Result (Phase 3):** All 14 animation modules pass the 1.5 s threshold (net cost 0.67–0.80 s, down from 1.6–2.4 s). 917 animation tests pass (0 new failures).
 
@@ -401,7 +401,7 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
   ```
   `test_java_vault_manager.py` imports `VaultManager` at collection time. If jpype is installed, this triggers JVM path resolution. If jpype is absent, it raises `ImportError` crashing collection of all tests that run after it in the same worker.
 
-- **`scripts/check_import_times.py`** — only covered animation modules; core modules were invisible to the CI gate.
+- **`backend/scripts/check_import_times.py`** — only covered animation modules; core modules were invisible to the CI gate.
 
 ### Options
 

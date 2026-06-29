@@ -7,8 +7,8 @@ repo_url: https://github.com/ACFPeacekeeper/Image-Toolkit
 repo_name: ACFPeacekeeper/Image-Toolkit
 edit_uri: edit/main/docs/
 
-docs_dir: docs
-site_dir: site
+docs_dir: .
+site_dir: ../site
 exclude_docs: |
   TROUBLESHOOT.md
   hooks.py

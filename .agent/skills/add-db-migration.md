@@ -56,7 +56,7 @@ Use the project migration script (handles connection from env/vault):
 
 ```bash
 source .venv/bin/activate
-python scripts/apply_migration.py <DB_URL> scripts/migrations/<file>.sql
+python backend/scripts/apply_migration.py <DB_URL> scripts/migrations/<file>.sql
 ```
 
 Or directly via psql if the DB URL is available:

@@ -1,5 +1,5 @@
 import sys
-import psycopg2
+import psycopg2 # pyrefly: ignore [untyped-import]
 from urllib.parse import urlparse
 
 def apply_migration(db_url, sql_file):
