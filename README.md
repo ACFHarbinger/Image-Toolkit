@@ -8,47 +8,75 @@
 
 <a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/ci.yml/badge.svg"></a>
 <a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/docs.yml/badge.svg"></a>
-<a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/security.yml"><img alt="Security" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/security.yml/badge.svg"></a>
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/security.yml"><img alt="Security Audit" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/security.yml/badge.svg"></a>
 <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
 <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
 <a href="https://mypy-lang.org/"><img alt="MyPy" src="https://img.shields.io/badge/MyPy-checked-2f4f4f.svg"></a>
-<br>
+
+</br>
+
 <a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776ab?logo=python&logoColor=white"></a>
 <a href="https://www.rust-lang.org/"><img alt="Rust" src="https://img.shields.io/badge/Rust-1.80%2B-000000?logo=rust&logoColor=white"></a>
 <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white"></a>
 <a href="https://kotlinlang.org/"><img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white"></a>
 <a href="https://www.swift.org/"><img alt="Swift" src="https://img.shields.io/badge/Swift-F05138?logo=swift&logoColor=white"></a>
-<br>
+<a href="https://isocpp.org/"><img alt="C++" src="https://img.shields.io/badge/C%2B%2B-00599C?logo=cplusplus&logoColor=white"></a>
+
+</br>
+
 <a href="https://pytorch.org/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white"></a>
 <a href="https://opencv.org/"><img alt="OpenCV" src="https://img.shields.io/badge/OpenCV-5C3EE8?logo=opencv&logoColor=white"></a>
 <a href="https://www.selenium.dev/"><img alt="Selenium" src="https://img.shields.io/badge/Selenium-43B02A?logo=selenium&logoColor=white"></a>
 <a href="https://pyo3.rs/"><img alt="PyO3" src="https://img.shields.io/badge/PyO3-Bridge-3776AB?logo=rust&logoColor=white"></a>
 <a href="https://maturin.rs/"><img alt="Maturin" src="https://img.shields.io/badge/Maturin-Build-E57300?logo=rust&logoColor=white"></a>
-<br>
+
+</br>
+
 <a href="https://doc.qt.io/qtforpython-6/"><img alt="PySide6" src="https://img.shields.io/badge/PySide6-Qt-41CD52?logo=qt&logoColor=white"></a>
 <a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black"></a>
+<a href="https://tauri.app/"><img alt="Tauri" src="https://img.shields.io/badge/Tauri-FFC131?logo=tauri&logoColor=white"></a>
 <a href="https://www.electronjs.org/"><img alt="Electron" src="https://img.shields.io/badge/Electron-47848F?logo=electron&logoColor=white"></a>
 <a href="https://developer.android.com/"><img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white"></a>
 <a href="https://developer.apple.com/ios/"><img alt="iOS" src="https://img.shields.io/badge/iOS-SwiftUI-000000?logo=apple&logoColor=white"></a>
-<br>
+
+</br>
+
 <a href="https://www.postgresql.org/"><img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white"></a>
 <a href="https://github.com/pgvector/pgvector"><img alt="pgvector" src="https://img.shields.io/badge/pgvector-Vector_Search-336791?logo=postgresql&logoColor=white"></a>
 <a href="https://www.djangoproject.com/"><img alt="Django" src="https://img.shields.io/badge/Django-092E20?logo=django&logoColor=white"></a>
 <a href="https://docs.celeryq.dev/"><img alt="Celery" src="https://img.shields.io/badge/Celery-37814A?logo=celery&logoColor=white"></a>
-<br>
+
+</br>
+
 <a href="https://github.com/astral-sh/uv"><img alt="uv" src="https://img.shields.io/badge/managed%20by-uv-261230.svg"></a>
-<a href="https://github.com/casey/just"><img alt="Just" src="https://img.shields.io/badge/Just-000000?logo=just&logoColor=white"></a>
+<a href="https://github.com/casey/just"><img alt="Just" src="https://img.shields.io/badge/Just-Task_Runner-000000?logoColor=white"></a>
 <a href="https://doc.rust-lang.org/cargo/"><img alt="Cargo" src="https://img.shields.io/badge/Cargo-E57300?logo=rust&logoColor=white"></a>
 <a href="https://gradle.org/"><img alt="Gradle" src="https://img.shields.io/badge/Gradle-02303A?logo=gradle&logoColor=white"></a>
 <a href="https://www.npmjs.com/"><img alt="NPM" src="https://img.shields.io/badge/NPM-CB3837?logo=npm&logoColor=white"></a>
-<br>
-<a href="https://docs.pytest.org/"><img alt="pytest" src="https://img.shields.io/badge/pytest-testing-0A9EDC?logo=pytest&logoColor=white"></a>
-<a href="https://coverage.readthedocs.io/"><img alt="Coverage" src="https://img.shields.io/badge/coverage-60%25-green.svg"></a>
-<a href="https://pre-commit.com/"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-FAB040?logo=pre-commit&logoColor=white"></a>
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/actions"><img alt="GitHub Actions" src="https://img.shields.io/badge/GitHub_Actions-CI%2FCD-2088FF?logo=github-actions&logoColor=white"></a>
 <a href="https://dependabot.com/"><img alt="Dependabot" src="https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white"></a>
+<a href="https://www.sphinx-doc.org/"><img alt="Sphinx" src="https://img.shields.io/badge/Sphinx-Docs-000000?logo=sphinx&logoColor=white"></a>
+
+</br>
+
+<a href="https://docs.pytest.org/"><img alt="pytest" src="https://img.shields.io/badge/pytest-testing-0A9EDC?logo=pytest&logoColor=white"></a>
+<a href="https://coverage.readthedocs.io/"><img alt="Python Coverage" src="https://img.shields.io/badge/py_coverage-60%25-green.svg"></a>
+<a href="https://vitest.dev/"><img alt="Vitest" src="https://img.shields.io/badge/vitest-testing-6E9F18?logo=vitest&logoColor=white"></a>
+<a href="https://ionelmc.github.io/pytest-benchmark/"><img alt="Rust Tests" src="https://img.shields.io/badge/cargo_test-passing-orange?logo=rust&logoColor=white"></a>
+<a href="https://developer.android.com/studio/test"><img alt="Android Tests" src="https://img.shields.io/badge/gradle_test-passing-02303A?logo=gradle&logoColor=white"></a>
+<a href="https://pre-commit.com/"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-FAB040?logo=pre-commit&logoColor=white"></a>
+
+</br>
+
+<a href="https://developer.nvidia.com/cuda-toolkit"><img alt="CUDA RTX 4080" src="https://img.shields.io/badge/CUDA-RTX_4080-76B900?logo=nvidia&logoColor=white"></a>
+<a href="https://developer.nvidia.com/cuda-toolkit"><img alt="CUDA RTX 3090 Ti" src="https://img.shields.io/badge/CUDA-RTX_3090_Ti-76B900?logo=nvidia&logoColor=white"></a>
+<a href="https://www.intel.com/"><img alt="Intel" src="https://img.shields.io/badge/Intel-Hardware-0071C5?logo=intel&logoColor=white"></a>
+<a href="https://www.amd.com/"><img alt="AMD Ryzen" src="https://img.shields.io/badge/AMD-Ryzen-ED1C24?logo=amd&logoColor=white"></a>
+<a href="https://www.apple.com/silicon/"><img alt="Apple Silicon" src="https://img.shields.io/badge/Apple_Silicon-M1%2FM2%2FM3-000000?logo=apple&logoColor=white"></a>
 <br>
-<a href="https://developer.nvidia.com/cuda-toolkit"><img alt="CUDA" src="https://img.shields.io/badge/CUDA-RTX_3090_Ti-76B900?logo=nvidia&logoColor=white"></a>
+<a href="https://www.linux.org/"><img alt="Linux" src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black"></a>
 <a href="https://ubuntu.com/"><img alt="Ubuntu" src="https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white"></a>
+<a href="https://kubuntu.org/"><img alt="Kubuntu" src="https://img.shields.io/badge/Kubuntu-0079C1?logo=kubuntu&logoColor=white"></a>
 <a href="https://www.microsoft.com/windows"><img alt="Windows" src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white"></a>
 <a href="https://www.apple.com/macos/"><img alt="macOS" src="https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white"></a>
 
