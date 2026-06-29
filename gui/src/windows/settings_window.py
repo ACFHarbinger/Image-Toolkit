@@ -42,8 +42,8 @@ from backend.src.constants import (
     IMAGE_TOOLKIT_DIR,
     DAEMON_CONFIG_PATH,
     THUMBNAIL_CACHE_DIR,
-    TEMPLATE_CRYPTO_DIR,
-    CRYPTO_DIR,
+    SECRETS_DIR,
+    LOCAL_SECRETS_DIR,
     ROOT_DIR,
     API_DIR,
 )
@@ -174,8 +174,8 @@ class SettingsWindow(QWidget):
         vault_sync_layout.setContentsMargins(10, 10, 10, 10)
 
         vault_sync_desc = QLabel(
-            "Synchronize active cryptography files between your home directory (~/.image-toolkit/cryptography) "
-            "and the repository templates (assets/cryptography)."
+            "Synchronize active cryptography files between your home directory (~/.image-toolkit/secrets) "
+            "and the repository templates (assets/secrets)."
         )
         vault_sync_desc.setStyleSheet("color: #aaa; font-size: 11px;")
         vault_sync_desc.setWordWrap(True)
@@ -184,7 +184,7 @@ class SettingsWindow(QWidget):
         btn_layout = QHBoxLayout()
         self.btn_sync_vault = QPushButton("Sync Vault 📤")
         self.btn_sync_vault.setToolTip(
-            "Copy active keystore, vault, and pepper files from ~/.image-toolkit/cryptography to the repository template directory."
+            "Copy active keystore, vault, and pepper files from ~/.image-toolkit/secrets to the repository template directory."
         )
         self.btn_sync_vault.setStyleSheet(
             "background-color: #7b1fa2; color: white; font-weight: bold;"
@@ -193,7 +193,7 @@ class SettingsWindow(QWidget):
 
         self.btn_load_vault = QPushButton("Load Vault 📥")
         self.btn_load_vault.setToolTip(
-            "Overwrite active files in ~/.image-toolkit/cryptography with template files from the repository directory."
+            "Overwrite active files in ~/.image-toolkit/secrets with template files from the repository directory."
         )
         self.btn_load_vault.setStyleSheet(
             "background-color: #2c3e50; color: white; font-weight: bold;"
@@ -1192,7 +1192,7 @@ class SettingsWindow(QWidget):
             self.system_profiles[name] = profile_data
 
             # 2. Update vault
-            creds = self.vault_manager.load_account_credentials()
+            creds = self.vault_manager.load_account_credentials() # pyrefly: ignore [missing-attribute]
             creds["system_preference_profiles"] = self.system_profiles
             if self._save_vault_data(creds):
                 QMessageBox.information(self, "Success", f"Profile '{name}' saved.")
@@ -1226,7 +1226,7 @@ class SettingsWindow(QWidget):
             self.system_profiles[name] = profile_data
 
             # 2. Update vault
-            creds = self.vault_manager.load_account_credentials()
+            creds = self.vault_manager.load_account_credentials() # pyrefly: ignore [missing-attribute]
             creds["system_preference_profiles"] = self.system_profiles
             if self._save_vault_data(creds):
                 QMessageBox.information(
@@ -1498,7 +1498,7 @@ class SettingsWindow(QWidget):
                 del self.system_profiles[name]
 
                 # Update vault
-                creds = self.vault_manager.load_account_credentials()
+                creds = self.vault_manager.load_account_credentials() # pyrefly: ignore [missing-attribute]
                 creds["system_preference_profiles"] = self.system_profiles
                 if self._save_vault_data(creds):
                     QMessageBox.information(
@@ -2569,10 +2569,10 @@ class SettingsWindow(QWidget):
 
     def _sync_vault_to_assets(self):
         """
-        Sync active files from ~/.image-toolkit/cryptography to the assets/cryptography template directory.
+        Sync active files from ~/.image-toolkit/secrets to the assets/secrets template directory.
         """
-        active_dir = Path(CRYPTO_DIR)
-        template_dir = Path(TEMPLATE_CRYPTO_DIR)
+        active_dir = Path(LOCAL_SECRETS_DIR)
+        template_dir = Path(SECRETS_DIR)
         if not active_dir.exists():
             QMessageBox.warning(
                 self, "Sync Error", "Active cryptography directory does not exist."
@@ -2612,10 +2612,10 @@ class SettingsWindow(QWidget):
 
     def _load_vault_from_assets(self):
         """
-        Load (overwrite) active files in ~/.image-toolkit/cryptography with ones from the assets/cryptography template directory.
+        Load (overwrite) active files in ~/.image-toolkit/secrets with ones from the assets/secrets template directory.
         """
-        active_dir = Path(CRYPTO_DIR)
-        template_dir = Path(TEMPLATE_CRYPTO_DIR)
+        active_dir = Path(LOCAL_SECRETS_DIR)
+        template_dir = Path(SECRETS_DIR)
         if not template_dir.exists():
             QMessageBox.warning(
                 self,
@@ -2628,7 +2628,7 @@ class SettingsWindow(QWidget):
         reply = QMessageBox.question(
             self,
             "Confirm Load Vault",
-            "This will OVERWRITE your active cryptography files in ~/.image-toolkit/cryptography with the template files. "
+            "This will OVERWRITE your active cryptography files in ~/.image-toolkit/secrets with the template files. "
             "Are you sure you want to proceed?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -2928,8 +2928,8 @@ class SettingsWindow(QWidget):
                 raw_json_path.unlink()
 
             # 2. Remove from session memory
-            if alias in self.vault_manager.api_credentials:
-                del self.vault_manager.api_credentials[alias]
+            if alias in self.vault_manager.api_credentials: # pyrefly: ignore [missing-attribute]
+                del self.vault_manager.api_credentials[alias] # pyrefly: ignore [missing-attribute]
 
             # 3. Refresh list
             self._refresh_credentials_list()
