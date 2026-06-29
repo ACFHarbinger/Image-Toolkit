@@ -85,4 +85,48 @@ inline double manhattan(const std::vector<double>& a, const std::vector<double>&
     return sum;
 }
 
+/// Chebyshev (L∞) distance: max_i |a_i − b_i|.
+inline double chebyshev(const std::vector<double>& a, const std::vector<double>& b) {
+    if (a.size() != b.size()) throw std::invalid_argument("chebyshev: size mismatch");
+    double d = 0.0;
+    for (std::size_t i = 0; i < a.size(); ++i) d = std::max(d, std::abs(a[i] - b[i]));
+    return d;
+}
+
+/// Minkowski distance with exponent p (p ≥ 1). p=1 → Manhattan, p=2 → Euclidean.
+inline double minkowski(const std::vector<double>& a, const std::vector<double>& b, double p) {
+    if (a.size() != b.size()) throw std::invalid_argument("minkowski: size mismatch");
+    if (p < 1.0) throw std::invalid_argument("minkowski: p must be >= 1");
+    double sum = 0.0;
+    for (std::size_t i = 0; i < a.size(); ++i) sum += std::pow(std::abs(a[i] - b[i]), p);
+    return std::pow(sum, 1.0 / p);
+}
+
+/// Full n×n pairwise Euclidean distance matrix.
+inline std::vector<std::vector<double>> pairwise_distance_matrix(
+    const std::vector<std::vector<double>>& points)
+{
+    std::size_t n = points.size();
+    std::vector<std::vector<double>> mat(n, std::vector<double>(n, 0.0));
+    for (std::size_t i = 0; i < n; ++i)
+        for (std::size_t j = i + 1; j < n; ++j) {
+            double d = euclidean(points[i], points[j]);
+            mat[i][j] = mat[j][i] = d;
+        }
+    return mat;
+}
+
+/// Condensed (upper-triangle, row-major) pairwise Euclidean distances, length n*(n-1)/2.
+inline std::vector<double> condensed_distance_matrix(
+    const std::vector<std::vector<double>>& points)
+{
+    std::size_t n = points.size();
+    std::vector<double> out;
+    out.reserve(n * (n - 1) / 2);
+    for (std::size_t i = 0; i < n; ++i)
+        for (std::size_t j = i + 1; j < n; ++j)
+            out.push_back(euclidean(points[i], points[j]));
+    return out;
+}
+
 } // namespace base::math

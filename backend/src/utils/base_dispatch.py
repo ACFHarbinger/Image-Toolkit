@@ -26,6 +26,7 @@ class NativeExt:
 
     load_image_batch               = staticmethod(lambda *a, **kw: _base.image.load_image_batch(*a, **kw))
     scan_files                     = staticmethod(lambda *a, **kw: _base.image.scan_files(*a, **kw))
+    scan_files_multi               = staticmethod(lambda *a, **kw: _base.image.scan_files_multi(*a, **kw))
     extract_video_thumbnails_batch = staticmethod(lambda *a, **kw: _base.video.extract_video_thumbnails_batch(*a, **kw))
     insert_listing_secure          = staticmethod(lambda *a, **kw: _base.secret.insert_listing_secure(*a, **kw))
     hybrid_search_secure           = staticmethod(lambda *a, **kw: _base.secret.hybrid_search_secure(*a, **kw))

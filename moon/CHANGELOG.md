@@ -4,6 +4,24 @@
 
 ---
 
+## S202 — 2026-06-29 (Rust→C++ migration Phase 13 — full math parity + scan_files_multi)
+
+**Phase 13: Close all remaining gaps between Rust archive math and C++ headers**
+
+Math library additions (all headers in `base/include/math/`):
+- **distance**: `chebyshev`, `minkowski(p)`, `pairwise_distance_matrix`, `condensed_distance_matrix`
+- **stats**: `sample_variance`, `sample_std_dev`, `covariance`, `min_val`, `max_val`, `percentile`, `iqr`, `histogram`, `counts_to_probs`, `covariance_matrix`
+- **information**: `entropy_nats`, `empirical_entropy`, `joint_entropy`, `conditional_entropy`, `total_variation`, `mutual_information_discrete`, `normalised_mutual_information`, `cross_entropy`
+- **graph**: `connected_components` (BFS-based, vector-as-queue pattern)
+- **linalg**: `dot`, `norm`, `normalize`, `vec_sub`, `vec_add`, `vec_scale`, `gram_schmidt_step`, `pca_2d`; added `<array>` and `<cmath>` includes
+- **dim_reduce**: `geodesic_distances` (O(n³) Dijkstra all-pairs)
+- `base/src/math/math_bindings.cpp`: all new functions bound with `py::gil_scoped_release`
+- `base/src/image/scan_files.cpp` + `base/include/image/scan_files.hpp`: `scan_files_multi(root_dirs, exts, recursive)` — sorted+deduplicated multi-directory scan
+- `backend/src/utils/base_dispatch.py`: `NativeExt.scan_files_multi` wired
+- Migration roadmap updated with Phase 13 section
+
+---
+
 ## S201 — 2026-06-29 (Rust→C++ migration Phase 12 — parity tests)
 
 **Phase 12: Integration tests for all Phase 8–11 C++ base functions**

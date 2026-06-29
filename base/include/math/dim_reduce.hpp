@@ -15,6 +15,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -129,6 +130,51 @@ inline Matrix tsne_affinities(const Matrix& data, double perplexity = 30.0) {
     Matrix result(n, n);
     result.data = Psym;
     return result;
+}
+
+// ---------------------------------------------------------------------------
+// Isomap skeleton — geodesic distance matrix via O(n³) Dijkstra
+//
+// weights[i][j] > 0 → edge from i to j with that weight.
+// weights[i][j] == 0 (or negative) → no edge (diagonal treated as 0).
+// Unreachable pairs receive +∞.
+// ---------------------------------------------------------------------------
+
+inline std::vector<std::vector<double>> geodesic_distances(
+    const std::vector<std::vector<double>>& weights)
+{
+    int n = static_cast<int>(weights.size());
+    const double INF = std::numeric_limits<double>::infinity();
+    std::vector<std::vector<double>> dist(
+        static_cast<std::size_t>(n),
+        std::vector<double>(static_cast<std::size_t>(n), INF));
+
+    for (int s = 0; s < n; ++s) {
+        dist[static_cast<std::size_t>(s)][static_cast<std::size_t>(s)] = 0.0;
+        std::vector<bool> visited(static_cast<std::size_t>(n), false);
+        for (int iter = 0; iter < n; ++iter) {
+            int u = -1;
+            double min_d = INF;
+            for (int i = 0; i < n; ++i) {
+                auto si = static_cast<std::size_t>(i);
+                auto ss = static_cast<std::size_t>(s);
+                if (!visited[si] && dist[ss][si] < min_d) {
+                    min_d = dist[ss][si]; u = i;
+                }
+            }
+            if (u == -1) break;
+            visited[static_cast<std::size_t>(u)] = true;
+            for (int v = 0; v < n; ++v) {
+                auto su = static_cast<std::size_t>(u);
+                auto sv = static_cast<std::size_t>(v);
+                auto ss = static_cast<std::size_t>(s);
+                if (visited[sv] || weights[su][sv] <= 0.0) continue;
+                double nd = dist[ss][su] + weights[su][sv];
+                if (nd < dist[ss][sv]) dist[ss][sv] = nd;
+            }
+        }
+    }
+    return dist;
 }
 
 } // namespace base::math

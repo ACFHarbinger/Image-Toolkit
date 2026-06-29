@@ -11,7 +11,9 @@
 
 #include <Eigen/Dense>
 
+#include <array>
 #include <cassert>
+#include <cmath>
 #include <stdexcept>
 #include <vector>
 
@@ -123,6 +125,85 @@ inline PCAResult pca(const Matrix& data, int n_components) {
     result.scores.data = proj;
 
     return result;
+}
+
+// ---------------------------------------------------------------------------
+// Vector utilities
+// ---------------------------------------------------------------------------
+
+/// Dot product of two equal-length vectors.
+inline double dot(const std::vector<double>& a, const std::vector<double>& b) {
+    if (a.size() != b.size()) throw std::invalid_argument("dot: size mismatch");
+    double s = 0.0;
+    for (std::size_t i = 0; i < a.size(); ++i) s += a[i] * b[i];
+    return s;
+}
+
+/// Euclidean norm of a vector.
+inline double norm(const std::vector<double>& v) { return std::sqrt(dot(v, v)); }
+
+/// Return v / ||v||. Throws if v is the zero vector.
+inline std::vector<double> normalize(const std::vector<double>& v) {
+    double n = norm(v);
+    if (n < 1e-15) throw std::invalid_argument("normalize: zero vector");
+    std::vector<double> out(v.size());
+    for (std::size_t i = 0; i < v.size(); ++i) out[i] = v[i] / n;
+    return out;
+}
+
+/// Element-wise a − b.
+inline std::vector<double> vec_sub(const std::vector<double>& a, const std::vector<double>& b) {
+    if (a.size() != b.size()) throw std::invalid_argument("vec_sub: size mismatch");
+    std::vector<double> out(a.size());
+    for (std::size_t i = 0; i < a.size(); ++i) out[i] = a[i] - b[i];
+    return out;
+}
+
+/// Element-wise a + b.
+inline std::vector<double> vec_add(const std::vector<double>& a, const std::vector<double>& b) {
+    if (a.size() != b.size()) throw std::invalid_argument("vec_add: size mismatch");
+    std::vector<double> out(a.size());
+    for (std::size_t i = 0; i < a.size(); ++i) out[i] = a[i] + b[i];
+    return out;
+}
+
+/// Scalar multiplication s * v.
+inline std::vector<double> vec_scale(const std::vector<double>& v, double s) {
+    std::vector<double> out(v.size());
+    for (std::size_t i = 0; i < v.size(); ++i) out[i] = v[i] * s;
+    return out;
+}
+
+/// Gram–Schmidt orthogonalisation step: subtract projections of v onto each basis vector.
+/// The basis vectors are assumed to be orthonormal.
+inline std::vector<double> gram_schmidt_step(
+    const std::vector<double>& v,
+    const std::vector<std::vector<double>>& basis)
+{
+    std::vector<double> result(v);
+    for (const auto& b : basis) {
+        double proj = dot(result, b);
+        for (std::size_t i = 0; i < result.size(); ++i) result[i] -= proj * b[i];
+    }
+    return result;
+}
+
+/// Project data onto the first two principal components. Returns vector of {pc1, pc2} pairs.
+/// Wraps pca() for convenient 2-D scatter-plot use.
+inline std::vector<std::array<double, 2>> pca_2d(
+    const std::vector<std::vector<double>>& data)
+{
+    if (data.empty()) return {};
+    Matrix m = Matrix::from_rows(data);
+    int n_comp = std::min(2, m.cols());
+    PCAResult res = pca(m, n_comp);
+    int n = m.rows();
+    std::vector<std::array<double, 2>> out(static_cast<std::size_t>(n));
+    for (int i = 0; i < n; ++i) {
+        out[static_cast<std::size_t>(i)][0] = res.scores.get(i, 0);
+        out[static_cast<std::size_t>(i)][1] = n_comp > 1 ? res.scores.get(i, 1) : 0.0;
+    }
+    return out;
 }
 
 } // namespace base::math
