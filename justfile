@@ -384,7 +384,7 @@ commit message: helper::_print_header
 
 # Legacy alias for 'gui' — run Python/PySide6 app directly
 python args="": helper::_print_header
-    just helper::python args={{args}}
+    just helper::python {{args}}
 
 # Loop the Claude Code agent on a stateful context
 loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps. After analysing the relevant files, but before beginning the implementation, always ask questions to clarify assumptions or missing requirements, and to select which options to purse from the specific roadmaps.": helper::_print_header

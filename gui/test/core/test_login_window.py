@@ -39,10 +39,10 @@ class TestLoginWindowCryptoAutoLoad:
     def test_copy_template_crypto_files(self, q_app, tmp_path):
         from unittest.mock import patch
         
-        template_dir = tmp_path / "assets" / "cryptography"
+        template_dir = tmp_path / "assets" / "secrets"
         template_dir.mkdir(parents=True, exist_ok=True)
         
-        target_dir = tmp_path / "image-toolkit" / "cryptography"
+        target_dir = tmp_path / "image-toolkit" / "secrets"
         
         # Create template files
         file1 = template_dir / "my_keystore.p12"
@@ -58,8 +58,8 @@ class TestLoginWindowCryptoAutoLoad:
         window = LoginWindow()
         
         with (
-            patch("gui.src.windows.login_window.udef.TEMPLATE_CRYPTO_DIR", template_dir),
-            patch("gui.src.windows.login_window.udef.CRYPTO_DIR", target_dir)
+            patch("gui.src.windows.login_window.udef.SECRETS_DIR", template_dir),
+            patch("gui.src.windows.login_window.udef.LOCAL_SECRETS_DIR", target_dir)
         ):
             window._copy_template_crypto_files()
             

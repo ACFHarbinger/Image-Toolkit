@@ -1,14 +1,14 @@
 import os
 import sys
 import shutil
-from .paths import BASE_KEYSTORE_FILE, BASE_VAULT_FILE, BASE_PEPPER_FILE, CRYPTO_DIR
+from .paths import BASE_KEYSTORE_FILE, BASE_VAULT_FILE, BASE_PEPPER_FILE, LOCAL_SECRETS_DIR
 
 KEY_ALIAS = "my-aes-key"
 
-ACTIVE_CRYPTO_DIR = str(CRYPTO_DIR)
+ACTIVE_SECRETS_DIR = str(LOCAL_SECRETS_DIR)
 
 def _get_active_path(base_path, suffix=None):
-    os.makedirs(ACTIVE_CRYPTO_DIR, exist_ok=True)
+    os.makedirs(ACTIVE_SECRETS_DIR, exist_ok=True)
     filename = os.path.basename(base_path)
     name, ext = os.path.splitext(filename)
     if suffix:
@@ -18,7 +18,7 @@ def _get_active_path(base_path, suffix=None):
         if safe_suffix:
             filename = f"{name}-{safe_suffix}{ext}"
     
-    active_path = os.path.join(ACTIVE_CRYPTO_DIR, filename)
+    active_path = os.path.join(ACTIVE_SECRETS_DIR, filename)
     # If the active file does not exist, but the base template file does, copy it!
     if not os.path.exists(active_path) and os.path.exists(base_path):
         try:
@@ -55,6 +55,6 @@ def update_cryptographic_values(account_name):
     # Sync back through sys.modules to keep every importer consistent.
     pkg = sys.modules.get("backend.src.constants")
     if pkg is not None:
-        pkg.KEYSTORE_FILE = KEYSTORE_FILE
-        pkg.VAULT_FILE = VAULT_FILE
-        pkg.PEPPER_FILE = PEPPER_FILE
+        pkg.KEYSTORE_FILE = KEYSTORE_FILE # pyrefly: ignore [missing-attribute]
+        pkg.VAULT_FILE = VAULT_FILE # pyrefly: ignore [missing-attribute]
+        pkg.PEPPER_FILE = PEPPER_FILE # pyrefly: ignore [missing-attribute]

@@ -199,11 +199,11 @@ class LoginWindow(QWidget):
 
     def _copy_template_crypto_files(self):
         """
-        Copies all files from assets/cryptography to ~/.image-toolkit/cryptography/
+        Copies all files from assets/secrets to ~/.image-toolkit/secrets/
         if they do not yet exist in the target directory.
         """
-        template_dir = Path(udef.TEMPLATE_CRYPTO_DIR)
-        target_dir = Path(udef.CRYPTO_DIR)
+        template_dir = Path(udef.SECRETS_DIR)
+        target_dir = Path(udef.LOCAL_SECRETS_DIR)
 
         if not template_dir.exists():
             print(
@@ -243,10 +243,10 @@ class LoginWindow(QWidget):
             self.vault_manager = VaultManager()
 
             # 3. KeyStore Loading (now uses suffixed udef.KEYSTORE_FILE)
-            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
+            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password) # pyrefly: ignore [bad-argument-type]
 
             # 4. Get the specific AES key
-            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
+            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password) # pyrefly: ignore [bad-argument-type]
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
             # 5. Load stored credentials (hash and salt)
@@ -263,7 +263,7 @@ class LoginWindow(QWidget):
             pepper = self.vault_manager.PEPPER
 
             # 6. Re-hash and verify
-            password_combined = (raw_password + stored_salt + pepper).encode("utf-8")
+            password_combined = (raw_password + stored_salt + pepper).encode("utf-8") # pyrefly: ignore [unsupported-operation]
 
             verification_hash = hashlib.sha256(password_combined).hexdigest()
             if verification_hash == stored_hash:
@@ -321,8 +321,8 @@ class LoginWindow(QWidget):
                     self, "Success", f"Login successful for {username}."
                 )
                 self.is_authenticated = True
-                self.vault_manager.account_name = username
-                self.vault_manager.raw_password = raw_password
+                self.vault_manager.account_name = username # pyrefly: ignore [missing-attribute]
+                self.vault_manager.raw_password = raw_password # pyrefly: ignore [missing-attribute]
 
                 # --- LOAD/DECRYPT API FILES ---
                 self._load_api_files()
@@ -384,28 +384,28 @@ class LoginWindow(QWidget):
             self.vault_manager = VaultManager()
 
             # 4. Load the KeyStore (Creates empty KeyStore in memory)
-            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
+            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password) # pyrefly: ignore [bad-argument-type]
 
             # 5. CRITICAL: Ensure Key Entry exists and save KeyStore file
             self.vault_manager.create_key_if_missing(
-                udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password
+                udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password # pyrefly: ignore [bad-argument-type]
             )
 
             # 6. Retrieve the now-guaranteed secret key
-            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
+            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password) # pyrefly: ignore [bad-argument-type]
 
             # 7. Initialize the vault
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
             # 8. Save credentials (this handles hashing, salting, and saving)
-            self.vault_manager.save_account_credentials(username, raw_password)
+            self.vault_manager.save_account_credentials(username, raw_password) # pyrefly: ignore [bad-argument-type]
 
             QMessageBox.information(
                 self, "Success", f"Account '{username}' created and saved securely."
             )
             self.is_authenticated = True
-            self.vault_manager.account_name = username
-            self.vault_manager.raw_password = raw_password
+            self.vault_manager.account_name = username # pyrefly: ignore [missing-attribute]
+            self.vault_manager.raw_password = raw_password # pyrefly: ignore [missing-attribute]
 
             # --- LOAD/DECRYPT API FILES ---
             self._load_api_files()

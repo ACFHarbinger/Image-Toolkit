@@ -10,8 +10,8 @@ THUMBNAIL_CACHE_DIR = IMAGE_TOOLKIT_DIR / "thumbnail-cache"
 # Base Dirs
 BACKEND_DIR = ROOT_DIR / "backend"
 ASSETS_DIR = ROOT_DIR / "assets"
-TEMPLATE_CRYPTO_DIR = ASSETS_DIR / "cryptography"
-CRYPTO_DIR = IMAGE_TOOLKIT_DIR / "cryptography"
+SECRETS_DIR = ASSETS_DIR / "secrets"
+LOCAL_SECRETS_DIR = IMAGE_TOOLKIT_DIR / "secrets"
 IMAGES_DIR = ASSETS_DIR / "images"
 API_DIR = ASSETS_DIR / "api"
 
@@ -28,10 +28,10 @@ SERVICE_ACCOUNT_FILE = str(API_DIR / "image_toolkit_service.json")
 CLIENT_SECRETS_FILE = str(API_DIR / "client_secret.json")
 TOKEN_FILE = str(API_DIR / "token.json")
 
-# Cryptography Files (Templates/Defaults)
-BASE_KEYSTORE_FILE = str(TEMPLATE_CRYPTO_DIR / "my_keystore.p12")
-BASE_VAULT_FILE = str(TEMPLATE_CRYPTO_DIR / "my_secure_data.vault")
-BASE_PEPPER_FILE = str(TEMPLATE_CRYPTO_DIR / "pepper.txt")
+# Secrets Files (Templates/Defaults)
+BASE_KEYSTORE_FILE = str(SECRETS_DIR / "my_keystore.p12")
+BASE_VAULT_FILE = str(SECRETS_DIR / "my_secure_data.vault")
+BASE_PEPPER_FILE = str(SECRETS_DIR / "pepper.txt")
 
 # Other
 LOCAL_SOURCE_PATH = str(ROOT_DIR.parent.parent / "Downloads" / "data")

@@ -9,7 +9,7 @@ security:
   pepper_filename: "pepper.txt"
 
 paths:
-  vault_root: "${IMAGE_TOOLKIT_DIR}/assets/cryptography"
+  vault_root: "${IMAGE_TOOLKIT_DIR}/assets/secrets"
   backup_root: "${IMAGE_TOOLKIT_DIR}/backups/vault"
 
 jvm:

@@ -4,6 +4,7 @@ import json
 import hashlib
 import threading
 import backend.src.constants as udef
+from typing import Optional
 
 # §3.15B — jpype triggers JVM introspection at import time; guard so test
 # collection does not start a JVM when jpype is absent or no JAR is loaded.
@@ -31,7 +32,7 @@ class VaultManager:
         secure pepper and saves it.
         """
         # Ensure the directory for crypto files exists
-        os.makedirs(udef.CRYPTO_DIR, exist_ok=True)
+        os.makedirs(udef.LOCAL_SECRETS_DIR, exist_ok=True)
 
         if os.path.exists(udef.PEPPER_FILE):
             print(f"Loading existing pepper from: {udef.PEPPER_FILE}", file=sys.stderr)
@@ -66,7 +67,7 @@ class VaultManager:
 
             return pepper
 
-    def __init__(self, bc_provider_path: str = None):
+    def __init__(self, bc_provider_path: Optional[str] = None):
         """
         Initializes the wrapper, starts the JVM, and loads the pepper.
         """
@@ -74,7 +75,7 @@ class VaultManager:
         self.PEPPER = self._load_or_generate_pepper()
 
         # Check if JVM is already running to avoid crash on re-initialization
-        if not jpype.isJVMStarted():
+        if not jpype.isJVMStarted(): # pyrefly: ignore [missing-attribute]
             # Ensure udef.JAR_FILE exists before starting JVM
             if not os.path.exists(udef.JAR_FILE):
                 raise FileNotFoundError(f"Cryptography JAR not found at: {udef.JAR_FILE}")
@@ -88,24 +89,24 @@ class VaultManager:
                     classpath.append(bc_provider_path)
 
             print(f"Starting JVM with classpath: {classpath}", file=sys.stderr)
-            jpype.startJVM(classpath=classpath)
+            jpype.startJVM(classpath=classpath) # pyrefly: ignore [missing-attribute]
 
         try:
             # Load Kotlin classes (Same package structure as Java)
-            KeyStoreManagerClass = jpype.JClass(
+            KeyStoreManagerClass = jpype.JClass( # pyrefly: ignore [missing-attribute]
                 "com.personal.image_toolkit.KeyStoreManager"
             )
-            KeyInitializerClass = jpype.JClass(
+            KeyInitializerClass = jpype.JClass( # pyrefly: ignore [missing-attribute]
                 "com.personal.image_toolkit.KeyInitializer"
             )
-            self.SecureJsonVault = jpype.JClass(
+            self.SecureJsonVault = jpype.JClass( # pyrefly: ignore [missing-attribute]
                 "com.personal.image_toolkit.SecureJsonVault"
             )
 
             self.keystore_manager = KeyStoreManagerClass()
             self.key_initializer = KeyInitializerClass()
 
-        except jpype.JException as e:
+        except jpype.JException as e: # pyrefly: ignore [missing-attribute]
             print("\n--- ERROR ---", file=sys.stderr)
             print(f"Could not find Java/Kotlin class: {e}", file=sys.stderr)
             print(
@@ -114,7 +115,7 @@ class VaultManager:
             )
             raise
 
-        self.JString = jpype.JClass("java.lang.String")
+        self.JString = jpype.JClass("java.lang.String") # pyrefly: ignore [missing-attribute]
 
         self.keystore = None
         self.secret_key = None
@@ -126,7 +127,7 @@ class VaultManager:
         # --- THIS DICTIONARY WILL HOLD DECRYPTED API CREDENTIALS ---
         self.api_credentials = {}
 
-    def _to_char_array(self, py_string: str) -> "JArray[JChar]":
+    def _to_char_array(self, py_string: str) -> "JArray[JChar]": # pyrefly: ignore [unsupported-operation]
         """Helper to convert a Python string to a Java char[]."""
         return self.JString(py_string).toCharArray()
 
@@ -353,9 +354,9 @@ class VaultManager:
 
     def shutdown(self):
         """Shuts down the JVM if it's running."""
-        if jpype.isJVMStarted():
+        if jpype.isJVMStarted(): # pyrefly: ignore [missing-attribute]
             print("Shutting down JVM...", file=sys.stderr)
-            jpype.shutdownJVM()
+            jpype.shutdownJVM() # pyrefly: ignore [missing-attribute]
             print("JVM shut down.", file=sys.stderr)
 
     def __enter__(self):
