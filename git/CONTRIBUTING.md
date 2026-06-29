@@ -67,7 +67,7 @@ Before contributing, ensure you have:
 
 ```bash
 # Fork the repository on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/Image-Toolkit.git
+git clone https://github.com/ACFHarbinger/Image-Toolkit.git
 cd Image-Toolkit
 
 # Add upstream remote

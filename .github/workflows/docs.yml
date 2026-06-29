@@ -153,6 +153,10 @@ jobs:
             --exclude 'https://mybinder.org'
             --exclude 'https://polyfill.io'
             --exclude 'https://cdn.jsdelivr.net'
+            --exclude 'http://localhost'
+            --exclude 'http://127\.0\.0\.1'
+            --exclude 'https://facebook\.github\.io/create-react-app'
+            --exclude 'https://rootly\.com/sre/top-10-observability-tools'
             '**/*.md'
           fail: true
 

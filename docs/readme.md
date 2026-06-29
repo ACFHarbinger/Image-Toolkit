@@ -1192,8 +1192,8 @@ npm test -- --watch
 
 ## <a id="-documentation"></a>📚 Documentation
 
-- **[CLAUDE.md](CLAUDE.md)** - Architecture and development guidelines for AI coding assistants
-- **[GEMINI.md](GEMINI.md)** - Project instructions for Gemini
+- **[CLAUDE.md](../CLAUDE.md)** - Architecture and development guidelines for AI coding assistants
+- **[GEMINI.md](../GEMINI.md)** - Project instructions for Gemini
 
 
 ---

@@ -113,7 +113,7 @@ flowchart TD
 
 ## How to Use This Document
 
-Each section: current state in the codebase → pain point → options with trade-offs → recommendation. Tags: **[Quick Win]** (<1 day), **[Research]** (prototype first), **[Long-term]** (depends on external data/infra). Phased execution sequence is summarised at the end and mirrored into the [Master Roadmap](../ROADMAP.md).
+Each section: current state in the codebase → pain point → options with trade-offs → recommendation. Tags: **[Quick Win]** (<1 day), **[Research]** (prototype first), **[Long-term]** (depends on external data/infra). Phased execution sequence is summarised at the end and mirrored into the [Master Roadmap](ROADMAP.md).
 
 ---
 
