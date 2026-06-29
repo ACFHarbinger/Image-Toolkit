@@ -109,7 +109,7 @@ class MainWindow(QWidget):
         self.setWindowTitle("Image Database and Edit Toolkit")
         self.setMinimumWidth(800)
         self.setMinimumHeight(700)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         QImageReader.setAllocationLimit(NEW_LIMIT_MB)
 
         # --- LOAD THEME AND ACCOUNT INFO FROM VAULT (LOAD 1 OF 1) ---
@@ -118,8 +118,7 @@ class MainWindow(QWidget):
 
         # Load credentials once to get theme and account name
         self.cached_creds = {}
-
-        if self.vault_manager:
+        if self.vault_manager is not None:
             try:
                 self.cached_creds = self.vault_manager.load_account_credentials()
                 account_name = self.cached_creds.get(
@@ -213,16 +212,16 @@ class MainWindow(QWidget):
         # --- Tab Initialization ---
         self.database_tab = DatabaseTab()
         self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
-        self.scan_metadata_tab = ScanMetadataTab(self.database_tab)
+        self.scan_metadata_tab = ScanMetadataTab(self.database_tab) # pyrefly: ignore [bad-instantiation]
         self.convert_tab = ConvertTab(dropdown=dropdown)
         self.merge_tab = MergeTab()
         self.delete_tab = DeleteTab(dropdown=dropdown)
         self.crawler_tab = ImageCrawlTab()
-        self.reverse_search_tab = ReverseImageSearchTab()
+        self.reverse_search_tab = ReverseImageSearchTab() # pyrefly: ignore [bad-instantiation]
         self.drive_sync_tab = DriveSyncTab(vault_manager)
         self.wallpaper_tab = WallpaperTab(self.database_tab)
         self.web_requests_tab = WebRequestsTab()
-        self.image_extractor_tab = ImageExtractorTab()
+        self.image_extractor_tab = ImageExtractorTab() # pyrefly: ignore [bad-instantiation]
         self.listings_tab = ListingsTab(vault_manager=vault_manager)
         self.train_tab = UnifiedTrainTab()
         self.generate_tab = UnifiedGenerateTab()
@@ -444,7 +443,7 @@ class MainWindow(QWidget):
                             try:
                                 sig = inspect.signature(tab_instance.set_config)
                                 if "quiet" in sig.parameters:
-                                    tab_instance.set_config(config_data, quiet=True)
+                                    tab_instance.set_config(config_data, quiet=True) # pyrefly: ignore [unexpected-keyword]
                                 else:
                                     tab_instance.set_config(config_data)
                                 print(
@@ -479,36 +478,36 @@ class MainWindow(QWidget):
             for tab in cat_tabs.values():
                 # Thumbnail & page size (§2.16A)
                 if hasattr(tab, "thumbnail_size"):
-                    tab.thumbnail_size = thumb_size
+                    tab.thumbnail_size = thumb_size # pyrefly: ignore [missing-attribute]
                     if hasattr(tab, "padding_width"):
-                        tab.approx_item_width = thumb_size + tab.padding_width + 20
+                        tab.approx_item_width = thumb_size + tab.padding_width + 20 # pyrefly: ignore [missing-attribute]
                 for attr in ("found_page_size", "selected_page_size", "page_size"):
                     if hasattr(tab, attr):
                         setattr(tab, attr, page_size)
                 # LRU caches (§2.16B)
                 if hasattr(tab, "_found_pixmap_cache"):
-                    tab._found_pixmap_cache = LRUImageCache(maxsize=found_cache)
+                    tab._found_pixmap_cache = LRUImageCache(maxsize=found_cache) # pyrefly: ignore [missing-attribute]
                 if hasattr(tab, "_selected_pixmap_cache"):
-                    tab._selected_pixmap_cache = LRUImageCache(maxsize=selected_cache)
+                    tab._selected_pixmap_cache = LRUImageCache(maxsize=selected_cache) # pyrefly: ignore [missing-attribute]
                 if hasattr(tab, "_initial_pixmap_cache"):
-                    tab._initial_pixmap_cache = LRUImageCache(maxsize=initial_cache)
+                    tab._initial_pixmap_cache = LRUImageCache(maxsize=initial_cache) # pyrefly: ignore [missing-attribute]
 
                 # Reset directory to default if restore is disabled
                 if not restore_last_dir:
                     for obj in (tab, getattr(tab, "format_tab", None)):
                         if obj is not None:
                             if hasattr(obj, "last_browsed_scan_dir"):
-                                obj.last_browsed_scan_dir = default_dir
+                                obj.last_browsed_scan_dir = default_dir # pyrefly: ignore [missing-attribute]
                             if hasattr(obj, "last_browsed_dir"):
-                                obj.last_browsed_dir = default_dir
+                                obj.last_browsed_dir = default_dir # pyrefly: ignore [missing-attribute]
 
                 # Apply Extractor seek interval
                 if hasattr(tab, "wheel_seek_ms"):
-                    tab.wheel_seek_ms = extractor_seek_ms
+                    tab.wheel_seek_ms = extractor_seek_ms # pyrefly: ignore [missing-attribute]
 
                 # Apply Extractor recent limit
                 if hasattr(tab, "recent_extractions_limit"):
-                    tab.recent_extractions_limit = recent_extractions_count
+                    tab.recent_extractions_limit = recent_extractions_count # pyrefly: ignore [missing-attribute]
                     if hasattr(tab, "_apply_new_extractions_limit") and callable(
                         tab._apply_new_extractions_limit
                     ):
@@ -516,7 +515,7 @@ class MainWindow(QWidget):
 
                 # Apply Extractor queue setting
                 if hasattr(tab, "extraction_queue_enabled"):
-                    tab.extraction_queue_enabled = prefs.get(
+                    tab.extraction_queue_enabled = prefs.get( # pyrefly: ignore [missing-attribute]
                         "enable_extraction_queue", False
                     )
                     if hasattr(tab, "_on_queue_toggle_changed") and callable(
@@ -526,7 +525,7 @@ class MainWindow(QWidget):
 
                 # Apply Extractor time display format
                 if hasattr(tab, "time_display_format"):
-                    tab.time_display_format = extractor_time_format
+                    tab.time_display_format = extractor_time_format # pyrefly: ignore [missing-attribute]
                     if hasattr(tab, "refresh_time_display") and callable(
                         tab.refresh_time_display
                     ):
@@ -541,20 +540,20 @@ class MainWindow(QWidget):
         if hasattr(self, "wallpaper_tab"):
             wt = self.wallpaper_tab
             try:
-                wt.interval_min_spinbox.setValue(
+                wt.interval_min_spinbox.setValue( # pyrefly: ignore [missing-attribute]
                     int(prefs.get("slideshow_interval_min", 5))
                 )
-                wt.interval_sec_spinbox.setValue(
+                wt.interval_sec_spinbox.setValue( # pyrefly: ignore [missing-attribute]
                     int(prefs.get("slideshow_interval_sec", 0))
                 )
                 order = prefs.get("slideshow_order", "Sequential")
-                wt.playback_order_combo.setCurrentText(order)
+                wt.playback_order_combo.setCurrentText(order) # pyrefly: ignore [missing-attribute]
             except Exception:
                 pass
 
     def restart_application(self):
         self.close()
-        QApplication.instance().quit()
+        QApplication.instance().quit() # pyrefly: ignore [missing-attribute]
         print("Application attempting relaunch...")
         try:
             os.execv(sys.executable, ["python"] + sys.argv)
@@ -771,7 +770,7 @@ class MainWindow(QWidget):
 
         if theme_name == "dark":
             accent_color = prefs.get("accent_color_dark", DARK_ACCENT_COLOR)
-            overrides = compute_accent_vars(accent_color, "DARK")
+            overrides = compute_accent_vars(accent_color, "DARK") # pyrefly: ignore [bad-argument-type]
             qss = load_qss_with_overrides("dark.qss", overrides)
             self.current_theme = "dark"
             hover_bg = "#5f646c"
@@ -780,7 +779,7 @@ class MainWindow(QWidget):
             header_widget_bg = "#2d2d30"
         elif theme_name == "light":
             accent_color = prefs.get("accent_color_light", LIGHT_ACCENT_COLOR)
-            overrides = compute_accent_vars(accent_color, "LIGHT")
+            overrides = compute_accent_vars(accent_color, "LIGHT") # pyrefly: ignore [bad-argument-type]
             qss = load_qss_with_overrides("light.qss", overrides)
             self.current_theme = "light"
             hover_bg = "#cccccc"
@@ -798,12 +797,12 @@ class MainWindow(QWidget):
         font_scale = prefs.get("font_scale", 100)
         if font_scale != 100:
             scaled_pt = max(7, int(10 * font_scale / 100))
-            QApplication.instance().setFont(QFont("Segoe UI", scaled_pt))
+            QApplication.instance().setFont(QFont("Segoe UI", scaled_pt)) # pyrefly: ignore [missing-attribute]
 
         # §3.16 — append user custom QSS override if present
         qss += load_user_qss_override()
 
-        QApplication.instance().setStyleSheet(qss)
+        QApplication.instance().setStyleSheet(qss) # pyrefly: ignore [missing-attribute]
 
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:
@@ -846,7 +845,7 @@ class MainWindow(QWidget):
         new_theme = "light" if self.current_theme == "dark" else "dark"
         self.set_application_theme(new_theme)
         # Persist the manual preference so the OS follow-OS handler backs off.
-        if self.vault_manager:
+        if self.vault_manager is not None:
             try:
                 creds = self.vault_manager.load_account_credentials()
                 creds["theme"] = new_theme
@@ -942,9 +941,9 @@ class MainWindow(QWidget):
                         for obj in (tab, getattr(tab, "format_tab", None)):
                             if obj is not None:
                                 if hasattr(obj, "last_browsed_scan_dir"):
-                                    obj.last_browsed_scan_dir = default_dir
+                                    obj.last_browsed_scan_dir = default_dir # pyrefly: ignore [missing-attribute]
                                 if hasattr(obj, "last_browsed_dir"):
-                                    obj.last_browsed_dir = default_dir
+                                    obj.last_browsed_dir = default_dir # pyrefly: ignore [missing-attribute]
             elif recovery_level == "Current Tab":
                 # Reset all tabs except the active tab
                 for cat_tabs in self.all_tabs.values():
@@ -954,9 +953,9 @@ class MainWindow(QWidget):
                         for obj in (tab, getattr(tab, "format_tab", None)):
                             if obj is not None:
                                 if hasattr(obj, "last_browsed_scan_dir"):
-                                    obj.last_browsed_scan_dir = default_dir
+                                    obj.last_browsed_scan_dir = default_dir # pyrefly: ignore [missing-attribute]
                                 if hasattr(obj, "last_browsed_dir"):
-                                    obj.last_browsed_dir = default_dir
+                                    obj.last_browsed_dir = default_dir # pyrefly: ignore [missing-attribute]
             elif recovery_level == "All Tabs":
                 # All directories remain restored
                 pass
@@ -1004,7 +1003,7 @@ class MainWindow(QWidget):
                                         print(f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'")
                                     sig = inspect.signature(tab_instance.set_config)
                                     if "quiet" in sig.parameters:
-                                        tab_instance.set_config(sanitized_cfg, quiet=True)
+                                        tab_instance.set_config(sanitized_cfg, quiet=True) # pyrefly: ignore [unexpected-keyword]
                                     else:
                                         tab_instance.set_config(sanitized_cfg)
                                 except Exception as e:
@@ -1031,7 +1030,7 @@ class MainWindow(QWidget):
                                         print(f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'")
                                     sig = inspect.signature(tab_instance.set_config)
                                     if "quiet" in sig.parameters:
-                                        tab_instance.set_config(sanitized_cfg, quiet=True)
+                                        tab_instance.set_config(sanitized_cfg, quiet=True) # pyrefly: ignore [unexpected-keyword]
                                     else:
                                         tab_instance.set_config(sanitized_cfg)
                                 except Exception as e:
@@ -1105,8 +1104,8 @@ class MainWindow(QWidget):
                                 cfg = tab_instance.collect()
                                 tab_class_name = type(tab_instance).__name__
                                 if tab_class_name == "ImageExtractorTab":
-                                    avc = cfg.get("active_videos_config", {})
-                                    print(f"[SAVE] {tab_class_name}.collect(): active_videos_config has {len(avc)} entries, video_path='{cfg.get('video_path', '')}'")
+                                    avc = cfg.get("active_videos_config", {})  # pyrefly: ignore [missing-attribute]
+                                    print(f"[SAVE] {tab_class_name}.collect(): active_videos_config has {len(avc)} entries, video_path='{cfg.get('video_path', '')}'") # pyrefly: ignore [missing-attribute]
                                 tab_configs[tab_class_name] = cfg
                             except Exception as e:
                                 print(
@@ -1164,7 +1163,7 @@ class MainWindow(QWidget):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self._save_session_recovery()
-            if self.vault_manager:
+            if self.vault_manager is not None:
                 self.vault_manager.shutdown()
             QApplication.quit()
         elif (
@@ -1200,7 +1199,7 @@ class MainWindow(QWidget):
             return
 
         # §3.17 — persist window geometry so next launch restores it
-        AppSettings.set_mainwindow_geometry(self.saveGeometry())
+        AppSettings.set_mainwindow_geometry(self.saveGeometry()) # pyrefly: ignore [bad-argument-type]
         self._save_session_recovery()
 
         if self.settings_window:
@@ -1216,7 +1215,7 @@ class MainWindow(QWidget):
                         except Exception:
                             pass
 
-        if self.vault_manager:
+        if self.vault_manager is not None:
             self.vault_manager.shutdown()
 
         super().closeEvent(event)
