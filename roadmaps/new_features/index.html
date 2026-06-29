@@ -1,0 +1,3747 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+        <link rel="prev" href="../performance/">
+      
+      
+        <link rel="next" href="../gui_ux/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>New Features - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#new-features-roadmap-capabilities-and-integrations" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              New Features
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../ROADMAP/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reports/analytics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reports
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Timeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use This Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#41-batch-stitching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Batch Stitching
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.1 Batch Stitching">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#42-export-stitched-panorama-to-scrolling-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Export Stitched Panorama to Scrolling Video
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.2 Export Stitched Panorama to Scrolling Video">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#43-clip-based-semantic-image-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 CLIP-Based Semantic Image Search
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.3 CLIP-Based Semantic Image Search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#44-auto-tagger-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Auto-Tagger Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.4 Auto-Tagger Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#45-multi-monitor-wallpaper-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Multi-Monitor Wallpaper Support
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.5 Multi-Monitor Wallpaper Support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#46-image-deduplication-across-directories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 Image Deduplication Across Directories
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.6 Image Deduplication Across Directories">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#47-slideshow-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.7 Slideshow Improvements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.7 Slideshow Improvements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#48-comfyui-workflow-integration-for-post-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.8 ComfyUI Workflow Integration for Post-Processing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.8 ComfyUI Workflow Integration for Post-Processing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#49-safetensors-metadata-viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.9 Safetensors Metadata Viewer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.9 Safetensors Metadata Viewer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#410-rest-api-layer-for-remote-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.10 REST API Layer for Remote Control
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.10 REST API Layer for Remote Control">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#411-asp-quality-feedback-interface-rlhf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.11 ASP Quality Feedback Interface (RLHF)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.11 ASP Quality Feedback Interface (RLHF)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#412-appearance-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.12 Appearance Profiles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.12 Appearance Profiles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#413-shortcut-macros-and-custom-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.13 Shortcut Macros and Custom Actions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.13 Shortcut Macros and Custom Actions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort--impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anchor-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anchor Index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document History
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui_ux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reports
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reports
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Timeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use This Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#41-batch-stitching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Batch Stitching
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.1 Batch Stitching">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#42-export-stitched-panorama-to-scrolling-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Export Stitched Panorama to Scrolling Video
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.2 Export Stitched Panorama to Scrolling Video">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#43-clip-based-semantic-image-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 CLIP-Based Semantic Image Search
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.3 CLIP-Based Semantic Image Search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#44-auto-tagger-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Auto-Tagger Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.4 Auto-Tagger Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#45-multi-monitor-wallpaper-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Multi-Monitor Wallpaper Support
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.5 Multi-Monitor Wallpaper Support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#46-image-deduplication-across-directories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 Image Deduplication Across Directories
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.6 Image Deduplication Across Directories">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#47-slideshow-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.7 Slideshow Improvements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.7 Slideshow Improvements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#48-comfyui-workflow-integration-for-post-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.8 ComfyUI Workflow Integration for Post-Processing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.8 ComfyUI Workflow Integration for Post-Processing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#49-safetensors-metadata-viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.9 Safetensors Metadata Viewer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.9 Safetensors Metadata Viewer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#410-rest-api-layer-for-remote-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.10 REST API Layer for Remote Control
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.10 REST API Layer for Remote Control">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#411-asp-quality-feedback-interface-rlhf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.11 ASP Quality Feedback Interface (RLHF)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.11 ASP Quality Feedback Interface (RLHF)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#412-appearance-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.12 Appearance Profiles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.12 Appearance Profiles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#413-shortcut-macros-and-custom-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.13 Shortcut Macros and Custom Actions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.13 Shortcut Macros and Custom Actions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort--impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anchor-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anchor Index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document History
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="new-features-roadmap-capabilities-and-integrations">New Features Roadmap — Capabilities and Integrations<a class="headerlink" href="#new-features-roadmap-capabilities-and-integrations" title="Permanent link">&para;</a></h1>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#how-to-use-this-document">How to Use This Document</a></li>
+<li><a href="#41-batch-stitching">4.1 Batch Stitching</a></li>
+<li><a href="#42-export-stitched-panorama-to-scrolling-video">4.2 Export Stitched Panorama to Scrolling Video</a></li>
+<li><a href="#43-clip-based-semantic-image-search">4.3 CLIP-Based Semantic Image Search</a></li>
+<li><a href="#44-auto-tagger-integration">4.4 Auto-Tagger Integration</a></li>
+<li><a href="#45-multi-monitor-wallpaper-support">4.5 Multi-Monitor Wallpaper Support</a></li>
+<li><a href="#46-image-deduplication-across-directories">4.6 Image Deduplication Across Directories</a></li>
+<li><a href="#47-slideshow-improvements">4.7 Slideshow Improvements</a></li>
+<li><a href="#48-comfyui-workflow-integration-for-post-processing">4.8 ComfyUI Workflow Integration for Post-Processing</a></li>
+<li><a href="#49-safetensors-metadata-viewer">4.9 Safetensors Metadata Viewer</a></li>
+<li><a href="#410-rest-api-layer-for-remote-control">4.10 REST API Layer for Remote Control</a></li>
+<li><a href="#411-asp-quality-feedback-interface-rlhf">4.11 ASP Quality Feedback Interface (RLHF)</a></li>
+<li><a href="#412-appearance-profiles">4.12 Appearance Profiles</a></li>
+<li><a href="#413-shortcut-macros-and-custom-actions">4.13 Shortcut Macros and Custom Actions</a></li>
+<li><a href="#effort--impact-matrix">Effort × Impact Matrix</a></li>
+<li><a href="#anchor-index">Anchor Index</a></li>
+</ul>
+<hr />
+<h2 id="implementation-timeline">Implementation Timeline<a class="headerlink" href="#implementation-timeline" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Legend</strong> — <em>Node fill:</em> new feature (blue) · augmentation (violet) · integration (pink) — <em>Node border:</em> ⬜ planned (slate, thin) — <em>Edges:</em> <code>==&gt;</code> critical blocking dependency · <code>--&gt;</code> sequential dependency · <code>-.-&gt;</code> alternative approach · <code>---</code> complements</p>
+</blockquote>
+<pre class="mermaid"><code>flowchart TD
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    subgraph STITCH["🎞 Stitching &amp; Export"]
+        S1["§4.1 Batch Stitching\nAutomate ASP across directories"]:::feature:::planned
+        S2["§4.2 Scrolling Video Export\nPanorama → scrolling MP4"]:::feature:::planned
+        S11["§4.11 RLHF Feedback Interface\nQuality rating loop for ASP"]:::feature:::planned
+    end
+
+    subgraph ML["🤖 ML &amp; Search"]
+        M3["§4.3 CLIP Semantic Search\nML-based image retrieval"]:::feature:::planned
+        M4["§4.4 Auto-Tagger\nWD14 / Florence-2 tagging"]:::integration:::planned
+        M9["§4.9 Safetensors Viewer\nModel metadata inspector"]:::feature:::planned
+    end
+
+    subgraph AUTOMATION["⚙ Automation &amp; API"]
+        A8["§4.8 ComfyUI Integration\nPost-processing workflow hooks"]:::integration:::planned
+        A10["§4.10 REST API Layer\nRemote control &amp; scripting"]:::integration:::planned
+        A13["§4.13 Shortcut Macros\nCustom action sequences"]:::augment:::planned
+    end
+
+    subgraph MEDIA["🖼 Media &amp; Presentation"]
+        P5["§4.5 Multi-Monitor Wallpaper\nPer-display wallpaper support"]:::augment:::planned
+        P6["§4.6 Image Deduplication\nCross-directory dedup"]:::feature:::planned
+        P7["§4.7 Slideshow Improvements\nShuffle, fade, duration controls"]:::augment:::planned
+    end
+
+    subgraph UX["🎨 UI Customisation"]
+        U12["§4.12 Appearance Profiles\nSave &amp; switch theme presets"]:::augment:::planned
+    end
+
+    %% Stitching dependencies
+    S1 --&gt; S2
+    S11 --- S1
+
+    %% ML dependencies
+    M4 --&gt; M3
+    M9 --- M4
+
+    %% Automation dependencies
+    A8 --&gt; S1
+    A10 --&gt; S1
+    A10 --- A13
+
+    %% Cross-group edges
+    M3 --&gt; P6
+    M3 --- M4
+    P5 --- P7
+    U12 --- A13</code></pre>
+<p><em>Read the diagram: <strong>fill colour</strong> shows element type (blue = new feature, violet = augmentation, pink = integration); <strong>border colour</strong> shows status (slate thin = planned, green thick = complete, amber thick = in-progress); <strong>edge style</strong> shows relationship (<code>==&gt;</code> blocking dependency, <code>--&gt;</code> sequential order, <code>---</code> complements, <code>-.-&gt;</code> alternative).</em></p>
+<hr />
+<h2 id="how-to-use-this-document">How to Use This Document<a class="headerlink" href="#how-to-use-this-document" title="Permanent link">&para;</a></h2>
+<p>Each section describes a proposed feature, all viable implementation options with trade-offs, and a recommendation. Items tagged <strong>[Quick Win]</strong> take under a day. Items tagged <strong>[Research]</strong> require prototyping.</p>
+<hr />
+<h2 id="41-batch-stitching">4.1 Batch Stitching<a class="headerlink" href="#41-batch-stitching" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Users with large screenshot libraries (e.g., 50+ groups of frames from novel-reading sessions) currently process each group one at a time in the StitchTab.</p>
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
+<p><strong>A — Directory-level batch mode (GUI)</strong>
+Scan a root directory for subdirectories matching a naming pattern (e.g., <code>scene_*/</code>). Run the ASP pipeline on each, save outputs to a <code>stitched/</code> subfolder. Show a batch progress list in the StitchTab with per-item status, ETA, and output preview.
+- Pros: No external tooling. Best experience for non-technical users.
+- Cons: Long-running GUI operation. Requires cancellable QThread with item-level progress (§2.7).</p>
+<p><strong>B — PostgreSQL-backed persistent queue</strong>
+A <code>stitch_jobs</code> table in the existing database where each row is a frame group. Workers process items in order. The queue survives app restarts. Expose via the database tab or a dedicated Job Queue tab.
+- Pros: Queue survives crash/restart. Enables priority and retry.
+- Cons: Significant schema + UI effort. Overkill for single-user desktop app.</p>
+<p><strong>C — CLI batch mode [Quick Win]</strong>
+<code>python main.py stitch --batch-dir /path/to/groups/</code>. Iterates subdirectories, runs ASP on each, writes outputs. Suitable for scheduled/overnight runs via cron or systemd.
+- Pros: Leverages existing <code>argparse</code> infrastructure. Fast to implement. Works headlessly.
+- Cons: No GUI progress. No persistent state if interrupted.</p>
+<p><strong>D — File system watcher</strong>
+Use <code>watchdog</code> (Python) or <code>notify</code> (Rust, via <code>inotify</code>) to watch a directory. When a new subdirectory appears (e.g., a screen recording session ends), automatically enqueue it for stitching.
+- Pros: Fully automatic; zero user interaction for recurring workflows.
+- Cons: Requires <code>watchdog</code> dependency. Auto-trigger may stitch incomplete captures if recording is still in progress.</p>
+<p><strong>E — Batch mode with resume support</strong>
+Extend C with a <code>results.json</code> that records which groups have been processed. Re-running with <code>--resume</code> skips completed groups. Handles interrupted overnight runs.
+- Pros: Resilient to crashes. Trivial to add on top of C.
+- Cons: JSON state file must be kept consistent with filesystem.</p>
+<p><strong>Recommendation:</strong> C first (leverages existing infrastructure). E immediately after. A as a GUI counterpart once C is validated. D for power-user automation workflows.</p>
+<hr />
+<h2 id="42-export-stitched-panorama-to-scrolling-video">4.2 Export Stitched Panorama to Scrolling Video<a class="headerlink" href="#42-export-stitched-panorama-to-scrolling-video" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Stitched manga/visual novel pages are long-form content users may want to share as videos (e.g., on platforms that don't support long images). A scrolling video export is a natural derived product.</p>
+<h3 id="options_1">Options<a class="headerlink" href="#options_1" title="Permanent link">&para;</a></h3>
+<p><strong>A — OpenCV VideoWriter with pan-and-scan</strong>
+Crop a sliding window across the panorama and write each position as a video frame. Parameterise scroll speed (px/frame) and output resolution.
+- Pros: Zero new binary dependencies. Quick to prototype.
+- Cons: Limited codec support (MJPEG, XVID). No hardware encoding. Lower quality than ffmpeg.</p>
+<p><strong>B — FFmpeg pipe from Python/Rust</strong>
+Pipe frame bytes to <code>ffmpeg</code> via subprocess stdout. Handles codec selection (H.264, H.265, AV1), hardware encoding (NVENC, VAAPI), and container formats (MP4, WebM).
+- Example: <code>ffmpeg -f rawvideo -pix_fmt rgb24 -s {W}x{H} -r {fps} -i pipe: -c:v libx264 out.mp4</code>
+- Pros: High quality. Hardware-accelerated encoding. No Python video library needed.
+- Cons: Requires <code>ffmpeg</code> binary on PATH. Not bundled with PyInstaller by default (needs separate inclusion).</p>
+<p><strong>C — Export as animated WebP (small panoramas)</strong>
+For panoramas &lt; 1500px wide, <code>imageio</code> + <code>PIL</code> can produce a looping animated WebP. Zero new binary dependencies.
+- Pros: Quick-share option. Self-contained.
+- Cons: Animated WebP support limited in some browsers/viewers. Poor compression for large panoramas.</p>
+<p><strong>D — GIF export (legacy compatibility)</strong>
+Use <code>PIL.Image.save(..., format='GIF', save_all=True, append_images=...)</code> for a looping GIF.
+- Pros: Universal compatibility.
+- Cons: 256-colour palette. Large file sizes. Poor quality for complex images.</p>
+<p><strong>E — Configurable scroll parameters (easing, hold at ends)</strong>
+Extend A/B with configurable easing (linear, ease-in-out), pause at start/end, and audio track attachment.
+- Pros: Polished output for sharing.
+- Cons: Adds complexity. Best as a follow-on once basic export works.</p>
+<p><strong>Recommendation:</strong> B for full-resolution output (most portable quality path). C as a quick-share option. E as a polish layer on top of B.</p>
+<hr />
+<h2 id="43-clip-based-semantic-image-search">4.3 CLIP-Based Semantic Image Search<a class="headerlink" href="#43-clip-based-semantic-image-search" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The database supports vector search via pgvector, but embeddings are ResNet-18 Siamese features tuned for duplicate detection, not semantic content. No natural-language query capability exists.</p>
+<h3 id="options_2">Options<a class="headerlink" href="#options_2" title="Permanent link">&para;</a></h3>
+<p><strong>A — OpenCLIP (open_clip_torch) text + image encoder</strong>
+Generate CLIP embeddings during database ingest. Store a second embedding column (e.g., <code>clip_embedding vector(512)</code>) in PostgreSQL. Support both text queries ("red sunset background") and image similarity queries.
+- <code>open-clip-torch</code> is pip-installable, no API key required. Supports ViT-B/32, ViT-L/14, and larger.
+- Processing speed: ~7 images/second on a GPU (cloud L4 benchmark).
+- Pros: State-of-the-art semantic understanding. No external API dependency.
+- Cons: Second embedding column doubles storage. Separate HNSW index needed.
+- Reference: <a href="https://github.com/mlfoundations/open_clip">open_clip GitHub</a></p>
+<p><strong>B — AnimeCLIP / WaifuDiffusion CLIP fine-tune</strong>
+Use a domain-specific CLIP variant fine-tuned on anime content (e.g., <code>ViT-B/16</code> fine-tuned on Danbooru) for better semantic accuracy on the primary use case.
+- Pros: Higher accuracy for anime/manga content vs. general CLIP.
+- Cons: Model requires separate download. Fine-tuned models may have less coverage for non-anime images.</p>
+<p><strong>C — Dual-column search (Siamese + CLIP)</strong>
+Run both Siamese (duplicate detection) and CLIP (semantic similarity) embeddings in parallel. Show results from both in the search tab with a toggle.
+- Pros: Preserves existing duplicate detection functionality alongside new semantic search.
+- Cons: Two HNSW indexes to maintain. Higher storage cost.</p>
+<p><strong>D — Multimodal re-ranking</strong>
+First retrieve top-50 candidates via CLIP, then re-rank using the Siamese embedding for visual similarity within the candidate set. Best of both.
+- Pros: Better precision than either alone.
+- Cons: Two-stage retrieval adds latency. Complex query pipeline.</p>
+<p><strong>E — FAISS as a local in-memory index</strong>
+For collections that don't need persistent storage, use FAISS (<code>faiss-cpu</code> or <code>faiss-gpu</code>) as an in-memory vector index alongside pgvector.
+- Pros: Faster query latency than pgvector for billion-scale collections.
+- Cons: Index must be rebuilt on restart. Redundant if pgvector is already tuned (§3.4D).</p>
+<p><strong>Recommendation:</strong> A as the initial implementation. B as a model swap once A is validated. C for users who want both capabilities simultaneously.</p>
+<hr />
+<h2 id="44-auto-tagger-integration">4.4 Auto-Tagger Integration<a class="headerlink" href="#44-auto-tagger-integration" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The database supports tags, but tagging is entirely manual. Crawlers fetch Danbooru/Gelbooru tags for downloaded images, but locally-sourced images have no tags.</p>
+<h3 id="options_3">Options<a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h3>
+<p><strong>A — WD-1.4 (WaifuDiffusion Tagger) via ONNX</strong>
+Run the ONNX model locally on each image during database ingest. Generates booru-style tags at ~50–100ms/image on CPU, faster on GPU.
+- 13 WD model variants available (v1, v2, v3; ViT, SwinV2, ConvNext).
+- ONNX Runtime is already a likely dependency via BiRefNet.
+- Reference: <a href="https://huggingface.co/spaces/SmilingWolf/wd-tagger">WD Tagger HuggingFace Space</a>; <a href="https://github.com/LlmKira/wd14-tagger-server">wd14-tagger-server GitHub</a>
+- Pros: Best accuracy for anime/manga content. Booru-compatible tags integrate naturally with existing tag schema. No internet required.
+- Cons: Model download (~300 MB). ONNX Runtime dependency.</p>
+<p><strong>B — MetaCLIP / CLIP-ViT zero-shot classification</strong>
+Use zero-shot classification against the full Danbooru tag vocabulary (50k+ tags) with CLIP. No separate tagger model needed if CLIP (§4.3A) is already present.
+- Pros: No additional model if CLIP is installed.
+- Cons: Much lower accuracy than WD-1.4 for domain-specific tags. Slow for large tag vocabularies.</p>
+<p><strong>C — Human-in-the-loop tagging queue</strong>
+Show untagged images in a review queue. Present top-N auto-tag suggestions (from A or B) as checkboxes. User confirms or corrects. Persistent queue backed by PostgreSQL.
+- Pros: Quality control — don't fully automate without review. Generates high-quality labelled data for future fine-tuning.
+- Cons: Requires building a new UI component (tag review queue tab or panel).</p>
+<p><strong>D — Batch background ingest tagger</strong>
+Run WD-1.4 as a background Celery task triggered on database ingest. Tags are stored as <code>pending_review</code> status until confirmed.
+- Pros: Non-blocking ingest. Tags available quickly.
+- Cons: Requires Celery worker to be running. <code>pending_review</code> status adds schema complexity.</p>
+<p><strong>E — Tag confidence thresholds</strong>
+Allow configuring a minimum confidence threshold (e.g., 0.35). Only tags above the threshold are applied automatically; lower-confidence tags go to the human review queue (§C).
+- Pros: Reduces false positives. Already a standard feature of WD tagger implementations.
+- Cons: Threshold needs tuning per content type.</p>
+<p><strong>Recommendation:</strong> A for accuracy. C for quality control. E to tune the boundary between automatic and human review. D for large collections where blocking ingest is impractical.</p>
+<hr />
+<h2 id="45-multi-monitor-wallpaper-support">4.5 Multi-Monitor Wallpaper Support<a class="headerlink" href="#45-multi-monitor-wallpaper-support" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Wallpaper tab sets wallpaper on the primary monitor via <code>qdbus-qt6</code>. Multi-monitor users want per-monitor control.</p>
+<h3 id="options_4">Options<a class="headerlink" href="#options_4" title="Permanent link">&para;</a></h3>
+<p><strong>A — KDE per-monitor wallpaper via D-Bus</strong>
+Enumerate monitors with <code>QScreen.availableScreens()</code>. For each screen, call the Plasma <code>org.kde.PlasmaShell</code> D-Bus method with the screen identifier.
+- KDE 6 D-Bus API: <code>org.kde.PlasmaShell.setWallpaper(screen_id, plugin_id, config_object)</code>.
+- Pros: Native KDE support. Already have <code>qdbus-qt6</code> integration.
+- Cons: KDE-specific. GNOME requires a completely different approach.</p>
+<p><strong>B — GNOME composited wallpaper</strong>
+GNOME doesn't natively support per-monitor wallpapers without extensions. Fall back to a composited image: stitch multiple source images side-by-side to match the total multi-monitor resolution and set as a single wallpaper.
+- Tools: <code>xrandr</code> for screen geometry; PIL/Rust for image compositing.
+- Pros: Works without GNOME extensions.
+- Cons: Images must be manually aligned to screen boundaries. Composited image is static (no independent rotation per screen).</p>
+<p><strong>C — Virtual desktop rotation (per-monitor scheduling)</strong>
+Rotate through different wallpaper categories per monitor on a configurable schedule. Each monitor gets a different image from its assigned queue.
+- Pros: Diverse multi-monitor aesthetic without per-monitor wallpaper API.
+- Cons: Requires per-monitor queue management in the UI.</p>
+<p><strong>D — HydraPaper / Superpaper integration (GNOME)</strong>
+Call the HydraPaper or Superpaper CLI for GNOME multi-monitor support. These tools specifically solve the GNOME per-monitor wallpaper problem.
+- Pros: Best GNOME experience. Well-maintained tools.
+- Cons: External binary dependency. User must have HydraPaper/Superpaper installed.</p>
+<p><strong>E — Wallpaper mirroring across all monitors</strong>
+Simplest mode: apply the same wallpaper to all monitors simultaneously. Already mostly implemented.
+- Pros: No new complexity.
+- Cons: Doesn't address the per-monitor request.</p>
+<p><strong>Recommendation:</strong> A for KDE (primary target given <code>qdbus-qt6</code>). B as GNOME fallback. D as the recommended path for GNOME power users who already have HydraPaper.</p>
+<hr />
+<h2 id="46-image-deduplication-across-directories">4.6 Image Deduplication Across Directories<a class="headerlink" href="#46-image-deduplication-across-directories" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Duplicate detection operates within a single directory scan. Users with multiple collections (local, Dropbox, crawler downloads) accumulate cross-directory duplicates.</p>
+<h3 id="options_5">Options<a class="headerlink" href="#options_5" title="Permanent link">&para;</a></h3>
+<p><strong>A — Cross-directory phash index in PostgreSQL</strong>
+Store phash alongside the embedding on database ingest. Periodic deduplication job queries pairs with Hamming distance ≤ 4.
+- SQL: <code>SELECT a.path, b.path FROM images a, images b WHERE a.id &lt; b.id AND (a.phash &lt;#&gt; b.phash) &lt;= 4</code>.
+- Pros: Integrates cleanly with the existing database. No re-scanning.
+- Cons: N² query complexity without an index. Requires a GiST index on the phash column or a batched comparison approach.</p>
+<p><strong>B — Cross-directory duplicate scan GUI extension</strong>
+Extend the existing <code>DuplicateScanWorker</code> to accept multiple source directories as input. Results show which directory each duplicate is in, with options to keep-newer, keep-larger, or keep-all.
+- Pros: Fastest UX path for users who don't use the database.
+- Cons: In-memory comparison doesn't scale beyond ~50k images without the chunked approach already used.</p>
+<p><strong>C — Locality-sensitive hashing (LSH) for near-duplicate detection</strong>
+Use LSH (e.g., <code>datasketch</code> MinHash LSH) to efficiently find near-duplicates across collections without N² comparisons.
+- Pros: Sub-linear query complexity. Handles near-duplicates (resized, JPEG-recompressed versions).
+- Cons: <code>datasketch</code> dependency. More complex than phash Hamming distance. LSH index must be rebuilt when collection grows.</p>
+<p><strong>D — Differential sync deduplication</strong>
+When syncing from Dropbox/GDrive (§3.5-adjacent), compare incoming files against the local phash index before downloading. Prevents duplicates from entering the collection.
+- Pros: Proactive deduplication at ingest.
+- Cons: Requires the sync module to query the local database before committing downloads.</p>
+<p><strong>Recommendation:</strong> A integrates cleanly with the existing database. B is the fastest UX path if users don't use the database. C for near-duplicate detection at scale.</p>
+<hr />
+<h2 id="47-slideshow-improvements">4.7 Slideshow Improvements<a class="headerlink" href="#47-slideshow-improvements" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Slideshow daemon exists (<code>base/src/utils/slideshow_daemon.rs</code>) but has minimal configuration. Users want timing, ordering, and filtering control.</p>
+<h3 id="options_6">Options<a class="headerlink" href="#options_6" title="Permanent link">&para;</a></h3>
+<p><strong>A — Configurable timing, order, and filter</strong>
+Expose interval (seconds), shuffle mode, and filter (by tag/group/source directory) as persistent settings in the wallpaper tab.
+- Implementation: <code>slideshow_config.toml</code> loaded by the Rust daemon; UI sliders/dropdowns in the wallpaper tab persist to <code>QSettings</code>.
+- Pros: Highest-value improvement. Direct user request.
+- Cons: Requires Rust daemon + Python UI changes in sync.</p>
+<p><strong>B — Tag-based playlist</strong>
+Define named playlists (e.g., "dark mode", "seasonal") as lists of tags. The slideshow plays images matching the active playlist.
+- Pros: More granular control than directory-based filtering.
+- Cons: Requires tag integration with the slideshow daemon.</p>
+<p><strong>C — Time-of-day scheduling</strong>
+Different wallpaper categories at different times (bright mornings, dark evenings). Uses system time + sun position (optional, via <code>astral</code> for local sunrise/sunset).
+- Pros: Ambient computing feature.
+- Cons: <code>astral</code> dependency for sun-position mode. Edge cases around timezone/DST.</p>
+<p><strong>D — Transition effects (fade, slide)</strong>
+Animate transitions between wallpapers by pre-rendering a short sequence and cycling the wallpaper in rapid succession via D-Bus.
+- Pros: Polish.
+- Cons: Requires D-Bus calls at ~30fps during transition (KDE may rate-limit). High effort for aesthetic-only improvement.</p>
+<p><strong>E — Image health check before rotation</strong>
+Before advancing the slideshow, verify the next image is accessible and valid (exists, not corrupt). Skip to the next if not.
+- Pros: Prevents blank/error wallpaper state. Defensive improvement.
+- Cons: Adds a file check to the rotation loop.</p>
+<p><strong>Recommendation:</strong> A is the highest-value improvement. B as a follow-on for tag-aware playlists. C for ambient computing users. Skip D for now.</p>
+<hr />
+<h2 id="48-comfyui-workflow-integration-for-post-processing">4.8 ComfyUI Workflow Integration for Post-Processing<a class="headerlink" href="#48-comfyui-workflow-integration-for-post-processing" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>comfy_generate_tab.py</code> and <code>comfy_manager.py</code> exist but are limited to generation. ComfyUI workflows could also be used for post-processing stitched outputs and gallery images.</p>
+<h3 id="options_7">Options<a class="headerlink" href="#options_7" title="Permanent link">&para;</a></h3>
+<p><strong>A — "Send to ComfyUI" button in StitchTab</strong>
+After stitching, allow loading the output into a pre-configured ComfyUI workflow (e.g., img2img cleanup, Real-ESRGAN upscale, inpainting).
+- Implementation: POST to <code>http://localhost:8188/prompt</code> with the workflow JSON; poll <code>/history/{prompt_id}</code> for completion; load result via <code>/view?filename=...</code>.
+- Reference: <a href="https://apatero.com/blog/comfyui-workflow-to-production-api-deployment-guide-2025">ComfyUI Python API guide</a>
+- Pros: High-quality post-processing using user's existing ComfyUI setup.
+- Cons: Requires ComfyUI to be running. API calls are async — need status polling or WebSocket.</p>
+<p><strong>B — ComfyUI as ASP post-processing backend</strong>
+Replace <code>animation/super_res.py</code> Real-ESRGAN path with a ComfyUI API call to a user-configured workflow. More flexible — any post-processing model the user has installed.
+- Pros: Decouples ASP from specific model implementations. Users can swap models without code changes.
+- Cons: ComfyUI must be running during ASP execution. Adds latency for the API round-trip.</p>
+<p><strong>C — Drag-and-drop image to ComfyUI queue</strong>
+Any gallery image can be dragged to a "ComfyUI" drop target that sends it to the running ComfyUI instance's queue via the API.
+- Pros: Most generally useful (not tied to stitching). Natural extension of drag-and-drop patterns.
+- Cons: Drop target UX requires detecting a running ComfyUI instance.</p>
+<p><strong>D — ComfyUI workflow editor integration</strong>
+Embed a workflow node graph editor (using the ComfyUI frontend's JSON format) within the app. Allow users to build post-processing workflows without opening a browser.
+- Pros: Seamless integration.
+- Cons: Massive scope. The ComfyUI frontend is a complex React app — embedding it is impractical without <code>QWebEngineView</code> (which is banned due to JVM conflicts). Skip.</p>
+<p><strong>E — Workflow template library</strong>
+Ship a set of pre-built workflow templates (upscale, denoise, colorise, inpaint borders) that users can select from a dropdown. Auto-configure the template with the correct input image.
+- Pros: Low barrier to entry for non-ComfyUI-expert users.
+- Cons: Templates must be kept up to date with ComfyUI node changes.</p>
+<p><strong>Recommendation:</strong> C is the most generally useful (not tied to stitching). A as a stitching-specific QoL improvement. E to lower the barrier for first-time users. Skip D.</p>
+<hr />
+<h2 id="49-safetensors-metadata-viewer">4.9 Safetensors Metadata Viewer<a class="headerlink" href="#49-safetensors-metadata-viewer" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>safetensors_metadata.py</code> exists but is not exposed in the GUI. Users managing LoRA and checkpoint files want to inspect metadata without external tools.</p>
+<h3 id="options_8">Options<a class="headerlink" href="#options_8" title="Permanent link">&para;</a></h3>
+<p><strong>A — "Inspect Model" button in LoRA/generate tabs [Quick Win]</strong>
+Load any <code>.safetensors</code> file and display its metadata in a read-only <code>QDialog</code> with a <code>QTreeWidget</code> (key-value tree for nested metadata).
+- Metadata fields: training parameters, trigger words, base model, hash, file size, architecture.
+- Pros: Quick-win improvement to existing tabs. Minimal new code.
+- Cons: Narrow scope (only accessible from specific tabs).</p>
+<p><strong>B — Drag-and-drop model inspector panel</strong>
+A dedicated side panel where users drag <code>.safetensors</code>, <code>.ckpt</code>, and <code>.pt</code> files to see their metadata, architecture summary, and estimated VRAM usage.
+- VRAM estimation: based on parameter count × dtype size (e.g., float16 = 2 bytes/param).
+- Pros: Discoverable from anywhere in the app. Useful for model management.
+- Cons: Larger investment. Needs VRAM estimation logic.</p>
+<p><strong>C — Model comparison view</strong>
+Select two model files and display their metadata side-by-side for comparison (e.g., two LoRA checkpoints from different training runs).
+- Pros: Useful for evaluating training progress.
+- Cons: Niche use case. Better as a follow-on to A or B.</p>
+<p><strong>D — Model hash verification</strong>
+Display the sha256/blake3 hash of the model file alongside the embedded metadata hash (if present). Show a green/red indicator for integrity verification.
+- Pros: Security and provenance benefit.
+- Cons: Hashing large files takes a few seconds (3–5s for a 6 GB model). Should run asynchronously.</p>
+<p><strong>Recommendation:</strong> A is a Quick Win improvement to existing tabs. B is better UX but a larger investment. D adds security value with minimal extra effort on top of A.</p>
+<hr />
+<h2 id="410-rest-api-layer-for-remote-control">4.10 REST API Layer for Remote Control<a class="headerlink" href="#410-rest-api-layer-for-remote-control" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The Django/Celery <code>api/</code> layer exists but its relationship to the desktop app's features is undocumented. Mobile clients (§5.6) and automation scripts need a well-defined API.</p>
+<h3 id="options_9">Options<a class="headerlink" href="#options_9" title="Permanent link">&para;</a></h3>
+<p><strong>A — OpenAPI 3.0 schema for existing endpoints</strong>
+Document all existing <code>api/urls.py</code> endpoints with <code>drf-spectacular</code> or <code>drf-yasg</code>. Generate a Swagger UI available at <code>/api/docs/</code>.
+- Pros: Immediate discoverability for all consumers. Zero new endpoints.
+- Cons: Requires annotating existing views.</p>
+<p><strong>B — Trigger desktop operations via REST</strong>
+Expose long-running operations (stitch, scan, convert) as REST endpoints that enqueue Celery tasks. Return a job ID for status polling.
+- Pros: Enables CLI automation and mobile remote control.
+- Cons: Desktop app must be running with the Django server active.</p>
+<p><strong>C — WebSocket real-time status</strong>
+Add a WebSocket endpoint (<code>/ws/jobs/{job_id}/</code>) that streams stage-level progress events as JSON. Pairs with §2.7 (progress and cancellation).
+- Pros: Real-time progress in any WebSocket-capable client (browser, mobile, CLI).
+- Cons: Django Channels dependency. Adds server infrastructure complexity.</p>
+<p><strong>Recommendation:</strong> A first (document what already exists). B as the automation-enabling extension. C for real-time mobile/web clients.</p>
+<hr />
+<h2 id="411-asp-quality-feedback-interface-rlhf">4.11 ASP Quality Feedback Interface (RLHF)<a class="headerlink" href="#411-asp-quality-feedback-interface-rlhf" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The <code>StitchRewardModel</code> in <code>bench_anime_stitch.py</code> (§1.10A, S29) uses random weights until feedback is collected. There is no UI for users to rate stitching outputs so the reward model can learn meaningful preferences. Without rated outputs, the RLHF loop cannot close and the reward model never improves.</p>
+<h3 id="options_10">Options<a class="headerlink" href="#options_10" title="Permanent link">&para;</a></h3>
+<p><strong>A — Inline rating panel in StitchTab [Quick Win]</strong>
+After each stitch completes, show a 5-point rating widget (thumbs up / thumbs down / star rating) below the output preview. Ratings are written to a <code>~/.image-toolkit/stitch_feedback.jsonl</code> file as <code>{test_id, asp_score, simple_score, user_rating, timestamp}</code>. The reward model loads this file at startup to fine-tune weights.
+- Implementation: ~80 LOC — <code>QToolBar</code> with <code>QSlider</code> (1–5 stars) + "Submit" button. Writes to JSONL via <code>json.dumps</code> + <code>f.write</code>.
+- Pros: Minimal UI work. JSONL is portable and auditable.
+- Cons: No per-seam granularity — only a global output rating.</p>
+<p><strong>B — Side-by-side comparison mode with preference labelling</strong>
+Show ASP output and simple-stitch output side by side. User clicks "this one is better" (or "equal"). Preference pairs <code>(asp_result, simple_result, preferred)</code> are written to the feedback file.
+- Pros: Generates richer comparative data (Bradley-Terry model compatible). Directly maps to RLHF preference learning.
+- Cons: Requires the simple-stitch output to be retained alongside the ASP output. 2× disk usage per test.</p>
+<p><strong>C — Batch rating mode for existing outputs [Quick Win]</strong>
+A separate "Rate Previous Outputs" dialog that loads already-saved PNG outputs from <code>~/.image-toolkit/stitched/</code> and presents them one-by-one for rating. Useful for rating the 96-test corpus in bulk.
+- Pros: No blocking of the main stitch workflow. Can be done asynchronously.
+- Cons: Must reconstruct metadata (which test, what parameters) from the output filename.</p>
+<p><strong>D — Per-seam quality annotation</strong>
+After stitching, show each boundary seam zone as a thumbnail strip. User rates each seam 1–5. The reward model receives per-seam signals rather than a global output score — finer-grained training.
+- Pros: More useful for targeted seam parameter tuning (feather width, gain, DP seam routing).
+- Cons: 13 seams per output × ~30s per seam = ~7 minutes of annotation per dataset. Fatigue risk.</p>
+<p><strong>Recommendation:</strong> A immediately (simplest path to start collecting feedback). B for users who want to generate comparative DPO-style preference data. C as a bulk-annotation tool for the existing 96-test corpus. D as an advanced mode once A is validated.</p>
+<hr />
+<h2 id="412-appearance-profiles">4.12 Appearance Profiles<a class="headerlink" href="#412-appearance-profiles" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Theme (dark/light), accent colour (§2.30), font scale (§2.30B), density (§2.30C), and keyboard shortcuts (§2.29) are stored separately — theme in the vault, shortcuts in <code>keybindings.json</code>, font scale in vault preferences. Users who switch between contexts (e.g., laptop with small screen vs external monitor, or different lighting environments) must manually change each setting individually. A single "profile switch" that atomically applies all appearance settings would eliminate this friction.</p>
+<h3 id="options_11">Options<a class="headerlink" href="#options_11" title="Permanent link">&para;</a></h3>
+<p><strong>A — Appearance profile in existing "System Preference Profiles"</strong>
+Extend the vault's <code>system_preference_profiles</code> entries (already used for theme + tab configs) to include: <code>accent_color_dark</code>, <code>accent_color_light</code>, <code>font_scale</code>, <code>density</code>, and optionally a reference to a shortcut profile name. Applying a profile calls <code>set_application_theme()</code>, <code>QApplication.setFont()</code>, and (if shortcuts changed) rebuilds <code>QShortcut</code> objects.
+- Pros: Reuses existing profile infrastructure. No new UI sections needed.
+- Cons: Vault profiles already hold theme + tab configs; adding appearance fields makes them broader. Users may want to apply an appearance profile without changing tab configs.</p>
+<p><strong>B — Separate "Appearance Profiles" concept</strong>
+A dedicated <code>appearance_profiles</code> key in the vault (or a plain <code>~/.image-toolkit/appearance_profiles.json</code>), decoupled from system preference profiles. Each profile: <code>{name, theme, accent_dark, accent_light, font_scale, density}</code>. Exposed in a dedicated "Appearance Profiles" dropdown in the Appearance settings tab.
+- Pros: Clear separation of concerns. Appearance profiles can be swapped without touching tab default configs.
+- Cons: Yet another profile concept alongside "System Preference Profiles" and "Tab Default Configurations". Three profile systems may confuse users.</p>
+<p><strong>C — Named workspaces (superset of profiles)</strong>
+A full workspace concept capturing: appearance profile + layout profile (§2.32B) + session state (§2.5B). <code>File → Workspaces → Switch</code>. One click restores the entire working environment.
+- Pros: Maximum ergonomic gain for context-switching users.
+- Cons: Depends on §2.29, §2.30, §2.32B all being implemented. Long-term item.</p>
+<p><strong>Recommendation:</strong> A first (minimal code, reuses the existing profile dialog). B if users find appearance and tab-config profiles becoming unwieldy to manage together. C as the long-term unified workspace concept.</p>
+<hr />
+<h2 id="413-shortcut-macros-and-custom-actions">4.13 Shortcut Macros and Custom Actions<a class="headerlink" href="#413-shortcut-macros-and-custom-actions" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Some workflows require a fixed sequence of tab switches + operations (e.g., "browse to directory X, scan, then switch to delete tab"). These multi-step sequences have no automation path — users repeat them manually every session. A lightweight macro system bound to user-defined hotkeys would eliminate repetitive navigation.</p>
+<h3 id="options_12">Options<a class="headerlink" href="#options_12" title="Permanent link">&para;</a></h3>
+<p><strong>A — Recorded macro playback via QEventLoop replay</strong>
+Record a sequence of <code>QAction</code> / callable references as a named macro. Play back via the registered shortcut. Macros are stored as ordered lists of registered command IDs (from <code>SHORTCUT_REGISTRY</code> / command registry in §2.16A).
+- Example macro: <code>["tab:convert", "action:scan_start", "wait:5000", "action:select_all"]</code>.
+- Pros: No scripting language. Uses the command registry as the primitive set. Playback is just iterating callables.
+- Cons: Only covers operations that are registered commands. Cannot express conditional logic.</p>
+<p><strong>B — Python expression macros (power users)</strong>
+A text field in settings where users type a Python expression (a lambda or short function body) that is <code>eval</code>-ed and bound to a shortcut. The expression receives a <code>ctx</code> object with references to all tab instances.
+- Pros: Unlimited expressiveness.
+- Cons: Security risk if shared. Must sandbox or document clearly as a developer feature.</p>
+<p><strong>C — Workflow templates (non-macro)</strong>
+Instead of executable macros, provide named "workflow templates" that pre-fill all relevant tab settings (scan directory, output format, filter) with one click. Not a hotkey macro — a preset loader.
+- Pros: Safer than macro playback. Covers 80% of the use case (state setup, not operation sequencing).
+- Cons: Does not automate multi-step operation sequences.</p>
+<p><strong>Recommendation:</strong> C first (workflow templates are essentially the existing Tab Default Configuration system extended to cross-tab context). A as the scripted macro layer once §2.16 (command palette + registry) is established. Skip B unless explicitly requested.</p>
+<hr />
+<h2 id="effort--impact-matrix">Effort × Impact Matrix<a class="headerlink" href="#effort--impact-matrix" title="Permanent link">&para;</a></h2>
+<p><em>Effort</em> — <strong>Low</strong>: &lt; 1 day · <strong>Medium</strong>: 1 day – 1 week · <strong>High</strong>: 1 – 2 weeks · <strong>Very High</strong>: 2+ weeks or external dependency
+<em>Impact</em> — <strong>Low</strong>: niche · <strong>Medium</strong>: measurable user QoL · <strong>High</strong>: major capability unlock · <strong>Very High</strong>: differentiating feature</p>
+<table>
+<thead>
+<tr>
+<th><strong>Effort ↓ / Impact →</strong></th>
+<th>Low</th>
+<th>Medium</th>
+<th>High</th>
+<th>Very High</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Low (&lt;1d)</strong></td>
+<td>§4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates</td>
+<td>§4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode</td>
+<td>§4.1C CLI batch stitch · §4.7A slideshow config</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Medium (1d–1w)</strong></td>
+<td>—</td>
+<td>§4.5A KDE per-monitor wallpaper · §4.5D HydraPaper GNOME · §4.6A cross-dir phash dedup · §4.8A stitch→ComfyUI button · §4.10B trigger operations via REST · §4.12A appearance profiles</td>
+<td>§4.4A WD14 auto-tagger · §4.6C LSH near-dedup · §4.8C drag-drop to ComfyUI · §4.8E workflow template library · §4.13A macro playback</td>
+<td>§4.3A CLIP semantic search</td>
+</tr>
+<tr>
+<td><strong>High (1–2w)</strong></td>
+<td>—</td>
+<td>§4.1A GUI batch mode</td>
+<td>§4.10C WebSocket job status · §4.11B side-by-side preference labelling · §4.11D per-seam annotation</td>
+<td>§4.3C dual-column CLIP + Siamese search</td>
+</tr>
+<tr>
+<td><strong>Very High (2w+)</strong></td>
+<td>—</td>
+<td>—</td>
+<td>§4.1B PostgreSQL job queue</td>
+<td>§4.3B AnimeCLIP fine-tune</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="anchor-index">Anchor Index<a class="headerlink" href="#anchor-index" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Anchor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4.1 Batch Stitching</td>
+<td><a href="#41-batch-stitching">#41-batch-stitching</a></td>
+</tr>
+<tr>
+<td>4.2 Scrolling Video Export</td>
+<td><a href="#42-export-stitched-panorama-to-scrolling-video">#42-export-stitched-panorama-to-scrolling-video</a></td>
+</tr>
+<tr>
+<td>4.3 CLIP Semantic Search</td>
+<td><a href="#43-clip-based-semantic-image-search">#43-clip-based-semantic-image-search</a></td>
+</tr>
+<tr>
+<td>4.4 Auto-Tagger</td>
+<td><a href="#44-auto-tagger-integration">#44-auto-tagger-integration</a></td>
+</tr>
+<tr>
+<td>4.5 Multi-Monitor Wallpaper</td>
+<td><a href="#45-multi-monitor-wallpaper-support">#45-multi-monitor-wallpaper-support</a></td>
+</tr>
+<tr>
+<td>4.6 Cross-Directory Dedup</td>
+<td><a href="#46-image-deduplication-across-directories">#46-image-deduplication-across-directories</a></td>
+</tr>
+<tr>
+<td>4.7 Slideshow Improvements</td>
+<td><a href="#47-slideshow-improvements">#47-slideshow-improvements</a></td>
+</tr>
+<tr>
+<td>4.8 ComfyUI Integration</td>
+<td><a href="#48-comfyui-workflow-integration-for-post-processing">#48-comfyui-workflow-integration-for-post-processing</a></td>
+</tr>
+<tr>
+<td>4.9 Safetensors Metadata Viewer</td>
+<td><a href="#49-safetensors-metadata-viewer">#49-safetensors-metadata-viewer</a></td>
+</tr>
+<tr>
+<td>4.10 REST API Layer</td>
+<td><a href="#410-rest-api-layer-for-remote-control">#410-rest-api-layer-for-remote-control</a></td>
+</tr>
+<tr>
+<td>4.11 RLHF Quality Feedback</td>
+<td><a href="#411-asp-quality-feedback-interface-rlhf">#411-asp-quality-feedback-interface-rlhf</a></td>
+</tr>
+<tr>
+<td>4.12 Appearance Profiles</td>
+<td><a href="#412-appearance-profiles">#412-appearance-profiles</a></td>
+</tr>
+<tr>
+<td>4.13 Shortcut Macros and Custom Actions</td>
+<td><a href="#413-shortcut-macros-and-custom-actions">#413-shortcut-macros-and-custom-actions</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="document-history">Document History<a class="headerlink" href="#document-history" title="Permanent link">&para;</a></h2>
+<p><em>Last updated: 2026-05-31.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

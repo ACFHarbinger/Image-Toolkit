@@ -1,0 +1,4606 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+        <link rel="prev" href="../../DOCUMENTATION_STANDARDS/">
+      
+      
+        <link rel="next" href="../architecture/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Master Roadmap - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#image-toolkit-master-roadmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Master Roadmap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reports/analytics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reports
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use This Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-0-asp-foreground-assembly-priority-0-the-core-quality-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — ASP Foreground Assembly (Priority 0, The Core Quality Fix)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-ml-asp-ml-driven-modernisation-research-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase ML — ASP ML-Driven Modernisation (Research Phase)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-cg-content-generation-anime-image-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase CG — Content Generation (Anime Image &amp; Video)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-immediate-wins-days-no-new-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Immediate Wins (Days, No New Dependencies)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-core-quality-of-service-days-to-1-week-minimal-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Core Quality-of-Service (Days to 1 Week, Minimal Dependencies)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-feature-enrichment-12-weeks-per-item" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Feature Enrichment (1–2 Weeks per Item)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-platform-hardening-24-weeks-some-architecture-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Platform Hardening (2–4 Weeks, Some Architecture Change)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-advanced-features-13-weeks-per-item-research-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5 — Advanced Features (1–3 Weeks per Item, Research Required)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-arch-code-quality-developer-experience-days-to-2-weeks-no-new-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase Arch — Code Quality &amp; Developer Experience (Days to 2 Weeks, No New Features)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-6-long-term-research-months-exploratory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6 — Long-term Research (Months, Exploratory)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-effort-impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-graph-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency Graph Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-feature-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Feature Roadmap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Feature Roadmap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-pyside6-desktop-application-the-pro-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. PySide6 Desktop Application (The Pro Environment)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-react-tauri-web-application-the-cross-platform-hub" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. React / Tauri Web Application (The Cross-Platform Hub)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-core-engine-ai-enhancements-rust-python-base" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Core Engine &amp; AI Enhancements (Rust / Python Base)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-quality-of-life-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Quality of Life &amp; Utilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-roadmap-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Roadmap Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagram-visual-language-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagram Visual Language Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Diagram Visual Language Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#node-fill-element-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Fill — Element Type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-border-implementation-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Border — Implementation Status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edge-style-relationship-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edge Style — Relationship Type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#standard-classdef-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard classDef Block
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Diagram
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../new_features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui_ux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reports
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reports
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use This Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-0-asp-foreground-assembly-priority-0-the-core-quality-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — ASP Foreground Assembly (Priority 0, The Core Quality Fix)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-ml-asp-ml-driven-modernisation-research-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase ML — ASP ML-Driven Modernisation (Research Phase)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-cg-content-generation-anime-image-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase CG — Content Generation (Anime Image &amp; Video)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-immediate-wins-days-no-new-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Immediate Wins (Days, No New Dependencies)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-core-quality-of-service-days-to-1-week-minimal-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Core Quality-of-Service (Days to 1 Week, Minimal Dependencies)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-feature-enrichment-12-weeks-per-item" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Feature Enrichment (1–2 Weeks per Item)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-platform-hardening-24-weeks-some-architecture-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Platform Hardening (2–4 Weeks, Some Architecture Change)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-advanced-features-13-weeks-per-item-research-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5 — Advanced Features (1–3 Weeks per Item, Research Required)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-arch-code-quality-developer-experience-days-to-2-weeks-no-new-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase Arch — Code Quality &amp; Developer Experience (Days to 2 Weeks, No New Features)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-6-long-term-research-months-exploratory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6 — Long-term Research (Months, Exploratory)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-effort-impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-graph-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency Graph Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-feature-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Feature Roadmap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Feature Roadmap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-pyside6-desktop-application-the-pro-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. PySide6 Desktop Application (The Pro Environment)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-react-tauri-web-application-the-cross-platform-hub" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. React / Tauri Web Application (The Cross-Platform Hub)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-core-engine-ai-enhancements-rust-python-base" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Core Engine &amp; AI Enhancements (Rust / Python Base)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-quality-of-life-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Quality of Life &amp; Utilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-roadmap-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Roadmap Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagram-visual-language-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagram Visual Language Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Diagram Visual Language Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#node-fill-element-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Fill — Element Type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-border-implementation-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Border — Implementation Status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edge-style-relationship-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edge Style — Relationship Type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#standard-classdef-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard classDef Block
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Diagram
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="image-toolkit-master-roadmap">Image Toolkit — Master Roadmap<a class="headerlink" href="#image-toolkit-master-roadmap" title="Permanent link">&para;</a></h1>
+<p><em>Last updated: 2026-06-18. Architecture roadmap updated: §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper ABC, worker base class, gallery consolidation, circular imports, docs/diagrams, decorators), §5.14–§5.16 (settings facade, fault isolation, ML wrapper contract tests) added. Phase 4 updated to remove stale §4.1 Vault Manager link. New Phase Arch added for code-quality items. Session 131: §1.66 NCC structural coherence gate (Stage 11.4), §1.67 pre-BA frame canvas spread validation, §1.8C/D dump_asp_config with typed TOML schema comments (827 tests). Session 130: §1.60 fg pose-gap pre-escalation, §1.62 canvas aspect-ratio gate, §1.63 sort-frames-by-index, §1.64 exact-duplicate dHash guard, §1.65 fg seam erosion buffer, §1.10D MC-dropout uncertainty, §3.17 seam NCC coherence + §3.5A composite quality score in bench (822 tests). Session 78: §2.3 Canvas Layout Inspector read-only viewer (422 tests passing). Session 77: §2.2 Edge Graph Inspector read-only viewer (413 tests passing). Session 76: GNC-TLS BA (§1.32, 412 tests passing). GUI: §2.23A accessibility, §2.4B+C range-select + context menu, §2.25A shortcut overlay, §2.20A splitter persistence, §2.17D log window, §2.16C Ctrl+T tab search, §2.12A+B+C system tray, §2.11A+B+D preview enhancements, §2.21A+D dir history + MRU, §2.26B inline rename, §2.10C QStatusBar, §2.14A filename labels, §2.18 sort + search ops, §2.19 trash, §3.9 item range, §4.11 thumbnail slider, §3.15–3.17 shortcuts/QSS/geometry all shipped. §2.30 accent colour picker + font scale + UI density shipped. New roadmap sections added: §2.29 (configurable keyboard shortcuts), §2.30–2.32 (appearance customisation), §4.12–4.13 (appearance profiles + macros). Session 9: ToonCrafter seam synthesis wired (§3.6/ML.4, <code>ASP_TOONCRAFTER_SEAM=1</code>). Session 8: DINOv2 submodular frame selection (§3.3/ML.2), LSD collinearity in ARAP (§0.1/A3), Aligned-SSIM metric. Session 7: Stage 12.5 scroll-axis content trim (§2.6). Session 6: hold detection (§1.11/ML.1), GNC BA, SLIC SGM proxy (§3.1/ML.5). 107 tests passing. Session 5: alignment stability gate (+0.074 test08, +0.049 test25), fg pixel L1 pose metric (+0.010 test27 with pose-on), 90 unit tests. Session 4: ARAP Push (Sýkora 2009), 96-test run. Research: <code>reports/Image_Stitching_Research.md</code>, <code>reports/ASP_Comprehensive_Research_Report.md</code>.</em></p>
+<p>Completed items have been moved to <a href="../../CHANGELOG/">CHANGELOG.md</a>.</p>
+<hr />
+<h2 id="how-to-use-this-document">How to Use This Document<a class="headerlink" href="#how-to-use-this-document" title="Permanent link">&para;</a></h2>
+<p>This document defines the <strong>phased execution sequence</strong> for all upcoming improvements. Each item links to the corresponding brainstorming section in the appropriate section-specific roadmap for full context, options, and trade-offs.</p>
+<p>Section-specific roadmaps:
+- <a href="../asp/">ASP — Anime Stitch Pipeline</a>
+- <a href="../content_generation/">Content Generation — Anime Image &amp; Video</a>
+- <a href="../gui_ux/">GUI/UX — Desktop Interface</a>
+- <a href="../performance/">Performance — Compute, Memory, I/O</a>
+- <a href="../new_features/">New Features — Capabilities &amp; Integrations</a>
+- <a href="../architecture/">Architecture &amp; Infrastructure</a></p>
+<p>Consolidated research reports (read before working on the respective pipeline):
+- <a href="../../reports/image_stitching/">Anime Stitching — Consolidated Research</a> — foreground-assembly paradigm, per-stage toolbox, 13-stage spec.
+- <a href="../../reports/image_generation/">Anime Generation — Consolidated Research</a> — image + video models, fine-tuning, video→LoRA pipeline.
+- <a href="../../reports/asp_research/">Anime Stitch Pipeline ML Research</a> — ML-driven solutions for aperture problem (AnimeInterp SGM), frame selection (DINOv2 submodular), camera estimation (CamFlow), generative composition (ToonCrafter, RDIStitcher), and reference-free metrics (SIQE, SI-FID, MLLM SIQS). Full roadmap entries in <a href="../asp/#30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report">asp.md §3.0</a>.</p>
+<p>Phases are ordered by impact-to-effort ratio and dependency order. Items within a phase are independent and can be parallelised.</p>
+<hr />
+<h2 id="phase-0-asp-foreground-assembly-priority-0-the-core-quality-fix">Phase 0 — ASP Foreground Assembly (Priority 0, The Core Quality Fix)<a class="headerlink" href="#phase-0-asp-foreground-assembly-priority-0-the-core-quality-fix" title="Permanent link">&para;</a></h2>
+<p>The single highest-impact track: the pipeline cannot register the deforming foreground, so characters tear at every strip seam (ASP loses to simple-stitch on GT-SSIM). Implements the foreground-assembly architecture from the consolidated stitching research.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.1</td>
+<td><strong>[ASP] ✅ Foreground pose registration (A2/A4 prototype)</strong> — <code>fg_register.py</code>: DIS dense flow → residual extraction → symmetric midpoint warp; integrated into Stage 11. Validated on test09.</td>
+<td>Done</td>
+<td><a href="../asp/#01-foreground-pose-registration--the-core-fix-priority-0">asp.md §0.1</a></td>
+</tr>
+<tr>
+<td>0.2</td>
+<td><strong>[ASP] A1 — SEA-RAFT flow engine</strong> (anime-tuned via LinkTo-Anime) replacing DIS for flat-region robustness</td>
+<td>~3d</td>
+<td><a href="../asp/#01-foreground-pose-registration--the-core-fix-priority-0">asp.md §0.1</a></td>
+</tr>
+<tr>
+<td>0.3</td>
+<td><strong>[ASP] ✅ A3 — full Sýkora ARAP + LSD</strong> — ARAP Push→Regularise shipped (S4); LSD collinearity term shipped (S8): boundary-cell projection onto detected line directions, magnitude guard ≥50%</td>
+<td>Done</td>
+<td><a href="../asp/#01-foreground-pose-registration--the-core-fix-priority-0">asp.md §0.1</a></td>
+</tr>
+<tr>
+<td>0.4</td>
+<td><strong>[ASP] ✅ A5 — foreground-excluded temporal median</strong> — <code>_render_median</code> builds <code>bg_canvas[i]</code> per-frame background pixel mask from BiRefNet <code>bg_masks</code>; <code>eff_masks</code> prefers background samples, falls back to all valid pixels for character-covered positions; <code>ASP_FG_EXCLUDE_MEDIAN=1</code> (default ON)</td>
+<td>Done</td>
+<td><a href="../asp/#01-foreground-pose-registration--the-core-fix-priority-0">asp.md §0.1</a></td>
+</tr>
+<tr>
+<td>0.5</td>
+<td><strong>[ASP] A6 — confidence-gated single-pose graph-cut fallback</strong> (Eden 2006)</td>
+<td>~3d</td>
+<td><a href="../asp/#01-foreground-pose-registration--the-core-fix-priority-0">asp.md §0.1</a></td>
+</tr>
+<tr>
+<td>0.6</td>
+<td><strong>[ASP] 🔄 Pose-consistency frame selector</strong> — two-pass architecture built; fg pixel L1 + DINOv2 cosine distance (S8) as pose metrics; activated via <code>ASP_POSE_WINDOW_PX=80</code>; GT-coupling still limits default-on use</td>
+<td>~2d</td>
+<td><a href="../asp/#02-pose-consistency-aware-frame-selection-priority-1">asp.md §0.2</a></td>
+</tr>
+<tr>
+<td>0.7</td>
+<td><strong>[ASP] ✅ min_gap vector-magnitude for diagonal sequences</strong> — <code>_compute_adaptive_min_gap</code> now selects <code>dx_span</code> for horizontal, <code>dy_span</code> for vertical, and <code>sqrt(dy_span² + dx_span²)</code> for diagonal (§0.7); corrects underestimate by up to 1.41× at 45° giving proportionally higher adaptive threshold; <code>min_step=25px</code> already set in <code>_validate_affines</code></td>
+<td>Done</td>
+<td><a href="../asp/">asp.md §0.5</a></td>
+</tr>
+<tr>
+<td>0.8</td>
+<td><strong>[ASP] Segment-guided flow (AnimeInterp SGM)</strong> flat-region fallback — see ML.5/ML.8 for full roadmap</td>
+<td>[Research]</td>
+<td><a href="../asp/#31-animeinterp-sgm-segment-guided-matching-for-flat-region-correspondence-research--highest-aperture-problem-impact">asp.md §3.1</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="phase-ml-asp-ml-driven-modernisation-research-phase">Phase ML — ASP ML-Driven Modernisation (Research Phase)<a class="headerlink" href="#phase-ml-asp-ml-driven-modernisation-research-phase" title="Permanent link">&para;</a></h2>
+<p><em>Source: <code>reports/ASP_Comprehensive_Research_Report.md</code> (2026-06-04). Full detail and implementation options in <a href="../asp/#30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report">asp.md §3.0</a>.</em></p>
+<p>These items address the three quantified ceilings that classical CV methods have exhausted: (1) aperture problem on flat cel regions, (2) background-entangled frame selection, (3) reference-free quality assessment. Each maps to a specific pipeline stage and existing file. All are tagged [Research] — none require new training from scratch; all use pretrained weights or classical algorithms with offline fitting.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ML.1</td>
+<td><strong>[ASP] ✅ FD-Means animation hold detection</strong> — <code>_detect_hold_blocks()</code> shipped (S6); <code>ASP_HOLD_THRESHOLD=0.025</code>; perceptual MAD hold clustering; hold IDs used in Pass 2 penalty</td>
+<td>Done</td>
+<td><a href="../asp/#34-fd-means-animation-hold-detection-quick-win--preprocessing">asp.md §3.4</a></td>
+</tr>
+<tr>
+<td>ML.2</td>
+<td><strong>[ASP] ✅ DINOv2 submodular frame selection</strong> — <code>_compute_dinov2_features()</code> shipped (S8); <code>dinov2_vits14</code> via <code>torch.hub</code>; cosine distance replaces fg pixel L1 in Pass 2; activated via <code>ASP_POSE_WINDOW_PX=80</code></td>
+<td>Done</td>
+<td><a href="../asp/#33-dinov2--siglip-submodular-frame-selection-priority-high--directly-addresses-gt-coupling">asp.md §3.3</a></td>
+</tr>
+<tr>
+<td>ML.3</td>
+<td><strong>[ASP] SIQE ghosting metric</strong> — steerable pyramid + GMM ghosting detector (94.36% human-opinion precision); replaces <code>_ghosting_score()</code>; adds spatial ghost localisation per seam</td>
+<td>~3d</td>
+<td><a href="../asp/#38-siqe-no-reference-ghosting-detection-quick-win--metric-upgrade">asp.md §3.8</a></td>
+</tr>
+<tr>
+<td>ML.4</td>
+<td><strong>[ASP] ✅ ToonCrafter seam synthesis wiring</strong> — shipped (S9); worst single-pose seam triggers <code>_generate_canonical_cel()</code> from <code>anim_fill.py</code>; canonical cel replaces hard partition for fg pixels; <code>ASP_TOONCRAFTER_SEAM=1</code></td>
+<td>Done</td>
+<td><a href="../asp/#36-tooncrafter-seam-synthesis--wiring-the-generative-fallback-priority-medium">asp.md §3.6</a></td>
+</tr>
+<tr>
+<td>ML.5</td>
+<td><strong>[ASP] ✅ SLIC segment-level centroid tracking</strong> — <code>_slic_sgm_proxy()</code> shipped (S6); ARAP Push fallback for flat regions; <code>ASP_SGM_PROXY=1</code></td>
+<td>Done</td>
+<td><a href="../asp/#31-animeinterp-sgm-segment-guided-matching-for-flat-region-correspondence-research--highest-aperture-problem-impact">asp.md §3.1</a></td>
+</tr>
+<tr>
+<td>ML.6</td>
+<td><strong>[ASP] Deep homography with foreground masking</strong> — CVPR 2020 joint dynamics-mask + homography network; replaces phase correlation for camera displacement in <code>frame_selection.py</code>; pretrained weights available</td>
+<td>~3d</td>
+<td><a href="../asp/#35-camflow-hybrid-motion-basis-for-camera-displacement-research">asp.md §3.5</a></td>
+</tr>
+<tr>
+<td>ML.7</td>
+<td><strong>[ASP] SI-FID as benchmark metric</strong> — reference-free stitching quality (Fréchet distance in artifact-trained latent space); supplements GT-SSIM for the 41 GT-less tests; enables GT-coupling-free RLHF optimization</td>
+<td>~3d</td>
+<td><a href="../asp/#39-si-fid-stitched-image-fréchet-distance-for-reference-free-evaluation-research">asp.md §3.9</a></td>
+</tr>
+<tr>
+<td>ML.8</td>
+<td><strong>[ASP] AnimeInterp SGM as ARAP Push replacement</strong> — segment-guided matching via VGG-19 pooled per-segment features; completely bypasses aperture problem; ~40ms/seam GPU; <code>ASP_FLOW_ENGINE=animeinterp</code> flag</td>
+<td>~1w</td>
+<td><a href="../asp/#31-animeinterp-sgm-segment-guided-matching-for-flat-region-correspondence-research--highest-aperture-problem-impact">asp.md §3.1</a></td>
+</tr>
+<tr>
+<td>ML.9</td>
+<td><strong>[ASP] CamFlow Hybrid Motion Basis</strong> — ICCV 2025 model for sub-pixel-accurate 2D camera estimation even with full-frame foreground; replaces phase correlation; physical+stochastic motion bases</td>
+<td>~1w</td>
+<td><a href="../asp/#35-camflow-hybrid-motion-basis-for-camera-displacement-research">asp.md §3.5</a></td>
+</tr>
+<tr>
+<td>ML.10</td>
+<td><strong>[ASP] MLLM semantic quality gate</strong> — Qwen2-VL-7B via ollama; detects severed torsos, duplicated limbs, mismatched body orientation; <code>ASP_MLLM_QA=1</code>; benchmark-only initially</td>
+<td>~2d</td>
+<td><a href="../asp/#310-mllm-semantic-quality-scoring-research--autonomous-quality-assurance">asp.md §3.10</a></td>
+</tr>
+<tr>
+<td>ML.11</td>
+<td><strong>[ASP] UDIS++ diffusion-based seam composition</strong> — replaces Laplacian blend in Stage 11 with unsupervised spatial warp + diffusion hallucination of seam zone; open-source weights; needs anime fine-tune</td>
+<td>~2w</td>
+<td><a href="../asp/#37-udis--udtatis-diffusion-based-seam-composition-long-term--end-to-end-replacement">asp.md §3.7</a></td>
+</tr>
+<tr>
+<td>ML.12</td>
+<td><strong>[ASP] ConvGRU recurrent flow refinement</strong> — AnimeInterp's confidence-guided iterative residual flow; fills null regions after SGM; trained on ATD-12K with animation-specific exaggeration</td>
+<td>~1w</td>
+<td><a href="../asp/#32-convgru-recurrent-flow-refinement-for-kinematic-accuracy-research">asp.md §3.2</a></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dependency order:</strong> ML.1 → ML.2 (holds detected first, then selection uses DINOv2). ML.3 + ML.7 are independent evaluation upgrades. ML.4 depends on existing <code>anim_fill.py</code> (already present). ML.5 → ML.8 (SLIC is the cheap approximation; AnimeInterp is the full solution). ML.6 → ML.9 (deep homography first, CamFlow second as quality upgrade). ML.10 independent. ML.11 + ML.12 depend on ML.8 being validated.</p>
+<hr />
+<h2 id="phase-cg-content-generation-anime-image-video">Phase CG — Content Generation (Anime Image &amp; Video)<a class="headerlink" href="#phase-cg-content-generation-anime-image-video" title="Permanent link">&para;</a></h2>
+<p>Builds on the existing generation stack (<code>LoRATuner</code> on Illustrious-XL, <code>SD3Wrapper</code>, ComfyUI integration, data pipeline). Full detail in <a href="../content_generation/">content_generation.md</a>.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CG.1</td>
+<td><strong>[Gen] WD14 + Florence-2 anime captioning</strong> (booru tags + trigger token; shared with auto-tagger)</td>
+<td>~2d</td>
+<td><a href="../content_generation/">content_generation.md §1.1</a></td>
+</tr>
+<tr>
+<td>CG.2</td>
+<td><strong>[Gen] Shared anime upscaler</strong> — Real-ESRGAN anime_6B module reused by gen tabs + ASP</td>
+<td>~1d</td>
+<td><a href="../content_generation/">content_generation.md §1.6</a></td>
+</tr>
+<tr>
+<td>CG.3</td>
+<td><strong>[Gen] ComfyUI control workflows</strong> — curated txt2img / pose / reference / upscale JSONs</td>
+<td>~2d</td>
+<td><a href="../content_generation/">content_generation.md §1.4</a></td>
+</tr>
+<tr>
+<td>CG.4</td>
+<td><strong>[Gen] Video→Character-LoRA guided flow</strong> — PySceneDetect + dedup + caption + per-GPU TOML</td>
+<td>~1–2w</td>
+<td><a href="../content_generation/">content_generation.md §3</a></td>
+</tr>
+<tr>
+<td>CG.5</td>
+<td><strong>[Gen] LyCORIS variants</strong> (LoCon/LoHa/LoKr) in <code>LoRATuner</code></td>
+<td>~3d</td>
+<td><a href="../content_generation/">content_generation.md §1.3</a></td>
+</tr>
+<tr>
+<td>CG.6</td>
+<td><strong>[Gen] AnimateDiff via ComfyUI</strong> — short anime clips/GIFs with character LoRA</td>
+<td>~1w</td>
+<td><a href="../content_generation/">content_generation.md §2.1</a></td>
+</tr>
+<tr>
+<td>CG.7</td>
+<td><strong>[Gen] v-prediction / zero-terminal-SNR</strong> support in <code>LoRATuner</code> + samplers</td>
+<td>[Research]</td>
+<td><a href="../content_generation/">content_generation.md §1.2</a></td>
+</tr>
+<tr>
+<td>CG.8</td>
+<td><strong>[Gen] ToonCrafter inbetweening</strong> (shared with ASP <code>animation/anim_fill.py</code> ghost-fill)</td>
+<td>[Research]</td>
+<td><a href="../content_generation/">content_generation.md §2.2</a></td>
+</tr>
+<tr>
+<td>CG.9</td>
+<td><strong>[Gen] FLUX.1 [dev] secondary support</strong> (FP8/GGUF for 16 GB)</td>
+<td>[Research]</td>
+<td><a href="../content_generation/">content_generation.md §1.5</a></td>
+</tr>
+<tr>
+<td>CG.10</td>
+<td><strong>[Gen] Wan2.1 / SVD foundation video</strong> (3090 Ti, VRAM-gated)</td>
+<td>[Long-term]</td>
+<td><a href="../content_generation/">content_generation.md §2.3</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="phase-1-immediate-wins-days-no-new-dependencies">Phase 1 — Immediate Wins (Days, No New Dependencies)<a class="headerlink" href="#phase-1-immediate-wins-days-no-new-dependencies" title="Permanent link">&para;</a></h2>
+<p>These are one-line or near-trivial changes with immediate measurable benefit. Ship as a single batch.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.1</td>
+<td><strong>[ASP] ✅ Fallback path purity</strong> — <code>scans_frames</code> snapshot taken before ML corrections at Stage 2; all fallback call-sites pass <code>scans_frames</code></td>
+<td>Done</td>
+<td><a href="../asp/#19-fallback-path-purity">asp.md §1.9</a></td>
+</tr>
+<tr>
+<td>1.2</td>
+<td><strong>[ASP] ✅ Dark scene gain clamp widening</strong> — conditional <code>[0.80, 1.25]</code> when <code>ref_lum_scalar &lt; 80</code>, <code>[0.88, 1.14]</code> otherwise</td>
+<td>Done</td>
+<td><a href="../asp/#14-gain-clamp-widening-for-dark-scenes">asp.md §1.4</a></td>
+</tr>
+<tr>
+<td>1.3</td>
+<td><strong>[ASP] ✅ Static edge pre-bundle rejection</strong> — <code>MIN_EXPECTED_STEP = 50</code> (defined in constants/animation.py) now correctly imported into pipeline.py; min-step guard at lines 278–298 is active</td>
+<td>Done</td>
+<td><a href="../asp/#12-near-zero--zero-translation-edge-filter">asp.md §1.2</a></td>
+</tr>
+<tr>
+<td>1.4</td>
+<td><strong>[ASP] ✅ Content-aware minimal bounding crop</strong> — <code>_crop_to_valid</code> uses <code>_largest_valid_rect</code> when valid_ratio &lt; 0.80; SCANS fallback also uses <code>_largest_valid_rect</code> for diagonal panoramas</td>
+<td>Done</td>
+<td><a href="../asp/#17-recdiffusion-border-rectangling">asp.md §1.7</a></td>
+</tr>
+<tr>
+<td>1.5</td>
+<td><strong>[ASP] ✅ Restrict seam search window</strong> — <code>_seam_dp</code> gains <code>search_half</code> parameter; <code>de_seam</code> propagates it; callers pass <code>search_half=100</code> for small cross-axis displacement</td>
+<td>Done</td>
+<td><a href="../asp/#15-stage-11-composite-performance">asp.md §1.5</a></td>
+</tr>
+<tr>
+<td>1.6</td>
+<td><strong>[Perf] ✅ WebDriver context manager</strong> — all crawlers migrated to Rust (<code>base/src/web/</code>); Python wrappers call <code>base.run_*</code> and never hold a driver reference; Rust code calls <code>driver.quit().await</code> on all exit paths; Python-level orphaned-driver risk eliminated by architecture</td>
+<td>Done</td>
+<td><a href="../performance/#35-webdriver-lifecycle-management">performance.md §3.5</a></td>
+</tr>
+<tr>
+<td>1.7</td>
+<td><strong>[Perf] ✅ Rust DynamicImage move semantics</strong> — take ownership in <code>apply_ar_transform</code> (<code>image_converter.rs</code>) and <code>fast_resize</code> (<code>image_merger.rs</code>); no-op path returns owned image, eliminating ~30 MB clone for 4K RGBA on convert+merge</td>
+<td>Done</td>
+<td><a href="../performance/#36-dynamicimage-move-semantics-in-rust">performance.md §3.6</a></td>
+</tr>
+<tr>
+<td>1.8</td>
+<td><strong>[Perf] ✅ ML model unload after BiRefNet + LoFTR stages</strong> — <code>unload()</code> added to all 7 model wrappers (BiRefNet, LoFTR, EfficientLoFTR, RoMa, ALIKED+LG, JamMa, BaSiC); pipeline calls <code>unload()</code> instead of <code>offload()</code></td>
+<td>Done</td>
+<td><a href="../performance/#37-python-ml-model-memory-lifecycle">performance.md §3.7</a></td>
+</tr>
+<tr>
+<td>1.9</td>
+<td><strong>[GUI] ✅ Session persistence</strong> — <code>_save_last_dir</code> / <code>_load_last_dir</code> via <code>QSettings</code> in both gallery base classes</td>
+<td>Done</td>
+<td><a href="../gui_ux/#25-session-persistence">gui_ux.md §2.5</a></td>
+</tr>
+<tr>
+<td>1.10</td>
+<td><strong>[GUI] ✅ OS dark mode follow</strong> — <code>QGuiApplication.styleHints().colorScheme()</code> + <code>colorSchemeChanged</code> live signal in <code>MainWindow</code></td>
+<td>Done</td>
+<td><a href="../gui_ux/#28-theme-support">gui_ux.md §2.8</a></td>
+</tr>
+<tr>
+<td>1.11</td>
+<td><strong>[GUI] ✅ Ctrl+scroll thumbnail zoom</strong> — <code>ctrl_wheel</code> signal on <code>MarqueeScrollArea</code>; auto-connected in <code>_on_layout_change</code>; reloads current page at new size</td>
+<td>Done</td>
+<td><a href="../gui_ux/#22-gallery-thumbnail-size-control">gui_ux.md §2.2</a></td>
+</tr>
+<tr>
+<td>1.14</td>
+<td><strong>[GUI] ✅ Settings window — Gallery/Startup/Performance/Slideshow/Logging/Reset State sections</strong> — implemented</td>
+<td>Done</td>
+<td><a href="../gui_ux/#29-settings-window-extensions">gui_ux.md §2.9</a></td>
+</tr>
+<tr>
+<td>1.12</td>
+<td><strong>[Arch] ✅ <code>uv lock</code> + CI frozen install</strong> — <code>uv.lock</code> committed; <code>.github/workflows/ci.yml</code> uses <code>uv sync --frozen --no-install-project</code>; <code>pip-audit</code> + <code>numpy</code> added to dev deps</td>
+<td>Done</td>
+<td><a href="../architecture/#57-dependency-audit-and-pinning">architecture.md §5.7</a></td>
+</tr>
+<tr>
+<td>1.13</td>
+<td><strong>[Arch] ✅ Python <code>logging</code> module + rotating file handler</strong> — <code>_setup_logging()</code> in <code>app.py</code> creates a 5 MB rotating file handler + console handler; <code>logger = logging.getLogger(__name__)</code> added to <code>pipeline.py</code>, <code>canvas.py</code>, <code>matching.py</code>, and all model wrappers; <code>print()</code> migrated to <code>logger.info/debug/warning/error</code></td>
+<td>Done</td>
+<td><a href="../architecture/#54-logging-and-diagnostics">architecture.md §5.4</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="phase-2-core-quality-of-service-days-to-1-week-minimal-dependencies">Phase 2 — Core Quality-of-Service (Days to 1 Week, Minimal Dependencies)<a class="headerlink" href="#phase-2-core-quality-of-service-days-to-1-week-minimal-dependencies" title="Permanent link">&para;</a></h2>
+<p>Reliable improvements with a clear implementation path and direct impact on daily use.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2.1</td>
+<td><strong>[ASP] ✅ TOML config file for pipeline constants</strong> — <code>load_asp_config()</code> + <code>get_asp()</code> in <code>backend/src/animation/config.py</code>; <code>_CONFIG_SCHEMA</code> (14 keys); <code>validate_asp_config()</code> strict/warning modes; <code>asp_config.toml</code> loaded on startup (§1.8A/B, S27/S42)</td>
+<td>Done</td>
+<td><a href="../asp/#18-asp-pipeline-configuration-file">asp.md §1.8</a></td>
+</tr>
+<tr>
+<td>2.2</td>
+<td><strong>[ASP] ✅ NumPy vectorised seam DP</strong> — <code>_seam_cut()</code> forward pass uses <code>scipy.ndimage.minimum_filter1d(size=3, cval=np.inf)</code>; traceback uses slice-argmin; 5–10× speedup vs explicit loop (§1.5A, S10)</td>
+<td>Done</td>
+<td><a href="../asp/#15-stage-11-composite-performance">asp.md §1.5</a></td>
+</tr>
+<tr>
+<td>2.3</td>
+<td><strong>[ASP] ✅ Near-duplicate frame deduplication</strong> — <code>_near_dup_luma_filter()</code> + <code>_detect_hold_blocks_dhash()</code> (INTER_AREA + horizontal gradient hash, distance ≤ 4); wired in <code>smart_select_frames</code> step 1b; <code>ASP_HOLD_DHASH_THRESH=4</code> (§1.2B/§3.4A, S26/S43)</td>
+<td>Done</td>
+<td><a href="../asp/#12-near-zero--zero-translation-edge-filter">asp.md §1.2</a></td>
+</tr>
+<tr>
+<td>2.4</td>
+<td><strong>[ASP] ✅ Increase foreground penalty in seam DP</strong> — tiered cost map: fg-interior=1.0, fg-edge-buffer=0.5, bg=0.0; <code>sem_weight=200.0</code> in <code>_seam_cut()</code>; fg-dominated-column barrier cost=2.0 (§1.6A S19, §3.15A S33)</td>
+<td>Done</td>
+<td><a href="../asp/#16-ghosting-reduction-in-composite-zone">asp.md §1.6</a></td>
+</tr>
+<tr>
+<td>2.5</td>
+<td><strong>[ASP] ✅ Post-run RLHF quality gate</strong> — <code>_compute_rlhf_score()</code> + <code>_get_reward_model()</code> lazy singleton in <code>bench_anime_stitch.py</code>; <code>_RLHF_FLAG_THRESHOLD=0.6</code>; emits <code>rlhf_score</code> + <code>rlhf_flagged</code> per test (§1.10A, S29)</td>
+<td>Done</td>
+<td><a href="../asp/#110-rlhf-loop-integration">asp.md §1.10</a></td>
+</tr>
+<tr>
+<td>2.6</td>
+<td><strong>[ASP] ✅ Stage-level progress signals</strong> — <code>_ProgressPipeline</code> in <code>stitch_worker.py</code> emits <code>sig_stage(idx, total, label)</code> at the start of all 13 stages via <code>_emit()</code>; <code>StitchWorker.sig_stage = Signal(int, int, str)</code></td>
+<td>Done</td>
+<td><a href="../gui_ux/#27-progress-and-cancellation">gui_ux.md §2.7</a></td>
+</tr>
+<tr>
+<td>2.7</td>
+<td><strong>[GUI] ✅ Cancellable QThread <code>_should_stop</code> flag</strong> — <code>WallpaperWorker</code> and <code>TrainingWorker</code> now set <code>self._should_stop = True</code> in <code>stop()</code> (previously only <code>is_running</code> was set); both initialise <code>_should_stop = False</code> for uniform tooling</td>
+<td>Done</td>
+<td><a href="../gui_ux/#27-progress-and-cancellation">gui_ux.md §2.7</a></td>
+</tr>
+<tr>
+<td>2.8</td>
+<td><strong>[GUI] ✅ Arrow key gallery navigation</strong> — <code>keyPressEvent</code> in <code>AbstractClassTwoGalleries</code>: Left/Right/Up/Down move <code>_focused_found_idx</code>, Enter emits <code>path_double_clicked</code> on focused widget</td>
+<td>Done</td>
+<td><a href="../gui_ux/#23-keyboard-navigation">gui_ux.md §2.3</a></td>
+</tr>
+<tr>
+<td>2.9</td>
+<td><strong>[GUI] ✅ Shift+click / Ctrl+click multi-select</strong> — <code>handle_marquee_selection()</code> in <code>AbstractClassTwoGalleries</code> checks <code>Qt.ShiftModifier</code> (additive) and <code>Qt.ControlModifier</code> (subtractive); fully wired</td>
+<td>Done</td>
+<td><a href="../gui_ux/#24-bulk-selection-and-operations">gui_ux.md §2.4</a></td>
+</tr>
+<tr>
+<td>2.26</td>
+<td><strong>[GUI] ✅ F2 Rename (§2.26B)</strong> — <code>_rename_focused_file()</code> in <code>AbstractClassTwoGalleries</code> (triggered by F2, renames the file focused via arrow-key navigation) and <code>_rename_selected_file()</code> in <code>AbstractClassSingleGallery</code> (renames last selected item). Both sanitise the new name, guard against conflicts, and update <code>found_files</code>, <code>master_found_files</code>, <code>selected_files</code>, and <code>path_to_label_map</code> / <code>path_to_card_widget</code>.</td>
+<td>Done</td>
+<td><a href="../gui_ux/#226-inline-rename">gui_ux.md §2.26</a></td>
+</tr>
+<tr>
+<td>2.19</td>
+<td><strong>[GUI] ✅ Export selection as paths list (§2.19A)</strong> — <code>_export_selection_as_paths()</code> on both gallery base classes; Ctrl+E saves <code>selected_files</code> (or all found files if none selected) to a user-chosen <code>.txt</code>/<code>.csv</code>. Uses <code>DontUseNativeDialog</code> to avoid JVM RTTI conflict.</td>
+<td>Done</td>
+<td><a href="../gui_ux/#219-gallery-export-and-contact-sheet">gui_ux.md §2.19</a></td>
+</tr>
+<tr>
+<td>2.10</td>
+<td><strong>[GUI] ✅ Recent directories MRU helpers</strong> — <code>_add_recent_dir</code> / <code>_get_recent_dirs</code> on both gallery base classes; backed by <code>QSettings</code>; ready for concrete tabs to wire up a dropdown</td>
+<td>Done</td>
+<td><a href="../gui_ux/#25-session-persistence">gui_ux.md §2.5</a></td>
+</tr>
+<tr>
+<td>2.16</td>
+<td><strong>[GUI] ✅ Wire settings A/B/C/D/E/F/G</strong> — All seven sub-items now wired: §A+C (thumbnail/page size, startup category), §B (LRU cache resize), §D (confirm_deletions checkbox load/save/reset), §E (WallpaperTab slideshow spinboxes/combo), §F (file_logging_enabled + log level), §G (restore_last_dir).</td>
+<td>Done</td>
+<td><a href="../gui_ux/#29-settings-window-extensions">gui_ux.md §2.9</a></td>
+</tr>
+<tr>
+<td>2.11</td>
+<td><strong>[GUI] ✅ Toggle button + quality metrics overlay in StitchTab</strong> — <code>_show_stitch_result()</code> loads result + first-frame pixmaps after stitch; "◀ Before / After ▶" toggle button switches between them; <code>_MetricsTask</code> (QRunnable) computes Laplacian sharpness + file size + dimensions off-thread; metrics label updates via <code>_MetricsSignals.ready</code>; result group hidden until first stitch</td>
+<td>Done</td>
+<td><a href="../gui_ux/#26-stitch-tab-ux--beforeafter-comparison">gui_ux.md §2.6</a></td>
+</tr>
+<tr>
+<td>2.18</td>
+<td><strong>[GUI] ✅ Gallery sort toolbar + search operators</strong> — Sort QComboBox (Name/Date/Size/Ext) + ↑↓ button in pagination bar; <code>_apply_sort()</code> / <code>_sort_key_fn()</code> in both gallery base classes; <code>_common_filter_string_list</code> upgraded to support <code>-exclude</code>, <code>"phrase"</code>, <code>a\|b</code> OR; placeholder text updated to hint syntax; sort applied on directory load too</td>
+<td>Done</td>
+<td><a href="../gui_ux/#213-gallery-filtering-and-sort-controls">gui_ux.md §2.13</a></td>
+</tr>
+<tr>
+<td>2.19</td>
+<td><strong>[GUI] ✅ Move to Trash instead of permanent delete</strong> — <code>send2trash</code> replaces <code>os.remove</code> in DeleteTab, WallpaperTab, SearchTab; confirmation dialogs updated; <code>send2trash&gt;=1.8.3</code> added to <code>pyproject.toml</code></td>
+<td>Done</td>
+<td><a href="../gui_ux/#215-undoredo-for-destructive-operations">gui_ux.md §2.15</a></td>
+</tr>
+<tr>
+<td>2.17</td>
+<td><strong>[GUI] ✅ Accent colour picker + UI density + font scale</strong> — <code>QColorDialog</code> swatches in settings "Display and Media" tab; <code>compute_accent_vars()</code> derives hover/pressed from base; <code>load_qss_with_overrides()</code> substitutes at runtime; density appends Compact/Spacious QSS; font scale via <code>QApplication.setFont</code>; all persisted in vault <code>preferences</code></td>
+<td>Done</td>
+<td><a href="../gui_ux/#230-accent-color-and-ui-density-customization">gui_ux.md §2.30</a></td>
+</tr>
+<tr>
+<td>2.12</td>
+<td><strong>[Perf] ✅ Rust two-pass streaming image merger</strong> (Option A). All three <code>merge_images_{horizontal,vertical,grid}_core</code> functions refactored: Pass 1 reads image headers via <code>image::image_dimensions()</code> (no pixel decode) to compute canvas size; canvas allocated once; Pass 2 loads one image at a time, blits, drops immediately. Peak RAM = 1 image + output canvas instead of all-images-at-once. 6 Rust tests (2 original preserved, 4 new streaming-correctness tests).</td>
+<td>Done</td>
+<td><a href="../performance/#31-rust-streaming-image-merger">performance.md §3.1</a></td>
+</tr>
+<tr>
+<td>2.13</td>
+<td><strong>[Arch] ✅ Pipeline execution trace JSON</strong> — <code>_ProgressPipeline.run()</code> writes a per-run JSON to <code>~/.image-toolkit/traces/stitch_YYYYMMDD_HHMMSS.json</code> containing <code>started_at</code>, <code>finished_at</code>, <code>elapsed_seconds</code>, <code>frames_input</code>, <code>edges_found</code>, <code>canvas_size</code>, <code>fallback_used</code>, <code>success</code>, <code>error</code>, <code>stage_timings</code></td>
+<td>Done</td>
+<td><a href="../architecture/#54-logging-and-diagnostics">architecture.md §5.4</a></td>
+</tr>
+<tr>
+<td>2.14</td>
+<td><strong>[Arch] ✅ pgvector HNSW index tuning</strong> — <code>schema.sql</code> index updated to <code>m=32, ef_construction=128</code>; <code>search_images()</code> sets <code>hnsw.ef_search = 80</code> via <code>SET LOCAL</code> before each vector query</td>
+<td>Done</td>
+<td><a href="../performance/#34-database-query-optimisation">performance.md §3.4</a></td>
+</tr>
+<tr>
+<td>2.15</td>
+<td><strong>[Arch] ✅ <code>pip-audit</code> + <code>cargo audit</code> in CI</strong> — <code>.github/workflows/security.yml</code>: weekly <code>pip-audit --requirement</code> scan of locked deps; <code>cargo audit</code> on <code>base/</code> crate; both upload JSON reports as CI artifacts; fails on any CVE (§5.7C/D)</td>
+<td>Done</td>
+<td><a href="../architecture/#57-dependency-audit-and-pinning">architecture.md §5.7</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="phase-3-feature-enrichment-12-weeks-per-item">Phase 3 — Feature Enrichment (1–2 Weeks per Item)<a class="headerlink" href="#phase-3-feature-enrichment-12-weeks-per-item" title="Permanent link">&para;</a></h2>
+<p>New capabilities that expand the app's core value proposition.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3.1</td>
+<td><strong>[ASP] ✅ GNC robust loss in bundle adjustment</strong> — GNC-TLS outer continuation loop shipped S76 (§1.32); Cauchy one-shot (§1.1C) available via <code>ASP_GNC_OUTER=0</code></td>
+<td>Done</td>
+<td><a href="../asp/#132-gnc-tls-bundle-adjustment-quick-win--shipped-s76">asp.md §1.32</a></td>
+</tr>
+<tr>
+<td>3.2</td>
+<td><strong>[ASP] ✅ OpenCV PANORAMA fallback</strong> — <code>_panorama_stitch_fallback()</code> in <code>canvas.py</code>; uses <code>cv2.Stitcher_create(mode=0)</code> (PANORAMA); wired between Retry 3 and SCANS as last classical attempt (§1.3B, S31)</td>
+<td>Done</td>
+<td><a href="../asp/#13-scale-and-rotation-handling">asp.md §1.3</a></td>
+</tr>
+<tr>
+<td>3.3</td>
+<td><strong>[ASP] ✅ Poisson blending at seam zone</strong> — <code>_poisson_seam_blend()</code> in <code>compositing.py</code>; <code>cv2.seamlessClone(NORMAL_CLONE)</code> in ±20px seam band; hard-partition boundary + gradient minimisation; <code>ASP_POISSON_SEAM=1</code>; falls back to hard partition on cv2.error (§1.6C, S21)</td>
+<td>Done</td>
+<td><a href="../asp/#16-ghosting-reduction-in-composite-zone">asp.md §1.6</a></td>
+</tr>
+<tr>
+<td>3.4</td>
+<td><strong>[ASP] ✅ SRStitcher diffusion border fill</strong> — P1.8 in <code>pipeline.py</code> now checks <code>self.sr_mode and _SRSTITCHER_OK</code>; when both true uses <code>border_diffusion_fill(device=…)</code> from <code>sr_stitcher.py</code> (style-consistent diffusion inpainting) with TELEA fallback; when false keeps existing MFSR <code>inpaint_gaps</code> → TELEA path</td>
+<td>Done</td>
+<td><a href="../asp/#17-recdiffusion-border-rectangling">asp.md §1.7</a></td>
+</tr>
+<tr>
+<td>3.5</td>
+<td><strong>[Feat] ✅ CLI batch stitching</strong> — top-level <code>stitch</code> command: single-sequence (<code>-i frames/ -o out.png</code>) and <code>--batch-dir</code> mode (stitch each sub-dir); <code>--resume</code> skips sequences where output exists (Option C); <code>.stitch_progress.json</code> progress file tracks done/failed/skipped per sequence (Option E); <code>--renderer</code> passes <code>median</code>/<code>first</code>/<code>blend</code> to pipeline; <code>--output-suffix</code> for output naming</td>
+<td>Done</td>
+<td><a href="../new_features/#41-batch-stitching">new_features.md §4.1</a></td>
+</tr>
+<tr>
+<td>3.6</td>
+<td><strong>[Feat] ✅ WD-1.4 auto-tagger via ONNX</strong> with confidence thresholds (Options A + E). <code>WDTaggerWrapper(ModelWrapper)</code> in <code>backend/src/models/wd_tagger_wrapper.py</code>; HuggingFace download + ONNX session on first <code>load()</code>; NHWC BGR float32 preprocessing with white-bg RGBA composite + square-pad; <code>tag()</code> / <code>tag_batch()</code> / <code>tag_with_review()</code> public API; <code>tag_with_review()</code> splits auto-accepted vs review-queue tags (Option E); default threshold 0.35; <code>WD_TAGGER_MODEL_REPO</code> + <code>WD_TAGGER_CACHE_DIR</code> env overrides; 26 tests passing.</td>
+<td>Done</td>
+<td><a href="../new_features/#44-auto-tagger-integration">new_features.md §4.4</a></td>
+</tr>
+<tr>
+<td>3.7</td>
+<td><strong>[Feat] ✅ Safetensors metadata viewer</strong> — <code>read_metadata()</code> in <code>safetensors_metadata.py</code> (shape/dtype via <code>get_slice()</code> without loading tensors); <code>SafetensorsInspectorDialog</code> (<code>gui/src/components/</code>): file info, user metadata, tensor tree (sortable, 197+ rows fast); "Inspect" button in LoRA generate tab; "Inspect .safetensors..." in LoRA train tab (§4.9A)</td>
+<td>Done</td>
+<td><a href="../new_features/#49-safetensors-metadata-viewer">new_features.md §4.9</a></td>
+</tr>
+<tr>
+<td>3.8</td>
+<td><strong>[Feat] ✅ Slideshow configuration</strong> — timing, order, source-directory filter (Option A). Wallpaper tab gains <code>slideshow_filter_group</code> row (QLineEdit + Browse) below interval/order controls; stored as <code>filter_dir</code> in tab config. <code>_apply_vault_slideshow_defaults()</code> deferred-loads interval/order from vault preferences at init. <code>collect()</code>/<code>set_config()</code>/<code>get_default_config()</code> wired. Both <code>_sync_daemon_config()</code> and <code>toggle_daemon()</code> emit <code>filter_directories: [filter_dir]</code> in <code>.slideshow_config.json</code>. Rust daemon: <code>filter_directories: Vec&lt;String&gt;</code> field + <code>matches_filter()</code> helper; filtered queue falls back to full queue when no match (slideshow never stalls). 4 new Rust tests (6 total).</td>
+<td>Done</td>
+<td><a href="../new_features/#47-slideshow-improvements">new_features.md §4.7</a></td>
+</tr>
+<tr>
+<td>3.9</td>
+<td><strong>[GUI] ✅ Increase page size + item range indicator</strong> — default page size 100→150; "150" added to page-size combo; item range label "Items A–B of C" in every pagination bar (§3.9); updated in <code>_update_pagination_ui</code> for both gallery base classes</td>
+<td>Done</td>
+<td><a href="../gui_ux/#21-virtual-scroll-gallery">gui_ux.md §2.1</a></td>
+</tr>
+<tr>
+<td>3.10</td>
+<td><strong>[GUI] ✅ QSS dark/light mode toggle</strong> — ☀/🌙 toggle button in header; <code>_toggle_theme()</code> switches <code>current_theme</code> + calls <code>set_application_theme()</code> + saves <code>creds["theme"]</code> to vault; <code>set_application_theme</code> syncs button icon on every call; OS auto-follow (§1.10) backs off once vault preference is set</td>
+<td>Done</td>
+<td><a href="../gui_ux/#28-theme-support">gui_ux.md §2.8</a></td>
+</tr>
+<tr>
+<td>3.15</td>
+<td><strong>[GUI] ✅ Configurable keyboard shortcuts</strong> — <code>ShortcutRegistry</code> (21 actions) + <code>QKeySequenceEdit</code> table in Settings "⌨️ Shortcuts" tab; JSON persistence to <code>~/.image-toolkit/keybindings.json</code>; conflict detection; <code>keyPressEvent</code> in both gallery base classes and <code>ImagePreviewWindow</code> uses <code>reg.matches()</code>; PySide6 6.10 flag-type fix in <code>matches()</code></td>
+<td>Done</td>
+<td><a href="../gui_ux/#229-configurable-keyboard-shortcuts">gui_ux.md §2.29</a></td>
+</tr>
+<tr>
+<td>3.16</td>
+<td><strong>[GUI] ✅ QSS user override file</strong> — <code>load_user_qss_override()</code> appends <code>~/.image-toolkit/user_theme.qss</code> as the final step in <code>set_application_theme()</code>; returns <code>""</code> silently if the file is absent</td>
+<td>Done</td>
+<td><a href="../gui_ux/#231-custom-qss-user-theme-override">gui_ux.md §2.31</a></td>
+</tr>
+<tr>
+<td>3.17</td>
+<td><strong>[GUI] ✅ Auto-save/restore window geometry</strong> — <code>QSettings("ImageToolkit","ImageToolkit")</code> saves <code>mainwindow/geometry</code> in <code>closeEvent()</code>, restored in <code>__init__</code> before <code>showMaximized()</code></td>
+<td>Done</td>
+<td><a href="../gui_ux/#232-window-layout-and-state-profiles">gui_ux.md §2.32</a></td>
+</tr>
+<tr>
+<td>3.11</td>
+<td><strong>[Perf] ✅ PyTorch GPU temporal median</strong> — <code>_gpu_nanmedian()</code> in <code>rendering.py</code>; all 5 <code>np.nanmedian</code> calls (1 main + 2 vertical fade + 2 horizontal fade) replaced; <code>ASP_GPU_MEDIAN=1</code> env flag; lazy CUDA detection via <code>_cuda_available</code>; falls back to numpy on no-CUDA or any failure</td>
+<td>Done</td>
+<td><a href="../performance/#32-asp-render-stage-gpu-acceleration">performance.md §3.2</a></td>
+</tr>
+<tr>
+<td>3.12</td>
+<td><strong>[Perf] ✅ Dynamic BiRefNet batching</strong> — <code>get_mask_batch</code> now pre-transforms all frames, groups into VRAM-sized chunks via <code>_compute_batch_size()</code> (<code>torch.cuda.mem_get_info()</code> − 1 GB reserve, 32× raw-tensor estimate, cap=4); batched forward pass via <code>torch.stack</code>; falls back to batch=1 on CPU/failure</td>
+<td>Done</td>
+<td><a href="../performance/#33-birefnet-inference-batching">performance.md §3.3</a></td>
+</tr>
+<tr>
+<td>3.13</td>
+<td><strong>[Arch] ✅ ASP unit tests for bundle_adjust, compositing, matching</strong> — 827 unit tests in <code>backend/test/animation/</code>; covers <code>bundle_adjust.py</code>, <code>compositing.py</code>, <code>frame_selection.py</code>, <code>canvas.py</code>, <code>pipeline.py</code>, <code>matching.py</code>, <code>validation.py</code>, <code>config.py</code>, <code>fg_register.py</code> and more; each test &lt;1 s, no GPU required</td>
+<td>Done</td>
+<td><a href="../architecture/#51-asp-pipeline-unit-test-coverage">architecture.md §5.1</a></td>
+</tr>
+<tr>
+<td>3.14</td>
+<td><strong>[Arch] ✅ GitHub Actions benchmark regression CI</strong> — <code>.github/workflows/benchmark.yml</code>: runs all 827 ASP unit tests on push to main; <code>uv sync --frozen --no-install-project</code>; artifacts retained 14 days; fails PR if any test regresses (§5.2A)</td>
+<td>Done</td>
+<td><a href="../architecture/#52-benchmark-regression-ci">architecture.md §5.2</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="phase-4-platform-hardening-24-weeks-some-architecture-change">Phase 4 — Platform Hardening (2–4 Weeks, Some Architecture Change)<a class="headerlink" href="#phase-4-platform-hardening-24-weeks-some-architecture-change" title="Permanent link">&para;</a></h2>
+<p>Items that improve reliability, architecture cleanliness, and long-term maintainability.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4.1</td>
+<td><strong>[Arch] Abstract Matcher base class</strong> — formal interface for all matcher tiers (Option B)</td>
+<td>~1w</td>
+<td><a href="../architecture/#53-plugin-system-for-matchers-and-compositors">architecture.md §5.3</a></td>
+</tr>
+<tr>
+<td>4.2</td>
+<td><strong>[Arch] ✅ <code>ModelWrapper</code> ABC + <code>@lazy_load</code> decorator + <code>ModelRegistry</code></strong> — <code>backend/src/models/base.py</code>; all 7 wrappers migrated; <code>loaded</code> property + <code>is_available()</code> classmethod; <code>@lazy_load</code> on public entry-points; <code>ModelRegistry.unload_all()</code></td>
+<td>Done</td>
+<td><a href="../architecture/#58-model-wrapper-abstraction-layer-backendsrcmodels">architecture.md §5.8</a></td>
+</tr>
+<tr>
+<td>4.3</td>
+<td><strong>[Arch] ✅ Weekly scheduled ASP benchmark CI</strong> — <code>benchmark.yml</code> gains <code>schedule: cron: "0 6 * * 1"</code> (every Monday 06:00 UTC); catches dep-induced regressions that don't touch the codebase (e.g. scipy minor bump)</td>
+<td>Done</td>
+<td><a href="../architecture/#52-benchmark-regression-ci">architecture.md §5.2</a></td>
+</tr>
+<tr>
+<td>4.4</td>
+<td><strong>[Arch] ✅ LogWindow upgraded (§2.17D)</strong> — <code>QPlainTextEdit</code>, colour-coded levels, timestamps, Copy All / Save / Clear / Follow. Full collapsible global panel (Option C) remains.</td>
+<td>Partial</td>
+<td><a href="../architecture/#54-logging-and-diagnostics">architecture.md §5.4</a></td>
+</tr>
+<tr>
+<td>4.5</td>
+<td><strong>[Feat] ✅ OpenAPI schema for existing REST endpoints</strong> — <code>drf-spectacular&gt;=0.27.2</code> added; <code>drf_spectacular</code> in <code>INSTALLED_APPS</code>; <code>SPECTACULAR_SETTINGS</code> (title/desc/version); <code>/api/schema/</code> (YAML), <code>/api/docs/</code> (Swagger UI), <code>/api/redoc/</code> (ReDoc) in <code>api/urls.py</code>; all 19 task views annotated with <code>@extend_schema</code> (tags, summary, request, 202/400 responses)</td>
+<td>Done</td>
+<td><a href="../new_features/#410-rest-api-layer-for-remote-control">new_features.md §4.10</a></td>
+</tr>
+<tr>
+<td>4.6</td>
+<td><strong>[Feat] ✅ Cross-directory phash deduplication index</strong> — <code>phash BIGINT</code> column + <code>idx_images_phash</code> index added to PostgreSQL <code>images</code> table via idempotent <code>ALTER TABLE … ADD COLUMN IF NOT EXISTS</code> in <code>schema.sql</code>; <code>update_phash(image_id, phash_int)</code> + <code>find_near_duplicates_by_phash(phash_int, threshold, limit)</code> on <code>PgvectorImageDatabase</code> (Hamming distance via <code>bit_count(phash::bit(64) # query::bit(64))</code>); <code>compute_phash(path)</code> + <code>PhashDeduplicator</code> (index_image/index_directory/find_duplicates_for/find_all_duplicate_groups) in <code>backend/src/core/phash_deduplicator.py</code>; 10 unit tests</td>
+<td>Done</td>
+<td><a href="../new_features/#46-image-deduplication-across-directories">new_features.md §4.6</a></td>
+</tr>
+<tr>
+<td>4.7</td>
+<td><strong>[Feat] ✅ KDE per-monitor wallpaper via D-Bus</strong> — <code>find_qdbus_binary()</code> auto-detects <code>qdbus6</code>/<code>qdbus-qt6</code>/<code>qdbus</code>/<code>qdbus-qt5</code>; <code>evaluate_kde_script_dbus_python()</code> pure-Python D-Bus fallback (bypasses CLI); <code>evaluate_kde_script_with_fallback(qdbus, script)</code> chain (CLI → dbus-python → clear error); all three KDE script call-sites in <code>WallpaperManager</code> migrated; <code>wallpaper_tab.py</code> uses <code>find_qdbus_binary()</code> instead of inline 2-name check; works on Wayland+KDE where <code>DESKTOP_SESSION</code> ≠ <code>plasma</code></td>
+<td>Done</td>
+<td><a href="../new_features/#45-multi-monitor-wallpaper-support">new_features.md §4.5</a></td>
+</tr>
+<tr>
+<td>4.8</td>
+<td><strong>[Perf] ✅ psycopg3 connection pool</strong> — <code>PooledPgvectorDatabase</code> in <code>backend/src/database/pooled_image_database.py</code> uses <code>psycopg_pool.ConnectionPool</code> (psycopg3 sync pool, min=2, max=10). Drop-in replacement for <code>PgvectorImageDatabase</code>: identical public API, each method borrows a thread-safe connection from the pool, returns it automatically. Eliminates single-connection bottleneck where multiple QThread workers raced on <code>self.conn</code>. <code>psycopg[pool]&gt;=3.2</code> added to <code>pyproject.toml</code>. Row access via <code>psycopg.rows.dict_row</code> row_factory; duplicate-column queries (<code>get_all_subgroups_detailed</code>, <code>get_statistics</code>) use per-cursor <code>tuple_row</code> override. <code>VACUUM</code>/<code>REINDEX</code> use a direct <code>autocommit=True</code> connection outside the pool. 22 unit tests using mocked pool/connection, no live DB required.</td>
+<td>Done</td>
+<td><a href="../performance/#34-database-query-optimisation">performance.md §3.4</a></td>
+</tr>
+<tr>
+<td>4.9</td>
+<td><strong>[GUI] QListView + QAbstractItemModel virtual scrolling</strong> — prototype against <code>AbstractClassTwoGalleries</code> (Option A)</td>
+<td>~1w</td>
+<td><a href="../gui_ux/#21-virtual-scroll-gallery">gui_ux.md §2.1</a></td>
+</tr>
+<tr>
+<td>4.10</td>
+<td><strong>[GUI] Global hotkey table in settings</strong> — JSON-backed <code>QShortcut</code> (Option B)</td>
+<td>~1w</td>
+<td><a href="../gui_ux/#23-keyboard-navigation">gui_ux.md §2.3</a></td>
+</tr>
+<tr>
+<td>4.12</td>
+<td><strong>[GUI] ✅ Named layout profiles</strong> — extend "System Preference Profiles" to bundle geometry + splitter state + appearance settings (§2.32B). <code>_get_current_ui_preferences()</code> now snapshots <code>saveGeometry()</code> as base64 + all <code>splitters/*</code> QSettings keys as a <code>layout_splitters</code> dict. New <code>_apply_layout_from_profile()</code> restores geometry to the main window immediately and writes splitter states to QSettings (active on next tab init). Both Load Profile and Use Profile call the helper.</td>
+<td>Done</td>
+<td><a href="../gui_ux/#232-window-layout-and-state-profiles">gui_ux.md §2.32</a></td>
+</tr>
+<tr>
+<td>4.13</td>
+<td><strong>[Feat] ✅ Appearance profiles</strong> — extend vault profiles to include accent colour, font scale, density (Option A). <code>_get_current_ui_preferences()</code> now bundles <code>accent_color_dark/light</code>, <code>font_scale</code>, <code>ui_density</code> alongside <code>theme</code>/<code>active_tab_configs</code>. New <code>_apply_appearance_from_profile()</code> helper updates swatches + spinbox + combo. Load/Use profile both call helper. Login profile selection merges appearance keys into <code>preferences</code>.</td>
+<td>Done</td>
+<td><a href="../new_features/#412-appearance-profiles">new_features.md §4.12</a></td>
+</tr>
+<tr>
+<td>4.11</td>
+<td><strong>[GUI] ✅ Thumbnail slider + per-tab persistent size</strong> — <code>QSlider</code> (64–512 px, step 16) in every pagination bar; <code>_save_thumbnail_size()</code> on slider release and after Ctrl+scroll; <code>_load_thumbnail_size()</code> at <code>__init__</code> time keyed by <code>{ClassName}/thumbnail_size</code>; <code>_sync_thumb_slider()</code> keeps all sliders in sync; both gallery base classes updated</td>
+<td>Done</td>
+<td><a href="../gui_ux/#22-gallery-thumbnail-size-control">gui_ux.md §2.2</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="phase-5-advanced-features-13-weeks-per-item-research-required">Phase 5 — Advanced Features (1–3 Weeks per Item, Research Required)<a class="headerlink" href="#phase-5-advanced-features-13-weeks-per-item-research-required" title="Permanent link">&para;</a></h2>
+<p>Higher-complexity features that depend on Phase 3–4 infrastructure or require experimentation.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5.1</td>
+<td><strong>[Feat] OpenCLIP semantic search</strong> — dual embedding column in PostgreSQL (Options A + C)</td>
+<td>~2w</td>
+<td><a href="../new_features/#43-clip-based-semantic-image-search">new_features.md §4.3</a></td>
+</tr>
+<tr>
+<td>5.2</td>
+<td><strong>[Feat] GUI batch stitching</strong> — directory-level batch mode with progress list (Option A)</td>
+<td>~1w</td>
+<td><a href="../new_features/#41-batch-stitching">new_features.md §4.1</a></td>
+</tr>
+<tr>
+<td>5.3</td>
+<td><strong>[Feat] FFmpeg scrolling video export</strong> (Option B)</td>
+<td>~1w</td>
+<td><a href="../new_features/#42-export-stitched-panorama-to-scrolling-video">new_features.md §4.2</a></td>
+</tr>
+<tr>
+<td>5.4</td>
+<td><strong>[Feat] ComfyUI drag-and-drop gallery integration</strong> (Option C)</td>
+<td>~1w</td>
+<td><a href="../new_features/#48-comfyui-workflow-integration-for-post-processing">new_features.md §4.8</a></td>
+</tr>
+<tr>
+<td>5.5</td>
+<td><strong>[Feat] WD tagging review queue</strong> — PostgreSQL-backed human-in-the-loop (Option C)</td>
+<td>~1w</td>
+<td><a href="../new_features/#44-auto-tagger-integration">new_features.md §4.4</a></td>
+</tr>
+<tr>
+<td>5.6</td>
+<td><strong>[Feat] REST API trigger for desktop operations + WebSocket status</strong> (Options B + C)</td>
+<td>~2w</td>
+<td><a href="../new_features/#410-rest-api-layer-for-remote-control">new_features.md §4.10</a></td>
+</tr>
+<tr>
+<td>5.7</td>
+<td><strong>[ASP] RLHF Bayesian parameter search</strong> — optuna over gain, feather, seam cost (Option B)</td>
+<td>~1w</td>
+<td><a href="../asp/#110-rlhf-loop-integration">asp.md §1.10</a></td>
+</tr>
+<tr>
+<td>5.8</td>
+<td><strong>[ASP] Similarity transform (scale+rotation+translation) matcher</strong> — <code>estimateAffinePartial2D</code> (Option E)</td>
+<td>~1w</td>
+<td><a href="../asp/#13-scale-and-rotation-handling">asp.md §1.3</a></td>
+</tr>
+<tr>
+<td>5.9</td>
+<td><strong>[ASP] Seam DP cache for RLHF iteration</strong> — keyed by <code>(frame_ids, seam_cost_config)</code> (Option D)</td>
+<td>~1d</td>
+<td><a href="../asp/#15-stage-11-composite-performance">asp.md §1.5</a></td>
+</tr>
+<tr>
+<td>5.10</td>
+<td><strong>[Arch] Compositor registry</strong> — same pattern as Matcher (Option E)</td>
+<td>~1w</td>
+<td><a href="../architecture/#53-plugin-system-for-matchers-and-compositors">architecture.md §5.3</a></td>
+</tr>
+<tr>
+<td>5.11</td>
+<td><strong>[Perf] Rust memory-mapped output buffer</strong> — <code>memmap2</code> for &gt;10K px panoramas (Option C)</td>
+<td>~2d</td>
+<td><a href="../performance/#31-rust-streaming-image-merger">performance.md §3.1</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="phase-arch-code-quality-developer-experience-days-to-2-weeks-no-new-features">Phase Arch — Code Quality &amp; Developer Experience (Days to 2 Weeks, No New Features)<a class="headerlink" href="#phase-arch-code-quality-developer-experience-days-to-2-weeks-no-new-features" title="Permanent link">&para;</a></h2>
+<p>Targeted refactors that reduce maintenance burden, improve onboarding, and prevent regressions. Items are ordered by ascending effort; all are independent and can be parallelised. Full detail in <a href="../architecture/">architecture.md</a>.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A.1</td>
+<td><strong>[Arch] ✅ Pyright <code>basic</code> mode</strong> — <code>typeCheckingMode = "basic"</code> in <code>pyproject.toml</code></td>
+<td>Done</td>
+<td><a href="../architecture/#55-gradual-static-type-safety-migration">architecture.md §5.5B</a></td>
+</tr>
+<tr>
+<td>A.2</td>
+<td><strong>[Arch] ✅ Eliminate silent <code>print()</code> errors</strong> — <code>conversion_worker.py</code> (3×), <code>duplicate_scan_worker.py</code> (2×), <code>gan_wrapper.py</code> (1×), <code>lo_ra_tuner.py</code> (1×); all replaced with <code>logger.warning/error</code></td>
+<td>Done</td>
+<td><a href="../architecture/#515-fault-isolation--error-boundary-protocol">architecture.md §5.15C</a></td>
+</tr>
+<tr>
+<td>A.3</td>
+<td><strong>[Arch] ✅ Remove <code># --- Relocated Nested Imports ---</code> comment blocks</strong> — single grep-and-edit pass across all model wrappers; consolidate into standard PEP 8 import order</td>
+<td>Done</td>
+<td><a href="../architecture/#58-model-wrapper-abstraction-layer-backendsrcmodels">architecture.md §5.8D</a></td>
+</tr>
+<tr>
+<td>A.4</td>
+<td><strong>[Arch] ✅ <code>__all__</code> hygiene pass</strong> — 15 <code>__init__.py</code> files updated: <code>backend/src/{models,web,core,pipeline,utils,controller,__init__}</code> and <code>gui/src/{utils,styles,helpers/{image,video,web,core},tabs,tabs/core/common}</code>; empty files get []<code>`; populated files get explicit</code><strong>all</strong>` lists</td>
+<td>Done</td>
+<td><a href="../architecture/#511-circular-import-prevention--module-boundary-documentation">architecture.md §5.11D</a></td>
+</tr>
+<tr>
+<td>A.5</td>
+<td><strong>[Arch] ✅ QSettings key validation at startup</strong> — <code>SETTINGS_SCHEMA</code> dict + <code>SETTINGS_PREFIX_TYPES</code> + <code>_validate_settings()</code> in <code>app.py</code>; called after <code>QApplication()</code> creation; logs warnings for type-mismatched keys and clears them; unknown keys logged at DEBUG</td>
+<td>Done</td>
+<td><a href="../architecture/#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy">architecture.md §5.14D</a></td>
+</tr>
+<tr>
+<td>A.6</td>
+<td><strong>[Arch] ✅ <code>@log_call</code> timing decorator</strong> — <code>backend/src/utils/decorators.py</code>; logs entry/exit + elapsed ms at DEBUG; compatible with §5.4B trace JSON; exported via <code>backend/src/utils/__init__.py</code></td>
+<td>Done</td>
+<td><a href="../architecture/#513-decorator-library-for-cross-cutting-concerns-backendsrcutilsdecoratorspy">architecture.md §5.13C</a></td>
+</tr>
+<tr>
+<td>A.7</td>
+<td><strong>[Arch] ✅ Metaclass docstring + <code>_load_thumbnail_size</code> extraction</strong> — extended docstring in <code>meta_abstract_class_gallery.py</code> explaining Qt metaclass fusion + injection rationale; <code>save_thumbnail_size</code>/<code>load_thumbnail_size</code> extracted to <code>gui/src/utils/thumbnail_size.py</code>; both gallery base classes delegate to shared functions</td>
+<td>Done</td>
+<td><a href="../architecture/#510-gallery-base-class-consolidation-guisrcclasses">architecture.md §5.10C</a></td>
+</tr>
+<tr>
+<td>A.8</td>
+<td><strong>[Arch] ✅ TYPE_CHECKING guards for heavy GUI→backend imports</strong> — <code>from __future__ import annotations</code> + <code>if TYPE_CHECKING:</code> for <code>AnimeStitchPipeline</code> and other PyTorch imports in GUI workers; reduces cold-start by ~2–4s</td>
+<td>Done</td>
+<td><a href="../architecture/#511-circular-import-prevention--module-boundary-documentation">architecture.md §5.11B</a></td>
+</tr>
+<tr>
+<td>A.9</td>
+<td><strong>[Arch] ✅ ML wrapper contract tests (mock-based)</strong> — one <code>TestXxxWrapperContract</code> class per wrapper in <code>backend/test/models/</code>; verifies output shape/dtype, <code>unload()</code> idempotency, <code>loaded</code> property; no GPU required; &lt;1s per test</td>
+<td>Done</td>
+<td><a href="../architecture/#516-contract-testing-for-ml-model-wrappers-backendsrcmodels">architecture.md §5.16A</a></td>
+</tr>
+<tr>
+<td>A.10</td>
+<td><strong>[Arch] ✅ mypy baseline config + TypedDict worker configs</strong> — <code>[tool.mypy]</code> section in <code>pyproject.toml</code> (permissive baseline); <code>ConversionConfig</code>, <code>DeletionConfig</code>, <code>MergeConfig</code>, <code>StitchConfig</code> TypedDicts in <code>gui/src/helpers/core/config_types.py</code>; wired into <code>ConversionWorker</code>, <code>DeletionWorker</code>, <code>MergeWorker</code></td>
+<td>Done</td>
+<td><a href="../architecture/#55-gradual-static-type-safety-migration">architecture.md §5.5A</a></td>
+</tr>
+<tr>
+<td>A.11</td>
+<td><strong>[Arch] ✅ <code>AppSettings</code> GUI facade</strong> — <code>gui/src/utils/settings.py</code> singleton; replaces 20+ inline <code>QSettings("ImageToolkit","ImageToolkit")</code> constructor calls; typed properties per key; wired into both gallery base classes, <code>main_window.py</code>, <code>splitter_persistence.py</code>, <code>listings_common.py</code>, <code>thumbnail_size.py</code></td>
+<td>Done</td>
+<td><a href="../architecture/#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy">architecture.md §5.14A</a></td>
+</tr>
+<tr>
+<td>A.12</td>
+<td><strong>[Arch] ✅ <code>get_asp()</code> helper in <code>config.py</code></strong> — <code>get_asp(key, default="")</code> reads <code>os.environ[key]</code> with fallback; <code>ConfigError</code> raised in <code>validate_asp_config</code> strict mode; exported from <code>backend/src/animation/config.py</code></td>
+<td>Done</td>
+<td><a href="../architecture/#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy">architecture.md §5.14B</a></td>
+</tr>
+<tr>
+<td>A.13</td>
+<td><strong>[Arch] ✅ Custom exception hierarchy</strong> — <code>backend/src/exceptions.py</code> with <code>ImageToolkitError</code> → <code>PipelineError</code>/<code>AlignmentFailedError</code>/<code>CanvasError</code>/<code>FallbackExhaustedError</code>/<code>ModelLoadError</code>/<code>ConfigError</code>; bare <code>RuntimeError</code>/<code>ValueError</code> replaced in <code>animation/pipeline.py</code>, <code>animation/canvas.py</code>, <code>animation/config.py</code>, <code>models/birefnet_wrapper.py</code>; <code>BaseQThreadWorker</code> three-tier handler routes <code>AlignmentFailed</code>/<code>Canvas</code> as WARNING, <code>Pipeline</code>/<code>Model</code>/<code>Config</code> as ERROR</td>
+<td>Done</td>
+<td><a href="../architecture/#515-fault-isolation--error-boundary-protocol">architecture.md §5.15A</a></td>
+</tr>
+<tr>
+<td>A.14</td>
+<td><strong>[Arch] ✅ <code>BaseQThreadWorker</code> + <code>BaseQRunnableWorker</code> + <code>_WorkerSignals</code></strong> — <code>gui/src/helpers/base.py</code>; uniform <code>cancel()</code>/<code>stop()</code>, exception routing; <code>SearchWorker</code> migrated to <code>BaseQRunnableWorker</code></td>
+<td>Done</td>
+<td><a href="../architecture/#59-worker-thread-base-class--lifecycle-standardisation-guisrchelpers">architecture.md §5.9</a></td>
+</tr>
+<tr>
+<td>A.15</td>
+<td><strong>[Arch] NumPy-style docstrings + Mermaid class diagrams</strong> — all public methods in <code>backend/src/models/</code> and <code>backend/src/animation/</code>; hierarchy diagrams in <code>backend/src/models/__init__.py</code> and <code>gui/src/classes/__init__.py</code></td>
+<td>~3d</td>
+<td><a href="../architecture/#512-codebase-documentation--diagrams">architecture.md §5.12</a></td>
+</tr>
+<tr>
+<td>A.16</td>
+<td><strong>[Arch] ✅ <code>AbstractGalleryBase</code> + real <code>common_*</code> methods</strong> — <code>gallery_base.py</code> (574 lines); shared init state extracted; 9 injected <code>_common_*</code> functions → real inherited <code>common_*</code> methods; 10 duplicate helpers removed from both gallery files; <code>_on_layout_change</code>/<code>get_default_config</code>/<code>set_config</code> as <code>@abstractmethod</code>; metaclass 397→18 lines</td>
+<td>Done</td>
+<td><a href="../architecture/#510-gallery-base-class-consolidation-guisrcclasses">architecture.md §5.10A</a></td>
+</tr>
+<tr>
+<td>A.17</td>
+<td><strong>[Arch] ✅ <code>import-linter</code> contracts</strong> — 3 contracts in <code>pyproject.toml</code>; enforces backend-core-no-GUI, gui.src.utils is leaf, gui.src.classes no-tabs; <code>import-linter&gt;=2.0</code> added to dev deps; <code>PYTHONPATH=. lint-imports</code> runs clean; pydeps SVG deferred to a dedicated docs PR</td>
+<td>Done</td>
+<td><a href="../architecture/#511-circular-import-prevention--module-boundary-documentation">architecture.md §5.11A</a></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dependency order:</strong> A.1–A.7 are independent Quick Wins (batch in one PR each). A.8 depends on A.4 (<code>__all__</code> first). A.9 is independent. A.13 → A.14 (exception hierarchy makes error boundary meaningful). A.11 + A.12 can be done together (settings facade sprint). A.16 depends on A.7.</p>
+<hr />
+<h2 id="phase-6-long-term-research-months-exploratory">Phase 6 — Long-term Research (Months, Exploratory)<a class="headerlink" href="#phase-6-long-term-research-months-exploratory" title="Permanent link">&para;</a></h2>
+<p>Aspirational improvements requiring significant experimentation, external data, or architectural investment. No fixed timeline.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Effort</th>
+<th>Roadmap Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>6.1</td>
+<td><strong>[ASP] Online DRL agent for ECC/registration</strong> — wire <code>rlhf_trainer.py</code> into Stage 8</td>
+<td>[Long-term]</td>
+<td><a href="../asp/#110-rlhf-loop-integration">asp.md §1.10</a></td>
+</tr>
+<tr>
+<td>6.2</td>
+<td><strong>[ASP] RANSAC/MAGSAC++ pre-filter for &gt;40% outlier datasets</strong></td>
+<td>[Research]</td>
+<td><a href="../asp/#11-bundle-adjustment-hardening">asp.md §1.1</a></td>
+</tr>
+<tr>
+<td>6.3</td>
+<td><strong>[ASP] ToonCrafter fill for overlap ghost reduction</strong> — final-quality mode; see ML.4 for wiring plan</td>
+<td>[Research]</td>
+<td><a href="../asp/#36-tooncrafter-seam-synthesis--wiring-the-generative-fallback-priority-medium">asp.md §3.6</a></td>
+</tr>
+<tr>
+<td>6.4</td>
+<td><strong>[ASP] Background histogram matching via CLAHE</strong> for complex dark scenes</td>
+<td>[Research]</td>
+<td><a href="../asp/#14-gain-clamp-widening-for-dark-scenes">asp.md §1.4</a></td>
+</tr>
+<tr>
+<td>6.5</td>
+<td><strong>[Feat] AnimeCLIP domain-specific CLIP fine-tune</strong> — swap into §5.1 once validated</td>
+<td>[Research]</td>
+<td><a href="../new_features/#43-clip-based-semantic-image-search">new_features.md §4.3</a></td>
+</tr>
+<tr>
+<td>6.6</td>
+<td><strong>[Feat] File system watcher auto-stitch</strong> — <code>watchdog</code>/<code>inotify</code> triggered batch</td>
+<td>[Research]</td>
+<td><a href="../new_features/#41-batch-stitching">new_features.md §4.1</a></td>
+</tr>
+<tr>
+<td>6.7</td>
+<td><strong>[Feat] Mobile remote wallpaper + push notifications</strong> — depends on §5.6 REST API</td>
+<td>[Exploratory]</td>
+<td><a href="../new_features/#45-multi-monitor-wallpaper-support">new_features.md §4.5</a></td>
+</tr>
+<tr>
+<td>6.8</td>
+<td><strong>[Arch] Hypothesis property-based tests for bundle_adjust and compositing</strong></td>
+<td>[Research]</td>
+<td><a href="../architecture/#51-asp-pipeline-unit-test-coverage">architecture.md §5.1</a></td>
+</tr>
+<tr>
+<td>6.9</td>
+<td><strong>[Perf] CUDA seam DP via PyTorch scatter/gather</strong> — GPU seam computation</td>
+<td>[Research]</td>
+<td><a href="../asp/#15-stage-11-composite-performance">asp.md §1.5</a></td>
+</tr>
+<tr>
+<td>6.10</td>
+<td><strong>[Arch] Full mypy strict coverage</strong> — all modules under <code>disallow_untyped_defs = true</code>; end state of §5.5 gradual migration</td>
+<td>[Long-term]</td>
+<td><a href="../architecture/#55-gradual-static-type-safety-migration">architecture.md §5.5</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="master-effort-impact-matrix">Master Effort × Impact Matrix<a class="headerlink" href="#master-effort-impact-matrix" title="Permanent link">&para;</a></h2>
+<p>Cross-roadmap overview. Items are the top-priority pending work from each sub-roadmap, classified by effort and expected impact.</p>
+<p><em>Effort</em> — <strong>Low</strong>: &lt; 1 day · <strong>Medium</strong>: 1 day – 1 week · <strong>High</strong>: 1 – 2 weeks · <strong>Very High</strong>: 2+ weeks, research, or data-gated
+<em>Impact</em> — <strong>Low</strong>: marginal · <strong>Medium</strong>: noticeable targeted improvement · <strong>High</strong>: major capability or quality gain across multiple users/tests · <strong>Very High</strong>: architectural unlock or differentiating feature</p>
+<table>
+<thead>
+<tr>
+<th><strong>Effort ↓ / Impact →</strong></th>
+<th>Low</th>
+<th>Medium</th>
+<th>High</th>
+<th>Very High</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Low (&lt;1d)</strong></td>
+<td>[GUI] §2.10 toast · §2.14 overlay · [Arch] §5.7A uv lock · [Perf] §3.6A move semantics · [Arch] A.1 Pyright basic · A.2 bare-except fix · A.3 relocated-import cleanup · A.4 <code>__all__</code> hygiene · A.5 QSettings key validation · A.6 <code>@log_call</code> decorator · A.7 metaclass docstring</td>
+<td>[GUI] §2.2B ctrl+scroll · §2.7A progress bar · §2.32A geometry save · [Perf] §3.4D HNSW tune · §3.5A crawler context mgr · [Feat] §4.11A inline RLHF rating · [Arch] A.8 TYPE_CHECKING guards · A.9 wrapper contract tests</td>
+<td>[GUI] §2.3A+C keyboard nav · [ASP] §2.5 coverage map · §2.6 crop assistant · §3.15A SemanticStitch column filter · [CG] §1.1 WD14 captioning</td>
+<td>[ASP] §10A2 click-based SAM-2 refinement</td>
+</tr>
+<tr>
+<td><strong>Medium (1d–1w)</strong></td>
+<td>[Arch] §5.4B pipeline trace JSON</td>
+<td>[Perf] §3.3C dynamic BiRefNet batch · §3.4A psycopg3 · [GUI] §2.13 gallery filter+sort · §2.8A dark/light theme · [Feat] §4.5A KDE per-monitor wallpaper · [Arch] A.10 mypy baseline + TypedDicts · A.11 AppSettings facade · A.12 ASP env-var consolidation</td>
+<td>[ASP] §1.10B Bayesian param search · §2.9 BigWarp fallback · §3.3 DINOv2 submodular · §3.13 ProPainter · §3.15B OBJ-GSP mesh · §10A3 NL seam routing · §10B1 COCO serializer · [Arch] A.13 exception hierarchy · A.14 BaseQThreadWorker · §5.8A ModelWrapper ABC · [Feat] §4.3A CLIP semantic search · §4.4A WD14 tagger · [CG] §1.3 LyCORIS · §2.1A AnimateDiff</td>
+<td>[ASP] §9A PyAV video ingestion · §10A1 Grounded SAM-2</td>
+</tr>
+<tr>
+<td><strong>High (1–2w)</strong></td>
+<td>—</td>
+<td>[ASP] §3.12 Overmix sub-pixel · §3.16A StabStitch++</td>
+<td>[ASP] §2.10 SAM2Flow · §3.2 ConvGRU flow · §3.6 ToonCrafter seam · §3.14B horizontal-strip composite · [Arch] §5.3B abstract Matcher interface · [Perf] §3.2A GPU CUDA median render · [CG] §1.4B native ControlNet/IP-Adapter</td>
+<td>[ASP] §9C Hybrid 4K/1080p composite</td>
+</tr>
+<tr>
+<td><strong>Very High (2w+ / data-gated)</strong></td>
+<td>—</td>
+<td>—</td>
+<td>[ASP] §3.7 UDIS++ diffusion seam · [CG] §3.x video→LoRA full pipeline · [Arch] §5.5C Rust AES-256-GCM vault</td>
+<td>[ASP] §10C1 SAM-2 anime fine-tune · §10C2 Pose contrastive · §10C3 PPO optimization · [CG] §2.3 Wan2.1/SVD foundation video</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="dependency-graph-summary">Dependency Graph Summary<a class="headerlink" href="#dependency-graph-summary" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    P0["Phase 0\nASP Foreground Assembly\n(Priority 0)"]:::fix:::active
+    PML["Phase ML\nML-Driven Modernisation\n(Research)"]:::research:::planned
+    PCG["Phase CG\nContent Generation"]:::feature:::planned
+    P1["Phase 1\nImmediate Wins"]:::augment:::active
+    P2["Phase 2\nCore QoS"]:::augment:::planned
+    P3["Phase 3\nFeature Enrichment"]:::feature:::planned
+    P4["Phase 4\nPlatform Hardening"]:::infra:::planned
+    PARCH["Phase Arch\nCode Quality"]:::refactor:::planned
+    P5["Phase 5\nAdvanced Features"]:::feature:::planned
+    P6["Phase 6\nLong-term Research"]:::research:::planned
+
+    P0  ==&gt;  PML
+    P0  --&gt;  P1
+    P1  ==&gt;  P2
+    P2  --&gt;  P3
+    P2  --&gt;  P4
+    P2  --&gt;  PARCH
+    P3  --&gt;  P5
+    P4  --&gt;  P5
+    PARCH --- P3
+    PARCH --- P4
+    P5  --&gt;  P6
+    P1  --&gt;  PCG
+    PML --&gt;  P3
+
+    %% key item-level dependencies
+    P3 --&gt;|"3.13 tests\nunblocks 3.14 CI"| P4
+    P4 --&gt;|"4.2 ModelWrapper\nunblocks A.9"| PARCH
+    P2 --&gt;|"2.5 quality gate\nunblocks 5.7 RLHF"| P5</code></pre>
+<hr />
+<h2 id="advanced-feature-roadmap">Advanced Feature Roadmap<a class="headerlink" href="#advanced-feature-roadmap" title="Permanent link">&para;</a></h2>
+<h3 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h3>
+<p>This roadmap defines the feature evolution and quality-of-life improvements for the Image-Toolkit ecosystem. It is grounded in a deep audit of the current codebase (May 2026) and covers every layer of the stack.</p>
+<p>The application follows a <strong>Tri-Interface Strategy</strong>:
+1. <strong>PySide6 Desktop App</strong> — The heavyweight native powerhouse for local ML inference, deep OS integration, and interactive image pipeline control.
+2. <strong>React / Tauri Web App</strong> — The cross-platform, network-ready hub for library management, remote task dispatch, and device syncing.
+3. <strong>Android / iOS Mobile Apps</strong> — Companion clients for remote monitoring, on-device preview, and library browsing.</p>
+<p>Each item is tagged by priority: <strong>[CRITICAL]</strong>, <strong>[HIGH]</strong>, <strong>[MEDIUM]</strong>, or <strong>[LOW]</strong>.</p>
+<hr />
+<h3 id="1-pyside6-desktop-application-the-pro-environment">1. PySide6 Desktop Application (The Pro Environment)<a class="headerlink" href="#1-pyside6-desktop-application-the-pro-environment" title="Permanent link">&para;</a></h3>
+<h4 id="a-advanced-ml-ui-interactive-pipelines">A. Advanced ML UI &amp; Interactive Pipelines<a class="headerlink" href="#a-advanced-ml-ui-interactive-pipelines" title="Permanent link">&para;</a></h4>
+<h5 id="critical-sd3-controlnet-ip-adapter-support">[CRITICAL] SD3 ControlNet &amp; IP-Adapter Support<a class="headerlink" href="#critical-sd3-controlnet-ip-adapter-support" title="Permanent link">&para;</a></h5>
+<p><code>backend/src/models/sd3_wrapper.py:62</code> has a <code>TODO</code> for ControlNet. Switch the pipeline to <code>StableDiffusion3ControlNetPipeline</code> when a ControlNet model path is provided. In <code>DDMGenerateTab</code>, add a ControlNet image drop-zone, conditioning scale slider, and preprocessor selector (Canny, Depth, OpenPose). Separately, add IP-Adapter support via <code>diffusers</code>' <code>IPAdapterMixin</code> for reference-image conditioning — expose a reference image input and weight slider. Both unblock character-consistency and pose-guided workflows on the SD3 backbone.</p>
+<h5 id="critical-complete-cli-dispatcher-commands">[CRITICAL] Complete CLI Dispatcher Commands<a class="headerlink" href="#critical-complete-cli-dispatcher-commands" title="Permanent link">&para;</a></h5>
+<p><code>backend/dispatcher.py</code> has three disconnected dispatch paths: merge (line 56), database (line 91), and model (line 95) all either print a placeholder or are unreachable. Wire all three so the app is fully scriptable from the command line. The <code>--recursive</code> flag for batch conversion (line 46) also needs to be forwarded to <code>ImageFormatConverter.convert_batch()</code>.</p>
+<h5 id="high-dynamic-comfyui-dashboard">[HIGH] Dynamic ComfyUI Dashboard<a class="headerlink" href="#high-dynamic-comfyui-dashboard" title="Permanent link">&para;</a></h5>
+<p>Build a native PySide6 dynamic form generator that parses <code>workflow_api.json</code> templates (like the 7-stage Illustrious XL pipeline in <code>backend/config/inference/sdxl_comfyui.yaml</code>) and auto-generates UI controls — sliders, dropdowns, seed spinboxes, and node-selection widgets — mapped to <code>parameters.json</code> keys. The <code>ComfyGenerateTab</code> currently requires hand-editing raw JSON; this replaces it with a generated form that calls the ComfyUI API transparently. Add a template browser to save, load, and share workflow presets.</p>
+<h5 id="high-panorama-stitch-ui-stitchtab">[HIGH] Panorama Stitch UI (<code>StitchTab</code>)<a class="headerlink" href="#high-panorama-stitch-ui-stitchtab" title="Permanent link">&para;</a></h5>
+<p>Create a dedicated <code>StitchTab</code> using <code>QGraphicsView</code> to expose <code>stitch_net.py</code> and <code>loftr_wrapper.py</code> interactively. Users should be able to load two or more frames, preview LoFTR keypoint matches as an overlay, drag alignment anchors to correct stitching errors before rendering, preview the "Master-Cel" masking boundaries from <code>anime_stitch_pipeline.py</code>, and export stitched panoramas at up to 4× source resolution via <code>image_merger.rs</code>. Queue batch stitch jobs and monitor them via the existing <code>QThreadPool</code> worker pattern.</p>
+<h5 id="high-interactive-background-removal-birefnet-integration">[HIGH] Interactive Background Removal (BiRefNet Integration)<a class="headerlink" href="#high-interactive-background-removal-birefnet-integration" title="Permanent link">&para;</a></h5>
+<p>Integrate <code>birefnet_wrapper.py</code> into the <code>ConvertTab</code> as an optional post-processing step. After format conversion, a "Remove Background" toggle passes each output image through BiRefNet. Add an interactive mask-refinement widget using QPainter brush strokes to correct matting errors before saving. Output alpha channel as transparent PNG. Run as a <code>QRunnable</code> to keep the main thread free.</p>
+<h5 id="high-full-fine-tune-ui-tab-fullfttraintab">[HIGH] Full Fine-Tune UI Tab (<code>FullFTTrainTab</code>)<a class="headerlink" href="#high-full-fine-tune-ui-tab-fullfttraintab" title="Permanent link">&para;</a></h5>
+<p><code>backend/src/models/full_finetune.py</code> exists but has no dedicated GUI tab. Add a <code>FullFTTrainTab</code> with dataset path, gradient checkpointing toggle, batch size, mixed precision selector, and DeepSpeed ZeRO stage selector. The <code>LoRATrainTab</code> partially covers this; full fine-tuning of SDXL/Flux needs its own surface.</p>
+<h5 id="high-flux-dev-generation-tab">[HIGH] Flux Dev Generation Tab<a class="headerlink" href="#high-flux-dev-generation-tab" title="Permanent link">&para;</a></h5>
+<p><code>backend/config/model/flux_dev.yaml</code> is configured but there is no dedicated generation tab for <code>FLUX.1-dev</code>. Extend the <code>DDMGenerateTab</code> model selector to include Flux, routing to a <code>FluxPipeline</code> backend path. Expose its unique CFG-free distilled guidance scale and step count parameters as first-class controls, not buried in an advanced JSON field.</p>
+<h5 id="medium-dreambooth-prior-preservation-training">[MEDIUM] DreamBooth Prior Preservation Training<a class="headerlink" href="#medium-dreambooth-prior-preservation-training" title="Permanent link">&para;</a></h5>
+<p><code>backend/config/training/dreambooth.yaml</code> exists but prior preservation loss is not surfaced in <code>LoRATrainTab</code>. Add a "DreamBooth Mode" toggle that unlocks a class images directory selector, prior loss weight slider, and num-class-images field. Wire these into <code>DreamBoothTuner.train()</code>.</p>
+<h5 id="medium-multi-gpu-training-via-accelerate">[MEDIUM] Multi-GPU Training via Accelerate<a class="headerlink" href="#medium-multi-gpu-training-via-accelerate" title="Permanent link">&para;</a></h5>
+<p>Current training runs on a single device. Add Accelerate config generation into training tabs. When multiple CUDA devices are detected, expose a device-selection multi-check and auto-write an <code>accelerate_config.yaml</code>. Pass <code>--multi_gpu</code> to the training pipeline. Essential for multi-stage LoRA training on the 3090 Ti alongside other CUDA workloads.</p>
+<h5 id="medium-r3gan-evaluate-tab-live-loss-curve-visualization">[MEDIUM] R3GAN Evaluate Tab — Live Loss Curve Visualization<a class="headerlink" href="#medium-r3gan-evaluate-tab-live-loss-curve-visualization" title="Permanent link">&para;</a></h5>
+<p><code>r3gan_evaluate_tab.py</code> only shows scalar metrics. Embed a <code>pyqtgraph</code> line chart that reads from <code>training_hooks.py</code> diagnostics and plots discriminator loss, generator loss, and FID over epochs in real time during training.</p>
+<h5 id="medium-lycoris-dora-method-selector">[MEDIUM] LyCORIS / DoRA Method Selector<a class="headerlink" href="#medium-lycoris-dora-method-selector" title="Permanent link">&para;</a></h5>
+<p><code>lora_diffusion.py</code> supports LoCon, LoHa, LoKr, DoRA, and rsLoRA via PEFT but the <code>LoRATrainTab</code> only exposes a fraction of these. Add a method selector dropdown that surfaces all available PEFT methods with a brief description tooltip. Show the relevant method-specific hyperparameters (e.g., LoCon convolution dimension) only when that method is active.</p>
+<h5 id="low-video-wallpaper-with-mpv">[LOW] Video Wallpaper with mpv<a class="headerlink" href="#low-video-wallpaper-with-mpv" title="Permanent link">&para;</a></h5>
+<p>Expand <code>WallpaperTab</code> to support video wallpapers. On Linux, manage an <code>mpv</code> subprocess alongside the existing <code>qdbus-qt6</code> D-Bus wallpaper daemon. On Windows, use the existing COM pathway. Add seamless-loop detection and per-monitor assignment. Use subprocess-based mpv (not libmpv) to avoid native C++ library conflicts with the JPype JVM.</p>
+<h5 id="low-training-run-history-browser">[LOW] Training Run History Browser<a class="headerlink" href="#low-training-run-history-browser" title="Permanent link">&para;</a></h5>
+<p>Add a training history panel to <code>TrainTab</code> that reads checkpoint directories and surfaces: model name, architecture, dataset path, epoch count, final loss values, and sample generation grid. Let users resume a past run, compare metrics across runs, or delete old checkpoints with a single click.</p>
+<hr />
+<h4 id="b-os-integration-media-handling">B. OS Integration &amp; Media Handling<a class="headerlink" href="#b-os-integration-media-handling" title="Permanent link">&para;</a></h4>
+<h5 id="high-hardware-accelerated-frame-extraction">[HIGH] Hardware-Accelerated Frame Extraction<a class="headerlink" href="#high-hardware-accelerated-frame-extraction" title="Permanent link">&para;</a></h5>
+<p>Replace <code>cv2.VideoCapture</code> in the <code>ImageExtractorTab</code> and <code>task_extract_frames()</code> with a Rust-native FFmpeg binding. Add <code>base/src/core/video_extractor.rs</code> using the <code>ffmpeg-next</code> crate for hardware-decode support (NVDEC, VAAPI). Expose via PyO3 as <code>base.extract_frames(path, output_dir, start_ms, end_ms, fps_limit, hw_device)</code>. This will be dramatically faster than OpenCV for high-resolution H.264/H.265 sources.</p>
+<h5 id="high-video-converter-quality-codec-controls">[HIGH] Video Converter — Quality &amp; Codec Controls<a class="headerlink" href="#high-video-converter-quality-codec-controls" title="Permanent link">&para;</a></h5>
+<p><code>base/src/core/video_converter.rs</code> is skeletal. Build it out with CRF/bitrate selection, hardware encode (NVENC, VAAPI), audio track control (copy / re-encode / strip), and a full container format matrix (mp4, mkv, webm, mov). Surface all options in a <code>VideoConvertTab</code> alongside the existing image conversion workflow.</p>
+<h5 id="medium-system-tray-integration-daemon-mode">[MEDIUM] System Tray Integration &amp; Daemon Mode<a class="headerlink" href="#medium-system-tray-integration-daemon-mode" title="Permanent link">&para;</a></h5>
+<p>Add a <code>QSystemTrayIcon</code> so the desktop app runs in the background while the slideshow daemon and wallpaper rotation are active. The tray menu should expose: pause/resume slideshow, add wallpaper folder, open main window, and quit. The slideshow daemon (<code>base/src/utils/slideshow_daemon.rs</code>) already runs as a separate process — the tray is the missing control surface.</p>
+<h5 id="medium-drag-and-drop-desktop-integration">[MEDIUM] Drag-and-Drop Desktop Integration<a class="headerlink" href="#medium-drag-and-drop-desktop-integration" title="Permanent link">&para;</a></h5>
+<p>Enable OS-level drag-and-drop targets for all conversion, merge, and extraction tabs. Accept <code>text/uri-list</code> and <code>application/x-qabstractitemmodeldatalist</code> mime types so users can drag files directly from a file manager into gallery panels, bypassing the directory picker entirely.</p>
+<h5 id="medium-batch-rename-with-pattern-templates">[MEDIUM] Batch Rename with Pattern Templates<a class="headerlink" href="#medium-batch-rename-with-pattern-templates" title="Permanent link">&para;</a></h5>
+<p>Add a <code>RenameTab</code> or toolbar action that applies pattern-based renames to selected files. Support tokens: <code>{index}</code>, <code>{date}</code>, <code>{resolution}</code>, <code>{group}</code>, <code>{tag}</code>, <code>{hash}</code>. Preview the rename mapping in a before/after table before committing. Support undo via the edit recipe system.</p>
+<h5 id="low-macos-wallpaper-support">[LOW] macOS Wallpaper Support<a class="headerlink" href="#low-macos-wallpaper-support" title="Permanent link">&para;</a></h5>
+<p>Add a macOS variant for wallpaper setting using <code>NSWorkspace.setDesktopImageURL(_:for:options:)</code> via a small Swift helper binary. Guard it behind <code>sys.platform == "darwin"</code> in <code>backend/src/core/wallpaper.py</code>.</p>
+<hr />
+<h4 id="c-gallery-image-management-qol">C. Gallery &amp; Image Management QoL<a class="headerlink" href="#c-gallery-image-management-qol" title="Permanent link">&para;</a></h4>
+<h5 id="high-non-destructive-edit-recipes">[HIGH] Non-Destructive Edit Recipes<a class="headerlink" href="#high-non-destructive-edit-recipes" title="Permanent link">&para;</a></h5>
+<p>Implement an edit-history JSON format for color grade, crop, and resize. Rather than overwriting source pixels, store a <code>recipe.json</code> sidecar per image listing ordered operations with parameters. Apply the recipe chain in memory on open. "Bake" to disk only on explicit export (<code>Ctrl+E</code>). Support recipe sharing by exporting the JSON. Requires a <code>RecipeEngine</code> class in the backend and a <code>RecipeEditor</code> panel in <code>ConvertTab</code>.</p>
+<h5 id="high-intelligent-duplicate-grouping-with-visual-diff">[HIGH] Intelligent Duplicate Grouping with Visual Diff<a class="headerlink" href="#high-intelligent-duplicate-grouping-with-visual-diff" title="Permanent link">&para;</a></h5>
+<p>Enhance <code>DuplicateFinder</code> to present near-duplicate collisions side-by-side:
+- Pixel-level diff heatmap via OpenCV <code>absdiff()</code>.
+- File metadata comparison (size, resolution, format, date) alongside the diff.
+- Batch resolution actions: "Keep Largest", "Keep Newest", "Keep All Non-Watermarked" (using BiRefNet to detect watermark regions).
+- Wire into the existing <code>PropertyComparisonDialog</code> component in <code>gui/src/components/</code>.</p>
+<h5 id="high-global-keyboard-shortcuts-command-palette">[HIGH] Global Keyboard Shortcuts &amp; Command Palette<a class="headerlink" href="#high-global-keyboard-shortcuts-command-palette" title="Permanent link">&para;</a></h5>
+<p>Add a command palette (<code>Ctrl+K</code>) with fuzzy-searchable access to all tab actions. Implement <code>QShortcut</code> bindings:
+- <code>Ctrl+O</code> — Open directory picker in active tab.
+- <code>Ctrl+Enter</code> — Run the active tab's primary action.
+- <code>Ctrl+Z</code> / <code>Ctrl+Shift+Z</code> — Undo/Redo for edit recipes.
+- <code>Space</code> — Toggle full-screen preview.
+- <code>Delete</code> — Delete selected items with confirmation.
+- <code>Ctrl+F</code> — Focus the search field.</p>
+<h5 id="high-session-state-persistence">[HIGH] Session State Persistence<a class="headerlink" href="#high-session-state-persistence" title="Permanent link">&para;</a></h5>
+<p>Tab state (input paths, parameters, selected files) is lost on restart. Add a <code>SessionManager</code> that serializes all tab state to JSON on <code>QApplication.aboutToQuit</code> and restores it on launch. Include a configurable MRU list (last 10 paths) per tab.</p>
+<h5 id="high-gallery-multi-select-with-batch-actions-toolbar">[HIGH] Gallery Multi-Select with Batch Actions Toolbar<a class="headerlink" href="#high-gallery-multi-select-with-batch-actions-toolbar" title="Permanent link">&para;</a></h5>
+<p>When multiple images are selected: show a floating action toolbar with Convert, Delete, Add to Group, and Export Captions actions. Add rubber-band marquee selection (click-drag), <code>Ctrl+A</code> to select all, <code>Ctrl+Shift+A</code> to invert selection.</p>
+<h5 id="medium-configurable-thumbnail-size-slider">[MEDIUM] Configurable Thumbnail Size Slider<a class="headerlink" href="#medium-configurable-thumbnail-size-slider" title="Permanent link">&para;</a></h5>
+<p>Add a thumbnail size slider (64px → 512px) in the gallery toolbar that dynamically resizes thumbnails without reloading from disk. The <code>LRUImageCache</code> stores full <code>QImage</code> — use <code>QPixmap.fromImage().scaled()</code> at render time for instant resize.</p>
+<h5 id="medium-image-preview-enhancements">[MEDIUM] Image Preview Enhancements<a class="headerlink" href="#medium-image-preview-enhancements" title="Permanent link">&para;</a></h5>
+<p>Expand <code>image_preview_window.py</code> to support pan and zoom (mouse wheel + drag), side-by-side A/B comparison mode (original vs. processed), EXIF/XMP metadata panel toggle, copy-to-clipboard shortcut, and "Open in external editor" action.</p>
+<h5 id="medium-unified-progress-overlay">[MEDIUM] Unified Progress Overlay<a class="headerlink" href="#medium-unified-progress-overlay" title="Permanent link">&para;</a></h5>
+<p>Replace per-tab progress widgets with a unified bottom-anchored <code>ProgressOverlay</code> panel showing: a progress bar per active operation with label, ETA, and cancel button; a badge count on each tab's header showing pending/running operations; a notification bell for completions.</p>
+<h5 id="medium-darklight-theme-toggle">[MEDIUM] Dark/Light Theme Toggle<a class="headerlink" href="#medium-darklight-theme-toggle" title="Permanent link">&para;</a></h5>
+<p>Add a theme toggle in <code>SettingsWindow</code>. Implement <code>dark.qss</code> and <code>light.qss</code> stylesheets applied via <code>QApplication.setStyleSheet()</code>. Persist the choice in the config file. Default to the system color scheme via <code>QGuiApplication.palette()</code>.</p>
+<h5 id="low-lru-cache-size-configurability">[LOW] LRU Cache Size Configurability<a class="headerlink" href="#low-lru-cache-size-configurability" title="Permanent link">&para;</a></h5>
+<p><code>gui/src/utils/lru_image_cache.py</code> hardcodes cache sizes (found=300, selected=200, single=300). Expose these in <code>SettingsWindow</code> with a memory usage readout in the status bar. Users with limited RAM can reduce; users with 32GB+ can increase for snappier gallery navigation.</p>
+<h5 id="low-onboarding-first-launch-wizard">[LOW] Onboarding &amp; First-Launch Wizard<a class="headerlink" href="#low-onboarding-first-launch-wizard" title="Permanent link">&para;</a></h5>
+<p>A <code>FirstLaunchWizard</code> dialog that guides new users through: setting the local source path, testing the PostgreSQL connection, unlocking VaultManager credentials, and selecting the default wallpaper folder.</p>
+<hr />
+<h3 id="2-react-tauri-web-application-the-cross-platform-hub">2. React / Tauri Web Application (The Cross-Platform Hub)<a class="headerlink" href="#2-react-tauri-web-application-the-cross-platform-hub" title="Permanent link">&para;</a></h3>
+<h4 id="a-real-time-network-architecture">A. Real-Time Network Architecture<a class="headerlink" href="#a-real-time-network-architecture" title="Permanent link">&para;</a></h4>
+<h5 id="critical-django-channels-websocket-live-progress">[CRITICAL] Django Channels / WebSocket Live Progress<a class="headerlink" href="#critical-django-channels-websocket-live-progress" title="Permanent link">&para;</a></h5>
+<p>Upgrade the REST-only API to include WebSocket endpoints via Django Channels. Define a <code>TaskProgressConsumer</code> that forwards Celery progress events to the browser. Add a React <code>useTaskProgress(taskId)</code> hook that drives a live progress bar, ETA display, and stdout log stream for all long-running operations — batch conversion, crawling, training.</p>
+<h5 id="high-virtualized-media-galleries">[HIGH] Virtualized Media Galleries<a class="headerlink" href="#high-virtualized-media-galleries" title="Permanent link">&para;</a></h5>
+<p>All gallery queries currently load entire result sets into the DOM. Implement <code>@tanstack/react-virtual</code> as the scroll engine for <code>WallpaperGallery</code> and every search result list. Fetch paginated slices from Django (page size 100), pre-fetch the next page on scroll, and dispose offscreen tiles. Essential for 100,000+ image libraries.</p>
+<h5 id="high-missing-api-endpoints">[HIGH] Missing API Endpoints<a class="headerlink" href="#high-missing-api-endpoints" title="Permanent link">&para;</a></h5>
+<p>Several backend capabilities have no REST surface at all. Add:
+- <code>GET /api/status/&lt;task_id&gt;/</code> — Celery task progress polling.
+- <code>DELETE /api/tasks/&lt;task_id&gt;/</code> — Celery task cancellation.
+- <code>GET /api/db/groups/</code> — List all groups and subgroups.
+- <code>GET /api/db/search/</code> — Semantic vector search with query, filters, and pagination.
+- <code>GET /api/db/stats/</code> — Image count, group count, vector coverage.
+- <code>POST /api/db/embed/</code> — Trigger CLIP embedding for a given group or directory.
+- <code>POST /api/train-lora/</code> — LoRA training task (only GAN training is wired today).
+- <code>POST /api/run-birefnet/</code> — Batch background removal.
+- <code>POST /api/stitch/</code> — Panorama stitching pipeline.</p>
+<h5 id="high-saved-search-presets-history">[HIGH] Saved Search Presets &amp; History<a class="headerlink" href="#high-saved-search-presets-history" title="Permanent link">&para;</a></h5>
+<p>Add a <code>SavedSearch</code> model and endpoints (<code>POST /api/search/presets/</code>, <code>GET /api/search/presets/</code>). In the React <code>SearchTab</code>, render a sidebar of saved searches that can be re-run or edited. Store the last 50 searches in <code>localStorage</code> as a quick-access history.</p>
+<h5 id="medium-batch-operation-pipeline-builder">[MEDIUM] Batch Operation Pipeline Builder<a class="headerlink" href="#medium-batch-operation-pipeline-builder" title="Permanent link">&para;</a></h5>
+<p>Add a workflow-style drag-and-drop pipeline composer in the React frontend. Users build a sequence of operations (Crawl → Convert → Embed → Tag) into a named pipeline, then trigger it as a Celery <code>chain()</code>. Add a <code>POST /api/pipeline/</code> endpoint. The Celery primitive already supports chaining; the frontend just needs the composition UI.</p>
+<h5 id="medium-lan-remote-access-mode-mdns">[MEDIUM] LAN Remote Access Mode (mDNS)<a class="headerlink" href="#medium-lan-remote-access-mode-mdns" title="Permanent link">&para;</a></h5>
+<p>Register the service as <code>_imagetoolkit._tcp.local</code> using the <code>zeroconf</code> Python library. Bind Django to <code>0.0.0.0</code> with token authentication. Display the LAN URL and QR code in the desktop app's <code>SettingsWindow</code> so mobile clients can connect without manual IP configuration.</p>
+<h5 id="low-progressive-web-app-pwa-manifest">[LOW] Progressive Web App (PWA) Manifest<a class="headerlink" href="#low-progressive-web-app-pwa-manifest" title="Permanent link">&para;</a></h5>
+<p>Add a <code>manifest.json</code> and service worker to the React frontend so the web app can be installed as a PWA on desktop and Android Chrome. Cache the app shell and static assets, and implement a background-sync queue for offline task submission that drains when the connection restores.</p>
+<hr />
+<h4 id="b-ui-ux-qol">B. UI &amp; UX QoL<a class="headerlink" href="#b-ui-ux-qol" title="Permanent link">&para;</a></h4>
+<h5 id="high-dark-mode-theme-system">[HIGH] Dark Mode &amp; Theme System<a class="headerlink" href="#high-dark-mode-theme-system" title="Permanent link">&para;</a></h5>
+<p>Add CSS custom properties (design tokens) for colors, spacing, and typography. Implement <code>prefers-color-scheme</code> auto-detection and a manual toggle stored in <code>localStorage</code>. All components should reference token variables rather than hardcoded hex values.</p>
+<h5 id="high-virtual-album-browser">[HIGH] Virtual Album Browser<a class="headerlink" href="#high-virtual-album-browser" title="Permanent link">&para;</a></h5>
+<p>Add a "Virtual Albums" section to the <code>DatabaseTab</code> backed by live HNSW vector queries. Users type a natural language query (e.g., <em>"cyberpunk cityscapes at night with rain"</em>) and save it as a named album. The album auto-refreshes on a configurable schedule and shows a live image count badge. Render albums as a special group type distinct from manually curated groups.</p>
+<h5 id="medium-image-detail-panel-slide-in">[MEDIUM] Image Detail Panel (Slide-In)<a class="headerlink" href="#medium-image-detail-panel-slide-in" title="Permanent link">&para;</a></h5>
+<p>When clicking any image in a gallery, slide in a detail panel (rather than a separate page) showing: full-size preview, EXIF metadata, tags, group membership, vector embedding visualization (a 2D UMAP projection of the image's neighbors), edit recipe history, and quick actions (Delete, Convert, Add to Group).</p>
+<h5 id="medium-keyboard-navigation-mode">[MEDIUM] Keyboard Navigation Mode<a class="headerlink" href="#medium-keyboard-navigation-mode" title="Permanent link">&para;</a></h5>
+<p>Add a <code>useHotkeys</code> hook via <code>react-hotkeys-hook</code> replicating the desktop keyboard shortcuts in the web frontend. Arrow keys to navigate gallery, <code>Enter</code> to open detail panel, <code>Delete</code> to remove, <code>Space</code> to preview full-screen. Essential for power users managing large libraries from the browser.</p>
+<h5 id="low-localization-i18n-foundation">[LOW] Localization (i18n) Foundation<a class="headerlink" href="#low-localization-i18n-foundation" title="Permanent link">&para;</a></h5>
+<p>Add <code>react-i18next</code> and extract all user-visible strings into <code>en.json</code> translation files. Structure the codebase so adding a new language requires only a new JSON file. Prioritize the Convert, Search, and Database tabs first.</p>
+<hr />
+<h3 id="3-core-engine-ai-enhancements-rust-python-base">3. Core Engine &amp; AI Enhancements (Rust / Python Base)<a class="headerlink" href="#3-core-engine-ai-enhancements-rust-python-base" title="Permanent link">&para;</a></h3>
+<h4 id="a-next-generation-ai-tagging-search">A. Next-Generation AI Tagging &amp; Search<a class="headerlink" href="#a-next-generation-ai-tagging-search" title="Permanent link">&para;</a></h4>
+<h5 id="high-vlm-auto-tagging-pipeline">[HIGH] VLM Auto-Tagging Pipeline<a class="headerlink" href="#high-vlm-auto-tagging-pipeline" title="Permanent link">&para;</a></h5>
+<p><code>backend/src/models/data/captioner.py</code> exists — build a full <code>VLMCaptioner</code> class on top of it backed by <code>Moondream2</code> or <code>LLaVA-1.5-7B-GGUF</code> (via <code>llama-cpp-python</code> for CPU / <code>transformers</code> for GPU). Run captioning as a background <code>QRunnable</code> after images are added to the database. Store captions in a new <code>captions</code> column. Surface captions as searchable metadata in <code>SearchTab</code> and as auto-populated tags in <code>DatabaseTab</code>. Add a "Re-caption All" batch task in <code>ScanMetadataTab</code>.</p>
+<h5 id="high-smart-semantic-albums">[HIGH] Smart Semantic Albums<a class="headerlink" href="#high-smart-semantic-albums" title="Permanent link">&para;</a></h5>
+<p>Implement dynamic virtual albums backed by live <code>pgvector</code> HNSW queries. A <code>VirtualAlbum</code> table stores a natural-language query string, threshold, and cached member list. The <code>SearchTab</code> gains a "Save as Album" button. Albums auto-refresh on a configurable schedule (hourly or on new image ingestion). Pairs with the React Virtual Album Browser feature above.</p>
+<h5 id="high-hnsw-index-migration">[HIGH] HNSW Index Migration<a class="headerlink" href="#high-hnsw-index-migration" title="Permanent link">&para;</a></h5>
+<p>Transition all <code>pgvector</code> <code>vector</code> columns from <code>ivfflat</code> to <code>hnsw</code> index type. This reduces similarity search latency from seconds to milliseconds at 100k+ image scale. Requires a new Django migration that drops the existing IVFFlat index and creates the HNSW index with <code>(m=16, ef_construction=64)</code>. Update <code>image_database.py</code> to set <code>hnsw.ef_search = 100</code> per query.</p>
+<h5 id="medium-perceptual-hash-completion">[MEDIUM] Perceptual Hash Completion<a class="headerlink" href="#medium-perceptual-hash-completion" title="Permanent link">&para;</a></h5>
+<p><code>task_scan_duplicates()</code> in <code>tasks/tasks.py</code> returns an empty <code>{}</code> placeholder for perceptual hash mode. Implement the full pipeline: compute pHash/dHash via the Rust <code>image_finder.rs</code> (which already has exact hash support), build a hamming distance matrix, and cluster images with distance ≤ threshold. Return grouped clusters, not a flat list.</p>
+<h5 id="medium-clip-ensemble-search">[MEDIUM] CLIP Ensemble Search<a class="headerlink" href="#medium-clip-ensemble-search" title="Permanent link">&para;</a></h5>
+<p>Support multiple CLIP variants (OpenAI ViT-L/14, MetaCLIP ViT-H/14, SigLIP) stored as separate <code>vector</code> columns. Let users select the embedding model at search time, or enable an ensemble mode that averages cosine distances across all available models. Store the model identifier per embedding row so the database supports heterogeneous embedding sources.</p>
+<h5 id="low-hybrid-text-vector-search">[LOW] Hybrid Text + Vector Search<a class="headerlink" href="#low-hybrid-text-vector-search" title="Permanent link">&para;</a></h5>
+<p>Add a <code>tsvector</code> GIN index over the captions and tags columns. Extend <code>SearchTab</code> to support hybrid search: cosine similarity from the vector column merged with <code>ts_rank</code> full-text relevance. This covers keyword-based search for users who don't have an embedding query in mind.</p>
+<hr />
+<h4 id="b-database-performance-indexing">B. Database Performance &amp; Indexing<a class="headerlink" href="#b-database-performance-indexing" title="Permanent link">&para;</a></h4>
+<h5 id="high-asynchronous-bulk-ingestion">[HIGH] Asynchronous Bulk Ingestion<a class="headerlink" href="#high-asynchronous-bulk-ingestion" title="Permanent link">&para;</a></h5>
+<p>Refactor <code>image_database.py</code> batch insertion to use <code>psycopg2.extras.execute_values()</code> with a single round-trip instead of per-row inserts. For very large directories (50,000+ images), add a <code>COPY FROM STDIN</code> path using <code>psycopg2.copy_expert</code>. Current single-insert path takes ~0.3s per 100 images; bulk should achieve &lt; 0.05s per 100.</p>
+<h5 id="medium-incremental-embedding-skip-already-embedded-images">[MEDIUM] Incremental Embedding — Skip Already-Embedded Images<a class="headerlink" href="#medium-incremental-embedding-skip-already-embedded-images" title="Permanent link">&para;</a></h5>
+<p>Add an <code>is_embedded</code> boolean column to the images table. During embedding passes, <code>SELECT ... WHERE is_embedded = FALSE</code>, process in batches, and flip the flag on success. This makes repeated scans of large libraries O(new images) rather than O(all images).</p>
+<h5 id="medium-safetensors-model-inspector">[MEDIUM] SafeTensors Model Inspector<a class="headerlink" href="#medium-safetensors-model-inspector" title="Permanent link">&para;</a></h5>
+<p><code>backend/src/utils/safetensors_metadata.py:80</code> has a silent <code>pass</code> in its metadata parsing. Complete the implementation to read LoRA rank, alpha, target modules, and trigger words from safetensors headers. Surface this as a model inspector panel in <code>MetaCLIPInferenceTab</code> and <code>LoRAGenerateTab</code> — users should be able to inspect a trained model's metadata without loading it into VRAM.</p>
+<hr />
+<h4 id="c-rust-core-optimizations">C. Rust Core Optimizations<a class="headerlink" href="#c-rust-core-optimizations" title="Permanent link">&para;</a></h4>
+<h5 id="high-streaming-image-processing">[HIGH] Streaming Image Processing<a class="headerlink" href="#high-streaming-image-processing" title="Permanent link">&para;</a></h5>
+<p><code>base/src/core/image_merger.rs</code> and <code>image_converter.rs</code> load full <code>DynamicImage</code> buffers before processing. The benchmark shows a 734MB peak for thumbnail generation. Refactor both to tile-based streaming: process output canvas rows in chunks and write to <code>BufWriter&lt;File&gt;</code> directly. Use <code>image::io::Reader</code>'s decoder API for scanline-chunk decoding on JPEG, PNG, and TIFF. Target ≤ 200MB peak RAM for a 1,000-image batch at 1080p.</p>
+<h5 id="high-async-http-crawler-in-rust">[HIGH] Async HTTP Crawler in Rust<a class="headerlink" href="#high-async-http-crawler-in-rust" title="Permanent link">&para;</a></h5>
+<p><code>base/src/web/image_crawler.rs</code> is Selenium-based and single-threaded for direct-URL jobs. Add a Tokio async runtime for non-JS crawls using <code>reqwest</code> + <code>tokio</code> with configurable concurrency. Reserve Selenium only for JS-rendered pages. This should improve direct-URL crawl throughput by ~10× and reduce WebDriver resource usage significantly.</p>
+<h5 id="medium-additional-image-board-crawlers">[MEDIUM] Additional Image Board Crawlers<a class="headerlink" href="#medium-additional-image-board-crawlers" title="Permanent link">&para;</a></h5>
+<p>Extend the <code>image_board_crawler.rs</code> framework with new platform crawlers: Twitter/X media downloads, ArtStation gallery scraper, Pixiv (with OAuth), and Pinterest board downloader. Each should implement the <code>Crawler</code> trait and be selectable from the <code>ImageCrawlerTab</code> board-type dropdown.</p>
+<h5 id="medium-parallel-web-crawler-progress-reporting">[MEDIUM] Parallel Web Crawler Progress Reporting<a class="headerlink" href="#medium-parallel-web-crawler-progress-reporting" title="Permanent link">&para;</a></h5>
+<p>The current crawlers run as opaque blocking operations with no mid-crawl feedback. Add a progress callback channel (Rust <code>mpsc::Sender</code>) that emits per-download events (URL, file size, local path) back to Python via PyO3, so the <code>ImageCrawlerTab</code> progress bar reflects real-time download count rather than a spinner.</p>
+<hr />
+<h3 id="4-quality-of-life-utilities">4. Quality of Life &amp; Utilities<a class="headerlink" href="#4-quality-of-life-utilities" title="Permanent link">&para;</a></h3>
+<h5 id="high-non-destructive-edit-recipes-desktop">[HIGH] Non-Destructive Edit Recipes <em>(Desktop)</em><a class="headerlink" href="#high-non-destructive-edit-recipes-desktop" title="Permanent link">&para;</a></h5>
+<p><em>(See Section 1C — full description there.)</em></p>
+<h5 id="high-intelligent-duplicate-grouping-with-visual-diff-desktop-web">[HIGH] Intelligent Duplicate Grouping with Visual Diff <em>(Desktop + Web)</em><a class="headerlink" href="#high-intelligent-duplicate-grouping-with-visual-diff-desktop-web" title="Permanent link">&para;</a></h5>
+<p><em>(See Section 1C — full description there.)</em></p>
+<h5 id="high-safetensors-model-inspector-desktop">[HIGH] Safetensors Model Inspector <em>(Desktop)</em><a class="headerlink" href="#high-safetensors-model-inspector-desktop" title="Permanent link">&para;</a></h5>
+<p>Standalone tool accessible from any training or generation tab: drop a <code>.safetensors</code> file to inspect LoRA rank, alpha, trigger words, and base model compatibility. Show a preview generation using the loaded LoRA at 3 different strength values (0.5, 0.75, 1.0) side-by-side.</p>
+<hr />
+<h2 id="cross-roadmap-overview">Cross-Roadmap Overview<a class="headerlink" href="#cross-roadmap-overview" title="Permanent link">&para;</a></h2>
+<p><em>Big-picture status and dependency graph across all 9 roadmaps. Node fill = roadmap type; node border = current implementation status. Edges show inter-roadmap dependencies and complementary relationships.</em></p>
+<pre class="mermaid"><code>flowchart TD
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    %% ── CORE PIPELINE ────────────────────────────────────────────────────────
+    subgraph CORE["Core Pipeline"]
+        ASP["🎬 ASP Roadmap\n(§1–§4 shipped;\nrefinements active)"]:::feature:::active
+        CPP["⚡ ASP C++ Migration\n(Phases 1–6 complete;\narchived)"]:::migration:::done
+        PERF["🚀 Performance\n(§3.10–§3.15 done;\n§3.1–§3.7 planned)"]:::perf:::active
+    end
+
+    %% ── INTELLIGENCE ─────────────────────────────────────────────────────────
+    subgraph INTEL["Intelligence"]
+        ANALYTICS["📊 Analytics &amp;\nInterpretability\n(in progress)"]:::research:::active
+        CONTENT["🎨 Content Generation\n(planned)"]:::feature:::planned
+    end
+
+    %% ── PLATFORM ─────────────────────────────────────────────────────────────
+    subgraph PLATFORM["Platform"]
+        ARCH["🏗️ Architecture\n(§5.x planned;\nrefactors queued)"]:::refactor:::planned
+        GUI["🖥️ GUI / UX\n(§2.1–§2.31 done;\n§2.29–§2.31 recent)"]:::feature:::done
+        NEWF["✨ New Features\n(§4.1–§4.13 planned)"]:::feature:::planned
+    end
+
+    %% ── FOUNDATIONS ──────────────────────────────────────────────────────────
+    subgraph FOUND["Foundations"]
+        DOCS["📝 Documentation\n(§6.1–§6.14 done;\n§6.15 active)"]:::docs:::active
+    end
+
+    %% ── INTER-ROADMAP DEPENDENCIES ───────────────────────────────────────────
+    ASP --&gt; CPP
+    CPP --&gt; PERF
+    ASP --&gt; ANALYTICS
+    ASP --&gt; CONTENT
+    PERF --&gt; ASP
+    ARCH --&gt; GUI
+    ARCH --&gt; PERF
+    NEWF --&gt; ASP
+    DOCS --- ASP
+    DOCS --- ARCH
+    DOCS --- GUI
+    DOCS --- ANALYTICS</code></pre>
+<hr />
+<h2 id="diagram-visual-language-reference">Diagram Visual Language Reference<a class="headerlink" href="#diagram-visual-language-reference" title="Permanent link">&para;</a></h2>
+<p><em>Every <code>## Implementation Timeline</code> diagram in <code>moon/roadmaps/</code> uses the visual encoding defined here. Read this section to interpret any diagram, and follow it when updating or adding nodes.</em></p>
+<hr />
+<h3 id="node-fill-element-type">Node Fill — Element Type<a class="headerlink" href="#node-fill-element-type" title="Permanent link">&para;</a></h3>
+<p>The node's <strong>body color</strong> identifies the category of work.</p>
+<table>
+<thead>
+<tr>
+<th>Fill</th>
+<th>Class</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Blue <code>#2563eb</code></td>
+<td><code>feature</code></td>
+<td><strong>New Feature</strong></td>
+<td>A capability that did not previously exist</td>
+</tr>
+<tr>
+<td>Violet <code>#7c3aed</code></td>
+<td><code>augment</code></td>
+<td><strong>Augmentation</strong></td>
+<td>Extends or improves an existing feature without replacing it</td>
+</tr>
+<tr>
+<td>Red <code>#dc2626</code></td>
+<td><code>fix</code></td>
+<td><strong>Bug Fix</strong></td>
+<td>Corrects incorrect or broken behaviour</td>
+</tr>
+<tr>
+<td>Cyan <code>#0891b2</code></td>
+<td><code>infra</code></td>
+<td><strong>Infrastructure</strong></td>
+<td>Build system, CI/CD, tooling, or project foundations</td>
+</tr>
+<tr>
+<td>Orange <code>#ea580c</code></td>
+<td><code>perf</code></td>
+<td><strong>Performance</strong></td>
+<td>Optimises speed, memory, throughput, or latency</td>
+</tr>
+<tr>
+<td>Slate <code>#475569</code></td>
+<td><code>research</code></td>
+<td><strong>Research</strong></td>
+<td>Exploratory; outcome uncertain; may not ship</td>
+</tr>
+<tr>
+<td>Dark red <code>#7f1d1d</code></td>
+<td><code>security</code></td>
+<td><strong>Security</strong></td>
+<td>Hardens against vulnerabilities, audits, or compliance</td>
+</tr>
+<tr>
+<td>Teal <code>#0f766e</code></td>
+<td><code>refactor</code></td>
+<td><strong>Refactor</strong></td>
+<td>Restructures internals without changing external behaviour</td>
+</tr>
+<tr>
+<td>Indigo <code>#4338ca</code></td>
+<td><code>migration</code></td>
+<td><strong>Migration</strong></td>
+<td>Moves from one technology, format, or system to another</td>
+</tr>
+<tr>
+<td>Amber-dark <code>#a16207</code></td>
+<td><code>testing</code></td>
+<td><strong>Testing</strong></td>
+<td>Test coverage additions or test infrastructure improvements</td>
+</tr>
+<tr>
+<td>Dark green <code>#15803d</code></td>
+<td><code>docs</code></td>
+<td><strong>Documentation</strong></td>
+<td>Documentation-only work (no code change)</td>
+</tr>
+<tr>
+<td>Pink <code>#9d174d</code></td>
+<td><code>integration</code></td>
+<td><strong>Integration</strong></td>
+<td>Connects to an external system, API, or third-party service</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="node-border-implementation-status">Node Border — Implementation Status<a class="headerlink" href="#node-border-implementation-status" title="Permanent link">&para;</a></h3>
+<p>The node's <strong>border color and thickness</strong> show where the item currently stands.</p>
+<table>
+<thead>
+<tr>
+<th>Border</th>
+<th>Class</th>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thick green <code>#16a34a, 4px</code></td>
+<td><code>done</code></td>
+<td><strong>✅ Complete</strong></td>
+<td>Shipped and merged; no further action needed</td>
+</tr>
+<tr>
+<td>Thick amber <code>#d97706, 4px</code></td>
+<td><code>active</code></td>
+<td><strong>🔄 In Progress</strong></td>
+<td>Actively being worked on right now</td>
+</tr>
+<tr>
+<td>Thin slate <code>#64748b, 2px</code></td>
+<td><code>planned</code></td>
+<td><strong>⬜ Planned</strong></td>
+<td>Scoped and intended, but not yet started</td>
+</tr>
+<tr>
+<td>Thick red <code>#dc2626, 3px</code></td>
+<td><code>blocked</code></td>
+<td><strong>🚫 Blocked</strong></td>
+<td>Cannot proceed — waiting on an unresolved external dependency</td>
+</tr>
+<tr>
+<td>Medium purple <code>#9333ea, 3px</code></td>
+<td><code>hold</code></td>
+<td><strong>⏸ On Hold</strong></td>
+<td>Paused intentionally; may resume but not actively scheduled</td>
+</tr>
+</tbody>
+</table>
+<p>To update a node when its status changes: replace the second class suffix —
+<code>:::planned</code> → <code>:::active</code> → <code>:::done</code>  (or <code>:::blocked</code> / <code>:::hold</code> as needed).</p>
+<hr />
+<h3 id="edge-style-relationship-type">Edge Style — Relationship Type<a class="headerlink" href="#edge-style-relationship-type" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Style</th>
+<th>Syntax</th>
+<th>Relationship</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bold thick arrow</td>
+<td><code>==&gt;</code></td>
+<td><strong>Critical dependency</strong></td>
+<td>Blocking prerequisite on the critical path; B cannot start without A</td>
+</tr>
+<tr>
+<td>Solid thin arrow</td>
+<td><code>--&gt;</code></td>
+<td><strong>Depends on</strong></td>
+<td>A must be done before B, but B is not on the critical path</td>
+</tr>
+<tr>
+<td>Dashed arrow</td>
+<td><code>-.-&gt;</code></td>
+<td><strong>Alternative to</strong></td>
+<td>A and B solve the same problem differently — only one should be chosen</td>
+</tr>
+<tr>
+<td>No arrowhead</td>
+<td><code>---</code></td>
+<td><strong>Complements</strong></td>
+<td>A and B work well together but neither requires the other</td>
+</tr>
+<tr>
+<td>Circle end</td>
+<td><code>--o</code></td>
+<td><strong>Optional dependency</strong></td>
+<td>B can optionally use A, but does not require it</td>
+</tr>
+<tr>
+<td>Cross end</td>
+<td><code>--x</code></td>
+<td><strong>Conflicts with</strong></td>
+<td>A and B are mutually exclusive or A blocks B from shipping</td>
+</tr>
+<tr>
+<td>Bidirectional</td>
+<td><code>&lt;--&gt;</code></td>
+<td><strong>Tightly coupled</strong></td>
+<td>A and B must evolve together; changes to one require changes to the other</td>
+</tr>
+</tbody>
+</table>
+<p>Labels can be added to any edge for additional specificity: <code>A --&gt;|"reason"| B</code>.</p>
+<hr />
+<h3 id="standard-classdef-block">Standard classDef Block<a class="headerlink" href="#standard-classdef-block" title="Permanent link">&para;</a></h3>
+<p>Copy this block verbatim into every <code>flowchart</code> diagram. Do not rename the classes — consistency across roadmaps lets readers build a shared mental model.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    classDef feature     fill:#2563eb,color:#fff
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    classDef augment     fill:#7c3aed,color:#fff
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    classDef fix         fill:#dc2626,color:#fff
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    classDef infra       fill:#0891b2,color:#fff
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    classDef perf        fill:#ea580c,color:#fff
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    classDef research    fill:#475569,color:#fff
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    classDef security    fill:#7f1d1d,color:#fff
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    classDef refactor    fill:#0f766e,color:#fff
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    classDef migration   fill:#4338ca,color:#fff
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    classDef testing     fill:#a16207,color:#fff
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    classDef docs        fill:#15803d,color:#fff
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    classDef integration fill:#9d174d,color:#fff
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    %% ── STATUS classes (node border = implementation status) ─────────────────
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    classDef done        stroke:#16a34a,stroke-width:4px
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    classDef active      stroke:#d97706,stroke-width:4px
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    classDef planned     stroke:#64748b,stroke-width:2px
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    classDef blocked     stroke:#dc2626,stroke-width:3px
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    classDef hold        stroke:#9333ea,stroke-width:3px
+</span></code></pre></div>
+<p>Apply both classes to every node: <code>NodeID["Label"]:::typeClass:::statusClass</code></p>
+<hr />
+<h3 id="example-diagram">Example Diagram<a class="headerlink" href="#example-diagram" title="Permanent link">&para;</a></h3>
+<p>The diagram below demonstrates every element type, every status, and every edge relationship in a single coherent graph representing a hypothetical auth-platform development sequence.</p>
+<pre class="mermaid"><code>flowchart TD
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    %% ── ✅ COMPLETE nodes (thick green border) ───────────────────────────────
+    REQ["🔬 Requirements\nAnalysis"]:::research:::done
+    THREAT["🔒 Threat Model\n&amp; Audit"]:::security:::done
+    DB["🏗 Database\nSchema v1"]:::infra:::done
+    AUTH["✨ Auth Module\n(JWT / Session)"]:::feature:::done
+    CACHE["⚡ Response\nCaching Layer"]:::perf:::done
+    UNIT["🧪 Unit\nTest Suite"]:::testing:::done
+    DOC1["📄 API Reference\nDocs"]:::docs:::done
+    REFACT["♻ Auth Code\nRefactor"]:::refactor:::done
+
+    %% ── 🔄 IN PROGRESS nodes (thick amber border) ────────────────────────────
+    MIG["🔄 Schema v1→v2\nMigration"]:::migration:::active
+    RATELIM["🔧 Rate\nLimiting"]:::augment:::active
+    INTTEST["🧪 Integration\nTest Suite"]:::testing:::active
+
+    %% ── 🚫 BLOCKED nodes (thick red border) ─────────────────────────────────
+    GDPR["🔒 GDPR\nCompliance Audit"]:::security:::blocked
+
+    %% ── ⏸ ON HOLD nodes (medium purple border) ──────────────────────────────
+    SDK["🔌 Mobile\nSDK Client"]:::integration:::hold
+
+    %% ── ⬜ PLANNED nodes (thin slate border) ─────────────────────────────────
+    OAUTH2["✨ OAuth2\nProvider Support"]:::feature:::planned
+    WEBHOOK["🔌 Webhook\nIntegration"]:::integration:::planned
+    TOKENFIX["🐛 Token Refresh\nRace Condition"]:::fix:::planned
+    GUIDE["📄 User Guide\n&amp; Tutorials"]:::docs:::planned
+    PERF2["⚡ Query\nOptimisation"]:::perf:::planned
+
+    %% ── EDGES — all seven relationship types ─────────────────────────────────
+    REQ    ==&gt;         AUTH          %% ==&gt;  critical dependency (research gates feature)
+    THREAT ==&gt;         AUTH          %% ==&gt;  critical dependency (threat model gates auth)
+    DB     ==&gt;         AUTH          %% ==&gt;  critical dependency (schema gates auth)
+    AUTH    --&gt;        OAUTH2         %% --&gt;  depends on
+    AUTH    --&gt;        REFACT         %% --&gt;  depends on
+    REFACT  --&gt;        UNIT           %% --&gt;  depends on
+    AUTH    --&gt;        CACHE          %% --&gt;  depends on
+    AUTH    --&gt;        DOC1           %% --&gt;  depends on
+    DB      --&gt;        MIG            %% --&gt;  depends on
+    MIG     --&gt;        PERF2          %% --&gt;  depends on
+    DOC1    --&gt;        GUIDE          %% --&gt;  depends on
+    SDK     --&gt;        WEBHOOK        %% --&gt;  depends on
+    CACHE   ---        RATELIM        %% ---  complements (both protect the API surface)
+    UNIT   &lt;--&gt;        INTTEST        %% &lt;--&gt; tightly coupled (suites co-evolve)
+    OAUTH2  -.-&gt;       WEBHOOK        %% -.-&gt; alternative (OAuth push vs webhook pull)
+    TOKENFIX --x       OAUTH2         %% --x  conflicts with (race condition blocks OAuth)
+    GDPR    --o        OAUTH2         %% --o  optional dependency (GDPR may gate OAuth)
+
+    %% ── LEGEND — status borders ──────────────────────────────────────────────
+    subgraph SLEG["Status — Border Color + Width"]
+        direction LR
+        SL1["✅ Complete"]:::feature:::done
+        SL2["🔄 In Progress"]:::feature:::active
+        SL3["⬜ Planned"]:::feature:::planned
+        SL4["🚫 Blocked"]:::feature:::blocked
+        SL5["⏸ On Hold"]:::feature:::hold
+    end
+
+    %% ── LEGEND — element type fills ─────────────────────────────────────────
+    subgraph TLEG["Type — Node Fill Color"]
+        direction LR
+        TL1["New Feature"]:::feature:::done
+        TL2["Augmentation"]:::augment:::done
+        TL3["Bug Fix"]:::fix:::done
+        TL4["Infrastructure"]:::infra:::done
+        TL5["Performance"]:::perf:::done
+        TL6["Research"]:::research:::done
+        TL7["Security"]:::security:::done
+        TL8["Refactor"]:::refactor:::done
+        TL9["Migration"]:::migration:::done
+        TL10["Testing"]:::testing:::done
+        TL11["Docs"]:::docs:::done
+        TL12["Integration"]:::integration:::done
+    end
+
+    %% ── LEGEND — edge relationships ──────────────────────────────────────────
+    subgraph ELEG["Edge — Relationship Type"]
+        direction TB
+        EA["A"]:::infra:::done ==&gt;|"critical dep"| EB["B"]:::infra:::done
+        EC["C"]:::infra:::done  --&gt;|"depends on"|   ED["D"]:::infra:::done
+        EE["E"]:::infra:::done -.-&gt;|"alternative"|  EF["F"]:::infra:::done
+        EG["G"]:::infra:::done ---|"complements"|   EH["H"]:::infra:::done
+        EI["I"]:::infra:::done --o|"optional dep"|  EJ["J"]:::infra:::done
+        EK["K"]:::infra:::done --x|"conflicts"|     EL["L"]:::infra:::done
+        EM["M"]:::infra:::done &lt;--&gt;|"bidirectional"| EN["N"]:::infra:::done
+    end</code></pre>
+<p><em>Created: 2026-06-23. Update the classDef block in any diagram by copying the Standard classDef Block above verbatim.</em></p>
+<h5 id="high-batch-rename-with-pattern-templates">[HIGH] Batch Rename with Pattern Templates<a class="headerlink" href="#high-batch-rename-with-pattern-templates" title="Permanent link">&para;</a></h5>
+<p>Add a rename tool (tab or toolbar action) that applies pattern-based renames to selected files. Support tokens: <code>{index}</code>, <code>{date}</code>, <code>{resolution}</code>, <code>{group}</code>, <code>{tag}</code>, <code>{hash}</code>. Preview the rename mapping in a before/after table before committing. Support undo via the edit recipe system.</p>
+<h5 id="medium-quick-convert-context-menu-in-gallery">[MEDIUM] Quick-Convert Context Menu in Gallery<a class="headerlink" href="#medium-quick-convert-context-menu-in-gallery" title="Permanent link">&para;</a></h5>
+<p>Right-clicking any image in any gallery should show a context menu with "Quick Convert To…" sub-items (PNG, JPEG, WebP, AVIF). Each item immediately fires a single-file conversion without opening the <code>ConvertTab</code>. The output lands in the same directory with a user-configurable suffix.</p>
+<h5 id="medium-aspect-ratio-crop-assistant">[MEDIUM] Aspect Ratio Crop Assistant<a class="headerlink" href="#medium-aspect-ratio-crop-assistant" title="Permanent link">&para;</a></h5>
+<p>Add a crop-to-ratio helper in <code>ConvertTab</code> that lets users specify a target aspect ratio (e.g., 16:9, 1:1, 3:4, SDXL 1024×1024) and shows a crop preview overlay on the source image. The crop anchor (top-center, center, face-detect) is selectable. Face-detection crop uses the existing Siamese network's face-embed pipeline.</p>
+<h5 id="medium-image-metadata-batch-editor">[MEDIUM] Image Metadata Batch Editor<a class="headerlink" href="#medium-image-metadata-batch-editor" title="Permanent link">&para;</a></h5>
+<p>Add a metadata editor tab that can write EXIF/XMP fields (title, description, keywords, copyright, GPS) to a batch of selected images. Support "copy metadata from one image to many" for quick-tagging datasets. Wire into the <code>ScanMetadataTab</code> workflow.</p>
+<h5 id="medium-color-palette-extractor">[MEDIUM] Color Palette Extractor<a class="headerlink" href="#medium-color-palette-extractor" title="Permanent link">&para;</a></h5>
+<p>Add a palette extraction feature accessible from image preview and <code>SearchTab</code>. Extract the N dominant colors from an image using k-means (backed by the Rust core). Show swatches with hex values and copy-to-clipboard. Add "Search by Color" functionality that encodes the dominant palette into a query vector for pgvector similarity search.</p>
+<h5 id="medium-slideshow-queue-editor">[MEDIUM] Slideshow Queue Editor<a class="headerlink" href="#medium-slideshow-queue-editor" title="Permanent link">&para;</a></h5>
+<p>The <code>SlideshowWindow</code> and <code>slideshow_daemon.rs</code> exist but queue management is basic. Add a queue editor panel with drag-to-reorder, per-image duration overrides, transition type selector (fade, cut, slide), and a "play from here" action on any item.</p>
+<h5 id="low-export-dataset-manifest">[LOW] Export Dataset Manifest<a class="headerlink" href="#low-export-dataset-manifest" title="Permanent link">&para;</a></h5>
+<p>From <code>DatabaseTab</code>, add an "Export Dataset" action that writes a JSONL or CSV manifest of all images in a group or subgroup, including paths, tags, captions, and embedding norms. This feeds directly into <code>lora_dataset.py</code> and external training tools without manual file organization.</p>
+<h5 id="low-image-statistics-dashboard">[LOW] Image Statistics Dashboard<a class="headerlink" href="#low-image-statistics-dashboard" title="Permanent link">&para;</a></h5>
+<p>A stats tab or panel showing library-wide metrics: total image count, format breakdown, resolution distribution histogram, tag frequency chart, last-crawled timestamps per source, and VRAM/RAM usage by the active model. Pull data from <code>GET /api/db/stats/</code> and render with <code>pyqtgraph</code> (desktop) or Recharts (web).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
