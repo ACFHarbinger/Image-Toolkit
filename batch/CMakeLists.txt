@@ -40,6 +40,37 @@ find_package(CUDA QUIET)                    # for GPU-accelerated compositing (P
 find_package(OpenMP REQUIRED)              # for parallel pixel loops
 
 # ---------------------------------------------------------------------------
+# Phase 4: SQLCipher + libsodium (optional — batch::secret full implementation)
+# ---------------------------------------------------------------------------
+if(PkgConfig_FOUND)
+    pkg_check_modules(SQLCIPHER QUIET sqlcipher)
+    pkg_check_modules(SODIUM    QUIET libsodium)
+endif()
+if(SQLCIPHER_FOUND AND SODIUM_FOUND)
+    message(STATUS "batch: SQLCipher + libsodium found — batch::secret fully enabled")
+    add_compile_definitions(HAVE_SQLCIPHER=1)
+else()
+    message(STATUS "batch: SQLCipher or libsodium not found — batch::secret will use stubs")
+endif()
+
+# ---------------------------------------------------------------------------
+# Phase 5: cpp-httplib + nlohmann/json (header-only, auto-fetched via FetchContent)
+# ---------------------------------------------------------------------------
+FetchContent_Declare(
+    cpp_httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG        v0.18.0
+    GIT_SHALLOW    TRUE
+)
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.11.3
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(cpp_httplib nlohmann_json)
+
+# ---------------------------------------------------------------------------
 # Optional: OpenCV ximgproc (SLIC for fg_register)
 # ---------------------------------------------------------------------------
 find_package(OpenCV QUIET COMPONENTS ximgproc)
@@ -99,6 +130,8 @@ target_include_directories(batch PRIVATE
     ${EIGEN3_INCLUDE_DIR}
     ${eigen_SOURCE_DIR}
     ${pybind11_INCLUDE_DIRS}
+    ${cpp_httplib_SOURCE_DIR}
+    ${nlohmann_json_SOURCE_DIR}/include
 )
 
 target_link_libraries(batch PRIVATE
@@ -119,6 +152,11 @@ endif()
 if(CUDA_FOUND)
     target_compile_definitions(batch PRIVATE HAVE_CUDA=1)
     message(STATUS "batch: CUDA found — GPU paths enabled (Phase 6)")
+endif()
+
+if(SQLCIPHER_FOUND AND SODIUM_FOUND)
+    target_include_directories(batch PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS})
+    target_link_libraries(batch PRIVATE ${SQLCIPHER_LIBRARIES} ${SODIUM_LIBRARIES})
 endif()
 
 # ---------------------------------------------------------------------------
