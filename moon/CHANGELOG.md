@@ -4,6 +4,21 @@
 
 ---
 
+## S197 — 2026-06-29 (Rust→C++ migration skeleton · batch/ directory reorganisation)
+
+- **Rust→C++ migration roadmap** — `moon/roadmaps/rust_to_cpp_migration.md` created; 7-phase plan covering `batch::image`, `batch::video`, `batch::secret`, `batch::web`, `batch::math` (header-only) and final rename `batch/`→`base/`
+- **batch/ reorganisation** — all existing animation/ASP source files moved from `batch/src/*.cpp` → `batch/src/animation/`; test files moved from `batch/tests/*.cpp` → `batch/tests/animation/`; both CMakeLists updated
+- **batch::image skeleton** — `src/image/image_batch.cpp` (fully implemented: OpenCV imread + INTER_AREA + OpenMP), `src/image/scan_files.cpp` (fully implemented: `std::filesystem`); headers in `include/batch/image/`
+- **batch::video skeleton** — `src/video/video_batch.cpp` (fully implemented: OpenCV `VideoCapture` + OpenMP, replaces Rust ffmpeg subprocess); header in `include/batch/video/`
+- **batch::secret skeleton** — `src/secret/locked_secret.cpp` (libsodium init guard), `src/secret/vault_db.cpp` (Phase 4 stubs raising `NotImplementedError`); headers in `include/batch/secret/` including `LockedSecret<N>` RAII wrapper and `derive_dek` (Argon2id)
+- **batch::web skeleton** — `src/web/web_requests.cpp` (Phase 5 stub); header in `include/batch/web/`
+- **batch::math headers** — `include/batch/math/{linalg,graph,distance,stats,information,dim_reduce}.hpp`; header-only C++ port of `base/src/math/`; `linalg.hpp` and `dim_reduce.hpp` use Eigen3; no pybind11 bindings
+- **Native test skeletons** — `tests/image/`, `tests/video/`, `tests/secret/`, `tests/web/`, `tests/math/`; 60+ Catch2 test cases total; math tests fully runnable; vault security tests cover `LockedSecret` zeroing and `derive_dek` determinism
+- **bindings.cpp** — updated module docstring; `register_image / register_secret / register_web` forward declarations; `batch.image`, `batch.secret`, `batch.web` submodules registered
+- **Directory naming** — `http`→`web`, `vault`→`secret`, `images`→`image` applied consistently across `src/`, `tests/`, `include/`, `bindings.cpp`, CMakeLists, and roadmap
+
+---
+
 ## S196 — 2026-06-25 (§5.109 Pipeline Strip Blue Channel CV Gate · §5.110 Pipeline Seam Green Shift CV Gate · §5.111 Bench Strip Blue Channel CV Gate · §5.112 Bench Seam Green Shift CV Gate)
 
 **Tests**: 2135 passing, 78 skipped (30 new)

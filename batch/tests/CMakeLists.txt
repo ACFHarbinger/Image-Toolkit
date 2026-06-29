@@ -26,17 +26,32 @@ FetchContent_MakeAvailable(Catch2)
 # entry point) so the test binary can link them directly without Python.
 # ---------------------------------------------------------------------------
 add_library(batch_impl OBJECT
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/matching.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/bundle_adjust.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/validation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/canvas.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/seam.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/compositing.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/exposure.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/frame_selection.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/wave_correct.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/fg_register.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sr_classical.cpp
+    # Animation / Anime Stitch Pipeline submodules
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/matching.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/bundle_adjust.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/canvas.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/seam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/compositing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/exposure.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/frame_selection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/wave_correct.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/fg_register.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/sr_classical.cpp
+
+    # Image I/O + filesystem (Phase 2 — skeleton)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/image/image_batch.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/image/scan_files.cpp
+
+    # Video thumbnails (Phase 3 — skeleton)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/video/video_batch.cpp
+
+    # Secure vector database (Phase 4 — skeleton)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/secret/locked_secret.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/secret/vault_db.cpp
+
+    # HTTP request sequencing (Phase 5 — skeleton)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/web_requests.cpp
 )
 
 # The implementation files include pybind11 headers only to get
@@ -66,20 +81,38 @@ endif()
 # Test executable
 # ---------------------------------------------------------------------------
 add_executable(batch_tests
-    test_seam.cpp
-    test_compositing.cpp
-    test_bundle_adjust.cpp
-    test_exposure.cpp
-    test_matching.cpp
-    test_validation.cpp
-    test_wave_correct.cpp
-    test_fuzz.cpp
+    # Animation tests
+    animation/test_seam.cpp
+    animation/test_compositing.cpp
+    animation/test_bundle_adjust.cpp
+    animation/test_exposure.cpp
+    animation/test_matching.cpp
+    animation/test_validation.cpp
+    animation/test_wave_correct.cpp
+    animation/test_fuzz.cpp
+
+    # Image I/O + filesystem tests (Phase 2 — skeleton)
+    image/test_image_batch.cpp
+
+    # Video thumbnail tests (Phase 3 — skeleton)
+    video/test_video_batch.cpp
+
+    # Secure vector database tests (Phase 4 — skeleton)
+    secret/test_vault_db.cpp
+    secret/test_vault_security.cpp
+
+    # HTTP tests (Phase 5 — skeleton)
+    web/test_web_requests.cpp
+
+    # Math library tests (Phase 6 — skeleton)
+    math/test_math.cpp
 )
 
 target_include_directories(batch_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
+    ${eigen_SOURCE_DIR}
     ${pybind11_INCLUDE_DIRS}
 )
 

@@ -62,18 +62,35 @@ endif()
 # batch extension module
 # ---------------------------------------------------------------------------
 pybind11_add_module(batch
+    # Module entry point
     src/bindings.cpp
-    src/matching.cpp
-    src/bundle_adjust.cpp
-    src/validation.cpp
-    src/canvas.cpp
-    src/seam.cpp
-    src/compositing.cpp
-    src/exposure.cpp
-    src/frame_selection.cpp
-    src/wave_correct.cpp
-    src/fg_register.cpp
-    src/sr_classical.cpp
+
+    # Animation / Anime Stitch Pipeline submodules (Phase 1–6, complete)
+    src/animation/matching.cpp
+    src/animation/bundle_adjust.cpp
+    src/animation/validation.cpp
+    src/animation/canvas.cpp
+    src/animation/seam.cpp
+    src/animation/compositing.cpp
+    src/animation/exposure.cpp
+    src/animation/frame_selection.cpp
+    src/animation/wave_correct.cpp
+    src/animation/fg_register.cpp
+    src/animation/sr_classical.cpp
+
+    # Image I/O + filesystem (Phase 2 — skeleton)
+    src/image/image_batch.cpp
+    src/image/scan_files.cpp
+
+    # Video thumbnails (Phase 3 — skeleton)
+    src/video/video_batch.cpp
+
+    # Secure vector database (Phase 4 — skeleton)
+    src/secret/locked_secret.cpp
+    src/secret/vault_db.cpp
+
+    # HTTP request sequencing (Phase 5 — skeleton)
+    src/web/web_requests.cpp
 )
 
 target_include_directories(batch PRIVATE
@@ -81,6 +98,7 @@ target_include_directories(batch PRIVATE
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${eigen_SOURCE_DIR}
+    ${pybind11_INCLUDE_DIRS}
 )
 
 target_link_libraries(batch PRIVATE
