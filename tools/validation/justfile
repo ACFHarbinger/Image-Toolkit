@@ -1,0 +1,77 @@
+# tools/validation/justfile
+# Codebase validation, static analysis, and documentation quality recipes
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Count lines of code and comments (--group-by-dir N to aggregate by directory depth)
+count-loc group_by="0":
+    uv run python backend/src/utils/validation/count_loc.py backend/src --group-by-dir {{group_by}}
+
+# Tree view of lines of code and comments
+tree-loc:
+    uv run python backend/src/utils/validation/tree_loc.py backend/src
+
+# Check docstring coverage
+check-docs:
+    uv run python backend/src/utils/docs/check_docstrings.py backend/src
+    uv run python backend/src/utils/docs/check_docstrings.py gui/src
+
+# Check Google style docstrings
+check-google-docs:
+    uv run python backend/src/utils/docs/check_google_style.py backend/src
+
+# Check for multiple classes in one file
+check-multi-classes:
+    uv run python backend/src/utils/validation/check_multi_classes.py backend/src
+
+# Find all relative imports with optional stats or exclude_same_package=true
+check-relative-imports exclude_same_package="":
+    uv run python backend/src/utils/validation/check_relative_imports.py backend/src \
+        --stats \
+        {{if exclude_same_package != "" { "--exclude-same-package" } else { "" }}}
+
+# Check for nested imports
+check-nested-imports:
+    uv run python backend/src/utils/validation/check_nested_imports.py backend/src --ignore_factories
+
+# Check for nested imports with a per-package summary table
+check-nested-imports-stats:
+    uv run python backend/src/utils/validation/check_nested_imports.py backend/src --ignore_factories --stats
+
+# Detect circular import chains using Tarjan's SCC algorithm
+check-circular-imports html="":
+    uv run python backend/src/utils/validation/check_circular_imports.py backend/src \
+        {{if html != "" { "--html " + html } else { "" }}}
+
+# Check that all concrete classes fully implement their ABC/Protocol interface contracts
+check-interface-compliance:
+    uv run python backend/src/utils/validation/check_interface_compliance.py backend/src
+
+# Measure type annotation coverage per file (worst-coverage files shown first)
+check-type-coverage sort="coverage" limit="40":
+    uv run python backend/src/utils/validation/check_type_coverage.py backend/src \
+        --sort {{sort}} --limit {{limit}}
+
+# Generate interactive module-level import graph (opens in browser)
+module-graph html="module_graph.html" depth="10":
+    uv run python backend/src/utils/validation/visualize_module_graph.py ./backend/src \
+        --exclude .venv venv node_modules \
+        --html {{html}} --depth {{depth}}
+
+# Create a graph with exported and imported dependencies (function, classes, etc.)
+dependency-graph target_file="backend/src/utils/decorators.py" target_name="log_call":
+    uv run python backend/src/utils/validation/trace_dependencies.py backend/src {{target_file}} {{target_name}}
+
+# Check for embedded languages in the Python source code
+check-embedded-languages:
+    uv run python backend/src/utils/validation/check_embedded_languages.py backend/src
+
+# Check for unused imports in the Python source code
+check-unused-imports:
+    uv run python backend/src/utils/validation/check_unused_imports.py backend/src --ignore_factories
+
+# Check uppercase constant declarations across backend and gui directories
+check-constants:
+    uv run python backend/src/utils/validation/constant_checker.py

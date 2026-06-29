@@ -1,0 +1,16 @@
+# tools/gui/justfile
+# Desktop GUI application recipes
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Start the Desktop GUI Application
+gui args="":
+    @echo "🐍 Starting Image-Toolkit Desktop App..."
+    source .venv/bin/activate && python main.py gui {{args}}
+
+# Start the Desktop GUI with ComfyUI-Manager integration enabled
+gui-manager:
+    @echo "🛠️ Starting Image-Toolkit with Manager integration..."
+    source .venv/bin/activate && python main.py gui --enable-manager

@@ -1,0 +1,21 @@
+# tools/ci/justfile
+# Linting, formatting, and static analysis recipes
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Format code (Rust + TypeScript)
+format:
+    @echo "✨ Formatting code..."
+    cd frontend/src-tauri && cargo fmt
+    cd frontend && npm run format || echo "⚠️  No format script found"
+    @echo "✅ Formatting complete!"
+
+# Pyrefly type checking for backend
+pyrefly-backend:
+    uv run pyrefly check backend/src --output-format min-text --min-severity warn
+
+# Pyrefly type checking for GUI
+pyrefly-gui:
+    uv run pyrefly check gui/src --output-format min-text --min-severity warn

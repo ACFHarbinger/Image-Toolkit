@@ -461,6 +461,7 @@ backend/src/animation/include/eigen3/unsupported
 .mypy_cache/
 
 # Forcefully add to path
+!tools/build
 !backend/src/models/
 !backend/src/models/data/
 !backend/src/utils/data

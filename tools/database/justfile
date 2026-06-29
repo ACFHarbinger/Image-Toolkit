@@ -1,0 +1,38 @@
+# tools/database/justfile
+# PostgreSQL / pgvector database recipes
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Setup PostgreSQL database with pgvector extension
+db-setup:
+    @echo "🗄️  Setting up PostgreSQL database..."
+    @sudo -u postgres psql -c "CREATE DATABASE image_toolkit;" || true
+    @sudo -u postgres psql -c "CREATE USER toolkit_user WITH PASSWORD 'change_me_123';" || true
+    @sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE image_toolkit TO toolkit_user;" || true
+    @sudo -u postgres psql -d image_toolkit -c "CREATE EXTENSION IF NOT EXISTS vector;"
+    @sudo -u postgres psql -c "ALTER DATABASE image_toolkit OWNER TO toolkit_user;"
+    @echo "✅ Database setup complete!"
+    @echo ""
+    @echo "⚠️  Remember to:"
+    @echo "1. Change the default password in your .env file"
+    @echo "2. Update DATABASE_URL in frontend/src-tauri/.env"
+
+# Check database connection
+db-check:
+    @echo "🔍 Checking database connection..."
+    @psql postgresql://toolkit_user:change_me_123@localhost:5432/image_toolkit -c "SELECT version();" || echo "❌ Connection failed"
+
+# Run database migrations
+db-migrate:
+    @echo "🔄 Running database migrations..."
+    cd frontend/src-tauri && sqlx migrate run
+
+# Apply the anime training DB schema migration (one-time)
+lora-db-migrate:
+    @echo "Applying anime training schema..."
+    @source .venv/bin/activate && python scripts/apply_migration.py \
+        "${DATABASE_URL:-postgresql://toolkit_user:change_me_123@localhost:5432/image_toolkit}" \
+        backend/src/database/sql/0007_anime_training.sql
+    @echo "Migration applied."
