@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 try:
-    from backend.src.animation import batch
+    from backend.src.animation import base as batch
 
     HAS_BATCH = True
 except ImportError:

@@ -78,7 +78,7 @@ quick-dev: helper::_print_header
 
 # --- Building ---
 
-# Build production application base (Rust via Maturin)
+# Build C++ base extension (Phase 7: batch/ renamed to base/, Rust retired)
 build-base: helper::_print_header
     just build::build-base
 
@@ -94,29 +94,34 @@ build-frontend: helper::_print_header
 build-opencv: helper::_print_header
     just build::build-opencv
 
-# Build C++ batch extension
-build-batch: helper::_print_header
-    just build::build-batch
-
-# Build everything: Rust base + Kotlin JAR + TypeScript frontend + C++ batch
+# Build everything: C++ base + Kotlin JAR + TypeScript frontend
 build-all: helper::_print_header
     just build::build-all
 
 # --- Testing ---
 
-# Build + run native C++ batch tests via ctest (Catch2)
-test-batch-cpp: helper::_print_header
-    just test::test-batch-cpp
+# Build + run native C++ base tests via ctest (Catch2)
+test-base-cpp: helper::_print_header
+    just test::test-base-cpp
+
+# Alias kept for backwards compatibility
+test-batch-cpp: test-base-cpp
 
 # Run Python parity tests (C++ vs Python reference implementations)
-test-batch-py: helper::_print_header
-    just test::test-batch-py
+test-base-py: helper::_print_header
+    just test::test-base-py
+
+# Alias kept for backwards compatibility
+test-batch-py: test-base-py
 
 # Run speedup benchmarks (Python reference vs C++). Slow — opt-in only.
-test-batch-bench: helper::_print_header
-    just test::test-batch-bench
+test-base-bench: helper::_print_header
+    just test::test-base-bench
 
-# Run all batch tests: native C++ + Python parity
+# Alias kept for backwards compatibility
+test-batch-bench: test-base-bench
+
+# Run all base tests: native C++ + Python parity
 test-cpp: helper::_print_header
     just test::test-cpp
 

@@ -83,7 +83,7 @@ except ImportError:
     RegularGridInterpolator = None
 
 try:
-    import batch as _batch_fgreg
+    import base as _batch_fgreg
     _BATCH_FGREG = True
 except ImportError:
     _batch_fgreg = None
