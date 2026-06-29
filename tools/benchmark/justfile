@@ -1,0 +1,72 @@
+# tools/benchmark/justfile
+# Performance benchmark recipes (non-ASP). ASP benchmarks live in tools/pipeline/justfile.
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Run benchmarks
+benchmark:
+    @echo "🏃 Running benchmarks..."
+    source .venv/bin/activate && python backend/benchmark/run_all.py
+    cd base && cargo bench
+
+# Run benchmarks and save detailed reports
+benchmark-save:
+    @echo "🏃 Running benchmarks with detailed reporting..."
+    source .venv/bin/activate && python backend/benchmark/run_all.py --save --report
+    @echo "✅ Benchmark reports saved to backend/benchmark/results/"
+
+# Launch benchmark analysis dashboard
+benchmark-dashboard:
+    @echo "📊 Launching Benchmark Dashboard..."
+    @echo "Dashboard will open at http://localhost:8501"
+    source .venv/bin/activate && streamlit run backend/ui/benchmark_dashboard.py
+
+# Run the ASP benchmark on all datasets (asp_test01 … asp_test96).
+# Results written to backend/benchmark/results/anime_stitch_YYYYMMDD_HHMMSS.json
+# and a markdown report to data/output/benchmark_report.md.
+asp-benchmark:
+    @echo "🎞️  Running ASP benchmark on all 96 datasets..."
+    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch
+    @echo "✅ ASP benchmark complete. Results in backend/benchmark/results/"
+
+# Run ASP benchmark on specific named datasets.
+# Usage: just asp-benchmark-tests asp_test09 asp_test27 asp_test57
+asp-benchmark-tests *tests:
+    @echo "🎞️  Running ASP benchmark on: {{tests}}"
+    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --tests {{tests}}
+
+# Run ASP benchmark on a numeric range of datasets.
+# Usage: just asp-benchmark-range 1-10
+# Usage: just asp-benchmark-range 4,8,27,57
+asp-benchmark-range range:
+    @echo "🎞️  Running ASP benchmark on range: {{range}}"
+    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --range "{{range}}"
+
+# Run ASP benchmark on the first N datasets.
+# Usage: just asp-benchmark-first 5
+asp-benchmark-first n="5":
+    @echo "🎞️  Running ASP benchmark on first {{n}} datasets..."
+    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --first {{n}}
+
+# Run ASP benchmark only on datasets not yet processed (panorama.png absent).
+asp-benchmark-resume:
+    @echo "🎞️  Resuming ASP benchmark (skipping already-processed datasets)..."
+    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --skip-done
+
+# Run ASP benchmark on the standard quality-verification test suite:
+# test09 (canonical seam-tear), test27 (full-body portrait), test08 (high-motion),
+# test57 (comparable), test04 (gate fallback).
+asp-benchmark-verify:
+    @echo "🎞️  Running ASP quality-verification suite (5 tests)..."
+    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch \
+        --tests asp_test04 asp_test08 asp_test09 asp_test27 asp_test57
+    @echo "✅ Verification complete. Check .agent/cache/pipeline_analysis_report.md"
+
+# Clean ASP benchmark output directories
+asp-benchmark-clean:
+    @echo "🧹 Cleaning ASP benchmark output directories..."
+    rm -rf dump/asp_test*/output
+    rm -rf dump/output
+    @echo "✅ Cleanup complete!"

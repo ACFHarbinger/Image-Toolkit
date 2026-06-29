@@ -1,0 +1,16 @@
+# tools/repository/justfile
+# Commands that integrate with external repositories (ComfyUI, etc.)
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Start ComfyUI headlessly (without the main desktop app)
+comfyui args="":
+    @echo "🎨 Starting ComfyUI server..."
+    source .venv/bin/activate && python -m backend.dispatcher command=comfyui {{args}}
+
+# Stop any running ComfyUI instances
+comfyui-stop:
+    @echo "🛑 Stopping ComfyUI server..."
+    -pkill -f "ComfyUI/main.py"

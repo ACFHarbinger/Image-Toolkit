@@ -1,0 +1,41 @@
+# tools/reducer/justfile
+# Maintenance & cleanup recipes
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Clean build artifacts and caches
+clean:
+    @echo "🧹 Cleaning build artifacts..."
+    find . -type d -name ".import_linter_cache" -exec rm -rf {} +
+    find . -type d -name ".pytest_cache" -exec rm -rf {} +
+    find . -type d -name "__pycache__" -exec rm -rf {} +
+    find . -type d -name ".ruff_cache" -exec rm -rf {} +
+    find . -type d -name ".mypy_cache" -exec rm -rf {} +
+    find . -type d -name ".hypothesis" -exec rm -rf {} +
+    find . -type f -name "coverage.json" -exec rm {} +
+    find . -type f -name "coverage.xml" -exec rm {} +
+    find . -type f -name ".coverage" -exec rm {} +
+    find . -type f -name ".gradle" -exec rm {} +
+    rm -f hs_err_pid*.log
+    rm -rf backend/benchmark/output/*
+    rm -rf frontend/dist/
+    rm -rf frontend/build/
+    rm -rf frontend/node_modules/
+    rm -rf frontend/src-tauri/target/
+    rm -rf frontend/src-tauri/gen/schemas/
+    rm -rf tmp/
+    rm -rf target/
+    rm -rf images/
+    rm -rf build/batch/
+    rm -rf node_modules/
+    find . -type d -empty -delete
+    @echo "✅ Clean complete!"
+
+# Clean ASP benchmark output directories
+clean-outputs:
+    @echo "🧹 Cleaning ASP benchmark output directories..."
+    rm -rf dump/asp_test*/output
+    rm -rf dump/output
+    @echo "✅ Cleanup complete!"

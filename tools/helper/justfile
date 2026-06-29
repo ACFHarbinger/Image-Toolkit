@@ -1,0 +1,134 @@
+# tools/helper/justfile
+# General helper/utility recipes
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+red := '\033[0;31m'
+green := '\033[0;32m'
+yellow := '\033[0;33m'
+blue := '\033[0;34m'
+purple := '\033[0;35m'
+cyan := '\033[0;36m'
+bold := '\033[1m'
+reset := '\033[0m'
+
+# Canonical header — imported by root justfile as helper::_print_header
+_print_header:
+    @echo -e "{{blue}}╔══════════════════════════════════════════════════════════════════════╗{{reset}}"
+    @echo -e "{{blue}}║                        Image Toolkit Control                         ║{{reset}}"
+    @echo -e "{{blue}}╚══════════════════════════════════════════════════════════════════════╝{{reset}}"
+
+# Commit staged changes with Gemini as co-author
+commit message:
+    git commit -m "{{message}}" -m "$(cat .gitmessage)"
+
+# Legacy alias for 'gui' — run Python/PySide6 app directly
+python args="":
+    @echo "🐍 Starting Python/PySide6 app..."
+    source .venv/bin/activate && python main.py {{args}}
+
+# Print help menu of available commands
+help:
+    @echo "Image Toolkit - Available Commands (dot-notation):"
+    @echo ""
+    @echo "{{bold}}Setup & Installation{{reset}}"
+    @echo "  just setup                     Complete setup (install deps + types)"
+    @echo "  just install                   Install all dependencies"
+    @echo "  just sync                      Sync Python/uv dependencies"
+    @echo ""
+    @echo "{{bold}}Development{{reset}}"
+    @echo "  just dev                       Run Tauri app in development mode"
+    @echo "  just quick-dev                 setup + dev"
+    @echo "  just check                     Run Rust type/compile checks"
+    @echo ""
+    @echo "{{bold}}Building{{reset}}"
+    @echo "  just build                     Build everything (alias for build-all)"
+    @echo "  just build-all                 Rust base + Kotlin JAR + frontend + C++"
+    @echo "  just build-base                Build Rust base via Maturin"
+    @echo "  just build-jar                 Build Kotlin cryptography JAR"
+    @echo "  just build-frontend            Build TypeScript/Tauri frontend"
+    @echo "  just build-opencv              Build local OpenCV from source"
+    @echo "  just build-batch               Build C++ batch extension"
+    @echo ""
+    @echo "{{bold}}Testing{{reset}}"
+    @echo "  just test                      Run all tests"
+    @echo "  just test-cpp                  C++ native + Python parity tests"
+    @echo "  just test-batch-cpp            Native C++ batch tests via ctest"
+    @echo "  just test-batch-py             Python batch parity tests"
+    @echo "  just test-batch-bench          Batch speedup benchmarks (slow)"
+    @echo ""
+    @echo "{{bold}}Benchmarks{{reset}}"
+    @echo "  just benchmark                 Run all benchmarks"
+    @echo "  just benchmark-save            Benchmarks + save reports"
+    @echo "  just benchmark-dashboard       Launch Streamlit dashboard"
+    @echo ""
+    @echo "{{bold}}Anime Stitch Pipeline{{reset}}"
+    @echo "  just asp-benchmark             ASP benchmark (all 96 datasets)"
+    @echo "  just asp-benchmark-verify      ASP quality-verification suite"
+    @echo "  just asp-benchmark-tests ...   ASP benchmark on named datasets"
+    @echo "  just asp-benchmark-range R     ASP benchmark on numeric range"
+    @echo "  just asp-benchmark-first N     ASP benchmark on first N datasets"
+    @echo "  just asp-benchmark-resume      Resume ASP benchmark"
+    @echo "  just asp-benchmark-clean       Clean ASP output dirs"
+    @echo ""
+    @echo "{{bold}}Database{{reset}}"
+    @echo "  just db-setup                  Setup PostgreSQL + pgvector"
+    @echo "  just db-check                  Check database connection"
+    @echo "  just db-migrate                Run database migrations"
+    @echo "  just lora-db-migrate           Apply anime training schema"
+    @echo ""
+    @echo "{{bold}}Desktop GUI{{reset}}"
+    @echo "  just gui                       Start Image-Toolkit Desktop App"
+    @echo "  just gui-manager               Start with ComfyUI-Manager enabled"
+    @echo ""
+    @echo "{{bold}}Core Image Processing{{reset}}"
+    @echo "  just perfect-stitch            Run the Perfect Stitch pipeline"
+    @echo "  just convert-batch             Batch convert images"
+    @echo "  just merge-images              Merge images into strip or grid"
+    @echo "  just slideshow                 Start background slideshow daemon"
+    @echo ""
+    @echo "{{bold}}Web / Crawler{{reset}}"
+    @echo "  just web-driver                Start Selenium WebDriver"
+    @echo "  just crawl                     Run image crawler via CLI"
+    @echo ""
+    @echo "{{bold}}External Repositories{{reset}}"
+    @echo "  just comfyui                   Start ComfyUI headlessly"
+    @echo "  just comfyui-stop              Stop running ComfyUI"
+    @echo ""
+    @echo "{{bold}}AI/ML Models & LoRA{{reset}}"
+    @echo "  just lora-setup-tagger         Download WD14 tagger"
+    @echo "  just lora-tag                  Caption images with WD14/Florence-2"
+    @echo "  just lora-train                Train LoRA (3090 Ti)"
+    @echo "  just lora-train-4080           Train LoRA (4080 Laptop)"
+    @echo "  just lora-locon                Train LyCORIS LoCon"
+    @echo "  just lora-train-vpred          Train NoobAI V-Pred LoRA"
+    @echo "  just lora-dreambooth           DreamBooth fine-tune"
+    @echo "  just lora-full-ft              Full SDXL checkpoint fine-tune"
+    @echo "  just lora-pipeline             Full pipeline: tag → dedup → train"
+    @echo "  just lora-analyze              Analyse LoRA checkpoint"
+    @echo "  just lora-tensorboard          Launch TensorBoard"
+    @echo "  just embed-icon                Embed icon into safetensors"
+    @echo ""
+    @echo "{{bold}}CI / Linting{{reset}}"
+    @echo "  just format                    Format code (Rust + TypeScript)"
+    @echo "  just pyrefly-backend           Pyrefly type check — backend"
+    @echo "  just pyrefly-gui               Pyrefly type check — GUI"
+    @echo ""
+    @echo "{{bold}}Validation{{reset}}"
+    @echo "  just count-loc                 Count lines of code"
+    @echo "  just check-docs                Docstring coverage"
+    @echo "  just check-circular-imports    Circular import detection"
+    @echo "  just module-graph              Generate import graph"
+    @echo "  (run: just --list for every recipe)"
+    @echo ""
+    @echo "{{bold}}Maintenance{{reset}}"
+    @echo "  just clean                     Clean build artifacts and caches"
+    @echo "  just clean-outputs             Clean ASP benchmark output dirs"
+    @echo ""
+    @echo "{{bold}}Helpers{{reset}}"
+    @echo "  just commit \"msg\"              Commit with Gemini as co-author"
+    @echo "  just python                    Legacy Python/PySide6 app alias"
+    @echo "  just loop-agent                Loop Claude Code agent"
+    @echo ""
