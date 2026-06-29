@@ -62,7 +62,7 @@
 <a href="https://docs.pytest.org/"><img alt="pytest" src="https://img.shields.io/badge/pytest-testing-0A9EDC?logo=pytest&logoColor=white"></a>
 <a href="https://coverage.readthedocs.io/"><img alt="Python Coverage" src="https://img.shields.io/badge/py_coverage-60%25-green.svg"></a>
 <a href="https://vitest.dev/"><img alt="Vitest" src="https://img.shields.io/badge/vitest-testing-6E9F18?logo=vitest&logoColor=white"></a>
-<a href="https://ionelmc.github.io/pytest-benchmark/"><img alt="Rust Tests" src="https://img.shields.io/badge/cargo_test-passing-orange?logo=rust&logoColor=white"></a>
+<a href="https://github.com/ionelmc/pytest-benchmark"><img alt="Rust Tests" src="https://img.shields.io/badge/cargo_test-passing-orange?logo=rust&logoColor=white"></a>
 <a href="https://developer.android.com/studio/test"><img alt="Android Tests" src="https://img.shields.io/badge/gradle_test-passing-02303A?logo=gradle&logoColor=white"></a>
 <a href="https://pre-commit.com/"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-FAB040?logo=pre-commit&logoColor=white"></a>
 
@@ -72,7 +72,7 @@
 <a href="https://developer.nvidia.com/cuda-toolkit"><img alt="CUDA RTX 3090 Ti" src="https://img.shields.io/badge/CUDA-RTX_3090_Ti-76B900?logo=nvidia&logoColor=white"></a>
 <a href="https://www.intel.com/"><img alt="Intel" src="https://img.shields.io/badge/Intel-Hardware-0071C5?logo=intel&logoColor=white"></a>
 <a href="https://www.amd.com/"><img alt="AMD Ryzen" src="https://img.shields.io/badge/AMD-Ryzen-ED1C24?logo=amd&logoColor=white"></a>
-<a href="https://www.apple.com/silicon/"><img alt="Apple Silicon" src="https://img.shields.io/badge/Apple_Silicon-M1%2FM2%2FM3-000000?logo=apple&logoColor=white"></a>
+<a href="https://developer.apple.com/documentation/apple-silicon"><img alt="Apple Silicon" src="https://img.shields.io/badge/Apple_Silicon-M1%2FM2%2FM3-000000?logo=apple&logoColor=white"></a>
 <br>
 <a href="https://www.linux.org/"><img alt="Linux" src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black"></a>
 <a href="https://ubuntu.com/"><img alt="Ubuntu" src="https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white"></a>
