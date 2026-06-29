@@ -272,6 +272,12 @@ py::str run_web_requests_sequence_py(
 // pybind11 registration (called from bindings.cpp)
 // ---------------------------------------------------------------------------
 
+// Forward declarations for Phase 9 web submodules
+void register_board_crawler(py::module_& m);
+void register_cloud_sync(py::module_& m);
+void register_reverse_image_search(py::module_& m);
+void register_image_crawler(py::module_& m);
+
 void register_web(py::module_& m) {
     m.doc() =
         "HTTP request sequencing (cpp-httplib + nlohmann/json). "
@@ -302,4 +308,10 @@ Returns
 str
     "All requests finished." or "Cancelled."
           )doc");
+
+    // Phase 9 extensions
+    register_board_crawler(m);
+    register_cloud_sync(m);
+    register_reverse_image_search(m);
+    register_image_crawler(m);
 }

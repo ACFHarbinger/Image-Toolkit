@@ -4,6 +4,44 @@
 
 ---
 
+## S200 — 2026-06-29 (Rust→C++ migration Phases 8–11 — all 27 functions ported)
+
+**Phase 8: `base.core` — image/video conversion, filesystem, finder, merger, wallpaper**
+- `base/src/core/convert.cpp`: `convert_single_image` (OpenCV AR transforms: crop/pad/stretch), `convert_image_batch` (OpenMP parallel), `convert_video` (ffmpeg subprocess)
+- `base/src/core/filesystem.cpp`: `get_files_by_extension` (case-insensitive, recursive), `delete_files_by_extensions` (OpenMP parallel, `std::atomic<int>` counter), `delete_path` (file or tree)
+- `base/src/core/finder.cpp`: `find_duplicate_images` (SHA-256 via OpenSSL EVP or inline FIPS 180-4 fallback, OpenMP parallel hashing), `find_similar_images_phash` (8×8 INTER_AREA pHash, Union-Find grouping, Hamming ≤ threshold)
+- `base/src/core/merger.cpp`: `merge_images_horizontal`, `merge_images_vertical`, `merge_images_grid` (two-pass OpenCV: dims pass → blit pass, white canvas, BGRA/GRAY → BGR flatten)
+- `base/src/core/wallpaper.cpp`: `set_wallpaper_gnome` (gsettings picture-uri + picture-options), `evaluate_kde_script` (qdbus via `popen`)
+- `base/CMakeLists.txt`: OpenSSL detection added (→ `HAVE_OPENSSL=1`); inline SHA-256 fallback when absent
+
+**Phase 9: `base.web` extensions — board crawlers, cloud sync, stubs**
+- `base/src/web/board_crawler.cpp`: abstract `Crawler` interface + `DanbooruCrawler` (GET JSON API), `GelbooruCrawler` (dapi envelope unwrap), `SankakuCrawler` (POST JWT auth to `login.sankakucomplex.com`, then capi-v2); `BoardCrawlerRunner` orchestrates pagination + 5-req/1s rate limit + 500ms post delay; `run_board_crawler(name, config, cb) -> int`
+- `base/src/web/cloud_sync.cpp`: abstract `CloudSync` interface + `DropboxSync` (list_folder cursor pagination, upload to content API, download), `GoogleDriveSync` (multipart REST upload, Drive v3), `OneDriveSync` (Graph API v1.0); bidirectional sync plan builder; `run_sync(provider, config, cb) -> str`
+- `base/src/web/reverse_image_search.cpp`: STUB — raises `RuntimeError` (Rust impl used `thirtyfour`/Selenium; no C++ WebDriver equivalent)
+- `base/src/web/image_crawler.cpp`: STUB — same reason
+- `web_requests.cpp`: Phase 9 functions registered via `register_web()`
+
+**Phase 10: `base.utils` — migration and slideshow daemon**
+- `base/src/utils/migration.cpp`: `run_legacy_migration` — JSON vault (flat map, entries array, or `{entries:[...]}`) → SQLCipher DB; key = `username:password`; creates `vault_entries` + `vault_meta` tables; guarded by `#ifdef HAVE_SQLCIPHER` (raises `RuntimeError` otherwise)
+- `base/src/utils/slideshow.cpp`: `run_slideshow_daemon` — process-lifetime `std::thread` singleton; actions: start/stop/status/next/configure; timed advance via `std::condition_variable::wait_for`; config persisted to `~/.image-toolkit/.slideshow_config.json` (nlohmann/json); wallpaper set via gsettings
+
+**Phase 11: `base.math` Python bindings**
+- `base/src/math/math_bindings.cpp`: pybind11 wrappers for all 6 math headers (previously header-only, no Python access)
+- `base.math.distance`: euclidean, euclidean_sq, cosine_similarity, cosine_distance, hamming, bhattacharyya, hellinger, manhattan
+- `base.math.stats`: mean, median, std_dev, variance, pearson, z_score, min_max_normalize
+- `base.math.information`: shannon_entropy, kl_divergence, js_divergence, js_distance, mutual_information
+- `base.math.graph`: `Graph` class + bfs, dfs, kruskal_mst, kruskal_max_mst, tarjan_scc, topological_sort; `KruskalEdge` + `SCCResult` types exposed
+- `base.math.linalg`: `Matrix` class (Eigen backend) + pca → `PCAResult` (scores, components, explained_variance_ratio)
+- `base.math.dim_reduce`: mds (classical MDS on distance matrix), tsne_affinities (symmetric P matrix)
+- `backend/src/utils/base_dispatch.py`: all 27 new functions routed via `NativeExt` static methods
+
+**Migration audit: all 27 Rust `#[pyfunction]`s now ported**
+- 9 previously ported (Phases 2–5 + 7): `load_image_batch`, `scan_files`, `extract_video_thumbnails_batch`, 5 secret functions, `run_web_requests_sequence`
+- 18 newly ported (Phases 8–11): all above + `run_legacy_migration`, `run_slideshow_daemon`, `run_board_crawler`, `run_sync`, `run_reverse_image_search` (stub), `run_image_crawler` (stub), all core/math functions
+- Roadmap updated: status line corrected to "All 11 phases done"
+
+---
+
 ## S199 — 2026-06-29 (Rust→C++ migration Phase 7 — final rename & retirement)
 
 - **Phase 7 complete** — `batch/` renamed to `base/` via `git mv`; Rust `base/` archived to `archive/base_rust/`
@@ -12,7 +50,7 @@
 - `backend/src/utils/base_dispatch.py` simplified: dual-module dispatch removed; `import base` resolves directly to C++ extension; `NativeExt` now a thin alias with static submodule forwarders
 - `tools/build/justfile`: `build-base` now runs cmake against `base/`; `build-batch` recipe removed; `build-all` no longer includes `build-batch`
 - `tools/test/justfile`: `test-batch-cpp/py/bench` → `test-base-cpp/py/bench`; backwards-compat aliases kept
-- `scripts/build_base.sh`: replaces Rust maturin/cargo build with cmake build
+- `linux/scripts/build_base.sh`: replaces Rust maturin/cargo build with cmake build
 - `Cargo.toml`: `base` workspace member removed (archived)
 - `.github/workflows/security.yml`: `cargo-audit` step updated to scan `frontend/src-tauri` only (base Rust crate retired)
 - Animation Python files: `import batch` → `import base as batch` (25 call sites)

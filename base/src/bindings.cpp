@@ -38,7 +38,19 @@ void register_sr_classical(py::module_& m);
 void register_image(py::module_& m);      // Phase 2: image I/O + filesystem
 void register_video(py::module_& m);      // Phase 3: video thumbnails
 void register_secret(py::module_& m);     // Phase 4: secure vector database
-void register_web(py::module_& m);        // Phase 5: HTTP request sequencing
+void register_web(py::module_& m);        // Phase 5+9: HTTP + board crawlers + cloud sync
+
+// ---------------------------------------------------------------------------
+// Phases 8–11: core, utils, math
+// ---------------------------------------------------------------------------
+void register_convert(py::module_& m);    // Phase 8: image/video conversion
+void register_filesystem(py::module_& m); // Phase 8: filesystem utils
+void register_finder(py::module_& m);     // Phase 8: duplicate/similar image finder
+void register_merger(py::module_& m);     // Phase 8: image canvas merging
+void register_wallpaper(py::module_& m);  // Phase 8: wallpaper (gnome/kde)
+void register_migration(py::module_& m);  // Phase 10: legacy JSON→SQLCipher migration
+void register_slideshow(py::module_& m);  // Phase 10: background slideshow daemon
+void register_math(py::module_& m);       // Phase 11: distance/stats/info/graph/linalg/dim_reduce
 
 PYBIND11_MODULE(base, m) {
     m.doc() = R"doc(
@@ -68,7 +80,19 @@ PYBIND11_MODULE(base, m) {
         base.image           load_image_batch, scan_files
         base.video           extract_video_thumbnails_batch
         base.secret          insert/search/fetch/delete secure listings
-        base.web             run_web_requests_sequence
+        base.web             run_web_requests_sequence, run_board_crawler, run_sync,
+                             run_reverse_image_search (stub), run_image_crawler (stub)
+
+        Phase 8–11 submodules
+        ----------------------
+        base.core            convert_single_image, convert_image_batch, convert_video,
+                             get_files_by_extension, delete_files_by_extensions, delete_path,
+                             find_duplicate_images, find_similar_images_phash,
+                             merge_images_horizontal, merge_images_vertical, merge_images_grid,
+                             set_wallpaper_gnome, evaluate_kde_script
+        base.utils           run_legacy_migration, run_slideshow_daemon
+        base.math            distance.*, stats.*, information.*, graph.*, linalg.pca,
+                             dim_reduce.mds, dim_reduce.tsne_affinities
     )doc";
 
     // ------------------------------------------------------------------
@@ -109,6 +133,14 @@ PYBIND11_MODULE(base, m) {
     auto m_http      = m.def_submodule("web",
         "HTTP request sequencing with JSON config and progress callbacks.");
 
+    // Phase 8–11 submodules
+    auto m_core      = m.def_submodule("core",
+        "Image/video conversion, filesystem ops, duplicate finder, canvas merger, wallpaper.");
+    auto m_utils     = m.def_submodule("utils",
+        "Legacy JSON→SQLCipher migration and background slideshow daemon.");
+    auto m_math      = m.def_submodule("math",
+        "Math utilities: distance, stats, information, graph, linalg (PCA), dim_reduce (MDS/t-SNE).");
+
     // ------------------------------------------------------------------
     // Register all submodule APIs
     // ------------------------------------------------------------------
@@ -128,4 +160,18 @@ PYBIND11_MODULE(base, m) {
     register_video(m_video);
     register_secret(m_vault);
     register_web(m_http);
+
+    // Phase 8: core
+    register_convert(m_core);
+    register_filesystem(m_core);
+    register_finder(m_core);
+    register_merger(m_core);
+    register_wallpaper(m_core);
+
+    // Phase 10: utils
+    register_migration(m_utils);
+    register_slideshow(m_utils);
+
+    // Phase 11: math
+    register_math(m_math);
 }
