@@ -17,6 +17,7 @@ on:
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, closed]
     paths:
       - 'docs/**'
       - 'moon/roadmaps/**'
@@ -24,6 +25,12 @@ on:
       - 'mkdocs.yml'
   schedule:
     - cron: '0 2 * * 1'   # Weekly: every Monday at 02:00 UTC (§6.12D)
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you running this?"
+        required: false
+        default: "Manual trigger"
 
 # Cancel in-progress runs for the same branch on new push
 concurrency:
@@ -34,6 +41,7 @@ jobs:
   # ── Job 1: Python docs (mkdocstrings + MkDocs build) ────────────────────
   docs-python:
     name: MkDocs build (Python API + portal)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -85,6 +93,7 @@ jobs:
   # ── Job 2: Rust doc-tests ────────────────────────────────────────────────
   docs-rust:
     name: cargo test --doc (math modules)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -119,6 +128,7 @@ jobs:
   # ── Job 3: Markdown link check ───────────────────────────────────────────
   docs-links:
     name: Markdown link check (lychee)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -141,6 +151,7 @@ jobs:
   # ── Job 4: Jupyter notebooks (non-GPU cells only) ──────────────────────
   docs-notebooks:
     name: nbconvert (non-GPU notebook validation)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -193,6 +204,7 @@ jobs:
   # ── Job 5: TypeScript docs (TypeDoc + Mermaid CLI) ──────────────────────
   docs-typescript:
     name: TypeDoc (frontend/src/math) + Mermaid CLI
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -255,6 +267,7 @@ jobs:
   # ── Job 6: Kotlin docs (Dokka GFM) ─────────────────────────────────────
   docs-kotlin:
     name: Dokka GFM (Android Kotlin)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -301,6 +314,7 @@ jobs:
   # ── Job 7: Sphinx (full Python backend reference) ───────────────────────
   docs-sphinx:
     name: Sphinx — Python backend reference
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -408,6 +422,7 @@ jobs:
   # ── Job 9: OpenAPI spec generation (drf-spectacular) ────────────────────
   docs-openapi:
     name: OpenAPI 3.1 spec (drf-spectacular)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -462,7 +477,7 @@ jobs:
   # ── Job 11: PR preview deployment (pull_request events only) ────────────
   preview:
     name: Deploy PR preview docs
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
       contents: write   # push to gh-pages branch
@@ -556,12 +571,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -597,7 +607,44 @@ jobs:
             griffe \
             mkdocs-jupyter
 
-      - name: Deploy to GitHub Pages
-        run: uv run mkdocs gh-deploy --force --clean
+      - name: Build MkDocs portal (strict — breaks on warnings)
+        run: uv run mkdocs build --strict --verbose
         env:
           PYTHONPATH: .
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+
+  # ── Job 12: Remove PR preview subdirectory on PR close ──────────────────
+  cleanup:
+    name: Remove PR ${{ github.event.pull_request.number }} preview
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+        continue-on-error: true
+
+      - name: Remove preview directory and push
+        run: |
+          PR_DIR="pr-preview/${{ github.event.pull_request.number }}"
+
+          if [ ! -d "$PR_DIR" ]; then
+            echo "No preview directory found for PR #${{ github.event.pull_request.number }} — nothing to clean up."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git rm -rf "$PR_DIR"
+          git commit -m "chore: remove docs preview for PR #${{ github.event.pull_request.number }}"
+          git push
+        continue-on-error: true
