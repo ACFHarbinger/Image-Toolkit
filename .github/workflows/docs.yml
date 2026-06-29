@@ -158,6 +158,8 @@ jobs:
             --exclude 'https://facebook\.github\.io/create-react-app'
             --exclude 'https://rootly\.com/sre/top-10-observability-tools'
             --exclude 'https://www\.npmjs\.com'
+            --exclude 'https://www\.intel\.com'
+            --exclude 'https://isocpp\.org'
             '**/*.md'
           fail: true
 
