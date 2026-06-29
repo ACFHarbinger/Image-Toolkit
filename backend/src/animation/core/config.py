@@ -1,16 +1,16 @@
 """
 §1.8A: TOML-based ASP pipeline configuration loader.
 
-Loads ``asp_config.toml`` from the current working directory (or a path
-supplied by the caller).  Any key present in the TOML file is exported as an
-environment variable (via ``os.environ.setdefault``), so all downstream
-``os.environ.get`` calls in pipeline modules pick up the value automatically.
+Loads ``backend/config/asp_config.toml`` (or a path supplied by the caller).
+Any key present in the TOML file is exported as an environment variable (via
+``os.environ.setdefault``), so all downstream ``os.environ.get`` calls in
+pipeline modules pick up the value automatically.
 Existing env-var values always win over the config file.
 
 Usage::
 
     from backend.src.animation.core.config import load_asp_config
-    load_asp_config()  # reads asp_config.toml if present in cwd
+    load_asp_config()  # reads backend/config/asp_config.toml
 
 Example ``asp_config.toml``::
 
@@ -43,7 +43,8 @@ from backend.src.exceptions import ConfigError
 
 __all__ = ["load_asp_config", "validate_asp_config", "dump_asp_config", "get_asp"]
 
-_DEFAULT_CONFIG_NAME = "asp_config.toml"
+# Resolved relative to this file: backend/src/animation/core/ → up 4 → backend/config/
+_DEFAULT_CONFIG_NAME = Path(__file__).resolve().parent.parent.parent.parent / "config" / "asp_config.toml"
 
 # §1.8B — Schema for known ASP env-var keys.
 # Tuple: (expected_type, min_val, max_val, description)
@@ -1393,8 +1394,8 @@ def load_asp_config(
     automatically. Existing environment variables always take precedence.
 
     Args:
-        path: Path to the TOML file. Defaults to ``asp_config.toml`` in the
-            current working directory. Returns an empty dict silently if the
+        path: Path to the TOML file. Defaults to ``backend/config/asp_config.toml``
+            relative to the package root. Returns an empty dict silently if the
             file does not exist.
         override_env: When True (default), write each loaded key to
             ``os.environ`` via ``setdefault``. Set to False to dry-run the
@@ -1626,8 +1627,8 @@ def dump_asp_config(
     file for future experiments.
 
     Args:
-        path: Destination TOML file path. Defaults to ``asp_config.toml`` in the
-            current working directory. Parent directories are created if needed.
+        path: Destination TOML file path. Defaults to ``backend/config/asp_config.toml``
+            relative to the package root. Parent directories are created if needed.
         include_defaults: When True, all schema keys are emitted (with ``"0"`` as
             the fallback default for unset keys). When False (default), only keys
             that are explicitly set in the environment are written.

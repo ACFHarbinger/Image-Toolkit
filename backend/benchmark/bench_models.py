@@ -17,10 +17,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.src.models.core.siamese_network import SiameseModelLoader
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
-from .utils import BenchmarkRunner, measure_memory
+from .tracker_manager import BenchmarkManager, measure_memory
 
 
-runner = BenchmarkRunner("ML Model Inference")
+runner = BenchmarkManager("ML Model Inference")
 
 
 def create_test_image(size=(512, 512)):
@@ -46,9 +46,9 @@ def bench_siamese_embedding_cpu():
     loader.load_model()
 
     # Force CPU
-    if loader._device.type == "cuda":
+    if loader._device.type == "cuda": # pyrefly: ignore [missing-attribute]
         loader._device = torch.device("cpu")
-        loader._model.to(loader._device)
+        loader._model.to(loader._device) # pyrefly: ignore [missing-attribute]
 
     # Create test image
     with NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
@@ -74,9 +74,9 @@ def bench_siamese_batch_10_cpu():
     loader.load_model()
 
     # Force CPU
-    if loader._device.type == "cuda":
+    if loader._device.type == "cuda": # pyrefly: ignore [missing-attribute]
         loader._device = torch.device("cpu")
-        loader._model.to(loader._device)
+        loader._model.to(loader._device) # pyrefly: ignore [missing-attribute]
 
     # Create 10 test images
     tmp_paths = []

@@ -90,26 +90,40 @@ jobs:
           path: site/
           retention-days: 7
 
-  # ── Job 2: C++ base doc-build ────────────────────────────────────────────
-  docs-cpp:
-    name: C++ base CMake build check
+  # ── Job 2: Rust doc-tests ────────────────────────────────────────────────
+  docs-rust:
+    name: cargo test --doc (math modules)
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install build dependencies
-        run: sudo apt-get install -y cmake ninja-build libopencv-dev python3-dev python3-pybind11
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Configure CMake
-        working-directory: base
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Restore Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            base/target
+          key: cargo-docs-${{ runner.os }}-${{ hashFiles('base/Cargo.lock') }}
+          restore-keys: cargo-docs-${{ runner.os }}-
 
-      - name: Build base extension
+      - name: cargo test --doc
         working-directory: base
-        run: cmake --build build --target base_tests -j$(nproc)
-        # Confirms the C++ sources compile cleanly; doc-level API drift is caught by parity tests.
+        run: cargo test --doc
+        # Runs all /// ```rust ... ``` examples in the math modules.
+        # Failures indicate the documented API has drifted from implementation.
+
+      - name: cargo doc (check for broken intra-doc links)
+        working-directory: base
+        run: cargo doc --no-deps --document-private-items 2>&1
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+          # Treat all rustdoc warnings (missing docs, broken links) as errors.
 
   # ── Job 3: Markdown link check ───────────────────────────────────────────
   docs-links:
@@ -570,7 +584,7 @@ jobs:
   # ── Job 10: Deploy to GitHub Pages (main branch push only) ─────────────
   deploy:
     name: Deploy to GitHub Pages
-    needs: [docs-python, docs-cpp, docs-links]
+    needs: [docs-python, docs-rust, docs-links]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

@@ -16,7 +16,7 @@ and covers four views across three C4 levels.
 
 ## Key architectural decisions captured
 
-- **PyO3 FFI boundary** — all IO-heavy and math-heavy logic lives in Rust; the Python backend calls it via the compiled `base` extension.
+- **pybind11 FFI boundary** — all IO-heavy and math-heavy logic lives in C++; the Python backend calls it via the compiled `base` extension.
 - **JPype JVM bridge** — `VaultManager` starts the JVM once at login (before Qt initialises) and calls into the Kotlin `cryptoModule` for AES-256-GCM operations. This avoids native-dialog RTTI conflicts (see TROUBLESHOOTING.md).
 - **Celery task dispatch** — every REST endpoint returns `{task_id, status: "processing"}` with HTTP 202. No blocking calls in the Django views.
 - **pgvector for semantic search** — CLIP embeddings stored as `vector(512)` columns; nearest-neighbour queries use the `ivfflat` index.

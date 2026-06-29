@@ -1,35 +1,35 @@
 ---
-description: When developing high-performance modules in `base/` using Rust and PyO3.
+description: When developing high-performance modules in `base/` using C++ and pybind11.
 ---
 
-You are a **Rust Systems Engineer** working on the high-performance core of Image-Toolkit.
+You are a **C++ Systems Engineer** working on the high-performance core of Image-Toolkit.
 
 ## Development Environment
-1.  **Location**: All Rust code resides in the `base/` directory.
-2.  **Build System**: Uses `maturin` to build Python bindings (PyO3).
-    - **Develop**: Run `maturin develop` (or `maturin develop --release`) in the root or `base/` to build and install into the current Python venv.
-    - **Test**: Run `cargo test` inside `base/` for unit tests.
+1.  **Location**: All C++ code resides in the `base/` directory.
+2.  **Build System**: Uses CMake + pybind11 to build Python bindings.
+    - **Develop**: Run `just build-base` to build and install into the current Python venv.
+    - **Release**: Run `just build-base-release` for an optimised build.
+    - **Test**: Run `just test-base-cpp` to execute the Catch2 C++ unit tests.
 3.  **Code Style**:
-    - Run `cargo fmt` before committing.
-    - Run `cargo clippy` to catch common issues.
+    - Follow the existing `clang-format` style (see `.clang-format`).
+    - Use `clang-tidy` to catch common issues.
 
 ## Architectural Guidelines
-1.  **Performance First**: 
+1.  **Performance First**:
     - This layer handles heavy I/O (filesystem scanning), image processing (resize/convert), and network crawling.
-    - Avoid cloning large buffers; use references and slices.
-2.  **Python Integration (PyO3)**:
-    - Expose functions in `lib.rs`.
-    - Handle errors by converting `Result<T, E>` to `PyResult<T>`.
-    - Release the GIL (`Python::allow_threads`) for long-running operations to allow Python GUI concurrency.
+    - Avoid unnecessary copies; pass large buffers by const-reference or use zero-copy `cv::Mat` wrappers.
+2.  **Python Integration (pybind11)**:
+    - Expose functions via `register_*()` helpers; wire them in `base/src/bindings.cpp`.
+    - Propagate errors by throwing `py::value_error` / `py::runtime_error`.
+    - Release the GIL (`py::gil_scoped_release`) before any CPU-heavy or blocking region.
 3.  **Concurrency**:
-    - Use `rayon` for data parallelism (e.g., batch image processing).
-    - Use `tokio` for async network operations (crawlers).
+    - Use OpenMP (`#pragma omp parallel for`) for data parallelism (e.g., batch image processing).
+    - Use cpp-httplib for synchronous HTTP network operations (crawlers).
 
 ## Critical Modules
--   **`file_system`**: Fast recursive directory scanning.
--   **`image_ops`**: OpenCV/ImageMagick bindings for manipulation.
--   **`web`**: Async crawlers for image boards.
+-   **`base::image`**: Batch image load + thumbnail generation.
+-   **`base::core`**: Convert, filesystem, finder, merger, wallpaper.
+-   **`base::web`**: Board crawlers (Danbooru/Gelbooru/Sankaku) and cloud sync.
 
-## Safety
--   Prioritize Safe Rust.
--   Document any `unsafe` blocks with `// SAFETY:` comments explaining why it holds.
+## Adding a New Export
+See `.agent/skills/add-rust-export.md` (now updated for C++/pybind11).

@@ -84,7 +84,7 @@ Before adding any new package, answer the following questions:
 
 1. **Is it already available?** Check existing dependencies first — `numpy`, `opencv-python`, `scipy`, `torch`, `pillow` already cover most image and numerical tasks.
 2. **What is the maintenance status?** Prefer packages with a release in the last 12 months, a responsive issue tracker, and >100 GitHub stars (or a major institution as maintainer).
-3. **What is the transitive footprint?** Run `pip install --dry-run <package>` or `cargo tree -d <crate>` to enumerate transitive dependencies. Flag anything that pulls in `openssl`, `libstdc++`, or native libraries that could conflict with the existing JPype/PyO3 ABI layer.
+3. **What is the transitive footprint?** Run `pip install --dry-run <package>` to enumerate transitive dependencies. Flag anything that pulls in `openssl`, `libstdc++`, or native libraries that could conflict with the existing JPype/JVM or pybind11 ABI layer.
 4. **Does it have a compatible license?** Permitted licenses: MIT, Apache-2.0, BSD-2/3, MPL-2.0, ISC. Prohibited: GPL (except for tools, not linked into the app), LGPL without dynamic linking, SSPL, BSL. Check with `pip-licenses` or `cargo-deny`.
 5. **Is there a security history?** Check [osv.dev](https://osv.dev/) and [deps.dev](https://deps.dev/) for known CVEs before adding.
 
@@ -130,14 +130,14 @@ If a vulnerability cannot be patched within the SLA (see Upgrade Cadence), docum
 
 - **PyTorch:** Pin to a specific CUDA version in CI to avoid downloading multiple CUDA runtime copies. Use `torch~=2.3+cu121` for RTX 3090 Ti / 4080 builds.
 - **PySide6:** Pin to an exact minor version. PySide6 `6.x.y` and `6.x.(y+1)` can break binary compatibility on Linux. The JPype JVM bridge is sensitive to PySide6 minor releases.
-- **maturin:** Used to build the PyO3 Rust extension. Pin to the same version locally and in CI to avoid ABI mismatches between the `.so` in the lockfile and the one CI builds.
+- **pybind11:** Pin to the same minor version in `pyproject.toml` and in the CMake `FetchContent` declaration to avoid ABI mismatches between the `.so` the dev builds and what CI builds.
 - **Avoid at the top level of `animation/` or `compositing.py`:** `diffusers`, `transformers`, `accelerate`. These must be lazy-imported (see §3.10 in `performance.md`).
 
-### Rust
+### C++ (`base/`)
 
-- **pyo3:** The `abi3-py311` feature locks the extension to Python 3.11+. Do not downgrade this ABI target — it determines which Python versions can use the compiled `base` module.
-- **rayon:** Thread pool is shared with the test suite. Avoid spawning additional rayon pools in tests; use `rayon::ThreadPoolBuilder::new().num_threads(1).build_global()` in test fixtures that need deterministic ordering.
-- **image crate:** The `webp` feature is required. Do not enable the `jpeg_rayon` feature — it conflicts with the existing rayon pool under heavy parallelism.
+- **pybind11:** The extension targets the active Python 3.11+ ABI. Do not mix pybind11 versions across the CMake configure and the Python package — they must agree.
+- **OpenMP:** Thread pool is shared with the test suite. Tests that need deterministic ordering should set `OMP_NUM_THREADS=1` in the environment.
+- **OpenCV:** Only use `opencv-python-headless` in the Python layer; never link the Qt-based `opencv-python` (it ships its own Qt and conflicts with PySide6).
 
 ### Node.js / Electron
 

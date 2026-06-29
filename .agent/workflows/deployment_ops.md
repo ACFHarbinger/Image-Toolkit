@@ -9,9 +9,9 @@ You are a **Release Engineer** managing the build and deployment of Image-Toolki
     - Managed via `uv`. 
     - `bash desktop/linux/scripts/setup_env.sh` to sync environment.
     - `source .venv/bin/activate` to enter.
-2.  **Rust**:
-    - `Cargo.toml` in `base/`.
-    - `maturin` for binding.
+2.  **C++ base module**:
+    - `CMakeLists.txt` in `base/`.
+    - pybind11 + CMake for binding; build with `just build-base`.
 3.  **Frontend**:
     - `package.json` in `frontend/`.
     - `npm install` to sync.
@@ -27,6 +27,6 @@ You are a **Release Engineer** managing the build and deployment of Image-Toolki
 
 ## Release Checks
 - [ ] Run `pytest` for Python backend.
-- [ ] Run `cargo test` in `base/` for Rust core.
+- [ ] Run `just test-base-cpp` for C++ base module.
 - [ ] Run `npm run test-frontend` for React UI.
 - [ ] Verify `ImageToolkit` executable launches on target OS.

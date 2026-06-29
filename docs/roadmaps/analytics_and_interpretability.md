@@ -145,14 +145,14 @@ flowchart TD
 
 | Layer | Status | Details |
 |-------|--------|---------|
-| **Rust math backbone** (`base/src/math/`) | ✅ Complete | 6 modules, 49 unit tests passing |
+| **C++ math backbone** (`base/include/base/math/`) | ✅ Complete | 6 modules, 49 unit tests passing |
 | **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts`, `tsc --noEmit` clean |
 | **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Tauri commands, SVG charts, 7-page dashboard, `App.tsx` wired |
 | Phase 1–10 feature implementation | ⬜ Not started | Backbone provides all mathematical primitives |
 | **ASP Benchmark Analytics (Phase 11)** | ⬜ Not started | Per-seam diagnostics, alignment drift, photometric, edge quality, GT, regression |
-| **Benchmark Coverage Expansion (Phase 12)** | ⬜ Not started | Rust core, ASP stage isolation, GUI thumbnails, DB scale, memory lifecycle |
+| **Benchmark Coverage Expansion (Phase 12)** | ⬜ Not started | C++ core, ASP stage isolation, GUI thumbnails, DB scale, memory lifecycle |
 
-### Rust backbone — `base/src/math/`
+### C++ backbone — `base/include/base/math/`
 
 | Module | Contents |
 |--------|----------|
@@ -496,22 +496,22 @@ See [`reports/Analytics and Codebase Visualization Research.md`](../../reports/A
 
 ## **Phase 12: Benchmark Coverage Expansion**
 
-**Goal:** Identify all unmonitored performance-critical and correctness-critical code paths across the Rust core, Python backend, GUI, and mobile layers, then instrument them with targeted benchmarks.
+**Goal:** Identify all unmonitored performance-critical and correctness-critical code paths across the C++ core, Python backend, GUI, and mobile layers, then instrument them with targeted benchmarks.
 
 **Current gap analysis:**
 
 | Module | Current Coverage | Impact of Blindspot |
 |--------|-----------------|---------------------|
-| `base/src/image_converter.rs` | ❌ None | Cannot detect Rust image conversion regressions |
-| `base/src/image_merger.rs` | ❌ None | Merge quality and speed unknown at scale |
-| `base/src/image_finder.rs` | ❌ None | File-system scan performance on large directories |
-| `base/src/file_system.rs` | ❌ None | Bulk file enumeration bottlenecks |
+| `base/src/core/convert.cpp` | ❌ None | Cannot detect C++ image conversion regressions |
+| `base/src/core/merger.cpp` | ❌ None | Merge quality and speed unknown at scale |
+| `base/src/core/finder.cpp` | ❌ None | File-system scan performance on large directories |
+| `base/src/core/filesystem.cpp` | ❌ None | Bulk file enumeration bottlenecks |
 | `gui/src/helpers/image/image_loader_worker.py` | ❌ None | LRU thumbnail cache RAM/throughput unknowns |
 | `backend/src/animation/compositing.py` (isolated) | ⚠️ Via ASP | Seam DP, DSFN ramp, Poisson blend not individually profiled |
 | `backend/src/animation/matching.py` (isolated) | ⚠️ Via ASP | LoFTR vs phase-correlation trade-off not quantified |
 | `backend/src/animation/bundle_adjust.py` (isolated) | ⚠️ Via ASP | Spanning-tree filter and GNC re-solve overhead unknown |
 | PostgreSQL + pgvector query latency | ⚠️ Partial | Vector similarity search at 10k/100k image scale not benchmarked |
-| App startup time | ❌ None | JVM + Qt + Rust cold-start latency unmonitored |
+| App startup time | ❌ None | JVM + Qt + C++ cold-start latency unmonitored |
 | App memory (full lifecycle) | ❌ None | Gallery RAM with 100/500/1000 images not tracked |
 | Web crawlers (Selenium) | ❌ None | Crawl throughput and timeout rate not measured |
 | Mobile (Kotlin/Swift) | ❌ None | Android/iOS render and network performance untouched |

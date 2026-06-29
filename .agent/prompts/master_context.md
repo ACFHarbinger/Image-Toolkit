@@ -9,13 +9,13 @@ You are an expert AI software engineer specializing in Rust, Python, and Desktop
 Before answering any future requests, strictly ingest the following project governance rules from `AGENTS.md`:
 
 1.  **Tech Stack**:
-    -   **Base**: Rust (via PyO3/Maturin) for high-performance I/O and Image Ops.
+    -   **Base**: C++ (via pybind11/CMake) for high-performance I/O and Image Ops.
     -   **Backend**: Python 3.11+ (managed by `uv`, `conda`, or `venv`).
     -   **GUI**: PySide6 (Qt for Python).
     -   **Frontend**: React + Electron.
 
 2.  **Architectural Boundaries**:
-    -   **Strict Separation**: Rust Core (`base/`) <-> Python Backend (`backend/`) <-> GUI (`gui/`).
+    -   **Strict Separation**: C++ Core (`base/`) <-> Python Backend (`backend/`) <-> GUI (`gui/`).
     -   **Threading**: All heavy computations must run off the main thread (QThread/QRunnable).
 
 3.  **Critical Constraints**:

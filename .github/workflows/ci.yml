@@ -36,8 +36,8 @@ jobs:
           key: uv-lint-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-lint-${{ runner.os }}-
 
-      - name: Install project dependencies (frozen, skip Rust build)
-        # --no-install-project skips `maturin build` so the Rust extension is not
+      - name: Install project dependencies (frozen, skip C++ build)
+        # --no-install-project skips the C++ extension build so it is not
         # compiled.  All Python runtime and dev deps are installed from the lockfile.
         run: uv sync --frozen --group dev --no-install-project
 
