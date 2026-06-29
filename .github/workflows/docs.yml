@@ -157,6 +157,7 @@ jobs:
             --exclude 'http://127\.0\.0\.1'
             --exclude 'https://facebook\.github\.io/create-react-app'
             --exclude 'https://rootly\.com/sre/top-10-observability-tools'
+            --exclude 'https://www\.npmjs\.com'
             '**/*.md'
           fail: true
 
