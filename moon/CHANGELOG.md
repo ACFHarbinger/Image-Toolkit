@@ -4,6 +4,17 @@
 
 ---
 
+## S198 — 2026-06-29 (Rust→C++ migration · Phases 1–6 implementation)
+
+- **CMake Phase 1 deps** — `batch/CMakeLists.txt` and `batch/tests/CMakeLists.txt` extended: optional SQLCipher+libsodium via `pkg_check_modules` (sets `HAVE_SQLCIPHER=1` when both found); `cpp-httplib v0.18.0` and `nlohmann/json v3.11.3` auto-fetched via FetchContent; include dirs wired to both `batch` and `batch_impl` targets; conditional SQLCipher/libsodium link block added
+- **Dispatch shim** — `backend/src/utils/base_dispatch.py` created; `NativeExt` class with static methods routing Phase 2–5 functions to `batch.image/video/secret/web` with exception-guarded fallback to Rust `base`; module-level `__getattr__` proxies any unrecognised name to Rust `base`; `_HAS_IMAGE/VIDEO/SECRET/WEB` flags set once at import
+- **Phase 4 — vault_db.cpp** — full `HAVE_SQLCIPHER` implementation: `load_or_create_salt` ({db_path}.salt sidecar), `derive_key` (Argon2id via `crypto_pwhash`), `open_db` (PRAGMA key with raw 32-byte hex blob), schema init; `insert_listing_secure` (upsert), `hybrid_search_secure` (linear-scan cosine + `partial_sort` top-k), `fetch_all_listings_secure`, `delete_listing_secure`, `fetch_listings_as_arrow_pointers` (ArrowArray/ArrowSchema structs defined inline — no nanoarrow dep; id+metadata utf8 columns; RAII release callbacks); `#else` stubs raise `py::type_error` for graceful Rust fallback
+- **Phase 5 — web_requests.cpp** — full cpp-httplib + nlohmann/json implementation; `parse_base_url` splits scheme/host/port/path; `parse_post_data` parses "key:val,key:val" form params; GIL released for HTTP I/O, reacquired for `on_status_emitted`/`on_error_emitted` callbacks and `_is_running` cancellation check; all 5 action types implemented (`Print Response URL/Status/Headers/Content`, `Save Response Content (Binary)` with parent dir creation); 500ms inter-request delay; returns `"All requests finished."` or `"Cancelled."` — matches Rust protocol exactly
+- **Phase 6 — bundle_adjust.cpp** — replaced local `parent` vector + `find_root` lambda with `batch::math::UnionFind uf(N)` from `batch/math/graph.hpp`; inner `if (pi != pj)` block replaced with `if (uf.unite(i, j))`; include added
+- **Roadmap** — `moon/roadmaps/rust_to_cpp_migration.md` updated: status line → `IN PROGRESS — Phases 1–6 complete; Phase 7 pending`; Phases 1–6 marked ✅; Phase 7 marked PENDING
+
+---
+
 ## S197 — 2026-06-29 (Rust→C++ migration skeleton · batch/ directory reorganisation)
 
 - **Rust→C++ migration roadmap** — `moon/roadmaps/rust_to_cpp_migration.md` created; 7-phase plan covering `batch::image`, `batch::video`, `batch::secret`, `batch::web`, `batch::math` (header-only) and final rename `batch/`→`base/`

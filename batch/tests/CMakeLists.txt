@@ -21,6 +21,23 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+# Phase 5: cpp-httplib + nlohmann/json (inherited from parent if already declared)
+if(NOT DEFINED cpp_httplib_SOURCE_DIR)
+    FetchContent_Declare(
+        cpp_httplib
+        GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+        GIT_TAG        v0.18.0
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG        v3.11.3
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(cpp_httplib nlohmann_json)
+endif()
+
 # ---------------------------------------------------------------------------
 # Shared object library: all batch implementation sources (without pybind11
 # entry point) so the test binary can link them directly without Python.
@@ -62,7 +79,15 @@ target_include_directories(batch_impl PUBLIC
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${pybind11_INCLUDE_DIRS}
+    ${cpp_httplib_SOURCE_DIR}
+    ${nlohmann_json_SOURCE_DIR}/include
 )
+
+if(SQLCIPHER_FOUND AND SODIUM_FOUND)
+    target_include_directories(batch_impl PUBLIC ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS})
+    target_link_libraries(batch_impl PUBLIC ${SQLCIPHER_LIBRARIES} ${SODIUM_LIBRARIES})
+    target_compile_definitions(batch_impl PUBLIC HAVE_SQLCIPHER=1)
+endif()
 
 target_link_libraries(batch_impl PUBLIC
     ${OpenCV_LIBS}
@@ -114,6 +139,8 @@ target_include_directories(batch_tests PRIVATE
     ${EIGEN3_INCLUDE_DIR}
     ${eigen_SOURCE_DIR}
     ${pybind11_INCLUDE_DIRS}
+    ${cpp_httplib_SOURCE_DIR}
+    ${nlohmann_json_SOURCE_DIR}/include
 )
 
 target_link_libraries(batch_tests PRIVATE

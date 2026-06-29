@@ -1,6 +1,6 @@
 # Rust → C++ Migration Roadmap: `base/` → `batch/`
 
-**Status: OPEN — Phase 1 not yet started**
+**Status: IN PROGRESS — Phases 1–6 complete; Phase 7 pending**
 
 **Rename plan:** The `batch/` directory will be renamed `base/` upon Phase 7 completion. Until then, the
 C++ extension is imported as `batch` from Python; the Rust module is imported as `base`. After the rename,
@@ -442,7 +442,7 @@ The ASP pipeline submodules that use UnionFind (`bundle_adjust.cpp`, `spanning_t
 
 ## Phasing
 
-### Phase 1 — Build system & dispatch scaffolding
+### ✅ Phase 1 — Build system & dispatch scaffolding
 
 **Goal:** Wire new `batch::image`, `batch::video`, `batch::secret`, `batch::web`, `batch::math`
 submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch pattern.
@@ -474,7 +474,7 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 
 ---
 
-### Phase 2 — Image I/O + filesystem (`batch::image`)
+### ✅ Phase 2 — Image I/O + filesystem (`batch::image`)
 
 **Goal:** Implement `load_image_batch` and `scan_files` in C++, passing all parity tests.
 
@@ -493,7 +493,7 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 
 ---
 
-### Phase 3 — Video thumbnails (`batch::video`)
+### ✅ Phase 3 — Video thumbnails (`batch::video`)
 
 **Goal:** Implement `extract_video_thumbnails_batch` in C++ using OpenCV VideoCapture.
 
@@ -507,7 +507,7 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 
 ---
 
-### Phase 4 — Secure vector DB (`batch::secret`)
+### ✅ Phase 4 — Secure vector DB (`batch::secret`)
 
 **Goal:** Implement all five vault functions in C++.
 
@@ -541,7 +541,7 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 
 ---
 
-### Phase 5 — HTTP request sequencing (`batch::web`)
+### ✅ Phase 5 — HTTP request sequencing (`batch::web`)
 
 **Goal:** Implement `run_web_requests_sequence` in C++ using cpp-httplib.
 
@@ -554,7 +554,7 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 
 ---
 
-### Phase 6 — Math library (`batch::math` header-only)
+### ✅ Phase 6 — Math library (`batch::math` header-only)
 
 **Goal:** Port `base/src/math/` to C++ header-only library under `batch/include/batch/math/`.
 
@@ -571,7 +571,7 @@ submodule stubs into CMakeLists.txt and establish the `_HAS_BASE_CPP` dispatch p
 
 ---
 
-### Phase 7 — Final rename and Rust retirement
+### Phase 7 — Final rename and Rust retirement (PENDING)
 
 **Goal:** Rename `batch/` → `base/` and retire Rust `base/` to archive.
 

@@ -18,7 +18,7 @@
 
 #include "batch/common.hpp"
 #include "batch/affine_types.hpp"
-
+#include "batch/math/graph.hpp"
 
 #include <Eigen/Dense>
 #include <vector>
@@ -43,20 +43,7 @@ std::vector<Edge> spanning_tree_inlier_filter_impl(
         return a.weight > b.weight;
     });
 
-    std::vector<int> parent(N);
-    for (int i = 0; i < N; ++i) parent[i] = i;
-
-    auto find_root = [&](int x) {
-        int root = x;
-        while (parent[root] != root) root = parent[root];
-        int curr = x;
-        while (parent[curr] != root) {
-            int nxt = parent[curr];
-            parent[curr] = root;
-            curr = nxt;
-        }
-        return root;
-    };
+    batch::math::UnionFind uf(N);
 
     struct TreeEdge { int to; float dtx, dty; };
     std::vector<std::vector<TreeEdge>> tree_adj(N);
@@ -65,10 +52,7 @@ std::vector<Edge> spanning_tree_inlier_filter_impl(
     for (const auto& e : sorted_edges) {
         int i = e.src, j = e.dst;
         if (i < 0 || i >= N || j < 0 || j >= N) continue;
-        int pi = find_root(i);
-        int pj = find_root(j);
-        if (pi != pj) {
-            parent[pi] = pj;
+        if (uf.unite(i, j)) {
             float dtx = -e.dx;
             float dty = -e.dy;
             tree_adj[i].push_back({j, dtx, dty});
