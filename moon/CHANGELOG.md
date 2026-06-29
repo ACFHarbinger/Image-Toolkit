@@ -4,6 +4,17 @@
 
 ---
 
+## S201 — 2026-06-29 (Rust→C++ migration Phase 12 — parity tests)
+
+**Phase 12: Integration tests for all Phase 8–11 C++ base functions**
+- `backend/test/base/test_parity_core.py`: 15+ tests for `base.core` (convert_single_image, get_files_by_extension, delete_path, find_duplicate_images, find_similar_images_phash, merge_images_*, wallpaper callables)
+- `backend/test/base/test_parity_math.py`: 25+ tests for `base.math` submodules (distance, stats, information, graph, linalg, dim_reduce)
+- `backend/test/base/test_parity_utils.py`: 12 tests for `base.utils` (slideshow daemon JSON protocol, migration callable/stub error) and `base.web` (reverse_image_search/image_crawler stub contracts, board_crawler/run_sync callable checks)
+- All tests guarded by `skipif(not HAS_BASE)` — pass without building C++ extension; run on CI when built
+- Migration roadmap status updated to reflect 12 phases complete
+
+---
+
 ## S200 — 2026-06-29 (Rust→C++ migration Phases 8–11 — all 27 functions ported)
 
 **Phase 8: `base.core` — image/video conversion, filesystem, finder, merger, wallpaper**

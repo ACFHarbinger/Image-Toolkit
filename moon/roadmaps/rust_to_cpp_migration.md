@@ -1,6 +1,6 @@
 # Rust → C++ Migration Roadmap: `base/` (formerly `batch/`)
 
-**Status: COMPLETE — All 11 phases done. Rust base retired to `archive/rust/`. All 27 Python-exposed functions ported.**
+**Status: COMPLETE — All 12 phases done. Rust base retired to `archive/rust/`. All 27 Python-exposed functions ported and verified.**
 
 **Rename complete (Phase 7):** `batch/` has been renamed `base/`. The Rust PyO3 module has been archived
 to `archive/rust/`. `import base` now resolves to the C++ pybind11 extension directly.
@@ -643,6 +643,19 @@ Submodule coverage:
 4. Archive Rust codebase: `mv base/ archive/base_rust/` — keep for reference but remove from build.
 5. Remove `base` from `Cargo.toml` workspace members and `.github/workflows/` Rust CI jobs.
 6. Update `MEMORY.md` and `docs/` to reflect unified `base` C++ module.
+
+### ✅ Phase 12 — Parity verification and integration tests (COMPLETE)
+
+**Goal:** Python integration tests confirming all Phase 8–11 C++ functions behave correctly.
+Since the Rust baseline is archived, these are functional correctness tests rather than cross-impl comparisons.
+
+Test files (under `backend/test/base/`):
+- `test_parity_core.py`: `base.core` — convert, filesystem, finder, merger, wallpaper
+- `test_parity_math.py`: `base.math` — distance, stats, information, graph, linalg, dim_reduce
+- `test_parity_utils.py`: `base.utils` + `base.web` — slideshow, migration, web stubs
+
+All tests guarded by `pytest.mark.skipif(not HAS_BASE, reason="base C++ extension not built")`.
+Run with: `pytest backend/test/base/ -v -m "not slow"` (when `base` is built).
 
 ---
 
