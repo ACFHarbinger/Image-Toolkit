@@ -1,0 +1,4097 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+        <link rel="prev" href="../analytics_and_interpretability/">
+      
+      
+        <link rel="next" href="../../reports/analytics/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Documentation - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#documentation-roadmap-docs-as-code-reference-generation-and-knowledge-portals" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Documentation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../ROADMAP/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reports/analytics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reports
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../new_features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui_ux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Timeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use This Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-a--inline-documentation-tools-micro-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain A — Inline Documentation Tools (Micro-Level)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#61-python-reference-docs-sphinx--mkdocstrings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.1 Python Reference Docs (Sphinx / mkdocstrings)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.1 Python Reference Docs (Sphinx / mkdocstrings)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#62-rust-reference-docs-rustdoc--doc-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.2 Rust Reference Docs (rustdoc + doc-tests)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.2 Rust Reference Docs (rustdoc + doc-tests)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#63-typescript-reference-docs-typedoc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.3 TypeScript Reference Docs (TypeDoc)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.3 TypeScript Reference Docs (TypeDoc)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#64-kotlin-reference-docs-dokka" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.4 Kotlin Reference Docs (Dokka)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.4 Kotlin Reference Docs (Dokka)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#65-swift-reference-docs-docc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.5 Swift Reference Docs (DocC)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.5 Swift Reference Docs (DocC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-b--source-of-truth-files-meso-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain B — Source of Truth Files (Meso-Level)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#66-architecturemd-standardisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.6 ARCHITECTURE.md Standardisation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.6 ARCHITECTURE.md Standardisation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#67-changelogmd-dependency_policymd-and-documentation_standardsmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#68-troubleshootingmd-and-benchmarksmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.8 TROUBLESHOOTING.md and BENCHMARKS.md
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.8 TROUBLESHOOTING.md and BENCHMARKS.md">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#69-jupyter-notebooks-as-executable-polyglot-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.9 Jupyter Notebooks as Executable Polyglot Documentation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.9 Jupyter Notebooks as Executable Polyglot Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-c--static-site-generators--portals-macro-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain C — Static Site Generators &amp; Portals (Macro-Level)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#610-ssg-selection-for-a-polyglot-portal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.10 SSG Selection for a Polyglot Portal (MkDocs Material — mkdocs.yml scaffolded)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.10 SSG Selection for a Polyglot Portal (MkDocs Material — mkdocs.yml scaffolded)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#611-unified-cross-stack-documentation-portal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.11 Unified Cross-Stack Documentation Portal (docs/index.md + docs/hooks.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.11 Unified Cross-Stack Documentation Portal (docs/index.md + docs/hooks.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-d--implementation-best-practices--automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain D — Implementation Best Practices &amp; Automation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#612-cicd-documentation-pipeline-github-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.12 CI/CD Documentation Pipeline (GitHub Actions)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.12 CI/CD Documentation Pipeline (GitHub Actions)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#614-diagrams-as-code-mermaidjs--plantuml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.14 Diagrams-as-Code (Mermaid.js / PlantUML)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.14 Diagrams-as-Code (Mermaid.js / PlantUML)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#615-interactive-documentation-api-playgrounds-algorithm-stepping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.15 Interactive Documentation (API Playgrounds, Algorithm Stepping)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.15 Interactive Documentation (API Playgrounds, Algorithm Stepping)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort--impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anchor-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anchor Index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document History
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reports
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reports
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Timeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use This Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-a--inline-documentation-tools-micro-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain A — Inline Documentation Tools (Micro-Level)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#61-python-reference-docs-sphinx--mkdocstrings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.1 Python Reference Docs (Sphinx / mkdocstrings)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.1 Python Reference Docs (Sphinx / mkdocstrings)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#62-rust-reference-docs-rustdoc--doc-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.2 Rust Reference Docs (rustdoc + doc-tests)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.2 Rust Reference Docs (rustdoc + doc-tests)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#63-typescript-reference-docs-typedoc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.3 TypeScript Reference Docs (TypeDoc)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.3 TypeScript Reference Docs (TypeDoc)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#64-kotlin-reference-docs-dokka" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.4 Kotlin Reference Docs (Dokka)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.4 Kotlin Reference Docs (Dokka)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#65-swift-reference-docs-docc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.5 Swift Reference Docs (DocC)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.5 Swift Reference Docs (DocC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-b--source-of-truth-files-meso-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain B — Source of Truth Files (Meso-Level)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#66-architecturemd-standardisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.6 ARCHITECTURE.md Standardisation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.6 ARCHITECTURE.md Standardisation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#67-changelogmd-dependency_policymd-and-documentation_standardsmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#68-troubleshootingmd-and-benchmarksmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.8 TROUBLESHOOTING.md and BENCHMARKS.md
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.8 TROUBLESHOOTING.md and BENCHMARKS.md">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#69-jupyter-notebooks-as-executable-polyglot-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.9 Jupyter Notebooks as Executable Polyglot Documentation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.9 Jupyter Notebooks as Executable Polyglot Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-c--static-site-generators--portals-macro-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain C — Static Site Generators &amp; Portals (Macro-Level)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#610-ssg-selection-for-a-polyglot-portal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.10 SSG Selection for a Polyglot Portal (MkDocs Material — mkdocs.yml scaffolded)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.10 SSG Selection for a Polyglot Portal (MkDocs Material — mkdocs.yml scaffolded)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#611-unified-cross-stack-documentation-portal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.11 Unified Cross-Stack Documentation Portal (docs/index.md + docs/hooks.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.11 Unified Cross-Stack Documentation Portal (docs/index.md + docs/hooks.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-d--implementation-best-practices--automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain D — Implementation Best Practices &amp; Automation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#612-cicd-documentation-pipeline-github-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.12 CI/CD Documentation Pipeline (GitHub Actions)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.12 CI/CD Documentation Pipeline (GitHub Actions)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#614-diagrams-as-code-mermaidjs--plantuml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.14 Diagrams-as-Code (Mermaid.js / PlantUML)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.14 Diagrams-as-Code (Mermaid.js / PlantUML)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#615-interactive-documentation-api-playgrounds-algorithm-stepping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ §6.15 Interactive Documentation (API Playgrounds, Algorithm Stepping)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="✅ §6.15 Interactive Documentation (API Playgrounds, Algorithm Stepping)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort--impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anchor-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anchor Index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document History
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="documentation-roadmap-docs-as-code-reference-generation-and-knowledge-portals">Documentation Roadmap — Docs-as-Code, Reference Generation, and Knowledge Portals<a class="headerlink" href="#documentation-roadmap-docs-as-code-reference-generation-and-knowledge-portals" title="Permanent link">&para;</a></h1>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#how-to-use-this-document">How to Use This Document</a></li>
+<li><a href="#domain-a--inline-documentation-tools-micro-level">Domain A — Inline Documentation Tools (Micro-Level)</a></li>
+<li><a href="#61-python-reference-docs-sphinx--mkdocstrings">§6.1 Python Reference Docs (Sphinx / mkdocstrings)</a></li>
+<li><a href="#62-rust-reference-docs-rustdoc--doc-tests">§6.2 Rust Reference Docs (rustdoc + doc-tests)</a></li>
+<li><a href="#63-typescript-reference-docs-typedoc">§6.3 TypeScript Reference Docs (TypeDoc)</a></li>
+<li><a href="#64-kotlin-reference-docs-dokka">§6.4 Kotlin Reference Docs (Dokka)</a></li>
+<li><a href="#65-swift-reference-docs-docc">§6.5 Swift Reference Docs (DocC)</a></li>
+<li><a href="#domain-b--source-of-truth-files-meso-level">Domain B — Source of Truth Files (Meso-Level)</a></li>
+<li><a href="#66-architecturemd-standardisation">§6.6 ARCHITECTURE.md Standardisation</a></li>
+<li><a href="#67-changelogmd-dependency_policymd-and-documentation_standardsmd">§6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md</a></li>
+<li><a href="#68-troubleshootingmd-and-benchmarksmd">§6.8 TROUBLESHOOTING.md and BENCHMARKS.md</a></li>
+<li><a href="#69-jupyter-notebooks-as-executable-polyglot-documentation">§6.9 Jupyter Notebooks as Executable Polyglot Documentation</a></li>
+<li><a href="#domain-c--static-site-generators--portals-macro-level">Domain C — Static Site Generators &amp; Portals (Macro-Level)</a></li>
+<li><a href="#610-ssg-selection-for-a-polyglot-portal">§6.10 SSG Selection for a Polyglot Portal</a></li>
+<li><a href="#611-unified-cross-stack-documentation-portal">§6.11 Unified Cross-Stack Documentation Portal</a></li>
+<li><a href="#domain-d--implementation-best-practices--automation">Domain D — Implementation Best Practices &amp; Automation</a></li>
+<li><a href="#612-cicd-documentation-pipeline-github-actions">§6.12 CI/CD Documentation Pipeline (GitHub Actions)</a></li>
+<li><a href="#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit">§6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)</a></li>
+<li><a href="#614-diagrams-as-code-mermaidjs--plantuml">§6.14 Diagrams-as-Code (Mermaid.js / PlantUML)</a></li>
+<li><a href="#615-interactive-documentation-api-playgrounds-algorithm-stepping">§6.15 Interactive Documentation (API Playgrounds, Algorithm Stepping)</a></li>
+<li><a href="#effort--impact-matrix">Effort × Impact Matrix</a></li>
+<li><a href="#anchor-index">Anchor Index</a></li>
+</ul>
+<hr />
+<h2 id="implementation-timeline">Implementation Timeline<a class="headerlink" href="#implementation-timeline" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Legend</strong> — <em>Node fill:</em> docs (green) · new feature (blue) · infrastructure (cyan) · augmentation (violet) — <em>Node border:</em> ✅ complete (green, thick) · 🔄 in-progress (amber, thick) · ⬜ planned (slate, thin) — <em>Edges:</em> <code>==&gt;</code> critical blocking dependency · <code>--&gt;</code> sequential dependency · <code>---</code> complements</p>
+</blockquote>
+<pre class="mermaid"><code>flowchart TD
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    subgraph A["🅐 Domain A — Inline Docs (Micro-Level)"]
+        direction LR
+        s61["§6.1 Python\nSphinx / mkdocstrings"]:::docs:::done
+        s62["§6.2 Rust\nrustdoc + doc-tests"]:::docs:::done
+        s63["§6.3 TypeScript\nTypeDoc"]:::docs:::done
+        s64["§6.4 Kotlin\nDokka"]:::docs:::done
+        s65["§6.5 Swift\nDocC"]:::docs:::done
+        s61 --- s62
+        s62 --- s63
+        s63 --- s64
+        s64 --- s65
+    end
+
+    subgraph B["🅑 Domain B — Source of Truth (Meso-Level)"]
+        direction LR
+        s66["§6.6 ARCHITECTURE.md\nStandardisation"]:::docs:::done
+        s67["§6.7 CHANGELOG +\nDEPENDENCY_POLICY"]:::docs:::done
+        s68["§6.8 TROUBLESHOOTING\n+ BENCHMARKS"]:::docs:::done
+        s69["§6.9 Jupyter Notebooks\nExecutable Polyglot Docs"]:::docs:::done
+        s66 --- s67
+        s67 --- s68
+        s68 --- s69
+    end
+
+    subgraph C["🅒 Domain C — Static Site Portal (Macro-Level)"]
+        direction LR
+        s610["§6.10 SSG Selection\nMkDocs Material"]:::infra:::done
+        s611["§6.11 Unified Portal\ndocs/index.md + hooks.py"]:::feature:::done
+        s610 ==&gt; s611
+    end
+
+    subgraph D["🅓 Domain D — Automation &amp; Standards"]
+        direction LR
+        s612["§6.12 CI/CD Pipeline\nGitHub Actions"]:::infra:::done
+        s613["§6.13 Standards\nEnforcement\ndoclint + pre-commit"]:::infra:::done
+        s614["§6.14 Diagrams-as-Code\nMermaid + Structurizr C4"]:::docs:::done
+        s615["§6.15 Interactive Docs\nAPI Playground + Widgets\n⚠ §6.15C gated on Phase 13"]:::feature:::active
+        s612 --&gt; s613
+        s613 --- s614
+        s614 --- s615
+    end
+
+    %% Domain A feeds the portal
+    s61 --&gt; s611
+    s62 --&gt; s611
+    s63 --&gt; s611
+    s64 --&gt; s611
+    s65 --&gt; s611
+
+    %% Domain B feeds the portal
+    s66 --&gt; s611
+    s67 --&gt; s611
+    s68 --&gt; s611
+    s69 --&gt; s611
+
+    %% Domain D automation enforces A+B+C
+    s612 --&gt; s611
+    s613 --&gt; s611
+
+    %% Cross-domain complements
+    s614 --- s69
+    s614 --- s66</code></pre>
+<p><em>Read the diagram: <strong>fill colour</strong> = element type (green = docs, blue = new feature, cyan = infrastructure). <strong>Border colour</strong> = implementation status (thick green = complete, thick amber = in-progress, thin slate = planned). <strong>Edges</strong>: <code>==&gt;</code> critical blocking dependency, <code>--&gt;</code> sequential/feeds-into, <code>---</code> complements and can run in parallel. Domain A and B sections are parallel work feeding the unified portal (§6.11); Domain D automation underpins the whole system.</em></p>
+<hr />
+<h2 id="how-to-use-this-document">How to Use This Document<a class="headerlink" href="#how-to-use-this-document" title="Permanent link">&para;</a></h2>
+<p>Each section describes a documentation gap or tooling opportunity, all viable implementation options with trade-offs, and a recommendation. Items tagged <strong>[Quick Win]</strong> take under a day. Items tagged <strong>[Research]</strong> require prototyping. Sections are grouped into four domains corresponding to the three granularity levels of a docs-as-code system (micro → meso → macro) plus the automation layer that keeps all three in sync.</p>
+<hr />
+<h2 id="domain-a--inline-documentation-tools-micro-level">Domain A — Inline Documentation Tools (Micro-Level)<a class="headerlink" href="#domain-a--inline-documentation-tools-micro-level" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Inline docs live next to the code. They are the foundation: without them, SSGs and portals produce empty pages.</p>
+</blockquote>
+<hr />
+<h2 id="61-python-reference-docs-sphinx--mkdocstrings">✅ §6.1 Python Reference Docs (Sphinx / mkdocstrings)<a class="headerlink" href="#61-python-reference-docs-sphinx--mkdocstrings" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>backend/src/</code> contains ~30 Python modules across <code>animation/</code>, <code>models/</code>, <code>core/</code>, <code>web/</code>, <code>utils/</code>, <code>pipeline/</code>, and <code>controller/</code>. None of them have structured docstrings parseable by a reference generator. Developers reading <code>compositing.py</code> or <code>bundle_adjust.py</code> must infer function contracts from variable names and inline comments alone.</p>
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
+<p><strong>A — mkdocstrings + Google-style docstrings [Quick Win]</strong>
+Add <code>mkdocstrings[python]</code> to dev requirements. Annotate public functions with Google-style docstrings (Args / Returns / Raises / Example). Wire into MkDocs Material (see §6.10) via <code>backend.src.animation.compositing</code> directives.
+- Effort: 1–2 days for the high-traffic <code>animation/</code> modules; ongoing for the rest.
+- Pros: Zero new toolchain. Works with the existing <code>uv</code> environment. Incremental — undocumented symbols are skipped.
+- Cons: No enforcement mechanism without a linter (see §6.13). Quality depends on docstring completeness.
+- Reference: <a href="https://mkdocstrings.github.io/">mkdocstrings.github.io</a></p>
+<p><strong>B — Sphinx + autodoc + Napoleon extension</strong>
+Use the de-facto scientific Python standard. <code>sphinx-apidoc</code> auto-generates <code>.rst</code> stubs; <code>napoleon</code> parses Google/NumPy docstrings. Output as HTML or integrated into the unified portal via <code>sphinx-build</code>.
+- Pros: Best ecosystem for ML/scientific Python (NumPy, PyTorch docs use Sphinx). Supports cross-references to external libraries via <code>intersphinx</code>.
+- Cons: RST syntax is heavier than Markdown. Requires a separate Sphinx build step that must be piped into the SSG portal.
+- Reference: <a href="https://www.sphinx-doc.org/">sphinx-doc.org</a></p>
+<p><strong>C — Griffe (AST-based, zero-import) [Quick Win]</strong>
+<code>mkdocstrings</code> uses Griffe under the hood. You can also run <code>griffe dump backend/src --output docs/api_dump.json</code> as a standalone static analysis step that never imports the module. Useful for modules with heavy top-level side effects (e.g., <code>anim_fill.py</code> after §3.10 fixes).
+- Pros: Safe for modules that import PyTorch/diffusers at module level. No virtualenv needed in CI.
+- Cons: Cannot resolve runtime-only attributes. Slightly less accurate than import-based extraction.
+- Reference: <a href="https://mkdocstrings.github.io/griffe/">mkdocstrings.github.io/griffe</a></p>
+<p><strong>D — pdoc (auto-generates from <code>__doc__</code> strings, zero config)</strong>
+<code>pdoc backend/src/</code> writes HTML reference docs with zero configuration. Good for quick audits of what is and isn't documented.
+- Pros: Single command, zero config.
+- Cons: No MkDocs integration. Less customisable. Not suitable as the long-term portal source.</p>
+<p><strong>Recommendation:</strong> A (mkdocstrings + Google-style) for the portal pipeline. C (Griffe dump) in CI for modules with problematic imports. B only if the team standardises on Sphinx for the full cross-language portal.</p>
+<hr />
+<h2 id="62-rust-reference-docs-rustdoc--doc-tests">✅ §6.2 Rust Reference Docs (rustdoc + doc-tests)<a class="headerlink" href="#62-rust-reference-docs-rustdoc--doc-tests" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>base/src/</code> contains ~12 modules (<code>linalg</code>, <code>stats</code>, <code>information</code>, <code>distance</code>, <code>graph</code>, <code>dim_reduce</code>, file-system, image ops, crawlers, sync). <code>cargo doc</code> runs but most items have no <code>///</code> doc comments. Doc-tests (executable <code># Examples</code> in doc comments) are absent, meaning the Rust math backbone has no fast correctness check tied to documentation.</p>
+<h3 id="options_1">Options<a class="headerlink" href="#options_1" title="Permanent link">&para;</a></h3>
+<p><strong>A — <code>///</code> doc comments + <code>cargo doc</code> [Quick Win]</strong>
+Add <code>///</code> comments to all public items in <code>base/src/lib.rs</code> and sub-modules. Run <code>cargo doc --no-deps --open</code> locally. Publish HTML output to the unified portal.
+- Effort: 2–4 hours for the math modules (<code>linalg</code>, <code>stats</code>, <code>information</code>, <code>distance</code>); 1 day for the full <code>base/</code> crate.
+- Pros: Zero new dependencies. <code>cargo doc</code> is part of the standard Rust toolchain. Output is self-hosted HTML.
+- Cons: Doc comments require manual updates when signatures change.</p>
+<p><strong>B — Doc-tests for mathematical invariants [Quick Win]</strong>
+Add <code># Examples</code> blocks to key public functions. <code>cargo test --doc</code> runs them as unit tests. Example:
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="sd">/// Computes the cosine similarity between two unit vectors.</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="sd">///</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="sd">/// # Examples</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="sd">/// ```</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="sd">/// use base::math::distance::cosine;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="sd">/// assert!((cosine(&amp;[1.0, 0.0], &amp;[1.0, 0.0]) - 1.0).abs() &lt; 1e-9);</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">/// ```</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">cosine</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">f64</span><span class="p">],</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">f64</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">f64</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="p">.</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+- Pros: Documentation that is simultaneously a regression test. Zero test framework overhead.
+- Cons: Doc-tests are slower than unit tests for heavy functions (e.g., MST, t-SNE). Best for pure mathematical functions.</p>
+<p><strong>C — <code>cargo-rdme</code> — README driven by rustdoc</strong>
+Sync <code>base/README.md</code> from the crate-level <code>//!</code> doc comments automatically. Prevents the README and the code from diverging.
+- Reference: <a href="https://crates.io/crates/cargo-rdme">crates.io/crates/cargo-rdme</a>
+- Pros: Single source of truth: edit doc comments, README updates automatically.
+- Cons: Extra build step. Not yet widely used.</p>
+<p><strong>Recommendation:</strong> A + B together. Doc-tests for pure mathematical functions in <code>linalg</code>, <code>stats</code>, <code>information</code>, <code>distance</code> (these are fast and benefit most). <code>cargo doc</code> HTML integrated into the portal at §6.11.</p>
+<hr />
+<h2 id="63-typescript-reference-docs-typedoc">✅ §6.3 TypeScript Reference Docs (TypeDoc)<a class="headerlink" href="#63-typescript-reference-docs-typedoc" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>frontend/src/math/</code> has 7 modules (<code>linalg.ts</code>, <code>stats.ts</code>, <code>information.ts</code>, <code>distance.ts</code>, <code>graph.ts</code>, <code>dim_reduce.ts</code>, <code>signal.ts</code>) and <code>benchmark.ts</code> — all ported from the Rust backbone. <code>frontend/src/tabs/</code> and <code>frontend/src/components/</code> have no JSDoc annotations.</p>
+<h3 id="options_2">Options<a class="headerlink" href="#options_2" title="Permanent link">&para;</a></h3>
+<p><strong>A — TypeDoc with TSDoc comments [Quick Win]</strong>
+Install <code>typedoc</code> as a dev dependency. Add <code>/** @param ... @returns ... */</code> TSDoc comments to public exports in <code>frontend/src/math/</code>. Run <code>typedoc --entryPointStrategy expand src/math</code> to generate HTML reference docs.
+- Effort: &lt; 1 day for the math modules (they mirror the Rust backbone so comments can be translated directly).
+- Pros: TypeDoc understands TypeScript types natively — no separate type annotation step.
+- Cons: React components are harder to document via TypeDoc (no prop table generation). Use Storybook or react-docgen for components (see Option C).
+- Reference: <a href="https://typedoc.org/">typedoc.org</a></p>
+<p><strong>B — TypeDoc + <code>typedoc-plugin-markdown</code> for portal integration</strong>
+Output TypeDoc as Markdown instead of HTML, then import into the MkDocs or Docusaurus portal (§6.10). Keeps all docs in one place.
+- Pros: Unified portal — no iframe embedding.
+- Cons: Markdown output loses some TypeDoc rendering niceties (e.g., signature collapse trees).</p>
+<p><strong>C — Storybook for React component documentation [Research]</strong>
+For <code>frontend/src/components/</code> and <code>frontend/src/tabs/analytics/</code>, use Storybook to document component props, states, and variants with live previews.
+- Pros: Best-in-class interactive component documentation.
+- Cons: Significant setup overhead for a primarily analytical dashboard (not a UI component library). Lower priority given the app's ML-focused audience.</p>
+<p><strong>Recommendation:</strong> A + B. TypeDoc → Markdown → MkDocs portal for the math modules. Defer Storybook until the component count justifies it.</p>
+<hr />
+<h2 id="64-kotlin-reference-docs-dokka">✅ §6.4 Kotlin Reference Docs (Dokka)<a class="headerlink" href="#64-kotlin-reference-docs-dokka" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>app/</code> (Android, Kotlin) has no generated reference documentation. The MVVM architecture and Jetpack Compose composables are undocumented.</p>
+<h3 id="options_3">Options<a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h3>
+<p><strong>A — Dokka with KDoc comments [Quick Win]</strong>
+Add the <code>org.jetbrains.dokka</code> Gradle plugin to <code>build.gradle.kts</code>. Annotate ViewModels, repositories, and data classes with KDoc. Run <code>./gradlew dokkaHtml</code>.
+- Effort: Plugin setup &lt; 1 hour. Commenting key classes: 2–4 hours.
+- Pros: Official Kotlin documentation tool. Outputs HTML, Javadoc, or Markdown (<code>dokkaGfm</code>).
+- Reference: <a href="https://kotlinlang.org/docs/dokka-introduction.html">kotlinlang.org/docs/dokka-introduction.html</a></p>
+<p><strong>B — Dokka Markdown output for portal integration</strong>
+Use <code>dokkaGfm</code> task to emit GitHub-Flavoured Markdown, then copy output into <code>docs/android/</code>. Import into the unified SSG portal.
+- Pros: Keeps Android docs in the same portal as Python/Rust/TS docs.
+- Cons: GFM output is less rich than HTML (no collapsible trees, no search).</p>
+<p><strong>C — Deferred (Android is secondary surface)</strong>
+Given that the Android app is in feature-parity catch-up (§5.6), defer Dokka until the Kotlin codebase stabilises.
+- Pros: No wasted effort on code that changes frequently.
+- Cons: Onboarding friction for any new Android contributor.</p>
+<p><strong>Recommendation:</strong> A for plugin setup now (low effort). B once the SSG portal (§6.10) is chosen. C is acceptable if Kotlin surface is still volatile.</p>
+<hr />
+<h2 id="65-swift-reference-docs-docc">✅ §6.5 Swift Reference Docs (DocC)<a class="headerlink" href="#65-swift-reference-docs-docc" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>app/</code> (iOS, Swift) has no generated documentation. SwiftUI views and async network calls are undocumented.</p>
+<h3 id="options_4">Options<a class="headerlink" href="#options_4" title="Permanent link">&para;</a></h3>
+<p><strong>A — DocC (Xcode built-in) [Quick Win]</strong>
+DocC is part of Xcode 13+. Add <code>/// ...</code> doc comments to public types and functions. Run <code>xcodebuild docbuild -scheme ImageToolkit</code>. Output is a <code>.doccarchive</code> that Xcode can host.
+- Effort: Plugin already present in Xcode. Commenting: 2–4 hours for the core types.
+- Pros: Native Apple toolchain. Interactive tutorials supported via <code>.tutorial</code> files.
+- Reference: <a href="https://developer.apple.com/documentation/docc">developer.apple.com/documentation/docc</a></p>
+<p><strong>B — <code>swift-docc-plugin</code> for SPM projects</strong>
+If the iOS target is extracted to a Swift Package, the <code>swift-docc-plugin</code> enables <code>swift package generate-documentation</code>. CI-friendly without requiring Xcode.
+- Pros: Runs on Linux CI (GitHub Actions ubuntu-latest).
+- Cons: Requires restructuring the Xcode project into an SPM package — non-trivial for a Jetpack-Compose mirror app.</p>
+<p><strong>C — Deferred (iOS parity with Android is secondary)</strong>
+Same reasoning as §6.4C.</p>
+<p><strong>Recommendation:</strong> A for local documentation. B if and when the iOS target is restructured as an SPM package.</p>
+<hr />
+<h2 id="domain-b--source-of-truth-files-meso-level">Domain B — Source of Truth Files (Meso-Level)<a class="headerlink" href="#domain-b--source-of-truth-files-meso-level" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>These files are the contracts between subsystems. They must exist, be accurate, and follow a consistent structure.</p>
+</blockquote>
+<hr />
+<h2 id="66-architecturemd-standardisation">✅ §6.6 ARCHITECTURE.md Standardisation<a class="headerlink" href="#66-architecturemd-standardisation" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>docs/ARCHITECTURE.md</code> exists but its scope relative to <code>CLAUDE.md</code> / <code>AGENTS.md</code> is undefined. <code>CLAUDE.md</code> contains live architecture facts; <code>docs/ARCHITECTURE.md</code> may be stale. There is no single canonical architecture document with Mermaid diagrams, module dependency graph, and a data-flow description.</p>
+<h3 id="options_5">Options<a class="headerlink" href="#options_5" title="Permanent link">&para;</a></h3>
+<p><strong>A — Designate <code>docs/ARCHITECTURE.md</code> as the canonical reference; demote CLAUDE.md to agent-only instructions [Quick Win]</strong>
+- <code>docs/ARCHITECTURE.md</code>: module graph, data-flow diagram (Mermaid), tech stack table, deployment topology, key design decisions.
+- <code>CLAUDE.md</code> / <code>AGENTS.md</code>: agent-specific operational rules, coding standards, CLI entry points.
+- Add a cross-link from each to the other.
+- Pros: Clear separation of concerns. <code>docs/ARCHITECTURE.md</code> becomes the human-readable entry point; CLAUDE.md/AGENTS.md are machine-readable playbooks.
+- Cons: Requires a one-time reconciliation pass to merge facts from CLAUDE.md into docs/ARCHITECTURE.md without losing agent-specific nuances.</p>
+<p><strong>B — Single <code>ARCHITECTURE.md</code> at the root, replace docs/ARCHITECTURE.md</strong>
+Move the canonical file to the project root where it is immediately visible.
+- Pros: Convention followed by most open-source projects.
+- Cons: Adds a file at the root alongside the already-large README.md.</p>
+<p><strong>C — Inline architecture into README.md "Architecture" section</strong>
+Embed a Mermaid module graph directly in README.md rather than a separate file.
+- Pros: Single document for new contributors.
+- Cons: README is already long. Mermaid diagrams make it harder to diff.</p>
+<p><strong>Recommendation:</strong> A. The current split between CLAUDE.md (machine) and docs/ARCHITECTURE.md (human) is the right model; it just needs to be made explicit. Prioritise the Mermaid module dependency graph (§6.14) as the first concrete output.</p>
+<hr />
+<h2 id="67-changelogmd-dependency_policymd-and-documentation_standardsmd">✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md<a class="headerlink" href="#67-changelogmd-dependency_policymd-and-documentation_standardsmd" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>moon/CHANGELOG.md</code> exists but is not yet structured with the <a href="https://keepachangelog.com/">Keep a Changelog</a> format. <code>DEPENDENCY_POLICY.md</code> and <code>DOCUMENTATION_STANDARDS.md</code> do not exist.</p>
+<h3 id="options_6">Options<a class="headerlink" href="#options_6" title="Permanent link">&para;</a></h3>
+<p><strong>A — Keep a Changelog format for CHANGELOG.md [Quick Win]</strong>
+Restructure <code>moon/CHANGELOG.md</code> to use sections <code>[Unreleased]</code>, <code>[x.y.z] — YYYY-MM-DD</code>, with subsections <code>Added</code>, <code>Changed</code>, <code>Fixed</code>, <code>Removed</code>. Link version numbers to GitHub diff URLs.
+- Effort: &lt; 1 hour to reformat; ongoing discipline to maintain.
+- Pros: Machine-parseable for automated release notes. Standard format recognised by GitHub release automation.
+- Reference: <a href="https://keepachangelog.com/">keepachangelog.com</a></p>
+<p><strong>B — <code>DEPENDENCY_POLICY.md</code> — govern version pins and upgrade cadence [Quick Win]</strong>
+Create <code>docs/DEPENDENCY_POLICY.md</code> with:
+- Minimum versions for each stack component (Python 3.11+, Rust 1.70+, Node 18+, PostgreSQL 14+).
+- Pinning policy: exact pins in <code>uv.lock</code> / <code>Cargo.lock</code>; <code>~</code> ranges in <code>requirements.txt</code>.
+- Upgrade cadence: security patches within 7 days; minor versions monthly; major versions with a migration plan.
+- Approved transitive dependency introduction process (PRD).
+- Effort: 1–2 hours.
+- Pros: Prevents undocumented drift. Required input for §5.7 (dependency audit).</p>
+<p><strong>C — <code>DOCUMENTATION_STANDARDS.md</code> — enforce docstring style and TOC requirements [Quick Win]</strong>
+Create <code>docs/DOCUMENTATION_STANDARDS.md</code> codifying:
+- Python: Google-style docstrings, required sections (Args, Returns, Raises), max line length.
+- Rust: <code>///</code> for public items, doc-tests for pure functions.
+- TypeScript: TSDoc <code>@param</code>/<code>@returns</code> for all exports.
+- Kotlin/Swift: KDoc / DocC <code>///</code> for public APIs.
+- Markdown: TOC required for files &gt; 100 lines; anchor index at the bottom of roadmap files.
+- Effort: 1–2 hours.
+- Pros: Gives linters (§6.13) a specification to check against.</p>
+<p><strong>Recommendation:</strong> All three are Quick Wins and should be done together in one session.</p>
+<hr />
+<h2 id="68-troubleshootingmd-and-benchmarksmd">✅ §6.8 TROUBLESHOOTING.md and BENCHMARKS.md<a class="headerlink" href="#68-troubleshootingmd-and-benchmarksmd" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>docs/TROUBLESHOOT.md</code> exists but covers only the Tauri/PySide6 GUI and database issues. It does not cover ASP pipeline errors, Rust build failures, mobile build issues, or Hydra configuration errors. <code>docs/BENCHMARKS.md</code> exists but its relationship to <code>backend/benchmark/</code> and the ASP benchmark corpus is not described.</p>
+<h3 id="options_7">Options<a class="headerlink" href="#options_7" title="Permanent link">&para;</a></h3>
+<p><strong>A — Expand TROUBLESHOOT.md with per-subsystem sections [Quick Win]</strong>
+Add sections:
+- <strong>ASP Pipeline</strong>: common <code>ValueError</code>/<code>RuntimeError</code> patterns from <code>pipeline.py</code>, how to interpret the stage trace JSON, how to engage fallback modes via env vars.
+- <strong>Rust/PyO3</strong>: <code>maturin develop</code> failure modes, <code>pyo3</code> version mismatch, <code>libpqxx</code> link errors.
+- <strong>Hydra CLI</strong>: <code>HydraException</code>, config override syntax, <code>config_path</code> resolution.
+- <strong>Mobile (Android/iOS)</strong>: common Gradle/Xcode build failures, signing issues.
+- Pros: Reduces support burden. Each ASP session that hits a new failure mode generates one new entry.
+- Effort: 2–4 hours initial; &lt; 15 min per new entry.</p>
+<p><strong>B — Structured BENCHMARKS.md tying results to the codebase</strong>
+Restructure <code>docs/BENCHMARKS.md</code> to include:
+- ASP benchmark corpus description: 97 tests, taxonomy of failure types, baseline metric values.
+- Rust math backbone micro-benchmarks: which <code>criterion</code> benchmarks exist, how to run them, what the baselines are.
+- Frontend math module benchmarks (<code>benchmark.ts</code>): how to run, what metrics are tracked.
+- How to add a new benchmark and register it with CI (§6.12).
+- Effort: 2–4 hours.</p>
+<p><strong>C — TROUBLESHOOTING.md in the project root (standard location)</strong>
+Rename / symlink <code>docs/TROUBLESHOOT.md</code> → <code>TROUBLESHOOTING.md</code> at the project root for discoverability (many contributors look there first).
+- Pros: Convention. GitHub surfaces root-level <code>TROUBLESHOOTING.md</code> in its sidebar.
+- Effort: 5 minutes.</p>
+<p><strong>Recommendation:</strong> A + B + C. These are all Quick Wins with high onboarding impact.</p>
+<hr />
+<h2 id="69-jupyter-notebooks-as-executable-polyglot-documentation">✅ §6.9 Jupyter Notebooks as Executable Polyglot Documentation<a class="headerlink" href="#69-jupyter-notebooks-as-executable-polyglot-documentation" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The ML pipeline (ASP benchmark analysis, BiRefNet inference, CLIP embedding, Recommendation Engine) has no executable documentation. Developers must run the full pipeline to understand what intermediate outputs look like. The analytics dashboard (Phase 11 of <code>analytics_and_interpretability.md</code>) would benefit from notebook-based exploration before the TypeScript visualisation layer is built.</p>
+<h3 id="options_8">Options<a class="headerlink" href="#options_8" title="Permanent link">&para;</a></h3>
+<p><strong>A — Notebooks in <code>docs/notebooks/</code> as ML pipeline walkthroughs</strong>
+Create a <code>docs/notebooks/</code> directory with:
+- <code>asp_pipeline_walkthrough.ipynb</code> — end-to-end stitch of a 5-frame test sequence with stage-by-stage visualisations.
+- <code>benchmark_analysis.ipynb</code> — replicate the Streamlit dashboard logic in a notebook; precursor to the Tauri analytics tab.
+- <code>clip_embedding_walkthrough.ipynb</code> — index 100 images, run a text query, visualise nearest neighbours.
+- <code>birefnet_segmentation.ipynb</code> — single-image inference with visualised mask.
+- Execute with <code>jupyter nbconvert --to html --execute</code> in CI; output HTML published to the portal.
+- Pros: Zero-friction exploration. Notebooks can be diffed (via <code>nbstripout</code>). CI execution validates that the pipeline API is still intact.
+- Cons: Notebooks require GPU access for some cells. Must gate GPU cells with <code>pytest.mark.gpu</code>-equivalent (<code># SKIP_CI</code> cell metadata).
+- Reference: <a href="https://github.com/kynan/nbstripout">nbstripout</a>, <a href="https://nbconvert.readthedocs.io/">nbconvert</a></p>
+<p><strong>B — Papermill for parameterised notebook execution</strong>
+Use <code>papermill</code> to run notebooks with different parameters (different test sequences, different model sizes). Store output notebooks as CI artifacts.
+- Pros: Parameterised documentation — one notebook, many configurations.
+- Cons: Papermill adds a dependency. Overkill for initial setup.
+- Reference: <a href="https://papermill.readthedocs.io/">papermill.readthedocs.io</a></p>
+<p><strong>C — MyST-NB for MkDocs/Sphinx notebook integration</strong>
+<code>myst-nb</code> renders <code>.ipynb</code> files as documentation pages inside MkDocs Material or Sphinx. No conversion step needed.
+- Pros: Notebooks are first-class pages in the portal. Inline output (plots, tables) rendered automatically.
+- Cons: Requires MkDocs Material or Sphinx as the SSG (§6.10). Adds build complexity.
+- Reference: <a href="https://myst-nb.readthedocs.io/">myst-nb.readthedocs.io</a></p>
+<p><strong>D — Marimo (reactive Python notebooks) [Research]</strong>
+<code>marimo</code> is a reactive Python notebook that converts to a web app. Suitable for the benchmark analysis dashboard as an alternative to the Tauri tab.
+- Pros: First-class Python app; no JavaScript needed for interactivity.
+- Cons: Different paradigm from Jupyter. Cannot be executed with <code>nbconvert</code>. Research investment needed.
+- Reference: <a href="https://marimo.io/">marimo.io</a></p>
+<p><strong>Recommendation:</strong> A + C (if MkDocs is chosen in §6.10). <code>nbstripout</code> as a pre-commit hook to keep notebook output out of git. <code>papermill</code> deferred until the notebook suite is validated.</p>
+<hr />
+<h2 id="domain-c--static-site-generators--portals-macro-level">Domain C — Static Site Generators &amp; Portals (Macro-Level)<a class="headerlink" href="#domain-c--static-site-generators--portals-macro-level" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>The portal is the public face of the documentation system. It ingests all Domain A output (rustdoc HTML, TypeDoc Markdown, mkdocstrings, Dokka GFM) and renders them as a single searchable site.</p>
+</blockquote>
+<hr />
+<h2 id="610-ssg-selection-for-a-polyglot-portal">✅ §6.10 SSG Selection for a Polyglot Portal (MkDocs Material — mkdocs.yml scaffolded)<a class="headerlink" href="#610-ssg-selection-for-a-polyglot-portal" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The project spans 5 languages (Python, Rust, TypeScript, Kotlin, Swift) plus Markdown roadmaps and Jupyter notebooks. No SSG currently aggregates them into a single searchable portal.</p>
+<h3 id="options_9">Options<a class="headerlink" href="#options_9" title="Permanent link">&para;</a></h3>
+<p><strong>A — MkDocs Material (recommended) [Quick Win relative to alternatives]</strong>
+- Python-native, <code>pip install mkdocs-material</code>. Integrates with <code>mkdocstrings</code> (Python), <code>typedoc-plugin-markdown</code> (TypeScript), and <code>myst-nb</code> (notebooks). Rust docs linked as an external HTML tree via an iframe or a redirect.
+- Navigation defined in <code>mkdocs.yml</code>. Full-text search. Dark mode. GitHub Pages deployment in &lt; 30 min.
+- Pros: Zero-config for Python projects. Best-in-class Markdown rendering. Active community. Used by FastAPI, Pydantic, Typer.
+- Cons: Rust/Kotlin/Swift docs must be embedded as HTML iframes or separate subdomains (not native pages). Less suitable if the primary audience is not Python-centric.
+- Effort: Initial setup &lt; 1 day. Integration per language: 2–4 hours each.
+- Reference: <a href="https://squidfunk.github.io/mkdocs-material/">squidfunk.github.io/mkdocs-material</a></p>
+<p><strong>B — Docusaurus 3 (React-based) [Research]</strong>
+- JavaScript/React SSG. Native MDX support. Versioning built-in. Can embed Jupyter notebooks via a plugin.
+- Pros: Best choice if the team wants to write interactive documentation components in React (consistent with the <code>frontend/</code> stack).
+- Cons: Requires a Node.js build step in CI in addition to Python, Rust, and Kotlin builds. No native mkdocstrings integration.
+- Reference: <a href="https://docusaurus.io/">docusaurus.io</a></p>
+<p><strong>C — mdBook (Rust-native)</strong>
+- <code>cargo install mdbook</code>. Best for Rust-centric projects. Simple, fast.
+- Pros: Zero JS build step. Consistent with the Rust toolchain already in CI.
+- Cons: Very limited plugin ecosystem. No Python/TS/Kotlin integration. Not suitable as the single portal for a polyglot codebase.
+- Reference: <a href="https://rust-lang.github.io/mdBook/">rust-lang.github.io/mdBook</a></p>
+<p><strong>D — Starlight (Astro-based) [Research]</strong>
+- New SSG from the Astro team, purpose-built for documentation. MDX, full-text search, i18n.
+- Pros: Fast. Good default design. TypeScript-native.
+- Cons: Young ecosystem. Less documentation tooling integration than MkDocs Material or Docusaurus.
+- Reference: <a href="https://starlight.astro.build/">starlight.astro.build</a></p>
+<p><strong>Recommendation:</strong> <strong>A (MkDocs Material)</strong>. The Python-native toolchain is already present; <code>mkdocstrings</code>, <code>myst-nb</code>, and <code>typedoc-plugin-markdown</code> give the highest language coverage for the lowest setup cost. Rust docs can be embedded as a separate cargo doc HTML tree linked from the portal. If the team later wants React-based interactive examples in docs, migrate the root portal to Docusaurus (B) while keeping the MkDocs config as a template.</p>
+<hr />
+<h2 id="611-unified-cross-stack-documentation-portal">✅ §6.11 Unified Cross-Stack Documentation Portal (docs/index.md + docs/hooks.py)<a class="headerlink" href="#611-unified-cross-stack-documentation-portal" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Even if each language generates docs (§6.1–§6.5), there is no unified structure that ties them together with the existing roadmaps, research reports, and the README.</p>
+<h3 id="options_10">Options<a class="headerlink" href="#options_10" title="Permanent link">&para;</a></h3>
+<p><strong>A — <code>docs/</code> directory as portal source root</strong>
+Restructure <code>docs/</code> as the MkDocs source root:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docs/
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  index.md             ← mirrors README.md
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  architecture.md      ← promoted from docs/ARCHITECTURE.md
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  api/
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    python/            ← mkdocstrings output
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    rust/              ← cargo doc HTML (symlinked or copied from target/doc/)
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    typescript/        ← typedoc-plugin-markdown output
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    kotlin/            ← dokkaGfm output
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  notebooks/           ← Jupyter notebooks (myst-nb)
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  roadmaps/            ← symlinks or copies of moon/roadmaps/*.md
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  reports/             ← reports/*.md
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  troubleshooting.md
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  benchmarks.md
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  changelog.md
+</span></code></pre></div>
+- <code>mkdocs.yml</code> at the project root with <code>docs_dir: docs</code>.
+- Pros: Everything in one place. CI just runs <code>mkdocs build</code>.
+- Cons: Some files (roadmaps, reports) currently live under <code>moon/</code> and <code>reports/</code> — symlinks or a <code>hooks:</code> script in <code>mkdocs.yml</code> keeps them in sync without moving them.</p>
+<p><strong>B — Separate <code>docs-site/</code> directory, independent of <code>docs/</code></strong>
+Keep the existing <code>docs/</code> for raw Markdown files and create <code>docs-site/</code> as the MkDocs project that copies/transforms them.
+- Pros: Less disruption to existing structure.
+- Cons: Two locations for documentation. Confusion about which is canonical.</p>
+<p><strong>C — GitHub Wiki as portal</strong>
+Use the GitHub repository wiki for all documentation.
+- Pros: Zero setup.
+- Cons: Not version-controlled with the code. No CI integration. No search. Not recommended for a complex polyglot project.</p>
+<p><strong>Recommendation:</strong> A. Using <code>mkdocs.yml</code> hooks to softlink <code>moon/roadmaps/*.md</code> and <code>reports/*.md</code> into <code>docs/</code> avoids moving files while keeping the portal coherent.</p>
+<hr />
+<h2 id="domain-d--implementation-best-practices--automation">Domain D — Implementation Best Practices &amp; Automation<a class="headerlink" href="#domain-d--implementation-best-practices--automation" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Automation is what makes docs-as-code sustainable. Without it, documentation drifts within weeks of the initial effort.</p>
+</blockquote>
+<hr />
+<h2 id="612-cicd-documentation-pipeline-github-actions">✅ §6.12 CI/CD Documentation Pipeline (GitHub Actions)<a class="headerlink" href="#612-cicd-documentation-pipeline-github-actions" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> No GitHub Actions workflow currently builds or publishes documentation. Docs are written by hand and not validated for correctness (broken links, missing symbols, failed notebook execution).</p>
+<h3 id="options_11">Options<a class="headerlink" href="#options_11" title="Permanent link">&para;</a></h3>
+<p><strong>A — <code>docs.yml</code> workflow: build on every PR, deploy to GitHub Pages on main [Quick Win]</strong>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">documentation</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">on</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">push</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">branches</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">main</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">pull_request</span><span class="p">:</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">paths</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;docs/**&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;moon/roadmaps/**&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;backend/src/**&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;base/src/**&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;frontend/src/**&#39;</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nt">jobs</span><span class="p">:</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">build</span><span class="p">:</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/setup-python@v5</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">        </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> python-version</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;3.11&#39;</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pip install mkdocs-material mkdocstrings[python] myst-nb typedoc</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mkdocs build --strict</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span><span class="nt">deploy</span><span class="p">:</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">    </span><span class="nt">needs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">build</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">    </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">github.ref == &#39;refs/heads/main&#39;</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mkdocs gh-deploy --force</span>
+</span></code></pre></div>
+- <code>--strict</code> fails the build on warnings (broken links, missing symbols).
+- Pros: Every PR gets a docs build check. Main branch auto-deploys to GitHub Pages.
+- Effort: &lt; 2 hours to set up. Free on GitHub Actions (public repos) or within Actions minutes quota.</p>
+<p><strong>B — Separate jobs per language [Quick Win once A is running]</strong>
+Split <code>build</code> into parallel jobs: <code>docs-python</code>, <code>docs-rust</code>, <code>docs-typescript</code>, <code>docs-kotlin</code>. Each runs its respective tool and uploads artifacts. A final <code>merge</code> job assembles the portal.
+- Pros: Parallel build. Each language team can see their docs job independently.
+- Cons: More complex <code>mkdocs.yml</code> integration for multi-artifact merge.</p>
+<p><strong>C — Preview deployments on PRs ✅</strong>
+Each PR that touches <code>docs/</code>, <code>moon/roadmaps/</code>, <code>backend/src/</code>, or <code>mkdocs.yml</code> gets a live preview deployment to <code>gh-pages/pr-preview/{number}/</code> via the <code>preview</code> job in <code>.github/workflows/docs.yml</code>.
+- Implemented without Netlify/Cloudflare — uses <code>peaceiris/actions-gh-pages@v4</code> to deploy to a PR-specific subdirectory on the existing <code>gh-pages</code> branch.
+- A sticky bot comment on the PR links to <code>https://{owner}.github.io/{repo}/pr-preview/{number}/</code> (updated on each commit via <code>actions/github-script@v7</code> — finds and updates the existing comment rather than creating duplicates).
+- Cleanup is handled by <code>.github/workflows/docs-cleanup.yml</code> — fires on <code>pull_request: types: [closed]</code>, checks out <code>gh-pages</code>, removes <code>pr-preview/{number}/</code>, pushes a deletion commit.
+- <code>keep_files: true</code> ensures the preview deploy does not overwrite the root <code>gh-pages</code> site built by the <code>deploy</code> job.</p>
+<p><strong>D — Scheduled weekly notebook execution</strong>
+Run <code>jupyter nbconvert --to html --execute docs/notebooks/*.ipynb</code> on a weekly schedule. Fail if any cell errors. This validates that the pipeline API has not drifted from the notebook examples.
+- Pros: Executable documentation stays correct over time.
+- Cons: GPU cells must be skipped or gated. Requires a GPU runner (expensive on Actions; use <code>runs-on: self-hosted</code> with the local GPU machine).</p>
+<p><strong>Recommendation:</strong> A immediately. B after the first month when the build is stable. C if the team does active documentation PRs. D on a self-hosted runner once the notebooks (§6.9) exist.</p>
+<hr />
+<h2 id="613-enforcing-documentation-standards-doclint-cargo-test-pre-commit">✅ §6.13 Enforcing Documentation Standards (doclint, cargo test, pre-commit)<a class="headerlink" href="#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Even with <code>DOCUMENTATION_STANDARDS.md</code> (§6.7C), standards are only enforced by code review unless automated. Pre-commit hooks catch regressions before they reach CI.</p>
+<h3 id="options_12">Options<a class="headerlink" href="#options_12" title="Permanent link">&para;</a></h3>
+<p><strong>A — <code>pydoclint</code> for Python docstring validation [Quick Win]</strong>
+<code>pydoclint</code> (or <code>pydocstyle</code>) checks that public functions have docstrings matching the Google style. Wire into pre-commit and CI.
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># .pre-commit-config.yaml</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/jsh9/pydoclint</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">rev</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5.8</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">hooks</span><span class="p">:</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pydoclint</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">      </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">--style=google</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">--arg-type-hints-in-signature=true</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+- Effort: &lt; 1 hour setup; fixing existing violations: 2–4 hours for <code>animation/</code> modules.
+- Reference: <a href="https://github.com/jsh9/pydoclint">jsh9/pydoclint</a></p>
+<p><strong>B — <code>cargo test --doc</code> in CI for Rust doc-tests [Quick Win]</strong>
+Add <code>cargo test --doc</code> as a separate CI step alongside <code>cargo test</code>. Fails if any <code># Examples</code> block in a doc comment does not compile and pass.
+- Effort: &lt; 30 min. Already part of the standard Rust toolchain.
+- Pros: Documentation examples are regression tests. Zero new dependencies.</p>
+<p><strong>C — <code>typedoc --treatWarningsAsErrors</code> for TypeScript [Quick Win]</strong>
+Pass <code>--treatWarningsAsErrors</code> to TypeDoc in CI. Fails if any exported symbol is undocumented.
+- Effort: &lt; 30 min once TypeDoc is set up (§6.3).
+- Pros: Enforces completeness of the TypeScript API surface.</p>
+<p><strong>D — Markdown link checker (<code>lychee</code> or <code>markdown-link-check</code>) [Quick Win]</strong>
+Check all <code>*.md</code> files for broken internal and external links. Run in CI on every PR.
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lycheeverse/lychee-action@v1</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--verbose --no-progress &#39;**/*.md&#39;</span>
+</span></code></pre></div>
+- Effort: &lt; 30 min.
+- Reference: <a href="https://github.com/lycheeverse/lychee-action">lycheeverse/lychee-action</a></p>
+<p><strong>E — <code>alex</code> for inclusive language [Quick Win]</strong>
+Catch insensitive or non-inclusive language in documentation (e.g., "master/slave", "whitelist/blacklist"). Run as a pre-commit hook.
+- Reference: <a href="https://alexjs.com/">alexjs.com</a></p>
+<p><strong>Recommendation:</strong> A + B + D as immediate Quick Wins. C once TypeDoc is producing output (§6.3). E as a final polish pass before public release.</p>
+<hr />
+<h2 id="614-diagrams-as-code-mermaidjs--plantuml">✅ §6.14 Diagrams-as-Code (Mermaid.js / PlantUML)<a class="headerlink" href="#614-diagrams-as-code-mermaidjs--plantuml" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>docs/ARCHITECTURE.md</code> describes the module structure in prose. No machine-readable diagram exists for the module dependency graph, data-flow pipeline, or deployment topology. Diagrams in PNG files go stale silently.</p>
+<h3 id="options_13">Options<a class="headerlink" href="#options_13" title="Permanent link">&para;</a></h3>
+<p><strong>A — Mermaid.js in Markdown (GitHub-native rendering) [Quick Win]</strong>
+Embed Mermaid diagrams directly in <code>docs/ARCHITECTURE.md</code>. GitHub renders them natively in its Markdown preview. MkDocs Material renders them via the <code>pymdownx.superfences</code> extension.
+- Minimum diagram set:
+  1. Module dependency graph (<code>graph LR</code> — Python → Rust → PostgreSQL → GUI)
+  2. ASP pipeline data flow (<code>flowchart TD</code> — frames → bundle adjust → composite → canvas)
+  3. Authentication flow (<code>sequenceDiagram</code> — login → VaultManager → JPype JVM)
+  4. Deployment topology (<code>graph TB</code> — Tauri frontend ↔ Rust backend ↔ PostgreSQL ↔ pgvector)
+- Effort: 2–3 hours for all four diagrams.
+- Pros: Diagrams live in git. Diffs show exactly what changed. No external rendering service.
+- Reference: <a href="https://mermaid.js.org/">mermaid.js.org</a></p>
+<p><strong>B — PlantUML via <code>plantuml-markdown</code> plugin</strong>
+PlantUML has richer UML support (sequence, class, component, deployment diagrams) and is the standard for enterprise architecture documentation.
+- Pros: Full UML 2.x support. Supports C4 model (architecture views at Context, Container, Component levels).
+- Cons: Requires a PlantUML server or Java runtime in CI. Not rendered natively by GitHub Markdown.
+- Reference: <a href="https://plantuml.com/">plantuml.com</a></p>
+<p><strong>C — Structurizr / C4 model [Research]</strong>
+Structurizr implements Simon Brown's C4 model (Context, Container, Component, Code) as code (<code>workspace.dsl</code>). Export to PlantUML, Mermaid, or SVG.
+- Pros: Formal architecture documentation methodology. Multi-level views from a single DSL.
+- Cons: New toolchain. Learning curve for the C4 model concepts.
+- Reference: <a href="https://structurizr.com/">structurizr.com</a></p>
+<p><strong>D — <code>mermaid-js/mermaid-cli</code> for CI rendering [Quick Win]</strong>
+Generate PNG/SVG renders of Mermaid diagrams in CI using <code>mmdc</code> (Mermaid CLI). Store rendered SVGs in <code>docs/assets/diagrams/</code>. They can then be embedded in the portal without relying on client-side rendering.
+- Effort: &lt; 1 hour CI setup.</p>
+<p><strong>Recommendation:</strong> A (Mermaid in Markdown) for the core four diagrams — immediately renderable on GitHub, zero new dependencies. D for static SVG generation in the CI portal build. B if the team adopts UML for the mobile MVVM architecture. C deferred until the architecture is more stable.</p>
+<hr />
+<h2 id="615-interactive-documentation-api-playgrounds-algorithm-stepping">✅ §6.15 Interactive Documentation (API Playgrounds, Algorithm Stepping)<a class="headerlink" href="#615-interactive-documentation-api-playgrounds-algorithm-stepping" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The mathematical backbone (<code>linalg</code>, <code>stats</code>, <code>distance</code>, <code>graph</code>) and the ASP pipeline stages are complex enough that static reference docs alone do not build intuition. Interactive stepping through an algorithm (e.g., watching the seam DP cost matrix fill row-by-row) would significantly accelerate onboarding for new contributors.</p>
+<h3 id="options_14">Options<a class="headerlink" href="#options_14" title="Permanent link">&para;</a></h3>
+<p><strong>A — Embedded Jupyter widgets in <code>myst-nb</code> docs [Quick Win]</strong>
+Use <code>ipywidgets</code> in notebooks to create interactive sliders controlling algorithm parameters (e.g., <code>FEATHER_MAX</code>, <code>ASP_BA_F_SCALE</code>). <code>myst-nb</code> renders them as static HTML in the portal; dynamic interaction requires <code>voilà</code> or Binder.
+- Effort: 1–2 days per notebook.
+- Pros: Incremental — each notebook is independently useful even as static HTML.</p>
+<p><strong>B — Binder / JupyterHub for live notebook execution</strong>
+Add a "Launch Binder" badge to each notebook. Users click it and get a live Jupyter session without installing anything.
+- Pros: Zero user setup. Great for demos.
+- Cons: Binder is rate-limited and slow for GPU notebooks. Not suitable for <code>animation/</code> notebooks that require the Rust <code>base</code> extension.
+- Reference: <a href="https://mybinder.org/">mybinder.org</a></p>
+<p><strong>C — Custom TypeScript algorithm stepper in the Tauri analytics tab [Research]</strong>
+Build an algorithm visualisation page into <code>frontend/src/tabs/analytics/</code> that steps through the seam DP or bundle adjustment algorithm frame-by-frame using the existing <code>frontend/src/math/</code> backbone.
+- Pros: Native desktop performance. Uses the existing React/TypeScript stack.
+- Cons: High implementation effort. Requires porting the Python algorithm step-by-step to TypeScript (the math backbone is already there, but the DP logic is not).</p>
+<p><strong>D — OpenAPI / Redoc playground for the REST API layer ✅</strong>
+<code>drf-spectacular</code> is already wired in <code>api/urls.py</code> — the OpenAPI 3.1 schema is served live at <code>/api/schema/</code>, Swagger UI at <code>/api/docs/</code>, and Redoc at <code>/api/redoc/</code>. All 21 endpoints in <code>tasks/views.py</code> use <code>@extend_schema</code> with full tag, summary, request, and response annotations.
+- Implemented: <code>docs/api/rest-api.md</code> — full endpoint reference with tables, request/response format, interactive playground instructions, and <code>manage.py spectacular</code> static-spec guide.
+- CI: <code>docs-openapi</code> job in <code>.github/workflows/docs.yml</code> — runs <code>manage.py spectacular --validate</code>, uploads <code>openapi.yaml</code> as 14-day artifact.
+- Portal: <code>docs/api/rest-api.md</code> wired into MkDocs nav under Reference &gt; REST API.
+- Reference: <a href="https://redocly.com/redoc/">redocly.com/redoc</a>, <a href="https://drf-spectacular.readthedocs.io/">drf-spectacular docs</a></p>
+<p><strong>Recommendation:</strong> A for the immediate term — Jupyter widgets in the benchmark analysis notebook. B as a "try it now" link alongside each notebook. C as a Phase 13 analytics dashboard item. D ✅ implemented.</p>
+<hr />
+<h2 id="effort--impact-matrix">Effort × Impact Matrix<a class="headerlink" href="#effort--impact-matrix" title="Permanent link">&para;</a></h2>
+<p><em>Effort</em> — <strong>Low</strong>: &lt; 1 day · <strong>Medium</strong>: 1 day – 1 week · <strong>High</strong>: 1 – 2 weeks · <strong>Very High</strong>: 2+ weeks
+<em>Impact</em> — <strong>Low</strong>: marginal · <strong>Medium</strong>: developer QoL or onboarding improvement · <strong>High</strong>: correctness verification or significant knowledge transfer · <strong>Very High</strong>: enables external contributors or public documentation portal</p>
+<table>
+<thead>
+<tr>
+<th><strong>Effort ↓ / Impact →</strong></th>
+<th>Low</th>
+<th>Medium</th>
+<th>High</th>
+<th>Very High</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Low (&lt;1d)</strong></td>
+<td>✅ §6.7A CHANGELOG reformatting · ✅ §6.8C TROUBLESHOOTING.md rename · ✅ §6.13B <code>cargo test --doc</code> in CI · ✅ §6.13D <code>lychee</code> link checker · ✅ §6.13E <code>alex</code> inclusive language pre-commit</td>
+<td>✅ §6.2A <code>///</code> doc comments in Rust math modules · ✅ §6.2B doc-tests for pure functions · ✅ §6.7B DEPENDENCY_POLICY.md · ✅ §6.7C DOCUMENTATION_STANDARDS.md · ✅ §6.8A TROUBLESHOOT.md expansion · ✅ §6.13A <code>pydoclint</code> pre-commit hook · ✅ §6.13C TypeDoc strict mode · ✅ §6.14A Mermaid module graph</td>
+<td>✅ §6.3A TypeDoc setup for TS math modules · ✅ §6.4A Dokka setup for Android · ✅ §6.6A docs/ARCHITECTURE.md standardisation</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Medium (1d–1w)</strong></td>
+<td>—</td>
+<td>✅ §6.1A mkdocstrings for <code>animation/</code> · ✅ §6.3B TypeDoc → Markdown portal integration · ✅ §6.8B BENCHMARKS.md restructuring · ✅ §6.9A Jupyter notebooks for ASP + CLIP · ✅ §6.14D Mermaid CLI in CI</td>
+<td>✅ §6.10A MkDocs Material portal setup · ✅ §6.11A unified <code>docs/</code> structure · ✅ §6.12A <code>docs.yml</code> GitHub Actions workflow · ✅ §6.12C PR preview deployments · ✅ §6.15A Jupyter widgets in notebooks</td>
+<td>✅ §6.5A DocC for iOS · ✅ §6.9C mkdocs-jupyter portal integration</td>
+</tr>
+<tr>
+<td><strong>High (1–2w)</strong></td>
+<td>—</td>
+<td>✅ §6.12B parallel per-language doc jobs · ✅ §6.15B Binder live notebooks</td>
+<td>✅ §6.1B Sphinx for full Python backend · ✅ §6.12D scheduled notebook execution · ✅ §6.4B Dokka GFM portal integration</td>
+<td>✅ §6.11A full polyglot portal with all five languages</td>
+</tr>
+<tr>
+<td><strong>Very High (2w+)</strong></td>
+<td>—</td>
+<td>—</td>
+<td>✅ §6.14C Structurizr / C4 model architecture documentation</td>
+<td>§6.15C TypeScript algorithm stepper in analytics tab (gated on Phase 13) · ✅ §6.15D OpenAPI playground (drf-spectacular already wired)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="anchor-index">Anchor Index<a class="headerlink" href="#anchor-index" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Anchor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>How to Use</td>
+<td><a href="#how-to-use-this-document">#how-to-use-this-document</a></td>
+</tr>
+<tr>
+<td>§6.1 Python Docs</td>
+<td><a href="#61-python-reference-docs-sphinx--mkdocstrings">#61-python-reference-docs-sphinx--mkdocstrings</a></td>
+</tr>
+<tr>
+<td>§6.2 Rust Docs</td>
+<td><a href="#62-rust-reference-docs-rustdoc--doc-tests">#62-rust-reference-docs-rustdoc--doc-tests</a></td>
+</tr>
+<tr>
+<td>§6.3 TypeScript Docs</td>
+<td><a href="#63-typescript-reference-docs-typedoc">#63-typescript-reference-docs-typedoc</a></td>
+</tr>
+<tr>
+<td>§6.4 Kotlin Docs</td>
+<td><a href="#64-kotlin-reference-docs-dokka">#64-kotlin-reference-docs-dokka</a></td>
+</tr>
+<tr>
+<td>§6.5 Swift Docs</td>
+<td><a href="#65-swift-reference-docs-docc">#65-swift-reference-docs-docc</a></td>
+</tr>
+<tr>
+<td>§6.6 ARCHITECTURE.md</td>
+<td><a href="#66-architecturemd-standardisation">#66-architecturemd-standardisation</a></td>
+</tr>
+<tr>
+<td>§6.7 CHANGELOG + Policy Files</td>
+<td><a href="#67-changelogmd-dependency_policymd-and-documentation_standardsmd">#67-changelogmd-dependency_policymd-and-documentation_standardsmd</a></td>
+</tr>
+<tr>
+<td>§6.8 TROUBLESHOOTING + BENCHMARKS</td>
+<td><a href="#68-troubleshootingmd-and-benchmarksmd">#68-troubleshootingmd-and-benchmarksmd</a></td>
+</tr>
+<tr>
+<td>§6.9 Jupyter Notebooks</td>
+<td><a href="#69-jupyter-notebooks-as-executable-polyglot-documentation">#69-jupyter-notebooks-as-executable-polyglot-documentation</a></td>
+</tr>
+<tr>
+<td>§6.10 SSG Selection</td>
+<td><a href="#610-ssg-selection-for-a-polyglot-portal">#610-ssg-selection-for-a-polyglot-portal</a></td>
+</tr>
+<tr>
+<td>§6.11 Unified Portal</td>
+<td><a href="#611-unified-cross-stack-documentation-portal">#611-unified-cross-stack-documentation-portal</a></td>
+</tr>
+<tr>
+<td>§6.12 CI/CD Pipeline</td>
+<td><a href="#612-cicd-documentation-pipeline-github-actions">#612-cicd-documentation-pipeline-github-actions</a></td>
+</tr>
+<tr>
+<td>§6.13 Enforcing Standards</td>
+<td><a href="#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit">#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit</a></td>
+</tr>
+<tr>
+<td>§6.14 Diagrams-as-Code</td>
+<td><a href="#614-diagrams-as-code-mermaidjs--plantuml">#614-diagrams-as-code-mermaidjs--plantuml</a></td>
+</tr>
+<tr>
+<td>§6.15 Interactive Docs</td>
+<td><a href="#615-interactive-documentation-api-playgrounds-algorithm-stepping">#615-interactive-documentation-api-playgrounds-algorithm-stepping</a></td>
+</tr>
+<tr>
+<td>Effort × Impact Matrix</td>
+<td><a href="#effort--impact-matrix">#effort--impact-matrix</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="document-history">Document History<a class="headerlink" href="#document-history" title="Permanent link">&para;</a></h2>
+<p><em>Last updated: 2026-06-20. Session 8 complete: <strong>§6.12C</strong> PR preview deployments — <code>preview</code> job (Job 11) added to <code>docs.yml</code>: fires on <code>pull_request</code> events (not push/schedule), builds MkDocs with <code>--strict</code>, deploys to <code>gh-pages/pr-preview/{number}/</code> via <code>peaceiris/actions-gh-pages@v4</code> (<code>keep_files: true</code> preserves root site), posts sticky preview-URL comment via <code>actions/github-script@v7</code> (finds and updates existing bot comment rather than creating duplicates); new <code>docs-cleanup.yml</code> workflow fires on <code>pull_request: types: [closed]</code>, checks out <code>gh-pages</code> branch, removes <code>pr-preview/{number}/</code>, pushes deletion commit — no Netlify/Cloudflare required; §6.12C section text updated to ✅; §6.12C added to Effort×Impact matrix (Medium effort / High impact). Documentation roadmap now completely implemented — §6.15C (TypeScript algorithm stepper) is the only remaining item and is gated on Phase 13. Session 7 complete: <strong>§6.14C</strong> Structurizr / C4 model — <code>docs/structurizr/workspace.dsl</code> (full 5-view C4 model: SystemContext, Containers, PythonBackendComponents, RustCoreComponents, DjangoApiComponents), <code>docs/structurizr/README.md</code> (Docker Lite + CLI export instructions), <code>docs/STRUCTURIZR.md</code> (MkDocs portal page); MkDocs nav extended with "C4 Architecture Model" under Getting Started; hooks.py syncs STRUCTURIZR.md · <strong>§6.15D</strong> OpenAPI playground — <code>drf-spectacular</code> confirmed already wired (<code>/api/schema/</code>, <code>/api/docs/</code> Swagger UI, <code>/api/redoc/</code>); <code>docs/api/rest-api.md</code> comprehensive reference (21 endpoints in 4 tag groups, response format, static spec generation, add-endpoint guide); <code>docs-openapi</code> CI job (Job 9) in <code>docs.yml</code> — <code>manage.py spectacular --validate</code>, 14-day <code>openapi-spec</code> artifact; MkDocs nav extended with "REST API" under Reference; hooks.py stub added · <strong>§6.13E</strong> <code>alex</code> inclusive language pre-commit hook — scoped to <code>docs/*.md</code>, <code>--quiet</code> mode, added to <code>.pre-commit-config.yaml</code> · <strong>Matrix</strong> — All completed items marked ✅ across all four effort tiers; §6.15C (TypeScript algorithm stepper) remains the only unimplemented item, gated on Phase 13; §6.15D corrected from "blocked on §4.10" to ✅ (already implemented). Session 6 complete: <strong>§6.9C</strong> <code>mkdocs-jupyter</code> enabled in <code>mkdocs.yml</code> (replaces the commented-out myst-nb block) — <code>.ipynb</code> files in the nav are now first-class portal pages rendered as static code+markdown · <strong>§6.4B + §6.12B</strong> Dokka GFM portal integration: <code>docs-kotlin</code> CI job (<code>actions/setup-java</code> + Android SDK + <code>./gradlew dokkaGfm</code>) added to <code>docs.yml</code>; <code>docs/hooks.py</code> creates <code>docs/api/kotlin/index.md</code> stub with module overview table; MkDocs nav extended with "Kotlin API" under Reference · <strong>§6.12D</strong> Scheduled weekly notebook execution: <code>schedule: cron '0 2 * * 1'</code> trigger added to <code>docs.yml</code>; <code>weekly-notebooks</code> job runs <code>benchmark_analysis.ipynb</code> via <code>papermill</code>/nbconvert with 300 s timeout; 30-day artifact retention · <strong>§6.1B</strong> Sphinx for full Python backend: <code>docs/sphinx/conf.py</code> (sphinx-autoapi + napoleon + myst-nb + furo theme + intersphinx to NumPy/PyTorch), <code>docs/sphinx/index.rst</code> (auto-toctree from autoapi), <code>docs/sphinx/requirements.txt</code>; <code>docs-sphinx</code> CI job (<code>sphinx-build -b html docs/sphinx site/sphinx-api -W --keep-going</code>); <code>docs/hooks.py</code> creates <code>docs/api/sphinx.md</code> comparison stub; MkDocs nav extended with "Python Reference (Sphinx)" under Reference. All remaining implementable roadmap items now complete — only gated items remain (§6.15C TypeScript stepper gated on Phase 13, §6.15D OpenAPI gated on §4.10 REST API, §6.14C Structurizr deferred). Session 5 complete: <strong>§6.13C</strong> TypeDoc strict mode — <code>"treatWarningsAsErrors": true</code> in <code>typedoc.json</code>; CI TypeDoc step upgraded to enforce strict mode via <code>typedoc-markdown.json</code> · <strong>§6.2A</strong> Full <code># Examples</code> doc-test blocks added to all remaining Rust math functions: 10 in <code>stats.rs</code> (<code>sample_std_dev</code>, <code>covariance</code>, <code>min</code>, <code>max</code>, <code>iqr</code>, <code>z_score_normalize</code>, <code>min_max_normalize</code>, <code>histogram</code>, <code>counts_to_probs</code>, <code>covariance_matrix</code>), 7 in <code>distance.rs</code> (<code>hamming_distance</code>, <code>hamming_f64</code>, <code>bhattacharyya_coefficient</code>, <code>bhattacharyya_distance</code>, <code>hellinger_distance</code>, <code>pairwise_distance_matrix</code>, <code>condensed_distance_matrix</code>), 9 in <code>information.rs</code> (<code>entropy_nats</code>, <code>empirical_entropy</code>, <code>joint_entropy</code>, <code>conditional_entropy</code>, <code>js_divergence</code>, <code>total_variation</code>, <code>mutual_information_discrete</code>, <code>normalised_mutual_information</code>, <code>cross_entropy</code>) — 100% doc-test coverage across all 3 math modules · <strong>§6.3B</strong> <code>typedoc-plugin-markdown</code> wired into <code>frontend/</code> (<code>package.json</code> devDeps, <code>typedoc-markdown.json</code> config); TypeDoc markdown output → <code>docs/api/typescript/</code>; MkDocs nav extended with "TypeScript API" section under Reference · <strong>§6.14D</strong> Mermaid CLI (<code>@mermaid-js/mermaid-cli</code>) integrated into <code>docs-typescript</code> CI job; module-dependency diagram from <code>docs/ARCHITECTURE.md</code> pre-rendered to <code>site/architecture-diagram.svg</code>; output stored as CI artifact. Documentation roadmap secondary sub-options now fully implemented — all primary sections ✅, all low/medium-effort secondary items ✅. Session 4 complete: <strong>§6.5A</strong> DocC <code>///</code> comments on all 8 public iOS Swift types (<code>ImageToolkitApp</code>, <code>Screen</code>, <code>MainAppScreen</code>, <code>ConvertScreen</code>, <code>AppTheme</code>, <code>FlowLayout</code>, <code>FileInput</code>, <code>SectionCard</code>, <code>FormatSelector</code>) + <code>ImageToolkit.docc/ImageToolkit.md</code> catalog with architecture overview, nav structure, <code>xcodebuild docbuild</code> instructions, and <code>## Topics</code> reference · <strong>§6.15A</strong> <code>benchmark_analysis.ipynb</code> cell 8 added — ipywidgets interactive threshold explorer (3 <code>FloatSlider</code>s for <code>ghosting_siqe</code>, <code>seam_visibility</code>, <code>ssim</code>; live failure-bar + scatter plot + filtered table; static fallback when ipywidgets absent) · <strong>§6.15B</strong> Binder launch badges added to all 3 notebooks; <code>ipywidgets</code> added to prerequisites. Documentation roadmap is now <strong>fully implemented</strong> — all 15 sections ✅. Session 3 complete: <strong>§6.8B</strong> <code>docs/BENCHMARKS.md</code> restructured (Suite Index table, Rust math criterion scaffolding, frontend <code>benchmark.ts</code> analytics layer documented, ASP corpus description with 97-test failure taxonomy + baseline metrics table, CI registration guide, RLHF score integration note) · <strong>§6.9A (full)</strong> <code>docs/notebooks/asp_pipeline_walkthrough.ipynb</code> (6 cells: source frames, frame selection, pipeline run, Stage 9 vs final, translation vectors, seam heatmap) · <code>docs/notebooks/clip_embedding_walkthrough.ipynb</code> (5 cells: CLIP load, batch embedding, text query → top-K, PCA visualisation, SQLiteStore demo) · <code>nbstripout 0.7.1</code> added to <code>.pre-commit-config.yaml</code> · <code>docs-notebooks</code> job added to <code>.github/workflows/docs.yml</code> (nbconvert execute for CPU-safe benchmark_analysis.ipynb) · <code>mkdocs.yml</code> nav updated with Notebooks section. Session 2: <strong>§6.1A</strong> Google-style docstrings · <strong>§6.3A</strong> typedoc.json + TSDoc · <strong>§6.4A</strong> Dokka · <strong>§6.6A+§6.14A</strong> ARCHITECTURE.md graph · <strong>§6.9A</strong> benchmark_analysis.ipynb. Session 1: <strong>§6.2B</strong> Rust doc-tests · <strong>§6.7B/C</strong> policy docs · <strong>§6.8A+C</strong> TROUBLESHOOTING.md · <strong>§6.10A</strong> mkdocs.yml · <strong>§6.11A</strong> portal · <strong>§6.12A</strong> CI · <strong>§6.13A</strong> pre-commit. Remaining: §6.5A (DocC/iOS — Xcode required), §6.15A (interactive widgets — deferred).</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
