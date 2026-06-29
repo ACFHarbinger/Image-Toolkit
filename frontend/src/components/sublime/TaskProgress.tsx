@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { X, ChevronDown, ChevronUp, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../../store/appStore';
 
 export const TaskProgress: React.FC = () => {
   const { tasks, removeTask, clearCompletedTasks, preferences } = useAppStore();

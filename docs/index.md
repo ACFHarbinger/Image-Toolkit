@@ -8,7 +8,7 @@
 
 | Section | Description |
 |---------|-------------|
-| [Quick Start](README.md) | 5-minute setup, environment bootstrapping, CLI reference |
+| [Quick Start](../README.md) | 5-minute setup, environment bootstrapping, CLI reference |
 | [Architecture](ARCHITECTURE.md) | Module dependency graph, data-flow diagrams, tech stack |
 | [Troubleshooting](TROUBLESHOOTING.md) | PySide6 crashes, ASP errors, Rust builds, Hydra, mobile |
 | [Python API](api/python/animation.md) | Auto-generated reference from Google-style docstrings |
@@ -16,8 +16,9 @@
 | [Benchmarks](BENCHMARKS.md) | ASP corpus, Rust criterion, frontend math benchmarks |
 | [Dependency Policy](DEPENDENCY_POLICY.md) | Version pins, upgrade cadence, security CVE SLA |
 | [Documentation Standards](DOCUMENTATION_STANDARDS.md) | Docstring style, TOC rules, enforcement hooks |
-| [Roadmaps](roadmaps/ROADMAP.md) | Architecture, performance, features, GUI/UX, ASP, docs |
-| [Changelog](CHANGELOG.md) | All shipped features ordered by session |
+| [Roadmaps](../moon/ROADMAP.md) | Architecture, performance, features, GUI/UX, ASP, docs |
+| [Changelog](../moon/CHANGELOG.md) | All shipped features ordered by session |
+
 
 ---
 

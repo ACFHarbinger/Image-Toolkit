@@ -9,6 +9,10 @@ edit_uri: edit/main/docs/
 
 docs_dir: docs
 site_dir: site
+exclude_docs: |
+  TROUBLESHOOT.md
+  hooks.py
+  sphinx/conf.py
 
 theme:
   name: material
@@ -129,7 +133,9 @@ nav:
   - Getting Started:
       - Quick Start: readme.md
       - Architecture: ARCHITECTURE.md
-      - C4 Architecture Model: STRUCTURIZR.md
+      - C4 Architecture Model:
+          - Overview: STRUCTURIZR.md
+          - Exporting & Rendering: structurizr/README.md
       - Troubleshooting: TROUBLESHOOTING.md
   - Reference:
       - REST API: api/rest-api.md

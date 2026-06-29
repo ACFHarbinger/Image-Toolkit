@@ -1,0 +1,3604 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+        <link rel="prev" href="../asp_research/">
+      
+      
+        <link rel="next" href="../image_stitching/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Image Generation Research - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#image-video-generation-comprehensive-research-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Image Generation Research
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../roadmaps/ROADMAP/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../analytics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reports
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/new_features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/gui_ux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reports
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reports
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-scope-the-one-paragraph-recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Scope &amp; the One-Paragraph Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-mathematical-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Mathematical Foundations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Mathematical Foundations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-ddpm-and-prediction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 DDPM and ε-prediction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-v-prediction-angular-parameterisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 v-prediction (angular parameterisation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-x0-optimal-transport-prediction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 x0 / optimal-transport prediction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-rectified-flow-matching-rfm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Rectified Flow Matching (RFM)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-architecture-lineages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Architecture Lineages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Architecture Lineages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-sd-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 SD 1.5
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-sdxl-latent-diffusion-backbone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 SDXL latent-diffusion backbone
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-mm-dit-flux-chroma" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 MM-DiT — FLUX &amp; Chroma
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-architecture-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Architecture comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-conditioning-prompting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Conditioning &amp; Prompting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-fine-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Fine-Tuning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Fine-Tuning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-technique-hierarchy-anime-characters-preference-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Technique hierarchy (anime characters, preference order)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-trainers-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Trainers &amp; configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-the-end-to-end-character-pipeline-4k-video-character-lora" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. The End-to-End Character Pipeline (4K Video → Character LoRA)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-inference-frameworks-samplers-vae-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Inference Frameworks, Samplers, VAE, Control
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-upscaling-restoration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Upscaling &amp; Restoration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-video-generation-temporal-injection-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Video Generation — Temporal Injection Foundations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-animatediff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. AnimateDiff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-interpolation-inbetweening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Interpolation &amp; Inbetweening
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Interpolation &amp; Inbetweening">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-animeinterp-correspondence-based" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 AnimeInterp (correspondence-based)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-tooncrafter-generative-interpolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 ToonCrafter (generative interpolation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#113-tooncomposer-the-dit-shift" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.3 ToonComposer &amp; the DiT shift
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-foundation-video-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Foundation Video Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-video-control-long-sequence-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Video Control &amp; Long-Sequence Inference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-hardware-aware-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Hardware-Aware Deployment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="14. Hardware-Aware Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#141-environment-the-uv-imperative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.1 Environment — the uv imperative
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#142-rtx-3090-ti-24-gb-high-fidelity-desktop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.2 RTX 3090 Ti (24 GB) — high-fidelity desktop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#143-rtx-4080-mobile-12-gb-constrained-laptop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.3 RTX 4080 mobile (12 GB) — constrained laptop
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-implementation-status-in-image-toolkit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Implementation Status in Image-Toolkit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-a-model-tool-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix A — Model &amp; Tool Index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-b-quick-settings-cheat-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix B — Quick Settings Cheat-Sheet
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-c-source-reports-consolidated-now-removable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix C — Source Reports Consolidated (now removable)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-scope-the-one-paragraph-recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Scope &amp; the One-Paragraph Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-mathematical-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Mathematical Foundations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Mathematical Foundations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-ddpm-and-prediction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 DDPM and ε-prediction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-v-prediction-angular-parameterisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 v-prediction (angular parameterisation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-x0-optimal-transport-prediction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 x0 / optimal-transport prediction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-rectified-flow-matching-rfm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Rectified Flow Matching (RFM)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-architecture-lineages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Architecture Lineages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Architecture Lineages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-sd-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 SD 1.5
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-sdxl-latent-diffusion-backbone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 SDXL latent-diffusion backbone
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-mm-dit-flux-chroma" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 MM-DiT — FLUX &amp; Chroma
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-architecture-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Architecture comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-conditioning-prompting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Conditioning &amp; Prompting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-fine-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Fine-Tuning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Fine-Tuning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-technique-hierarchy-anime-characters-preference-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Technique hierarchy (anime characters, preference order)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-trainers-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Trainers &amp; configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-the-end-to-end-character-pipeline-4k-video-character-lora" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. The End-to-End Character Pipeline (4K Video → Character LoRA)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-inference-frameworks-samplers-vae-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Inference Frameworks, Samplers, VAE, Control
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-upscaling-restoration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Upscaling &amp; Restoration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-video-generation-temporal-injection-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Video Generation — Temporal Injection Foundations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-animatediff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. AnimateDiff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-interpolation-inbetweening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Interpolation &amp; Inbetweening
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Interpolation &amp; Inbetweening">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-animeinterp-correspondence-based" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 AnimeInterp (correspondence-based)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-tooncrafter-generative-interpolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 ToonCrafter (generative interpolation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#113-tooncomposer-the-dit-shift" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.3 ToonComposer &amp; the DiT shift
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-foundation-video-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Foundation Video Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-video-control-long-sequence-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Video Control &amp; Long-Sequence Inference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-hardware-aware-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Hardware-Aware Deployment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="14. Hardware-Aware Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#141-environment-the-uv-imperative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.1 Environment — the uv imperative
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#142-rtx-3090-ti-24-gb-high-fidelity-desktop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.2 RTX 3090 Ti (24 GB) — high-fidelity desktop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#143-rtx-4080-mobile-12-gb-constrained-laptop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.3 RTX 4080 mobile (12 GB) — constrained laptop
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-implementation-status-in-image-toolkit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Implementation Status in Image-Toolkit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-a-model-tool-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix A — Model &amp; Tool Index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-b-quick-settings-cheat-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix B — Quick Settings Cheat-Sheet
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-c-source-reports-consolidated-now-removable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix C — Source Reports Consolidated (now removable)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="image-video-generation-comprehensive-research-reference">Image &amp; Video Generation — Comprehensive Research Reference<a class="headerlink" href="#image-video-generation-comprehensive-research-reference" title="Permanent link">&para;</a></h1>
+<p><em>Consolidated 2026-06-03. This document is the single, complete reference for generative-model research in Image-Toolkit. It covers the entire field — the diffusion/flow mathematics, architecture lineages, conditioning, fine-tuning, the end-to-end character pipeline, inference frameworks, upscaling, the full video-generation stack, and hardware-aware deployment — with deep, dedicated sections on <strong>anime image and video generation</strong> (the project's target domain). It replaces the 5 prior generation reports listed in Appendix C; read this instead of them. Hardware reference: RTX 3090 Ti (24 GB) desktop, RTX 4080 (16 GB) / RTX 4080 mobile (12 GB).</em></p>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Scope &amp; the One-Paragraph Recommendation</li>
+<li>Mathematical Foundations (ε / v / x0-prediction, Rectified Flow, distillation)</li>
+<li>Architecture Lineages (SD 1.5, SDXL, anime fine-tunes, MM-DiT/FLUX)</li>
+<li>Conditioning &amp; Prompting (tags, score-tags, natural language, Florence-2)</li>
+<li>Fine-Tuning (LoRA, LyCORIS, DreamBooth, full FT, trainers, settings)</li>
+<li>The End-to-End Character Pipeline (4K video → LoRA)</li>
+<li>Inference Frameworks, Samplers, VAE, Control</li>
+<li>Upscaling &amp; Restoration</li>
+<li>Video Generation — Temporal Injection Foundations</li>
+<li>AnimateDiff (architecture, motion modules, MotionLoRA, anime fixes)</li>
+<li>Interpolation &amp; Inbetweening (AnimeInterp, ToonCrafter, ToonComposer)</li>
+<li>Foundation Video Models (Wan2.1, SVD, DiT/SLRA)</li>
+<li>Video Control &amp; Long-Sequence Inference</li>
+<li>Hardware-Aware Deployment (uv, TensorRT, quantization)</li>
+<li>Implementation Status in Image-Toolkit</li>
+<li>Appendices — model index, settings cheat-sheet, source reports</li>
+</ol>
+<hr />
+<h2 id="1-scope-the-one-paragraph-recommendation">1. Scope &amp; the One-Paragraph Recommendation<a class="headerlink" href="#1-scope-the-one-paragraph-recommendation" title="Permanent link">&para;</a></h2>
+<p><strong>Recommendation (2025–2026):</strong> For the strongest combination of out-of-the-box anime quality, character knowledge, fine-tunability, and consumer-GPU friendliness, build the stack around <strong>Illustrious XL v1.1/v2.0</strong> (or its v-prediction sibling <strong>NoobAI-XL v-pred</strong>) as the SDXL-class base; train <strong>rank-16–32 LoRAs</strong> (LyCORIS LoCon for style-bound characters) with <strong>kohya_ss/sd-scripts</strong>; run inference in <strong>ComfyUI</strong> (Forge/reForge for fast iteration). The 3090 Ti trains LoRAs at full 1024² batch 2–4 and runs native FP16 FLUX; the 4080 trains at 1024² batch 1–2 with gradient checkpointing and runs FLUX only quantized. <strong>FLUX.1</strong> is the quality king for prompt adherence/text but a poor <em>primary</em> anime base (VRAM-heavy, slow to train, thin anime ecosystem) — keep it secondary. For video, use <strong>AnimateDiff</strong> (mature, controllable, model-agnostic) for short clips/GIFs and <strong>ToonCrafter</strong> for generative inbetweening; <strong>Wan2.1/SVD</strong> for longer foundation-model clips on 24 GB.</p>
+<hr />
+<h2 id="2-mathematical-foundations">2. Mathematical Foundations<a class="headerlink" href="#2-mathematical-foundations" title="Permanent link">&para;</a></h2>
+<p>All these models are samplers of a learned probability transport from noise to data. The training-objective parameterisation is not cosmetic — it determines anime fidelity (especially flat/saturated palettes and pure black/white).</p>
+<h3 id="21-ddpm-and-prediction">2.1 DDPM and ε-prediction<a class="headerlink" href="#21-ddpm-and-prediction" title="Permanent link">&para;</a></h3>
+<p>The forward process gradually adds Gaussian noise; as <code>t→T</code>, <code>q(x_t)</code> converges to isotropic <code>N(0,I)</code>. The reverse trajectory <code>p_θ(x_{t-1}|x_t)</code> is learned by a network. Because the exact reverse conditional is intractable, the standard objective is <strong>ε-prediction</strong> (noise prediction): <code>L = E‖ε − ε_θ(x_t, t)‖²</code>. <strong>Weakness:</strong> ε-prediction over-weights high-frequency noise at the expense of low-frequency compositional structure, so it underperforms on pure-colour backgrounds (absolute white/black) — exactly the critical anime case ("greyness"/washed-out gamut of base SDXL). Lineage: SD 1.5, SDXL-eps.</p>
+<h3 id="22-v-prediction-angular-parameterisation">2.2 v-prediction (angular parameterisation)<a class="headerlink" href="#22-v-prediction-angular-parameterisation" title="Permanent link">&para;</a></h3>
+<p>To fix the SNR imbalance, <strong>v-prediction</strong> predicts a velocity vector <code>v = α_t ε − σ_t x_0</code> combining noise and data. The objective <code>L = E‖v − v_θ(x_t,t)‖²</code> converges faster and dramatically improves <strong>dynamic range</strong> — rendering stark high-contrast anime lighting. <strong>NoobAI-XL V-Pred</strong> uses exactly this to overcome SDXL "greyness." v-prediction also enables <strong>progressive distillation</strong>: a student matches a 2-step deterministic teacher, halving the probability-path traversal recursively, cutting NFEs from ~1024 to as few as 4 steps with minimal FID loss. Pair v-pred with <strong>zero-terminal-SNR</strong> for correct dark-scene/pure-colour fidelity.</p>
+<h3 id="23-x0-optimal-transport-prediction">2.3 x0 / optimal-transport prediction<a class="headerlink" href="#23-x0-optimal-transport-prediction" title="Permanent link">&para;</a></h3>
+<p>A generalised target subsumes ε, v, and x0 as special cases. When ambient dimension ≫ intrinsic manifold dimension (compressed anime latents), <strong>direct x0-prediction</strong> is the analytically variance-optimal target. Frameworks like <strong>k-Diff</strong> learn the optimal prediction parameter directly.</p>
+<h3 id="24-rectified-flow-matching-rfm">2.4 Rectified Flow Matching (RFM)<a class="headerlink" href="#24-rectified-flow-matching-rfm" title="Permanent link">&para;</a></h3>
+<p>The major 2024–25 shift: abandon stochastic Langevin dynamics for a <strong>deterministic neural ODE</strong> transporting mass along near-straight paths. For coupled <code>(x_0, x_1)</code>, linear interpolation <code>x_t = (1−t)x_0 + t x_1</code>; train a velocity field <code>v_θ</code> to regress the constant connecting vector via least-squares; generate by ODE integration (Euler/Heun). The <strong>Reflow</strong> operator recursively straightens trajectories → far fewer integration steps at equal fidelity. <strong>Boundary-enforced RF</strong> honours the <code>t=0/1</code> boundary conditions to reduce error near the data manifold. RFM is the backbone of <strong>FLUX</strong> and experimental <strong>NoobAI-XL RF conversions</strong> (ChenkinNoob-XL RF, Mugen) in the EQ-VAE latent — unlocking lighting/contrast fidelity impossible in EPS SDXL without offset-noise artifacts.</p>
+<p><strong>Practical rule:</strong> match the LoRA/training objective to the base (eps vs v-pred vs RF). Mixing (e.g. an eps LoRA on a v-pred base) degrades output.</p>
+<hr />
+<h2 id="3-architecture-lineages">3. Architecture Lineages<a class="headerlink" href="#3-architecture-lineages" title="Permanent link">&para;</a></h2>
+<p>SOTA bifurcates into mature <strong>2.6 B-param SDXL derivatives</strong> and newer <strong>12–32 B MM-DiT</strong> rectified-flow models.</p>
+<h3 id="31-sd-15">3.1 SD 1.5<a class="headerlink" href="#31-sd-15" title="Permanent link">&para;</a></h3>
+<p>Smaller U-Net, single CLIP encoder. Retained mainly for its mature <strong>AnimateDiff</strong> motion-module ecosystem (§10).</p>
+<h3 id="32-sdxl-latent-diffusion-backbone">3.2 SDXL latent-diffusion backbone<a class="headerlink" href="#32-sdxl-latent-diffusion-backbone" title="Permanent link">&para;</a></h3>
+<p>Dual text encoders (<strong>OpenCLIP ViT-bigG + CLIP ViT-L</strong>) concatenated to cross-attend a much larger U-Net; <strong>multi-aspect conditioning</strong> generates varying aspect ratios without crop destruction. The anime workhorse.</p>
+<p><strong>Anime SDXL fine-tunes:</strong>
+- <strong>Animagine XL 4.0</strong> — 2650 GPU-hrs on 8.4 M tagged anime images; cleanest line art, strict Danbooru-tag adherence. Mandates structured prompt order: <code>1girl/1boy, character, series, descriptions</code> + quality tags (<code>masterpiece, best quality, very aesthetic</code>). Optimised ~1024².
+- <strong>Illustrious XL v1.1 / 2.0</strong> — first to natively support <strong>1536 px</strong> without compositional fracturing/anatomical cloning; hybrid tag + natural-language conditioning. <strong>Caveat:</strong> severe <strong>token-dilution</strong> — tokens late in its 248-token window are attenuated → front-load critical concepts. Does <strong>not</strong> understand score tags (degrades). Primary recommended base.
+- <strong>NoobAI-XL</strong> (and v-pred) — divergent branch from Illustrious using v-prediction; superior stylistic versatility and character-knowledge retention. RF conversions exist (§2.4).
+- <strong>Pony Diffusion V6 XL</strong> — 2.6 M aesthetically-ranked images (1:1:1 safe/questionable/explicit). Uses a proprietary <strong>score-tag</strong> system; due to a "Clever Hans" alignment failure, the model correlates the <em>presence of the verbose string</em> <code>score_9, score_8_up, score_7_up, score_6_up, score_5_up, score_4_up</code> with the highest-fidelity manifold — so that exact string is a rigid activation key (not a learned continuous range). Suppresses artist names. <strong>Incompatible</strong> with standard SDXL LoRAs/embeddings (diverged conditioning space).</p>
+<h3 id="33-mm-dit-flux-chroma">3.3 MM-DiT — FLUX &amp; Chroma<a class="headerlink" href="#33-mm-dit-flux-chroma" title="Permanent link">&para;</a></h3>
+<p><strong>FLUX.1</strong> (Black Forest Labs) — 12 B <strong>Multimodal Diffusion Transformer</strong>; discards cross-attention concatenation for <strong>parallel attention</strong> over joint image+text tokens; replaces the secondary CLIP with a 9.4 GB <strong>T5XXL</strong> LLM for deep conversational prompts and spatial relations; rectified-flow transport. <code>FLUX.1 [dev]</code> (guidance-distilled) gives extreme photorealism/typography but heavy photoreal priors fight anime. Anime fine-tunes: <strong>Chroma</strong> (de-distilled FLUX.1 [schnell] derivative), <strong>Kaleidoscope</strong> (on 4 B FLUX.2 Klein) — drag the latent toward the anime manifold, combining FLUX anatomical coherence (fixing SDXL finger/limb mutations) with cel shading. <strong>SD 3.5</strong> also exists (MM-DiT, RF) but has not displaced SDXL for anime.</p>
+<h3 id="34-architecture-comparison">3.4 Architecture comparison<a class="headerlink" href="#34-architecture-comparison" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Architecture</th>
+<th>Params</th>
+<th>Transport</th>
+<th>Conditioning</th>
+<th>Anime derivatives</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SD 1.5</td>
+<td>0.9 B</td>
+<td>ε-pred (LDM)</td>
+<td>tags</td>
+<td>AnimateDiff base</td>
+</tr>
+<tr>
+<td>SDXL</td>
+<td>2.6 B</td>
+<td>ε-pred (LDM)</td>
+<td>Danbooru tags</td>
+<td>Animagine XL 4.0, Illustrious 2.0</td>
+</tr>
+<tr>
+<td>SDXL v-pred</td>
+<td>2.6 B</td>
+<td>v-pred (LDM)</td>
+<td>Danbooru tags</td>
+<td>NoobAI-XL V-Pred</td>
+</tr>
+<tr>
+<td>SDXL Pony</td>
+<td>2.6 B</td>
+<td>ε-pred (LDM)</td>
+<td>score tags</td>
+<td>Pony Diffusion V6 XL</td>
+</tr>
+<tr>
+<td>SDXL RF</td>
+<td>2.6 B</td>
+<td>rectified flow (ODE)</td>
+<td>Danbooru tags</td>
+<td>ChenkinNoob-XL RF, Mugen</td>
+</tr>
+<tr>
+<td>FLUX.&frac12;</td>
+<td>4–12 B</td>
+<td>rectified flow (MM-DiT)</td>
+<td>natural language (T5XXL)</td>
+<td>Chroma, Kaleidoscope</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-conditioning-prompting">4. Conditioning &amp; Prompting<a class="headerlink" href="#4-conditioning-prompting" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Danbooru-tag native (SDXL anime):</strong> discrete classification — the tag <code>sword</code> activates the concept. Structured order + quality tags (§3.2). The native vocabulary for LoRA captions.</li>
+<li><strong>Score-tags (Pony):</strong> the fixed <code>score_9,…</code> activation string (§3.2).</li>
+<li><strong>Natural-language (FLUX/T5XXL):</strong> dense relational prose ("an anime character gripping a luminescent broadsword, blade emitting blue volumetric light"). Tag workflows do not transfer.</li>
+<li><strong>Token dilution (Illustrious):</strong> front-load critical concepts in the 248-token window.</li>
+<li><strong>Captioning for training/conditioning:</strong></li>
+<li><strong>WD14 / WD-v3 tagger</strong> — multi-label classification over Danbooru taxonomy; produces booru tags (the SDXL native vocabulary).</li>
+<li><strong>Florence-2</strong> (Microsoft, ~1 GB VRAM; PromptGen v1.5/v2.0 via MiaoshouAI Tagger in ComfyUI) — autoregressive foundation VLM generating structured natural-language captions describing spatial position, lighting, anatomy; mathematically optimal to feed a T5XXL embedding for FLUX, and a sharper cross-attention gradient signal generally. Use WD14 for SDXL tag training, Florence-2 for FLUX/natural-language and caption augmentation.</li>
+</ul>
+<hr />
+<h2 id="5-fine-tuning">5. Fine-Tuning<a class="headerlink" href="#5-fine-tuning" title="Permanent link">&para;</a></h2>
+<h3 id="51-technique-hierarchy-anime-characters-preference-order">5.1 Technique hierarchy (anime characters, preference order)<a class="headerlink" href="#51-technique-hierarchy-anime-characters-preference-order" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Standard LoRA</strong> — <code>dim 16–32</code>, <code>alpha = dim</code> or <code>dim/2</code>. Best fidelity-per-effort; the default.</li>
+<li><strong>LyCORIS LoCon</strong> — <code>dim 16 / conv 8</code> — captures conv-layer <strong>style</strong> for style-bound characters.</li>
+<li><strong>LyCORIS LoHa / LoKr</strong> — very small datasets / style-transfer (Hadamard/Kronecker factorisations).</li>
+<li><strong>DreamBooth full fine-tune</strong> — ≥24 GB VRAM; a production "character checkpoint."</li>
+<li><strong>Full-checkpoint fine-tune</strong> — DeepSpeed ZeRO-2 on the 3090 Ti.</li>
+<li><strong>Avoid pure Textual Inversion</strong> for character fidelity — underperforms LoRA on anime.</li>
+</ol>
+<h3 id="52-trainers-configuration">5.2 Trainers &amp; configuration<a class="headerlink" href="#52-trainers-configuration" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Trainer:</strong> kohya_ss / sd-scripts (de-facto standard); OneTrainer alternative.</li>
+<li><strong>Optimiser:</strong> AdamW (stable) or <strong>Prodigy</strong> (auto-LR, hands-off). <strong>Precision:</strong> bf16 (preferred) / fp16. <strong>Scheduler:</strong> cosine.</li>
+<li><strong>VRAM tricks:</strong> gradient checkpointing (fits 1024² on 16 GB), cached latents, min-SNR-gamma loss weighting; <strong>v-prediction + zero-terminal-SNR</strong> when the base is v-pred.</li>
+<li><strong>SDXL dual-encoder:</strong> train both text encoders (the project's <code>LoRATuner</code> auto-detects SDXL via <code>"xl"/"animagine"</code> in the model id and enables dual-encoder training; default base <code>OnomaAIResearch/Illustrious-XL-v2.0</code>). SDXL micro-conditioning: original_size / crop_top_left / target_size.</li>
+<li><strong>Per-GPU TOML presets:</strong> e.g. <code>illustrious_character_4080_16gb.toml</code> (1024², batch 1, grad-checkpoint) and <code>noobai_vpred_3090ti_24gb.toml</code> (1024², batch 2–4, v-pred).</li>
+</ul>
+<hr />
+<h2 id="6-the-end-to-end-character-pipeline-4k-video-character-lora">6. The End-to-End Character Pipeline (4K Video → Character LoRA)<a class="headerlink" href="#6-the-end-to-end-character-pipeline-4k-video-character-lora" title="Permanent link">&para;</a></h2>
+<p>The flagship capability — it reuses Image-Toolkit's FFmpeg extraction, similarity/dedup, and database.</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Operation</th>
+<th>Tooling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Frame extraction</strong></td>
+<td>FFmpeg + <strong>PySceneDetect</strong>; scene-aware, deinterlaced, full-res; single-frame extraction at exact PTS (probe VFR; I-frame fast pass; scene-aware preferred pass). Reuses <code>video_frame_extractor.py</code>.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Curation &amp; dedup</strong></td>
+<td>phash/SSIM dedup (reuse <code>SimilarityFinder</code>); drop blur/dupes; balance poses/expressions/lighting.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Captioning</strong></td>
+<td>WD14 tagger + Florence-2; trigger token + curated tag schema (consistent across the set).</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Augmentation</strong></td>
+<td>mild flip/crop/colour-jitter (PyTorch); avoid over-augmentation that harms fidelity.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>LoRA fine-tune</strong></td>
+<td>kohya_ss; §5 settings; per-GPU TOML.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>DreamBooth / full FT</strong> (optional)</td>
+<td>DreamBoothTuner; full checkpoint via DeepSpeed ZeRO-2 (3090 Ti).</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Diagnostics</strong></td>
+<td>training hooks: loss/grad-norm curves, periodic validation-image sampling, intermediate-output monitoring, weight-norm visualisation.</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Inference</strong></td>
+<td>ComfyUI/Forge; ControlNet pose, IP-Adapter reference; Real-ESRGAN anime_6B upscale.</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Video (optional)</strong></td>
+<td>AnimateDiff motion module + the trained character LoRA; ToonCrafter inbetweening.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-inference-frameworks-samplers-vae-control">7. Inference Frameworks, Samplers, VAE, Control<a class="headerlink" href="#7-inference-frameworks-samplers-vae-control" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>UI</th>
+<th>Strength</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ComfyUI</strong></td>
+<td>Graph-based, max control, best for video/ControlNet/multi-stage</td>
+<td><strong>Primary</strong></td>
+</tr>
+<tr>
+<td><strong>Forge / reForge</strong></td>
+<td>Fast A1111-style iteration, low overhead</td>
+<td>Secondary (fast single-image)</td>
+</tr>
+<tr>
+<td><strong>A1111</strong></td>
+<td>Mature extension ecosystem</td>
+<td>Legacy / extensions</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Samplers (SDXL anime):</strong> Euler a or <strong>DPM++ 2M SDE Karras</strong>; ~25–30 steps; <strong>CFG 5–7</strong> (lower for v-pred). For Pony/AnimateDiff: <strong>DPM++ 2M</strong> + automatic schedule, ~25 steps.</li>
+<li><strong>VAE:</strong> SDXL <strong>fp16-fix VAE</strong> (avoids the black-image/NaN bug on flat regions).</li>
+<li><strong>Resolution:</strong> 1024² base (1536² on Illustrious); hires-fix or tiled upscale to 1.5–2×.</li>
+<li><strong>Control:</strong> <strong>ControlNet</strong> (OpenPose / depth / lineart / scribble) for pose &amp; composition; <strong>IP-Adapter</strong> for character/style reference transfer; <strong>regional prompting / latent couple</strong> for multi-character scenes. TensorRT optimises ControlNet conditioning latency by ~40%.</li>
+</ul>
+<hr />
+<h2 id="8-upscaling-restoration">8. Upscaling &amp; Restoration<a class="headerlink" href="#8-upscaling-restoration" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Real-ESRGAN anime_6B</strong> (<code>RealESRGAN_x4plus_anime_6B</code>) — trained on anime degradation (JPEG blocks, cel-gradient loss, line thinning); preserves outlines where photo-SR over-smooths; built-in tile-and-stitch. 2× sharp / 4× blurry. <strong>Shared with the ASP super-resolution stage</strong> (<code>animation/super_res.py</code>).</li>
+<li><strong>4x-AnimeSharp</strong> ESRGAN — alternative anime tiled upscaler.</li>
+<li><strong>APISR</strong> — anime-production SR replicating multi-frame compression degradation (JPEG/WebP/AVIF/H.264-H.265 intra-prediction); inverts non-linear degradation while preserving 2-D topology (no photoreal hallucination in flat regions).</li>
+<li><strong>SUPIR / diffusion upscale</strong> — detail-synthesising upscale when hallucinated detail is acceptable.</li>
+</ul>
+<hr />
+<h2 id="9-video-generation-temporal-injection-foundations">9. Video Generation — Temporal Injection Foundations<a class="headerlink" href="#9-video-generation-temporal-injection-foundations" title="Permanent link">&para;</a></h2>
+<p>Training video from scratch is prohibitive; the dominant consumer-hardware paradigm <strong>inserts temporal attention into a frozen spatial T2I network</strong>, tricking an image generator into temporally-consistent sequences. The input latent <code>(B,C,H,W)</code> is reshaped to <code>(B,C,F,H,W)</code> to add the temporal axis <code>F</code>.</p>
+<hr />
+<h2 id="10-animatediff">10. AnimateDiff<a class="headerlink" href="#10-animatediff" title="Permanent link">&para;</a></h2>
+<p><strong>Architecture.</strong> A newly-initialised <strong>motion module</strong> (pseudo-3D temporal self-attention) is inserted after the spatial ResNet + cross-attention blocks of the SD U-Net. The <strong>spatial layers are frozen</strong> during motion training, preserving the base checkpoint's style/anatomy/composition priors; only the temporal layers learn generic motion (camera pans, object permanence) from large video datasets. At inference, any community checkpoint/LoRA/DreamBooth animates instantly without retraining — the framework is <strong>model-agnostic</strong>.</p>
+<p><strong>Motion-module evolution:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Base</th>
+<th>Notes</th>
+<th>Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>mm_sd_v14</td>
+<td>SD1.4/1.5</td>
+<td>initial; artifacts over long sequences</td>
+<td>~1.6 GB</td>
+</tr>
+<tr>
+<td>mm_sd_v15</td>
+<td>SD1.5</td>
+<td>improved diversity/stability</td>
+<td>~1.6 GB</td>
+</tr>
+<tr>
+<td>mm_sd_v15_v2</td>
+<td>SD1.5</td>
+<td>better kinematics; <strong>Motion-LoRA compatible</strong> (pan/zoom/tilt)</td>
+<td>~1.6 GB</td>
+</tr>
+<tr>
+<td>v3_sd15_mm</td>
+<td>SD1.5</td>
+<td>advanced stability; <code>sqrt_linear</code> beta</td>
+<td>~1.6 GB</td>
+</tr>
+<tr>
+<td>mm_sdxl_v10_beta</td>
+<td>SDXL</td>
+<td>1024² latent; needs linear beta + heavy VRAM opt</td>
+<td>950 MB</td>
+</tr>
+<tr>
+<td>Hotshot-XL</td>
+<td>SDXL</td>
+<td>SOTA text-to-GIF alongside SDXL</td>
+<td>~1.0 GB</td>
+</tr>
+</tbody>
+</table>
+<p><strong>MotionLoRA:</strong> extremely lightweight weights on the motion module to enforce specific camera dynamics (cinematic shots) cheaply.</p>
+<p><strong>Anime fix (critical):</strong> highly-tuned anime SDXL (Pony, Animagine) alter the latent/noise schedule; the standard AnimateDiff scheduler then mis-aligns temporal gradients → chaotic/pixelated output. <strong>Force <code>beta_schedule = linear</code> (AnimateDiff-SDXL)</strong> or autoselect; lock the empty-latent count to the model's context length (typically <strong>16 frames</strong>) to avoid batching errors.</p>
+<hr />
+<h2 id="11-interpolation-inbetweening">11. Interpolation &amp; Inbetweening<a class="headerlink" href="#11-interpolation-inbetweening" title="Permanent link">&para;</a></h2>
+<p>T2V from a blank latent is structurally unpredictable; V2V/interpolation ("inbetweening") is the production-aligned workflow.</p>
+<h3 id="111-animeinterp-correspondence-based">11.1 AnimeInterp (correspondence-based)<a class="headerlink" href="#111-animeinterp-correspondence-based" title="Permanent link">&para;</a></h3>
+<p>Trained on <strong>ATD-12K</strong> (12 000 animation triplets). <strong>Segment-Guided Matching</strong> tracks piece-wise-coherent colour-segment outlines (not interior texture) to beat the flat-shading aperture problem; <strong>Recurrent Flow Refinement</strong> iteratively resolves large non-linear "teleportation" motion. <strong>Limit:</strong> optical-flow methods assume all target pixels exist in source frames — they fail on <strong>dis-occlusion</strong> (revealed hidden background) and extreme stylised deformation.</p>
+<h3 id="112-tooncrafter-generative-interpolation">11.2 ToonCrafter (generative interpolation)<a class="headerlink" href="#112-tooncrafter-generative-interpolation" title="Permanent link">&para;</a></h3>
+<p>Adapts a pre-trained live-action image-to-video diffusion prior to cartoon interpolation. Inputs: start keyframe + end keyframe + optional sparse sketch → fluid inbetweens in ~20–24 s (DDIM-dependent). Three innovations:
+1. <strong>Toon Rectification Learning</strong> — freeze temporal layers (preserve real-world physics/object permanence) while fine-tuning the <strong>image-context projector + spatial layers</strong> on curated cartoon data → eliminates "content leakage" (realistic pores/lighting on flat cels).
+2. <strong>Dual-Reference 3-D Decoder</strong> — standard VAE compression destroys thin line art and bleeds flat colours in anime; this decoder injects uncompressed pixel data from the input keyframes as structural "supporting pillars" during decoding, preserving crisp detail.
+3. <strong>Sparse Sketch Guidance</strong> — a frame-independent sketch encoder lets artists steer non-linear intermediate poses.</p>
+<p>Dual-use: ToonCrafter is also the ASP <strong>ghost-fill / occlusion-completion</strong> model (<code>animation/anim_fill.py</code>).</p>
+<h3 id="113-tooncomposer-the-dit-shift">11.3 ToonComposer &amp; the DiT shift<a class="headerlink" href="#113-tooncomposer-the-dit-shift" title="Permanent link">&para;</a></h3>
+<p><strong>ToonComposer</strong> (TencentARC) = "generative post-keyframing" — one DiT video model does <strong>inbetweening + colourisation</strong> simultaneously from one coloured keyframe + sparse uncoloured sketches (~70% manual-effort saving). Built on a <strong>Video Diffusion Transformer (DiT)</strong> that patchifies the latent video volume into tokens processed by self-attention (scales better than U-Nets, longer coherent context). <strong>SLRA (Spatial Low-Rank Adapter):</strong> in spatio-temporally <em>coupled</em> DiT attention, standard spatial-only LoRA is structurally impossible; SLRA adapts only spatial behaviour via two low-rank matrices applied before self-attention (residual added after), preserving the temporal prior — outperforming LoRA at comparable/lower parameter budget.</p>
+<hr />
+<h2 id="12-foundation-video-models">12. Foundation Video Models<a class="headerlink" href="#12-foundation-video-models" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Stable Video Diffusion (SVD)</strong> — image-to-video; limited motion length/control; enhanced by conditioning tricks.</li>
+<li><strong>Wan2.1</strong> — large foundation T2V/I2V; fine-tunable via <strong>diffusion-pipe</strong>; longer, more coherent clips than AnimateDiff at much higher VRAM (24 GB+ / offloading).</li>
+<li><strong>HunyuanVideo / CogVideoX class</strong> — large DiT video models.</li>
+<li><strong>Audio/video-driven talking heads</strong> — specialised lip-sync / pose-driven character animation architectures.</li>
+</ul>
+<hr />
+<h2 id="13-video-control-long-sequence-inference">13. Video Control &amp; Long-Sequence Inference<a class="headerlink" href="#13-video-control-long-sequence-inference" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Consistency:</strong> IP-Adapter (character/style across frames) + ControlNet (OpenPose/depth/lineart per frame).</li>
+<li><strong>Long clips:</strong> <strong>Prompt Travel</strong> (scheduled prompt interpolation across frames), <strong>Context Sliding / context windows</strong> (overlapping temporal windows → arbitrarily long clips at fixed VRAM), spectral/latent modulation for flicker reduction.</li>
+<li><strong>VRAM strategy:</strong> context windows + tiled VAE decode + fp8/GGUF motion models keep AnimateDiff-SDXL in 16 GB.</li>
+</ul>
+<hr />
+<h2 id="14-hardware-aware-deployment">14. Hardware-Aware Deployment<a class="headerlink" href="#14-hardware-aware-deployment" title="Permanent link">&para;</a></h2>
+<h3 id="141-environment-the-uv-imperative">14.1 Environment — the <code>uv</code> imperative<a class="headerlink" href="#141-environment-the-uv-imperative" title="Permanent link">&para;</a></h3>
+<p>Use <strong>uv</strong> (Rust package manager) to unify interpreter/venv/dependency management (replaces pyenv+pip+conda), linking PyTorch to local CUDA without system-Python interference. E.g. <code>uv python install 3.10 &amp;&amp; uv venv &amp;&amp; uv pip install torch … --index-url …/cu124</code>.</p>
+<h3 id="142-rtx-3090-ti-24-gb-high-fidelity-desktop">14.2 RTX 3090 Ti (24 GB) — high-fidelity desktop<a class="headerlink" href="#142-rtx-3090-ti-24-gb-high-fidelity-desktop" title="Permanent link">&para;</a></h3>
+<p>Runs the full 12 B FLUX.1 [dev] in native FP16/BF16 (~23.8 GB U-Net; T5 async-offload) — 20-step 1024² ≈ 12 s (~1.7 it/s). <strong>TensorRT static compilation</strong> (<code>ComfyUI_TensorRT</code>: Load Checkpoint → STATIC_TRT_MODEL_CONVERSION, fixed dims/batch) fuses attention into Tensor Cores → &gt;3.0 it/s and −40% ControlNet latency. Full LoRA (1024² batch 2–4), DreamBooth, full-FT (ZeRO-2), Wan2.1, long AnimateDiff.</p>
+<h3 id="143-rtx-4080-mobile-12-gb-constrained-laptop">14.3 RTX 4080 mobile (12 GB) — constrained laptop<a class="headerlink" href="#143-rtx-4080-mobile-12-gb-constrained-laptop" title="Permanent link">&para;</a></h3>
+<p>Native FLUX OOMs; quantisation is mandatory:</p>
+<table>
+<thead>
+<tr>
+<th>Precision</th>
+<th>VRAM</th>
+<th>20-step time</th>
+<th>Fidelity loss</th>
+<th>LoRA/ControlNet</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Native FP16</td>
+<td>&gt;24 GB</td>
+<td>OOM</td>
+<td>—</td>
+<td>OOM</td>
+</tr>
+<tr>
+<td><strong>FP8 (e4m3fn)</strong></td>
+<td>~11.6 GB</td>
+<td>~49–61 s</td>
+<td>&lt;1%</td>
+<td>none (memory-bound)</td>
+</tr>
+<tr>
+<td><strong>GGUF Q8_0</strong></td>
+<td>~11.0 GB</td>
+<td>~55 s</td>
+<td>&lt;2%</td>
+<td><strong>excellent</strong></td>
+</tr>
+<tr>
+<td><strong>GGUF Q4_0</strong></td>
+<td>~6.4 GB</td>
+<td>~35 s</td>
+<td>~10%</td>
+<td><strong>exceptional</strong> (headroom)</td>
+</tr>
+<tr>
+<td><strong>BNB NF4 v2</strong></td>
+<td>~8.0 GB</td>
+<td>~47 s</td>
+<td>~8%</td>
+<td><strong>broken</strong> (LoRA-incompatible)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>GGUF</strong> (k-quant, per-matrix bit-depth) is SOTA for 12 GB: pair a Q4_0 U-Net with an FP8 T5XXL → ~8 GB total, leaving headroom for ControlNet/LoRA/FreeU. Launch <code>python main.py --lowvram --use-pytorch-cross-attention</code>. <strong>Avoid NF4 if applying LoRAs</strong> (early NF4 disrupts the attention blocks LoRA needs). The 16 GB desktop 4080 sits between: 1024² batch 1–2 + grad-checkpoint LoRA, FP8/GGUF FLUX, AnimateDiff with context windows.</p>
+<hr />
+<h2 id="15-implementation-status-in-image-toolkit">15. Implementation Status in Image-Toolkit<a class="headerlink" href="#15-implementation-status-in-image-toolkit" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Trainers:</strong> <code>backend/src/models/lora_diffusion.py</code> (<code>LoRATuner</code>, SDXL dual-encoder, default Illustrious-XL-v2.0), <code>full_finetune.py</code> (DreamBooth/full FT), GAN/R3GAN wrappers.</li>
+<li><strong>Generation:</strong> <code>sd3_wrapper.py</code> (<code>SD3Wrapper</code>, SD3.5; ControlNet TODO), <code>comfy_manager.py</code> + ComfyUI tab.</li>
+<li><strong>Data pipeline:</strong> <code>backend/src/models/data/</code> — <code>video_frame_extractor.py</code>, <code>captioner.py</code>, <code>lora_dataset.py</code>, <code>augmentations.py</code>, <code>stitch_dataset.py</code>.</li>
+<li><strong>GUI tabs:</strong> <code>gui/src/tabs/models/{gen,train}/</code> — LoRA train, SD3 gen, ComfyUI gen, GAN/R3GAN, diagnostics hooks (<code>models/hooks/</code>).</li>
+<li><strong>Gaps (→ <code>moon/roadmaps/content_generation.md</code>):</strong> WD14/Florence-2 captioning, LyCORIS variants, v-pred/ztSNR support, IP-Adapter/ControlNet wiring, FLUX support, AnimateDiff/ToonCrafter video, the guided video→LoRA flow, per-GPU TOML presets, GGUF/FP8 quantised inference.</li>
+</ul>
+<hr />
+<h2 id="appendix-a-model-tool-index">Appendix A — Model &amp; Tool Index<a class="headerlink" href="#appendix-a-model-tool-index" title="Permanent link">&para;</a></h2>
+<p>Bases: SD 1.5, SDXL; <strong>Illustrious XL v1.&frac12;.0</strong>, <strong>NoobAI-XL</strong> (eps/v-pred/RF), <strong>Animagine XL 4.0</strong>, <strong>Pony Diffusion V6 XL</strong>; <strong>FLUX.1 [dev]/[schnell]</strong>, <strong>Chroma</strong>, <strong>Kaleidoscope</strong> (FLUX.2 Klein), SD 3.5. Fine-tune: kohya_ss/sd-scripts, OneTrainer, LyCORIS (LoCon/LoHa/LoKr), DreamBooth, DeepSpeed ZeRO. Captioning: WD14/WD-v3, Florence-2 (PromptGen v1.5/2.0). Inference: ComfyUI, Forge/reForge, A1111; TensorRT; ComfyUI-GGUF, bitsandbytes. Control: ControlNet (OpenPose/depth/lineart/scribble), IP-Adapter, regional prompting/latent couple. Upscale: Real-ESRGAN anime_6B, 4x-AnimeSharp, APISR, SUPIR. Video: AnimateDiff (+MotionLoRA, Hotshot-XL), ToonCrafter, ToonComposer (DiT/SLRA), Wan2.1 (diffusion-pipe), SVD, HunyuanVideo/CogVideoX. Datasets: ATD-12K, AnimeRun, LinkTo-Anime, PaintBucket-Character. Env: uv.</p>
+<h2 id="appendix-b-quick-settings-cheat-sheet">Appendix B — Quick Settings Cheat-Sheet<a class="headerlink" href="#appendix-b-quick-settings-cheat-sheet" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>LoRA:</strong> dim 16–32, alpha dim or dim/2; bf16; cosine; AdamW/Prodigy; grad-checkpoint; min-SNR-γ; v-pred+ztSNR if base is v-pred.</li>
+<li><strong>SDXL inference:</strong> Euler a / DPM++ 2M SDE Karras; 25–30 steps; CFG 5–7; fp16-fix VAE; 1024² (1536² Illustrious).</li>
+<li><strong>Pony:</strong> prepend <code>score_9, score_8_up, score_7_up, score_6_up, score_5_up, score_4_up</code>; DPM++ 2M; ~25 steps.</li>
+<li><strong>AnimateDiff-SDXL:</strong> beta_schedule = linear; 16-frame context; motion module mm_sd_v15_v2 (SD1.5) / mm_sdxl_v10_beta or Hotshot-XL (SDXL).</li>
+<li><strong>FLUX on 12 GB:</strong> GGUF Q4_0 U-Net + FP8 T5XXL (~8 GB); never NF4 with LoRAs.</li>
+</ul>
+<h2 id="appendix-c-source-reports-consolidated-now-removable">Appendix C — Source Reports Consolidated (now removable)<a class="headerlink" href="#appendix-c-source-reports-consolidated-now-removable" title="Permanent link">&para;</a></h2>
+<p>This document replaces: <em>Architectural Paradigms and Deployment Strategies for State-of-the-Art Anime Generative Models</em> (diffusion math, model architectures, Florence-2, deployment/quantisation, 4K→LoRA pipeline); <em>Anime Video Generation Deep Learning Research</em> (AnimateDiff, ToonCrafter, ToonComposer/DiT/SLRA, Wan2.1, SVD, ComfyUI video, MotionLoRA, prompt-travel/context-sliding); <em>Guide to Anime Image Generation: Models, LoRAs, and a Local Setup</em> (paid APIs, open models, character LoRAs, ComfyUI/A1111/Forge setup, ControlNet, upscaling); <em>Pipeline for Anime Diffusion Fine-Tuning on SDXL-Class Models</em> (FFmpeg/PySceneDetect extraction, dedup, augmentation, LoRA/DreamBooth/full-FT, DeepSpeed, diagnostics, inference); <em>Practitioner's Guide to State-of-the-Art Anime Image Generation and Custom-Character Fine-Tuning</em> (model landscape, fine-tuning comparison, VRAM, kohya_ss settings, end-to-end checklist).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
