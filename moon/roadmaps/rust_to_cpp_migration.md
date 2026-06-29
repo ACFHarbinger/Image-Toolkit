@@ -659,6 +659,65 @@ Run with: `pytest backend/test/base/ -v -m "not slow"` (when `base` is built).
 
 ---
 
+### ✅ Phase 13 — Full math parity + `scan_files_multi` (COMPLETE)
+
+**Goal:** Close all remaining gaps between the Rust math archive and the C++ math headers;
+add `scan_files_multi` for scanning multiple directories in a single call.
+
+#### Math library additions
+
+**`base/include/math/distance.hpp`**
+- `chebyshev(a, b)` — L∞ distance
+- `minkowski(a, b, p)` — generalised Minkowski (p≥1)
+- `pairwise_distance_matrix(points)` — full n×n Euclidean distance matrix
+- `condensed_distance_matrix(points)` — upper-triangle vector (length n*(n-1)/2)
+
+**`base/include/math/stats.hpp`**
+- `sample_variance(xs)` — ddof=1 variance
+- `sample_std_dev(xs)` — ddof=1 standard deviation
+- `covariance(xs, ys)` — population covariance
+- `min_val(xs)` / `max_val(xs)` — min/max with ±∞ for empty input
+- `percentile(xs, p)` — nearest-rank percentile, p∈[0,1]
+- `iqr(xs)` — interquartile range Q3−Q1
+- `histogram(xs, bins)` — equal-width histogram → (edges, counts)
+- `counts_to_probs(counts)` — raw counts → normalised probabilities
+- `covariance_matrix(data)` — d×d population covariance matrix (flat row-major)
+
+**`base/include/math/information.hpp`**
+- `entropy_nats(p)` — entropy in nats
+- `empirical_entropy(counts)` — entropy from raw integer counts
+- `joint_entropy(joint_counts)` — H(X,Y) from count matrix
+- `conditional_entropy(joint_counts)` — H(Y|X) = H(X,Y)−H(X)
+- `total_variation(p, q)` — TV(P,Q) = ½Σ|P_i−Q_i|
+- `mutual_information_discrete(joint_counts)` — I(X;Y) from count matrix
+- `normalised_mutual_information(joint_counts)` — NMI ∈ [0,1]
+- `cross_entropy(p, q)` — H(P,Q) = −Σ P_i log₂ Q_i
+
+**`base/include/math/graph.hpp`**
+- `connected_components(g)` — BFS-based CC; returns sorted list of component node lists
+
+**`base/include/math/linalg.hpp`**
+- `dot(a, b)` — vector dot product
+- `norm(v)` — Euclidean norm
+- `normalize(v)` — v / ||v||
+- `vec_sub(a, b)` / `vec_add(a, b)` / `vec_scale(v, s)` — vector arithmetic
+- `gram_schmidt_step(v, basis)` — Gram–Schmidt orthogonalisation step
+- `pca_2d(data)` — convenience wrapper: data → list of [pc1, pc2] pairs
+
+**`base/include/math/dim_reduce.hpp`**
+- `geodesic_distances(weights)` — O(n³) all-pairs Dijkstra on adjacency-weight matrix
+
+#### Python bindings (`base/src/math/math_bindings.cpp`)
+All new functions above are exposed in their respective submodules with `py::gil_scoped_release`.
+
+#### `scan_files_multi` (`base/src/image/scan_files.cpp`)
+- `base.image.scan_files_multi(root_dirs, extensions, recursive=True)` — scans multiple
+  directories, returns sorted+deduplicated combined result
+- Declaration added to `base/include/image/scan_files.hpp`
+- `NativeExt.scan_files_multi` wired in `backend/src/utils/base_dispatch.py`
+
+---
+
 ## Data Interface: Python ↔ C++
 
 ### numpy ↔ cv::Mat (zero-copy)

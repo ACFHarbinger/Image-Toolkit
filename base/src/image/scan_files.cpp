@@ -58,6 +58,21 @@ std::vector<std::string> scan_files(
     return results;
 }
 
+std::vector<std::string> scan_files_multi(
+    const std::vector<std::string>&  root_dirs,
+    const std::vector<std::string>&  extensions,
+    bool                             recursive)
+{
+    std::vector<std::string> results;
+    for (const auto& dir : root_dirs) {
+        auto sub = scan_files(dir, extensions, recursive);
+        results.insert(results.end(), sub.begin(), sub.end());
+    }
+    std::sort(results.begin(), results.end());
+    results.erase(std::unique(results.begin(), results.end()), results.end());
+    return results;
+}
+
 } // namespace base::image
 
 // scan_files is registered as part of the images submodule by image_batch.cpp.
@@ -87,6 +102,29 @@ Returns
 -------
 list[str]
     Sorted list of matching file paths.
+          )doc");
+
+    m.def("scan_files_multi",
+          &base::image::scan_files_multi,
+          py::arg("root_dirs"),
+          py::arg("extensions"),
+          py::arg("recursive") = true,
+          R"doc(
+Scan multiple directories for files with matching extensions.
+
+Parameters
+----------
+root_dirs : list[str]
+    Directories to scan.
+extensions : list[str]
+    Extensions to include, e.g. [".png", ".jpg"] (case-insensitive).
+recursive : bool
+    If False, only immediate children of each directory are checked.
+
+Returns
+-------
+list[str]
+    Sorted, deduplicated list of matching file paths.
           )doc");
 }
 

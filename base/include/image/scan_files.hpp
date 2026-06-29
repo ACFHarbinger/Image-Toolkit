@@ -23,4 +23,10 @@ std::vector<std::string> scan_files(
     const std::vector<std::string>& extensions,
     bool                            recursive = true);
 
+/// Scan multiple directories and return the combined, sorted, deduplicated list.
+std::vector<std::string> scan_files_multi(
+    const std::vector<std::string>& root_dirs,
+    const std::vector<std::string>& extensions,
+    bool                            recursive = true);
+
 } // namespace base::image

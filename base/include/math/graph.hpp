@@ -251,4 +251,30 @@ inline std::vector<int> topological_sort(const Graph& g) {
     return order;
 }
 
+/// Connected components of an undirected (or weakly connected) graph.
+/// Returns a sorted list of components, each component a sorted list of node IDs.
+inline std::vector<std::vector<int>> connected_components(const Graph& g) {
+    auto ids = g.node_ids();
+    std::unordered_set<int> visited;
+    std::vector<std::vector<int>> result;
+    for (int start : ids) {
+        if (visited.count(start)) continue;
+        std::vector<int> queue, component;
+        visited.insert(start);
+        queue.push_back(start);
+        for (int qi = 0; qi < static_cast<int>(queue.size()); ++qi) {
+            int u = queue[qi];
+            component.push_back(u);
+            std::vector<int> nbrs;
+            for (const auto& e : g.neighbors(u)) nbrs.push_back(e.dst);
+            std::sort(nbrs.begin(), nbrs.end());
+            for (int v : nbrs)
+                if (visited.insert(v).second) queue.push_back(v);
+        }
+        std::sort(component.begin(), component.end());
+        result.push_back(std::move(component));
+    }
+    return result;
+}
+
 } // namespace base::math
