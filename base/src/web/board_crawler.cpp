@@ -394,8 +394,16 @@ static int run_crawler(
 void register_board_crawler(pybind11::module_& m) {
     m.def("run_board_crawler",
         [](const std::string& crawler_name,
-           const std::string& config_json,
+           py::object config_json_obj,
            py::object callback_obj) -> int {
+            std::string config_json;
+            if (py::isinstance<py::str>(config_json_obj)) {
+                config_json = config_json_obj.cast<std::string>();
+            } else {
+                py::object json_module = py::module_::import("json");
+                config_json = json_module.attr("dumps")(config_json_obj).cast<std::string>();
+            }
+
             auto cfg = json::parse(config_json, nullptr, false);
             if (cfg.is_discarded())
                 throw py::value_error("run_board_crawler: invalid JSON config");

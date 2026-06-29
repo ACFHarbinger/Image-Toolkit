@@ -562,16 +562,16 @@ void register_cloud_sync(pybind11::module_& m) {
         },
         py::arg("provider_name"), py::arg("config_json"), py::arg("callback_obj"),
         R"doc(
-Bidirectional cloud sync (Dropbox / GoogleDrive / OneDrive).
+            Bidirectional cloud sync (Dropbox / GoogleDrive / OneDrive).
 
-Parameters
-----------
-provider_name : str   "dropbox", "googledrive", or "onedrive"
-config_json   : str   JSON with: access_token, local_dir, remote_dir,
-                      bidirectional (bool, default true)
-callback_obj  : obj   Must have on_status_emitted(msg), on_error_emitted(msg).
-Returns
--------
-str   Summary string "Sync complete. ↑N ↓M errors=E"
+            Parameters
+            ----------
+                provider_name : str   "dropbox", "googledrive", or "onedrive"
+                config_json   : str   JSON with: access_token, local_dir, remote_dir,
+                                      bidirectional (bool, default true)
+                callback_obj  : obj   Must have on_status_emitted(msg), on_error_emitted(msg).
+            Returns
+            -------
+                str   Summary string "Sync complete. ↑N ↓M errors=E"
         )doc");
 }

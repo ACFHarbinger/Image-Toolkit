@@ -42,7 +42,7 @@ endif()
 # Shared object library: all base implementation sources (without pybind11
 # entry point) so the test binary can link them directly without Python.
 # ---------------------------------------------------------------------------
-add_library(base_impl OBJECT
+add_library(base_impl STATIC
     # Animation / Anime Stitch Pipeline submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/matching.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/bundle_adjust.cpp
@@ -69,6 +69,12 @@ add_library(base_impl OBJECT
 
     # HTTP request sequencing (Phase 5)
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/web_requests.cpp
+
+    # Phase 9: web extensions (board crawlers, cloud sync, stubs)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/board_crawler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/cloud_sync.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/reverse_image_search.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/image_crawler.cpp
 )
 
 # The implementation files include pybind11 headers only to get
@@ -147,6 +153,12 @@ target_link_libraries(base_tests PRIVATE
     base_impl
     Catch2::Catch2WithMain
     pybind11::embed
+    ${OpenCV_LIBS}
+    Eigen3::Eigen
+    OpenMP::OpenMP_CXX
+    ${FFTW3_LIBRARIES}
+    ${SQLCIPHER_LIBRARIES}
+    ${SODIUM_LIBRARIES}
 )
 
 # Register with CTest

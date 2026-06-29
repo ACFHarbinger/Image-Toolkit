@@ -259,6 +259,26 @@ void register_math(py::module_& m) {
             py::gil_scoped_release rel; return mutual_information(joint); },
         py::arg("joint"), "Mutual information from a joint probability matrix.");
 
+    info.def("mutual_information",
+        [](const std::vector<double>& joint, const std::vector<double>& px, const std::vector<double>& py) -> double {
+            py::gil_scoped_release rel;
+            if (joint.size() != px.size() * py.size()) {
+                throw std::invalid_argument("mutual_information: size mismatch");
+            }
+            double mi = 0.0;
+            std::size_t cols = py.size();
+            for (std::size_t i = 0; i < px.size(); ++i) {
+                for (std::size_t j = 0; j < py.size(); ++j) {
+                    double pij = joint[i * cols + j];
+                    if (pij <= 0.0 || px[i] <= 0.0 || py[j] <= 0.0) continue;
+                    mi += pij * std::log2(pij / (px[i] * py[j]));
+                }
+            }
+            return mi;
+        },
+        py::arg("joint"), py::arg("px"), py::arg("py"),
+        "Mutual information from a flat joint probability vector and marginals.");
+
     info.def("mutual_information_discrete",
         [](const std::vector<std::vector<std::size_t>>& joint) {
             py::gil_scoped_release rel; return mutual_information_discrete(joint); },
@@ -284,16 +304,53 @@ void register_math(py::module_& m) {
 
     py::class_<Graph>(gm, "Graph",
         "Weighted directed or undirected graph.")
-        .def(py::init<bool>(), py::arg("directed") = false)
+        .def(py::init([](py::args args, py::kwargs kwargs) {
+            bool directed = false;
+            int num_nodes = 0;
+            if (args.size() > 0) {
+                if (py::isinstance<py::bool_>(args[0])) {
+                    directed = args[0].cast<bool>();
+                } else if (py::isinstance<py::int_>(args[0])) {
+                    num_nodes = args[0].cast<int>();
+                    if (args.size() > 1 && py::isinstance<py::bool_>(args[1])) {
+                        directed = args[1].cast<bool>();
+                    }
+                }
+            }
+            if (kwargs.contains("directed")) {
+                directed = kwargs["directed"].cast<bool>();
+            }
+            auto g = std::make_unique<Graph>(directed);
+            for (int i = 0; i < num_nodes; ++i) {
+                g->add_node(i);
+            }
+            return g;
+        }))
         .def("add_node", &Graph::add_node, py::arg("id"), py::arg("label") = "",
              "Add a node. Returns False if already exists.")
-        .def("add_edge", &Graph::add_edge,
-             py::arg("u"), py::arg("v"), py::arg("weight") = 1.0,
+        .def("add_edge", [](Graph& self, int u, int v, double weight) {
+            self.add_node(u);
+            self.add_node(v);
+            self.add_edge(u, v, weight);
+        }, py::arg("u"), py::arg("v"), py::arg("weight") = 1.0,
              "Add a weighted edge (undirected graphs add both directions).")
+        .def("add_weighted_edge", [](Graph& self, int u, int v, double weight) {
+            self.add_node(u);
+            self.add_node(v);
+            self.add_edge(u, v, weight);
+        }, py::arg("u"), py::arg("v"), py::arg("weight"),
+             "Add a weighted edge.")
+        .def("add_directed_edge", [](Graph& self, int u, int v, double weight) {
+            self.directed = true;
+            self.add_node(u);
+            self.add_node(v);
+            self.add_edge(u, v, weight);
+        }, py::arg("u"), py::arg("v"), py::arg("weight") = 1.0,
+             "Add a directed edge.")
         .def("node_ids", &Graph::node_ids, "Sorted list of node IDs.")
         .def("neighbors", &Graph::neighbors, py::arg("u"),
              "Edges from node u.")
-        .def_readonly("directed", &Graph::directed);
+        .def_readwrite("directed", &Graph::directed);
 
     py::class_<Graph::Edge>(gm, "Edge")
         .def_readonly("dst",    &Graph::Edge::dst)
@@ -315,16 +372,53 @@ void register_math(py::module_& m) {
            "Breadth-first traversal order from start.");
     gm.def("dfs", &dfs, py::arg("g"), py::arg("start"),
            "Depth-first traversal order from start.");
+
     gm.def("kruskal_mst",
         [](int n, const std::vector<KruskalEdge>& edges) {
             py::gil_scoped_release rel; return kruskal_mst(n, edges); },
         py::arg("n"), py::arg("edges"),
         "Kruskal minimum spanning tree. n = number of nodes.");
+
+    gm.def("kruskal_mst",
+        [](const Graph& g) {
+            py::gil_scoped_release rel;
+            std::vector<KruskalEdge> edges;
+            for (int u : g.node_ids()) {
+                for (const auto& edge : g.neighbors(u)) {
+                    if (!g.directed && u > edge.dst) continue;
+                    edges.push_back({u, edge.dst, edge.weight});
+                }
+            }
+            std::vector<int> ids = g.node_ids();
+            int n = ids.empty() ? 0 : ids.back() + 1;
+            return kruskal_mst(n, edges);
+        },
+        py::arg("g"),
+        "Kruskal minimum spanning tree from Graph.");
+
     gm.def("kruskal_max_mst",
         [](int n, const std::vector<KruskalEdge>& edges) {
             py::gil_scoped_release rel; return kruskal_max_mst(n, edges); },
         py::arg("n"), py::arg("edges"),
         "Kruskal maximum spanning tree.");
+
+    gm.def("kruskal_max_mst",
+        [](const Graph& g) {
+            py::gil_scoped_release rel;
+            std::vector<KruskalEdge> edges;
+            for (int u : g.node_ids()) {
+                for (const auto& edge : g.neighbors(u)) {
+                    if (!g.directed && u > edge.dst) continue;
+                    edges.push_back({u, edge.dst, edge.weight});
+                }
+            }
+            std::vector<int> ids = g.node_ids();
+            int n = ids.empty() ? 0 : ids.back() + 1;
+            return kruskal_max_mst(n, edges);
+        },
+        py::arg("g"),
+        "Kruskal maximum spanning tree from Graph.");
+
     gm.def("tarjan_scc",
         [](const Graph& g) { py::gil_scoped_release rel; return tarjan_scc(g); },
         py::arg("g"), "Tarjan strongly-connected components.");
@@ -354,6 +448,7 @@ void register_math(py::module_& m) {
         .def("row",  &Matrix::row, py::arg("r"))
         .def("transpose", &Matrix::transpose)
         .def("mul",   &Matrix::mul,   py::arg("rhs"))
+        .def("multiply", &Matrix::mul, py::arg("rhs"))
         .def("add",   &Matrix::add,   py::arg("rhs"))
         .def("sub",   &Matrix::sub,   py::arg("rhs"))
         .def("scale", &Matrix::scale, py::arg("s"))

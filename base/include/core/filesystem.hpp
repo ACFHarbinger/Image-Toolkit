@@ -11,7 +11,7 @@ namespace base::core {
 
 std::vector<std::string> get_files_by_extension(
     const std::string& directory,
-    const std::string& extension,
+    const std::vector<std::string>& extensions,
     bool recursive);
 
 int delete_files_by_extensions(

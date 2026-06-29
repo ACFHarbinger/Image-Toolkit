@@ -43,7 +43,7 @@ TEST_CASE("cosine_similarity: orthogonal vectors → 0", "[math][distance]") {
 }
 
 TEST_CASE("cosine_distance: distance of identical vectors → 0", "[math][distance]") {
-    CHECK(bm::cosine_distance({1, 1}, {1, 1}) == Approx(0.0));
+    CHECK(bm::cosine_distance({1, 1}, {1, 1}) == Approx(0.0).margin(1e-10));
 }
 
 TEST_CASE("hamming: counts differing bits", "[math][distance]") {

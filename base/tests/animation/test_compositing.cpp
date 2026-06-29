@@ -36,7 +36,8 @@ cv::Mat multiband_blend_impl(
     const std::vector<cv::Mat>& frames,
     const std::vector<cv::Mat>& masks,
     const std::vector<cv::Point>& corners,
-    int num_bands);
+    int num_bands = 5,
+    bool try_gpu = false);
 
 cv::Mat laplacian_blend_impl(
     const cv::Mat& fa, const cv::Mat& fb,

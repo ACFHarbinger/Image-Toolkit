@@ -9,7 +9,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cmath>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -207,7 +209,7 @@ void register_merger(py::module_& m) {
             return base::core::merge_images_horizontal(paths, out, spacing, align);
         },
         py::arg("image_paths"), py::arg("output_path"),
-        py::arg("spacing"), py::arg("align_mode"),
+        py::arg("spacing") = 0, py::arg("align_mode") = "center",
         "Merge images side-by-side. align_mode: top|bottom|center|stretch.");
 
     m.def("merge_images_vertical",
@@ -217,17 +219,28 @@ void register_merger(py::module_& m) {
             return base::core::merge_images_vertical(paths, out, spacing, align);
         },
         py::arg("image_paths"), py::arg("output_path"),
-        py::arg("spacing"), py::arg("align_mode"),
+        py::arg("spacing") = 0, py::arg("align_mode") = "center",
         "Merge images top-to-bottom. align_mode: left|right|center.");
 
     m.def("merge_images_grid",
         [](const std::vector<std::string>& paths, const std::string& out,
-           uint32_t rows, uint32_t cols, uint32_t spacing) {
+           std::optional<uint32_t> rows, std::optional<uint32_t> cols, uint32_t spacing) {
+            uint32_t r = rows ? *rows : 0;
+            uint32_t c = cols ? *cols : 0;
+            if (paths.empty()) return false;
+            if (r == 0 && c == 0) {
+                c = static_cast<uint32_t>(std::ceil(std::sqrt(paths.size())));
+                r = static_cast<uint32_t>((paths.size() + c - 1) / c);
+            } else if (r == 0) {
+                r = static_cast<uint32_t>((paths.size() + c - 1) / c);
+            } else if (c == 0) {
+                c = static_cast<uint32_t>((paths.size() + r - 1) / r);
+            }
             py::gil_scoped_release rel;
-            return base::core::merge_images_grid(paths, out, rows, cols, spacing);
+            return base::core::merge_images_grid(paths, out, r, c, spacing);
         },
         py::arg("image_paths"), py::arg("output_path"),
-        py::arg("rows"), py::arg("cols"), py::arg("spacing"),
+        py::arg("rows") = std::nullopt, py::arg("cols") = std::nullopt, py::arg("spacing") = 0,
         "Arrange images in a grid; cells are max(w)×max(h), images centered.");
 }
 

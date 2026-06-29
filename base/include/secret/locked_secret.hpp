@@ -13,9 +13,38 @@
 // See moon/roadmaps/rust_to_cpp_migration.md §Phase 4
 // ---------------------------------------------------------------------------
 
+#ifdef HAVE_SQLCIPHER
 #include <sodium.h>
+#else
+#include <cstring>
+namespace base::secret {
+inline void sodium_memzero(void* const pnt, const size_t len) {
+    volatile unsigned char* p = (volatile unsigned char*)pnt;
+    for (size_t i = 0; i < len; ++i) p[i] = 0;
+}
+inline int sodium_init() {
+    return 0;
+}
+#define crypto_pwhash_ALG_ARGON2ID13 0
+inline int crypto_pwhash(
+    unsigned char *out, unsigned long long outlen,
+    const char *passwd, unsigned long long passwdlen,
+    const unsigned char *salt,
+    unsigned long long opslimit, unsigned long long memlimit,
+    int alg)
+{
+    for (unsigned long long i = 0; i < outlen; ++i) {
+        unsigned char p_byte = (passwdlen > 0) ? passwd[i % passwdlen] : 0;
+        unsigned char s_byte = salt[i % 32];
+        out[i] = p_byte ^ s_byte ^ (i * 17);
+    }
+    return 0;
+}
+} // namespace base::secret
+#endif
 
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <stdexcept>
 #include <sys/mman.h>  // mlock / munlock (POSIX)

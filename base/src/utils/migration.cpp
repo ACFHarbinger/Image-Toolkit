@@ -164,8 +164,6 @@ bool run_legacy_migration(
 #endif
 }
 
-} // namespace base::utils
-
 // ---------------------------------------------------------------------------
 // pybind11 registration
 // ---------------------------------------------------------------------------
@@ -180,20 +178,23 @@ void register_migration(py::module_& m) {
         py::arg("username"), py::arg("password"),
         py::arg("json_path"), py::arg("db_path"),
         R"doc(
-Migrate a legacy JSON vault file to a SQLCipher-encrypted database.
+            Migrate a legacy JSON vault file to a SQLCipher-encrypted database.
 
-Parameters
-----------
-username  : str   Username used to derive the encryption key.
-password  : str   Password used to derive the encryption key.
-json_path : str   Path to the source JSON vault file.
-db_path   : str   Path for the destination SQLCipher database.
-Returns
--------
-bool   True on success.
+            Parameters
+            ----------
+                username  : str   Username used to derive the encryption key.
+                password  : str   Password used to derive the encryption key.
+                json_path : str   Path to the source JSON vault file.
+                db_path   : str   Path for the destination SQLCipher database.
 
-Raises
-------
-RuntimeError   If SQLCipher support was not compiled in.
+            Returns
+            -------
+                bool   True on success.
+
+            Raises
+            ------
+                RuntimeError   If SQLCipher support was not compiled in.
         )doc");
 }
+
+} // namespace base::utils
