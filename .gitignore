@@ -423,13 +423,9 @@ env/README.md
 /**/tmp/
 /**/temp/
 /**/mods/
-data/
 dump/
-images/
-models/
-outputs/
 CMakeFiles/
-backend/benchmark/output/
+backend/benchmark/output/*.json
 
 # Build directories
 /**/Image_Toolkit.egg-info
@@ -461,11 +457,5 @@ backend/src/animation/include/eigen3/unsupported
 .mypy_cache/
 
 # Forcefully add to path
-!tools/build
-!backend/src/models/
-!backend/src/models/data/
-!backend/src/utils/data
+!tools/build/
 !backend/src/utils/validation/target
-!backend/test/models/
-!gui/src/tabs/models/
-!gui/src/helpers/models/

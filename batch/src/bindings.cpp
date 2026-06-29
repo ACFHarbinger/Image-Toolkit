@@ -17,7 +17,9 @@
 
 namespace py = pybind11;
 
-// Forward declarations — implemented in their respective .cpp files
+// ---------------------------------------------------------------------------
+// Animation / Anime Stitch Pipeline submodules (complete — all 6 phases)
+// ---------------------------------------------------------------------------
 void register_matching(py::module_& m);
 void register_bundle_adjust(py::module_& m);
 void register_validation(py::module_& m);
@@ -30,17 +32,24 @@ void register_wave_correct(py::module_& m);
 void register_fg_register(py::module_& m);
 void register_sr_classical(py::module_& m);
 
+// ---------------------------------------------------------------------------
+// Rust base migration submodules (skeleton — Phases 2–5)
+// ---------------------------------------------------------------------------
+void register_image(py::module_& m);      // Phase 2: image I/O + filesystem
+void register_video(py::module_& m);       // Phase 3: video thumbnails
+void register_secret(py::module_& m);       // Phase 4: secure vector database
+void register_web(py::module_& m);        // Phase 5: HTTP request sequencing
+
 PYBIND11_MODULE(batch, m) {
     m.doc() = R"doc(
-        ASP compiled C++ extension — classical CV hot paths.
+        batch — unified C++ native extension for Image Toolkit.
 
-        This module provides accelerated implementations of the compute-heavy
-        classical CV stages in the Anime Stitch Pipeline.  Each submodule
-        mirrors the API of the Python module it replaces; the Python modules
-        fall back automatically to pure-Python when `batch` is absent.
+        Originally the ASP (Anime Stitch Pipeline) accelerated C++ layer;
+        now expanding to replace the Rust `base` module entirely.
+        See moon/roadmaps/rust_to_cpp_migration.md for the migration plan.
 
-        Submodules
-        ----------
+        Animation submodules (complete)
+        --------------------------------
         batch.matching        Phase correlation, edge graph, static edge filter
         batch.bundle_adjust   Affine bundle adjustment (GNC-TLS + Eigen LM)
         batch.validation      Affine sequence validation
@@ -53,11 +62,16 @@ PYBIND11_MODULE(batch, m) {
         batch.fg_register     ARAP solver, ECC refinement, SLIC-SGM proxy
         batch.sr_classical    DCT restoration, PSO registration, de-seam
 
-        See moon/roadmaps/asp_cpp_migration.md for the full design.
+        Rust base migration submodules (skeleton)
+        ------------------------------------------
+        batch.image           load_image_batch, scan_files  (Phase 2)
+        batch.video           extract_video_thumbnails_batch  (Phase 3)
+        batch.secret          insert/search/fetch/delete secure listings  (Phase 4)
+        batch.web             run_web_requests_sequence  (Phase 5)
     )doc";
 
     // ------------------------------------------------------------------
-    // Submodule definitions
+    // Animation submodules
     // ------------------------------------------------------------------
     auto m_matching  = m.def_submodule("matching",
         "Phase correlation, edge graph construction and static edge filtering.");
@@ -83,6 +97,22 @@ PYBIND11_MODULE(batch, m) {
         "DCT restoration, PSO sub-pixel registration, de-seam, Overmix L1 SR.");
 
     // ------------------------------------------------------------------
+    // Rust base migration submodules
+    // ------------------------------------------------------------------
+    auto m_images    = m.def_submodule("image",
+        "Parallel image batch loading, thumbnail generation, filesystem scan. "
+        "(Phase 2 — replaces Rust load_image_batch / scan_files)");
+    auto m_video     = m.def_submodule("video",
+        "Parallel video thumbnail extraction via OpenCV VideoCapture. "
+        "(Phase 3 — replaces Rust extract_video_thumbnails_batch)");
+    auto m_vault     = m.def_submodule("secret",
+        "Encrypted vector database: Argon2id KDF, SQLCipher, sqlite-vec, Arrow export. "
+        "(Phase 4 — replaces Rust secure_vector_db)");
+    auto m_http      = m.def_submodule("web",
+        "HTTP request sequencing with JSON config and progress callbacks. "
+        "(Phase 5 — replaces Rust run_web_requests_sequence)");
+
+    // ------------------------------------------------------------------
     // Register all submodule APIs
     // ------------------------------------------------------------------
     register_matching(m_matching);
@@ -96,4 +126,9 @@ PYBIND11_MODULE(batch, m) {
     register_wave_correct(m_wave);
     register_fg_register(m_fgreg);
     register_sr_classical(m_sr);
+
+    register_image(m_images);
+    register_video(m_video);
+    register_secret(m_vault);
+    register_web(m_http);
 }
