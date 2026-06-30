@@ -24435,7 +24435,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 <tbody>
 <tr>
 <td><strong>A.10 mypy baseline + TypedDict worker configs</strong> (<code>pyproject.toml</code>, <code>gui/src/helpers/core/config_types.py</code>)</td>
-<td>Added <code>[tool.mypy]</code> section: permissive baseline (<code>warn_return_any = false</code>, <code>ignore_missing_imports = true</code>) with per-module opt-in strictness for <code>backend.src.exceptions</code> and <code>backend.src.models.base</code>. New <code>config_types.py</code> defines <code>ConversionConfig</code>, <code>DeletionConfig</code>, <code>MergeConfig</code>, <code>StitchConfig</code> TypedDicts. Wired into <code>ConversionWorker.__init__</code>, <code>DeletionWorker.__init__</code>, <code>MergeWorker.__init__</code>; <code>Dict[str, Any]</code> imports removed.</td>
+<td>Added <code>[tool.mypy]</code> section: permissive baseline (<code>warn_return_any = false</code>, <code>ignore_missing_imports = true</code>) with per-module opt-in strictness for <code>backend.src.errors</code> and <code>backend.src.models.base</code>. New <code>config_types.py</code> defines <code>ConversionConfig</code>, <code>DeletionConfig</code>, <code>MergeConfig</code>, <code>StitchConfig</code> TypedDicts. Wired into <code>ConversionWorker.__init__</code>, <code>DeletionWorker.__init__</code>, <code>MergeWorker.__init__</code>; <code>Dict[str, Any]</code> imports removed.</td>
 </tr>
 <tr>
 <td><strong>A.11 <code>AppSettings</code> GUI facade</strong> (<code>gui/src/utils/settings.py</code>)</td>
