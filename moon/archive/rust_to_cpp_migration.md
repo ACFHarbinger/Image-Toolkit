@@ -1,6 +1,6 @@
 # Rust → C++ Migration Roadmap: `base/` (formerly `batch/`)
 
-**Status: COMPLETE — All 12 phases done. Rust base retired to `archive/rust/`. All 27 Python-exposed functions ported and verified.**
+**Status: COMPLETE — All 13 phases done. Rust base retired to `archive/rust/`. All Python-exposed functions ported and verified. C++ files refactored: one class per file, web module reorganised into `clients/`, `crawlers/`, and `cloud/` subdirs. Roadmap archived.**
 
 **Rename complete (Phase 7):** `batch/` has been renamed `base/`. The Rust PyO3 module has been archived
 to `archive/rust/`. `import base` now resolves to the C++ pybind11 extension directly.
@@ -933,4 +933,4 @@ is build unification and removal of the Rust ABI dependency.
 
 ## Document History
 
-*Created: 2026-06-29. Status: OPEN — Phase 1 not yet started.*
+*Created: 2026-06-29. Completed: 2026-06-30. All 13 phases done. Archived to `moon/archive/`.*

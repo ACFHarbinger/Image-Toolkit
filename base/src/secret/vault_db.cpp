@@ -12,7 +12,7 @@
 //     falls back to the Rust `base` module.
 //
 // Phase 4 of the Rust → C++ migration.
-// See moon/roadmaps/rust_to_cpp_migration.md §Phase 4
+// See moon/archive/rust_to_cpp_migration.md §Phase 4
 // ---------------------------------------------------------------------------
 
 #include "secret/vault_db.hpp"

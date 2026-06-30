@@ -5,7 +5,7 @@
 //
 // C++ replacement for Rust `base::load_image_batch`.
 // Implementation: Phase 2 of the Rust → C++ migration.
-// See moon/roadmaps/rust_to_cpp_migration.md §Phase 2
+// See moon/archive/rust_to_cpp_migration.md §Phase 2
 // ---------------------------------------------------------------------------
 
 #include "image/image_batch.hpp"
