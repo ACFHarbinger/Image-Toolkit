@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// batch/src/web/web_requests.cpp
+// base/src/web/clients/web_requests.cpp
 //
 // HTTP request sequencing driven by a JSON config.
 //
@@ -8,7 +8,6 @@
 //   - nlohmann/json (header-only, FetchContent): JSON parsing
 //
 // Phase 5 of the Rust → C++ migration.
-// See moon/roadmaps/rust_to_cpp_migration.md §Phase 5
 // ---------------------------------------------------------------------------
 
 #ifdef _WIN32

@@ -4,6 +4,17 @@
 
 ---
 
+## S203 — 2026-06-30 (Rust→C++ migration complete — file split + archive)
+
+**Finalise the Rust→C++ migration: one class per file, web module reorganised, roadmap archived.**
+
+- **board crawlers split** — `board_crawler.cpp` now includes per-class headers: `include/web/crawlers/crawler_base.hpp`, `danbooru.hpp`, `gelbooru.hpp`, `sankaku.hpp`. Orchestrator + registration remain in `board_crawler.cpp`.
+- **cloud sync split** — `cloud_sync.cpp` now includes per-class headers: `include/web/cloud/cloud_sync_base.hpp`, `dropbox_sync.hpp`, `google_drive_sync.hpp`, `onedrive_sync.hpp`. Orchestrator + registration remain in `cloud_sync.cpp`.
+- **web/clients/ subdir** — `web_requests.cpp`, `image_crawler.cpp`, `reverse_image_search.cpp` moved to `src/web/clients/` (mirrors Rust archive's `web/clients/` layout). `CMakeLists.txt` updated.
+- **Roadmap archived** — `moon/roadmaps/rust_to_cpp_migration.md` → `moon/archive/rust_to_cpp_migration.md`. Status updated to "All 13 phases done". Stale path references in `image_batch.cpp`, `video_batch.cpp`, `vault_db.cpp` updated.
+
+---
+
 ## S202 — 2026-06-29 (Rust→C++ migration Phase 13 — full math parity + scan_files_multi)
 
 **Phase 13: Close all remaining gaps between Rust archive math and C++ headers**

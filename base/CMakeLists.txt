@@ -132,8 +132,15 @@ pybind11_add_module(base
     src/secret/locked_secret.cpp
     src/secret/vault_db.cpp
 
-    # HTTP request sequencing (Phase 5)
-    src/web/web_requests.cpp
+    # HTTP + board crawlers + cloud sync (Phase 5 + 9)
+    # clients/: single-concept HTTP files
+    src/web/clients/web_requests.cpp
+    src/web/clients/image_crawler.cpp
+    src/web/clients/reverse_image_search.cpp
+    # board crawlers: orchestrator includes include/web/crawlers/{danbooru,gelbooru,sankaku}.hpp
+    src/web/board_crawler.cpp
+    # cloud sync: orchestrator includes include/web/cloud/{dropbox,google_drive,onedrive}_sync.hpp
+    src/web/cloud_sync.cpp
 
     # Phase 8: core (image/video conversion, filesystem, finder, merger, wallpaper)
     src/core/convert.cpp
@@ -141,12 +148,6 @@ pybind11_add_module(base
     src/core/finder.cpp
     src/core/merger.cpp
     src/core/wallpaper.cpp
-
-    # Phase 9: web extensions (board crawlers, cloud sync, stubs)
-    src/web/board_crawler.cpp
-    src/web/cloud_sync.cpp
-    src/web/reverse_image_search.cpp
-    src/web/image_crawler.cpp
 
     # Phase 10: utils (migration, slideshow daemon)
     src/utils/migration.cpp

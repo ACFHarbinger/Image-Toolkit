@@ -217,7 +217,7 @@ web-driver: helper::_print_header
 # Run the image crawler via CLI
 # Usage: just crawl "https://example.com/gallery" 20 "./downloads"
 crawl query limit="10" output="./downloads": helper::_print_header
-    just web::crawl query={{query}} limit={{limit}} output={{output}}
+    just web::crawl '{{query}}' '{{limit}}' '{{output}}'
 
 # --- LoRA Fine-Tuning ---
 
@@ -228,62 +228,62 @@ lora-setup-tagger: helper::_print_header
 # Caption all images in a directory with WD14 tags + optional Florence-2
 # Usage: just lora-tag data/my_character my_char_xyz
 lora-tag images=dataset trigger=trigger florence2="true": helper::_print_header
-    just model::lora-tag images={{images}} trigger={{trigger}} florence2={{florence2}}
+    just model::lora-tag '{{images}}' '{{trigger}}' '{{florence2}}'
 
 # Train a character LoRA on RTX 3090 Ti (24 GB)
 # Usage: just lora-train data/my_character my_char_xyz
 lora-train images=dataset trigger=trigger model=model size=size rank=rank: helper::_print_header
-    just model::lora-train images={{images}} trigger={{trigger}} model={{model}} size={{size}} rank={{rank}}
+    just model::lora-train '{{images}}' '{{trigger}}' '{{model}}' '{{size}}' '{{rank}}'
 
 # Train a character LoRA on RTX 4080 Laptop (16 GB)
 # Usage: just lora-train-4080 data/my_character my_char_xyz
 lora-train-4080 images=dataset trigger=trigger model=model size=size rank=rank: helper::_print_header
-    just model::lora-train-4080 images={{images}} trigger={{trigger}} model={{model}} size={{size}} rank={{rank}}
+    just model::lora-train-4080 '{{images}}' '{{trigger}}' '{{model}}' '{{size}}' '{{rank}}'
 
 # Train a LyCORIS LoCon LoRA (captures character + tied art style)
 # Usage: just lora-locon data/my_character my_char_xyz
 lora-locon images=dataset trigger=trigger model=model size=size: helper::_print_header
-    just model::lora-locon images={{images}} trigger={{trigger}} model={{model}} size={{size}}
+    just model::lora-locon '{{images}}' '{{trigger}}' '{{model}}' '{{size}}'
 
 # Train NoobAI-XL V-Prediction LoRA
 # Usage: just lora-train-vpred data/my_character my_char_xyz
 lora-train-vpred images=dataset trigger=trigger model=model size=size rank=rank: helper::_print_header
-    just model::lora-train-vpred images={{images}} trigger={{trigger}} model={{model}} size={{size}} rank={{rank}}
+    just model::lora-train-vpred '{{images}}' '{{trigger}}' '{{model}}' '{{size}}' '{{rank}}'
 
 # DreamBooth fine-tune with prior preservation (requires 24 GB)
 # Usage: just lora-dreambooth data/my_character my_char_xyz
 lora-dreambooth images=dataset trigger=trigger model=model class_prompt=class_prompt: helper::_print_header
-    just model::lora-dreambooth images={{images}} trigger={{trigger}} model={{model}} class_prompt={{class_prompt}}
+    just model::lora-dreambooth '{{images}}' '{{trigger}}' '{{model}}' '{{class_prompt}}'
 
 # Full SDXL checkpoint fine-tune with DeepSpeed ZeRO-2 (3090 Ti, ~12k steps)
 # Usage: just lora-full-ft data/my_character my_char_xyz
 lora-full-ft images=dataset trigger=trigger model=model: helper::_print_header
-    just model::lora-full-ft images={{images}} trigger={{trigger}} model={{model}}
+    just model::lora-full-ft '{{images}}' '{{trigger}}' '{{model}}'
 
 # Run the complete pipeline: tag → deduplicate → train (3090 Ti profile)
 # Usage: just lora-pipeline data/my_character my_char_xyz
 lora-pipeline images=dataset trigger=trigger model=model size=size: helper::_print_header
-    just model::lora-pipeline images={{images}} trigger={{trigger}} model={{model}} size={{size}}
+    just model::lora-pipeline '{{images}}' '{{trigger}}' '{{model}}' '{{size}}'
 
 # Analyse a trained LoRA checkpoint: SVD effective rank + weight delta heatmap
 # Usage: just lora-analyze outputs/my_char_lora/checkpoint-epoch0010
 lora-analyze checkpoint="outputs": helper::_print_header
-    just model::lora-analyze checkpoint={{checkpoint}}
+    just model::lora-analyze '{{checkpoint}}'
 
 # Launch TensorBoard to monitor active or completed training runs
 lora-tensorboard dir="runs": helper::_print_header
-    just model::lora-tensorboard dir={{dir}}
+    just model::lora-tensorboard '{{dir}}'
 
 # Embed an image icon as metadata into a safetensors file
 # Usage: just embed-icon path/to/model.safetensors path/to/icon.png
 embed-icon model_path image_path: helper::_print_header
-    just model::embed-icon model_path={{model_path}} image_path={{image_path}}
+    just model::embed-icon '{{model_path}}' '{{image_path}}'
 
 # --- External Repositories ---
 
 # Start ComfyUI headlessly (without the main desktop app)
 comfyui args="": helper::_print_header
-    just repository::comfyui args={{args}}
+    just repository::comfyui '{{args}}'
 
 # Stop any running ComfyUI instances
 comfyui-stop: helper::_print_header
@@ -299,17 +299,17 @@ gui-manager: helper::_print_header
 
 # Run the 'Perfect Stitch' pipeline on the default data directory
 perfect-stitch images="/home/pkhunter/Downloads/data/new/" output="/home/pkhunter/Downloads/data/new/stitched_panorama.png": helper::_print_header
-    just core::perfect-stitch images={{images}} output={{output}}
+    just core::perfect-stitch '{{images}}' '{{output}}'
 
 # Batch convert images in a directory
 # Usage: just convert-batch ./input_dir png
 convert-batch input format="png" output="": helper::_print_header
-    just core::convert-batch input={{input}} format={{format}} output={{output}}
+    just core::convert-batch '{{input}}' '{{format}}' '{{output}}'
 
 # Merge images into a strip or grid
 # Usage: just merge-images "./img1.png ./img2.png" ./output.png vertical
 merge-images inputs output direction="horizontal": helper::_print_header
-    just core::merge-images inputs={{inputs}} output={{output}} direction={{direction}}
+    just core::merge-images '{{inputs}}' '{{output}}' '{{direction}}'
 
 # Start the background slideshow daemon
 slideshow: helper::_print_header
@@ -319,7 +319,7 @@ slideshow: helper::_print_header
 
 # Count lines of code and comments
 count-loc group_by="0": helper::_print_header
-    just validation::count-loc group_by={{group_by}}
+    just validation::count-loc '{{group_by}}'
 
 # Tree view of lines of code and comments
 tree-loc: helper::_print_header
@@ -339,7 +339,7 @@ check-multi-classes: helper::_print_header
 
 # Find all relative imports
 check-relative-imports exclude_same_package="": helper::_print_header
-    just validation::check-relative-imports exclude_same_package={{exclude_same_package}}
+    just validation::check-relative-imports '{{exclude_same_package}}'
 
 # Check for nested imports
 check-nested-imports: helper::_print_header
@@ -351,7 +351,7 @@ check-nested-imports-stats: helper::_print_header
 
 # Detect circular import chains using Tarjan's SCC algorithm
 check-circular-imports html="": helper::_print_header
-    just validation::check-circular-imports html={{html}}
+    just validation::check-circular-imports '{{html}}'
 
 # Check that all concrete classes fully implement their ABC/Protocol interface contracts
 check-interface-compliance: helper::_print_header
@@ -359,15 +359,15 @@ check-interface-compliance: helper::_print_header
 
 # Measure type annotation coverage per file
 check-type-coverage sort="coverage" limit="40": helper::_print_header
-    just validation::check-type-coverage sort={{sort}} limit={{limit}}
+    just validation::check-type-coverage '{{sort}}' '{{limit}}'
 
 # Generate interactive module-level import graph (opens in browser)
 module-graph html="module_graph.html" depth="10": helper::_print_header
-    just validation::module-graph html={{html}} depth={{depth}}
+    just validation::module-graph '{{html}}' '{{depth}}'
 
 # Create a graph with exported and imported dependencies
 dependency-graph target_file="backend/src/utils/decorators.py" target_name="log_call": helper::_print_header
-    just validation::dependency-graph target_file={{target_file}} target_name={{target_name}}
+    just validation::dependency-graph '{{target_file}}' '{{target_name}}'
 
 # Check for embedded languages in the Python source code
 check-embedded-languages: helper::_print_header
@@ -385,7 +385,7 @@ check-constants: helper::_print_header
 
 # Commit staged changes with Gemini as co-author
 commit message: helper::_print_header
-    just helper::commit message={{message}}
+    just helper::commit '{{message}}'
 
 # Legacy alias for 'gui' — run Python/PySide6 app directly
 python args="": helper::_print_header
@@ -393,4 +393,4 @@ python args="": helper::_print_header
 
 # Loop the Claude Code agent on a stateful context
 loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps. After analysing the relevant files, but before beginning the implementation, always ask questions to clarify assumptions or missing requirements, and to select which options to purse from the specific roadmaps.": helper::_print_header
-    just agent::loop-agent prompt={{prompt}}
+    just agent::loop-agent '{{prompt}}'
