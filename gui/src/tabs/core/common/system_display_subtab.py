@@ -281,6 +281,9 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         scan_dir_layout = QHBoxLayout()
         self.scan_directory_path = QLineEdit()
         self.scan_directory_path.setPlaceholderText("Select directory to scan...")
+        self.scan_directory_path.returnPressed.connect(
+            lambda: self.populate_scan_image_gallery(self.scan_directory_path.text().strip())
+        )
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
         apply_shadow_effect(
