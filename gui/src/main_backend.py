@@ -2,6 +2,8 @@ from PySide6.QtCore import QObject, Property, Slot, Signal
 from gui.src.windows.settings_backend import SettingsBackend
 from gui.src.windows.log_backend import LogBackend
 from gui.src.windows.slideshow_backend import SlideshowBackend
+from gui.src.tabs.animation.stitch_tab_backend import StitchTabBackend
+from gui.src.tabs.core.listings_tab import ListingsTab
 from gui.src.tabs import (
     ConvertTab,
     DeleteTab,
@@ -51,6 +53,12 @@ class MainBackend(QObject):
         self._generate_tab = UnifiedGenerateTab()
         self._eval_tab = R3GANEvaluateTab()
         self._inference_tab = MetaCLIPInferenceTab()
+
+        # Listings tab
+        self._listings_tab = ListingsTab(vault_manager=vault_manager)
+
+        # Animation tab backends
+        self._stitch_tab = StitchTabBackend(self)
 
         # Windows Backends
         self._settings_backend = SettingsBackend(self)
@@ -162,3 +170,11 @@ class MainBackend(QObject):
 
     @Property(QObject, constant=True)
     def metaClipInferenceTab(self): return self._inference_tab
+
+    # --- Listings Properties ---
+    @Property(QObject, constant=True)
+    def listingsTab(self): return self._listings_tab
+
+    # --- Animation Properties ---
+    @Property(QObject, constant=True)
+    def stitchTab(self): return self._stitch_tab
