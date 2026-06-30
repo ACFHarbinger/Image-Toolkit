@@ -1,4 +1,21 @@
 cmake_minimum_required(VERSION 3.18)
+
+# Suppress deprecation warnings from older dependencies (pybind11, Eigen, FindCUDA)
+if(POLICY CMP0146)
+    cmake_policy(SET CMP0146 OLD)
+endif()
+if(POLICY CMP0148)
+    cmake_policy(SET CMP0148 OLD)
+endif()
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 OLD)
+endif()
+
+# Set as default so it propagates to FetchContent subdirectories
+set(CMAKE_POLICY_DEFAULT_CMP0146 OLD)
+set(CMAKE_POLICY_DEFAULT_CMP0148 OLD)
+set(CMAKE_POLICY_DEFAULT_CMP0167 OLD)
+
 project(base CXX)
 
 set(CMAKE_CXX_STANDARD 17)
