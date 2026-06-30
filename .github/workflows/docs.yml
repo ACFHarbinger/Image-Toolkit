@@ -155,6 +155,7 @@ jobs:
             --exclude 'cpp-httplib-server\.yhirose\.repl\.co'
             --exclude 'https://sigops\.org/s/conferences/sosp'
             --exclude 'https://www\.postgresql\.org'
+            --exclude 'https://vitest\.dev'
             '**/*.md'
           fail: true
 
