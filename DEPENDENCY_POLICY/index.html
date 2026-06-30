@@ -1792,10 +1792,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#rust" class="md-nav__link">
+  <a href="#c-base" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rust
+        C++ (base/)
       
     </span>
   </a>
@@ -2593,10 +2593,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#rust" class="md-nav__link">
+  <a href="#c-base" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rust
+        C++ (base/)
       
     </span>
   </a>
@@ -2820,7 +2820,7 @@
 <ol>
 <li><strong>Is it already available?</strong> Check existing dependencies first — <code>numpy</code>, <code>opencv-python</code>, <code>scipy</code>, <code>torch</code>, <code>pillow</code> already cover most image and numerical tasks.</li>
 <li><strong>What is the maintenance status?</strong> Prefer packages with a release in the last 12 months, a responsive issue tracker, and &gt;100 GitHub stars (or a major institution as maintainer).</li>
-<li><strong>What is the transitive footprint?</strong> Run <code>pip install --dry-run &lt;package&gt;</code> or <code>cargo tree -d &lt;crate&gt;</code> to enumerate transitive dependencies. Flag anything that pulls in <code>openssl</code>, <code>libstdc++</code>, or native libraries that could conflict with the existing JPype/PyO3 ABI layer.</li>
+<li><strong>What is the transitive footprint?</strong> Run <code>pip install --dry-run &lt;package&gt;</code> to enumerate transitive dependencies. Flag anything that pulls in <code>openssl</code>, <code>libstdc++</code>, or native libraries that could conflict with the existing JPype/JVM or pybind11 ABI layer.</li>
 <li><strong>Does it have a compatible license?</strong> Permitted licenses: MIT, Apache-2.0, BSD-&#8532;, MPL-2.0, ISC. Prohibited: GPL (except for tools, not linked into the app), LGPL without dynamic linking, SSPL, BSL. Check with <code>pip-licenses</code> or <code>cargo-deny</code>.</li>
 <li><strong>Is there a security history?</strong> Check <a href="https://osv.dev/">osv.dev</a> and <a href="https://deps.dev/">deps.dev</a> for known CVEs before adding.</li>
 </ol>
@@ -2856,14 +2856,14 @@
 <ul>
 <li><strong>PyTorch:</strong> Pin to a specific CUDA version in CI to avoid downloading multiple CUDA runtime copies. Use <code>torch~=2.3+cu121</code> for RTX 3090 Ti / 4080 builds.</li>
 <li><strong>PySide6:</strong> Pin to an exact minor version. PySide6 <code>6.x.y</code> and <code>6.x.(y+1)</code> can break binary compatibility on Linux. The JPype JVM bridge is sensitive to PySide6 minor releases.</li>
-<li><strong>maturin:</strong> Used to build the PyO3 Rust extension. Pin to the same version locally and in CI to avoid ABI mismatches between the <code>.so</code> in the lockfile and the one CI builds.</li>
+<li><strong>pybind11:</strong> Pin to the same minor version in <code>pyproject.toml</code> and in the CMake <code>FetchContent</code> declaration to avoid ABI mismatches between the <code>.so</code> the dev builds and what CI builds.</li>
 <li><strong>Avoid at the top level of <code>animation/</code> or <code>compositing.py</code>:</strong> <code>diffusers</code>, <code>transformers</code>, <code>accelerate</code>. These must be lazy-imported (see §3.10 in <code>performance.md</code>).</li>
 </ul>
-<h3 id="rust">Rust<a class="headerlink" href="#rust" title="Permanent link">&para;</a></h3>
+<h3 id="c-base">C++ (<code>base/</code>)<a class="headerlink" href="#c-base" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>pyo3:</strong> The <code>abi3-py311</code> feature locks the extension to Python 3.11+. Do not downgrade this ABI target — it determines which Python versions can use the compiled <code>base</code> module.</li>
-<li><strong>rayon:</strong> Thread pool is shared with the test suite. Avoid spawning additional rayon pools in tests; use <code>rayon::ThreadPoolBuilder::new().num_threads(1).build_global()</code> in test fixtures that need deterministic ordering.</li>
-<li><strong>image crate:</strong> The <code>webp</code> feature is required. Do not enable the <code>jpeg_rayon</code> feature — it conflicts with the existing rayon pool under heavy parallelism.</li>
+<li><strong>pybind11:</strong> The extension targets the active Python 3.11+ ABI. Do not mix pybind11 versions across the CMake configure and the Python package — they must agree.</li>
+<li><strong>OpenMP:</strong> Thread pool is shared with the test suite. Tests that need deterministic ordering should set <code>OMP_NUM_THREADS=1</code> in the environment.</li>
+<li><strong>OpenCV:</strong> Only use <code>opencv-python-headless</code> in the Python layer; never link the Qt-based <code>opencv-python</code> (it ships its own Qt and conflicts with PySide6).</li>
 </ul>
 <h3 id="nodejs-electron">Node.js / Electron<a class="headerlink" href="#nodejs-electron" title="Permanent link">&para;</a></h3>
 <ul>

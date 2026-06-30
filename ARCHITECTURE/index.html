@@ -2979,8 +2979,8 @@ Edges point from consumer → provider (i.e. "depends on").</p>
         RECENG["Recommendation-Engine/\n(SQLite + cosine RRF)"]
     end
 
-    subgraph RustCore["Rust Core  ·  base/"]
-        RUST["PyO3 extension\n(image_converter,\nfile_system, crawlers)"]
+    subgraph CppCore["C++ Core  ·  base/"]
+        RUST["pybind11 extension\n(image_converter,\nfile_system, crawlers)"]
         RUSTMATH["math/\n(stats, distance,\ninformation)"]
     end
 
@@ -3063,8 +3063,8 @@ Edges point from consumer → provider (i.e. "depends on").</p>
 <td>Qt threading contract</td>
 </tr>
 <tr>
-<td>Rust core is a <code>cdylib</code> loaded at runtime (not <code>staticlib</code>)</td>
-<td>PyO3/Maturin constraint; <code>crate-type = ["cdylib", "rlib"]</code> in <code>base/Cargo.toml</code></td>
+<td>C++ core is a shared library loaded at runtime</td>
+<td>pybind11/CMake; built as a Python extension module (<code>.so</code>) via <code>just build-base</code></td>
 </tr>
 <tr>
 <td>No SQLite in the main app (PostgreSQL + pgvector only)</td>

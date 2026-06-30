@@ -2358,7 +2358,7 @@ The project mission is to provide a unified environment for managing massive ima
 <h2 id="2-technical-stack-governance">2. Technical Stack &amp; Governance<a class="headerlink" href="#2-technical-stack-governance" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Runtime</strong>: Python 3.11+ (managed via <code>uv</code>, <code>conda</code>, or <code>venv</code>). <strong>Agent Rule</strong>: Always run <code>source .venv/bin/activate</code> at the start of a task.</li>
-<li><strong>Core Logic</strong>: Rust (via PyO3/Maturin) for high-performance IO and processing.</li>
+<li><strong>Core Logic</strong>: C++ (via pybind11/CMake) for high-performance IO and processing.</li>
 <li><strong>Backend</strong>: Python Orchestrator, PostgreSQL (<code>pgvector</code>), PyTorch, OpenCV.</li>
 <li><strong>GUI</strong>: PySide6 (Qt for Python).</li>
 <li><strong>Frontend/Mobile</strong>: React, Kotlin (Android), Swift (iOS).</li>
@@ -2376,7 +2376,7 @@ The project mission is to provide a unified environment for managing massive ima
 <tbody>
 <tr>
 <td style="text-align: left;"><strong>Sync Environment</strong></td>
-<td style="text-align: left;"><code>bash scripts/setup_env.sh</code></td>
+<td style="text-align: left;"><code>bash desktop/linux/scripts/setup_env.sh</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Activate Venv</strong></td>
@@ -2408,7 +2408,7 @@ The project mission is to provide a unified environment for managing massive ima
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Helper Conversion</strong></td>
-<td style="text-align: left;"><code>bash scripts/convert_images.sh</code></td>
+<td style="text-align: left;"><code>bash desktop/linux/cli/convert_images.sh</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Build Desktop App</strong></td>
@@ -2423,8 +2423,8 @@ The project mission is to provide a unified environment for managing massive ima
 <td style="text-align: left;"><code>npm run test-frontend</code></td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>Run Rust Tests</strong></td>
-<td style="text-align: left;"><code>cd base &amp;&amp; cargo test</code></td>
+<td style="text-align: left;"><strong>Run C++ Tests</strong></td>
+<td style="text-align: left;"><code>just test-base-cpp</code></td>
 </tr>
 </tbody>
 </table>
@@ -2456,19 +2456,19 @@ The project mission is to provide a unified environment for managing massive ima
 <h2 id="4-architecture-module-instructions">4. Architecture &amp; Module Instructions<a class="headerlink" href="#4-architecture-module-instructions" title="Permanent link">&para;</a></h2>
 <h3 id="a-core-backend-the-engine">A. Core &amp; Backend (The Engine)<a class="headerlink" href="#a-core-backend-the-engine" title="Permanent link">&para;</a></h3>
 <h4 id="base-module-base">Base Module (<code>base/</code>)<a class="headerlink" href="#base-module-base" title="Permanent link">&para;</a></h4>
-<p><strong>Rust Core</strong>. High-performance implementation of image processing, crawling, and sync logic.
+<p><strong>C++ Core</strong>. High-performance implementation of image processing, crawling, and sync logic. Built with CMake + pybind11; the former Rust/PyO3 implementation is archived at <code>archive/rust/</code>.
 *   <strong>Core</strong>: File system scanning (<code>file_system</code>), Image operations (<code>image_converter</code>, <code>image_merger</code>, <code>image_finder</code>), Video (<code>video_converter</code>), Wallpaper (<code>wallpaper</code>).
 *   <strong>Web</strong>:
-    *   <strong>Crawlers</strong>: <code>danbooru</code>, <code>gelbooru</code>, <code>sankaku</code>, <code>image_crawler</code> (generic Selenium).
+    *   <strong>Crawlers</strong>: <code>danbooru</code>, <code>gelbooru</code>, <code>sankaku</code>, <code>image_crawler</code> (generic Selenium stub — no C++ WebDriver).
     *   <strong>Sync</strong>: <code>dropbox_sync</code>, <code>google_drive_sync</code>, <code>one_drive_sync</code>.
 *   <strong>Utils</strong>: Standalone binaries like <code>slideshow_daemon</code>.
-*   <strong>Interface</strong>: <code>lib.rs</code> (PyO3 entry point).</p>
+*   <strong>Interface</strong>: <code>base/src/bindings.cpp</code> (pybind11 entry point).</p>
 <h4 id="backend-module-backend">Backend Module (<code>backend/</code>)<a class="headerlink" href="#backend-module-backend" title="Permanent link">&para;</a></h4>
-<p><strong>Python Orchestrator</strong>. Wraps Rust core, handles DB and ML.
-*   <strong>Core</strong>: Wrappers for Rust functions, <code>image_database.py</code> (DB), <code>vault_manager.py</code> (Security).
+<p><strong>Python Orchestrator</strong>. Wraps C++ core, handles DB and ML.
+*   <strong>Core</strong>: Wrappers for C++ functions, <code>image_database.py</code> (DB), <code>vault_manager.py</code> (Security).
 *   <strong>Models</strong>: Pure Python/PyTorch ML implementations.
-*   <strong>Web</strong>: Wrappers for Rust crawlers.
-*   <strong>Standards</strong>: Keep Python wrappers thin. Implement heavy logic in Rust.</p>
+*   <strong>Web</strong>: Wrappers for C++ crawlers.
+*   <strong>Standards</strong>: Keep Python wrappers thin. Implement heavy logic in C++.</p>
 <h4 id="tasks-api-tasks-api">Tasks &amp; API (<code>tasks/</code> &amp; <code>api/</code>)<a class="headerlink" href="#tasks-api-tasks-api" title="Permanent link">&para;</a></h4>
 <p><strong>Django/Celery Layer</strong>. Bridge between synchronous API and heavy backend logic.
 *   <strong>API</strong>: Root Django config (<code>settings.py</code>, <code>urls.py</code>).
