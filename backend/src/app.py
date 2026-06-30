@@ -1,3 +1,4 @@
+import os
 import sys
 import signal
 import logging
@@ -146,6 +147,7 @@ def launch_app(opts):
         Replaces the LoginWindow.
         """
         nonlocal active_window
+
 
         # 1. Close the login window if it's still around
         if active_window and isinstance(active_window, LoginWindow):
