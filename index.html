@@ -2369,7 +2369,7 @@
 
 
 <h1 id="image-toolkit-documentation">Image-Toolkit Documentation<a class="headerlink" href="#image-toolkit-documentation" title="Permanent link">&para;</a></h1>
-<p><strong>Image-Toolkit</strong> is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV, Rust/PyO3) with robust web automation (Selenium) and cross-platform accessibility.</p>
+<p><strong>Image-Toolkit</strong> is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV, C++/pybind11) with robust web automation (Selenium) and cross-platform accessibility.</p>
 <hr />
 <h2 id="whats-here">What's here<a class="headerlink" href="#whats-here" title="Permanent link">&para;</a></h2>
 <table>
@@ -2390,19 +2390,19 @@
 </tr>
 <tr>
 <td><a href="TROUBLESHOOTING/">Troubleshooting</a></td>
-<td>PySide6 crashes, ASP errors, Rust builds, Hydra, mobile</td>
+<td>PySide6 crashes, ASP errors, C++ builds, Hydra, mobile</td>
 </tr>
 <tr>
 <td><a href="api/python/animation/">Python API</a></td>
 <td>Auto-generated reference from Google-style docstrings</td>
 </tr>
 <tr>
-<td><a href="api/rust/math/">Rust API</a></td>
+<td><a href="api/rust/math/">C++ API</a></td>
 <td>Math backbone: linalg, stats, distance, information, graph</td>
 </tr>
 <tr>
 <td><a href="BENCHMARKS/">Benchmarks</a></td>
-<td>ASP corpus, Rust criterion, frontend math benchmarks</td>
+<td>ASP corpus, C++ Catch2, frontend math benchmarks</td>
 </tr>
 <tr>
 <td><a href="DEPENDENCY_POLICY/">Dependency Policy</a></td>
@@ -2434,7 +2434,7 @@
 
     subgraph Backend["Backend Layer"]
         PY["Python Orchestrator\nbackend/"]
-        RU["Rust Core (PyO3/Rayon)\nbase/src/"]
+        RU["C++ Core (pybind11/OpenMP)\nbase/src/"]
         ML["PyTorch Models\nbackend/src/models/"]
         HY["Hydra CLI\nbackend/dispatcher"]   
     end
@@ -2444,9 +2444,9 @@
         VT["VaultManager\nAES-256-GCM"]
     end
 
-    FE --&gt;|Tauri IPC| RU
+    FE --&gt;|Tauri IPC| PY
     FE --&gt;|REST / WebSocket| PY
-    PY --&gt;|PyO3 FFI| RU
+    PY --&gt;|pybind11 FFI| RU
     PY --&gt;|SQL| PG
     PY --&gt; ML
     HY --&gt; PY

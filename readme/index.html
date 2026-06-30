@@ -4141,8 +4141,8 @@
 <a href="https://pytorch.org/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white"></a>
 <a href="https://opencv.org/"><img alt="OpenCV" src="https://img.shields.io/badge/OpenCV-5C3EE8?logo=opencv&logoColor=white"></a>
 <a href="https://www.selenium.dev/"><img alt="Selenium" src="https://img.shields.io/badge/Selenium-43B02A?logo=selenium&logoColor=white"></a>
-<a href="https://pyo3.rs/"><img alt="PyO3" src="https://img.shields.io/badge/PyO3-Bridge-3776AB?logo=rust&logoColor=white"></a>
-<a href="https://maturin.rs/"><img alt="Maturin" src="https://img.shields.io/badge/Maturin-Build-E57300?logo=rust&logoColor=white"></a>
+<a href="https://pybind11.readthedocs.io/"><img alt="pybind11" src="https://img.shields.io/badge/pybind11-Bridge-3776AB?logo=cplusplus&logoColor=white"></a>
+<a href="https://cmake.org/"><img alt="CMake" src="https://img.shields.io/badge/CMake-Build-064F8C?logo=cmake&logoColor=white"></a>
 
 </br>
 
@@ -4323,11 +4323,11 @@
 </span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="c1"># Batch image conversion via the main CLI</span>
 </span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>python<span class="w"> </span>main.py<span class="w"> </span>convert<span class="w"> </span>--output_format<span class="w"> </span>png<span class="w"> </span>--input_path<span class="w"> </span>/path/to/images<span class="w"> </span>--input_formats<span class="w"> </span>webp<span class="w"> </span>avif
 </span></code></pre></div>
-<p>Config files live in <code>backend/config/</code>. Override any key with <code>key=value</code> on the command line. The <code>asp_config.toml</code> in the project root configures the Anime Stitch Pipeline — see <code>backend/src/animation/config.py</code> for the schema.</p>
+<p>Config files live in <code>backend/config/</code>. Override any key with <code>key=value</code> on the command line. <code>backend/config/asp_config.toml</code> configures the Anime Stitch Pipeline — see <code>backend/src/animation/config.py</code> for the schema.</p>
 <hr />
 <h3 id="python-pyside6-desktop-gui">Python PySide6 Desktop GUI<a class="headerlink" href="#python-pyside6-desktop-gui" title="Permanent link">&para;</a></h3>
 <p>The legacy Qt-based desktop application provides a full feature set including the gallery, stitch tab, wallpaper manager, and crawlers.</p>
-<p><strong>Prerequisites:</strong> Python venv activated, PostgreSQL running, <code>base</code> Rust module built (<code>cd base &amp;&amp; maturin develop --release</code>).</p>
+<p><strong>Prerequisites:</strong> Python venv activated, PostgreSQL running, <code>base</code> C++ module built (<code>just build-base</code>).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Launch the GUI</span>
@@ -4442,10 +4442,10 @@
 </span></code></pre></div></p>
 <p><strong>Utility scripts</strong>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Batch image conversion helper</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>bash<span class="w"> </span>scripts/convert_images.sh
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>bash<span class="w"> </span>desktop/linux/cli/convert_images.sh
 </span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
 </span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Environment setup / dependency sync</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>bash<span class="w"> </span>scripts/setup_env.sh
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>bash<span class="w"> </span>desktop/linux/scripts/setup_env.sh
 </span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
 </span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># Check module import times (validates &lt;1.5s threshold for all animation modules)</span>
 </span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
@@ -4466,7 +4466,7 @@
 <h3 id="tech-stack">Tech Stack<a class="headerlink" href="#tech-stack" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Frontend:</strong> <a href="https://react.dev/">React</a> + <a href="https://www.typescriptlang.org/">TypeScript</a> + <a href="https://tauri.app/">Tauri</a></li>
-<li><strong>Backend:</strong> <a href="https://www.rust-lang.org/">Rust</a> (PyO3) + <a href="https://www.python.org/">Python</a></li>
+<li><strong>Backend:</strong> C++ (pybind11) + <a href="https://www.python.org/">Python</a></li>
 <li><strong>Database:</strong> <a href="https://www.postgresql.org/">PostgreSQL</a> + <a href="https://github.com/pgvector/pgvector">pgvector</a></li>
 <li><strong>Legacy GUI:</strong> <a href="https://doc.qt.io/qtforpython-6/">PySide6</a></li>
 <li><strong>Mobile:</strong> <a href="https://kotlinlang.org/">Kotlin</a> (Android) + <a href="https://www.swift.org/">Swift</a> (iOS)</li>
@@ -5053,9 +5053,8 @@ Formats both Rust and TypeScript code.</p>
 <h4 id="python-backend-issues">Python Backend Issues<a class="headerlink" href="#python-backend-issues" title="Permanent link">&para;</a></h4>
 <p><strong>Error:</strong> <code>ModuleNotFoundError: No module named 'base'</code></p>
 <p><strong>Solution:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-88-1"><a id="__codelineno-88-1" name="__codelineno-88-1" href="#__codelineno-88-1"></a><span class="c1"># Build the Rust-Python bindings</span>
-</span><span id="__span-88-2"><a id="__codelineno-88-2" name="__codelineno-88-2" href="#__codelineno-88-2"></a><span class="nb">cd</span><span class="w"> </span>base
-</span><span id="__span-88-3"><a id="__codelineno-88-3" name="__codelineno-88-3" href="#__codelineno-88-3"></a>maturin<span class="w"> </span>develop<span class="w"> </span>--release
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-88-1"><a id="__codelineno-88-1" name="__codelineno-88-1" href="#__codelineno-88-1"></a><span class="c1"># Build the C++ pybind11 extension</span>
+</span><span id="__span-88-2"><a id="__codelineno-88-2" name="__codelineno-88-2" href="#__codelineno-88-2"></a>just<span class="w"> </span>build-base
 </span></code></pre></div></p>
 <h4 id="tauri-build-fails">Tauri Build Fails<a class="headerlink" href="#tauri-build-fails" title="Permanent link">&para;</a></h4>
 <p><strong>Error:</strong> <code>webkit2gtk-4.1 not found</code></p>

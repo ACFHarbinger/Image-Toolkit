@@ -2419,7 +2419,7 @@ and covers four views across three C4 levels.</p>
 </table>
 <h2 id="key-architectural-decisions-captured">Key architectural decisions captured<a class="headerlink" href="#key-architectural-decisions-captured" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>PyO3 FFI boundary</strong> — all IO-heavy and math-heavy logic lives in Rust; the Python backend calls it via the compiled <code>base</code> extension.</li>
+<li><strong>pybind11 FFI boundary</strong> — all IO-heavy and math-heavy logic lives in C++; the Python backend calls it via the compiled <code>base</code> extension.</li>
 <li><strong>JPype JVM bridge</strong> — <code>VaultManager</code> starts the JVM once at login (before Qt initialises) and calls into the Kotlin <code>cryptoModule</code> for AES-256-GCM operations. This avoids native-dialog RTTI conflicts (see TROUBLESHOOTING.md).</li>
 <li><strong>Celery task dispatch</strong> — every REST endpoint returns <code>{task_id, status: "processing"}</code> with HTTP 202. No blocking calls in the Django views.</li>
 <li><strong>pgvector for semantic search</strong> — CLIP embeddings stored as <code>vector(512)</code> columns; nearest-neighbour queries use the <code>ivfflat</code> index.</li>

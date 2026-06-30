@@ -1764,15 +1764,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rust-rustdoc-comments" class="md-nav__link">
+  <a href="#c-doxygen-comments" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rust (rustdoc /// comments)
+        C++ (Doxygen /// comments)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Rust (rustdoc /// comments)">
+    <nav class="md-nav" aria-label="C++ (Doxygen /// comments)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2804,15 +2804,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rust-rustdoc-comments" class="md-nav__link">
+  <a href="#c-doxygen-comments" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rust (rustdoc /// comments)
+        C++ (Doxygen /// comments)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Rust (rustdoc /// comments)">
+    <nav class="md-nav" aria-label="C++ (Doxygen /// comments)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3289,8 +3289,8 @@
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>pytest<span class="w"> </span>--doctest-modules<span class="w"> </span>backend/src/animation/
 </span></code></pre></div>
 <hr />
-<h2 id="rust-rustdoc-comments"><a id="rust-rustdoc--comments"></a>Rust (rustdoc <code>///</code> comments)<a class="headerlink" href="#rust-rustdoc-comments" title="Permanent link">&para;</a></h2>
-<p>All public items (<code>pub fn</code>, <code>pub struct</code>, <code>pub enum</code>, <code>pub trait</code>, <code>pub const</code>) in <code>base/src/</code> must have <code>///</code> doc comments. Crate-level and module-level documentation uses <code>//!</code> at the top of <code>lib.rs</code> and each <code>mod.rs</code>.</p>
+<h2 id="c-doxygen-comments"><a id="cpp-doxygen-comments"></a>C++ (Doxygen <code>///</code> comments)<a class="headerlink" href="#c-doxygen-comments" title="Permanent link">&para;</a></h2>
+<p>All public functions and classes in <code>base/include/</code> and <code>base/src/</code> must have Doxygen <code>///</code> block comments. Module-level documentation uses a <code>@file</code> block at the top of each header.</p>
 <h3 id="required-sections_1">Required sections<a class="headerlink" href="#required-sections_1" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3305,46 +3305,36 @@
 <td>Always</td>
 </tr>
 <tr>
-<td><code># Arguments</code></td>
+<td><code>@param</code></td>
 <td>Function has ≥ 2 non-trivial parameters</td>
 </tr>
 <tr>
-<td><code># Panics</code></td>
-<td>Function calls <code>panic!</code>, <code>unwrap()</code>, <code>expect()</code>, or <code>assert!()</code></td>
+<td><code>@throws</code></td>
+<td>Function throws or propagates exceptions</td>
 </tr>
 <tr>
-<td><code># Examples</code></td>
-<td>Public function in <code>base/src/math/</code> or any PyO3-exported function</td>
+<td><code>@example</code></td>
+<td>Public function in <code>base/include/math/</code> or any pybind11-exported function</td>
 </tr>
 </tbody>
 </table>
 <h3 id="format_1">Format<a class="headerlink" href="#format_1" title="Permanent link">&para;</a></h3>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="sd">/// Euclidean (L2) distance between two equal-length vectors.</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="sd">///</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="sd">/// # Panics</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="sd">///</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="sd">/// Panics if `a` and `b` have different lengths.</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="sd">///</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="sd">/// # Examples</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="sd">///</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="sd">/// ```</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="sd">/// use base::math::distance::euclidean;</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="sd">/// assert!((euclidean(&amp;[0.0, 0.0], &amp;[3.0, 4.0]) - 5.0).abs() &lt; 1e-10);</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="sd">/// ```</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">euclidean</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">f64</span><span class="p">],</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">f64</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">f64</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="n">squared_euclidean</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">).</span><span class="n">sqrt</span><span class="p">()</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="p">}</span>
+<div class="language-cpp highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">/// Euclidean (L2) distance between two equal-length vectors.</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1">///</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">/// @param a First vector.</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">/// @param b Second vector (must be the same length as `a`).</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">/// @returns L2 distance ≥ 0.</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1">/// @throws std::invalid_argument if `a` and `b` have different lengths.</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="kt">double</span><span class="w"> </span><span class="nf">euclidean</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">b</span><span class="p">);</span>
 </span></code></pre></div>
 <h3 id="rules_1">Rules<a class="headerlink" href="#rules_1" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code># Examples</code> blocks must compile and pass via <code>cargo test --doc</code>.</li>
-<li>Avoid redundant comments like <code>/// Sets the value of x</code> on <code>pub fn set_x()</code>.</li>
-<li><code>#[inline]</code> functions with trivially obvious behaviour (forwarding, casting) are exempt from <code># Examples</code> but must have at least a summary line.</li>
-<li>PyO3-exported functions (<code>#[pyfunction]</code>) must additionally document what Python type each argument maps to in the summary or a <code># Python</code> section.</li>
+<li>Avoid redundant comments like <code>/// Sets x</code> on <code>set_x()</code>.</li>
+<li>pybind11-registered functions must document the Python type each argument maps to (e.g., <code>list[float]</code> → <code>std::vector&lt;double&gt;</code>).</li>
 </ul>
 <h3 id="enforcement_1">Enforcement<a class="headerlink" href="#enforcement_1" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--doc
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>cargo<span class="w"> </span>doc<span class="w"> </span>--no-deps<span class="w"> </span>--document-private-items<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;^warning&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>doxygen<span class="w"> </span>Doxyfile<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;^warning&quot;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>just<span class="w"> </span>test-base-cpp<span class="w">   </span><span class="c1"># Catch2 tests exercise all public APIs</span>
 </span></code></pre></div>
 <hr />
 <h2 id="typescript-tsdoc">TypeScript (TSDoc)<a class="headerlink" href="#typescript-tsdoc" title="Permanent link">&para;</a></h2>
@@ -3535,8 +3525,8 @@
 <td>Python type annotations (strict modules)</td>
 </tr>
 <tr>
-<td><code>cargo test --doc</code></td>
-<td>Rust doc-tests (run via <code>make doc-test</code>)</td>
+<td><code>just test-base-cpp</code></td>
+<td>C++ Catch2 tests covering all public base APIs</td>
 </tr>
 <tr>
 <td><code>typedoc</code></td>
@@ -3552,7 +3542,7 @@
 <p>See <code>.github/workflows/docs.yml</code> and <code>.github/workflows/ci.yml</code>. The following are blocking on every PR:</p>
 <ul>
 <li><code>mkdocs build --strict</code> — broken links or missing doc pages fail the build.</li>
-<li><code>cargo test --doc</code> — any failing Rust doc-test fails the build.</li>
+<li><code>just test-base-cpp</code> — any failing C++ Catch2 test fails the build.</li>
 <li><code>pydoclint</code> — undocumented public functions in <code>backend/src/animation/</code> fail the build.</li>
 <li><code>lychee</code> — broken internal Markdown links fail the build.</li>
 </ul>
