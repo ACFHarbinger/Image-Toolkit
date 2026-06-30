@@ -178,4 +178,4 @@ nav:
 
 # Hooks — symlink moon/ and reports/ content into docs/ at build time
 hooks:
-  - docs/hooks.py
+  - hooks.py
