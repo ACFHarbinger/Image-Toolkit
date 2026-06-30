@@ -15,6 +15,8 @@ on:
       - 'app/android/src/**/*.kt'
       - 'docs/mkdocs.yml'
       - '.github/workflows/docs.yml'
+      - 'base/CMakeLists.txt'
+      - 'base/tests/CMakeLists.txt'
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, closed]
