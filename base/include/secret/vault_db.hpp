@@ -34,15 +34,20 @@ namespace base::secret {
 void insert_listing_secure(
     const std::string&         db_path,
     const std::string&         password,
+    const std::string&         salt,
     const std::string&         listing_id,
-    py::array_t<float>         embedding,
-    const std::string&         metadata_json);
+    const std::string&         category,
+    const std::string&         title,
+    const std::string&         metadata_json,
+    const std::string&         date_added,
+    py::array_t<float>         embedding);
 
 /// Hybrid cosine + BM25 search.
 /// Returns a Python list of dicts: [{"id": str, "score": float, "metadata": str}, ...]
 py::list hybrid_search_secure(
     const std::string&         db_path,
     const std::string&         password,
+    const std::string&         salt,
     py::array_t<float>         query_embedding,
     const std::string&         bm25_query,
     int                        top_k = 10);
@@ -51,12 +56,14 @@ py::list hybrid_search_secure(
 /// Returns a Python list of dicts: [{"id": str, "embedding": ndarray, "metadata": str}, ...]
 py::list fetch_all_listings_secure(
     const std::string&         db_path,
-    const std::string&         password);
+    const std::string&         password,
+    const std::string&         salt);
 
 /// Delete a listing by ID.  Returns true if the row was found and deleted.
 bool delete_listing_secure(
     const std::string&         db_path,
     const std::string&         password,
+    const std::string&         salt,
     const std::string&         listing_id);
 
 // ---------------------------------------------------------------------------
@@ -70,6 +77,7 @@ bool delete_listing_secure(
 
 py::tuple fetch_listings_as_arrow_pointers(
     const std::string&         db_path,
-    const std::string&         password);
+    const std::string&         password,
+    const std::string&         salt);
 
 } // namespace base::secret

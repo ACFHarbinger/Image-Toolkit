@@ -22,7 +22,7 @@ class ImageScannerWorker(QObject):
 
         # Handle single string or list input
         if isinstance(directories, (str, os.PathLike)):
-            self.directories = [str(directories)]
+            self.directories = [directories]
         elif isinstance(directories, list):
             self.directories = [d for d in directories if d and os.path.isdir(d)]
         else:
@@ -84,8 +84,8 @@ class ImageScannerWorker(QObject):
 
         try:
             if HAS_NATIVE_IMAGING:
-                # rust-based parallel scan
-                all_image_paths = base.scan_files(
+                # cpp-based parallel scan
+                all_image_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
                     self.directories, list(SUPPORTED_IMG_FORMATS), True
                 )
                 if self._is_cancelled:

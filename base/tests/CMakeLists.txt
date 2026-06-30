@@ -90,8 +90,9 @@ target_include_directories(base_impl PUBLIC
 )
 
 if(SQLCIPHER_FOUND AND SODIUM_FOUND)
-    target_include_directories(base_impl PUBLIC ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS})
-    target_link_libraries(base_impl PUBLIC ${SQLCIPHER_LIBRARIES} ${SODIUM_LIBRARIES})
+    target_include_directories(base_impl PUBLIC ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS} /usr/include /usr/include/sqlcipher)
+    target_link_libraries(base_impl PUBLIC sqlcipher sodium argon2)
+    target_link_directories(base_impl PUBLIC /usr/lib/x86_64-linux-gnu ${CMAKE_CURRENT_SOURCE_DIR}/../../.pixi/envs/default/lib)
     target_compile_definitions(base_impl PUBLIC HAVE_SQLCIPHER=1)
 endif()
 

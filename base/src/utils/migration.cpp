@@ -16,7 +16,7 @@ namespace py = pybind11;
 namespace fs = std::filesystem;
 
 #ifdef HAVE_SQLCIPHER
-#  include <sqlcipher/sqlite3.h>
+#  include <sqlite3.h>
 #  include <nlohmann/json.hpp>
    using json = nlohmann::json;
 #endif

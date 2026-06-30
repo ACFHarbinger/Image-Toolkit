@@ -34,7 +34,10 @@ namespace py = pybind11;
 
 #ifdef HAVE_SQLCIPHER
 
-#include <sqlcipher/sqlite3.h>
+#include <sqlite3.h>
+extern "C" {
+    int sqlite3_key(sqlite3 *db, const void *pKey, int nKey);
+}
 #include <sodium.h>
 
 #include <algorithm>
@@ -43,10 +46,11 @@ namespace py = pybind11;
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <iomanip>
 #include <numeric>
 #include <sstream>
-
+#include <argon2.h>
 namespace fs = std::filesystem;
 
 // ---------------------------------------------------------------------------
@@ -87,8 +91,8 @@ namespace base::secret {
 
 static constexpr int SALT_BYTES     = 32;
 static constexpr int KEY_BYTES      = 32;   // AES-256
-static constexpr int OPSLIMIT       = 3;    // crypto_pwhash_OPSLIMIT_INTERACTIVE
-static constexpr int MEMLIMIT       = 1 << 26; // 64 MiB
+static constexpr int OPSLIMIT       = 2;    // crypto_pwhash_OPSLIMIT_INTERACTIVE
+static constexpr int MEMLIMIT       = 19456ULL * 1024; // 19 MB
 
 // RAII wrapper for SQLite3 db handle
 struct DbHandle {
@@ -97,68 +101,47 @@ struct DbHandle {
 };
 
 // Derive 32-byte key from password + salt using Argon2id
-static std::vector<uint8_t> derive_key(const std::string& password,
-                                        const uint8_t*     salt)
-{
+static std::vector<uint8_t> derive_key(const std::string& password, const std::string& salt_str) {
     std::vector<uint8_t> key(KEY_BYTES, 0);
-    if (crypto_pwhash(key.data(), KEY_BYTES,
-                      password.c_str(), password.size(),
-                      salt,
-                      OPSLIMIT, MEMLIMIT,
-                      crypto_pwhash_ALG_ARGON2ID13) != 0)
-        throw std::runtime_error("base::secret: Argon2id key derivation out of memory");
+    
+    // 1. Hash the salt string with SHA-256 to produce exactly 32 bytes
+    std::vector<uint8_t> salt(32, 0);
+    crypto_hash_sha256(salt.data(), reinterpret_cast<const unsigned char*>(salt_str.c_str()), salt_str.size());
+
+    // 2. Use argon2id_hash_raw with 32-byte salt (which libsodium does not expose)
+    int rc = argon2id_hash_raw(OPSLIMIT, 19456, 1, // m_cost is 19456 KB
+                               password.c_str(), password.size(),
+                               salt.data(), salt.size(),
+                               key.data(), key.size());
+    if (rc != ARGON2_OK)
+        throw std::runtime_error("base::secret: Argon2id key derivation failed");
     return key;
 }
 
-// Load or generate the salt sidecar file ({db_path}.salt)
-static std::vector<uint8_t> load_or_create_salt(const std::string& db_path) {
-    std::string salt_path = db_path + ".salt";
-    std::vector<uint8_t> salt(SALT_BYTES);
-    if (fs::exists(salt_path)) {
-        std::ifstream f(salt_path, std::ios::binary);
-        f.read(reinterpret_cast<char*>(salt.data()), SALT_BYTES);
-        if (!f || static_cast<int>(f.gcount()) != SALT_BYTES)
-            throw std::runtime_error("base::secret: corrupt salt file: " + salt_path);
-    } else {
-        randombytes_buf(salt.data(), SALT_BYTES);
-        if (fs::path(db_path).has_parent_path())
-            fs::create_directories(fs::path(db_path).parent_path());
-        std::ofstream f(salt_path, std::ios::binary);
-        f.write(reinterpret_cast<const char*>(salt.data()), SALT_BYTES);
-    }
-    return salt;
-}
-
 // Open (or create) an SQLCipher database, apply the DEK
-static DbHandle open_db(const std::string& db_path, const std::string& password) {
-    auto salt = load_or_create_salt(db_path);
-    auto key  = derive_key(password, salt.data());
+static DbHandle open_db(const std::string& db_path, const std::string& password, const std::string& salt_str) {
+    auto key  = derive_key(password, salt_str);
 
     DbHandle h;
     if (sqlite3_open(db_path.c_str(), &h.db) != SQLITE_OK)
         throw std::runtime_error("base::secret: sqlite3_open failed: " + db_path);
 
-    // Pass the raw 32-byte key via PRAGMA key using blob literal
-    std::ostringstream pragma;
-    pragma << "PRAGMA key = \"x'";
-    for (auto b : key) { pragma << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b); }
-    pragma << "'\";";
+    if (sqlite3_key(h.db, key.data(), key.size()) != SQLITE_OK) {
+        throw std::runtime_error("base::secret: sqlite3_key failed");
+    }
     sodium_memzero(key.data(), key.size());
 
     char* errmsg = nullptr;
-    if (sqlite3_exec(h.db, pragma.str().c_str(), nullptr, nullptr, &errmsg) != SQLITE_OK) {
-        std::string err = errmsg ? errmsg : "unknown";
-        sqlite3_free(errmsg);
-        throw std::runtime_error("base::secret: PRAGMA key failed: " + err);
-    }
-
     // Initialize schema
     const char* schema = R"sql(
         CREATE TABLE IF NOT EXISTS listings (
             id          TEXT PRIMARY KEY,
+            category    TEXT NOT NULL,
+            title       TEXT NOT NULL,
+            metadata    TEXT NOT NULL DEFAULT '{}',
+            date_added  TEXT NOT NULL,
             embedding   BLOB NOT NULL,
-            dim         INTEGER NOT NULL,
-            metadata    TEXT NOT NULL DEFAULT '{}'
+            dim         INTEGER NOT NULL
         );
     )sql";
     if (sqlite3_exec(h.db, schema, nullptr, nullptr, &errmsg) != SQLITE_OK) {
@@ -184,9 +167,13 @@ static float cosine_sim(const float* a, const float* b, int dim) {
 void insert_listing_secure(
     const std::string&  db_path,
     const std::string&  password,
+    const std::string&  salt,
     const std::string&  listing_id,
-    py::array_t<float>  embedding,
-    const std::string&  metadata_json)
+    const std::string&  category,
+    const std::string&  title,
+    const std::string&  metadata_json,
+    const std::string&  date_added,
+    py::array_t<float>  embedding)
 {
     auto buf  = embedding.request();
     if (buf.ndim != 1)
@@ -194,23 +181,29 @@ void insert_listing_secure(
     int dim = static_cast<int>(buf.size);
     const float* data = static_cast<const float*>(buf.ptr);
 
-    auto h = open_db(db_path, password);
+    auto h = open_db(db_path, password, salt);
 
     const char* sql = R"sql(
-        INSERT INTO listings (id, embedding, dim, metadata)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET embedding=excluded.embedding,
-                                      dim=excluded.dim,
-                                      metadata=excluded.metadata;
+        INSERT INTO listings (id, category, title, metadata, date_added, embedding, dim)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET category=excluded.category,
+                                      title=excluded.title,
+                                      metadata=excluded.metadata,
+                                      date_added=excluded.date_added,
+                                      embedding=excluded.embedding,
+                                      dim=excluded.dim;
     )sql";
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(h.db, sql, -1, &stmt, nullptr) != SQLITE_OK)
         throw std::runtime_error("base::secret: prepare INSERT failed");
 
     sqlite3_bind_text(stmt, 1, listing_id.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_blob(stmt, 2, data, dim * sizeof(float), SQLITE_STATIC);
-    sqlite3_bind_int (stmt, 3, dim);
+    sqlite3_bind_text(stmt, 2, category.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, title.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 4, metadata_json.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, date_added.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_blob(stmt, 6, data, dim * sizeof(float), SQLITE_STATIC);
+    sqlite3_bind_int (stmt, 7, dim);
 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -222,6 +215,7 @@ void insert_listing_secure(
 py::list hybrid_search_secure(
     const std::string& db_path,
     const std::string& password,
+    const std::string& salt,
     py::array_t<float> query_embedding,
     const std::string& /*bm25_query*/,
     int                top_k)
@@ -232,7 +226,7 @@ py::list hybrid_search_secure(
     int dim = static_cast<int>(buf.size);
     const float* qdata = static_cast<const float*>(buf.ptr);
 
-    auto h = open_db(db_path, password);
+    auto h = open_db(db_path, password, salt);
 
     sqlite3_stmt* stmt = nullptr;
     const char* sql = "SELECT id, embedding, dim, metadata FROM listings;";
@@ -267,20 +261,24 @@ py::list hybrid_search_secure(
 
 py::list fetch_all_listings_secure(
     const std::string& db_path,
-    const std::string& password)
+    const std::string& password,
+    const std::string& salt)
 {
-    auto h = open_db(db_path, password);
+    auto h = open_db(db_path, password, salt);
 
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT id, metadata FROM listings;";
+    const char* sql = "SELECT id, category, title, metadata, date_added FROM listings;";
     if (sqlite3_prepare_v2(h.db, sql, -1, &stmt, nullptr) != SQLITE_OK)
         throw std::runtime_error("base::secret: prepare SELECT failed");
 
     py::list result;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         std::string id   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-        std::string meta = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        result.append(py::make_tuple(id, meta));
+        std::string cat  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        std::string tit  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        std::string meta = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        std::string date = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+        result.append(py::make_tuple(id, cat, tit, meta, date));
     }
     sqlite3_finalize(stmt);
     return result;
@@ -289,9 +287,10 @@ py::list fetch_all_listings_secure(
 bool delete_listing_secure(
     const std::string& db_path,
     const std::string& password,
+    const std::string& salt,
     const std::string& listing_id)
 {
-    auto h = open_db(db_path, password);
+    auto h = open_db(db_path, password, salt);
 
     sqlite3_stmt* stmt = nullptr;
     const char* sql = "DELETE FROM listings WHERE id = ?;";
@@ -309,9 +308,10 @@ bool delete_listing_secure(
 // The caller is responsible for releasing via the release callback.
 py::tuple fetch_listings_as_arrow_pointers(
     const std::string& db_path,
-    const std::string& password)
+    const std::string& password,
+    const std::string& salt)
 {
-    auto hdl = open_db(db_path, password);
+    auto hdl = open_db(db_path, password, salt);
 
     sqlite3_stmt* stmt = nullptr;
     const char* sql = "SELECT id, metadata FROM listings;";
@@ -457,8 +457,9 @@ py::tuple fetch_listings_as_arrow_pointers(
 namespace base::secret {
 
 void insert_listing_secure(
-    const std::string&, const std::string&, const std::string&,
-    py::array_t<float>, const std::string&)
+    const std::string&, const std::string&, const std::string&, const std::string&,
+    const std::string&, const std::string&, const std::string&, const std::string&,
+    py::array_t<float>)
 {
     throw py::type_error(
         "batch.secret.insert_listing_secure: built without SQLCipher. "
@@ -466,7 +467,7 @@ void insert_listing_secure(
 }
 
 py::list hybrid_search_secure(
-    const std::string&, const std::string&, py::array_t<float>,
+    const std::string&, const std::string&, const std::string&, py::array_t<float>,
     const std::string&, int)
 {
     throw py::type_error(
@@ -474,21 +475,21 @@ py::list hybrid_search_secure(
         "Falling back to Rust base module.");
 }
 
-py::list fetch_all_listings_secure(const std::string&, const std::string&) {
+py::list fetch_all_listings_secure(const std::string&, const std::string&, const std::string&) {
     throw py::type_error(
         "batch.secret.fetch_all_listings_secure: built without SQLCipher. "
         "Falling back to Rust base module.");
 }
 
 bool delete_listing_secure(
-    const std::string&, const std::string&, const std::string&)
+    const std::string&, const std::string&, const std::string&, const std::string&)
 {
     throw py::type_error(
         "batch.secret.delete_listing_secure: built without SQLCipher. "
         "Falling back to Rust base module.");
 }
 
-py::tuple fetch_listings_as_arrow_pointers(const std::string&, const std::string&) {
+py::tuple fetch_listings_as_arrow_pointers(const std::string&, const std::string&, const std::string&) {
     throw py::type_error(
         "batch.secret.fetch_listings_as_arrow_pointers: built without SQLCipher. "
         "Falling back to Rust base module.");
@@ -517,15 +518,20 @@ void register_secret(py::module_& m) {
           &base::secret::insert_listing_secure,
           py::arg("db_path"),
           py::arg("password"),
+          py::arg("salt"),
           py::arg("listing_id"),
+          py::arg("category"),
+          py::arg("title"),
+          py::arg("metadata_json"),
+          py::arg("date_added"),
           py::arg("embedding"),
-          py::arg("metadata_json") = "{}",
           "Insert or update a listing in the encrypted database.");
 
     m.def("hybrid_search_secure",
           &base::secret::hybrid_search_secure,
           py::arg("db_path"),
           py::arg("password"),
+          py::arg("salt"),
           py::arg("query_embedding"),
           py::arg("bm25_query")    = "",
           py::arg("top_k")         = 10,
@@ -536,12 +542,14 @@ void register_secret(py::module_& m) {
           &base::secret::fetch_all_listings_secure,
           py::arg("db_path"),
           py::arg("password"),
+          py::arg("salt"),
           "Fetch all (id, metadata_json) pairs from the encrypted database.");
 
     m.def("delete_listing_secure",
           &base::secret::delete_listing_secure,
           py::arg("db_path"),
           py::arg("password"),
+          py::arg("salt"),
           py::arg("listing_id"),
           "Delete a listing by ID. Returns True if found and deleted.");
 
@@ -549,6 +557,7 @@ void register_secret(py::module_& m) {
           &base::secret::fetch_listings_as_arrow_pointers,
           py::arg("db_path"),
           py::arg("password"),
+          py::arg("salt"),
           "Zero-copy bulk export via Apache Arrow C Data Interface. "
           "Returns (array_ptr: int, schema_ptr: int). "
           "Call ArrowArray.release / ArrowSchema.release to free.");
