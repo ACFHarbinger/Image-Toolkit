@@ -1,10 +1,65 @@
 version: 2
+
+# Note: C++ dependencies (CMake/vcpkg/Conan in base/) have no native
+# Dependabot ecosystem support and are therefore not tracked here.
+
 updates:
+  # ── Python ────────────────────────────────────────────────────────────────
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
     groups:
-       production-dependencies:
-          patterns:
-            - "*"
+      production-dependencies:
+        patterns:
+          - "*"
+
+  # ── Rust / Cargo ──────────────────────────────────────────────────────────
+  # Root workspace (Cargo.toml) covers frontend/src-tauri as a member.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      rust-dependencies:
+        patterns:
+          - "*"
+
+  # ── Kotlin / Gradle ───────────────────────────────────────────────────────
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      kotlin-root-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "gradle"
+    directory: "/app/android"
+    schedule:
+      interval: "weekly"
+    groups:
+      kotlin-android-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "gradle"
+    directory: "/cryptography"
+    schedule:
+      interval: "weekly"
+    groups:
+      kotlin-cryptography-dependencies:
+        patterns:
+          - "*"
+
+  # ── TypeScript / npm ──────────────────────────────────────────────────────
+  # Root package.json is an npm workspace that includes frontend/ as a member.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"

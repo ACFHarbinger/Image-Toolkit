@@ -1,14 +1,14 @@
 # Architectural Analysis Prompt
 
-**Intent:** Use Chain-of-Thought reasoning to explore the Python/Rust boundary in Image-Toolkit.
+**Intent:** Use Chain-of-Thought reasoning to explore the Python/C++ boundary in Image-Toolkit.
 
 ## The Prompt
 
-I need to understand the interface between the high-performance Rust core and the Python backend.
+I need to understand the interface between the high-performance C++ core and the Python backend.
 
 Using **Chain-of-Thought reasoning**, analyze the relationship between:
-- The Rust bindings in `base/src/lib.rs` (specifically image processing or scanning functions).
+- The C++ bindings in `base/src/bindings.cpp` (specifically image processing or scanning functions).
 - The Python wrapper in `backend/src/core/` (e.g., `wallpaper_manager.py` or image service).
-- The data structures passed: Paths, Image Buffers (PyBytes), or NumPy arrays.
+- The data structures passed: Paths, Image Buffers (pybind11 `py::bytes`), or NumPy arrays via `py::array_t`.
 
-Explain potential bottlenecks in data marshalling (e.g., is image data being copied unnecessarily?) and suggest if `PyO3` usage is optimized (e.g., using `PyBuffer` protocol) based on the provided code.
+Explain potential bottlenecks in data marshalling (e.g., is image data being copied unnecessarily?) and suggest if pybind11 usage is optimized (e.g., using zero-copy `py::array_t` with `py::buffer_protocol`) based on the provided code.

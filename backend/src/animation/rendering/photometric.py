@@ -17,7 +17,7 @@ from scipy.optimize import least_squares
 from backend.src.animation.core.stateless import _luma
 
 try:
-    from backend.src.animation import batch as _batch_photo
+    from backend.src.animation import base as _batch_photo
     _BATCH_PHOTO = hasattr(_batch_photo, "exposure") and hasattr(
         _batch_photo.exposure, "correct_vignetting"
     )

@@ -88,51 +88,41 @@ pytest --doctest-modules backend/src/animation/
 
 ---
 
-## <a id="rust-rustdoc--comments"></a>Rust (rustdoc `///` comments)
+## <a id="cpp-doxygen-comments"></a>C++ (Doxygen `///` comments)
 
-All public items (`pub fn`, `pub struct`, `pub enum`, `pub trait`, `pub const`) in `base/src/` must have `///` doc comments. Crate-level and module-level documentation uses `//!` at the top of `lib.rs` and each `mod.rs`.
+All public functions and classes in `base/include/` and `base/src/` must have Doxygen `///` block comments. Module-level documentation uses a `@file` block at the top of each header.
 
 ### Required sections
 
 | Section | Required when |
 |---------|--------------|
 | Summary line | Always |
-| `# Arguments` | Function has ≥ 2 non-trivial parameters |
-| `# Panics` | Function calls `panic!`, `unwrap()`, `expect()`, or `assert!()` |
-| `# Examples` | Public function in `base/src/math/` or any PyO3-exported function |
+| `@param` | Function has ≥ 2 non-trivial parameters |
+| `@throws` | Function throws or propagates exceptions |
+| `@example` | Public function in `base/include/math/` or any pybind11-exported function |
 
 ### Format
 
-```rust
+```cpp
 /// Euclidean (L2) distance between two equal-length vectors.
 ///
-/// # Panics
-///
-/// Panics if `a` and `b` have different lengths.
-///
-/// # Examples
-///
-/// ```
-/// use base::math::distance::euclidean;
-/// assert!((euclidean(&[0.0, 0.0], &[3.0, 4.0]) - 5.0).abs() < 1e-10);
-/// ```
-pub fn euclidean(a: &[f64], b: &[f64]) -> f64 {
-    squared_euclidean(a, b).sqrt()
-}
+/// @param a First vector.
+/// @param b Second vector (must be the same length as `a`).
+/// @returns L2 distance ≥ 0.
+/// @throws std::invalid_argument if `a` and `b` have different lengths.
+double euclidean(const std::vector<double>& a, const std::vector<double>& b);
 ```
 
 ### Rules
 
-- `# Examples` blocks must compile and pass via `cargo test --doc`.
-- Avoid redundant comments like `/// Sets the value of x` on `pub fn set_x()`.
-- `#[inline]` functions with trivially obvious behaviour (forwarding, casting) are exempt from `# Examples` but must have at least a summary line.
-- PyO3-exported functions (`#[pyfunction]`) must additionally document what Python type each argument maps to in the summary or a `# Python` section.
+- Avoid redundant comments like `/// Sets x` on `set_x()`.
+- pybind11-registered functions must document the Python type each argument maps to (e.g., `list[float]` → `std::vector<double>`).
 
 ### Enforcement
 
 ```bash
-cargo test --doc
-cargo doc --no-deps --document-private-items 2>&1 | grep "^warning"
+doxygen Doxyfile 2>&1 | grep "^warning"
+just test-base-cpp   # Catch2 tests exercise all public APIs
 ```
 
 ---
@@ -337,7 +327,7 @@ See `.pre-commit-config.yaml` for the full hook list. Key hooks:
 | `pydoclint` | Google-style docstring completeness for Python |
 | `ruff` | Python linting + auto-fix |
 | `mypy` | Python type annotations (strict modules) |
-| `cargo test --doc` | Rust doc-tests (run via `make doc-test`) |
+| `just test-base-cpp` | C++ Catch2 tests covering all public base APIs |
 | `typedoc` | TypeScript TSDoc completeness |
 | `lychee` | Broken links in Markdown files |
 
@@ -346,7 +336,7 @@ See `.pre-commit-config.yaml` for the full hook list. Key hooks:
 See `.github/workflows/docs.yml` and `.github/workflows/ci.yml`. The following are blocking on every PR:
 
 - `mkdocs build --strict` — broken links or missing doc pages fail the build.
-- `cargo test --doc` — any failing Rust doc-test fails the build.
+- `just test-base-cpp` — any failing C++ Catch2 test fails the build.
 - `pydoclint` — undocumented public functions in `backend/src/animation/` fail the build.
 - `lychee` — broken internal Markdown links fail the build.
 

@@ -37,7 +37,7 @@ dependencies = [
     "jpype1>=1.6.0",
     "kornia>=0.8.2",
     "loguru>=0.7.3",
-    "maturin>=1.10.2",
+    "pybind11>=2.11",
     "moviepy>=1.0.3",
     "msal>=1.34.0",
     "numpy>=2.3.4",
@@ -117,16 +117,12 @@ dev = [
 
 # BUILD CONFIG
 [build-system]
-requires = ["setuptools>=61", "wheel", "maturin>=1.0,<2.0", "cffi"]
-build-backend = "maturin"
-
-[tool.maturin]
-manifest-path = "base/Cargo.toml"
-features = ["python"]
+requires = ["setuptools>=61", "wheel", "cffi"]
+build-backend = "setuptools.build_meta"
 
 [tool.uv]
-# This tells uv to rebuild the Rust code if any .rs files change
-cache-keys = [{ file = "base/Cargo.toml" }, { file = "base/src/**/*.rs" }]
+# Rebuild the C++ extension if CMakeLists or source files change
+cache-keys = [{ file = "base/CMakeLists.txt" }, { file = "base/src/**/*.cpp" }, { file = "base/include/**/*.hpp" }]
 
 # Tell setuptools EXACTLY what to package
 [tool.setuptools.packages.find]

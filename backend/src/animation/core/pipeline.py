@@ -182,7 +182,7 @@ except ImportError:
     Image = None  # type: ignore[assignment]
 
 try:
-    from backend.src.animation import batch as _batch
+    from backend.src.animation import base as _batch
     _HAS_BATCH: bool = True
 except ImportError:
     _batch = None  # type: ignore[assignment]

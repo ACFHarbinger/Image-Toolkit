@@ -151,7 +151,7 @@ python -m backend.dispatcher command=train training.batch_size=16 training.epoch
 python main.py convert --output_format png --input_path /path/to/images --input_formats webp avif
 ```
 
-Config files live in `backend/config/`. Override any key with `key=value` on the command line. The `asp_config.toml` in the project root configures the Anime Stitch Pipeline — see `backend/src/animation/config.py` for the schema.
+Config files live in `backend/config/`. Override any key with `key=value` on the command line. `backend/config/asp_config.toml` configures the Anime Stitch Pipeline — see `backend/src/animation/config.py` for the schema.
 
 ---
 
@@ -159,7 +159,7 @@ Config files live in `backend/config/`. Override any key with `key=value` on the
 
 The legacy Qt-based desktop application provides a full feature set including the gallery, stitch tab, wallpaper manager, and crawlers.
 
-**Prerequisites:** Python venv activated, PostgreSQL running, `base` Rust module built (`cd base && maturin develop --release`).
+**Prerequisites:** Python venv activated, PostgreSQL running, `base` C++ module built (`just build-base`).
 
 ```bash
 source .venv/bin/activate
@@ -318,10 +318,10 @@ npx ts-node src/math/benchmark.ts
 **Utility scripts**
 ```bash
 # Batch image conversion helper
-bash scripts/convert_images.sh
+bash desktop/linux/cli/convert_images.sh
 
 # Environment setup / dependency sync
-bash scripts/setup_env.sh
+bash desktop/linux/scripts/setup_env.sh
 
 # Check module import times (validates <1.5s threshold for all animation modules)
 source .venv/bin/activate
@@ -343,7 +343,7 @@ python backend/src/utils/check_import_times.py
 
 ### Tech Stack
 - **Frontend:** [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) + [Tauri](https://tauri.app/)
-- **Backend:** [Rust](https://www.rust-lang.org/) (PyO3) + [Python](https://www.python.org/)
+- **Backend:** C++ (pybind11) + [Python](https://www.python.org/)
 - **Database:** [PostgreSQL](https://www.postgresql.org/) + [pgvector](https://github.com/pgvector/pgvector)
 - **Legacy GUI:** [PySide6](https://doc.qt.io/qtforpython-6/)
 - **Mobile:** [Kotlin](https://kotlinlang.org/) (Android) + [Swift](https://www.swift.org/) (iOS)
@@ -1030,9 +1030,8 @@ brew install openssl@3
 
 **Solution:**
 ```bash
-# Build the Rust-Python bindings
-cd base
-maturin develop --release
+# Build the C++ pybind11 extension
+just build-base
 ```
 
 #### Tauri Build Fails

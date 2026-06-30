@@ -22,7 +22,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    import batch
+    import base as batch
     _BATCH_CANVAS = True
 except ImportError:
     _BATCH_CANVAS = False

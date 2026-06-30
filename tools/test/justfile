@@ -5,38 +5,47 @@ set shell := ["bash", "-c"]
 set unstable := true
 set working-directory := '../..'
 
-# Run all tests (frontend + Rust)
+# Run all tests (frontend + Tauri)
 test:
-    @echo "🧪 Running tests..."
+    @echo "Running tests..."
     npm run test
     cd frontend/src-tauri && cargo test
 
-# Build + run native C++ batch tests via ctest (Catch2). Pure C++ — no Python required.
-test-batch-cpp:
-    @echo "🔧 Building C++ batch tests..."
-    cmake -B build/batch batch/ \
+# Build + run native C++ base tests via ctest (Catch2). Pure C++ — no Python required.
+test-base-cpp:
+    @echo "Building C++ base tests..."
+    cmake -B build/base base/ \
         -DCMAKE_BUILD_TYPE=Debug \
         -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
-        -DBATCH_BUILD_TESTS=ON \
-        && cmake --build build/batch --target batch_tests -j$(nproc)
-    @echo "🧪 Running native C++ batch tests..."
-    ctest --test-dir build/batch -V --output-on-failure
-    @echo "✅ Native C++ batch tests complete."
+        -DBASE_BUILD_TESTS=ON \
+        && cmake --build build/base --target base_tests -j$(nproc)
+    @echo "Running native C++ base tests..."
+    ctest --test-dir build/base -V --output-on-failure
+    @echo "Native C++ base tests complete."
+
+# Alias kept for backwards compatibility during transition
+test-batch-cpp: test-base-cpp
 
 # Run Python parity tests (C++ vs Python reference implementations).
-# Requires batch to be built first.
-test-batch-py:
-    @echo "🧪 Running Python batch parity + import tests..."
+# Requires base to be built first.
+test-base-py:
+    @echo "Running Python base parity + import tests..."
     source .venv/bin/activate \
     && pytest backend/test/animation/batch/ --skip-gpu -q --tb=short -m "not slow"
-    @echo "✅ Python batch parity tests complete."
+    @echo "Python base parity tests complete."
+
+# Alias kept for backwards compatibility during transition
+test-batch-py: test-base-py
 
 # Run speedup benchmarks (Python reference vs C++). Slow — opt-in only.
-test-batch-bench:
-    @echo "⏱️  Running batch speedup benchmarks (slow)..."
+test-base-bench:
+    @echo "Running base speedup benchmarks (slow)..."
     source .venv/bin/activate \
     && pytest backend/test/animation/batch/test_batch_benchmarks.py -v -m slow
-    @echo "✅ Batch benchmarks complete."
+    @echo "Base benchmarks complete."
 
-# Run all batch tests: native C++ + Python parity (excludes slow benchmarks)
-test-cpp: test-batch-cpp test-batch-py
+# Alias kept for backwards compatibility during transition
+test-batch-bench: test-base-bench
+
+# Run all base tests: native C++ + Python parity (excludes slow benchmarks)
+test-cpp: test-base-cpp test-base-py

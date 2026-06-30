@@ -392,10 +392,10 @@ Add a training history panel to `TrainTab` that reads checkpoint directories and
 #### B. OS Integration & Media Handling
 
 ##### [HIGH] Hardware-Accelerated Frame Extraction
-Replace `cv2.VideoCapture` in the `ImageExtractorTab` and `task_extract_frames()` with a Rust-native FFmpeg binding. Add `base/src/core/video_extractor.rs` using the `ffmpeg-next` crate for hardware-decode support (NVDEC, VAAPI). Expose via PyO3 as `base.extract_frames(path, output_dir, start_ms, end_ms, fps_limit, hw_device)`. This will be dramatically faster than OpenCV for high-resolution H.264/H.265 sources.
+Replace `cv2.VideoCapture` in the `ImageExtractorTab` and `task_extract_frames()` with a C++ FFmpeg binding. Extend `base/src/core/convert.cpp` with `extract_frames()` using `libavcodec`/`libavformat` for hardware-decode support (NVDEC, VAAPI). Expose via pybind11 as `base.core.extract_frames(path, output_dir, start_ms, end_ms, fps_limit, hw_device)`. This will be dramatically faster than OpenCV for high-resolution H.264/H.265 sources.
 
 ##### [HIGH] Video Converter — Quality & Codec Controls
-`base/src/core/video_converter.rs` is skeletal. Build it out with CRF/bitrate selection, hardware encode (NVENC, VAAPI), audio track control (copy / re-encode / strip), and a full container format matrix (mp4, mkv, webm, mov). Surface all options in a `VideoConvertTab` alongside the existing image conversion workflow.
+`base/src/core/convert.cpp`'s `convert_video()` uses a subprocess to ffmpeg. Build it out with CRF/bitrate selection, hardware encode (NVENC, VAAPI), audio track control (copy / re-encode / strip), and a full container format matrix (mp4, mkv, webm, mov). Surface all options in a `VideoConvertTab` alongside the existing image conversion workflow.
 
 ##### [MEDIUM] System Tray Integration & Daemon Mode
 Add a `QSystemTrayIcon` so the desktop app runs in the background while the slideshow daemon and wallpaper rotation are active. The tray menu should expose: pause/resume slideshow, add wallpaper folder, open main window, and quit. The slideshow daemon (`base/src/utils/slideshow_daemon.rs`) already runs as a separate process — the tray is the missing control surface.
@@ -555,14 +555,14 @@ Add an `is_embedded` boolean column to the images table. During embedding passes
 ##### [HIGH] Streaming Image Processing
 `base/src/core/image_merger.rs` and `image_converter.rs` load full `DynamicImage` buffers before processing. The benchmark shows a 734MB peak for thumbnail generation. Refactor both to tile-based streaming: process output canvas rows in chunks and write to `BufWriter<File>` directly. Use `image::io::Reader`'s decoder API for scanline-chunk decoding on JPEG, PNG, and TIFF. Target ≤ 200MB peak RAM for a 1,000-image batch at 1080p.
 
-##### [HIGH] Async HTTP Crawler in Rust
-`base/src/web/image_crawler.rs` is Selenium-based and single-threaded for direct-URL jobs. Add a Tokio async runtime for non-JS crawls using `reqwest` + `tokio` with configurable concurrency. Reserve Selenium only for JS-rendered pages. This should improve direct-URL crawl throughput by ~10× and reduce WebDriver resource usage significantly.
+##### [HIGH] Async HTTP Crawler in C++
+`base/src/web/image_crawler.cpp` is a stub (Selenium-dependent). Add thread-pool-based HTTP crawling using cpp-httplib with configurable concurrency for direct-URL jobs. Reserve Python Selenium only for JS-rendered pages. This should improve direct-URL crawl throughput by ~10× and reduce WebDriver resource usage significantly.
 
 ##### [MEDIUM] Additional Image Board Crawlers
-Extend the `image_board_crawler.rs` framework with new platform crawlers: Twitter/X media downloads, ArtStation gallery scraper, Pixiv (with OAuth), and Pinterest board downloader. Each should implement the `Crawler` trait and be selectable from the `ImageCrawlerTab` board-type dropdown.
+Extend the `base/src/web/board_crawler.cpp` framework with new platform crawlers: Twitter/X media downloads, ArtStation gallery scraper, Pixiv (with OAuth), and Pinterest board downloader. Each should subclass the `Crawler` interface and be selectable from the `ImageCrawlerTab` board-type dropdown.
 
 ##### [MEDIUM] Parallel Web Crawler Progress Reporting
-The current crawlers run as opaque blocking operations with no mid-crawl feedback. Add a progress callback channel (Rust `mpsc::Sender`) that emits per-download events (URL, file size, local path) back to Python via PyO3, so the `ImageCrawlerTab` progress bar reflects real-time download count rather than a spinner.
+The current crawlers run as opaque blocking operations with no mid-crawl feedback. Add a progress callback using a `std::function<void(const std::string&, size_t, const std::string&)>` callback parameter in `base/src/web/board_crawler.cpp` that emits per-download events (URL, file size, local path) back to Python via pybind11, so the `ImageCrawlerTab` progress bar reflects real-time download count rather than a spinner.
 
 ---
 
@@ -865,10 +865,10 @@ Add a crop-to-ratio helper in `ConvertTab` that lets users specify a target aspe
 Add a metadata editor tab that can write EXIF/XMP fields (title, description, keywords, copyright, GPS) to a batch of selected images. Support "copy metadata from one image to many" for quick-tagging datasets. Wire into the `ScanMetadataTab` workflow.
 
 ##### [MEDIUM] Color Palette Extractor
-Add a palette extraction feature accessible from image preview and `SearchTab`. Extract the N dominant colors from an image using k-means (backed by the Rust core). Show swatches with hex values and copy-to-clipboard. Add "Search by Color" functionality that encodes the dominant palette into a query vector for pgvector similarity search.
+Add a palette extraction feature accessible from image preview and `SearchTab`. Extract the N dominant colors from an image using k-means (backed by the C++ core, exposed as `base.core.extract_palette()`). Show swatches with hex values and copy-to-clipboard. Add "Search by Color" functionality that encodes the dominant palette into a query vector for pgvector similarity search.
 
 ##### [MEDIUM] Slideshow Queue Editor
-The `SlideshowWindow` and `slideshow_daemon.rs` exist but queue management is basic. Add a queue editor panel with drag-to-reorder, per-image duration overrides, transition type selector (fade, cut, slide), and a "play from here" action on any item.
+The `SlideshowWindow` and `slideshow.cpp` daemon exist but queue management is basic. Add a queue editor panel with drag-to-reorder, per-image duration overrides, transition type selector (fade, cut, slide), and a "play from here" action on any item.
 
 ##### [LOW] Export Dataset Manifest
 From `DatabaseTab`, add an "Export Dataset" action that writes a JSONL or CSV manifest of all images in a group or subgroup, including paths, tags, captions, and embedding norms. This feeds directly into `lora_dataset.py` and external training tools without manual file organization.

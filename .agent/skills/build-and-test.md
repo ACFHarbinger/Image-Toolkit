@@ -1,22 +1,22 @@
 ---
-description: How to rebuild the Rust base module, run tests, and verify the full app after changes.
+description: How to rebuild the C++ base module, run tests, and verify the full app after changes.
 ---
 
 You are working on Image-Toolkit. After any code change, follow this skill to verify correctness.
 
-## After Rust Changes (`base/`)
+## After C++ Changes (`base/`)
 
 ```bash
 source .venv/bin/activate
 
 # Fast dev build (debug mode, faster compile):
-cd base && maturin develop --features python
+just build-base
 
 # Release build (slower compile, faster at runtime):
-cd base && maturin develop --release --features python
+just build-base-release
 
-# Run Rust unit tests:
-cd base && cargo test
+# Run C++ unit tests:
+just test-base-cpp
 
 # Verify the Python binding:
 python -c "import base; print(dir(base))"
@@ -76,8 +76,8 @@ npm run test-frontend
 ```bash
 source .venv/bin/activate
 
-# 1. Rust tests
-cd base && cargo test && cd ..
+# 1. C++ tests
+just test-base-cpp
 
 # 2. Python lint (if configured)
 # ruff check . or flake8
@@ -95,8 +95,7 @@ kill %1
 
 | Error | Fix |
 |---|---|
-| `maturin: command not found` | `pip install maturin` inside venv |
-| `error[E0432]: unresolved import` | Check `use` paths and module declarations in `lib.rs` |
-| `ImportError: base` at runtime | Run `maturin develop --features python` again |
+| `cmake: command not found` | Install cmake: `sudo apt install cmake` |
+| `ImportError: base` at runtime | Run `just build-base` again |
 | `pytest` can't find `base` | Activate venv first: `source .venv/bin/activate` |
-| `pyo3_build_config` errors | Rust toolchain mismatch; run `rustup update` |
+| `pybind11 not found` in CMake | Run `pip install pybind11` inside venv |

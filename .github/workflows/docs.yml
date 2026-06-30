@@ -13,7 +13,7 @@ on:
       - 'base/src/math/**/*.rs'
       - 'frontend/src/math/**/*.ts'
       - 'app/android/src/**/*.kt'
-      - 'mkdocs.yml'
+      - 'docs/mkdocs.yml'
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [main]
@@ -22,7 +22,7 @@ on:
       - 'docs/**'
       - 'moon/roadmaps/**'
       - 'backend/src/**/*.py'
-      - 'mkdocs.yml'
+      - 'docs/mkdocs.yml'
   schedule:
     - cron: '0 2 * * 1'   # Weekly: every Monday at 02:00 UTC (§6.12D)
   workflow_dispatch:
@@ -79,7 +79,7 @@ jobs:
             mkdocs-jupyter
 
       - name: Build MkDocs portal (strict — breaks on warnings)
-        run: uv run mkdocs build --strict --verbose
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose
         env:
           PYTHONPATH: .
 
@@ -90,40 +90,26 @@ jobs:
           path: site/
           retention-days: 7
 
-  # ── Job 2: Rust doc-tests ────────────────────────────────────────────────
-  docs-rust:
-    name: cargo test --doc (math modules)
+  # ── Job 2: C++ base doc-build ────────────────────────────────────────────
+  docs-cpp:
+    name: C++ base CMake build check
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install build dependencies
+        run: sudo apt-get install -y cmake ninja-build libopencv-dev python3-dev python3-pybind11
 
-      - name: Restore Cargo cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            base/target
-          key: cargo-docs-${{ runner.os }}-${{ hashFiles('base/Cargo.lock') }}
-          restore-keys: cargo-docs-${{ runner.os }}-
-
-      - name: cargo test --doc
+      - name: Configure CMake
         working-directory: base
-        run: cargo test --doc
-        # Runs all /// ```rust ... ``` examples in the math modules.
-        # Failures indicate the documented API has drifted from implementation.
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
-      - name: cargo doc (check for broken intra-doc links)
+      - name: Build base extension
         working-directory: base
-        run: cargo doc --no-deps --document-private-items 2>&1
-        env:
-          RUSTDOCFLAGS: "-D warnings"
-          # Treat all rustdoc warnings (missing docs, broken links) as errors.
+        run: cmake --build build --target base_tests -j$(nproc)
+        # Confirms the C++ sources compile cleanly; doc-level API drift is caught by parity tests.
 
   # ── Job 3: Markdown link check ───────────────────────────────────────────
   docs-links:
@@ -140,7 +126,7 @@ jobs:
           python-version: '3.11'
 
       - name: Run check_links.py diagnostic script
-        run: python scripts/check_links.py
+        run: python backend/scripts/check_links.py
 
       - name: lychee — check all Markdown links
         uses: lycheeverse/lychee-action@v1
@@ -535,7 +521,7 @@ jobs:
             mkdocs-jupyter
 
       - name: Build MkDocs site (strict)
-        run: uv run mkdocs build --strict --site-dir site/
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --site-dir site/
         env:
           PYTHONPATH: .
 
@@ -584,7 +570,7 @@ jobs:
   # ── Job 10: Deploy to GitHub Pages (main branch push only) ─────────────
   deploy:
     name: Deploy to GitHub Pages
-    needs: [docs-python, docs-rust, docs-links]
+    needs: [docs-python, docs-cpp, docs-links]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
@@ -625,7 +611,7 @@ jobs:
             mkdocs-jupyter
 
       - name: Build MkDocs portal (strict — breaks on warnings)
-        run: uv run mkdocs build --strict --verbose
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose
         env:
           PYTHONPATH: .
 

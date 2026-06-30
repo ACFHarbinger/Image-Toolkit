@@ -18,7 +18,7 @@ from backend.src.constants import (
 from backend.src.animation.core.stateless import _luma
 
 try:
-    from backend.src.animation import batch as _batch_ecc
+    from backend.src.animation import base as _batch_ecc
     _BATCH_ECC = hasattr(_batch_ecc, "fg_register") and hasattr(
         _batch_ecc.fg_register, "ecc_refine"
     )

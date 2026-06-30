@@ -5,8 +5,8 @@ Scene-aware 4K anime frame extractor.
 
 Uses FFmpeg for decoding and PySceneDetect (AdaptiveDetector) for cut
 detection — the two-pass approach recommended in the research reports.
-Integrates with PgvectorImageDatabase and the Rust `base` extension for
-content-addressed deduplication (blake3) and perceptual hashing (phash64).
+Integrates with PgvectorImageDatabase and the C++ `base` extension for
+content-addressed deduplication (sha256_file) and perceptual hashing (phash64).
 
 Usage
 -----
@@ -17,6 +17,7 @@ Usage
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import subprocess
@@ -41,11 +42,11 @@ except ImportError:
     log.warning("scenedetect not installed — scene detection disabled; using I-frame sampling")
 
 try:
-    import base as rust_base  # Rust PyO3 extension
-    _RUST_OK = True
+    import base as cpp_base  # C++ extension
+    _CPP_OK = True
 except ImportError:
-    _RUST_OK = False
-    log.warning("Rust base extension unavailable — falling back to Python hashing")
+    _CPP_OK = False
+    log.warning("C++ base extension unavailable — falling back to Python hashing")
 
 # ---------------------------------------------------------------------------
 # Pure-Python fallback hashers (used when Rust extension is absent)
@@ -53,7 +54,7 @@ except ImportError:
 def _py_phash64(path: str) -> str:
     """64-bit pHash via PIL (fallback when Rust unavailable)."""
     with Image.open(path) as im:
-        gray = im.convert("L").resize((8, 8), Image.LANCZOS)
+        gray = im.convert("L").resize((8, 8), Image.LANCZOS) # pyrefly: ignore [missing-attribute]
     arr = np.array(gray, dtype=np.float32)
     mean = arr.mean()
     bits = (arr > mean).flatten().astype(np.uint8)
@@ -61,17 +62,17 @@ def _py_phash64(path: str) -> str:
     return hex(val)
 
 def _py_blake3(path: str) -> str:
-    h = hashlib.sha256()
+    h = hashlib.sha256() # pyrefly: ignore [unknown-name]
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
 
 def _blake3_file(path: str) -> str:
-    return rust_base.blake3_file(path) if _RUST_OK else _py_blake3(path)
+    return cpp_base.core.sha256_file(path) if _CPP_OK else _py_blake3(path) # pyrefly: ignore [missing-attribute]
 
 def _phash64(path: str) -> str:
-    return rust_base.phash64(path) if _RUST_OK else _py_phash64(path)
+    return cpp_base.core.phash64(path) if _CPP_OK else _py_phash64(path) # pyrefly: ignore [missing-attribute]
 
 # ---------------------------------------------------------------------------
 # Data record

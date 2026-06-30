@@ -236,7 +236,7 @@ def _compute_rlhf_score(img_bgr: np.ndarray) -> Optional[float]:
     if model is None:
         return None
     try:
-        return float(model.predict(img_bgr))
+        return model.predict(img_bgr)
     except Exception:
         return None
 
@@ -262,7 +262,7 @@ def _compute_rlhf_uncertainty(
         return None
     try:
         _mean, std = model.predict_with_uncertainty(img_bgr, n_samples=n_samples)
-        return float(std)
+        return std
     except Exception:
         return None
 
@@ -285,7 +285,7 @@ def _system_info() -> Dict:
         "vram_gb": 0.0,
     }
     try:
-        import psutil as ps
+        import psutil as ps  # pyrefly: ignore [untyped-import]
 
         info["cpu_threads"] = ps.cpu_count(logical=True) or 0
         info["ram_gb"] = round(ps.virtual_memory().total / 1024**3, 1)
@@ -1522,6 +1522,7 @@ def _compute_aligned_ssim(output_img: np.ndarray, gt_img: np.ndarray) -> float:
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 200, 1e-4)
 
     try:
+        # pyrefly: ignore [no-matching-overload]
         _, warp_matrix = cv2.findTransformECC(
             gray_out,
             gray_gt,
@@ -1621,7 +1622,7 @@ def _save_affine_path_plot(
     ax.set_title("Frame Placement on Canvas (2D)", fontsize=11)
     ax.set_xlabel("X (px)")
     ax.set_ylabel("Y (px)")
-    colors = plt.cm.plasma(np.linspace(0, 1, len(affines)))
+    colors = plt.cm.plasma(np.linspace(0, 1, len(affines)))  # pyrefly: ignore [missing-attribute]
     for idx, (M, color) in enumerate(zip(affines, colors)):
         tx = float(M[0, 2])
         ty = float(M[1, 2])
@@ -1804,9 +1805,9 @@ def _save_3d_surface(img: np.ndarray, out_path: str, title: str = "") -> None:
     ax.set_ylabel("Y (px ÷ " + str(sh) + ")", color="white", fontsize=7)
     ax.set_zlabel("Luma", color="white", fontsize=7)
     ax.tick_params(colors="white", labelsize=6)
-    ax.xaxis.pane.fill = False
-    ax.yaxis.pane.fill = False
-    ax.zaxis.pane.fill = False
+    ax.xaxis.pane.fill = False  # pyrefly: ignore [missing-attribute]
+    ax.yaxis.pane.fill = False  # pyrefly: ignore [missing-attribute]
+    ax.zaxis.pane.fill = False  # pyrefly: ignore [missing-attribute]
     fig.patch.set_facecolor("#12121f")
     ax.set_facecolor("#1a1a2e")
     plt.tight_layout()
@@ -2095,6 +2096,7 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model = (
+            # pyrefly: ignore [missing-attribute]
             torch.hub.load("facebookresearch/dinov2", "dinov2_vits14", verbose=False)
             .to(device)
             .eval()
@@ -2623,7 +2625,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             if bg_frame_lums[i] is None:
                 continue
             gain = float(
-                np.clip(ref_lum / max(bg_frame_lums[i], 1.0), _gain_lo, _gain_hi)
+                np.clip(ref_lum / max(bg_frame_lums[i], 1.0), _gain_lo, _gain_hi) # pyrefly: ignore [bad-specialization, unsupported-operation]
             )
             applied_gains[i] = gain
             if abs(gain - 1.0) > 0.01:
@@ -2657,7 +2659,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     except Exception:
         loftr = None
 
-    edges = _pairwise_match(frames, bg_masks, loftr_wrapper=loftr)
+    edges = _pairwise_match(frames, bg_masks, loftr_wrapper=loftr) # pyrefly: ignore [bad-argument-type]
     if loftr is not None:
         if torch.cuda.is_available():
             try:
@@ -2729,7 +2731,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     pipe = AnimeStitchPipeline(
         use_basic=False, use_birefnet=False, use_loftr=False, use_ecc=False
     )
-    edges = pipe._filter_edges(edges, frames_paths, H, W, frames, bg_masks)
+    edges = pipe._filter_edges(edges, frames_paths, H, W, frames, bg_masks) # pyrefly: ignore [bad-argument-type]
     affines = _bundle_adjust_affine(edges, N)
     timings["bundle_adjust_sec"] = round(time.perf_counter() - t0, 3)
 
@@ -2925,7 +2927,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     try:
         # ECC refinement
         t0 = time.perf_counter()
-        affines = _ecc_refine(frames, affines, bg_masks)
+        affines = _ecc_refine(frames, affines, bg_masks) # pyrefly: ignore [bad-argument-type]
         timings["ecc_sec"] = round(time.perf_counter() - t0, 3)
 
         # Canvas construction
@@ -2991,7 +2993,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         # ------------------------------------------------------------------
         t0 = time.perf_counter()
         canvas, valid_mask, _, _ = _render_median(
-            frames, affines, bg_masks, canvas_h, canvas_w
+            frames, affines, bg_masks, canvas_h, canvas_w # pyrefly: ignore [bad-argument-type]
         )
         timings["render_sec"] = round(time.perf_counter() - t0, 3)
         cv2.imwrite(os.path.join(stage_dir, "stage09_temporal_render.png"), canvas)
@@ -3001,7 +3003,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         # re-posing (Stage 8.5) + single-pose fallback.
         t0 = time.perf_counter()
         canvas = _composite_foreground(
-            [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
+            [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks # pyrefly: ignore [bad-argument-type]
         )
         timings["composite_sec"] = round(time.perf_counter() - t0, 3)
         cv2.imwrite(os.path.join(stage_dir, "stage11_fg_composite.png"), canvas)

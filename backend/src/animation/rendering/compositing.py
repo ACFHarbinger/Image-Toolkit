@@ -34,7 +34,7 @@ except ImportError:
     _tc_torch = None  # type: ignore[assignment]
 
 try:
-    from backend.src.animation import batch
+    from backend.src.animation import base as batch
     BATCH_AVAILABLE = True
 except ImportError:
     BATCH_AVAILABLE = False
