@@ -468,7 +468,7 @@ class TestPanoramaStitchFallback:
 
     def test_raises_runtime_error_on_non_ok_status(self, tmp_path):
         """Non-OK status from stitcher → CanvasError (caller falls through to SCANS)."""
-        from backend.src.exceptions import CanvasError
+        from backend.src.errors import CanvasError
         from unittest.mock import MagicMock, patch
 
         mock_stitcher = MagicMock()

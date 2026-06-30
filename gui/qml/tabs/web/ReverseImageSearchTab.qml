@@ -250,61 +250,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 10
-                Text { text: "2. Search Options & Results:"; color: Style.text; font.bold: true }
-                
-                GroupBox {
-                    title: "Search Configuration"
-                    Layout.fillWidth: true
-                    GridLayout {
-                        columns: 2
-                        columnSpacing: 10
-                        
-                        RowLayout {
-                            CheckBox { 
-                                id: filterResCheck
-                                text: "Filter Res"
-                                palette.windowText: Style.text 
-                                checked: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.filter_res : false
-                                onCheckedChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.filter_res = checked
-                            }
-                            TextField {
-                                placeholderText: "W"
-                                Layout.preferredWidth: 50
-                                text: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.min_w : "1920"
-                                onTextChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.min_w = text
-                                enabled: filterResCheck.checked
-                            }
-                            TextField {
-                                placeholderText: "H"
-                                Layout.preferredWidth: 50
-                                text: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.min_h : "1080"
-                                onTextChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.min_h = text
-                                enabled: filterResCheck.checked
-                            }
-                        }
-
-                        ComboBox { 
-                            id: browserSelect
-                            model: ["brave", "chrome", "firefox", "edge"]
-                            currentIndex: find(mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.browser : "brave")
-                            onCurrentTextChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.browser = currentText
-                        }
-                        
-                        ComboBox {
-                            id: modeSelect
-                            model: ["All", "Visual matches", "Exact matches"]
-                            currentIndex: find(mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.search_mode : "All")
-                            onCurrentTextChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.search_mode = currentText
-                        }
-
-                        CheckBox { 
-                            text: "Keep Open"
-                            palette.windowText: Style.text 
-                            checked: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.keep_open : true
-                            onCheckedChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.keep_open = checked
-                        }
-                    }
-                }
+                Text { text: "2. Run Search & View Results:"; color: Style.text; font.bold: true }
 
                 // Search / Cancel button
                 AppButton {

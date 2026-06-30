@@ -56,7 +56,7 @@ except ImportError:
     logger.info("[BiRefNet] 'transformers' not installed — segmentation unavailable.")
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
-from backend.src.exceptions import ModelLoadError
+from backend.src.errors import ModelLoadError
 
 class BiRefNetWrapper(ModelWrapper):
     """

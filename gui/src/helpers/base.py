@@ -60,7 +60,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject, QRunnable, QThread, Signal, Slot
 
 if TYPE_CHECKING:
-    from backend.src.exceptions import ImageToolkitError
+    from backend.src.errors import ImageToolkitError
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ class BaseQThreadWorker(QThread):
         Tier 3 — unexpected ``Exception``: logged at ERROR with full traceback.
         """
         try:
-            from backend.src.exceptions import (
+            from backend.src.errors import (
                 AlignmentFailedError,
                 CanvasError,
                 PipelineError,
