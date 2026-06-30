@@ -4,9 +4,9 @@
     \brief Root application window with collapsible sidebar and tab host.
 
     Main is the top-level \l ApplicationWindow for Image Toolkit.  It renders a
-    collapsible left sidebar organised into four sections — Core, Database, Web,
-    and Models — and a \c StackLayout (\c mainStack) that hosts all 16 feature
-    tabs.
+    collapsible left sidebar organised into five sections — Core, Database, Web,
+    Models, and Animation — and a \c StackLayout (\c mainStack) that hosts all
+    19 feature tabs.
 
     Auxiliary windows (\l SettingsWindow, \l LogWindow, \l ImagePreviewWindow,
     \l SlideshowWindow) are created on demand via \c Qt.createComponent and
@@ -14,10 +14,11 @@
 
     \c mainStack.currentIndex mapping:
     \list
-      \li 0–4   Core tabs (Convert, Delete, Merge, Wallpaper, ImageExtractor)
-      \li 5–7   Database tabs (Database, ScanMetadata, Search)
-      \li 8–11  Web tabs (WebRequests, ImageCrawl, ReverseImageSearch, DriveSync)
-      \li 12–15 Model tabs (Generate, Train, MetaClip, R3GANEvaluate)
+      \li 0–5   Core tabs (Convert, Delete, Merge, ImageExtractor, Wallpaper, Listings)
+      \li 6–8   Database tabs (Database, Search, ScanMetadata)
+      \li 9–12  Web tabs (ImageCrawl, DriveSync, WebRequests, ReverseSearch)
+      \li 13–16 Model tabs (Train, Generate, R3GANEvaluate, MetaClipInference)
+      \li 17–18 Animation tabs (Stitch, StitchFeedback)
     \endlist
 */
 import QtQuick 2.15
@@ -27,6 +28,7 @@ import "tabs/core"
 import "tabs/database"
 import "tabs/web"
 import "tabs/models"
+import "tabs/animation"
 import "."
 
 ApplicationWindow {
@@ -126,7 +128,7 @@ ApplicationWindow {
                     }
 
                     Repeater {
-                        model: ["Convert", "Delete", "Merge", "Image Extractor", "Wallpaper"]
+                        model: ["Convert", "Delete", "Merge", "Image Extractor", "Wallpaper", "Listings"]
                         
                         Button {
                             text: modelData
@@ -168,9 +170,9 @@ ApplicationWindow {
 
                     Repeater {
                         model: ["Database", "Search", "Scan Metadata"]
-                        
+
                         Button {
-                            property int tabIndex: 5 + index
+                            property int tabIndex: 6 + index
                             text: modelData
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
@@ -210,9 +212,9 @@ ApplicationWindow {
 
                     Repeater {
                         model: ["Image Crawler", "Drive Sync", "Web Requests", "Reverse Search"]
-                        
+
                         Button {
-                            property int tabIndex: 8 + index
+                            property int tabIndex: 9 + index
                             text: modelData
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
@@ -252,9 +254,9 @@ ApplicationWindow {
 
                     Repeater {
                         model: ["Train", "Generate", "R3GAN Evaluate", "MetaCLIP Inference"]
-                        
+
                         Button {
-                            property int tabIndex: 12 + index
+                            property int tabIndex: 13 + index
                             text: modelData
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
@@ -281,6 +283,48 @@ ApplicationWindow {
                         }
                     }
                     
+                    // Section: Animation
+                    Text {
+                        text: "ANIMATION"
+                        color: Style.text
+                        opacity: 0.5
+                        font.pixelSize: 10
+                        font.bold: true
+                        Layout.leftMargin: 10
+                        Layout.topMargin: 10
+                    }
+
+                    Repeater {
+                        model: ["Stitch", "Stitch Feedback"]
+
+                        Button {
+                            property int tabIndex: 17 + index
+                            text: modelData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            Layout.leftMargin: 5
+                            Layout.rightMargin: 5
+                            font.bold: mainStack.currentIndex === tabIndex
+                            checked: mainStack.currentIndex === tabIndex
+                            checkable: true
+
+                            background: Rectangle {
+                                color: parent.checked ? Style.accent : (parent.hovered ? Style.border : "transparent")
+                                radius: 4
+                            }
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.checked ? "#ffffff" : Style.text
+                                font: parent.font
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: mainStack.currentIndex = tabIndex
+                        }
+                    }
+
                     Item { Layout.fillHeight: true } // Spacer
 
                     Button {
@@ -318,29 +362,34 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            // Core Tabs (0-4)
+            // Core Tabs (0-5)
             ConvertTab {}
             DeleteTab {}
             MergeTab {}
             ImageExtractorTab {}
             WallpaperTab {}
-            
-            // Database Tabs (5-7)
+            ListingsTab {}
+
+            // Database Tabs (6-8)
             DatabaseTab {}
             SearchTab {}
             ScanMetadataTab {}
-            
-            // Web Tabs (8-11)
+
+            // Web Tabs (9-12)
             ImageCrawlTab {}
             DriveSyncTab {}
             WebRequestsTab {}
             ReverseImageSearchTab {}
-            
-            // Models Tabs (12-15)
+
+            // Models Tabs (13-16)
             TrainTab {}
             GenerateTab {}
             R3GANEvaluateTab {}
             MetaClipInferenceTab {}
+
+            // Animation Tabs (17-18)
+            StitchTab {}
+            StitchFeedbackTab {}
         }
     }
 }

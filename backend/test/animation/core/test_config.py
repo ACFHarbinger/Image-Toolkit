@@ -19,7 +19,7 @@ from backend.src.animation.core.config import (
     validate_asp_config,
     dump_asp_config,
 )
-from backend.src.exceptions import ConfigError
+from backend.src.errors import ConfigError
 
 
 class TestLoadAspConfig:

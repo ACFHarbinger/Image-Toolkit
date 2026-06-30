@@ -155,7 +155,7 @@ warn_unused_configs = true
 ignore_missing_imports = true
 # Per-module overrides — gradually opt in to stricter checking
 [[tool.mypy.overrides]]
-module = ["backend.src.exceptions", "backend.src.models.base"]
+module = ["backend.src.errors", "backend.src.models.base"]
 disallow_untyped_defs = true
 check_untyped_defs = true
 
@@ -195,7 +195,7 @@ source_modules = [
     "backend.src.web",
     "backend.src.pipeline",
     "backend.src.constants",
-    "backend.src.exceptions",
+    "backend.src.errors",
     "backend.src.utils",
 ]
 forbidden_modules = ["gui"]
