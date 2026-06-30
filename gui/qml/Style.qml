@@ -47,6 +47,10 @@ QtObject {
     readonly property color mutedText: "#888888"
     readonly property color border: "#2d314d"
     
+    // Input field colours (used in text fields and JSON editors)
+    readonly property color inputBackground: "#12141f"
+    readonly property color inputBorder: "#3d4166"
+
     // Layout
     readonly property int borderRadius: 8
     readonly property int sidebarWidth: 200
