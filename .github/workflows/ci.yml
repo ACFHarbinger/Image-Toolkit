@@ -49,7 +49,7 @@ jobs:
       - name: mypy — strict modules (§5.5A / A.10)
         run: >
           uv run mypy
-          backend/src/exceptions.py
+          backend/src/errors/exceptions.py
           backend/src/models/core/base.py
           --ignore-missing-imports
           --no-error-summary
