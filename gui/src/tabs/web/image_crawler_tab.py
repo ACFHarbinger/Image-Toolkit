@@ -1,4 +1,5 @@
-from PySide6.QtCore import Qt, QPoint, Property, Signal, Slot
+import os
+from PySide6.QtCore import Qt, QPoint, QProcess
 from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
@@ -23,8 +24,8 @@ from ...windows import LogWindow
 from ...helpers import ImageCrawlWorker
 from ...components import OptionalField
 from ...styles.style import apply_shadow_effect
-from ...utils.app_definitions import SCREENSHOTS_DIR
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from ...constants import SCREENSHOTS_DIR
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class ImageCrawlTab(QWidget):
@@ -127,7 +128,7 @@ class ImageCrawlTab(QWidget):
         # --- 4. Run Controls ---
         # Progress & Status
         self.status_label = QLabel("Ready.")
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(
             "color: #aaa; font-style: italic; padding: 8px;"
         )
@@ -150,7 +151,24 @@ class ImageCrawlTab(QWidget):
             self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
         self.run_button.clicked.connect(self.start_crawl)
-        self.button_layout.addWidget(self.run_button, 0, Qt.AlignBottom)
+
+        # --- WebDriver Management ---
+        self.webdriver_process = QProcess(self)
+        self.webdriver_process.readyReadStandardOutput.connect(self.on_webdriver_stdout)
+        self.webdriver_process.readyReadStandardError.connect(self.on_webdriver_stderr)
+        self.webdriver_process.finished.connect(self.on_webdriver_finished)
+
+        self.webdriver_button = QPushButton("🌐 Start WebDriver Service")
+        self.webdriver_button.setStyleSheet(self._get_webdriver_btn_style())
+        apply_shadow_effect(
+            self.webdriver_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        self.webdriver_button.clicked.connect(self.toggle_webdriver)
+        self.button_layout.addWidget(
+            self.webdriver_button, 0, Qt.AlignmentFlag.AlignBottom
+        )
+
+        self.button_layout.addWidget(self.run_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.cancel_button = QPushButton("Cancel Crawl")
         self.cancel_button.setStyleSheet(self._get_cancel_btn_style())
@@ -159,7 +177,9 @@ class ImageCrawlTab(QWidget):
         )
         self.cancel_button.clicked.connect(self.cancel_crawl)
         self.cancel_button.hide()
-        self.button_layout.addWidget(self.cancel_button, 0, Qt.AlignBottom)
+        self.button_layout.addWidget(
+            self.cancel_button, 0, Qt.AlignmentFlag.AlignBottom
+        )
 
         main_layout.addWidget(self.button_container)
         main_layout.addStretch(1)
@@ -185,6 +205,13 @@ class ImageCrawlTab(QWidget):
         return """
             QPushButton { background-color: #cc3333; color: white; font-weight: bold; padding: 14px; border-radius: 10px; }
             QPushButton:hover { background-color: #ff4444; }
+        """
+
+    def _get_webdriver_btn_style(self):
+        return """
+            QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #43e97b, stop:1 #38f9d7); color: #1a1a1a; font-weight: bold; padding: 12px; border-radius: 10px; margin-bottom: 5px; }
+            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #38f9d7, stop:1 #43e97b); }
+            QPushButton:disabled { background: #4f545c; color: #888; }
         """
 
     def setup_general_page(self):
@@ -293,7 +320,9 @@ class ImageCrawlTab(QWidget):
 
         self.action_list_widget = QListWidget()
         self.action_list_widget.setMinimumHeight(150)
-        self.action_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.action_list_widget.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
         self.action_list_widget.customContextMenuRequested.connect(
             self.show_context_menu
         )
@@ -499,7 +528,7 @@ class ImageCrawlTab(QWidget):
             )
 
         if ok and new_param is not None:
-            new_param_str = str(new_param).strip()
+            new_param_str = new_param.strip()
             if new_param_str:
                 current_item.setText(f"{action_type} | Param: {new_param_str}")
                 QMessageBox.information(
@@ -597,12 +626,12 @@ class ImageCrawlTab(QWidget):
                 if param and ("Seconds" in atype):
                     try:
                         param = float(param)
-                    except:
+                    except Exception:
                         pass
                 elif param and ("Number X" in atype):
                     try:
                         param = int(param)
-                    except:
+                    except Exception:
                         pass
 
                 actions.append({"type": atype, "param": param})
@@ -620,7 +649,7 @@ class ImageCrawlTab(QWidget):
             try:
                 config["skip_first"] = int(self.skip_first_input.text())
                 config["skip_last"] = int(self.skip_last_input.text())
-            except:
+            except Exception:
                 config["skip_first"] = 0
                 config["skip_last"] = 0
 
@@ -648,7 +677,7 @@ class ImageCrawlTab(QWidget):
                         if "=" in p:
                             k, v = p.split("=", 1)
                             config["extra_params"][k.strip()] = v.strip()
-                except:
+                except Exception:
                     print("Error parsing extra params")
 
             try:
@@ -706,6 +735,53 @@ class ImageCrawlTab(QWidget):
             QMessageBox.information(
                 self, "Done", f"{message}\nSaved to: {self.download_dir_path.text()}"
             )
+
+    # --- WebDriver Management Helpers ---
+
+    def toggle_webdriver(self):
+        if self.webdriver_process.state() == QProcess.ProcessState.NotRunning:
+            self.log_window.show()
+            self.log_window.append_log(
+                "🌐 Preparing Managed WebDriver (this may take a few seconds)..."
+            )
+
+            # Use the virtual environment python to run the management script
+            # Assumes the app is launched from project root where .venv exists
+            python_exe = os.path.abspath(".venv/bin/python3")
+            script_path = os.path.abspath("scripts/manage_webdriver.py")
+
+            if not os.path.exists(python_exe):
+                # Fallback to system python if venv not found (though AGENTS.md says it should be there)
+                python_exe = "python3"
+
+            self.webdriver_process.start(python_exe, [script_path, "start"])
+            if not self.webdriver_process.waitForStarted(10000):
+                self.log_window.append_log(
+                    "❌ Failed to start WebDriver manager script."
+                )
+                return
+            self.webdriver_button.setText("🛑 Stop WebDriver Service")
+            self.webdriver_button.setStyleSheet(self._get_cancel_btn_style())
+        else:
+            self.log_window.append_log("🛑 Stopping WebDriver service...")
+            self.webdriver_process.terminate()
+            if not self.webdriver_process.waitForFinished(3000):
+                self.webdriver_process.kill()
+
+    def on_webdriver_stdout(self):
+        data = self.webdriver_process.readAllStandardOutput().data().decode().strip()
+        if data:
+            self.log_window.append_log(f"DRIVER: {data}")
+
+    def on_webdriver_stderr(self):
+        data = self.webdriver_process.readAllStandardError().data().decode().strip()
+        if data:
+            self.log_window.append_log(f"DRIVER ERROR: {data}")
+
+    def on_webdriver_finished(self):
+        self.log_window.append_log("🌐 WebDriver service stopped.")
+        self.webdriver_button.setText("🌐 Start WebDriver Service")
+        self.webdriver_button.setStyleSheet(self._get_webdriver_btn_style())
 
     # --- Config Management ---
 

@@ -55,7 +55,7 @@ QTabBar::tab:hover:!selected {
 }
 
 /* --- Input Fields --- */
-QLineEdit, QComboBox, QSpinBox, QTextEdit {
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit {
     background-color: $DARK_SECONDARY_BG;
     color: $DARK_TEXT;
     border: 1px solid $DARK_BORDER;
@@ -65,7 +65,7 @@ QLineEdit, QComboBox, QSpinBox, QTextEdit {
     selection-color: white;
 }
 
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QTextEdit:focus {
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {
     border: 1px solid $DARK_ACCENT_COLOR;
     background-color: #363639;
 }

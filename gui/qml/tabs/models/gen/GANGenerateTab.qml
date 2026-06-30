@@ -20,6 +20,19 @@ ColumnLayout {
 
             Label { text: "Count:"; color: Style.text }
             SpinBox { id: countSpin; from: 1; to: 64; value: 8 }
+        GridLayout {
+            columns: 2
+            Layout.fillWidth: true
+            
+            Label { text: "Architecture:"; color: Style.text }
+            ComboBox {
+                Layout.fillWidth: true
+                model: ["DCGAN", "WGAN-GP", "StyleGAN-lite"]
+            }
+
+            Label { text: "Latent Dim:"; color: Style.text }
+            SpinBox { from: 1; to: 1024; value: 128 }
+        }
     }
 
     AppButton {

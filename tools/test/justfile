@@ -1,0 +1,51 @@
+# tools/test/justfile
+# Testing recipes
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Run all tests (frontend + Tauri)
+test:
+    @echo "Running tests..."
+    npm run test
+    cd frontend/src-tauri && cargo test
+
+# Build + run native C++ base tests via ctest (Catch2). Pure C++ — no Python required.
+test-base-cpp:
+    @echo "Building C++ base tests..."
+    cmake -B build/base base/ \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
+        -DBASE_BUILD_TESTS=ON \
+        && cmake --build build/base --target base_tests -j$(nproc)
+    @echo "Running native C++ base tests..."
+    ctest --test-dir build/base -V --output-on-failure
+    @echo "Native C++ base tests complete."
+
+# Alias kept for backwards compatibility during transition
+test-batch-cpp: test-base-cpp
+
+# Run Python parity tests (C++ vs Python reference implementations).
+# Requires base to be built first.
+test-base-py:
+    @echo "Running Python base parity + import tests..."
+    source .venv/bin/activate \
+    && pytest backend/test/animation/batch/ --skip-gpu -q --tb=short -m "not slow"
+    @echo "Python base parity tests complete."
+
+# Alias kept for backwards compatibility during transition
+test-batch-py: test-base-py
+
+# Run speedup benchmarks (Python reference vs C++). Slow — opt-in only.
+test-base-bench:
+    @echo "Running base speedup benchmarks (slow)..."
+    source .venv/bin/activate \
+    && pytest backend/test/animation/batch/test_batch_benchmarks.py -v -m slow
+    @echo "Base benchmarks complete."
+
+# Alias kept for backwards compatibility during transition
+test-batch-bench: test-base-bench
+
+# Run all base tests: native C++ + Python parity (excludes slow benchmarks)
+test-cpp: test-base-cpp test-base-py

@@ -1,0 +1,18 @@
+# Listings and Database Configuration Override
+# Settings for the media database and list management tab.
+
+database:
+  storage_type: "json"         # Current implementation uses JSON; future support for PostgreSQL
+  auto_backup: true
+  file_path: "${IMAGE_TOOLKIT_DIR}/listings.json"
+
+ui:
+  card_size: 180               # Grid card size in pixels
+  thumbnail_size: 130          # Preview image size
+  theme: "dark"                # Options: "dark", "light"
+  default_sort: "date_added"   # Options: "title", "date_added", "rating"
+
+defaults:
+  entry_type: "Anime"
+  status: "Plan to Watch"
+  rating: 0

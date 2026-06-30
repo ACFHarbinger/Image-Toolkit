@@ -46,11 +46,11 @@ pub fn scan_files(
 
 #[tauri::command]
 pub async fn convert_image_batch(
-    pairs: Vec<(String, String)>,
-    output_format: String,
-    delete_original: Option<bool>,
-    aspect_ratio: Option<f32>,
-    ar_mode: Option<String>,
+    _pairs: Vec<(String, String)>,
+    _output_format: String,
+    _delete_original: Option<bool>,
+    _aspect_ratio: Option<f32>,
+    _ar_mode: Option<String>,
 ) -> Result<Vec<String>, String> {
     // TODO: Implement image conversion once base library is refactored
     log::warn!("Image conversion not yet implemented in Tauri backend");
@@ -77,9 +77,9 @@ pub fn delete_directory(path: String) -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn merge_images(
-    image_paths: Vec<String>,
-    output_path: String,
-    config: serde_json::Value,
+    _image_paths: Vec<String>,
+    _output_path: String,
+    _config: serde_json::Value,
 ) -> Result<bool, String> {
     // TODO: Implement image merging once base library is refactored
     log::warn!("Image merging not yet implemented in Tauri backend");

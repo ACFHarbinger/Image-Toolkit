@@ -1,0 +1,663 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'moon/roadmaps/**'
+      - 'moon/CHANGELOG.md'
+      - 'moon/ROADMAP.md'
+      - 'reports/**'
+      - 'backend/src/**/*.py'
+      - 'base/src/math/**/*.rs'
+      - 'frontend/src/**/*.ts'
+      - 'frontend/tsconfig*.json'
+      - 'frontend/package*.json'
+      - 'app/android/src/**/*.kt'
+      - 'docs/mkdocs.yml'
+      - '.github/workflows/docs.yml'
+      - 'base/CMakeLists.txt'
+      - 'base/tests/CMakeLists.txt'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - 'docs/**'
+      - 'moon/roadmaps/**'
+      - 'backend/src/**/*.py'
+      - 'docs/mkdocs.yml'
+  schedule:
+    - cron: '0 2 * * 1'   # Weekly: every Monday at 02:00 UTC (§6.12D)
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you running this?"
+        required: false
+        default: "Manual trigger"
+
+# Cancel in-progress runs for the same branch on new push
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Job 1: Python docs (mkdocstrings + MkDocs build) ────────────────────
+  docs-python:
+    name: MkDocs build (Python API + portal)
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for git-revision-date-localized plugin
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-docs-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-docs-${{ runner.os }}-
+
+      - name: Install Python dependencies (skip Rust build)
+        run: uv sync --frozen --group dev --no-install-project
+
+      - name: Install MkDocs and plugins
+        run: |
+          uv pip install \
+            mkdocs-material \
+            mkdocstrings[python] \
+            pymdown-extensions \
+            griffe \
+            mkdocs-jupyter
+
+      - name: Build MkDocs portal (strict — breaks on warnings)
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose
+        env:
+          PYTHONPATH: .
+
+      - name: Upload built site as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: site/
+          retention-days: 7
+
+  # ── Job 2: C++ base doc-build ────────────────────────────────────────────
+  docs-cpp:
+    name: C++ base CMake build check
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: sudo apt-get install -y cmake ninja-build libopencv-dev python3-dev python3-pybind11
+
+      - name: Configure CMake
+        working-directory: base
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build base extension
+        working-directory: base
+        run: cmake --build build --target base_tests -j$(nproc)
+        # Confirms the C++ sources compile cleanly; doc-level API drift is caught by parity tests.
+
+  # ── Job 3: Markdown link check ───────────────────────────────────────────
+  docs-links:
+    name: Markdown link check (lychee)
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run check_links.py diagnostic script
+        run: python backend/scripts/check_links.py
+
+      - name: lychee — check all Markdown links
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --include-verbatim
+            --exclude 'https://crates.io'
+            --exclude 'https://mybinder.org'
+            --exclude 'https://polyfill.io'
+            --exclude 'https://cdn.jsdelivr.net'
+            --exclude 'http://localhost'
+            --exclude 'https://localhost'
+            --exclude 'http://127\.0\.0\.1'
+            --exclude 'https://127\.0\.0\.1'
+            --exclude 'https://facebook\.github\.io/create-react-app'
+            --exclude 'https://rootly\.com/sre/top-10-observability-tools'
+            --exclude 'https://www\.npmjs\.com'
+            --exclude 'https://www\.intel\.com'
+            --exclude 'https://isocpp\.org'
+            --exclude 'cpp-httplib-server\.yhirose\.repl\.co'
+            --exclude 'https://sigops\.org/s/conferences/sosp'
+            --exclude 'https://www\.postgresql\.org'
+            --exclude 'https://vitest\.dev'
+            '**/*.md'
+          fail: true
+
+
+
+  # ── Job 4: Jupyter notebooks (non-GPU cells only) ──────────────────────
+  docs-notebooks:
+    name: nbconvert (non-GPU notebook validation)
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+
+      - name: Install notebook dependencies
+        run: |
+          uv pip install --system \
+            nbconvert \
+            nbformat \
+            matplotlib \
+            pandas \
+            seaborn \
+            scikit-learn \
+            opencv-python-headless \
+            Pillow \
+            numpy
+
+      - name: Execute benchmark_analysis notebook (CPU-safe)
+        run: |
+          jupyter nbconvert \
+            --to html \
+            --execute \
+            --ExecutePreprocessor.timeout=120 \
+            --output-dir site/notebooks/ \
+            docs/notebooks/benchmark_analysis.ipynb
+        continue-on-error: true
+        # CPU-safe; may exit early if no benchmark results exist in CI.
+        # continue-on-error prevents blocking the deploy job.
+        env:
+          PYTHONPATH: .
+
+      - name: Upload notebook HTML artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: notebooks-html
+          path: site/notebooks/
+          retention-days: 14
+
+  # ── Job 5: TypeScript docs (TypeDoc + Mermaid CLI) ──────────────────────
+  docs-typescript:
+    name: TypeDoc (frontend/src/math) + Mermaid CLI
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Mermaid CLI
+        run: npm install -g @mermaid-js/mermaid-cli
+
+      - name: TypeScript type check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: TypeDoc — generate Markdown reference (for MkDocs portal)
+        working-directory: frontend
+        run: npx typedoc --options typedoc-markdown.json
+
+      - name: TypeDoc — generate HTML reference (standalone)
+        working-directory: frontend
+        run: npx typedoc --options typedoc.json
+        continue-on-error: true
+        # HTML output is advisory; strict errors are caught by the Markdown step above.
+
+      - name: Mermaid CLI — pre-render module dependency diagram to SVG
+        run: |
+          mmdc \
+            --input docs/ARCHITECTURE.md \
+            --output site/architecture-diagram.svg \
+            --outputFormat svg \
+            --scale 2
+        continue-on-error: true
+        # Pre-renders the first mermaid diagram in ARCHITECTURE.md.
+        # continue-on-error: headless Chromium may not be available in all runners.
+
+      - name: Upload TypeScript API docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-api-docs
+          path: docs/api/typescript/
+          retention-days: 7
+
+      - name: Upload architecture SVG artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: architecture-svg
+          path: site/architecture-diagram.svg
+          retention-days: 7
+
+  # ── Job 6: Kotlin docs (Dokka GFM) ─────────────────────────────────────
+  docs-kotlin:
+    name: Dokka GFM (Android Kotlin)
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+        continue-on-error: true
+        # Android SDK installation may be slow; continue so the artifact step
+        # always runs even if SDK setup partially fails.
+
+      - name: Restore Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-docs-${{ runner.os }}-${{ hashFiles('app/android/**/*.gradle*', 'app/android/**/libs.versions.toml') }}
+          restore-keys: gradle-docs-${{ runner.os }}-
+
+      - name: Generate Dokka GFM
+        working-directory: app/android
+        run: ./gradlew dokkaGfm --no-daemon --stacktrace
+        continue-on-error: true
+        # Outputs to app/android/build/dokka/gfm/.
+        # continue-on-error: Android compileSdk may not match installed SDK.
+
+      - name: Upload Dokka GFM artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kotlin-api-docs
+          path: app/android/build/dokka/gfm/
+          retention-days: 7
+
+  # ── Job 7: Sphinx (full Python backend reference) ───────────────────────
+  docs-sphinx:
+    name: Sphinx — Python backend reference
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+
+      - name: Install Sphinx dependencies
+        run: |
+          pip install \
+            sphinx \
+            sphinx-autoapi \
+            furo \
+            myst-nb \
+            sphinx-copybutton
+
+      - name: Install project Python deps (improves autoapi resolution)
+        run: uv sync --frozen --group dev --no-install-project
+        continue-on-error: true
+        # Provides better import resolution for autoapi.
+        # continue-on-error because the Rust extension may not build here.
+
+      - name: Build Sphinx HTML
+        run: sphinx-build -b html docs/sphinx site/sphinx-api -W --keep-going
+        env:
+          PYTHONPATH: .
+        continue-on-error: true
+        # -W: treat warnings as errors (catches broken refs / missing stubs).
+        # --keep-going: collect all errors before stopping.
+
+      - name: Upload Sphinx HTML artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sphinx-api-docs
+          path: site/sphinx-api/
+          retention-days: 14
+
+  # ── Job 8: Weekly notebook execution (schedule trigger only) ────────────
+  weekly-notebooks:
+    name: Weekly notebook execution (CPU-safe)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+
+      - name: Install notebook execution dependencies
+        run: |
+          uv pip install --system \
+            nbconvert \
+            nbformat \
+            papermill \
+            matplotlib \
+            pandas \
+            seaborn \
+            scikit-learn \
+            opencv-python-headless \
+            Pillow \
+            numpy \
+            ipywidgets
+
+      - name: Execute CPU-safe notebooks
+        run: |
+          mkdir -p site/notebooks/weekly
+          for nb in docs/notebooks/benchmark_analysis.ipynb; do
+            echo "Executing $nb …"
+            jupyter nbconvert \
+              --to html \
+              --execute \
+              --ExecutePreprocessor.timeout=300 \
+              --output-dir site/notebooks/weekly/ \
+              "$nb" \
+            || echo "WARN: $nb failed — check for API drift"
+          done
+        env:
+          PYTHONPATH: .
+
+      - name: Upload executed notebook artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weekly-notebooks-${{ github.run_id }}
+          path: site/notebooks/weekly/
+          retention-days: 30
+
+  # ── Job 9: OpenAPI spec generation (drf-spectacular) ────────────────────
+  docs-openapi:
+    name: OpenAPI 3.1 spec (drf-spectacular)
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+
+      - name: Install Django API dependencies
+        run: |
+          uv pip install --system \
+            django \
+            djangorestframework \
+            drf-spectacular \
+            celery \
+            pillow \
+            psycopg2-binary
+        # psycopg2-binary so that django.db drivers can be imported even without
+        # a live PostgreSQL instance (spectacular does not execute DB queries).
+
+      - name: Generate OpenAPI 3.1 schema
+        run: python manage.py spectacular --validate --file docs/api/openapi.yaml
+        continue-on-error: true
+        # continue-on-error: settings.py may reference env vars not set in CI.
+        # The validate flag checks for schema correctness, not just generation.
+        env:
+          DJANGO_SETTINGS_MODULE: api.settings
+          PYTHONPATH: .
+          # Dummy DB env vars so psycopg2 can be imported without failing.
+          POSTGRES_DB: placeholder
+          POSTGRES_USER: placeholder
+          POSTGRES_PASSWORD: placeholder
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          SECRET_KEY: ci-placeholder-secret-key-not-used-in-prod
+
+      - name: Upload OpenAPI spec artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: openapi-spec
+          path: docs/api/openapi.yaml
+          retention-days: 14
+
+  # ── Job 11: PR preview deployment (pull_request events only) ────────────
+  preview:
+    name: Deploy PR preview docs
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # push to gh-pages branch
+      pull-requests: write   # post preview URL comment
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-preview-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-preview-${{ runner.os }}-
+
+      - name: Install Python dependencies (skip Rust build)
+        run: uv sync --frozen --group dev --no-install-project
+
+      - name: Install MkDocs and plugins
+        run: |
+          uv pip install \
+            mkdocs-material \
+            mkdocstrings[python] \
+            pymdown-extensions \
+            griffe \
+            mkdocs-jupyter
+
+      - name: Build MkDocs site (strict)
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --site-dir site/
+        env:
+          PYTHONPATH: .
+
+      - name: Deploy PR preview to gh-pages/pr-preview/{number}/
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          destination_dir: pr-preview/${{ github.event.pull_request.number }}
+          keep_files: true
+          # keep_files: true — preserves the root gh-pages site (main branch deploy)
+          # and all other PR preview subdirectories.
+
+      - name: Post preview URL as PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const { owner, repo } = context.repo;
+            const previewUrl = `https://${owner}.github.io/${repo}/pr-preview/${prNumber}/`;
+            const body = [
+              `📚 **Documentation preview** for PR #${prNumber}:`,
+              ``,
+              `${previewUrl}`,
+              ``,
+              `*Updated automatically on each commit. Preview removed when PR is closed.*`
+            ].join('\n');
+
+            // Find and update existing bot comment, or create a new one.
+            const comments = await github.rest.issues.listComments({
+              owner, repo, issue_number: prNumber, per_page: 100
+            });
+            const existing = comments.data.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Documentation preview')
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: prNumber, body
+              });
+            }
+
+  # ── Job 10: Deploy to GitHub Pages (main branch push only) ─────────────
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: [docs-python, docs-cpp, docs-links]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-deploy-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-deploy-${{ runner.os }}-
+
+      - name: Install Python dependencies (skip Rust build)
+        run: uv sync --frozen --group dev --no-install-project
+
+      - name: Install MkDocs and plugins
+        run: |
+          uv pip install \
+            mkdocs-material \
+            mkdocstrings[python] \
+            pymdown-extensions \
+            griffe \
+            mkdocs-jupyter
+
+      - name: Build MkDocs portal (strict — breaks on warnings)
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose
+        env:
+          PYTHONPATH: .
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+
+  # ── Job 12: Remove PR preview subdirectory on PR close ──────────────────
+  cleanup:
+    name: Remove PR ${{ github.event.pull_request.number }} preview
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+        continue-on-error: true
+
+      - name: Remove preview directory and push
+        run: |
+          PR_DIR="pr-preview/${{ github.event.pull_request.number }}"
+
+          if [ ! -d "$PR_DIR" ]; then
+            echo "No preview directory found for PR #${{ github.event.pull_request.number }} — nothing to clean up."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git rm -rf "$PR_DIR"
+          git commit -m "chore: remove docs preview for PR #${{ github.event.pull_request.number }}"
+          git push
+        continue-on-error: true

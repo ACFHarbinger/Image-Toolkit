@@ -1,0 +1,27 @@
+# tools/agent/justfile
+# Agentic LLM execution recipes
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Loop the Claude Code agent on a stateful context with live-streaming reasoning steps
+loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps. After analysing the relevant files, but before beginning the implementation, always ask questions to clarify assumptions or missing requirements, and to select which options to purse from the specific roadmaps.":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    FEED_FILE="/tmp/claude_agent_feed.txt"
+    rm -f "$FEED_FILE"
+    touch "$FEED_FILE"
+
+    echo "=== Initializing Stateful Agent Memory Context ==="
+    echo "{{prompt}}" > "$FEED_FILE"
+
+    while true; do
+        CURRENT_TASK=$(cat "$FEED_FILE")
+        echo -e "\n[Loop Monitor] Injecting iterative task context down stream..."
+        claude --dangerously-skip-permissions --verbose -p "$CURRENT_TASK"
+        echo -e "\n[Loop Monitor] Iteration complete. Re-seeding context step..."
+        echo "Review the updates you just made to the ASP files, changelog, and roadmaps in the previous step. Continue optimizing the files and extending features based on your current state." > "$FEED_FILE"
+        sleep 5
+    done

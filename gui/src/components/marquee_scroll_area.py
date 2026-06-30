@@ -1,4 +1,4 @@
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtCore import Qt, Signal, QPoint, QRect, QSize
 from PySide6.QtWidgets import QScrollArea, QRubberBand, QApplication
 from . import ClickableLabel, OpaqueViewport
@@ -12,6 +12,8 @@ class MarqueeScrollArea(QScrollArea):
 
     # Signal: (set_of_selected_paths, is_ctrl_modifier_pressed)
     selection_changed = Signal(set, bool)
+    # Emitted when Ctrl+scroll is used; positive = zoom in, negative = zoom out
+    ctrl_wheel = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -113,3 +115,10 @@ class MarqueeScrollArea(QScrollArea):
             event.accept()
         else:
             super().mouseReleaseEvent(event)
+
+    def wheelEvent(self, event: QWheelEvent):
+        if event.modifiers() & Qt.ControlModifier:
+            self.ctrl_wheel.emit(event.angleDelta().y())
+            event.accept()
+        else:
+            super().wheelEvent(event)

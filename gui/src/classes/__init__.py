@@ -1,2 +1,7 @@
-from .abstract_class_single_gallery import AbstractClassSingleGallery
-from .abstract_class_two_galleries import AbstractClassTwoGalleries
+from .gallery_base import AbstractGalleryBase as AbstractGalleryBase
+from .abstract_class_single_gallery import (
+    AbstractClassSingleGallery as AbstractClassSingleGallery,
+)
+from .abstract_class_two_galleries import (
+    AbstractClassTwoGalleries as AbstractClassTwoGalleries,
+)

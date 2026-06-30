@@ -6,160 +6,48 @@ from pathlib import Path
 
 from PySide6.QtGui import QImage
 from PySide6.QtCore import Signal, QRunnable, QObject
-from backend.src.utils.definitions import SUPPORTED_VIDEO_FORMATS
+from backend.src.constants import (
+    SUPPORTED_VIDEO_FORMATS,
+    THUMBNAIL_CACHE_DIR,
+    HAS_NATIVE_IMAGING,
+    IS_LINUX,
+)
+import hashlib
 
-try:
-    import platform
-    IS_LINUX = platform.system() == "Linux"
-except ImportError:
-    IS_LINUX = False
-
-try:
+if HAS_NATIVE_IMAGING:
     import base
-    HAS_NATIVE_IMAGING = True
-except ImportError:
-    HAS_NATIVE_IMAGING = False
 
 
-class VideoScanSignals(QObject):
+from .video_thumbnailer import VideoThumbnailer, get_video_thumbnail_cache_path
+
+
+class _VideoScanSignals(QObject):
     thumbnail_ready = Signal(str, QImage)  # path, QImage
     finished = Signal()
 
-
-class VideoThumbnailer:
-    """
-    A standalone utility to generate video thumbnails with speed comparable to
-    system file explorers (Dolphin/Explorer).
-    """
-
-    def __init__(self):
-        # Detect available tools once
-        self.has_ffmpegthumbnailer = shutil.which("ffmpegthumbnailer") is not None
-        self.has_ffmpeg = shutil.which("ffmpeg") is not None
-        self.is_linux = IS_LINUX
-
-    def _get_nice_prefix(self) -> list[str]:
-        """Returns ['nice', '-n', '19'] on Linux to lower subprocess priority."""
-        if self.is_linux:
-            return ["nice", "-n", "19"]
-        return []
-
-    def _crop_to_square(self, img: QImage, size: int) -> QImage:
-        """Center-crops the image to a square of the given size."""
-        from PySide6.QtCore import Qt
-
-        # 1. Scale to cover the square
-        scaled = img.scaled(
-            size,
-            size,
-            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-
-        # 2. Crop center
-        diff_x = (scaled.width() - size) // 2
-        diff_y = (scaled.height() - size) // 2
-        return scaled.copy(diff_x, diff_y, size, size)
-
-    def generate(self, video_path: str, size: int, crop_square: bool = False) -> QImage | None:
-        if not os.path.exists(video_path):
-            return None
-
-        if size is None or size <= 0:
-            size = 180  # Default fallback
-
-        # Strategy 1: ffmpegthumbnailer (Fastest, specialized C++ tool)
-        # Used by Kubuntu Dolphin and many Linux FMs.
-        if self.has_ffmpegthumbnailer:
-            try:
-                cmd = self._get_nice_prefix() + [
-                    "ffmpegthumbnailer",
-                    "-i",
-                    video_path,
-                    "-o",
-                    "-",  # Write to stdout
-                    "-s",
-                    str(size),  # Size (max dimension)
-                    "-t",
-                    "15",  # Seek to 15% to avoid black intro frames
-                    "-c",
-                    "jpeg",  # JPEG is fast to encode/decode
-                    "-q",
-                    "5",  # Quality (low is fine for thumbs)
-                ]
-                # Timeout prevents hanging on corrupt files
-                result = subprocess.run(
-                    cmd, capture_output=True, check=True, timeout=15.0
-                )
-
-                img = QImage()
-                # Load directly from memory buffer
-                if img.loadFromData(result.stdout):
-                    if crop_square:
-                        return self._crop_to_square(img, size)
-                    return img
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                pass  # Fallback
-
-        # Strategy 2: FFmpeg (Optimized input seeking)
-        if self.has_ffmpeg:
-
-            def run_ffmpeg(seek_time):
-                # -ss BEFORE -i is critical: it triggers "input seeking" (jumping to keyframes)
-                # rather than decoding up to the timestamp.
-                cmd = self._get_nice_prefix() + [
-                    "ffmpeg",
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-ss",
-                    seek_time,
-                    "-i",
-                    video_path,
-                    "-vf",
-                    f"scale={size}:-1",  # Downscale inside pipeline (saves RAM)
-                    "-vframes",
-                    "1",
-                    "-f",
-                    "image2",
-                    "-c:v",
-                    "mjpeg",
-                    "pipe:1",
-                ]
-                return subprocess.run(
-                    cmd, capture_output=True, check=True, timeout=15.0
-                )
-
-            try:
-                # Try seeking to 5 seconds first (avoids black intros)
-                result = run_ffmpeg("00:00:05")
-                img = QImage()
-                if img.loadFromData(result.stdout):
-                    if crop_square:
-                        return self._crop_to_square(img, size)
-                    return img
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                # Fallback: Try seeking to start (0s) for short videos
-                try:
-                    result = run_ffmpeg("00:00:00")
-                    img = QImage()
-                    if img.loadFromData(result.stdout):
-                        if crop_square:
-                            return self._crop_to_square(img, size)
-                        return img
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                    pass
-
-        return None
 
 
 def process_video_task(args):
     """
     Helper function to run in a thread.
+    Checks for a cached thumbnail on disk before generating a new one.
     """
     path, target_height, thumbnailer, crop_square = args
     try:
+        # 1. Check Disk Cache
+        cache_path = get_video_thumbnail_cache_path(path)
+        if os.path.exists(cache_path):
+            img = QImage(cache_path)
+            if not img.isNull():
+                return path, img
+
+        # 2. Generate New Thumbnail
         image = thumbnailer.generate(path, target_height, crop_square=crop_square)
+
+        # 3. Save to Disk Cache if successful
+        if image and not image.isNull():
+            image.save(cache_path, "JPG")
+
         return path, image
     except Exception:
         return path, None
@@ -176,7 +64,7 @@ class VideoScannerWorker(QRunnable):
         self.directory = directory
         self.target_height = target_height
         self.crop_square = crop_square
-        self.signals = VideoScanSignals()
+        self.signals = _VideoScanSignals()
         self.is_cancelled = False
         self.executor = None
         self.thumbnailer = VideoThumbnailer()

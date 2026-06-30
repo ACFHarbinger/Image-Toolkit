@@ -1,4 +1,5 @@
 # Code usage statistics
+*.html linguist-vendored
 *.ipynb linguist-vendored
 
 #

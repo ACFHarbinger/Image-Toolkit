@@ -57,7 +57,7 @@ class BaseGenerativeTab(QWidget):
                 elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
                     try:
                         widget.setValue(float(value))
-                    except:
+                    except ValueError:
                         pass
                 elif isinstance(widget, QLineEdit):
                     widget.setText(str(value))

@@ -1,10 +1,17 @@
 import os
 import threading
 from PySide6.QtCore import Signal, Slot
-from PySide6.QtWidgets import QFormLayout, QLineEdit, QComboBox, QSpinBox, QCheckBox, QMessageBox, QPushButton
+from PySide6.QtWidgets import (
+    QFormLayout,
+    QLineEdit,
+    QComboBox,
+    QSpinBox,
+    QCheckBox,
+    QMessageBox,
+)
 from ....classes.base_generative_tab import BaseGenerativeTab
-from backend.src.models.sd3_wrapper import SD3Wrapper
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class SD3GenerateTab(BaseGenerativeTab):
@@ -12,6 +19,7 @@ class SD3GenerateTab(BaseGenerativeTab):
 
     def __init__(self):
         super().__init__()
+        self.sd3_wrapper = SD3Wrapper()
         self.init_ui()
 
     def init_ui(self):
@@ -74,9 +82,19 @@ class SD3GenerateTab(BaseGenerativeTab):
 
     generation_finished_signal = Signal(str, str)
 
-    def run_generation(self, prompt, model_path, output_path, width, height, steps, guidance, batch_size):
+    def run_generation(
+        self,
+        prompt,
+        model_path,
+        output_path,
+        width,
+        height,
+        steps,
+        guidance,
+        batch_size,
+    ):
         try:
-            SD3Wrapper.generate_image(
+            self.sd3_wrapper.generate_image(
                 prompt=prompt,
                 model_path=model_path,
                 output_path=output_path,
@@ -84,13 +102,15 @@ class SD3GenerateTab(BaseGenerativeTab):
                 height=height,
                 steps=steps,
                 guidance_scale=guidance,
-                batch_size=batch_size
+                batch_size=batch_size,
             )
-            
+
             if SD3Wrapper.is_cancelled:
                 self.generation_finished_signal.emit("cancel", "Process cancelled.")
             else:
-                self.generation_finished_signal.emit("success", f"Saved to {output_path}")
+                self.generation_finished_signal.emit(
+                    "success", f"Saved to {output_path}"
+                )
 
         except Exception as e:
             self.generation_finished_signal.emit("error", str(e))
@@ -105,29 +125,35 @@ class SD3GenerateTab(BaseGenerativeTab):
             QMessageBox.warning(self, "Result", msg)
 
     @Slot(str, str, int, int, int, float, int)
-    def generate_from_qml(self, model_name, prompt, width, height, steps, guidance, batch_size):
+    def generate_from_qml(
+        self, model_name, prompt, width, height, steps, guidance, batch_size
+    ):
         """Wrapper for QML"""
         # Map simple model name to path if needed, or assume full path/repo
         # For this prototype we will map the options in QML to paths/repos
-        
+
         # Simple mapping for options in QML (SD3 Medium, SD3 Large, SD3.5 Turbo)
         model_map = {
             "SD3 (Medium)": "stabilityai/stable-diffusion-3-medium-diffusers",
-            "SD3 (Large)": "stabilityai/stable-diffusion-3-large-diffusers", # Hypothetical
-            "SD3.5 (Turbo)": "stabilityai/stable-diffusion-3.5-large-turbo", # Hypothetical
+            "SD3 (Large)": "stabilityai/stable-diffusion-3-large-diffusers",  # Hypothetical
+            "SD3.5 (Turbo)": "stabilityai/stable-diffusion-3.5-large-turbo",  # Hypothetical
         }
-        
-        model_path = model_map.get(model_name, model_name) # Fallback to passed value
+
+        model_path = model_map.get(model_name, model_name)  # Fallback to passed value
         output_path = os.path.join(LOCAL_SOURCE_PATH, "Generated", "sd3_output.png")
-        
-        thread = threading.Thread(target=self.run_generation, kwargs={
-            "prompt": prompt,
-            "model_path": model_path,
-            "output_path": output_path,
-            "width": width,
-            "height": height,
-            "steps": steps,
-            "guidance": guidance,
-            "batch_size": batch_size
-        })
+
+        thread = threading.Thread(
+            target=self.run_generation,
+            kwargs={
+                "prompt": prompt,
+                "model_path": model_path,
+                "output_path": output_path,
+                "width": width,
+                "height": height,
+                "steps": steps,
+                "guidance": guidance,
+                "batch_size": batch_size,
+            },
+            daemon=True,
+        )
         thread.start()

@@ -1,0 +1,127 @@
+pub mod crawlers;
+pub mod cloud;
+pub mod clients;
+
+#[cfg(feature = "python")]
+use crate::web::crawlers::danbooru::DanbooruCrawlerImpl;
+#[cfg(feature = "python")]
+use crate::web::cloud::dropbox_sync::DropboxSyncImpl;
+#[cfg(feature = "python")]
+use crate::web::crawlers::gelbooru::GelbooruCrawlerImpl;
+#[cfg(feature = "python")]
+use crate::web::cloud::google_drive_sync::GoogleDriveSyncImpl;
+#[cfg(feature = "python")]
+use crate::web::crawlers::image_board_crawler::BoardCrawler;
+#[cfg(feature = "python")]
+use crate::web::cloud::one_drive_sync::OneDriveSyncImpl;
+#[cfg(feature = "python")]
+use crate::web::crawlers::sankaku::SankakuCrawlerImpl;
+#[cfg(feature = "python")]
+use crate::web::cloud::sync::SyncRunner;
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+#[cfg(feature = "python")]
+use reqwest::blocking::Client;
+#[cfg(feature = "python")]
+use serde_json::Value;
+#[cfg(feature = "python")]
+use std::time::Duration;
+
+#[cfg(feature = "python")]
+pub use crawlers::image_crawler::run_image_crawler;
+#[cfg(feature = "python")]
+pub use crawlers::reverse_image_search::run_reverse_image_search;
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn run_board_crawler(
+    py: Python<'_>,
+    crawler_name: String,
+    config_json: String,
+    callback_obj: Py<PyAny>,
+) -> PyResult<u32> {
+    let config_val: Value = serde_json::from_str(&config_json).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
+    })?;
+
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        .build()
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Failed to create client: {}", e)))?;
+
+    let board_crawler = BoardCrawler::new(&config_val);
+
+    match crawler_name.to_lowercase().as_str() {
+        "danbooru" => {
+            let crawler = DanbooruCrawlerImpl::new(&config_val);
+            board_crawler.run(py, &crawler, &client, callback_obj)
+        }
+        "gelbooru" => {
+            let crawler = GelbooruCrawlerImpl::new(&config_val);
+            board_crawler.run(py, &crawler, &client, callback_obj)
+        }
+        "sankaku" | "sankakucrawler" => {
+            let crawler = SankakuCrawlerImpl::new(&config_val);
+            board_crawler.run(py, &crawler, &client, callback_obj)
+        }
+        _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+            "Unknown crawler: {}",
+            crawler_name
+        ))),
+    }
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn run_sync(
+    py: Python<'_>,
+    provider_name: String,
+    config_json: String,
+    callback_obj: Py<PyAny>,
+) -> PyResult<String> {
+    let config_val: Value = serde_json::from_str(&config_json).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
+    })?;
+
+    let client = Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to create client: {}",
+                e
+            ))
+        })?;
+
+    let runner = SyncRunner::new(&config_val);
+
+    let stats = match provider_name.to_lowercase().as_str() {
+        "dropbox" => {
+            let mut cloud = DropboxSyncImpl::new(&config_val);
+            runner.run(py, &mut cloud, &client, callback_obj)
+        }
+        "google_drive" | "google" | "drive" => {
+            let mut cloud = GoogleDriveSyncImpl::new(&config_val);
+            runner.run(py, &mut cloud, &client, callback_obj)
+        }
+        "one_drive" | "onedrive" | "microsoft" => {
+            let mut cloud = OneDriveSyncImpl::new(&config_val);
+            runner.run(py, &mut cloud, &client, callback_obj)
+        }
+        _ => {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown cloud provider: {}",
+                provider_name
+            )))
+        }
+    }
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Cloud sync Error: {}", e)))?;
+
+    serde_json::to_string(&stats).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+            "JSON serialization error: {}",
+            e
+        ))
+    })
+}

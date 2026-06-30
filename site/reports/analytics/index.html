@@ -1,0 +1,3849 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+        <link rel="prev" href="../../roadmaps/documentation/">
+      
+      
+        <link rel="next" href="../asp_research/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Analytics & Codebase Visualisation - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#visual-analytics-codebase-observability-and-computational-interpretability-consolidated-research-report" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Analytics & Codebase Visualisation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../roadmaps/ROADMAP/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reports
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/new_features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/gui_ux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmaps/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reports
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reports
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#domain-1-codebase-cartography-and-semantic-graph-architectures-the-meta-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 1: Codebase Cartography and Semantic Graph Architectures (The Meta-Graph)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 1: Codebase Cartography and Semantic Graph Architectures (The Meta-Graph)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-source-code-intelligence-protocol-scip-and-semantic-indexing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Source Code Intelligence Protocol (SCIP) and Semantic Indexing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-software-cartography-and-gpu-accelerated-layouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Software Cartography and GPU-Accelerated Layouts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-dependency-structure-matrices-dsm-and-architecture-erosion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Dependency Structure Matrices (DSM) and Architecture Erosion
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-2-semantic-code-analysis-and-vulnerability-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 2: Semantic Code Analysis and Vulnerability Discovery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 2: Semantic Code Analysis and Vulnerability Discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-the-code-property-graph-cpg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 The Code Property Graph (CPG)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-joern-and-overflowdb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Joern and OverflowDB
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-codeql-and-datalog-driven-variant-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 CodeQL and Datalog-Driven Variant Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-3-symbolic-execution-and-concolic-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 3: Symbolic Execution and Concolic Testing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 3: Symbolic Execution and Concolic Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-dynamic-symbolic-execution-concolic-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Dynamic Symbolic Execution (Concolic Testing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-4-neural-network-weights-and-objective-function-geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 4: Neural Network Weights and Objective Function Geometry
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 4: Neural Network Weights and Objective Function Geometry">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-high-dimensional-geometry-of-loss-landscapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 High-Dimensional Geometry of Loss Landscapes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-weight-trajectories-and-activation-atlases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Weight Trajectories and Activation Atlases
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-5-computer-vision-metrics-and-pipeline-stage-diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 5: Computer Vision Metrics and Pipeline Stage Diagnostics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 5: Computer Vision Metrics and Pipeline Stage Diagnostics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-geometric-registration-and-residual-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Geometric Registration and Residual Visualization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-photometric-diagnostics-frequency-and-gradient-domains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Photometric Diagnostics: Frequency and Gradient Domains
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-ecosystem-integration-multi-modal-logging-with-rerunio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Ecosystem Integration: Multi-Modal Logging with Rerun.io
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-6-information-theory-statistical-failure-analysis-and-causal-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 6: Information Theory, Statistical Failure Analysis, and Causal Discovery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 6: Information Theory, Statistical Failure Analysis, and Causal Discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-information-theoretic-diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Information-Theoretic Diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-causal-discovery-and-root-cause-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Causal Discovery and Root Cause Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-7-performance-profiling-and-causal-profiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 7: Performance Profiling and Causal Profiling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 7: Performance Profiling and Causal Profiling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-flame-graphs-icicle-charts-and-execution-tracers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Flame Graphs, Icicle Charts, and Execution Tracers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-causal-profiling-and-virtual-speedups-coz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Causal Profiling and Virtual Speedups (coz)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-8-omniscient-debugging-and-deterministic-replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 8: Omniscient Debugging and Deterministic Replay
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 8: Omniscient Debugging and Deterministic Replay">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-record-and-replay-architectures-rr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Record and Replay Architectures (rr)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-pernosco-and-the-queryable-execution-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Pernosco and the Queryable Execution Database
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-9-formal-verification-and-state-space-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 9: Formal Verification and State Space Visualization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 9: Formal Verification and State Space Visualization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-tla-and-interactive-state-exploration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 TLA+ and Interactive State Exploration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-smt-solver-interpretability-and-matching-loops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 SMT Solver Interpretability and Matching Loops
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-sonification-of-theorem-provers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Sonification of Theorem Provers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-10-topological-data-analysis-tda-in-software-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 10: Topological Data Analysis (TDA) in Software Engineering
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 10: Topological Data Analysis (TDA) in Software Engineering">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-persistent-homology-and-betti-numbers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 Persistent Homology and Betti Numbers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-tda-for-call-graphs-and-code-attribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 TDA for Call Graphs and Code Attribution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#103-high-dimensional-observability-and-distributed-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.3 High-Dimensional Observability and Distributed Tracing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-blueprint-a-zero-copy-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Blueprint: A Zero-Copy Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architectural Blueprint: A Zero-Copy Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-generation-and-telemetry-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Generation and Telemetry (Python)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aggregation-and-routing-rust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aggregation and Routing (Rust)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#visual-analytics-dashboard-typescriptwebgl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visual Analytics Dashboard (TypeScript/WebGL)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-tools-and-libraries-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Tools and Libraries Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../image_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#domain-1-codebase-cartography-and-semantic-graph-architectures-the-meta-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 1: Codebase Cartography and Semantic Graph Architectures (The Meta-Graph)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 1: Codebase Cartography and Semantic Graph Architectures (The Meta-Graph)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-source-code-intelligence-protocol-scip-and-semantic-indexing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Source Code Intelligence Protocol (SCIP) and Semantic Indexing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-software-cartography-and-gpu-accelerated-layouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Software Cartography and GPU-Accelerated Layouts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-dependency-structure-matrices-dsm-and-architecture-erosion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Dependency Structure Matrices (DSM) and Architecture Erosion
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-2-semantic-code-analysis-and-vulnerability-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 2: Semantic Code Analysis and Vulnerability Discovery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 2: Semantic Code Analysis and Vulnerability Discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-the-code-property-graph-cpg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 The Code Property Graph (CPG)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-joern-and-overflowdb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Joern and OverflowDB
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-codeql-and-datalog-driven-variant-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 CodeQL and Datalog-Driven Variant Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-3-symbolic-execution-and-concolic-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 3: Symbolic Execution and Concolic Testing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 3: Symbolic Execution and Concolic Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-dynamic-symbolic-execution-concolic-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Dynamic Symbolic Execution (Concolic Testing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-4-neural-network-weights-and-objective-function-geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 4: Neural Network Weights and Objective Function Geometry
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 4: Neural Network Weights and Objective Function Geometry">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-high-dimensional-geometry-of-loss-landscapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 High-Dimensional Geometry of Loss Landscapes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-weight-trajectories-and-activation-atlases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Weight Trajectories and Activation Atlases
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-5-computer-vision-metrics-and-pipeline-stage-diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 5: Computer Vision Metrics and Pipeline Stage Diagnostics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 5: Computer Vision Metrics and Pipeline Stage Diagnostics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-geometric-registration-and-residual-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Geometric Registration and Residual Visualization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-photometric-diagnostics-frequency-and-gradient-domains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Photometric Diagnostics: Frequency and Gradient Domains
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-ecosystem-integration-multi-modal-logging-with-rerunio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Ecosystem Integration: Multi-Modal Logging with Rerun.io
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-6-information-theory-statistical-failure-analysis-and-causal-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 6: Information Theory, Statistical Failure Analysis, and Causal Discovery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 6: Information Theory, Statistical Failure Analysis, and Causal Discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-information-theoretic-diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Information-Theoretic Diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-causal-discovery-and-root-cause-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Causal Discovery and Root Cause Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-7-performance-profiling-and-causal-profiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 7: Performance Profiling and Causal Profiling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 7: Performance Profiling and Causal Profiling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-flame-graphs-icicle-charts-and-execution-tracers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Flame Graphs, Icicle Charts, and Execution Tracers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-causal-profiling-and-virtual-speedups-coz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Causal Profiling and Virtual Speedups (coz)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-8-omniscient-debugging-and-deterministic-replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 8: Omniscient Debugging and Deterministic Replay
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 8: Omniscient Debugging and Deterministic Replay">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-record-and-replay-architectures-rr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Record and Replay Architectures (rr)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-pernosco-and-the-queryable-execution-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Pernosco and the Queryable Execution Database
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-9-formal-verification-and-state-space-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 9: Formal Verification and State Space Visualization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 9: Formal Verification and State Space Visualization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-tla-and-interactive-state-exploration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 TLA+ and Interactive State Exploration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-smt-solver-interpretability-and-matching-loops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 SMT Solver Interpretability and Matching Loops
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-sonification-of-theorem-provers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Sonification of Theorem Provers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#domain-10-topological-data-analysis-tda-in-software-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain 10: Topological Data Analysis (TDA) in Software Engineering
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain 10: Topological Data Analysis (TDA) in Software Engineering">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-persistent-homology-and-betti-numbers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 Persistent Homology and Betti Numbers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-tda-for-call-graphs-and-code-attribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 TDA for Call Graphs and Code Attribution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#103-high-dimensional-observability-and-distributed-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.3 High-Dimensional Observability and Distributed Tracing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-blueprint-a-zero-copy-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Blueprint: A Zero-Copy Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architectural Blueprint: A Zero-Copy Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-generation-and-telemetry-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Generation and Telemetry (Python)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aggregation-and-routing-rust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aggregation and Routing (Rust)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#visual-analytics-dashboard-typescriptwebgl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visual Analytics Dashboard (TypeScript/WebGL)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-tools-and-libraries-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Tools and Libraries Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="visual-analytics-codebase-observability-and-computational-interpretability-consolidated-research-report">Visual Analytics, Codebase Observability, and Computational Interpretability — Consolidated Research Report<a class="headerlink" href="#visual-analytics-codebase-observability-and-computational-interpretability-consolidated-research-report" title="Permanent link">&para;</a></h1>
+<p><em>Merged from: "High-Performance Visual Analytics and Interpretability Framework for Hybrid Computer Vision and Deep Learning Pipelines" and "Advanced Paradigms in Visual Analytics, Computational Interpretability, and Codebase Observability"</em></p>
+<hr />
+<p>The convergence of classical Computer Vision (CV) algorithms with contemporary Deep Learning (DL) architectures introduces profound challenges in systemic observability, debugging, and interpretability. In highly complex pipelines — such as the Anime Stitch Pipeline (ASP) — rigid geometric transformations (feature matching, bundle adjustment) operate in tandem with highly non-convex, parameterized neural networks (diffusion models, SAM-2, RLHF reward models). Diagnosing failures within this hybrid ecosystem demands a paradigm shift from traditional scalar logging to continuous, high-dimensional visual analytics.</p>
+<p>Traditional methodologies — scalar logging, stack trace aggregation, and static breakpoint debugging — are fundamentally inadequate for capturing the high-dimensional, non-linear behaviors of contemporary codebases. To safely optimize, debug, and understand these systems, developers must transition toward computational analysis deploying mathematical projection, topological mapping, causal inference, and semantic graph querying.</p>
+<hr />
+<h2 id="domain-1-codebase-cartography-and-semantic-graph-architectures-the-meta-graph">Domain 1: Codebase Cartography and Semantic Graph Architectures (The Meta-Graph)<a class="headerlink" href="#domain-1-codebase-cartography-and-semantic-graph-architectures-the-meta-graph" title="Permanent link">&para;</a></h2>
+<p>To safely modify and optimize a pipeline as intricate as the ASP, the physical structure of the codebase must be treated as a queryable, visual database. The extraction of ASTs and the generation of execution call-graphs allow for the creation of a "Meta-Graph" — a semantic representation of the software architecture that bridges the gap between static definitions and dynamic execution.</p>
+<h3 id="11-source-code-intelligence-protocol-scip-and-semantic-indexing">1.1 Source Code Intelligence Protocol (SCIP) and Semantic Indexing<a class="headerlink" href="#11-source-code-intelligence-protocol-scip-and-semantic-indexing" title="Permanent link">&para;</a></h3>
+<p>While tree-sitter provides high-performance, incremental AST parsing, raw ASTs are too granular for macroscopic architectural analysis. The Source Code Intelligence Protocol (SCIP) provides a standardized, language-agnostic protobuf schema for indexing cross-repository source code. Tools such as <code>scip-python</code> and <code>rust-analyzer</code> emit SCIP indices that map exact definitions, references, and call hierarchies across repository boundaries.</p>
+<p>To process these indices, Rust crates like <code>nusy-codegraph</code> and <code>code-graph-cli</code> ingest SCIP artifacts and tree-sitter nodes into Apache Arrow RecordBatches, providing zero-copy, columnar storage. This permits the backend to execute sub-millisecond graph traversal queries — such as determining the transitive "blast radius" of modifying a core Bundle Adjustment function — without reading source files dynamically. The <code>tree-sitter-graph</code> crate provides a declarative DSL to map specific AST nodes to custom graph vertices and edges, enabling extraction of pipeline-specific semantics.</p>
+<h3 id="12-software-cartography-and-gpu-accelerated-layouts">1.2 Software Cartography and GPU-Accelerated Layouts<a class="headerlink" href="#12-software-cartography-and-gpu-accelerated-layouts" title="Permanent link">&para;</a></h3>
+<p>Visualizing a Meta-Graph containing hundreds of thousands of nodes requires sophisticated layout algorithms. Traditional force-directed layouts often collapse into visually impenetrable "hairballs" at scale. <strong>Software Cartography</strong> maps software artifacts to a two-dimensional plane using geographic metaphors.</p>
+<p>Software Cartography applies Latent Semantic Indexing (LSI) to the codebase's vocabulary (function names, comments, string literals) to map source code into a high-dimensional vector space. Multidimensional Scaling (MDS) then projects this vector space into two dimensions, minimizing a stress function to preserve the semantic distance between entities — ensuring modules with similar responsibilities (e.g., <code>feature_matching.py</code> and <code>bundle_adjust.py</code>) cluster together physically on the map.</p>
+<p>To route dependency edges between clusters without intersecting them, <strong>Skeleton-Based Edge Bundling (SBEB)</strong> clusters edges by directional sector and applies a cohesion force that iteratively pulls neighboring edges toward a shared "skeleton" path. Long-distance architectural dependencies receive stronger cohesion; local structural calls maintain direct paths.</p>
+<p>For the massive scale of the ASP Meta-Graph, <strong>Cosmograph</strong> (powered by <code>cosmos.gl</code>) represents the superior rendering choice over sigma.js or react-flow. Cosmograph executes force-directed layout simulations entirely on the GPU via compute and fragment shaders — bypassing CPU bottlenecks entirely. By ingesting Apache Arrow buffers directly into WebGL textures and utilizing DuckDB-WASM for in-browser SQL filtering, Cosmograph enables fluid 60fps semantic zooming from macro-architecture down to individual AST nodes.</p>
+<table>
+<thead>
+<tr>
+<th>Rendering Framework</th>
+<th>Technology</th>
+<th>Algorithmic Execution</th>
+<th>Optimal Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sigma.js</strong></td>
+<td>WebGL 1.0 / Canvas</td>
+<td>CPU-bound layouts (ForceAtlas2), GPU rendering</td>
+<td>Moderate scale (~10k nodes). High customization for glyphs and node images.</td>
+</tr>
+<tr>
+<td><strong>React Flow</strong></td>
+<td>HTML/SVG DOM</td>
+<td>CPU-bound routing</td>
+<td>Low scale (~1k nodes). Excellent for explicit, user-editable DAG construction.</td>
+</tr>
+<tr>
+<td><strong>Cosmograph</strong> (cosmos.gl)</td>
+<td>WebGL 2.0 / Compute Shaders</td>
+<td>100% GPU-bound force simulation and rendering</td>
+<td>Massive scale (1M+ nodes). Real-time semantic zooming from macro-architecture to AST.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="13-dependency-structure-matrices-dsm-and-architecture-erosion">1.3 Dependency Structure Matrices (DSM) and Architecture Erosion<a class="headerlink" href="#13-dependency-structure-matrices-dsm-and-architecture-erosion" title="Permanent link">&para;</a></h3>
+<p>While Software Cartography excels at semantic clustering, architectural compliance is better visualized using a <strong>Dependency Structure Matrix (DSM)</strong>. Unlike node-link graphs that suffer from edge-crossing clutter, a DSM displays system organization in an N×N matrix where both axes represent the system's subsystems or modules.</p>
+<p>In a DSM, a mark in a cell indicates a dependency between modules. In a strictly layered system, all dependencies fall below the diagonal. Any mark above the diagonal instantly flags an <strong>architectural violation</strong> ("architecture erosion") or cyclic dependency.</p>
+<p>Tools like <strong>Lattix</strong> and the <strong>IntelliJ IDEA DSM plugin</strong> automate generation of these matrices, unifying multi-domain data including software code, UML/SysML models, and requirements. They apply algorithms to identify strongly connected components, independent subsystems, and layering compliance — applicable to ISO 26262 functional safety standards and multi-language codebases.</p>
+<table>
+<thead>
+<tr>
+<th>Cartographic Paradigm</th>
+<th>Visual Representation</th>
+<th>Algorithmic Foundation</th>
+<th>Optimal Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Software Cartography</strong></td>
+<td>Topographical maps, 3D glyphs</td>
+<td>LSI + MDS</td>
+<td>Exploring unfamiliar codebases, semantic clustering</td>
+</tr>
+<tr>
+<td><strong>Node-Link Graphs</strong></td>
+<td>Force-directed networks (Cosmograph)</td>
+<td>Barnes-Hut simulation, GPU Compute Shaders</td>
+<td>Tracing dynamic execution flows, transitive dependencies</td>
+</tr>
+<tr>
+<td><strong>DSM</strong></td>
+<td>N×N Grid Matrix</td>
+<td>Matrix permutation, topological sorting</td>
+<td>Enforcing strict architectural layering, identifying cyclic dependencies</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="domain-2-semantic-code-analysis-and-vulnerability-discovery">Domain 2: Semantic Code Analysis and Vulnerability Discovery<a class="headerlink" href="#domain-2-semantic-code-analysis-and-vulnerability-discovery" title="Permanent link">&para;</a></h2>
+<p>While standard static analysis queries operate on isolated ASTs, many complex anti-patterns and vulnerabilities require understanding the intersection of code structure, execution order, and data flow. The <strong>Code Property Graph (CPG)</strong> represents a breakthrough in computational program analysis by unifying these dimensions into a single queryable graph database.</p>
+<h3 id="21-the-code-property-graph-cpg">2.1 The Code Property Graph (CPG)<a class="headerlink" href="#21-the-code-property-graph-cpg" title="Permanent link">&para;</a></h3>
+<p>A CPG mathematically merges three classical program representations:</p>
+<ol>
+<li><strong>Abstract Syntax Tree (AST):</strong> Encodes the hierarchical syntactic structure of the code.</li>
+<li><strong>Control Flow Graph (CFG):</strong> Models execution order and conditional branching.</li>
+<li><strong>Program Dependence Graph (PDG):</strong> Tracks data flow and control dependencies — how the output of one operation dictates the input of another, regardless of proximity in source.</li>
+</ol>
+<p>By mapping these into a joint, multi-edged data structure, analysts can construct highly complex traversals. Discovering a security vulnerability requires verifying that an untrusted input source (tracked via PDG) reaches a sensitive sink (AST/PDG) without passing through sanitization (CFG). The CPG enables Graph Neural Networks (GNNs) to detect vulnerabilities automatically by capturing complex interdependencies that simple AST evaluations miss.</p>
+<h3 id="22-joern-and-overflowdb">2.2 Joern and OverflowDB<a class="headerlink" href="#22-joern-and-overflowdb" title="Permanent link">&para;</a></h3>
+<p><strong>Joern</strong> is the pioneering platform for CPG generation and traversal. It operates on <strong>OverflowDB</strong>, a specialized high-performance graph database designed to replace general-purpose databases like Neo4j for code analysis. Analysts query the CPG using a Scala-based DSL that enables imperative and functional graph traversals identifying specific parameter indices, dispatch types, and polymorphic method resolutions. Joern's architecture uses language-specific frontends (e.g., Ghidra for binaries, Soot for Java bytecode) to fuzzy-parse code even without a working build environment.</p>
+<h3 id="23-codeql-and-datalog-driven-variant-analysis">2.3 CodeQL and Datalog-Driven Variant Analysis<a class="headerlink" href="#23-codeql-and-datalog-driven-variant-analysis" title="Permanent link">&para;</a></h3>
+<p><strong>CodeQL</strong> compiles the subject program into a queryable relational database representing the AST, data flow graph, and control flow graph. Queries are written in <strong>QL</strong>, a declarative Datalog-derived language using first-order logic with recursion — naturally suited for taint-tracking and points-to analysis least-fixpoint algorithms. Because CodeQL performs whole-program analysis, it enables <strong>variant analysis</strong> — discovering every variant of a vulnerability across millions of lines of code from a single query. Incremental Datalog solvers (e.g., iQL built on Viatra Queries) reduce analysis update time to seconds by evaluating only differential changes in new commits.</p>
+<table>
+<thead>
+<tr>
+<th>CPG Engine</th>
+<th>Database</th>
+<th>Query Language</th>
+<th>Compilation</th>
+<th>Primary Strength</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Joern</strong></td>
+<td>OverflowDB (Graph)</td>
+<td>Scala-based DSL</td>
+<td>Fuzzy (no build required)</td>
+<td>Fast ingestion, highly extensible traversal</td>
+</tr>
+<tr>
+<td><strong>CodeQL</strong></td>
+<td>Relational Database</td>
+<td>QL (Datalog-derived)</td>
+<td>Strict compilation required</td>
+<td>Whole-program depth, variant analysis, taint tracking</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="domain-3-symbolic-execution-and-concolic-testing">Domain 3: Symbolic Execution and Concolic Testing<a class="headerlink" href="#domain-3-symbolic-execution-and-concolic-testing" title="Permanent link">&para;</a></h2>
+<p>Symbolic execution treats program variables as symbolic values rather than concrete data. The engine maintains a "path condition" — a first-order quantifier-free formula accumulating constraints required for the execution to follow a specific path. When execution reaches a conditional branch, an SMT solver (e.g., Z3) determines feasibility and generates concrete test cases guaranteed to trigger that specific path.</p>
+<h3 id="31-dynamic-symbolic-execution-concolic-testing">3.1 Dynamic Symbolic Execution (Concolic Testing)<a class="headerlink" href="#31-dynamic-symbolic-execution-concolic-testing" title="Permanent link">&para;</a></h3>
+<p>Classical symbolic execution suffers from state-space explosion and inability to resolve complex non-linear arithmetic constraints. <strong>Concolic Testing</strong> (concrete + symbolic) resolves this: tools like <strong>KLEE</strong> (LLVM-based) and <strong>SAGE</strong> execute the program with concrete inputs while simultaneously maintaining a symbolic trace. When the SMT solver encounters an intractable constraint, the engine substitutes the concrete value from dynamic execution, bypassing cryptographic functions or complex environment interactions without halting.</p>
+<p>Symbolic execution logs can be parsed into intermediate data structures modeling scopes, branches, and path conditions, then visualized to show the exact duration and nested hierarchy of symbolic exploration — allowing developers to debug verification failures where the solver timed out.</p>
+<hr />
+<h2 id="domain-4-neural-network-weights-and-objective-function-geometry">Domain 4: Neural Network Weights and Objective Function Geometry<a class="headerlink" href="#domain-4-neural-network-weights-and-objective-function-geometry" title="Permanent link">&para;</a></h2>
+<p>The Deep Learning components of the ASP act as highly parameterized, non-convex optimization engines. Understanding how RLHF Reward Models and Diffusion Networks converge — or fail — requires visualizing the high-dimensional geometry of their loss landscapes and weight evolution.</p>
+<h3 id="41-high-dimensional-geometry-of-loss-landscapes">4.1 High-Dimensional Geometry of Loss Landscapes<a class="headerlink" href="#41-high-dimensional-geometry-of-loss-landscapes" title="Permanent link">&para;</a></h3>
+<p>Visualizing a neural network's loss landscape requires projecting a parameter space of N dimensions (where N can be in the millions) into a 1D or 2D subspace. Naive linear interpolation fails to capture true geometry due to scale invariance, particularly in networks with Batch Normalization.</p>
+<p><strong>Filter Normalization</strong> (Li et al., 2018) is mathematically necessary to achieve accurate projection: random direction vectors are normalized so their Frobenius norm matches the norm of corresponding network filters, producing 3D surfaces that accurately reflect the sharpness or flatness of minima. A flat minimum indicates robust generalization; a sharp minimum indicates higher propensity for overfitting on out-of-distribution pipeline inputs.</p>
+<p>The local geometry is characterized by the Hessian matrix <code>H = ∇²L(θ)</code>. Because computing the full Hessian is computationally intractable (O(N²) memory), implicit <strong>Hessian-Vector Products (HVPs)</strong> are used:
+- <strong>Hessian Trace:</strong> <code>Tr(H) ≈ E[z^T H z]</code> where <code>z</code> is a vector of Rademacher random variables (Hutchinson's algorithm).
+- <strong>Eigenvalue Spectral Density (ESD):</strong> Stochastic Lanczos Quadrature (SLQ) iteratively builds a tridiagonal matrix whose Ritz values approximate the extremal eigenvalues, monitoring landscape sharpness during training.</p>
+<p>Libraries <strong>PyHessian</strong> and the <strong>Loss Landscape Analysis (LLA)</strong> package provide GPU-accelerated implementations integrating with PyTorch training loops.</p>
+<h3 id="42-weight-trajectories-and-activation-atlases">4.2 Weight Trajectories and Activation Atlases<a class="headerlink" href="#42-weight-trajectories-and-activation-atlases" title="Permanent link">&para;</a></h3>
+<p><strong>Weight trajectory tracking</strong> records flattened weight tensors at specific epochs; the Rust backend applies PCA/t-SNE/UMAP to plot the optimizer's path through latent space. Experiment tracking platforms (<strong>MLflow</strong>, <strong>TensorBoard</strong>) or deep hyperparameter exploration tools (<strong>DeepCAVE</strong>, <strong>OpenEvolve</strong>) provide programmatic access to optimization trajectories. <strong>Netron</strong> provides standard visualization for static network architectures.</p>
+<p><strong>Activation Atlases</strong> extend basic feature visualization by aggregating millions of spatial activations across a dataset, projecting them via UMAP, and generating an explorable grid of visual concepts the network has learned. <strong>Compositional Pattern Producing Networks (CPPNs)</strong> used as image parameterization during feature inversion produce highly cohesive, resolution-independent visualizations that reveal what a specific neural pathway responds to during seam-blending phases.</p>
+<hr />
+<h2 id="domain-5-computer-vision-metrics-and-pipeline-stage-diagnostics">Domain 5: Computer Vision Metrics and Pipeline Stage Diagnostics<a class="headerlink" href="#domain-5-computer-vision-metrics-and-pipeline-stage-diagnostics" title="Permanent link">&para;</a></h2>
+<p>The classical CV stages of the ASP require specialized diagnostic methodologies. While Deep Learning models fail implicitly through poor loss convergence, algorithms like Bundle Adjustment and Poisson blending fail explicitly through geometric misalignment and photometric tearing.</p>
+<h3 id="51-geometric-registration-and-residual-visualization">5.1 Geometric Registration and Residual Visualization<a class="headerlink" href="#51-geometric-registration-and-residual-visualization" title="Permanent link">&para;</a></h3>
+<p>During feature matching and registration, keypoint descriptors (SIFT, ORB, LoFTR) establish correspondences between sequential animation frames. The fundamental mathematical validation is the reprojection error calculated during Bundle Adjustment (GNC-TLS). The visualization must render virtual camera poses in 3D coordinate space alongside the sparse point cloud of inliers. Sub-pixel alignment errors are optimally visualized as <strong>2D quiver plots</strong> overlaid on source frames, where the direction and magnitude of arrows represent the disparity between the estimated homography and true feature locations.</p>
+<h3 id="52-photometric-diagnostics-frequency-and-gradient-domains">5.2 Photometric Diagnostics: Frequency and Gradient Domains<a class="headerlink" href="#52-photometric-diagnostics-frequency-and-gradient-domains" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>FFT Profiles:</strong> Photometric mismatches manifest in the frequency domain. Computing the 2D FFT of patches on either side of a seam visualizes spatial-frequency discontinuities. Sharp divergence in magnitude spectrum indicates where high-frequency textures (foliage) are inappropriately stitched to low-frequency regions (sky).</li>
+<li><strong>Gradient-Direction Circular Distance:</strong> The circular distance between Sobel/Scharr gradient angles — <code>d_c(∇a, ∇b) = 1 - cos(∇a - ∇b)</code> — quantified as a heatmap along the seam trajectory, instantly highlights regions of severe photometric tearing, allowing debugging of Poisson blending solver boundary conditions.</li>
+</ul>
+<h3 id="53-ecosystem-integration-multi-modal-logging-with-rerunio">5.3 Ecosystem Integration: Multi-Modal Logging with Rerun.io<a class="headerlink" href="#53-ecosystem-integration-multi-modal-logging-with-rerunio" title="Permanent link">&para;</a></h3>
+<p><strong>Rerun.io</strong> is a high-performance temporal data logger and visualizer built in Rust and Python, using an Entity-Component-System (ECS) architecture specifically designed for physical and computer vision data. Key capabilities:</p>
+<ul>
+<li><strong>Spatial Modeling:</strong> <code>Transform3D</code> and <code>Pinhole</code> archetypes log the exact translation, rotation, and camera intrinsics of the Bundle Adjustment step. <code>Points3D</code> archetype logs 3D inliers, automatically projecting world coordinates into 2D image coordinates via the pinhole camera matrix.</li>
+<li><strong>Temporal Logging:</strong> Rerun abstracts time into flexible timelines (e.g., <code>frame_index</code>, <code>gnc_optimization_step</code>). The TypeScript frontend — via the embedded Rerun WebAssembly (Wasm) viewer — can scrub back and forth through a single optimization pass of the Graph-Cuts algorithm, observing DP seam evolution at 60fps.</li>
+<li><strong>Tensor Overlays:</strong> FFT profiles and Sobel circular distance heatmaps are logged as native Tensor components, mapped to custom color scales, and overlaid directly onto source imagery.</li>
+</ul>
+<hr />
+<h2 id="domain-6-information-theory-statistical-failure-analysis-and-causal-discovery">Domain 6: Information Theory, Statistical Failure Analysis, and Causal Discovery<a class="headerlink" href="#domain-6-information-theory-statistical-failure-analysis-and-causal-discovery" title="Permanent link">&para;</a></h2>
+<p>Analyzing the pipeline's performance across 100+ benchmark tests necessitates a macroscopic analytical framework. The system must autonomously cluster failure modes and mathematically identify root causes using Information Theory and Causal Discovery.</p>
+<h3 id="61-information-theoretic-diagnostics">6.1 Information-Theoretic Diagnostics<a class="headerlink" href="#61-information-theoretic-diagnostics" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Shannon Entropy:</strong> <code>H(X) = -Σ P(x) log P(x)</code> quantitatively clusters frames by complexity. High-entropy frames (dense textures) require aggressive RANSAC thresholds. Low-entropy frames (flat sky) lack features for rigid alignment.</li>
+<li><strong>KL Divergence and Mutual Information:</strong> KL Divergence <code>D_KL(P||Q) = Σ P(x) log(P(x)/Q(x))</code> tracks data drift as data moves through the pipeline. Mutual Information (MI) evaluates non-linear dependency between pipeline stage outputs — determining whether an early error was catastrophic or whether intermediate smoothing algorithms absorbed the noise.</li>
+</ul>
+<h3 id="62-causal-discovery-and-root-cause-analysis">6.2 Causal Discovery and Root Cause Analysis<a class="headerlink" href="#62-causal-discovery-and-root-cause-analysis" title="Permanent link">&para;</a></h3>
+<p>Simple clustering identifies correlation; Causal Discovery identifies <strong>causation</strong> — mathematically proving that a failure in Stage 2 dictates a failure in Stage 11. The pipeline's telemetry is modeled as a Directed Acyclic Graph (DAG) using:</p>
+<ul>
+<li><strong>Constraint-Based Methods (PC algorithm):</strong> Uses conditional independence tests (Fisher-z, Hilbert-Schmidt Independence Criterion) to iteratively prune a fully connected graph into a causal skeleton.</li>
+<li><strong>Score-Based Methods (GES):</strong> Greedy Equivalence Search optimizes the Bayesian Information Criterion (BIC) over Markov equivalence classes to find the most probable causal structure.</li>
+</ul>
+<p>This detects <strong>destructive interference</strong> — when Algorithm A (color correction) perfectly minimizes its local objective but destroys gradient structures relied upon by downstream Algorithm B (feature matcher), yielding a negative Average Treatment Effect (ATE) on the global success metric.</p>
+<p><strong>Tooling:</strong>
+- <strong>causal-learn</strong> (Python, CMU Tetrad): PC, GES, LiNGAM implementations.
+- <strong>gcastle</strong> (Huawei): Gradient-based causal discovery (NOTEARS, DAG-GNN), scalable via PyTorch GPU acceleration, ingests Parquet telemetry logs.
+- <strong>dodiscover</strong> (PyWhy ecosystem): Unified API wrapper for systematic causal algorithm application.</p>
+<hr />
+<h2 id="domain-7-performance-profiling-and-causal-profiling">Domain 7: Performance Profiling and Causal Profiling<a class="headerlink" href="#domain-7-performance-profiling-and-causal-profiling" title="Permanent link">&para;</a></h2>
+<h3 id="71-flame-graphs-icicle-charts-and-execution-tracers">7.1 Flame Graphs, Icicle Charts, and Execution Tracers<a class="headerlink" href="#71-flame-graphs-icicle-charts-and-execution-tracers" title="Permanent link">&para;</a></h3>
+<p><strong>Flame Graphs</strong> (Brendan Gregg) aggregate thousands of stack trace samples into a single readable image. The y-axis represents stack depth; the x-axis spans the sample population (sorted alphabetically, NOT time-ordered); frame width represents relative resource consumption.</p>
+<p><strong>Icicle Graphs</strong> invert this layout (root at top, growing downward) — advantageous for deep stacks where entry points remain fixed on screen. Modern tools:
+- <strong>VizTracer:</strong> Logs native C functions, garbage collection, and async asyncio events — multi-threaded concurrency on interactive timelines.
+- <strong>py-spy:</strong> Sampling profiler generating speedscope JSONs and SVG flame graphs with minimal overhead.
+- Both leverage <strong>Perfetto's tracing UI</strong> for interactive rendering.</p>
+<table>
+<thead>
+<tr>
+<th>Profiling Visualization</th>
+<th>X-Axis Meaning</th>
+<th>Y-Axis Meaning</th>
+<th>Primary Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Flame Graph</strong></td>
+<td>Alphabetically sorted sample population</td>
+<td>Stack depth (Bottom-Up)</td>
+<td>CPU hotspots, total resource consumption</td>
+</tr>
+<tr>
+<td><strong>Icicle Graph</strong></td>
+<td>Alphabetically sorted sample population</td>
+<td>Stack depth (Top-Down)</td>
+<td>Root-cause tracing, top-down bottlenecks</td>
+</tr>
+<tr>
+<td><strong>Flame Chart</strong></td>
+<td>Linear passage of time</td>
+<td>Stack depth</td>
+<td>Temporal patterns, thread blocking, async waits</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-causal-profiling-and-virtual-speedups-coz">7.2 Causal Profiling and Virtual Speedups (coz)<a class="headerlink" href="#72-causal-profiling-and-virtual-speedups-coz" title="Permanent link">&para;</a></h3>
+<p>Flame Graphs identify <em>where</em> CPU time is spent but cannot answer: <em>Will optimizing this hot path actually accelerate the program?</em> In concurrent or asynchronous applications, accelerating a single thread often causes it to wait longer at the next synchronization barrier.</p>
+<p><strong>Causal Profiling</strong> (implemented in the <code>coz</code> tool) resolves this via "virtual speedups." To simulate a 20% speedup of Function A, coz forces all <em>other</em> concurrent threads to pause for an equivalent relative duration whenever Function A runs — maintaining exact relative execution speeds. By stochastically applying virtual speedups across thousands of source lines, coz generates a causal graph predicting the precise overall throughput increase per unit of localized optimization.</p>
+<p>Extensions:
+- <strong>COZ+:</strong> Applies what-if analyses (e.g., optimizing JS parsing by 40% yields 8.5% improvement in Page Load Time under specific conditions).
+- <strong>SLOWPOKE:</strong> Extends causal profiling to distributed microservices via network-level selective slowdowns for end-to-end throughput optimization.</p>
+<hr />
+<h2 id="domain-8-omniscient-debugging-and-deterministic-replay">Domain 8: Omniscient Debugging and Deterministic Replay<a class="headerlink" href="#domain-8-omniscient-debugging-and-deterministic-replay" title="Permanent link">&para;</a></h2>
+<p>The cognitive burden of traditional step-debugging limits its utility in complex asynchronous systems. Step-debuggers present isolated snapshots, forcing developers to mentally reconstruct temporal variable evolution.</p>
+<h3 id="81-record-and-replay-architectures-rr">8.1 Record and Replay Architectures (rr)<a class="headerlink" href="#81-record-and-replay-architectures-rr" title="Permanent link">&para;</a></h3>
+<p><strong>rr</strong> (Mozilla) records a complete, instruction-accurate trace by capturing all non-deterministic inputs to user-space processes from the Linux kernel — system calls, thread scheduling context switches, CPU-level non-determinism (RDTSC instructions). Replaying supplies these exact inputs, guaranteeing identical instruction-level control flow with perfect memory/register layout parity. This enables <strong>deterministic reverse execution</strong>: place a hardware data watchpoint on a corrupted memory address and execute backward in time to pinpoint the exact instruction that erroneously overwrote data.</p>
+<h3 id="82-pernosco-and-the-queryable-execution-database">8.2 Pernosco and the Queryable Execution Database<a class="headerlink" href="#82-pernosco-and-the-queryable-execution-database" title="Permanent link">&para;</a></h3>
+<p><strong>Pernosco</strong> elevates rr by compiling the entire recorded execution trace into an optimized, indexed database. Instead of stepping through time, the developer executes relational queries across the temporal axis. "The current point in time" is simply a parameter to a database query — click on any <code>printf</code> output and instantly retrieve a list of all instances that line was executed, along with the exact stack frame, local variables, and memory state at each microsecond.</p>
+<p><strong>Bug Capsules</strong> — content-addressable, replayable bundles containing the event log, filesystem snapshots, and network packets — can be integrated into CI/CD pipelines. When a flaky test fails, automated AI pipelines can load the capsule, query the trace for suspicious interleavings (write-after-free), Delta-debug the trace, and propose a bisected patch.</p>
+<hr />
+<h2 id="domain-9-formal-verification-and-state-space-visualization">Domain 9: Formal Verification and State Space Visualization<a class="headerlink" href="#domain-9-formal-verification-and-state-space-visualization" title="Permanent link">&para;</a></h2>
+<h3 id="91-tla-and-interactive-state-exploration">9.1 TLA+ and Interactive State Exploration<a class="headerlink" href="#91-tla-and-interactive-state-exploration" title="Permanent link">&para;</a></h3>
+<p><strong>TLA+</strong> (Temporal Logic of Actions) models concurrent and distributed systems mathematically. The <strong>TLC model checker</strong> explores the finite state machine of a TLA+ specification to ensure safety and liveness invariants hold under all possible interleavings.</p>
+<p><strong>ModelWisdom</strong> renders the state-transition graph with tree-based structuring, node-folding, color-highlighting of property violations, and interactive click-throughs from graphical transitions back to triggering TLA+ formulas. The <strong>TLA+ Debugger</strong> enables interactive state-space exploration with Watch expressions and backwards/forwards stepping.</p>
+<h3 id="92-smt-solver-interpretability-and-matching-loops">9.2 SMT Solver Interpretability and Matching Loops<a class="headerlink" href="#92-smt-solver-interpretability-and-matching-loops" title="Permanent link">&para;</a></h3>
+<p>SMT solvers (Z3) use <strong>E-matching</strong> — quantifier instantiation via syntactic pattern triggers. A catastrophic failure mode is the <strong>matching loop</strong>: an overly permissive trigger instantiates a quantifier that generates a new ground term, which immediately satisfies the same trigger — trapping the solver in infinite instantiation loops.</p>
+<p>The <strong>Axiom Profiler</strong> parses gigabytes of Z3 telemetry to reconstruct the causal graph of quantifier instantiations, visually identifying the exact cycle of triggers causing the loop. <strong>SMTscope</strong> provides complementary analysis.</p>
+<h3 id="93-sonification-of-theorem-provers">9.3 Sonification of Theorem Provers<a class="headerlink" href="#93-sonification-of-theorem-provers" title="Permanent link">&para;</a></h3>
+<p><strong>Z3Hydrant</strong> maps SMT solver telemetry to audio signals via sonification — hashing log entries of Z3's algorithmic steps into floating-point audio waveforms. Developers literally "listen" to the solver: a matching loop produces characteristic repetitive, rapid-fire clicking. The human auditory system's superior temporal pattern recognition summarizes millions of solver events into a short audio clip without expensive visual graph generation.</p>
+<hr />
+<h2 id="domain-10-topological-data-analysis-tda-in-software-engineering">Domain 10: Topological Data Analysis (TDA) in Software Engineering<a class="headerlink" href="#domain-10-topological-data-analysis-tda-in-software-engineering" title="Permanent link">&para;</a></h2>
+<p>TDA applies techniques from algebraic topology to extract metric-agnostic information from complex, noisy datasets.</p>
+<h3 id="101-persistent-homology-and-betti-numbers">10.1 Persistent Homology and Betti Numbers<a class="headerlink" href="#101-persistent-homology-and-betti-numbers" title="Permanent link">&para;</a></h3>
+<p><strong>Persistent homology</strong> quantifies the "shape" of data across a continuous range of scales. Given a point cloud (dynamic memory allocations, network packet latencies, Function Call Graph embeddings), TDA constructs a sequence of simplicial complexes by gradually increasing a distance threshold ε between data points. Topological features are born and eventually die (fill in), classified by Betti numbers:
+- <strong>β₀:</strong> Number of connected components.
+- <strong>β₁:</strong> Number of one-dimensional holes (loops or cycles).
+- <strong>β₂:</strong> Number of two-dimensional voids.</p>
+<p>Features are plotted on a <strong>persistence barcode</strong> or <strong>persistence diagram</strong> — features with long lifespans are fundamental topological invariants; short-lived features are noise. Because persistent homology relies on continuous mappings rather than rigid coordinate geometry, it is exceptionally robust to data deformation and scale variance.</p>
+<h3 id="102-tda-for-call-graphs-and-code-attribution">10.2 TDA for Call Graphs and Code Attribution<a class="headerlink" href="#102-tda-for-call-graphs-and-code-attribution" title="Permanent link">&para;</a></h3>
+<p>Persistent homology is applied to <strong>Function Call Graphs (FCGs)</strong> by using LLM embeddings to map decompiled functions into a high-dimensional feature space. TDA over this embedded graph reveals stylistic and functional geometries invariant to code obfuscation, renaming, or control-flow flattening. The persistence of specific loop structures (β₁ features) in the call graph acts as a robust topological signature of the original programmer's style or a malware family's intrinsic behavior. Integrating TDA signatures into GNNs yields state-of-the-art classification performance capturing the holistic shape of software architecture.</p>
+<h3 id="103-high-dimensional-observability-and-distributed-tracing">10.3 High-Dimensional Observability and Distributed Tracing<a class="headerlink" href="#103-high-dimensional-observability-and-distributed-tracing" title="Permanent link">&para;</a></h3>
+<p><strong>OpenTelemetry</strong> provides a standardized, vendor-neutral protocol for emitting a unified triad of observability data: metrics, logs, and distributed traces. A trace represents the entire lifecycle of an operation, broken down into a hierarchical tree of "spans." Each span documents a single unit of work carrying a <code>trace_id</code> and <code>span_id</code> injected into the execution context — revealing exact causal relationships and temporal distribution.</p>
+<p>For <strong>high-cardinality telemetry</strong> (unique user IDs, transaction hashes, feature flags), platforms like <strong>Honeycomb</strong> employ "BubbleUp" — mathematically comparing the distribution of all high-cardinality attributes within an anomalous subset against the baseline distribution to surface the specific variables causing performance degradation. AI-powered root cause analysis engines (<strong>Dynatrace's Davis AI</strong>, <strong>Lightstep/ServiceNow Change Intelligence</strong>) analyze real-time dependency topology maps to isolate failing components.</p>
+<hr />
+<h2 id="architectural-blueprint-a-zero-copy-pipeline">Architectural Blueprint: A Zero-Copy Pipeline<a class="headerlink" href="#architectural-blueprint-a-zero-copy-pipeline" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Architectural Layer</th>
+<th>Core Technologies</th>
+<th>Responsibilities</th>
+<th>Data Formats</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Data Generation</strong> (Python)</td>
+<td>PyTorch, OpenCV, PyHessian, causal-learn, rerun-sdk</td>
+<td>ML model execution, CV transformations, Hessian trace estimation, causal DAG generation</td>
+<td>Apache Arrow, Parquet, SCIP, .rrd (Rerun)</td>
+</tr>
+<tr>
+<td><strong>Aggregation Backend</strong> (Rust)</td>
+<td>tokio, tree-sitter, nusy-codegraph, SCIP crate</td>
+<td>High-throughput data ingestion, incremental AST parsing, semantic graph construction, fast dimensionality reduction</td>
+<td>Zero-copy IPC, gRPC, WebSockets</td>
+</tr>
+<tr>
+<td><strong>Visual Analytics</strong> (TypeScript/React)</td>
+<td>cosmos.gl, three.js, rerun (Wasm), DuckDB-WASM</td>
+<td>GPU-accelerated force-directed layouts, 3D surface rendering, temporal scrubbing, in-browser SQL filtering</td>
+<td>WebGL 2.0, WebGPU, JSON</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data-generation-and-telemetry-python">Data Generation and Telemetry (Python)<a class="headerlink" href="#data-generation-and-telemetry-python" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Deep Learning Telemetry:</strong> PyHessian computes Hessian traces and SLQ spectra. <code>loss-landscapes</code> projects objective surfaces. Tensors are serialized to Apache Arrow and batched.</li>
+<li><strong>CV Operations:</strong> <code>rerun-sdk</code> logs the mathematical state of CV pipeline stages (SIFT keypoints, Bundle Adjustment matrices, FFT tensors) asynchronously to <code>.rrd</code> files or over the network, ensuring the main optimization loop is never blocked.</li>
+<li><strong>Failure Post-Mortem:</strong> Upon completion of a benchmark suite, <code>gcastle</code> and <code>causal-learn</code> analyze Parquet logs to compute causal DAGs of any failures, identifying destructive interference.</li>
+</ul>
+<h3 id="aggregation-and-routing-rust">Aggregation and Routing (Rust)<a class="headerlink" href="#aggregation-and-routing-rust" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>AST and Graph Processing:</strong> The backend runs tree-sitter to incrementally parse Python source code. Using SCIP and <code>tree-sitter-graph</code>, it extracts semantic relationships into a queryable graph.</li>
+<li><strong>Streaming Protocol:</strong> Robust distributed networking frameworks ensure no telemetry packets are dropped during bursty pipeline stages. Data streams to the frontend via high-speed WebSockets or gRPC over HTTP/2.</li>
+</ul>
+<h3 id="visual-analytics-dashboard-typescriptwebgl">Visual Analytics Dashboard (TypeScript/WebGL)<a class="headerlink" href="#visual-analytics-dashboard-typescriptwebgl" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The Meta-Graph:</strong> Cosmograph (cosmos.gl) ingests Arrow buffers representing codebase dependency matrices directly into GPU memory. DuckDB-WASM allows SQL queries in the browser to instantly filter nodes based on causal failure impact or algorithmic complexity.</li>
+<li><strong>CV Diagnostics and Loss Landscapes:</strong> The Rerun WebAssembly viewer embedded in the React DOM handles rendering of 3D point clouds, camera frustums, and temporal scrubbing. Custom WebGL layers (Three.js) render 3D loss landscape surfaces alongside the optimizer's dimensionality-reduced trajectory.</li>
+</ul>
+<hr />
+<h2 id="key-tools-and-libraries-reference">Key Tools and Libraries Reference<a class="headerlink" href="#key-tools-and-libraries-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Tool / Library</th>
+<th>Purpose</th>
+<th>Language</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AST / Code Graph</strong></td>
+<td>tree-sitter, scip-python, rust-analyzer</td>
+<td>Incremental AST parsing, SCIP index emission</td>
+<td>Rust, Python</td>
+</tr>
+<tr>
+<td><strong>Code Graph Backend</strong></td>
+<td>nusy-codegraph, code-graph-cli, tree-sitter-graph</td>
+<td>Arrow RecordBatch graph storage, semantic extraction</td>
+<td>Rust</td>
+</tr>
+<tr>
+<td><strong>Graph Rendering</strong></td>
+<td>Cosmograph (cosmos.gl), sigma.js, react-flow</td>
+<td>GPU-accelerated force graph, moderate/low-scale graphs</td>
+<td>TypeScript</td>
+</tr>
+<tr>
+<td><strong>Architecture Compliance</strong></td>
+<td>Lattix, IntelliJ DSM Plugin</td>
+<td>DSM generation, cyclic dependency detection</td>
+<td>Java/IDE</td>
+</tr>
+<tr>
+<td><strong>CPG / Semantic Analysis</strong></td>
+<td>Joern (OverflowDB), CodeQL</td>
+<td>Vulnerability discovery, variant analysis, taint tracking</td>
+<td>Scala/QL</td>
+</tr>
+<tr>
+<td><strong>Symbolic Execution</strong></td>
+<td>KLEE (LLVM), SAGE</td>
+<td>Concolic testing, SMT-guided path coverage</td>
+<td>C/C++</td>
+</tr>
+<tr>
+<td><strong>Loss Landscape</strong></td>
+<td>PyHessian, loss-landscapes (LLA)</td>
+<td>Hessian trace, SLQ spectral density, Filter Normalization</td>
+<td>Python</td>
+</tr>
+<tr>
+<td><strong>Activation Analysis</strong></td>
+<td>Distill.pub feature viz (CPPNs), Activation Atlases</td>
+<td>Neural pathway behavioral visualization</td>
+<td>Python</td>
+</tr>
+<tr>
+<td><strong>Experiment Tracking</strong></td>
+<td>MLflow, TensorBoard, DeepCAVE, Netron</td>
+<td>Weight trajectory, architecture visualization</td>
+<td>Python</td>
+</tr>
+<tr>
+<td><strong>CV Temporal Logger</strong></td>
+<td>rerun-sdk, Rerun Wasm viewer</td>
+<td>ECS-based spatial/temporal CV telemetry</td>
+<td>Rust/Python/TS</td>
+</tr>
+<tr>
+<td><strong>Causal Discovery</strong></td>
+<td>causal-learn, gcastle, dodiscover</td>
+<td>PC algorithm, GES, NOTEARS, LiNGAM</td>
+<td>Python</td>
+</tr>
+<tr>
+<td><strong>Profiling</strong></td>
+<td>VizTracer, py-spy, Perfetto UI</td>
+<td>Flame graphs, icicle charts, async timelines</td>
+<td>Python</td>
+</tr>
+<tr>
+<td><strong>Causal Profiling</strong></td>
+<td>coz, COZ+, SLOWPOKE</td>
+<td>Virtual speedups, throughput causal analysis</td>
+<td>C/C++/distributed</td>
+</tr>
+<tr>
+<td><strong>Deterministic Replay</strong></td>
+<td>rr (Mozilla), Pernosco</td>
+<td>Instruction-accurate replay, queryable execution DB</td>
+<td>C/C++/Rust</td>
+</tr>
+<tr>
+<td><strong>SMT Analysis</strong></td>
+<td>Axiom Profiler, Z3Hydrant</td>
+<td>Matching loop detection, solver sonification</td>
+<td>Scala/audio</td>
+</tr>
+<tr>
+<td><strong>TDA</strong></td>
+<td>Ripser, Gudhi, Giotto-TDA</td>
+<td>Persistent homology, Betti number computation</td>
+<td>Python</td>
+</tr>
+<tr>
+<td><strong>Distributed Tracing</strong></td>
+<td>OpenTelemetry, Jaeger, Prometheus</td>
+<td>Trace/metrics/log emission, span correlation</td>
+<td>Multi-language</td>
+</tr>
+<tr>
+<td><strong>High-Cardinality Telemetry</strong></td>
+<td>Honeycomb (BubbleUp), Dynatrace Davis AI</td>
+<td>Statistical outlier detection, AI root cause analysis</td>
+<td>SaaS/SDK</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Visual Analytics Pipeline Research (original document)</li>
+<li>Codebase Visualization Tools Research (original document)</li>
+<li>SCIP — Source Code Intelligence Protocol: <a href="https://github.com/scip-code/scip">https://github.com/scip-code/scip</a></li>
+<li>nusy-codegraph crate: <a href="https://crates.io/crates/nusy-codegraph">https://crates.io/crates/nusy-codegraph</a></li>
+<li>tree-sitter-graph: <a href="https://github.com/tree-sitter/tree-sitter-graph/">https://github.com/tree-sitter/tree-sitter-graph/</a></li>
+<li>Software Cartography: <a href="https://scg.unibe.ch/archive/papers/Kuhn10bSoftwareMaps.pdf">https://scg.unibe.ch/archive/papers/Kuhn10bSoftwareMaps.pdf</a></li>
+<li>Cosmograph (cosmos.gl): <a href="https://cosmograph.app/library/">https://cosmograph.app/library/</a></li>
+<li>Lattix DSM: <a href="https://docs.lattix.com/lattix/userGuide/Working_with_the_Dependency_Structure_Matrix_DSM.html">https://docs.lattix.com/lattix/userGuide/Working_with_the_Dependency_Structure_Matrix_DSM.html</a></li>
+<li>IntelliJ IDEA DSM: <a href="https://www.infoq.com/news/2008/02/idea-dependency-structure-matrix/">https://www.infoq.com/news/2008/02/idea-dependency-structure-matrix/</a></li>
+<li>Joern documentation: <a href="https://joern.readthedocs.io/">https://joern.readthedocs.io/</a></li>
+<li>Code Property Graph — Modeling and Discovering Vulnerabilities: <a href="https://comsecuris.com/papers/06956589.pdf">https://comsecuris.com/papers/06956589.pdf</a></li>
+<li>CodeQL — Semgrep vs CodeQL comparison: <a href="https://konvu.com/compare/semgrep-vs-codeql">https://konvu.com/compare/semgrep-vs-codeql</a></li>
+<li>Incrementalizing Production CodeQL Analyses (arXiv): <a href="https://arxiv.org/pdf/2308.09660">https://arxiv.org/pdf/2308.09660</a></li>
+<li>Concolic testing (Wikipedia): <a href="https://en.wikipedia.org/wiki/Concolic_testing">https://en.wikipedia.org/wiki/Concolic_testing</a></li>
+<li>PyHessian — Neural Networks Through the Lens of the Hessian: <a href="https://www.stat.berkeley.edu/~mmahoney/pubs/pyhessian_conf20.pdf">https://www.stat.berkeley.edu/~mmahoney/pubs/pyhessian_conf20.pdf</a></li>
+<li>loss-landscapes (PyPI): <a href="https://pypi.org/project/loss-landscapes/">https://pypi.org/project/loss-landscapes/</a></li>
+<li>Activation Atlas (Distill.pub): <a href="https://distill.pub/2019/activation-atlas/">https://distill.pub/2019/activation-atlas/</a></li>
+<li>Feature Visualization (Distill.pub): <a href="https://distill.pub/2017/feature-visualization/">https://distill.pub/2017/feature-visualization/</a></li>
+<li>Differentiable Image Parameterizations / CPPNs (Distill.pub): <a href="https://distill.pub/2018/differentiable-parameterizations/">https://distill.pub/2018/differentiable-parameterizations/</a></li>
+<li>Rerun.io: <a href="https://www.rerun.io/">https://www.rerun.io/</a></li>
+<li>causal-learn (NeurIPS poster): <a href="https://neurips.cc/virtual/2024/poster/98316">https://neurips.cc/virtual/2024/poster/98316</a></li>
+<li>gcastle documentation: <a href="https://gcastle.readthedocs.io/">https://gcastle.readthedocs.io/</a></li>
+<li>dodiscover (PyWhy): <a href="https://github.com/py-why/dodiscover">https://github.com/py-why/dodiscover</a></li>
+<li>Flame Graphs (Brendan Gregg): <a href="https://www.brendangregg.com/flamegraphs.html">https://www.brendangregg.com/flamegraphs.html</a></li>
+<li>VizTracer: <a href="https://github.com/gaogaotiantian/viztracer">https://github.com/gaogaotiantian/viztracer</a></li>
+<li>py-spy: <a href="https://codilime.com/blog/spying-on-python-with-py-spy/">https://codilime.com/blog/spying-on-python-with-py-spy/</a></li>
+<li>COZ Causal Profiling (SOSP 2015): <a href="https://sigops.org/s/conferences/sosp/2015/current/2015-Monterey/090-curtsinger-online.pdf">https://sigops.org/s/conferences/sosp/2015/current/2015-Monterey/090-curtsinger-online.pdf</a></li>
+<li>COZ+ (SIGMETRICS 2019): <a href="https://hpcforge.eng.uci.edu/publication/sigmetrics19-coz+/sigmetrics19-coz+.pdf">https://hpcforge.eng.uci.edu/publication/sigmetrics19-coz+/sigmetrics19-coz+.pdf</a></li>
+<li>SLOWPOKE (NSDI 2026): <a href="https://www.usenix.org/system/files/nsdi26-xie.pdf">https://www.usenix.org/system/files/nsdi26-xie.pdf</a></li>
+<li>rr — lightweight recording &amp; deterministic debugging: <a href="https://rr-project.org/">https://rr-project.org/</a></li>
+<li>Pernosco vision: <a href="https://pernos.co/about/vision/">https://pernos.co/about/vision/</a></li>
+<li>ModelWisdom — TLA+ visualization (arXiv): <a href="https://arxiv.org/html/2602.12058v1">https://arxiv.org/html/2602.12058v1</a></li>
+<li>Axiom Profiler — SMT Quantifier Instantiations: <a href="https://pm.inf.ethz.ch/publications/BeckerMuellerSummers19.pdf">https://pm.inf.ethz.ch/publications/BeckerMuellerSummers19.pdf</a></li>
+<li>Z3Hydrant — Sonifying Z3's Behavior (ICSE 2025 NIER): <a href="https://www.cs.ubc.ca/~bestchai/papers/icse25-nier-z3hydrant.pdf">https://www.cs.ubc.ca/~bestchai/papers/icse25-nier-z3hydrant.pdf</a></li>
+<li>Topological Data Analysis (Wikipedia): <a href="https://en.wikipedia.org/wiki/Topological_data_analysis">https://en.wikipedia.org/wiki/Topological_data_analysis</a></li>
+<li>AMD-FCG TDA for Malware Detection (arXiv): <a href="https://arxiv.org/pdf/2606.06815">https://arxiv.org/pdf/2606.06815</a></li>
+<li>OpenTelemetry Signals Overview: <a href="https://www.dash0.com/knowledge/logs-metrics-and-traces-observability">https://www.dash0.com/knowledge/logs-metrics-and-traces-observability</a></li>
+<li>Honeycomb BubbleUp / Observability tools: <a href="https://rootly.com/sre/top-10-observability-tools-sre-2025-boost-reliability">https://rootly.com/sre/top-10-observability-tools-sre-2025-boost-reliability</a></li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

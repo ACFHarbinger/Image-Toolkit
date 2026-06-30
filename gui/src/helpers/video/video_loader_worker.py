@@ -1,10 +1,12 @@
 from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot
+from shiboken6 import Shiboken
 
-from .video_scan_worker import VideoThumbnailer
+import os
+from .video_scan_worker import VideoThumbnailer, get_video_thumbnail_cache_path
 
 
-class VideoLoaderSignals(QObject):
+class _VideoLoaderSignals(QObject):
     """
     Defines the signals for the VideoLoaderWorker.
     Must be a separate QObject because QRunnable does not inherit QObject.
@@ -26,60 +28,47 @@ class VideoLoaderWorker(QRunnable):
         super().__init__()
         self.path = path
         self.target_size = target_size
-        self.signals = VideoLoaderSignals()
+        self.signals = _VideoLoaderSignals()
         self.thumbnailer = VideoThumbnailer()
+        self._is_cancelled = False
 
         # Auto-delete ensures the runnable is cleaned up after 'run' finishes
         self.setAutoDelete(True)
 
+    def stop(self):
+        """Signals the worker to stop."""
+        self._is_cancelled = True
+
     @Slot()
     def run(self):
+        if self._is_cancelled:
+            return
         try:
+            # 1. Check Disk Cache
+            cache_path = get_video_thumbnail_cache_path(self.path)
+            if os.path.exists(cache_path):
+                img = QImage(cache_path)
+                if not img.isNull():
+                    self._safe_emit(self.path, img)
+                    return
+
+            # 2. Generate New Thumbnail
             image = self.thumbnailer.generate(self.path, self.target_size)
             if image and not image.isNull():
-                self.signals.result.emit(self.path, image)
+                # 3. Save to Disk Cache
+                image.save(cache_path, "JPG")
+                self._safe_emit(self.path, image)
             else:
-                print(
-                    f"DEBUG: Failed to generate thumbnail for {self.path}. Image is Null."
-                )
-                self.signals.result.emit(self.path, QImage())
-        except Exception as e:
-            print(f"DEBUG: Exception in VideoLoaderWorker for {self.path}: {e}")
-            self.signals.result.emit(self.path, QImage())
+                self._safe_emit(self.path, QImage())
+        except Exception:
+            self._safe_emit(self.path, QImage())
+        finally:
+            if Shiboken.isValid(self.signals):
+                self.signals.deleteLater()
 
-
-class BatchVideoLoaderWorker(QRunnable):
-    """
-    Worker task to load and scale a BATCH of video thumbnails.
-    """
-
-    def __init__(self, paths: list[str], target_size: int):
-        super().__init__()
-        self.paths = paths
-        self.target_size = target_size
-        self.signals = VideoLoaderSignals()
-        self.thumbnailer = VideoThumbnailer()
-        self.setAutoDelete(True)
-
-    @Slot()
-    def run(self):
-        results = []
+    def _safe_emit(self, path, image):
         try:
-            for path in self.paths:
-                try:
-                    image = self.thumbnailer.generate(path, self.target_size)
-                    if image and not image.isNull():
-                        self.signals.result.emit(path, image)
-                        results.append((path, image))
-                    else:
-                        self.signals.result.emit(path, QImage())
-                        results.append((path, QImage()))
-                except Exception:
-                    self.signals.result.emit(path, QImage())
-                    results.append((path, QImage()))
+            self.signals.result.emit(path, image)
+        except RuntimeError:
+            pass
 
-            self.signals.batch_result.emit(results, self.paths)
-
-        except Exception as e:
-            print(f"BatchVideoLoaderWorker error: {e}")
-            self.signals.batch_result.emit([], self.paths)

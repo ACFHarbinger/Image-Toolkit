@@ -1,0 +1,5453 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+        <link rel="prev" href="../new_features/">
+      
+      
+        <link rel="next" href="../asp/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>GUI / UX - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#guiux-roadmap-desktop-interface-quality-ergonomics" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              GUI / UX
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../ROADMAP/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reports/analytics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reports
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../new_features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Timeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use This Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#21-virtual-scroll-gallery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Virtual Scroll Gallery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.1 Virtual Scroll Gallery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#22-gallery-thumbnail-size-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Gallery Thumbnail Size Control
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.2 Gallery Thumbnail Size Control">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#23-keyboard-navigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#24-bulk-selection-and-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Bulk Selection and Operations ✅ Partial (2026-06-10 — §B Shift+click range + §C right-click context menu)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.4 Bulk Selection and Operations ✅ Partial (2026-06-10 — §B Shift+click range + §C right-click context menu)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#25-session-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Session Persistence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.5 Session Persistence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#26-stitch-tab-ux--beforeafter-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Stitch Tab UX — Before/After Comparison
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.6 Stitch Tab UX — Before/After Comparison">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#27-progress-and-cancellation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Progress and Cancellation ✅ Partial (2026-06-10 — §A stage progress + §B cancellable workers)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.7 Progress and Cancellation ✅ Partial (2026-06-10 — §A stage progress + §B cancellable workers)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#28-theme-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.8 Theme Support
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.8 Theme Support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#29-settings-window-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.9 Settings Window Extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.9 Settings Window Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implemented-2026-05-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implemented (2026-05-31)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remaining-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining Work
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#210-in-app-toast-notification-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#211-image-preview-window-enhancements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.11 Image Preview Window Enhancements ✅ Partial (2026-06-10 — §A fullscreen, §B fit modes, §D rotation shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.11 Image Preview Window Enhancements ✅ Partial (2026-06-10 — §A fullscreen, §B fit modes, §D rotation shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#212-system-tray-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.12 System Tray Integration ✅ Partial (2026-06-10 — §A+B+C shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.12 System Tray Integration ✅ Partial (2026-06-10 — §A+B+C shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#213-gallery-filtering-and-sort-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.13 Gallery Filtering and Sort Controls ✅ Partial (2026-06-10 — §A + §E)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.13 Gallery Filtering and Sort Controls ✅ Partial (2026-06-10 — §A + §E)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#214-thumbnail-metadata-overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.14 Thumbnail Metadata Overlay ✅ Partial (2026-06-10 — §A shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.14 Thumbnail Metadata Overlay ✅ Partial (2026-06-10 — §A shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#215-undoredo-for-destructive-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.15 Undo/Redo for Destructive Operations ✅ Partial (2026-06-10 — §A shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.15 Undo/Redo for Destructive Operations ✅ Partial (2026-06-10 — §A shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#216-command-palette--quick-launcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.16 Command Palette / Quick Launcher ✅ Partial (2026-06-10 — §C Ctrl+T tab search shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.16 Command Palette / Quick Launcher ✅ Partial (2026-06-10 — §C Ctrl+T tab search shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#217-global-collapsible-log-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.17 Global Collapsible Log Panel ✅ Partial (2026-06-10 — §D shipped: LogWindow upgraded)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.17 Global Collapsible Log Panel ✅ Partial (2026-06-10 — §D shipped: LogWindow upgraded)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#218-image-rating-and-color-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.18 Image Rating and Color Labels ✅ Partial (2026-06-10 — §B+C shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.18 Image Rating and Color Labels ✅ Partial (2026-06-10 — §B+C shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#219-gallery-export-and-contact-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.19 Gallery Export and Contact Sheet ✅ Partial (2026-06-10 — §A+C shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.19 Gallery Export and Contact Sheet ✅ Partial (2026-06-10 — §A+C shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#220-resizable-sidebar-panels-and-qsplitter-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.20 Resizable Sidebar Panels and QSplitter Persistence ✅ Partial (2026-06-10 — §A shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.20 Resizable Sidebar Panels and QSplitter Persistence ✅ Partial (2026-06-10 — §A shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#221-directory-navigation-history-back--forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.21 Directory Navigation History (Back / Forward) ✅ Partial (2026-06-10 — §A+D shipped for FormatTab)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.21 Directory Navigation History (Back / Forward) ✅ Partial (2026-06-10 — §A+D shipped for FormatTab)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#222-tag-chip-ui-and-compound-tag-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.22 Tag Chip UI and Compound Tag Search
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.22 Tag Chip UI and Compound Tag Search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#223-accessibility-and-keyboard-tab-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.23 Accessibility and Keyboard Tab Order ✅ Partial (2026-06-10 — §A accessible names on pagination widgets)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.23 Accessibility and Keyboard Tab Order ✅ Partial (2026-06-10 — §A accessible names on pagination widgets)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#224-thumbnail-hover-animations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.24 Thumbnail Hover Animations ✅ Partial (2026-06-10 — §A shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.24 Thumbnail Hover Animations ✅ Partial (2026-06-10 — §A shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#225-keyboard-shortcut-discovery-overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.25 Keyboard Shortcut Discovery Overlay ✅ Partial (2026-06-10 — §A Ctrl+/ table shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.25 Keyboard Shortcut Discovery Overlay ✅ Partial (2026-06-10 — §A Ctrl+/ table shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#226-inline-rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.26 Inline Rename ✅ Partial (2026-06-10 — §B shipped: context-menu rename via F2)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.26 Inline Rename ✅ Partial (2026-06-10 — §B shipped: context-menu rename via F2)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#227-multi-image-comparison-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.27 Multi-Image Comparison View
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.27 Multi-Image Comparison View">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#228-global-cross-tab-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.28 Global Cross-Tab Search
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.28 Global Cross-Tab Search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#229-configurable-keyboard-shortcuts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.29 Configurable Keyboard Shortcuts ✅ (2026-06-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.29 Configurable Keyboard Shortcuts ✅ (2026-06-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#230-accent-color-and-ui-density-customization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.30 Accent Color and UI Density Customization ✅
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.30 Accent Color and UI Density Customization ✅">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#231-custom-qss-user-theme-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.31 Custom QSS User Theme Override ✅ (2026-06-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.31 Custom QSS User Theme Override ✅ (2026-06-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#232-window-layout-and-state-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.32 Window Layout and State Profiles ✅ Partial (2026-06-10 — geometry only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.32 Window Layout and State Profiles ✅ Partial (2026-06-10 — geometry only)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_30" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort--impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anchor-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anchor Index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document History
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reports
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reports
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Timeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use This Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#21-virtual-scroll-gallery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Virtual Scroll Gallery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.1 Virtual Scroll Gallery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#22-gallery-thumbnail-size-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Gallery Thumbnail Size Control
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.2 Gallery Thumbnail Size Control">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#23-keyboard-navigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#24-bulk-selection-and-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Bulk Selection and Operations ✅ Partial (2026-06-10 — §B Shift+click range + §C right-click context menu)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.4 Bulk Selection and Operations ✅ Partial (2026-06-10 — §B Shift+click range + §C right-click context menu)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#25-session-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Session Persistence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.5 Session Persistence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#26-stitch-tab-ux--beforeafter-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Stitch Tab UX — Before/After Comparison
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.6 Stitch Tab UX — Before/After Comparison">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#27-progress-and-cancellation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Progress and Cancellation ✅ Partial (2026-06-10 — §A stage progress + §B cancellable workers)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.7 Progress and Cancellation ✅ Partial (2026-06-10 — §A stage progress + §B cancellable workers)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#28-theme-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.8 Theme Support
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.8 Theme Support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#29-settings-window-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.9 Settings Window Extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.9 Settings Window Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implemented-2026-05-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implemented (2026-05-31)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remaining-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining Work
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#210-in-app-toast-notification-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#211-image-preview-window-enhancements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.11 Image Preview Window Enhancements ✅ Partial (2026-06-10 — §A fullscreen, §B fit modes, §D rotation shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.11 Image Preview Window Enhancements ✅ Partial (2026-06-10 — §A fullscreen, §B fit modes, §D rotation shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#212-system-tray-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.12 System Tray Integration ✅ Partial (2026-06-10 — §A+B+C shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.12 System Tray Integration ✅ Partial (2026-06-10 — §A+B+C shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#213-gallery-filtering-and-sort-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.13 Gallery Filtering and Sort Controls ✅ Partial (2026-06-10 — §A + §E)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.13 Gallery Filtering and Sort Controls ✅ Partial (2026-06-10 — §A + §E)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#214-thumbnail-metadata-overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.14 Thumbnail Metadata Overlay ✅ Partial (2026-06-10 — §A shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.14 Thumbnail Metadata Overlay ✅ Partial (2026-06-10 — §A shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#215-undoredo-for-destructive-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.15 Undo/Redo for Destructive Operations ✅ Partial (2026-06-10 — §A shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.15 Undo/Redo for Destructive Operations ✅ Partial (2026-06-10 — §A shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#216-command-palette--quick-launcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.16 Command Palette / Quick Launcher ✅ Partial (2026-06-10 — §C Ctrl+T tab search shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.16 Command Palette / Quick Launcher ✅ Partial (2026-06-10 — §C Ctrl+T tab search shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#217-global-collapsible-log-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.17 Global Collapsible Log Panel ✅ Partial (2026-06-10 — §D shipped: LogWindow upgraded)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.17 Global Collapsible Log Panel ✅ Partial (2026-06-10 — §D shipped: LogWindow upgraded)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#218-image-rating-and-color-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.18 Image Rating and Color Labels ✅ Partial (2026-06-10 — §B+C shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.18 Image Rating and Color Labels ✅ Partial (2026-06-10 — §B+C shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#219-gallery-export-and-contact-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.19 Gallery Export and Contact Sheet ✅ Partial (2026-06-10 — §A+C shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.19 Gallery Export and Contact Sheet ✅ Partial (2026-06-10 — §A+C shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#220-resizable-sidebar-panels-and-qsplitter-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.20 Resizable Sidebar Panels and QSplitter Persistence ✅ Partial (2026-06-10 — §A shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.20 Resizable Sidebar Panels and QSplitter Persistence ✅ Partial (2026-06-10 — §A shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#221-directory-navigation-history-back--forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.21 Directory Navigation History (Back / Forward) ✅ Partial (2026-06-10 — §A+D shipped for FormatTab)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.21 Directory Navigation History (Back / Forward) ✅ Partial (2026-06-10 — §A+D shipped for FormatTab)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#222-tag-chip-ui-and-compound-tag-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.22 Tag Chip UI and Compound Tag Search
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.22 Tag Chip UI and Compound Tag Search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#223-accessibility-and-keyboard-tab-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.23 Accessibility and Keyboard Tab Order ✅ Partial (2026-06-10 — §A accessible names on pagination widgets)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.23 Accessibility and Keyboard Tab Order ✅ Partial (2026-06-10 — §A accessible names on pagination widgets)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#224-thumbnail-hover-animations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.24 Thumbnail Hover Animations ✅ Partial (2026-06-10 — §A shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.24 Thumbnail Hover Animations ✅ Partial (2026-06-10 — §A shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#225-keyboard-shortcut-discovery-overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.25 Keyboard Shortcut Discovery Overlay ✅ Partial (2026-06-10 — §A Ctrl+/ table shipped)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.25 Keyboard Shortcut Discovery Overlay ✅ Partial (2026-06-10 — §A Ctrl+/ table shipped)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#226-inline-rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.26 Inline Rename ✅ Partial (2026-06-10 — §B shipped: context-menu rename via F2)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.26 Inline Rename ✅ Partial (2026-06-10 — §B shipped: context-menu rename via F2)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#227-multi-image-comparison-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.27 Multi-Image Comparison View
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.27 Multi-Image Comparison View">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#228-global-cross-tab-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.28 Global Cross-Tab Search
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.28 Global Cross-Tab Search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#229-configurable-keyboard-shortcuts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.29 Configurable Keyboard Shortcuts ✅ (2026-06-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.29 Configurable Keyboard Shortcuts ✅ (2026-06-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#230-accent-color-and-ui-density-customization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.30 Accent Color and UI Density Customization ✅
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.30 Accent Color and UI Density Customization ✅">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#231-custom-qss-user-theme-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.31 Custom QSS User Theme Override ✅ (2026-06-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.31 Custom QSS User Theme Override ✅ (2026-06-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#232-window-layout-and-state-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.32 Window Layout and State Profiles ✅ Partial (2026-06-10 — geometry only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.32 Window Layout and State Profiles ✅ Partial (2026-06-10 — geometry only)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_30" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort--impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anchor-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anchor Index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document History
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="guiux-roadmap-desktop-interface-quality-ergonomics">GUI/UX Roadmap — Desktop Interface Quality &amp; Ergonomics<a class="headerlink" href="#guiux-roadmap-desktop-interface-quality-ergonomics" title="Permanent link">&para;</a></h1>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#how-to-use-this-document">How to Use This Document</a></li>
+<li><a href="#21-virtual-scroll-gallery">2.1 Virtual Scroll Gallery</a></li>
+<li><a href="#22-gallery-thumbnail-size-control">2.2 Gallery Thumbnail Size Control</a></li>
+<li><a href="#23-keyboard-navigation">2.3 Keyboard Navigation</a></li>
+<li><a href="#24-bulk-selection-and-operations">2.4 Bulk Selection and Operations</a></li>
+<li><a href="#25-session-persistence">2.5 Session Persistence</a></li>
+<li><a href="#26-stitch-tab-ux--beforeafter-comparison">2.6 Stitch Tab UX — Before/After Comparison</a></li>
+<li><a href="#27-progress-and-cancellation">2.7 Progress and Cancellation</a></li>
+<li><a href="#28-theme-support">2.8 Theme Support</a></li>
+<li><a href="#29-settings-window-extensions">2.9 Settings Window Extensions</a></li>
+<li><a href="#210-in-app-toast-notification-system">2.10 In-App Toast Notification System</a></li>
+<li><a href="#211-image-preview-window-enhancements">2.11 Image Preview Window Enhancements</a></li>
+<li><a href="#212-system-tray-integration">2.12 System Tray Integration</a></li>
+<li><a href="#213-gallery-filtering-and-sort-controls">2.13 Gallery Filtering and Sort Controls</a></li>
+<li><a href="#214-thumbnail-metadata-overlay">2.14 Thumbnail Metadata Overlay</a></li>
+<li><a href="#215-undoredo-for-destructive-operations">2.15 Undo/Redo for Destructive Operations</a></li>
+<li><a href="#216-command-palette--quick-launcher">2.16 Command Palette / Quick Launcher</a></li>
+<li><a href="#217-global-collapsible-log-panel">2.17 Global Collapsible Log Panel</a></li>
+<li><a href="#218-image-rating-and-color-labels">2.18 Image Rating and Color Labels</a></li>
+<li><a href="#219-gallery-export-and-contact-sheet">2.19 Gallery Export and Contact Sheet</a></li>
+<li><a href="#220-resizable-sidebar-panels-and-qsplitter-persistence">2.20 Resizable Sidebar Panels and QSplitter Persistence</a></li>
+<li><a href="#221-directory-navigation-history-back--forward">2.21 Directory Navigation History</a></li>
+<li><a href="#222-tag-chip-ui-and-compound-tag-search">2.22 Tag Chip UI and Compound Tag Search</a></li>
+<li><a href="#223-accessibility-and-keyboard-tab-order">2.23 Accessibility and Keyboard Tab Order</a></li>
+<li><a href="#224-thumbnail-hover-animations">2.24 Thumbnail Hover Animations</a></li>
+<li><a href="#225-keyboard-shortcut-discovery-overlay">2.25 Keyboard Shortcut Discovery Overlay</a></li>
+<li><a href="#226-inline-rename">2.26 Inline Rename</a></li>
+<li><a href="#227-multi-image-comparison-view">2.27 Multi-Image Comparison View</a></li>
+<li><a href="#228-global-cross-tab-search">2.28 Global Cross-Tab Search</a></li>
+<li><a href="#229-configurable-keyboard-shortcuts">2.29 Configurable Keyboard Shortcuts</a></li>
+<li><a href="#230-accent-color-and-ui-density-customization">2.30 Accent Color and UI Density Customization</a></li>
+<li><a href="#231-custom-qss-user-theme-override">2.31 Custom QSS User Theme Override</a></li>
+<li><a href="#232-window-layout-and-state-profiles">2.32 Window Layout and State Profiles</a></li>
+<li><a href="#effort--impact-matrix">Effort × Impact Matrix</a></li>
+<li><a href="#anchor-index">Anchor Index</a></li>
+</ul>
+<hr />
+<h2 id="implementation-timeline">Implementation Timeline<a class="headerlink" href="#implementation-timeline" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Legend</strong> — <em>Node fill:</em> new feature (blue) · augmentation (violet) · performance (orange) — <em>Node border:</em> ✅ complete (green, thick) · 🔄 in-progress (amber, thick) · ⬜ planned (slate, thin) — <em>Edges:</em> <code>==&gt;</code> critical prerequisite · <code>--&gt;</code> sequential dependency · <code>---</code> complements</p>
+</blockquote>
+<pre class="mermaid"><code>flowchart LR
+    %% ── TYPE classes (node fill = element type) ─────────────────────────────
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef fix         fill:#dc2626,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef perf        fill:#ea580c,color:#fff
+    classDef research    fill:#475569,color:#fff
+    classDef security    fill:#7f1d1d,color:#fff
+    classDef refactor    fill:#0f766e,color:#fff
+    classDef migration   fill:#4338ca,color:#fff
+    classDef testing     fill:#a16207,color:#fff
+    classDef docs        fill:#15803d,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    %% ── STATUS classes (node border = implementation status) ─────────────────
+    classDef done        stroke:#16a34a,stroke-width:4px
+    classDef active      stroke:#d97706,stroke-width:4px
+    classDef planned     stroke:#64748b,stroke-width:2px
+    classDef blocked     stroke:#dc2626,stroke-width:3px
+    classDef hold        stroke:#9333ea,stroke-width:3px
+
+    subgraph GC["🖼️ Gallery Core"]
+        direction TB
+        S21["§2.1 Virtual Scroll Gallery"]:::perf:::planned
+        S22["§2.2 Thumbnail Size Control"]:::augment:::planned
+        S23["§2.3 Keyboard Navigation ✅p"]:::augment:::active
+        S24["§2.4 Bulk Selection ✅p"]:::feature:::active
+        S213["§2.13 Filter &amp; Sort Controls ✅p"]:::feature:::active
+        S214["§2.14 Metadata Overlay ✅p"]:::augment:::active
+        S21 ==&gt; S22
+        S21 --&gt; S213
+        S21 --&gt; S214
+        S23 --- S24
+    end
+
+    subgraph WF["⚡ Workflow &amp; Productivity"]
+        direction TB
+        S25["§2.5 Session Persistence"]:::augment:::planned
+        S27["§2.7 Progress &amp; Cancel ✅p"]:::augment:::active
+        S215["§2.15 Undo/Redo ✅p"]:::feature:::active
+        S216["§2.16 Command Palette ✅p"]:::feature:::active
+        S221["§2.21 Dir Nav History ✅p"]:::augment:::active
+        S222["§2.22 Tag Chip UI"]:::feature:::planned
+        S227["§2.27 Multi-Image Compare"]:::feature:::planned
+        S228["§2.28 Global Search"]:::feature:::planned
+        S222 --&gt; S228
+        S216 --&gt; S228
+    end
+
+    subgraph SYS["🔔 Notifications &amp; System"]
+        direction TB
+        S28["§2.8 Theme Support"]:::feature:::planned
+        S29["§2.9 Settings Window"]:::augment:::planned
+        S210["§2.10 Toast Notifications ✅p"]:::feature:::active
+        S212["§2.12 System Tray ✅p"]:::feature:::active
+        S217["§2.17 Log Panel ✅p"]:::feature:::active
+        S229["§2.29 Configurable Shortcuts ✅"]:::augment:::done
+        S212 --- S217
+    end
+
+    subgraph VIS["🎨 Visual Customisation"]
+        direction TB
+        S218["§2.18 Image Rating ✅p"]:::feature:::active
+        S225["§2.25 Shortcut Overlay ✅p"]:::feature:::active
+        S230["§2.30 Accent Color ✅"]:::augment:::done
+        S231["§2.31 Custom QSS Theme ✅"]:::augment:::done
+        S232["§2.32 Layout Profiles ✅p"]:::augment:::active
+        S230 --- S231
+    end
+
+    %% Cross-group dependencies
+    S28 --&gt; S230
+    S28 --&gt; S231
+    S216 --- S229
+    S25 --- S232</code></pre>
+<p>Each node's <strong>fill colour</strong> shows element type: blue = new feature, violet = augmentation, orange = performance optimisation. The <strong>border colour</strong> shows implementation status: thick green = complete, thick amber = partially shipped (✅p), thin slate = not yet started. <strong>Edge style</strong> encodes relationship: <code>==&gt;</code> critical prerequisite (must land first), <code>--&gt;</code> sequential dependency, <code>---</code> complements (parallel work).</p>
+<hr />
+<h2 id="how-to-use-this-document">How to Use This Document<a class="headerlink" href="#how-to-use-this-document" title="Permanent link">&para;</a></h2>
+<p>Each section describes an ergonomic pain point, all viable implementation options with trade-offs, and a recommendation. Items tagged <strong>[Quick Win]</strong> take under a day. Items tagged <strong>[Research]</strong> require prototyping.</p>
+<p><strong>Critical constraint:</strong> Never use <code>QWebEngineView</code> (QtWebEngine/Chromium). Opening URLs must use <code>QDesktopServices.openUrl()</code>. All heavy operations must run off the main thread (QThread/QRunnable). See MEMORY.md for the JVM + native dialog SIGSEGV context.</p>
+<hr />
+<h2 id="21-virtual-scroll-gallery">2.1 Virtual Scroll Gallery<a class="headerlink" href="#21-virtual-scroll-gallery" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. <code>QLabel</code> grid layout does not scale beyond 200 items without noticeable lag.</p>
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
+<p><strong>A — QListView + QAbstractItemModel with virtual scrolling</strong>
+Replace the grid of <code>QLabel</code> widgets with a <code>QListView</code> in <code>IconMode</code>, backed by a custom <code>QAbstractItemModel</code>. The model loads thumbnails on-demand via <code>fetchMore()</code> or lazy role population. Qt handles viewport culling automatically — only visible cells are rendered.
+- Implementation notes: Subclass <code>QAbstractListModel</code>; implement <code>data()</code> returning <code>Qt.DecorationRole</code> as a <code>QPixmap</code> loaded from LRU cache. Use <code>uniformItemSizes(True)</code> for performance. Bind <code>QListView.verticalScrollBar().valueChanged</code> to trigger background prefetch of upcoming rows.
+- Pros: Best long-term approach. Qt's viewport culling means 10k items cost the same as 100. Natural integration with <code>QItemSelectionModel</code> for bulk selection (§2.4).
+- Cons: Large refactor of <code>AbstractClassTwoGalleries</code> and <code>AbstractClassSingleGallery</code>. Risk of breaking existing signal/slot connections.
+- Reference: <a href="https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QListView.html">Qt QListView docs</a></p>
+<p><strong>B — QGraphicsView scene with item culling</strong>
+Place <code>QGraphicsPixmapItem</code> objects on a <code>QGraphicsScene</code>. Override <code>drawBackground()</code> to only load pixmaps for items intersecting the viewport rect. Items outside the viewport hold a placeholder.
+- Pros: Easier to add zoom/pan interactions. Natural canvas for drag-and-drop.
+- Cons: <code>QGraphicsScene</code> memory overhead per item is higher than model/view. Less battle-tested for 1000+ item galleries.</p>
+<p><strong>C — Keep page system; increase page size + scroll indicator [Quick Win]</strong>
+Increase default page size from 50 to 150–200 images (safe now that LRU bounds RAM). Add a visual scroll indicator showing current position in the total collection. Add "Jump to page N" input.
+- Pros: Minimal refactor. Acceptable for most use cases. Ships in hours.
+- Cons: Still requires manual navigation for collections &gt; 200 images. LRU eviction still reloads on page switch.</p>
+<p><strong>D — QScrollArea with recycled QLabel pool</strong>
+Maintain a fixed pool of ~N_visible <code>QLabel</code> widgets. On scroll events, reassign the out-of-viewport labels to incoming images (widget recycling, similar to Android RecyclerView).
+- Pros: No Qt model/view refactor needed. Can be retrofitted into the existing layout.
+- Cons: Custom recycling logic is complex and error-prone. Higher maintenance than A.</p>
+<p><strong>Recommendation:</strong> C is the fastest improvement with no architecture change. A is the right long-term direction — prototype it against <code>AbstractClassTwoGalleries</code> in an isolated branch.</p>
+<hr />
+<h2 id="22-gallery-thumbnail-size-control">2.2 Gallery Thumbnail Size Control<a class="headerlink" href="#22-gallery-thumbnail-size-control" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Fixed thumbnail size suits neither 4K monitors nor laptops. Users managing large libraries want smaller thumbnails; users doing quality review want larger ones.</p>
+<h3 id="options_1">Options<a class="headerlink" href="#options_1" title="Permanent link">&para;</a></h3>
+<p><strong>A — Persistent slider in gallery toolbar</strong>
+A <code>QSlider</code> (range 48–512px, step 16) that updates the <code>thumbnail_size</code> parameter live. Store the value in <code>QSettings</code>. Re-trigger the batch loader with the new size.
+- Pros: Explicit, always visible. Easy to discover.
+- Cons: Adds a persistent UI element to the toolbar.</p>
+<p><strong>B — Ctrl+scroll zoom [Quick Win]</strong>
+Intercept <code>wheelEvent</code> with <code>Ctrl</code> modifier in the gallery widget to resize thumbnails in place. Each scroll step changes size by 16px. Familiar from OS file managers (Finder, Nautilus) and IDEs.
+- Pros: No UI chrome. Muscle memory from other apps.
+- Cons: Ctrl+scroll conflict with text editors if the gallery has keyboard focus unexpectedly.</p>
+<p><strong>C — Preset buttons (S/M/L/XL)</strong>
+Four fixed sizes (64/128/192/256px) as toggle buttons in the toolbar. Less flexible but harder to mis-click to an unusable size.
+- Pros: Discoverable. Safe range.
+- Cons: Limited flexibility.</p>
+<p><strong>D — Per-tab persistent size</strong>
+Extend A/B so each tab remembers its own thumbnail size independently (e.g., convert tab prefers larger, database tab prefers smaller).
+- Pros: Workflow-aware sizing.
+- Cons: More <code>QSettings</code> keys to manage.</p>
+<p><strong>Recommendation:</strong> B is the most intuitive (no UI chrome). Combine with A for explicit control. D as a follow-on once A is stable.</p>
+<hr />
+<h2 id="23-keyboard-navigation">2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)<a class="headerlink" href="#23-keyboard-navigation" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Common operations require mouse interaction. Power users expect keyboard shortcuts for gallery navigation, preview, and operations.</p>
+<h3 id="options_2">Options<a class="headerlink" href="#options_2" title="Permanent link">&para;</a></h3>
+<p><strong>A — Arrow key gallery navigation</strong>
+Left/right/up/down select the adjacent thumbnail. Enter opens the full-size preview. Delete triggers the deletion workflow.
+- Pros: Baseline expectation for any image browser. Minimal code (install <code>QShortcut</code> on the gallery widget).
+- Cons: Requires focus management — shortcuts only fire when gallery has focus.</p>
+<p><strong>B — Global hotkey table in settings</strong>
+Let users configure custom bindings for any tab action. Store in <code>~/.config/image-toolkit/keybindings.json</code>. Use Qt's <code>QShortcut</code> with <code>Qt.ApplicationShortcut</code> context.
+- Pros: Power-user friendly. Accommodates diverse workflows.
+- Cons: Significant UI investment for the settings panel. Conflict detection between shortcuts.</p>
+<p><strong>C — Operation hotkeys (non-configurable)</strong>
+Fixed shortcuts for common operations: <code>Ctrl+D</code> duplicate scan, <code>Ctrl+E</code> export, <code>Ctrl+W</code> close preview, <code>Space</code> toggle selection. Discoverable via tooltips.
+- Pros: Fast to implement. Covers 80% of use cases.
+- Cons: Inflexible. May conflict with OS shortcuts on some platforms.</p>
+<p><strong>D — Vim-style modal navigation (hjkl)</strong>
+Optional mode toggle: press <code>v</code> to enter visual navigation mode, use hjkl for movement. For users comfortable with modal navigation.
+- Pros: High efficiency for keyboard-centric users.
+- Cons: Niche appeal. Mode switching adds cognitive overhead.</p>
+<p><strong>Recommendation:</strong> A is the baseline expectation. C covers common operations quickly. B is the right long-term architecture for a power-user tool. Skip D unless there's explicit demand.</p>
+<hr />
+<h2 id="24-bulk-selection-and-operations">2.4 Bulk Selection and Operations ✅ Partial (2026-06-10 — §B Shift+click range + §C right-click context menu)<a class="headerlink" href="#24-bulk-selection-and-operations" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> No way to select multiple images across the gallery and apply operations (convert, delete, tag) to all at once. Every operation is per-image or per-directory.</p>
+<h3 id="options_3">Options<a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h3>
+<p><strong>A — Checkbox select mode</strong>
+Toggle a "select mode" button that shows checkboxes on all thumbnails. Selected images passed to operations via a "batch apply" button.
+- Pros: Clear visual indication of selection state. No accidental selection.
+- Cons: Requires a mode toggle; breaks flow.</p>
+<p><strong>B — Shift+click range + Ctrl+click multi-select</strong>
+Standard file-manager pattern. No mode toggle needed. Works naturally with keyboard navigation (§2.3A).
+- Pros: Users already know this pattern. Integrates cleanly with <code>QItemSelectionModel</code> if using QListView.
+- Cons: Harder to implement cleanly in the current <code>QLabel</code> grid layout (no <code>QItemSelectionModel</code>).</p>
+<p><strong>C — Context menu on selection</strong>
+Right-click shows a context menu with available batch operations when multiple images are selected.
+- Pros: Discovers available operations without cluttering the toolbar.
+- Cons: Requires B or A to first establish a selection.</p>
+<p><strong>D — Lasso/rubber band selection</strong>
+Drag a selection rectangle over the gallery to select all thumbnails within it.
+- Pros: Fast for spatially contiguous selections.
+- Cons: Non-trivial to implement on a grid layout. Easier on QGraphicsView (§2.1B).</p>
+<p><strong>E — "Select all" and "Invert selection" toolbar buttons</strong>
+One-click select all / deselect all / invert. Common in batch photo editors.
+- Pros: Trivial to implement. High utility for "delete all except these" workflows.
+- Cons: Only useful when combined with B or A for partial selection.</p>
+<p><strong>Recommendation:</strong> B + C together — standard patterns users already know. E is a trivial follow-on. D is better deferred until §2.1A is implemented.</p>
+<hr />
+<h2 id="25-session-persistence">2.5 Session Persistence<a class="headerlink" href="#25-session-persistence" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Every app restart requires re-browsing to the last directory. For consistent workflows this is repetitive friction.</p>
+<h3 id="options_4">Options<a class="headerlink" href="#options_4" title="Permanent link">&para;</a></h3>
+<p><strong>A — Remember last browsed path per tab [Quick Win]</strong>
+Store each tab's last directory in <code>QSettings</code>. Restore on startup. One-line change per tab.
+- Pros: Minimal effort. Highest bang-for-buck.
+- Cons: No scroll position or filter state is restored.</p>
+<p><strong>B — Full session file</strong>
+Save the full app state (open tabs, loaded directories, gallery scroll position, active filters, selected images) to <code>session.json</code> in <code>~/.config/image-toolkit/</code>. Restore on startup.
+- Pros: Complete workspace restoration.
+- Cons: Complex to implement correctly. State deserialization can fail on version changes.</p>
+<p><strong>C — Recent directories dropdown</strong>
+Show the 10 most recently browsed directories in a dropdown per tab. No auto-restore; user chooses.
+- Pros: Low friction. Covers 80% of the use case without autoloading potentially stale paths.
+- Cons: Still requires a click to restore.</p>
+<p><strong>D — Named workspaces</strong>
+Save/load named "workspace" profiles that capture the full session state (B). Expose as a menu: <code>File → Workspaces → [Save / Load]</code>.
+- Pros: Enables project-based workflows (e.g., "novel reading session" vs "wallpaper curation").
+- Cons: Significant effort. Better deferred until B proves valuable.</p>
+<p><strong>Recommendation:</strong> A immediately. C as a follow-on. B is overkill for now.</p>
+<hr />
+<h2 id="26-stitch-tab-ux--beforeafter-comparison">2.6 Stitch Tab UX — Before/After Comparison<a class="headerlink" href="#26-stitch-tab-ux--beforeafter-comparison" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> StitchTab shows the output panorama but provides no comparison with the simple stitch fallback. Users can't judge whether ASP actually improved the result without manually opening both outputs.</p>
+<h3 id="options_5">Options<a class="headerlink" href="#options_5" title="Permanent link">&para;</a></h3>
+<p><strong>A — Split-view with draggable divider</strong>
+Display ASP result on the left, SCANS result on the right, separated by a draggable vertical line. Both images registered to the same canvas coordinates.
+- Pros: Precise spatial comparison.
+- Cons: Requires two images to be loaded simultaneously. Custom <code>QWidget</code> paint override for the divider handle.</p>
+<p><strong>B — Overlay toggle button [Quick Win]</strong>
+A single button that swaps between ASP and SCANS outputs. Add a brief crossfade animation (100ms) to highlight the difference.
+- Pros: Faster than split-view for single-image judgement. Low UI complexity.
+- Cons: Cannot compare two regions simultaneously.</p>
+<p><strong>C — Quality metric overlay</strong>
+Show sharpness, ghosting, and seam gradient scores as a floating panel on top of the preview image. Scores update when switching between ASP/SCANS.
+- Pros: Quantifies the visual difference. No comparison image needed.
+- Cons: Numbers alone don't convey spatial distribution of quality issues.</p>
+<p><strong>D — Difference heatmap view</strong>
+Compute |ASP - SCANS| per pixel and display as a colourmap overlay (e.g., hot colourmap). Regions of improvement are immediately visible.
+- Pros: Spatially precise. Visually compelling.
+- Cons: Requires both outputs to be the same resolution/alignment (may need registration step).</p>
+<p><strong>Recommendation:</strong> B + C. The metrics give context; the toggle lets the user see the actual visual difference. D is a [Research] quality analysis tool.</p>
+<hr />
+<h2 id="27-progress-and-cancellation">2.7 Progress and Cancellation ✅ Partial (2026-06-10 — §A stage progress + §B cancellable workers)<a class="headerlink" href="#27-progress-and-cancellation" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Long-running operations show minimal progress feedback and cannot be cancelled without killing the process.</p>
+<h3 id="options_6">Options<a class="headerlink" href="#options_6" title="Permanent link">&para;</a></h3>
+<p><strong>A — Stage-level progress bar for ASP</strong>
+Emit a stage-name signal at the start of each of the 13 pipeline stages. Display current stage name + per-stage progress percentage in the StitchTab status bar.
+- Pros: Minimum viable feedback for a 90-second operation. Uses existing signal infrastructure.
+- Cons: Within-stage progress (e.g., BiRefNet inference for frame N of M) requires additional signals.</p>
+<p><strong>B — Cancellable QThread with <code>_should_stop</code> flag</strong>
+Add a <code>cancel()</code> method to all worker QThreads. Workers check the flag between stages and emit a <code>cancelled</code> signal.
+- Pros: Correctness feature — prevents zombie workers. Reusable pattern for all long operations.
+- Cons: Requires modifying every worker class. Some stages (e.g., single long GPU call) cannot be interrupted mid-stage.</p>
+<p><strong>C — ETA estimate</strong>
+Based on benchmark timing data (per-stage avg seconds), display "~Xs remaining" that updates as each stage completes. Use exponential moving average to smooth the estimate.
+- Pros: Reduces anxiety during long runs. Data already available from benchmark module.
+- Cons: ETA is only accurate for corpus-similar inputs. Novel datasets (different resolution, frame count) will have inaccurate estimates.</p>
+<p><strong>D — Per-operation cancellation tokens (async pattern)</strong>
+Use <code>asyncio.CancelledError</code> or a <code>threading.Event</code> as a cancellation token passed through the call stack. More composable than the <code>_should_stop</code> flag on the worker class.
+- Pros: Cancellation can be triggered at any depth in the call stack, not just between stages.
+- Cons: Requires refactoring the pipeline to pass the token through all stage calls.</p>
+<p><strong>Recommendation:</strong> A + B. Cancellation is a correctness feature. Stage progress is the minimum viable feedback. C is a quick add-on once A is in place.</p>
+<hr />
+<h2 id="28-theme-support">2.8 Theme Support<a class="headerlink" href="#28-theme-support" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> App uses the system Qt palette, producing inconsistent look across platforms. Dark-mode OS settings not reliably respected.</p>
+<h3 id="options_7">Options<a class="headerlink" href="#options_7" title="Permanent link">&para;</a></h3>
+<p><strong>A — Dark/light mode toggle using QSS</strong>
+Write <code>dark.qss</code> and <code>light.qss</code>. Toggle via a settings checkbox. Load at startup from <code>~/.config/image-toolkit/theme.qss</code>.
+- Pros: Full control over every widget style.
+- Cons: QSS is verbose and brittle; needs maintenance as new widgets are added.</p>
+<p><strong>B — qt-material or qdarkstyle integration</strong>
+Drop-in third-party stylesheets. <code>qt-material</code> (Google Material Design colours) or <code>qdarkstyle</code> (dark professional look).
+- Pros: Fastest path to a polished dark theme.
+- Cons: Adds a runtime dependency. Themes may not cover all custom widgets.</p>
+<p><strong>C — Follow OS dark mode automatically [Quick Win]</strong>
+Use <code>QPalette.ColorScheme</code> (Qt 6.5+) to detect the OS preference and apply the matching Qt palette. Register a <code>QApplication.paletteChanged</code> handler to respond to live OS theme changes.
+- Implementation: <code>QApplication.styleHints().colorScheme()</code> returns <code>Qt.ColorScheme.Dark/Light/Unknown</code>.
+- Pros: Zero effort for correct behaviour. Respects user OS setting.
+- Cons: Qt's auto-palette is less visually polished than a custom QSS.</p>
+<p><strong>D — Accent colour customisation</strong>
+Allow users to choose a custom accent colour (used for selected thumbnails, progress bars, etc.) via a colour picker in settings. Inject into QSS as a CSS variable.
+- Pros: Personalisation without maintaining full QSS.
+- Cons: Requires QSS templating.</p>
+<p><strong>Recommendation:</strong> C first (zero effort, correct by default). A as a power-user override for users who want a specific look. Skip B — adds a dependency for minimal gain over C.</p>
+<hr />
+<h2 id="29-settings-window-extensions">2.9 Settings Window Extensions<a class="headerlink" href="#29-settings-window-extensions" title="Permanent link">&para;</a></h2>
+<p><strong>Status:</strong> Partially implemented (2026-05-31). The base settings window now includes Gallery &amp; Display, Startup &amp; Session, Performance &amp; Cache, Slideshow Defaults, Logging, and Reset State sections. The items below describe the remaining work to make these settings take effect at runtime.</p>
+<h3 id="implemented-2026-05-31">Implemented (2026-05-31)<a class="headerlink" href="#implemented-2026-05-31" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Group</th>
+<th>Persisted to Vault</th>
+<th>Live Apply</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Default thumbnail size</td>
+<td>Gallery &amp; Display</td>
+<td>✅</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>Default gallery page size</td>
+<td>Gallery &amp; Display</td>
+<td>✅</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>Confirm file deletions toggle</td>
+<td>Gallery &amp; Display</td>
+<td>✅</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>Startup default category</td>
+<td>Startup &amp; Session</td>
+<td>✅</td>
+<td>Next launch</td>
+</tr>
+<tr>
+<td>Restore last browsed directory</td>
+<td>Startup &amp; Session</td>
+<td>✅</td>
+<td>Next launch</td>
+</tr>
+<tr>
+<td>Recent directories count</td>
+<td>Startup &amp; Session</td>
+<td>✅</td>
+<td>Next launch</td>
+</tr>
+<tr>
+<td>Found gallery LRU cache size</td>
+<td>Performance &amp; Cache</td>
+<td>✅</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>Selected gallery LRU cache size</td>
+<td>Performance &amp; Cache</td>
+<td>✅</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>Wallpaper gallery LRU cache size</td>
+<td>Performance &amp; Cache</td>
+<td>✅</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>Slideshow default interval</td>
+<td>Slideshow Defaults</td>
+<td>✅</td>
+<td>Next slideshow start</td>
+</tr>
+<tr>
+<td>Slideshow default playback order</td>
+<td>Slideshow Defaults</td>
+<td>✅</td>
+<td>Next slideshow start</td>
+</tr>
+<tr>
+<td>Log level</td>
+<td>Logging</td>
+<td>✅</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>Enable file logging to disk</td>
+<td>Logging</td>
+<td>✅</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>Clear thumbnail cache (action)</td>
+<td>Reset State</td>
+<td>N/A — immediate</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Reset slideshow daemon (action)</td>
+<td>Reset State</td>
+<td>N/A — immediate</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Clear all tab configs &amp; profiles (action)</td>
+<td>Reset State</td>
+<td>✅ — clears vault keys</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<h3 id="remaining-work">Remaining Work<a class="headerlink" href="#remaining-work" title="Permanent link">&para;</a></h3>
+<p><strong>A — Wire thumbnail size / page size to gallery base classes at startup</strong>
+<code>main_window.py</code> should read <code>preferences["thumbnail_size"]</code> and <code>preferences["page_size"]</code> after vault load and set <code>tab.thumbnail_size</code> / <code>tab.found_page_size</code> / <code>tab.page_size</code> on each gallery tab instance before displaying them. One loop in <code>MainWindow.__init__</code> after all tabs are constructed.</p>
+<p><strong>B — Wire LRU cache sizes to gallery base classes at startup</strong>
+Same loop as A: read <code>found_cache_maxsize</code>, <code>selected_cache_maxsize</code>, <code>initial_cache_maxsize</code> and call <code>tab._found_pixmap_cache = LRUImageCache(maxsize=...)</code> etc. The <code>LRUImageCache</code> class supports <code>maxsize</code> at construction time.</p>
+<p><strong>C — Wire startup category to MainWindow</strong>
+<code>MainWindow.__init__</code> already calls <code>self.on_command_changed(self.command_combo.currentText())</code>. Before that, set <code>self.command_combo.setCurrentText(prefs.get("startup_category", "System Tools"))</code> after reading preferences from vault.</p>
+<p><strong>D — Wire confirm_deletions to deletion workflows ✅ (2026-06-10)</strong>
+<code>_confirm_deletions_enabled()</code> helper reads <code>preferences["confirm_deletions"]</code> from vault in both gallery base classes. <code>_trash_path</code> in <code>AbstractClassTwoGalleries</code> gates on this preference. <code>ConvertTab</code>, <code>DeleteTab</code>, and <code>WallpaperTab</code> standalone deletion paths still use their own dialogs (partial coverage).</p>
+<p><strong>E — Wire slideshow defaults to WallpaperTab</strong>
+After <code>WallpaperTab</code> construction in <code>MainWindow.__init__</code>, set:
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="bp">self</span><span class="o">.</span><span class="n">wallpaper_tab</span><span class="o">.</span><span class="n">interval_min_spinbox</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="n">prefs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;slideshow_interval_min&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="bp">self</span><span class="o">.</span><span class="n">wallpaper_tab</span><span class="o">.</span><span class="n">interval_sec_spinbox</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="n">prefs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;slideshow_interval_sec&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="bp">self</span><span class="o">.</span><span class="n">wallpaper_tab</span><span class="o">.</span><span class="n">playback_order_combo</span><span class="o">.</span><span class="n">setCurrentText</span><span class="p">(</span><span class="n">prefs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;slideshow_order&quot;</span><span class="p">,</span> <span class="s2">&quot;Sequential&quot;</span><span class="p">))</span>
+</span></code></pre></div></p>
+<p><strong>F — Wire logging settings</strong>
+On app startup (before <code>MainWindow</code> init), read <code>preferences["log_level"]</code> and <code>preferences["file_logging_enabled"]</code> and configure the <code>logging</code> module: set the root logger level and add/remove the <code>RotatingFileHandler</code>. This should go in <code>main.py</code> after vault load.</p>
+<p><strong>G — Wire restore_last_dir and recent_dirs_count</strong>
+Requires implementing the session persistence feature (§2.5). The vault settings are already stored; they just need to be consumed.</p>
+<hr />
+<h2 id="210-in-app-toast-notification-system">2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped)<a class="headerlink" href="#210-in-app-toast-notification-system" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Every operation result — file saved, cache cleared, duplicate found, export finished — triggers a blocking <code>QMessageBox</code> that interrupts the user's workflow. For background operations (slideshow daemon ticks, RLHF auto-score, WebDriver status) there is no non-blocking feedback path at all.</p>
+<h3 id="options_8">Options<a class="headerlink" href="#options_8" title="Permanent link">&para;</a></h3>
+<p><strong>A — Custom overlay toast widget [Quick Win]</strong>
+A borderless, semi-transparent <code>QLabel</code> anchored to a corner of <code>MainWindow</code>. Shown via a <code>QPropertyAnimation</code> on opacity (0→1→0 over ~2.5s). Queued: multiple toasts stack vertically. No third-party dependency.
+- Implementation: <code>QFrame</code> with <code>WindowStaysOnTopHint | FramelessWindowHint</code>; <code>QPropertyAnimation("windowOpacity")</code>; <code>QTimer.singleShot(2000, self.close)</code>.
+- Pros: Zero new dependencies. Full visual control.
+- Cons: Must handle window focus without stealing it. Requires custom stacking logic.</p>
+<p><strong>B — pyqt-toast-notification library</strong>
+Drop-in <code>pyqttoast</code> (pip installable, PySide6 compatible). Supports 7 positions, queueing, icons (SUCCESS/WARNING/ERROR/INFO), and widget-relative positioning.
+- Reference: <a href="https://github.com/niklashenning/pyqttoast">pyqt-toast-notification GitHub</a>
+- Pros: Fully featured out-of-the-box. 5-line integration.
+- Cons: New pip dependency. Style must match the app's QSS theme.</p>
+<p><strong>C — QStatusBar at main window bottom</strong>
+Add a <code>QStatusBar</code> to <code>MainWindow</code>. Non-critical messages display for 3s and auto-clear. Critical messages stay until cleared.
+- Pros: Native Qt widget. Zero new dependencies. Permanent status info (e.g. "Daemon running" badge).
+- Cons: Single message at a time — queuing is not native. Less visible than a floating toast.</p>
+<p><strong>D — Notification centre panel</strong>
+A collapsible side panel (right edge) accumulating all operation results as a scrollable list. Each item has a timestamp, icon, and dismissal button.
+- Pros: Full history. No messages lost. Glanceable.
+- Cons: High effort. Requires a panel layout change to <code>MainWindow</code>.</p>
+<p><strong>Recommendation:</strong> C first (QStatusBar is trivial, adds permanent status display). A as the floating overlay for success/error feedback. B as an optional drop-in if A proves complex.</p>
+<hr />
+<h2 id="211-image-preview-window-enhancements">2.11 Image Preview Window Enhancements ✅ Partial (2026-06-10 — §A fullscreen, §B fit modes, §D rotation shipped)<a class="headerlink" href="#211-image-preview-window-enhancements" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The <code>ImagePreviewWindow</code> already has zoom/pan (Ctrl+scroll), left/right arrow navigation, and GIF support. It is missing: fullscreen mode, fit-to-width mode, EXIF metadata panel, rotation, and the "mini-map" navigator that professional viewers show when zoomed in.</p>
+<h3 id="options_9">Options<a class="headerlink" href="#options_9" title="Permanent link">&para;</a></h3>
+<p><strong>A — Fullscreen toggle (F11 / F) [Quick Win]</strong>
+<code>QKeySequence(Qt.Key_F11)</code> shortcut toggles <code>self.showFullScreen()</code> / <code>self.showMaximized()</code>. Hide the arrow nav buttons in fullscreen; restore on exit. Mouse cursor hides after 3s idle (via <code>QTimer</code> + <code>setCursor(Qt.BlankCursor)</code>).
+- Pros: Single hotkey, trivial to implement.
+- Cons: Must guard against focus issues when cursor hides.</p>
+<p><strong>B — Fit-to-width / fit-to-height / 100% zoom modes [Quick Win]</strong>
+Add toolbar-style buttons or keyboard shortcuts: <code>W</code> = fit to width (fill horizontal), <code>H</code> = fit to height (fill vertical), <code>1</code> = 100% (actual pixels). Currently only fit-to-window exists.
+- Pros: Essential for long vertical images (manga strips). One additional zoom-calculation path.
+- Cons: 100% mode may result in scroll area with a very large image for 4K input.</p>
+<p><strong>C — Inline EXIF / file metadata sidebar</strong>
+A collapsible <code>QSplitter</code> panel on the right showing file metadata: path, dimensions, file size, colour mode, DPI, and any embedded EXIF (using <code>Pillow.ExifTags</code> or <code>piexif</code>).
+- Pros: High value for database workflows. Avoids opening external tools.
+- Cons: Requires <code>piexif</code> or <code>Pillow</code> dependency (likely already present). Reading EXIF adds ~5ms per image.</p>
+<p><strong>D — Rotation controls [Quick Win]</strong>
+<code>R</code> / <code>L</code> hotkeys to rotate the displayed image 90° CW / CCW. State is in-memory (does not write to disk unless user presses "Save Rotation"). Uses <code>QTransform</code>.
+- Pros: Frequently needed for phone-captured images in portrait.
+- Cons: In-memory-only rotation is confusing unless the save state is clearly communicated.</p>
+<p><strong>E — Mini-map (navigator overlay)</strong>
+When zoom &gt; 100%, show a small thumbnail in the top-right corner with a semi-transparent rect indicating the current viewport within the full image. Click/drag the rect to pan.
+- Pros: Professional viewer feature. Eliminates disorientation when zoomed into 4K images.
+- Cons: Requires overlaying a custom widget on top of the scroll area. Medium effort.</p>
+<p><strong>F — Copy to clipboard from context menu and Ctrl+C [Quick Win]</strong>
+Already implemented for static images; verify it works for GIFs (copies current frame). Add "Copy path to clipboard" as a second context menu action (copies the file path as a string, not the image data).
+- Pros: Already mostly there.
+- Cons: Minor gap verification.</p>
+<p><strong>Recommendation:</strong> A + B + D as Quick Wins (all hotkey changes, each ~30 min). C for EXIF-heavy workflows. E is the highest-polish addition.</p>
+<hr />
+<h2 id="212-system-tray-integration">2.12 System Tray Integration ✅ Partial (2026-06-10 — §A+B+C shipped)<a class="headerlink" href="#212-system-tray-integration" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The slideshow daemon runs as a background Rust binary, but the app has no system tray icon. When the main window is minimised, there is no way to check the daemon status, trigger wallpaper rotation, or receive a notification when a long batch job completes.</p>
+<h3 id="options_10">Options<a class="headerlink" href="#options_10" title="Permanent link">&para;</a></h3>
+<p><strong>A — QSystemTrayIcon with daemon status [Quick Win]</strong>
+Create a <code>QSystemTrayIcon</code> in <code>MainWindow.__init__</code>. Icon reflects daemon state (green = running, grey = stopped). Context menu: "Show Window", "Stop Daemon", "Next Wallpaper", "Quit".
+- Tray icon tooltip shows "Daemon: running | Next wallpaper in 4:23".
+- Reference: <a href="https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QSystemTrayIcon.html">PySide6 QSystemTrayIcon docs</a>
+- Pros: Native on all supported platforms (Linux D-Bus StatusNotifierItem, Windows, macOS). Well-supported in Qt 6.5+.
+- Cons: Requires an icon asset (SVG/PNG). KDE may require correct D-Bus configuration.</p>
+<p><strong>B — Tray balloon notifications for operation completion</strong>
+When a long background operation (ASP batch, crawler, Celery job) completes, call <code>tray_icon.showMessage(title, body, QSystemTrayIcon.MessageIcon.Information, 4000)</code>.
+- Pros: Native OS notification. No extra dependencies.
+- Cons: balloon notifications are unreliable on some Linux DEs (GTK-based compositors).</p>
+<p><strong>C — Minimise-to-tray instead of taskbar close</strong>
+Override <code>closeEvent</code> to call <code>hide()</code> instead of closing when the tray icon is active. Only quit on "Quit" from the tray menu.
+- Pros: Common pattern for always-running tools like slideshow daemons.
+- Cons: Must be opt-in (setting) to avoid confusing users who expect the window to close normally.</p>
+<p><strong>D — Tray icon badge (operation count)</strong>
+Overlay a numeric badge on the tray icon when there are active operations (e.g., "3" pending crawlers). Implemented by compositing a <code>QPainter</code>-drawn number onto the icon <code>QPixmap</code>.
+- Pros: At-a-glance status without opening the window.
+- Cons: Badge rendering on small icons (22×22px on Linux) is finicky. Low priority.</p>
+<p><strong>Recommendation:</strong> A + B first. C as a settings toggle. D is a polish item.</p>
+<hr />
+<h2 id="213-gallery-filtering-and-sort-controls">2.13 Gallery Filtering and Sort Controls ✅ Partial (2026-06-10 — §A + §E)<a class="headerlink" href="#213-gallery-filtering-and-sort-controls" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Current search is filename substring-only with no sort controls. Users cannot filter by extension, file size, date modified, image dimensions, or tags — all of which are meaningful for a large image database. The <code>_common_filter_string_list</code> in <code>MetaAbstractClassGallery</code> only does a <code>query in item.lower()</code> check.</p>
+<h3 id="options_11">Options<a class="headerlink" href="#options_11" title="Permanent link">&para;</a></h3>
+<p><strong>A — Sort control toolbar (name / date / size / type) [Quick Win]</strong>
+Add a sort <code>QComboBox</code> + ascending/descending <code>QPushButton</code> above the gallery. Applies <code>sorted(paths, key=...)</code> before calling <code>start_loading_gallery</code>.
+- Sort keys: name (natural), date modified (<code>os.path.getmtime</code>), file size (<code>os.path.getsize</code>), extension.
+- Pros: Zero new UI dependencies. Immediate quality-of-life improvement.
+- Cons: Re-sorting after each page change requires storing the full sorted master list.</p>
+<p><strong>B — Filter chip bar (extension toggles)</strong>
+A row of small toggle buttons, one per file extension in the current directory (e.g., <code>[PNG] [WEBP] [JPG]</code>). Active chips are highlighted. Filter applied to the display list.
+- Pros: Discoverable. No typing required. Works well for format-mixed directories.
+- Cons: With many formats (15+), the chip row becomes crowded. Must limit to top-N or use a "More" popover.</p>
+<p><strong>C — Advanced filter panel (collapsible)</strong>
+A collapsible panel below the search bar with fields: Min size (MB), Max size, Min width (px), Max height, date range (QDateEdit), and tag includes/excludes. Apply button runs the filter.
+- Pros: Covers all power-user filter needs.
+- Cons: High effort to implement. Filtering by dimensions requires reading image headers (fast via Rust <code>image_dimensions</code>, ~0.5ms each, but adds a scan pass).</p>
+<p><strong>D — Tag-based filtering in gallery tabs</strong>
+Integrate the database tag system into the gallery search: type <code>tag:character:misaka</code> to filter by tag. Requires the image to be in the database.
+- Pros: Bridges the gallery view and database seamlessly.
+- Cons: Only works for images already indexed in PostgreSQL. Requires a DB query per filter change.</p>
+<p><strong>E — Search operators (regex, negation, OR)</strong>
+Extend <code>_common_filter_string_list</code> to support: <code>-query</code> (exclude), <code>"exact phrase"</code> (quoted), <code>a|b</code> (OR). Drop-in with no UI changes.
+- Pros: Power-user feature. 30-minute implementation.
+- Cons: Must document the syntax (tooltip or placeholder text).</p>
+<p><strong>Recommendation:</strong> A + E first (sort and search operators are trivial, high impact). B for visual filtering. C as a long-form feature sprint.</p>
+<hr />
+<h2 id="214-thumbnail-metadata-overlay">2.14 Thumbnail Metadata Overlay ✅ Partial (2026-06-10 — §A shipped)<a class="headerlink" href="#214-thumbnail-metadata-overlay" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Hovering a thumbnail shows no information. To know the filename, dimensions, or file size of an image, the user must double-click to open the full preview or navigate to an external tool. The <code>DraggableLabel</code> / <code>ClickableLabel</code> components in <code>gui/src/components/</code> have no hover overlay.</p>
+<h3 id="options_12">Options<a class="headerlink" href="#options_12" title="Permanent link">&para;</a></h3>
+<p><strong>A — Filename label below thumbnail [Quick Win]</strong>
+Render a truncated filename <code>QLabel</code> beneath each thumbnail cell. Already partially available in some tabs — standardise across all gallery base classes.
+- Pros: Always visible. No interaction required.
+- Cons: Takes vertical space. Long filenames must be elided (<code>Qt.ElideMiddle</code>).</p>
+<p><strong>B — Hover overlay with file info</strong>
+On <code>enterEvent</code>, overlay a semi-transparent <code>QFrame</code> on the thumbnail with: filename, dimensions (W×H), file size, and modification date. Populated lazily (dimensions via <code>QImageReader.size()</code> — no full decode).
+- Pros: Full info without opening the preview. Doesn't consume permanent layout space.
+- Cons: Overlay must be positioned correctly over the thumbnail label. Requires <code>enterEvent</code>/<code>leaveEvent</code> on <code>DraggableLabel</code>.</p>
+<p><strong>C — Rich tooltip with thumbnail preview</strong>
+Use <code>QToolTip.showText()</code> with HTML content including an <code>&lt;img&gt;</code> tag pointing to the thumbnail path. Qt renders HTML tooltips natively.
+- Pros: Zero custom widget code. One-line change.
+- Cons: Image in tooltip is re-loaded by Qt (not from LRU cache). Can cause flickering or slow-load on HDDs.</p>
+<p><strong>D — Status bar info on hover</strong>
+When a thumbnail is hovered, emit a signal that updates the main window status bar with the file path, size, and dimensions. No overlay widget needed.
+- Pros: Minimal code. Works well with the QStatusBar recommendation (§2.10C).
+- Cons: Status bar is at the bottom of the window — far from the hovered thumbnail.</p>
+<p><strong>E — EXIF lazy tooltip</strong>
+After a 500ms hover delay, fire a background <code>QRunnable</code> to read EXIF from the file; update the tooltip with camera make/model, aperture, shutter speed, ISO, date taken.
+- Pros: Professional feature for photographers.
+- Cons: Requires EXIF library. Tooltip update after async read is non-trivial (must invalidate and reshown tooltip).</p>
+<p><strong>Recommendation:</strong> A immediately (filename label is the minimum viable state). B as the primary hover-info feature. E for database/photography workflows.</p>
+<hr />
+<h2 id="215-undoredo-for-destructive-operations">2.15 Undo/Redo for Destructive Operations ✅ Partial (2026-06-10 — §A shipped)<a class="headerlink" href="#215-undoredo-for-destructive-operations" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> File deletions across <code>DeleteTab</code>, <code>WallpaperTab</code>, <code>SearchTab</code>, and <code>ConvertTab</code> are permanent and cannot be undone. "This cannot be undone!" appears in 6+ QMessageBox dialogs but there is no recovery path. No <code>QUndoStack</code> infrastructure exists anywhere in the GUI.</p>
+<h3 id="options_13">Options<a class="headerlink" href="#options_13" title="Permanent link">&para;</a></h3>
+<p><strong>A — Move to trash instead of <code>os.remove</code> [Quick Win]</strong>
+Replace <code>os.remove(path)</code> with <code>send2trash.send2trash(path)</code> (pip dependency). The OS trash provides a built-in undo path via the file manager.
+- <code>send2trash</code> works on Linux, macOS, and Windows.
+- Pros: One-line change per delete call site. Users can recover via the system file manager.
+- Cons: New pip dependency. Trash may not be available on all Linux configurations (no trash on root filesystem XDG mounts). Does not address in-app undo.</p>
+<p><strong>B — QUndoStack for file move operations</strong>
+Create a <code>FileOperationCommand(QUndoCommand)</code> class. Implement <code>redo()</code> as <code>shutil.move(src, dst)</code> and <code>undo()</code> as <code>shutil.move(dst, src)</code>. The delete operation moves files to a per-session trash folder inside <code>~/.image-toolkit/trash/</code>.
+- Per-session trash is emptied on clean app exit or by "Empty Trash" button in settings.
+- Pros: In-app undo/redo. No external dependency. Standard Qt pattern (<code>QUndoStack</code>, <code>QUndoView</code>).
+- Cons: Session trash consumes disk space. Must handle conflicts (file already moved/renamed).</p>
+<p><strong>C — Undo stack limited to renames and tag changes</strong>
+Only queue rename and tag-change operations for undo (lower risk than file moves). File deletions remain permanent (with confirmation).
+- Pros: Scoped implementation. Lower risk of edge cases.
+- Cons: Doesn't address the most dangerous operation (deletion).</p>
+<p><strong>D — "Recycle Bin" tab in the app</strong>
+A dedicated <code>RecycleBinTab</code> showing files moved there by the app. Each item shows original path, deletion time, and "Restore" / "Permanently Delete" buttons.
+- Pros: Explicit in-app recovery UI. Clear mental model.
+- Cons: Significant UI effort. Must track metadata (original path) persistently.</p>
+<p><strong>Recommendation:</strong> A immediately (send2trash is the highest-safety, lowest-effort change). B for in-app undo on rename/move operations. D as a long-term QoL feature.</p>
+<hr />
+<h2 id="216-command-palette--quick-launcher">2.16 Command Palette / Quick Launcher ✅ Partial (2026-06-10 — §C Ctrl+T tab search shipped)<a class="headerlink" href="#216-command-palette--quick-launcher" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Navigating between 20+ tabs requires using the "Select Category" combo and then clicking the tab. There is no way to trigger operations (scan, convert, stitch) or jump to a specific tab by typing. Power users working across multiple categories are slowed by mouse-heavy navigation.</p>
+<h3 id="options_14">Options<a class="headerlink" href="#options_14" title="Permanent link">&para;</a></h3>
+<p><strong>A — Ctrl+K overlay (VS Code style)</strong>
+A floating <code>QDialog</code> with a <code>QLineEdit</code> (fuzzy search) and a <code>QListWidget</code> of matches. Populating it with: tab names, operation shortcuts ("Start Conversion", "Run Duplicate Scan"), and recent directories.
+- Implementation: maintain a <code>command_registry: list[dict]</code> mapping label → callable. Filter on keypress with <code>difflib.get_close_matches</code> or simple <code>in</code> check.
+- Pros: Keyboard-first. High discoverability for all registered commands.
+- Cons: Requires maintaining the command registry as new tabs/operations are added.</p>
+<p><strong>B — Tab search dropdown enhancement</strong>
+Replace the "Select Category" <code>QComboBox</code> with a <code>QComboBox</code> that has <code>setEditable(True)</code> and a <code>QCompleter</code> that searches across both categories and tab names.
+- Pros: Minimal UI change. Reuses existing combo infrastructure.
+- Cons: Only navigates tabs — cannot trigger operations.</p>
+<p><strong>C — Global tab search with Ctrl+T</strong>
+A narrower variant of A: Ctrl+T opens a small popup showing only tab names, filtered by typing. Pressing Enter switches to the matched tab.
+- Pros: Simpler than a full command palette. Covers the most common use case.
+- Cons: Less powerful — no operation triggering.</p>
+<p><strong>D — Recent operations history</strong>
+Maintain a <code>deque</code> of the last 10 operations run (scan, convert, stitch, etc.) with their parameters. Ctrl+K shows these at the top as "recent" commands.
+- Pros: Pairs with A to create a muscle-memory-friendly workflow.
+- Cons: Requires hooking into all operation entry points.</p>
+<p><strong>Recommendation:</strong> C first (tab navigation covers 80% of the need). A as the full implementation when C is validated.</p>
+<hr />
+<h2 id="217-global-collapsible-log-panel">2.17 Global Collapsible Log Panel ✅ Partial (2026-06-10 — §D shipped: LogWindow upgraded)<a class="headerlink" href="#217-global-collapsible-log-panel" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>LogWindow</code> exists but is instantiated per-tab and opens as a floating child window. Each tab that has logging opens a separate window. There is no unified log view across the app, and <code>print()</code> calls from the backend are never captured to any UI element.</p>
+<h3 id="options_15">Options<a class="headerlink" href="#options_15" title="Permanent link">&para;</a></h3>
+<p><strong>A — Bottom-anchored collapsible QPlainTextEdit panel</strong>
+Add a horizontal <code>QSplitter</code> between the tab widget and the window bottom edge. The lower half is a <code>QPlainTextEdit</code> in read-only mode. A "Log" toggle button in the header shows/hides it. A custom Python <code>logging.Handler</code> subclass calls <code>plain_text.appendPlainText()</code> from any thread via <code>QMetaObject.invokeMethod</code>.
+- Pros: All app logging (Python <code>logging</code> module) in one place. No additional windows.
+- Cons: Splitter state must be persisted. Panel takes vertical screen space.</p>
+<p><strong>B — Floating, dockable log window</strong>
+A <code>QWidget(Qt.Window)</code> (like the existing <code>LogWindow</code>) but shared across the entire app. Tabs emit signals to a global <code>LogBus</code> singleton; the window subscribes and appends.
+- Pros: Doesn't consume main window space. Can be undocked and moved to a secondary monitor.
+- Cons: Still a separate window. Less discoverable.</p>
+<p><strong>C — Tab-level log integration in the tab bar</strong>
+Each tab gets a small "⚠ N" badge on its tab handle when there are unread warning/error messages. Clicking the badge opens a small popover with the last N messages from that tab.
+- Pros: Per-tab context. Doesn't pollute a global log with irrelevant messages.
+- Cons: QTabBar badge requires custom painting (<code>QTabBar::paintEvent</code> override). Complex.</p>
+<p><strong>D — Log level coloring and copy support in LogWindow</strong>
+Upgrade the existing <code>LogWindow</code> (<code>gui/src/windows/log_window.py</code>) in-place: replace <code>QTextEdit</code> with <code>QPlainTextEdit</code>, add ANSI-colour-level formatting (ERROR=red, WARNING=orange, INFO=white, DEBUG=grey), add "Copy All" and "Save to File" buttons, and auto-scroll with a "Follow" toggle.
+- Pros: Minimal change. Immediately improves the existing log window without architecture change.
+- Cons: Per-tab windows still not unified.</p>
+<p><strong>Recommendation:</strong> D first (immediate improvement to existing infrastructure, ~2h). A when §5.4 (logging module) is wired up — the two are the natural pairing.</p>
+<hr />
+<h2 id="218-image-rating-and-color-labels">2.18 Image Rating and Color Labels ✅ Partial (2026-06-10 — §B+C shipped)<a class="headerlink" href="#218-image-rating-and-color-labels" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The database has a tag system but no first-class rating or label mechanism. Industry-standard image management apps (Lightroom, digiKam, Eagle) use star ratings (1–5) and color labels (red/yellow/green/blue/purple/grey) as the primary curation workflow. These cannot be replicated using free-text tags.</p>
+<h3 id="options_16">Options<a class="headerlink" href="#options_16" title="Permanent link">&para;</a></h3>
+<p><strong>A — Star rating overlay on thumbnails</strong>
+Render 1–5 clickable star icons below each thumbnail (using <code>★</code> / <code>☆</code> Unicode or SVG). Click sets the rating. Rating stored as an integer column in the PostgreSQL <code>images</code> table.
+- Schema: <code>ALTER TABLE images ADD COLUMN rating SMALLINT DEFAULT 0;</code>
+- Pros: Familiar to photographers. Integrates with §2.13 filter (filter <code>rating &gt;= 3</code>).
+- Cons: Requires schema migration. Star widget must be small enough not to dominate the thumbnail.</p>
+<p><strong>B — Color label button in context menu [Quick Win]</strong>
+Right-click context menu on a thumbnail shows a colour picker (6 colour swatches). Selection stored in a <code>color_label</code> column or a special tag (<code>label:red</code>).
+- Pros: Low UI footprint (no permanent overlay). Fast to implement.
+- Cons: Label not visible in gallery until hovered (no permanent indicator).</p>
+<p><strong>C — Coloured border ring on thumbnail as label indicator</strong>
+When a thumbnail has a colour label set, its border ring is rendered in that colour. Combined with B for assignment.
+- Pros: Immediately visible in gallery without hover.
+- Cons: Border colour must work with both dark and light themes. Thin borders (1px) are hard to see at small thumbnail sizes.</p>
+<p><strong>D — Rating filter bar above gallery</strong>
+A row of star icons above the gallery: clicking "≥ 3 stars" filters the visible set. Combined with A for assignment.
+- Pros: Natural pairing with A. Standard lightroom-style UX.
+- Cons: Depends on A being implemented first.</p>
+<p><strong>E — Export by rating/label</strong>
+"Export all 5-star images to folder" as a batch operation in the gallery context menu or export tab.
+- Pros: High practical value for curating output sets.
+- Cons: Depends on A/B.</p>
+<p><strong>Recommendation:</strong> B + C first (context-menu label + visual indicator, no schema migration needed if using tag system). A + D as a full implementation sprint.</p>
+<hr />
+<h2 id="219-gallery-export-and-contact-sheet">2.19 Gallery Export and Contact Sheet ✅ Partial (2026-06-10 — §A+C shipped)<a class="headerlink" href="#219-gallery-export-and-contact-sheet" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> There is no way to export the current gallery selection as a list of paths or as a visual contact sheet (proof sheet). Workarounds require external tools. The <code>ConvertTab</code> handles format conversion but not gallery-selection-based export.</p>
+<h3 id="options_17">Options<a class="headerlink" href="#options_17" title="Permanent link">&para;</a></h3>
+<p><strong>A — Export selection as paths list [Quick Win]</strong>
+"Export selection → Save as TXT/CSV/JSON" in the gallery context menu. Writes the selected file paths to a file. <code>QFileDialog.getSaveFileName</code> for the destination.
+- Pros: Zero new dependencies. 30-minute implementation.
+- Cons: TXT/CSV only useful for scripting. Not visual.</p>
+<p><strong>B — Contact sheet generator</strong>
+Arrange selected thumbnails in a grid and export as a single PNG/PDF. Parameterise: columns, thumbnail size, filename label, background colour.
+- Implementation: PIL/Pillow <code>Image.new</code> + <code>paste</code> loop. Already have Pillow in the venv.
+- Pros: Visual proof sheet. Useful for sharing selection overview.
+- Cons: Medium effort. Output file can be large for 100+ image selections.</p>
+<p><strong>C — Export to directory (copy/move)</strong>
+"Copy selection to folder" / "Move selection to folder" from context menu or toolbar. <code>QFileDialog.getExistingDirectory</code> for the destination.
+- Pros: Essential file management operation. Common in image managers.
+- Cons: Move requires updating the internal path tracking list.</p>
+<p><strong>D — "Send to Convert Tab" button</strong>
+A button that pushes the current gallery selection into the <code>ConvertTab</code>'s input paths, pre-populating it for batch format conversion.
+- Pros: Cross-tab workflow shortcut. Leverages existing conversion infrastructure.
+- Cons: Requires cross-tab communication (already done in <code>database_tab</code> via <code>scan_tab_ref</code> pattern).</p>
+<p><strong>Recommendation:</strong> A + C immediately (both are one-function operations). B as a polish feature. D as a cross-tab workflow improvement.</p>
+<hr />
+<h2 id="220-resizable-sidebar-panels-and-qsplitter-persistence">2.20 Resizable Sidebar Panels and QSplitter Persistence ✅ Partial (2026-06-10 — §A shipped)<a class="headerlink" href="#220-resizable-sidebar-panels-and-qsplitter-persistence" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Gallery tabs use a fixed vertical stack layout. A collapsible metadata/tag sidebar would allow users to see image details and assign tags without opening a separate preview window, but no <code>QSplitter</code> exists in the core gallery base classes. Additionally, the <code>QSplitter</code> instances in <code>listings_tab.py</code>, <code>stitch_tab.py</code>, and <code>hybrid_stitch_panel.py</code> do not persist their sizes across sessions — they reset to defaults on every launch.</p>
+<h3 id="options_18">Options<a class="headerlink" href="#options_18" title="Permanent link">&para;</a></h3>
+<p><strong>A — Persist QSplitter sizes in QSettings / vault [Quick Win]</strong>
+For every existing <code>QSplitter</code>, call <code>saveState()</code> on hide/close and <code>restoreState()</code> on show. Key: <code>f"splitter_{tab_class_name}_{splitter_index}"</code> in <code>QSettings</code>.
+- Pros: Instant quality-of-life for all existing splitter users. Minimal code per splitter.
+- Cons: Must handle the case where the splitter widget count changes (ignore restore if count mismatch).</p>
+<p><strong>B — Right sidebar in gallery base classes</strong>
+Add an optional <code>QSplitter(Qt.Horizontal)</code> to <code>AbstractClassTwoGalleries</code> and <code>AbstractClassSingleGallery</code>. The right pane is hidden by default (width = 0) and shows a <code>QStackedWidget</code> when toggled. Content: file metadata, tags, rating.
+- Toggle via <code>I</code> hotkey (info panel, same as many image viewers).
+- Pros: Non-intrusive by default. Extensible — any tab can push content to the info pane.
+- Cons: Significant refactor of both base classes.</p>
+<p><strong>C — Floating metadata panel (QDockWidget style)</strong>
+Use <code>QWidget(Qt.Tool)</code> positioned adjacent to the main window. Follows the main window when moved.
+- Pros: Doesn't change base class layout.
+- Cons: Separate window management. Does not feel integrated.</p>
+<p><strong>D — Advanced Docking System (Qt-ADS)</strong>
+Use <code>PyQtADS</code> (Python bindings for Qt Advanced Docking System) for full drag-and-drop panel rearrangement.
+- Reference: <a href="https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System">Qt-Advanced-Docking-System GitHub</a>
+- Pros: Professional-grade docking. Users can rearrange panels to their workflow.
+- Cons: Heavy dependency. Over-engineered for the current app's needs.</p>
+<p><strong>Recommendation:</strong> A immediately (splitter persistence is a 2-line fix per splitter). B as the primary quality improvement sprint. Skip D.</p>
+<hr />
+<h2 id="221-directory-navigation-history-back--forward">2.21 Directory Navigation History (Back / Forward) ✅ Partial (2026-06-10 — §A+D shipped for FormatTab)<a class="headerlink" href="#221-directory-navigation-history-back--forward" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Every gallery tab's "Browse" button opens a <code>QFileDialog</code> and loads the new directory, discarding the previous path. There is no back/forward navigation. Users who accidentally navigate away from a directory must re-browse manually.</p>
+<h3 id="options_19">Options<a class="headerlink" href="#options_19" title="Permanent link">&para;</a></h3>
+<p><strong>A — Per-tab navigation history stack [Quick Win]</strong>
+Maintain a <code>deque(maxlen=20)</code> as a back-stack and a forward-stack per gallery tab instance. "Browse" pushes to the back stack. Back/forward buttons (or <code>Alt+Left/Right</code>) pop from the respective stack and reload the gallery.
+- Pros: Familiar from file managers and web browsers. Zero dependencies.
+- Cons: Requires wiring into every <code>browse_*</code> method across tabs.</p>
+<p><strong>B — Breadcrumb path widget</strong>
+Replace the <code>QLineEdit</code> scan directory path with a breadcrumb widget (horizontally scrollable list of clickable path segments). Clicking any segment navigates up to that directory.
+- Pros: Faster navigation to parent directories than clicking Back repeatedly.
+- Cons: Custom <code>QWidget</code> required. Path segments must be parsed and buttons created dynamically.</p>
+<p><strong>C — Directory tree sidebar</strong>
+A collapsible <code>QTreeView</code> backed by a <code>QFileSystemModel</code> showing the filesystem tree. Clicking a node loads that directory's gallery. Pairs well with §2.20B sidebar.
+- Pros: Standard file manager pattern. Users can navigate without the file dialog.
+- Cons: <code>QFileSystemModel</code> is slow on large filesystems. Must scope it to <code>ROOT_DIR</code> or the user's home directory.</p>
+<p><strong>D — Most-recently-used paths in the path field</strong>
+Add a dropdown (▼ button beside the path input) showing the 10 most recent paths. Selecting one re-loads that directory. Simpler than a history stack.
+- Pros: Covers the most common use case (returning to previous sessions). 
+- Cons: No true back/forward; just a MRU list.</p>
+<p><strong>Recommendation:</strong> D first (MRU is fastest to implement, pairs with §2.9 session persistence). A as true back/forward navigation. B as the polish layer.</p>
+<hr />
+<h2 id="222-tag-chip-ui-and-compound-tag-search">2.22 Tag Chip UI and Compound Tag Search<a class="headerlink" href="#222-tag-chip-ui-and-compound-tag-search" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The search and scan metadata tabs use <code>QListWidget</code> for tag display (implemented to avoid per-QCheckBox memory cost). While this is correct for large tag sets, the visual style is a plain list item — not a modern chip/badge that makes tag relationships scannable at a glance.</p>
+<h3 id="options_20">Options<a class="headerlink" href="#options_20" title="Permanent link">&para;</a></h3>
+<p><strong>A — Chip-style tag badges using QLabel in a flow layout [Quick Win]</strong>
+Replace the tag <code>QListWidget</code> with a custom flow layout (<code>FlowLayout</code>) of small <code>QLabel</code> widgets styled as chips (rounded rectangle, coloured background per tag type). Clicking a chip toggles it.
+- <code>FlowLayout</code> implementation: <a href="https://doc.qt.io/qt-6/qtwidgets-layouts-flowlayout-example.html">Qt flow layout example</a>
+- Pros: Modern visual appearance. Natural word-wrap reflow on resize.
+- Cons: Flow layout must handle thousands of tags efficiently (virtualise beyond N=200).</p>
+<p><strong>B — Bubble-style QComboBox with checkboxes</strong>
+A <code>QComboBox</code> subclass that shows a checklist popup and renders selected items as removable chips in the line edit area. Common in web forms.
+- Pros: Compact. Familiar UX.
+- Cons: Complex <code>QComboBox</code> subclass. Must be keyboard-accessible.</p>
+<p><strong>C — Compound tag search (AND / OR / NOT)</strong>
+Extend the tag search <code>QLineEdit</code> to support operators: <code>red_eyes AND blue_hair</code>, <code>sword OR staff</code>, <code>NOT chibi</code>. Parser uses a simple recursive descent or <code>pyparsing</code>.
+- Pros: Expressive. Handles complex tag queries that the current flat search cannot.
+- Cons: <code>pyparsing</code> dependency (or custom parser). Must display parse errors gracefully.</p>
+<p><strong>D — Tag autocomplete (QCompleter)</strong>
+Wire a <code>QCompleter</code> populated from <code>get_all_tags_from_db()</code> to the tag search field. As the user types, suggestions drop down from the database tag vocabulary.
+- Pros: Dramatically speeds up tag entry. Already have <code>refresh_subgroup_autocomplete</code> in <code>database_tab.py</code> — extend this pattern.
+- Cons: Autocomplete list must update when new tags are added mid-session.</p>
+<p><strong>Recommendation:</strong> D first (QCompleter on search fields, ~1h). A for visual upgrade. C for power users who construct complex tag queries.</p>
+<hr />
+<h2 id="223-accessibility-and-keyboard-tab-order">2.23 Accessibility and Keyboard Tab Order ✅ Partial (2026-06-10 — §A accessible names on pagination widgets)<a class="headerlink" href="#223-accessibility-and-keyboard-tab-order" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> No <code>setAccessibleName()</code> calls, no explicit <code>setTabOrder()</code>, and no testing with screen readers. High-contrast mode and font scaling are not addressed. For a power-user tool managing thousands of files, keyboard-only navigation (no mouse) is both an accessibility requirement and a daily-use efficiency gain.</p>
+<h3 id="options_21">Options<a class="headerlink" href="#options_21" title="Permanent link">&para;</a></h3>
+<p><strong>A — Accessible names on all interactive widgets [Quick Win]</strong>
+Add <code>widget.setAccessibleName("descriptive name")</code> and <code>widget.setAccessibleDescription("...")</code> to all buttons, inputs, and gallery thumbnails. Required for screen readers (Orca on Linux, NVDA on Windows).
+- Pros: Low effort. Required for WCAG 2.1 AA compliance.
+- Cons: Must audit every tab (~150 interactive widgets).</p>
+<p><strong>B — Explicit QWidget tab order per tab</strong>
+Call <code>QWidget.setTabOrder(a, b)</code> to define a logical Tab key traversal order in each tab. Currently Tab order follows widget construction order, which is rarely the logical flow.
+- Pros: Keyboard-only users can work efficiently. Easy to validate with Tab key testing.
+- Cons: Must re-audit when UI layout changes.</p>
+<p><strong>C — High-contrast theme variant</strong>
+Add a <code>high_contrast.qss</code> that uses WCAG AA minimum contrast ratios (4.5:1 for normal text, 3:1 for large text). Expose via the Theme setting (§2.8).
+- Pros: Essential for visually impaired users.
+- Cons: Requires auditing every colour in the theme. Labour-intensive.</p>
+<p><strong>D — Font size scaling</strong>
+Add a "Font Scale" spinbox (80%–150%) to the settings window. Apply via <code>QApplication.instance().setFont(QFont("", base_size * scale))</code>.
+- Pros: Useful for high-DPI displays and users who need larger text.
+- Cons: Some fixed-width layouts break at font size &gt; 120%.</p>
+<p><strong>E — Focus ring visibility</strong>
+Ensure <code>QFocusFrame</code> or QSS <code>:focus</code> selectors provide a visible focus ring on all focusable widgets. Currently some buttons and list items have no visible focus indicator.
+- Pros: Required for keyboard navigation to be usable.
+- Cons: QSS <code>:focus</code> rules must be added to both <code>dark.qss</code> and <code>light.qss</code>.</p>
+<p><strong>Recommendation:</strong> A + B + E are minimum viable accessibility requirements. C + D in a dedicated accessibility sprint.</p>
+<hr />
+<h2 id="224-thumbnail-hover-animations">2.24 Thumbnail Hover Animations ✅ Partial (2026-06-10 — §A shipped)<a class="headerlink" href="#224-thumbnail-hover-animations" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Thumbnails are static <code>QLabel</code> / <code>DraggableLabel</code> widgets with no hover response. Modern image management apps (Eagle, Hydrus) animate thumbnails on hover (subtle scale-up, brightness lift, border highlight) to improve visual responsiveness and make the selection state feel tactile.</p>
+<h3 id="options_22">Options<a class="headerlink" href="#options_22" title="Permanent link">&para;</a></h3>
+<p><strong>A — CSS :hover border highlight [Quick Win]</strong>
+Add <code>:hover { border: 2px solid #5865f2; }</code> to the thumbnail label QSS. Already half-done for selected state. This is a zero-Python change.
+- Pros: Instant, no animation needed. Consistent with web-style hover cues.
+- Cons: Static border change; no smooth transition.</p>
+<p><strong>B — QPropertyAnimation scale on hover</strong>
+Override <code>enterEvent</code> and <code>leaveEvent</code> in <code>DraggableLabel</code>. On enter: <code>QPropertyAnimation(label, "geometry")</code> from the current rect to a rect 5% larger (centred). On leave: reverse. Duration: 100ms, easing: <code>QEasingCurve.OutCubic</code>.
+- Pros: Smooth, tactile feedback. 100ms is imperceptible but noticeable.
+- Cons: Geometry animation on a grid cell shifts adjacent items. Must use a fixed-size cell approach (expand within the label's bounding box, not outside it).</p>
+<p><strong>C — Opacity pulse on loading completion</strong>
+When a thumbnail finishes loading (signal from <code>BatchImageLoaderWorker</code>), briefly animate the label's opacity from 0.0 → 1.0 over 150ms. Gives a "fade-in" feel.
+- Pros: Makes asynchronous load visible and smooth.
+- Cons: <code>QGraphicsOpacityEffect</code> per label; many concurrent effects may impact performance.</p>
+<p><strong>D — Selection check overlay (animated)</strong>
+When an image is added to the selection, animate a check mark icon overlaid on the thumbnail (scale 0 → 1, duration 120ms). For deselection, fade out.
+- Pros: Clear selection state without relying solely on the border colour.
+- Cons: Overlay widget must be positioned over the <code>DraggableLabel</code>. Z-order management required.</p>
+<p><strong>Recommendation:</strong> A immediately (CSS-only, free). C for loading polish. B + D as optional animation layer when the virtual scroll (§2.1A) is implemented.</p>
+<hr />
+<h2 id="225-keyboard-shortcut-discovery-overlay">2.25 Keyboard Shortcut Discovery Overlay ✅ Partial (2026-06-10 — §A Ctrl+/ table shipped)<a class="headerlink" href="#225-keyboard-shortcut-discovery-overlay" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The app has various keyboard shortcuts scattered across tabs (<code>Ctrl+C</code> in preview, <code>Del</code> for delete, <code>Enter</code> for preview open) but there is no in-app reference for them. Users discover shortcuts accidentally. No <code>F1</code> help or <code>?</code> overlay exists.</p>
+<h3 id="options_23">Options<a class="headerlink" href="#options_23" title="Permanent link">&para;</a></h3>
+<p><strong>A — Ctrl+/ or F1 shortcut table overlay [Quick Win]</strong>
+A modal <code>QDialog</code> opened by <code>Ctrl+/</code> (or <code>F1</code>) showing a two-column table of all registered shortcuts and their descriptions. Populated from a <code>SHORTCUT_REGISTRY: list[dict]</code> that tabs register into at construction.
+- Pros: Standard pattern (VS Code, Figma, most modern apps). Easy to implement.
+- Cons: Registry must be populated — requires auditing all existing <code>QShortcut</code> instances.</p>
+<p><strong>B — Contextual shortcut tooltip on button hover</strong>
+Add <code>setToolTip("Open Preview (Enter)")</code> to every interactive button. The shortcut is discoverable by hovering. Tooltip QSS already styled in the theme.
+- Pros: Contextual — only shows relevant shortcuts. Zero new infrastructure.
+- Cons: Does not help for non-button shortcuts (arrow keys, Delete, Ctrl+scroll).</p>
+<p><strong>C — Interactive shortcut editor</strong>
+Extend the settings window (§2.9) with a "Keyboard Shortcuts" tab that lists all registered shortcuts and allows remapping via <code>QKeySequenceEdit</code>. Saved to <code>~/.config/image-toolkit/keybindings.json</code>.
+- Pros: Power-user feature. Enables personalised workflows.
+- Cons: High effort. Requires all shortcuts to use the registry rather than hardcoded <code>QKeySequence</code> values.</p>
+<p><strong>D — Tab-level shortcut bar in status bar</strong>
+Show the 3–4 most relevant shortcuts for the current tab in the status bar (§2.10C). Changes automatically when the active tab changes.
+- Pros: Always visible. Context-sensitive.
+- Cons: Status bar space is limited. At most 3 shortcuts fit readably.</p>
+<p><strong>Recommendation:</strong> B immediately (tooltip-based discovery is zero-effort). A as the authoritative shortcut reference. C for the long-term keyboard-first power-user experience (pairs with §2.3B global hotkey table).</p>
+<hr />
+<h2 id="226-inline-rename">2.26 Inline Rename ✅ Partial (2026-06-10 — §B shipped: context-menu rename via F2)<a class="headerlink" href="#226-inline-rename" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Renaming a file requires the user to leave the app, open a file manager, rename, and return. No inline rename (F2) exists in any gallery tab, despite the <code>DraggableLabel</code> and <code>ClickableLabel</code> components being potential hosts for in-place <code>QLineEdit</code> editing.</p>
+<h3 id="options_24">Options<a class="headerlink" href="#options_24" title="Permanent link">&para;</a></h3>
+<p><strong>A — F2 inline edit in gallery thumbnail [Quick Win]</strong>
+When a thumbnail has focus (selected), press <code>F2</code> to replace the filename label with an in-place <code>QLineEdit</code> pre-filled with the current filename (no extension). On <code>Enter</code> or focus-out, call <code>os.rename(old_path, new_path)</code> and update internal path lists.
+- Pros: Standard OS file manager pattern. Low effort if the filename label already exists below the thumbnail.
+- Cons: Must handle name conflicts, invalid characters, and extension visibility.</p>
+<p><strong>B — Rename dialog from context menu</strong>
+Right-click → "Rename..." opens a <code>QInputDialog.getText()</code> pre-filled with the current basename.
+- Pros: Simpler than inline edit. Already have <code>QInputDialog</code> usage in several tabs.
+- Cons: A modal dialog for a rename is heavier UX than pressing F2.</p>
+<p><strong>C — Batch rename with pattern</strong>
+"Rename selection with pattern" (e.g., <code>{date}_{index:03d}_{original}</code>). Pattern input via a <code>QDialog</code> with a preview of the first 5 results.
+- Pros: High value for organizing scraped/exported collections with inconsistent names.
+- Cons: Pattern engine adds complexity. Requires robust conflict detection.</p>
+<p><strong>D — Rename and update database reference</strong>
+After renaming, emit a signal to update the <code>images.path</code> column in the database for the renamed file.
+- Pros: Keeps database state consistent.
+- Cons: Depends on database connection being active. Should be a soft update (best-effort).</p>
+<p><strong>Recommendation:</strong> B first (context menu rename, 30 minutes). A as the primary keyboard interaction. C for batch rename power users. D always when A or B is implemented.</p>
+<hr />
+<h2 id="227-multi-image-comparison-view">2.27 Multi-Image Comparison View<a class="headerlink" href="#227-multi-image-comparison-view" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The <code>ImagePreviewWindow</code> opens one image at a time. Users comparing near-duplicate outputs (e.g., ASP vs. SCANS results, or two LoRA generations) must switch between two separate preview windows manually. A side-by-side view does not exist in the general gallery — only the stitch-specific before/after in §2.6.</p>
+<h3 id="options_25">Options<a class="headerlink" href="#options_25" title="Permanent link">&para;</a></h3>
+<p><strong>A — 2-up / 4-up comparison dialog</strong>
+A dedicated <code>QDialog</code> with a 1×2 or 2×2 grid of <code>QScrollArea</code> + <code>QLabel</code> cells, each showing one image at the same zoom/pan state (synchronized scroll). Opened by selecting 2–4 images and pressing <code>C</code> (or context menu "Compare").
+- Pros: Standard lightbox comparison feature. Synchronized scroll makes pixel-level comparison easy.
+- Cons: Synchronized scroll requires mapping viewport offsets across all cells. Medium effort.</p>
+<p><strong>B — Overlay / blink comparison</strong>
+A single viewer with an "A/B toggle" button (or <code>Tab</code> key) that swaps between two selected images. Optionally: animated fade or checkerboard split.
+- Pros: Easier to implement than synchronized scroll. Good for comparing overall aesthetics.
+- Cons: Cannot compare two regions simultaneously (only sequential).</p>
+<p><strong>C — Difference map overlay</strong>
+An additional view mode: <code>|Image A − Image B|</code> per pixel, normalised to 0–255 and colour-mapped (e.g., hot colourmap). Shows exactly which regions differ.
+- Pros: Precise quality analysis. Especially useful for ASP vs. SCANS comparison.
+- Cons: Requires <code>numpy</code> computation (fast) but the result image is a synthetic artefact — must be clearly labelled as "difference".</p>
+<p><strong>D — Extend ImagePreviewWindow to multi-pane</strong>
+Add an optional second <code>QScrollArea</code> pane to the existing <code>ImagePreviewWindow</code>, activated when a second image is passed. Avoids creating a new dialog class.
+- Pros: Reuses existing infrastructure.
+- Cons: <code>ImagePreviewWindow</code> is already complex. Adding a second pane changes its layout significantly.</p>
+<p><strong>Recommendation:</strong> B first (overlay toggle, ~1 day). A for pixel-level comparison work. C for ASP quality analysis workflows (pairs with §2.6D).</p>
+<hr />
+<h2 id="228-global-cross-tab-search">2.28 Global Cross-Tab Search<a class="headerlink" href="#228-global-cross-tab-search" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Each gallery tab has its own search input, and there is no unified way to search across all loaded galleries simultaneously. A user who doesn't know which tab contains a specific file must search each tab manually.</p>
+<h3 id="options_26">Options<a class="headerlink" href="#options_26" title="Permanent link">&para;</a></h3>
+<p><strong>A — Ctrl+Shift+F global search overlay</strong>
+A floating, translucent <code>QWidget</code> (like a command palette but for paths) that searches across <code>master_found_files</code> and <code>master_image_paths</code> of all instantiated tab instances. Results grouped by tab, with a click jumping to that tab and selecting the image.
+- Pros: Zero dependencies. All the data is already in memory.
+- Cons: Must query tab instances from <code>main_window.all_tabs</code>. Must avoid blocking the main thread for large libraries.</p>
+<p><strong>B — Search all tab search inputs simultaneously</strong>
+Ctrl+Shift+F focuses all tab search inputs at once, applying the same query across every active tab. Result counts are shown in each tab's title badge.
+- Pros: Simpler than A — reuses per-tab filtering logic.
+- Cons: User must switch tabs to see results. Does not aggregate results in one place.</p>
+<p><strong>C — Database-backed global search</strong>
+Route global search through the PostgreSQL full-text index on <code>images.path</code>. Returns results from all indexed images regardless of which tab they are in, then opens the file in the appropriate tab.
+- Pros: Scales to millions of images. Includes files not currently visible in any gallery.
+- Cons: Only works for indexed images. Requires a running PostgreSQL connection.</p>
+<p><strong>D — File system index (lightweight, OS-native)</strong>
+On Linux, call <code>locate &lt;query&gt;</code> or <code>find</code> within scanned directories for instant filesystem search. Returns paths directly, not gallery-integrated results.
+- Pros: Near-instant on a <code>locate</code> index. Zero dependency.
+- Cons: <code>locate</code> database may be stale. Not integrated with gallery state.</p>
+<p><strong>Recommendation:</strong> A first (in-memory across loaded tabs, highest integration). C for large indexed collections (pairs with §4.3 CLIP search in <code>new_features.md</code>).</p>
+<hr />
+<h2 id="229-configurable-keyboard-shortcuts">2.29 Configurable Keyboard Shortcuts ✅ (2026-06-10)<a class="headerlink" href="#229-configurable-keyboard-shortcuts" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Every keyboard shortcut in the app (<code>F2</code> rename, <code>Ctrl+E</code> export, <code>Del</code> delete, arrow navigation, etc.) is hardcoded via <code>QKeySequence</code> or string literals scattered across 6+ files. Users who prefer different bindings (e.g., Vim-style, or to avoid conflicts with their window manager) have no reconfiguration path. The feature is already referenced as the long-term plan in §2.3B and §2.25C.</p>
+<h3 id="options_27">Options<a class="headerlink" href="#options_27" title="Permanent link">&para;</a></h3>
+<p><strong>A — <code>QKeySequenceEdit</code> table in settings, JSON persistence [Recommended]</strong>
+Add a "Keyboard Shortcuts" tab to <code>SettingsWindow</code>. Populate it from a <code>SHORTCUT_REGISTRY: list[dict]</code> (each entry: <code>id</code>, <code>description</code>, <code>default</code>, <code>scope</code>). Each row shows the action name, current binding, and a <code>QKeySequenceEdit</code> for remapping. On save, write to <code>~/.image-toolkit/keybindings.json</code>. On startup, <code>MainWindow.__init__</code> reads this file and applies any overrides to the corresponding <code>QShortcut</code> objects.
+- Conflict detection: highlight duplicate bindings in red before saving.
+- Reset button per row and global "Restore Defaults" button.
+- Scope column shows which tab/context the shortcut applies to.
+- Pros: Standard power-user feature. JSON file is user-auditable. <code>QKeySequenceEdit</code> is a native Qt widget — no custom code for capture.
+- Cons: All existing <code>QShortcut</code> objects must be registered into the registry at construction time. Requires one pass through all 6 files that define shortcuts.</p>
+<p><strong>B — Vault-stored shortcuts</strong>
+Same as A but persist into the existing vault instead of a plain JSON file.
+- Pros: All user configuration in one encrypted store.
+- Cons: Shortcuts are not security-sensitive. Plain JSON is preferable (user-editable, survives vault reset). Vault is overkill here.</p>
+<p><strong>C — Per-tab QShortcut override via settings (no registry)</strong>
+Each settings tab section shows a flat list of known shortcuts for that tab. Stored per-tab in <code>QSettings</code>. No central registry.
+- Pros: Easier per-tab scoping.
+- Cons: No global conflict detection. Discovery is per-tab only — user cannot see all shortcuts at once.</p>
+<p><strong>D — Application-context shortcuts only (non-configurable tab shortcuts)</strong>
+Only make app-global shortcuts configurable (e.g., Command Palette <code>Ctrl+K</code>, global search <code>Ctrl+Shift+F</code>). Tab-internal shortcuts remain hardcoded.
+- Pros: Lower scope. Covers the most commonly conflicting shortcuts.
+- Cons: Leaves per-gallery shortcuts (F2, Ctrl+E, Del) unconfigurable — the highest-demand items.</p>
+<p><strong>Recommendation:</strong> A — JSON registry approach. <code>QKeySequenceEdit</code> + <code>SHORTCUT_REGISTRY</code> is a one-time investment that covers all future shortcuts automatically once the registry discipline is established.</p>
+<hr />
+<h2 id="230-accent-color-and-ui-density-customization">2.30 Accent Color and UI Density Customization ✅<a class="headerlink" href="#230-accent-color-and-ui-density-customization" title="Permanent link">&para;</a></h2>
+<p><strong>Status:</strong> Implemented (2026-06-10). Options A (accent colour picker), B (font scale), and C (density toggle) all shipped together.</p>
+<p><strong>Pain point:</strong> The app's dark theme uses a fixed cyan accent (<code>#00bcd4</code>) and the light theme uses blue (<code>#007AFF</code>). The QSS system already uses <code>$DARK_ACCENT_COLOR</code> template variables (via <code>Template.safe_substitute</code> in <code>style.py</code>), so injecting a custom accent is a matter of overriding the variable before substitution. Users also report discomfort at the default font size on high-DPI displays, and no compact/comfortable density toggle exists.</p>
+<h3 id="options_28">Options<a class="headerlink" href="#options_28" title="Permanent link">&para;</a></h3>
+<p><strong>A — Accent colour picker (QColorDialog) in settings [Quick Win]</strong>
+Add a colour picker button to the "Preferences" section of settings. On click: <code>QColorDialog.getColor()</code>. The chosen hex is stored as <code>preferences["accent_color_dark"]</code> / <code>preferences["accent_color_light"]</code> in the vault. In <code>set_application_theme()</code>, override <code>THEME_VARS["DARK_ACCENT_COLOR"]</code> (and the hover/pressed/muted variants computed automatically: hover = darken 15%, pressed = darken 25%, muted = desaturate 80%) before <code>Template.safe_substitute</code>. Zero new dependencies.
+- Pros: Already-templated QSS means this is ~30 LOC. Live preview if <code>set_application_theme</code> is called on dialog accept.
+- Cons: Hover/pressed/muted variants must be computed programmatically (<code>QColor.darker()</code>/<code>QColor.lighter()</code>).</p>
+<p><strong>B — Font scale slider in settings</strong>
+A <code>QSlider</code> (80–150%, step 10%) in the "Gallery and Display" section. Applies via <code>QApplication.instance().setFont(QFont("", base_pt * scale))</code>. Stored as <code>preferences["font_scale"]</code>. Restores on startup before first paint.
+- Pros: Accessibility improvement for high-DPI users. No QSS changes needed.
+- Cons: Some fixed-width layout elements may clip at &gt;120%. Should display a "restart required" note for safety.</p>
+<p><strong>C — Layout density toggle (Compact / Comfortable / Spacious)</strong>
+Three presets that adjust <code>QWidget</code> padding/spacing in the QSS. Compact: 4px padding, 2px spacing. Comfortable (current): 10px/6px. Spacious: 16px/10px. Applied as a QSS override.
+- Pros: Useful on laptops (Compact) vs large monitors (Spacious).
+- Cons: Some layouts have hardcoded <code>setContentsMargins</code> — QSS padding may not override those. Medium effort.</p>
+<p><strong>D — All three (A + B + C) in a unified "Appearance" settings tab</strong>
+Group accent colour, font scale, and density into a single "Appearance" tab in <code>SettingsWindow</code> alongside a live preview <code>QFrame</code>.
+- Pros: Cohesive UX. Avoids scattering appearance controls across multiple sections.
+- Cons: Larger change to <code>SettingsWindow</code> layout.</p>
+<p><strong>Recommendation:</strong> A immediately (near-free given template infrastructure). B for accessibility. D as the unifying step once A and B are validated.</p>
+<hr />
+<h2 id="231-custom-qss-user-theme-override">2.31 Custom QSS User Theme Override ✅ (2026-06-10)<a class="headerlink" href="#231-custom-qss-user-theme-override" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Advanced users who want a fully custom visual style must edit <code>dark.qss</code> or <code>light.qss</code> directly and risk losing changes on update. There is no supported path for injecting personal style overrides without touching tracked files.</p>
+<h3 id="options_29">Options<a class="headerlink" href="#options_29" title="Permanent link">&para;</a></h3>
+<p><strong>A — User override file appended after base theme [Quick Win]</strong>
+After loading the base dark/light QSS, check for <code>~/.image-toolkit/user_theme.qss</code>. If present, read its contents and append to the base QSS string before <code>QApplication.setStyleSheet</code>. The override file is pure QSS (no template variables); it can selectively override any widget rule. Documentation hint shown in settings.
+- Pros: Zero new dependencies. Non-destructive — base theme still applies first. Users can share override files.
+- Cons: Override file must be manually created. No in-app editor.</p>
+<p><strong>B — In-app QSS editor in settings</strong>
+A <code>QPlainTextEdit</code> in a "Developer" section of settings showing the current full QSS. User can edit and press "Apply" to preview changes live. Saved to <code>user_theme.qss</code>.
+- Pros: Discoverable and usable without leaving the app.
+- Cons: A bad QSS can break the UI. Should have a "Reset to Default" button that clears <code>user_theme.qss</code>.</p>
+<p><strong>C — Preset colour palette swatches</strong>
+Instead of free-form editing, offer 6–8 preset colour palettes (Dracula, Solarized Dark, Monokai, Catppuccin, etc.) as a dropdown. Each palette overrides only the <code>$DARK_ACCENT_COLOR</code> and background variables.
+- Pros: Safe — no freeform QSS. Users who don't know CSS can still personalise.
+- Cons: Fixed palette selection; no bespoke customisation.</p>
+<p><strong>Recommendation:</strong> A as the power-user override path (trivial implementation). C as a quick-win discovery path for users who don't know QSS.</p>
+<hr />
+<h2 id="232-window-layout-and-state-profiles">2.32 Window Layout and State Profiles ✅ Partial (2026-06-10 — geometry only)<a class="headerlink" href="#232-window-layout-and-state-profiles" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> <code>SettingsWindow</code> already has "System Preference Profiles" that save theme + tab configs, but they do not capture window geometry, splitter positions, or the last-used panel sizes. Every launch resets the layout even for users with established workflows. <code>QSplitter</code> persistence (§2.20A) addresses individual splitters; this section addresses the complete workspace layout as a named, switchable profile.</p>
+<h3 id="options_30">Options<a class="headerlink" href="#options_30" title="Permanent link">&para;</a></h3>
+<p><strong>A — Auto-save geometry and splitter state on close [Quick Win]</strong>
+In <code>MainWindow.closeEvent</code>, call <code>QSettings.setValue("window/geometry", self.saveGeometry())</code> and save the state of all tracked <code>QSplitter</code> instances. Restore in <code>__init__</code> before <code>show()</code>. No profile concept — just last-used state.
+- Pros: One-time save/restore, zero UI. Highest-impact change with least effort. Pairs naturally with §2.20A.
+- Cons: Only one state remembered (the last session). No named profiles.</p>
+<p><strong>B — Named layout profiles in settings</strong>
+Extend the existing "System Preference Profiles" to include window geometry + all splitter states. A profile name stores: <code>{"geometry": base64(saveGeometry()), "splitters": {"stitch_tab": base64(...), ...}}</code>. Profiles can be applied from the Settings window or a <code>File → Layout Profiles</code> menu.
+- Pros: Named profiles enable project-based layouts (e.g., "stitching session" vs "database review").
+- Cons: Must hook into all QSplitter instances to collect/restore their state. Medium effort.</p>
+<p><strong>C — Per-tab layout memory</strong>
+Each tab class saves and restores its own internal splitter + scroll position in <code>QSettings</code> keyed by tab class name. No cross-tab coordination.
+- Pros: Scoped — each tab owns its state. Simpler than B.
+- Cons: Does not capture main window size or multi-tab interactions.</p>
+<p><strong>Recommendation:</strong> A immediately (matches §2.20A and is essentially the same code path). B as the full profiles upgrade once A validates the save/restore pattern.</p>
+<hr />
+<h2 id="effort--impact-matrix">Effort × Impact Matrix<a class="headerlink" href="#effort--impact-matrix" title="Permanent link">&para;</a></h2>
+<p><em>Effort</em> — <strong>Low</strong>: &lt; 1 day · <strong>Medium</strong>: 1 day – 1 week · <strong>High</strong>: 1 – 2 weeks · <strong>Very High</strong>: 2+ weeks
+<em>Impact</em> — <strong>Low</strong>: aesthetic polish · <strong>Medium</strong>: discoverable QoL · <strong>High</strong>: significant workflow improvement for most users · <strong>Very High</strong>: fundamental UX upgrade</p>
+<table>
+<thead>
+<tr>
+<th><strong>Effort ↓ / Impact →</strong></th>
+<th>Low</th>
+<th>Medium</th>
+<th>High</th>
+<th>Very High</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Low (&lt;1d)</strong></td>
+<td>§2.4B right-click context menu · §2.10 toast notifications · §2.14 thumbnail metadata overlay · §2.24 hover animations · §2.25 shortcut discovery overlay · §2.26 inline rename</td>
+<td>§2.2B Ctrl+scroll zoom [Quick Win] · §2.5A session path persistence · §2.9 settings extensions · §2.12 system tray · §2.17 log panel · §2.18 image rating + labels · §2.31A QSS user override</td>
+<td>§2.3A+C keyboard nav shortcuts · §2.7A progress bar + cancel button [Quick Win] · §2.32A auto-save geometry [Quick Win]</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Medium (1d–1w)</strong></td>
+<td>§2.19 contact sheet export</td>
+<td>§2.2A slider control · §2.5B session restore dialog · §2.6B side-by-side before/after · §2.13 gallery filter+sort · §2.15 undo/redo deletions · §2.20A QSplitter persistence · §2.21 nav history · §2.27 multi-image compare · §2.28 global search · §2.29 configurable shortcuts · §2.30 accent colour + density</td>
+<td>§2.4A multi-select with QItemSelectionModel · §2.8A dark/light theme toggle · §2.8B dynamic colour extraction · §2.12B+C tray preview + context ops · §2.22 tag chip compound search · §2.32B named layout profiles</td>
+<td>§2.6A interactive zoom/pan preview · §2.16A command palette + registry</td>
+</tr>
+<tr>
+<td><strong>High (1–2w)</strong></td>
+<td>—</td>
+<td>§2.30C density modes (compact/comfortable/spacious) · §2.31B in-app QSS editor</td>
+<td>§2.23 accessibility audit · §2.29B global keybinding conflict detection</td>
+<td>§2.1A QListView virtual scroll (full refactor)</td>
+</tr>
+<tr>
+<td><strong>Very High (2w+)</strong></td>
+<td>—</td>
+<td>§2.4E drag-and-drop reorder</td>
+<td>—</td>
+<td>§4.12C named workspaces (superset of §2.29+§2.30+§2.32)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="anchor-index">Anchor Index<a class="headerlink" href="#anchor-index" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Anchor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2.1 Virtual Scroll Gallery</td>
+<td><a href="#21-virtual-scroll-gallery">#21-virtual-scroll-gallery</a></td>
+</tr>
+<tr>
+<td>2.2 Thumbnail Size Control</td>
+<td><a href="#22-gallery-thumbnail-size-control">#22-gallery-thumbnail-size-control</a></td>
+</tr>
+<tr>
+<td>2.3 Keyboard Navigation</td>
+<td><a href="#23-keyboard-navigation">#23-keyboard-navigation</a></td>
+</tr>
+<tr>
+<td>2.4 Bulk Selection</td>
+<td><a href="#24-bulk-selection-and-operations">#24-bulk-selection-and-operations</a></td>
+</tr>
+<tr>
+<td>2.5 Session Persistence</td>
+<td><a href="#25-session-persistence">#25-session-persistence</a></td>
+</tr>
+<tr>
+<td>2.6 Before/After Comparison</td>
+<td><a href="#26-stitch-tab-ux--beforeafter-comparison">#26-stitch-tab-ux--beforeafter-comparison</a></td>
+</tr>
+<tr>
+<td>2.7 Progress and Cancellation</td>
+<td><a href="#27-progress-and-cancellation">#27-progress-and-cancellation</a></td>
+</tr>
+<tr>
+<td>2.8 Theme Support</td>
+<td><a href="#28-theme-support">#28-theme-support</a></td>
+</tr>
+<tr>
+<td>2.9 Settings Window Extensions</td>
+<td><a href="#29-settings-window-extensions">#29-settings-window-extensions</a></td>
+</tr>
+<tr>
+<td>2.10 In-App Toast Notifications</td>
+<td><a href="#210-in-app-toast-notification-system">#210-in-app-toast-notification-system</a></td>
+</tr>
+<tr>
+<td>2.11 Image Preview Enhancements</td>
+<td><a href="#211-image-preview-window-enhancements">#211-image-preview-window-enhancements</a></td>
+</tr>
+<tr>
+<td>2.12 System Tray Integration</td>
+<td><a href="#212-system-tray-integration">#212-system-tray-integration</a></td>
+</tr>
+<tr>
+<td>2.13 Gallery Filtering and Sort</td>
+<td><a href="#213-gallery-filtering-and-sort-controls">#213-gallery-filtering-and-sort-controls</a></td>
+</tr>
+<tr>
+<td>2.14 Thumbnail Metadata Overlay</td>
+<td><a href="#214-thumbnail-metadata-overlay">#214-thumbnail-metadata-overlay</a></td>
+</tr>
+<tr>
+<td>2.15 Undo/Redo for Deletions</td>
+<td><a href="#215-undoredo-for-destructive-operations">#215-undoredo-for-destructive-operations</a></td>
+</tr>
+<tr>
+<td>2.16 Command Palette</td>
+<td><a href="#216-command-palette--quick-launcher">#216-command-palette--quick-launcher</a></td>
+</tr>
+<tr>
+<td>2.17 Global Log Panel</td>
+<td><a href="#217-global-collapsible-log-panel">#217-global-collapsible-log-panel</a></td>
+</tr>
+<tr>
+<td>2.18 Image Rating and Color Labels</td>
+<td><a href="#218-image-rating-and-color-labels">#218-image-rating-and-color-labels</a></td>
+</tr>
+<tr>
+<td>2.19 Gallery Export and Contact Sheet</td>
+<td><a href="#219-gallery-export-and-contact-sheet">#219-gallery-export-and-contact-sheet</a></td>
+</tr>
+<tr>
+<td>2.20 Sidebar Panels and QSplitter</td>
+<td><a href="#220-resizable-sidebar-panels-and-qsplitter-persistence">#220-resizable-sidebar-panels-and-qsplitter-persistence</a></td>
+</tr>
+<tr>
+<td>2.21 Directory Navigation History</td>
+<td><a href="#221-directory-navigation-history-back--forward">#221-directory-navigation-history-back--forward</a></td>
+</tr>
+<tr>
+<td>2.22 Tag Chip UI and Compound Search</td>
+<td><a href="#222-tag-chip-ui-and-compound-tag-search">#222-tag-chip-ui-and-compound-tag-search</a></td>
+</tr>
+<tr>
+<td>2.23 Accessibility and Tab Order</td>
+<td><a href="#223-accessibility-and-keyboard-tab-order">#223-accessibility-and-keyboard-tab-order</a></td>
+</tr>
+<tr>
+<td>2.24 Thumbnail Hover Animations</td>
+<td><a href="#224-thumbnail-hover-animations">#224-thumbnail-hover-animations</a></td>
+</tr>
+<tr>
+<td>2.25 Keyboard Shortcut Discovery</td>
+<td><a href="#225-keyboard-shortcut-discovery-overlay">#225-keyboard-shortcut-discovery-overlay</a></td>
+</tr>
+<tr>
+<td>2.26 Inline Rename</td>
+<td><a href="#226-inline-rename">#226-inline-rename</a></td>
+</tr>
+<tr>
+<td>2.27 Multi-Image Comparison View</td>
+<td><a href="#227-multi-image-comparison-view">#227-multi-image-comparison-view</a></td>
+</tr>
+<tr>
+<td>2.28 Global Cross-Tab Search</td>
+<td><a href="#228-global-cross-tab-search">#228-global-cross-tab-search</a></td>
+</tr>
+<tr>
+<td>2.29 Configurable Keyboard Shortcuts</td>
+<td><a href="#229-configurable-keyboard-shortcuts">#229-configurable-keyboard-shortcuts</a></td>
+</tr>
+<tr>
+<td>2.30 Accent Color and UI Density</td>
+<td><a href="#230-accent-color-and-ui-density-customization">#230-accent-color-and-ui-density-customization</a></td>
+</tr>
+<tr>
+<td>2.31 Custom QSS User Theme Override</td>
+<td><a href="#231-custom-qss-user-theme-override">#231-custom-qss-user-theme-override</a></td>
+</tr>
+<tr>
+<td>2.32 Window Layout and State Profiles</td>
+<td><a href="#232-window-layout-and-state-profiles">#232-window-layout-and-state-profiles</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="document-history">Document History<a class="headerlink" href="#document-history" title="Permanent link">&para;</a></h2>
+<p><em>Last updated: 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

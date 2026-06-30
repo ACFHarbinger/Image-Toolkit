@@ -3,6 +3,7 @@ import os
 from PIL import Image
 from pathlib import Path
 from datetime import datetime
+from send2trash import send2trash
 from typing import Dict, Any, Optional, List
 from PySide6.QtWidgets import (
     QFormLayout,
@@ -32,13 +33,14 @@ from ...components import (
     ClickableLabel,
     PropertyComparisonDialog,
 )
+from ...utils.sort_utils import natural_sort_key
 from ...helpers import (
     DeletionWorker,
     DuplicateScanWorker,
 )
 from ...styles.style import apply_shadow_effect, STYLE_SCAN_CANCEL
 from ...windows import ImagePreviewWindow
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS
 
 
 class DeleteTab(AbstractClassTwoGalleries):
@@ -46,6 +48,7 @@ class DeleteTab(AbstractClassTwoGalleries):
     DeleteTab with identical split-panel galleries for Scan Results and Selected Duplicates.
     Inherits core gallery and selection logic from BaseTwoGalleriesTab.
     """
+
     preview_ready = Signal(str)
     scan_status_changed = Signal(str)
     qml_input_path_changed = Signal(str)
@@ -57,8 +60,6 @@ class DeleteTab(AbstractClassTwoGalleries):
 
         # --- State for duplicate handling ---
         self.duplicate_results: Dict[str, List[str]] = {}
-
-        self.open_preview_windows: List[ImagePreviewWindow] = []
 
         # Thread references
         self.scan_thread = None
@@ -138,7 +139,9 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.gallery_widget = QWidget()
         self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
         self.found_gallery_layout = QGridLayout(self.gallery_widget)
-        self.found_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.found_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.found_gallery_scroll.setWidget(self.gallery_widget)
         self.found_gallery_scroll.selection_changed.connect(
             self.handle_marquee_selection
@@ -166,7 +169,9 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.selected_widget = QWidget()
         self.selected_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_gallery_layout = QGridLayout(self.selected_widget)
-        self.selected_gallery_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.selected_gallery_scroll.setWidget(self.selected_widget)
         content_layout.addWidget(self.selected_gallery_scroll, 1)
 
@@ -301,7 +306,7 @@ class DeleteTab(AbstractClassTwoGalleries):
 
         # --- Status ---
         self.status_label = QLabel("Ready.")
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         content_layout.addWidget(self.status_label)
 
         page_scroll.setWidget(content_widget)
@@ -339,12 +344,15 @@ class DeleteTab(AbstractClassTwoGalleries):
         card_layout.setContentsMargins(0, 0, 0, 0)
 
         img_label = QLabel()
-        img_label.setAlignment(Qt.AlignCenter)
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
 
         if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(
-                thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                thumb_size,
+                thumb_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             img_label.setPixmap(scaled)
         else:
@@ -357,6 +365,11 @@ class DeleteTab(AbstractClassTwoGalleries):
         # Interaction
         card_wrapper.path_double_clicked.connect(self.open_full_preview)
         card_wrapper.path_right_clicked.connect(self.show_image_context_menu)
+
+        # Assign custom styling method for the Base class to call
+        card_wrapper.set_selected_style = lambda selected: self._update_card_style(
+            img_label, selected
+        )
 
         self._update_card_style(img_label, is_selected)
         return card_wrapper
@@ -374,7 +387,10 @@ class DeleteTab(AbstractClassTwoGalleries):
             if pixmap and not pixmap.isNull():
                 thumb_size = self.thumbnail_size
                 scaled = pixmap.scaled(
-                    thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    thumb_size,
+                    thumb_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
                 )
                 img_label.setPixmap(scaled)
                 img_label.setText("")  # Clear Loading text
@@ -583,7 +599,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         )
 
         # Use Base Class method to load thumbnails into top gallery
-        self.start_loading_thumbnails(sorted(flattened_paths))
+        self.start_loading_thumbnails(sorted(flattened_paths, key=natural_sort_key))
 
     @Slot(str)
     def on_scan_error(self, error_msg):
@@ -596,19 +612,29 @@ class DeleteTab(AbstractClassTwoGalleries):
         if not self.selected_files:
             return
         count = len(self.selected_files)
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         reply = QMessageBox.question(
             self,
             "Confirm Batch Delete",
-            f"Permanently delete **{count}** selected files?",
-            QMessageBox.Yes | QMessageBox.No,
+            f"Move **{count}** selected files to {action_name}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
         deleted_count = 0
         errors = []
         for path in list(self.selected_files):
             try:
-                os.remove(path)
+                if send_to_trash_enabled:
+                    send2trash(path)
+                else:
+                    os.remove(path)
                 deleted_count += 1
                 self.selected_files.remove(path)
                 if path in self.found_files:
@@ -627,24 +653,34 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.refresh_selected_panel()
         self.on_selection_changed()
 
-        msg = f"Deleted {deleted_count} files."
+        msg = f"Moved {deleted_count} files to {action_name}."
         if errors:
             msg += "\nErrors:\n" + "\n".join(errors[:5])
-        QMessageBox.information(self, "Deletion Complete", msg)
+        QMessageBox.information(self, f"Move to {action_name} Complete", msg)
 
     def delete_single_file(self, path: str):
         filename = os.path.basename(path)
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         reply = QMessageBox.question(
             self,
-            "Confirm Single Deletion",
-            f"Are you sure you want to PERMANENTLY delete:\n**{filename}**?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            "Confirm Deletion",
+            f"Move to {action_name}:\n{filename}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.No:
+        if reply == QMessageBox.StandardButton.No:
             return
         try:
-            os.remove(path)
+            if send_to_trash_enabled:
+                send2trash(path)
+            else:
+                os.remove(path)
             if path in self.selected_files:
                 self.selected_files.remove(path)
             if path in self.found_files:
@@ -659,8 +695,10 @@ class DeleteTab(AbstractClassTwoGalleries):
             )
             self.refresh_selected_panel()
             self.on_selection_changed()
-            self.status_label.setText(f"File deleted: {filename}")
-            QMessageBox.information(self, "Success", f"Deleted: {filename}")
+            self.status_label.setText(f"Moved to {action_name}: {filename}")
+            QMessageBox.information(
+                self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}"
+            )
         except Exception as e:
             QMessageBox.critical(self, "Deletion Failed", f"Error: {e}")
 
@@ -734,9 +772,9 @@ class DeleteTab(AbstractClassTwoGalleries):
                 prop_text += f"  - **{key}:** {value}\n"
         msg = QMessageBox(self)
         msg.setWindowTitle("Image Properties")
-        msg.setTextFormat(Qt.MarkdownText)
+        msg.setTextFormat(Qt.TextFormat.MarkdownText)
         msg.setText(prop_text)
-        msg.setIcon(QMessageBox.Information)
+        msg.setIcon(QMessageBox.Icon.Information)
         msg.exec()
 
     @Slot()
@@ -752,10 +790,10 @@ class DeleteTab(AbstractClassTwoGalleries):
                 self,
                 "Large Selection",
                 f"Selected {len(selected_paths)} images. Compare first 10?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
             )
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 selected_paths = selected_paths[:10]
             else:
                 return
@@ -774,21 +812,32 @@ class DeleteTab(AbstractClassTwoGalleries):
         dialog = PropertyComparisonDialog(property_list, self)
         dialog.exec()
 
-    def open_full_preview(self, path):
+    def open_full_preview(self, image_path: str):
+        # We prefer found_files if it exists in main directory, fallback to selected_files
+        full_list = self.found_files
+        target_list = full_list if full_list else list(self.selected_files)
+
+        if not target_list:
+            target_list = [image_path]
+        elif image_path not in target_list:
+            target_list.append(image_path)
+
         try:
-            start_index = self.found_files.index(path)
+            start_index = target_list.index(image_path)
         except ValueError:
             start_index = 0
-        window = ImagePreviewWindow(
-            image_path=path,
+
+        preview = ImagePreviewWindow(
+            image_path=image_path,
             db_tab_ref=None,
             parent=self,
-            all_paths=self.found_files,
+            all_paths=target_list,
             start_index=start_index,
         )
-        window.setAttribute(Qt.WA_DeleteOnClose)
-        window.show()
-        self.open_preview_windows.append(window)
+        preview.path_changed.connect(self.update_preview_highlight)
+        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        preview.show()
+        self.open_preview_windows.append(preview)
 
     # --- STANDARD DELETION LOGIC (Directory/File) ---
 
@@ -816,9 +865,13 @@ class DeleteTab(AbstractClassTwoGalleries):
             else "Confirm File Deletion"
         )
         reply = QMessageBox.question(
-            self, title, message, QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            self,
+            title,
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        self.worker.set_confirmation_response(reply == QMessageBox.Yes)
+        self.worker.set_confirmation_response(reply == QMessageBox.StandardButton.Yes)
 
     def update_progress(self, deleted, total):
         self.status_label.setText(f"Deleted {deleted} of {total}...")
@@ -887,12 +940,20 @@ class DeleteTab(AbstractClassTwoGalleries):
         elif not self.dropdown and hasattr(self, "target_extensions"):
             exts = self.join_list_str(self.target_extensions.text().strip())
 
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+
         return {
             "target_path": self.target_path.text().strip(),
             "mode": mode,
             "target_extensions": [e.strip().lstrip(".") for e in exts if e.strip()],
             "scan_method": self.scan_method_combo.currentText(),
             "require_confirm": self.confirm_checkbox.isChecked(),
+            "selected_files": list(self.selected_files),
+            "send_to_trash": send_to_trash_enabled,
         }
 
     @staticmethod
@@ -946,6 +1007,9 @@ class DeleteTab(AbstractClassTwoGalleries):
             # 4. Confirmation Checkbox
             self.confirm_checkbox.setChecked(config.get("require_confirm", True))
 
+            # 5. Restore selected gallery
+            self._restore_selected_files(config)
+
             print("DeleteTab configuration loaded.")
 
         except Exception as e:
@@ -953,6 +1017,34 @@ class DeleteTab(AbstractClassTwoGalleries):
             QMessageBox.warning(
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
+
+    def cancel_loading(self):
+        """Stops all active timers and background workers."""
+        super().cancel_loading()
+
+        if self.scan_thread and self.scan_thread.isRunning():
+            self.scan_thread.requestInterruption()
+            self.scan_thread.quit()
+
+        if self.worker:  # DeletionWorker
+            try:
+                if hasattr(self.worker, "stop"):
+                    self.worker.stop()
+            except Exception:
+                pass
+
+        # Close sub-windows
+        for win in list(self.open_preview_windows):
+            try:
+                win.close()
+            except Exception:
+                pass
+        self.open_preview_windows.clear()
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
+        super().closeEvent(event)
 
     # --- QML HANDLERS ---
     @Slot(str)
@@ -971,19 +1063,19 @@ class DeleteTab(AbstractClassTwoGalleries):
     def start_duplicate_scan_qml(self, target_dir, method="Exact Match"):
         """Wrapper for QML initiated scan."""
         if not target_dir or not os.path.isdir(target_dir):
-             # Signal error?
-             return
-        
+            # Signal error?
+            return
+
         # Map method string to internal ID if needed, or rely on combo box being synced
         # But QML passes string directly.
         # "Exact Match" -> "exact"
         # Since logic uses self.scan_method_combo.currentText(), we should update it or pass explicit arg.
-        
+
         # Update UI combo for consistency
-        index = self.scan_method_combo.findText(method, Qt.MatchContains)
+        index = self.scan_method_combo.findText(method, Qt.MatchFlag.MatchContains)
         if index >= 0:
             self.scan_method_combo.setCurrentIndex(index)
-        
+
         self.target_path.setText(target_dir)
         self.start_duplicate_scan()
 
@@ -996,5 +1088,5 @@ class DeleteTab(AbstractClassTwoGalleries):
 
     @Slot(str)
     def select_file_qml(self, path):
-         """Toggle selection for a file from QML."""
-         self.toggle_selection(path)
+        """Toggle selection for a file from QML."""
+        self.toggle_selection(path)

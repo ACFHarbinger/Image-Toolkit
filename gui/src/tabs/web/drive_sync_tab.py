@@ -1,5 +1,5 @@
 import os
-import backend.src.utils.definitions as udef
+import backend.src.constants as udef
 
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QButtonGroup,
 )
-from ...utils.app_definitions import DRY_RUN
+from ...constants import DRY_RUN
 from ...windows import LogWindow
 from ...helpers import GoogleDriveSyncWorker, DropboxDriveSyncWorker, OneDriveSyncWorker
 from ...styles.style import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
@@ -637,11 +637,11 @@ class DriveSyncTab(QWidget):
                 "Dry Run Completed",
                 "The Dry Run finished successfully.\n\n"
                 "Do you want to apply these changes now (Execute LIVE Sync)?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
 
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 self.log_window.append_log(
                     "\nUser confirmed application of changes. Starting LIVE run..."
                 )
@@ -673,7 +673,7 @@ class DriveSyncTab(QWidget):
         if dir_:
             self.local_path.setText(dir_)
 
-    def browse_directory(self, line_edit: QLineEdit = None):
+    def browse_directory(self, line_edit: Optional[QLineEdit] = None):
         line_edit = line_edit or self.local_path
         dir_ = QFileDialog.getExistingDirectory(
             self, "Select Folder", line_edit.text() or str(Path.home())

@@ -42,21 +42,22 @@ class ImageFormatConverter:
                 os.path.dirname(image_path), f"{filename_only}.{format}"
             )
         else:
-            # output_name is the path/basename provided by the worker
-            output_path = f"{output_name}.{format}"
+            # output_name is the path provided by the worker.
+            # Check if it already includes the expected extension to prevent duplication.
+            if output_name.lower().endswith(f".{format.lower()}"):
+                output_path = output_name
+            else:
+                output_path = f"{output_name}.{format}"
 
-        try:
-            return base.convert_single_image(
-                image_path,
-                output_path,
-                format,
-                delete,
-                aspect_ratio,
-                ar_mode,
-            )
-        except Exception as e:
-            print(f"Error in convert_single_image: {e}")
-            return False
+        # The Rust backend raises a PyValueError on failure which will be caught by the worker
+        return base.convert_single_image(
+            image_path,
+            output_path,
+            format,
+            delete,
+            aspect_ratio,
+            ar_mode,
+        )
 
     @classmethod
     @FSETool.ensure_absolute_paths(prefix_func=BATCH_CONVERSION_PREFIX)
@@ -79,7 +80,9 @@ class ImageFormatConverter:
         if output_dir is None:
             output_dir = input_dir
 
-        is_jpeg_or_jpg = lambda fmt: fmt in ["jpg", "jpeg"]
+        def is_jpeg_or_jpg(fmt: str) -> bool:
+            return fmt in ["jpg", "jpeg"]
+
         output_fmt = output_format.lower()
         input_formats = [f.lower() for f in inputs_formats]
 

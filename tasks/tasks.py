@@ -13,7 +13,6 @@ from backend.src.core import (
     ImageMerger,
     FileDeleter,
     DuplicateFinder,
-    SimilarityFinder,
 )
 from backend.src.web import (
     GoogleDriveSync,
@@ -26,9 +25,9 @@ from backend.src.web import (
     ReverseImageSearchCrawler,
     WebRequestsLogic,
 )
-from backend.src.models.gan import GAN
-from backend.src.core import PgvectorImageDatabase as ImageDatabase
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.models.core.gan import GAN
+from backend.src.database import PgvectorImageDatabase as ImageDatabase
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 # Ensure you handle DB initialization for Search if strictly necessary,
 # though Search is often fast enough for a direct View.
@@ -129,7 +128,7 @@ def task_scan_duplicates(self, directory, extensions, method):
         # SimilarityFinder logic directly.
         # Note: If SimilarityFinder relies on Qt signals, it needs refactoring.
         # Assuming SimilarityFinder is pure Python/OpenCV:
-        images = SimilarityFinder.get_images_list(directory, extensions)
+        # images = SimilarityFinder.get_images_list(directory, extensions)
 
         # ... Perform hashing/feature extraction loop here ...
         # ... Perform comparison logic (_compare_phash, etc) here ...
@@ -319,7 +318,7 @@ def task_extract_video_clip(self, config):
         if os.path.exists(temp_audio_path):
             try:
                 os.remove(temp_audio_path)
-            except:
+            except Exception:
                 pass
         return {"status": "error", "message": str(e)}
 
@@ -588,7 +587,7 @@ def task_db_auto_populate(self, config):
                         try:
                             db.add_subgroup(subgroup_name, group_name)
                             subgroups_added += 1
-                        except:
+                        except ValueError:
                             pass
 
         db.close()

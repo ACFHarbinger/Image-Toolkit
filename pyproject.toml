@@ -8,36 +8,85 @@ requires-python = ">=3.11"
 # All your runtime deps
 dependencies = [
     "accelerate>=1.12.0",
+    "aiohttp>=3.13.5",
+    "alembic>=1.18.4",
+    "av>=17.0.1",
+    "blake3>=1.0.8",
     "celery>=5.6.0",
+    "cffi>=2.0.0",
+    "comfy-aimdo>=0.3.0",
+    "comfy-kitchen>=0.2.8",
+    "comfyui-embedded-docs>=0.4.4",
+    "comfyui-frontend-package>=1.43.1",
+    "comfyui-workflow-templates>=0.9.66",
     "comtypes>=1.4.13",
     "diffusers>=0.35.2",
     "django>=5.2.7",
     "django-cors-headers>=4.9.0",
     "djangorestframework>=3.16.1",
+    "drf-spectacular>=0.27.2",
     "dropbox>=12.0.2",
+    "einops>=0.8.2",
+    "filelock>=3.20.0",
+    "glfw>=2.10.0",
     "google>=3.0.0",
     "google-api-python-client>=2.187.0",
     "google-auth-oauthlib>=1.2.3",
+    "hydra-core>=1.3.2",
     "imagehash>=4.3.2",
     "jpype1>=1.6.0",
-    "maturin>=1.10.2",
+    "kornia>=0.8.2",
+    "loguru>=0.7.3",
+    "pybind11>=2.11",
     "moviepy>=1.0.3",
     "msal>=1.34.0",
     "numpy>=2.3.4",
+    "omegaconf>=2.3.0",
+    "onnxruntime>=1.25.1",
     "opencv-python-headless>=4.11.0.86",
     "peft>=0.18.0",
     "pillow>=12.0.0",
     "pip>=25.3",
+    "psutil>=7.1.3",
     "psycopg2-binary>=2.9.11",
+    "psycopg[pool]>=3.2",
+    "send2trash>=1.8.3",
+    "pydantic>=2.13.3",
+    "pydantic-settings>=2.14.0",
+    "pyopengl>=3.1.10",
     "pyside6>=6.10.0",
     "python-dotenv>=1.2.1",
     "redis>=7.1.0",
+    "requests>=2.32.5",
+    "safetensors>=0.7.0",
+    "scenedetect>=0.6.7.1",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.16.3",
     "screeninfo>=0.8.1",
     "selenium>=4.38.0",
+    "sentencepiece>=0.2.1",
+    "sentence-transformers>=2.6.0",   # CLIP embeddings for Local AI Search (CBIR)
+    "faiss-cpu>=1.7.4",               # Vector similarity search for CBIR index
+    "simpleeval>=1.0.7",
+    "spandrel>=0.4.2",
+    "sqlalchemy>=2.0.49",
+    "timm>=1.0.26",
+    "tokenizers>=0.22.1",
     "torch>=2.9.1",
+    "torchaudio<2.10.0",
+    "torchsde>=0.2.6",
     "torchvision>=0.24.1",
+    "tqdm>=4.67.1",
     "transformers>=4.57.2",
     "webdriver-manager>=4.0.2",
+    "chardet<6.0.0",
+    "yarl>=1.23.0",
+    "albumentations>=2.0.8",
+    "pytorch-lightning>=2.6.1",
+    "FlagEmbedding>=1.3.5",
+    "rembg>=2.0.75",
+    "transparent-background>=1.3.4",
+    "sam-2 @ git+https://github.com/facebookresearch/sam2@2b90b9f5ceec907a1c18123530e92e794ad901a4",
 ]
 
 # (Optional) entry-point so you can run `image-toolkit` from terminal
@@ -47,10 +96,20 @@ image-toolkit = "app:launch_app"
 
 # Corrected 'dev' dependencies
 [dependency-groups]
+benchmark = [
+    "matplotlib>=3.10.8",
+    "pandas>=2.3.3",
+    "plotly>=6.6.0",
+    "streamlit>=1.54.0",
+]
 dev = [
     "black>=25.9.0",
     "cryptography>=46.0.3",
+    "git-filter-repo>=2.47.0",
+    "import-linter>=2.0",
     "mypy>=1.18.2",
+    "numpy>=2.3.4",
+    "pip-audit>=2.9.0",
     "pyinstaller>=6.16.0",
     "pytest>=8.4.2",
     "ruff>=0.14.3",
@@ -58,8 +117,12 @@ dev = [
 
 # BUILD CONFIG
 [build-system]
-requires = ["setuptools>=61", "wheel"]
-build-src = "setuptools.build_meta"
+requires = ["setuptools>=61", "wheel", "cffi"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+# Rebuild the C++ extension if CMakeLists or source files change
+cache-keys = [{ file = "base/CMakeLists.txt" }, { file = "base/src/**/*.cpp" }, { file = "base/include/**/*.hpp" }]
 
 # Tell setuptools EXACTLY what to package
 [tool.setuptools.packages.find]
@@ -70,11 +133,91 @@ where = ["backend"]
 [tool.setuptools.package-data]
 # "*" = ["*.ui", "*.qrc", "*.png", "*.ico"]
 
-[tool.pyright]
-typeCheckingMode = "off"
+[tool.pyrefly]
+# Core settings
+engine = "pylance"          # pyrefly usually wraps a core engine; pylance/pyright is standard
+ai_assisted = true          # Enables the "agentic" suggestions seen in your Antigravity view
+venvPath = "."              # The directory containing the venv
+venv = ".venv"              # The name of the venv folder
+type_checking_mode = "basic"
+include = ["gui", "logic"]
+
+# Ignore rules (Migration of your pyright/pylance ignores)
+ignore = ["**/__init__.py"]
+
+[tool.mypy]
+# Permissive baseline — warnings only, no CI failures yet (§5.5A).
+# Tighten incrementally: enable disallow_untyped_defs per-module once
+# annotations are added to a module.
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+# Per-module overrides — gradually opt in to stricter checking
+[[tool.mypy.overrides]]
+module = ["backend.src.exceptions", "backend.src.models.base"]
+disallow_untyped_defs = true
+check_untyped_defs = true
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*", "*Test"]
 python_functions = ["test_*", "*_test"]
 testpaths = "backend/test"
+markers = [
+    "gpu: test loads ML model weights into VRAM (DINOv2, RLHF, etc.)",
+    "gc_heavy: test allocates large objects; triggers gc.collect() on completion",
+    "slow: test takes more than 10 s (excluded from fast CI runs)",
+]
+# §3.12A — pytest-xdist parallel execution (opt-in).
+# Serial run (default):   pytest backend/test/animation/
+# Parallel, no GPU tests: pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu
+# Parallel, with GPU:     pytest backend/test/animation/ -n auto --dist=worksteal
+#   (GPU tests run @forked, each in its own subprocess — safe but serial)
+# addopts is intentionally empty; parallel execution is never forced.
+
+# ---------------------------------------------------------------------------
+# import-linter — layer ordering contracts (§5.11A / A.17)
+# Run: PYTHONPATH=. lint-imports
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_packages = ["backend", "gui"]
+
+[[tool.importlinter.contracts]]
+# The production backend packages must never depend on the GUI.
+# Excludes: backend.src.app (app launcher), backend.benchmark, backend.test.
+name = "Backend core must not import GUI"
+type = "forbidden"
+source_modules = [
+    "backend.src.models",
+    "backend.src.animation",
+    "backend.src.core",
+    "backend.src.web",
+    "backend.src.pipeline",
+    "backend.src.constants",
+    "backend.src.exceptions",
+    "backend.src.utils",
+]
+forbidden_modules = ["gui"]
+
+[[tool.importlinter.contracts]]
+# gui.src.utils is the bottom utility layer — no GUI layer may import upward here.
+name = "gui.src.utils must not import other GUI layers"
+type = "forbidden"
+source_modules = ["gui.src.utils"]
+forbidden_modules = [
+    "gui.src.tabs",
+    "gui.src.helpers",
+    "gui.src.windows",
+    "gui.src.components",
+    "gui.src.classes",
+]
+
+[[tool.importlinter.contracts]]
+# Gallery base classes must not import tab modules (would create circular deps).
+# Exception: deferred import of show_main_status from gui.src.windows is allowed.
+name = "gui.src.classes must not import gui.src.tabs"
+type = "forbidden"
+source_modules = ["gui.src.classes"]
+forbidden_modules = ["gui.src.tabs"]
+ignore_imports = ["gui.src.classes.* -> gui.src.windows.*"]

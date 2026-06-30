@@ -2,13 +2,15 @@ import os
 import math
 
 from pathlib import Path
+from send2trash import send2trash
 from typing import Set, Dict, Any, List, Tuple, Optional
-from PySide6.QtGui import QPixmap, QAction, QResizeEvent
+from PySide6.QtGui import QPixmap, QImage, QAction, QResizeEvent, QColor
 from PySide6.QtCore import Qt, QThread, Slot, QPoint, QTimer, QThreadPool, QEventLoop
 from PySide6.QtWidgets import (
     QWidget,
     QGroupBox,
-    QCheckBox,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QGridLayout,
     QMenu,
@@ -26,9 +28,10 @@ from PySide6.QtWidgets import (
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
 from ...components import ClickableLabel, MarqueeScrollArea
+from ...utils.sort_utils import natural_sort_key
 from ...helpers import ImageScannerWorker, ImageLoaderWorker
 from ...styles.style import apply_shadow_effect
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class ScanMetadataTab(AbstractClassTwoGalleries):
@@ -80,7 +83,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # ThreadPool for image loading
         self.thread_pool = QThreadPool()
         # accumulators for threading results
-        self._loaded_results_buffer: List[Tuple[str, QPixmap]] = []
+        self._loaded_results_buffer: List[Tuple[str, QImage]] = []
         self._images_loaded_count = 0
         self._total_images_to_load = 0
 
@@ -149,7 +152,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.scan_thumbnail_widget = QWidget()
         self.scan_thumbnail_widget.setStyleSheet("background-color: #2c2f33;")
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
-        self.scan_thumbnail_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.scan_thumbnail_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
 
         self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
         self.scan_scroll_area.selection_changed.connect(self.handle_marquee_selection)
@@ -190,7 +195,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.selected_images_widget = QWidget()
         self.selected_images_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
-        self.selected_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.selected_grid_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
 
         self.selected_images_area.setWidget(self.selected_images_widget)
 
@@ -236,17 +243,15 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         subgroup_layout.addWidget(self.subgroup_combo)
         form_layout.addRow("Subgroup Name:", subgroup_layout)
 
-        tags_scroll = QScrollArea()
-        tags_scroll.setMinimumHeight(400)
-        tags_scroll.setWidgetResizable(True)
-        self.tags_widget = QWidget()
-        self.tags_layout = QGridLayout(self.tags_widget)
-        tags_scroll.setWidget(self.tags_widget)
-
-        self.tag_checkboxes = {}
+        self.tags_list_widget = QListWidget()
+        self.tags_list_widget.setMinimumHeight(400)
+        self.tags_list_widget.setStyleSheet(
+            "QListWidget::item { padding: 5px; } "
+            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+        )
         self._setup_tag_checkboxes()
 
-        form_layout.addRow("Tags:", tags_scroll)
+        form_layout.addRow("Tags:", self.tags_list_widget)
         metadata_vbox.addLayout(form_layout)
         content_layout.addWidget(self.metadata_group)
 
@@ -310,7 +315,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         main_layout.addLayout(scan_action_layout)
         self.setLayout(main_layout)
 
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         self.update_button_states(connected=False)
         self.populate_selected_images_gallery()
@@ -321,7 +326,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
         # Center alignment: Explicitly set horizontal center alignment
         if container.layout():
-            container.layout().setAlignment(Qt.AlignHCenter)
+            container.layout().setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         combo = controls["combo"]
         btn_prev = controls["btn_prev"]
@@ -332,7 +337,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # We also set a dummy menu immediately. This forces the UI to render the
         # dropdown arrow and reserve the correct spacing/size even before data is loaded.
         try:
-            btn_page.setPopupMode(QToolButton.InstantPopup)
+            btn_page.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         except AttributeError:
             pass  # Ignore if it is a QPushButton
 
@@ -476,13 +481,19 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts for selection."""
         # CTRL + A: Select All (Visible on Page)
-        if event.modifiers() & Qt.ControlModifier and event.key() == Qt.Key_A:
+        if (
+            event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            and event.key() == Qt.Key.Key_A
+        ):
             self._select_all_images()
             event.accept()
             return
 
         # CTRL + D: Deselect All
-        if event.modifiers() & Qt.ControlModifier and event.key() == Qt.Key_D:
+        if (
+            event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            and event.key() == Qt.Key.Key_D
+        ):
             self._deselect_all_images()
             event.accept()
             return
@@ -606,12 +617,12 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             row = idx // columns
             col = idx % columns
 
-            align = Qt.AlignLeft | Qt.AlignTop
+            align = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
             if isinstance(widget, QLabel) and (
                 "No supported images" in widget.text()
                 or "No scanned images" in widget.text()
             ):
-                align = Qt.AlignCenter
+                align = Qt.AlignmentFlag.AlignCenter
                 layout.addWidget(widget, 0, 0, 1, columns, align)
                 return
 
@@ -637,13 +648,16 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         card_layout.setContentsMargins(0, 0, 0, 0)
 
         img_label = QLabel()
-        img_label.setAlignment(Qt.AlignCenter)
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
 
         if pixmap and not pixmap.isNull():
             if pixmap.width() > thumb_size or pixmap.height() > thumb_size:
                 scaled = pixmap.scaled(
-                    thumb_size, thumb_size, Qt.KeepAspectRatio, Qt.FastTransformation
+                    thumb_size,
+                    thumb_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.FastTransformation,
                 )
                 img_label.setPixmap(scaled)
             else:
@@ -702,12 +716,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         return []
 
     def _setup_tag_checkboxes(self):
-        while self.tags_layout.count():
-            item = self.tags_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self.tags_list_widget.clear()
 
-        self.tag_checkboxes = {}
         tags_data = self._get_tags_from_db()
 
         color_map = {
@@ -720,17 +730,19 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             None: "#c7c7c7",
         }
 
-        columns = 4
-        for i, tag_data in enumerate(tags_data):
+        for tag_data in tags_data:
             tag_name = tag_data["name"]
             tag_type = tag_data["type"] if tag_data.get("type") else ""
 
-            checkbox = QCheckBox(tag_name.replace("_", " ").title())
-            text_color = color_map.get(tag_type, color_map[""])
-            checkbox.setStyleSheet(f"QCheckBox {{ color: {text_color}; }}")
+            item = QListWidgetItem(tag_name.replace("_", " ").title())
+            item.setData(Qt.ItemDataRole.UserRole, tag_name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
 
-            self.tag_checkboxes[tag_name] = checkbox
-            self.tags_layout.addWidget(checkbox, i // columns, i % columns)
+            text_color = color_map.get(tag_type, color_map[""])
+            item.setForeground(QColor(text_color))
+
+            self.tags_list_widget.addItem(item)
 
     def _columns(self) -> int:
         width = self.scan_scroll_area.viewport().width()
@@ -792,7 +804,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self._clear_gallery(self.selected_grid_layout)
 
         # 1. Sort all selected paths
-        all_selected = sorted(list(self.selected_image_paths))
+        all_selected = sorted(list(self.selected_image_paths), key=natural_sort_key)
 
         # 2. Update Pagination UI info
         self._update_pagination_ui("selected")
@@ -813,7 +825,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
         if not all_selected:
             empty_label = QLabel("Select images from the scan results above.")
-            empty_label.setAlignment(Qt.AlignCenter)
+            empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_label.setStyleSheet("color: #b9bbbe; padding: 50px;")
             self.selected_grid_layout.addWidget(empty_label, 0, 0, 1, columns)
             self.selected_images_widget.setUpdatesEnabled(True)
@@ -851,7 +863,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             row = i // columns
             col = i % columns
             self.selected_grid_layout.addWidget(
-                card, row, col, Qt.AlignLeft | Qt.AlignTop
+                card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
             )
 
         self.selected_images_widget.setUpdatesEnabled(True)
@@ -942,7 +954,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
     def apply_scan_filters(self):
         """Filters the raw scan list based on settings (Show New Only) and resets to Page 1."""
-        self.scan_filtered_list = list(self.scan_image_list)  # Copy
+        self.scan_filtered_list = sorted(
+            self.scan_image_list, key=natural_sort_key
+        )  # Sort by default
 
         # FILTERING LOGIC
         if self.db_tab_ref.db is not None:
@@ -952,7 +966,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 for path in self.scan_image_list:
                     if not db.get_image_by_path(path):
                         paths_not_in_db.append(path)
-                self.scan_filtered_list = sorted(paths_not_in_db)
+                self.scan_filtered_list = sorted(paths_not_in_db, key=natural_sort_key)
 
             elif self.view_in_db_only:
                 db = self.db_tab_ref.db
@@ -960,7 +974,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 for path in self.scan_image_list:
                     if db.get_image_by_path(path):
                         paths_in_db.append(path)
-                self.scan_filtered_list = sorted(paths_in_db)
+                self.scan_filtered_list = sorted(paths_in_db, key=natural_sort_key)
 
         # Reset to page 0 whenever filter changes or new scan happens
         self.scan_current_page = 0
@@ -1026,7 +1040,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             card.path_right_clicked.connect(self.show_image_context_menu)
 
             self.scan_thumbnail_layout.addWidget(
-                card, row, col, Qt.AlignLeft | Qt.AlignTop
+                card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
             )
             self.path_to_wrapper_map[path] = card
 
@@ -1060,7 +1074,6 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # 2. Iterate through managed widgets
         # (Using items ensures we don't crash if widgets were deleted)
         for path, widget in self.path_to_wrapper_map.items():
-
             # Skip if already loaded or currently loading
             if path in self.loaded_paths or path in self.loading_paths:
                 continue
@@ -1117,7 +1130,10 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         if path in self.loading_paths:
             self.loading_paths.remove(path)
 
-        self._loaded_results_buffer.append((path, pixmap))
+        # Buffer now stores QImage to reduce memory footprint
+        self._loaded_results_buffer.append(
+            (path, pixmap.toImage() if pixmap and not pixmap.isNull() else pixmap)
+        )
 
         # --- Update the specific card ---
         if path in self.path_to_wrapper_map:
@@ -1131,8 +1147,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                         scaled = pixmap.scaled(
                             thumb_size,
                             thumb_size,
-                            Qt.KeepAspectRatio,
-                            Qt.FastTransformation,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.FastTransformation,
                         )
                         inner_label.setPixmap(scaled)
                     else:
@@ -1222,7 +1238,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         selection_count = len(self.selected_image_paths)
 
         # Logic: Upsert and Delete actions depend on valid selection and DB connection
-        has_directory = hasattr(self, "scanned_dir") and bool(self.scanned_dir)
+        # has_directory = hasattr(self, "scanned_dir") and bool(self.scanned_dir)
 
         if connected and not self._db_was_connected:
             self._setup_tag_checkboxes()
@@ -1286,13 +1302,13 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 db_record = db.get_image_by_path(file_path)
                 if db_record:
                     db_info += f"""
-        **DB ID:** {db_record.get('id')}
-        **Group:** {db_record.get('group_name') or 'N/A'}
-        **Subgroup:** {db_record.get('subgroup_name') or 'N/A'}
-        **Tags:** {', '.join(db_record.get('tags', [])) or 'None'}
-        **DB Width:** {db_record.get('width') or 'N/A'}
-        **DB Height:** {db_record.get('height') or 'N/A'}
-        **Added:** {db_record.get('date_added')}
+        **DB ID:** {db_record.get("id")}
+        **Group:** {db_record.get("group_name") or "N/A"}
+        **Subgroup:** {db_record.get("subgroup_name") or "N/A"}
+        **Tags:** {", ".join(db_record.get("tags", [])) or "None"}
+        **DB Width:** {db_record.get("width") or "N/A"}
+        **DB Height:** {db_record.get("height") or "N/A"}
+        **Added:** {db_record.get("date_added")}
         """
                 else:
                     db_info += "\nImage not found in database."
@@ -1305,14 +1321,26 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         )
 
     def handle_delete_image(self, path: str):
+        prefs = {}
+        main_win = self.window()
+        if main_win and hasattr(main_win, "cached_creds"):
+            prefs = main_win.cached_creds.get("preferences", {})
+        send_to_trash_enabled = prefs.get("send_to_trash", True)
+        action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
+
         if (
             QMessageBox.question(
-                self, "Delete", f"Permanently delete {os.path.basename(path)}?"
+                self,
+                f"Confirm {action_name}",
+                f"Move {os.path.basename(path)} to {action_name}?",
             )
-            == QMessageBox.Yes
+            == QMessageBox.StandardButton.Yes
         ):
             try:
-                os.remove(path)
+                if send_to_trash_enabled:
+                    send2trash(path)
+                else:
+                    os.remove(path)
                 if path in self.scan_image_list:
                     self.scan_image_list.remove(path)
                 if path in self.scan_filtered_list:
@@ -1347,7 +1375,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 else 0
             ),
         )
-        preview.setAttribute(Qt.WA_DeleteOnClose)
+        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         preview.show()
         self.open_preview_windows.append(preview)
 
@@ -1364,7 +1392,9 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             group_name = self.group_combo.currentText().strip() or None
             subgroup_name = self.subgroup_combo.currentText().strip() or None
             tags = [
-                t for t, cb in self.tag_checkboxes.items() if cb.isChecked()
+                self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+                for i in range(self.tags_list_widget.count())
+                if self.tags_list_widget.item(i).checkState() == Qt.CheckState.Checked
             ] or None
 
             success_count = 0
@@ -1441,7 +1471,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 "Confirm",
                 f"Delete {len(self.selected_image_paths)} entries from DB?",
             )
-            == QMessageBox.Yes
+            == QMessageBox.StandardButton.Yes
         ):
             for path in self.selected_image_paths:
                 img = db.get_image_by_path(path)
@@ -1471,7 +1501,12 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             "batch_metadata": {
                 "group_name": self.group_combo.currentText().strip() or "",
                 "subgroup_name": self.subgroup_combo.currentText().strip() or "",
-                "tags": [t for t, cb in self.tag_checkboxes.items() if cb.isChecked()],
+                "tags": [
+                    self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+                    for i in range(self.tags_list_widget.count())
+                    if self.tags_list_widget.item(i).checkState()
+                    == Qt.CheckState.Checked
+                ],
             },
         }
 
@@ -1499,8 +1534,13 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 self.subgroup_combo.setCurrentText(metadata.get("subgroup_name", ""))
                 self._setup_tag_checkboxes()
                 selected_tags = set(metadata.get("tags", []))
-                for tag, checkbox in self.tag_checkboxes.items():
-                    checkbox.setChecked(tag in selected_tags)
+                for i in range(self.tags_list_widget.count()):
+                    item = self.tags_list_widget.item(i)
+                    item.setCheckState(
+                        Qt.CheckState.Checked
+                        if item.data(Qt.ItemDataRole.UserRole) in selected_tags
+                        else Qt.CheckState.Unchecked
+                    )
             QMessageBox.information(
                 self,
                 "Config Loaded",

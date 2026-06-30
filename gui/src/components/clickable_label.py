@@ -1,7 +1,7 @@
 import os
 
 from PySide6.QtWidgets import QLabel
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QPainter, QColor, QPen
 from PySide6.QtCore import Qt, Signal, QPoint
 
 
@@ -30,8 +30,29 @@ class ClickableLabel(QLabel):
         self.setMouseTracking(True)
         # Ensure the widget declares itself fully opaque for painting stability
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
+        # Hover highlight (GUI/UX §2.24A)
+        self._hovered = False
+        self.setAttribute(Qt.WA_Hover)
 
         self.customContextMenuRequested.connect(self._emit_right_click_signal)
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._hovered:
+            p = QPainter(self)
+            p.setPen(QPen(QColor("#00bcd4"), 2))
+            p.drawRect(1, 1, self.width() - 2, self.height() - 2)
+            p.end()
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:

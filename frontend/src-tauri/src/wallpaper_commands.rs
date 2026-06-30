@@ -14,10 +14,7 @@ pub struct MonitorInfo {
 }
 
 fn get_slideshow_config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let config_dir = app
-        .path()
-        .app_config_dir()
-        .map_err(|e| e.to_string())?;
+    let config_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
 
     // Ensure the config directory exists
     std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
@@ -88,7 +85,7 @@ pub fn toggle_slideshow_daemon(app: tauri::AppHandle, running: bool) -> Result<(
 pub fn set_wallpaper(
     path_map: HashMap<String, String>,
     _monitors: Vec<usize>,
-    style: String,
+    _style: String,
 ) -> Result<(), String> {
     // TODO: Implement wallpaper setting once base library is refactored
     log::warn!("Wallpaper setting not yet fully implemented in Tauri backend");

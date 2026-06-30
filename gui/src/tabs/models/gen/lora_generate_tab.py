@@ -15,9 +15,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
 )
 from ....classes.base_generative_tab import BaseGenerativeTab
-from backend.src.models.lora_diffusion import LoRATuner
-from backend.src.models.gan_wrapper import GanWrapper
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.models.tuning.lo_ra_tuner import LoRATuner
+from backend.src.models.wrappers.gan_wrapper import GanWrapper
+from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class LoRAGenerateTab(BaseGenerativeTab):
@@ -68,7 +68,14 @@ class LoRAGenerateTab(BaseGenerativeTab):
 
         diff_layout.addRow("Prompt:", self.prompt_edit)
         diff_layout.addRow("Negative Prompt:", self.neg_prompt_edit)
-        diff_layout.addRow("LoRA Path:", self.lora_edit)
+        lora_row = QHBoxLayout()
+        lora_row.addWidget(self.lora_edit)
+        self._lora_inspect_btn = QPushButton("Inspect")
+        self._lora_inspect_btn.setFixedWidth(68)
+        self._lora_inspect_btn.setToolTip("View metadata for this .safetensors file")
+        self._lora_inspect_btn.clicked.connect(self._inspect_lora)
+        lora_row.addWidget(self._lora_inspect_btn)
+        diff_layout.addRow("LoRA Path:", lora_row)
 
         self.steps_box = QSpinBox(minimum=1, value=25, maximum=100)
         self.guidance_box = QDoubleSpinBox()
@@ -202,7 +209,9 @@ class LoRAGenerateTab(BaseGenerativeTab):
             "guidance": self.guidance_box.value(),
             "input_image": self.input_image_edit.text(),
         }
-        thread = threading.Thread(target=self.run_generation, kwargs=config)
+        thread = threading.Thread(
+            target=self.run_generation, kwargs=config, daemon=True
+        )
         thread.start()
 
     def run_generation(
@@ -217,6 +226,7 @@ class LoRAGenerateTab(BaseGenerativeTab):
         guidance,
         input_image,
     ):
+        gan = None
         try:
             if model_id == "animegan_v2":
                 if not input_image or not os.path.exists(input_image):
@@ -250,6 +260,9 @@ class LoRAGenerateTab(BaseGenerativeTab):
                 )
         except Exception as e:
             self.generation_finished_signal.emit("error", str(e))
+        finally:
+            if gan is not None:
+                gan.unload()
 
     @Slot(str, str)
     def handle_generation_finished(self, status_type, message):
@@ -265,11 +278,21 @@ class LoRAGenerateTab(BaseGenerativeTab):
             QMessageBox.critical(self, "Error", message)
 
     @Slot(str, str, str, str, str, int, float, int)
-    def generate_from_qml(self, model_id, lora_path, output_name, prompt, neg_prompt, steps, guidance, batch_size):
+    def generate_from_qml(
+        self,
+        model_id,
+        lora_path,
+        output_name,
+        prompt,
+        neg_prompt,
+        steps,
+        guidance,
+        batch_size,
+    ):
         """Wrapper to call generation from QML"""
         self.gen_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
-        
+
         output_path = os.path.join(LOCAL_SOURCE_PATH, "Generated", output_name)
 
         config = {
@@ -281,9 +304,9 @@ class LoRAGenerateTab(BaseGenerativeTab):
             "lora_path": lora_path,
             "steps": steps,
             "guidance": guidance,
-            "input_image": "", # GAN input not supported in this simple QML wrapper yet
+            "input_image": "",  # GAN input not supported in this simple QML wrapper yet
         }
-        
+
         # Use existing logic
         try:
             # We reuse run_generation logic but we need to run it in a thread
@@ -292,3 +315,18 @@ class LoRAGenerateTab(BaseGenerativeTab):
             thread.start()
         except Exception as e:
             self.handle_generation_finished("error", str(e))
+
+    def _inspect_lora(self) -> None:
+        path = self.lora_edit.text().strip()
+        if not path:
+            QMessageBox.warning(self, "No Path", "Enter a LoRA path first.")
+            return
+        if not path.endswith(".safetensors"):
+            path = path + ".safetensors"
+        if not os.path.isfile(path):
+            QMessageBox.warning(
+                self, "File Not Found", f"Could not find:\n{path}"
+            )
+            return
+        from gui.src.components.safetensors_inspector import SafetensorsInspectorDialog
+        SafetensorsInspectorDialog(path=path, parent=self).exec()

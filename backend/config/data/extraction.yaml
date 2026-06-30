@@ -1,0 +1,27 @@
+# config/data/extraction.yaml
+# Video frame extraction settings using FFmpeg + PySceneDetect AdaptiveDetector.
+# Tuned for cel-shaded TV anime (flat fills + crisp lineart).
+
+# @package data
+
+extraction:
+  # PySceneDetect AdaptiveDetector settings
+  adaptive_threshold: 3.0   # lower = more sensitive (3.0 works for most TV anime)
+  min_content_val: 15.0     # minimum per-frame content delta to register a cut
+  min_scene_len: 12          # minimum frames per scene (12 @ 24fps = 0.5s)
+  sample_per_scene: 1        # 1 = thirds sampling; 3 = start/mid/end
+
+  # FFmpeg settings
+  use_cuda_hwaccel: true     # uses NVDEC; disable if no NVIDIA GPU
+  output_format: png         # png for lossless; webp for storage efficiency
+
+  # Deduplication after extraction
+  phash_hamming_threshold: 6 # frames with distance ≤ 6 are near-duplicates
+
+augmentation:
+  background_swap_prob: 0.10
+  hue_jitter_max: 0.06
+  motion_blur_prob: 0.10
+  mpeg_noise_prob: 0.10
+  broadcast_dim_prob: 0.20
+  random_erase_fg_prob: 0.15

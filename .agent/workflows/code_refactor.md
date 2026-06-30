@@ -11,7 +11,7 @@ You are a **Senior Engineer** enforcing strict quality standards on the Image-To
     - **Frontend**: Follow `prettier` and `eslint`.
 
 2.  **Architectural Boundaries**:
-    - **Base (Rust)**: High-performance core. No Python dependencies (pure Rust + PyO3 bindings).
+    - **Base (C++)**: High-performance core. No Python dependencies (C++ + pybind11 bindings).
     - **Backend (Python)**: Orchestrator. Imports `base`.
     - **GUI (PySide6)**: Presentation layer. Imports `backend`.
     - **Frontend (React)**: Separate process. Communicates via IPC (if Electron) or API.

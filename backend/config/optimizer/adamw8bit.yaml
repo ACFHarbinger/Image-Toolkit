@@ -1,0 +1,16 @@
+# config/optimizer/adamw8bit.yaml
+# AdamW8bit (bitsandbytes) — best memory-quality compromise on 16 GB cards.
+# Saves ~25–30% optimizer-state VRAM vs full AdamW.
+# Recommended for: RTX 4080, any 16–24 GB card.
+
+# @package optimizer
+type: adamw8bit
+unet_lr: 1.0e-4
+text_encoder_lr: 5.0e-5   # used if train_text_encoder=true
+weight_decay: 0.01
+betas: [0.9, 0.999]
+eps: 1.0e-8
+
+lr_scheduler: cosine_with_restarts
+lr_warmup_steps: 100
+lr_num_cycles: 3

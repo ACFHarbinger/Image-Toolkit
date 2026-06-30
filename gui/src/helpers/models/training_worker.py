@@ -1,9 +1,4 @@
-import torch
-
 from PySide6.QtCore import QThread, Signal
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-from backend.src.models.gan import GAN
 
 
 class TrainingWorker(QThread):
@@ -27,9 +22,15 @@ class TrainingWorker(QThread):
         self.z_dim = z_dim
         self.device_name = device_name
         self.is_running = True
+        self._should_stop = False  # standardised cancellation flag (item 2.7)
 
     def run(self):
         try:
+            import torch
+            from torchvision import datasets, transforms
+            from torch.utils.data import DataLoader
+            from backend.src.models.core.gan import GAN
+
             self.log_signal.emit(f"Setting up training on {self.device_name}...")
             device = torch.device(self.device_name)
 
@@ -88,3 +89,4 @@ class TrainingWorker(QThread):
 
     def stop(self):
         self.is_running = False
+        self._should_stop = True

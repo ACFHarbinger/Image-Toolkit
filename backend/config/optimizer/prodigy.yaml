@@ -1,0 +1,20 @@
+# config/optimizer/prodigy.yaml
+# Prodigy — self-tuning LR, ideal for character LoRAs.
+# ALWAYS set LR = 1.0 with Prodigy (it auto-scales internally).
+# Warning: tends to over-bake STYLE LoRAs — use adamw8bit for style.
+# Recommended for: character LoRAs on RTX 3090 Ti (batch 4).
+
+# @package optimizer
+type: prodigy
+unet_lr: 1.0      # Prodigy ignores this; set to 1.0
+text_encoder_lr: 1.0
+weight_decay: 0.01
+betas: [0.9, 0.99]
+decouple: true
+use_bias_correction: true
+safeguard_warmup: true
+d_coef: 2.0
+
+lr_scheduler: cosine_with_restarts
+lr_warmup_steps: 0     # Prodigy has built-in warmup via safeguard_warmup
+lr_num_cycles: 1

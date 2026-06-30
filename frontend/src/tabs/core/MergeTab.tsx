@@ -17,8 +17,8 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 // Components
-import { ClickableLabel } from "../../components/ClickableLabel";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+import { ClickableLabel } from "../../components/common/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/common/MarqueeScrollArea";
 import { useTwoGalleries } from "../../hooks/useTwoGalleries";
 import { GalleryItem } from "../../hooks/galleryItem";
 
@@ -83,7 +83,7 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
     const [alignMode, setAlignMode] = useState("center");
     const [gridRows, setGridRows] = useState(2);
     const [gridCols, setGridCols] = useState(2);
-    const [duration, setDuration] = useState(500);
+    const [duration] = useState(500);
 
     const inputDirRef = useRef<HTMLInputElement>(null);
     const outputDirRef = useRef<HTMLInputElement>(null);

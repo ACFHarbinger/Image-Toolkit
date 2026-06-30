@@ -14,7 +14,7 @@ from PySide6.QtGui import (
     QResizeEvent,
 )
 from PySide6.QtWidgets import QLabel, QMenu, QApplication
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 
 
 class MonitorDropWidget(QLabel):
@@ -23,8 +23,8 @@ class MonitorDropWidget(QLabel):
     displays monitor info, and shows a preview of the dropped image.
     """
 
-    # Emits (monitor_id, image_path) when an image is successfully dropped
-    image_dropped = Signal(str, str)
+    # Emits (monitor_id, [image_paths]) when images are successfully dropped
+    images_dropped = Signal(str, list)
 
     # Emits monitor_id when the widget is double-clicked
     double_clicked = Signal(str)
@@ -32,12 +32,23 @@ class MonitorDropWidget(QLabel):
     # Emits monitor_id when the 'Clear Monitor' right-click action is selected
     clear_requested_id = Signal(str)
 
-    def __init__(self, monitor: Monitor, monitor_id: str):
+    # Emits (source_id, target_id) when a 'Swap Wallpapers' target is selected
+    swap_requested_id = Signal(str, str)
+
+    # Emits (monitor_id, menu) to allow parent to add dynamic items
+    context_menu_requested = Signal(str, QMenu)
+
+    # Emits monitor_id when the widget is clicked
+    clicked = Signal(str)
+
+    def __init__(self, monitor: Monitor, monitor_id: str, hardware_name: Optional[str] = None):
         super().__init__()
         self.monitor = monitor
         self.monitor_id = monitor_id
+        self.hardware_name = hardware_name
         self.image_path: Optional[str] = None
         self.drag_start_position = None
+        self.other_monitors: list[tuple[str, str]] = []  # Added for multi-monitor swap
 
         # --- NEW STATE TRACKERS ---
         self._current_pixmap: Optional[QPixmap] = None
@@ -46,9 +57,51 @@ class MonitorDropWidget(QLabel):
 
         self.setAcceptDrops(True)
         self.setAlignment(Qt.AlignCenter)
-        self.setMinimumSize(220, 160)
         self.setWordWrap(True)
-        self.setFixedHeight(160)
+
+        # Dynamic size based on display orientation (landscape vs portrait)
+        width, height = self.get_resolved_dimensions()
+        if height > width:
+            self.setFixedSize(160, 220)
+        else:
+            self.setFixedSize(220, 160)
+
+        # Setup child labels for top monitor port and bottom real full name
+        from PySide6.QtWidgets import QVBoxLayout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+
+        self.top_label = QLabel(self)
+        self.top_label.setAlignment(Qt.AlignCenter)
+        self.top_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 11px;
+                background-color: rgba(44, 62, 80, 200);
+                border: 1px solid rgba(255, 255, 255, 30);
+                border-radius: 4px;
+                padding: 2px 6px;
+            }
+        """)
+
+        self.bottom_label = QLabel(self)
+        self.bottom_label.setAlignment(Qt.AlignCenter)
+        self.bottom_label.setStyleSheet("""
+            QLabel {
+                color: #ecf0f1;
+                font-size: 10px;
+                background-color: rgba(44, 62, 80, 200);
+                border: 1px solid rgba(255, 255, 255, 30);
+                border-radius: 4px;
+                padding: 2px 6px;
+            }
+        """)
+
+        layout.addWidget(self.top_label, 0, Qt.AlignTop)
+        layout.addStretch(1)
+        layout.addWidget(self.bottom_label, 0, Qt.AlignBottom)
 
         self.update_text()
         self.default_style = """
@@ -66,12 +119,129 @@ class MonitorDropWidget(QLabel):
         """
         self.setStyleSheet(self.default_style)
 
+    def text(self) -> str:
+        # Support QTest/Pytest assertions by providing combined text representation
+        top_txt = self.top_label.text() if hasattr(self, "top_label") else ""
+        return f"{top_txt} {super().text()}"
+
+    def get_real_monitor_name(self) -> Optional[str]:
+        import platform
+        if platform.system() != "Linux":
+            return None
+            
+        import glob
+        import re
+        port_name = self.monitor.name
+        if not isinstance(port_name, str) or not port_name:
+            return None
+
+        def parse_edid(edid_bytes):
+            if not edid_bytes or len(edid_bytes) < 128:
+                return None
+            if edid_bytes[:8] != b'\x00\xff\xff\xff\xff\xff\xff\x00':
+                return None
+            mfg_id_val = int.from_bytes(edid_bytes[8:10], byteorder='big')
+            char1 = chr(((mfg_id_val >> 10) & 0x1F) + 64)
+            char2 = chr(((mfg_id_val >> 5) & 0x1F) + 64)
+            char3 = chr((mfg_id_val & 0x1F) + 64)
+            mfg = f'{char1}{char2}{char3}'
+            
+            monitor_name = None
+            for offset in (54, 72, 90, 108):
+                desc = edid_bytes[offset:offset+18]
+                if desc[0:2] == b'\x00\x00' and desc[2] == 0x00 and desc[3] == 0xfc:
+                    name_bytes = desc[5:]
+                    name_len = 0
+                    for b in name_bytes:
+                        if b in (0x0a, 0x00):
+                            break
+                        name_len += 1
+                    monitor_name = name_bytes[:name_len].decode('ascii', errors='ignore').strip()
+                    break
+                    
+            if monitor_name:
+                mfg_map = {
+                    'LGD': 'LG Electronics',
+                    'GSM': 'LG Electronics',
+                    'SAM': 'Samsung',
+                    'SEC': 'Samsung',
+                    'DEL': 'Dell',
+                    'ACR': 'Acer',
+                    'BEN': 'BenQ',
+                    'AOC': 'AOC',
+                    'HPQ': 'HP',
+                    'HWP': 'HP',
+                    'LEN': 'Lenovo',
+                    'PHL': 'Philips',
+                    'SNY': 'Sony',
+                    'APP': 'Apple',
+                    'ASU': 'ASUS',
+                    'MSI': 'MSI',
+                }
+                mfg_full = mfg_map.get(mfg, mfg)
+                return f'{mfg_full} {monitor_name}'
+            return None
+
+        # Try exact match first
+        matches = glob.glob(f'/sys/class/drm/*-{port_name}')
+        if matches:
+            edid_path = os.path.join(matches[0], 'edid')
+            if os.path.exists(edid_path):
+                try:
+                    with open(edid_path, 'rb') as f:
+                        edid = f.read()
+                    parsed = parse_edid(edid)
+                    if parsed:
+                        return parsed
+                except Exception:
+                    pass
+
+        # Try normalized matching (e.g. HDMI-1 -> HDMI-A-1)
+        m = re.match(r'([a-zA-Z]+)-?(\d+)', port_name)
+        if m:
+            prefix, num = m.groups()
+            for p in glob.glob('/sys/class/drm/*'):
+                dir_name = os.path.basename(p)
+                if prefix.lower() in dir_name.lower() and (dir_name.endswith(f'-{num}') or dir_name.endswith(f'-A-{num}')):
+                    edid_path = os.path.join(p, 'edid')
+                    if os.path.exists(edid_path):
+                        try:
+                            with open(edid_path, 'rb') as f:
+                                edid = f.read()
+                            parsed = parse_edid(edid)
+                            if parsed:
+                                return parsed
+                        except Exception:
+                            pass
+        return None
+
     def contextMenuEvent(self, event):
         menu = QMenu(self)
         clear_action = menu.addAction("Clear All Images (Current and Queue)")
         clear_action.triggered.connect(
             lambda: self.clear_requested_id.emit(self.monitor_id)
         )
+
+        menu.addSeparator()
+        if self.other_monitors:
+            swap_menu = menu.addMenu("Swap Wallpapers with...")
+            for target_id, target_name in self.other_monitors:
+                action = swap_menu.addAction(f"{target_name} (ID: {target_id})")
+                action.triggered.connect(
+                    lambda _, tid=target_id: self.swap_requested_id.emit(
+                        self.monitor_id, tid
+                    )
+                )
+        else:
+            # Fallback for 2-monitor legacy case or if targets not populated
+            swap_action = menu.addAction("Swap Wallpapers (Monitor switch)")
+            swap_action.triggered.connect(
+                lambda: self.swap_requested_id.emit(self.monitor_id, "")
+            )
+
+        # Let parent (WallpaperTab) add dynamic items (like "Set Active Wallpaper")
+        self.context_menu_requested.emit(self.monitor_id, menu)
+
         menu.exec(event.globalPos())
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -82,6 +252,7 @@ class MonitorDropWidget(QLabel):
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
             self.drag_start_position = event.pos()
+            self.clicked.emit(self.monitor_id)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
@@ -104,11 +275,131 @@ class MonitorDropWidget(QLabel):
         drag.setHotSpot(event.pos())
         drag.exec(Qt.MoveAction)
 
+    def get_resolved_dimensions(self) -> tuple[int, int]:
+        # Try to resolve physical screen size from EDID (highest accuracy)
+        edid_res = self.get_real_monitor_resolution()
+        if edid_res:
+            h_active, v_active = edid_res
+            active_is_portrait = False
+            # Check Qt screens for rotation
+            if self.monitor.name:
+                for s in QApplication.screens():
+                    if s.name() == self.monitor.name:
+                        if s.size().width() < s.size().height():
+                            active_is_portrait = True
+                        break
+            # Fallback to monitor object for rotation
+            if not active_is_portrait:
+                w = getattr(self.monitor, "width", None)
+                h = getattr(self.monitor, "height", None)
+                if w and h and w < h:
+                    active_is_portrait = True
+            
+            # Align parsed native resolution with current active orientation
+            if active_is_portrait and h_active > v_active:
+                width, height = v_active, h_active
+            elif not active_is_portrait and h_active < v_active:
+                width, height = v_active, h_active
+            else:
+                width, height = h_active, v_active
+        else:
+            # Fallback to logical size from Qt screen if active, otherwise screeninfo
+            width = getattr(self.monitor, "width", None)
+            height = getattr(self.monitor, "height", None)
+            if self.monitor.name:
+                for s in QApplication.screens():
+                    if s.name() == self.monitor.name:
+                        width = s.size().width()
+                        height = s.size().height()
+                        break
+        # Ensure we don't return MagicMocks in test environments
+        if width is not None and not isinstance(width, (int, float)):
+            width = None
+        if height is not None and not isinstance(height, (int, float)):
+            height = None
+        return width or 1920, height or 1080
+
     def update_text(self):
         monitor_name = f"Monitor {self.monitor_id}"
         if self.monitor.name:
             monitor_name = f"{monitor_name} ({self.monitor.name})"
-        self.setText(f"<b>{monitor_name}</b>\n\nDrag and Drop Image Here")
+        
+        self.top_label.setText(monitor_name)
+        
+        if self.hardware_name:
+            real_name = self.hardware_name
+        else:
+            real_name = self.get_real_monitor_name()
+            
+        if not real_name:
+            real_name = "Generic Display"
+            
+        width, height = self.get_resolved_dimensions()
+        if width and height:
+            real_name = f"{real_name} ({width}x{height})"
+            
+        self.bottom_label.setText(real_name)
+        
+        # Center text inside the main label
+        self.setText("\n\nDrag and Drop Image Here")
+
+    def set_hardware_name(self, name: str):
+        self.hardware_name = name
+        self.update_text()
+
+    def get_real_monitor_resolution(self) -> Optional[tuple[int, int]]:
+        import platform
+        if platform.system() != "Linux":
+            return None
+            
+        import glob
+        import re
+        port_name = self.monitor.name
+        if not isinstance(port_name, str) or not port_name:
+            return None
+
+        def parse_resolution(edid_bytes):
+            if not edid_bytes or len(edid_bytes) < 128:
+                return None
+            # Check timing descriptor at offset 54 (Preferred Timing Mode)
+            block = edid_bytes[54:72]
+            if block[0:2] != b'\x00\x00':  # Pixel clock is non-zero
+                h_active = ((block[4] & 0xf0) << 4) | block[2]
+                v_active = ((block[7] & 0xf0) << 4) | block[5]
+                if h_active > 0 and v_active > 0:
+                    return h_active, v_active
+            return None
+
+        # Helper to read from path
+        def read_resolution(p):
+            edid_path = os.path.join(p, 'edid')
+            if os.path.exists(edid_path):
+                try:
+                    with open(edid_path, 'rb') as f:
+                        edid = f.read()
+                    return parse_resolution(edid)
+                except Exception:
+                    pass
+            return None
+
+        # Try exact match first
+        matches = glob.glob(f'/sys/class/drm/*-{port_name}')
+        if matches:
+            res = read_resolution(matches[0])
+            if res:
+                return res
+
+        # Try normalized matching
+        m = re.match(r'([a-zA-Z]+)-?(\d+)', port_name)
+        if m:
+            prefix, num = m.groups()
+            for p in glob.glob('/sys/class/drm/*'):
+                dir_name = os.path.basename(p)
+                if prefix.lower() in dir_name.lower() and (dir_name.endswith(f'-{num}') or dir_name.endswith(f'-A-{num}')):
+                    res = read_resolution(p)
+                    if res:
+                        return res
+        return None
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.source() and isinstance(event.source(), MonitorDropWidget):
@@ -138,10 +429,15 @@ class MonitorDropWidget(QLabel):
         self.setProperty("dragging", False)
         self.style().polish(self)
         if self.has_valid_image_url(event.mimeData()):
-            url = event.mimeData().urls()[0]
-            file_path = url.toLocalFile()
-            if os.path.isfile(file_path):
-                self.image_dropped.emit(self.monitor_id, file_path)
+            urls = event.mimeData().urls()
+            valid_paths = []
+            for url in urls:
+                file_path = url.toLocalFile()
+                if os.path.isfile(file_path):
+                    valid_paths.append(file_path)
+
+            if valid_paths:
+                self.images_dropped.emit(self.monitor_id, valid_paths)
                 event.acceptProposedAction()
                 return
         event.ignore()
@@ -160,20 +456,25 @@ class MonitorDropWidget(QLabel):
             return True
         return False
 
-    def handle_custom_drop(self, file_path: str):
+    def handle_custom_drop(self, file_paths: list[str]):
         """
         Handle a drop from the custom drag system.
         Called directly by DraggableLabel when dropped on this widget.
         """
-        if os.path.isfile(file_path):
-            # Validate file type
-            file_path_lower = file_path.lower()
-            valid_exts = set(SUPPORTED_IMG_FORMATS).union(SUPPORTED_VIDEO_FORMATS)
-            _, ext = os.path.splitext(file_path_lower)
-            ext_no_dot = ext.lstrip(".")
+        valid_paths = []
+        for file_path in file_paths:
+            if os.path.isfile(file_path):
+                # Validate file type
+                file_path_lower = file_path.lower()
+                valid_exts = set(SUPPORTED_IMG_FORMATS).union(SUPPORTED_VIDEO_FORMATS)
+                _, ext = os.path.splitext(file_path_lower)
+                ext_no_dot = ext.lstrip(".")
 
-            if ext_no_dot in valid_exts or ext in valid_exts:
-                self.image_dropped.emit(self.monitor_id, file_path)
+                if ext_no_dot in valid_exts or ext in valid_exts:
+                    valid_paths.append(file_path)
+
+        if valid_paths:
+            self.images_dropped.emit(self.monitor_id, valid_paths)
 
     def set_image(self, file_path: Optional[str], thumbnail: Optional[QPixmap] = None):
         """
@@ -217,7 +518,16 @@ class MonitorDropWidget(QLabel):
             )  # <--- CRITICAL: Clears any previous text, including "Loading..."
 
             # Apply border style
-            if is_video:
+            if self.property("selected"):
+                self.setStyleSheet("""
+                    QLabel {
+                        background-color: #2d5a3d;
+                        border: 3px solid #2ecc71;
+                        border-radius: 8px;
+                        color: white;
+                    }
+                """)
+            elif is_video:
                 self.setStyleSheet(
                     """
                     QLabel { 
@@ -235,14 +545,19 @@ class MonitorDropWidget(QLabel):
         self._current_pixmap = None
         self.setPixmap(QPixmap())
 
-        if is_video:
+        if self.property("selected"):
+            self.setStyleSheet("""
+                QLabel {
+                    background-color: #2d5a3d;
+                    border: 3px solid #2ecc71;
+                    border-radius: 8px;
+                    color: white;
+                }
+            """)
+        elif is_video:
             # Video Fallback (If thumbnail is None, or generation failed)
-            monitor_name = f"Monitor {self.monitor_id}"
-            if self.monitor.name:
-                monitor_name = f"{monitor_name} ({self.monitor.name})"
-
             filename = os.path.basename(file_path)
-            self.setText(f"<b>{monitor_name}</b>\n\n" f"🎥 VIDEO SET:\n{filename}")
+            self.setText(f"\n\n🎥 VIDEO SET:\n{filename}")
             self.setStyleSheet(
                 """
                 QLabel { 
@@ -265,7 +580,46 @@ class MonitorDropWidget(QLabel):
         self._current_pixmap = None  # Clear cached pixmap
         self.setPixmap(QPixmap())
         self.update_text()
-        self.setStyleSheet(self.default_style)
+        if self.property("selected"):
+            self.setStyleSheet("""
+                QLabel {
+                    background-color: #2d5a3d;
+                    border: 3px solid #2ecc71;
+                    border-radius: 8px;
+                    color: white;
+                }
+            """)
+        else:
+            self.setStyleSheet(self.default_style)
+
+    def set_selected(self, selected: bool):
+        self.setProperty("selected", selected)
+        if selected:
+            self.setStyleSheet("""
+                QLabel {
+                    background-color: #2d5a3d;
+                    border: 3px solid #2ecc71;
+                    border-radius: 8px;
+                    color: white;
+                }
+            """)
+        else:
+            # Restore standard style based on whether it has image/video
+            if self.image_path:
+                is_video = self.image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+                if is_video:
+                    self.setStyleSheet("""
+                        QLabel { 
+                            background-color: #36393f; 
+                            border: 2px solid #3498db; 
+                            border-radius: 8px;
+                        }
+                    """)
+                else:
+                    self.setStyleSheet(self.default_style)
+            else:
+                self.setStyleSheet(self.default_style)
+        self.style().polish(self)
 
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)

@@ -7,3 +7,12 @@
 [submodule "backend/src/models/MetaCLIP"]
 	path = backend/src/models/MetaCLIP
 	url = https://github.com/facebookresearch/MetaCLIP.git
+[submodule "BiRefNet"]
+	path = BiRefNet
+	url = https://github.com/ACFHarbinger/BiRefNet.git
+[submodule "ComfyUI"]
+	path = ComfyUI
+	url = https://github.com/ACFHarbinger/ComfyUI.git
+[submodule "Recommendation-Engine"]
+	path = Recommendation-Engine
+	url = https://github.com/ACFHarbinger/Recommendation-Engine.git

@@ -1,0 +1,8 @@
+# config/data/embed_metadata.yaml
+# Configuration for embedding preview image metadata into safetensors files
+
+# @package data
+embed_metadata:
+  model_path: null
+  image_path: null
+  output_path: null

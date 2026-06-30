@@ -26,9 +26,7 @@ class UnifiedGenerateTab(BaseGenerativeTab):
         self.model_selector = QComboBox()
         self.model_selector.addItem("LoRA (Diffusion and GANs)", "anything")
         self.model_selector.addItem("Stable Diffusion 3.5", "sd3")
-        if R3GANGenerateTab:
-            self.model_selector.addItem("R3GAN (NVLabs)", "r3gan")
-        # ADD BASIC GAN OPTION
+        self.model_selector.addItem("R3GAN (NVLabs)", "r3gan")
         self.model_selector.addItem("Basic GAN (Custom)", "basic_gan")
 
         selector_layout = QFormLayout()
@@ -46,9 +44,8 @@ class UnifiedGenerateTab(BaseGenerativeTab):
         self.sd3_tab = SD3GenerateTab()
         self.stack.addWidget(self.sd3_tab)
 
-        if R3GANGenerateTab:
-            self.r3gan_tab = R3GANGenerateTab()
-            self.stack.addWidget(self.r3gan_tab)
+        self.r3gan_tab = R3GANGenerateTab()
+        self.stack.addWidget(self.r3gan_tab)
 
         # ADD CUSTOM GAN GENERATE TAB TO STACK
         self.basic_gan_gen_tab = GANGenerateTab()

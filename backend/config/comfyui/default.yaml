@@ -1,0 +1,4 @@
+# backend/config/comfyui.yaml
+enable_manager: true
+port: 8188
+listen: 127.0.0.1
