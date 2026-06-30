@@ -36,6 +36,27 @@ class WallpaperTab(QWidget):
         self._tab_widget.addTab(self.system_display, "System Display(s)")
         self._tab_widget.addTab(self.monitor_display, "Monitor Display")
 
+        self.system_display.directory_scanned.connect(
+            lambda directory: self.monitor_display.populate_scan_image_gallery(directory, emit_signal=False)
+        )
+        self.monitor_display.directory_scanned.connect(
+            lambda directory: self.system_display.populate_scan_image_gallery(directory, emit_signal=False)
+        )
+
+        # System Display -> Monitor Display Settings Sync
+        self.system_display.sync_page_changed.connect(self.monitor_display.sync_update_page)
+        self.system_display.sync_page_size_changed.connect(self.monitor_display.sync_update_page_size)
+        self.system_display.sync_thumb_size_changed.connect(self.monitor_display.sync_update_thumb_size)
+        self.system_display.sync_sort_combo_changed.connect(self.monitor_display.sync_update_sort_combo)
+        self.system_display.sync_sort_dir_changed.connect(self.monitor_display.sync_update_sort_dir)
+
+        # Monitor Display -> System Display Settings Sync
+        self.monitor_display.sync_page_changed.connect(self.system_display.sync_update_page)
+        self.monitor_display.sync_page_size_changed.connect(self.system_display.sync_update_page_size)
+        self.monitor_display.sync_thumb_size_changed.connect(self.system_display.sync_update_thumb_size)
+        self.monitor_display.sync_sort_combo_changed.connect(self.system_display.sync_update_sort_combo)
+        self.monitor_display.sync_sort_dir_changed.connect(self.system_display.sync_update_sort_dir)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._tab_widget)
