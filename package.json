@@ -8,9 +8,9 @@
     "frontend"
   ],
   "dependencies": {
-    "concurrently": "^8.2.2",
+    "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
-    "wait-on": "^7.2.0"
+    "wait-on": "^9.0.10"
   },
   "scripts": {
     "install:all": "npm install && npm install --workspace=frontend",
