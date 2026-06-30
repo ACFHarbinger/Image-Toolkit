@@ -140,12 +140,16 @@ jobs:
             --exclude 'https://polyfill.io'
             --exclude 'https://cdn.jsdelivr.net'
             --exclude 'http://localhost'
+            --exclude 'https://localhost'
             --exclude 'http://127\.0\.0\.1'
+            --exclude 'https://127\.0\.0\.1'
             --exclude 'https://facebook\.github\.io/create-react-app'
             --exclude 'https://rootly\.com/sre/top-10-observability-tools'
             --exclude 'https://www\.npmjs\.com'
             --exclude 'https://www\.intel\.com'
             --exclude 'https://isocpp\.org'
+            --exclude 'cpp-httplib-server\.yhirose\.repl\.co'
+            --exclude 'https://sigops\.org/s/conferences/sosp'
             '**/*.md'
           fail: true
 
