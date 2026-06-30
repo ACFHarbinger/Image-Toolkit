@@ -1,3 +1,27 @@
+/*!
+    \qmltype SettingsWindow
+    \inqmlmodule ImageToolkit.Windows
+    \brief Multi-category application settings window.
+
+    SettingsWindow is a 900 × 700 \l ApplicationWindow with a left category
+    sidebar and a \c StackLayout for the content area.  The seven categories
+    are:
+
+    \list
+      \li \b General — profile load/save/delete and account information.
+      \li \b {User Interface} — theme selector.
+      \li \b {Tab Configs} — per-tab JSON configuration editor.
+      \li \b Database — (stub).
+      \li \b {Model APIs} — (stub).
+      \li \b {Web Crawlers} — (stub).
+      \li \b {Cloud Sync} — (stub).
+    \endlist
+
+    \qmlproperty var SettingsWindow::backend
+    Backend object exposing profile lists, config content, and all settings
+    slots (\c loadProfile, \c saveCurrentAsProfile, \c deleteProfile,
+    \c setTheme, \c setTabSelection, etc.).
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

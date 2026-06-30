@@ -1,3 +1,22 @@
+/*!
+    \qmltype QueueItem
+    \inqmlmodule ImageToolkit.Components
+    \brief Horizontal list row showing a thumbnail, filename, and path.
+
+    QueueItem is a 350 × 70 px \l Rectangle intended for use in processing
+    queues and batch lists.  It displays a small thumbnail on the left, the
+    file's base name in bold, and the full path in muted text below.  A
+    tooltip reveals the full path on hover.
+
+    \qmlproperty string QueueItem::imageSource
+    URL or file path for the thumbnail image.
+
+    \qmlproperty string QueueItem::fileName
+    Bold filename shown on the first line.
+
+    \qmlproperty string QueueItem::path
+    Full file-system path shown on the second line and in the tooltip.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

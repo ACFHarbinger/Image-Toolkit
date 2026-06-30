@@ -1,3 +1,12 @@
+/*!
+    \qmltype TrainTab
+    \inqmlmodule ImageToolkit.Tabs.Models
+    \brief Training dispatcher tab — routes to the active architecture sub-tab.
+
+    TrainTab hosts a \c StackLayout containing three training sub-tabs
+    (\l LoRATrainTab, \l R3GANTrainTab, \l GANTrainTab).  An architecture
+    combo at the top selects the active sub-tab.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

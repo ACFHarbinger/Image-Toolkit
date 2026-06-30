@@ -1,3 +1,24 @@
+/*!
+    \qmltype ImageCard
+    \inqmlmodule ImageToolkit.Components
+    \brief Single image thumbnail card with hover highlight.
+
+    ImageCard displays a 150 × 170 px thumbnail image and a filename caption.
+    The border switches to \l Style::accent when the mouse enters the card.
+    It is used as the delegate inside \l GalleryView.
+
+    \qmlproperty string ImageCard::imageSource
+    URL or file path passed to the inner \l Image element.
+
+    \qmlproperty string ImageCard::fileName
+    Filename shown in the caption below the thumbnail.
+
+    \qmlsignal ImageCard::clicked()
+    Emitted on a single mouse press.
+
+    \qmlsignal ImageCard::doubleClicked()
+    Emitted on a mouse double-click.
+*/
 import QtQuick 2.15
 import "../"
 

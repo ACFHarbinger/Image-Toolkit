@@ -1,3 +1,13 @@
+/*!
+    \qmltype GenerateTab
+    \inqmlmodule ImageToolkit.Tabs.Models
+    \brief Generation dispatcher tab — routes to the active architecture sub-tab.
+
+    GenerateTab hosts a \c StackLayout containing four generation sub-tabs
+    (\l LoRAGenerateTab, \l SD3GenerateTab, \l R3GANGenerateTab,
+    \l GANGenerateTab).  An architecture combo at the top selects the active
+    sub-tab.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

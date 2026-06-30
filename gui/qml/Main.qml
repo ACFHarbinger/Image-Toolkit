@@ -1,3 +1,25 @@
+/*!
+    \qmltype Main
+    \inqmlmodule ImageToolkit
+    \brief Root application window with collapsible sidebar and tab host.
+
+    Main is the top-level \l ApplicationWindow for Image Toolkit.  It renders a
+    collapsible left sidebar organised into four sections — Core, Database, Web,
+    and Models — and a \c StackLayout (\c mainStack) that hosts all 16 feature
+    tabs.
+
+    Auxiliary windows (\l SettingsWindow, \l LogWindow, \l ImagePreviewWindow,
+    \l SlideshowWindow) are created on demand via \c Qt.createComponent and
+    are destroyed when closed.
+
+    \c mainStack.currentIndex mapping:
+    \list
+      \li 0–4   Core tabs (Convert, Delete, Merge, Wallpaper, ImageExtractor)
+      \li 5–7   Database tabs (Database, ScanMetadata, Search)
+      \li 8–11  Web tabs (WebRequests, ImageCrawl, ReverseImageSearch, DriveSync)
+      \li 12–15 Model tabs (Generate, Train, MetaClip, R3GANEvaluate)
+    \endlist
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

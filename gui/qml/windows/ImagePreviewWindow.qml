@@ -1,3 +1,32 @@
+/*!
+    \qmltype ImagePreviewWindow
+    \inqmlmodule ImageToolkit.Windows
+    \brief Floating image preview window with zoom and pan.
+
+    ImagePreviewWindow opens as a separate 1024 × 768 \l ApplicationWindow
+    with a black background.  It supports:
+    \list
+      \li Zoom in / zoom out / fit-screen toolbar buttons.
+      \li Ctrl+wheel zoom via a \l WheelHandler.
+      \li Pan via a \l Flickable.
+      \li Optional PREV / NEXT navigation when a \l backend is provided.
+    \endlist
+
+    \qmlproperty real ImagePreviewWindow::zoomFactor
+    Current zoom multiplier.  Defaults to \c 1.0.
+
+    \qmlproperty string ImagePreviewWindow::imagePath
+    Static image path.  Takes precedence over \l backend's path when set.
+
+    \qmlproperty var ImagePreviewWindow::backend
+    Optional backend object exposing \c currentImagePath, \c previous(),
+    \c next(), and \c navigationInfo.  When set, navigation controls are
+    shown.
+
+    \qmlproperty string ImagePreviewWindow::currentSource
+    Resolved image source: \l imagePath if non-empty, otherwise
+    \c backend.currentImagePath.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

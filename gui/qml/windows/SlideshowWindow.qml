@@ -1,3 +1,22 @@
+/*!
+    \qmltype SlideshowWindow
+    \inqmlmodule ImageToolkit.Windows
+    \brief Fullscreen frameless slideshow window.
+
+    SlideshowWindow is a frameless \l ApplicationWindow that stays on top of
+    all other windows and displays images in full-screen.  Image transitions
+    use an opacity \c Behavior for a smooth cross-fade.  An auto-advance
+    \l Timer fires according to \l interval.  Hovering reveals a controls bar
+    with PREV, PLAY/PAUSE, NEXT, and EXIT buttons.  The \c Escape key closes
+    the window.
+
+    \qmlproperty int SlideshowWindow::interval
+    Slide duration in milliseconds, sourced from \c backend.interval.
+
+    \qmlproperty bool SlideshowWindow::isPlaying
+    Whether the slideshow is currently auto-advancing, sourced from
+    \c backend.isPlaying.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

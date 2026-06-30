@@ -1,3 +1,21 @@
+/*!
+    \qmltype ConvertTab
+    \inqmlmodule ImageToolkit.Tabs.Core
+    \brief Image format conversion tab.
+
+    ConvertTab lets users pick an input folder, select an output format
+    (\c png, \c jpg, or \c webp), optionally specify an output directory and
+    whether to delete the originals, then start a background conversion worker.
+
+    The tab binds to \c mainBackend.convertTab.  Key backend calls:
+    \list
+      \li \c browse_directory_and_scan_qml() — opens a folder picker
+      \li \c start_conversion_worker_qml(inputPath, format, outputDir, deleteOriginal)
+    \endlist
+
+    The input path label updates when the backend emits
+    \c onQml_input_path_changed.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
