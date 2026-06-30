@@ -40,10 +40,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ onClose }) => {
   
   // Tab Configurations
   const [tabConfigurations, setTabConfigurations] = useState<TabConfiguration>({});
-  const [selectedTab, setSelectedTab] = useState('');
-  const [selectedConfig, setSelectedConfig] = useState('');
-  const [configEditor, setConfigEditor] = useState('');
-  const [configName, setConfigName] = useState('');
+
   
   // System Profiles
   const [profiles, setProfiles] = useState<Record<string, SystemProfile>>({});
@@ -55,6 +52,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ onClose }) => {
   // Load settings from backend
   useEffect(() => {
     loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadSettings = async () => {

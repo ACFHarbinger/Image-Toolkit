@@ -22,13 +22,13 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   images = [],
   currentIndex = 0,
 }) => {
-  const { preferences } = useAppStore();
+  useAppStore();
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(currentIndex);
   const [imageError, setImageError] = useState(false);
 
-  const isDark = preferences.theme === 'dark';
+
   const currentPath = images.length > 0 ? images[currentImageIndex] : path;
   const hasMultipleImages = images.length > 1;
 

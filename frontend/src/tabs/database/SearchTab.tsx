@@ -92,6 +92,7 @@ const SearchTab = forwardRef<SearchTabHandle, SearchTabProps>(
       };
 
       loadTags();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useImperativeHandle(ref, () => ({

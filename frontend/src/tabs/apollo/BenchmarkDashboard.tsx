@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
-  BarChart3, RefreshCw, Loader2, AlertCircle, ChevronDown,
+  BarChart3, RefreshCw, Loader2, AlertCircle,
   TrendingUp, Cpu, Database, Activity, Zap, Eye, Download,
 } from 'lucide-react';
 import {
@@ -10,13 +10,13 @@ import {
 } from './charts';
 import {
   computeEfficiency, computeMemoryVsTimeScatter, computeMemoryBreakdown,
-  computeTimingBreakdown, computeMetricComparisons, computeSeamQualityHeatmap,
+  computeSeamQualityHeatmap,
   verdictSummary, extractGeneralTrend, extractAspTrend, computeSuiteStats,
-  timeVariancePct, detectRegressions,
+  timeVariancePct,
   computeAlignmentDrift, computePhotometricProfile, computePerSeamDetail,
   computeEdgeQualityBreakdown, computeFrameSelectionStats,
   computeFallbackReasonDistribution, computeGtComparisons,
-  type BenchmarkReport, type GeneralBenchmark, type AspDataset,
+  type BenchmarkReport, type GeneralBenchmark,
 } from '../../math/benchmark';
 import { applyColormapHex } from '../../math/colormap';
 
@@ -658,10 +658,10 @@ function AspAnalysisPage({ reports }: { reports: BenchmarkReport[] }) {
   const [activeTab, setActiveTab] = useState<AspTab>('overview');
 
   const r = aspReps[selectedIdx];
-  const datasets = r?.datasets ?? [];
+  const datasets = useMemo(() => r?.datasets ?? [], [r]);
 
   const heatRows = useMemo(() => computeSeamQualityHeatmap(datasets), [datasets]);
-  const heatCols = ['Composite Quality', 'NCC', 'Color Sim', 'Anti-Ghost', 'Seam Vis', 'RLHF'];
+  const heatCols = useMemo(() => ['Composite Quality', 'NCC', 'Color Sim', 'Anti-Ghost', 'Seam Vis', 'RLHF'], []);
   const heatCells = useMemo((): HeatmapCell[] => {
     const fields: Array<keyof typeof heatRows[0]> = ['composite_quality', 'seam_ncc_min', 'seam_color_min', 'ghosting_siqe_norm', 'seam_visibility_norm', 'rlhf_score'];
     return heatRows.flatMap(row => {
@@ -674,7 +674,7 @@ function AspAnalysisPage({ reports }: { reports: BenchmarkReport[] }) {
         label: ((row[f] as number) * 100).toFixed(0) + '%',
       }));
     });
-  }, [heatRows]);
+  }, [heatRows, heatCols]);
 
   const verdicts = useMemo(() => verdictSummary(datasets), [datasets]);
   const alignmentDrift = useMemo(() => computeAlignmentDrift(datasets), [datasets]);
