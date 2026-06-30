@@ -51,11 +51,11 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     testImplementation(libs.junit)
     // FIX: Changed single quotes (') to double quotes (") for String literals
-    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.test:core:1.5.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
-    testImplementation("org.mockito:mockito-core:5.7.0")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.3.0")
     
     // FIX: Moved fragment-testing from debugImplementation to testImplementation 
     // so it is available to the JVM unit tests (Robolectric).
