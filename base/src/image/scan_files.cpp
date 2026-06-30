@@ -81,7 +81,7 @@ std::vector<std::string> scan_files_multi(
 namespace base::image::detail {
 
 void register_scan_files(py::module_& m) {
-    m.def("scan_files",
+    m.def("scan_files_single",
           &base::image::scan_files,
           py::arg("root_dir"),
           py::arg("extensions"),
@@ -104,7 +104,7 @@ list[str]
     Sorted list of matching file paths.
           )doc");
 
-    m.def("scan_files_multi",
+    m.def("scan_files",
           &base::image::scan_files_multi,
           py::arg("root_dirs"),
           py::arg("extensions"),

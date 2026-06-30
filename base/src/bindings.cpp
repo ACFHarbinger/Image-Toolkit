@@ -178,4 +178,44 @@ PYBIND11_MODULE(base, m) {
 
     // Phase 11: math
     register_math(m_math);
+
+    // ------------------------------------------------------------------
+    // Backwards Compatibility: Export methods directly to root module
+    // ------------------------------------------------------------------
+    m.attr("load_image_batch")               = m_images.attr("load_image_batch");
+    m.attr("scan_files")                     = m_images.attr("scan_files");
+    m.attr("scan_files_single")              = m_images.attr("scan_files_single");
+    // Alias multi to the standard scan_files for backwards compatibility
+    m.attr("scan_files_multi")               = m_images.attr("scan_files");
+    
+    m.attr("extract_video_thumbnails_batch") = m_video.attr("extract_video_thumbnails_batch");
+    
+    m.attr("insert_listing_secure")          = m_vault.attr("insert_listing_secure");
+    m.attr("hybrid_search_secure")           = m_vault.attr("hybrid_search_secure");
+    m.attr("fetch_all_listings_secure")      = m_vault.attr("fetch_all_listings_secure");
+    m.attr("delete_listing_secure")          = m_vault.attr("delete_listing_secure");
+    m.attr("fetch_listings_as_arrow_pointers") = m_vault.attr("fetch_listings_as_arrow_pointers");
+    
+    m.attr("run_web_requests_sequence")      = m_http.attr("run_web_requests_sequence");
+    m.attr("run_board_crawler")              = m_http.attr("run_board_crawler");
+    m.attr("run_sync")                       = m_http.attr("run_sync");
+    m.attr("run_reverse_image_search")       = m_http.attr("run_reverse_image_search");
+    m.attr("run_image_crawler")              = m_http.attr("run_image_crawler");
+    
+    m.attr("convert_single_image")           = m_core.attr("convert_single_image");
+    m.attr("convert_image_batch")            = m_core.attr("convert_image_batch");
+    m.attr("convert_video")                  = m_core.attr("convert_video");
+    m.attr("get_files_by_extension")         = m_core.attr("get_files_by_extension");
+    m.attr("delete_files_by_extensions")     = m_core.attr("delete_files_by_extensions");
+    m.attr("delete_path")                    = m_core.attr("delete_path");
+    m.attr("find_duplicate_images")          = m_core.attr("find_duplicate_images");
+    m.attr("find_similar_images_phash")      = m_core.attr("find_similar_images_phash");
+    m.attr("merge_images_horizontal")        = m_core.attr("merge_images_horizontal");
+    m.attr("merge_images_vertical")          = m_core.attr("merge_images_vertical");
+    m.attr("merge_images_grid")              = m_core.attr("merge_images_grid");
+    m.attr("set_wallpaper_gnome")            = m_core.attr("set_wallpaper_gnome");
+    m.attr("evaluate_kde_script")            = m_core.attr("evaluate_kde_script");
+    
+    m.attr("run_legacy_migration")           = m_utils.attr("run_legacy_migration");
+    m.attr("run_slideshow_daemon")           = m_utils.attr("run_slideshow_daemon");
 }

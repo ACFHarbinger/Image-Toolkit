@@ -61,7 +61,7 @@
 
 <a href="https://docs.pytest.org/"><img alt="pytest" src="https://img.shields.io/badge/pytest-testing-0A9EDC?logo=pytest&logoColor=white"></a>
 <a href="https://coverage.readthedocs.io/"><img alt="Python Coverage" src="https://img.shields.io/badge/py_coverage-60%25-green.svg"></a>
-<a href="https://vitest.dev/"><img alt="Vitest" src="https://img.shields.io/badge/vitest-testing-6E9F18?logo=vitest&logoColor=white"></a>
+<a href="https://github.com/vitest-dev/vitest"><img alt="Vitest" src="https://img.shields.io/badge/vitest-testing-6E9F18?logo=vitest&logoColor=white"></a>
 <a href="https://github.com/ionelmc/pytest-benchmark"><img alt="Rust Tests" src="https://img.shields.io/badge/cargo_test-passing-orange?logo=rust&logoColor=white"></a>
 <a href="https://developer.android.com/studio/test"><img alt="Android Tests" src="https://img.shields.io/badge/gradle_test-passing-02303A?logo=gradle&logoColor=white"></a>
 <a href="https://pre-commit.com/"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-FAB040?logo=pre-commit&logoColor=white"></a>

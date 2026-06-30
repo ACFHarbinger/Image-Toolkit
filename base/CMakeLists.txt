@@ -28,12 +28,17 @@ find_package(OpenCV 4.6 REQUIRED
     COMPONENTS core imgproc imgcodecs videoio stitching features2d video photo)
 # Fetch Eigen3 unconditionally if not on system path (usually missing in isolated envs)
 include(FetchContent)
-FetchContent_Declare(
-    eigen
-    URL https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
-)
-FetchContent_MakeAvailable(eigen)
+find_package(Eigen3 QUIET)
+if(NOT Eigen3_FOUND)
+    FetchContent_Declare(
+        eigen
+        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+        GIT_TAG 3.4.0
+    )
+    FetchContent_MakeAvailable(eigen)
+endif()
 
+set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 QUIET)
 if(NOT pybind11_FOUND)
     message(STATUS "pybind11 not found locally, downloading via FetchContent...")
@@ -120,6 +125,8 @@ endif()
 # ---------------------------------------------------------------------------
 # base extension module
 # ---------------------------------------------------------------------------
+add_subdirectory(vendor/argon2)
+
 pybind11_add_module(base
     # Module entry point
     src/bindings.cpp
@@ -204,8 +211,9 @@ if(CUDA_FOUND)
 endif()
 
 if(SQLCIPHER_FOUND AND SODIUM_FOUND)
-    target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS})
-    target_link_libraries(base PRIVATE ${SQLCIPHER_LIBRARIES} ${SODIUM_LIBRARIES})
+    target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS} /usr/include /usr/include/sqlcipher)
+    target_link_libraries(base PRIVATE sqlcipher sodium argon2)
+    target_link_directories(base PRIVATE /usr/lib/x86_64-linux-gnu ${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib)
 endif()
 
 if(OpenSSL_FOUND OR OPENSSL_FOUND)
@@ -213,9 +221,9 @@ if(OpenSSL_FOUND OR OPENSSL_FOUND)
 endif()
 
 # ---------------------------------------------------------------------------
-# Install alongside base.so in the Python animation package
+# Install alongside base.so in the Python root directory
 # ---------------------------------------------------------------------------
-install(TARGETS base DESTINATION backend/src/animation/)
+install(TARGETS base DESTINATION .)
 
 # ---------------------------------------------------------------------------
 # Native C++ unit tests (Catch2 v3, opt-in)

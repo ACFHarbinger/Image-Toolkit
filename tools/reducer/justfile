@@ -10,6 +10,7 @@ clean:
     @echo "🧹 Cleaning build artifacts..."
     find . -type d -name ".import_linter_cache" -exec rm -rf {} +
     find . -type d -name ".pytest_cache" -exec rm -rf {} +
+    find . -type d -name "node_modules" -exec rm -rf {} +
     find . -type d -name "__pycache__" -exec rm -rf {} +
     find . -type d -name ".ruff_cache" -exec rm -rf {} +
     find . -type d -name ".mypy_cache" -exec rm -rf {} +
@@ -18,6 +19,7 @@ clean:
     find . -type f -name "coverage.xml" -exec rm {} +
     find . -type f -name ".coverage" -exec rm {} +
     find . -type f -name ".gradle" -exec rm {} +
+    rm -f *.so
     rm -f hs_err_pid*.log
     rm -rf backend/benchmark/output/*
     rm -rf frontend/dist/
@@ -29,7 +31,6 @@ clean:
     rm -rf target/
     rm -rf images/
     rm -rf build/batch/
-    rm -rf node_modules/
     find . -type d -empty -delete
     @echo "✅ Clean complete!"
 

@@ -57,7 +57,7 @@ TEST_CASE("insert_listing_secure: skeleton raises type_error", "[vault][stub]") 
     PythonGuard pg;
     py::array_t<float> dummy({4});
     CHECK_THROWS_AS(
-        base::secret::insert_listing_secure("db", "pw", "id", dummy, "{}"),
+        base::secret::insert_listing_secure("db", "pw", "salt", "id", "cat", "title", "{}", "date", dummy),
         py::type_error);
 }
 
@@ -65,28 +65,28 @@ TEST_CASE("hybrid_search_secure: skeleton raises type_error", "[vault][stub]") {
     PythonGuard pg;
     py::array_t<float> dummy({4});
     CHECK_THROWS_AS(
-        base::secret::hybrid_search_secure("db", "pw", dummy, "", 5),
+        base::secret::hybrid_search_secure("db", "pw", "salt", dummy, "", 5),
         py::type_error);
 }
 
 TEST_CASE("fetch_all_listings_secure: skeleton raises type_error", "[vault][stub]") {
     PythonGuard pg;
     CHECK_THROWS_AS(
-        base::secret::fetch_all_listings_secure("db", "pw"),
+        base::secret::fetch_all_listings_secure("db", "pw", "salt"),
         py::type_error);
 }
 
 TEST_CASE("delete_listing_secure: skeleton raises type_error", "[vault][stub]") {
     PythonGuard pg;
     CHECK_THROWS_AS(
-        base::secret::delete_listing_secure("db", "pw", "id"),
+        base::secret::delete_listing_secure("db", "pw", "salt", "id"),
         py::type_error);
 }
 
 TEST_CASE("fetch_listings_as_arrow_pointers: skeleton raises type_error", "[vault][stub]") {
     PythonGuard pg;
     CHECK_THROWS_AS(
-        base::secret::fetch_listings_as_arrow_pointers("db", "pw"),
+        base::secret::fetch_listings_as_arrow_pointers("db", "pw", "salt"),
         py::type_error);
 }
 
