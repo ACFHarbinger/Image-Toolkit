@@ -1,3 +1,24 @@
+/*!
+    \qmltype ImageCrawlTab
+    \inqmlmodule ImageToolkit.Tabs.Web
+    \brief Web image crawler tab.
+
+    ImageCrawlTab supports two crawler modes:
+    \list
+      \li \b General — Selenium-based crawler driven by a URL and a
+          configurable action list (click, scroll, extract, etc.).
+      \li \b Board — REST API crawlers for Danbooru, Gelbooru, and Sankaku
+          with tag, page limit, and image limit controls.
+    \endlist
+
+    Both modes write downloaded images to a configurable directory and stream
+    progress to a green console log.  \e {Start Crawl} / \e {Cancel Crawl}
+    toggles the worker.
+
+    Key backend calls: \c start_crawl(), \c cancel_crawl(),
+    \c add_action(), \c remove_action(index),
+    \c browse_download_directory(), \c browse_screenshot_directory().
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

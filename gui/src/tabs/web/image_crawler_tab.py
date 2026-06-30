@@ -1,5 +1,5 @@
 import os
-from PySide6.QtCore import Qt, QPoint, QProcess
+from PySide6.QtCore import Qt, QPoint, QProcess, Property, Signal, Slot
 from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,

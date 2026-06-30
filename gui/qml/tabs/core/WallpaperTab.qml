@@ -1,3 +1,21 @@
+/*!
+    \qmltype WallpaperTab
+    \inqmlmodule ImageToolkit.Tabs.Core
+    \brief Wallpaper manager and slideshow scheduler tab.
+
+    WallpaperTab renders a \l MonitorLayout so users can drag images onto
+    individual monitor tiles to set wallpapers.  A slideshow panel configures
+    the rotation interval, transition style, random order, and sub-directory
+    recursion.  A \e {Recently Used} gallery provides quick re-assignment.
+
+    Key backend calls:
+    \list
+      \li \c set_wallpaper_qml(path, monitorName)
+      \li \c request_monitors_qml()
+      \li \c start_slideshow() / \c stop_slideshow()
+      \li \c start_window_slideshow()
+    \endlist
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

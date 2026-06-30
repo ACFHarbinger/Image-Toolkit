@@ -1,3 +1,14 @@
+/*!
+    \qmltype MetaClipInferenceTab
+    \inqmlmodule ImageToolkit.Tabs.Models
+    \brief MetaCLIP zero-shot image classification tab.
+
+    MetaClipInferenceTab allows the user to choose a MetaCLIP model variant
+    (ViT-H-14 Worldwide, ViT-bigG-14 Worldwide, ViT-G-14 2.5B, or
+    ViT-H-14 2.5B), provide an image path, enter newline-separated text
+    prompts, and run inference.  Results are displayed as a list of class
+    labels each paired with a confidence progress bar and percentage.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

@@ -1,3 +1,18 @@
+/*!
+    \qmltype SD3GenerateTab
+    \inqmlmodule ImageToolkit.Tabs.Models.Gen
+    \brief Stable Diffusion 3.5 image generation sub-tab.
+
+    SD3GenerateTab supports text-to-image generation with SD3 Medium, SD3
+    Large, and SD3 Turbo variants.  Output resolution is configurable from
+    512 to 2048 px (step 64).  Guidance scale uses 0.1 precision.  Clicking
+    \e {Generate (SD3)} calls:
+
+    \code
+    mainBackend.generateTab.sd3_tab.generate_from_qml(
+        variant, prompt, width, height, steps, guidance, batch)
+    \endcode
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

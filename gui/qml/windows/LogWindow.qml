@@ -1,3 +1,17 @@
+/*!
+    \qmltype LogWindow
+    \inqmlmodule ImageToolkit.Windows
+    \brief System log viewer window.
+
+    LogWindow is an 800 × 500 \l ApplicationWindow that displays the
+    application's runtime log in a read-only monospace \l TextArea.  A search
+    field filters visible lines.  \e Clear and \e {Save to File} buttons
+    delegate to the backend.
+
+    \qmlproperty var LogWindow::backend
+    Backend object exposing \c logText, \c clear_log(), and
+    \c save_logs_to_file().  Typically \c mainBackend.logBackend.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

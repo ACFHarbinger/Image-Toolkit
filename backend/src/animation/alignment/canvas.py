@@ -13,8 +13,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from backend.src.errors import CanvasError
 from backend.src.constants import CANVAS_MAX_DIM
-from backend.src.exceptions import CanvasError
 from backend.src.animation.core.stateless import _trim_dark_border
 
 import logging

@@ -1,3 +1,25 @@
+/*!
+    \qmltype ScanMetadataTab
+    \inqmlmodule ImageToolkit.Tabs.Database
+    \brief Directory metadata scan and batch-tagging tab.
+
+    ScanMetadataTab has three zones:
+    \list
+      \li \b Top — scan path input with browse, start, and stop controls plus
+          a quick keyword filter.
+      \li \b Middle — paginated \l GalleryView of found images.
+      \li \b Bottom — selection gallery with a batch-tagging panel (tag
+          checkboxes, group/subgroup combos, and an \e {Add to Database}
+          button).
+    \endlist
+
+    Key backend calls:
+    \list
+      \li \c browse_scan_directory()
+      \li \c start_scan() / \c stop_scan()
+      \li \c upsert_selected() — writes tags to the database
+    \endlist
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

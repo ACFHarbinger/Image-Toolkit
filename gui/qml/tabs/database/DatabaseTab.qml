@@ -1,3 +1,17 @@
+/*!
+    \qmltype DatabaseTab
+    \inqmlmodule ImageToolkit.Tabs.Database
+    \brief Database management and maintenance tab.
+
+    DatabaseTab displays the image registry's connection info and live
+    statistics text sourced from \c mainBackend.databaseTab.statsText.  It
+    provides a \e {Sync Database} button and two maintenance actions:
+
+    \list
+      \li \c run_vacuum() — reclaims unused pages in the SQLite database
+      \li \c run_reindex() — rebuilds all indexes
+    \endlist
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

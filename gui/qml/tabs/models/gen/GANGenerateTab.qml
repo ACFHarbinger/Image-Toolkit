@@ -1,3 +1,17 @@
+/*!
+    \qmltype GANGenerateTab
+    \inqmlmodule ImageToolkit.Tabs.Models.Gen
+    \brief Custom GAN image generation sub-tab.
+
+    GANGenerateTab provides controls for generating images from a custom GAN
+    checkpoint: checkpoint path, image count spinbox, architecture selector
+    (DCGAN, WGAN-GP, or StyleGAN-lite), and latent dimension.  Clicking
+    \e {Run GAN Generator} calls:
+
+    \code
+    mainBackend.generateTab.basic_gan_gen_tab.generate_from_qml(ckptPath, count)
+    \endcode
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

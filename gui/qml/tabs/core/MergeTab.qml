@@ -1,3 +1,18 @@
+/*!
+    \qmltype MergeTab
+    \inqmlmodule ImageToolkit.Tabs.Core
+    \brief Image canvas merger tab.
+
+    MergeTab lets users add images to a selection gallery, configure a merge
+    mode (horizontal, vertical, grid, panorama, stitch, sequential, or GIF),
+    and adjust parameters such as spacing, animation duration, and alignment
+    before starting the merge.  A live preview area shows the expected output.
+
+    Key backend call:
+    \list
+      \li \c mainBackend.mergeTab.start_merge_qml(direction, spacing, duration, alignment)
+    \endlist
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

@@ -1,3 +1,18 @@
+/*!
+    \qmltype LoginWindow
+    \inqmlmodule ImageToolkit.Windows
+    \brief User login and account creation window.
+
+    LoginWindow is a modal-style 400 × 500 \l ApplicationWindow that presents
+    username and password fields.  Two buttons are provided:
+
+    \list
+      \li \e {Create Account} — calls \c backend.create_account(username, password)
+      \li \e {Login} — calls \c backend.attempt_login(username, password)
+    \endlist
+
+    The window is shown at application start when no account session exists.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

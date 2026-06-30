@@ -1,3 +1,20 @@
+/*!
+    \qmltype DeleteTab
+    \inqmlmodule ImageToolkit.Tabs.Core
+    \brief Duplicate-image finder and deletion tab.
+
+    DeleteTab scans a target directory for duplicate images and presents the
+    results in two side-by-side \l GalleryView panels: the left panel shows all
+    found duplicates grouped by hash; the right panel accumulates images
+    selected for deletion.  Confirmed deletions are sent to the backend.
+
+    Key backend calls:
+    \list
+      \li \c browse_target_qml() — opens a folder picker
+      \li \c start_duplicate_scan_qml(path, method) — launches the scan worker
+      \li \c delete_selected_files_qml() — deletes all files in the selection
+    \endlist
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
