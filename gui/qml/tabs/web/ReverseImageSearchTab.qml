@@ -205,8 +205,9 @@ Item {
                     clip: true
                     GalleryView {
                         anchors.fill: parent
-                        model: tab ? tab.gallery_model : null
-                        onItemClicked: if (tab) tab.handle_image_selection(path)
+                        model: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.gallery_model : null
+                        onItemClicked: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.handle_image_selection(path)
+                        onItemDoubleClicked: if (mainBackend) mainBackend.open_preview(path)
                     }
                 }
             }
@@ -224,22 +225,68 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 10
+                Text { text: "2. Search Options & Results:"; color: Style.text; font.bold: true }
+                
+                GroupBox {
+                    title: "Search Configuration"
+                    Layout.fillWidth: true
+                    GridLayout {
+                        columns: 2
+                        columnSpacing: 10
+                        
+                        RowLayout {
+                            CheckBox { 
+                                id: filterResCheck
+                                text: "Filter Res"
+                                palette.windowText: Style.text 
+                                checked: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.filter_res : false
+                                onCheckedChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.filter_res = checked
+                            }
+                            TextField {
+                                placeholderText: "W"
+                                Layout.preferredWidth: 50
+                                text: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.min_w : "1920"
+                                onTextChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.min_w = text
+                                enabled: filterResCheck.checked
+                            }
+                            TextField {
+                                placeholderText: "H"
+                                Layout.preferredWidth: 50
+                                text: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.min_h : "1080"
+                                onTextChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.min_h = text
+                                enabled: filterResCheck.checked
+                            }
+                        }
 
-                Text {
-                    text: "2. Search Options & Results:"
-                    color: Style.text
-                    font.bold: true
+                        ComboBox { 
+                            id: browserSelect
+                            model: ["brave", "chrome", "firefox", "edge"]
+                            currentIndex: find(mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.browser : "brave")
+                            onCurrentTextChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.browser = currentText
+                        }
+                        
+                        ComboBox {
+                            id: modeSelect
+                            model: ["All", "Visual matches", "Exact matches"]
+                            currentIndex: find(mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.search_mode : "All")
+                            onCurrentTextChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.search_mode = currentText
+                        }
+
+                        CheckBox { 
+                            text: "Keep Open"
+                            palette.windowText: Style.text 
+                            checked: mainBackend && mainBackend.reverseSearchTab ? mainBackend.reverseSearchTab.keep_open : true
+                            onCheckedChanged: if (mainBackend && mainBackend.reverseSearchTab) mainBackend.reverseSearchTab.keep_open = checked
+                        }
+                    }
                 }
 
                 // Search / Cancel button
                 AppButton {
                     text: (tab && tab.is_searching) ? "Cancel Search" : "Start Reverse Search"
                     Layout.fillWidth: true
-                    background: Rectangle {
-                        color: (text === "Cancel Search") ? "#e74c3c" : Style.accent
-                        radius: Style.borderRadius
-                    }
-                    enabled: tab ? (tab.is_searching || tab.has_selection) : false
+                    background: Rectangle { color: (parent.text == "Cancel Search" ? "#e74c3c" : Style.accent); radius: Style.borderRadius }
+                    enabled: mainBackend && mainBackend.reverseSearchTab ? (mainBackend.reverseSearchTab.is_searching || mainBackend.reverseSearchTab.has_selection) : false
                     onClicked: {
                         if (!tab) return
                         if (tab.is_searching)

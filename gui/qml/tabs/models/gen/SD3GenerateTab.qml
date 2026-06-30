@@ -88,6 +88,8 @@ ScrollView {
                     Label { text: "Batch:"; color: Style.text }
                     SpinBox { id: batchSizeSpin; from: 1; to: 8; value: 1 }
                 }
+            }
+        }
 
         AppButton {
             text: "Generate (SD3)"

@@ -181,13 +181,13 @@ Item {
                             text: "Headless Mode"
                             palette.windowText: Style.text 
                             checked: mainBackend && mainBackend.imageCrawlTab ? mainBackend.imageCrawlTab.gen_headless : true
-                            onCheckedChange: if (mainBackend && mainBackend.imageCrawlTab) mainBackend.imageCrawlTab.gen_headless = checked
+                            onCheckedChanged: if (mainBackend && mainBackend.imageCrawlTab) mainBackend.imageCrawlTab.gen_headless = checked
                         }
                         CheckBox { 
                             text: "Save Screenshots"
                             palette.windowText: Style.text 
                             checked: mainBackend && mainBackend.imageCrawlTab ? mainBackend.imageCrawlTab.save_screenshots : false
-                            onCheckedChange: if (mainBackend && mainBackend.imageCrawlTab) mainBackend.imageCrawlTab.save_screenshots = checked
+                            onCheckedChanged: if (mainBackend && mainBackend.imageCrawlTab) mainBackend.imageCrawlTab.save_screenshots = checked
                         }
                     }
                 }
@@ -215,7 +215,7 @@ Item {
                     AppButton {
                         text: (mainBackend && mainBackend.imageCrawlTab && mainBackend.imageCrawlTab.is_crawling) ? "Cancel" : "Start Crawling"
                         Layout.fillWidth: true
-                        background: Rectangle { color: (text == "Cancel" ? "#e74c3c" : Style.accent); radius: Style.borderRadius }
+                        background: Rectangle { color: (parent.text == "Cancel" ? "#e74c3c" : Style.accent); radius: Style.borderRadius }
                         onClicked: {
                             if (mainBackend && mainBackend.imageCrawlTab) {
                                 if (mainBackend.imageCrawlTab.is_crawling)
@@ -227,9 +227,6 @@ Item {
                     }
                 }
             }
-        }
-    }
-}
         }
     }
 }

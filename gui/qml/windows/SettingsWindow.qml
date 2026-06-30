@@ -12,6 +12,8 @@ ApplicationWindow {
     title: "Application Settings"
     color: Style.background
 
+    property var backend
+
     RowLayout {
         anchors.fill: parent
         spacing: 0
