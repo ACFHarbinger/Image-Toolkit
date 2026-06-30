@@ -152,6 +152,7 @@ jobs:
             --exclude 'https://isocpp\.org'
             --exclude 'cpp-httplib-server\.yhirose\.repl\.co'
             --exclude 'https://sigops\.org/s/conferences/sosp'
+            --exclude 'https://www\.postgresql\.org'
             '**/*.md'
           fail: true
 
