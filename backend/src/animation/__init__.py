@@ -7,7 +7,7 @@ masking, ecc, rendering, compositing, canvas, bundle_adjust).  The ``mfsr``
 sub-package adds an optional Multi-Frame Super-Resolution post-processing pass.
 """
 
-# §1.8A: auto-load asp_config.toml before any module-level env flags are read.
+# §1.8A: auto-load backend/config/asp_config.toml before any module-level env flags are read.
 # Uses os.environ.setdefault → never overrides manually set env vars.
 try:
     from .core.config import load_asp_config as _load_asp_config

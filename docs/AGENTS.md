@@ -6,7 +6,7 @@ The project mission is to provide a unified environment for managing massive ima
 
 ## 2. Technical Stack & Governance
 * **Runtime**: Python 3.11+ (managed via `uv`, `conda`, or `venv`). **Agent Rule**: Always run `source .venv/bin/activate` at the start of a task.
-* **Core Logic**: Rust (via PyO3/Maturin) for high-performance IO and processing.
+* **Core Logic**: C++ (via pybind11/CMake) for high-performance IO and processing.
 * **Backend**: Python Orchestrator, PostgreSQL (`pgvector`), PyTorch, OpenCV.
 * **GUI**: PySide6 (Qt for Python).
 * **Frontend/Mobile**: React, Kotlin (Android), Swift (iOS).
@@ -17,7 +17,7 @@ The project mission is to provide a unified environment for managing massive ima
 ### Key CLI Entry Points
 | Action | Command |
 | :--- | :--- |
-| **Sync Environment** | `bash scripts/setup_env.sh` |
+| **Sync Environment** | `bash desktop/linux/scripts/setup_env.sh` |
 | **Activate Venv** | `source .venv/bin/activate` |
 | **Launch Desktop App** | `python main.py` |
 | **Frontend Dev** | `npm run start-all` |
@@ -25,11 +25,11 @@ The project mission is to provide a unified environment for managing massive ima
 | **Mobile Build** | `./gradlew assembleDebug` |
 | **Single Conversion** | `python main.py convert --output_format png --input_path <path>` |
 | **Batch Conversion** | `python main.py convert --output_format png --input_path <dir> --input_formats webp` |
-| **Helper Conversion** | `bash scripts/convert_images.sh` |
+| **Helper Conversion** | `bash desktop/linux/cli/convert_images.sh` |
 | **Build Desktop App** | `pyinstaller --clean ImageToolkit.spec` |
 | **Run Python Tests** | `pytest` |
 | **Run Frontend Tests** | `npm run test-frontend` |
-| **Run Rust Tests** | `cd base && cargo test` |
+| **Run C++ Tests** | `just test-base-cpp` |
 
 ### External Access Rules
 *   **Docs**: Use Google Search for PySide6, pgvector, OpenCV, PyTorch Hub.
@@ -57,20 +57,20 @@ The project mission is to provide a unified environment for managing massive ima
 ### A. Core & Backend (The Engine)
 
 #### Base Module (`base/`)
-**Rust Core**. High-performance implementation of image processing, crawling, and sync logic.
+**C++ Core**. High-performance implementation of image processing, crawling, and sync logic. Built with CMake + pybind11; the former Rust/PyO3 implementation is archived at `archive/rust/`.
 *   **Core**: File system scanning (`file_system`), Image operations (`image_converter`, `image_merger`, `image_finder`), Video (`video_converter`), Wallpaper (`wallpaper`).
 *   **Web**:
-    *   **Crawlers**: `danbooru`, `gelbooru`, `sankaku`, `image_crawler` (generic Selenium).
+    *   **Crawlers**: `danbooru`, `gelbooru`, `sankaku`, `image_crawler` (generic Selenium stub — no C++ WebDriver).
     *   **Sync**: `dropbox_sync`, `google_drive_sync`, `one_drive_sync`.
 *   **Utils**: Standalone binaries like `slideshow_daemon`.
-*   **Interface**: `lib.rs` (PyO3 entry point).
+*   **Interface**: `base/src/bindings.cpp` (pybind11 entry point).
 
 #### Backend Module (`backend/`)
-**Python Orchestrator**. Wraps Rust core, handles DB and ML.
-*   **Core**: Wrappers for Rust functions, `image_database.py` (DB), `vault_manager.py` (Security).
+**Python Orchestrator**. Wraps C++ core, handles DB and ML.
+*   **Core**: Wrappers for C++ functions, `image_database.py` (DB), `vault_manager.py` (Security).
 *   **Models**: Pure Python/PyTorch ML implementations.
-*   **Web**: Wrappers for Rust crawlers.
-*   **Standards**: Keep Python wrappers thin. Implement heavy logic in Rust.
+*   **Web**: Wrappers for C++ crawlers.
+*   **Standards**: Keep Python wrappers thin. Implement heavy logic in C++.
 
 #### Tasks & API (`tasks/` & `api/`)
 **Django/Celery Layer**. Bridge between synchronous API and heavy backend logic.

@@ -59,7 +59,7 @@ import cv2
 import numpy as np
 
 try:
-    import batch as _batch
+    import base as _batch
     _BATCH_FSEL = True
 except ImportError:
     _batch = None  # type: ignore[assignment]

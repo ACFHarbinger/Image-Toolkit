@@ -57,7 +57,9 @@ jobs:
           EOF
 
   cargo-audit:
-    name: Rust CVE scan (cargo audit)
+    # Phase 7 note: the Rust base crate was retired to archive/base_rust/.
+    # cargo-audit now scans only the frontend/src-tauri crate.
+    name: Rust CVE scan (cargo audit — frontend only)
     runs-on: ubuntu-latest
 
     steps:
@@ -68,9 +70,9 @@ jobs:
         with:
           tool: cargo-audit
 
-      - name: Audit base crate
+      - name: Audit frontend/src-tauri crate
         run: cargo audit --json --output-file /tmp/cargo-audit.json
-        working-directory: base
+        working-directory: frontend/src-tauri
         continue-on-error: true
 
       - name: Upload audit report

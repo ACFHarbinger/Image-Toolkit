@@ -15,7 +15,7 @@ All tests are skipped automatically when ``batch`` has not been built.
 import pytest
 
 try:
-    from backend.src.animation import batch
+    from backend.src.animation import base as batch
 
     HAS_BATCH = True
 except ImportError:

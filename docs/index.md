@@ -1,6 +1,6 @@
 # Image-Toolkit Documentation
 
-**Image-Toolkit** is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV, Rust/PyO3) with robust web automation (Selenium) and cross-platform accessibility.
+**Image-Toolkit** is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV, C++/pybind11) with robust web automation (Selenium) and cross-platform accessibility.
 
 ---
 
@@ -10,10 +10,10 @@
 |---------|-------------|
 | [Quick Start](../README.md) | 5-minute setup, environment bootstrapping, CLI reference |
 | [Architecture](ARCHITECTURE.md) | Module dependency graph, data-flow diagrams, tech stack |
-| [Troubleshooting](TROUBLESHOOTING.md) | PySide6 crashes, ASP errors, Rust builds, Hydra, mobile |
+| [Troubleshooting](TROUBLESHOOTING.md) | PySide6 crashes, ASP errors, C++ builds, Hydra, mobile |
 | [Python API](api/python/animation.md) | Auto-generated reference from Google-style docstrings |
-| [Rust API](api/rust/math.md) | Math backbone: linalg, stats, distance, information, graph |
-| [Benchmarks](BENCHMARKS.md) | ASP corpus, Rust criterion, frontend math benchmarks |
+| [C++ API](api/rust/math.md) | Math backbone: linalg, stats, distance, information, graph |
+| [Benchmarks](BENCHMARKS.md) | ASP corpus, C++ Catch2, frontend math benchmarks |
 | [Dependency Policy](DEPENDENCY_POLICY.md) | Version pins, upgrade cadence, security CVE SLA |
 | [Documentation Standards](DOCUMENTATION_STANDARDS.md) | Docstring style, TOC rules, enforcement hooks |
 | [Roadmaps](../moon/ROADMAP.md) | Architecture, performance, features, GUI/UX, ASP, docs |
@@ -35,7 +35,7 @@ graph TD
 
     subgraph Backend["Backend Layer"]
         PY["Python Orchestrator\nbackend/"]
-        RU["Rust Core (PyO3/Rayon)\nbase/src/"]
+        RU["C++ Core (pybind11/OpenMP)\nbase/src/"]
         ML["PyTorch Models\nbackend/src/models/"]
         HY["Hydra CLI\nbackend/dispatcher"]   
     end
@@ -45,9 +45,9 @@ graph TD
         VT["VaultManager\nAES-256-GCM"]
     end
 
-    FE -->|Tauri IPC| RU
+    FE -->|Tauri IPC| PY
     FE -->|REST / WebSocket| PY
-    PY -->|PyO3 FFI| RU
+    PY -->|pybind11 FFI| RU
     PY -->|SQL| PG
     PY --> ML
     HY --> PY

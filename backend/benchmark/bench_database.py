@@ -12,10 +12,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.src.database.image_database import PgvectorImageDatabase
-from .utils import BenchmarkRunner, measure_memory
+from .tracker_manager import BenchmarkManager, measure_memory
 
 
-runner = BenchmarkRunner("Database Operations")
+runner = BenchmarkManager("Database Operations")
 
 
 @runner.benchmark("insert_tags_100", iterations=3)
@@ -31,7 +31,7 @@ def bench_insert_tags_100():
     for i in range(100):
         db.delete_tag(f"benchmark_tag_{i}")
 
-    db.conn.close()
+    db.conn.close() # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("insert_tags_1000", iterations=3)
@@ -47,7 +47,7 @@ def bench_insert_tags_1000():
     for i in range(1000):
         db.delete_tag(f"benchmark_tag_{i}")
 
-    db.conn.close()
+    db.conn.close() # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("get_all_tags_fetchall", iterations=5)
@@ -67,7 +67,7 @@ def bench_get_all_tags():
     for i in range(500):
         db.delete_tag(f"bench_tag_{i}")
 
-    db.conn.close()
+    db.conn.close() # pyrefly: ignore [missing-attribute]
     return len(tags)
 
 
@@ -88,7 +88,7 @@ def bench_insert_groups():
     for g in range(100):
         db.delete_group(f"bench_group_{g}")
 
-    db.conn.close()
+    db.conn.close() # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("bulk_image_insert_100", iterations=3)
@@ -112,7 +112,7 @@ def bench_bulk_image_insert():
 
     # Cleanup
     db.delete_group("benchmark_images")
-    db.conn.close()
+    db.conn.close() # pyrefly: ignore [missing-attribute]
 
 
 @runner.benchmark("vector_search_k10", iterations=10)
@@ -133,11 +133,11 @@ def bench_vector_search_k10():
 
     # Benchmark search
     query_embedding = np.random.rand(128).astype(np.float32).tolist()
-    results = db.search_similar_images(query_embedding, top_k=10)
+    results = db.search_similar_images(query_embedding, top_k=10) # pyrefly: ignore [missing-attribute]
 
     # Cleanup
     db.delete_group("benchmark_search")
-    db.conn.close()
+    db.conn.close() # pyrefly: ignore [missing-attribute]
 
     return len(results)
 
@@ -160,11 +160,11 @@ def bench_vector_search_k100():
 
     # Benchmark search
     query_embedding = np.random.rand(128).astype(np.float32).tolist()
-    results = db.search_similar_images(query_embedding, top_k=100)
+    results = db.search_similar_images(query_embedding, top_k=100) # pyrefly: ignore [missing-attribute]
 
     # Cleanup
     db.delete_group("benchmark_search")
-    db.conn.close()
+    db.conn.close() # pyrefly: ignore [missing-attribute]
 
     return len(results)
 
@@ -196,7 +196,7 @@ def bench_image_tag_ops():
     # Add tags to each image
     for img_id in image_ids:
         for tag in tags[:5]:  # 5 tags per image
-            db.add_tag_to_image(img_id, tag)
+            db.add_tag_to_image(img_id, tag) # pyrefly: ignore [missing-attribute]
 
     # Retrieve tags (this is the N+1 query scenario)
     for img_id in image_ids:
@@ -206,7 +206,7 @@ def bench_image_tag_ops():
     db.delete_group("bench_tag_ops")
     for tag in tags:
         db.delete_tag(tag)
-    db.conn.close()
+    db.conn.close() # pyrefly: ignore [missing-attribute]
 
 
 if __name__ == "__main__":

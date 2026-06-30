@@ -12,7 +12,7 @@ You are an **AI Engineer** working on the Computer Vision capabilities of Image-
 
 ## Development Directives
 1.  **Performance**:
-    - Heavy pixel manipulation should ideally be implemented in **Rust** (`base/`) and exposed via PyO3.
+    - Heavy pixel manipulation should ideally be implemented in **C++** (`base/`) and exposed via pybind11.
     - Use `numpy` / `torch` for vectorized operations in Python.
     - Move model inference to `QThread` workers to avoid freezing the GUI.
 2.  **Data Management**:

@@ -1,7 +1,7 @@
 # Image-Toolkit Backend & Base Performance Benchmarks
 
 Comprehensive benchmark suite for measuring memory usage and compute time across
-the Python backend, Rust base layer, and TypeScript analytics math backbone.
+the Python backend, C++ base layer, and TypeScript analytics math backbone.
 
 ## Benchmark Suite Index
 
@@ -10,7 +10,7 @@ the Python backend, Rust base layer, and TypeScript analytics math backbone.
 | **Database** | Python `benchmark/bench_database.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
 | **ML Models** | Python `benchmark/bench_models.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
 | **Image Processing** | Python `benchmark/bench_image_ops.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
-| **Rust Core** | `cargo bench` | `base/benches/` | `base/target/criterion/` | `benchmark.yml` |
+| **C++ Base** | `just test-base-cpp` | `base/tests/` | ctest output | `benchmark.yml` |
 | **ASP Corpus** | `backend/benchmark/bench_anime_stitch.py` | `backend/benchmark/` | `data/output/benchmark_report.md` | manual |
 | **Frontend Math** | `npm test` / TypeDoc | `frontend/src/math/` | Jest output | `docs.yml` (type-check) |
 
@@ -20,9 +20,8 @@ the Python backend, Rust base layer, and TypeScript analytics math backbone.
 # Install benchmark dependencies
 pip install memory_profiler psutil pytest-benchmark matplotlib
 
-# Ensure Rust benchmarks are enabled
-cd ../base
-cargo bench --features python
+# Build C++ base module
+just build-base-release
 ```
 
 ## Running Benchmarks
@@ -33,9 +32,8 @@ cargo bench --features python
 # Python backend benchmarks
 python benchmark/run_all.py
 
-# Rust base benchmarks
-cd ../base
-cargo bench --features python
+# C++ base tests (includes timing benchmarks)
+just test-base-cpp
 
 # Combined report
 python benchmark/generate_report.py
@@ -88,14 +86,14 @@ python benchmark/memory_profile.py
 
 **Metrics**: Processing time, peak RAM, throughput (images/sec)
 
-### 4. Rust Core Operations (`base/benches/*.rs`)
+### 4. C++ Base Operations (`base/tests/`)
 
 - File system scanning (1k, 10k, 100k files)
-- Image conversion (Rust native)
-- WebDriver crawler operations
+- Image conversion (C++ native via OpenCV)
+- Board crawler HTTP operations
 - Cloud sync operations
 
-**Metrics**: Execution time, peak RAM, allocations
+**Metrics**: Execution time, peak RAM
 
 ### 5. Frontend Analytics Math (`frontend/src/math/`)
 
@@ -243,9 +241,9 @@ A benchmark fails if:
 - Reduce batch sizes in `bench_models.py`
 - Set `CUDA_VISIBLE_DEVICES=""` to force CPU mode
 
-**Rust benchmarks not found**
-- Run `cargo build --release --features python` first
-- Ensure `criterion` is in `Cargo.toml` dev-dependencies
+**C++ base tests not found**
+- Run `just build-base-release` first
+- Ensure Catch2 is available (fetched automatically by CMake FetchContent)
 
 ## Adding New Benchmarks
 
@@ -269,74 +267,49 @@ if __name__ == "__main__":
     runner.print_results()
 ```
 
-### Rust Core
+### C++ Base
 
-```rust
-// base/benches/custom_bench.rs
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use base::my_module::my_function;
+Add a new `TEST_CASE` with a `[benchmark]` tag in `base/tests/`:
 
-fn benchmark_my_function(c: &mut Criterion) {
-    c.bench_function("my_function", |b| {
-        b.iter(|| my_function(black_box(input_data)))
-    });
+```cpp
+// base/tests/math/test_math_bench.cpp
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/benchmark/catch_benchmark.hpp>
+#include "base/math/stats.hpp"
+#include "base/math/distance.hpp"
+
+TEST_CASE("mean 10k", "[math][benchmark]") {
+    std::vector<double> data(10000);
+    std::iota(data.begin(), data.end(), 0.0);
+    BENCHMARK("mean_10k") {
+        return base::math::stats::mean(data);
+    };
 }
 
-criterion_group!(benches, benchmark_my_function);
-criterion_main!(benches);
-```
-
----
-
-## Rust Math Micro-benchmarks
-
-The `base/src/math/` modules (`stats.rs`, `distance.rs`, `information.rs`) back the
-Python ML pipeline and Recommendation Engine. Criterion benchmarks live in
-`base/benches/` and can be added as follows:
-
-```rust
-// base/benches/math_bench.rs
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use base::math::stats::mean;
-use base::math::distance::{euclidean, cosine_similarity};
-
-fn bench_mean(c: &mut Criterion) {
-    let data: Vec<f64> = (0..10_000).map(|x| x as f64).collect();
-    c.bench_function("mean_10k", |b| b.iter(|| mean(black_box(&data))));
+TEST_CASE("cosine_similarity 768d", "[math][benchmark]") {
+    std::vector<double> a(768), b(768);
+    for (int i = 0; i < 768; ++i) { a[i] = i / 768.0; b[i] = (768 - i) / 768.0; }
+    BENCHMARK("cosine_768d") {
+        return base::math::distance::cosine_similarity(a, b);
+    };
 }
-
-fn bench_cosine(c: &mut Criterion) {
-    let a: Vec<f64> = (0..768).map(|x| x as f64 / 768.0).collect(); // BGE-M3 dim
-    let b: Vec<f64> = (0..768).map(|x| (768 - x) as f64 / 768.0).collect();
-    c.bench_function("cosine_similarity_768d", |b| {
-        b.iter(|| cosine_similarity(black_box(&a), black_box(&b)))
-    });
-}
-
-criterion_group!(benches, bench_mean, bench_cosine);
-criterion_main!(benches);
-```
-
-**`base/Cargo.toml`** (add if not present):
-
-```toml
-[[bench]]
-name = "math_bench"
-harness = false
-
-[dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
 ```
 
 **Run**:
 
 ```bash
-cd base
-cargo bench                            # all benchmarks
-cargo bench -- cosine                  # filter by name
-cargo bench --bench math_bench         # specific bench file
-# Reports: base/target/criterion/*/report/index.html
+just test-base-cpp          # all tests including benchmarks
+# or directly:
+cmake --build build/base --target base_tests && ctest --test-dir build/base -V
 ```
+
+---
+
+## C++ Math Micro-benchmarks
+
+The `base/include/math/` headers (`stats.hpp`, `distance.hpp`, `information.hpp`) back
+the Python ML pipeline and Recommendation Engine. Catch2 benchmarks live in
+`base/tests/math/` alongside unit tests.
 
 **Baselines** (to be established once benchmarks are added — see CI §6.12 guidance below):
 
@@ -717,16 +690,14 @@ REPORT_ABS_PATHS=1 python backend/benchmark/bench_anime_stitch.py
 3. The existing `.github/workflows/benchmark.yml` discovers all runners via `run_all.py` automatically.
    No workflow changes needed for Python benchmarks.
 
-### Rust criterion benchmark
+### C++ base benchmark
 
-1. Add `[[bench]] name = "bench_<name>" harness = false` to `base/Cargo.toml`.
-2. Create `base/benches/bench_<name>.rs` with `criterion_group!` / `criterion_main!`.
-3. In `.github/workflows/benchmark.yml`, add a step:
+1. Add a `TEST_CASE` with `[benchmark]` tag in `base/tests/` (see §above).
+2. In `.github/workflows/benchmark.yml`, add a step:
 
    ```yaml
-   - name: cargo bench bench_<name>
-     working-directory: base
-     run: cargo bench --bench bench_<name> -- --output-format bencher | tee output.txt
+   - name: Run C++ base benchmarks
+     run: just test-base-cpp
    ```
 
 4. Optionally store the criterion HTML reports as a workflow artifact:

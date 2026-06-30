@@ -32,7 +32,7 @@ db-migrate:
 # Apply the anime training DB schema migration (one-time)
 lora-db-migrate:
     @echo "Applying anime training schema..."
-    @source .venv/bin/activate && python scripts/apply_migration.py \
+    @source .venv/bin/activate && python backend/scripts/apply_migration.py \
         "${DATABASE_URL:-postgresql://toolkit_user:change_me_123@localhost:5432/image_toolkit}" \
         backend/src/database/sql/0007_anime_training.sql
     @echo "Migration applied."

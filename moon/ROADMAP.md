@@ -358,7 +358,7 @@ Each item is tagged by priority: **[CRITICAL]**, **[HIGH]**, **[MEDIUM]**, or **
 Build a native PySide6 dynamic form generator that parses `workflow_api.json` templates (like the 7-stage Illustrious XL pipeline in `backend/config/inference/sdxl_comfyui.yaml`) and auto-generates UI controls — sliders, dropdowns, seed spinboxes, and node-selection widgets — mapped to `parameters.json` keys. The `ComfyGenerateTab` currently requires hand-editing raw JSON; this replaces it with a generated form that calls the ComfyUI API transparently. Add a template browser to save, load, and share workflow presets.
 
 ##### [HIGH] Panorama Stitch UI (`StitchTab`)
-Create a dedicated `StitchTab` using `QGraphicsView` to expose `stitch_net.py` and `loftr_wrapper.py` interactively. Users should be able to load two or more frames, preview LoFTR keypoint matches as an overlay, drag alignment anchors to correct stitching errors before rendering, preview the "Master-Cel" masking boundaries from `anime_stitch_pipeline.py`, and export stitched panoramas at up to 4× source resolution via `image_merger.rs`. Queue batch stitch jobs and monitor them via the existing `QThreadPool` worker pattern.
+Create a dedicated `StitchTab` using `QGraphicsView` to expose `stitch_net.py` and `loftr_wrapper.py` interactively. Users should be able to load two or more frames, preview LoFTR keypoint matches as an overlay, drag alignment anchors to correct stitching errors before rendering, preview the "Master-Cel" masking boundaries from `anime_stitch_pipeline.py`, and export stitched panoramas at up to 4× source resolution via `base.core.merge_images_*`. Queue batch stitch jobs and monitor them via the existing `QThreadPool` worker pattern.
 
 ##### [HIGH] Interactive Background Removal (BiRefNet Integration)
 Integrate `birefnet_wrapper.py` into the `ConvertTab` as an optional post-processing step. After format conversion, a "Remove Background" toggle passes each output image through BiRefNet. Add an interactive mask-refinement widget using QPainter brush strokes to correct matting errors before saving. Output alpha channel as transparent PNG. Run as a `QRunnable` to keep the main thread free.
@@ -392,13 +392,13 @@ Add a training history panel to `TrainTab` that reads checkpoint directories and
 #### B. OS Integration & Media Handling
 
 ##### [HIGH] Hardware-Accelerated Frame Extraction
-Replace `cv2.VideoCapture` in the `ImageExtractorTab` and `task_extract_frames()` with a Rust-native FFmpeg binding. Add `base/src/core/video_extractor.rs` using the `ffmpeg-next` crate for hardware-decode support (NVDEC, VAAPI). Expose via PyO3 as `base.extract_frames(path, output_dir, start_ms, end_ms, fps_limit, hw_device)`. This will be dramatically faster than OpenCV for high-resolution H.264/H.265 sources.
+Replace `cv2.VideoCapture` in the `ImageExtractorTab` and `task_extract_frames()` with a C++ FFmpeg binding. Extend `base/src/core/convert.cpp` with `extract_frames()` using `libavcodec`/`libavformat` for hardware-decode support (NVDEC, VAAPI). Expose via pybind11 as `base.core.extract_frames(path, output_dir, start_ms, end_ms, fps_limit, hw_device)`. This will be dramatically faster than OpenCV for high-resolution H.264/H.265 sources.
 
 ##### [HIGH] Video Converter — Quality & Codec Controls
-`base/src/core/video_converter.rs` is skeletal. Build it out with CRF/bitrate selection, hardware encode (NVENC, VAAPI), audio track control (copy / re-encode / strip), and a full container format matrix (mp4, mkv, webm, mov). Surface all options in a `VideoConvertTab` alongside the existing image conversion workflow.
+`base/src/core/convert.cpp`'s `convert_video()` uses a subprocess to ffmpeg. Build it out with CRF/bitrate selection, hardware encode (NVENC, VAAPI), audio track control (copy / re-encode / strip), and a full container format matrix (mp4, mkv, webm, mov). Surface all options in a `VideoConvertTab` alongside the existing image conversion workflow.
 
 ##### [MEDIUM] System Tray Integration & Daemon Mode
-Add a `QSystemTrayIcon` so the desktop app runs in the background while the slideshow daemon and wallpaper rotation are active. The tray menu should expose: pause/resume slideshow, add wallpaper folder, open main window, and quit. The slideshow daemon (`base/src/utils/slideshow_daemon.rs`) already runs as a separate process — the tray is the missing control surface.
+Add a `QSystemTrayIcon` so the desktop app runs in the background while the slideshow daemon and wallpaper rotation are active. The tray menu should expose: pause/resume slideshow, add wallpaper folder, open main window, and quit. The slideshow daemon (`base/src/utils/slideshow.cpp`) already runs as a background thread — the tray is the missing control surface.
 
 ##### [MEDIUM] Drag-and-Drop Desktop Integration
 Enable OS-level drag-and-drop targets for all conversion, merge, and extraction tabs. Accept `text/uri-list` and `application/x-qabstractitemmodeldatalist` mime types so users can drag files directly from a file manager into gallery panels, bypassing the directory picker entirely.
@@ -513,7 +513,7 @@ Add `react-i18next` and extract all user-visible strings into `en.json` translat
 
 ---
 
-### 3. Core Engine & AI Enhancements (Rust / Python Base)
+### 3. Core Engine & AI Enhancements (C++ / Python Base)
 
 #### A. Next-Generation AI Tagging & Search
 
@@ -527,7 +527,7 @@ Implement dynamic virtual albums backed by live `pgvector` HNSW queries. A `Virt
 Transition all `pgvector` `vector` columns from `ivfflat` to `hnsw` index type. This reduces similarity search latency from seconds to milliseconds at 100k+ image scale. Requires a new Django migration that drops the existing IVFFlat index and creates the HNSW index with `(m=16, ef_construction=64)`. Update `image_database.py` to set `hnsw.ef_search = 100` per query.
 
 ##### [MEDIUM] Perceptual Hash Completion
-`task_scan_duplicates()` in `tasks/tasks.py` returns an empty `{}` placeholder for perceptual hash mode. Implement the full pipeline: compute pHash/dHash via the Rust `image_finder.rs` (which already has exact hash support), build a hamming distance matrix, and cluster images with distance ≤ threshold. Return grouped clusters, not a flat list.
+`task_scan_duplicates()` in `tasks/tasks.py` returns an empty `{}` placeholder for perceptual hash mode. Implement the full pipeline: compute pHash/dHash via `base.core.find_similar_images_phash()` (which already has exact hash support), build a hamming distance matrix, and cluster images with distance ≤ threshold. Return grouped clusters, not a flat list.
 
 ##### [MEDIUM] CLIP Ensemble Search
 Support multiple CLIP variants (OpenAI ViT-L/14, MetaCLIP ViT-H/14, SigLIP) stored as separate `vector` columns. Let users select the embedding model at search time, or enable an ensemble mode that averages cosine distances across all available models. Store the model identifier per embedding row so the database supports heterogeneous embedding sources.
@@ -550,19 +550,19 @@ Add an `is_embedded` boolean column to the images table. During embedding passes
 
 ---
 
-#### C. Rust Core Optimizations
+#### C. C++ Base Core Optimizations
 
 ##### [HIGH] Streaming Image Processing
-`base/src/core/image_merger.rs` and `image_converter.rs` load full `DynamicImage` buffers before processing. The benchmark shows a 734MB peak for thumbnail generation. Refactor both to tile-based streaming: process output canvas rows in chunks and write to `BufWriter<File>` directly. Use `image::io::Reader`'s decoder API for scanline-chunk decoding on JPEG, PNG, and TIFF. Target ≤ 200MB peak RAM for a 1,000-image batch at 1080p.
+`base/src/core/merger.cpp` and `convert.cpp` load full OpenCV `cv::Mat` buffers before processing. The benchmark shows a 734MB peak for thumbnail generation. Refactor both to tile-based streaming: process output canvas rows in chunks using `cv::imencode` to write directly to disk. Target ≤ 200MB peak RAM for a 1,000-image batch at 1080p.
 
-##### [HIGH] Async HTTP Crawler in Rust
-`base/src/web/image_crawler.rs` is Selenium-based and single-threaded for direct-URL jobs. Add a Tokio async runtime for non-JS crawls using `reqwest` + `tokio` with configurable concurrency. Reserve Selenium only for JS-rendered pages. This should improve direct-URL crawl throughput by ~10× and reduce WebDriver resource usage significantly.
+##### [HIGH] Async HTTP Crawler in C++
+`base/src/web/image_crawler.cpp` is a stub (Selenium-dependent). Add thread-pool-based HTTP crawling using cpp-httplib with configurable concurrency for direct-URL jobs. Reserve Python Selenium only for JS-rendered pages. This should improve direct-URL crawl throughput by ~10× and reduce WebDriver resource usage significantly.
 
 ##### [MEDIUM] Additional Image Board Crawlers
-Extend the `image_board_crawler.rs` framework with new platform crawlers: Twitter/X media downloads, ArtStation gallery scraper, Pixiv (with OAuth), and Pinterest board downloader. Each should implement the `Crawler` trait and be selectable from the `ImageCrawlerTab` board-type dropdown.
+Extend the `base/src/web/board_crawler.cpp` framework with new platform crawlers: Twitter/X media downloads, ArtStation gallery scraper, Pixiv (with OAuth), and Pinterest board downloader. Each should subclass the `Crawler` interface and be selectable from the `ImageCrawlerTab` board-type dropdown.
 
 ##### [MEDIUM] Parallel Web Crawler Progress Reporting
-The current crawlers run as opaque blocking operations with no mid-crawl feedback. Add a progress callback channel (Rust `mpsc::Sender`) that emits per-download events (URL, file size, local path) back to Python via PyO3, so the `ImageCrawlerTab` progress bar reflects real-time download count rather than a spinner.
+The current crawlers run as opaque blocking operations with no mid-crawl feedback. Add a progress callback using a `std::function<void(const std::string&, size_t, const std::string&)>` callback parameter in `base/src/web/board_crawler.cpp` that emits per-download events (URL, file size, local path) back to Python via pybind11, so the `ImageCrawlerTab` progress bar reflects real-time download count rather than a spinner.
 
 ---
 
@@ -865,10 +865,10 @@ Add a crop-to-ratio helper in `ConvertTab` that lets users specify a target aspe
 Add a metadata editor tab that can write EXIF/XMP fields (title, description, keywords, copyright, GPS) to a batch of selected images. Support "copy metadata from one image to many" for quick-tagging datasets. Wire into the `ScanMetadataTab` workflow.
 
 ##### [MEDIUM] Color Palette Extractor
-Add a palette extraction feature accessible from image preview and `SearchTab`. Extract the N dominant colors from an image using k-means (backed by the Rust core). Show swatches with hex values and copy-to-clipboard. Add "Search by Color" functionality that encodes the dominant palette into a query vector for pgvector similarity search.
+Add a palette extraction feature accessible from image preview and `SearchTab`. Extract the N dominant colors from an image using k-means (backed by the C++ core, exposed as `base.core.extract_palette()`). Show swatches with hex values and copy-to-clipboard. Add "Search by Color" functionality that encodes the dominant palette into a query vector for pgvector similarity search.
 
 ##### [MEDIUM] Slideshow Queue Editor
-The `SlideshowWindow` and `slideshow_daemon.rs` exist but queue management is basic. Add a queue editor panel with drag-to-reorder, per-image duration overrides, transition type selector (fade, cut, slide), and a "play from here" action on any item.
+The `SlideshowWindow` and `slideshow.cpp` daemon exist but queue management is basic. Add a queue editor panel with drag-to-reorder, per-image duration overrides, transition type selector (fade, cut, slide), and a "play from here" action on any item.
 
 ##### [LOW] Export Dataset Manifest
 From `DatabaseTab`, add an "Export Dataset" action that writes a JSONL or CSV manifest of all images in a group or subgroup, including paths, tags, captions, and embedding norms. This feeds directly into `lora_dataset.py` and external training tools without manual file organization.

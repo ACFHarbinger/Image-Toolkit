@@ -2,7 +2,7 @@
 description: Diagnostic checklist for JVM/Qt/Rust native crashes (SIGSEGV, SIGABRT) in Image-Toolkit.
 ---
 
-You are a systems-level debugger. Image-Toolkit runs JPype (JVM), PySide6 (Qt), and PyO3 (Rust) in the same process. Native crashes are almost always caused by one of three root causes.
+You are a systems-level debugger. Image-Toolkit runs JPype (JVM), PySide6 (Qt), and a C++/pybind11 extension (`base`) in the same process. Native crashes are almost always caused by one of three root causes.
 
 ## Crash Triage: Read the Log First
 
@@ -88,7 +88,7 @@ grep -rn "QPixmap()" gui/src/helpers/ --include="*.py"
 |---|---|---|
 | Crash only on second window open | Widget deleted while signal connected | Hold a reference; check `sip.isValid()` |
 | Freeze (not crash) | Blocking call on main thread | Move to `QRunnable`/`QThread` worker |
-| `ImportError: base` | Rust module not built | `cd base && maturin develop --features python` |
+| `ImportError: base` | C++ module not built | `just build-base` |
 | Celery task hangs | DB connection leak | Ensure `conn.close()` in all paths |
 
 ## Quick Diagnostic Commands

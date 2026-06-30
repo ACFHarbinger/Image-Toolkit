@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-*Last updated: 2026-06-19. Supersedes `docs/TROUBLESHOOT.md` (SIGSEGV-only). Expanded to cover PySide6/Qt crashes, ASP pipeline errors, Rust/PyO3 build failures, Hydra CLI issues, mobile build failures, and database problems.*
+*Last updated: 2026-06-29. Supersedes `docs/TROUBLESHOOT.md` (SIGSEGV-only). Expanded to cover PySide6/Qt crashes, ASP pipeline errors, C++/pybind11 build failures, Hydra CLI issues, mobile build failures, and database problems.*
 
 ---
 
@@ -8,7 +8,7 @@
 
 - [PySide6 / Qt Crashes (SIGSEGV)](#pyside6--qt-crashes-sigsegv)
 - [ASP Pipeline Errors](#asp-pipeline-errors)
-- [Rust / PyO3 Build Failures](#rust--pyo3-build-failures)
+- [C++ / pybind11 Build Failures](#cpp-pybind11-build-failures)
 - [Hydra CLI Configuration Errors](#hydra-cli-configuration-errors)
 - [Database (PostgreSQL / pgvector)](#database-postgresql--pgvector)
 - [Tauri / Frontend Build Failures](#tauri--frontend-build-failures)
@@ -185,7 +185,7 @@ CANVAS_MAX_DIM = 32768  # increase from default 16384
 
 ```python
 from backend.src.animation.config import load_asp_config
-load_asp_config("asp_config.toml", override_env=True)  # TOML wins over env
+load_asp_config("backend/config/asp_config.toml", override_env=True)  # TOML wins over env
 ```
 
 Or: set the value directly in the environment (env always wins by default):
@@ -195,76 +195,63 @@ unset ASP_HOLD_THRESHOLD
 
 ---
 
-## <a id="rust--pyo3-build-failures"></a>Rust / PyO3 Build Failures
+## <a id="cpp-pybind11-build-failures"></a>C++ / pybind11 Build Failures
 
 ### `ModuleNotFoundError: No module named 'base'`
 
-**Cause:** The PyO3 Rust extension has not been compiled for the active Python environment.
+**Cause:** The pybind11 C++ extension has not been compiled for the active Python environment.
 
 **Fix:**
 ```bash
 source .venv/bin/activate
-cd base
-maturin develop --release
+just build-base
 ```
 
-If `maturin` is not installed:
+If CMake or pybind11 is not installed:
 ```bash
-pip install maturin
+sudo apt install cmake libopencv-dev
+pip install pybind11
 ```
 
 ---
 
-### `maturin develop` fails: `abi3-py311 feature requires Python 3.11+`
+### `cmake` fails: `Could not find pybind11`
 
-**Cause:** The active Python interpreter is < 3.11.
+**Cause:** pybind11 Python package is not installed in the active venv.
 
 **Fix:** Activate the correct environment:
 ```bash
 source .venv/bin/activate
-python --version  # must be 3.11+
+pip install pybind11
+just build-base
 ```
 
 ---
 
-### `cargo build` fails: `error: linking with cc failed`
+### `cmake` fails: `error: linking with cc failed`
 
 **Ubuntu/Debian — missing system libraries:**
 ```bash
 sudo apt install -y \
   libssl-dev pkg-config \
   libpqxx-dev \
-  libgumbo-dev \
   nlohmann-json3-dev \
-  libcxxopts-dev
+  libopencv-dev
 ```
 
 **macOS:**
 ```bash
-brew install openssl@3 pkg-config
+brew install openssl@3 pkg-config opencv
 export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig"
 ```
 
 ---
 
-### `pyo3` version mismatch: `Python API version mismatch`
+### `OpenMP` threads panic in tests
 
-**Cause:** The compiled `.so` was built with a different pyo3 version than the one in `Cargo.lock`.
+**Symptom:** Tests in `backend/test/animation/` hang with deadlock-like behaviour.
 
-**Fix:**
-```bash
-cd base
-cargo clean
-maturin develop --release
-```
-
----
-
-### `rayon` thread pool panic in tests
-
-**Symptom:** Tests in `backend/test/animation/` hang or panic with "cannot recursively acquire rayon global lock".
-
-**Cause:** Multiple rayon thread pools being initialised in parallel test workers.
+**Cause:** Multiple OpenMP thread pools being initialised in parallel test workers.
 
 **Fix:** Run tests with `--skip-gpu` and the `pytest-xdist` work-steal distribution:
 ```bash
@@ -550,7 +537,7 @@ pip install pytest-forked pytest-xdist
 
 1. **Signal Safety** — Use `deleteLater()` on all `QObject` members of `QRunnable` when `setAutoDelete(True)` is set.
 2. **Graceful Tab Exit** — Always override `closeEvent` and halt active `QThread` / `QProcess` workers before the widget is destroyed.
-3. **Bridge Synchronisation** — Serialise all JPype (JVM) and PyO3 (Rust) calls from worker threads using the appropriate lock.
+3. **Bridge Synchronisation** — Serialise all JPype (JVM) and pybind11 (C++) calls from worker threads using the appropriate lock.
 4. **No Native Dialogs on Linux** — Pass `QFileDialog.Option.DontUseNativeDialog` to every `QFileDialog` call while JPype is active.
 5. **No `QWebEngineView`** — Open URLs via `QDesktopServices.openUrl()`. The Chromium/Vulkan renderer conflicts with the JVM.
 6. **Lazy ML imports** — Never import `diffusers`, `transformers`, `torch`, or large ML libraries at module level in `animation/` modules. Use lazy imports inside functions.

@@ -29,8 +29,8 @@ flowchart TD
         RECENG["Recommendation-Engine/\n(SQLite + cosine RRF)"]
     end
 
-    subgraph RustCore["Rust Core  ·  base/"]
-        RUST["PyO3 extension\n(image_converter,\nfile_system, crawlers)"]
+    subgraph CppCore["C++ Core  ·  base/"]
+        RUST["pybind11 extension\n(image_converter,\nfile_system, crawlers)"]
         RUSTMATH["math/\n(stats, distance,\ninformation)"]
     end
 
@@ -97,7 +97,7 @@ flowchart TD
 | `QFileDialog` must use `DontUseNativeDialog` | GTK portal + JPype JVM → `__dynamic_cast` SIGSEGV on Linux |
 | No `QWebEngineView` | Chromium Vulkan/GBM init conflicts with JPype JVM RTTI |
 | `QPixmap` only on main thread; workers emit `QImage` | Qt threading contract |
-| Rust core is a `cdylib` loaded at runtime (not `staticlib`) | PyO3/Maturin constraint; `crate-type = ["cdylib", "rlib"]` in `base/Cargo.toml` |
+| C++ core is a shared library loaded at runtime | pybind11/CMake; built as a Python extension module (`.so`) via `just build-base` |
 | No SQLite in the main app (PostgreSQL + pgvector only) | `Recommendation-Engine/` uses SQLite as a standalone sub-project |
 
 ---

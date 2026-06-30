@@ -4,6 +4,111 @@
 
 ---
 
+## S203 — 2026-06-30 (Rust→C++ migration complete — file split + archive)
+
+**Finalise the Rust→C++ migration: one class per file, web module reorganised, roadmap archived.**
+
+- **board crawlers split** — `board_crawler.cpp` now includes per-class headers: `include/web/crawlers/crawler_base.hpp`, `danbooru.hpp`, `gelbooru.hpp`, `sankaku.hpp`. Orchestrator + registration remain in `board_crawler.cpp`.
+- **cloud sync split** — `cloud_sync.cpp` now includes per-class headers: `include/web/cloud/cloud_sync_base.hpp`, `dropbox_sync.hpp`, `google_drive_sync.hpp`, `onedrive_sync.hpp`. Orchestrator + registration remain in `cloud_sync.cpp`.
+- **web/clients/ subdir** — `web_requests.cpp`, `image_crawler.cpp`, `reverse_image_search.cpp` moved to `src/web/clients/` (mirrors Rust archive's `web/clients/` layout). `CMakeLists.txt` updated.
+- **Roadmap archived** — `moon/roadmaps/rust_to_cpp_migration.md` → `moon/archive/rust_to_cpp_migration.md`. Status updated to "All 13 phases done". Stale path references in `image_batch.cpp`, `video_batch.cpp`, `vault_db.cpp` updated.
+
+---
+
+## S202 — 2026-06-29 (Rust→C++ migration Phase 13 — full math parity + scan_files_multi)
+
+**Phase 13: Close all remaining gaps between Rust archive math and C++ headers**
+
+Math library additions (all headers in `base/include/math/`):
+- **distance**: `chebyshev`, `minkowski(p)`, `pairwise_distance_matrix`, `condensed_distance_matrix`
+- **stats**: `sample_variance`, `sample_std_dev`, `covariance`, `min_val`, `max_val`, `percentile`, `iqr`, `histogram`, `counts_to_probs`, `covariance_matrix`
+- **information**: `entropy_nats`, `empirical_entropy`, `joint_entropy`, `conditional_entropy`, `total_variation`, `mutual_information_discrete`, `normalised_mutual_information`, `cross_entropy`
+- **graph**: `connected_components` (BFS-based, vector-as-queue pattern)
+- **linalg**: `dot`, `norm`, `normalize`, `vec_sub`, `vec_add`, `vec_scale`, `gram_schmidt_step`, `pca_2d`; added `<array>` and `<cmath>` includes
+- **dim_reduce**: `geodesic_distances` (O(n³) Dijkstra all-pairs)
+- `base/src/math/math_bindings.cpp`: all new functions bound with `py::gil_scoped_release`
+- `base/src/image/scan_files.cpp` + `base/include/image/scan_files.hpp`: `scan_files_multi(root_dirs, exts, recursive)` — sorted+deduplicated multi-directory scan
+- `backend/src/utils/base_dispatch.py`: `NativeExt.scan_files_multi` wired
+- Migration roadmap updated with Phase 13 section
+
+---
+
+## S201 — 2026-06-29 (Rust→C++ migration Phase 12 — parity tests)
+
+**Phase 12: Integration tests for all Phase 8–11 C++ base functions**
+- `backend/test/base/test_parity_core.py`: 15+ tests for `base.core` (convert_single_image, get_files_by_extension, delete_path, find_duplicate_images, find_similar_images_phash, merge_images_*, wallpaper callables)
+- `backend/test/base/test_parity_math.py`: 25+ tests for `base.math` submodules (distance, stats, information, graph, linalg, dim_reduce)
+- `backend/test/base/test_parity_utils.py`: 12 tests for `base.utils` (slideshow daemon JSON protocol, migration callable/stub error) and `base.web` (reverse_image_search/image_crawler stub contracts, board_crawler/run_sync callable checks)
+- All tests guarded by `skipif(not HAS_BASE)` — pass without building C++ extension; run on CI when built
+- Migration roadmap status updated to reflect 12 phases complete
+
+---
+
+## S200 — 2026-06-29 (Rust→C++ migration Phases 8–11 — all 27 functions ported)
+
+**Phase 8: `base.core` — image/video conversion, filesystem, finder, merger, wallpaper**
+- `base/src/core/convert.cpp`: `convert_single_image` (OpenCV AR transforms: crop/pad/stretch), `convert_image_batch` (OpenMP parallel), `convert_video` (ffmpeg subprocess)
+- `base/src/core/filesystem.cpp`: `get_files_by_extension` (case-insensitive, recursive), `delete_files_by_extensions` (OpenMP parallel, `std::atomic<int>` counter), `delete_path` (file or tree)
+- `base/src/core/finder.cpp`: `find_duplicate_images` (SHA-256 via OpenSSL EVP or inline FIPS 180-4 fallback, OpenMP parallel hashing), `find_similar_images_phash` (8×8 INTER_AREA pHash, Union-Find grouping, Hamming ≤ threshold)
+- `base/src/core/merger.cpp`: `merge_images_horizontal`, `merge_images_vertical`, `merge_images_grid` (two-pass OpenCV: dims pass → blit pass, white canvas, BGRA/GRAY → BGR flatten)
+- `base/src/core/wallpaper.cpp`: `set_wallpaper_gnome` (gsettings picture-uri + picture-options), `evaluate_kde_script` (qdbus via `popen`)
+- `base/CMakeLists.txt`: OpenSSL detection added (→ `HAVE_OPENSSL=1`); inline SHA-256 fallback when absent
+
+**Phase 9: `base.web` extensions — board crawlers, cloud sync, stubs**
+- `base/src/web/board_crawler.cpp`: abstract `Crawler` interface + `DanbooruCrawler` (GET JSON API), `GelbooruCrawler` (dapi envelope unwrap), `SankakuCrawler` (POST JWT auth to `login.sankakucomplex.com`, then capi-v2); `BoardCrawlerRunner` orchestrates pagination + 5-req/1s rate limit + 500ms post delay; `run_board_crawler(name, config, cb) -> int`
+- `base/src/web/cloud_sync.cpp`: abstract `CloudSync` interface + `DropboxSync` (list_folder cursor pagination, upload to content API, download), `GoogleDriveSync` (multipart REST upload, Drive v3), `OneDriveSync` (Graph API v1.0); bidirectional sync plan builder; `run_sync(provider, config, cb) -> str`
+- `base/src/web/reverse_image_search.cpp`: STUB — raises `RuntimeError` (Rust impl used `thirtyfour`/Selenium; no C++ WebDriver equivalent)
+- `base/src/web/image_crawler.cpp`: STUB — same reason
+- `web_requests.cpp`: Phase 9 functions registered via `register_web()`
+
+**Phase 10: `base.utils` — migration and slideshow daemon**
+- `base/src/utils/migration.cpp`: `run_legacy_migration` — JSON vault (flat map, entries array, or `{entries:[...]}`) → SQLCipher DB; key = `username:password`; creates `vault_entries` + `vault_meta` tables; guarded by `#ifdef HAVE_SQLCIPHER` (raises `RuntimeError` otherwise)
+- `base/src/utils/slideshow.cpp`: `run_slideshow_daemon` — process-lifetime `std::thread` singleton; actions: start/stop/status/next/configure; timed advance via `std::condition_variable::wait_for`; config persisted to `~/.image-toolkit/.slideshow_config.json` (nlohmann/json); wallpaper set via gsettings
+
+**Phase 11: `base.math` Python bindings**
+- `base/src/math/math_bindings.cpp`: pybind11 wrappers for all 6 math headers (previously header-only, no Python access)
+- `base.math.distance`: euclidean, euclidean_sq, cosine_similarity, cosine_distance, hamming, bhattacharyya, hellinger, manhattan
+- `base.math.stats`: mean, median, std_dev, variance, pearson, z_score, min_max_normalize
+- `base.math.information`: shannon_entropy, kl_divergence, js_divergence, js_distance, mutual_information
+- `base.math.graph`: `Graph` class + bfs, dfs, kruskal_mst, kruskal_max_mst, tarjan_scc, topological_sort; `KruskalEdge` + `SCCResult` types exposed
+- `base.math.linalg`: `Matrix` class (Eigen backend) + pca → `PCAResult` (scores, components, explained_variance_ratio)
+- `base.math.dim_reduce`: mds (classical MDS on distance matrix), tsne_affinities (symmetric P matrix)
+- `backend/src/utils/base_dispatch.py`: all 27 new functions routed via `NativeExt` static methods
+
+**Migration audit: all 27 Rust `#[pyfunction]`s now ported**
+- 9 previously ported (Phases 2–5 + 7): `load_image_batch`, `scan_files`, `extract_video_thumbnails_batch`, 5 secret functions, `run_web_requests_sequence`
+- 18 newly ported (Phases 8–11): all above + `run_legacy_migration`, `run_slideshow_daemon`, `run_board_crawler`, `run_sync`, `run_reverse_image_search` (stub), `run_image_crawler` (stub), all core/math functions
+- Roadmap updated: status line corrected to "All 11 phases done"
+
+---
+
+## S199 — 2026-06-29 (Rust→C++ migration Phase 7 — final rename & retirement)
+
+- **Phase 7 complete** — `batch/` renamed to `base/` via `git mv`; Rust `base/` archived to `archive/base_rust/`
+- `PYBIND11_MODULE(batch, m)` → `PYBIND11_MODULE(base, m)`; all `batch::` namespaces → `base::`; all `#include "batch/..."` → `#include "base/..."`; `batch/include/batch/` → `base/include/`
+- `base/CMakeLists.txt` + `base/tests/CMakeLists.txt`: target names updated (`batch` → `base`, `batch_impl` → `base_impl`, `batch_tests` → `base_tests`, `BATCH_BUILD_TESTS` → `BASE_BUILD_TESTS`)
+- `backend/src/utils/base_dispatch.py` simplified: dual-module dispatch removed; `import base` resolves directly to C++ extension; `NativeExt` now a thin alias with static submodule forwarders
+- `tools/build/justfile`: `build-base` now runs cmake against `base/`; `build-batch` recipe removed; `build-all` no longer includes `build-batch`
+- `tools/test/justfile`: `test-batch-cpp/py/bench` → `test-base-cpp/py/bench`; backwards-compat aliases kept
+- `desktop/linux/scripts/build_base.sh`: replaces Rust maturin/cargo build with cmake build
+- `Cargo.toml`: `base` workspace member removed (archived)
+- `.github/workflows/security.yml`: `cargo-audit` step updated to scan `frontend/src-tauri` only (base Rust crate retired)
+- Animation Python files: `import batch` → `import base as batch` (25 call sites)
+- Rust→C++ migration fully complete — all 7 phases done
+
+---
+
+## S198 — 2026-06-29 (Rust→C++ migration · Phases 1–6 implementation)
+
+- **CMake Phase 1 deps** — `batch/CMakeLists.txt` and `batch/tests/CMakeLists.txt` extended: optional SQLCipher+libsodium via `pkg_check_modules` (sets `HAVE_SQLCIPHER=1` when both found); `cpp-httplib v0.18.0` and `nlohmann/json v3.11.3` auto-fetched via FetchContent; include dirs wired to both `batch` and `batch_impl` targets; conditional SQLCipher/libsodium link block added
+- **Dispatch shim** — `backend/src/utils/base_dispatch.py` created; `NativeExt` class with static methods routing Phase 2–5 functions to `batch.image/video/secret/web` with exception-guarded fallback to Rust `base`; module-level `__getattr__` proxies any unrecognised name to Rust `base`; `_HAS_IMAGE/VIDEO/SECRET/WEB` flags set once at import
+- **Phase 4 — vault_db.cpp** — full `HAVE_SQLCIPHER` implementation: `load_or_create_salt` ({db_path}.salt sidecar), `derive_key` (Argon2id via `crypto_pwhash`), `open_db` (PRAGMA key with raw 32-byte hex blob), schema init; `insert_listing_secure` (upsert), `hybrid_search_secure` (linear-scan cosine + `partial_sort` top-k), `fetch_all_listings_secure`, `delete_listing_secure`, `fetch_listings_as_arrow_pointers` (ArrowArray/ArrowSchema structs defined inline — no nanoarrow dep; id+metadata utf8 columns; RAII release callbacks); `#else` stubs raise `py::type_error` for graceful Rust fallback
+- **Phase 5 — web_requests.cpp** — full cpp-httplib + nlohmann/json implementation; `parse_base_url` splits scheme/host/port/path; `parse_post_data` parses "key:val,key:val" form params; GIL released for HTTP I/O, reacquired for `on_status_emitted`/`on_error_emitted` callbacks and `_is_running` cancellation check; all 5 action types implemented (`Print Response URL/Status/Headers/Content`, `Save Response Content (Binary)` with parent dir creation); 500ms inter-request delay; returns `"All requests finished."` or `"Cancelled."` — matches Rust protocol exactly
+- **Phase 6 — bundle_adjust.cpp** — replaced local `parent` vector + `find_root` lambda with `batch::math::UnionFind uf(N)` from `batch/math/graph.hpp`; inner `if (pi != pj)` block replaced with `if (uf.unite(i, j))`; include added
+- **Roadmap** — `moon/roadmaps/rust_to_cpp_migration.md` updated: status line → `IN PROGRESS — Phases 1–6 complete; Phase 7 pending`; Phases 1–6 marked ✅; Phase 7 marked PENDING
+
+---
+
 ## S197 — 2026-06-29 (Rust→C++ migration skeleton · batch/ directory reorganisation)
 
 - **Rust→C++ migration roadmap** — `moon/roadmaps/rust_to_cpp_migration.md` created; 7-phase plan covering `batch::image`, `batch::video`, `batch::secret`, `batch::web`, `batch::math` (header-only) and final rename `batch/`→`base/`

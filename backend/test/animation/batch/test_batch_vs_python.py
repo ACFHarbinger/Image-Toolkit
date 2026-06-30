@@ -33,7 +33,7 @@ import numpy as np
 import pytest
 
 try:
-    import batch
+    import base as batch
 
     HAS_BATCH = True
 except ImportError:

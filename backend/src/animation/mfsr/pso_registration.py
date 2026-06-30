@@ -28,7 +28,7 @@ from backend.src.constants import (
 )
 
 try:
-    import batch as _batch_sr
+    import base as _batch_sr
     _BATCH_SR = True
 except ImportError:
     _batch_sr = None

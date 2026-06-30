@@ -477,7 +477,7 @@ class TestAnimeInterpFlow:
 # ---------------------------------------------------------------------------
 
 try:
-    import batch as _batch_fgreg_test
+    import base as _batch_fgreg_test
     _HAS_BATCH_FGREG = True
 except ImportError:
     _HAS_BATCH_FGREG = False

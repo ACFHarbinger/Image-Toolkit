@@ -1,7 +1,7 @@
 """
 Thumbnail generation performance benchmarks.
 
-Measures the speed of native Rust image scaling and FFmpeg video thumbnailing.
+Measures the speed of native C++ image scaling and FFmpeg video thumbnailing.
 """
 
 import sys
@@ -18,10 +18,10 @@ root_dir = backend_dir.parent
 sys.path.insert(0, str(backend_dir))
 sys.path.insert(0, str(root_dir))
 
-from backend.benchmark.utils import BenchmarkRunner, measure_memory  # noqa: E402
+from backend.benchmark.tracker_manager import BenchmarkManager, measure_memory  # noqa: E402
 from backend.src.constants import HAS_NATIVE_IMAGING  # noqa: E402
 
-# Native image loading (Rust Base)
+# Native image loading (CPP Base)
 if HAS_NATIVE_IMAGING:
     import base
 
@@ -35,7 +35,7 @@ except ImportError:
     HAS_VIDEO_THUMBNAILER = False
 
 
-runner = BenchmarkRunner("Thumbnail Generation")
+runner = BenchmarkManager("Thumbnail Generation")
 
 
 def create_test_image(size=(1920, 1080)):
@@ -72,7 +72,7 @@ def create_test_video(path: str, duration: int = 5):
 @runner.benchmark("image_thumbnail_single_native", iterations=10, warmup=2)
 @measure_memory
 def bench_image_single():
-    """Benchmark generating a single 180px thumbnail using Native Rust."""
+    """Benchmark generating a single 180px thumbnail using Native C++."""
     if not HAS_NATIVE_IMAGING:
         print("Skipping Native Imaging benchmark")
         return None
@@ -84,7 +84,7 @@ def bench_image_single():
         tmp_path = tmp.name
 
     # Benchmark load_image_batch on a 1 item list
-    results = base.load_image_batch([tmp_path], 180)
+    results = base.load_image_batch([tmp_path], 180) # pyrefly: ignore [missing-attribute]
 
     # Cleanup
     Path(tmp_path).unlink()
@@ -95,7 +95,7 @@ def bench_image_single():
 @runner.benchmark("image_thumbnail_batch_10_native", iterations=5, warmup=1)
 @measure_memory
 def bench_image_batch_10():
-    """Benchmark generating 10 180px thumbnails using Native Rust batch process."""
+    """Benchmark generating 10 180px thumbnails using Native C++ batch process."""
     if not HAS_NATIVE_IMAGING:
         return None
 
@@ -108,7 +108,7 @@ def bench_image_batch_10():
             tmp_paths.append(tmp.name)
 
     # Benchmark parallel batch processing
-    results = base.load_image_batch(tmp_paths, 180)
+    results = base.load_image_batch(tmp_paths, 180) # pyrefly: ignore [missing-attribute]
 
     # Cleanup
     for path in tmp_paths:
