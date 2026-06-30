@@ -83,7 +83,7 @@ const MergeTab = forwardRef<MergeTabHandle, MergeTabProps>(
     const [alignMode, setAlignMode] = useState("center");
     const [gridRows, setGridRows] = useState(2);
     const [gridCols, setGridCols] = useState(2);
-    const [duration, setDuration] = useState(500);
+    const [duration] = useState(500);
 
     const inputDirRef = useRef<HTMLInputElement>(null);
     const outputDirRef = useRef<HTMLInputElement>(null);

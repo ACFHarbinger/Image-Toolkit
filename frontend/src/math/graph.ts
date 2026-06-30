@@ -1,7 +1,7 @@
 /** Graph data structures and Fruchterman-Reingold force-directed layout for
  *  the analytics dependency graph visualisation (Phase 1, Phase 4.2). */
 
-import { Vec2, add2, sub2, scale2, len2, norm2 } from './linalg';
+import { Vec2, add2, sub2, scale2, len2 } from './linalg';
 
 export interface GraphNode {
   id: string;

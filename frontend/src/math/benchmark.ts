@@ -6,8 +6,8 @@
  *  dashboard component calls these functions and renders SVG from the results.
  */
 
-import { mean, stdDev, percentile, min, max, normalize01 } from './stats';
-import { applyColormap, applyColormapHex, ColormapName } from './colormap';
+import { mean, min, max } from './stats';
+import { applyColormapHex } from './colormap';
 
 // ── Type mirrors of the Tauri Rust types (kept in sync) ──────────────────────
 
