@@ -1,3 +1,16 @@
+/*!
+    \qmltype R3GANGenerateTab
+    \inqmlmodule ImageToolkit.Tabs.Models.Gen
+    \brief R3GAN sample generation sub-tab.
+
+    R3GANGenerateTab generates samples from a pre-trained R3GAN network pickle.
+    Users specify the network \c .pkl path, a seed range string (e.g.    \c "0-63"), and an optional class conditioning index.  Clicking
+    \e {Generate Samples} calls:
+
+    \code
+    mainBackend.generateTab.r3gan_tab.generate_from_qml(network, seeds, classIdx)
+    \endcode
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

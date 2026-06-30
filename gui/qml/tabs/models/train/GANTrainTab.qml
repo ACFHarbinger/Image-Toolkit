@@ -1,3 +1,13 @@
+/*!
+    \qmltype GANTrainTab
+    \inqmlmodule ImageToolkit.Tabs.Models.Train
+    \brief Custom GAN training sub-tab.
+
+    GANTrainTab configures a GAN training run with controls for GAN type
+    (DCGAN, WGAN-GP, or SNGAN), optimiser, total iterations, and checkpoint
+    save frequency.  The \e {Train GAN} button is shown but the backend
+    slot is not yet wired.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

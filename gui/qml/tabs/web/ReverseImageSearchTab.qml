@@ -1,3 +1,28 @@
+/*!
+    \qmltype ReverseImageSearchTab
+    \inqmlmodule ImageToolkit.Tabs.Web
+    \brief Reverse image search tab.
+
+    ReverseImageSearchTab scans a source directory, lets the user select an
+    image, then submits it to the chosen search engine:
+    \list
+      \li \b {Google Lens} — browser automation with resolution filter.
+      \li \b TinEye — API-based with top-k and credential hint.
+      \li \b {Local AI CBIR} — local content-based image retrieval index.
+    \endlist
+
+    \qmlproperty var ReverseImageSearchTab::tab
+    Readonly alias to \c mainBackend.reverseSearchTab.
+
+    \qmlproperty bool ReverseImageSearchTab::isGoogle
+    \c true when the Google Lens engine is selected.
+
+    \qmlproperty bool ReverseImageSearchTab::isTinEye
+    \c true when the TinEye engine is selected.
+
+    \qmlproperty bool ReverseImageSearchTab::isLocalCBIR
+    \c true when the Local AI CBIR engine is selected.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

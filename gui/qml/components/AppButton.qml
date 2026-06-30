@@ -1,3 +1,15 @@
+/*!
+    \qmltype AppButton
+    \inqmlmodule ImageToolkit.Components
+    \brief Styled accent-colour push button.
+
+    AppButton extends \l Button with Image Toolkit's accent palette.  The
+    background lightens on hover and darkens on press.  Default size is
+    100 × 40 px.
+
+    \qmlproperty string AppButton::text
+    Label displayed on the button face.  Defaults to \c "Button".
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import "../"

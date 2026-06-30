@@ -1,3 +1,18 @@
+/*!
+    \qmltype SearchTab
+    \inqmlmodule ImageToolkit.Tabs.Database
+    \brief Database keyword and tag search tab.
+
+    SearchTab presents a filter panel (keyword text field, tag checkboxes, file
+    format checkboxes) on the left and a results \l GalleryView on the right.
+    Selection actions allow sending results to other tabs.
+
+    Key backend calls:
+    \list
+      \li \c execute_search() — runs the filter and populates the results model
+      \li \c clear_filters() — resets all filter fields
+    \endlist
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

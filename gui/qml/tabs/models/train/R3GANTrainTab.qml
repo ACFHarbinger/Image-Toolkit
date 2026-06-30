@@ -1,3 +1,14 @@
+/*!
+    \qmltype R3GANTrainTab
+    \inqmlmodule ImageToolkit.Tabs.Models.Train
+    \brief R3GAN training sub-tab.
+
+    R3GANTrainTab launches an R3GAN training run from a ZIP archive or
+    directory dataset.  Controls cover the dataset path, output directory,
+    GPU count, and output resolution (256, 512, or 1024 px).  Clicking
+    \e {Launch R3GAN Training} starts the run.  The backend slot is not yet
+    wired.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

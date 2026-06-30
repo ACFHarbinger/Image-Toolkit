@@ -1,3 +1,14 @@
+/*!
+    \qmltype LoRATrainTab
+    \inqmlmodule ImageToolkit.Tabs.Models.Train
+    \brief LoRA fine-tuning sub-tab.
+
+    LoRATrainTab configures LoRA fine-tuning with controls for dataset
+    directory, base model, LoRA rank, learning rate (six-decimal precision),
+    batch size, epoch count, and output filename.  \e {Start Training} and
+    \e {Stop} buttons and a training log text area are provided.  Backend
+    training slots are not yet wired.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
