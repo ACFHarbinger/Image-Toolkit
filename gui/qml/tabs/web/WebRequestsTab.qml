@@ -1,3 +1,21 @@
+/*!
+    \qmltype WebRequestsTab
+    \inqmlmodule ImageToolkit.Tabs.Web
+    \brief HTTP request sequencer tab.
+
+    WebRequestsTab builds and executes an ordered sequence of HTTP GET/POST
+    requests against a configurable base URL.  Each request can carry an
+    optional parameter string.  A second list of response actions (print
+    status, headers, content, or save binary) is applied to every successful
+    response.  A green console log streams progress.
+
+    Key backend calls:
+    \list
+      \li \c add_request(type, param) / \c remove_request(index)
+      \li \c add_action(type, param) / \c remove_action(index)
+      \li \c start_requests() / \c cancel_requests()
+    \endlist
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

@@ -1,3 +1,18 @@
+/*!
+    \qmltype LoRAGenerateTab
+    \inqmlmodule ImageToolkit.Tabs.Models.Gen
+    \brief LoRA / diffusion model image generation sub-tab.
+
+    LoRAGenerateTab supports LoRA-fine-tuned diffusion inference.  Controls
+    include base model combo, LoRA \c .safetensors path, output filename,
+    positive and negative prompts, step count, guidance scale (0.1 precision),
+    and batch size.  Clicking \e {Generate Images} calls:
+
+    \code
+    mainBackend.generateTab.anything_tab.generate_from_qml(
+        model, loraPath, output, posPrompt, negPrompt, steps, guidance, batch)
+    \endcode
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

@@ -20,7 +20,7 @@ Usage
 -----
 Raise the most specific subclass; catch the base when handling groups::
 
-    from backend.src.exceptions import AlignmentFailedError
+    from backend.src.errors import AlignmentFailedError
 
     raise AlignmentFailedError(f"ratio={ratio:.2f} < 0.5 after Retry 5")
 
@@ -93,14 +93,3 @@ class ConfigError(ImageToolkitError):
     Used by ``validate_asp_config()`` in strict mode and by the TOML config
     loader when a required key is absent.
     """
-
-
-__all__ = [
-    "ImageToolkitError",
-    "PipelineError",
-    "AlignmentFailedError",
-    "CanvasError",
-    "FallbackExhaustedError",
-    "ModelLoadError",
-    "ConfigError",
-]

@@ -1,3 +1,13 @@
+/*!
+    \qmltype GenerateTab
+    \inqmlmodule ImageToolkit.Tabs.Models
+    \brief Generation dispatcher tab — routes to the active architecture sub-tab.
+
+    GenerateTab hosts a \c StackLayout containing six generation sub-tabs
+    (\l LoRAGenerateTab, \l SD3GenerateTab, \l R3GANGenerateTab,
+    \l GANGenerateTab, \l ComfyGenerateTab, \l DDMGenerateTab).
+    An architecture combo at the top selects the active sub-tab.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
@@ -25,7 +35,9 @@ Item {
                     { text: "LoRA (Diffusion and GANs)", value: "lora" },
                     { text: "Stable Diffusion 3.5", value: "sd3" },
                     { text: "R3GAN (NVLabs)", value: "r3gan" },
-                    { text: "Basic GAN (Custom)", value: "basic_gan" }
+                    { text: "Basic GAN (Custom)", value: "basic_gan" },
+                    { text: "ComfyUI", value: "comfy" },
+                    { text: "DDM (Diffusion)", value: "ddm" }
                 ]
                 textRole: "text"
             }
@@ -41,6 +53,8 @@ Item {
             SD3GenerateTab {}
             R3GANGenerateTab {}
             GANGenerateTab {}
+            ComfyGenerateTab {}
+            DDMGenerateTab {}
         }
     }
 }

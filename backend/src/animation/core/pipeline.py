@@ -145,7 +145,7 @@ from backend.src.animation.alignment.matching import (
     _template_match,
 )
 from backend.src.animation.rendering.photometric import _apply_basic, _correct_vignetting
-from backend.src.exceptions import (
+from backend.src.errors import (
     AlignmentFailedError,  # noqa: F401
     CanvasError,
     PipelineError,

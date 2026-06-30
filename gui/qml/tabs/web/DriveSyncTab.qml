@@ -1,3 +1,22 @@
+/*!
+    \qmltype DriveSyncTab
+    \inqmlmodule ImageToolkit.Tabs.Web
+    \brief Cloud drive synchronisation tab.
+
+    DriveSyncTab connects to Google Drive, Dropbox, or OneDrive using a
+    credentials file and syncs a local directory with a remote folder.
+    Sync options include dry-run mode, overwrite, and integrity verification.
+    A status text area and progress bar reflect the worker's state.
+
+    Key backend calls:
+    \list
+      \li \c start_sync_worker() — starts the background sync
+      \li \c stop_sync_worker() — cancels an in-progress sync
+    \endlist
+
+    Binds to \c mainBackend.driveSyncTab.{dry_run, overwrite,
+    verify_integrity, log_text, progress_value}.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

@@ -39,7 +39,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.src.exceptions import ConfigError
+from backend.src.errors import ConfigError
 
 __all__ = ["load_asp_config", "validate_asp_config", "dump_asp_config", "get_asp"]
 

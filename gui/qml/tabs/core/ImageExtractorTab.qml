@@ -1,3 +1,21 @@
+/*!
+    \qmltype ImageExtractorTab
+    \inqmlmodule ImageToolkit.Tabs.Core
+    \brief Video frame extractor tab.
+
+    ImageExtractorTab provides a video player (via \c QtMultimedia) on the
+    left and an extracted-frames gallery on the right.  Users scrub to a
+    position and request individual frame exports.  Selected frames can be
+    batch-exported via the \e {Export Selected} button.
+
+    Key backend calls:
+    \list
+      \li \c browse_source_qml() — opens a video file picker
+      \li \c extract_single_frame_qml(path, position) — extracts one frame
+    \endlist
+
+    \note Requires the \c QtMultimedia module at runtime.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15

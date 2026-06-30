@@ -1,3 +1,13 @@
+/*!
+    \qmltype R3GANEvaluateTab
+    \inqmlmodule ImageToolkit.Tabs.Models
+    \brief R3GAN model evaluation tab.
+
+    R3GANEvaluateTab lets users select a trained R3GAN network pickle (\c .pkl),
+    a reference dataset directory, and a set of evaluation metrics (FID, KID,
+    Precision/Recall, Inception Score).  Clicking \e {Start Evaluation} runs
+    the metrics and streams output to a log text area.
+*/
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
