@@ -3,14 +3,15 @@
     \inqmlmodule ImageToolkit.Tabs.Models
     \brief Training dispatcher tab — routes to the active architecture sub-tab.
 
-    TrainTab hosts a \c StackLayout containing three training sub-tabs
-    (\l LoRATrainTab, \l R3GANTrainTab, \l GANTrainTab).  An architecture
-    combo at the top selects the active sub-tab.
+    TrainTab hosts a \c StackLayout containing five training sub-tabs
+    (\l LoRATrainTab, \l R3GANTrainTab, \l GANTrainTab, \l CBIRTrainTab,
+    \l StitchTrainTab).  An architecture combo at the top selects the active
+    sub-tab.
 */
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import "train"
+import "delta"
 import "../../components"
 import "../../"
 
@@ -33,7 +34,9 @@ Item {
                 model: [
                     { text: "LoRA (Diffusion and GANs)", value: "lora" },
                     { text: "R3GAN (NVLabs)", value: "r3gan" },
-                    { text: "Basic GAN (Custom)", value: "basic_gan" }
+                    { text: "Basic GAN (Custom)", value: "basic_gan" },
+                    { text: "CBIR (Reverse Search)", value: "cbir" },
+                    { text: "AnimeStitch", value: "stitch" }
                 ]
                 textRole: "text"
             }
@@ -48,6 +51,8 @@ Item {
             LoRATrainTab {}
             R3GANTrainTab {}
             GANTrainTab {}
+            CBIRTrainTab {}
+            StitchTrainTab {}
         }
     }
 }
