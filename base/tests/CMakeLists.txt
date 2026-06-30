@@ -68,13 +68,13 @@ add_library(base_impl STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/secret/vault_db.cpp
 
     # HTTP request sequencing (Phase 5)
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/web_requests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/clients/web_requests.cpp
 
     # Phase 9: web extensions (board crawlers, cloud sync, stubs)
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/board_crawler.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/cloud_sync.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/reverse_image_search.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/image_crawler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/clients/reverse_image_search.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/clients/image_crawler.cpp
 )
 
 # The implementation files include pybind11 headers only to get
