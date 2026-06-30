@@ -1,14 +1,10 @@
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
+from shiboken6 import Shiboken
+from backend.src.constants import HAS_NATIVE_IMAGING
 
-from concurrent.futures import Executor
-
-try:
+if HAS_NATIVE_IMAGING:
     import base
-
-    HAS_NATIVE_IMAGING = True
-except ImportError:
-    HAS_NATIVE_IMAGING = False
 
 
 def process_image_batch(paths: list[str], target_size: int):
@@ -26,7 +22,7 @@ def process_image_batch(paths: list[str], target_size: int):
         return []
 
 
-class LoaderSignals(QObject):
+class _LoaderSignals(QObject):
     """
     Defines the signals for the ImageLoaderWorker.
     Must be a separate QObject because QRunnable does not inherit QObject.
@@ -48,20 +44,29 @@ class ImageLoaderWorker(QRunnable):
         super().__init__()
         self.path = path
         self.target_size = target_size
-        self.signals = LoaderSignals()
+        self.signals = _LoaderSignals()
+        self._is_cancelled = False
 
         # Auto-delete ensures the runnable is cleaned up after 'run' finishes
         self.setAutoDelete(True)
 
+    def stop(self):
+        """Signals the worker to stop."""
+        self._is_cancelled = True
+
     @Slot()
     def run(self):
+        if self._is_cancelled:
+            return
         try:
             if HAS_NATIVE_IMAGING:
                 results = base.load_image_batch([self.path], self.target_size)
+                if self._is_cancelled:
+                    return
                 if results:
                     path, buffer, w, h = results[0]
                     q_img = QImage(buffer, w, h, QImage.Format_RGBA8888)
-                    self.signals.result.emit(self.path, q_img.copy())
+                    self._safe_emit(self.path, q_img.copy())
                     return
 
             # Fallback using QImage instead of QPixmap
@@ -73,77 +78,18 @@ class ImageLoaderWorker(QRunnable):
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation,
                 )
-                self.signals.result.emit(self.path, scaled)
+                self._safe_emit(self.path, scaled)
             else:
-                self.signals.result.emit(self.path, QImage())
+                self._safe_emit(self.path, QImage())
         except Exception:
-            self.signals.result.emit(self.path, QPixmap())
+            self._safe_emit(self.path, QImage())
+        finally:
+            if Shiboken.isValid(self.signals):
+                self.signals.deleteLater()
 
-
-class BatchImageLoaderWorker(QRunnable):
-    """
-    Worker task to load and scale a BATCH of images using Rust.
-    Supports running in a separate process/executor if provided.
-    """
-
-    def __init__(self, paths: list[str], target_size: int, executor: Executor = None):
-        super().__init__()
-        self.paths = paths
-        self.target_size = target_size
-        self.executor = executor
-        self.signals = LoaderSignals()
-        self.setAutoDelete(True)
-
-    @Slot()
-    def run(self):
+    def _safe_emit(self, path, image):
         try:
-            # 1. Fallback if no native imaging
-            if not HAS_NATIVE_IMAGING:
-                self._run_fallback()
-                return
+            self.signals.result.emit(path, image)
+        except RuntimeError:
+            pass
 
-            # 2. Multiprocessing Path (Preferred)
-            if self.executor:
-                future = self.executor.submit(
-                    process_image_batch, self.paths, self.target_size
-                )
-                # This blocks the QThreadPool thread, which is intentional/acceptable
-                # because we are offloading CPU work to the ProcessPool.
-                raw_results = future.result()
-            else:
-                # 3. In-Thread Path (if no executor provided)
-                raw_results = base.load_image_batch(self.paths, self.target_size)
-
-            # Process raw results into QImages (Must be done in this thread/process, not the child)
-            processed_results = []
-            if raw_results:
-                for path, buffer, w, h in raw_results:
-                    # QImage.Format_RGBA8888 is 4 bytes per pixel
-                    q_img = QImage(buffer, w, h, QImage.Format_RGBA8888)
-                    processed_results.append((path, q_img.copy()))
-
-            self.signals.batch_result.emit(processed_results, self.paths)
-
-        except Exception as e:
-            print(f"BatchImageLoaderWorker error: {e}")
-            self.signals.batch_result.emit([], self.paths)
-
-    def _run_fallback(self):
-        """Fallback: load one by one using QImage (slow but safe)"""
-        results = []
-        for path in self.paths:
-            try:
-                q_img = QImage(path)
-                if not q_img.isNull():
-                    scaled = q_img.scaled(
-                        self.target_size,
-                        self.target_size,
-                        Qt.KeepAspectRatio,
-                        Qt.SmoothTransformation,
-                    )
-                    results.append((path, scaled))
-                else:
-                    results.append((path, QImage()))
-            except Exception:
-                results.append((path, QImage()))
-        self.signals.batch_result.emit(results, self.paths)

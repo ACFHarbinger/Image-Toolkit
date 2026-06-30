@@ -1,7 +1,10 @@
 import os
 import json
-import backend.src.utils.definitions as udef
+import shutil
+import hashlib
+import backend.src.constants as udef
 
+from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget,
@@ -194,8 +197,37 @@ class LoginWindow(QWidget):
             return None, None
         return username, password
 
+    def _copy_template_crypto_files(self):
+        """
+        Copies all files from assets/secrets to ~/.image-toolkit/secrets/
+        if they do not yet exist in the target directory.
+        """
+        template_dir = Path(udef.SECRETS_DIR)
+        target_dir = Path(udef.LOCAL_SECRETS_DIR)
+
+        if not template_dir.exists():
+            print(
+                f"[LoginWindow] Warning: Template cryptography directory {template_dir} does not exist."
+            )
+            return
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            for item in template_dir.iterdir():
+                if item.is_file():
+                    dest_file = target_dir / item.name
+                    if not dest_file.exists():
+                        shutil.copy2(item, dest_file)
+                        print(
+                            f"[LoginWindow] Copied template crypto file: {item.name} -> {dest_file}"
+                        )
+        except Exception as e:
+            print(f"[LoginWindow] Error copying template cryptography files: {e}")
+
     def attempt_login(self):
         """Tries to authenticate the user against the stored hash."""
+        self._copy_template_crypto_files()
         username, raw_password = self._get_credentials()
         if not username:
             return
@@ -208,13 +240,13 @@ class LoginWindow(QWidget):
             # --- END MODIFICATION ---
 
             # 2. Initialize the Vault Manager
-            self.vault_manager = VaultManager(udef.JAR_FILE)
+            self.vault_manager = VaultManager()
 
             # 3. KeyStore Loading (now uses suffixed udef.KEYSTORE_FILE)
-            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
+            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password) # pyrefly: ignore [bad-argument-type]
 
             # 4. Get the specific AES key
-            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
+            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password) # pyrefly: ignore [bad-argument-type]
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
             # 5. Load stored credentials (hash and salt)
@@ -231,11 +263,9 @@ class LoginWindow(QWidget):
             pepper = self.vault_manager.PEPPER
 
             # 6. Re-hash and verify
-            password_combined = (raw_password + stored_salt + pepper).encode("utf-8")
-            import hashlib
+            password_combined = (raw_password + stored_salt + pepper).encode("utf-8") # pyrefly: ignore [unsupported-operation]
 
             verification_hash = hashlib.sha256(password_combined).hexdigest()
-
             if verification_hash == stored_hash:
                 # --- NEW: Preference Profile Selection ---
                 profiles = stored_data.get("system_preference_profiles", {})
@@ -268,6 +298,18 @@ class LoginWindow(QWidget):
                             stored_data["active_tab_configs"] = new_configs
                             save_required = True  # <--- SET FLAG
 
+                        # §4.13 — Merge appearance keys into preferences if present
+                        _APPEARANCE_KEYS = (
+                            "accent_color_dark", "accent_color_light",
+                            "font_scale", "ui_density",
+                        )
+                        prefs = stored_data.get("preferences", {})
+                        for _key in _APPEARANCE_KEYS:
+                            if _key in profile_data and profile_data[_key] != prefs.get(_key):
+                                prefs[_key] = profile_data[_key]
+                                save_required = True
+                        stored_data["preferences"] = prefs
+
                 # === CRITICAL MODIFICATION: Check flag before saving ===
                 if save_required:
                     # Save back to vault only if settings have changed
@@ -279,6 +321,8 @@ class LoginWindow(QWidget):
                     self, "Success", f"Login successful for {username}."
                 )
                 self.is_authenticated = True
+                self.vault_manager.account_name = username # pyrefly: ignore [missing-attribute]
+                self.vault_manager.raw_password = raw_password # pyrefly: ignore [missing-attribute]
 
                 # --- LOAD/DECRYPT API FILES ---
                 self._load_api_files()
@@ -308,6 +352,7 @@ class LoginWindow(QWidget):
         Creates a new account, hashes the password, and saves it to a new
         account-specific vault.
         """
+        self._copy_template_crypto_files()
         username, raw_password = self._get_credentials()
         if not username:
             return
@@ -336,29 +381,31 @@ class LoginWindow(QWidget):
 
         try:
             # 3. Initialize the Vault Manager
-            self.vault_manager = VaultManager(udef.JAR_FILE)
+            self.vault_manager = VaultManager()
 
             # 4. Load the KeyStore (Creates empty KeyStore in memory)
-            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
+            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password) # pyrefly: ignore [bad-argument-type]
 
             # 5. CRITICAL: Ensure Key Entry exists and save KeyStore file
             self.vault_manager.create_key_if_missing(
-                udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password
+                udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password # pyrefly: ignore [bad-argument-type]
             )
 
             # 6. Retrieve the now-guaranteed secret key
-            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)
+            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password) # pyrefly: ignore [bad-argument-type]
 
             # 7. Initialize the vault
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
             # 8. Save credentials (this handles hashing, salting, and saving)
-            self.vault_manager.save_account_credentials(username, raw_password)
+            self.vault_manager.save_account_credentials(username, raw_password) # pyrefly: ignore [bad-argument-type]
 
             QMessageBox.information(
                 self, "Success", f"Account '{username}' created and saved securely."
             )
             self.is_authenticated = True
+            self.vault_manager.account_name = username # pyrefly: ignore [missing-attribute]
+            self.vault_manager.raw_password = raw_password # pyrefly: ignore [missing-attribute]
 
             # --- LOAD/DECRYPT API FILES ---
             self._load_api_files()
@@ -447,6 +494,12 @@ class LoginWindow(QWidget):
         except Exception as e:
             print(f"An error occurred during API file loading: {e}")
             # Do not block login/startup for this
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+        else:
+            super().keyPressEvent(event)
 
     def closeEvent(self, event):
         """Ensure JVM is shut down if the window is closed without successful login."""

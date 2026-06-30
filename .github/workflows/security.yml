@@ -1,0 +1,99 @@
+name: Security Audit
+
+on:
+  schedule:
+    # Every Monday at 08:00 UTC
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+jobs:
+  pip-audit:
+    name: Python CVE scan (pip-audit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Export locked requirements
+        run: uv export --frozen --no-emit-project --output-file /tmp/requirements.txt
+
+      - name: Scan for known CVEs
+        # --ignore-vuln IDs can be added here for accepted false-positives
+        run: pip-audit --requirement /tmp/requirements.txt --output json --output-file /tmp/pip-audit.json || true
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pip-audit-report
+          path: /tmp/pip-audit.json
+
+      - name: Fail on critical/high vulnerabilities
+        run: |
+          python - <<'EOF'
+          import json, sys
+          with open("/tmp/pip-audit.json") as f:
+              data = json.load(f)
+          vulns = [v for pkg in data.get("dependencies", []) for v in pkg.get("vulns", [])]
+          if vulns:
+              print(f"Found {len(vulns)} vulnerabilities:")
+              for v in vulns:
+                  print(f"  {v.get('id')}: {v.get('description','')[:80]}")
+              sys.exit(1)
+          print("No known vulnerabilities found.")
+          EOF
+
+  cargo-audit:
+    # Phase 7 note: the Rust base crate was retired to archive/base_rust/.
+    # cargo-audit now scans only the frontend/src-tauri crate.
+    name: Rust CVE scan (cargo audit — frontend only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Audit frontend/src-tauri crate
+        run: cargo audit --json --output-file /tmp/cargo-audit.json
+        working-directory: frontend/src-tauri
+        continue-on-error: true
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cargo-audit-report
+          path: /tmp/cargo-audit.json
+
+      - name: Fail on vulnerabilities
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          with open("/tmp/cargo-audit.json") as f:
+              data = json.load(f)
+          vulns = data.get("vulnerabilities", {}).get("list", [])
+          if vulns:
+              print(f"Found {len(vulns)} Rust vulnerabilities:")
+              for v in vulns:
+                  adv = v.get("advisory", {})
+                  print(f"  {adv.get('id')}: {adv.get('title','')}")
+              sys.exit(1)
+          print("No known Rust vulnerabilities found.")
+          EOF

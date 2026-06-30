@@ -1,7 +1,10 @@
 import cv2
+import logging
 import numpy as np
 
 from typing import Dict, Any, List, Tuple
+
+logger = logging.getLogger(__name__)
 from PySide6.QtCore import (
     Slot,
     Signal,
@@ -12,6 +15,7 @@ from PySide6.QtCore import (
 )
 from .tasks import PhashTask, OrbTask, SiftTask, SsimTask, SiameseTask
 from backend.src.core import DuplicateFinder, SimilarityFinder
+from backend.src.constants import SSIM_C1, SSIM_C2
 
 
 class DuplicateScanWorker(QObject):
@@ -26,6 +30,11 @@ class DuplicateScanWorker(QObject):
     finished = Signal(dict)
     error = Signal(str)
     status = Signal(str)
+
+    def stop(self):
+        """Signals the worker to stop."""
+        if self.aggregator_loop and self.aggregator_loop.isRunning():
+            self.aggregator_loop.quit()
 
     def __init__(self, directory: str, extensions: list, method: str = "exact"):
         super().__init__()
@@ -133,9 +142,47 @@ class DuplicateScanWorker(QObject):
                 if self.method == "phash":
                     results = self._compare_phash(self.scan_cache)
                 elif self.method == "ssim":
-                    results = self._compare_ssim(self.scan_cache)
+
+                    def _ssim_sim(img1, img2) -> bool:
+                        mu1 = cv2.GaussianBlur(img1, (11, 11), 1.5)
+                        mu1_sq = mu1 * mu1
+                        sigma1_sq = (
+                            cv2.GaussianBlur(img1 * img1, (11, 11), 1.5) - mu1_sq
+                        )
+                        mu2 = cv2.GaussianBlur(img2, (11, 11), 1.5)
+                        mu2_sq = mu2 * mu2
+                        sigma2_sq = (
+                            cv2.GaussianBlur(img2 * img2, (11, 11), 1.5) - mu2_sq
+                        )
+                        mu1_mu2 = mu1 * mu2
+                        sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
+                        num = (2 * mu1_mu2 + SSIM_C1) * (2 * sigma12 + SSIM_C2)
+                        den = (mu1_sq + mu2_sq + SSIM_C1) * (
+                            sigma1_sq + sigma2_sq + SSIM_C2
+                        )
+                        return cv2.mean(num / den)[0] > 0.90
+
+                    results = self._chunked_compare("ssim", _ssim_sim)
                 elif self.method == "sift":
-                    results = self._compare_sift(self.scan_cache)
+                    _bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+
+                    def _sift_sim(des1, des2) -> bool:
+                        try:
+                            matches = _bf.knnMatch(des1, des2, k=2)
+                            good = [
+                                m for m, n in matches if m.distance < 0.75 * n.distance
+                            ]
+                            return len(good) > 10 and (len(good) / len(des1)) > 0.20
+                        except Exception:
+                            return False
+
+                    results = self._chunked_compare("sift", _sift_sim)
+                    results = self._chunked_compare("sift", _sift_sim)
+                elif self.method == "siamese":
+                    results = self._compare_siamese(self.scan_cache)
+                    from backend.src.models.core.siamese_network import SiameseModelLoader
+
+                    SiameseModelLoader().unload()
                 else:
                     results = self._compare_orb(self.scan_cache)
 
@@ -170,6 +217,77 @@ class DuplicateScanWorker(QObject):
         if self.processed_count >= self.total_files:
             if self.aggregator_loop and self.aggregator_loop.isRunning():
                 self.aggregator_loop.quit()
+
+    def _chunked_compare(
+        self, method_prefix: str, is_similar_fn, chunk_size: int = 500
+    ) -> Dict[str, List[str]]:
+        """
+        O(N^2) pairwise comparison processed in sorted chunks to bound peak RAM.
+
+        After chunk_a is compared against all later chunks, its entries are deleted
+        from self.scan_cache, keeping at most 2 * chunk_size descriptors alive at
+        any time.  A union-find structure accumulates transitive groups across chunk
+        boundaries so correctness is identical to the single-pass algorithm.
+        """
+        all_paths = sorted(self.scan_cache.keys())
+        chunks = [
+            all_paths[i : i + chunk_size] for i in range(0, len(all_paths), chunk_size)
+        ]
+        n_chunks = len(chunks)
+
+        # Union-Find for transitive grouping
+        parent = {p: p for p in all_paths}
+
+        def find(x: str) -> str:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]  # path compression
+                x = parent[x]
+            return x
+
+        def union(a: str, b: str):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        for i, chunk_a in enumerate(chunks):
+            self.status.emit(f"Comparing chunk {i + 1}/{n_chunks}...")
+            for j in range(i, n_chunks):
+                self._check_interrupt()
+                chunk_b = chunks[j]
+                if i == j:
+                    # Within-chunk: upper triangle only (each pair once)
+                    for ai in range(len(chunk_a)):
+                        pa = chunk_a[ai]
+                        desc_a = self.scan_cache[pa]
+                        for bi in range(ai + 1, len(chunk_a)):
+                            pb = chunk_a[bi]
+                            if is_similar_fn(desc_a, self.scan_cache[pb]):
+                                union(pa, pb)
+                else:
+                    # Cross-chunk: full cartesian product
+                    for pa in chunk_a:
+                        desc_a = self.scan_cache[pa]
+                        for pb in chunk_b:
+                            if is_similar_fn(desc_a, self.scan_cache[pb]):
+                                union(pa, pb)
+
+            # chunk_a fully compared — evict from cache to free RAM
+            for p in chunk_a:
+                del self.scan_cache[p]
+
+        # Collect groups with more than one member
+        grouped: Dict[str, List[str]] = {}
+        for p in all_paths:
+            grouped.setdefault(find(p), []).append(p)
+
+        results: Dict[str, List[str]] = {}
+        gid = 0
+        for group in grouped.values():
+            if len(group) > 1:
+                results[f"{method_prefix}_{gid}"] = group
+                gid += 1
+
+        return results
 
     def _compare_phash(self, hashes: Dict[str, Any]) -> Dict[str, List[str]]:
         """
@@ -208,10 +326,6 @@ class DuplicateScanWorker(QObject):
         ungrouped = list(cache.keys())
         gid = 0
 
-        # SSIM constants for data range 0-255
-        C1 = 6.5025  # (0.01 * 255)^2
-        C2 = 58.5225  # (0.03 * 255)^2
-
         while ungrouped:
             self._check_interrupt()
             curr = ungrouped.pop(0)
@@ -237,8 +351,10 @@ class DuplicateScanWorker(QObject):
                 sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
 
                 # Formula: (2*mu1*mu2 + C1) * (2*sig12 + C2) / ((mu1^2 + mu2^2 + C1) * (sig1^2 + sig2^2 + C2))
-                numerator = (2 * mu1_mu2 + C1) * (2 * sigma12 + C2)
-                denominator = (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
+                numerator = (2 * mu1_mu2 + SSIM_C1) * (2 * sigma12 + SSIM_C2)
+                denominator = (mu1_sq + mu2_sq + SSIM_C1) * (
+                    sigma1_sq + sigma2_sq + SSIM_C2
+                )
 
                 ssim_map = numerator / denominator
                 score = cv2.mean(ssim_map)[0]
@@ -281,7 +397,8 @@ class DuplicateScanWorker(QObject):
                     if len(good) > 10 and (len(good) / len(cache[curr])) > 0.25:
                         group.append(cand)
                         to_rem.append(cand)
-                except:
+                except Exception as e:
+                    logger.warning("Error comparing ORB descriptors: %s", e)
                     continue
 
             for r in to_rem:
@@ -329,7 +446,8 @@ class DuplicateScanWorker(QObject):
                     if len(good) > 10 and (len(good) / len(des1)) > 0.20:
                         group.append(cand)
                         to_rem.append(cand)
-                except:
+                except Exception as e:
+                    logger.warning("Error comparing SIFT descriptors: %s", e)
                     continue
 
             for r in to_rem:

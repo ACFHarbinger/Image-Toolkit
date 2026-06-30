@@ -1,5 +1,21 @@
 import SwiftUI
 
+/// The root view of the Image Toolkit iOS app.
+///
+/// Renders a `TabView` containing one tab per ``Screen`` case. The navigation
+/// bar displays the app name with the brand primary colour as its background.
+///
+/// Navigation is driven by `selectedTab: Screen` — deep links or push
+/// notifications that want to surface a specific tab should update this binding.
+///
+/// ```swift
+/// @main
+/// struct ImageToolkitApp: App {
+///     var body: some Scene {
+///         WindowGroup { MainAppScreen() }
+///     }
+/// }
+/// ```
 struct MainAppScreen: View {
     @State private var selectedTab: Screen = .database
     

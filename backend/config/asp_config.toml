@@ -1,0 +1,45 @@
+# asp_config.toml — Anime Stitch Pipeline configuration
+#
+# Loaded automatically at pipeline startup via animation/__init__.py.
+# Keys written to os.environ via setdefault (env vars always win over TOML).
+# All available keys and their ranges are documented in backend/src/animation/config.py.
+#
+# Issue 8 recommended defaults (S80): flags shipped in S62–S75 that have been
+# proven safe over multiple sessions and are now enabled by default.
+
+[compositing]
+# §1.22: Adaptive SP soft-edge width — scales with feather width instead of
+# using a fixed 6px.  At feather=300px this gives 22px soft-edge, eliminating
+# the hard colour step that §1.18 escalation previously left behind.
+ASP_ADAPTIVE_SP_SOFT = 1
+
+# §1.18: Adaptive SP escalation threshold — catches ghost bands from wide-feather
+# seams (≥160px) where the fixed 22.0 lum threshold is too permissive.
+ASP_ADAPTIVE_SP_THRESH = 1
+
+# §1.25: Seam path smoothing — median-filter window to remove column-jitter
+# from DP traceback (argmin oscillation between equal-energy columns).
+# window=5 eliminates 1–2 column jitter without over-smoothing curved seams.
+ASP_SEAM_SMOOTH_WINDOW = 5
+
+# §1.26: Seam path boundary clamp — prevents seam from routing to zone top/bottom
+# where feather blend has zero headroom → hard-edge artefact.
+ASP_SEAM_MARGIN = 3
+
+# §1.31: Seam FG penetration escalation — escalates to single-pose when the
+# DP seam cuts through > 70% of character pixels column-by-column.
+ASP_SEAM_FG_PENETRATION_MAX = 0.7
+
+# §1.30: Minimum zone height — escalates to single-pose when a blend zone has
+# < 20 rows (DP has no headroom after §1.26 margin is applied).
+ASP_ZONE_MIN_HEIGHT = 20
+
+[frame_selection]
+# §1.28: Seam path instability escalation — when the DP seam path std > 20 rows
+# (oscillating seam) escalate to single-pose.  Distinct from §1.31 (FG penetration).
+ASP_SEAM_INSTABILITY_THRESH = 20.0
+
+[pipeline]
+# §1.29: Static input detection — early exit when all consecutive thumbnail pairs
+# have MAD < 2.0 (static frame repeated N times; panorama would be degenerate).
+ASP_STATIC_INPUT_MAX_MAD = 2.0

@@ -1,20 +1,204 @@
 # Fixed conftest.py
 import os
+
+# Set environment variables to prevent thread explosion BEFORE any heavy libraries load
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+
 import sys
 import pytest
 import tempfile
+import gc
 
+import numpy as np
 from PIL import Image
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+repo_root = os.path.dirname(project_root)
+test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+if test_dir not in sys.path:
+    sys.path.insert(0, test_dir)
+build_base = os.path.join(repo_root, "build", "base")
+if os.path.exists(build_base) and build_base not in sys.path:
+    sys.path.insert(0, build_base)
 
-import src.utils.definitions as udef
+# Limit OpenCV threads to prevent CPU thrashing
+try:
+    import cv2
 
-from src.core import FSETool
-from src.web import ImageCrawler
+    cv2.setNumThreads(0)
+except ImportError:
+    pass
+
+# Limit PyTorch threads to prevent CPU thrashing
+try:
+    import torch
+
+    torch.set_num_threads(1)
+except ImportError:
+    pass
+
+import src.constants as udef  # noqa: E402
+
+from src.core import FSETool  # noqa: E402
+from src.web import ImageCrawler  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# §3.12 — CLI options and collection hooks for GPU isolation
+# ---------------------------------------------------------------------------
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register --skip-gpu flag (§3.12 / Root Cause #2).
+
+    When passed, all @pytest.mark.gpu tests are deselected at collection time
+    so the full suite runs without loading VRAM-heavy models into the GPU.
+    Use for quick CI loops or on machines without a discrete GPU.
+    """
+    parser.addoption(
+        "--skip-gpu",
+        action="store_true",
+        default=False,
+        help="Skip all tests marked @pytest.mark.gpu (DINOv2, RLHF reward model).",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom markers to suppress PytestUnknownMarkWarning."""
+    config.addinivalue_line(
+        "markers", "gpu: test loads ML model weights into VRAM (DINOv2, RLHF, etc.)"
+    )
+    config.addinivalue_line(
+        "markers", "gc_heavy: test allocates large temporary objects"
+    )
+    config.addinivalue_line("markers", "slow: test takes more than 10 s")
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
+    """Deselect @pytest.mark.gpu tests when --skip-gpu is active."""
+    if not config.getoption("--skip-gpu", default=False):
+        return
+    skip_marker = pytest.mark.skip(reason="Skipped: --skip-gpu flag active.")
+    for item in items:
+        if item.get_closest_marker("gpu"):
+            item.add_marker(skip_marker)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def resource_cleanup():
+    """Flush GPU VRAM once per module (§3.13A + §3.13C).
+
+    §3.13C: gc.collect() removed — CPython's reference counting frees non-cyclic
+    objects (numpy arrays, dicts, etc.) immediately when they go out of scope.
+    The cyclic GC is not needed for the animation test suite; removing the call
+    eliminates ~19 GC traversals of the growing object graph.
+
+    CUDA flush is retained but gated behind ASP_TEST_CUDA_CLEANUP=1 to avoid
+    the ioctl kernel round-trip on CPU-only test runs.
+    """
+    yield
+    if os.environ.get("ASP_TEST_CUDA_CLEANUP", "0") != "0":
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+        except ImportError:
+            pass
+
+
+@pytest.fixture(autouse=True, scope="function")
+def gc_heavy_cleanup(request):
+    """Run gc.collect() after tests marked @pytest.mark.gc_heavy (§3.13B).
+
+    Tests that explicitly allocate large temporary objects (multi-frame canvas
+    arrays, seam DP cost maps, 16 MB probe arrays) opt in with the marker so
+    that the cyclic GC runs immediately after they finish — before the next
+    test allocates.  All other tests pay zero GC overhead.
+
+    Usage::
+
+        @pytest.mark.gc_heavy
+        class TestCompositeForeground:
+            ...
+    """
+    yield
+    if request.node.get_closest_marker("gc_heavy"):
+        gc.collect()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def clear_ml_singletons():
+    """Tear down module-level ML model singletons at session end.
+
+    §3.12 (Option C): Clears DINOv2, SEA-RAFT, and VGG-19 singletons that
+    accumulate VRAM across the test session.  Running at session scope means
+    models are freed after all tests finish rather than held until process exit,
+    allowing the OS to reclaim VRAM for subsequent tool invocations.
+    """
+    yield
+    try:
+        import backend.src.animation.ingestion.frame_selection as _fs
+
+        for _k in list(getattr(_fs, "_DINOV2_CACHE", {}).keys()):
+            _entry = _fs._DINOV2_CACHE.pop(_k, None)
+            if _entry is not None:
+                del _entry
+    except Exception:
+        pass
+    try:
+        import backend.src.animation.alignment.fg_register as _fgr
+
+        if getattr(_fgr, "_SEARAFT_SINGLETON", None) is not None:
+            del _fgr._SEARAFT_SINGLETON
+            _fgr._SEARAFT_SINGLETON = None
+            _fgr._SEARAFT_DEVICE = None
+        if getattr(_fgr, "_VGG19_SINGLETON", None) is not None:
+            del _fgr._VGG19_SINGLETON
+            _fgr._VGG19_SINGLETON = None
+            _fgr._VGG19_DEVICE = None
+        if getattr(_fgr, "_DIS_SINGLETON", None) is not None:
+            del _fgr._DIS_SINGLETON
+            _fgr._DIS_SINGLETON = None
+    except Exception:
+        pass
+    try:
+        import backend.src.animation.rendering.anim_fill as _af
+
+        if getattr(_af, "_TC_PIPELINE", None) is not None:
+            del _af._TC_PIPELINE
+            _af._TC_PIPELINE = None
+    except Exception:
+        pass
+    try:
+        import backend.src.animation.rendering.compositing as _comp
+
+        if getattr(_comp, "_SEAM_POOL", None) is not None:
+            _comp._SEAM_POOL.shutdown(wait=False)
+            _comp._SEAM_POOL = None
+    except Exception:
+        pass
+    gc.collect()
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
 
 
 # --- Mocking External Dependencies ---
@@ -142,14 +326,13 @@ def mock_jpype():
         patch(
             "src.core.vault_manager.jpype.JClass",
             side_effect=lambda name: mock_jclass_map.get(name, MagicMock()),
-        ) as mock_jclass,
+        ) as _mock_jclass,
         patch(
             "src.core.vault_manager.jpype.isJVMStarted",
             side_effect=[False, True, True],
         ),
         patch("src.core.vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
     ):
-
         yield mock_start_jvm, mock_shutdown_jvm
 
 
@@ -379,3 +562,86 @@ def crawler(crawler_config):
     c.wait_for_page_to_load = MagicMock(return_value=True)
 
     return c
+
+
+# ----------------------------------------------------------------------
+# Anime stitch pipeline helpers
+# Shared builders for backend/test/animation/ tests — pure NumPy/OpenCV so
+# tests run without any GPU or model dependency.
+# ----------------------------------------------------------------------
+
+
+def make_frame(h: int = 480, w: int = 640, color=(128, 128, 128)) -> np.ndarray:
+    """BGR uint8 frame filled with a solid colour."""
+    return np.full((h, w, 3), color, dtype=np.uint8)
+
+
+def make_gradient_frame(h: int = 480, w: int = 640, top=100, bottom=180) -> np.ndarray:
+    """BGR frame with a vertical brightness gradient (mimics scene lighting)."""
+    grad = np.linspace(top, bottom, h, dtype=np.float32)
+    frame = np.stack([grad] * w, axis=1)[:, :, np.newaxis]
+    return np.repeat(frame, 3, axis=2).astype(np.uint8)
+
+
+def make_translation_affine(tx: float = 0.0, ty: float = 0.0) -> np.ndarray:
+    """Identity 2×3 affine with specified translation."""
+    M = np.eye(2, 3, dtype=np.float32)
+    M[0, 2] = tx
+    M[1, 2] = ty
+    return M
+
+
+def make_rotation_affine(tx: float, ty: float, angle_deg: float = 5.0) -> np.ndarray:
+    """2×3 affine with translation AND a small rotation (off-diagonal elements)."""
+    theta = np.deg2rad(angle_deg)
+    return np.array(
+        [
+            [np.cos(theta), -np.sin(theta), tx],
+            [np.sin(theta), np.cos(theta), ty],
+        ],
+        dtype=np.float32,
+    )
+
+
+def make_edge(
+    i: int,
+    j: int,
+    dx: float = 0.0,
+    dy: float = 300.0,
+    n_pts: int = 50,
+    weight: float = 1.0,
+) -> dict:
+    """Synthetic edge dict matching the format produced by the matching stages."""
+    M = np.array([[1.0, 0.0, dx], [0.0, 1.0, dy]], dtype=np.float32)
+    rng = np.random.default_rng(i * 1000 + j)
+    pts_i = rng.uniform(50, 400, (n_pts, 2)).astype(np.float32)
+    pts_j = pts_i + np.array([dx, dy], dtype=np.float32)
+    return {"i": i, "j": j, "M": M, "pts_i": pts_i, "pts_j": pts_j, "weight": weight}
+
+
+def compute_ty_gaps(affines: list) -> np.ndarray:
+    """Extract sorted ty values and return consecutive gaps."""
+    tys = sorted(float(a[1, 2]) for a in affines)
+    return np.diff(tys)
+
+
+@pytest.fixture
+def single_frame():
+    return make_frame(h=200, w=300)
+
+
+@pytest.fixture
+def three_frames():
+    return [make_frame(h=200, w=300, color=(c, c, c)) for c in (80, 128, 180)]
+
+
+@pytest.fixture
+def chain_edges_300():
+    """Perfect sequential chain: 4 frames, each 300 px below the previous."""
+    return [make_edge(i, i + 1, dx=0.0, dy=300.0) for i in range(3)]
+
+
+@pytest.fixture
+def chain_edges_5frames():
+    """5-frame sequential chain with dy=250."""
+    return [make_edge(i, i + 1, dx=0.0, dy=250.0) for i in range(4)]

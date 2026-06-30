@@ -5,12 +5,92 @@ import subprocess
 import logging
 import base  # Native extension
 import re
+import shutil
 
 from PIL import Image
 from pathlib import Path
 from screeninfo import Monitor
 from typing import Dict, List, Optional, Union
-from backend.src.utils.definitions import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
+from backend.src.constants import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
+
+logger = logging.getLogger(__name__)
+
+# §4.7 — KDE per-monitor wallpaper via D-Bus.
+# qdbus binary names vary by Linux distro:
+#   Ubuntu/Debian: qdbus-qt6  (Qt6 KDE)  or  qdbus  (may be Qt5)
+#   Arch/Manjaro:  qdbus  (always Qt6 on current Plasma 6)
+#   OpenSUSE/Fedora: qdbus6
+# We try all known names in descending preference order.
+_QDBUS_CANDIDATES = ["qdbus6", "qdbus-qt6", "qdbus", "qdbus-qt5"]
+
+
+def find_qdbus_binary() -> Optional[str]:
+    """Return the first available ``qdbus`` binary name, or ``None``.
+
+    Tries ``qdbus6``, ``qdbus-qt6``, ``qdbus``, ``qdbus-qt5`` in that order.
+    The result is not cached — call once at startup and store the value.
+    """
+    for name in _QDBUS_CANDIDATES:
+        if shutil.which(name):
+            return name
+    return None
+
+
+def evaluate_kde_script_dbus_python(script: str) -> str:
+    """Call ``org.kde.PlasmaShell.evaluateScript`` via ``dbus-python``.
+
+    Pure-Python fallback for environments where the ``qdbus``/``qdbus6`` CLI
+    binary is unavailable.  Requires the ``dbus-python`` package (``pip install
+    dbus-python``).  Raises ``ImportError`` if ``dbus`` is not installed and
+    ``RuntimeError`` if the D-Bus call fails.
+
+    Parameters
+    ----------
+    script : Plasma scripting JS to execute.
+
+    Returns
+    -------
+    str — stdout captured from the D-Bus call.
+    """
+    import dbus  # type: ignore[import-untyped]
+
+    bus = dbus.SessionBus()
+    plasma_obj = bus.get_object("org.kde.plasmashell", "/PlasmaShell")
+    iface = dbus.Interface(plasma_obj, dbus_interface="org.kde.PlasmaShell")
+    result = iface.evaluateScript(script)
+    return str(result) if result is not None else ""
+
+
+def evaluate_kde_script_with_fallback(qdbus: Optional[str], script: str) -> str:
+    """Evaluate a Plasma JS script via qdbus CLI, falling back to dbus-python.
+
+    Chain:
+    1. If *qdbus* is a non-empty string: call ``base.evaluate_kde_script(qdbus, script)``.
+    2. If that fails (or qdbus is None): try ``evaluate_kde_script_dbus_python()``.
+    3. If both fail: re-raise the most recent exception.
+
+    Returns the script output string.
+    """
+    last_exc: Optional[Exception] = None
+    if qdbus:
+        try:
+            return base.evaluate_kde_script(qdbus, script)
+        except Exception as exc:
+            logger.debug("qdbus CLI failed (%s), trying dbus-python fallback.", exc)
+            last_exc = exc
+    try:
+        return evaluate_kde_script_dbus_python(script)
+    except ImportError:
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError(
+            "Neither qdbus CLI nor dbus-python is available. "
+            "Install 'qdbus6'/'qdbus-qt6' or 'dbus-python' to enable KDE wallpaper support."
+        )
+    except Exception as exc:
+        if last_exc is not None:
+            raise last_exc
+        raise exc
 
 # Global Definitions for COM components
 IDESKTOPWALLPAPER_IID = "{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}"
@@ -76,7 +156,7 @@ if platform.system() == "Windows":
 
         COM_AVAILABLE = True
     except ImportError:
-        COM_AVAILABLE = False
+        pass
 
 
 class WallpaperManager:
@@ -84,6 +164,8 @@ class WallpaperManager:
     A static class for handling OS-specific wallpaper setting logic.
     Uses 'base' rust extension for Linux commands.
     """
+
+    COM_AVAILABLE = COM_AVAILABLE
 
     @staticmethod
     def _set_wallpaper_solid_color_windows(color_hex: str):
@@ -150,7 +232,7 @@ class WallpaperManager:
             raise RuntimeError(f"Error setting GNOME solid color: {e}")
 
     @staticmethod
-    def get_best_video_plugin() -> str:
+    def get_best_video_plugin() -> Optional[str]:
         REBORN_PLUGIN = "luisbocanegra.smart.video.wallpaper.reborn"
         ZREN_PLUGIN = "com.github.zren.smartvideowallpaper"
         SMARTER_PLUGIN = "smartervideowallpaper"
@@ -167,17 +249,17 @@ class WallpaperManager:
         for base_path in search_paths:
             if (base_path / ZREN_PLUGIN).exists():
                 return ZREN_PLUGIN
-        return REBORN_PLUGIN
+        return None
 
     @staticmethod
-    def get_kde_desktops(qdbus: str) -> List[Dict[str, int]]:
+    def get_kde_desktops(qdbus: Optional[str]) -> List[Dict[str, int]]:
         script = """
         var ds = desktops();
         var output = [];
         for (var i = 0; i < ds.length; i++) {
             var d = ds[i];
             var s = d.screen;
-            if (s < 0) continue; 
+            if (s < 0) continue;
             try {
                 var rect = screenGeometry(s);
                 output.push(i + ":" + s + ":" + rect.x + ":" + rect.y);
@@ -185,9 +267,9 @@ class WallpaperManager:
         }
         print(output.join("\\n"));
         """
+        desktops = []
         try:
-            result = base.evaluate_kde_script(qdbus, script)
-            desktops = []
+            result = evaluate_kde_script_with_fallback(qdbus, script)
             for line in result.strip().split("\n"):
                 if not line.strip():
                     continue
@@ -203,7 +285,7 @@ class WallpaperManager:
                     )
             return desktops
         except Exception as e:
-            logging.error(f"Failed to get KDE desktops: {e}")
+            logger.error("Failed to get KDE desktops: %s", e)
             return desktops
 
     @staticmethod
@@ -241,13 +323,17 @@ class WallpaperManager:
             try:
                 parts = style_name.split("::")
                 if len(parts) > 1:
-                    v_style_str = parts[1]
-                    if v_style_str == "Keep Proportions":
-                        video_fill_mode = 1
-                    elif v_style_str == "Scaled and Cropped":
-                        video_fill_mode = 2
-                    elif v_style_str == "Stretch":
-                        video_fill_mode = 0
+                    v_style_str = parts[1].strip()
+                    # Normalized mapping
+                    v_style_lower = v_style_str.lower()
+                    if "keep proportions" in v_style_lower:
+                        video_fill_mode = 1  # PreserveAspectFit
+                    elif "scaled and cropped" in v_style_lower:
+                        video_fill_mode = 2  # PreserveAspectCrop
+                    elif "stretch" in v_style_lower:
+                        video_fill_mode = 0  # Stretch
+                    else:
+                        video_fill_mode = 2  # Default to crop
             except Exception:
                 pass
             style_name = "Fill"
@@ -256,6 +342,10 @@ class WallpaperManager:
             style_name, WALLPAPER_STYLES["KDE"]["Scaled, Keep Proportions"]
         )
         target_plugin = WallpaperManager.get_best_video_plugin()
+        if video_mode_active and not target_plugin:
+            raise RuntimeError(
+                "No supported KDE video wallpaper plugin found. Please install a plugin such as 'Smart Video Wallpaper Reborn' to enable video wallpaper support."
+            )
 
         script_parts = []
         for monitor_id, path in path_map.items():
@@ -266,9 +356,10 @@ class WallpaperManager:
             except ValueError:
                 continue
 
+            # KDE Plasma 6 (and some 5 versions) prefers raw paths for org.kde.image
             file_uri = str(Path(path).resolve())
-            if not file_uri.startswith("file://"):
-                file_uri = "file://" + file_uri
+            # if not file_uri.startswith("file://"):
+            #    file_uri = "file://" + file_uri
 
             ext = Path(path).suffix.lower()
 
@@ -285,12 +376,25 @@ class WallpaperManager:
                     if (d && d.screen >= 0) {{
                         if (d.wallpaperPlugin !== "{target_plugin}") d.wallpaperPlugin = "{target_plugin}";
                         d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
-                        d.writeConfig("{video_key}", "{file_uri}");
+                        
+                        // DEBUG: Log the values being written
+                        // console.log("[ImageToolkit] Setting Video FillMode to: {video_fill_mode} for monitor {i}");
+                        
                         d.writeConfig("FillMode", {video_fill_mode});
+                        d.writeConfig("fillMode", {video_fill_mode});
                         {"d.writeConfig('overridePause', true);" if is_smarter else ""}
+                        
+                        d.writeConfig("{video_key}", "{file_uri}");
+
+                        // Plasma 6 uses the same Qt AspectRatioMode for org.kde.image
+                        var imageFillMode = {video_fill_mode};
+                        
                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-                        d.writeConfig("FillMode", 2);
+                        d.writeConfig("FillMode", imageFillMode);
                         d.writeConfig("Color", "#00000000");
+                        
+                        // IMPORTANT: Restore the config group to the active plugin before reloading
+                        d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
                         d.reloadConfig();
                     }}
                 }}
@@ -305,9 +409,49 @@ class WallpaperManager:
             return
         full_script = "".join(script_parts)
         try:
-            base.evaluate_kde_script(qdbus, full_script)
+            evaluate_kde_script_with_fallback(qdbus, full_script)
         except Exception as e:
-            raise RuntimeError(f"KDE method failed (Rust): {e}")
+            raise RuntimeError(f"KDE method failed: {e}")
+
+    @staticmethod
+    def _set_wallpaper_kde_plasma_apply(
+        path_map: Dict[str, str], style_name: str
+    ) -> bool:
+        cmd = shutil.which("plasma-apply-wallpaperimage")
+        if not cmd:
+            return False
+
+        path = path_map.get("0") or next(iter(path_map.values()), None)
+        if not path or not os.path.exists(path):
+            return False
+
+        fill_mode = "preserveAspectCrop"
+        style_lower = style_name.lower()
+        if "stretch" in style_lower:
+            fill_mode = "stretch"
+        elif (
+            "keep proportions" in style_lower
+            or "fit" in style_lower
+            or "scalled" in style_lower
+        ):
+            fill_mode = "preserveAspectFit"
+        elif "crop" in style_lower or "zoom" in style_lower or "spanned" in style_lower:
+            fill_mode = "preserveAspectCrop"
+        elif "tile" in style_lower or "wallpaper" in style_lower:
+            fill_mode = "tile"
+        elif "center" in style_lower or "pad" in style_lower:
+            fill_mode = "pad"
+
+        try:
+            subprocess.run(
+                [cmd, "--fill-mode", fill_mode, str(Path(path).resolve())], check=True
+            )
+            return True
+        except Exception as e:
+            logging.error(
+                f"Failed to set wallpaper via plasma-apply-wallpaperimage: {e}"
+            )
+            return False
 
     @staticmethod
     def _set_wallpaper_gnome_spanned(
@@ -425,8 +569,8 @@ class WallpaperManager:
                 d[0].reloadConfig();
                 """
                 try:
-                    base.evaluate_kde_script(qdbus, script)
-                except:
+                    evaluate_kde_script_with_fallback(qdbus, script)
+                except Exception:
                     WallpaperManager._set_wallpaper_solid_color_gnome(color_hex)
             return
 
@@ -459,8 +603,35 @@ class WallpaperManager:
                     except Exception:
                         mapped_path_map[monitor_id_str] = path
 
-                WallpaperManager._set_wallpaper_kde(mapped_path_map, style_name, qdbus)
+                try:
+                    WallpaperManager._set_wallpaper_kde(
+                        mapped_path_map, style_name, qdbus
+                    )
+                except Exception as e:
+                    logging.warning(
+                        f"KDE DBus wallpaper setting failed, trying fallback: {e}"
+                    )
+                    if not WallpaperManager._set_wallpaper_kde_plasma_apply(
+                        path_map, style_name
+                    ):
+                        raise
             else:  # GNOME or Fallback
+                desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+                session = os.environ.get("DESKTOP_SESSION", "").lower()
+                is_kde = (
+                    "kde" in desktop
+                    or "plasma" in desktop
+                    or "kde" in session
+                    or "plasma" in session
+                )
+
+                if (
+                    is_kde or shutil.which("plasma-apply-wallpaperimage")
+                ) and WallpaperManager._set_wallpaper_kde_plasma_apply(
+                    path_map, style_name
+                ):
+                    return
+
                 if style_name == "Spanned" and isinstance(monitors, list):
                     WallpaperManager._set_wallpaper_gnome_spanned(
                         path_map, monitors, style_name
@@ -507,7 +678,7 @@ class WallpaperManager:
         script += '\nprint(out.join("\\n===SEP===\\n"));'
 
         try:
-            result = base.evaluate_kde_script(qdbus, script)
+            result = evaluate_kde_script_with_fallback(qdbus, script)
             for line in result.split("===SEP==="):
                 line = line.strip()
                 m = re.match(r"DESKTOP_(\d+):(.+)", line)
@@ -526,7 +697,7 @@ class WallpaperManager:
                         final_path = path
                         try:
                             final_path = str(Path(path).resolve())
-                        except:
+                        except Exception:
                             pass
 
                         # Map back to monitor ID
@@ -535,5 +706,5 @@ class WallpaperManager:
                             path_map[monitor_mid] = final_path
 
         except Exception as e:
-            print(f"[WallpaperManager] Error in get_current: {e}")
+            logger.error("[WallpaperManager] Error in get_current: %s", e)
         return path_map

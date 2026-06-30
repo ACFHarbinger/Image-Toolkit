@@ -1,8 +1,26 @@
 import SwiftUI
 
+/// A ``SectionCard``-wrapped chip grid for selecting image format strings.
+///
+/// Displays each format as a toggleable chip using ``FlowLayout``. Selected
+/// formats are highlighted with ``AppTheme/secondary``; deselected chips use a
+/// neutral grey. "Add All" and "Remove All" buttons appear below the chip grid.
+///
+/// ```swift
+/// @State private var selected: Set<String> = ["PNG"]
+///
+/// FormatSelector(
+///     title: "Input Formats",
+///     formats: ["PNG", "WEBP", "AVIF", "JPG"],
+///     selectedFormats: $selected
+/// )
+/// ```
 struct FormatSelector: View {
+    /// Header label passed to the underlying ``SectionCard``.
     let title: String
+    /// Complete list of available format strings (displayed as uppercase chips).
     let formats: [String]
+    /// Binding to the set of currently selected format strings.
     @Binding var selectedFormats: Set<String>
     
     var body: some View {

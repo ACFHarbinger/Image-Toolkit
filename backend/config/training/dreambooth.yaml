@@ -1,0 +1,55 @@
+# config/training/dreambooth.yaml
+# DreamBooth — full UNet fine-tune with prior preservation.
+# Requires 24 GB VRAM (3090 Ti) or ZeRO-3 + CPU offload for 4080.
+# Best for: production-quality "character checkpoint" with maximum fidelity.
+# Warning: loss of generalization without regularization images.
+
+# @package training
+stage: dreambooth
+method: peft          # 'none' to do full-UNet DreamBooth (24 GB only)
+
+# If method=peft: LoRA-DreamBooth (more practical on 16–24 GB)
+rank: 32
+alpha: 16
+use_dora: false
+use_rslora: false
+lycoris_algo: lora
+lycoris_conv_dim: 8
+lycoris_conv_alpha: 4
+
+# DreamBooth-specific
+use_prior_preservation: true
+prior_loss_weight: 1.0
+num_class_images: 200
+class_prompt: "1girl, masterpiece, best quality"
+
+# Text encoder (enable for full DreamBooth on 24 GB)
+train_text_encoder_one: false
+train_text_encoder_two: false
+te_lr_scale: 0.5
+
+# Memory (3090 Ti with grad-ckpt for safety)
+resolution: 1024
+train_batch_size: 2
+gradient_accumulation_steps: 1
+gradient_checkpointing: true
+mixed_precision: bf16
+
+max_train_epochs: 10
+max_train_steps: null
+
+noise_offset: 0.0
+shuffle_tags: true
+keep_tokens: 1
+caption_dropout_rate: 0.05
+
+use_ema: true    # EMA is more beneficial for DreamBooth
+ema_decay: 0.9999
+
+save_every_n_epochs: 1
+
+xformers: true
+cache_latents: true
+cache_latents_to_disk: true
+cache_text_encoder_outputs: true
+full_bf16: true

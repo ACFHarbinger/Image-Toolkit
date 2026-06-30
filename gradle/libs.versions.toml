@@ -15,6 +15,7 @@ lifecycleViewmodelKtx = "2.6.1"
 navigationFragmentKtx = "2.6.0"
 navigationUiKtx = "2.6.0"
 shadow = "8.3.0"
+dokka = "1.9.20"
 jvmVersion = "21"
 bouncycastle = "1.78.1"
 # Added JUnit 5 (Jupiter) and AssertJ versions
@@ -50,6 +51,7 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 
 [bundles]
 # Updated to include JUnit 5 API, Engine (for running tests), and AssertJ

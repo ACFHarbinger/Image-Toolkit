@@ -1,9 +1,9 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget, QSizePolicy
 from .monitor_drop_widget import MonitorDropWidget
 
 
-class MonitorColumn(QWidget):
+class _MonitorColumn(QWidget):
     """
     A vertical column that can hold multiple MonitorDropWidgets.
     """
@@ -18,11 +18,13 @@ class MonitorColumn(QWidget):
 
     def add_monitor(self, widget: MonitorDropWidget):
         self.layout_vbox.addWidget(widget)
+        widget.show()  # Ensure it's visible if it was hidden during clear_widgets
         # Adjust width to match the widget
         self.setFixedWidth(widget.width())
 
     def insert_monitor(self, index: int, widget: MonitorDropWidget):
         self.layout_vbox.insertWidget(index, widget)
+        widget.show()  # Ensure visibility
         self.setFixedWidth(widget.width())
 
     def remove_monitor(self, widget: MonitorDropWidget):
@@ -56,6 +58,8 @@ class DraggableMonitorContainer(QWidget):
     - Each Row is Horizontal (Columns).
     - Each Column is Vertical (Stack of MonitorDropWidgets).
     """
+
+    layout_changed = Signal()
 
     def __init__(self, monitor=None, monitor_id=None, parent=None):
         super().__init__(parent)
@@ -106,7 +110,7 @@ class DraggableMonitorContainer(QWidget):
         last_row = self.layout_vbox.itemAt(count - 1).widget()
 
         # Create a new column
-        col = MonitorColumn()
+        col = _MonitorColumn()
         col.add_monitor(widget)
 
         last_row.layout().addWidget(col)
@@ -173,8 +177,8 @@ class DraggableMonitorContainer(QWidget):
             #   If x < w*0.5 -> Left
             #   Else -> Right
 
-            target_col = target_monitor_widget.parentWidget()  # Should be MonitorColumn
-            if not isinstance(target_col, MonitorColumn):
+            target_col = target_monitor_widget.parentWidget()  # Should be _MonitorColumn
+            if not isinstance(target_col, _MonitorColumn):
                 # Fallback, shouldn't happen
                 self._append_to_end(source)
                 return
@@ -195,7 +199,7 @@ class DraggableMonitorContainer(QWidget):
                 row_layout = target_row.layout()
                 col_idx = row_layout.indexOf(target_col)
 
-                new_col = MonitorColumn()
+                new_col = _MonitorColumn()
                 new_col.add_monitor(source)
 
                 if local_pos.x() < w * 0.5:
@@ -248,7 +252,6 @@ class DraggableMonitorContainer(QWidget):
                     # So we are in spacing.
                     # Let's just find closest column X
                     closest_col_idx = -1
-                    last_x = -1
                     row_layout = row_w.layout()
 
                     for i in range(row_layout.count()):
@@ -264,7 +267,7 @@ class DraggableMonitorContainer(QWidget):
                             closest_col_idx = i
                             break
 
-                    new_col = MonitorColumn()
+                    new_col = _MonitorColumn()
                     new_col.add_monitor(source)
 
                     if closest_col_idx != -1:
@@ -285,18 +288,19 @@ class DraggableMonitorContainer(QWidget):
 
                 new_w = self._add_new_row(insert_idx if insert_idx != -1 else -1)
 
-                new_col = MonitorColumn()
+                new_col = _MonitorColumn()
                 new_col.add_monitor(source)
                 new_w.layout().addWidget(new_col)
 
         self._cleanup()
         event.accept()
         self.update()
+        self.layout_changed.emit()
 
     def _detach_widget(self, widget: MonitorDropWidget):
         """Removes the widget from its current column. Does NOT delete it."""
         parent_col = widget.parentWidget()
-        if isinstance(parent_col, MonitorColumn):
+        if isinstance(parent_col, _MonitorColumn):
             parent_col.remove_monitor(widget)
             # parent_col.layout().removeWidget(widget) # Done in remove_monitor
             widget.setParent(None)  # Important to detach from layout system
@@ -318,7 +322,7 @@ class DraggableMonitorContainer(QWidget):
             cols_to_remove = []
             for j in range(layout.count()):
                 col = layout.itemAt(j).widget()
-                if isinstance(col, MonitorColumn):
+                if isinstance(col, _MonitorColumn):
                     if col.count() == 0:
                         cols_to_remove.append(col)
 
@@ -361,7 +365,7 @@ class DraggableMonitorContainer(QWidget):
 
             for j in range(row_layout.count()):
                 col_widget = row_layout.itemAt(j).widget()
-                if isinstance(col_widget, MonitorColumn):
+                if isinstance(col_widget, _MonitorColumn):
                     row_monitors.extend(col_widget.get_widgets())
 
             if row_monitors:
@@ -394,7 +398,7 @@ class DraggableMonitorContainer(QWidget):
 
             for j in range(row_layout.count()):
                 col_widget = row_layout.itemAt(j).widget()
-                if isinstance(col_widget, MonitorColumn):
+                if isinstance(col_widget, _MonitorColumn):
                     col_monitor_ids = [w.monitor_id for w in col_widget.get_widgets()]
                     if col_monitor_ids:
                         row_structure.append(col_monitor_ids)
@@ -423,7 +427,7 @@ class DraggableMonitorContainer(QWidget):
                 if not col_data:
                     continue
 
-                new_col = MonitorColumn()
+                new_col = _MonitorColumn()
                 has_widgets = False
                 for monitor_id in col_data:
                     if monitor_id in monitor_widgets_map:
@@ -451,16 +455,33 @@ class DraggableMonitorContainer(QWidget):
             orphan_row = self._add_new_row()
             # Spread them out or stack them? Let's spread them as single-item columns
             for widget in orphans:
-                new_col = MonitorColumn()
+                new_col = _MonitorColumn()
                 new_col.add_monitor(widget)
                 orphan_row.layout().addWidget(new_col)
 
         self._cleanup()
 
     def clear_widgets(self):
-        # Clear everything
+        """
+        Safely clears all rows and columns while detaching MonitorDropWidgets.
+        We detach them (setParent(None)) instead of letting them be deleted
+        by their parent's destruction, because WallpaperTab maintains a
+        persistent monitor_widgets_map that is reused across layout changes.
+        """
+        # 1. First, find and detach ALL MonitorDropWidgets from the entire hierarchy
+        # We do this before deleting rows/columns to prevent child deletion.
+        for row_monitors in self.rows:  # self.rows property handles the traversal
+            for widget in row_monitors:
+                if isinstance(widget, MonitorDropWidget):
+                    widget.setParent(None)
+                    widget.hide()  # Hide until re-added to new layout
+
+        # 2. Now clear the main layout (deletes row_widgets and their columns)
         while self.layout_vbox.count():
             item = self.layout_vbox.takeAt(0)
             if item.widget():
+                # We unparented the monitors, so it's safe to delete containers
                 item.widget().deleteLater()
+
+        # 3. Add back the initial empty row
         self._add_new_row()

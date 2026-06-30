@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// The image-format conversion screen.
+///
+/// Lets the user specify an output format, an input file or directory path,
+/// an optional output path, and a set of input formats to filter on when the
+/// input is a directory. Pressing "Run Conversion" calls the backend via the
+/// Tauri IPC bridge (stubbed here as an alert for development).
+///
+/// Mirrors `ConvertTab` in the PySide6 desktop GUI (`gui/src/tabs/core/convert_tab.py`).
 struct ConvertScreen: View {
     @State private var outputFormat: String = "png"
     @State private var inputPath: String = ""

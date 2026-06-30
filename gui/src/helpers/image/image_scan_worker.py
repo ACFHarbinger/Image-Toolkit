@@ -1,14 +1,10 @@
 import os
 from typing import List, Union, Tuple
 from PySide6.QtCore import QObject, Signal, Slot
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS, HAS_NATIVE_IMAGING
 
-try:
+if HAS_NATIVE_IMAGING:
     import base
-
-    HAS_NATIVE_IMAGING = True
-except ImportError:
-    HAS_NATIVE_IMAGING = False
 
 
 class ImageScannerWorker(QObject):
@@ -32,11 +28,14 @@ class ImageScannerWorker(QObject):
         else:
             self.directories = []
 
-        # Pre-calculate extensions once during init to save time in the loop
-        # Ensure formats are lowercased and have the dot prefix
         self.extensions: Tuple[str, ...] = tuple(
-            f'.{fmt.lower().lstrip(".")}' for fmt in SUPPORTED_IMG_FORMATS
+            f".{fmt.lower().lstrip('.')}" for fmt in SUPPORTED_IMG_FORMATS
         )
+        self._is_cancelled = False
+
+    def stop(self):
+        """Signals the worker to stop."""
+        self._is_cancelled = True
 
     def _scan_recursive(self, path: str) -> List[str]:
         """
@@ -48,7 +47,9 @@ class ImageScannerWorker(QObject):
             # os.scandir is faster than os.walk as it uses cached DirEntry objects
             with os.scandir(path) as it:
                 for entry in it:
-                    if self.thread() and self.thread().isInterruptionRequested():
+                    if self._is_cancelled or (
+                        self.thread() and self.thread().isInterruptionRequested()
+                    ):
                         return found_images
 
                     # Skip hidden directories/files (starts with dot)
@@ -87,10 +88,14 @@ class ImageScannerWorker(QObject):
                 all_image_paths = base.scan_files(
                     self.directories, list(SUPPORTED_IMG_FORMATS), True
                 )
+                if self._is_cancelled:
+                    return
                 self.scan_finished.emit(all_image_paths)
                 return
 
             for directory in self.directories:
+                if self._is_cancelled:
+                    break
                 if not os.path.isdir(directory):
                     self.scan_error.emit(f"Skipping invalid directory: {directory}")
                     continue  # Continue to next dir instead of aborting

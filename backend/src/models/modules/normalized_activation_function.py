@@ -3,7 +3,6 @@ import torch.nn as nn
 
 from typing import Optional, Sequence
 
-
 class NormalizedActivationFunction(nn.Module):
     def __init__(
         self,

@@ -1,8 +1,129 @@
+<div align="center">
+
+<img src="assets/images/image_toolkit_icon.png" alt="Image Toolkit Logo" style="width: 35%; height: auto;">
+
 # Image-Toolkit
 
-A powerful image database and editing toolkit with semantic search, batch processing, and AI-powered features.
+**An integrated image database and editing framework — high-performance computer vision, semantic vector search, web automation, and cross-platform GUI.**
 
-## 🚀 Quick Start
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/ci.yml/badge.svg"></a>
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/docs.yml/badge.svg"></a>
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/security.yml"><img alt="Security Audit" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/security.yml/badge.svg"></a>
+<img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
+<a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
+<a href="https://mypy-lang.org/"><img alt="MyPy" src="https://img.shields.io/badge/MyPy-checked-2f4f4f.svg"></a>
+
+</br>
+
+<a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776ab?logo=python&logoColor=white"></a>
+<a href="https://www.rust-lang.org/"><img alt="Rust" src="https://img.shields.io/badge/Rust-1.80%2B-000000?logo=rust&logoColor=white"></a>
+<a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white"></a>
+<a href="https://kotlinlang.org/"><img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white"></a>
+<a href="https://www.swift.org/"><img alt="Swift" src="https://img.shields.io/badge/Swift-F05138?logo=swift&logoColor=white"></a>
+<a href="https://isocpp.org/"><img alt="C++" src="https://img.shields.io/badge/C%2B%2B-00599C?logo=cplusplus&logoColor=white"></a>
+
+</br>
+
+<a href="https://pytorch.org/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white"></a>
+<a href="https://opencv.org/"><img alt="OpenCV" src="https://img.shields.io/badge/OpenCV-5C3EE8?logo=opencv&logoColor=white"></a>
+<a href="https://www.selenium.dev/"><img alt="Selenium" src="https://img.shields.io/badge/Selenium-43B02A?logo=selenium&logoColor=white"></a>
+<a href="https://pybind11.readthedocs.io/"><img alt="pybind11" src="https://img.shields.io/badge/pybind11-Bridge-3776AB?logo=cplusplus&logoColor=white"></a>
+<a href="https://cmake.org/"><img alt="CMake" src="https://img.shields.io/badge/CMake-Build-064F8C?logo=cmake&logoColor=white"></a>
+
+</br>
+
+<a href="https://doc.qt.io/qtforpython-6/"><img alt="PySide6" src="https://img.shields.io/badge/PySide6-Qt-41CD52?logo=qt&logoColor=white"></a>
+<a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black"></a>
+<a href="https://tauri.app/"><img alt="Tauri" src="https://img.shields.io/badge/Tauri-FFC131?logo=tauri&logoColor=white"></a>
+<a href="https://www.electronjs.org/"><img alt="Electron" src="https://img.shields.io/badge/Electron-47848F?logo=electron&logoColor=white"></a>
+<a href="https://developer.android.com/"><img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white"></a>
+<a href="https://developer.apple.com/ios/"><img alt="iOS" src="https://img.shields.io/badge/iOS-SwiftUI-000000?logo=apple&logoColor=white"></a>
+
+</br>
+
+<a href="https://www.postgresql.org/"><img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white"></a>
+<a href="https://github.com/pgvector/pgvector"><img alt="pgvector" src="https://img.shields.io/badge/pgvector-Vector_Search-336791?logo=postgresql&logoColor=white"></a>
+<a href="https://www.djangoproject.com/"><img alt="Django" src="https://img.shields.io/badge/Django-092E20?logo=django&logoColor=white"></a>
+<a href="https://docs.celeryq.dev/"><img alt="Celery" src="https://img.shields.io/badge/Celery-37814A?logo=celery&logoColor=white"></a>
+
+</br>
+
+<a href="https://github.com/astral-sh/uv"><img alt="uv" src="https://img.shields.io/badge/managed%20by-uv-261230.svg"></a>
+<a href="https://github.com/casey/just"><img alt="Just" src="https://img.shields.io/badge/Just-Task_Runner-000000?logoColor=white"></a>
+<a href="https://doc.rust-lang.org/cargo/"><img alt="Cargo" src="https://img.shields.io/badge/Cargo-E57300?logo=rust&logoColor=white"></a>
+<a href="https://gradle.org/"><img alt="Gradle" src="https://img.shields.io/badge/Gradle-02303A?logo=gradle&logoColor=white"></a>
+<a href="https://www.npmjs.com/"><img alt="NPM" src="https://img.shields.io/badge/NPM-CB3837?logo=npm&logoColor=white"></a>
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/actions"><img alt="GitHub Actions" src="https://img.shields.io/badge/GitHub_Actions-CI%2FCD-2088FF?logo=github-actions&logoColor=white"></a>
+<a href="https://dependabot.com/"><img alt="Dependabot" src="https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white"></a>
+<a href="https://www.sphinx-doc.org/"><img alt="Sphinx" src="https://img.shields.io/badge/Sphinx-Docs-000000?logo=sphinx&logoColor=white"></a>
+
+</br>
+
+<a href="https://docs.pytest.org/"><img alt="pytest" src="https://img.shields.io/badge/pytest-testing-0A9EDC?logo=pytest&logoColor=white"></a>
+<a href="https://coverage.readthedocs.io/"><img alt="Python Coverage" src="https://img.shields.io/badge/py_coverage-60%25-green.svg"></a>
+<a href="https://vitest.dev/"><img alt="Vitest" src="https://img.shields.io/badge/vitest-testing-6E9F18?logo=vitest&logoColor=white"></a>
+<a href="https://github.com/ionelmc/pytest-benchmark"><img alt="Rust Tests" src="https://img.shields.io/badge/cargo_test-passing-orange?logo=rust&logoColor=white"></a>
+<a href="https://developer.android.com/studio/test"><img alt="Android Tests" src="https://img.shields.io/badge/gradle_test-passing-02303A?logo=gradle&logoColor=white"></a>
+<a href="https://pre-commit.com/"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-FAB040?logo=pre-commit&logoColor=white"></a>
+
+</br>
+
+<a href="https://developer.nvidia.com/cuda-toolkit"><img alt="CUDA RTX 4080" src="https://img.shields.io/badge/CUDA-RTX_4080-76B900?logo=nvidia&logoColor=white"></a>
+<a href="https://developer.nvidia.com/cuda-toolkit"><img alt="CUDA RTX 3090 Ti" src="https://img.shields.io/badge/CUDA-RTX_3090_Ti-76B900?logo=nvidia&logoColor=white"></a>
+<a href="https://www.intel.com/"><img alt="Intel" src="https://img.shields.io/badge/Intel-Hardware-0071C5?logo=intel&logoColor=white"></a>
+<a href="https://www.amd.com/"><img alt="AMD Ryzen" src="https://img.shields.io/badge/AMD-Ryzen-ED1C24?logo=amd&logoColor=white"></a>
+<a href="https://developer.apple.com/documentation/apple-silicon"><img alt="Apple Silicon" src="https://img.shields.io/badge/Apple_Silicon-M1%2FM2%2FM3-000000?logo=apple&logoColor=white"></a>
+<br>
+<a href="https://www.linux.org/"><img alt="Linux" src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black"></a>
+<a href="https://ubuntu.com/"><img alt="Ubuntu" src="https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white"></a>
+<a href="https://kubuntu.org/"><img alt="Kubuntu" src="https://img.shields.io/badge/Kubuntu-0079C1?logo=kubuntu&logoColor=white"></a>
+<a href="https://www.microsoft.com/windows"><img alt="Windows" src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white"></a>
+<a href="https://www.apple.com/macos/"><img alt="macOS" src="https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white"></a>
+
+<p>
+  <a href="#-quick-start"><strong>🚀 Quick Start</strong></a> |
+  <a href="#-features"><strong>✨ Features</strong></a> |
+  <a href="#-installation--setup"><strong>📦 Installation</strong></a> |
+  <a href="#️-running-the-application"><strong>🛠️ Running</strong></a> |
+  <a href="#-usage"><strong>💻 Usage</strong></a> |
+  <a href="#-build"><strong>🔨 Build</strong></a> |
+  <a href="#-testing"><strong>🧪 Testing</strong></a> |
+  <a href="#-troubleshooting"><strong>🐛 Troubleshooting</strong></a> |
+  <a href="#-documentation"><strong>📚 Documentation</strong></a>
+</p>
+
+</div>
+
+---
+
+## Table of Contents
+
+- [Quick Start](#-quick-start)
+  - [5-Minute Setup (Tauri Web App)](#5-minute-setup)
+  - [Python CLI (Hydra-driven backend)](#python-cli-hydra-driven-backend)
+  - [Python PySide6 Desktop GUI](#python-pyside6-desktop-gui)
+  - [Tauri + TypeScript Web App](#tauri--typescript-web-app)
+  - [Analytics & Interpretability Dashboard](#analytics--interpretability-dashboard)
+  - [Mobile Apps (Android / iOS)](#mobile-apps-android--ios)
+  - [Benchmarking Suite & Utility Scripts](#benchmarking-suite--utility-scripts)
+- [Features](#-features)
+- [Installation & Setup](#-installation--setup)
+- [Running the Application](#️-running-the-application)
+- [CLI Commands Reference](#-cli-commands-reference)
+- [Usage](#-usage)
+- [Build](#-build)
+- [Testing](#-testing)
+- [Troubleshooting](#-troubleshooting)
+- [Advanced Configuration](#️-advanced-configuration)
+- [Development Workflow](#-development-workflow)
+- [Documentation](#-documentation)
+- [Security Notes](#-security-notes)
+- [Project Implementation Notes](#-project-implementation-notes)
+- [Common Tasks Quick Reference](#-common-tasks-quick-reference)
+
+---
+
+## <a id="-quick-start"></a>🚀 Quick Start
 
 ### Prerequisites Check
 
@@ -97,7 +218,211 @@ After login, you should see:
 
 ---
 
-## ✨ Features
+### Python CLI (Hydra-driven backend)
+
+The Python backend exposes a Hydra-configured CLI entry point for training pipelines, embedding generation, and ComfyUI headless orchestration.
+
+**Prerequisites:** Python venv activated (see [Installation & Setup](#-installation--setup)).
+
+```bash
+source .venv/bin/activate
+
+# Run training pipeline (uses configs/base.yaml by default)
+python -m backend.dispatcher command=train
+
+# Generate safetensors metadata embeddings
+python -m backend.dispatcher command=embed_metadata
+
+# Launch ComfyUI headlessly with a custom port
+python -m backend.dispatcher command=comfyui comfyui.port=8188 comfyui.listen=127.0.0.1
+
+# Override any config key from the CLI (standard Hydra syntax)
+python -m backend.dispatcher command=train training.batch_size=16 training.epochs=50
+
+# Batch image conversion via the main CLI
+python main.py convert --output_format png --input_path /path/to/images --input_formats webp avif
+```
+
+Config files live in `backend/config/`. Override any key with `key=value` on the command line. `backend/config/asp_config.toml` configures the Anime Stitch Pipeline — see `backend/src/animation/config.py` for the schema.
+
+---
+
+### Python PySide6 Desktop GUI
+
+The legacy Qt-based desktop application provides a full feature set including the gallery, stitch tab, wallpaper manager, and crawlers.
+
+**Prerequisites:** Python venv activated, PostgreSQL running, `base` C++ module built (`just build-base`).
+
+```bash
+source .venv/bin/activate
+
+# Launch the GUI
+python main.py
+
+# Or via the justfile
+just python
+```
+
+On first launch, the login dialog will appear — create an account or log in with an existing one. The header bar shows a green "DB Connected" indicator when the PostgreSQL connection is healthy.
+
+**Critical constraints (do not violate):**
+- All heavy operations run off the main thread (QThread / QRunnable). Never block the event loop.
+- Never use `QWebEngineView`. Open external URLs via `QDesktopServices.openUrl()`.
+- All `QFileDialog` calls must pass `QFileDialog.Option.DontUseNativeDialog` to avoid GTK/JVM SIGSEGV.
+
+---
+
+### <a id="tauri--typescript-web-app"></a>Tauri + TypeScript Web App
+
+The primary cross-platform interface is built with React 19 + Tauri (Rust backend). This is the recommended environment for most users.
+
+**Prerequisites:** Node 18+, Rust 1.70+, PostgreSQL running with pgvector, `.env` configured in `frontend/src-tauri/`.
+
+```bash
+# One-command setup and launch (recommended for first run)
+./run.sh
+
+# Or with npm from the project root
+npm run setup   # first time only
+npm run dev
+
+# Or from the frontend directory
+cd frontend && npm run tauri dev
+```
+
+The first build compiles the Rust backend — expect 5–10 minutes on a cold cache. Subsequent runs are fast due to incremental compilation.
+
+**Production build:**
+```bash
+npm run build
+# Bundles to: frontend/src-tauri/target/release/bundle/
+```
+
+---
+
+### <a id="analytics--interpretability-dashboard"></a>Analytics & Interpretability Dashboard
+
+The analytics dashboard is the React/TypeScript tab inside the Tauri app, implemented in `frontend/src/tabs/analytics/`. It provides SVG-based visualisations of benchmark results, ASP pipeline diagnostics, and model interpretability metrics.
+
+**Prerequisites:** Same as the Tauri web app above. The Electron mode also works for a standalone window.
+
+```bash
+# Run in Tauri dev mode (dashboard is the Analytics tab)
+npm run dev
+
+# Run in Electron mode (standalone window, faster React hot-reload)
+cd frontend
+npm run electron-dev
+
+# Build as standalone Electron app
+npm run start-electron
+```
+
+The dashboard reads benchmark JSON outputs from `backend/benchmark/results/`. Run the benchmark suite first to populate data:
+
+```bash
+source .venv/bin/activate
+python backend/benchmark/run_all.py
+```
+
+Then open the Analytics tab in the running app to see the results.
+
+---
+
+### <a id="mobile-apps-android--ios"></a>Mobile Apps (Android / iOS)
+
+**Android (Kotlin / Jetpack Compose)**
+
+Prerequisites: Android Studio, JDK 17+, Android SDK.
+
+```bash
+cd app
+
+# Debug build (installs to connected device or emulator)
+./gradlew assembleDebug
+./gradlew installDebug
+
+# Release build
+./gradlew assembleRelease
+
+# Run unit tests
+./gradlew test
+
+# Run instrumented tests (requires connected device)
+./gradlew connectedAndroidTest
+```
+
+The app connects to the same PostgreSQL backend. Set the server URL in `app/src/main/res/values/config.xml` or via the in-app settings screen.
+
+**iOS (Swift / SwiftUI)**
+
+Prerequisites: Xcode 15+, macOS, Apple Developer account for device builds.
+
+```bash
+cd app
+
+# Build for simulator
+xcodebuild -project ImageToolkit.xcodeproj -scheme ImageToolkit -destination 'platform=iOS Simulator,name=iPhone 15' build
+
+# Run on a connected device (requires signing)
+xcodebuild -project ImageToolkit.xcodeproj -scheme ImageToolkit -destination 'generic/platform=iOS' build
+
+# Run unit tests
+xcodebuild test -project ImageToolkit.xcodeproj -scheme ImageToolkit -destination 'platform=iOS Simulator,name=iPhone 15'
+```
+
+---
+
+### <a id="benchmarking-suite--utility-scripts"></a>Benchmarking Suite & Utility Scripts
+
+**ASP Benchmark (Anime Stitch Pipeline quality regression)**
+```bash
+source .venv/bin/activate
+
+# Run the full 97-test benchmark corpus
+python backend/benchmark/run_all.py
+
+# Run with baseline comparison (fails if metrics regress)
+python backend/benchmark/run_all.py --baseline backend/benchmark/results/baseline/
+
+# Run a single test by ID
+python backend/benchmark/run_single.py --test-id 09
+
+# Safe animation test suite (no GPU, no heavy model imports)
+pytest backend/test/animation/ --skip-gpu
+```
+
+**Rust criterion micro-benchmarks**
+```bash
+cd base
+cargo bench
+
+# Run a specific benchmark group
+cargo bench -- linalg
+```
+
+**Frontend math module benchmarks**
+```bash
+cd frontend
+npx ts-node src/math/benchmark.ts
+```
+
+**Utility scripts**
+```bash
+# Batch image conversion helper
+bash desktop/linux/cli/convert_images.sh
+
+# Environment setup / dependency sync
+bash desktop/linux/scripts/setup_env.sh
+
+# Check module import times (validates <1.5s threshold for all animation modules)
+source .venv/bin/activate
+python backend/src/utils/check_import_times.py
+```
+
+---
+
+## <a id="-features"></a>✨ Features
 
 ### Core Capabilities
 - 🖼️ **Image Database** - PostgreSQL with pgvector for semantic search
@@ -110,14 +435,14 @@ After login, you should see:
 
 ### Tech Stack
 - **Frontend:** [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) + [Tauri](https://tauri.app/)
-- **Backend:** [Rust](https://www.rust-lang.org/) (PyO3) + [Python](https://www.python.org/)
+- **Backend:** C++ (pybind11) + [Python](https://www.python.org/)
 - **Database:** [PostgreSQL](https://www.postgresql.org/) + [pgvector](https://github.com/pgvector/pgvector)
 - **Legacy GUI:** [PySide6](https://doc.qt.io/qtforpython-6/)
 - **Mobile:** [Kotlin](https://kotlinlang.org/) (Android) + [Swift](https://www.swift.org/) (iOS)
 
 ---
 
-## 📦 Installation & Setup
+## <a id="-installation--setup"></a>📦 Installation & Setup
 
 ### System Requirements
 
@@ -316,7 +641,7 @@ sudo apt install libgtest-dev libopencv-dev libxext-dev libxt-dev libxrender-dev
 
 ---
 
-## 🛠️ Running the Application
+## <a id="️-running-the-application"></a>🛠️ Running the Application
 
 ### Development Mode
 
@@ -384,7 +709,7 @@ python main.py
 
 ---
 
-## 📝 CLI Commands Reference
+## <a id="-cli-commands-reference"></a>📝 CLI Commands Reference
 
 All commands can be run from the **project root directory**.
 
@@ -556,7 +881,7 @@ Run `make help` for a full list. Common commands:
 
 ---
 
-## 💻 Usage
+## <a id="-usage"></a>💻 Usage
 
 Before you start the program, you must initialize the PostgreSQL Database by running one of the following commands:
 - On the Linux CLI: `sudo systemctl start postgresql`
@@ -621,7 +946,7 @@ Click the ⚙️ Settings button to:
 
 ---
 
-## 🔨 Build
+## <a id="-build"></a>🔨 Build
 
 ### Tauri Application
 
@@ -686,7 +1011,7 @@ xcodebuild -project ImageToolkit.xcodeproj -scheme ImageToolkit build
 
 ---
 
-## 🧪 Testing
+## <a id="-testing"></a>🧪 Testing
 
 ### Frontend Tests
 ```bash
@@ -719,7 +1044,7 @@ DATABASE_URL=postgresql://localhost/test_db cargo run
 
 ---
 
-## 🐛 Troubleshooting
+## <a id="-troubleshooting"></a>🐛 Troubleshooting
 
 ### Common Issues
 
@@ -797,9 +1122,8 @@ brew install openssl@3
 
 **Solution:**
 ```bash
-# Build the Rust-Python bindings
-cd base
-maturin develop --release
+# Build the C++ pybind11 extension
+just build-base
 ```
 
 #### Tauri Build Fails
@@ -828,7 +1152,7 @@ dpkg -l | grep -E "webkit2gtk|libssl-dev|build-essential"
 
 ---
 
-## ⚙️ Advanced Configuration
+## <a id="️-advanced-configuration"></a>⚙️ Advanced Configuration
 
 ### Custom Database Host
 
@@ -896,7 +1220,7 @@ RUST_BACKTRACE=1       # Enable stack traces
 
 ---
 
-## 🔄 Development Workflow
+## <a id="-development-workflow"></a>🔄 Development Workflow
 
 ### Hot Reload
 
@@ -957,15 +1281,15 @@ npm test -- --watch
 
 ---
 
-## 📚 Documentation
+## <a id="-documentation"></a>📚 Documentation
 
 - **[CLAUDE.md](CLAUDE.md)** - Architecture and development guidelines for AI coding assistants
-- **[AGENTS.md](AGENTS.md)** - Instructions for coding assistant LLMs
 - **[GEMINI.md](GEMINI.md)** - Project instructions for Gemini
+
 
 ---
 
-## 🔒 Security Notes
+## <a id="-security-notes"></a>🔒 Security Notes
 
 1. **VaultManager:** Credentials are encrypted with AES-256-GCM
 2. **Master Password:** Never stored anywhere - only used for encryption
@@ -975,7 +1299,7 @@ npm test -- --watch
 
 ---
 
-## 📖 Project Implementation Notes
+## <a id="-project-implementation-notes"></a>📖 Project Implementation Notes
 
 ### Root Command System
 
@@ -1043,7 +1367,7 @@ The `run.sh` script includes:
 
 ---
 
-## 🎯 Common Tasks Quick Reference
+## <a id="-common-tasks-quick-reference"></a>🎯 Common Tasks Quick Reference
 
 ### Just want to try it out?
 ```bash

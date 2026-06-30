@@ -100,7 +100,9 @@ class WebRequestsTab(QWidget):
         self.request_list_widget.setStyleSheet(
             "QListWidget { border: 1px solid #4f545c; border-radius: 4px; }"
         )
-        self.request_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.request_list_widget.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
         self.request_list_widget.customContextMenuRequested.connect(
             lambda pos: self.show_context_menu(pos, self.request_list_widget)
         )
@@ -145,7 +147,9 @@ class WebRequestsTab(QWidget):
         self.action_list_widget.setStyleSheet(
             "QListWidget { border: 1px solid #4f545c; border-radius: 4px; }"
         )
-        self.action_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.action_list_widget.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
         self.action_list_widget.customContextMenuRequested.connect(
             lambda pos: self.show_context_menu(pos, self.action_list_widget)
         )
@@ -156,7 +160,7 @@ class WebRequestsTab(QWidget):
 
         # --- Progress & Status ---
         self.status_label = QLabel("Ready.")
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(
             "color: #aaa; font-style: italic; padding: 8px;"
         )
@@ -188,7 +192,7 @@ class WebRequestsTab(QWidget):
         """
         )
         self.run_button.clicked.connect(self.start_requests)
-        self.button_layout.addWidget(self.run_button, 0, Qt.AlignBottom)
+        self.button_layout.addWidget(self.run_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.cancel_button = QPushButton("Cancel Requests")
         self.cancel_button.setStyleSheet(
@@ -202,7 +206,9 @@ class WebRequestsTab(QWidget):
         )
         self.cancel_button.clicked.connect(self.cancel_requests)
         self.cancel_button.hide()
-        self.button_layout.addWidget(self.cancel_button, 0, Qt.AlignBottom)
+        self.button_layout.addWidget(
+            self.cancel_button, 0, Qt.AlignmentFlag.AlignBottom
+        )
 
         main_layout.addWidget(self.button_container)
         main_layout.addStretch(1)

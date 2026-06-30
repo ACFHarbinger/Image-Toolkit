@@ -422,9 +422,10 @@ env/README.md
 /**/*.avif
 /**/tmp/
 /**/temp/
-/**/data/
 /**/mods/
+dump/
 CMakeFiles/
+backend/benchmark/output/*.json
 
 # Build directories
 /**/Image_Toolkit.egg-info
@@ -432,10 +433,27 @@ CMakeFiles/
 /**/dist
 /**/target
 
-# Secret files
+# Agent files
+.claude/
 mcp.json
+
+# Secret files
+/backup
 /**/api/*.json
 /**/cryptography/*.txt
 
 # Added by cargo
 /target
+
+# ASP C++ Compilation Output
+**/*.so
+/**/eigen3/Eigen/
+/**/eigen3/unsupported/
+
+# Linting and formatting
+.ruff_cache/
+.mypy_cache/
+
+# Forcefully add to path
+!tools/build/
+!backend/src/utils/validation/target

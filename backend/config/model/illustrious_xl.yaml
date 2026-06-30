@@ -1,0 +1,27 @@
+# config/model/illustrious_xl.yaml
+# Illustrious XL v2.0 — best LoRA-stability, broadest compatibility.
+# ε-prediction; no quality prefix required, but quality tags help.
+# clip_skip=1 (NOT 2 — that is an SD-1.5 myth).
+
+# @package model
+model_id: OnomaAIResearch/Illustrious-XL-v2.0
+arch: sdxl
+prediction_type: epsilon
+zero_terminal_snr: false
+clip_skip: 1
+snr_gamma: 5.0
+
+# Caption style: prepend these quality tags to every prompt at inference
+caption_prefix: illustrious
+
+# Recommended inference settings (for reference / generation helper)
+inference:
+  sampler: dpm++_2m_karras
+  steps: 28
+  cfg: 6.0
+  width: 832
+  height: 1216
+  positive_prefix: "masterpiece, best quality, absurdres, newest"
+  negative: "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digits,
+             fewer digits, cropped, worst quality, low quality, signature, watermark,
+             username, blurry, jpeg artifacts, sketch, old, oldest"

@@ -7,7 +7,6 @@ from backend.src.models.modules import (
     BilinearDownsample,
 )
 
-
 class ConvolutionalBlock(nn.Module):
     def __init__(
         self,
@@ -38,8 +37,7 @@ class ConvolutionalBlock(nn.Module):
     def forward(self, h, mask=None):
         return self.layers(h)
 
-
-class DiscriminatorBlock(nn.Module):
+class _DiscriminatorBlock(nn.Module):
     def __init__(
         self,
         n_filters,
@@ -84,7 +82,6 @@ class DiscriminatorBlock(nn.Module):
     def forward(self, h, mask=None):
         return self.module(h)
 
-
 class Discriminator(nn.Module):
     def __init__(
         self,
@@ -106,7 +103,7 @@ class Discriminator(nn.Module):
         )
         self.blocks = nn.ModuleList(
             [
-                DiscriminatorBlock(
+                _DiscriminatorBlock(
                     n_filters,
                     expansion_factor,
                     kernel_size,

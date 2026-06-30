@@ -18,8 +18,8 @@ import {
 import {
   ClickableLabel,
   VIDEO_PLACEHOLDER_CONST,
-} from "../../components/ClickableLabel";
-import { MarqueeScrollArea } from "../../components/MarqueeScrollArea";
+} from "../../components/common/ClickableLabel";
+import { MarqueeScrollArea } from "../../components/common/MarqueeScrollArea";
 import { useGallery } from "../../hooks/useGallery";
 import { GalleryItem } from "../../hooks/galleryItem";
 

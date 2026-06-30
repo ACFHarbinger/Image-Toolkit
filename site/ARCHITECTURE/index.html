@@ -1,0 +1,3932 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+        <link rel="prev" href="../readme/">
+      
+      
+        <link rel="next" href="../STRUCTURIZR/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Architecture - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#image-stitching-pipelines-architecture-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../roadmaps/ROADMAP/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reports/analytics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reports
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#module-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Dependency Graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-high-level-pipeline-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. High-Level Pipeline Comparison
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. High-Level Pipeline Comparison">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1a-_merge_images_scan_stitch-simple" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1a. _merge_images_scan_stitch (simple)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1b-perfect_stitch-animestitchpipeline-13-stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1b. perfect_stitch / AnimeStitchPipeline (13 stages)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-_merge_images_scan_stitch-detailed-flowchart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. _merge_images_scan_stitch — Detailed Flowchart
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. _merge_images_scan_stitch — Detailed Flowchart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-perfect_stitch-animestitchpipeline-full-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. perfect_stitch / AnimeStitchPipeline — Full Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. perfect_stitch / AnimeStitchPipeline — Full Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-parameter-resolution-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Parameter Resolution Chain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-parameter-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Parameter Values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-stage-1-frame-loading-and-dark-border-trim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Stage 1 — Frame Loading and Dark-Border Trim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-stage-2-width-normalisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Stage 2 — Width Normalisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-stage-3-basic-photometric-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Stage 3 — BaSiC Photometric Correction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-stage-4-birefnet-foreground-masking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Stage 4 — BiRefNet Foreground Masking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-stage-45-background-photometric-normalisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 Stage 4.5 — Background Photometric Normalisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#37-stages-5-6-pairwise-feature-matching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.7 Stages 5-6 — Pairwise Feature Matching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#38-stage-7-global-bundle-adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.8 Stage 7 — Global Bundle Adjustment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#39-stage-8-ecc-sub-pixel-refinement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.9 Stage 8 — ECC Sub-Pixel Refinement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#310-stage-9-canvas-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.10 Stage 9 — Canvas Construction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#311-stage-10-temporal-renderer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.11 Stage 10 — Temporal Renderer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#312-optional-mfsr-super-resolution-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.12 Optional MFSR Super-Resolution Pass
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#313-stage-11-hard-partition-foreground-composite-deghost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.13 Stage 11 — Hard-Partition Foreground Composite (Deghost)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#314-stage-13-boundary-crop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.14 Stage 13 — Boundary Crop
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-fallback-chain-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Fallback Chain Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-module-dependency-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Module Dependency Map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-constants-quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Constants Quick Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Constants Quick Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-stitching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Stitching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compositing-compositingpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compositing (compositing.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mfsr-constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MFSR Constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/new_features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/gui_ux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmaps/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reports
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reports
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reports/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reports/asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reports/image_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reports/image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#module-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Dependency Graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-high-level-pipeline-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. High-Level Pipeline Comparison
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. High-Level Pipeline Comparison">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1a-_merge_images_scan_stitch-simple" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1a. _merge_images_scan_stitch (simple)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1b-perfect_stitch-animestitchpipeline-13-stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1b. perfect_stitch / AnimeStitchPipeline (13 stages)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-_merge_images_scan_stitch-detailed-flowchart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. _merge_images_scan_stitch — Detailed Flowchart
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. _merge_images_scan_stitch — Detailed Flowchart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-perfect_stitch-animestitchpipeline-full-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. perfect_stitch / AnimeStitchPipeline — Full Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. perfect_stitch / AnimeStitchPipeline — Full Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-parameter-resolution-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Parameter Resolution Chain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-parameter-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Parameter Values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-stage-1-frame-loading-and-dark-border-trim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Stage 1 — Frame Loading and Dark-Border Trim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-stage-2-width-normalisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Stage 2 — Width Normalisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-stage-3-basic-photometric-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Stage 3 — BaSiC Photometric Correction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-stage-4-birefnet-foreground-masking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Stage 4 — BiRefNet Foreground Masking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-stage-45-background-photometric-normalisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 Stage 4.5 — Background Photometric Normalisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#37-stages-5-6-pairwise-feature-matching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.7 Stages 5-6 — Pairwise Feature Matching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#38-stage-7-global-bundle-adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.8 Stage 7 — Global Bundle Adjustment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#39-stage-8-ecc-sub-pixel-refinement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.9 Stage 8 — ECC Sub-Pixel Refinement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#310-stage-9-canvas-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.10 Stage 9 — Canvas Construction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#311-stage-10-temporal-renderer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.11 Stage 10 — Temporal Renderer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#312-optional-mfsr-super-resolution-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.12 Optional MFSR Super-Resolution Pass
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#313-stage-11-hard-partition-foreground-composite-deghost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.13 Stage 11 — Hard-Partition Foreground Composite (Deghost)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#314-stage-13-boundary-crop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.14 Stage 13 — Boundary Crop
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-fallback-chain-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Fallback Chain Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-module-dependency-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Module Dependency Map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-constants-quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Constants Quick Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Constants Quick Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-stitching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Stitching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compositing-compositingpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compositing (compositing.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mfsr-constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MFSR Constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="image-stitching-pipelines-architecture-reference">Image Stitching Pipelines — Architecture Reference<a class="headerlink" href="#image-stitching-pipelines-architecture-reference" title="Permanent link">&para;</a></h1>
+<h2 id="module-dependency-graph">Module Dependency Graph<a class="headerlink" href="#module-dependency-graph" title="Permanent link">&para;</a></h2>
+<p>The following diagram shows the high-level inter-module dependencies for Image Toolkit.
+Edges point from consumer → provider (i.e. "depends on").</p>
+<pre class="mermaid"><code>flowchart TD
+    subgraph Entry["Entry Points"]
+        MAIN["main.py\n(PySide6 launch)"]
+        CLI["backend/dispatcher.py\n(Hydra CLI)"]
+        TAURI["frontend/src-tauri/\n(Tauri desktop)"]
+        API["api/\n(Django REST)"]
+    end
+
+    subgraph GUI["Desktop GUI  ·  gui/"]
+        TABS["Tabs\n(convert, wallpaper,\nlistings, merge…)"]
+        WORKERS["QThread Workers\n(ImageLoaderWorker,\nRecommendationWorker)"]
+        LRU["LRUImageCache\n(gui/src/utils/)"]
+    end
+
+    subgraph Backend["Python Backend  ·  backend/"]
+        CTRL["(Hydra dispatcher)"]
+        ANIMMOD["animation/\n(ASP pipeline)"]
+        MODELS["models/\n(PyTorch ML)"]
+        DB["image_database.py\n(pgvector)"]
+        VAULT["vault_manager.py\n(JPype / JVM)"]
+        RECENG["Recommendation-Engine/\n(SQLite + cosine RRF)"]
+    end
+
+    subgraph RustCore["Rust Core  ·  base/"]
+        RUST["PyO3 extension\n(image_converter,\nfile_system, crawlers)"]
+        RUSTMATH["math/\n(stats, distance,\ninformation)"]
+    end
+
+    subgraph Data["Data Layer"]
+        PG[("PostgreSQL\n+ pgvector")]
+        SQLITE[("SQLite\nrec_engine.db")]
+        FS["File System\n(image library)"]
+    end
+
+    subgraph Crypto["Cryptography  ·  cryptography/"]
+        KOTLIN_CRYPTO["Kotlin AES-256-GCM\n(.vault files)"]
+    end
+
+    subgraph Mobile["Mobile  ·  app/"]
+        ANDROID["Android\n(Kotlin / Jetpack)"]
+        IOS["iOS\n(Swift / SwiftUI)"]
+    end
+
+    subgraph Ext["Browser Extension  ·  extension/"]
+        EXT["Manifest V3\nContext-menu save"]
+    end
+
+    %% Entry → GUI / Backend
+    MAIN --&gt; TABS
+    CLI --&gt; CTRL
+    TAURI --&gt; Backend
+    API --&gt; Backend
+
+    %% GUI internals
+    TABS --&gt; WORKERS
+    WORKERS --&gt; LRU
+    TABS --&gt; Backend
+
+    %% Backend internals
+    CTRL --&gt; ANIMMOD
+    CTRL --&gt; MODELS
+    ANIMMOD --&gt; MODELS
+    CTRL --&gt; DB
+    DB --&gt; PG
+    CTRL --&gt; RECENG
+    RECENG --&gt; SQLITE
+
+    %% Backend → Rust
+    Backend --&gt; RUST
+    RUST --&gt; FS
+    RUST --&gt; RUSTMATH
+
+    %% Vault
+    CTRL --&gt; VAULT
+    VAULT --&gt; KOTLIN_CRYPTO
+
+    %% Mobile
+    ANDROID --&gt; Backend
+    IOS --&gt; Backend
+    ANDROID --&gt; KOTLIN_CRYPTO
+    IOS --&gt; KOTLIN_CRYPTO</code></pre>
+<p><strong>Key constraints enforced by this topology:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No blocking I/O on the Qt main thread</td>
+<td>PySide6 GUI freezes if <code>gui/</code> workers do heavy work inline</td>
+</tr>
+<tr>
+<td><code>QFileDialog</code> must use <code>DontUseNativeDialog</code></td>
+<td>GTK portal + JPype JVM → <code>__dynamic_cast</code> SIGSEGV on Linux</td>
+</tr>
+<tr>
+<td>No <code>QWebEngineView</code></td>
+<td>Chromium Vulkan/GBM init conflicts with JPype JVM RTTI</td>
+</tr>
+<tr>
+<td><code>QPixmap</code> only on main thread; workers emit <code>QImage</code></td>
+<td>Qt threading contract</td>
+</tr>
+<tr>
+<td>Rust core is a <code>cdylib</code> loaded at runtime (not <code>staticlib</code>)</td>
+<td>PyO3/Maturin constraint; <code>crate-type = ["cdylib", "rlib"]</code> in <code>base/Cargo.toml</code></td>
+</tr>
+<tr>
+<td>No SQLite in the main app (PostgreSQL + pgvector only)</td>
+<td><code>Recommendation-Engine/</code> uses SQLite as a standalone sub-project</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p>This document provides detailed Mermaid diagrams for the two anime/scan stitching pipelines:</p>
+<ul>
+<li><strong><code>_merge_images_scan_stitch</code></strong> — lightweight OpenCV SCANS-mode baseline (10 steps)</li>
+<li><strong><code>perfect_stitch</code> / <code>AnimeStitchPipeline</code></strong> — 13-stage research pipeline with deep-learning models, bundle adjustment, temporal rendering, and hard-partition compositing</li>
+</ul>
+<p>The diagrams are intentionally verbose: every algorithmic parameter, conditional branch, model, and fallback path is documented.</p>
+<blockquote>
+<p><strong>Mermaid compatibility:</strong> All diagrams target v8.8.0. <code>direction</code> inside subgraphs and <code>~~~</code> links require v9+ and are not used here.</p>
+</blockquote>
+<hr />
+<h2 id="1-high-level-pipeline-comparison">1. High-Level Pipeline Comparison<a class="headerlink" href="#1-high-level-pipeline-comparison" title="Permanent link">&para;</a></h2>
+<h3 id="1a-_merge_images_scan_stitch-simple">1a. <code>_merge_images_scan_stitch</code> (simple)<a class="headerlink" href="#1a-_merge_images_scan_stitch-simple" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    S1["Read images - cv2.imread"] --&gt; S2["cv2.Stitcher - mode=SCANS 1"]
+    S2 --&gt; S3["setRegistrationResol 0.8"]
+    S3 --&gt; S4["stitch()"]
+    S4 --&gt; S5["BGR to RGB - Save output"]</code></pre>
+<h3 id="1b-perfect_stitch-animestitchpipeline-13-stages">1b. <code>perfect_stitch</code> / <code>AnimeStitchPipeline</code> (13 stages)<a class="headerlink" href="#1b-perfect_stitch-animestitchpipeline-13-stages" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    A1["Stage 1: Load + dark-border trim"] --&gt; A2["Stage 2: Lanczos width normalise"]
+    A2 --&gt; A3["Stage 3: BaSiC photometric correction"]
+    A3 --&gt; A4["Stage 4: BiRefNet foreground masking"]
+    A4 --&gt; A45["Stage 4.5: Background photometric normalise"]
+    A45 --&gt; A56["Stages 5-6: Pairwise feature matching"]
+    A56 --&gt; A7["Stage 7: Global bundle adjustment - LM"]
+    A7 --&gt; A8["Stage 8: ECC sub-pixel refinement"]
+    A8 --&gt; A9["Stage 9: Canvas geometry sizing"]
+    A9 --&gt; A10["Stage 10: Temporal renderer - median / first / blend"]
+    A10 --&gt; MFSR["Optional MFSR super-resolution pass"]
+    MFSR --&gt; A11["Stage 11: Hard-partition foreground composite"]
+    A11 --&gt; A13["Stage 13: Morphological boundary crop"]
+    A13 --&gt; DONE["Save PNG / WEBP"]</code></pre>
+<hr />
+<h2 id="2-_merge_images_scan_stitch-detailed-flowchart">2. <code>_merge_images_scan_stitch</code> — Detailed Flowchart<a class="headerlink" href="#2-_merge_images_scan_stitch-detailed-flowchart" title="Permanent link">&para;</a></h2>
+<p><strong>Source:</strong> <code>backend/src/core/image_merger.py:129</code></p>
+<p>This method wraps OpenCV's built-in SCANS stitcher with minimal preprocessing. It is also used as the fallback inside <code>AnimeStitchPipeline</code> when no valid feature edges are found.</p>
+<pre class="mermaid"><code>flowchart TD
+    IN["image_paths: List[str] / output_path: str"] --&gt; NOCL
+    NOCL["cv2.ocl.setUseOpenCL(False)\nPrevents malloc corruption in OpenCL path"] --&gt; L1
+
+    L1["for path in image_paths:\n  img = cv2.imread(path)"] --&gt; L2{"img is None\nor img.size == 0?"}
+    L2 -- "yes" --&gt; L3["warn + skip"]
+    L2 -- "no" --&gt; L4["append to cv_images"]
+    L3 --&gt; VALID
+    L4 --&gt; VALID
+
+    VALID{"len(cv_images) &lt; 2?"} -- "yes" --&gt; ERR["raise ValueError:\nNeed at least 2 valid images"]
+    VALID -- "no" --&gt; C1
+
+    C1["try: cv2.Stitcher_create(mode=1)\nSCANS mode - affine/flat transforms"] --&gt; C2
+    C2["except AttributeError:\ncv2.createStitcher(True)\nLegacy OpenCV fallback"] --&gt; RESOL
+
+    RESOL["stitcher.setRegistrationResol(0.8)\nHardcoded: 0.8 - default is 0.6\nHigher = more keypoints = better for small overlaps"] --&gt; STITCH
+
+    STITCH["status, pano = stitcher.stitch(cv_images)"] --&gt; CLEANUP
+    CLEANUP["cv2.destroyAllWindows()\nForce-release highgui / Qt resources"] --&gt; CHECK
+
+    CHECK{"status == cv2.Stitcher_OK?"} -- "no" --&gt; ERRMAP
+    CHECK -- "yes" --&gt; CONV
+
+    ERRMAP["Map error code:\n  ERR_NEED_MORE_IMGS\n  ERR_HOMOGRAPHY_EST_FAIL\n  ERR_CAMERA_PARAMS_ADJUST_FAIL\nraise RuntimeError"]
+
+    CONV["cv2.cvtColor(pano, BGR to RGB)\nImage.fromarray(pano_rgb)"] --&gt; SAVE
+    SAVE["merged_image.save(output_path)\nreturn Image"]</code></pre>
+<h3 id="key-parameters">Key Parameters<a class="headerlink" href="#key-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stitcher mode</td>
+<td><code>1</code> (SCANS — affine/flat)</td>
+<td>Hardcoded</td>
+</tr>
+<tr>
+<td>Registration resolution</td>
+<td><code>0.8</code></td>
+<td>Hardcoded (OpenCV default is 0.6)</td>
+</tr>
+<tr>
+<td>OpenCL</td>
+<td>Disabled</td>
+<td>Hardcoded (prevents malloc corruption)</td>
+</tr>
+<tr>
+<td>Feature detector</td>
+<td>ORB/AKAZE (OpenCV default)</td>
+<td>Inside OpenCV</td>
+</tr>
+<tr>
+<td>Matcher</td>
+<td>BFMatcher / FLANN</td>
+<td>Inside OpenCV</td>
+</tr>
+<tr>
+<td>Homography</td>
+<td>RANSAC</td>
+<td>Inside OpenCV</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-perfect_stitch-animestitchpipeline-full-pipeline">3. <code>perfect_stitch</code> / <code>AnimeStitchPipeline</code> — Full Pipeline<a class="headerlink" href="#3-perfect_stitch-animestitchpipeline-full-pipeline" title="Permanent link">&para;</a></h2>
+<p><strong>Entry point:</strong> <code>backend/src/core/image_merger.py:737</code>
+<strong>Orchestrator:</strong> <code>backend/src/animation/pipeline.py:87</code></p>
+<h3 id="31-parameter-resolution-chain">3.1 Parameter Resolution Chain<a class="headerlink" href="#31-parameter-resolution-chain" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart LR
+    D["Hard-coded defaults\nin perfect_stitch()"] --&gt; Y["stitch.yaml\nbackend/config/core/stitch.yaml"]
+    Y --&gt; K["Explicit kwargs\ncall-site overrides"]
+    K --&gt; FINAL["Resolved params\npassed to AnimeStitchPipeline(**params)"]</code></pre>
+<h3 id="default-parameter-values">Default Parameter Values<a class="headerlink" href="#default-parameter-values" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>use_basic</code></td>
+<td><code>False</code></td>
+<td>bool</td>
+<td>Enable BaSiC flat-field correction</td>
+</tr>
+<tr>
+<td><code>use_birefnet</code></td>
+<td><code>True</code></td>
+<td>bool</td>
+<td>Enable BiRefNet foreground masking</td>
+</tr>
+<tr>
+<td><code>use_loftr</code></td>
+<td><code>True</code></td>
+<td>bool</td>
+<td>Enable LoFTR dense matching</td>
+</tr>
+<tr>
+<td><code>use_ecc</code></td>
+<td><code>False</code></td>
+<td>bool</td>
+<td>Enable ECC sub-pixel refinement</td>
+</tr>
+<tr>
+<td><code>renderer</code></td>
+<td><code>"median"</code></td>
+<td>str</td>
+<td><code>"median"</code> / <code>"first"</code> / <code>"blend"</code></td>
+</tr>
+<tr>
+<td><code>composite_fg</code></td>
+<td><code>True</code></td>
+<td>bool</td>
+<td>Hard-partition foreground composite</td>
+</tr>
+<tr>
+<td><code>motion_model</code></td>
+<td><code>"translation"</code></td>
+<td>str</td>
+<td><code>"translation"</code> (2-DOF) / <code>"affine"</code> (4-DOF)</td>
+</tr>
+<tr>
+<td><code>edge_crop</code></td>
+<td><code>80</code></td>
+<td>int</td>
+<td>Pixels to crop from all sides at output</td>
+</tr>
+<tr>
+<td><code>laplacian_bands</code></td>
+<td><code>8</code></td>
+<td>int</td>
+<td>Bands for multi-band blend renderer</td>
+</tr>
+<tr>
+<td><code>mfsr_mode</code></td>
+<td><code>False</code></td>
+<td>bool</td>
+<td>Enable MFSR super-resolution pass</td>
+</tr>
+<tr>
+<td><code>mfsr_n_dct_iter</code></td>
+<td><code>20</code></td>
+<td>int</td>
+<td>DCT restoration iterations</td>
+</tr>
+<tr>
+<td><code>mfsr_use_prior</code></td>
+<td><code>True</code></td>
+<td>bool</td>
+<td>Enable prior injection in MFSR</td>
+</tr>
+<tr>
+<td><code>mfsr_use_diffusion</code></td>
+<td><code>False</code></td>
+<td>bool</td>
+<td>Enable diffusion inpainting in MFSR</td>
+</tr>
+<tr>
+<td><code>stitch_net_ckpt</code></td>
+<td><code>""</code></td>
+<td>str</td>
+<td>Path to AnimeStitchNet checkpoint</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="32-stage-1-frame-loading-and-dark-border-trim">3.2 Stage 1 — Frame Loading and Dark-Border Trim<a class="headerlink" href="#32-stage-1-frame-loading-and-dark-border-trim" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/canvas.py:17</code> (<code>_load_frames</code>)
+<strong>Helper:</strong> <code>backend/src/animation/stateless.py</code> (<code>_trim_dark_border</code>)</p>
+<pre class="mermaid"><code>flowchart TD
+    P["image_paths: List[str]"] --&gt; R
+    R["cv2.imread(path)"] --&gt; NIL{"img is None?"}
+    NIL -- "yes" --&gt; SKIP["warn + skip frame"]
+    NIL -- "no" --&gt; TRIM["_trim_dark_border(img)\nDetects broadcast letterbox bars\nScans rows/cols for rows where\nmean pixel is below dark threshold\nCrops until non-dark content found"]
+    TRIM --&gt; APP["append to frames list"]
+    SKIP --&gt; CHECK
+    APP --&gt; CHECK
+    CHECK{"len(frames) &lt; 2?"} -- "yes" --&gt; ERR["raise ValueError"]
+    CHECK -- "no" --&gt; NEXT["Stage 2"]</code></pre>
+<hr />
+<h3 id="33-stage-2-width-normalisation">3.3 Stage 2 — Width Normalisation<a class="headerlink" href="#33-stage-2-width-normalisation" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/canvas.py:30</code> (<code>_normalise_widths</code>)</p>
+<pre class="mermaid"><code>flowchart TD
+    IN["frames: List[ndarray]"] --&gt; TW["target_w = frames[0].shape[1]"]
+    TW --&gt; CHECK{"w != target_w?"}
+    CHECK -- "yes" --&gt; RESIZE["cv2.resize\nInterpolation: INTER_LANCZOS4\nnh = round(h x target_w / w)\nPreserves aspect ratio"]
+    CHECK -- "no" --&gt; KEEP["keep as-is"]
+    RESIZE --&gt; OUT["Stage 3"]
+    KEEP --&gt; Out["Stage 3"]</code></pre>
+<hr />
+<h3 id="34-stage-3-basic-photometric-correction">3.4 Stage 3 — BaSiC Photometric Correction<a class="headerlink" href="#34-stage-3-basic-photometric-correction" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/photometric.py</code>
+<strong>Activated by:</strong> <code>use_basic=True</code></p>
+<pre class="mermaid"><code>flowchart TD
+    GATE{"use_basic == True\nAND _BASIC_OK?"} -- "no" --&gt; SKIP["Stage 3 skipped"]
+    GATE -- "yes" --&gt; B1
+
+    B1["BaSiCWrapper.fit(frames, luma_only=True)\nReturns: flat_field, dark, baselines\nbaselines = per-frame dimming scalar\nBroadcast dimming if b_i less than 0.75"] --&gt; B2
+
+    B2["Apply spatial flat-field ONLY\nbaseline_override=1.0\nPer-frame b_i correction intentionally skipped:\nApplying it destroys inter-frame brightness\ncontinuity causing colour seams at boundaries\nDeferred to _render_median at Stage 10"] --&gt; V1
+
+    V1["Sample luma from 5 evenly-spaced frames\nDownsample to 320px wide\nUse 75th percentile across stack"] --&gt; V2
+
+    V2["Fit quadratic vignette model:\nG(r) = 1 / (1 + k * r^2)\nvia scipy.least_squares\nbounds: k in range 0 to 0.5"] --&gt; V3{"k_val less than 0.01?"}
+
+    V3 -- "yes" --&gt; V4["No vignette detected - skip correction"]
+    V3 -- "no" --&gt; V5["k_val *= 0.7 (soften)\nk_val *= 0.4 (conservative clamp)\nFinal effective multiplier: 0.28x\ngain_map = 1 + k_val * r_norm^2\nApply per-channel to all frames"]
+    V4 --&gt; NEXT["Stage 4\nbaselines list passed to Stage 10"]
+    V5 --&gt; NEXT</code></pre>
+<hr />
+<h3 id="35-stage-4-birefnet-foreground-masking">3.5 Stage 4 — BiRefNet Foreground Masking<a class="headerlink" href="#35-stage-4-birefnet-foreground-masking" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/masking.py</code> (<code>_compute_fg_masks</code>)
+<strong>Constants:</strong> <code>_FOREGROUND_DILATION=16</code>, <code>_FOREGROUND_EROSION=8</code></p>
+<pre class="mermaid"><code>flowchart TD
+    GATE{"use_birefnet == True\nAND _BIREFNET_OK?"} -- "no" --&gt; NONE["Return None for each frame\nAll pixels treated as background"]
+    GATE -- "yes" --&gt; A1
+
+    A1{"hasattr(wrapper,\nget_background_mask)?"} -- "New API" --&gt; NEW
+    A1 -- "Legacy API" --&gt; LEG
+
+    NEW["wrapper.get_background_mask(img,\n  dilate_px=16,\n  erode_px=8)\nResult: 255=background, 0=foreground\n_FOREGROUND_DILATION=16px safety margin\n_FOREGROUND_EROSION=8px boundary sharpening"]
+
+    LEG["wrapper.get_mask(img) returns 255=foreground\nbg = bitwise_not(fg)\nManual dilation with elliptical kernel\nKernel size: 2*16+1 = 33px"]
+
+    NEW --&gt; OFFLOAD
+    LEG --&gt; OFFLOAD
+
+    OFFLOAD["Offload BiRefNet from GPU\ntorch.cuda.empty_cache()\nFree VRAM before matching stage"] --&gt; NEXT["bg_masks: List[Optional[ndarray]]\nStage 4.5"]</code></pre>
+<hr />
+<h3 id="36-stage-45-background-photometric-normalisation">3.6 Stage 4.5 — Background Photometric Normalisation<a class="headerlink" href="#36-stage-45-background-photometric-normalisation" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/pipeline.py:420</code> (inline in <code>run()</code>)</p>
+<pre class="mermaid"><code>flowchart TD
+    IN["frames + bg_masks"] --&gt; S1
+
+    S1["For each frame: sample pixels where bg_mask greater than 127\ncompute mean BGR colour"] --&gt; S2{"len bg_pixels &gt;= 1000?"}
+    S2 -- "yes" --&gt; S3["bg_frame_means[i] = pixel_mean"]
+    S2 -- "no" --&gt; S4["bg_frame_means[i] = None"]
+    S3 --&gt; COUNT
+    S4 --&gt; COUNT
+
+    COUNT{"valid means &gt;= 3?"} -- "no" --&gt; SKIP["Skip normalisation"]
+    COUNT -- "yes" --&gt; N1
+
+    N1["ref_mean = np.median(valid_means, axis=0)\nRobust median eliminates\nanime cel flicker / temporal brightness variation"] --&gt; N2
+
+    N2["For each frame with valid mean:\ngain = ref_mean / bg_frame_mean[i]\ngain = clip(gain, 0.88, 1.14)\nGain clamp prevents over-correction"] --&gt; N3{"gain approx 1.0?"}
+
+    N3 -- "no" --&gt; N4["frames[i] = clip(frame * gain, 0, 255)"]
+    N3 -- "yes" --&gt; SKIP2["skip - no change needed"]
+    N4 --&gt; NEXT["Stages 5-6"]
+    SKIP2 --&gt; NEXT</code></pre>
+<hr />
+<h3 id="37-stages-5-6-pairwise-feature-matching">3.7 Stages 5-6 — Pairwise Feature Matching<a class="headerlink" href="#37-stages-5-6-pairwise-feature-matching" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/matching.py</code></p>
+<h4 id="371-edge-graph-construction">3.7.1 Edge Graph Construction<a class="headerlink" href="#371-edge-graph-construction" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>flowchart TD
+    N["N frames"] --&gt; P1["Adjacent pairs i to i+1\nN-1 pairs"]
+    N --&gt; P2["Skip-1 pairs i to i+2\nN-2 pairs"]
+    N --&gt; P3["Skip-2 pairs i to i+3\nN-3 pairs"]
+    P1 --&gt; MATCH["_match_pair(i, j) for each pair"]
+    P2 --&gt; MATCH
+    P3 --&gt; MATCH
+    MATCH --&gt; FILTER["_filter_edges(edges)\nGeometric consistency + Direction consensus"]
+    FILTER --&gt; RESULT["edges: List[Dict]\nkeys: i, j, M 2x3, pts_i, pts_j, weight"]</code></pre>
+<h4 id="372-per-pair-matching-fallback-chain">3.7.2 Per-Pair Matching Fallback Chain<a class="headerlink" href="#372-per-pair-matching-fallback-chain" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>flowchart TD
+    START["_match_pair(frames, bg_masks, i, j)"] --&gt; CROP
+
+    CROP["Edge Crop pre-match distortion removal:\nec_h = H * 0.05  _MATCH_EDGE_CROP=0.05\nec_w = W * 0.05\nCrop 5% from all sides before matching"] --&gt; ATT1
+
+    ATT1["Attempt 1: LoFTR Dense Matching\nloftr_wrapper.match(img_i_c, img_j_c)\nReturns: pts1, pts2, conf"] --&gt; L2{"len pts1 &gt;= 30?"}
+    L2 -- "no" --&gt; ATT2_START
+    L2 -- "yes" --&gt; L3["Filter: keep only bg points\nboth masks greater than 127\n_MIN_LOFTR_INLIERS=20 required after filter"]
+    L3 --&gt; L4{"motion_model?"}
+    L4 -- "translation" --&gt; L5["dx = median(pts2[:,0] - pts1[:,0])\ndy = median(pts2[:,1] - pts1[:,1])\nM = [[1,0,dx],[0,1,dy]]"]
+    L4 -- "affine" --&gt; L6["cv2.estimateAffine2D\n  pts1, pts2\n  method=cv2.RANSAC\n  ransacReprojThreshold=5.0\nRequire at least 15 RANSAC inliers"]
+    L5 --&gt; DXCHECK{"dx valid?\nabs(dx) less than W * 0.01\n_MAX_DX_DRIFT_RATIO=0.01\nVertical pans have near-zero horizontal drift"}
+    L6 --&gt; DXCHECK
+    DXCHECK -- "no" --&gt; ATT2_START
+    DXCHECK -- "yes" --&gt; SUCCESS["M found - skip remaining attempts"]
+
+    ATT2_START["Attempt 2: Template Match Fallback\n_template_match(img_i_c, img_j_c, mask_i, mask_j, H_c)"] --&gt; T2
+    T2["Bidirectional search:\nConfig A: bottom of i in top of j  dy greater than 0 downward pan\nConfig B: top of i in bottom of j  dy less than 0 upward pan\nslice_h=256  template strip height\nmax_search_frac=0.8  ROI = 80% of frame height\nmax_dy_frac=0.70  reject abs dy greater than 70% of H\nEnforces minimum 30% frame overlap\ndirection_sign=0 bidirectional by default\ncv2.matchTemplate TM_CCORR_NORMED with mask"] --&gt; T4{"conf greater than 0.6\nAND conf greater than _MIN_TEMPLATE_SCORE 0.85?"}
+    T4 -- "yes" --&gt; SUCCESS2["M found"]
+    T4 -- "no" --&gt; ATT3A
+
+    ATT3A["Attempt 3a: Masked Phase Correlation\ng_i = _highpass(_luma(img_i_c))\ng_j = _highpass(_luma(img_j_c))\nHigh-pass filter isolates edges removes DC\nZero out foreground pixels mask == 0\nPrevents moving characters biasing shift\nHanning window\ncv2.phaseCorrelate(g_i, g_j, hann)\nReturns shift=(dx,dy), response"] --&gt; PC4{"response greater than 0.25\nabs(dx) less than W * 0.01?"}
+    PC4 -- "yes" --&gt; SUCCESS3["M found"]
+    PC4 -- "no" --&gt; ATT3B
+
+    ATT3B["Attempt 3b: Unmasked Phase Correlation\nSame as 3a but use_mask=False\nCharacter provides dominant phase signal\nwhen background is uniform\nMinimum response: _PC_CONF_THRESHOLD=0.05"] --&gt; PU2{"response greater than 0.15\nabs(dx) less than W * 0.01?"}
+    PU2 -- "yes" --&gt; SUCCESS4["M found"]
+    PU2 -- "no" --&gt; FAIL["All methods failed - edge dropped"]
+
+    SUCCESS --&gt; BUILD["Build edge dict:\nEnforce translation-only M\nrotation and scale locked to identity\nBuild pts_i / pts_j anchor points\nweight = mean_conf"]
+    SUCCESS2 --&gt; BUILD
+    SUCCESS3 --&gt; BUILD
+    SUCCESS4 --&gt; BUILD</code></pre>
+<h4 id="373-edge-filter">3.7.3 Edge Filter<a class="headerlink" href="#373-edge-filter" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>flowchart TD
+    EDGES["raw edges list"] --&gt; G1
+
+    G1["Geometric Consistency Filter:\nBuild adj_map: i to dx,dy for adjacent edges i to i+1"] --&gt; G2["For each skip-pair edge i to j where j greater than i+1:\nsum adjacent dx,dy from i to j"]
+    G2 --&gt; G3{"diff_x less than 15.0\nAND diff_y less than 15.0?"}
+    G3 -- "yes" --&gt; G4["Keep edge"]
+    G3 -- "no" --&gt; G5["Reject: inconsistency"]
+    G4 --&gt; DIR
+    G5 --&gt; DIR
+
+    DIR["Direction Consensus Filter - requires 3 or more adjacent edges:\nCollect dy values from all adjacent edges\nmedian_dy = np.median(adj_dys)\nconsensus_sign = sign(median_dy)"] --&gt; D2
+
+    D2["Estimate velocity from filename timestamps:\n_ts_pat: _(digits)ms pattern in filename\nvel_px_per_ms = median(dy_e / interval_ms)"] --&gt; D3
+
+    D3["For each adjacent edge i to i+1:\nwrong_sign: sign(dy) != consensus_sign\ngross_outlier: abs(dy) greater than 2 x abs(median_dy)\n              AND abs(dy - median_dy) greater than 200px\nvelocity outlier: abs(dy - expected) greater than max(15%, 15px)"] --&gt; OUTCHECK{"outlier detected?"}
+
+    OUTCHECK -- "yes" --&gt; D4["Replacement priority:\n1. velocity estimate: M_fix dy = vel_px_per_ms * interval, weight=0.55\n2. directed template match direction_sign=consensus_sign, weight=conf*0.7\n3. median fallback: M_fix dy = median_dy, weight=original*0.3"]
+    OUTCHECK -- "no" --&gt; D5["Keep edge as-is"]
+    D4 --&gt; RESULT["Filtered edges - Stage 7"]
+    D5 --&gt; RESULT</code></pre>
+<hr />
+<h3 id="38-stage-7-global-bundle-adjustment">3.8 Stage 7 — Global Bundle Adjustment<a class="headerlink" href="#38-stage-7-global-bundle-adjustment" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/bundle_adjust.py</code> (<code>_bundle_adjust_affine</code>)</p>
+<pre class="mermaid"><code>flowchart TD
+    IN["edges, N frames, motion_model"] --&gt; DOF{"motion_model == affine?"}
+
+    DOF -- "yes" --&gt; D2["4-DOF Partial Affine\nparams per frame: a, b, tx, ty\nMatrix: [[a, b, tx], [-b, a, ty]]\nPreserves aspect ratio\nPrevents fan / spiral distortion"]
+    DOF -- "no" --&gt; D3["2-DOF Translation only\nparams per frame: tx, ty\nMatrix: [[1,0,tx],[0,1,ty]]"]
+
+    D2 --&gt; INIT
+    D3 --&gt; INIT
+
+    INIT["Initialisation x0:\nAll frames: identity a=1, b=0, tx=0, ty=0\nSequential forward pass:\n  for f in 1 to N:\n    tx_f = tx_(f-1) - M_raw[0,2]\n    ty_f = ty_(f-1) - M_raw[1,2]\nCanvas convention: ty_j = ty_i - dy\n(dy = y_j - y_i measured by LoFTR / PC)"] --&gt; OPT
+
+    OPT["scipy.optimize.least_squares\n  residuals, x0\n  method=trf\n  ftol=1e-6, xtol=1e-6, gtol=1e-6\n  max_nfev = iterations * N\n  iterations=200 hardcoded"] --&gt; RES
+
+    RES["Residual function:\nData term: (p_i_global - p_j_global) * weight\nAnchor term: (x[0:4] - identity) * 2000.0\n  Frame 0 pinned at identity reg_anchor=2000\nIdentity prior: (a_f - 1.0) * 1e5\n                (b_f - 0.0) * 1e5\n  Keeps a approx 1, b approx 0 globally"] --&gt; OUT
+
+    OUT["List of ndarray(2,3) - one per frame\nStage 8"]</code></pre>
+<hr />
+<h3 id="39-stage-8-ecc-sub-pixel-refinement">3.9 Stage 8 — ECC Sub-Pixel Refinement<a class="headerlink" href="#39-stage-8-ecc-sub-pixel-refinement" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/ecc.py</code> (<code>_ecc_refine</code>)
+<strong>Activated by:</strong> <code>use_ecc=True</code></p>
+<pre class="mermaid"><code>flowchart TD
+    GATE{"use_ecc == True?"} -- "no" --&gt; SKIP["Stage 8 skipped\nKeep BA affines as-is"]
+    GATE -- "yes" --&gt; ITER
+
+    ITER["For each frame i in 1 to N relative to i-1:\nref = _luma(frames[i-1])\nsrc = _luma(frames[i])\nmask = bg_masks[i-1]\nCompute relative transform init:\n  tx_rel = M_prev[0,2] - M_i[0,2]\n  ty_rel = M_prev[1,2] - M_i[1,2]"] --&gt; PYR
+
+    PYR["Gaussian Pyramid ECC coarse to fine:\nfor lvl in range(_ECC_PYRAMID_LEVELS-1, -1, -1):\n  _ECC_PYRAMID_LEVELS=4\n  scale = 2^lvl\n  r_s = resize(ref, 1/scale, INTER_AREA)\n  s_s = resize(src, 1/scale, INTER_AREA)\n  M_s = M_cur scaled by 1/scale"] --&gt; P2
+
+    P2["cv2.findTransformECC\n  r_s, s_s, M_s\n  cv2.MOTION_TRANSLATION\n  criteria: EPS|COUNT, _ECC_MAX_ITER=80, _ECC_EPS=1e-4\n  ecc_mask=bg_mask_scaled\n  gaussFiltSize=5\nScale result back: tx_s *= scale\nPropagate to next finer level"] --&gt; CLAMP
+
+    CLAMP{"abs(tx_new - tx_ba) greater than 80px\nOR abs(ty_new - ty_ba) greater than 80px?\n_ECC_MAX_DRIFT=80px"} -- "yes" --&gt; CL2["Reject ECC result\nKeep BA result unchanged"]
+    CLAMP -- "no" --&gt; CL3["Accept ECC refined global affine"]
+    CL2 --&gt; OUT["Refined affines - Stage 9"]
+    CL3 --&gt; OUT</code></pre>
+<hr />
+<h3 id="310-stage-9-canvas-construction">3.10 Stage 9 — Canvas Construction<a class="headerlink" href="#310-stage-9-canvas-construction" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/canvas.py:43</code> (<code>_compute_canvas</code>)</p>
+<pre class="mermaid"><code>flowchart TD
+    IN["frames + affines"] --&gt; CORNERS["For each frame i:\ncorners = [[0,0],[w,0],[w,h],[0,h]]\nwarped = M[:2,:2] @ corners.T + M[:2,2]\nCollect all warped corners"]
+    CORNERS --&gt; BBOX["min_xy = all_corners.min(axis=0)\nmax_xy = all_corners.max(axis=0)"]
+    BBOX --&gt; TG["T_global = -min_xy\ncanvas_w = ceil(max_xy[0] - min_xy[0])\ncanvas_h = ceil(max_xy[1] - min_xy[1])"]
+    TG --&gt; CAP["canvas_w = min(canvas_w, 32768)\ncanvas_h = min(canvas_h, 32768)\n_CANVAS_MAX_DIM=32768 OOM guard"]
+    CAP --&gt; OFFSET["Apply T_global to all affines:\naffines[i][0,2] += T_global[0]\naffines[i][1,2] += T_global[1]"]
+    OFFSET --&gt; NEXT["canvas_h, canvas_w - Stage 10"]</code></pre>
+<hr />
+<h3 id="311-stage-10-temporal-renderer">3.11 Stage 10 — Temporal Renderer<a class="headerlink" href="#311-stage-10-temporal-renderer" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/rendering.py</code></p>
+<pre class="mermaid"><code>flowchart TD
+    DISP{"renderer param?"} -- "median" --&gt; MED["_render_median()"]
+    DISP -- "first" --&gt; FIRST["_render_first()"]
+    DISP -- "blend" --&gt; BLEND["_render_laplacian()"]
+    MED --&gt; OUT["canvas, valid_mask, warped_corr, warped_fgs\nOptional MFSR - Stage 11"]
+    FIRST --&gt; OUT
+    BLEND --&gt; OUT</code></pre>
+<h4 id="median-renderer-default-overmix-temporal-denoising">Median Renderer (default — Overmix temporal denoising)<a class="headerlink" href="#median-renderer-default-overmix-temporal-denoising" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>flowchart TD
+    M1["Sequential colour correction\n_compute_sequential_color_gains:\n  N_STRIPES=12 horizontal stripes per overlap\n  STRIPE_H=40 rows per stripe\n  MIN_BG_PX=200 bg pixels required\n  Robust: median ratio across stripes\n  Gain clamp: 0.88 to 1.12\n  Bias clamp: -20 to 20\n  MAX_SAFE_GAIN_DEV=0.14 suppress large corrections"] --&gt; M2
+
+    M2["Chunk rendering memory-safe:\nchunk_size = min(1024, 1GB / N*W*3)\nFor y0 to H in chunks:\n  warpAffine each frame into chunk\n    flags=INTER_LANCZOS4\n    borderMode=BORDER_CONSTANT\n  Apply BaSiC baselines if available:\n    scale = min(1/max(b_i, 0.5), 1.25)\n  Apply colour gain and bias correction\n  stack shape: N, chunk_h, W, 3"] --&gt; M3
+
+    M3["Pixel aggregation:\ncount==1: take single sample directly\ncount greater than 1: np.nanmedian(stack_f32, axis=0)\n  NaN-mask excludes unwarped pixels"] --&gt; M4
+
+    M4["Fade-in/out correction:\n_FADE_ROWS=250 rows each side of frame entry/exit\n_LANCZOS_BLEED=8px extension for Lanczos kernel bleed\nAlpha ramp: 0 to 1 entry or 1 to 0 exit\nBlend: (1-alpha)*med_without_i + alpha*med_with_i\nEliminates horizontal seam on new frame entry"] --&gt; M5
+
+    M5["Animation detection skipped if ty_span greater than 25% canvas H:\nPer-pixel FFT along temporal axis\nAC/DC power ratio: ratio = AC / (DC + AC)\nanim_mask: ratio greater than ac_threshold=0.25\nMorphological open+close with 5x5 ellipse kernel\nRequire min_anim_pixels=500\nRe-render animation region from majority phase group:\n  Edge-signature KMeans clustering\n  n_clusters = max(2, min(8, N//2))\n  n_init=5, random_state=0"]</code></pre>
+<h4 id="first-frame-wins-renderer">First-Frame-Wins Renderer<a class="headerlink" href="#first-frame-wins-renderer" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>flowchart TD
+    F1["Process frames in reverse order\nwarpAffine with INTER_LINEAR\nEach frame overwrites earlier frames\nFirst frame wins for each pixel\nNo blending - fastest renderer"]</code></pre>
+<h4 id="laplacian-blend-renderer">Laplacian Blend Renderer<a class="headerlink" href="#laplacian-blend-renderer" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>flowchart TD
+    BL1["Sequential colour matching frame by frame:\ngain = ref_std / src_std, clip 0.85 to 1.18\nbias = ref_mean - src_mean * gain, clip -15 to 15\nRequires more than 5000 overlap pixels"] --&gt; BL2
+    BL2["Sequential ROI blending:\nfeather=40px border around overlap bounding box\nDistance transform soft weight map\nFG pixels forced to weight=1.0 hard paste"] --&gt; BL3
+    BL3["_laplacian_blend(img, canvas, weight_roi)\nlaplacian_bands=8 from perfect_stitch default\nlaplacian_bands=5 pipeline constant _LAPLACIAN_BANDS"]</code></pre>
+<hr />
+<h3 id="312-optional-mfsr-super-resolution-pass">3.12 Optional MFSR Super-Resolution Pass<a class="headerlink" href="#312-optional-mfsr-super-resolution-pass" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/mfsr/</code>
+<strong>Activated by:</strong> <code>mfsr_mode=True</code></p>
+<pre class="mermaid"><code>flowchart TD
+    GATE{"mfsr_mode == True?"} -- "no" --&gt; SKIP["Skip MFSR\nKeep median canvas"]
+    GATE -- "yes" --&gt; R1
+
+    R1["PSO Registration - pso_registration.py\nPSO_SWARM_SIZE=40\nPSO_MAX_ITER=150\nPSO_INERTIA=0.729\nPSO_C1=PSO_C2=1.494 cognitive/social\nPSO_VEL_CLAMP=0.2"] --&gt; R2
+
+    R2["DRL Registration - drl_registration.py\nDRL_STATE_SIZE=256\nDRL_ACTION_DIM=4: dx, dy, dscale, dtheta\nDRL_GAMMA=0.99\nDRL_LR=1e-4\nDRL_MEMORY_SIZE=10000\nDRL_BATCH_SIZE=64"] --&gt; S1
+
+    S1["DCT Restoration - dct_restoration.py\nDCT_BLOCK_SIZE=8\nmfsr_n_dct_iter default 20\nStandard JPEG luminance quantization table\nReverse-quantizes compression artifacts"] --&gt; S2
+
+    S2["Prior Injection - prior_injection.py\nmfsr_use_prior default True\nInjects spatial frequency priors"] --&gt; S3{"mfsr_use_diffusion?"}
+
+    S3 -- "yes" --&gt; S4["Diffusion Inpainting - diffusion_inpaint.py\nFill canvas gaps via score-based diffusion"]
+    S3 -- "no" --&gt; S5["DE Seam Removal - de_seam.py\nDE_POP_SIZE=30\nDE_MAX_GEN=100\nDE_F=0.8 mutation scale\nDE_CR=0.9 crossover rate"]
+    S4 --&gt; S5
+    S5 --&gt; REFRESH["Refresh valid_mask\nvalid = canvas.max(axis=2) greater than 0\nStage 11"]</code></pre>
+<hr />
+<h3 id="313-stage-11-hard-partition-foreground-composite-deghost">3.13 Stage 11 — Hard-Partition Foreground Composite (Deghost)<a class="headerlink" href="#313-stage-11-hard-partition-foreground-composite-deghost" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/compositing.py</code> (<code>_composite_foreground</code>)
+<strong>Activated by:</strong> <code>composite_fg=True AND use_birefnet=True</code></p>
+<pre class="mermaid"><code>flowchart TD
+    IN["canvas temporal median\nframes, affines, bg_masks"] --&gt; CENTERS
+
+    CENTERS["Strip ownership ordering:\nstrip_center_ys[i] = affines[i][1,2] + frame_h[i] / 2\norder = argsort(strip_center_ys)\ninitial_boundaries = midpoints between sorted centres"] --&gt; WARP
+
+    WARP["Warp all N frames to full canvas:\ncv2.warpAffine(frame, affine, W,H\n  flags=INTER_LANCZOS4\n  borderMode=BORDER_CONSTANT)"] --&gt; PASS1
+
+    PASS1["Pass 1 Boundary Search pre-normalisation:\n_find_optimal_boundaries on raw frames\n_SEARCH_RANGE=250px each side of midpoint\n_SEARCH_SLAB=20 row height for scoring\nScore = 0.4 * bg_diff + 0.6 * total_diff\nbg pixels preferred: both masks agree\nMinimum 50 valid pixels to score\nBoundaries spaced at least 2*_SEARCH_SLAB apart"] --&gt; LSNORM
+
+    LSNORM["Global Brightness Normalisation:\nLeast-squares log-gain minimisation:\n  min sum_k w_k*(alpha_k - alpha_{k+1} - log_ratio_k)^2 + lambda*sum_i*alpha_i^2\n  lambda=5e2 regularisation\nPrefer bg pixels: both frames agree, mu greater than 50\nFallback: all-pixel at weight*0.8\nGains clamped 0.70 to 1.45\nApply per-frame gain in-place to warped_list"] --&gt; PASS2
+
+    PASS2["Pass 2: Re-run boundary search on normalised frames\nAdaptive feather lookup _FEATHER_TABLE:\n  diff &lt;=  5.0: feather=300px\n  diff &lt;= 10.0: feather=250px\n  diff &lt;= 20.0: feather=200px\n  diff &lt;= 35.0: feather=150px\n  diff &lt;= 50.0: feather=100px\n  diff &gt;  50.0: feather= 80px  _FEATHER_MIN\nCap: feather &lt;= nat_overlap//2 AND &lt;= _FEATHER_MAX=300"] --&gt; SEAM
+
+    SEAM["Per-boundary colour correction and DP seam paths:\nMeasure photometric calibration at overlap zone\nSLAB_HALF=25 rows each side of y_cut\nCompare SAME canvas rows in both frames\nPrefer bg pixels mu greater than 50, delta less than 12%\nGain clamp: GAIN_CLAMP_LOCAL = 0.72 to 1.40\nDP seam cut _seam_cut:\n  Energy = diff + 0.5*|grad(diff)|\n         + 15 * (edges_img1 + edges_img2)\n  edge_weight=15.0 avoids outlines in either frame\n  DP left to right pass on transposed matrix\n  Backtrack: minimum energy path\n  seam_path[x] = y-coordinate of cut at column x"] --&gt; COMP
+
+    COMP["Chunk composite CHUNK=512 rows:\nHard-partition rows outside seam zones:\n  strip_weights[owner_frame, y] = 1.0\n  weighted average by content presence\nSeam-zone rows:\n  Per-column cosine feather centred on DP path\n  d_seam = local_y - seam_path[x]\n  t_blend = clip(1 - abs(d_seam)/zone_half, 0, 1)\n  gain_fa = 1 + t_blend*(1/sqrt(gain_seam) - 1)\n  gain_fb = 1 + t_blend*(sqrt(gain_seam) - 1)\n  t_lin = clip((d_seam + zone_half)/(2*zone_half), 0, 1)\n  t_hf = 0.5*(1 - cos(pi*t_lin)) half-cosine\n  result = (1-t_hf)*fa_corr + t_hf*fb_corr"] --&gt; RAMP
+
+    RAMP["Post-composite seam colour ramp:\n_apply_canvas_seam_correction\nramp_half = min(250, half_above, half_below)\n_SEAM_MEAS_SLAB=40 rows for measurement\nTrigger: abs(delta) greater than _SEAM_STEP_THRESHOLD=1.5\nReject: ratio greater than _SEAM_MAX_RATIO=1.35 scene content\nGain clamp: _GAIN_CLAMP = 0.88 to 1.14\nApply cosine ramp over +/- ramp_half rows\nAbove seam: gain 1/sqrt(gains) at seam to 1.0 at far edge\nBelow seam: gain sqrt(gains) at seam to 1.0 at far edge"] --&gt; OUT
+    OUT["Updated canvas - Stage 13"]</code></pre>
+<hr />
+<h3 id="314-stage-13-boundary-crop">3.14 Stage 13 — Boundary Crop<a class="headerlink" href="#314-stage-13-boundary-crop" title="Permanent link">&para;</a></h3>
+<p><strong>Module:</strong> <code>backend/src/animation/canvas.py:75</code> (<code>_crop_to_valid</code>)</p>
+<pre class="mermaid"><code>flowchart TD
+    IN["canvas + valid_mask"] --&gt; C1["row_has_content = any(valid_mask &gt; 0, axis=1)\ncol_has_content = any(valid_mask &gt; 0, axis=0)\nr0..r1 = first and last row with content\nc0..c1 = first and last col with content\nO(H+W) projection-based crop"]
+    C1 --&gt; C2["canvas = canvas[r0:r1, c0:c1]"]
+    C2 --&gt; E1{"edge_crop &gt; 0?"}
+    E1 -- "yes" --&gt; E2["canvas = canvas[ec:-ec, ec:-ec]\nDefault ec=80px in perfect_stitch\nDefault ec=30px in AnimeStitchPipeline init\nRemoves vignette and distortion from warped edges"]
+    E1 -- "no" --&gt; E3["skip edge crop"]
+    E2 --&gt; SAVE["cv2.cvtColor BGR to RGB\nImage.fromarray(rgb)\nout.save(output_path)\ngc.collect()"]
+    E3 --&gt; SAVE</code></pre>
+<hr />
+<h2 id="4-fallback-chain-summary">4. Fallback Chain Summary<a class="headerlink" href="#4-fallback-chain-summary" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart LR
+    START["Frame pair i to j"] --&gt; L1["LoFTR\n20+ bg inliers"]
+    L1 -- "fail" --&gt; L2["Template Match\nconf &gt;= 0.85"]
+    L2 -- "fail" --&gt; L3["Phase Corr masked\nresponse &gt;= 0.25"]
+    L3 -- "fail" --&gt; L4["Phase Corr unmasked\nresponse &gt;= 0.15"]
+    L4 -- "fail" --&gt; L5["Edge dropped\npair skipped"]
+    L5 -- "all pairs fail" --&gt; L6["SCANS fallback\n_scan_stitch_fallback\nsame as _merge_images_scan_stitch"]</code></pre>
+<hr />
+<h2 id="5-module-dependency-map">5. Module Dependency Map<a class="headerlink" href="#5-module-dependency-map" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>graph TD
+    PS["perfect_stitch\nimage_merger.py"] --&gt; ASP["AnimeStitchPipeline\npipeline.py"]
+    ASP --&gt; CAN["canvas.py\n_load_frames\n_normalise_widths\n_compute_canvas\n_crop_to_valid\n_scan_stitch_fallback"]
+    ASP --&gt; PHOTO["photometric.py\n_apply_basic\n_correct_vignetting"]
+    ASP --&gt; MASK["masking.py\n_compute_fg_masks"]
+    ASP --&gt; MATCH["matching.py\n_pairwise_match\n_match_pair\n_template_match\n_phase_correlate"]
+    ASP --&gt; BA["bundle_adjust.py\n_bundle_adjust_affine"]
+    ASP --&gt; ECC["ecc.py\n_ecc_refine"]
+    ASP --&gt; REND["rendering.py\n_render\n_render_median\n_render_first\n_render_laplacian\n_cluster_animation_phases"]
+    ASP --&gt; COMP["compositing.py\n_composite_foreground"]
+    ASP --&gt; MFSR["mfsr/\nrun_mfsr\npso_register\nde_seam\nrestore_dct\napply_prior\ninpaint_gaps\nRegistrationAgent"]
+    ASP --&gt; CONST["constants.py\nall thresholds"]
+    PHOTO --&gt; BW["BaSiCWrapper\nmodels/basic_wrapper.py"]
+    MASK --&gt; BRN["BiRefNetWrapper\nmodels/birefnet_wrapper.py"]
+    MATCH --&gt; LOFTR["LoFTRWrapper\nmodels/loftr_wrapper.py"]
+    SS["_merge_images_scan_stitch\nimage_merger.py"] --&gt; OCV["cv2.Stitcher\nmode=SCANS 1"]</code></pre>
+<hr />
+<h2 id="6-constants-quick-reference">6. Constants Quick Reference<a class="headerlink" href="#6-constants-quick-reference" title="Permanent link">&para;</a></h2>
+<p>All tunable constants live in <code>backend/src/animation/constants.py</code>.</p>
+<h3 id="core-stitching">Core Stitching<a class="headerlink" href="#core-stitching" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>_LAPLACIAN_BANDS</code></td>
+<td><code>5</code></td>
+<td>Pyramid depth for multi-band blend</td>
+</tr>
+<tr>
+<td><code>_ECC_MAX_ITER</code></td>
+<td><code>80</code></td>
+<td>ECC termination: max iterations</td>
+</tr>
+<tr>
+<td><code>_ECC_EPS</code></td>
+<td><code>1e-4</code></td>
+<td>ECC termination: convergence epsilon</td>
+</tr>
+<tr>
+<td><code>_ECC_PYRAMID_LEVELS</code></td>
+<td><code>4</code></td>
+<td>Gaussian pyramid levels for ECC</td>
+</tr>
+<tr>
+<td><code>_MIN_LOFTR_INLIERS</code></td>
+<td><code>20</code></td>
+<td>Min bg inliers after LoFTR mask filter</td>
+</tr>
+<tr>
+<td><code>_MAX_DX_DRIFT_RATIO</code></td>
+<td><code>0.01</code></td>
+<td>Max horizontal drift (1% of width)</td>
+</tr>
+<tr>
+<td><code>_MATCH_EDGE_CROP</code></td>
+<td><code>0.05</code></td>
+<td>Pre-match edge trim fraction (5%)</td>
+</tr>
+<tr>
+<td><code>_MIN_TEMPLATE_SCORE</code></td>
+<td><code>0.85</code></td>
+<td>Min TM_CCORR_NORMED confidence</td>
+</tr>
+<tr>
+<td><code>_PC_CONF_THRESHOLD</code></td>
+<td><code>0.05</code></td>
+<td>Min phase-correlation response</td>
+</tr>
+<tr>
+<td><code>_CANVAS_MAX_DIM</code></td>
+<td><code>32768</code></td>
+<td>Hard OOM cap on canvas</td>
+</tr>
+<tr>
+<td><code>_MEDIAN_MIN_SAMPLES</code></td>
+<td><code>3</code></td>
+<td>Min valid samples for median render</td>
+</tr>
+<tr>
+<td><code>_FOREGROUND_DILATION</code></td>
+<td><code>16</code></td>
+<td>BiRefNet mask dilation (px)</td>
+</tr>
+<tr>
+<td><code>_FOREGROUND_EROSION</code></td>
+<td><code>8</code></td>
+<td>BiRefNet mask erosion (px)</td>
+</tr>
+<tr>
+<td><code>_SMOOTHSTEP_BLEND_PX</code></td>
+<td><code>96</code></td>
+<td>Fallback blend height</td>
+</tr>
+</tbody>
+</table>
+<h3 id="compositing-compositingpy">Compositing (<code>compositing.py</code>)<a class="headerlink" href="#compositing-compositingpy" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>_FEATHER_MAX</code></td>
+<td><code>300</code></td>
+<td>Max feather half-width</td>
+</tr>
+<tr>
+<td><code>_FEATHER_MIN</code></td>
+<td><code>80</code></td>
+<td>Min feather half-width</td>
+</tr>
+<tr>
+<td><code>_GAIN_CLAMP</code></td>
+<td><code>(0.88, 1.14)</code></td>
+<td>Per-boundary photometric gain limit</td>
+</tr>
+<tr>
+<td><code>_SEQ_SAMPLE_HALF</code></td>
+<td><code>40</code></td>
+<td>Rows each side for gain estimation</td>
+</tr>
+<tr>
+<td><code>_SEQ_MIN_PX</code></td>
+<td><code>200</code></td>
+<td>Min pixels for reliable gain est.</td>
+</tr>
+<tr>
+<td><code>_SEARCH_RANGE</code></td>
+<td><code>250</code></td>
+<td>Boundary search radius (px)</td>
+</tr>
+<tr>
+<td><code>_SEARCH_SLAB</code></td>
+<td><code>20</code></td>
+<td>Row height for boundary scoring</td>
+</tr>
+<tr>
+<td><code>_SEAM_RAMP_HALF</code></td>
+<td><code>250</code></td>
+<td>Post-composite ramp half-width</td>
+</tr>
+<tr>
+<td><code>_SEAM_MEAS_SLAB</code></td>
+<td><code>40</code></td>
+<td>Rows for seam colour measurement</td>
+</tr>
+<tr>
+<td><code>_SEAM_STEP_THRESHOLD</code></td>
+<td><code>1.5</code></td>
+<td>Min colour step to trigger ramp</td>
+</tr>
+<tr>
+<td><code>_SEAM_MAX_RATIO</code></td>
+<td><code>1.35</code></td>
+<td>Max ratio before treating as content</td>
+</tr>
+</tbody>
+</table>
+<h3 id="mfsr-constants">MFSR Constants<a class="headerlink" href="#mfsr-constants" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PSO_SWARM_SIZE</code></td>
+<td><code>40</code></td>
+<td>PSO: swarm particle count</td>
+</tr>
+<tr>
+<td><code>PSO_MAX_ITER</code></td>
+<td><code>150</code></td>
+<td>PSO: max iterations</td>
+</tr>
+<tr>
+<td><code>PSO_INERTIA</code></td>
+<td><code>0.729</code></td>
+<td>PSO: inertia weight</td>
+</tr>
+<tr>
+<td><code>PSO_C1</code> / <code>PSO_C2</code></td>
+<td><code>1.494</code></td>
+<td>PSO: cognitive/social coefficients</td>
+</tr>
+<tr>
+<td><code>PSO_VEL_CLAMP</code></td>
+<td><code>0.2</code></td>
+<td>PSO: velocity clamp fraction</td>
+</tr>
+<tr>
+<td><code>DE_POP_SIZE</code></td>
+<td><code>30</code></td>
+<td>DE: population size</td>
+</tr>
+<tr>
+<td><code>DE_MAX_GEN</code></td>
+<td><code>100</code></td>
+<td>DE: max generations</td>
+</tr>
+<tr>
+<td><code>DE_F</code></td>
+<td><code>0.8</code></td>
+<td>DE: mutation scale factor</td>
+</tr>
+<tr>
+<td><code>DE_CR</code></td>
+<td><code>0.9</code></td>
+<td>DE: crossover rate</td>
+</tr>
+<tr>
+<td><code>DCT_BLOCK_SIZE</code></td>
+<td><code>8</code></td>
+<td>DCT: block size (JPEG-standard)</td>
+</tr>
+<tr>
+<td><code>DCT_ITERATIONS</code></td>
+<td><code>20</code></td>
+<td>DCT: default restoration iterations</td>
+</tr>
+<tr>
+<td><code>DRL_STATE_SIZE</code></td>
+<td><code>256</code></td>
+<td>DRL: state feature dimension</td>
+</tr>
+<tr>
+<td><code>DRL_ACTION_DIM</code></td>
+<td><code>4</code></td>
+<td>DRL: action space (dx,dy,dscale,dtheta)</td>
+</tr>
+<tr>
+<td><code>DRL_GAMMA</code></td>
+<td><code>0.99</code></td>
+<td>DRL: discount factor</td>
+</tr>
+<tr>
+<td><code>DRL_LR</code></td>
+<td><code>1e-4</code></td>
+<td>DRL: learning rate</td>
+</tr>
+<tr>
+<td><code>DRL_MEMORY_SIZE</code></td>
+<td><code>10000</code></td>
+<td>DRL: replay buffer size</td>
+</tr>
+<tr>
+<td><code>DRL_BATCH_SIZE</code></td>
+<td><code>64</code></td>
+<td>DRL: training batch size</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

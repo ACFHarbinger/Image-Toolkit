@@ -8,7 +8,6 @@ from backend.src.models.modules import (
     BilinearUpsample,
 )
 
-
 class ConvolutionalBlock(nn.Module):
     def __init__(
         self,
@@ -39,8 +38,7 @@ class ConvolutionalBlock(nn.Module):
     def forward(self, h, mask=None):
         return self.layers(h)
 
-
-class GeneratorBlock(nn.Module):
+class _GeneratorBlock(nn.Module):
     def __init__(
         self,
         n_filters,
@@ -84,7 +82,6 @@ class GeneratorBlock(nn.Module):
 
     def forward(self, h, mask=None):
         return self.module(h)
-
 
 class Generator(nn.Module):
     def __init__(
@@ -130,7 +127,7 @@ class Generator(nn.Module):
         self.norm2 = Normalization(n_filters, norm)
         self.blocks = nn.ModuleList(
             [
-                GeneratorBlock(
+                _GeneratorBlock(
                     n_filters,
                     expansion_factor,
                     kernel_size,

@@ -1,7 +1,21 @@
 import SwiftUI
 
+/// A labelled text field with "Choose File" and "Choose Dir" buttons.
+///
+/// Displays an editable path field below a caption label and two action buttons
+/// that simulate file / directory picker dialogs. On iOS the picker is shown via
+/// a `UIDocumentPickerViewController`; the current implementation shows alert
+/// stubs as placeholders for that integration.
+///
+/// ```swift
+/// @State private var inputPath = ""
+///
+/// FileInput(label: "Input directory", path: $inputPath)
+/// ```
 struct FileInput: View {
+    /// Caption text displayed above the path field.
     let label: String
+    /// Binding to the selected file or directory path string.
     @Binding var path: String
     @State private var showFileAlert = false
     @State private var showDirAlert = false

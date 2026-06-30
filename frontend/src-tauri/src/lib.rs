@@ -1,4 +1,5 @@
 mod auth_commands;
+mod benchmark_commands;
 mod core_commands;
 mod database_commands;
 mod db;
@@ -43,7 +44,9 @@ pub fn run() {
             database_commands::delete_image_from_database,
             database_commands::get_database_stats,
             database_commands::test_database_connection,
-            database_commands::batch_add_images
+            database_commands::batch_add_images,
+            // Benchmark analytics
+            benchmark_commands::load_benchmark_reports
         ])
         .setup(|app| {
             // Setup logging

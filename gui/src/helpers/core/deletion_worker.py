@@ -1,8 +1,9 @@
 import os
 
 from PySide6.QtCore import QThread, Signal, QWaitCondition, QMutex
-from backend.src.utils.definitions import SUPPORTED_IMG_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import FSETool, FileDeleter
+from gui.src.helpers.core.config_types import DeletionConfig
 
 
 class DeletionWorker(QThread):
@@ -12,12 +13,18 @@ class DeletionWorker(QThread):
 
     confirm_signal = Signal(str, int)
 
-    def __init__(self, config):
+    def __init__(self, config: DeletionConfig):
         super().__init__()
         self.config = config
         self.confirmation_response = False
         self.wait_condition = QWaitCondition()
         self.mutex = QMutex()
+
+    def stop(self):
+        """Signals the worker to stop."""
+        self.requestInterruption()
+        # Wake up if waiting for confirmation
+        self.wait_condition.wakeAll()
 
     def set_confirmation_response(self, response: bool):
         self.mutex.lock()
@@ -44,7 +51,8 @@ class DeletionWorker(QThread):
                     return
 
                 if require_confirm:
-                    msg = f"Permanently delete the directory and all its contents: \n\n{target_path}\n\nThis cannot be undone!"
+                    action_name = "send to trash" if self.config.get("send_to_trash", True) else "permanently delete"
+                    msg = f"{action_name.capitalize()} the directory and all its contents: \n\n{target_path}\n\nThis cannot be undone!"
 
                     self.mutex.lock()
                     self.confirm_signal.emit(msg, 1)
@@ -58,13 +66,21 @@ class DeletionWorker(QThread):
                 self.progress.emit(0, 1)
 
                 # Core logic moved to FileDeleter
-                if FileDeleter.delete_path(target_path):
-                    self.finished.emit(
-                        1,
-                        f"Successfully deleted directory and its contents: {target_path}",
-                    )
+                if self.config.get("send_to_trash", True):
+                    try:
+                        from send2trash import send2trash
+                        send2trash(target_path)
+                        self.finished.emit(1, f"Successfully sent directory to trash: {target_path}")
+                    except Exception as e:
+                        self.error.emit(f"Failed to send directory to trash {target_path}: {e}")
                 else:
-                    self.error.emit(f"Failed to delete directory {target_path}.")
+                    if FileDeleter.delete_path(target_path):
+                        self.finished.emit(
+                            1,
+                            f"Successfully deleted directory and its contents: {target_path}",
+                        )
+                    else:
+                        self.error.emit(f"Failed to delete directory {target_path}.")
 
                 return
 
@@ -96,7 +112,8 @@ class DeletionWorker(QThread):
                 return
 
             if require_confirm:
-                msg = f"Permanently delete {total} file(s) matching extensions?\n\nThis cannot be undone!"
+                action_name = "send to trash" if self.config.get("send_to_trash", True) else "permanently delete"
+                msg = f"{action_name.capitalize()} {total} file(s) matching extensions?\n\nThis cannot be undone!"
 
                 self.mutex.lock()
                 self.confirm_signal.emit(msg, total)
@@ -109,9 +126,19 @@ class DeletionWorker(QThread):
 
             deleted = 0
             for file_path in files_to_delete:
+                if self.isInterruptionRequested():
+                    break
                 # Core logic for single file deletion
-                if FileDeleter.delete_path(file_path):
-                    deleted += 1
+                if self.config.get("send_to_trash", True):
+                    try:
+                        from send2trash import send2trash
+                        send2trash(file_path)
+                        deleted += 1
+                    except Exception as e:
+                        pass
+                else:
+                    if FileDeleter.delete_path(file_path):
+                        deleted += 1
 
                 self.progress.emit(deleted, total)
 

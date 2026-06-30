@@ -28,8 +28,8 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 from dotenv import load_dotenv
-from backend.src.core import PgvectorImageDatabase as ImageDatabase
-from backend.src.utils.definitions import LOCAL_SOURCE_PATH
+from backend.src.database import PgvectorImageDatabase as ImageDatabase
+from backend.src.constants import LOCAL_SOURCE_PATH
 from ...styles.style import apply_shadow_effect
 
 
@@ -64,7 +64,7 @@ class DatabaseTab(QWidget):
         self.db_port = QLineEdit(os.getenv("DB_PORT"))
         self.db_user = QLineEdit(os.getenv("DB_USER"))
         self.db_password = QLineEdit(os.getenv("DB_PASSWORD"))
-        self.db_password.setEchoMode(QLineEdit.Password)
+        self.db_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.db_name = QLineEdit(
             os.getenv("DB_NAME"),
         )
@@ -110,15 +110,23 @@ class DatabaseTab(QWidget):
 
         # Maintenance Buttons
         self.btn_vacuum = QPushButton("🧹 Vacuum Database")
-        self.btn_vacuum.setStyleSheet("background-color: #8e44ad; color: white; padding: 10px;")
-        apply_shadow_effect(self.btn_vacuum, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_vacuum.setStyleSheet(
+            "background-color: #8e44ad; color: white; padding: 10px;"
+        )
+        apply_shadow_effect(
+            self.btn_vacuum, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         self.btn_vacuum.clicked.connect(self.run_vacuum)
         self.btn_vacuum.hide()
         self.button_conn_layout.addWidget(self.btn_vacuum)
 
         self.btn_reindex = QPushButton("🔍 Reindex Database")
-        self.btn_reindex.setStyleSheet("background-color: #2980b9; color: white; padding: 10px;")
-        apply_shadow_effect(self.btn_reindex, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_reindex.setStyleSheet(
+            "background-color: #2980b9; color: white; padding: 10px;"
+        )
+        apply_shadow_effect(
+            self.btn_reindex, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         self.btn_reindex.clicked.connect(self.run_reindex)
         self.btn_reindex.hide()
         self.button_conn_layout.addWidget(self.btn_reindex)
@@ -603,11 +611,11 @@ class DatabaseTab(QWidget):
             "Confirm Destructive Action",
             "Are you absolutely sure you want to reset the database?\n\n"
             "ALL DATA (images, tags, groups, subgroups) will be PERMANENTLY DELETED.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
 
-        if confirm1 == QMessageBox.No:
+        if confirm1 == QMessageBox.StandardButton.No:
             QMessageBox.information(self, "Cancelled", "Database reset was cancelled.")
             return
 
@@ -655,20 +663,22 @@ class DatabaseTab(QWidget):
             return
         try:
             stats = self.db.get_statistics()
-            
+
             # Format file size
-            total_bytes = stats.get('total_file_size', 0)
+            total_bytes = stats.get("total_file_size", 0)
             if total_bytes < 1024:
                 size_str = f"{total_bytes} B"
             elif total_bytes < 1024**2:
-                size_str = f"{total_bytes/1024:.2f} KB"
+                size_str = f"{total_bytes / 1024:.2f} KB"
             elif total_bytes < 1024**3:
-                size_str = f"{total_bytes/1024**2:.2f} MB"
+                size_str = f"{total_bytes / 1024**2:.2f} MB"
             else:
-                size_str = f"{total_bytes/1024**3:.2f} GB"
+                size_str = f"{total_bytes / 1024**3:.2f} GB"
 
-            last_sync = stats.get('last_sync_date')
-            last_sync_str = last_sync.strftime("%Y-%m-%d %H:%M:%S") if last_sync else "Never"
+            last_sync = stats.get("last_sync_date")
+            last_sync_str = (
+                last_sync.strftime("%Y-%m-%d %H:%M:%S") if last_sync else "Never"
+            )
 
             stats_text = (
                 f"📊 Database Statistics:\n"
@@ -689,7 +699,8 @@ class DatabaseTab(QWidget):
             )
 
     def run_vacuum(self):
-        if not self.db: return
+        if not self.db:
+            return
         try:
             self.db.maintenance_vacuum(full=False)
             QMessageBox.information(self, "Success", "Database vacuum completed.")
@@ -697,7 +708,8 @@ class DatabaseTab(QWidget):
             QMessageBox.critical(self, "Error", f"Vacuum failed: {e}")
 
     def run_reindex(self):
-        if not self.db: return
+        if not self.db:
+            return
         try:
             self.db.maintenance_reindex()
             QMessageBox.information(self, "Success", "Database reindex completed.")
@@ -797,7 +809,6 @@ class DatabaseTab(QWidget):
             return
 
         imported_tags = 0
-
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -829,7 +840,7 @@ class DatabaseTab(QWidget):
             progress = QProgressDialog(
                 "Importing tags...", "Cancel", 0, len(tag_list), self
             )
-            progress.setWindowModality(Qt.WindowModal)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.setMinimumDuration(0)
             progress.show()
 
@@ -841,7 +852,7 @@ class DatabaseTab(QWidget):
                     f"Importing tag {i + 1}/{len(tag_list)}: {tag_name_raw[:40]}..."
                 )
 
-                tag_name = str(tag_name_raw).strip()
+                tag_name = tag_name_raw.strip()
                 if tag_name:
                     self.db.add_tag(tag_name, tag_type if tag_type else None)
                     imported_tags += 1
@@ -985,9 +996,9 @@ class DatabaseTab(QWidget):
             "Confirm Delete",
             f"Are you sure you want to delete the group '{group_name}'?\n\n"
             f"WARNING: This will also delete ALL associated subgroups.",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if confirm == QMessageBox.Yes:
+        if confirm == QMessageBox.StandardButton.Yes:
             try:
                 self.db.delete_group(group_name)
                 self.refresh_groups_list()
@@ -1021,9 +1032,9 @@ class DatabaseTab(QWidget):
             "Confirm Delete",
             f"Are you sure you want to delete the subgroup '{subgroup_name}' from group '{group_name}'?\n\n"
             f"(Note: This only removes the subgroup from this list. Images already using this name will not be affected.)",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if confirm == QMessageBox.Yes:
+        if confirm == QMessageBox.StandardButton.Yes:
             try:
                 self.db.delete_subgroup(subgroup_name, group_name)
                 self.refresh_subgroups_list()
@@ -1054,9 +1065,9 @@ class DatabaseTab(QWidget):
             "Confirm Delete",
             f"Are you sure you want to delete the tag '{tag_name}'?\n\n"
             f"WARNING: This will also remove this tag from ALL images that use it.",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if confirm == QMessageBox.Yes:
+        if confirm == QMessageBox.StandardButton.Yes:
             try:
                 self.db.delete_tag(tag_name)
                 self.refresh_tags_list()
@@ -1377,14 +1388,14 @@ class DatabaseTab(QWidget):
             "Top-level folders will be added as Groups.\n"
             "Folders inside those will be added as Subgroups.\n"
             "Existing entries will be skipped.\n\nProceed?",
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if confirm == QMessageBox.No:
+        if confirm == QMessageBox.StandardButton.No:
             return
 
         # Progress Dialog
         progress = QProgressDialog("Scanning directories...", "Cancel", 0, 0, self)
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.show()
 

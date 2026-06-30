@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 from typing import Tuple, Optional
 
-
 class BilinearUpsample(nn.Module):
     """
     Upsamples a 2D image using bilinear interpolation.

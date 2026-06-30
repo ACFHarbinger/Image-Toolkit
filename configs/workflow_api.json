@@ -1,0 +1,569 @@
+{
+  "2": {
+    "inputs": {
+      "clip_name": "clip_vit_h.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "CLIP Vision Loader  [Stage 0]"
+    }
+  },
+  "4": {
+    "inputs": {
+      "ipadapter_file": "ip-adapter-plus_sdxl_vit-h.safetensors"
+    },
+    "class_type": "IPAdapterModelLoader",
+    "_meta": {
+      "title": "IP-Adapter Model Loader  [Stage 0]"
+    }
+  },
+  "10": {
+    "inputs": {
+      "ckpt_name": "ultimateHentaiAnimeRXTRexAnime_rxV1.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Base Checkpoint  [Stage 1]"
+    }
+  },
+  "11": {
+    "inputs": {
+      "lora_name": "akanenanao-nai_illustrious.safetensors",
+      "strength_model": 0.7,
+      "strength_clip": 0.7,
+      "model": [
+        "10",
+        0
+      ],
+      "clip": [
+        "10",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA Slot 1: Character"
+    }
+  },
+  "12": {
+    "inputs": {
+      "lora_name": "chargen_oil_painting_v2.safetensors",
+      "strength_model": 0.15,
+      "strength_clip": 0.15,
+      "model": [
+        "11",
+        0
+      ],
+      "clip": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA Slot 2: Style — strength 0.55→0.25 to fix hair blotching"
+    }
+  },
+  "13": {
+    "inputs": {
+      "lora_name": "add-detail-xl.safetensors",
+      "strength_model": 0.25,
+      "strength_clip": 0.25,
+      "model": [
+        "12",
+        0
+      ],
+      "clip": [
+        "12",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA Slot 3: Detail"
+    }
+  },
+  "14": {
+    "inputs": {
+      "b1": 1.1,
+      "b2": 1.2,
+      "s1": 0.15,
+      "s2": 0.05,
+      "model": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "FreeU_V2",
+    "_meta": {
+      "title": "FreeU V2  [Stage 1]"
+    }
+  },
+  "15": {
+    "inputs": {
+      "weight": 0.2,
+      "weight_type": "linear",
+      "combine_embeds": "average",
+      "start_at": 0,
+      "end_at": 0.4,
+      "embeds_scaling": "V only",
+      "model": [
+        "14",
+        0
+      ],
+      "ipadapter": [
+        "4",
+        0
+      ],
+      "image": [
+        "85",
+        0
+      ],
+      "clip_vision": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "IPAdapterAdvanced",
+    "_meta": {
+      "title": "IP-Adapter Advanced  [Stage 0+1]"
+    }
+  },
+  "16": {
+    "inputs": {
+      "width": 1344,
+      "height": 768,
+      "crop_w": 0,
+      "crop_h": 0,
+      "target_width": 1344,
+      "target_height": 768,
+      "text_g": "anime coloring, (((from behind)))\n1girl,akane nanao,large breasts,blue eyes,brown hair,red hair,hair between eyes,short hair,hair ornament,hairclip\nanimal ears,gym uniform, nipples,large breasts, micro red buruma, tight buruma, highleg ,fake animal ears,cat ears, \nanime screencap , thpmg\n, pose, standing, solo , looking at viewer, white \nbackground, simple background, masterpiece, best quality, amazing quality, intricate ditails, uncensored ,",
+      "text_l": "anime coloring, (((from behind)))\n1girl,akane nanao,large breasts,blue eyes,brown hair,red hair,hair between eyes,short hair,hair ornament,hairclip\nanimal ears,gym uniform, nipples,large breasts, micro red buruma, tight buruma, highleg ,fake animal ears,cat ears, \nanime screencap , thpmg\n, pose, standing, solo , looking at viewer, white \nbackground, simple background, masterpiece, best quality, amazing quality, intricate ditails, uncensored ,",
+      "clip": [
+        "13",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncodeSDXL",
+    "_meta": {
+      "title": "Positive Conditioning  [Stage 1]"
+    }
+  },
+  "17": {
+    "inputs": {
+      "width": 1344,
+      "height": 768,
+      "crop_w": 0,
+      "crop_h": 0,
+      "target_width": 1344,
+      "target_height": 768,
+      "text_g": "lowres, worst quality, low quality, (bad anatomy, bad hands:1.4), abstract, censored, mosaic censoring, panties, shirt",
+      "text_l": "lowres, worst quality, low quality, (bad anatomy, bad hands:1.4), abstract, censored, mosaic censoring, panties, shirt",
+      "clip": [
+        "13",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncodeSDXL",
+    "_meta": {
+      "title": "Negative Conditioning  [Stage 1]"
+    }
+  },
+  "20": {
+    "inputs": {
+      "width": 1344,
+      "height": 768,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent 1024x1024  [Stage 2]"
+    }
+  },
+  "21": {
+    "inputs": {
+      "seed": 683460288657257,
+      "steps": 30,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "15",
+        0
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "17",
+        0
+      ],
+      "latent_image": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Base KSampler  [Stage 2]"
+    }
+  },
+  "31": {
+    "inputs": {
+      "seed": 683460288657257,
+      "steps": 20,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "normal",
+      "denoise": 0.35,
+      "model": [
+        "14",
+        0
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "17",
+        0
+      ],
+      "latent_image": [
+        "79",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Hires Pass A  [Stage 3]"
+    }
+  },
+  "40": {
+    "inputs": {
+      "tile_size": 1024,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8,
+      "samples": [
+        "31",
+        0
+      ],
+      "vae": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "Tiled VAE Decode  [Stage 4]"
+    }
+  },
+  "42": {
+    "inputs": {
+      "guide_size": 384,
+      "guide_size_for": true,
+      "max_size": 1024,
+      "seed": 683460288657257,
+      "steps": 20,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "denoise": 0.4,
+      "feather": 20,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "bbox_threshold": 0.5,
+      "bbox_dilation": 10,
+      "bbox_crop_factor": 3,
+      "sam_detection_hint": "center-1",
+      "sam_dilation": 0,
+      "sam_threshold": 0.93,
+      "sam_bbox_expansion": 0,
+      "sam_mask_hint_threshold": 0.7,
+      "sam_mask_hint_use_negative": "False",
+      "drop_size": 10,
+      "wildcard": "",
+      "cycle": 1,
+      "inpaint_model": false,
+      "noise_mask_feather": 30,
+      "tiled_encode": false,
+      "tiled_decode": false,
+      "image": [
+        "40",
+        0
+      ],
+      "model": [
+        "14",
+        0
+      ],
+      "clip": [
+        "13",
+        1
+      ],
+      "vae": [
+        "10",
+        2
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "17",
+        0
+      ],
+      "bbox_detector": [
+        "72",
+        0
+      ]
+    },
+    "class_type": "FaceDetailer",
+    "_meta": {
+      "title": "Face Detailer  [Stage 4]"
+    }
+  },
+  "44": {
+    "inputs": {
+      "guide_size": 256,
+      "guide_size_for": true,
+      "max_size": 768,
+      "seed": 683460288657257,
+      "steps": 15,
+      "cfg": 5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.4,
+      "feather": 5,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "bbox_threshold": 0.45,
+      "bbox_dilation": 8,
+      "bbox_crop_factor": 3,
+      "sam_detection_hint": "center-1",
+      "sam_dilation": 0,
+      "sam_threshold": 0.93,
+      "sam_bbox_expansion": 0,
+      "sam_mask_hint_threshold": 0.7,
+      "sam_mask_hint_use_negative": "False",
+      "drop_size": 10,
+      "wildcard": "",
+      "cycle": 1,
+      "inpaint_model": false,
+      "noise_mask_feather": 20,
+      "tiled_encode": false,
+      "tiled_decode": false,
+      "image": [
+        "42",
+        0
+      ],
+      "model": [
+        "14",
+        0
+      ],
+      "clip": [
+        "13",
+        1
+      ],
+      "vae": [
+        "10",
+        2
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "17",
+        0
+      ],
+      "bbox_detector": [
+        "73",
+        0
+      ]
+    },
+    "class_type": "FaceDetailer",
+    "_meta": {
+      "title": "Hand Detailer  [Stage 4]"
+    }
+  },
+  "61": {
+    "inputs": {
+      "upscale_model": [
+        "77",
+        0
+      ],
+      "image": [
+        "44",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "ESRGAN 4x Upscale  [Stage 6]"
+    }
+  },
+  "62": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": 3840,
+      "height": 2160,
+      "crop": "disabled",
+      "image": [
+        "61",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Lanczos Downscale to 4K  [Stage 6]"
+    }
+  },
+  "63": {
+    "inputs": {
+      "filename_prefix": "wallpaper_[seed]_[steps]",
+      "images": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Wallpaper  [Stage 6]"
+    }
+  },
+  "72": {
+    "inputs": {
+      "text": "face",
+      "blur": 5,
+      "threshold": 0.4,
+      "dilation_factor": 6
+    },
+    "class_type": "CLIPSegDetectorProvider",
+    "_meta": {
+      "title": "CLIPSeg Face Detector  [Stage 4]"
+    }
+  },
+  "73": {
+    "inputs": {
+      "text": "hands",
+      "blur": 7,
+      "threshold": 0.4,
+      "dilation_factor": 4
+    },
+    "class_type": "CLIPSegDetectorProvider",
+    "_meta": {
+      "title": "CLIPSeg Hand Detector  [Stage 4]"
+    }
+  },
+  "77": {
+    "inputs": {
+      "model_name": "RealESRGAN_x4plus_anime_6B.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model  [Stage 6]"
+    }
+  },
+  "78": {
+    "inputs": {
+      "upscale_model": [
+        "77",
+        0
+      ],
+      "image": [
+        "80",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "ESRGAN Upscale for Hires  [Stage 3]"
+    }
+  },
+  "79": {
+    "inputs": {
+      "pixels": [
+        "83",
+        0
+      ],
+      "vae": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode  [Stage 3]"
+    }
+  },
+  "80": {
+    "inputs": {
+      "samples": [
+        "21",
+        0
+      ],
+      "vae": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode  [Stage 3]"
+    }
+  },
+  "83": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": 2016,
+      "height": 1152,
+      "crop": "disabled",
+      "image": [
+        "95",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Upscale Image"
+    }
+  },
+  "85": {
+    "inputs": {
+      "image": "Akane wa Tsumare Somerareru - 01 [2160p-HEVC][hstream.moe]_658074ms.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Style Reference Image  [Stage 0]"
+    }
+  },
+  "89": {
+    "inputs": {
+      "text": "masterpiece, best quality, Hisato Azuma, pale skin, neutral lighting, white light, Hisato Azuma, brown eyes, light lighting, face focus, open eyes, detailed pupils, nose, (detailed sweat drops:1.2), moist lips, intricate eyelashes, sharp focus, (individual eyelashes:1.2), (sharp catchlight:1.5), (intricate iris pattern:1.4), (extremely sharp eyelashes:1.4), skin pores, hyper-detailed eyes, diffuse lighting, reflective moisture, (black eyelashes:1.2), neutral skin tones, realistic eyes,",
+      "clip": [
+        "13",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "95": {
+    "inputs": {
+      "seed": 683460288657257,
+      "strength": 0.05,
+      "image": [
+        "78",
+        0
+      ]
+    },
+    "class_type": "ImageAddNoise",
+    "_meta": {
+      "title": "ImageAddNoise"
+    }
+  }
+}
