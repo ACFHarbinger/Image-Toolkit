@@ -51,3 +51,14 @@ class ListingsTab(QWidget):
         self.tab_widget.addTab(self.content_listings, "🎬 Content Listings")
         self.tab_widget.addTab(self.entity_listings, "👥 Entity Listings")
         layout.addWidget(self.tab_widget)
+
+    def collect(self) -> dict:
+        return {"active_subtab_index": self.tab_widget.currentIndex()}
+
+    def set_config(self, config: dict):
+        idx = config.get("active_subtab_index", 0)
+        if isinstance(idx, int) and 0 <= idx < self.tab_widget.count():
+            self.tab_widget.setCurrentIndex(idx)
+
+    def get_default_config(self) -> dict:
+        return {"active_subtab_index": 0}
