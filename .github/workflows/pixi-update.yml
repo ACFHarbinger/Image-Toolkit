@@ -1,6 +1,14 @@
 name: Pixi Dependency Update
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pixi-update.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pixi-update.yml'
   schedule:
     - cron: "0 0 * * 1" # Weekly on Monday mornings
   workflow_dispatch:

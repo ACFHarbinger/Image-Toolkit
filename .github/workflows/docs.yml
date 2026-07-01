@@ -27,6 +27,7 @@ on:
       - 'moon/roadmaps/**'
       - 'backend/src/**/*.py'
       - 'docs/mkdocs.yml'
+      - '.github/workflows/docs.yml'
   schedule:
     - cron: '0 2 * * 1'   # Weekly: every Monday at 02:00 UTC (§6.12D)
   workflow_dispatch:

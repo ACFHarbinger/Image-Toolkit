@@ -3,6 +3,10 @@ name: ASP Regression Gate
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/benchmark.yml'
   schedule:
     # Weekly run: every Monday at 06:00 UTC (catches dep-induced regressions
     # that don't touch the codebase, e.g. a scipy minor bump).
