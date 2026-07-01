@@ -440,7 +440,7 @@ class EdgeItem(QGraphicsObject):
 # Scene
 # ---------------------------------------------------------------------------
 
-class TempEdgeItem(QGraphicsItem):
+class TempEdgeItem(QGraphicsObject):
     """Temporary dashed edge that follows the mouse cursor during connection mode."""
     def __init__(self, source_item: NodeItem):
         super().__init__()
@@ -517,7 +517,7 @@ class WallpaperGraphScene(QGraphicsScene):
         nd = NodeData(node_id=nid, file_path=file_path,
                       display_mode=display_mode, duration_sec=30.0,
                       pos_x=pos.x(), pos_y=pos.y())
-        self._graph.nodes[nid] = nd
+        self._graph.nodes[nid] = nd # pyrefly: ignore [missing-attribute]
         self._add_node_item(nd)
         self.graph_changed.emit()
 
@@ -528,9 +528,9 @@ class WallpaperGraphScene(QGraphicsScene):
         return nid
 
     def add_edge(self, source_id: str, target_id: str) -> int:
-        eid = self._graph.alloc_edge_id()
+        eid = self._graph.alloc_edge_id() # pyrefly: ignore [missing-attribute]
         ed = EdgeData(edge_id=eid, source_id=source_id, target_id=target_id)
-        self._graph.edges.append(ed)
+        self._graph.edges.append(ed) # pyrefly: ignore [missing-attribute]
         self._add_edge_item(ed)
         self.graph_changed.emit()
         return eid
@@ -632,12 +632,24 @@ class WallpaperGraphScene(QGraphicsScene):
         
         temp_item = getattr(self, "_temp_edge_item", None)
         if temp_item:
-            self._temp_edge_item = None
+            try:
+                temp_item.setVisible(False)
+                temp_item.setEnabled(False)
+            except RuntimeError:
+                pass
             def safe_remove():
                 try:
                     self.removeItem(temp_item)
                 except RuntimeError:
                     pass
+                finally:
+                    if not hasattr(self, "_deleted_items_garbage"):
+                        self._deleted_items_garbage = []
+                    self._deleted_items_garbage.append(temp_item)
+                    if len(self._deleted_items_garbage) > 5:
+                        self._deleted_items_garbage.pop(0)
+                    if getattr(self, "_temp_edge_item", None) is temp_item:
+                        self._temp_edge_item = None
             QTimer.singleShot(0, safe_remove)
             
         self._connecting_source_node_id = None
@@ -646,15 +658,17 @@ class WallpaperGraphScene(QGraphicsScene):
         if not self._connecting_source_node_id:
             return
             
+        src_id = self._connecting_source_node_id
+        self._connecting_source_node_id = None
+            
         if button == Qt.MouseButton.LeftButton:
             target_node = getattr(self, "_hovered_target_node", None)
             if not target_node:
                 for item in self.items(scene_pos):
-                    if isinstance(item, NodeItem) and item.node_data.node_id != self._connecting_source_node_id:
+                    if isinstance(item, NodeItem) and item.node_data.node_id != src_id:
                         target_node = item
                         break
             if target_node:
-                src_id = self._connecting_source_node_id
                 tgt_id = target_node.node_data.node_id
                 QTimer.singleShot(0, lambda s=src_id, t=tgt_id: self.add_edge(s, t))
             QTimer.singleShot(0, self._end_connection_mode)
@@ -680,7 +694,7 @@ class WallpaperGraphScene(QGraphicsScene):
                 old_hovered._hovered_orange = False
                 old_hovered.update()
             if hovered_node:
-                hovered_node._hovered_orange = True
+                hovered_node._hovered_orange = True # pyrefly: ignore [missing-attribute]
                 hovered_node.update()
             self._hovered_target_node = hovered_node
 
@@ -1719,7 +1733,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         sys_name = platform.system()
         try:
             if sys_name == "Windows":
-                os.startfile(path)
+                os.startfile(path) # pyrefly: ignore [missing-attribute]
             elif sys_name == "Darwin":
                 subprocess.Popen(["open", path])
             else:

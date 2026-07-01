@@ -7,7 +7,7 @@ if(CMAKE_VERSION VERSION_LESS "3.0.0")
    message(FATAL_ERROR "CMake >= 3.0.0 required")
 endif()
 cmake_policy(PUSH)
-cmake_policy(VERSION 3.0.0...4.1)
+cmake_policy(VERSION 3.0.0...4.0)
 #----------------------------------------------------------------
 # Generated CMake target import file.
 #----------------------------------------------------------------
@@ -63,7 +63,7 @@ set_target_properties(httplib::httplib PROPERTIES
   INTERFACE_COMPILE_FEATURES "cxx_std_11"
   INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
   INTERFACE_LINK_LIBRARIES "Threads::Threads;\$<\$<PLATFORM_ID:Windows>:ws2_32>;\$<\$<PLATFORM_ID:Windows>:crypt32>;\$<\$<AND:\$<PLATFORM_ID:Darwin>,\$<BOOL:TRUE>,\$<BOOL:ON>>:-framework CoreFoundation -framework Security>;\$<\$<BOOL:TRUE>:Brotli::common>;\$<\$<BOOL:TRUE>:Brotli::encoder>;\$<\$<BOOL:TRUE>:Brotli::decoder>;\$<\$<BOOL:TRUE>:ZLIB::ZLIB>;\$<\$<BOOL:TRUE>:OpenSSL::SSL>;\$<\$<BOOL:TRUE>:OpenSSL::Crypto>"
-  INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
+  INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "include"
 )
 
 # Load information for each installed configuration.
