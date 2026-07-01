@@ -11,7 +11,8 @@ from typing import Dict, List, Optional, Tuple, Any
 from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QTimer, Slot, QPoint
 from PySide6.QtGui import (
     QPixmap, QFont, QPolygonF, QKeyEvent, QAction,
-    QPainter, QPen, QBrush, QColor, QPainterPath, 
+    QPainterPathStroker, QPainterPath,
+    QPainter, QPen, QBrush, QColor, 
 )
 from PySide6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QGroupBox, QDialog, QDialogButtonBox,
@@ -58,12 +59,20 @@ class GraphData:
     end_behavior: str = "repeat_graph"
     end_color: str = "#000000"
     end_jump_node_id: Optional[str] = None
-    _next_edge_id: int = 1
+    basis_node_id: Optional[str] = None  # starting node of the slideshow
 
-    def alloc_edge_id(self) -> int:
-        n = self._next_edge_id
-        self._next_edge_id += 1
-        return n
+    def alloc_edge_id(self, source_id: str) -> int:
+        """Return the next per-source edge index (1-based) for *source_id*."""
+        existing = [e for e in self.edges if e.source_id == source_id]
+        return len(existing) + 1
+
+    def renumber_edges(self):
+        """Re-assign edge_id values so each source node's edges are numbered 1…N."""
+        from collections import defaultdict
+        counter: Dict[str, int] = defaultdict(int)
+        for e in self.edges:
+            counter[e.source_id] += 1
+            e.edge_id = counter[e.source_id]
 
     def to_dict(self) -> dict:
         return {
@@ -85,7 +94,7 @@ class GraphData:
             "end_behavior": self.end_behavior,
             "end_color": self.end_color,
             "end_jump_node_id": self.end_jump_node_id,
-            "_next_edge_id": self._next_edge_id,
+            "basis_node_id": self.basis_node_id,
         }
 
     @staticmethod
@@ -94,7 +103,7 @@ class GraphData:
         g.end_behavior = d.get("end_behavior", "repeat_graph")
         g.end_color = d.get("end_color", "#000000")
         g.end_jump_node_id = d.get("end_jump_node_id")
-        g._next_edge_id = d.get("_next_edge_id", 1)
+        g.basis_node_id = d.get("basis_node_id")
         for nid, nd in d.get("nodes", {}).items():
             g.nodes[nid] = NodeData(**nd)
         for ed in d.get("edges", []):
@@ -136,35 +145,138 @@ def _get_video_duration(path: str) -> Optional[float]:
     return None
 
 
+def _build_reachable(graph: GraphData) -> set:
+    """
+    Return the set of node_ids reachable from basis_node_id via a BFS/DFS
+    that always follows the lowest-numbered out-edge first.
+    A node with no outgoing edges is a sink and is included if reachable.
+    """
+    if not graph.nodes:
+        return set()
+    start = graph.basis_node_id
+    if not start or start not in graph.nodes:
+        # Fallback: first node in insertion order
+        start = next(iter(graph.nodes))
+    
+    # Build adjacency: source_id -> [target_id, ...] ordered by per-source edge_id
+    from collections import defaultdict
+    adj: Dict[str, List[str]] = defaultdict(list)
+    for src in graph.nodes:
+        src_edges = sorted(
+            [e for e in graph.edges if e.source_id == src],
+            key=lambda e: e.edge_id,
+        )
+        adj[src] = [e.target_id for e in src_edges]
+
+    visited: set = set()
+    stack = [start]
+    while stack:
+        nid = stack.pop()
+        if nid in visited:
+            continue
+        visited.add(nid)
+        for tgt in adj.get(nid, []):
+            if tgt not in visited:
+                stack.append(tgt)
+    return visited
+
+
+def _sink_nodes(graph: GraphData) -> set:
+    """Return node_ids that have no outgoing edges."""
+    srcs = {e.source_id for e in graph.edges}
+    return {nid for nid in graph.nodes if nid not in srcs}
+
+
+def _build_live_edges(graph: GraphData) -> set:
+    """
+    Return the set of (source_id, edge_id) tuples that will actually be
+    traversed during a normal slideshow run.
+
+    The runtime logic always follows the **lowest-numbered** outgoing edge
+    from each node. An edge is live only if:
+      - its source node is visited during the traversal (reachable from basis
+        along first-edges only), and
+      - it is that node's edge #1 (the single edge the runtime will take).
+
+    All other edges — including edges from unreachable sources, and higher-
+    numbered sibling edges on an otherwise-reachable source — are "dead".
+    """
+    if not graph.nodes:
+        return set()
+
+    start = graph.basis_node_id
+    if not start or start not in graph.nodes:
+        start = next(iter(graph.nodes))
+
+    from collections import defaultdict
+    # Map source_id -> edges sorted by edge_id (ascending)
+    adj: Dict[str, List[EdgeData]] = defaultdict(list)
+    for src in graph.nodes:
+        src_edges = sorted(
+            [e for e in graph.edges if e.source_id == src],
+            key=lambda e: e.edge_id,
+        )
+        adj[src] = src_edges
+
+    live: set = set()
+    visited: set = set()
+    current = start
+    # Walk the same path the runtime takes — first edge only, stop at loops/sinks
+    while current and current not in visited:
+        visited.add(current)
+        edges_here = adj.get(current, [])
+        if not edges_here:
+            break  # sink — no outgoing edge
+        first_edge = edges_here[0]
+        live.add((first_edge.source_id, first_edge.edge_id))
+        current = first_edge.target_id
+
+    return live
+
+
 def _build_traversal(graph: GraphData) -> List[Tuple[str, float]]:
     """
     Return [(file_path, duration_sec), ...] for the graph traversal.
-    Edges are followed in edge_id order; the traversal is:
-      - Display source of edge[0]
-      - For each subsequent edge: display its source (= prev target)
-      - Display final target of last edge
-    Returns empty list if no edges (only 1 node means it is displayed once).
+    Starts from basis_node_id; at each node follows edges in per-source
+    edge_id order (edge #1 first). Stops when a sink or already-visited
+    node is encountered to avoid infinite loops.
     """
-    if not graph.edges:
-        # Single-node: show first node once
-        if graph.nodes:
-            nd = next(iter(graph.nodes.values()))
-            dur = _node_duration(nd)
-            return [(nd.file_path, dur)]
+    if not graph.nodes:
         return []
+    
+    start = graph.basis_node_id
+    if not start or start not in graph.nodes:
+        start = next(iter(graph.nodes))
+
+    # If no edges, just show the basis node
+    if not graph.edges:
+        nd = graph.nodes[start]
+        return [(nd.file_path, _node_duration(nd))]
+
+    from collections import defaultdict
+    adj: Dict[str, List[str]] = defaultdict(list)
+    for src in graph.nodes:
+        src_edges = sorted(
+            [e for e in graph.edges if e.source_id == src],
+            key=lambda e: e.edge_id,
+        )
+        adj[src] = [e.target_id for e in src_edges]
 
     seq: List[Tuple[str, float]] = []
-    sorted_edges = sorted(graph.edges, key=lambda e: e.edge_id)
-
-    # Source of first edge
-    first_src = graph.nodes.get(sorted_edges[0].source_id)
-    if first_src:
-        seq.append((first_src.file_path, _node_duration(first_src)))
-
-    for edge in sorted_edges:
-        tgt = graph.nodes.get(edge.target_id)
-        if tgt:
-            seq.append((tgt.file_path, _node_duration(tgt)))
+    visited: set = set()
+    current = start
+    while True:
+        nd = graph.nodes.get(current)
+        if nd is None:
+            break
+        seq.append((nd.file_path, _node_duration(nd)))
+        if current in visited:
+            break  # detected loop — stop
+        visited.add(current)
+        neighbors = adj.get(current, [])
+        if not neighbors:
+            break  # sink node — stop
+        current = neighbors[0]  # always follow edge #1
 
     return seq
 
@@ -213,7 +325,7 @@ class NodeItem(QGraphicsObject):
                     qimg = thumbnailer.generate(path, 120)
                     if qimg and not qimg.isNull():
                         pm = QPixmap.fromImage(qimg)
-                        qimg.save(cache_path, "JPG")
+                        qimg.save(cache_path, "JPG") # pyrefly: ignore [no-matching-overload]
                     else:
                         pm = QPixmap()
             else:
@@ -234,21 +346,64 @@ class NodeItem(QGraphicsObject):
         return QRectF(0, 0, _NODE_W, _NODE_H)
 
     def paint(self, painter: QPainter, option, widget=None):
-        if getattr(self, "_hovered_orange", False):
-            bg_col = QColor("#e67e22")
-            border_col = QColor("#d35400")
-        else:
-            is_sel = self.isSelected()
-            bg_col = QColor("#2d5a3d") if is_sel else QColor("#36393f")
-            border_col = QColor("#2ecc71") if is_sel else QColor("#4f545c")
-
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Role assigned by WallpaperGraphScene._refresh_node_styles
+        role = getattr(self, "_node_role", "reachable")
+        is_sel = self.isSelected()
+
+        if getattr(self, "_hovered_orange", False):
+            bg_col = QColor("#e67e22"); border_col = QColor("#d35400"); border_w = 2
+        elif role == "basis":
+            bg_col = QColor("#2d3b1e") if is_sel else QColor("#2a3520")
+            border_col = QColor("#ffeaa7") if is_sel else QColor("#f1c40f")
+            border_w = 4 if is_sel else 3
+        elif role == "sink":
+            bg_col = QColor("#3b1a2d") if is_sel else QColor("#2e1a2b")
+            border_col = QColor("#ff7eb3") if is_sel else QColor("#e056b8")
+            border_w = 4 if is_sel else 3
+        elif role == "unreachable":
+            bg_col = QColor("#3a2020") if is_sel else QColor("#2e2020")
+            border_col = QColor("#ff7675") if is_sel else QColor("#7f4040")
+            border_w = 4 if is_sel else 2
+        else:
+            bg_col = QColor("#1a2b3c") if is_sel else QColor("#131c26")
+            border_col = QColor("#00ffff") if is_sel else QColor("#3498db")
+            border_w = 4 if is_sel else 2
+
         painter.setBrush(QBrush(bg_col))
-        painter.setPen(QPen(border_col, 2))
+        painter.setPen(QPen(border_col, border_w))
         painter.drawRoundedRect(QRectF(1, 1, _NODE_W - 2, _NODE_H - 2), 6, 6)
 
+        # Role badge strip
+        if role == "basis":
+            badge = QRectF(1, 1, 42, 13)
+            painter.fillRect(badge, QColor("#f1c40f"))
+            painter.setPen(QPen(QColor("#1a1a00")))
+            painter.setFont(QFont("Arial", 6, QFont.Weight.Bold))
+            painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, "START")
+        elif role == "sink":
+            badge = QRectF(1, 1, 36, 13)
+            painter.fillRect(badge, QColor("#e056b8"))
+            painter.setPen(QPen(QColor("#1a001a")))
+            painter.setFont(QFont("Arial", 6, QFont.Weight.Bold))
+            painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, "END")
+        elif role == "unreachable":
+            badge = QRectF(1, 1, 52, 13)
+            painter.fillRect(badge, QColor("#7f4040"))
+            painter.setPen(QPen(QColor("#ffcccc")))
+            painter.setFont(QFont("Arial", 6, QFont.Weight.Bold))
+            painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, "SKIPPED")
+        else:
+            badge = QRectF(1, 1, 38, 13)
+            painter.fillRect(badge, QColor("#3498db"))
+            painter.setPen(QPen(QColor("#001a33")))
+            painter.setFont(QFont("Arial", 6, QFont.Weight.Bold))
+            painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, "STEP")
+
         # Thumbnail area
-        thumb_rect = QRectF(5, 5, _NODE_W - 10, 72)
+        has_badge = True
+        thumb_top = 15 if has_badge else 5
+        thumb_rect = QRectF(5, thumb_top, _NODE_W - 10, 72 - (thumb_top - 5))
         if self._pixmap:
             pw, ph = self._pixmap.width(), self._pixmap.height()
             rx = thumb_rect.x() + (thumb_rect.width() - pw) / 2
@@ -258,7 +413,7 @@ class NodeItem(QGraphicsObject):
             painter.fillRect(thumb_rect, QColor("#23272a"))
             painter.setPen(QPen(QColor("#7289da")))
             painter.setFont(QFont("Arial", 14))
-            icon = "\U0001f3ac" if _is_video(self.node_data.file_path) else "\U0001f5bc️"
+            icon = "\U0001f3ac" if _is_video(self.node_data.file_path) else "\U0001f5bc\ufe0f"
             painter.drawText(thumb_rect, Qt.AlignmentFlag.AlignCenter, icon)
 
         # Filename
@@ -272,10 +427,10 @@ class NodeItem(QGraphicsObject):
 
         # Duration line
         if self.node_data.display_mode == "video_runtime":
-            dur_text = "▶ Full Runtime"
+            dur_text = "Full Runtime"
         else:
             s = self.node_data.duration_sec
-            dur_text = f"⏱ {int(s//60)}m {int(s%60)}s" if s >= 60 else f"⏱ {s:.0f}s"
+            dur_text = f"{int(s//60)}m {int(s%60)}s" if s >= 60 else f"{s:.0f}s"
         painter.setPen(QPen(QColor("#b9bbbe")))
         painter.setFont(QFont("Arial", 7))
         painter.drawText(QRectF(2, 97, _NODE_W - 4, 14),
@@ -394,15 +549,35 @@ class EdgeItem(QGraphicsObject):
 
     def shape(self) -> QPainterPath:
         # Widen path for easier clicking
-        stroker = self._path
-        return stroker
+        stroker = QPainterPathStroker()
+        stroker.setWidth(12)
+        shape_path = stroker.createStroke(self._path)
+        
+        # Add the label rectangle to the clickable shape
+        lp = self._label_pos
+        text_rect = QRectF(lp.x() - 14, lp.y() - 9, 28, 18)
+        shape_path.addRect(text_rect)
+        return shape_path
 
     def paint(self, painter: QPainter, option, widget=None):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         is_sel = self.isSelected()
-        color = QColor("#f39c12") if is_sel else QColor("#7289da")
+        is_active = getattr(self, "_edge_active", True)  # default True until first style refresh
 
-        painter.setPen(QPen(color, 2))
+        if is_sel:
+            color = QColor("#f39c12")   # amber — selected (always visible)
+            line_w = 2.5
+        elif is_active:
+            color = QColor("#7289da")   # soft indigo — active/live edge
+            line_w = 2
+        else:
+            color = QColor("#6b2d2d")   # muted dark-red — dead/skipped edge
+            line_w = 1.5
+
+        pen = QPen(color, line_w)
+        if not is_active and not is_sel:
+            pen.setStyle(Qt.PenStyle.DashLine)  # dashed to reinforce "dead" status
+        painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(self._path)
         self._draw_arrowhead(painter, color)
@@ -410,7 +585,10 @@ class EdgeItem(QGraphicsObject):
         # Edge ID label
         lp = self._label_pos
         label = f"#{self.edge_data.edge_id}"
-        bg = QColor("#2c2f33")
+        if is_active or is_sel:
+            bg = QColor("#2c2f33")
+        else:
+            bg = QColor("#1e1212")   # darker tint for dead-edge labels
         text_rect = QRectF(lp.x() - 14, lp.y() - 9, 28, 18)
         painter.fillRect(text_rect, bg)
         painter.setPen(QPen(color))
@@ -498,10 +676,14 @@ class WallpaperGraphScene(QGraphicsScene):
         self._node_items.clear()
         self._edge_items.clear()
         self.clear()
+        # Auto-assign basis if not set
+        if graph.nodes and not graph.basis_node_id:
+            graph.basis_node_id = next(iter(graph.nodes))
         for nd in graph.nodes.values():
             self._add_node_item(nd)
-        for ed in sorted(graph.edges, key=lambda e: e.edge_id):
+        for ed in sorted(graph.edges, key=lambda e: (e.source_id, e.edge_id)):
             self._add_edge_item(ed)
+        self._refresh_node_styles()
 
     def clear_graph(self):
         self._end_connection_mode()
@@ -518,6 +700,8 @@ class WallpaperGraphScene(QGraphicsScene):
                       display_mode=display_mode, duration_sec=30.0,
                       pos_x=pos.x(), pos_y=pos.y())
         self._graph.nodes[nid] = nd # pyrefly: ignore [missing-attribute]
+        if self._graph.basis_node_id is None:
+            self._graph.basis_node_id = nid
         self._add_node_item(nd)
         self.graph_changed.emit()
 
@@ -528,7 +712,7 @@ class WallpaperGraphScene(QGraphicsScene):
         return nid
 
     def add_edge(self, source_id: str, target_id: str) -> int:
-        eid = self._graph.alloc_edge_id() # pyrefly: ignore [missing-attribute]
+        eid = self._graph.alloc_edge_id(source_id) # pyrefly: ignore [missing-attribute]
         ed = EdgeData(edge_id=eid, source_id=source_id, target_id=target_id)
         self._graph.edges.append(ed) # pyrefly: ignore [missing-attribute]
         self._add_edge_item(ed)
@@ -538,7 +722,7 @@ class WallpaperGraphScene(QGraphicsScene):
     def remove_selected(self):
         for item in list(self.selectedItems()):
             if isinstance(item, EdgeItem):
-                self._remove_edge(item.edge_data.edge_id)
+                self._remove_edge(item.edge_data.source_id, item.edge_data.edge_id)
             elif isinstance(item, NodeItem):
                 self._remove_node(item.node_data.node_id)
         self.graph_changed.emit()
@@ -569,38 +753,48 @@ class WallpaperGraphScene(QGraphicsScene):
             return
         item = EdgeItem(ed, src, tgt)
         self.addItem(item)
-        self._edge_items[ed.edge_id] = item
+        # Key is (source_id, per-source edge_id) to avoid collisions
+        self._edge_items[(ed.source_id, ed.edge_id)] = item
 
     def _remove_node(self, node_id: str):
         if self._graph is None:
             return
         # Remove edges that reference this node first
-        to_del = [e.edge_id for e in self._graph.edges
-                  if e.source_id == node_id or e.target_id == node_id]
-        for eid in to_del:
-            self._remove_edge(eid)
+        # Must be done dynamically because _remove_edge renumbers remaining edges,
+        # which would invalidate a statically collected list of edge IDs.
+        while True:
+            edges = [e for e in self._graph.edges 
+                     if e.source_id == node_id or e.target_id == node_id]
+            if not edges:
+                break
+            e = edges[0]
+            self._remove_edge(e.source_id, e.edge_id)
         item = self._node_items.pop(node_id, None)
         if item:
             self.removeItem(item)
         self._graph.nodes.pop(node_id, None)
+        # Clear basis if the node being removed was it
+        if self._graph.basis_node_id == node_id:
+            self._graph.basis_node_id = next(iter(self._graph.nodes), None)
 
-    def _remove_edge(self, edge_id: int):
+    def _remove_edge(self, source_id: str, edge_id: int):
         if self._graph is None:
             return
-        item = self._edge_items.pop(edge_id, None)
+        key = (source_id, edge_id)
+        item = self._edge_items.pop(key, None)
         if item:
             self.removeItem(item)
-        self._graph.edges = [e for e in self._graph.edges if e.edge_id != edge_id]
-
-        for i, edge in enumerate(self._graph.edges):
-            edge.edge_id = i + 1
-
-        self._graph._next_edge_id = len(self._graph.edges) + 1
-
+        self._graph.edges = [
+            e for e in self._graph.edges
+            if not (e.source_id == source_id and e.edge_id == edge_id)
+        ]
+        # Renumber per-source IDs
+        self._graph.renumber_edges()
+        # Rebuild _edge_items map with updated keys
         new_edge_items = {}
-        for item in list(self._edge_items.values()):
-            new_edge_items[item.edge_data.edge_id] = item
-            item.update()
+        for it in list(self._edge_items.values()):
+            new_edge_items[(it.edge_data.source_id, it.edge_data.edge_id)] = it
+            it.update()
         self._edge_items = new_edge_items
 
     def start_connection_mode(self, source_node_id: str):
@@ -665,7 +859,7 @@ class WallpaperGraphScene(QGraphicsScene):
             target_node = getattr(self, "_hovered_target_node", None)
             if not target_node:
                 for item in self.items(scene_pos):
-                    if isinstance(item, NodeItem) and item.node_data.node_id != src_id:
+                    if isinstance(item, NodeItem):
                         target_node = item
                         break
             if target_node:
@@ -684,7 +878,7 @@ class WallpaperGraphScene(QGraphicsScene):
             
         hovered_node = None
         for item in self.items(scene_pos):
-            if isinstance(item, NodeItem) and item.node_data.node_id != self._connecting_source_node_id:
+            if isinstance(item, NodeItem):
                 hovered_node = item
                 break
                 
@@ -713,18 +907,58 @@ class WallpaperGraphScene(QGraphicsScene):
             super().mousePressEvent(event)
 
     def _on_node_moved(self, node_id: str):
-        for eid, eitem in self._edge_items.items():
+        for eitem in self._edge_items.values():
             ed = eitem.edge_data
             if ed.source_id == node_id or ed.target_id == node_id:
                 eitem.update_path()
+
+    # ---- Graph role styling -----------------------------------------------
+
+    def _refresh_node_styles(self):
+        """Recompute and apply visual roles (basis/sink/reachable/unreachable) to all NodeItems,
+        and active/inactive state to all EdgeItems."""
+        if self._graph is None:
+            return
+        reachable = _build_reachable(self._graph)
+        sinks = _sink_nodes(self._graph)
+        live_edges = _build_live_edges(self._graph)
+        basis = self._graph.basis_node_id
+        for nid, item in self._node_items.items():
+            if nid == basis:
+                role = "basis"
+            elif nid in sinks and nid in reachable:
+                role = "sink"
+            elif nid in reachable:
+                role = "reachable"
+            else:
+                role = "unreachable"
+            item._node_role = role  # type: ignore[attr-defined]
+            item.update()
+        # Stamp each edge with whether it is part of the live traversal
+        for (src_id, eid), eitem in self._edge_items.items():
+            eitem._edge_active = (src_id, eid) in live_edges  # type: ignore[attr-defined]
+            eitem.update()
+
+    def set_basis_node(self, node_id: str):
+        """Make node_id the new basis (start) node and refresh styles."""
+        if self._graph is None:
+            return
+        self._graph.basis_node_id = node_id
+        self._refresh_node_styles()
+        self.graph_changed.emit()
 
     def _node_context_menu(self, node_id: str, screen_pos):
         if self._graph is None:
             return
         menu = QMenu()
-        act_edit = menu.addAction("Edit Properties…")
+        act_edit = menu.addAction("Edit Properties\u2026")
+        act_connect_draw = menu.addAction("Draw Edge To\u2026")
+        act_connect_list = menu.addAction("Select Edge Target from List\u2026")
         act_self = menu.addAction("Add Self-Edge (repeat this wallpaper)")
-        act_connect = menu.addAction("Add Edge To…")
+        menu.addSeparator()
+        is_basis = (self._graph.basis_node_id == node_id)
+        act_basis = menu.addAction("\u2605 Set as Start Node" if not is_basis else "\u2605 Already Start Node")
+        act_basis.setEnabled(not is_basis)
         menu.addSeparator()
         act_del = menu.addAction("Delete Node")
 
@@ -735,7 +969,9 @@ class WallpaperGraphScene(QGraphicsScene):
             self.node_edit_requested.emit(node_id)
         elif chosen == act_self:
             self.add_edge(node_id, node_id)
-        elif chosen == act_connect:
+        elif chosen == act_connect_draw:
+            self.start_connection_mode(node_id)
+        elif chosen == act_connect_list:
             others = [(nid, lbl) for nid, lbl in self.node_labels() if nid != node_id]
             if not others:
                 QMessageBox.information(None, "No Other Nodes",
@@ -744,15 +980,24 @@ class WallpaperGraphScene(QGraphicsScene):
             dlg = _PickNodeDialog(others, title="Connect to Node")
             if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_id:
                 self.add_edge(node_id, dlg.selected_id)
+        elif chosen == act_basis:
+            self.set_basis_node(node_id)
         elif chosen == act_del:
             self._remove_node(node_id)
             self.graph_changed.emit()
 
     def _edge_context_menu(self, edge_id: int, screen_pos):
+        # edge_id is the per-source index; we need source_id from scene items
+        for (sid, eid), item in self._edge_items.items():
+            if eid == edge_id and item.scene() is self:
+                source_id = sid
+                break
+        else:
+            return
         menu = QMenu()
         act_del = menu.addAction(f"Delete Edge #{edge_id}")
         if menu.exec(screen_pos) == act_del:
-            self._remove_edge(edge_id)
+            self._remove_edge(source_id, edge_id)
             self.graph_changed.emit()
 
     def keyPressEvent(self, event: QKeyEvent):
@@ -1132,8 +1377,16 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         )
         self._btn_preview.clicked.connect(self._preview_timelapse)
 
+        self._btn_set_start = QPushButton("\u2605 Set Start")
+        self._btn_set_start.setToolTip("Mark the selected node as the slideshow start node")
+        self._btn_set_start.setStyleSheet(
+            "QPushButton { background:#b8860b; color:white; border-radius:4px; padding:4px 8px; }"
+            "QPushButton:hover { background:#f1c40f; color:#1a1a00; }"
+        )
+        self._btn_set_start.clicked.connect(self._set_start_node)
+
         for btn in [self._btn_add_node, self._btn_self_edge, self._btn_connect,
-                    self._btn_delete, btn_reset_view]:
+                    self._btn_delete, btn_reset_view, self._btn_set_start]:
             btn.setFixedHeight(36)
             tb.addWidget(btn)
         tb.addStretch(1)
@@ -1465,6 +1718,14 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
     def _delete_selected(self):
         self._scene.remove_selected()
 
+    def _set_start_node(self):
+        nid = self._selected_node_id()
+        if nid is None:
+            QMessageBox.information(self, "No Node Selected",
+                                    "Select a node first, then click '\u2605 Set Start'.")
+            return
+        self._scene.set_basis_node(nid)
+
     def _fit_view(self):
         rect = self._scene.itemsBoundingRect()
         if rect.isEmpty():
@@ -1492,6 +1753,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
 
     @Slot()
     def _on_graph_changed(self):
+        self._scene._refresh_node_styles()
         self._update_seq_label()
         self._update_end_jump_combo()
         graph = self._current_graph()

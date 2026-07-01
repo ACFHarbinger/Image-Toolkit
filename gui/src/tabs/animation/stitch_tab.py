@@ -4064,6 +4064,8 @@ class EditTab(QWidget):
             "cv_bg_color": list(self._cv_bg_color),
             "cv_scale_mode": self._cv_scale_combo.currentData(),
             "cv_paths": list(self._cv_paths),
+            # Sub-tab
+            "active_subtab_index": self._tab_widget.currentIndex(),
         }
 
     def set_config(self, cfg: dict):
@@ -4157,6 +4159,11 @@ class EditTab(QWidget):
                 if p and os.path.isfile(p) and p not in self._cv_paths:
                     self._cv_paths.append(p)
                     self._cv_list.addItem(self._make_cv_item(p))
+        # Restore active sub-tab
+        if "active_subtab_index" in cfg:
+            idx = cfg["active_subtab_index"]
+            if isinstance(idx, int) and 0 <= idx < self._tab_widget.count():
+                self._tab_widget.setCurrentIndex(idx)
 
     def get_default_config(self) -> dict:
         return self.collect()

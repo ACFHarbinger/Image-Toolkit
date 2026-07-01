@@ -96,6 +96,7 @@ class WallpaperTab(QWidget):
     def collect(self) -> dict:
         result = self.system_display.collect()
         result["monitor_display_graphs"] = self.monitor_display.collect_graphs()
+        result["active_subtab_index"] = self._tab_widget.currentIndex()
         return result
 
     def set_config(self, config: dict):
@@ -105,6 +106,10 @@ class WallpaperTab(QWidget):
         self._sync_layout_system_to_monitor()
         if "monitor_display_graphs" in config:
             self.monitor_display.restore_graphs(config["monitor_display_graphs"])
+        if "active_subtab_index" in config:
+            idx = config["active_subtab_index"]
+            if 0 <= idx < self._tab_widget.count():
+                self._tab_widget.setCurrentIndex(idx)
 
     def get_default_config(self) -> dict:
         d = self.system_display.get_default_config()
