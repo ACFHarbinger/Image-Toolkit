@@ -37,7 +37,7 @@ IMAGE_EXTS: frozenset[str] = frozenset(
     {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif"}
 )
 
-TARGETS: list[tuple[str, str]] = [
+TARGETS: list[tuple[str, str, str]] = [
     ("listing-images",  "/listing-images",  "listing_images.qrc"),
     ("thumbnail-cache", "/thumbnail-cache", "thumbnail_cache.qrc"),
 ]
