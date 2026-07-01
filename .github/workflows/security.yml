@@ -36,7 +36,7 @@ jobs:
         run: pip install pip-audit
 
       - name: Export locked requirements
-        run: uv export --frozen --no-emit-project --output-file /tmp/requirements.txt
+        run: uv export --frozen --no-emit-project --no-hashes --output-file /tmp/requirements.txt
 
       - name: Scan for known CVEs
         # --ignore-vuln IDs can be added here for accepted false-positives
@@ -80,7 +80,6 @@ jobs:
 
       - name: Audit frontend/src-tauri crate
         run: cargo audit --json > /tmp/cargo-audit.json
-        working-directory: frontend/src-tauri
         continue-on-error: true
 
       - name: Upload audit report
