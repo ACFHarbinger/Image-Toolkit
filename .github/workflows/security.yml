@@ -32,7 +32,7 @@ jobs:
 
       - name: Scan for known CVEs
         # --ignore-vuln IDs can be added here for accepted false-positives
-        run: pip-audit --requirement /tmp/requirements.txt --output json --output-file /tmp/pip-audit.json || true
+        run: pip-audit -r /tmp/requirements.txt -f json -o /tmp/pip-audit.json || true
 
       - name: Upload audit report
         uses: actions/upload-artifact@v4
@@ -71,7 +71,7 @@ jobs:
           tool: cargo-audit
 
       - name: Audit frontend/src-tauri crate
-        run: cargo audit --json --output-file /tmp/cargo-audit.json
+        run: cargo audit --json > /tmp/cargo-audit.json
         working-directory: frontend/src-tauri
         continue-on-error: true
 
