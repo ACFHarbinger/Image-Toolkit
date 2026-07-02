@@ -652,7 +652,7 @@ class SettingsWindow(QWidget):
             "Database Management",
             "Web Integration",
             "Deep Learning",
-            "Image Edit",
+            "Image Stitching",
         ]
         self.startup_category_combo = QComboBox()
         self.startup_category_combo.addItems(category_names)
