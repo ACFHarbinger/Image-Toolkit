@@ -7,16 +7,10 @@ from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.windows.settings.settings_window import SettingsWindow
 from backend.src.constants import IMAGE_TOOLKIT_DIR, DAEMON_CONFIG_PATH
 
-
-@pytest.fixture(scope="session")
-def qapp():
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    return app
+pytestmark = pytest.mark.gui
 
 
-def test_extraction_history_limit_and_pruning(qapp, tmp_path, monkeypatch):
+def test_extraction_history_limit_and_pruning(q_app, tmp_path, monkeypatch):
     # Mock IMAGE_TOOLKIT_DIR to use a temporary directory for this test
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
@@ -105,7 +99,7 @@ def test_extraction_history_limit_and_pruning(qapp, tmp_path, monkeypatch):
     assert f3 in tab2.extraction_metadata
 
 
-def test_settings_window_resets(qapp, tmp_path, monkeypatch):
+def test_settings_window_resets(q_app, tmp_path, monkeypatch):
     # Mock IMAGE_TOOLKIT_DIR to use a temporary directory for this test
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
@@ -146,7 +140,7 @@ def test_settings_window_resets(qapp, tmp_path, monkeypatch):
     assert not history_file.exists()
 
 
-def test_settings_window_reload_and_profile_update(qapp, monkeypatch):
+def test_settings_window_reload_and_profile_update(q_app, monkeypatch):
     # Mock QMessageBox popups
     monkeypatch.setattr(
         QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
@@ -216,7 +210,7 @@ def test_settings_window_reload_and_profile_update(qapp, monkeypatch):
     assert creds["system_preference_profiles"]["ExistingProfile"]["theme"] == "light"
 
 
-def test_export_finished_records_history(qapp, tmp_path, monkeypatch):
+def test_export_finished_records_history(q_app, tmp_path, monkeypatch):
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
     monkeypatch.setattr(
@@ -253,7 +247,7 @@ def test_export_finished_records_history(qapp, tmp_path, monkeypatch):
     assert str(output_file) in tab.extraction_metadata
 
 
-def test_settings_window_theme_layout_and_button_width(qapp, monkeypatch):
+def test_settings_window_theme_layout_and_button_width(q_app, monkeypatch):
     # Mock QMessageBox popups
     monkeypatch.setattr(
         QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
@@ -274,5 +268,5 @@ def test_settings_window_theme_layout_and_button_width(qapp, monkeypatch):
         parent_groupbox = parent_groupbox.parentWidget()
 
     assert parent_groupbox is not None
-    assert parent_groupbox.title() == "Appearance"
+    assert parent_groupbox.title() == "Appearance" # pyrefly: ignore [missing-attribute]
 

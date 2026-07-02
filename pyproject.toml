@@ -65,8 +65,8 @@ dependencies = [
     "screeninfo>=0.8.1",
     "selenium>=4.38.0",
     "sentencepiece>=0.2.1",
-    "sentence-transformers>=2.6.0",   # CLIP embeddings for Local AI Search (CBIR)
-    "faiss-cpu>=1.7.4",               # Vector similarity search for CBIR index
+    "sentence-transformers>=2.6.0", # CLIP embeddings for Local AI Search (CBIR)
+    "faiss-cpu>=1.7.4", # Vector similarity search for CBIR index
     "simpleeval>=1.0.7",
     "spandrel>=0.4.2",
     "sqlalchemy>=2.0.49",
@@ -87,6 +87,7 @@ dependencies = [
     "rembg>=2.0.75",
     "transparent-background>=1.3.4",
     "sam-2 @ git+https://github.com/facebookresearch/sam2@2b90b9f5ceec907a1c18123530e92e794ad901a4",
+    "anthropic>=0.116.0",
 ]
 
 # (Optional) entry-point so you can run `image-toolkit` from terminal
@@ -141,9 +142,13 @@ venvPath = "."              # The directory containing the venv
 venv = ".venv"              # The name of the venv folder
 type_checking_mode = "basic"
 include = ["gui", "logic"]
+extraPaths = ["Recommendation-Engine"]
 
 # Ignore rules (Migration of your pyright/pylance ignores)
 ignore = ["**/__init__.py"]
+
+[tool.pyright]
+extraPaths = ["Recommendation-Engine"]
 
 [tool.mypy]
 # Permissive baseline — warnings only, no CI failures yet (§5.5A).
@@ -220,4 +225,4 @@ name = "gui.src.classes must not import gui.src.tabs"
 type = "forbidden"
 source_modules = ["gui.src.classes"]
 forbidden_modules = ["gui.src.tabs"]
-ignore_imports = ["gui.src.classes.* -> gui.src.windows.*"]
+ignore_imports = ["gui.src.classes.** -> gui.src.windows.**"]
