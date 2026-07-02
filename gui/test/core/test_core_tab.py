@@ -192,6 +192,40 @@ class TestWallpaperTab:
             assert mock_run.call_count == 1
             assert _VIDEO_DURATION_CACHE[video_path] == 12.34
 
+    def test_clear_monitor_graph(self, q_app, mock_deps):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+        from gui.src.tabs.core.elements.graph.data import GraphData, NodeData
+        g = GraphData()
+        g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
+        tab.monitor_display._graphs["0"] = g
+        tab.monitor_display._current_monitor_id = "0"
+        
+        assert "node1" in tab.monitor_display._graphs["0"].nodes
+        
+        from PySide6.QtWidgets import QMessageBox
+        with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes) as mock_q:
+            tab.monitor_display.clear_monitor_graph("0")
+            mock_q.assert_called_once()
+            
+        assert not tab.monitor_display._graphs["0"].nodes
+
+    def test_clear_monitor_graph_from_system_tab(self, q_app, mock_deps):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+        tab.system_display._monitor_display_ref = tab.monitor_display
+        
+        from gui.src.tabs.core.elements.graph.data import GraphData, NodeData
+        g = GraphData()
+        g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
+        tab.monitor_display._graphs["0"] = g
+        tab.monitor_display._current_monitor_id = "0"
+        
+        from PySide6.QtWidgets import QMessageBox
+        with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes) as mock_q:
+            tab.system_display.clear_monitor_graph("0")
+            mock_q.assert_called_once()
+            
+        assert not tab.monitor_display._graphs["0"].nodes
+
 
 
 # --- DeleteTab Tests ---

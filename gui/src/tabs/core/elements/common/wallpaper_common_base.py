@@ -137,6 +137,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         for mid, widget in self.monitor_widgets.items():
             if isinstance(widget, MonitorDropWidget):
                 widget.set_selected(mid == new_id)
+                widget.repaint()
 
         # Sync peer selection styling
         if not getattr(self, "_syncing_selection", False):
@@ -147,6 +148,8 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             finally:
                 self._syncing_selection = False
 
+        QApplication.processEvents()
+
         self._on_monitor_selected(new_id)
 
     def _select_monitor_peer(self, monitor_id: Optional[str]):
@@ -154,6 +157,10 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         for mid, widget in self.monitor_widgets.items():
             if isinstance(widget, MonitorDropWidget):
                 widget.set_selected(mid == monitor_id)
+                widget.repaint()
+
+        QApplication.processEvents()
+
         self._on_monitor_selected(monitor_id)
 
     def _on_monitor_selected(self, monitor_id: Optional[str]):
@@ -598,44 +605,71 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         menu.addSeparator()
 
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
-        if not queue:
+        if queue:
+            set_active_menu = menu.addMenu("Set Active Wallpaper from Queue...")
+
+            current_active = self.monitor_image_paths.get(monitor_id)
+            for i, path in enumerate(queue):
+                filename = os.path.basename(path)
+                action = set_active_menu.addAction(f"[{i}] {filename}")
+                action.setCheckable(True)
+                if path == current_active:
+                    action.setChecked(True)
+                action.triggered.connect(
+                    lambda _, p=path: self._set_specific_wallpaper(monitor_id, p)
+                )
+
+            other_monitors = [
+                (mid, widget)
+                for mid, widget in self.monitor_widgets.items()
+                if mid != monitor_id
+            ]
+            if other_monitors:
+                menu.addSeparator()
+                swap_menu = menu.addMenu("🔀 Swap Active Image with Monitor...")
+                for t_mid, t_widget in other_monitors:
+                    t_name = t_widget.monitor.name
+                    t_active_path = self.monitor_image_paths.get(t_mid)
+                    if t_active_path:
+                        t_label = f"{t_name}  ←→  {os.path.basename(t_active_path)}"
+                    else:
+                        t_label = f"{t_name}  (empty)"
+                    action = swap_menu.addAction(t_label)
+                    action.setEnabled(bool(t_active_path and current_active))
+                    action.triggered.connect(
+                        lambda _, s=monitor_id, t=t_mid: self.handle_item_swap_request(
+                            s, 0, t, 0
+                        )
+                    )
+
+        menu.addSeparator()
+        clear_graph_action = menu.addAction("Clear Monitor Graph")
+        clear_graph_action.triggered.connect(
+            lambda _, m=monitor_id: self.clear_monitor_graph(m)
+        )
+
+    def clear_monitor_graph(self, monitor_id: str):
+        reply = QMessageBox.question(
+            self, "Clear Graph",
+            f"Are you sure you want to clear the graph for Monitor {monitor_id}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
-        set_active_menu = menu.addMenu("Set Active Wallpaper from Queue...")
+        if hasattr(self, "_monitor_display_ref") and self._monitor_display_ref:
+            self._monitor_display_ref.clear_monitor_graph_direct(monitor_id)
+        else:
+            self.clear_monitor_graph_direct(monitor_id)
 
-        current_active = self.monitor_image_paths.get(monitor_id)
-        for i, path in enumerate(queue):
-            filename = os.path.basename(path)
-            action = set_active_menu.addAction(f"[{i}] {filename}")
-            action.setCheckable(True)
-            if path == current_active:
-                action.setChecked(True)
-            action.triggered.connect(
-                lambda _, p=path: self._set_specific_wallpaper(monitor_id, p)
-            )
-
-        other_monitors = [
-            (mid, widget)
-            for mid, widget in self.monitor_widgets.items()
-            if mid != monitor_id
-        ]
-        if other_monitors:
-            menu.addSeparator()
-            swap_menu = menu.addMenu("🔀 Swap Active Image with Monitor...")
-            for t_mid, t_widget in other_monitors:
-                t_name = t_widget.monitor.name
-                t_active_path = self.monitor_image_paths.get(t_mid)
-                if t_active_path:
-                    t_label = f"{t_name}  ←→  {os.path.basename(t_active_path)}"
-                else:
-                    t_label = f"{t_name}  (empty)"
-                action = swap_menu.addAction(t_label)
-                action.setEnabled(bool(t_active_path and current_active))
-                action.triggered.connect(
-                    lambda _, s=monitor_id, t=t_mid: self.handle_item_swap_request(
-                        s, 0, t, 0
-                    )
-                )
+    def clear_monitor_graph_direct(self, monitor_id: str):
+        if hasattr(self, "_graphs"):
+            self._graphs[monitor_id] = GraphData()
+            if self._current_monitor_id == monitor_id and hasattr(self, "_scene"):
+                self._scene.load_graph(self._graphs[monitor_id])
+                if hasattr(self, "_on_graph_changed"):
+                    self._on_graph_changed()
 
     def _set_specific_wallpaper(self, monitor_id: str, path: str):
         if not os.path.exists(path):

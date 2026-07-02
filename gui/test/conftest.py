@@ -49,12 +49,18 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
     Ensure all tests run in a completely isolated sandbox and never write to the user's home directory.
     """
     from backend.src.constants import paths
+    import backend.src.constants as constants
+
+    fake_config_path = tmp_path / ".slideshow_config.json"
 
     monkeypatch.setattr(paths, "IMAGE_TOOLKIT_DIR", tmp_path)
     monkeypatch.setattr(
-        paths, "DAEMON_CONFIG_PATH", tmp_path / ".slideshow_config.json"
+        paths, "DAEMON_CONFIG_PATH", fake_config_path
     )
     monkeypatch.setattr(paths, "THUMBNAIL_CACHE_DIR", tmp_path / "thumbnail-cache")
+
+    monkeypatch.setattr(constants, "IMAGE_TOOLKIT_DIR", tmp_path)
+    monkeypatch.setattr(constants, "DAEMON_CONFIG_PATH", fake_config_path)
 
     try:
         from gui.src.tabs.core import listings_tab
@@ -67,6 +73,72 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
         )
     except Exception:
         pass
+
+    try:
+        import gui.src.tabs.core.elements.system_display_subtab as subtab
+        monkeypatch.setattr(subtab, "DAEMON_CONFIG_PATH", fake_config_path)
+        monkeypatch.setattr(subtab, "ROOT_DIR", tmp_path)
+    except Exception:
+        pass
+
+    try:
+        import gui.src.tabs.core.elements.common.wallpaper_common_base as common_base
+        monkeypatch.setattr(common_base, "DAEMON_CONFIG_PATH", fake_config_path)
+    except Exception:
+        pass
+
+    try:
+        import gui.src.windows.settings_window as settings_window
+        monkeypatch.setattr(settings_window, "DAEMON_CONFIG_PATH", fake_config_path)
+        monkeypatch.setattr(settings_window, "IMAGE_TOOLKIT_DIR", tmp_path)
+    except Exception:
+        pass
+
+
+@pytest.fixture(autouse=True, scope="function")
+def cleanup_active_workers_and_timers(q_app):
+    from PySide6.QtCore import QThreadPool, QTimer
+    from PySide6.QtWidgets import QWidget, QApplication
+
+    started_workers = []
+    original_start = QThreadPool.globalInstance().start
+
+    def mock_start(runnable, priority=0):
+        started_workers.append(runnable)
+        return original_start(runnable, priority)
+
+    QThreadPool.globalInstance().start = mock_start
+
+    yield
+
+    QThreadPool.globalInstance().start = original_start
+
+    for worker in started_workers:
+        try:
+            if hasattr(worker, "stop"):
+                worker.stop()
+        except Exception:
+            pass
+
+    for widget in QApplication.topLevelWidgets():
+        for timer in widget.findChildren(QTimer):
+            try:
+                timer.stop()
+            except Exception:
+                pass
+        for subtab in widget.findChildren(QWidget):
+            try:
+                if hasattr(subtab, "slideshow_timer") and subtab.slideshow_timer:
+                    subtab.slideshow_timer.stop()
+            except Exception:
+                pass
+            try:
+                if hasattr(subtab, "countdown_timer") and subtab.countdown_timer:
+                    subtab.countdown_timer.stop()
+            except Exception:
+                pass
+
+    QThreadPool.globalInstance().waitForDone(500)
 
 
 @pytest.fixture(scope="session")

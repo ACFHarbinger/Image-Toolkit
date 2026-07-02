@@ -211,8 +211,16 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         )
         self._btn_set_start.clicked.connect(self._set_start_node)
 
+        self._btn_clear_graph = QPushButton("🗑 Clear Graph")
+        self._btn_clear_graph.setToolTip("Reset the graph and clear all nodes and edges")
+        self._btn_clear_graph.setStyleSheet(
+            "QPushButton { background:#992d22; color:white; border-radius:4px; padding:4px 8px; }"
+            "QPushButton:hover { background:#c0392b; }"
+        )
+        self._btn_clear_graph.clicked.connect(self._clear_canvas)
+
         for btn in [self._btn_add_node, self._btn_self_edge, self._btn_connect,
-                    self._btn_delete, btn_reset_view, self._btn_set_start]:
+                    self._btn_delete, btn_reset_view, self._btn_set_start, self._btn_clear_graph]:
             btn.setFixedHeight(36)
             tb.addWidget(btn)
         tb.addStretch(1)
@@ -522,6 +530,11 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
                                     "Select a node first, then click '\u2605 Set Start'.")
             return
         self._scene.set_basis_node(nid)
+
+    def _clear_canvas(self):
+        if self._current_monitor_id is None:
+            return
+        self.clear_monitor_graph(self._current_monitor_id)
 
     def _fit_view(self):
         rect = self._scene.itemsBoundingRect()
