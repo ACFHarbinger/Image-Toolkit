@@ -279,7 +279,27 @@ class WallpaperGraphScene(QGraphicsScene):
         ]
         # Renumber per-source IDs
         self._graph.renumber_edges()
-        # Rebuild _edge_items map with updated keys
+        self._rebuild_edge_items_index()
+
+    def remove_edge(self, source_id: str, edge_id: int):
+        """Public wrapper around _remove_edge() that also emits
+        graph_changed, for callers outside the scene (e.g. the Node
+        Properties panel's outgoing-edges list)."""
+        self._remove_edge(source_id, edge_id)
+        self.graph_changed.emit()
+
+    def reorder_source_edges(self, source_id: str, ordered_edge_ids: List[int]):
+        """Reorder source_id's outgoing edges (a permutation of their
+        current edge_id values) and emit graph_changed."""
+        if self._graph is None:
+            return
+        self._graph.reorder_source_edges(source_id, ordered_edge_ids)
+        self._rebuild_edge_items_index()
+        self.graph_changed.emit()
+
+    def _rebuild_edge_items_index(self):
+        """Rebuild _edge_items keyed by the (possibly changed) current
+        (source_id, edge_id) of each EdgeItem, and repaint them."""
         new_edge_items = {}
         for it in list(self._edge_items.values()):
             new_edge_items[(it.edge_data.source_id, it.edge_data.edge_id)] = it

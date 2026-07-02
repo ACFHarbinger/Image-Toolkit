@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QRadioButton, QButtonGroup, QStackedWidget,
     QFileDialog, QMessageBox, QMenu, QLabel,
     QLineEdit, QGridLayout, QPushButton,
+    QListWidget, QListWidgetItem,
 )
 from screeninfo import Monitor
 
@@ -465,6 +466,44 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         self._props_apply.clicked.connect(self._apply_props)
         lyt.addWidget(self._props_apply)
 
+        # Outgoing edges: create, remove, and reorder edges sourced from
+        # this node directly here, instead of only via the canvas.
+        edges_grp = QGroupBox("Outgoing Edges")
+        edges_lyt = QVBoxLayout(edges_grp)
+
+        edges_hint = QLabel(
+            "Playback always follows the topmost edge first. Drag to "
+            "reorder, right-click to remove."
+        )
+        edges_hint.setWordWrap(True)
+        edges_hint.setStyleSheet("color:#b9bbbe; font-size:10px;")
+        edges_lyt.addWidget(edges_hint)
+
+        self._props_edges_list = QListWidget()
+        self._props_edges_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self._props_edges_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self._props_edges_list.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self._props_edges_list.setMaximumHeight(140)
+        self._props_edges_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._props_edges_list.customContextMenuRequested.connect(
+            self._props_edges_context_menu
+        )
+        edges_lyt.addWidget(self._props_edges_list)
+        # Populated on drop via the model's rowsMoved signal
+        self._props_edges_list.model().rowsMoved.connect(
+            self._on_props_edges_reordered
+        )
+
+        add_edge_row = QHBoxLayout()
+        self._props_edge_target_combo = QComboBox()
+        add_edge_row.addWidget(self._props_edge_target_combo, 1)
+        self._props_edge_add_btn = QPushButton("+ Add Edge")
+        self._props_edge_add_btn.clicked.connect(self._add_props_edge)
+        add_edge_row.addWidget(self._props_edge_add_btn)
+        edges_lyt.addLayout(add_edge_row)
+
+        lyt.addWidget(edges_grp)
+
         lyt.addStretch(1)
 
         # Track which node is being shown in the panel
@@ -483,9 +522,11 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
 
         self._props_mode_grp = mode_grp
         self._props_dur_row_widget = None  # updated below
+        self._props_edges_grp = edges_grp
 
         self._props_mode_grp.setVisible(False)
         self._props_apply.setVisible(False)
+        self._props_edges_grp.setVisible(False)
 
         return grp
 
@@ -674,6 +715,11 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         if graph:
             # Persist end-behavior selections back to graph
             self._read_end_behavior_to_graph(graph)
+        # Keep the outgoing-edges list in sync no matter how the graph
+        # changed (canvas edit, self-edge button, node deletion, etc.),
+        # not just edits made through the props panel itself.
+        if self._props_node_id is not None:
+            self._populate_props_edges_list(self._props_node_id)
 
     # ---- Properties panel -------------------------------------------------
 
@@ -693,6 +739,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
                 self._props_file.setVisible(False)
                 self._props_mode_grp.setVisible(False)
                 self._props_apply.setVisible(False)
+                self._props_edges_grp.setVisible(False)
                 self._props_node_id = None
             except RuntimeError:
                 pass
@@ -707,6 +754,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         self._props_mode_grp.setVisible(True)
         self._props_apply.setVisible(True)
         self._props_dur.setVisible(True)
+        self._props_edges_grp.setVisible(True)
 
         is_vid = is_video(nd.file_path)
         self._props_radio_runtime.setEnabled(is_vid)
@@ -716,6 +764,8 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             self._props_radio_fixed.setChecked(True)
         self._props_dur.setValue(nd.duration_sec)
         self._props_dur.setEnabled(nd.display_mode != "video_runtime")
+
+        self._populate_props_edges_list(nd.node_id)
 
     def _apply_props(self):
         graph = self._current_graph()
@@ -732,6 +782,72 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         if item:
             item.update()
         self._update_seq_label()
+
+    # ---- Outgoing edges (props panel) --------------------------------------
+
+    def _populate_props_edges_list(self, node_id: str):
+        graph = self._current_graph()
+
+        self._props_edges_list.blockSignals(True)
+        self._props_edges_list.clear()
+        if graph:
+            src_edges = sorted(
+                (e for e in graph.edges if e.source_id == node_id),
+                key=lambda e: e.edge_id,
+            )
+            for e in src_edges:
+                target_nd = graph.nodes.get(e.target_id)
+                fname = os.path.basename(target_nd.file_path) if target_nd else "?"
+                if e.target_id == node_id:
+                    label = f"#{e.edge_id}  →  (self) {fname}"
+                else:
+                    label = f"#{e.edge_id}  →  {fname}"
+                item = QListWidgetItem(label)
+                item.setData(Qt.ItemDataRole.UserRole, e.edge_id)
+                self._props_edges_list.addItem(item)
+        self._props_edges_list.blockSignals(False)
+
+        self._props_edge_target_combo.blockSignals(True)
+        self._props_edge_target_combo.clear()
+        if graph:
+            for nid, lbl in self._scene.node_labels():
+                display = f"(self) {lbl}" if nid == node_id else lbl
+                self._props_edge_target_combo.addItem(display, nid)
+        self._props_edge_target_combo.blockSignals(False)
+
+    def _add_props_edge(self):
+        if self._props_node_id is None:
+            return
+        target_id = self._props_edge_target_combo.currentData()
+        if not target_id:
+            return
+        self._scene.add_edge(self._props_node_id, target_id)
+        # add_edge() already emits graph_changed, which refreshes this list,
+        # but do it explicitly too in case a future refactor decouples them.
+        self._populate_props_edges_list(self._props_node_id)
+
+    def _props_edges_context_menu(self, pos: QPoint):
+        item = self._props_edges_list.itemAt(pos)
+        if not item or self._props_node_id is None:
+            return
+        edge_id = item.data(Qt.ItemDataRole.UserRole)
+        menu = QMenu(self)
+        act_del = menu.addAction(f"🗑 Remove Edge #{edge_id}")
+        chosen = menu.exec(self._props_edges_list.mapToGlobal(pos))
+        if chosen == act_del:
+            self._scene.remove_edge(self._props_node_id, edge_id)
+            self._populate_props_edges_list(self._props_node_id)
+
+    def _on_props_edges_reordered(self, *args):
+        if self._props_node_id is None:
+            return
+        ordered_edge_ids = [
+            self._props_edges_list.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self._props_edges_list.count())
+        ]
+        self._scene.reorder_source_edges(self._props_node_id, ordered_edge_ids)
+        # Re-populate so the "#N" labels reflect the new edge_id order.
+        self._populate_props_edges_list(self._props_node_id)
 
     # ---- End behavior UI --------------------------------------------------
 
