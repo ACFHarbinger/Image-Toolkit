@@ -2,24 +2,10 @@ from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
 from shiboken6 import Shiboken
 from backend.src.constants import HAS_NATIVE_IMAGING
+from .batch_image_loader_worker import _bgr_array_to_qimage
 
 if HAS_NATIVE_IMAGING:
     import base
-
-
-def process_image_batch(paths: list[str], target_size: int):
-    """
-    Process a batch of images using the C++ backend in a separate process.
-    Returns a list of (path, buffer, width, height) tuples.
-    """
-    try:
-        import base
-
-        # Returns List[(path, buffer, width, height)]
-        results = base.load_image_batch(paths, target_size)
-        return results
-    except Exception:
-        return []
 
 
 class _LoaderSignals(QObject):
@@ -60,14 +46,17 @@ class ImageLoaderWorker(QRunnable):
             return
         try:
             if HAS_NATIVE_IMAGING:
-                results = base.load_image_batch([self.path], self.target_size)
+                # Returns list[(path, HxWx3 BGR uint8 ndarray | None, error: str)]
+                results = base.load_image_batch(
+                    [self.path], self.target_size, self.target_size, True
+                )
                 if self._is_cancelled:
                     return
                 if results:
-                    path, buffer, w, h = results[0]
-                    q_img = QImage(buffer, w, h, QImage.Format_RGBA8888)
-                    self._safe_emit(self.path, q_img.copy())
-                    return
+                    _path, arr, err = results[0]
+                    if arr is not None and not err:
+                        self._safe_emit(self.path, _bgr_array_to_qimage(arr))
+                        return
 
             # Fallback using QImage instead of QPixmap
             q_img = QImage(self.path)
