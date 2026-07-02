@@ -26,6 +26,30 @@ class GraphData:
             counter[e.source_id] += 1
             e.edge_id = counter[e.source_id]
 
+    def reorder_source_edges(self, source_id: str, ordered_edge_ids: List[int]) -> None:
+        """Reorder source_id's outgoing edges to match ordered_edge_ids (a
+        permutation of their current edge_id values), then renumber 1..N to
+        match the new order.
+
+        Traversal always follows the lowest-numbered outgoing edge first, so
+        this is what actually changes playback order for a node with
+        multiple outgoing edges. Physically reorders self.edges (not just
+        the edge_id labels) at that source's existing slots, so a later
+        renumber_edges() call (e.g. after an unrelated edge removal) won't
+        silently revert the reorder back to insertion order.
+        """
+        src_edges = {e.edge_id: e for e in self.edges if e.source_id == source_id}
+        ordered = [src_edges[eid] for eid in ordered_edge_ids if eid in src_edges]
+        if len(ordered) != len(src_edges):
+            return  # malformed/stale order; ignore rather than corrupt the graph
+
+        for new_id, e in enumerate(ordered, start=1):
+            e.edge_id = new_id
+
+        positions = [i for i, e in enumerate(self.edges) if e.source_id == source_id]
+        for pos, e in zip(positions, ordered):
+            self.edges[pos] = e
+
     def to_dict(self) -> dict:
         return {
             "nodes": {

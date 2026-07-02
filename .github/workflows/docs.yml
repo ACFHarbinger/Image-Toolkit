@@ -157,6 +157,7 @@ jobs:
             --exclude 'https://sigops\.org/s/conferences/sosp'
             --exclude 'https://www\.postgresql\.org'
             --exclude 'https://vitest\.dev'
+            --exclude 'https://www\.brendangregg\.com'
             '**/*.md'
           fail: true
 
