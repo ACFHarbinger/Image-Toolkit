@@ -214,8 +214,8 @@ def _ensure_stub_api_pages() -> None:
             "# ML Models API\n\n::: backend.src.models.core.base\n"
         ),
         DOCS / "api" / "rust" / "math.md": (
-            "# Rust Math Backbone\n\n"
-            "The Rust math backbone is documented via `cargo doc`.\n\n"
+            "# C++ Math Backbone\n\n"
+            "The C++ math backbone is documented via `cargo doc`.\n\n"
             "Run `cd base && cargo doc --no-deps --open` to browse the "
             "rendered HTML reference locally.\n\n"
             "Key modules: `base::math::linalg`, `base::math::stats`, "

@@ -39,14 +39,11 @@ WD14Tagger,
 Florence2Captioner,
 HybridCaptioner,
 )
-from PIL import Image
 from backend.src.pipeline.data_selection import cluster_duplicates
 from backend.src.models.data.video_frame_extractor import _phash64
 from transformers import CLIPTokenizer
 from backend.src.models.data.lora_dataset import BucketSample, LoRADatasetV2
 from backend.src.models.data.augmentations import default_anime_augmentations
-from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
 from backend.src.models.lora_diffusion import (
 LoRATunerConfig,
 LoRATunerV2,

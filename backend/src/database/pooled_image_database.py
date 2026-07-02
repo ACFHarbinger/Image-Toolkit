@@ -44,7 +44,7 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterator, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 import psycopg
 import psycopg_pool

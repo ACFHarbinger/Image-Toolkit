@@ -49,10 +49,10 @@ except ImportError:
     log.warning("C++ base extension unavailable — falling back to Python hashing")
 
 # ---------------------------------------------------------------------------
-# Pure-Python fallback hashers (used when Rust extension is absent)
+# Pure-Python fallback hashers (used when C++ extension is absent)
 # ---------------------------------------------------------------------------
 def _py_phash64(path: str) -> str:
-    """64-bit pHash via PIL (fallback when Rust unavailable)."""
+    """64-bit pHash via PIL (fallback when C++ unavailable)."""
     with Image.open(path) as im:
         gray = im.convert("L").resize((8, 8), Image.LANCZOS) # pyrefly: ignore [missing-attribute]
     arr = np.array(gray, dtype=np.float32)

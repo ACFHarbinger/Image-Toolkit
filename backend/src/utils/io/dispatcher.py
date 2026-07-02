@@ -3,7 +3,7 @@ from ...core.image_merger import ImageMerger
 from ...web.crawlers.image_crawler import ImageCrawler
 from ...database.image_database import PgvectorImageDatabase
 from ...models.wrappers.sd3_wrapper import SD3Wrapper
-from ..slideshow_daemon import start_daemon as launch_slideshow
+from ..display.slideshow_daemon import start_daemon as launch_slideshow
 # --------------------------------
 
 import os
@@ -334,8 +334,6 @@ def dispatch_command(command, args):
     elif command == "model":
         dispatch_model(args)
     elif command == "slideshow":
-        # relocated: from ..slideshow_daemon import start_daemon as launch_slideshow
-
         launch_slideshow()
     else:
         print(f"Unknown command: {command}", file=sys.stderr)

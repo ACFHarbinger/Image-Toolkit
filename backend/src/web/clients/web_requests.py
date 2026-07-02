@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, Signal
 
 class WebRequestsLogic(QObject):
     """
-    Wrapper for the Rust implementation of WebRequestsLogic.
+    Wrapper for the C++ implementation of WebRequestsLogic.
     Uses 'base.run_web_requests_sequence' for the heavy lifting.
     """
 
@@ -26,17 +26,17 @@ class WebRequestsLogic(QObject):
         self.on_status.emit("Cancellation pending...")
 
     def on_status_emitted(self, msg: str):
-        """Glue method called by Rust to emit on_status signal."""
+        """Glue method called by C++ to emit on_status signal."""
         self.on_status.emit(msg)
 
     def on_error_emitted(self, msg: str):
-        """Glue method called by Rust to emit on_error signal."""
+        """Glue method called by C++ to emit on_error signal."""
         self.on_error.emit(msg)
 
     def run(self):
         """
         Main execution loop delegate.
-        Sends the config as JSON to Rust.
+        Sends the config as JSON to C++.
         """
         config_json = json.dumps(self.config)
 
@@ -45,5 +45,5 @@ class WebRequestsLogic(QObject):
             if self._is_running:
                 self.on_finished.emit(result)
         except Exception as e:
-            self.on_error.emit(f"Critical error in Rust sequence: {e}")
+            self.on_error.emit(f"Critical error in C++ sequence: {e}")
             self.on_finished.emit(f"Finished with error: {e}")

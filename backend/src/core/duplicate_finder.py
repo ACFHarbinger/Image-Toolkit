@@ -1,13 +1,8 @@
 import sys
-import cv2
 import base
 import hashlib
-import numpy as np
 
-from PIL import Image
-from pathlib import Path
 from backend.src.core.file_system_entries import FSETool
-from backend.src.constants import SSIM_C1, SSIM_C2
 
 
 class DuplicateFinder:
@@ -39,12 +34,12 @@ class DuplicateFinder:
             extensions = [".jpg", ".jpeg", ".png", ".webp", ".bmp"]
 
         try:
-            # Rust returns HashMap<hash, Vec<path>>
+            # C++ returns HashMap<hash, Vec<path>>
             # Python expects dict
             duplicates = base.find_duplicate_images(directory, extensions, recursive)
             return duplicates
         except Exception as e:
-            print(f"Error in find_duplicate_images (Rust): {e}", file=sys.stderr)
+            print(f"Error in find_duplicate_images (C++): {e}", file=sys.stderr)
             return {}
 
 

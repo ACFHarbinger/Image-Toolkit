@@ -1,6 +1,6 @@
 import os
 import glob
-import base  # The new Rust extension
+import base  # The new C++ extension
 
 from typing import List, Optional, Callable
 from backend.src.core.file_system_entries import FSETool
@@ -17,7 +17,7 @@ BATCH_CONVERSION_PREFIX = FSETool.prefix_create_directory(
 
 class ImageFormatConverter:
     """
-    A wrapper around the Rust 'base' extension for converting image formats
+    A wrapper around the C++ 'base' extension for converting image formats
     and adjusting aspect ratios.
     """
 
@@ -33,7 +33,7 @@ class ImageFormatConverter:
         ar_mode: str = "crop",
     ) -> bool:
         """
-        Converts a single image file using the Rust backend.
+        Converts a single image file using the C++ backend.
         """
         filename_only = os.path.splitext(os.path.basename(image_path))[0]
 
@@ -49,7 +49,7 @@ class ImageFormatConverter:
             else:
                 output_path = f"{output_name}.{format}"
 
-        # The Rust backend raises a PyValueError on failure which will be caught by the worker
+        # The C++ backend raises a PyValueError on failure which will be caught by the worker
         return base.convert_single_image(
             image_path,
             output_path,
@@ -74,7 +74,7 @@ class ImageFormatConverter:
         progress_callback: Optional[Callable[[int], None]] = None,
     ) -> List[str]:
         """
-        Converts all images in a directory matching input_formats using the Rust backend.
+        Converts all images in a directory matching input_formats using the C++ backend.
         Returns a list of successful output paths.
         """
         if output_dir is None:
@@ -124,10 +124,6 @@ class ImageFormatConverter:
                 output_filename = filename_base
 
             output_path = os.path.join(output_dir, f"{output_filename}.{output_format}")
-
-            # Simple skip logic handled in Rust? No, Rust overwrites.
-            # Python checked `if output_filename_prefix or (not os.path.isfile(output_path) or aspect_ratio is not None)`
-            # We will include it in the batch if it meets criteria.
             if (
                 output_filename_prefix
                 or aspect_ratio
@@ -140,7 +136,7 @@ class ImageFormatConverter:
                 progress_callback(100)
             return []
 
-        # --- Call Rust Backend ---
+        # --- Call C++ Backend ---
         try:
             results = base.convert_image_batch(
                 image_pairs=image_pairs,

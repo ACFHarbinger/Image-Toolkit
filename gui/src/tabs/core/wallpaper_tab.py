@@ -71,6 +71,14 @@ class WallpaperTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._tab_widget)
 
+    def closeEvent(self, event):
+        # QWidget.close() does not cascade to child widgets, so the nested
+        # subtabs' own closeEvent (and the windows they spawned, e.g. the
+        # Wallpaper Queue windows) would otherwise never be closed on app exit.
+        self.system_display.close()
+        self.monitor_display.close()
+        super().closeEvent(event)
+
     def _sync_layout_system_to_monitor(self):
         container = self.monitor_display.monitor_layout_container
         container.blockSignals(True)

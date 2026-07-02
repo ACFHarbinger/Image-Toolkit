@@ -2,7 +2,7 @@ from backend.src.web.crawlers.image_board_crawler import ImageBoardCrawler
 
 
 class DanbooruCrawler(ImageBoardCrawler):
-    """Crawler implementation for Danbooru (Rust-accelerated)."""
+    """Crawler implementation for Danbooru (C++-accelerated)."""
 
     def __init__(self, config: dict):
         if not config.get("url"):

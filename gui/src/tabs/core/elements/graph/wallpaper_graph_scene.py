@@ -3,17 +3,16 @@ import uuid
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 
-from PySide6.QtCore import Qt, Signal, QPointF, QTimer
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtCore import Qt, Signal, QPointF, QTimer, QRectF, QRect
+from PySide6.QtGui import QKeyEvent, QColor, QPen, QPainter, QPainterPath
 from PySide6.QtWidgets import (
     QGraphicsScene, QMenu, QMessageBox, QDialog,
     QListWidget, QListWidgetItem, QDialogButtonBox, QVBoxLayout,
 )
 
 from .data import NodeData, EdgeData, GraphData
-from .node_item import NodeItem, is_video
+from .node_item import NodeItem, is_video, NODE_W, NODE_H
 from .edge_item import EdgeItem
-from .temp_edge_item import TempEdgeItem
 
 
 class _PickNodeDialog(QDialog):
@@ -114,6 +113,7 @@ def _build_live_edges(graph: GraphData) -> set:
     # Map source_id -> edges sorted by edge_id (ascending)
     adj: Dict[str, List[EdgeData]] = defaultdict(list)
     for src in graph.nodes:
+        # Keep all edges sorted by ID
         src_edges = sorted(
             [e for e in graph.edges if e.source_id == src],
             key=lambda e: e.edge_id,
@@ -122,16 +122,24 @@ def _build_live_edges(graph: GraphData) -> set:
 
     live: set = set()
     visited: set = set()
-    current = start
-    # Walk the same path the runtime takes — first edge only, stop at loops/sinks
-    while current and current not in visited:
+    
+    # Use a queue or stack for traversal to handle complex paths
+    # that aren't just a simple line.
+    stack = [start]
+    while stack:
+        current = stack.pop()
+        if current in visited:
+            continue
         visited.add(current)
+        
         edges_here = adj.get(current, [])
-        if not edges_here:
-            break  # sink — no outgoing edge
-        first_edge = edges_here[0]
-        live.add((first_edge.source_id, first_edge.edge_id))
-        current = first_edge.target_id
+        for edge in edges_here:
+            # 1. MARK ALL OUTGOING EDGES AS LIVE
+            live.add((edge.source_id, edge.edge_id))
+            
+            # 2. Add target to stack to continue traversal
+            if edge.target_id not in visited:
+                stack.append(edge.target_id)
 
     return live
 
@@ -146,7 +154,7 @@ class WallpaperGraphScene(QGraphicsScene):
         self._node_items: Dict[str, NodeItem] = {}
         self._edge_items: Dict[Tuple[str, int], EdgeItem] = {}
         self._connecting_source_node_id: Optional[str] = None
-        self._temp_edge_item: Optional[TempEdgeItem] = None
+        self._temp_connection_pos: Optional[QPointF] = None
         self._hovered_target_node: Optional[NodeItem] = None
 
     # ---- Public API -------------------------------------------------------
@@ -283,17 +291,22 @@ class WallpaperGraphScene(QGraphicsScene):
         source_item = self._node_items.get(source_node_id)
         if not source_item:
             return
-        self._connecting_source_node_id = source_node_id
-        self._temp_edge_item = TempEdgeItem(source_item)
-        self.addItem(self._temp_edge_item)
-        
-        from PySide6.QtGui import QCursor
-        views = self.views()
-        if views:
-            view = views[0]
-            local_pos = view.mapFromGlobal(QCursor.pos())
-            scene_pos = view.mapToScene(local_pos)
-            self._temp_edge_item.set_target_pos(scene_pos)
+            
+        def do_start():
+            self._connecting_source_node_id = source_node_id
+            
+            from PySide6.QtGui import QCursor
+            views = self.views()
+            if views:
+                view = views[0]
+                local_pos = view.mapFromGlobal(QCursor.pos())
+                scene_pos = view.mapToScene(local_pos)
+                self._temp_connection_pos = scene_pos
+            else:
+                self._temp_connection_pos = QPointF(0, 0)
+            self.update()
+            
+        QTimer.singleShot(0, do_start)
 
     def _end_connection_mode(self):
         old_hovered = getattr(self, "_hovered_target_node", None)
@@ -304,36 +317,15 @@ class WallpaperGraphScene(QGraphicsScene):
             except RuntimeError:
                 pass
         self._hovered_target_node = None
-        
-        temp_item = getattr(self, "_temp_edge_item", None)
-        if temp_item:
-            self._temp_edge_item = None
-            try:
-                temp_item.setVisible(False)
-                temp_item.setEnabled(False)
-            except RuntimeError:
-                pass
-            def safe_remove():
-                try:
-                    self.removeItem(temp_item)
-                except RuntimeError:
-                    pass
-                finally:
-                    if not hasattr(self, "_deleted_items_garbage"):
-                        self._deleted_items_garbage = []
-                    self._deleted_items_garbage.append(temp_item)
-                    if len(self._deleted_items_garbage) > 5:
-                        self._deleted_items_garbage.pop(0)
-            QTimer.singleShot(0, safe_remove)
-            
         self._connecting_source_node_id = None
+        self._temp_connection_pos = None
+        self.update()
 
     def handle_connection_press(self, scene_pos, button):
         if not self._connecting_source_node_id:
             return
             
         src_id = self._connecting_source_node_id
-        self._connecting_source_node_id = None
             
         if button == Qt.MouseButton.LeftButton:
             target_node = getattr(self, "_hovered_target_node", None)
@@ -345,16 +337,16 @@ class WallpaperGraphScene(QGraphicsScene):
             if target_node:
                 tgt_id = target_node.node_data.node_id
                 QTimer.singleShot(0, lambda s=src_id, t=tgt_id: self.add_edge(s, t))
-            QTimer.singleShot(0, self._end_connection_mode)
+            self._end_connection_mode()
         elif button == Qt.MouseButton.RightButton:
-            QTimer.singleShot(0, self._end_connection_mode)
+            self._end_connection_mode()
 
     def handle_connection_move(self, scene_pos):
         if not self._connecting_source_node_id:
             return
             
-        if hasattr(self, "_temp_edge_item") and self._temp_edge_item:
-            self._temp_edge_item.set_target_pos(scene_pos)
+        self._temp_connection_pos = scene_pos
+        self.update()
             
         hovered_node = None
         for item in self._node_items.values():
@@ -365,12 +357,50 @@ class WallpaperGraphScene(QGraphicsScene):
         old_hovered = getattr(self, "_hovered_target_node", None)
         if old_hovered != hovered_node:
             if old_hovered:
-                old_hovered._hovered_orange = False
-                old_hovered.update()
+                try:
+                    old_hovered._hovered_orange = False
+                    old_hovered.update()
+                except RuntimeError:
+                    pass
             if hovered_node:
-                hovered_node._hovered_orange = True # pyrefly: ignore [missing-attribute]
-                hovered_node.update()
+                try:
+                    hovered_node._hovered_orange = True # pyrefly: ignore [missing-attribute]
+                    hovered_node.update()
+                except RuntimeError:
+                    pass
             self._hovered_target_node = hovered_node
+
+    def drawForeground(self, painter: QPainter, rect: QRect | QRectF):
+        super().drawForeground(painter, rect)
+        if not getattr(self, "_connecting_source_node_id", None):
+            return
+            
+        source_item = self._node_items.get(self._connecting_source_node_id)
+        if not source_item:
+            return
+            
+        try:
+            sp = source_item.pos() + QPointF(NODE_W / 2, NODE_H / 2)
+            tp = getattr(self, "_temp_connection_pos", None)
+            if tp is None:
+                return
+                
+            mx = (sp.x() + tp.x()) / 2
+            my = (sp.y() + tp.y()) / 2 - 30
+            path = QPainterPath()
+            path.moveTo(sp)
+            path.quadTo(QPointF(mx, my), tp)
+            
+            painter.save()
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            color = QColor("#f39c12")
+            pen = QPen(color, 2, Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPath(path)
+            painter.restore()
+        except Exception:
+            pass
 
     def mouseMoveEvent(self, event):
         if getattr(self, "_connecting_source_node_id", None):

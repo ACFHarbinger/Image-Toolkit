@@ -87,7 +87,7 @@ class VideoScannerWorker(QRunnable):
             # 1. Gather all video paths
             video_paths = []
 
-            # Use Rust backend for fast scanning if available, else standard os.scandir
+            # Use C++ backend for fast scanning if available, else standard os.scandir
             if HAS_NATIVE_IMAGING:
                 video_paths = base.scan_files_multi(
                     [self.directory], list(SUPPORTED_VIDEO_FORMATS), False

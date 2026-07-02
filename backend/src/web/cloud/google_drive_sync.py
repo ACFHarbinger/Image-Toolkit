@@ -6,7 +6,7 @@ from typing import Callable, Any
 
 class GoogleDriveSync:
     """
-    Manages synchronization for Google Drive using the Rust implementation.
+    Manages synchronization for Google Drive using the C++ implementation.
     Supports both Service Account and Personal account flows.
     """
 
@@ -139,18 +139,18 @@ class GoogleDriveSync:
         self._is_running = False
 
     def on_status_emitted(self, msg: str):
-        """Called by Rust to log messages."""
+        """Called by C++ to log messages."""
         self.logger(msg)
 
     def execute_sync(self) -> tuple[bool, str]:
         try:
             config_json = json.dumps(self.config)
-            # Use the Rust runner
+            # Use the C++ runner
             result_json = base.run_sync("google_drive", config_json, self)
             stats = json.loads(result_json)
 
             summary = f"Completed with {stats['uploaded'] + stats['downloaded'] + stats['deleted_local'] + stats['deleted_remote']} actions. (Up: {stats['uploaded']}, Down: {stats['downloaded']}, Del-L: {stats['deleted_local']}, Del-R: {stats['deleted_remote']})"
             return (True, summary)
         except Exception as e:
-            self.logger(f"❌ Critical Error in Rust Sync: {e}")
+            self.logger(f"❌ Critical Error in C++ Sync: {e}")
             return (False, str(e))

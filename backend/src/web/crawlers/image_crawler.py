@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, Signal
 class ImageCrawler(QObject):
     """
     Advanced Image Crawler that interprets action sequences.
-    Now acts as a wrapper for the Rust implementation.
+    Now acts as a wrapper for the C++ implementation.
     """
 
     on_status = Signal(str)
@@ -32,7 +32,7 @@ class ImageCrawler(QObject):
             self.on_finished.emit(f"Finished. Downloaded {total} images.")
             return total
         except Exception as e:
-            self.on_error_emitted(f"Critical error in Rust crawler: {e}")
+            self.on_error_emitted(f"Critical error in C++ crawler: {e}")
             self.on_finished.emit(f"Finished with error: {e}")
             return 0
 

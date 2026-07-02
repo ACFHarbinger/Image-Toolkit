@@ -7,6 +7,7 @@ import os
 import numpy as np
 import yaml
 from loguru import logger
+from scipy.optimize import least_squares
 from backend.src.constants import BACKEND_DIR
 
 from . import FSETool
@@ -62,7 +63,7 @@ class ImageMerger:
     """
     A comprehensive tool for merging and transforming images,
     supporting horizontal, vertical, grid layouts, panoramic stitching, and GIFs.
-    Horizontal/Vertical/Grid methods now use Rust Backend.
+    Horizontal/Vertical/Grid methods now use C++ Backend.
     """
 
     # --- AI Model Caching (Lazy Loaders)
@@ -637,8 +638,6 @@ class ImageMerger:
         pts_matches: List of dicts with {'i': idx1, 'j': idx2, 'pts_i': ..., 'pts_j': ...}
         initial_poses: List of (3, 3) homographies or (2, 3) affine matrices.
         """
-        # relocated: from scipy.optimize import least_squares
-
         num_tiles = len(initial_poses)
         # We optimize for (dx, dy) for each tile (simplest translation-only BA)
         # In a more complex version, we could optimize homography parameters.
@@ -928,16 +927,16 @@ class ImageMerger:
         Merge images based on direction.
         Options: 'horizontal', 'vertical', 'grid', 'panorama', 'stitch', 'sequential', 'gif'.
         """
-        # --- Map AlignMode to simpler Rust strings ---
+        # --- Map AlignMode to simpler C++ strings ---
         # "Default (Top/Center)" -> "top" (horiz), "left" (vert) or "center"?
-        # Actually in Rust I implemented simple match.
+        # Actually in C++ I implemented simple match.
         # Python:
         #   Horiz: Top/Center is Center for vertical alignment usually?
         #   Let's check Python original:
         #   Horiz: if Center/Default -> y_offset = (canvas_h - current_h)//2. So it is CENTER.
         #   Vert: if Center/Default -> x_offset = (canvas_w - current_w)//2. So it is CENTER.
 
-        # Rust `image_merger.rs` map:
+        # C++ `image_merger.rs` map:
         #   Horiz: "center" -> center, "bottom" -> bottom, default -> 0 (top).
         #   Vert: "center" -> center, "right" -> right, default -> 0 (left).
 
@@ -948,7 +947,7 @@ class ImageMerger:
         elif align_mode == "Align Bottom/Right":
             rust_align = "bottom" if direction == "horizontal" else "right"
         elif align_mode in ["Scaled (Grow Smallest)", "Squish (Shrink Largest)"]:
-            rust_align = "stretch"  # I implemented "stretch" in Rust to mean resize.
+            rust_align = "stretch"  # I implemented "stretch" in C++ to mean resize.
 
         if direction == "horizontal":
             base.merge_images_horizontal(image_paths, output_path, spacing, rust_align)

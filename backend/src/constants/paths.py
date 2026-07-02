@@ -21,6 +21,7 @@ JAR_FILE = str(
 )
 ICON_FILE = str(IMAGES_DIR / "image_toolkit_icon.png")
 DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".slideshow_config.json"
+MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".monitor_slideshow_daemon.json"
 
 # API / Auth Files
 GOOGLE_API_FILE = str(API_DIR / "google_api_key.json")

@@ -43,7 +43,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
     """Tab for browsing a local image gallery and running reverse image searches.
 
     Supports three search engines selectable via a ComboBox:
-    - **Google Lens** — browser-based scrape (existing Rust backend).
+    - **Google Lens** — browser-based scrape (existing C++ backend).
     - **TinEye API** — commercial REST API client.
     - **Local AI Search** — CLIP + FAISS against the user's local index.
     """

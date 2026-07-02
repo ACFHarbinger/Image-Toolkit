@@ -16,7 +16,7 @@ a dedicated build-index script).  This module handles retrieval only.
 import json
 import logging
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 

@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, Signal
 class ImageBoardCrawler(QObject):
     """
     Abstract Base Class for Image Board Crawlers.
-    Now acts as a wrapper for the Rust implementation.
+    Now acts as a wrapper for the C++ implementation.
     """
 
     # === SIGNALS ===
@@ -24,13 +24,13 @@ class ImageBoardCrawler(QObject):
         self.on_status.emit("Crawl cancellation pending...")
 
     def on_status_emitted(self, msg: str):
-        """Glue method called by Rust to emit on_status signal."""
+        """Glue method called by C++ to emit on_status signal."""
         self.on_status.emit(msg)
 
     def run(self):
         """
         Main execution loop delegate.
-        Calls the Rust implementation via base.run_board_crawler.
+        Calls the C++ implementation via base.run_board_crawler.
         """
         crawler_name = self.__class__.__name__.replace("Crawler", "").lower()
         config_json = json.dumps(self.config)
@@ -39,5 +39,5 @@ class ImageBoardCrawler(QObject):
             total_downloaded = base.run_board_crawler(crawler_name, config_json, self)
             return total_downloaded
         except Exception as e:
-            self.on_status.emit(f"Critical Error in Rust crawler: {str(e)}")
+            self.on_status.emit(f"Critical Error in C++ crawler: {str(e)}")
             return 0

@@ -175,6 +175,7 @@ pybind11_add_module(base
     # Phase 10: utils (migration, slideshow daemon)
     src/utils/migration.cpp
     src/utils/slideshow.cpp
+    src/utils/monitor_slideshow.cpp
 
     # Phase 11: math bindings
     src/math/math_bindings.cpp
