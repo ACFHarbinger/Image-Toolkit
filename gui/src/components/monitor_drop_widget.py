@@ -264,14 +264,13 @@ class MonitorDropWidget(QLabel):
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
-            self._click_timer.stop()
             self.double_clicked.emit(self.monitor_id)
         super().mouseDoubleClickEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
             self.drag_start_position = event.pos()
-            self._click_timer.start(QApplication.doubleClickInterval())
+            self.clicked.emit(self.monitor_id)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
@@ -284,7 +283,6 @@ class MonitorDropWidget(QLabel):
         ).manhattanLength() < QApplication.startDragDistance():
             return
 
-        self._click_timer.stop()
         drag = QDrag(self)
         mime_data = QMimeData()
         mime_data.setText(self.monitor_id)
