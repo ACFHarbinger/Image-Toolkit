@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QLineEdit,
 )
-from gui.src.classes.base_generative_tab import BaseGenerativeTab
+from gui.src.classes.base.base_generative_tab import BaseGenerativeTab
 
 pytestmark = pytest.mark.gui
 

@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.constants.listings import LISTING_IMAGES_DIR
-from gui.src.styles.style import SHARED_BUTTON_STYLE
+from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.components.frame_selection_dialog import FrameSelectionDialog
 from gui.src.tabs.core.elements.dialog.common.base_sub_item_dialog import BaseSubItemDialog
 
@@ -46,9 +46,9 @@ class _EpisodeDialog(BaseSubItemDialog):
         self.f_date.setCalendarPopup(True)
         d_str = self.data.get("date_watched")
         if d_str:
-            self.f_date.setDate(date.fromisoformat(d_str))
+            self.f_date.setDate(date.fromisoformat(d_str))  # pyrefly: ignore [bad-argument-type]
         else:
-            self.f_date.setDate(date.today())
+            self.f_date.setDate(date.today()) # pyrefly: ignore [bad-argument-type]
 
         self.f_rating = QSpinBox()
         self.f_rating.setRange(0, 10)
@@ -198,7 +198,7 @@ class _EpisodeDialog(BaseSubItemDialog):
             "id": self.data.get("id") or str(uuid.uuid4()),
             "number": self.f_number.value(),
             "title": self.f_title.text().strip(),
-            "date_watched": date_obj.isoformat(),
+            "date_watched": date_obj.isoformat(),  # pyrefly: ignore [missing-attribute]
             "rating": self.f_rating.value(),
             "review": self.f_review.toPlainText().strip(),
             "image_path": self.image_path,

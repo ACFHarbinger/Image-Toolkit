@@ -1,6 +1,6 @@
 import subprocess
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 from moviepy.editor import VideoFileClip
 from PySide6.QtCore import QObject, Signal, QRunnable
 
@@ -18,7 +18,7 @@ class GifCreationWorker(QRunnable):
         start_ms: int,
         end_ms: int,
         output_path: str,
-        target_size: Optional[Tuple[int, int]] = None,
+        target_size: Optional[Union[Tuple[int | str, int | str], str]] = None,
         fps: int = 15,
         use_ffmpeg: bool = False,
         speed: float = 1.0,
@@ -143,7 +143,7 @@ class GifCreationWorker(QRunnable):
 
                 if process.returncode != 0:
                     raise RuntimeError(
-                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}"
+                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}" # pyrefly: ignore [missing-attribute]
                     )
 
                 self.signals.progress.emit(100)
@@ -174,10 +174,10 @@ class GifCreationWorker(QRunnable):
 
             # Resize if target_size is provided (width, height)
             if self.target_size:
-                clip = clip.resize(newsize=self.target_size)
+                clip = clip.resize(newsize=self.target_size) # pyrefly: ignore [missing-attribute]
 
             if self.speed != 1.0:
-                clip = clip.speedx(self.speed)
+                clip = clip.speedx(self.speed) # pyrefly: ignore [missing-attribute]
 
             self.signals.progress.emit(30)
             clip.write_gif(

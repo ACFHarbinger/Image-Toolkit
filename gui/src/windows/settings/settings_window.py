@@ -36,8 +36,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QKeySequenceEdit,
 )
-from ..utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
-from ..utils.settings import AppSettings
+from ...utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
+from ...utils.settings import AppSettings
 from backend.src.constants import (
     IMAGE_TOOLKIT_DIR,
     DAEMON_CONFIG_PATH,

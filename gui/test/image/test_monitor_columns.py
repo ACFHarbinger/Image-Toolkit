@@ -21,30 +21,30 @@ class TestMonitorColumnLogic:
 
         # Add 1 widget
         m1 = MockMonitor("M1", "1")
-        w1 = MonitorDropWidget(m1, "1")
+        w1 = MonitorDropWidget(m1, "1")  # pyrefly: ignore [bad-argument-type]
         container.addWidget(w1)
 
         # Structure should be: Row -> Column -> Widget
         row = container.layout_vbox.itemAt(0).widget()
-        assert row.layout().count() == 1
-        col = row.layout().itemAt(0).widget()
+        assert row.layout().count() == 1  # pyrefly: ignore [missing-attribute]
+        col = row.layout().itemAt(0).widget()  # pyrefly: ignore [missing-attribute]
         assert isinstance(col, _MonitorColumn)
         assert col.count() == 1
         assert col.widget_at(0) == w1
 
     def test_add_second_widget_new_column(self, q_app):
         container = DraggableMonitorContainer()
-        w1 = MonitorDropWidget(MockMonitor("M1"), "1")
-        w2 = MonitorDropWidget(MockMonitor("M2"), "2")
+        w1 = MonitorDropWidget(MockMonitor("M1"), "1") # pyrefly: ignore [bad-argument-type]
+        w2 = MonitorDropWidget(MockMonitor("M2"), "2") # pyrefly: ignore [bad-argument-type]
 
         container.addWidget(w1)
         container.addWidget(w2)
 
         row = container.layout_vbox.itemAt(0).widget()
-        assert row.layout().count() == 2
+        assert row.layout().count() == 2  # pyrefly: ignore [missing-attribute]
 
-        c1 = row.layout().itemAt(0).widget()
-        c2 = row.layout().itemAt(1).widget()
+        c1 = row.layout().itemAt(0).widget()  # pyrefly: ignore [missing-attribute]
+        c2 = row.layout().itemAt(1).widget()  # pyrefly: ignore [missing-attribute]
 
         assert isinstance(c1, _MonitorColumn)
         assert isinstance(c2, _MonitorColumn)
@@ -58,10 +58,10 @@ class TestMonitorColumnLogic:
 
         # Create dummy widgets with monitor IDs
         # MonitorDropWidget(monitor, monitor_id)
-        w1 = MonitorDropWidget(MockMonitor("M1"), "M1")
-        w2 = MonitorDropWidget(MockMonitor("M2"), "M2")
-        w3 = MonitorDropWidget(MockMonitor("M3"), "M3")
-        w4 = MonitorDropWidget(MockMonitor("M4"), "M4")
+        w1 = MonitorDropWidget(MockMonitor("M1"), "M1") # pyrefly: ignore [bad-argument-type]
+        w2 = MonitorDropWidget(MockMonitor("M2"), "M2") # pyrefly: ignore [bad-argument-type]
+        w3 = MonitorDropWidget(MockMonitor("M3"), "M3") # pyrefly: ignore [bad-argument-type]
+        w4 = MonitorDropWidget(MockMonitor("M4"), "M4") # pyrefly: ignore [bad-argument-type]
 
         # Setup: Row 1: [M1, M2] | [M3]
         #        Row 2: [M4]
@@ -73,17 +73,17 @@ class TestMonitorColumnLogic:
         col1 = _MonitorColumn()
         col1.add_monitor(w1)
         col1.add_monitor(w2)
-        r1.layout().addWidget(col1)
+        r1.layout().addWidget(col1)  # pyrefly: ignore [missing-attribute]
 
         col2 = _MonitorColumn()
         col2.add_monitor(w3)
-        r1.layout().addWidget(col2)
+        r1.layout().addWidget(col2)  # pyrefly: ignore [missing-attribute]
 
         # Row 2
         r2 = container._add_new_row()
         col3 = _MonitorColumn()
         col3.add_monitor(w4)
-        r2.layout().addWidget(col3)
+        r2.layout().addWidget(col3)  # pyrefly: ignore [missing-attribute]
 
         # Test GET
         structure = container.get_layout_structure()
@@ -126,8 +126,8 @@ class TestMonitorColumnLogic:
 
     def test_column_helpers(self, q_app):
         col = _MonitorColumn()
-        w1 = MonitorDropWidget(MockMonitor("M1"), "1")
-        w2 = MonitorDropWidget(MockMonitor("M2"), "2")
+        w1 = MonitorDropWidget(MockMonitor("M1"), "1")  # pyrefly: ignore [bad-argument-type]
+        w2 = MonitorDropWidget(MockMonitor("M2"), "2")  # pyrefly: ignore [bad-argument-type]
 
         col.add_monitor(w1)
         assert col.count() == 1

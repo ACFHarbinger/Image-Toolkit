@@ -1,17 +1,19 @@
 from .image_preview_window import ImagePreviewWindow
-from .log_window import LogWindow
-from .login_window import LoginWindow
-from .settings_window import SettingsWindow
+from .slideshow_backend import SlideshowBackend
 from .slideshow_window import SlideshowQueueWindow
+from .logging import LogBackend, LogWindow
+from .settings import SettingsBackend, SettingsWindow
 
-from .main_window import MainWindow
-
+from .main import LoginWindow, MainWindow
 
 __all__ = [
     "ImagePreviewWindow",
-    "LogWindow",
-    "LoginWindow",
-    "SettingsWindow",
+    "SlideshowBackend",
     "SlideshowQueueWindow",
+    "LogBackend",
+    "LogWindow",
+    "SettingsBackend",
+    "SettingsWindow",
+    "LoginWindow",
     "MainWindow",
 ]

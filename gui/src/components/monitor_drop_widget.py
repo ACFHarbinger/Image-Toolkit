@@ -58,7 +58,7 @@ class MonitorDropWidget(QLabel):
         self._click_timer.timeout.connect(self._handle_single_click)
 
         self.setAcceptDrops(True)
-        self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setWordWrap(True)
 
         # Dynamic size based on display orientation (landscape vs portrait)
@@ -75,7 +75,7 @@ class MonitorDropWidget(QLabel):
         layout.setSpacing(4)
 
         self.top_label = QLabel(self)
-        self.top_label.setAlignment(Qt.AlignCenter)
+        self.top_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.top_label.setStyleSheet("""
             QLabel {
                 color: #ffffff;
@@ -89,7 +89,7 @@ class MonitorDropWidget(QLabel):
         """)
 
         self.bottom_label = QLabel(self)
-        self.bottom_label.setAlignment(Qt.AlignCenter)
+        self.bottom_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.bottom_label.setStyleSheet("""
             QLabel {
                 color: #ecf0f1;
@@ -101,9 +101,9 @@ class MonitorDropWidget(QLabel):
             }
         """)
 
-        layout.addWidget(self.top_label, 0, Qt.AlignTop)
+        layout.addWidget(self.top_label, 0, Qt.AlignmentFlag.AlignTop)
         layout.addStretch(1)
-        layout.addWidget(self.bottom_label, 0, Qt.AlignBottom)
+        layout.addWidget(self.bottom_label, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.update_text()
         self.default_style = """
@@ -263,18 +263,18 @@ class MonitorDropWidget(QLabel):
         self.clicked.emit(self.monitor_id)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.double_clicked.emit(self.monitor_id)
         super().mouseDoubleClickEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.drag_start_position = event.pos()
             self.clicked.emit(self.monitor_id)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
-        if not (event.buttons() & Qt.LeftButton):
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
             return
         if not self.drag_start_position:
             return
@@ -289,11 +289,11 @@ class MonitorDropWidget(QLabel):
         drag.setMimeData(mime_data)
 
         pixmap = self.grab()
-        drag.setPixmap(pixmap.scaledToWidth(200, Qt.SmoothTransformation))
+        drag.setPixmap(pixmap.scaledToWidth(200, Qt.TransformationMode.SmoothTransformation))
         drag.setHotSpot(event.pos())
-        drag.exec(Qt.MoveAction)
+        drag.exec(Qt.DropAction.MoveAction)
 
-    def get_resolved_dimensions(self) -> tuple[int, int]:
+    def get_resolved_dimensions(self) -> tuple[float | int, float | int]:
         # Try to resolve physical screen size from EDID (highest accuracy)
         edid_res = self.get_real_monitor_resolution()
         if edid_res:
@@ -527,7 +527,7 @@ class MonitorDropWidget(QLabel):
             # Success: Store original pixmap and scale it for display
             self._current_pixmap = source_pixmap
             scaled_pixmap = source_pixmap.scaled(
-                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+                self.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
             )
 
             self.setPixmap(scaled_pixmap)
@@ -560,9 +560,8 @@ class MonitorDropWidget(QLabel):
             return
 
         # 3. Fallback (No thumbnail/image found)
-        self._current_pixmap = None
+        self._current_pixmap = None # pyrefly: ignore [bad-assignment]
         self.setPixmap(QPixmap())
-
         if self.property("selected"):
             self.setStyleSheet("""
                 QLabel {
@@ -595,7 +594,7 @@ class MonitorDropWidget(QLabel):
 
     def clear(self):
         self.image_path = None
-        self._current_pixmap = None  # Clear cached pixmap
+        self._current_pixmap = None  # pyrefly: ignore [bad-assignment]
         self.setPixmap(QPixmap())
         self.update_text()
         if self.property("selected"):
@@ -645,7 +644,7 @@ class MonitorDropWidget(QLabel):
         # --- CRITICAL FIX: Rescale internal pixmap without reloading ---
         if self._current_pixmap and not self._current_pixmap.isNull():
             scaled_pixmap = self._current_pixmap.scaled(
-                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+                self.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
             )
             self.setPixmap(scaled_pixmap)
         # --- END CRITICAL FIX ---

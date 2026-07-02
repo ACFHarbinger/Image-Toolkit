@@ -32,7 +32,7 @@ from ....constants import (
     CONF_MED,
     CONF_LOW,
 )
-from ....styles.style import apply_shadow_effect
+from ....styles import apply_shadow_effect
 
 
 def _conf_color(c: float) -> QColor:

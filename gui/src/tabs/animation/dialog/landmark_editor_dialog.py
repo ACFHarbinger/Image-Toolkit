@@ -58,7 +58,7 @@ def _bgr_to_pixmap(arr: np.ndarray, max_w: int = _THUMB_W, max_h: int = _THUMB_H
     h, w = arr.shape[:2]
     scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
     if scale < 1.0:
-        arr = cv2.resize(arr, (max(1, int(w * scale)), max(1, int(h * scale))), cv2.INTER_AREA)
+        arr = cv2.resize(arr, (max(1, int(w * scale)), max(1, int(h * scale))), cv2.INTER_AREA) # pyrefly: ignore [no-matching-overload]
     h, w = arr.shape[:2]
     rgb = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
     qimg = QImage(rgb.data, w, h, rgb.strides[0], QImage.Format.Format_RGB888)

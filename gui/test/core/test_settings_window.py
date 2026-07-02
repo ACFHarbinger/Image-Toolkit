@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch
 from pathlib import Path
 from PySide6.QtWidgets import QMessageBox
-from gui.src.windows.settings_window import SettingsWindow
+from gui.src.windows.settings.settings_window import SettingsWindow
 
 pytestmark = pytest.mark.gui
 
@@ -19,7 +19,7 @@ class TestSettingsWindowLogs:
         window = SettingsWindow()
         with (
             patch(
-                "gui.src.windows.settings_window.IMAGE_TOOLKIT_DIR",
+                "gui.src.settings.settings_window.IMAGE_TOOLKIT_DIR",
                 Path("/tmp/nonexistent_dir"),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -36,12 +36,12 @@ class TestSettingsWindowLogs:
         log_file.write_text("dummy logs")
 
         with (
-            patch("gui.src.windows.settings_window.IMAGE_TOOLKIT_DIR", tmp_path),
+            patch("gui.src.settings.settings_window.IMAGE_TOOLKIT_DIR", tmp_path),
             patch(
-                "gui.src.windows.settings_window.QDesktopServices.openUrl"
+                "gui.src.settings.settings_window.QDesktopServices.openUrl"
             ) as mock_open_url,
             patch(
-                "gui.src.windows.settings_window.QUrl.fromLocalFile"
+                "gui.src.settings.settings_window.QUrl.fromLocalFile"
             ) as mock_from_local_file,
         ):
             window._view_app_logs()
@@ -52,7 +52,7 @@ class TestSettingsWindowLogs:
         window = SettingsWindow()
         with (
             patch(
-                "gui.src.windows.settings_window.IMAGE_TOOLKIT_DIR",
+                "gui.src.settings.settings_window.IMAGE_TOOLKIT_DIR",
                 Path("/tmp/nonexistent_dir"),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -69,12 +69,12 @@ class TestSettingsWindowLogs:
         log_file.write_text("dummy daemon logs")
 
         with (
-            patch("gui.src.windows.settings_window.IMAGE_TOOLKIT_DIR", tmp_path),
+            patch("gui.src.settings.settings_window.IMAGE_TOOLKIT_DIR", tmp_path),
             patch(
-                "gui.src.windows.settings_window.QDesktopServices.openUrl"
+                "gui.src.settings.settings_window.QDesktopServices.openUrl"
             ) as mock_open_url,
             patch(
-                "gui.src.windows.settings_window.QUrl.fromLocalFile"
+                "gui.src.settings.settings_window.QUrl.fromLocalFile"
             ) as mock_from_local_file,
         ):
             window._view_daemon_logs()
@@ -126,8 +126,8 @@ class TestSettingsWindowLogs:
             json.dump({"token": "xyz"}, f)
 
         with (
-            patch("gui.src.windows.settings_window.ROOT_DIR", mock_root),
-            patch("gui.src.windows.settings_window.API_DIR", mock_api),
+            patch("gui.src.settings.settings_window.ROOT_DIR", mock_root),
+            patch("gui.src.settings.settings_window.API_DIR", mock_api),
             patch.object(QMessageBox, "information") as mock_info,
         ):
             window._export_credentials_to_backup()
@@ -175,13 +175,13 @@ class TestSettingsWindowLogs:
         mock_api.mkdir(parents=True, exist_ok=True)
 
         with (
-            patch("gui.src.windows.settings_window.API_DIR", mock_api),
+            patch("gui.src.settings.settings_window.API_DIR", mock_api),
             patch(
-                "gui.src.windows.settings_window.QFileDialog.getOpenFileName",
+                "gui.src.settings.settings_window.QFileDialog.getOpenFileName",
                 return_value=(str(dummy_import_file), "JSON"),
             ),
             patch(
-                "gui.src.windows.settings_window.QInputDialog.getText",
+                "gui.src.settings.settings_window.QInputDialog.getText",
                 return_value=("imported_alias", True),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -225,7 +225,7 @@ class TestSettingsWindowLogs:
         enc_file.touch()
 
         with (
-            patch("gui.src.windows.settings_window.API_DIR", mock_api),
+            patch("gui.src.settings.settings_window.API_DIR", mock_api),
             patch.object(
                 QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes
             ),

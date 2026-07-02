@@ -1,6 +1,7 @@
 from .clickable_label import ClickableLabel as ClickableLabel
 from .draggable_label import DraggableLabel as DraggableLabel
 from .opaque_viewport import OpaqueViewport as OpaqueViewport
+from .frame_selection_dialog import FrameSelectionDialog as FrameSelectionDialog
 from .marquee_scroll_area import MarqueeScrollArea as MarqueeScrollArea
 from .optional_field import OptionalField as OptionalField
 from .property_comparison_dialog import (

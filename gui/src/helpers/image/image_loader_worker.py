@@ -47,7 +47,7 @@ class ImageLoaderWorker(QRunnable):
         try:
             if HAS_NATIVE_IMAGING:
                 # Returns list[(path, HxWx3 BGR uint8 ndarray | None, error: str)]
-                results = base.load_image_batch(
+                results = base.load_image_batch( # pyrefly: ignore [missing-attribute]
                     [self.path], self.target_size, self.target_size, True
                 )
                 if self._is_cancelled:
@@ -64,8 +64,8 @@ class ImageLoaderWorker(QRunnable):
                 scaled = q_img.scaled(
                     self.target_size,
                     self.target_size,
-                    Qt.KeepAspectRatio,
-                    Qt.SmoothTransformation,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
                 )
                 self._safe_emit(self.path, scaled)
             else:

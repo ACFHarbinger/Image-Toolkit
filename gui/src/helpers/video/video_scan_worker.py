@@ -89,7 +89,7 @@ class VideoScannerWorker(QRunnable):
 
             # Use C++ backend for fast scanning if available, else standard os.scandir
             if HAS_NATIVE_IMAGING:
-                video_paths = base.scan_files_multi(
+                video_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
                     [self.directory], list(SUPPORTED_VIDEO_FORMATS), False
                 )
             else:
@@ -117,7 +117,7 @@ class VideoScannerWorker(QRunnable):
             # We use ThreadPoolExecutor. Since the actual work happens in external
             # subprocesses (ffmpeg), Python threads are just waiting for IO.
             # We limit max_workers to avoid disk thrashing (too many simultaneous seeks).
-            max_workers = min(os.cpu_count(), 8)
+            max_workers = min(os.cpu_count(), 8) # pyrefly: ignore [bad-specialization]
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=max_workers
             ) as executor:

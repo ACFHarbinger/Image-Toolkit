@@ -21,7 +21,7 @@ class OrbTask(QRunnable):
     def run(self):
         try:
             # Initialize ORB (local instance per thread is safer)
-            orb = cv2.ORB_create(nfeatures=500)
+            orb = cv2.ORB_create(nfeatures=500) # pyrefly: ignore [missing-attribute]
 
             # --- ROBUST LOAD (From previous logic) ---
             # 1. Load: Open and convert to RGBA first to handle palette transparency

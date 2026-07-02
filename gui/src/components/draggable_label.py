@@ -1,3 +1,4 @@
+from typing import Optional, Callable
 from PySide6.QtWidgets import QLabel, QApplication
 from PySide6.QtCore import Qt, Signal, QPoint
 from PySide6.QtGui import QMouseEvent, QPixmap, QPainter, QColor, QCursor, QPen
@@ -8,6 +9,11 @@ class DraggableLabel(QLabel):
     """
     A QLabel that displays a thumbnail and can be dragged.
     Uses a custom drag system to allow wheel scrolling during drag.
+
+    Can be used standalone (no QWidget wrapper required).  Mirrors the
+    ClickableLabel interface: supports an optional *img_label* delegate
+    for pixmap retrieval and style updates, and exposes ``get_pixmap()``
+    / ``set_selected_style()`` methods that the gallery base class calls.
     """
 
     # Signal that emits the file path (Single Click)
@@ -25,11 +31,15 @@ class DraggableLabel(QLabel):
         super().__init__()
         self.file_path = path
         self.setFixedSize(size, size)
-        self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setText("Loading...")
         self.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;")
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.selection_provider = selection_provider
+
+        # ClickableLabel-compatible delegation fields
+        self.img_label: Optional[QLabel] = None
+        self.style_callback: Optional[Callable] = None
 
         # Set context menu policy to CustomContextMenu to enable right-click signal
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -42,7 +52,7 @@ class DraggableLabel(QLabel):
 
         # Hover highlight state (GUI/UX §2.24A)
         self._hovered = False
-        self.setAttribute(Qt.WA_Hover)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
 
     def _emit_right_click_signal(self, pos: QPoint):
         """
@@ -51,6 +61,42 @@ class DraggableLabel(QLabel):
         """
         # Emits the global position (required for QMenu) and the file path
         self.path_right_clicked.emit(self.mapToGlobal(pos), self.file_path)
+
+    # ------------------------------------------------------------------
+    # ClickableLabel-compatible interface (allows standalone use without
+    # a QWidget container in create_card_widget).
+    # ------------------------------------------------------------------
+
+    def set_image_label(self, label: QLabel):
+        """Set a delegate label whose pixmap is used by get_pixmap()."""
+        self.img_label = label
+
+    def get_pixmap(self) -> Optional[QPixmap]:
+        """Safely retrieve the pixmap, handling potential destruction."""
+        target = self.img_label if self.img_label else self
+        try:
+            return target.pixmap()
+        except RuntimeError:
+            return None
+
+    def set_selected_style(
+        self,
+        is_selected: bool,
+        callback: Optional[Callable] = None,
+        target_label: Optional[QLabel] = None,
+    ):
+        """Safely update the selection style via a stored callback."""
+        if callback:
+            self.style_callback = callback
+        if target_label:
+            self.img_label = target_label
+
+        if self.style_callback:
+            label = self.img_label if self.img_label else self
+            try:
+                self.style_callback(label, is_selected)
+            except RuntimeError:
+                pass
 
     def enterEvent(self, event):
         self._hovered = True
@@ -72,7 +118,7 @@ class DraggableLabel(QLabel):
 
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse press - start tracking potential drag."""
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.drag_start_pos = event.pos()
             self.path_clicked.emit(self.file_path)
         super().mousePressEvent(event)
@@ -98,7 +144,7 @@ class DraggableLabel(QLabel):
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Handle mouse release - end custom drag."""
-        if event.button() == Qt.LeftButton and self.is_dragging:
+        if event.button() == Qt.MouseButton.LeftButton and self.is_dragging:
             self._finish_custom_drag(QCursor.pos())
         super().mouseReleaseEvent(event)
 
@@ -181,8 +227,8 @@ class DraggableLabel(QLabel):
             preview = self.pixmap().scaled(
                 self.width() // 2,
                 self.height() // 2,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
 
             # If dragging multiple files, draw a badge
@@ -193,15 +239,15 @@ class DraggableLabel(QLabel):
                 if self.file_path in selected_files and len(selected_files) > 1:
                     painter = QPainter(preview)
                     painter.setBrush(QColor(52, 152, 219, 200))  # Blue with opacity
-                    painter.setPen(Qt.NoPen)
+                    painter.setPen(Qt.PenStyle.NoPen)
                     badge_rect = QRect(0, 0, 30, 30)
                     painter.drawEllipse(badge_rect)
-                    painter.setPen(Qt.white)
+                    painter.setPen(Qt.GlobalColor.white)
                     font = painter.font()
                     font.setBold(True)
                     painter.setFont(font)
                     painter.drawText(
-                        badge_rect, Qt.AlignCenter, str(len(selected_files))
+                        badge_rect, Qt.AlignmentFlag.AlignCenter, str(len(selected_files))
                     )
                     painter.end()
             return preview
@@ -211,7 +257,7 @@ class DraggableLabel(QLabel):
             preview.fill(QColor("#3498db"))  # Blue background
 
             painter = QPainter(preview)
-            painter.setPen(Qt.white)
+            painter.setPen(Qt.GlobalColor.white)
             font = painter.font()
             font.setBold(True)
             painter.setFont(font)
@@ -222,13 +268,13 @@ class DraggableLabel(QLabel):
                 if self.file_path in selected_files and len(selected_files) > 1:
                     text = f"{len(selected_files)} ITEMS"
 
-            painter.drawText(preview.rect(), Qt.AlignCenter, text)
+            painter.drawText(preview.rect(), Qt.AlignmentFlag.AlignCenter, text)
             painter.end()
 
             return preview
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         """Emits the double-click signal."""
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.path_double_clicked.emit(self.file_path)
         super().mouseDoubleClickEvent(event)

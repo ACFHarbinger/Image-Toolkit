@@ -41,7 +41,7 @@ from ....constants import (
     STITCH_THUMB_H,
     STITCH_CP_COLORS,
 )
-from ....styles.style import apply_shadow_effect
+from ....styles import apply_shadow_effect
 from ....utils.splitter_persistence import persist_splitter
 
 
@@ -508,18 +508,16 @@ class ControlPointEditor(QWidget):
             return
 
         mode = self._solve_mode.currentText()
-        pts_a = np.float32(pts_a_raw[:n])
-        pts_b = np.float32(pts_b_raw[:n])
-
+        pts_a = np.array(pts_a_raw[:n], dtype=np.float32)
+        pts_b = np.array(pts_b_raw[:n], dtype=np.float32)
         if mode == "Auto + Manual" and self._auto_pts_a:
-            ap = np.float32(self._auto_pts_a)
-            bp = np.float32(self._auto_pts_b)
+            ap = np.array(self._auto_pts_a, dtype=np.float32)
+            bp = np.array(self._auto_pts_b, dtype=np.float32)
             pts_a = np.vstack([pts_a, ap])
             pts_b = np.vstack([pts_b, bp])
 
         cv_method = cv2.RANSAC if "RANSAC" in mode else 0
         H, mask = cv2.findHomography(pts_a, pts_b, cv_method, 3.0)
-
         if H is None:
             self._status.setText("Homography solve failed — collinear points?")
             return
@@ -555,7 +553,7 @@ class ControlPointEditor(QWidget):
         a_s, sa = _scale(bgr_a)
         b_s, sb = _scale(bgr_b)
 
-        orb = cv2.ORB_create(nfeatures=1000)
+        orb = cv2.ORB_create(nfeatures=1000)  # pyrefly: ignore[missing-attribute]
         bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         ka, da = orb.detectAndCompute(cv2.cvtColor(a_s, cv2.COLOR_BGR2GRAY), None)
         kb, db = orb.detectAndCompute(cv2.cvtColor(b_s, cv2.COLOR_BGR2GRAY), None)
@@ -567,8 +565,8 @@ class ControlPointEditor(QWidget):
         if len(good) < 4:
             return [], []
 
-        src = np.float32([ka[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-        dst = np.float32([kb[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+        src = np.array([ka[m.queryIdx].pt for m in good], dtype=np.float32).reshape(-1, 1, 2)
+        dst = np.array([kb[m.trainIdx].pt for m in good], dtype=np.float32).reshape(-1, 1, 2)
         _, mask = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
         if mask is None:
             return [], []

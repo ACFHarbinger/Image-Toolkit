@@ -6,11 +6,12 @@ import subprocess
 import multiprocessing
 from pathlib import Path
 from multiprocessing import Pool
+from typing import Any, Dict
 from PySide6.QtCore import QRunnable, QObject, Signal
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 
 
-def run_extraction_in_process(config: dict) -> dict:
+def run_extraction_in_process(config: Dict[str, Any]) -> Dict[str, Any]:
     def natural_sort_key(s):
         return [
             int(text) if text.isdigit() else text.lower()

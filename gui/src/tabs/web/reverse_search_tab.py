@@ -20,11 +20,11 @@ from PySide6.QtWidgets import (
 )
 
 from ...components import ClickableLabel, MarqueeScrollArea
-from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow
+from ...utils.sort_utils import natural_sort_key
 from ...classes import AbstractClassSingleGallery
 from ...helpers import ImageScannerWorker, ReverseSearchWorker, ImageLoaderWorker
-from ...styles.style import apply_shadow_effect
+from ...styles import apply_shadow_effect
 from backend.src.web import ENGINE_GOOGLE, ENGINE_TINEYE, ENGINE_LOCAL_CBIR
 
 _ENGINE_LABELS = {
@@ -328,7 +328,11 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         count = len(paths)
         self.status_label.setText(f"Scan complete. Found {count} images.")
         if count == 0:
-            self.show_placeholder("No images found in directory.")
+            self.common_show_placeholder(
+                self.gallery_layout,
+                "No images found in directory.",
+                self.calculate_columns(),
+            )
         else:
             paths.sort(key=natural_sort_key)
             self.start_loading_gallery(paths)
@@ -343,6 +347,16 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
     # Card / Gallery
     # ------------------------------------------------------------------
 
+    def create_gallery_label(self, path: str, size: int) -> ClickableLabel:
+        lbl = ClickableLabel(path, parent=self)
+        lbl.setFixedSize(size, size)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.path = path
+
+        lbl.path_clicked.connect(self.handle_image_selection)
+        lbl.path_double_clicked.connect(self.handle_image_double_click)
+        return lbl
+
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
         container.setStyleSheet("background: transparent;")
@@ -350,10 +364,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(1)
 
-        lbl = ClickableLabel(path, parent=self)
-        lbl.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.path = path
+        lbl = self.create_gallery_label(path, self.thumbnail_size)
 
         if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(
@@ -369,14 +380,12 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             lbl.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
 
         self._style_label(lbl, selected=(path == self.selected_source_path))
-        lbl.path_clicked.connect(self.handle_image_selection)
-        lbl.path_double_clicked.connect(self.handle_image_double_click)
 
         layout.addWidget(lbl)
         self.path_to_card_widget[path] = container
         return container
 
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap], label_ref: QLabel | None = None):
         if not widget:
             return
         lbl = widget.findChild(ClickableLabel)
@@ -448,10 +457,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         worker.signals.error.connect(self.on_search_error)
         QThreadPool.globalInstance().start(worker)
 
-    def cancel_search(self):
-        if self._active_worker:
-            self._active_worker.cancel()
-            self.status_label.setText("Cancelling…")
+
 
     @Slot(list)
     def on_search_finished(self, results: list):
@@ -602,10 +608,9 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
 
     @Slot()
     def cancel_search(self):
-        # Find running worker and stop? 
-        # ReverseSearchWorker runs in threadpool. Hard to cancel unless we kept ref.
-        # Logic didn't keep ref to worker easily. 
-        # For now just reset state.
+        if self._active_worker:
+            self._active_worker.cancel()
+            self.status_label.setText("Cancelling…")
         self._is_searching = False
         self.qml_searching_changed.emit()
 

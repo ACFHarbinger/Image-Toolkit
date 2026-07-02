@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import pytest
 from pathlib import Path
-from gui.src.dialogs.hitl_session_viewer_dialog import (
+from gui.src.tabs.animation.dialog.hitl_session_viewer_dialog import (
     HITLSessionViewerDialog,
     _format_session_info,
     _list_sessions,
@@ -43,7 +43,7 @@ class TestFormatSessionInfo:
         p = tmp_path / "s.json"
         _write_session(p, {"frames": {"selected_paths": []}, "edges": {"edges": []}})
         data = _load_session_meta(p)
-        text = _format_session_info(data, p)
+        text = _format_session_info(data, p)  # pyrefly: ignore[bad-argument-type]
         assert "Frame selection" in text
         assert "Edge graph" in text
 
@@ -51,7 +51,7 @@ class TestFormatSessionInfo:
         p = tmp_path / "s.json"
         _write_session(p, {})
         data = _load_session_meta(p)
-        text = _format_session_info(data, p)
+        text = _format_session_info(data, p)  # pyrefly: ignore[bad-argument-type]
         assert "KB" in text
 
 

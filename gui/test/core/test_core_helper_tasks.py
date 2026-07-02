@@ -67,7 +67,7 @@ class TestCoreHelperTasks:
         dummy_des = np.ones((15, 32), dtype=np.uint8)
         mock_orb_detector.detectAndCompute.return_value = ([], dummy_des)
 
-        cv2.ORB_create.return_value = mock_orb_detector
+        cv2.ORB_create.return_value = mock_orb_detector # pyrefly: ignore [missing-attribute]
 
         task.run()
 
@@ -108,7 +108,7 @@ class TestCoreHelperTasks:
         # less than 10 descriptors
         dummy_des = np.ones((5, 32), dtype=np.uint8)
         mock_orb.detectAndCompute.return_value = ([], dummy_des)
-        cv2.ORB_create.return_value = mock_orb
+        cv2.ORB_create.return_value = mock_orb # pyrefly: ignore [missing-attribute]
 
         task.run()
 
@@ -155,7 +155,7 @@ class TestCoreHelperTasks:
         mock_sift = MagicMock()
         dummy_des = np.ones((20, 128), dtype=float)
         mock_sift.detectAndCompute.return_value = ([], dummy_des)
-        cv2.SIFT_create.return_value = mock_sift
+        cv2.SIFT_create.return_value = mock_sift # pyrefly: ignore [missing-attribute]
 
         task.run()
 
@@ -185,7 +185,7 @@ class TestCoreHelperTasks:
         mock_sift = MagicMock()
         dummy_des = np.ones((5, 128), dtype=float)
         mock_sift.detectAndCompute.return_value = ([], dummy_des)
-        cv2.SIFT_create.return_value = mock_sift
+        cv2.SIFT_create.return_value = mock_sift # pyrefly: ignore [missing-attribute]
 
         task.run()
 

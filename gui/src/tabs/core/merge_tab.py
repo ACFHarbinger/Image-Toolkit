@@ -3,7 +3,7 @@ import cv2
 import shutil
 import tempfile
 
-from send2trash import send2trash
+from send2trash import send2trash # pyrefly: ignore [untyped-import]
 from typing import Dict, Any, Optional
 from PySide6.QtGui import (
     QPixmap,
@@ -41,11 +41,11 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
-from ...classes import AbstractClassSingleGallery
 from ...windows import ImagePreviewWindow
+from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea, MergeCanvasItem
 from ...helpers import MergeWorker, ImageScannerWorker
-from ...styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
+from ...styles import apply_shadow_effect, SHARED_BUTTON_STYLE
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from gui.src.components.merge_canvas import MergeCanvas
 
@@ -369,7 +369,7 @@ class MergeTab(AbstractClassSingleGallery):
         item_ctrl = QWidget()
         item_ctrl_layout = QHBoxLayout(item_ctrl)
         item_ctrl_layout.setContentsMargins(0, 2, 0, 2)
-
+        self.spin_list = []
         for attr, label_txt, lo, hi in (
             ("item_x_spin", "X:", -20000, 20000),
             ("item_y_spin", "Y:", -20000, 20000),
@@ -383,6 +383,7 @@ class MergeTab(AbstractClassSingleGallery):
             spin.setEnabled(False)
             setattr(self, attr, spin)
             item_ctrl_layout.addWidget(spin)
+            self.spin_list.append(spin)
 
         item_ctrl_layout.addStretch()
 
@@ -434,12 +435,7 @@ class MergeTab(AbstractClassSingleGallery):
         self.canvas_h_spin.valueChanged.connect(self._on_canvas_size_changed)
 
         # --- Wire up item-geometry spinboxes ---
-        for spin in (
-            self.item_x_spin,
-            self.item_y_spin,
-            self.item_w_spin,
-            self.item_h_spin,
-        ):
+        for spin in self.spin_list:
             spin.valueChanged.connect(self._on_item_spinbox_changed)
 
         # --- Initialize ---
@@ -504,19 +500,14 @@ class MergeTab(AbstractClassSingleGallery):
         self.btn_remove_from_canvas.setEnabled(has_item)
 
         self._syncing_spinboxes = True
-        for spin in (
-            self.item_x_spin,
-            self.item_y_spin,
-            self.item_w_spin,
-            self.item_h_spin,
-        ):
+        for spin in self.spin_list:
             spin.setEnabled(has_item)
 
         if has_item:
-            self.item_x_spin.setValue(int(item.x()))
-            self.item_y_spin.setValue(int(item.y()))
-            self.item_w_spin.setValue(item._w)
-            self.item_h_spin.setValue(item._h)
+            self.spin_list[0].setValue(int(item.x()))
+            self.spin_list[1].setValue(int(item.y()))
+            self.spin_list[2].setValue(item._w)
+            self.spin_list[3].setValue(item._h)
         self._syncing_spinboxes = False
 
     def _on_item_spinbox_changed(self):
@@ -527,10 +518,10 @@ class MergeTab(AbstractClassSingleGallery):
             return
         self._syncing_spinboxes = True
         item.set_geometry(
-            self.item_x_spin.value(),
-            self.item_y_spin.value(),
-            self.item_w_spin.value(),
-            self.item_h_spin.value(),
+            self.spin_list[0].value(),
+            self.spin_list[1].value(),
+            self.spin_list[2].value(),
+            self.spin_list[3].value(),
         )
         self._syncing_spinboxes = False
 
@@ -608,7 +599,7 @@ class MergeTab(AbstractClassSingleGallery):
         thread = self.sender()
         if thread:
             if thread in self._zombie_threads:
-                self._zombie_threads.remove(thread)
+                self._zombie_threads.remove(thread) # pyrefly: ignore [bad-argument-type]
             thread.deleteLater()
 
     # ─── Direction / mode visibility ────────────────────────────────────────────
@@ -845,7 +836,7 @@ class MergeTab(AbstractClassSingleGallery):
         direction = self.direction.currentText()
         ext = ".gif" if direction == "gif" else ".png"
         temp_dir = tempfile.gettempdir()
-        temp_filename = next(tempfile._get_candidate_names()) + ext
+        temp_filename = next(tempfile._get_candidate_names()) + ext # pyrefly: ignore [missing-attribute]
         target_path = os.path.join(temp_dir, temp_filename)
         self.temp_file_path = target_path
 
@@ -853,7 +844,7 @@ class MergeTab(AbstractClassSingleGallery):
         if self.output_dir and os.path.isdir(self.output_dir):
             filename = self.output_filename_input.text().strip()
             if not filename:
-                filename = next(tempfile._get_candidate_names())
+                filename = next(tempfile._get_candidate_names()) # pyrefly: ignore [missing-attribute]
             if not filename.lower().endswith(ext):
                 filename += ext
             self.pending_save_path = os.path.join(self.output_dir, filename)
@@ -889,6 +880,7 @@ class MergeTab(AbstractClassSingleGallery):
         worker.error.connect(thread.quit)
 
         def invoke_cleanup(path):
+            # pyrefly: ignore [no-matching-overload]
             QMetaObject.invokeMethod(
                 self,
                 "_cleanup_merge_worker_and_show_dialog",

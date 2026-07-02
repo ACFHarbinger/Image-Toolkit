@@ -39,7 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .meta_abstract_class_gallery import MetaAbstractClassGallery
+from ..meta.meta_abstract_class_gallery import MetaAbstractClassGallery
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
     }
 
     def _sort_key_fn(self, path: str):
-        from ..utils.sort_utils import natural_sort_key
+        from ...utils.sort_utils import natural_sort_key
         key = self._sort_key
         if key == "mtime":
             try:
@@ -227,7 +227,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
 
     def _show_status(self, message: str, timeout_ms: int = 3000) -> None:
         """Post *message* to the main-window status bar."""
-        from ..windows.main_window import show_main_status
+        from gui.src.windows.main.main_window import show_main_status
         show_main_status(message, timeout_ms)
 
     # =========================================================================
@@ -242,7 +242,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         name = os.path.basename(path)
         lbl = QLabel()
         lbl.setObjectName("thumb_filename_lbl")
-        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         max_w = self.thumbnail_size + 10
         fm = lbl.fontMetrics()
         label_h = fm.height() + 4
@@ -439,12 +439,12 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
                 else:
                     items.append(widget)
         if placeholder:
-            layout.addWidget(placeholder, 0, 0, 1, columns, Qt.AlignCenter)
+            layout.addWidget(placeholder, 0, 0, 1, columns, Qt.AlignmentFlag.AlignCenter)
         else:
             for i, widget in enumerate(items):
                 row = i // columns
                 col = i % columns
-                layout.addWidget(widget, row, col, Qt.AlignLeft | Qt.AlignTop)
+                layout.addWidget(widget, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 
     # =========================================================================
     # Viewport visibility check
@@ -480,12 +480,12 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         while layout.count():
             item = layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
         lbl = QLabel(text)
-        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setStyleSheet("color: #b9bbbe; padding: 20px; font-style: italic;")
-        lbl.is_placeholder = True
-        layout.addWidget(lbl, 0, 0, 1, columns, Qt.AlignCenter)
+        lbl.is_placeholder = True # pyrefly: ignore [missing-attribute]
+        layout.addWidget(lbl, 0, 0, 1, columns, Qt.AlignmentFlag.AlignCenter)
 
     # =========================================================================
     # Search input factory

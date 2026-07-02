@@ -6,7 +6,7 @@ import time
 import tempfile
 import subprocess
 import platform
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 from PySide6.QtCore import Qt, QPointF, QTimer, Slot, QPoint
 from PySide6.QtGui import QAction, QColor
@@ -30,7 +30,7 @@ from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slide
 from .common.wallpaper_common_base import WallpaperCommonBase
 from .graph.data import NodeData, GraphData
 from ....components import MarqueeScrollArea
-from ....styles.style import apply_shadow_effect
+from ....styles import apply_shadow_effect
 
 from .graph import (
     NodeItem, NODE_W, is_video,
@@ -121,10 +121,10 @@ def _build_traversal(graph: GraphData) -> List[Tuple[str, float]]:
     used_edges: set = set()  # (source_id, edge_id) — edge_id is only unique per-source
     current = start
     while True:
-        nd = graph.nodes.get(current)
-        if nd is None:
+        node = graph.nodes.get(current)
+        if node is None:
             break
-        seq.append((nd.file_path, _node_duration(nd)))
+        seq.append((node.file_path, _node_duration(node)))
 
         next_edge = next(
             (e for e in adj.get(current, [])
@@ -164,7 +164,6 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         self._graphs: Dict[str, GraphData] = {}   # monitor_id -> GraphData
         self._current_monitor_id: Optional[str] = None
         self._preview_tmp_dir: Optional[str] = None
-        self.background_type: str = "Image"
 
         # Per-entry queue durations: monitor_id -> [seconds, ...] parallel to
         # monitor_slideshow_queues[monitor_id]. Local to this subtab (not
@@ -621,9 +620,6 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         # Re-apply selection style to current selected monitor if it exists
         if self._current_monitor_id and self._current_monitor_id in self.monitor_widgets:
             self.monitor_widgets[self._current_monitor_id].set_selected(True)
-
-    def set_system_display_ref(self, system_display):
-        self._system_display_ref = system_display
 
     @Slot(str)
     def _on_monitor_selected(self, monitor_id: str):
@@ -1140,7 +1136,9 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
 
         try:
             _monitor_slideshow.start(
-                monitor_id, queue, durations,
+                monitor_id,
+                queue,
+                cast(List[Optional[float]], durations),
                 monitors=self.monitors,
                 style=style,
                 video_style=video_style,
@@ -1262,8 +1260,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             for i, m in enumerate(self.monitors)
         }
         current_path = self.monitor_image_paths.get(monitor_id)
-        current_index = queue.index(current_path) if current_path in queue else -1
-
+        current_index = queue.index(current_path) if current_path in queue else -1  # pyrefly: ignore [bad-argument-type]
         config = {
             "running": True,
             "monitor_id": monitor_id,
@@ -1290,9 +1287,10 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             return
         try:
             if platform.system() == "Windows":
+                creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
                 subprocess.Popen(
                     [sys.executable, str(script_path)],
-                    creationflags=subprocess.CREATE_NO_WINDOW, # pyrefly: ignore [missing-attribute]
+                    creationflags=creationflags,
                 )
             else:
                 subprocess.Popen(
@@ -1378,9 +1376,8 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
                 if dur and last_change > 0:
                     remaining = max(0, int(round(dur - (time.time() - last_change))))
 
-        current_num = idx + 1 if 0 <= idx < total else 0
+        current_num = idx + 1 if 0 <= idx < total else 0 # pyrefly: ignore [unsupported-operation]
         self._queue_position_label.setText(f"{current_num} / {total}" if total else "-- / --")
-
         if remaining is not None:
             m, s = divmod(remaining, 60)
             self._queue_timer_label.setText(f"Timer: {m:02}:{s:02}")
@@ -1475,7 +1472,9 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         sys_name = platform.system()
         try:
             if sys_name == "Windows":
-                os.startfile(path)  # pyrefly: ignore [missing-attribute]
+                start_fn = getattr(os, "startfile", None)
+                if start_fn:
+                    start_fn(path)
             elif sys_name == "Darwin":
                 subprocess.Popen(["open", path])
             else:
@@ -1505,6 +1504,17 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             self._sync_end_behavior_ui(graph)
             self._update_end_jump_combo()
             self._update_seq_label()
+
+    def get_default_config(self) -> dict:
+        """Return the default tab configuration dict."""
+        return {
+            "monitor_display_graphs": {},
+        }
+
+    def set_config(self, config: dict) -> None:
+        """Populate input fields from a saved configuration dict."""
+        if "monitor_display_graphs" in config:
+            self.restore_graphs(config["monitor_display_graphs"])
 
     def _persist_current(self):
         """Flush UI end-behavior state back into the current graph."""

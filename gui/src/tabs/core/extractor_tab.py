@@ -8,7 +8,7 @@ import re
 
 from pathlib import Path
 from send2trash import send2trash # pyrefly: ignore [untyped-import]
-from typing import Optional, List, Set, Tuple, Any, Dict
+from typing import Optional, List, Set, Tuple, Any, Dict, Union
 from PySide6.QtWidgets import (
     QLabel,
     QComboBox,
@@ -49,6 +49,7 @@ from PySide6.QtCore import (
     QPoint,
     QEvent,
     Signal,
+    QObject,
 )
 from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
@@ -695,8 +696,8 @@ class ExtractorTab(AbstractClassSingleGallery):
 
         # 5. Results Gallery Section
         self.gallery_scroll_area = MarqueeScrollArea()
-        self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setStyleSheet(
+        self.gallery_scroll_area.setWidgetResizable(True) # pyrefly: ignore [missing-attribute]
+        self.gallery_scroll_area.setStyleSheet( # pyrefly: ignore [missing-attribute]
             """
             QScrollArea { 
                 border: 1px solid #4f545c; 
@@ -740,19 +741,19 @@ class ExtractorTab(AbstractClassSingleGallery):
             }
         """
         )
-        self.gallery_scroll_area.setMinimumHeight(600)
+        self.gallery_scroll_area.setMinimumHeight(600) # pyrefly: ignore [missing-attribute]
 
         self.gallery_container = QWidget()
         self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
 
         self.gallery_layout = QGridLayout(self.gallery_container)
-        self.gallery_layout.setAlignment(
+        self.gallery_layout.setAlignment( # pyrefly: ignore [missing-attribute]
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
         )
-        self.gallery_layout.setSpacing(3)
-        self.gallery_scroll_area.setWidget(self.gallery_container)
+        self.gallery_layout.setSpacing(3) # pyrefly: ignore [missing-attribute]
+        self.gallery_scroll_area.setWidget(self.gallery_container) # pyrefly: ignore [missing-attribute]
 
-        self.gallery_scroll_area.selection_changed.connect(
+        self.gallery_scroll_area.selection_changed.connect( # pyrefly: ignore [missing-attribute]
             self.handle_marquee_selection
         )
 
@@ -792,7 +793,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         # Add shared search input (Lazy Search)
         self.main_layout.addWidget(self.search_input)
 
-        self.main_layout.addWidget(self.gallery_scroll_area, 1)
+        self.main_layout.addWidget(self.gallery_scroll_area, 1) # pyrefly: ignore [bad-argument-type]
         self.main_layout.addWidget(
             self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
         )
@@ -853,7 +854,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         if found_paths:
             self.current_extracted_paths = found_paths
             self.start_loading_gallery(
-                self.current_extracted_paths, pixmap_cache=self._initial_pixmap_cache
+                self.current_extracted_paths, pixmap_cache=self._initial_pixmap_cache # pyrefly: ignore [bad-argument-type]
             )
 
     @Slot()
@@ -886,7 +887,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         while self.source_grid.count():
             item = self.source_grid.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
 
         # 0. Refresh extracted stems cache
         self._refresh_extracted_stems_cache()
@@ -1255,7 +1256,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         if pos > 0 and self.media_player:
             self.media_player.setPosition(pos)
             self.slider.setValue(pos)
-            self.lbl_current_time.setText(self._format_time(pos))
+            self.lbl_current_time.setText(self._format_time(pos)) # pyrefly: ignore [missing-attribute]
 
     @Slot(int)
     def _on_active_video_tab_changed(self, index: int):
@@ -1596,19 +1597,20 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.btn_jump_end.setEnabled(False)
 
     # --- Event Filters & Resizing ---
-    def eventFilter(self, obj: QWidget, event: QEvent) -> bool:
-        if self.lbl_current_time and obj is self.lbl_current_time:
+    def eventFilter(self, watched: QObject, event: QEvent
+    ) -> bool:
+        if self.lbl_current_time and watched is self.lbl_current_time:
             if event.type() == QEvent.Type.MouseButtonPress:
                 self.lbl_current_time.hide()
-                self.edit_current_time.setText(self.lbl_current_time.text())
-                self.edit_current_time.show()
-                self.edit_current_time.setFocus()
-                self.edit_current_time.selectAll()
+                self.edit_current_time.setText(self.lbl_current_time.text()) # pyrefly: ignore [missing-attribute]
+                self.edit_current_time.show() # pyrefly: ignore [missing-attribute]
+                self.edit_current_time.setFocus() # pyrefly: ignore [missing-attribute]
+                self.edit_current_time.selectAll() # pyrefly: ignore [missing-attribute]
                 return True
 
-        if self.edit_current_time and obj is self.edit_current_time:
+        if self.edit_current_time and watched is self.edit_current_time:
             if event.type() == QEvent.Type.KeyPress:
-                if event.key() == Qt.Key.Key_Escape:
+                if event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
                     self._cancel_time_edit()
                     return True
             elif event.type() == QEvent.Type.FocusOut:
@@ -1619,18 +1621,18 @@ class ExtractorTab(AbstractClassSingleGallery):
         # MANDATORY: Intercept mouse wheel events over any player-related object
         # This performs seeking AND locks the page position by consuming the event.
         if event.type() == QEvent.Type.Wheel:
-            is_view = self.video_view and obj is self.video_view
+            is_view = self.video_view and watched is self.video_view
             is_viewport = (
                 self.video_view
                 and hasattr(self.video_view, "viewport")
-                and obj is self.video_view.viewport()
+                and watched is self.video_view.viewport()
             )
-            is_container = self.player_container and obj is self.player_container
+            is_container = self.player_container and watched is self.player_container
 
             if is_view or is_viewport or is_container:
                 # Only perform seek logic if the video is loaded and we are in internal player mode
                 if self.use_internal_player and self.media_player.duration() > 0:
-                    delta = event.angleDelta().y()
+                    delta = event.angleDelta().y() # pyrefly: ignore [missing-attribute]
                     # Jump by configured ms per scroll tick
                     step = self.wheel_seek_ms if delta > 0 else -self.wheel_seek_ms
                     current_pos = self.media_player.position()
@@ -1644,32 +1646,32 @@ class ExtractorTab(AbstractClassSingleGallery):
                 event.accept()
                 return True
 
-        if self.video_view and obj is self.video_view:
+        if self.video_view and watched is self.video_view:
             if self.use_internal_player:
                 # toggle play on click
                 if (
                     event.type() == QEvent.Type.MouseButtonPress
-                    and event.button() == Qt.MouseButton.LeftButton
+                    and event.button() == Qt.MouseButton.LeftButton # pyrefly: ignore [missing-attribute]
                 ):
                     self.toggle_playback()
                     return True
 
                 # --- Arrow Keys for Video Seeking (When video has focus) ---
                 if event.type() == QEvent.Type.KeyPress:
-                    if event.key() == Qt.Key.Key_Right:
+                    if event.key() == Qt.Key.Key_Right:# pyrefly: ignore [missing-attribute]
                         # Seek forward
                         pos = self.media_player.position()
                         duration = self.media_player.duration()
                         new_pos = min(pos + self.wheel_seek_ms, duration)
                         self.media_player.setPosition(new_pos)
                         return True
-                    elif event.key() == Qt.Key.Key_Left:
+                    elif event.key() == Qt.Key.Key_Left:# pyrefly: ignore [missing-attribute]
                         # Seek backward
                         pos = self.media_player.position()
                         new_pos = max(0, pos - self.wheel_seek_ms)
                         self.media_player.setPosition(new_pos)
                         return True
-                    elif event.key() == Qt.Key.Key_Escape:
+                    elif event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
                         if (
                             self.player_container
                             and self.player_container.isFullScreen()
@@ -1677,46 +1679,46 @@ class ExtractorTab(AbstractClassSingleGallery):
                             self.toggle_fullscreen()
                             return True
 
-        if self.player_container and obj is self.player_container:
+        if self.player_container and watched is self.player_container:
             if event.type() == QEvent.Type.KeyPress:
-                if event.key() == Qt.Key.Key_Escape:
+                if event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
                     if self.player_container.isFullScreen():
                         self.toggle_fullscreen()
                         return True
             if event.type() == QEvent.Type.Resize:
-                if self.video_view.isVisible():
+                if self.video_view.isVisible(): # pyrefly: ignore [missing-attribute]
                     self.fit_video_in_view()
 
-        return super().eventFilter(obj, event)
+        return super().eventFilter(watched, event)
 
     def fit_video_in_view(self):
-        rect = self.video_view.viewport().rect()
-        self.video_item.setSize(rect.size())
-        self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
+        rect = self.video_view.viewport().rect() # pyrefly: ignore [missing-attribute]
+        self.video_item.setSize(rect.size()) # pyrefly: ignore [missing-attribute]
+        self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio) # pyrefly: ignore [missing-attribute]
 
     def toggle_fullscreen(self):
-        if self.player_container.isFullScreen():
-            self.player_container.setWindowFlags(Qt.WindowType.Widget)
-            self.player_container.showNormal()
-            self.player_layout_container.addWidget(self.player_container)
-            self.change_resolution(self.combo_resolution.currentIndex())
+        if self.player_container.isFullScreen(): # pyrefly: ignore [missing-attribute]
+            self.player_container.setWindowFlags(Qt.WindowType.Widget) # pyrefly: ignore [missing-attribute]
+            self.player_container.showNormal() # pyrefly: ignore [missing-attribute]
+            self.player_layout_container.addWidget(self.player_container) # pyrefly: ignore [missing-attribute, bad-argument-type]
+            self.change_resolution(self.combo_resolution.currentIndex()) # pyrefly: ignore [missing-attribute]
         else:
-            self.player_container.setWindowFlags(Qt.WindowType.Window)
-            self.player_container.showFullScreen()
-            self.video_view.setFixedSize(16777215, 16777215)
-            self.video_view.setMinimumSize(0, 0)
-            self.video_view.setMaximumSize(16777215, 16777215)
-            self.player_container.setFocus()
+            self.player_container.setWindowFlags(Qt.WindowType.Window) # pyrefly: ignore [missing-attribute]
+            self.player_container.showFullScreen() # pyrefly: ignore [missing-attribute]
+            self.video_view.setFixedSize(16777215, 16777215) # pyrefly: ignore [missing-attribute]
+            self.video_view.setMinimumSize(0, 0) # pyrefly: ignore [missing-attribute]
+            self.video_view.setMaximumSize(16777215, 16777215) # pyrefly: ignore [missing-attribute]
+            self.player_container.setFocus() # pyrefly: ignore [missing-attribute]
 
     @Slot(QResizeEvent)
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)
-        if self.video_view.isVisible():
+        if self.video_view.isVisible(): # pyrefly: ignore [missing-attribute]
             self.fit_video_in_view()
 
     @Slot(int)
     def change_resolution(self, index: int):
-        if not self.player_container.isFullScreen() and 0 <= index < len(
+        if not self.player_container.isFullScreen() and 0 <= index < len( # pyrefly: ignore [missing-attribute]
             self.available_resolutions
         ):
             w, h = self.available_resolutions[index]
@@ -1724,11 +1726,22 @@ class ExtractorTab(AbstractClassSingleGallery):
             if self.check_player_vertical.isChecked():
                 w, h = h, w
             # -----------------------------------------------------------
-            self.video_view.setFixedSize(w, h)
+            self.video_view.setFixedSize(w, h) # pyrefly: ignore [missing-attribute]
             self.fit_video_in_view()
 
     def is_path_selected(self, path: str) -> bool:
         return path in self.selected_paths
+
+    def create_gallery_label(self, path: str, size: int) -> ClickableLabel:
+        clickable_label = ClickableLabel(file_path=path)
+        clickable_label.setFixedSize(size, size)
+        clickable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        clickable_label.path = path
+
+        clickable_label.path_clicked.connect(self.handle_thumbnail_single_click)
+        clickable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
+        clickable_label.path_right_clicked.connect(self.show_image_context_menu)
+        return clickable_label
 
     # --- Gallery & Selection Logic (Extracted Frames) ---
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
@@ -1738,15 +1751,14 @@ class ExtractorTab(AbstractClassSingleGallery):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(1)
 
-        # Assign custom styling method for the Base class to call
-        container.set_selected_style = lambda selected: self._style_label(
-            clickable_label, selected
-        )
+        clickable_label = self.create_gallery_label(path, self.thumbnail_size)
 
-        clickable_label = ClickableLabel(file_path=path)
-        clickable_label.setFixedSize(self.thumbnail_size, self.thumbnail_size)
-        clickable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        clickable_label.path = path
+        # Explicitly define the method on the instance
+        def apply_style(is_selected: bool):
+            self._style_label(clickable_label, is_selected)
+
+        # Assign custom styling method for the Base class to call
+        container.set_selected_style = apply_style  # pyrefly: ignore [missing-attribute]
 
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
@@ -1778,14 +1790,10 @@ class ExtractorTab(AbstractClassSingleGallery):
 
         self._style_label(clickable_label, selected=(path in self.selected_paths))
 
-        clickable_label.path_clicked.connect(self.handle_thumbnail_single_click)
-        clickable_label.path_double_clicked.connect(self.handle_thumbnail_double_click)
-        clickable_label.path_right_clicked.connect(self.show_image_context_menu)
-
         layout.addWidget(clickable_label)
         return container
 
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap], label_ref: QLabel | None = None):
         clickable_label = widget.findChild(ClickableLabel)
         if clickable_label:
             is_video = clickable_label.path.lower().endswith(
@@ -2058,7 +2066,7 @@ class ExtractorTab(AbstractClassSingleGallery):
 
             if layout_changed:
                 for widget in widgets_to_delete:
-                    self.gallery_layout.removeWidget(widget)
+                    self.gallery_layout.removeWidget(widget) # pyrefly: ignore [missing-attribute]
                     widget.deleteLater()
 
                 cols = self.common_calculate_columns(
@@ -2095,7 +2103,7 @@ class ExtractorTab(AbstractClassSingleGallery):
             )
             self.info_label.setVisible(False)
             self.combo_resolution.setEnabled(True)
-            self.video_view.setVisible(True)
+            self.video_view.setVisible(True) # pyrefly: ignore [missing-attribute]
             self.btn_play.setVisible(True)
             self.btn_fullscreen.setVisible(True)
             self.lbl_vol.setVisible(True)
@@ -2111,14 +2119,14 @@ class ExtractorTab(AbstractClassSingleGallery):
             )
             self.info_label.setVisible(True)
             self.combo_resolution.setEnabled(False)
-            self.video_view.setVisible(False)
+            self.video_view.setVisible(False) # pyrefly: ignore [missing-attribute]
             self.btn_play.setVisible(False)
             self.btn_fullscreen.setVisible(False)
             self.lbl_vol.setVisible(False)
             self.volume_slider.setVisible(False)
-            self.media_player.setVideoOutput(None)
-            self.media_player.setAudioOutput(None)
-            self.media_player.setAudioOutput(None)
+            self.media_player.setVideoOutput(None) # pyrefly: ignore [bad-argument-type]
+            self.media_player.setAudioOutput(None) # pyrefly: ignore [bad-argument-type]
+            self.media_player.setAudioOutput(None) # pyrefly: ignore [bad-argument-type]
             self.media_player.pause()
 
         # Apply current speed locally
@@ -2151,7 +2159,7 @@ class ExtractorTab(AbstractClassSingleGallery):
     @Slot(int)
     def position_changed(self, position: int):
         self.slider.setValue(position)
-        self.lbl_current_time.setText(self._format_time(position))
+        self.lbl_current_time.setText(self._format_time(position)) # pyrefly: ignore [missing-attribute]
 
     @Slot(int)
     def duration_changed(self, duration: int):
@@ -2238,7 +2246,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         while self.cuts_layout.count():
             item = self.cuts_layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
 
         if not self.cuts_ms:
             none_label = QLabel("Cuts: None")
@@ -2373,7 +2381,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         while self.tags_layout.count():
             item = self.tags_layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
 
         if not self.tags_ms:
             none_label = QLabel("Tags: None")
@@ -2443,7 +2451,7 @@ class ExtractorTab(AbstractClassSingleGallery):
             menu.addAction(extract_vid_action)
 
         # Show at global position
-        global_pos = sender.mapToGlobal(pos)
+        global_pos = sender.mapToGlobal(pos) # pyrefly: ignore [missing-attribute]
         menu.exec(global_pos)
 
     @Slot(int)
@@ -2556,7 +2564,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         )
 
     # --- NEW HELPER: Resolution Swapping ---
-    def _get_target_size(self) -> Optional[Tuple[int, int]]:
+    def _get_target_size(self) -> Optional[Union[Tuple[int | str, int | str], str]]:
         selected_key = self.combo_extract_size.currentText()
         target_size = self.extraction_res_map.get(selected_key)
         if selected_key == "Native":
@@ -2800,6 +2808,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         self._active_metadata = self._get_current_extraction_metadata()
         self._active_metadata["mode"] = "range" if is_range else "single"
 
+        assert self.video_path is not None
         self.active_extraction_worker = FrameExtractionWorker(
             video_path=self.video_path,
             output_dir=str(self.extraction_dir),
@@ -2879,9 +2888,9 @@ class ExtractorTab(AbstractClassSingleGallery):
         self._active_metadata = self._get_current_extraction_metadata()
         self._active_metadata["mode"] = "gif"
 
+        assert self.video_path is not None
         output_name = f"{Path(self.video_path).stem}_{start}ms_{end}ms.gif"
         output_path = str(self.extraction_dir / output_name)
-
         self.active_extraction_worker = GifCreationWorker(
             video_path=self.video_path,
             start_ms=start,
@@ -2947,9 +2956,10 @@ class ExtractorTab(AbstractClassSingleGallery):
         self._active_metadata = self._get_current_extraction_metadata()
         self._active_metadata["mode"] = "video"
 
-        output_name = f"{Path(self.video_path).stem}_{start}ms_{end}ms.mp4"
+        output_name = f"{Path(self.video_path).stem}_{start}ms_{end}ms.mp4" # pyrefly: ignore [bad-argument-type]
         output_path = str(self.extraction_dir / output_name)
 
+        assert self.video_path is not None
         self.active_extraction_worker = VideoExtractionWorker(
             video_path=self.video_path,
             start_ms=start,
@@ -3184,7 +3194,7 @@ class ExtractorTab(AbstractClassSingleGallery):
 
     @Slot()
     def _jump_to_edited_time(self):
-        time_str = self.edit_current_time.text()
+        time_str = self.edit_current_time.text() # pyrefly: ignore [missing-attribute]
         ms = self._parse_time(time_str)
         if ms is not None:
             # Clamp to duration
@@ -3193,8 +3203,8 @@ class ExtractorTab(AbstractClassSingleGallery):
         self._cancel_time_edit()
 
     def _cancel_time_edit(self):
-        self.edit_current_time.hide()
-        self.lbl_current_time.show()
+        self.edit_current_time.hide() # pyrefly: ignore [missing-attribute]
+        self.lbl_current_time.show() # pyrefly: ignore [missing-attribute]
 
     # --- Configuration Methods for SettingsWindow ---
 
@@ -3411,22 +3421,9 @@ class ExtractorTab(AbstractClassSingleGallery):
             return
 
         self.video_path = video_path
+
         # Setup worker
-        config = {
-            "mode": "range",
-            "start_time": start_ms / 1000.0,
-            "end_time": end_ms / 1000.0,
-            "fps": fps,
-            "output_format": "png",  # default
-            "output_dir": str(self.extraction_dir),
-            "resize_dim": None,
-        }
-
-        # We need to adapt this to use FrameExtractionWorker if compatible,
-        # or just make a new one. FrameExtractionWorker seems designed for this.
-        # It takes (video_path, output_dir, config...)
-
-        worker = FrameExtractionWorker(video_path, str(self.extraction_dir), config)
+        worker = FrameExtractionWorker(video_path, str(self.extraction_dir), start_ms, end_ms, fps, output_format="png", target_resolution=None)
         self.active_extraction_worker = worker
 
         # Signals
@@ -3565,7 +3562,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         if self.start_time_ms > 0 and self.media_player:
             self.media_player.setPosition(self.start_time_ms)
             self.slider.setValue(self.start_time_ms)
-            self.lbl_current_time.setText(self._format_time(self.start_time_ms))
+            self.lbl_current_time.setText(self._format_time(self.start_time_ms)) # pyrefly: ignore [missing-attribute]
 
         # Update active video config dictionary so switching tabs doesn't lose it
         config = self.active_videos_config.get(v_path, {})
@@ -3626,7 +3623,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.extraction_status_label.setText(f"Processing queue ({mode})...")
         self.extraction_status_label.show()
 
-        from .queue_execution_worker import QueueExecutionWorker
+        from ...helpers.core.queue_execution_worker import QueueExecutionWorker
 
         self.active_queue_worker = QueueExecutionWorker(
             self.extraction_queue, parallel=is_parallel

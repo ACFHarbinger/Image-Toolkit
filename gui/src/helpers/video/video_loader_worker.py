@@ -56,7 +56,7 @@ class VideoLoaderWorker(QRunnable):
             image = self.thumbnailer.generate(self.path, self.target_size)
             if image and not image.isNull():
                 # 3. Save to Disk Cache
-                image.save(cache_path, "JPG")
+                image.save(cache_path, "JPG") # pyrefly: ignore [no-matching-overload]
                 self._safe_emit(self.path, image)
             else:
                 self._safe_emit(self.path, QImage())

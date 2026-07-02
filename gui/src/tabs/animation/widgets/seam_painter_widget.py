@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QGraphicsPixmapItem,
 )
 
-from ....styles.style import apply_shadow_effect
+from ....styles import apply_shadow_effect
 
 
 def _bgr_to_qimage(bgr: np.ndarray) -> QImage:

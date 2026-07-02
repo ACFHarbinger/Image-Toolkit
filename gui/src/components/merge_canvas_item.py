@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+from typing import Dict, Union
 from PySide6.QtCore import Qt, Signal, QRectF, QPointF
 from PySide6.QtGui import QPixmap, QPen, QBrush, QColor, QPainter
 from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsObject
@@ -41,8 +41,8 @@ class MergeCanvasItem(QGraphicsObject):
         super().__init__()
         self.path = path
         self._pixmap = pixmap
-        self._w = max(10, width)
-        self._h = max(10, height)
+        self._w: Union[int,float] = max(10, width)
+        self._h: Union[int,float] = max(10, height)
 
         self.setFlags(
             QGraphicsObject.GraphicsItemFlag.ItemIsMovable

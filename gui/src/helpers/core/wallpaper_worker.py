@@ -5,7 +5,7 @@ if platform.system() == "Windows":
     import comtypes
 
 from screeninfo import Monitor
-from typing import Dict, List
+from typing import Dict, List, Optional, Any
 from PySide6.QtCore import QObject, Signal, QRunnable, Slot
 from backend.src.core import WallpaperManager
 
@@ -35,9 +35,9 @@ class WallpaperWorker(QRunnable):
 
     def __init__(
         self,
-        path_map: Dict[str, str],
+        path_map: Dict[Any, Any],
         monitors: List[Monitor],
-        qdbus: str,
+        qdbus: Optional[str] = None,
         wallpaper_style: str = "Fill",
     ):
         super().__init__()

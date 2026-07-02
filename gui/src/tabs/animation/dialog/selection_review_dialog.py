@@ -197,6 +197,7 @@ class SelectionReviewDialog(QDialog):
         layout = self._card_layout
         wa = layout.itemAt(a).widget()
         wb = layout.itemAt(b).widget()
+        assert wa is not None and wb is not None
         layout.removeWidget(wa)
         layout.removeWidget(wb)
         layout.insertWidget(a, wb)

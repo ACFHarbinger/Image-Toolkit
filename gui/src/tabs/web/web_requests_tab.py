@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QWidget,
 )
-from ...windows import LogWindow
+from ...windows.logging import LogWindow
 from ...helpers import WebRequestsWorker
 
 

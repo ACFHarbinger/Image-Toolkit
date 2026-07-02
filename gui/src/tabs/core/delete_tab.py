@@ -3,7 +3,7 @@ import os
 from PIL import Image
 from pathlib import Path
 from datetime import datetime
-from send2trash import send2trash
+from send2trash import send2trash # pyrefly: ignore [untyped-import]
 from typing import Dict, Any, Optional, List
 from PySide6.QtWidgets import (
     QFormLayout,
@@ -38,7 +38,7 @@ from ...helpers import (
     DeletionWorker,
     DuplicateScanWorker,
 )
-from ...styles.style import apply_shadow_effect, STYLE_SCAN_CANCEL
+from ...styles import apply_shadow_effect, STYLE_SCAN_CANCEL
 from ...windows import ImagePreviewWindow
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 
@@ -202,6 +202,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         content_layout.addLayout(dup_actions_layout)
 
         # Other options
+        self.selected_extensions: Optional[set[str]] = None
         if self.dropdown:
             self.selected_extensions = set()
             ext_layout = QVBoxLayout()
@@ -245,7 +246,6 @@ class DeleteTab(AbstractClassTwoGalleries):
             )
             settings_layout.addRow(self.extensions_field)
         else:
-            self.selected_extensions = None
             self.target_extensions = QLineEdit()
             self.target_extensions.setPlaceholderText("e.g. .txt .jpg or txt jpg")
             settings_layout.addRow(
@@ -324,37 +324,19 @@ class DeleteTab(AbstractClassTwoGalleries):
         card_wrapper = ClickableLabel(path)
         card_wrapper.setFixedSize(thumb_size + 10, thumb_size + 10)
 
-        # Base class requirements
-        def safe_get_pixmap():
-            try:
-                return img_label.pixmap()
-            except RuntimeError:
-                return None
-
-        def safe_set_style(s):
-            try:
-                self._update_card_style(img_label, s)
-            except RuntimeError:
-                pass
-
-        card_wrapper.get_pixmap = safe_get_pixmap
-        card_wrapper.set_selected_style = safe_set_style
-
         card_layout = QVBoxLayout(card_wrapper)
         card_layout.setContentsMargins(0, 0, 0, 0)
 
         img_label = QLabel()
         img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
-
+        
+        # Store the reference in the wrapper so it knows what to style
+        card_wrapper.set_image_label(img_label)
         if pixmap and not pixmap.isNull():
-            scaled = pixmap.scaled(
-                thumb_size,
-                thumb_size,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            img_label.setPixmap(scaled)
+            img_label.setPixmap(pixmap.scaled(thumb_size, thumb_size, 
+                                Qt.AspectRatioMode.KeepAspectRatio, 
+                                Qt.TransformationMode.SmoothTransformation))
         else:
             img_label.setText("Loading...")
             img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
@@ -366,12 +348,9 @@ class DeleteTab(AbstractClassTwoGalleries):
         card_wrapper.path_double_clicked.connect(self.open_full_preview)
         card_wrapper.path_right_clicked.connect(self.show_image_context_menu)
 
-        # Assign custom styling method for the Base class to call
-        card_wrapper.set_selected_style = lambda selected: self._update_card_style(
-            img_label, selected
-        )
-
-        self._update_card_style(img_label, is_selected)
+        # Initialize styling
+        card_wrapper.set_selected_style(is_selected, self._update_card_style, img_label)
+        
         return card_wrapper
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
@@ -448,7 +427,7 @@ class DeleteTab(AbstractClassTwoGalleries):
     @Slot()
     def cancel_scan(self):
         if self.scan_thread and self.scan_thread.isRunning():
-            self.status_label.setText("Stopping...")
+            self.status_label.setText("Stopping...")  # pyrefly: ignore [missing-attribute]
             self.scan_thread.requestInterruption()
             self.scan_thread.quit()
             self.scan_thread.wait()
@@ -489,7 +468,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         )
 
         self.scan_progress_bar.hide()
-        self.status_label.setText(status_message)
+        self.status_label.setText(status_message) # pyrefly: ignore [missing-attribute]
 
     def start_duplicate_scan(self):
         target_dir = self.target_path.text().strip()
@@ -546,7 +525,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.btn_delete_files.setEnabled(True)
         self.scan_progress_bar.show()
 
-        self.status_label.setText(status_msg)
+        self.status_label.setText(status_msg) # pyrefly: ignore [missing-attribute]
         self.clear_galleries()
 
         self.scan_thread = QThread()
@@ -572,7 +551,7 @@ class DeleteTab(AbstractClassTwoGalleries):
 
     @Slot(str)
     def handle_scan_status_update(self, message: str):
-        self.status_label.setText(message)
+        self.status_label.setText(message) # pyrefly: ignore [missing-attribute]
         self.scan_progress_bar.setRange(0, 0)
 
     @Slot(dict)
@@ -594,7 +573,7 @@ class DeleteTab(AbstractClassTwoGalleries):
             return
 
         self._reset_scan_ui("Scan complete.")
-        self.status_label.setText(
+        self.status_label.setText( # pyrefly: ignore [missing-attribute]
             f"Found {len(results)} groups ({len(flattened_paths)} files)."
         )
 
@@ -695,7 +674,7 @@ class DeleteTab(AbstractClassTwoGalleries):
             )
             self.refresh_selected_panel()
             self.on_selection_changed()
-            self.status_label.setText(f"Moved to {action_name}: {filename}")
+            self.status_label.setText(f"Moved to {action_name}: {filename}") # pyrefly: ignore [missing-attribute]
             QMessageBox.information(
                 self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}"
             )
@@ -707,7 +686,8 @@ class DeleteTab(AbstractClassTwoGalleries):
     def get_image_properties(self, file_path: str) -> Dict[str, Any]:
         if not Path(file_path).exists():
             return {"Error": "File not found."}
-        props = {"Path": file_path, "File Name": os.path.basename(file_path)}
+        
+        props: Dict[str, Any] = {"Path": file_path, "File Name": os.path.basename(file_path)}
         try:
             stat = os.stat(file_path)
             props["File Size"] = (
@@ -848,7 +828,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         config["require_confirm"] = self.confirm_checkbox.isChecked()
         self.btn_delete_files.setEnabled(False)
         self.btn_delete_directory.setEnabled(False)
-        self.status_label.setText(f"Starting {mode} deletion...")
+        self.status_label.setText(f"Starting {mode} deletion...") # pyrefly: ignore [missing-attribute]
         QApplication.processEvents()
         self.worker = DeletionWorker(config)
         self.worker.confirm_signal.connect(self.handle_confirmation_request)
@@ -871,22 +851,22 @@ class DeleteTab(AbstractClassTwoGalleries):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
-        self.worker.set_confirmation_response(reply == QMessageBox.StandardButton.Yes)
+        self.worker.set_confirmation_response(reply == QMessageBox.StandardButton.Yes) # pyrefly: ignore [missing-attribute]
 
     def update_progress(self, deleted, total):
-        self.status_label.setText(f"Deleted {deleted} of {total}...")
+        self.status_label.setText(f"Deleted {deleted} of {total}...") # pyrefly: ignore [missing-attribute]
 
     def on_deletion_done(self, count, msg):
         self.btn_delete_files.setEnabled(len(self.selected_files) > 0)
         self.btn_delete_directory.setEnabled(True)
-        self.status_label.setText(msg)
+        self.status_label.setText(msg) # pyrefly: ignore [missing-attribute]
         QMessageBox.information(self, "Complete", msg)
         self.worker = None
 
     def on_deletion_error(self, msg):
         self.btn_delete_files.setEnabled(True)
         self.btn_delete_directory.setEnabled(True)
-        self.status_label.setText("Failed.")
+        self.status_label.setText("Failed.") # pyrefly: ignore [missing-attribute]
         QMessageBox.critical(self, "Error", msg)
         self.worker = None
 
@@ -913,13 +893,13 @@ class DeleteTab(AbstractClassTwoGalleries):
     def toggle_extension(self, ext, checked):
         btn = self.extension_buttons[ext]
         if checked:
-            self.selected_extensions.add(ext)
+            self.selected_extensions.add(ext) # pyrefly: ignore [missing-attribute]
             btn.setStyleSheet(
                 "QPushButton:checked { background-color: #3320b5; color: white; }"
             )
             apply_shadow_effect(btn, "#000000", 8, 0, 3)
         else:
-            self.selected_extensions.discard(ext)
+            self.selected_extensions.discard(ext) # pyrefly: ignore [missing-attribute]
             btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
             apply_shadow_effect(btn, "#000000", 8, 0, 3)
 

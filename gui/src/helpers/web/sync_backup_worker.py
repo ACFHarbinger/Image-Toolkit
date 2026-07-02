@@ -91,14 +91,14 @@ class _SyncBackupWorker(QThread):
         salt = vault_manager.account_name
 
         # Delete old rows
-        rows = base.fetch_all_listings_secure(db_path, password, salt)
+        rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
         total_rows = len(rows)
         for i, row in enumerate(rows):
             id_, category, _, _, _ = row
             if self.category == "Content" and category != "Entity":
-                base.delete_listing_secure(db_path, password, salt, id_)
+                base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
             elif self.category == "Entity" and category == "Entity":
-                base.delete_listing_secure(db_path, password, salt, id_)
+                base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
             percent = 30 + int(10 * (i + 1) / (total_rows if total_rows > 0 else 1))
             self.progress.emit(
                 percent, f"Cleaning secure database ({i + 1}/{total_rows})..."
@@ -112,7 +112,7 @@ class _SyncBackupWorker(QThread):
                 etitle = entry.get("title", "")
                 edate = entry.get("date_added", "")
                 meta = dict(entry)
-                base.insert_listing_secure(
+                base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
                     db_path, password, salt, eid, ecat, etitle,
                     json.dumps(meta, ensure_ascii=False), edate, [],
                 )
@@ -120,7 +120,7 @@ class _SyncBackupWorker(QThread):
                 ename = entry.get("name", "")
                 edate = entry.get("date_added", "")
                 meta = dict(entry)
-                base.insert_listing_secure(
+                base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
                     db_path, password, salt, eid, "Entity", ename,
                     json.dumps(meta, ensure_ascii=False), edate, [],
                 )
@@ -189,7 +189,7 @@ class _SyncBackupWorker(QThread):
         try:
             for i, file_path in enumerate(files_to_backup):
                 if (
-                    zf.fp.tell() + file_path.stat().st_size > max_size_bytes
+                    zf.fp.tell() + file_path.stat().st_size > max_size_bytes # pyrefly: ignore [missing-attribute]
                     and zf.filelist
                 ):
                     zf.close()

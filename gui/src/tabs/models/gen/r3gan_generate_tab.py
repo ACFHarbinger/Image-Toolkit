@@ -1,6 +1,6 @@
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFormLayout, QSpinBox, QLineEdit, QMessageBox
-from ....classes.base_generative_tab import BaseGenerativeTab
+from ....classes.base.base_generative_tab import BaseGenerativeTab
 
 
 class R3GANGenerateTab(BaseGenerativeTab):

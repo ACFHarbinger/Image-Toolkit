@@ -1,10 +1,12 @@
 import pytest
+from typing import Optional
 
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtWidgets import QWidget, QLabel, QGridLayout, QScrollArea
 from gui.src.classes.abstract_class_single_gallery import AbstractClassSingleGallery
 from gui.src.classes.abstract_class_two_galleries import AbstractClassTwoGalleries
-from gui.src.classes.meta_abstract_class_gallery import MetaAbstractClassGallery
+from gui.src.classes.base.gallery_base import AbstractGalleryBase
+from gui.src.components import MarqueeScrollArea
 
 pytestmark = pytest.mark.gui
 
@@ -20,30 +22,45 @@ class ConcreteSingleGallery(AbstractClassSingleGallery):
         self.gallery_widget.setLayout(self.gallery_layout)
         self.gallery_scroll_area.setWidget(self.gallery_widget)
 
-    def create_card_widget(self, path: str, pixmap: QPixmap = None) -> QWidget:
+    def create_card_widget(self, path: str, pixmap: Optional[QPixmap] = None) -> QWidget:
         label = QLabel(path)
         if pixmap:
             label.setPixmap(pixmap)
         return label
 
-    def update_card_pixmap(self, widget: QWidget, pixmap: QPixmap):
-        if isinstance(widget, QLabel) and pixmap:
-            widget.setPixmap(pixmap)
+    def update_card_pixmap(
+        self,
+        widget: QWidget,
+        pixmap: Optional[QPixmap],
+        label_ref: Optional[QLabel] = None,
+    ):
+        target = label_ref if label_ref is not None else widget.findChild(QLabel)
+        if isinstance(target, QLabel) and pixmap:
+            target.setPixmap(pixmap)
 
-    def _generate_video_thumbnail(self, file_path: str):
+    def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
         return None
+
+    def create_gallery_label(self, path: str, size: int) -> QLabel:
+        return QLabel()
+
+    def get_default_config(self) -> dict:
+        return {}
+
+    def set_config(self, config: dict) -> None:
+        pass
 
 
 class ConcreteTwoGalleries(AbstractClassTwoGalleries):
     def __init__(self):
         super().__init__()
-        self.found_gallery_scroll = QScrollArea()
+        self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_widget = QWidget()
         self.found_gallery_layout = QGridLayout()
         self.found_gallery_widget.setLayout(self.found_gallery_layout)
         self.found_gallery_scroll.setWidget(self.found_gallery_widget)
 
-        self.selected_gallery_scroll = QScrollArea()
+        self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_widget = QWidget()
         self.selected_gallery_layout = QGridLayout()
         self.selected_gallery_widget.setLayout(self.selected_gallery_layout)
@@ -52,7 +69,7 @@ class ConcreteTwoGalleries(AbstractClassTwoGalleries):
         self.selection_changed_called = 0
 
     def create_card_widget(
-        self, path: str, pixmap: QPixmap, is_selected: bool
+        self, path: str, pixmap: Optional[QPixmap], is_selected: bool
     ) -> QWidget:
         label = QLabel(path)
         if pixmap:
@@ -60,19 +77,28 @@ class ConcreteTwoGalleries(AbstractClassTwoGalleries):
         label.setProperty("is_selected", is_selected)
         return label
 
-    def update_card_pixmap(self, widget: QWidget, pixmap: QPixmap):
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         if isinstance(widget, QLabel) and pixmap:
             widget.setPixmap(pixmap)
 
     def on_selection_changed(self):
         self.selection_changed_called += 1
 
+    def get_default_config(self) -> dict:
+        return {}
 
-class DummyGallery(QWidget, metaclass=MetaAbstractClassGallery):
+    def set_config(self, config: dict) -> None:
+        pass
+
+
+class DummyGallery(AbstractGalleryBase):
     def get_default_config(self) -> dict:
         return {}
 
     def set_config(self, config: dict):
+        pass
+
+    def _on_layout_change(self):
         pass
 
 
@@ -157,7 +183,7 @@ class TestAbstractClassSingleGallery:
 
         assert widget.pixmap() is None or widget.pixmap().isNull()
 
-        qimg = QImage(10, 10, QImage.Format_RGB32)
+        qimg = QImage(10, 10, QImage.Format.Format_RGB32)
         gallery._on_single_image_loaded(path, qimg)
         assert widget.pixmap() is not None
 
@@ -204,6 +230,7 @@ class TestAbstractClassTwoGalleries:
 
     def test_pagination_selected(self, two_galleries):
         two_galleries.selected_files = [f"img_{i}.jpg" for i in range(150)]
+        two_galleries.selected_page_size = 100
         two_galleries._change_page(1, is_found=False)
         assert two_galleries.selected_current_page == 1
 
@@ -243,8 +270,9 @@ class TestMetaAbstractClassGallery:
         assert cols > 0
 
     def test_common_join_list_str(self, dummy_gallery):
-        res = MetaAbstractClassGallery.join_list_str("a, b, c")
+        res = AbstractGalleryBase.join_list_str("a, b, c")
         assert res == ["a", "b", "c"]
 
-        res = MetaAbstractClassGallery.join_list_str("foo bar .baz")
+        res = AbstractGalleryBase.join_list_str("foo bar .baz")
         assert res == ["foo", "bar", "baz"]
+

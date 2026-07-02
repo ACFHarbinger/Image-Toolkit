@@ -20,13 +20,13 @@ class QueueItemWidget(QWidget):
         self.index_label.setStyleSheet(
             "color: #7289da; font-weight: bold; font-size: 14px;"
         )
-        self.index_label.setAlignment(Qt.AlignCenter)
+        self.index_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.index_label)
 
         # Image Preview Label
         img_label = QLabel()
         img_label.setPixmap(
-            pixmap.scaled(QSize(80, 60), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pixmap.scaled(QSize(80, 60), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
         )
         img_label.setFixedSize(80, 60)
         img_label.setStyleSheet("border: 1px solid #4f545c; border-radius: 4px;")

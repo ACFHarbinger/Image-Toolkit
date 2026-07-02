@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
 )
-from ...classes.base_generative_tab import BaseGenerativeTab
+from ...classes.base.base_generative_tab import BaseGenerativeTab
 
 
 class MetaCLIPInferenceTab(BaseGenerativeTab):

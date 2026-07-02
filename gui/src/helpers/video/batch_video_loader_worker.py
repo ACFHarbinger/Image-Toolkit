@@ -54,7 +54,7 @@ class BatchVideoLoaderWorker(QRunnable):
                     image = self.thumbnailer.generate(path, self.target_size)
                     if image and not image.isNull():
                         # 3. Save to Disk Cache
-                        image.save(cache_path, "JPG")
+                        image.save(cache_path, "JPG") # pyrefly: ignore [no-matching-overload]
                         self._safe_emit(path, image)
                         results.append((path, image))
                     else:

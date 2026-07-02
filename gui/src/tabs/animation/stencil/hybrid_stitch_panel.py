@@ -31,7 +31,7 @@ from ....constants import (
     STITCH_THUMB_H,
     DARK_GROUP_STYLE,
 )
-from ....styles.style import apply_shadow_effect
+from ....styles import apply_shadow_effect
 from .control_point_editor import ControlPointEditor, _load_thumb, _apply_color_correction
 from ..widgets import ColorCorrectionWidget, MeshWarpWidget, SeamPainterWidget
 from .render_panel import RenderPanel

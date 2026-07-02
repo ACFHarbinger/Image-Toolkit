@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QMessageBox,
 )
-from ....classes.base_generative_tab import BaseGenerativeTab
+from ....classes.base.base_generative_tab import BaseGenerativeTab
 from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
 from backend.src.constants import LOCAL_SOURCE_PATH
 

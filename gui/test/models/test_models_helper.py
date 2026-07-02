@@ -1,32 +1,40 @@
-from unittest.mock import patch
-
-# Ensure we mock modules BEFORE importing the worker
-# But since we use simple imports in the test file, we can patch inside the test function
-# or use pytest fixtures to patch sys.modules if needed.
-# However, the worker module imports them at top level.
-# So we rely on conftest.py mocks OR we patch where they are used.
+from unittest.mock import patch, MagicMock
+import pytest
 
 from gui.src.helpers.models.training_worker import TrainingWorker
 
 
 class TestTrainingWorker:
     def test_run_success(self, q_app):
-        # We need to mock:
-        # 1. torch.device
-        # 2. datasets.ImageFolder
-        # 3. DataLoader
-        # 4. GAN
+        import sys
+        
+        mock_torch = MagicMock()
+        mock_datasets = MagicMock()
+        mock_loader = MagicMock()
+        MockGAN = MagicMock()
+        
+        mock_torch_utils_data = MagicMock()
+        mock_torch_utils_data.DataLoader = mock_loader
+        
+        mock_torchvision = MagicMock()
+        mock_torchvision.datasets = mock_datasets
+        
+        mock_gan_module = MagicMock()
+        mock_gan_module.GAN = MockGAN
 
-        with (
-            patch("gui.src.helpers.models.training_worker.torch") as mock_torch,
-            patch("gui.src.helpers.models.training_worker.datasets") as mock_datasets,
-            patch("gui.src.helpers.models.training_worker.DataLoader") as mock_loader,
-            patch("gui.src.helpers.models.training_worker.GAN") as MockGAN,
+        # Setup mocks
+        mock_datasets.ImageFolder.return_value = "dummy_dataset"
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "torch": mock_torch,
+                "torchvision": mock_torchvision,
+                "torchvision.datasets": mock_datasets,
+                "torch.utils.data": mock_torch_utils_data,
+                "backend.src.models.core.gan": mock_gan_module,
+            },
         ):
-
-            # Setup mocks
-            mock_datasets.ImageFolder.return_value = "dummy_dataset"
-
             worker = TrainingWorker(
                 data_path="/tmp/data",
                 save_path="/tmp/save",
@@ -57,15 +65,34 @@ class TestTrainingWorker:
             assert "Training complete." in logs[-1]
 
     def test_run_dataset_error(self, q_app):
-        with (
-            patch("gui.src.helpers.models.training_worker.torch"),
-            patch("gui.src.helpers.models.training_worker.datasets") as mock_datasets,
-            patch("gui.src.helpers.models.training_worker.DataLoader"),
-            patch("gui.src.helpers.models.training_worker.GAN"),
+        import sys
+        
+        mock_torch = MagicMock()
+        mock_datasets = MagicMock()
+        mock_loader = MagicMock()
+        MockGAN = MagicMock()
+        
+        mock_torch_utils_data = MagicMock()
+        mock_torch_utils_data.DataLoader = mock_loader
+        
+        mock_torchvision = MagicMock()
+        mock_torchvision.datasets = mock_datasets
+        
+        mock_gan_module = MagicMock()
+        mock_gan_module.GAN = MockGAN
+
+        mock_datasets.ImageFolder.side_effect = Exception("Folder structure bad")
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "torch": mock_torch,
+                "torchvision": mock_torchvision,
+                "torchvision.datasets": mock_datasets,
+                "torch.utils.data": mock_torch_utils_data,
+                "backend.src.models.core.gan": mock_gan_module,
+            },
         ):
-
-            mock_datasets.ImageFolder.side_effect = Exception("Folder structure bad")
-
             worker = TrainingWorker("/tmp", "/tmp", 1, 1, 0.1, 10, "cpu")
 
             errors = []

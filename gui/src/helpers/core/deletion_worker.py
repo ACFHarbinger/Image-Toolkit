@@ -1,4 +1,6 @@
 import os
+from typing import Dict, Any, Union
+from send2trash import send2trash # pyrefly: ignore [untyped-import]
 
 from PySide6.QtCore import QThread, Signal, QWaitCondition, QMutex
 from backend.src.constants import SUPPORTED_IMG_FORMATS
@@ -13,7 +15,7 @@ class DeletionWorker(QThread):
 
     confirm_signal = Signal(str, int)
 
-    def __init__(self, config: DeletionConfig):
+    def __init__(self, config: Union[DeletionConfig, Dict[str, Any]]):
         super().__init__()
         self.config = config
         self.confirmation_response = False
@@ -68,7 +70,6 @@ class DeletionWorker(QThread):
                 # Core logic moved to FileDeleter
                 if self.config.get("send_to_trash", True):
                     try:
-                        from send2trash import send2trash
                         send2trash(target_path)
                         self.finished.emit(1, f"Successfully sent directory to trash: {target_path}")
                     except Exception as e:
@@ -131,7 +132,6 @@ class DeletionWorker(QThread):
                 # Core logic for single file deletion
                 if self.config.get("send_to_trash", True):
                     try:
-                        from send2trash import send2trash
                         send2trash(file_path)
                         deleted += 1
                     except Exception as e:

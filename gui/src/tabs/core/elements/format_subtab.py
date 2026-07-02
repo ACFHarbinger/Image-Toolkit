@@ -26,12 +26,12 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtGui import QPixmap, QImage, QAction
-from ....windows import ImagePreviewWindow
 from ....classes import AbstractClassTwoGalleries
 from ....helpers import ConversionWorker
+from ....windows import ImagePreviewWindow
 from ....components import OptionalField, MarqueeScrollArea, ClickableLabel
 from ....utils.sort_utils import natural_sort_key
-from ....styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
+from ....styles import apply_shadow_effect, SHARED_BUTTON_STYLE
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 
 
@@ -432,8 +432,9 @@ class FormatSubTab(AbstractClassTwoGalleries):
             for btn in self.format_buttons.values():
                 self.format_btn_layout.removeWidget(btn)
                 btn.deleteLater()
+                
             self.format_buttons.clear()
-            self.selected_formats.clear()
+            self.selected_formats.clear()  # pyrefly: ignore [missing-attribute]
 
             # Populate new
             target_formats = (
@@ -471,6 +472,8 @@ class FormatSubTab(AbstractClassTwoGalleries):
         img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
 
+        # Store the reference in the wrapper so it knows what to style
+        card_wrapper.set_image_label(img_label)
         if pixmap and not pixmap.isNull():
             scaled = pixmap.scaled(
                 thumb_size,
@@ -490,11 +493,6 @@ class FormatSubTab(AbstractClassTwoGalleries):
 
         card_layout.addWidget(img_label)
         card_wrapper.setLayout(card_layout)
-
-        # Assign custom styling method for the Base class to call
-        card_wrapper.set_selected_style = lambda selected: self._update_card_style(
-            img_label, selected
-        )
 
         # Apply initial style
         self._update_card_style(img_label, is_selected)
@@ -563,7 +561,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
         if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
             try:
                 if platform.system() == "Windows":
-                    os.startfile(image_path)
+                    os.startfile(image_path) # pyrefly: ignore [missing-attribute]
                 elif platform.system() == "Linux":
                     subprocess.Popen(
                         ["xdg-open", image_path],
@@ -690,7 +688,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
                 # Also close any open preview for this file
                 for win in list(self.open_preview_windows):
                     try:
-                        if win.image_path == path:
+                        if hasattr(win, "image_path") and win.image_path == path:
                             win.close()
                     except RuntimeError:
                         if win in self.open_preview_windows:
@@ -797,7 +795,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
     def toggle_format(self, fmt, checked):
         btn = self.format_buttons[fmt]
         if checked:
-            self.selected_formats.add(fmt)
+            self.selected_formats.add(fmt) # pyrefly: ignore [missing-attribute]
             btn.setStyleSheet(
                 """
                 QPushButton:checked { background-color: #3320b5; color: white; }
@@ -808,7 +806,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
                 btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
             )
         else:
-            self.selected_formats.discard(fmt)
+            self.selected_formats.discard(fmt) # pyrefly: ignore [missing-attribute]
             btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
             apply_shadow_effect(
                 btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
@@ -886,13 +884,13 @@ class FormatSubTab(AbstractClassTwoGalleries):
         """
         )
 
-        self.status_label.setText(f"Converting {len(files_for_conversion)} files...")
+        self.status_label.setText(f"Converting {len(files_for_conversion)} files...") # pyrefly: ignore [missing-attribute]
         self.convert_progress_bar.show()  # Show the new progress bar
 
         self.worker = ConversionWorker(config)
-        self.worker.finished.connect(self.on_conversion_done)
-        self.worker.error.connect(self.on_conversion_error)
-        self.worker.progress_update.connect(self.update_progress_bar)
+        self.worker.finished_signal.connect(self.on_conversion_done)
+        self.worker.error_signal.connect(self.on_conversion_error)
+        self.worker.progress_signal.connect(self.update_progress_bar)
         self.worker.start()
 
     def cancel_conversion(self):
@@ -905,7 +903,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
     @Slot(int)  # Accepts an integer for percentage
     def update_progress_bar(self, percentage: int):
         self.convert_progress_bar.setValue(percentage)
-        self.status_label.setText(f"Converting... {percentage}% complete")
+        self.status_label.setText(f"Converting... {percentage}% complete") # pyrefly: ignore [missing-attribute]
 
     @Slot(int, str)
     def on_conversion_done(self, count, msg):
@@ -919,7 +917,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
 
         self.convert_progress_bar.hide()
         self.convert_progress_bar.setValue(0)  # Reset value
-        self.status_label.setText(f"{msg}")
+        self.status_label.setText(f"{msg}") # pyrefly: ignore [missing-attribute]
         self.worker = None
         if "cancelled" not in msg.lower():
             QMessageBox.information(self, "Complete", msg)
@@ -1169,9 +1167,9 @@ class FormatSubTab(AbstractClassTwoGalleries):
         self.btn_convert_all.setEnabled(False)
         self.convert_progress_bar.show()
         self.convert_progress_bar.setValue(0)
-        self.status_label.setText("Starting conversion (QML)...")
+        self.status_label.setText("Starting conversion (QML)...") # pyrefly: ignore [missing-attribute]
 
-        self.worker = ConversionWorker(files_for_conversion, config)
-        self.worker.progress_signal.connect(self.update_progress)
-        self.worker.finished_signal.connect(self.conversion_finished)
+        self.worker = ConversionWorker(config)
+        self.worker.progress_signal.connect(self.update_progress_bar)
+        self.worker.finished_signal.connect(self.on_conversion_done)
         self.worker.start()

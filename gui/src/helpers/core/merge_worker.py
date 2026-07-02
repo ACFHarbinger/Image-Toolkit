@@ -1,6 +1,7 @@
 import os
 
-from typing import List
+from PIL import Image as PILImage
+from typing import Dict, List, Union, Any
 from PySide6.QtCore import QObject, Signal
 from backend.src.core import FSETool, ImageMerger
 from backend.src.constants import SUPPORTED_IMG_FORMATS
@@ -13,7 +14,7 @@ class MergeWorker(QObject):
     error = Signal(str)
     cancelled = Signal()
 
-    def __init__(self, config: MergeConfig):
+    def __init__(self, config: Union[MergeConfig, Dict[str, Any]]):
         super().__init__()
         self.config = config
         self._should_stop = False
@@ -110,17 +111,15 @@ class MergeWorker(QObject):
     def _run_canvas_composite(self, output_path: str) -> None:
         """PIL-based free-placement composite from canvas layout."""
         try:
-            from PIL import Image as PILImage
-
-            layout: List[Dict] = self.config.get("canvas_layout", [])
-            if len(layout) < 2:
+            layout: List[Dict[str, Any]] | object | Any = self.config.get("canvas_layout", [])
+            assert hasattr(layout, '__len__')
+            if len(layout) < 2: # pyrefly: ignore [bad-argument-type]
                 self.error.emit("Need at least 2 images on the canvas.")
                 return
 
-            canvas_w: int = self.config.get("canvas_width", 1920)
-            canvas_h: int = self.config.get("canvas_height", 1080)
-            bg: str = self.config.get("canvas_background", "transparent")
-
+            canvas_w: int = self.config.get("canvas_width", 1920) # pyrefly: ignore [bad-assignment]
+            canvas_h: int = self.config.get("canvas_height", 1080) # pyrefly: ignore [bad-assignment]
+            bg: str = self.config.get("canvas_background", "transparent") # pyrefly: ignore [bad-assignment]
             if bg == "white":
                 result = PILImage.new("RGBA", (canvas_w, canvas_h), (255, 255, 255, 255))
             elif bg == "black":
@@ -128,8 +127,8 @@ class MergeWorker(QObject):
             else:
                 result = PILImage.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
 
-            total = len(layout)
-            for i, item in enumerate(layout):
+            total = len(layout) # pyrefly: ignore [bad-argument-type]
+            for i, item in enumerate(layout): # pyrefly: ignore [bad-argument-type]
                 if self._should_stop:
                     self.cancelled.emit()
                     return

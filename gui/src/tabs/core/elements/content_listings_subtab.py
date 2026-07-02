@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
-from send2trash import send2trash
+from send2trash import send2trash # pyrefly: ignore [untyped-import]
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtWidgets import (
     QWidget,
@@ -30,7 +30,7 @@ import backend.src.constants as udef
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 
 from gui.src.helpers.core.recommendation_worker import RecommendationWorker
-from gui.src.styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
+from gui.src.styles import apply_shadow_effect, SHARED_BUTTON_STYLE
 from gui.src.constants.listings import (
     ENTRY_TYPES,
     ENTRY_STATUS,
@@ -299,7 +299,7 @@ class ContentListingsSubTab(QWidget):
             password = self.vault_manager.raw_password
             salt = self.vault_manager.account_name
             try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
                 for row in rows:
                     id_, category, title, metadata_json, date_added = row
                     try:
@@ -328,18 +328,18 @@ class ContentListingsSubTab(QWidget):
             password = self.vault_manager.raw_password
             salt = self.vault_manager.account_name
             try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
                 for row in rows:
                     id_, category, _, _, _ = row
                     if category != "Entity":
-                        base.delete_listing_secure(db_path, password, salt, id_)
+                        base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
                 for entry in self._entries:
                     eid = entry.get("id")
                     ecat = entry.get("type", "Anime")
                     etitle = entry.get("title", "")
                     edate = entry.get("date_added", "")
                     meta = dict(entry)
-                    base.insert_listing_secure(
+                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
                         db_path,
                         password,
                         salt,
@@ -525,10 +525,9 @@ class ContentListingsSubTab(QWidget):
         while self._grid.count():
             item = self._grid.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
 
         visible = self._filtered_entries()
-
         if not visible:
             placeholder = QLabel(
                 "No entries found.\nClick '＋ Add Entry' to get started."
@@ -699,7 +698,7 @@ class ContentListingsSubTab(QWidget):
             password = self.vault_manager.raw_password
             salt = self.vault_manager.account_name
             try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
                 entities = []
                 for row in rows:
                     id_, category, title, metadata_json, date_added = row
@@ -731,9 +730,9 @@ class ContentListingsSubTab(QWidget):
 
                 if changed:
                     for ent in entities:
-                        base.delete_listing_secure(db_path, password, salt, ent["id"])
+                        base.delete_listing_secure(db_path, password, salt, ent["id"]) # pyrefly: ignore [missing-attribute]
                         meta = dict(ent)
-                        base.insert_listing_secure(
+                        base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
                             db_path,
                             password,
                             salt,
@@ -762,7 +761,7 @@ class ContentListingsSubTab(QWidget):
             password = self.vault_manager.raw_password
             salt = self.vault_manager.account_name
             try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt)
+                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
                 entities = []
                 for row in rows:
                     id_, category, title, metadata_json, date_added = row
@@ -787,9 +786,9 @@ class ContentListingsSubTab(QWidget):
 
                 if changed:
                     for ent in entities:
-                        base.delete_listing_secure(db_path, password, salt, ent["id"])
+                        base.delete_listing_secure(db_path, password, salt, ent["id"]) # pyrefly: ignore [missing-attribute]
                         meta = dict(ent)
-                        base.insert_listing_secure(
+                        base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
                             db_path,
                             password,
                             salt,
@@ -905,7 +904,7 @@ class ContentListingsSubTab(QWidget):
 
         # Create progress dialog
         self.progress_dialog = QProgressDialog(
-            "Starting synchronization...", None, 0, 100, self
+            "Starting synchronization...", "", 0, 100, self
         )
         self.progress_dialog.setWindowTitle("Synchronizing Backup")
         self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
@@ -942,7 +941,7 @@ class ContentListingsSubTab(QWidget):
     def _on_sync_finished(self, success, message, result_data):
         if getattr(self, "progress_dialog", None):
             self.progress_dialog.close()
-            self.progress_dialog = None
+            self.progress_dialog = None # pyrefly: ignore [bad-assignment]
 
         if success:
             merged_entries, synced_imgs = result_data
@@ -981,7 +980,7 @@ class ContentListingsSubTab(QWidget):
         enc_file_path = str(secrets_dir / "listings.json.enc")
 
         # Create progress dialog
-        self.progress_dialog = QProgressDialog("Starting backup...", None, 0, 100, self)
+        self.progress_dialog = QProgressDialog("Starting backup...", "", 0, 100, self)
         self.progress_dialog.setWindowTitle("Updating Backup")
         self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.progress_dialog.setMinimumDuration(0)
@@ -1016,7 +1015,7 @@ class ContentListingsSubTab(QWidget):
     def _on_backup_finished(self, success, message, result_data):
         if getattr(self, "progress_dialog", None):
             self.progress_dialog.close()
-            self.progress_dialog = None
+            self.progress_dialog = None # pyrefly: ignore [bad-assignment]
 
         if success:
             backup_count = result_data

@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 from moviepy.editor import VideoFileClip
 from PySide6.QtCore import QObject, Signal, QRunnable
 
@@ -25,7 +25,7 @@ class VideoExtractionWorker(QRunnable):
         start_ms: int,
         end_ms: int,
         output_path: str,
-        target_size: Optional[Tuple[int, int]] = None,
+        target_size: Optional[Union[Tuple[int | str, int | str], str]] = None,
         mute_audio: bool = False,
         use_ffmpeg: bool = False,
         speed: float = 1.0,
@@ -189,7 +189,7 @@ class VideoExtractionWorker(QRunnable):
 
                 if process.returncode != 0:
                     raise RuntimeError(
-                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}"
+                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}" # pyrefly: ignore [missing-attribute]
                     )
 
                 self.signals.progress.emit(100)
@@ -242,10 +242,10 @@ class VideoExtractionWorker(QRunnable):
                 clip = subclipped_base
 
             if self.target_size:
-                clip = clip.resize(newsize=self.target_size)
+                clip = clip.resize(newsize=self.target_size) # pyrefly: ignore [missing-attribute]
 
             if self.speed != 1.0:
-                clip = clip.speedx(self.speed)
+                clip = clip.speedx(self.speed) # pyrefly: ignore [missing-attribute]
 
             if clip.duration is not None and clip.audio is not None:
                 clip.audio = clip.audio.set_duration(clip.duration)

@@ -36,7 +36,7 @@ def test_wallpaper_graph_scene_connection_mode(q_app):
     # Node 2 is at (200, 200) with width 140, height 115
     scene.handle_connection_move(QPointF(250, 250))
     assert scene._hovered_target_node == scene._node_items[n2_id]
-    assert scene._node_items[n2_id]._hovered_orange is True
+    assert scene._node_items[n2_id]._hovered_orange is True # pyrefly: ignore [missing-attribute]
     assert scene._temp_connection_pos == QPointF(250, 250)
 
     # Press left mouse button on node 2 to connect them
@@ -46,7 +46,7 @@ def test_wallpaper_graph_scene_connection_mode(q_app):
     q_app.processEvents()
 
     # Verify edge is added between n1 and n2
-    edges = scene._graph.edges
+    edges = scene._graph.edges # pyrefly: ignore [missing-attribute]
     assert len(edges) == 1
     assert edges[0].source_id == n1_id
     assert edges[0].target_id == n2_id
@@ -54,7 +54,7 @@ def test_wallpaper_graph_scene_connection_mode(q_app):
     # Verify connection mode is ended
     assert scene._connecting_source_node_id is None
     assert scene._temp_connection_pos is None
-    assert scene._node_items[n2_id]._hovered_orange is False
+    assert scene._node_items[n2_id]._hovered_orange is False # pyrefly: ignore [missing-attribute]
 
 
 def test_wallpaper_graph_scene_cancel_connection_right_click(q_app):
@@ -79,4 +79,4 @@ def test_wallpaper_graph_scene_cancel_connection_right_click(q_app):
     # Verify connection mode ended without creating any edge
     assert scene._connecting_source_node_id is None
     assert scene._temp_connection_pos is None
-    assert len(scene._graph.edges) == 0
+    assert len(scene._graph.edges) == 0 # pyrefly: ignore [missing-attribute]

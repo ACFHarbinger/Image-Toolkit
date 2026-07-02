@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtGui import QBrush, QColor, QPainter, QMouseEvent
@@ -79,6 +80,7 @@ class WallpaperGraphView(QGraphicsView):
             sc = self.scene()
             if sc is None or not hasattr(sc, "_graph") or sc._graph is None:
                 return
+            assert isinstance(sc, WallpaperGraphScene)
             scene_pos = self.mapToScene(event.position().toPoint())
             for url in event.mimeData().urls():
                 path = url.toLocalFile()
@@ -99,6 +101,7 @@ class WallpaperGraphView(QGraphicsView):
     def mousePressEvent(self, event):
         sc = self.scene()
         if sc and getattr(sc, "_connecting_source_node_id", None):
+            assert isinstance(sc, WallpaperGraphScene)
             scene_pos = self.mapToScene(event.position().toPoint())
             sc.handle_connection_press(scene_pos, event.button())
             event.accept()
@@ -143,6 +146,7 @@ class WallpaperGraphView(QGraphicsView):
     def mouseMoveEvent(self, event):
         sc = self.scene()
         if sc and getattr(sc, "_connecting_source_node_id", None):
+            assert isinstance(sc, WallpaperGraphScene)
             scene_pos = self.mapToScene(event.position().toPoint())
             sc.handle_connection_move(scene_pos)
             event.accept()

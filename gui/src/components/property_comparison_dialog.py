@@ -23,16 +23,17 @@ class PropertyComparisonDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Image Property Comparison")
         self.setMinimumSize(600, 600)
-        self.layout = QVBoxLayout(self)
+        
+        main_layout = QVBoxLayout(self)
 
         self.property_data = property_data
         self.table = self._create_table(property_data)
 
-        self.layout.addWidget(self.table)
+        main_layout.addWidget(self.table)
 
         close_button = QPushButton("Close")
         close_button.clicked.connect(self.accept)
-        self.layout.addWidget(close_button)
+        main_layout.addWidget(close_button)
 
     def _create_table(self, data: List[Dict[str, Any]]) -> QTableWidget:
         if not data:
@@ -40,7 +41,7 @@ class PropertyComparisonDialog(QDialog):
             table.setHorizontalHeaderLabels(["No Images Selected"])
             return table
 
-        all_keys = set()
+        all_keys: set[str] = set()
         for item in data:
             all_keys.update(item.keys())
 
@@ -85,15 +86,15 @@ class PropertyComparisonDialog(QDialog):
 
                 item_prop = QTableWidgetItem(key)
                 item_prop.setBackground(bg_color)
-                item_prop.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-
-                item_name = QTableWidgetItem(img_name)
+                item_prop.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                
+                item_name = QTableWidgetItem(img_name) # pyrefly: ignore [no-matching-overload]
                 item_name.setBackground(bg_color)
-                item_name.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                item_name.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
                 item_val = QTableWidgetItem(val)
                 item_val.setBackground(bg_color)
-                item_val.setTextAlignment(Qt.AlignCenter)
+                item_val.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
                 table.setItem(current_row, 0, item_prop)
                 table.setItem(current_row, 1, item_name)
@@ -101,10 +102,10 @@ class PropertyComparisonDialog(QDialog):
 
                 current_row += 1
 
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Interactive)
-        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
+        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         table.setColumnWidth(1, 200)
-        table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         return table

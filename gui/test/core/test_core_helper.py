@@ -28,7 +28,7 @@ class TestConversionWorker:
         }
 
         with (
-            patch("os.path.exists", return_value=True),
+            patch("os.path.exists", side_effect=lambda p: "converted" not in str(p) and "out" not in str(p)),
             patch("os.path.isdir", return_value=False),
         ):
 
@@ -36,7 +36,7 @@ class TestConversionWorker:
 
             # Use a list to separate signals from potentially mocked ones
             finished_signals = []
-            worker.finished.connect(lambda c, m: finished_signals.append((c, m)))
+            worker.finished_signal.connect(lambda c, m: finished_signals.append((c, m)))
 
             worker.run()
 
@@ -55,7 +55,7 @@ class TestConversionWorker:
         }
 
         with (
-            patch("os.path.exists", return_value=True),
+            patch("os.path.exists", side_effect=lambda p: "converted" not in str(p) and "out" not in str(p)),
             patch("os.path.isdir", return_value=False),
         ):  # Treat as files
 
@@ -64,7 +64,7 @@ class TestConversionWorker:
 
             worker = ConversionWorker(config)
             finished_signals = []
-            worker.finished.connect(lambda c, m: finished_signals.append((c, m)))
+            worker.finished_signal.connect(lambda c, m: finished_signals.append((c, m)))
 
             worker.run()
 
@@ -93,6 +93,7 @@ class TestDeletionWorker:
             "mode": "files",
             "target_extensions": None,
             "require_confirm": False,
+            "send_to_trash": False,
         }
 
         with (
@@ -119,6 +120,7 @@ class TestDeletionWorker:
             "target_path": "/tmp/dir",
             "mode": "directory",
             "require_confirm": False,
+            "send_to_trash": False,
         }
 
         with (
@@ -208,7 +210,7 @@ class TestWallpaperWorker:
         # This one interacts with system, so just check basic connection logic
         with patch("gui.src.helpers.core.wallpaper_worker.WallpaperManager") as mock_wm:
             # Provide dummy monitors and qdbus
-            worker = WallpaperWorker("/tmp/img.jpg", [], None)
+            worker = WallpaperWorker({ "0": "/tmp/img.jpg" }, [], None)
 
             finished_signals = []
             # Signal is on .signals and named work_finished

@@ -32,7 +32,7 @@ from gui.src.constants.listings import (
     ENTRY_STATUS,
     LISTING_IMAGES_DIR,
 )
-from gui.src.styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
+from gui.src.styles import apply_shadow_effect, SHARED_BUTTON_STYLE
 from gui.src.components.frame_selection_dialog import FrameSelectionDialog
 from gui.src.helpers.web.mal_sync_worker import MalSyncWorker
 from gui.src.tabs.core.elements.common.listings_common import (

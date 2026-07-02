@@ -3,7 +3,7 @@ import os
 import pytest
 from unittest.mock import patch
 from PySide6.QtWidgets import QApplication
-from gui.src.windows.main_window import MainWindow
+from gui.src.windows.main.main_window import MainWindow
 
 pytestmark = pytest.mark.gui
 
@@ -79,7 +79,7 @@ class TestMainWindowSessionRecovery:
         
         # Patch set_config on SearchTab to check if it gets called
         with patch("gui.src.tabs.database.search_tab.SearchTab.set_config") as mock_set_config:
-            window = MainWindow(vault_manager=vault)
+            window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             # Process events to allow QTimer to fire
             QApplication.processEvents()
             
@@ -105,7 +105,7 @@ class TestMainWindowSessionRecovery:
             patch("gui.src.tabs.database.search_tab.SearchTab.collect", return_value={"search_key": "val1"}),
             patch("gui.src.tabs.core.convert_tab.ConvertTab.collect", return_value={"convert_key": "val2"})
         ):
-            window = MainWindow(vault_manager=vault)
+            window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             QApplication.processEvents()
             
             # Let's change current category and tab
@@ -148,7 +148,7 @@ class TestMainWindowSessionRecovery:
             patch("gui.src.tabs.database.search_tab.SearchTab.set_config") as mock_search_set,
             patch("gui.src.tabs.core.convert_tab.ConvertTab.set_config") as mock_convert_set
         ):
-            MainWindow(vault_manager=vault)
+            MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             QApplication.processEvents()
             
             # Only SearchTab (which is the active one) should be loaded
@@ -172,7 +172,7 @@ class TestMainWindowSessionRecovery:
         vault = MockVaultManager(creds)
         
         with patch("gui.src.tabs.database.search_tab.SearchTab.set_config") as mock_search_set:
-            window = MainWindow(vault_manager=vault)
+            window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             QApplication.processEvents()
             
             # Category/tab should default (e.g. System Tools) instead of restored
@@ -188,7 +188,7 @@ class TestMainWindowSessionRecovery:
             }
         }
         vault = MockVaultManager(creds)
-        window = MainWindow(vault_manager=vault)
+        window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
         QApplication.processEvents()
 
         expected_dir = LOCAL_SOURCE_PATH

@@ -64,7 +64,9 @@ class TestReverseSearchWorker:
             mock_inst = MagicMock()
             MockCrawler.return_value = mock_inst
 
-            worker = ReverseSearchWorker("/tmp/img.jpg", 100, 100, "Chrome")
+            worker = ReverseSearchWorker(
+                "/tmp/img.jpg", "google", 100, 100, "Chrome", top_k=20
+            )
 
             worker.run()
 

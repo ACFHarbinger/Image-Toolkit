@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from scipy.interpolate import RBFInterpolator
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from PySide6.QtCore import (
     Qt,
     QTimer,
@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
     QGraphicsItem,
 )
 
-from ....styles.style import apply_shadow_effect
+from ....styles import apply_shadow_effect
 
 
 def _bgr_to_qimage(bgr: np.ndarray) -> QImage:
@@ -74,7 +74,7 @@ class _MeshCanvas(QGraphicsView):
         self._rows = 5
         self._cols = 8
         self._orig_positions: Dict[Tuple[int, int], Tuple[float, float]] = {}
-        self._displaced: Optional[np.ndarray] = None
+        self._displaced: Optional[Any] = None
 
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setBackgroundBrush(QBrush(QColor("#111")))
@@ -151,7 +151,7 @@ class _MeshCanvas(QGraphicsView):
                 scene.addItem(item)
                 self._grid_lines.append(item)
 
-    def compute_warp(self) -> np.ndarray:
+    def compute_warp(self) -> Optional[Tuple[Any, Any]]:
         """Return warped image via thin-plate spline from pin displacements."""
         src_pts = []
         dst_pts = []
@@ -165,9 +165,8 @@ class _MeshCanvas(QGraphicsView):
         if not src_pts:
             return None
 
-        src = np.float32(src_pts)
-        dst = np.float32(dst_pts)
-
+        src = np.array(src_pts, dtype=np.float32)
+        dst = np.array(dst_pts, dtype=np.float32)
         try:
             xs = np.arange(self._img_w, dtype=np.float32)
             ys = np.arange(self._img_h, dtype=np.float32)
@@ -190,7 +189,7 @@ class _MeshCanvas(QGraphicsView):
             return map_x, map_y
 
         except ImportError:
-            tps = cv2.createThinPlateSplineShapeTransformer()
+            tps = cv2.createThinPlateSplineShapeTransformer()  # pyrefly: ignore[missing-attribute]
             tps.estimateTransformation(
                 dst.reshape(1, -1, 2),
                 src.reshape(1, -1, 2),

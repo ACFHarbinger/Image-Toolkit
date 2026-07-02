@@ -2,7 +2,7 @@ import os
 import math
 
 from pathlib import Path
-from send2trash import send2trash
+from send2trash import send2trash # pyrefly: ignore [untyped-import]
 from typing import Set, Dict, Any, List, Tuple, Optional
 from PySide6.QtGui import QPixmap, QImage, QAction, QResizeEvent, QColor
 from PySide6.QtCore import Qt, QThread, Slot, QPoint, QTimer, QThreadPool, QEventLoop
@@ -30,7 +30,7 @@ from ...classes import AbstractClassTwoGalleries
 from ...components import ClickableLabel, MarqueeScrollArea
 from ...utils.sort_utils import natural_sort_key
 from ...helpers import ImageScannerWorker, ImageLoaderWorker
-from ...styles.style import apply_shadow_effect
+from ...styles import apply_shadow_effect
 from backend.src.constants import LOCAL_SOURCE_PATH
 
 
@@ -48,7 +48,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.scan_filtered_list: list[str] = []
 
         self.selected_image_paths: Set[str] = set()
-        self.open_preview_windows: list[ImagePreviewWindow] = []
+        self.open_preview_windows: list[QWidget] = []
 
         # Database view filter state
         self.view_new_only: bool = False
@@ -227,7 +227,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.group_combo = QComboBox()
         self.group_combo.setEditable(True)
         self.group_combo.setPlaceholderText("Enter or select Group/Series name...")
-        self.group_combo.lineEdit().returnPressed.connect(
+        # pyrefly: ignore [missing-attribute]
+        self.group_combo.lineEdit().returnPressed.connect( 
             lambda: self.upsert_button.click()
         )
         group_layout.addWidget(self.group_combo)
@@ -237,6 +238,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.subgroup_combo = QComboBox()
         self.subgroup_combo.setEditable(True)
         self.subgroup_combo.setPlaceholderText("Enter or select Subgroup name...")
+        # pyrefly: ignore [missing-attribute]
         self.subgroup_combo.lineEdit().returnPressed.connect(
             lambda: self.upsert_button.click()
         )
@@ -320,13 +322,46 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.update_button_states(connected=False)
         self.populate_selected_images_gallery()
 
+    def create_card_widget(
+        self, path: str, pixmap: Optional[QPixmap], is_selected: bool
+    ) -> QWidget:
+        """Required by AbstractClassTwoGalleries base class."""
+        return self._create_gallery_card(path, pixmap, is_selected)
+
+    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]) -> None:
+        """Required by AbstractClassTwoGalleries base class."""
+        if not widget:
+            return
+        inner_label = widget.findChild(QLabel)
+        if inner_label:
+            if pixmap and not pixmap.isNull():
+                thumb_size = self.thumbnail_size
+                if pixmap.width() > thumb_size or pixmap.height() > thumb_size:
+                    scaled = pixmap.scaled(
+                        thumb_size,
+                        thumb_size,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.FastTransformation,
+                    )
+                    inner_label.setPixmap(scaled)
+                else:
+                    inner_label.setPixmap(pixmap)
+            else:
+                inner_label.setText("Error")
+                inner_label.setStyleSheet("color: #e74c3c; border: 1px solid #e74c3c;")
+
+    def on_selection_changed(self) -> None:
+        """Required by AbstractClassTwoGalleries base class."""
+        self.populate_selected_images_gallery()
+        self.update_button_states(connected=(self.db_tab_ref.db is not None))
+
     def _create_pagination_controls(self, prefix: str):
         # Use the common method from AbstractClassTwoGalleries to ensure consistent styling
         container, controls = self.common_create_pagination_ui()
 
         # Center alignment: Explicitly set horizontal center alignment
         if container.layout():
-            container.layout().setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            container.layout().setAlignment(Qt.AlignmentFlag.AlignHCenter) # pyrefly: ignore [missing-attribute]
 
         combo = controls["combo"]
         btn_prev = controls["btn_prev"]
@@ -337,7 +372,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # We also set a dummy menu immediately. This forces the UI to render the
         # dropdown arrow and reserve the correct spacing/size even before data is loaded.
         try:
-            btn_page.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            btn_page.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup) # pyrefly: ignore [missing-attribute]
         except AttributeError:
             pass  # Ignore if it is a QPushButton
 
@@ -364,7 +399,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
     def _on_scan_page_size_changed(self, text):
         if text == "All":
-            self.scan_page_size = float("inf")
+            self.scan_page_size = float("inf") # pyrefly: ignore [bad-assignment]
         else:
             self.scan_page_size = int(text)
         self.scan_current_page = 0
@@ -387,7 +422,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
     def _on_sel_page_size_changed(self, text):
         if text == "All":
-            self.selected_page_size = float("inf")
+            self.selected_page_size = float("inf") # pyrefly: ignore [bad-assignment]
         else:
             self.selected_page_size = int(text)
         self.selected_current_page = 0
@@ -408,13 +443,12 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             self.selected_current_page = index
             self.populate_selected_images_gallery()
 
-    def _update_pagination_ui(self, mode="scan"):
+    def _update_pagination_ui(self, is_found: bool, mode="scan"):
         if mode == "scan":
             total = len(self.scan_filtered_list)
             size = self.scan_page_size
             current = self.scan_current_page
             btn_page = self.scan_pag_btn
-
             if size == float("inf"):
                 self.scan_total_pages = 1
             else:
@@ -442,7 +476,6 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 )
                 menu.addAction(action)
             btn_page.setMenu(menu)
-
         else:
             total = len(self.selected_image_paths)
             size = self.selected_page_size
@@ -626,7 +659,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                 layout.addWidget(widget, 0, 0, 1, columns, align)
                 return
 
-            layout.addWidget(widget, row, col, align)
+            layout.addWidget(widget, row, col, align)  # pyrefly: ignore [bad-argument-type]
 
     # ---------------------------------------------------------
 
@@ -757,7 +790,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         while layout.count():
             item = layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
 
     def toggle_selection(self, path):
         if not path:
@@ -807,7 +840,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         all_selected = sorted(list(self.selected_image_paths), key=natural_sort_key)
 
         # 2. Update Pagination UI info
-        self._update_pagination_ui("selected")
+        self._update_pagination_ui(is_found=False, mode="selected")
 
         # 3. Calculate Slice
         start_idx = self.selected_current_page * self.selected_page_size
@@ -984,7 +1017,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         """Calculates the slice for the current page and initiates layout (images load lazily)."""
 
         # 1. Update Pagination UI
-        self._update_pagination_ui("scan")
+        self._update_pagination_ui(is_found=False, mode="scan")
 
         self._clear_gallery(self.scan_thumbnail_layout)
         self.path_to_wrapper_map.clear()
@@ -1132,7 +1165,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
         # Buffer now stores QImage to reduce memory footprint
         self._loaded_results_buffer.append(
-            (path, pixmap.toImage() if pixmap and not pixmap.isNull() else pixmap)
+            (path, pixmap.toImage() if pixmap and not pixmap.isNull() else pixmap) # pyrefly: ignore [bad-argument-type]
         )
 
         # --- Update the specific card ---
@@ -1444,7 +1477,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                         widget.setProperty("in_db", True)
                         inner_label = widget.findChild(QLabel)
                         self._update_card_style(
-                            inner_label, is_selected=True, is_in_db=True
+                            inner_label, is_selected=True, is_in_db=True # pyrefly: ignore [bad-argument-type]
                         )
 
             if self.view_new_only:
@@ -1483,7 +1516,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                     wrapper.setProperty("in_db", False)
                     inner_label = wrapper.findChild(QLabel)
                     self._update_card_style(
-                        inner_label, is_selected=True, is_in_db=False
+                        inner_label, is_selected=True, is_in_db=False # pyrefly: ignore [bad-argument-type]
                     )
 
             QMessageBox.information(self, "Success", "Deleted entries.")
