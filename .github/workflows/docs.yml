@@ -158,6 +158,8 @@ jobs:
             --exclude 'https://www\.postgresql\.org'
             --exclude 'https://vitest\.dev'
             --exclude 'https://www\.brendangregg\.com'
+            --exclude 'https://huggingface\.co/spaces'
+            --exclude 'https://ieeexplore\.ieee\.org'
             '**/*.md'
           fail: true
 
