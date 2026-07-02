@@ -5,14 +5,14 @@ import pytest
 
 from unittest.mock import patch
 from gui.src.tabs.animation.stitch_tab import EditTab
-from gui.src.tabs.animation.edge_graph_inspector_dialog import (
+from gui.src.tabs.animation.dialog.edge_graph_inspector_dialog import (
     EdgeGraphInspectorDialog,
-    _parse_edge_json,
+    parse_edge_json,
     _edge_graph_node_positions,
 )
-from gui.src.tabs.animation.canvas_layout_inspector_dialog import (
+from gui.src.tabs.animation.dialog.canvas_layout_inspector_dialog import (
     CanvasLayoutInspectorDialog,
-    _parse_canvas_json,
+    parse_canvas_json,
     _canvas_frame_corners,
 )
 
@@ -86,7 +86,7 @@ class TestParseEdgeJson:
         ]
         p = tmp_path / "edges.json"
         p.write_text(json.dumps(data))
-        result = _parse_edge_json(str(p))
+        result = parse_edge_json(str(p))
         assert len(result) == 2
         assert result[0]["i"] == 0
         assert result[0]["j"] == 1
@@ -96,7 +96,7 @@ class TestParseEdgeJson:
         data = [{"i": 0, "j": 1}]
         p = tmp_path / "edges.json"
         p.write_text(json.dumps(data))
-        result = _parse_edge_json(str(p))
+        result = parse_edge_json(str(p))
         assert result[0]["dx"] == 0.0
         assert result[0]["dy"] == 0.0
         assert result[0]["conf"] == 0.0
@@ -110,13 +110,13 @@ class TestParseEdgeJson:
         ]
         p = tmp_path / "edges.json"
         p.write_text(json.dumps(data))
-        result = _parse_edge_json(str(p))
+        result = parse_edge_json(str(p))
         assert len(result) == 1
 
     def test_empty_array_returns_empty_list(self, tmp_path):
         p = tmp_path / "edges.json"
         p.write_text("[]")
-        assert _parse_edge_json(str(p)) == []
+        assert parse_edge_json(str(p)) == []
 
 
 class TestEdgeGraphNodePositions:
@@ -186,7 +186,7 @@ class TestParseCanvasJson:
         }
         p = tmp_path / "canvas.json"
         p.write_text(json.dumps(data))
-        result = _parse_canvas_json(str(p))
+        result = parse_canvas_json(str(p))
         assert result["canvas_h"] == 800
         assert result["canvas_w"] == 2400
         assert result["frame_h"] == 400
@@ -204,7 +204,7 @@ class TestParseCanvasJson:
         }
         p = tmp_path / "canvas_no_dims.json"
         p.write_text(json.dumps(data))
-        result = _parse_canvas_json(str(p))
+        result = parse_canvas_json(str(p))
         assert result["frame_h"] == 0
         assert result["frame_w"] == 0
 
@@ -219,7 +219,7 @@ class TestParseCanvasJson:
         }
         p = tmp_path / "canvas_int.json"
         p.write_text(json.dumps(data))
-        result = _parse_canvas_json(str(p))
+        result = parse_canvas_json(str(p))
         row0 = result["affines_final"][0][0]
         assert all(isinstance(v, float) for v in row0)
 

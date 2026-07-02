@@ -9,7 +9,7 @@ from gui.src.tabs import (
     DeleteTab,
     ScanMetadataTab,
     SearchTab,
-    ImageExtractorTab,
+    ExtractorTab,
     MergeTab,
     ImageCrawlTab,
     DriveSyncTab,
@@ -38,10 +38,7 @@ class MainBackend(QObject):
         self._convert_tab = ConvertTab(dropdown=True)
         self._merge_tab = MergeTab()
         self._delete_tab = DeleteTab(dropdown=True)
-        self._image_extractor_tab = ImageExtractorTab()
-        self._delete_tab = DeleteTab()
-        self._merge_tab = MergeTab()
-        self._image_extractor_tab = ImageExtractorTab()
+        self._extractor_tab = ExtractorTab()
         self._wallpaper_tab = WallpaperTab(self._database_tab, self)
         
         self._crawler_tab = ImageCrawlTab()
@@ -93,7 +90,7 @@ class MainBackend(QObject):
     def deleteTab(self): return self._delete_tab
 
     @Property(QObject, constant=True)
-    def imageExtractorTab(self): return self._image_extractor_tab
+    def extractorTab(self): return self._extractor_tab
     
     @Property(QObject, constant=True)
     def wallpaperTab(self):

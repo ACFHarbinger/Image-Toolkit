@@ -3,7 +3,7 @@ import math
 
 from abc import abstractmethod
 from typing import List, Optional, Dict
-from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
+from PySide6.QtCore import Qt, Slot, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage, QPainter, QColor
 from PySide6.QtWidgets import (
     QWidget,
@@ -76,7 +76,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
         # Starting directory — restored from QSettings if available (GUI/UX §2.5)
         try:
-            self.last_browsed_scan_dir = self._load_last_dir(str(LOCAL_SOURCE_PATH))
+            self.last_browsed_scan_dir = self._load_last_dir(LOCAL_SOURCE_PATH)
         except Exception:
             self.last_browsed_scan_dir = os.getcwd()
 
@@ -93,7 +93,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         self.pagination_widget = self.create_pagination_controls()
 
         # Enable keyboard focus for shortcuts
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     # --- INLINE RENAME (GUI/UX §2.26B) ---
     def _rename_selected_file(self) -> None:
@@ -505,7 +505,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
         layout = QVBoxLayout(container)
         layout.setContentsMargins(5, 5, 5, 5)
-        layout.setAlignment(Qt.AlignCenter)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Factory method
         label = self.create_gallery_label(path, self.thumbnail_size)
@@ -563,7 +563,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             label.setScaledContents(False)
 
             if is_video:
-                # Match ImageExtractorTab style ("VIDEO" text, Blue border)
+                # Match ExtractorTab style ("VIDEO" text, Blue border)
                 label.setText("VIDEO")
                 label.setStyleSheet(
                     "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33;"
@@ -582,8 +582,8 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             scaled = pixmap.scaled(
                 self.thumbnail_size,
                 self.thumbnail_size,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             label.setPixmap(scaled)
             label.setText("")
@@ -949,7 +949,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             col = i % cols
             if self.gallery_layout:
                 self.gallery_layout.addWidget(
-                    card, row, col, Qt.AlignLeft | Qt.AlignTop
+                    card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
                 )
 
             # 5. DEFER Async Load (Visibility Check)
@@ -1070,7 +1070,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
         # Text
         painter.setPen(QColor("#e74c3c"))
-        painter.drawText(pixmap.rect(), Qt.AlignCenter, "No Thumbnail")
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "No Thumbnail")
         painter.end()
 
         return pixmap

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QWidget
 
 from gui.src.tabs.core.convert_tab import ConvertTab
 from gui.src.tabs.core.delete_tab import DeleteTab
-from gui.src.tabs.core.image_extractor_tab import ImageExtractorTab
+from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.tabs.core.merge_tab import MergeTab
 from gui.src.tabs.core.wallpaper_tab import WallpaperTab
 
@@ -18,7 +18,7 @@ pytestmark = pytest.mark.gui
 class TestConvertTab:
     @pytest.fixture
     def mock_worker(self):
-        with patch("gui.src.tabs.core.common.format_subtab.ConversionWorker") as mock:
+        with patch("gui.src.tabs.core.elements.format_subtab.ConversionWorker") as mock:
             yield mock
 
     def test_init(self, q_app):
@@ -28,7 +28,7 @@ class TestConvertTab:
 
     def test_start_conversion_no_files(self, q_app, mock_worker):
         # Mock message box to avoid blocking
-        with patch("gui.src.tabs.core.common.format_subtab.QMessageBox") as mock_mb:
+        with patch("gui.src.tabs.core.elements.format_subtab.QMessageBox") as mock_mb:
             tab = ConvertTab()
             tab.format_subtab.collect_paths = MagicMock(return_value=[])
 
@@ -38,7 +38,7 @@ class TestConvertTab:
             mock_mb.warning.assert_called()
 
     def test_start_conversion_success(self, q_app, mock_worker):
-        with patch("gui.src.tabs.core.common.format_subtab.os.path.isdir", return_value=True):
+        with patch("gui.src.tabs.core.elements.format_subtab.os.path.isdir", return_value=True):
             tab = ConvertTab()
             tab.format_subtab.input_path.setText("/tmp/in")
             tab.format_subtab.collect_paths = MagicMock(return_value=["/tmp/in/a.jpg"])
@@ -62,11 +62,11 @@ class TestWallpaperTab:
         from screeninfo import Monitor
         mock_monitor = Monitor(name="Display1", x=0, y=0, width=1920, height=1080, is_primary=True)
         with (
-            patch("gui.src.tabs.core.common.system_display_subtab.WallpaperWorker"),
-            patch("gui.src.tabs.core.common.wallpaper_common.ImageScannerWorker"),
-            patch("gui.src.tabs.core.common.wallpaper_common.VideoScannerWorker"),
+            patch("gui.src.tabs.core.elements.system_display_subtab.WallpaperWorker"),
+            patch("gui.src.tabs.core.elements.common.wallpaper_common_base.ImageScannerWorker"),
+            patch("gui.src.tabs.core.elements.common.wallpaper_common_base.VideoScannerWorker"),
             patch(
-                "gui.src.tabs.core.common.wallpaper_common.get_monitors",
+                "gui.src.tabs.core.elements.common.wallpaper_common_base.get_monitors",
                 return_value=[mock_monitor],
             ),
         ):
@@ -157,6 +157,42 @@ class TestWallpaperTab:
                 # 300 interval - 100 elapsed = 200 remaining (give or take a second due to timing)
                 assert 195 <= tab.system_display.time_remaining_sec <= 200
 
+    def test_monitor_display_selection_signal_once(self, q_app, mock_deps):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+        widget = tab.monitor_display.monitor_widgets.get("0")
+        assert widget is not None
+
+        with patch.object(tab.monitor_display, "_select_monitor") as mock_select:
+            # Emit clicked
+            widget.clicked.emit("0")
+            mock_select.assert_called_once_with("0")
+
+    def test_video_duration_caching(self, q_app):
+        from gui.src.tabs.core.elements.monitor_display_subtab import (
+            _get_video_duration,
+            _VIDEO_DURATION_CACHE,
+        )
+
+        # Clear cache first
+        _VIDEO_DURATION_CACHE.clear()
+
+        video_path = "/tmp/dummy_test_video.mp4"
+
+        with patch("gui.src.tabs.core.elements.monitor_display_subtab.subprocess.run") as mock_run:
+            mock_run.return_value.stdout = " 12.34 \n"
+
+            # First call
+            dur1 = _get_video_duration(video_path)
+            assert dur1 == 12.34
+            mock_run.assert_called_once()
+
+            # Second call (should be cached)
+            dur2 = _get_video_duration(video_path)
+            assert dur2 == 12.34
+            assert mock_run.call_count == 1
+            assert _VIDEO_DURATION_CACHE[video_path] == 12.34
+
+
 
 # --- DeleteTab Tests ---
 
@@ -180,31 +216,31 @@ class TestMergeTab:
         assert isinstance(tab, QWidget)
 
 
-# --- ImageExtractorTab Tests ---
+# --- ExtractorTab Tests ---
 
 
-class TestImageExtractorTab:
+class TestExtractorTab:
     def test_init(self, q_app):
         # Patch to avoid actual multimedia initialization
         with (
-            patch("gui.src.tabs.core.image_extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
         ):
-            tab = ImageExtractorTab()
+            tab = ExtractorTab()
             assert isinstance(tab, QWidget)
 
     def test_cancel_loading_does_not_stop_player(self, q_app):
         # Patch QMediaPlayer to avoid actual media player initialization and track calls
         with (
             patch(
-                "gui.src.tabs.core.image_extractor_tab.QMediaPlayer"
+                "gui.src.tabs.core.extractor_tab.QMediaPlayer"
             ) as mock_player_cls,
-            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
         ):
             mock_player = MagicMock()
             mock_player_cls.return_value = mock_player
 
-            tab = ImageExtractorTab()
+            tab = ExtractorTab()
             tab.media_player = mock_player
 
             # Call cancel_loading, which is triggered during gallery refreshes
@@ -222,8 +258,8 @@ class TestImageExtractorTab:
             cv2.CAP_PROP_FRAME_HEIGHT = 4
 
         with (
-            patch("gui.src.tabs.core.image_extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
         ):
             mock_vc = MagicMock()
             mock_vc.get.side_effect = lambda prop: {
@@ -244,7 +280,7 @@ class TestImageExtractorTab:
                 cv2.VideoCapture.return_value = mock_vc
 
             with ctx:
-                tab = ImageExtractorTab()
+                tab = ExtractorTab()
                 tab.video_path = __file__
                 tab.combo_extract_size.setCurrentText("Native")
 
@@ -258,10 +294,10 @@ class TestImageExtractorTab:
 
     def test_has_extracted_files_regex(self, q_app):
         with (
-            patch("gui.src.tabs.core.image_extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
         ):
-            tab = ImageExtractorTab()
+            tab = ExtractorTab()
             tab._extracted_stems_cache.clear()
             tab._extracted_stems_cache.add("my_cool_video")
             
@@ -270,10 +306,10 @@ class TestImageExtractorTab:
 
     def test_set_config_quiet_and_force_load(self, q_app, tmp_path):
         with (
-            patch("gui.src.tabs.core.image_extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.image_extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
         ):
-            tab = ImageExtractorTab()
+            tab = ExtractorTab()
             dummy_video = tmp_path / "dummy_video.mp4"
             dummy_video.write_text("dummy")
             
@@ -286,7 +322,7 @@ class TestImageExtractorTab:
             
             tab.load_media = MagicMock()
             
-            with patch("gui.src.tabs.core.image_extractor_tab.QMessageBox") as mock_box:
+            with patch("gui.src.tabs.core.extractor_tab.QMessageBox") as mock_box:
                 tab.set_config(config, quiet=True)
                 mock_box.information.assert_not_called()
                 tab.load_media.assert_called_with(str(dummy_video), force=True)
@@ -305,7 +341,7 @@ class TestListingsTab:
         assert tab.entity_listings is not None
 
     def test_listing_images_subdirectory(self):
-        from gui.src.tabs.core.common.listings_common import LISTING_IMAGES_DIR
+        from gui.src.tabs.core.elements.common.listings_common import LISTING_IMAGES_DIR
         from pathlib import Path
 
         assert LISTING_IMAGES_DIR is not None
@@ -313,7 +349,7 @@ class TestListingsTab:
         assert LISTING_IMAGES_DIR.name == "listing-images"
 
     def test_generate_thumbnail_from_file(self, tmp_path):
-        from gui.src.tabs.core.common.listings_common import generate_thumbnail_from_file
+        from gui.src.tabs.core.elements.common.listings_common import generate_thumbnail_from_file
 
         # Create a mock image file
         img_src = tmp_path / "test_image.png"
@@ -371,6 +407,8 @@ class TestListingsTab:
         class MockVaultManager:
             def __init__(self):
                 self.secret_key = "dummy_key"
+                self.raw_password = "dummy_password"
+                self.account_name = "dummy_account"
                 self.SecureJsonVault = MockSecureJsonVault
 
         vault_manager = MockVaultManager()
@@ -382,8 +420,13 @@ class TestListingsTab:
         # Mock message boxes to avoid blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args: None)
 
-        # 1. Update Backup should generate the encrypted file since it doesn't exist
-        tab.content_listings._update_encrypted_backup()
+        with (
+            patch("gui.src.tabs.core.elements.common.listings_common.base.fetch_all_listings_secure", return_value=[]),
+            patch("gui.src.tabs.core.elements.common.listings_common.base.delete_listing_secure"),
+            patch("gui.src.tabs.core.elements.common.listings_common.base.insert_listing_secure"),
+        ):
+            # 1. Update Backup should generate the encrypted file since it doesn't exist
+            tab.content_listings._update_encrypted_backup()
         tab.content_listings._backup_worker.wait()  # Wait for QThread to finish!
 
         enc_file = tmp_path / "assets" / "secrets" / "listings.json.enc"
@@ -401,6 +444,12 @@ class TestListingsTab:
             json.dump(remote_data, f)
 
         # 3. Synchronize - should load from backup and merge
-        tab.content_listings._synchronize_listings()
-        tab.content_listings._sync_worker.wait()  # Wait for QThread to finish!
+        with (
+            patch("gui.src.tabs.core.elements.common.listings_common.base.fetch_all_listings_secure", return_value=[]),
+            patch("gui.src.tabs.core.elements.common.listings_common.base.delete_listing_secure"),
+            patch("gui.src.tabs.core.elements.common.listings_common.base.insert_listing_secure"),
+        ):
+            tab.content_listings._synchronize_listings()
+            tab.content_listings._sync_worker.wait()  # Wait for QThread to finish!
+            q_app.processEvents()
         assert len(tab.content_listings._entries) == 2

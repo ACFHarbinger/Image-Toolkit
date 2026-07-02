@@ -84,7 +84,7 @@ class MainWindow(QWidget):
             DeleteTab,
             ScanMetadataTab,
             SearchTab,
-            ImageExtractorTab,
+            ExtractorTab,
             ListingsTab,
             MergeTab,
             StitchFeedbackTab,
@@ -221,7 +221,7 @@ class MainWindow(QWidget):
         self.drive_sync_tab = DriveSyncTab(vault_manager)
         self.wallpaper_tab = WallpaperTab(self.database_tab)
         self.web_requests_tab = WebRequestsTab()
-        self.image_extractor_tab = ImageExtractorTab() # pyrefly: ignore [bad-instantiation]
+        self.extractor_tab = ExtractorTab() # pyrefly: ignore [bad-instantiation]
         self.listings_tab = ListingsTab(vault_manager=vault_manager)
         self.train_tab = UnifiedTrainTab()
         self.generate_tab = UnifiedGenerateTab()
@@ -243,7 +243,7 @@ class MainWindow(QWidget):
                 "Convert": self.convert_tab,
                 "Merge": self.merge_tab,
                 "Delete": self.delete_tab,
-                "Extractor": self.image_extractor_tab,
+                "Extractor": self.extractor_tab,
                 "Display Wallpaper": self.wallpaper_tab,
                 "Listings": self.listings_tab,
             },
@@ -998,7 +998,7 @@ class MainWindow(QWidget):
                                     sanitized_cfg = self._sanitize_config_if_needed(
                                         tab_configs[tab_class_name]
                                     )
-                                    if tab_class_name == "ImageExtractorTab":
+                                    if tab_class_name == "ExtractorTab":
                                         avc = sanitized_cfg.get("active_videos_config", {})
                                         print(f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'")
                                     sig = inspect.signature(tab_instance.set_config)
@@ -1025,7 +1025,7 @@ class MainWindow(QWidget):
                                     sanitized_cfg = self._sanitize_config_if_needed(
                                         tab_configs[tab_class_name]
                                     )
-                                    if tab_class_name == "ImageExtractorTab":
+                                    if tab_class_name == "ExtractorTab":
                                         avc = sanitized_cfg.get("active_videos_config", {})
                                         print(f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'")
                                     sig = inspect.signature(tab_instance.set_config)
@@ -1103,7 +1103,7 @@ class MainWindow(QWidget):
                             try:
                                 cfg = tab_instance.collect()
                                 tab_class_name = type(tab_instance).__name__
-                                if tab_class_name == "ImageExtractorTab":
+                                if tab_class_name == "ExtractorTab":
                                     avc = cfg.get("active_videos_config", {})  # pyrefly: ignore [missing-attribute]
                                     print(f"[SAVE] {tab_class_name}.collect(): active_videos_config has {len(avc)} entries, video_path='{cfg.get('video_path', '')}'") # pyrefly: ignore [missing-attribute]
                                 tab_configs[tab_class_name] = cfg

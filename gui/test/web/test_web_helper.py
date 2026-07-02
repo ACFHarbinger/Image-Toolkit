@@ -2,7 +2,7 @@
 from unittest.mock import MagicMock, patch
 from gui.src.helpers.web.web_requests_worker import WebRequestsWorker
 from gui.src.helpers.web.reverse_search_worker import ReverseSearchWorker
-from gui.src.helpers.web.google_drive_sync_worker import GoogleDriveSyncWorker
+from gui.src.helpers.web.cloud.google_drive_sync_worker import GoogleDriveSyncWorker
 
 # --- WebRequestsWorker Tests ---
 
@@ -59,7 +59,7 @@ class TestReverseSearchWorker:
     def test_run(self, q_app):
         # Imports ReverseImageSearchCrawler from backend
         with patch(
-            "gui.src.helpers.web.reverse_search_worker.ReverseImageSearchCrawler"
+            "gui.src.helpers.web.reverse_search_worker.ReverseImageSearchManager"
         ) as MockCrawler:
             mock_inst = MagicMock()
             MockCrawler.return_value = mock_inst
@@ -79,7 +79,7 @@ class TestGoogleDriveSyncWorker:
     def test_run(self, q_app):
         # Imports GoogleDriveSync from backend
         with patch(
-            "gui.src.helpers.web.google_drive_sync_worker.GoogleDriveSync"
+            "gui.src.helpers.web.cloud.google_drive_sync_worker.GoogleDriveSync"
         ) as MockLogic:
             mock_inst = MagicMock()
             MockLogic.return_value = mock_inst

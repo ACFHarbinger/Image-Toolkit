@@ -2,7 +2,7 @@ import os
 
 from typing import Optional
 from screeninfo import Monitor
-from PySide6.QtCore import Qt, Signal, QMimeData
+from PySide6.QtCore import Qt, Signal, QMimeData, QTimer
 from PySide6.QtGui import (
     QPixmap,
     QDragEnterEvent,
@@ -35,6 +35,9 @@ class MonitorDropWidget(QLabel):
     # Emits (source_id, target_id) when a 'Swap Wallpapers' target is selected
     swap_requested_id = Signal(str, str)
 
+    # Emits (source_id, target_id) when a 'Swap Wallpaper Graph' target is selected
+    swap_graph_requested_id = Signal(str, str)
+
     # Emits (monitor_id, menu) to allow parent to add dynamic items
     context_menu_requested = Signal(str, QMenu)
 
@@ -50,10 +53,9 @@ class MonitorDropWidget(QLabel):
         self.drag_start_position = None
         self.other_monitors: list[tuple[str, str]] = []  # Added for multi-monitor swap
 
-        # --- NEW STATE TRACKERS ---
-        self._current_pixmap: Optional[QPixmap] = None
-        # Stores the original QPixmap (thumbnail or image) to enable proper resizing.
-        # --- END NEW STATE TRACKERS ---
+        self._click_timer = QTimer(self)
+        self._click_timer.setSingleShot(True)
+        self._click_timer.timeout.connect(self._handle_single_click)
 
         self.setAcceptDrops(True)
         self.setAlignment(Qt.AlignCenter)
@@ -224,7 +226,7 @@ class MonitorDropWidget(QLabel):
 
         menu.addSeparator()
         if self.other_monitors:
-            swap_menu = menu.addMenu("Swap Wallpapers with...")
+            swap_menu = menu.addMenu("Swap Wallpaper Queue with...")
             for target_id, target_name in self.other_monitors:
                 action = swap_menu.addAction(f"{target_name} (ID: {target_id})")
                 action.triggered.connect(
@@ -232,11 +234,24 @@ class MonitorDropWidget(QLabel):
                         self.monitor_id, tid
                     )
                 )
+                
+            swap_graph_menu = menu.addMenu("Swap Wallpaper Graph with...")
+            for target_id, target_name in self.other_monitors:
+                action = swap_graph_menu.addAction(f"{target_name} (ID: {target_id})")
+                action.triggered.connect(
+                    lambda _, tid=target_id: self.swap_graph_requested_id.emit(
+                        self.monitor_id, tid
+                    )
+                )
         else:
             # Fallback for 2-monitor legacy case or if targets not populated
-            swap_action = menu.addAction("Swap Wallpapers (Monitor switch)")
+            swap_action = menu.addAction("Swap Wallpaper Queue (Monitor switch)")
             swap_action.triggered.connect(
                 lambda: self.swap_requested_id.emit(self.monitor_id, "")
+            )
+            swap_graph_action = menu.addAction("Swap Wallpaper Graph (Monitor switch)")
+            swap_graph_action.triggered.connect(
+                lambda: self.swap_graph_requested_id.emit(self.monitor_id, "")
             )
 
         # Let parent (WallpaperTab) add dynamic items (like "Set Active Wallpaper")
@@ -244,15 +259,19 @@ class MonitorDropWidget(QLabel):
 
         menu.exec(event.globalPos())
 
+    def _handle_single_click(self):
+        self.clicked.emit(self.monitor_id)
+
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
+            self._click_timer.stop()
             self.double_clicked.emit(self.monitor_id)
         super().mouseDoubleClickEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
             self.drag_start_position = event.pos()
-            self.clicked.emit(self.monitor_id)
+            self._click_timer.start(QApplication.doubleClickInterval())
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
@@ -265,6 +284,7 @@ class MonitorDropWidget(QLabel):
         ).manhattanLength() < QApplication.startDragDistance():
             return
 
+        self._click_timer.stop()
         drag = QDrag(self)
         mime_data = QMimeData()
         mime_data.setText(self.monitor_id)

@@ -3,7 +3,7 @@ import json
 import pytest
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox
-from gui.src.tabs.core.image_extractor_tab import ImageExtractorTab
+from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.windows.settings_window import SettingsWindow
 from backend.src.constants import IMAGE_TOOLKIT_DIR, DAEMON_CONFIG_PATH
 
@@ -21,11 +21,11 @@ def test_extraction_history_limit_and_pruning(qapp, tmp_path, monkeypatch):
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
     monkeypatch.setattr(
-        "gui.src.tabs.core.image_extractor_tab.IMAGE_TOOLKIT_DIR", test_dir
+        "gui.src.tabs.core.extractor_tab.IMAGE_TOOLKIT_DIR", test_dir
     )
 
     # Instantiate tab
-    tab = ImageExtractorTab()
+    tab = ExtractorTab()
 
     # Check initial empty state
     assert tab.recent_runs == []
@@ -98,7 +98,7 @@ def test_extraction_history_limit_and_pruning(qapp, tmp_path, monkeypatch):
 
     # Verify that saving/loading keeps it correct
     # Create a new tab instance (it should reload from the same mocked directory)
-    tab2 = ImageExtractorTab()
+    tab2 = ExtractorTab()
     assert len(tab2.recent_runs) == 2
     assert tab2.recent_runs[0]["video_path"] == "video3.mp4"
     assert f1 not in tab2.extraction_metadata
@@ -160,11 +160,11 @@ def test_settings_window_reload_and_profile_update(qapp, monkeypatch):
             self.data = {
                 "account_name": "test_user",
                 "theme": "dark",
-                "active_tab_configs": {"ImageExtractorTab": "None (Default)"},
+                "active_tab_configs": {"ExtractorTab": "None (Default)"},
                 "system_preference_profiles": {
                     "ExistingProfile": {
                         "theme": "light",
-                        "active_tab_configs": {"ImageExtractorTab": "None (Default)"},
+                        "active_tab_configs": {"ExtractorTab": "None (Default)"},
                     }
                 },
                 "preferences": {
@@ -220,10 +220,10 @@ def test_export_finished_records_history(qapp, tmp_path, monkeypatch):
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
     monkeypatch.setattr(
-        "gui.src.tabs.core.image_extractor_tab.IMAGE_TOOLKIT_DIR", test_dir
+        "gui.src.tabs.core.extractor_tab.IMAGE_TOOLKIT_DIR", test_dir
     )
 
-    tab = ImageExtractorTab()
+    tab = ExtractorTab()
     assert tab.recent_runs == []
 
     # Mock extraction_dir
