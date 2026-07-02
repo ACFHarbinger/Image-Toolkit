@@ -139,6 +139,16 @@ _SEAM_BATCH: bool = BATCH_AVAILABLE and os.environ.get("ASP_SEAM_BATCH", "0") !=
 # (ASP_MULTIBAND_BLEND=1, default OFF — adds blender overhead, best for large canvases).
 _MULTIBAND_BLEND: bool = BATCH_AVAILABLE and os.environ.get("ASP_MULTIBAND_BLEND", "0") != "0"
 
+# §4.6 — MultiBand confidence-weighted blending. Only takes effect when
+# _MULTIBAND_BLEND is also enabled. Replaces the hard 0/255 GraphCut
+# ownership mask fed to MultiBandBlender with a smoothly-varying per-frame
+# confidence mask (distance-to-seam + bg-mask-edge softening + ECC
+# agreement), so the blend pyramid weights uncertain transition pixels more
+# gently instead of a binary cut. Default OFF — adds a small amount of
+# distance-transform + ECC overhead per composite.
+_MULTIBAND_CONF: bool = BATCH_AVAILABLE and os.environ.get("ASP_MULTIBAND_CONF", "0") != "0"
+_MULTIBAND_CONF_BAND_PX: int = int(os.environ.get("ASP_MULTIBAND_CONF_BAND_PX", "24"))
+
 # §1.4D — Multi-scale spatially-varying gain normalisation (S46).
 # When enabled, replaces the single-scalar bg gain with a Gaussian-blur-derived
 # per-pixel gain map so that non-uniform panel lighting (darker at top, lighter
@@ -4801,6 +4811,108 @@ def _equalize_warped_gains(
     return result
 
 
+def _compute_ecc_confidence(
+    crop_a: np.ndarray,
+    crop_b: np.ndarray,
+    mask: Optional[np.ndarray] = None,
+) -> float:
+    """§4.6 — cv2.computeECC-based agreement score between two same-shape
+    crops, mapped from [-1, 1] to a [0, 1] confidence. Higher agreement
+    (better photometric/geometric alignment between this frame's content
+    and its neighbours' in the overlap band) means higher confidence."""
+    if crop_a.size == 0 or crop_a.shape != crop_b.shape:
+        return 0.5
+    try:
+        ga = cv2.cvtColor(crop_a, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        gb = cv2.cvtColor(crop_b, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        m = mask if mask is None else np.ascontiguousarray(mask.astype(np.uint8))
+        cc = cv2.computeECC(ga, gb, m)
+        if not np.isfinite(cc):
+            return 0.5
+        return float(np.clip((cc + 1.0) / 2.0, 0.0, 1.0))
+    except cv2.error:
+        return 0.5
+
+
+def _compute_multiband_confidence(
+    gc_frames: List[np.ndarray],
+    ownership: List[np.ndarray],
+    bg_masks: List[Optional[np.ndarray]],
+    band_px: int = _MULTIBAND_CONF_BAND_PX,
+) -> List[np.ndarray]:
+    """§4.6 MultiBand Confidence-Weighted Blending.
+
+    Builds a smoothly-varying per-frame confidence mask (uint8, 0-255) for
+    cv::detail::MultiBandBlender.feed(), replacing the hard 0/255 GraphCut
+    ownership label. Combines three signals:
+
+      - dist_to_seam: distance-transform softening near the GraphCut
+        boundary -- full confidence deep inside a frame's owned region,
+        tapering to 0.5 right at the seam, so the blend pyramid weights
+        uncertain transition pixels more gently than a binary cut.
+      - bg_conf: distance-transform softening near the BiRefNet fg/bg mask
+        edge -- least confident right at the character silhouette, most
+        confident away from it in either direction.
+      - ecc_conf: per-frame agreement (cv2.computeECC) between this frame's
+        owned content and the union of all *other* frames' owned content,
+        restricted to the seam-adjacent band (cheap -- not a full-frame
+        pass). Stands in for the "ECC residual" signal from Stage 8 without
+        threading state through the whole pipeline.
+
+    conf = own_binary * dist_to_seam_norm * bg_conf * ecc_conf, scaled to
+    [0, 255]. own_binary keeps coverage identical to the hard GraphCut
+    ownership (0 stays 0 -- WHICH frame owns a pixel is unchanged); only the
+    *weighting* within an owned region is graded.
+    """
+    n = len(gc_frames)
+    confidences: List[np.ndarray] = []
+
+    for i in range(n):
+        own = (ownership[i] > 127).astype(np.uint8)
+        if own.sum() == 0:
+            confidences.append(np.zeros(own.shape, dtype=np.uint8))
+            continue
+
+        dist = cv2.distanceTransform(own * 255, cv2.DIST_L2, 5)
+        dist_conf = 0.5 + 0.5 * np.clip(dist / max(1, band_px), 0.0, 1.0)
+
+        bg_conf = np.ones_like(dist_conf)
+        bmask = bg_masks[i] if i < len(bg_masks) else None
+        if bmask is not None:
+            fg = (~bmask.astype(bool)).astype(np.uint8)
+            fg_dist = cv2.distanceTransform(fg * 255, cv2.DIST_L2, 5)
+            bg_dist = cv2.distanceTransform((1 - fg) * 255, cv2.DIST_L2, 5)
+            edge_dist = np.minimum(fg_dist, bg_dist)
+            bg_conf = 0.6 + 0.4 * np.clip(edge_dist / max(1, band_px), 0.0, 1.0)
+
+        ecc_conf_scalar = 1.0
+        band = (dist < band_px) & own.astype(bool)
+        if band.sum() > 64:
+            others = np.zeros_like(gc_frames[i])
+            has_other = np.zeros(own.shape, dtype=bool)
+            for j in range(n):
+                if j == i:
+                    continue
+                oj = ownership[j] > 127
+                others[oj] = gc_frames[j][oj]
+                has_other |= oj
+            band = band & has_other
+            if band.sum() > 64:
+                ys, xs = np.where(band)
+                y0, y1 = int(ys.min()), int(ys.max()) + 1
+                x0, x1 = int(xs.min()), int(xs.max()) + 1
+                ecc_conf_scalar = _compute_ecc_confidence(
+                    gc_frames[i][y0:y1, x0:x1],
+                    others[y0:y1, x0:x1],
+                    band[y0:y1, x0:x1],
+                )
+
+        conf = own.astype(np.float32) * dist_conf * bg_conf * ecc_conf_scalar
+        confidences.append(np.clip(conf * 255.0, 0, 255).astype(np.uint8))
+
+    return confidences
+
+
 def _composite_foreground(
     warped_corr: List[np.ndarray],
     warped_fgs: List[np.ndarray],
@@ -5545,8 +5657,17 @@ def _composite_foreground(
             result = canvas.copy()
             if _MULTIBAND_BLEND:
                 print(f"[Stitch]   §4.6 MultiBand blend ({N} frames, 5 bands)...")
+                _mb_feed_masks = _ownership
+                if _MULTIBAND_CONF:
+                    _mb_feed_masks = _compute_multiband_confidence(
+                        _gc_frames, _ownership, warped_bg
+                    )
+                    print(
+                        f"[Stitch]   §4.6 confidence-weighted feed masks "
+                        f"(band={_MULTIBAND_CONF_BAND_PX}px)."
+                    )
                 _mb = batch.compositing.multiband_blend(
-                    _gc_frames, _ownership, _gc_corners, num_bands=5
+                    _gc_frames, _mb_feed_masks, _gc_corners, num_bands=5
                 )
                 rh, rw = min(_mb.shape[0], H), min(_mb.shape[1], W)
                 result[:rh, :rw] = _mb[:rh, :rw]
@@ -6313,6 +6434,10 @@ def _composite_foreground(
 
 __all__ = [
     "_composite_foreground",
+    "_compute_multiband_confidence",
+    "_compute_ecc_confidence",
+    "_MULTIBAND_CONF",
+    "_MULTIBAND_CONF_BAND_PX",
     "_feather_gc_boundaries",
     "_GC_FEATHER_PX",
     "_get_seam_cost_flags",

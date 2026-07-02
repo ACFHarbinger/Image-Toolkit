@@ -2196,7 +2196,7 @@ PPO agent over the ASP compositing parameter space (feather width, seam cost wei
 
 ---
 
-### §4.6 MultiBand Confidence-Weighted Blending [Priority: Low — quality]
+### §4.6 MultiBand Confidence-Weighted Blending ✅ [Priority: Low — quality]
 
 **What OpenCV does**: `cv2.detail_MultiBandBlender.feed(img, mask, tl)` accepts 8-bit or float masks. The mask encodes per-pixel confidence (0=exclude, 255=full confidence). OpenCV blends at each pyramid level weighted by the confidence mask at that resolution.
 
@@ -2204,7 +2204,15 @@ PPO agent over the ASP compositing parameter space (feather width, seam cost wei
 
 **Gap**: ASP has access to several confidence signals that could generate richer blend masks: (a) ECC alignment residual per frame (§S8); (b) BiRefNet confidence scores from bg_masks; (c) distance to seam path. Feeding multi-signal confidence maps into MultiBandBlender would produce smoother transitions in uncertain regions.
 
-**Implementation**: Compute per-pixel confidence as `conf = bg_conf * (1 - ecc_residual_norm) * dist_to_seam_norm`. Pass as float32 mask to `MultiBandBlender.feed()`. `ASP_MULTIBAND_CONF=1` flag. Requires Stage 4 bg_mask confidence values and Stage 8 residuals to be threaded through to Stage 11. Medium refactor — coordinate channels only, no new deps.
+**Implementation** *(shipped S204)*: `_compute_multiband_confidence(gc_frames, ownership, bg_masks, band_px)` in `backend/src/animation/rendering/compositing.py` builds `conf = own_binary * dist_to_seam_norm * bg_conf * ecc_conf` per frame, scaled to a uint8 [0, 255] mask:
+- `dist_to_seam_norm` — `cv2.distanceTransform` on the hard GraphCut ownership label, mapped to `[0.5, 1.0]` (full confidence deep inside a frame's owned region, tapering to 0.5 at the seam boundary over `ASP_MULTIBAND_CONF_BAND_PX` pixels, default 24).
+- `bg_conf` — `cv2.distanceTransform` softening at the BiRefNet fg/bg mask edge, mapped to `[0.6, 1.0]` (least confident right at the character silhouette).
+- `ecc_conf` — `_compute_ecc_confidence()`: `cv2.computeECC` agreement between this frame's owned content and the union of all *other* frames' owned content, restricted to the seam-adjacent band only (cheap — not a full-frame pass). Stands in for the Stage 8 ECC residual signal without threading state through the whole pipeline.
+- `own_binary` keeps pixel *ownership* (which frame wins) byte-identical to the hard GraphCut label — only the blend *weighting* within an owned region is graded, so this cannot regress coverage.
+
+**Critical fix required to make this take effect**: `base/src/animation/compositing.cpp`'s `multiband_blend_impl` was hard-binarizing every mask (`cv::Mat mask8 = (masks[i] > 0);`) before calling `cv::detail::MultiBandBlender::feed()`, which silently discarded any gradation — a purely Python-side confidence mask would have had zero effect. Fixed to pass the mask through as-is (`CV_Assert(masks[i].type() == CV_8UC1)`); `MultiBandBlender::feed()` already normalizes an 8U mask to a `[0,1]` float weight map and builds a Gaussian pyramid of those weights internally, so existing hard 0/255 callers are byte-identical (0 stays 0, 255 stays 255) while a graded mask now genuinely softens the blend.
+
+Gate: `ASP_MULTIBAND_CONF=1` (default OFF; only takes effect when `ASP_MULTIBAND_BLEND=1` is also set). Exported in `compositing.py __all__`. 10 new Python tests (`TestComputeEccConfidence`, `TestComputeMultibandConfidence` in `test_compositing.py`) + 1 new Catch2 regression test (`multiband_blend: graded confidence mask changes overlap blend vs opaque mask` in `test_compositing.cpp`) guarding against the binarization bug recurring.
 
 ---
 
@@ -3516,14 +3524,14 @@ GraphCut default-ON (S161) reduces seam_visibility in well-textured areas, but a
 *Effort scale* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or data-gated
 *Impact scale* — **Low**: aesthetic or niche QoL · **Medium**: targeted corpus subset · **High**: pipeline-wide quality gain · **Very High**: architectural unlock or near-perfect ceiling
 
-*Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S196 (2026-06-25).*
+*Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S204 (2026-07-02).*
 
 > **⚠ CRITICAL — Test Suite Freeze:** Before running `pytest backend/test/`, see `moon/roadmaps/performance.md §3.10–§3.14`. Root Cause #1 (unconditional `from diffusers import DiffusionPipeline` in `anim_fill.py`) **fixed in S140**. Root Causes #2–#5 (model singletons, ThreadPoolExecutor storm, per-test gc.collect(), no process isolation) are documented in performance.md with CRITICAL-priority fix options.
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
 | **Low (<1d)** | — | — | ✅§4.3 Wave correction (detail.waveCorrect) · ✅§4.5 Canvas-space DpSeamFinder (S162) · ✅§4.8 SeamVisGate (S163) · ✅§4.9 Seam band smoothing (S164, default OFF) · ✅§5.3 CGUGate (S166) · ✅§5.1 Seam lum-step correction (S166, default OFF) | — |
-| **Medium (1d–1w)** | — | — | ✅§4.1 BlocksGainCompensator (strip_banding fix) · ✅§4.4 BlocksChannelsCompensator · ✅§3.33 Feathered GC boundary (S164) · ✅§4.10 Global gain equalization (S165) · §4.6 MultiBand confidence weighting | ✅§4.2 GraphCut global seam (default-ON S161) · ✅§4.7 dy_cv gate (SCANS fallback S161) · ✅§4.8 SeamVisGate (S163) |
+| **Medium (1d–1w)** | — | — | ✅§4.1 BlocksGainCompensator (strip_banding fix) · ✅§4.4 BlocksChannelsCompensator · ✅§3.33 Feathered GC boundary (S164) · ✅§4.10 Global gain equalization (S165) · ✅§4.6 MultiBand confidence weighting (S204) | ✅§4.2 GraphCut global seam (default-ON S161) · ✅§4.7 dy_cv gate (SCANS fallback S161) · ✅§4.8 SeamVisGate (S163) |
 | **High (1–2w)** | — | — | §2.10 SAM2Flow interactive (A/B, model-dependent) · §3.5 CamFlow MET (model-dependent) | — |
 | **Very High (2w+ / data-gated)** | — | — | §3.7 UDIS++ diffusion seam (end-to-end replacement) | §10C1 SAM-2 anime fine-tune · §10C2 Pose contrastive fine-tune · §10C3 PPO parameter optimization |
 

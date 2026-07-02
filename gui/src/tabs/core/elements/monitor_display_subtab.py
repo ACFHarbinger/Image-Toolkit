@@ -11,12 +11,12 @@ from typing import Dict, List, Optional, Tuple
 from PySide6.QtCore import Qt, QPointF, QTimer, Slot, QPoint
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QGroupBox, QDialog,
+    QComboBox, QDoubleSpinBox, QSpinBox, QGroupBox, QDialog,
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QRadioButton, QButtonGroup, QStackedWidget,
     QFileDialog, QMessageBox, QMenu, QLabel,
     QLineEdit, QGridLayout, QPushButton,
-    QListWidget, QListWidgetItem,
+    QListWidget, QListWidgetItem, QInputDialog,
 )
 from screeninfo import Monitor
 
@@ -89,6 +89,12 @@ def _build_traversal(graph: GraphData) -> List[Tuple[str, float]]:
     to repeat the node, then the next unused edge continues the chain).
     Each edge can only be consumed once, which bounds the walk to at most
     len(graph.edges) hops and terminates any cycle.
+
+    An edge's repeat_count (default 1) repeats its target node back-to-back
+    that many times before the traversal continues from it -- equivalent to
+    repeat_count separate consecutive edges into copies of the same target,
+    without having to actually create them. Most useful on self-edges that
+    should repeat many times in a row.
     """
     if not graph.nodes:
         return []
@@ -129,6 +135,12 @@ def _build_traversal(graph: GraphData) -> List[Tuple[str, float]]:
             break  # no unused outgoing edges — sink or cycle exhausted
         used_edges.add((next_edge.source_id, next_edge.edge_id))
         current = next_edge.target_id
+
+        repeat = max(1, getattr(next_edge, "repeat_count", 1))
+        if repeat > 1:
+            target_nd = graph.nodes.get(current)
+            if target_nd is not None:
+                seq.extend([(target_nd.file_path, _node_duration(target_nd))] * (repeat - 1))
 
     return seq
 
@@ -497,6 +509,16 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         add_edge_row = QHBoxLayout()
         self._props_edge_target_combo = QComboBox()
         add_edge_row.addWidget(self._props_edge_target_combo, 1)
+        add_edge_row.addWidget(QLabel("×"))
+        self._props_edge_repeat_spin = QSpinBox()
+        self._props_edge_repeat_spin.setRange(1, 999)
+        self._props_edge_repeat_spin.setValue(1)
+        self._props_edge_repeat_spin.setToolTip(
+            "Number of times the target wallpaper repeats back-to-back "
+            "when this edge is taken"
+        )
+        self._props_edge_repeat_spin.setFixedWidth(56)
+        add_edge_row.addWidget(self._props_edge_repeat_spin)
         self._props_edge_add_btn = QPushButton("+ Add Edge")
         self._props_edge_add_btn.clicked.connect(self._add_props_edge)
         add_edge_row.addWidget(self._props_edge_add_btn)
@@ -798,10 +820,11 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             for e in src_edges:
                 target_nd = graph.nodes.get(e.target_id)
                 fname = os.path.basename(target_nd.file_path) if target_nd else "?"
+                repeat_suffix = f"  ×{e.repeat_count}" if e.repeat_count > 1 else ""
                 if e.target_id == node_id:
-                    label = f"#{e.edge_id}  →  (self) {fname}"
+                    label = f"#{e.edge_id}  →  (self) {fname}{repeat_suffix}"
                 else:
-                    label = f"#{e.edge_id}  →  {fname}"
+                    label = f"#{e.edge_id}  →  {fname}{repeat_suffix}"
                 item = QListWidgetItem(label)
                 item.setData(Qt.ItemDataRole.UserRole, e.edge_id)
                 self._props_edges_list.addItem(item)
@@ -821,7 +844,9 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         target_id = self._props_edge_target_combo.currentData()
         if not target_id:
             return
-        self._scene.add_edge(self._props_node_id, target_id)
+        repeat_count = self._props_edge_repeat_spin.value()
+        self._scene.add_edge(self._props_node_id, target_id, repeat_count=repeat_count)
+        self._props_edge_repeat_spin.setValue(1)
         # add_edge() already emits graph_changed, which refreshes this list,
         # but do it explicitly too in case a future refactor decouples them.
         self._populate_props_edges_list(self._props_node_id)
@@ -831,12 +856,30 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         if not item or self._props_node_id is None:
             return
         edge_id = item.data(Qt.ItemDataRole.UserRole)
+        graph = self._current_graph()
+        current_repeat = 1
+        if graph:
+            for e in graph.edges:
+                if e.source_id == self._props_node_id and e.edge_id == edge_id:
+                    current_repeat = e.repeat_count
+                    break
         menu = QMenu(self)
+        act_repeat = menu.addAction(f"Set Repeat Count… (currently ×{current_repeat})")
         act_del = menu.addAction(f"🗑 Remove Edge #{edge_id}")
         chosen = menu.exec(self._props_edges_list.mapToGlobal(pos))
         if chosen == act_del:
             self._scene.remove_edge(self._props_node_id, edge_id)
             self._populate_props_edges_list(self._props_node_id)
+        elif chosen == act_repeat:
+            value, ok = QInputDialog.getInt(
+                self, "Set Repeat Count",
+                "Number of times the target wallpaper repeats\n"
+                "back-to-back when this edge is taken:",
+                current_repeat, 1, 999,
+            )
+            if ok:
+                self._scene.set_edge_repeat_count(self._props_node_id, edge_id, value)
+                self._populate_props_edges_list(self._props_node_id)
 
     def _on_props_edges_reordered(self, *args):
         if self._props_node_id is None:

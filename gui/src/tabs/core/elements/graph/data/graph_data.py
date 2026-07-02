@@ -64,7 +64,12 @@ class GraphData:
                 for nid, nd in self.nodes.items()
             },
             "edges": [
-                {"edge_id": e.edge_id, "source_id": e.source_id, "target_id": e.target_id}
+                {
+                    "edge_id": e.edge_id,
+                    "source_id": e.source_id,
+                    "target_id": e.target_id,
+                    "repeat_count": e.repeat_count,
+                }
                 for e in self.edges
             ],
             "end_behavior": self.end_behavior,

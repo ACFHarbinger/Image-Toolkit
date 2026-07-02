@@ -100,7 +100,9 @@ class EdgeItem(QGraphicsObject):
         
         # Add the label rectangle to the clickable shape
         lp = self._label_pos
-        text_rect = QRectF(lp.x() - 14, lp.y() - 9, 28, 18)
+        repeat = getattr(self.edge_data, "repeat_count", 1)
+        label_w = 28 if repeat <= 1 else 28 + 9 * len(str(repeat))
+        text_rect = QRectF(lp.x() - label_w / 2, lp.y() - 9, label_w, 18)
         shape_path.addRect(text_rect)
         return shape_path
 
@@ -127,14 +129,16 @@ class EdgeItem(QGraphicsObject):
         painter.drawPath(self._path)
         self._draw_arrowhead(painter, color)
 
-        # Edge ID label
+        # Edge ID label (with repeat count suffix when > 1)
         lp = self._label_pos
-        label = f"#{self.edge_data.edge_id}"
+        repeat = getattr(self.edge_data, "repeat_count", 1)
+        label = f"#{self.edge_data.edge_id}" if repeat <= 1 else f"#{self.edge_data.edge_id} ×{repeat}"
         if is_active or is_sel:
             bg = QColor("#2c2f33")
         else:
             bg = QColor("#1e1212")   # darker tint for dead-edge labels
-        text_rect = QRectF(lp.x() - 14, lp.y() - 9, 28, 18)
+        label_w = 28 if repeat <= 1 else 28 + 9 * len(str(repeat))
+        text_rect = QRectF(lp.x() - label_w / 2, lp.y() - 9, label_w, 18)
         painter.fillRect(text_rect, bg)
         painter.setPen(QPen(color))
         painter.setFont(QFont("Arial", 8, QFont.Weight.Bold))
