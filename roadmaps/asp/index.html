@@ -3262,7 +3262,7 @@
   <a href="#46-multiband-confidence-weighted-blending-priority-low-quality" class="md-nav__link">
     <span class="md-ellipsis">
       
-        §4.6 MultiBand Confidence-Weighted Blending [Priority: Low — quality]
+        §4.6 MultiBand Confidence-Weighted Blending ✅ [Priority: Low — quality]
       
     </span>
   </a>
@@ -6186,7 +6186,7 @@
   <a href="#46-multiband-confidence-weighted-blending-priority-low-quality" class="md-nav__link">
     <span class="md-ellipsis">
       
-        §4.6 MultiBand Confidence-Weighted Blending [Priority: Low — quality]
+        §4.6 MultiBand Confidence-Weighted Blending ✅ [Priority: Low — quality]
       
     </span>
   </a>
@@ -8979,11 +8979,17 @@ Use the Frame Selection Review Dialog (§2.1), Canvas Layout Inspector (§2.3), 
 <p><strong>Gap</strong>: OpenCV's canvas-space DP naturally handles 3-way overlaps (where 3 frames overlap at a single point) whereas ASP's pairwise approach resolves these heuristically. For sequences with small frame steps and large overlaps, 3-way overlaps are common.</p>
 <p><strong>Implementation</strong> <em>(shipped S162)</em>: <code>_DP_CANVAS_SEAM</code> flag (<code>ASP_DP_CANVAS_SEAM=1</code>, default OFF) added to <code>compositing.py</code>. <code>_canvas_dp_seam_composite(warped_norm, warped_bg, canvas, H, W, N)</code> helper: builds coverage masks (255=has content), calls <code>cv2.detail_DpSeamFinder("COLOR_GRAD").find()</code>, composites result pixel-by-pixel respecting <code>warped_bg</code>, fills remaining black gaps. Wired as intermediate step between GraphCut fallthrough and pairwise DP. Gap-fill pass matches GraphCut path. <code>_get_seam_cost_flags()</code> extended to 6-tuple (adds <code>_DP_CANVAS_SEAM</code>). No extra deps. 5 tests in <code>TestCanvasDpSeamComposite</code>. Enable: <code>ASP_DP_CANVAS_SEAM=1</code> (only useful when <code>ASP_GRAPHCUT_SEAM=0</code>).</p>
 <hr />
-<h3 id="46-multiband-confidence-weighted-blending-priority-low-quality">§4.6 MultiBand Confidence-Weighted Blending [Priority: Low — quality]<a class="headerlink" href="#46-multiband-confidence-weighted-blending-priority-low-quality" title="Permanent link">&para;</a></h3>
+<h3 id="46-multiband-confidence-weighted-blending-priority-low-quality">§4.6 MultiBand Confidence-Weighted Blending ✅ [Priority: Low — quality]<a class="headerlink" href="#46-multiband-confidence-weighted-blending-priority-low-quality" title="Permanent link">&para;</a></h3>
 <p><strong>What OpenCV does</strong>: <code>cv2.detail_MultiBandBlender.feed(img, mask, tl)</code> accepts 8-bit or float masks. The mask encodes per-pixel confidence (0=exclude, 255=full confidence). OpenCV blends at each pyramid level weighted by the confidence mask at that resolution.</p>
 <p><strong>What ASP does</strong>: <code>_laplacian_blend(fa, fb, mask_float)</code> — <code>mask_float</code> is derived from the DP seam path (binary ownership with feathered transition). §1.105 adds per-pixel fg-overlap cap. But confidence is binary (seam path) rather than spatially-varying.</p>
 <p><strong>Gap</strong>: ASP has access to several confidence signals that could generate richer blend masks: (a) ECC alignment residual per frame (§S8); (b) BiRefNet confidence scores from bg_masks; &copy; distance to seam path. Feeding multi-signal confidence maps into MultiBandBlender would produce smoother transitions in uncertain regions.</p>
-<p><strong>Implementation</strong>: Compute per-pixel confidence as <code>conf = bg_conf * (1 - ecc_residual_norm) * dist_to_seam_norm</code>. Pass as float32 mask to <code>MultiBandBlender.feed()</code>. <code>ASP_MULTIBAND_CONF=1</code> flag. Requires Stage 4 bg_mask confidence values and Stage 8 residuals to be threaded through to Stage 11. Medium refactor — coordinate channels only, no new deps.</p>
+<p><strong>Implementation</strong> <em>(shipped S204)</em>: <code>_compute_multiband_confidence(gc_frames, ownership, bg_masks, band_px)</code> in <code>backend/src/animation/rendering/compositing.py</code> builds <code>conf = own_binary * dist_to_seam_norm * bg_conf * ecc_conf</code> per frame, scaled to a uint8 [0, 255] mask:
+- <code>dist_to_seam_norm</code> — <code>cv2.distanceTransform</code> on the hard GraphCut ownership label, mapped to <code>[0.5, 1.0]</code> (full confidence deep inside a frame's owned region, tapering to 0.5 at the seam boundary over <code>ASP_MULTIBAND_CONF_BAND_PX</code> pixels, default 24).
+- <code>bg_conf</code> — <code>cv2.distanceTransform</code> softening at the BiRefNet fg/bg mask edge, mapped to <code>[0.6, 1.0]</code> (least confident right at the character silhouette).
+- <code>ecc_conf</code> — <code>_compute_ecc_confidence()</code>: <code>cv2.computeECC</code> agreement between this frame's owned content and the union of all <em>other</em> frames' owned content, restricted to the seam-adjacent band only (cheap — not a full-frame pass). Stands in for the Stage 8 ECC residual signal without threading state through the whole pipeline.
+- <code>own_binary</code> keeps pixel <em>ownership</em> (which frame wins) byte-identical to the hard GraphCut label — only the blend <em>weighting</em> within an owned region is graded, so this cannot regress coverage.</p>
+<p><strong>Critical fix required to make this take effect</strong>: <code>base/src/animation/compositing.cpp</code>'s <code>multiband_blend_impl</code> was hard-binarizing every mask (<code>cv::Mat mask8 = (masks[i] &gt; 0);</code>) before calling <code>cv::detail::MultiBandBlender::feed()</code>, which silently discarded any gradation — a purely Python-side confidence mask would have had zero effect. Fixed to pass the mask through as-is (<code>CV_Assert(masks[i].type() == CV_8UC1)</code>); <code>MultiBandBlender::feed()</code> already normalizes an 8U mask to a <code>[0,1]</code> float weight map and builds a Gaussian pyramid of those weights internally, so existing hard 0/255 callers are byte-identical (0 stays 0, 255 stays 255) while a graded mask now genuinely softens the blend.</p>
+<p>Gate: <code>ASP_MULTIBAND_CONF=1</code> (default OFF; only takes effect when <code>ASP_MULTIBAND_BLEND=1</code> is also set). Exported in <code>compositing.py __all__</code>. 10 new Python tests (<code>TestComputeEccConfidence</code>, <code>TestComputeMultibandConfidence</code> in <code>test_compositing.py</code>) + 1 new Catch2 regression test (<code>multiband_blend: graded confidence mask changes overlap blend vs opaque mask</code> in <code>test_compositing.cpp</code>) guarding against the binarization bug recurring.</p>
 <hr />
 <h3 id="47-dy_cv-pre-detection-gate-priority-high-catastrophic-failure-prevention">§4.7 dy_cv Pre-Detection Gate ✅ [Priority: High — catastrophic failure prevention]<a class="headerlink" href="#47-dy_cv-pre-detection-gate-priority-high-catastrophic-failure-prevention" title="Permanent link">&para;</a></h3>
 <p><strong>Problem (97-test benchmark, 2026-06-23):</strong> dy_cv ≥ 1.5 (coefficient of variation of adjacent vertical frame steps) reliably predicts catastrophic ASP failure. test77 (dy_cv=2.22, AlSSIM 0.444), test43 (dy_cv=2.16, AlSSIM 0.479), test82 (dy_cv=2.20, AlSSIM 0.615) are all far below SCANS output. SCANS handles these sequences trivially (constant-step assumption not required). Compositing tuning cannot fix irregular scroll patterns — the underlying affine geometry is unreliable.</p>
@@ -9886,7 +9892,7 @@ Use the Frame Selection Review Dialog (§2.1), Canvas Layout Inspector (§2.3), 
 <h2 id="effort--impact-matrix--pending-items">Effort × Impact Matrix — Pending Items<a class="headerlink" href="#effort--impact-matrix--pending-items" title="Permanent link">&para;</a></h2>
 <p><em>Effort scale</em> — <strong>Low</strong>: &lt; 1 day · <strong>Medium</strong>: 1 day – 1 week · <strong>High</strong>: 1 – 2 weeks · <strong>Very High</strong>: 2+ weeks or data-gated
 <em>Impact scale</em> — <strong>Low</strong>: aesthetic or niche QoL · <strong>Medium</strong>: targeted corpus subset · <strong>High</strong>: pipeline-wide quality gain · <strong>Very High</strong>: architectural unlock or near-perfect ceiling</p>
-<p><em>Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S196 (2026-06-25).</em></p>
+<p><em>Items marked ✅ are fully shipped and removed from pending rows. Matrix last updated: S204 (2026-07-02).</em></p>
 <blockquote>
 <p><strong>⚠ CRITICAL — Test Suite Freeze:</strong> Before running <code>pytest backend/test/</code>, see <code>moon/roadmaps/performance.md §3.10–§3.14</code>. Root Cause #1 (unconditional <code>from diffusers import DiffusionPipeline</code> in <code>anim_fill.py</code>) <strong>fixed in S140</strong>. Root Causes #2–#5 (model singletons, ThreadPoolExecutor storm, per-test gc.collect(), no process isolation) are documented in performance.md with CRITICAL-priority fix options.</p>
 </blockquote>
@@ -9912,7 +9918,7 @@ Use the Frame Selection Review Dialog (§2.1), Canvas Layout Inspector (§2.3), 
 <td><strong>Medium (1d–1w)</strong></td>
 <td>—</td>
 <td>—</td>
-<td>✅§4.1 BlocksGainCompensator (strip_banding fix) · ✅§4.4 BlocksChannelsCompensator · ✅§3.33 Feathered GC boundary (S164) · ✅§4.10 Global gain equalization (S165) · §4.6 MultiBand confidence weighting</td>
+<td>✅§4.1 BlocksGainCompensator (strip_banding fix) · ✅§4.4 BlocksChannelsCompensator · ✅§3.33 Feathered GC boundary (S164) · ✅§4.10 Global gain equalization (S165) · ✅§4.6 MultiBand confidence weighting (S204)</td>
 <td>✅§4.2 GraphCut global seam (default-ON S161) · ✅§4.7 dy_cv gate (SCANS fallback S161) · ✅§4.8 SeamVisGate (S163)</td>
 </tr>
 <tr>

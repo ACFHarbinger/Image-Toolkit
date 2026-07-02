@@ -2227,6 +2227,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s204-2026-07-02-46-multiband-confidence-weighted-blending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S204 — 2026-07-02 (§4.6 MultiBand Confidence-Weighted Blending)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s203-2026-06-30-rustc-migration-complete-file-split-archive" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11686,6 +11697,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s204-2026-07-02-46-multiband-confidence-weighted-blending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S204 — 2026-07-02 (§4.6 MultiBand Confidence-Weighted Blending)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s203-2026-06-30-rustc-migration-complete-file-split-archive" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -21132,6 +21154,17 @@
 
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
+<hr />
+<h2 id="s204-2026-07-02-46-multiband-confidence-weighted-blending">S204 — 2026-07-02 (§4.6 MultiBand Confidence-Weighted Blending)<a class="headerlink" href="#s204-2026-07-02-46-multiband-confidence-weighted-blending" title="Permanent link">&para;</a></h2>
+<p><strong>ASP roadmap §4.6: replace the hard 0/255 GraphCut ownership mask fed to <code>cv::detail::MultiBandBlender</code> with a smoothly-varying per-pixel confidence mask.</strong></p>
+<ul>
+<li><code>_compute_multiband_confidence(gc_frames, ownership, bg_masks, band_px)</code> in <code>backend/src/animation/rendering/compositing.py</code> combines three signals into a uint8 [0, 255] per-frame mask: <code>dist_to_seam_norm</code> (<code>cv2.distanceTransform</code> softening near the GraphCut boundary, <code>[0.5, 1.0]</code>), <code>bg_conf</code> (distance-transform softening at the BiRefNet fg/bg mask edge, <code>[0.6, 1.0]</code>), and <code>ecc_conf</code> (<code>_compute_ecc_confidence()</code> — <code>cv2.computeECC</code> agreement between a frame's owned content and the union of all other frames' owned content, restricted to the seam-adjacent band).</li>
+<li><code>own_binary</code> keeps pixel ownership byte-identical to the hard GraphCut label; only the blend <em>weighting</em> within an owned region is graded — cannot regress coverage.</li>
+<li><strong>Bug found and fixed while wiring this up</strong>: <code>base/src/animation/compositing.cpp</code>'s <code>multiband_blend_impl</code> was hard-binarizing every mask (<code>cv::Mat mask8 = (masks[i] &gt; 0);</code>) before <code>MultiBandBlender::feed()</code>, which would have silently discarded any Python-side gradation. Fixed to pass the CV_8UC1 mask through as-is — <code>MultiBandBlender::feed()</code> already normalizes an 8U mask to a <code>[0,1]</code> float weight map internally, so existing hard 0/255 callers are unaffected (0 stays 0, 255 stays 255) while a graded mask now genuinely softens the blend.</li>
+<li>Gate: <code>ASP_MULTIBAND_CONF=1</code> (default OFF; requires <code>ASP_MULTIBAND_BLEND=1</code>). <code>ASP_MULTIBAND_CONF_BAND_PX=24</code> controls the seam-adjacent softening band width.</li>
+<li>10 new Python tests (<code>TestComputeEccConfidence</code>, <code>TestComputeMultibandConfidence</code> in <code>test_compositing.py</code>) + 1 new Catch2 regression test in <code>test_compositing.cpp</code> guarding against the binarization bug recurring. <code>base_tests [compositing]</code>: 19 test cases, 47 assertions, all passing. <code>test_compositing.py --skip-gpu</code>: 587 passed, 5 skipped.</li>
+<li>Roadmap: <code>moon/roadmaps/asp.md</code> / <code>docs/roadmaps/asp.md</code> §4.6 marked ✅; Effort × Impact Matrix pending-items table updated (S204, 2026-07-02).</li>
+</ul>
 <hr />
 <h2 id="s203-2026-06-30-rustc-migration-complete-file-split-archive">S203 — 2026-06-30 (Rust→C++ migration complete — file split + archive)<a class="headerlink" href="#s203-2026-06-30-rustc-migration-complete-file-split-archive" title="Permanent link">&para;</a></h2>
 <p><strong>Finalise the Rust→C++ migration: one class per file, web module reorganised, roadmap archived.</strong></p>
