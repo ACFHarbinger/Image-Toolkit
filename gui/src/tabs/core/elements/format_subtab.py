@@ -1,7 +1,8 @@
 import os
 import platform
 import subprocess
-from send2trash import send2trash
+
+from send2trash import send2trash # pyrefly: ignore [untyped-import]
 from typing import Optional, Set
 from PySide6.QtWidgets import (
     QLineEdit,

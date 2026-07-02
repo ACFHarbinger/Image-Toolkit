@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
 
-from .common.system_display_subtab import SystemDisplaySubTab
-from .common.monitor_display_subtab import MonitorDisplaySubTab
+from .elements.system_display_subtab import SystemDisplaySubTab
+from .elements.monitor_display_subtab import MonitorDisplaySubTab
 
 
 class WallpaperTab(QWidget):
@@ -11,7 +11,20 @@ class WallpaperTab(QWidget):
 
         self.system_display = SystemDisplaySubTab(db_tab_ref)
         self.monitor_display = MonitorDisplaySubTab()
+        
+        # Link them for updates
+        self.system_display.linked_tabs = [self.monitor_display]
+        self.monitor_display.linked_tabs = [self.system_display]
+
+        # Share state dictionaries
+        self.monitor_display.monitor_image_paths = self.system_display.monitor_image_paths
+        self.monitor_display.monitor_slideshow_queues = self.system_display.monitor_slideshow_queues
+        self.monitor_display.monitor_current_index = self.system_display.monitor_current_index
+        self.monitor_display.monitor_history = self.system_display.monitor_history
+        self.monitor_display._initial_pixmap_cache = self.system_display._initial_pixmap_cache
+
         self.monitor_display.set_system_display_ref(self.system_display)
+        self.system_display._monitor_display_ref = self.monitor_display
 
         self.system_display.monitors_updated.connect(
             self.monitor_display.update_monitors
@@ -28,10 +41,7 @@ class WallpaperTab(QWidget):
             self._sync_layout_monitor_to_system
         )
 
-        # Sync wallpapers/images set on monitors
-        self.system_display.wallpapers_changed.connect(
-            self._sync_wallpapers_to_monitor_display
-        )
+
 
         self._tab_widget.addTab(self.system_display, "System Display(s)")
         self._tab_widget.addTab(self.monitor_display, "Monitor Display")
@@ -78,20 +88,7 @@ class WallpaperTab(QWidget):
         container.set_layout_structure(struct, self.system_display.monitor_widgets)
         container.blockSignals(False)
 
-    def _sync_wallpapers_to_monitor_display(self):
-        for mid, sys_widget in self.system_display.monitor_widgets.items():
-            mon_widget = self.monitor_display.monitor_widgets.get(mid)
-            if mon_widget:
-                if sys_widget.image_path != mon_widget.image_path:
-                    if sys_widget.image_path:
-                        thumb = self.system_display._get_or_generate_thumbnail(sys_widget.image_path)
-                        mon_widget.blockSignals(True)
-                        mon_widget.set_image(sys_widget.image_path, thumb)
-                        mon_widget.blockSignals(False)
-                    else:
-                        mon_widget.blockSignals(True)
-                        mon_widget.clear()
-                        mon_widget.blockSignals(False)
+
 
     def collect(self) -> dict:
         result = self.system_display.collect()

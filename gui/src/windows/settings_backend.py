@@ -58,7 +58,7 @@ class SettingsBackend(QObject):
         # existing SettingsWindow iterated over MainWindow tabs.
         # main_backend has explicit tab instances.
         tabs = [
-            "ImageExtractorTab", "ImageCrawlTab", "ReverseImageSearchTab", 
+            "ExtractorTab", "ImageCrawlTab", "ReverseImageSearchTab", 
             "DriveSyncTab", "WebRequestsTab", "DeleteTab", "ConvertTab", 
             "WallpaperTab", "ScanMetadataTab", "DatabaseTab", "SearchTab", "MergeTab"
         ]

@@ -28,8 +28,8 @@ from .core.wallpaper_worker import WallpaperWorker as WallpaperWorker
 from .web.image_crawl_worker import ImageCrawlWorker as ImageCrawlWorker
 from .web.web_requests_worker import WebRequestsWorker as WebRequestsWorker
 from .web.reverse_search_worker import ReverseSearchWorker as ReverseSearchWorker
-from .web.dropbox_drive_sync_worker import (
-    DropboxDriveSyncWorker as DropboxDriveSyncWorker,
+from .web import (
+    DropboxDriveSyncWorker,
+    GoogleDriveSyncWorker,
+    OneDriveSyncWorker,
 )
-from .web.google_drive_sync_worker import GoogleDriveSyncWorker as GoogleDriveSyncWorker
-from .web.one_drive_sync_worker import OneDriveSyncWorker as OneDriveSyncWorker

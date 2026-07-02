@@ -191,6 +191,6 @@ class TestMainWindowSessionRecovery:
         window = MainWindow(vault_manager=vault)
         QApplication.processEvents()
 
-        expected_dir = str(LOCAL_SOURCE_PATH)
+        expected_dir = LOCAL_SOURCE_PATH
         assert window.convert_tab.format_subtab.last_browsed_dir == expected_dir
-        assert window.image_extractor_tab.last_browsed_scan_dir == expected_dir
+        assert window.extractor_tab.last_browsed_scan_dir == expected_dir

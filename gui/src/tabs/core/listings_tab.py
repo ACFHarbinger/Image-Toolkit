@@ -13,8 +13,8 @@ from ...constants.listings import (
 
 # ---------------------------------------------------------------------------
 
-from .common.content_listings_subtab import ContentListingsSubTab
-from .common.entity_listings_subtab import EntityListingsSubTab
+from .elements.content_listings_subtab import ContentListingsSubTab
+from .elements.entity_listings_subtab import EntityListingsSubTab
 
 
 class ListingsTab(QWidget):
