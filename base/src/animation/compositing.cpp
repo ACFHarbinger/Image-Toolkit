@@ -699,8 +699,15 @@ cv::Mat multiband_blend_impl(
         cv::Mat frame16;
         frames[i].convertTo(frame16, CV_16SC3);
         frame16.copyTo(imgs_u[i]);
-        cv::Mat mask8 = (masks[i] > 0);
-        mask8.copyTo(masks_u[i]);
+        // §4.6: pass the mask through as-is instead of hard-binarizing it
+        // (masks[i] > 0). MultiBandBlender::feed() internally normalizes an
+        // 8U mask to a [0,1] float weight map and builds a Gaussian pyramid
+        // of those weights, so a graded confidence mask (§4.6
+        // _compute_multiband_confidence) genuinely softens the blend near
+        // uncertain regions. Existing callers that pass a hard 0/255
+        // ownership mask are unaffected -- 0 stays 0, 255 stays 255.
+        CV_Assert(masks[i].type() == CV_8UC1);
+        masks[i].copyTo(masks_u[i]);
         x0 = std::min(x0, corners[i].x);
         y0 = std::min(y0, corners[i].y);
         x1 = std::max(x1, corners[i].x + frames[i].cols);

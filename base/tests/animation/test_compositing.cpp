@@ -226,3 +226,34 @@ TEST_CASE("multiband_blend: num_bands=1 still returns correct shape", "[composit
     REQUIRE(result.rows == H);
     REQUIRE(result.cols == W);
 }
+
+// §4.6 regression guard: the mask must NOT be hard-binarized before being
+// fed to MultiBandBlender. A graded (non-0/255) confidence mask should pull
+// the overlap-region result away from what a fully-opaque (255) mask on
+// both sides would produce, proving the gradation actually influences the
+// blend weights rather than being collapsed to "included" either way.
+TEST_CASE("multiband_blend: graded confidence mask changes overlap blend vs opaque mask", "[compositing][phase4]") {
+    const int H = 40, W = 60;
+    cv::Mat fa(H, W, CV_8UC3, cv::Scalar(20, 20, 20));
+    cv::Mat fb(H, W, CV_8UC3, cv::Scalar(220, 220, 220));
+
+    cv::Mat ma_opaque(H, W, CV_8UC1, cv::Scalar(255));
+    cv::Mat mb_opaque(H, W, CV_8UC1, cv::Scalar(255));
+    auto result_opaque = multiband_blend_impl(
+        {fa, fb}, {ma_opaque, mb_opaque}, {cv::Point(0, 0), cv::Point(W - 20, 0)}, 3);
+
+    // fb's confidence graded low (64) everywhere -> fa should dominate the
+    // overlap far more than in the opaque case.
+    cv::Mat ma_full(H, W, CV_8UC1, cv::Scalar(255));
+    cv::Mat mb_low(H, W, CV_8UC1, cv::Scalar(64));
+    auto result_graded = multiband_blend_impl(
+        {fa, fb}, {ma_full, mb_low}, {cv::Point(0, 0), cv::Point(W - 20, 0)}, 3);
+
+    cv::Scalar mean_opaque = cv::mean(result_opaque);
+    cv::Scalar mean_graded = cv::mean(result_graded);
+
+    // If the mask were still hard-binarized (mb_low > 0 == fully included,
+    // same as opaque), these means would be equal. A graded mask must pull
+    // the mean down toward fa's darker value.
+    CHECK(mean_graded[0] < mean_opaque[0]);
+}

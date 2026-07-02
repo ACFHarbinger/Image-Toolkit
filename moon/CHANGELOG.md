@@ -4,6 +4,19 @@
 
 ---
 
+## S204 — 2026-07-02 (§4.6 MultiBand Confidence-Weighted Blending)
+
+**ASP roadmap §4.6: replace the hard 0/255 GraphCut ownership mask fed to `cv::detail::MultiBandBlender` with a smoothly-varying per-pixel confidence mask.**
+
+- `_compute_multiband_confidence(gc_frames, ownership, bg_masks, band_px)` in `backend/src/animation/rendering/compositing.py` combines three signals into a uint8 [0, 255] per-frame mask: `dist_to_seam_norm` (`cv2.distanceTransform` softening near the GraphCut boundary, `[0.5, 1.0]`), `bg_conf` (distance-transform softening at the BiRefNet fg/bg mask edge, `[0.6, 1.0]`), and `ecc_conf` (`_compute_ecc_confidence()` — `cv2.computeECC` agreement between a frame's owned content and the union of all other frames' owned content, restricted to the seam-adjacent band).
+- `own_binary` keeps pixel ownership byte-identical to the hard GraphCut label; only the blend *weighting* within an owned region is graded — cannot regress coverage.
+- **Bug found and fixed while wiring this up**: `base/src/animation/compositing.cpp`'s `multiband_blend_impl` was hard-binarizing every mask (`cv::Mat mask8 = (masks[i] > 0);`) before `MultiBandBlender::feed()`, which would have silently discarded any Python-side gradation. Fixed to pass the CV_8UC1 mask through as-is — `MultiBandBlender::feed()` already normalizes an 8U mask to a `[0,1]` float weight map internally, so existing hard 0/255 callers are unaffected (0 stays 0, 255 stays 255) while a graded mask now genuinely softens the blend.
+- Gate: `ASP_MULTIBAND_CONF=1` (default OFF; requires `ASP_MULTIBAND_BLEND=1`). `ASP_MULTIBAND_CONF_BAND_PX=24` controls the seam-adjacent softening band width.
+- 10 new Python tests (`TestComputeEccConfidence`, `TestComputeMultibandConfidence` in `test_compositing.py`) + 1 new Catch2 regression test in `test_compositing.cpp` guarding against the binarization bug recurring. `base_tests [compositing]`: 19 test cases, 47 assertions, all passing. `test_compositing.py --skip-gpu`: 587 passed, 5 skipped.
+- Roadmap: `moon/roadmaps/asp.md` / `docs/roadmaps/asp.md` §4.6 marked ✅; Effort × Impact Matrix pending-items table updated (S204, 2026-07-02).
+
+---
+
 ## S203 — 2026-06-30 (Rust→C++ migration complete — file split + archive)
 
 **Finalise the Rust→C++ migration: one class per file, web module reorganised, roadmap archived.**

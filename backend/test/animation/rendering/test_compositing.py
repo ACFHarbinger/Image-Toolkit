@@ -20,6 +20,10 @@ from backend.src.animation.rendering.compositing import (
     _feather_gc_boundaries,
     _GC_FEATHER_PX,
     _GLOBAL_GAIN_COMP,
+    _compute_ecc_confidence,
+    _compute_multiband_confidence,
+    _MULTIBAND_CONF,
+    _MULTIBAND_CONF_BAND_PX,
 )
 from backend.src.animation.core import config
 
@@ -6539,3 +6543,89 @@ class TestEqualizeWarpedGains:
 
     def test_global_gain_comp_flag_is_bool(self):
         assert isinstance(_GLOBAL_GAIN_COMP, bool)
+
+
+class TestComputeEccConfidence:
+    """§4.6 MultiBand Confidence-Weighted Blending — cv2.computeECC agreement score."""
+
+    def test_identical_crops_high_confidence(self):
+        crop = np.random.RandomState(0).randint(0, 256, (32, 32, 3), dtype=np.uint8)
+        conf = _compute_ecc_confidence(crop, crop.copy())
+        assert conf > 0.9
+
+    def test_empty_crop_returns_neutral(self):
+        empty = np.zeros((0, 0, 3), dtype=np.uint8)
+        assert _compute_ecc_confidence(empty, empty) == 0.5
+
+    def test_mismatched_shapes_return_neutral(self):
+        a = np.zeros((16, 16, 3), dtype=np.uint8)
+        b = np.zeros((20, 20, 3), dtype=np.uint8)
+        assert _compute_ecc_confidence(a, b) == 0.5
+
+    def test_result_clamped_to_unit_range(self):
+        rng = np.random.RandomState(1)
+        a = rng.randint(0, 256, (24, 24, 3), dtype=np.uint8)
+        b = rng.randint(0, 256, (24, 24, 3), dtype=np.uint8)
+        conf = _compute_ecc_confidence(a, b)
+        assert 0.0 <= conf <= 1.0
+
+    def test_uncorrelated_content_lower_than_identical(self):
+        rng = np.random.RandomState(2)
+        a = rng.randint(0, 256, (48, 48, 3), dtype=np.uint8)
+        b = rng.randint(0, 256, (48, 48, 3), dtype=np.uint8)
+        conf_same = _compute_ecc_confidence(a, a.copy())
+        conf_diff = _compute_ecc_confidence(a, b)
+        assert conf_same >= conf_diff
+
+
+class TestComputeMultibandConfidence:
+    """§4.6 MultiBand Confidence-Weighted Blending — per-frame graded feed masks."""
+
+    def _make_split_ownership(self, H, W):
+        # Frame 0 owns the left half, frame 1 owns the right half.
+        own0 = np.zeros((H, W), dtype=np.uint8)
+        own0[:, : W // 2] = 255
+        own1 = np.zeros((H, W), dtype=np.uint8)
+        own1[:, W // 2 :] = 255
+        return [own0, own1]
+
+    def test_output_shapes_match_ownership(self):
+        H, W = 40, 60
+        frames = [np.full((H, W, 3), 100, dtype=np.uint8) for _ in range(2)]
+        ownership = self._make_split_ownership(H, W)
+        confs = _compute_multiband_confidence(frames, ownership, [None, None])
+        assert len(confs) == 2
+        for c in confs:
+            assert c.shape == (H, W)
+            assert c.dtype == np.uint8
+
+    def test_zero_ownership_frame_is_all_zero_confidence(self):
+        H, W = 20, 20
+        frames = [np.zeros((H, W, 3), dtype=np.uint8) for _ in range(2)]
+        ownership = [np.zeros((H, W), dtype=np.uint8), np.full((H, W), 255, dtype=np.uint8)]
+        confs = _compute_multiband_confidence(frames, ownership, [None, None])
+        assert confs[0].max() == 0
+
+    def test_confidence_zero_outside_owned_region(self):
+        H, W = 40, 60
+        frames = [np.full((H, W, 3), 100, dtype=np.uint8) for _ in range(2)]
+        ownership = self._make_split_ownership(H, W)
+        confs = _compute_multiband_confidence(frames, ownership, [None, None])
+        # Frame 0 owns the left half only -- confidence must be 0 on the right.
+        assert confs[0][:, W // 2 :].max() == 0
+        # And nonzero somewhere inside its own owned region.
+        assert confs[0][:, : W // 2].max() > 0
+
+    def test_confidence_lower_near_seam_than_deep_interior(self):
+        H, W = 40, 80
+        frames = [np.full((H, W, 3), 100, dtype=np.uint8) for _ in range(2)]
+        ownership = self._make_split_ownership(H, W)
+        confs = _compute_multiband_confidence(frames, ownership, [None, None], band_px=16)
+        row = H // 2
+        near_seam = int(confs[0][row, W // 2 - 1])
+        deep_interior = int(confs[0][row, 2])
+        assert deep_interior >= near_seam
+
+    def test_multiband_conf_flag_is_bool_and_band_px_positive(self):
+        assert isinstance(_MULTIBAND_CONF, bool)
+        assert _MULTIBAND_CONF_BAND_PX > 0

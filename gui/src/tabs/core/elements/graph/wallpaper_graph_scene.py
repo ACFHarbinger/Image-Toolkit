@@ -8,6 +8,7 @@ from PySide6.QtGui import QKeyEvent, QColor, QPen, QPainter, QPainterPath
 from PySide6.QtWidgets import (
     QGraphicsScene, QMenu, QMessageBox, QDialog,
     QListWidget, QListWidgetItem, QDialogButtonBox, QVBoxLayout,
+    QInputDialog,
 )
 
 from .data import NodeData, EdgeData, GraphData
@@ -200,13 +201,28 @@ class WallpaperGraphScene(QGraphicsScene):
 
         return nid
 
-    def add_edge(self, source_id: str, target_id: str) -> int:
+    def add_edge(self, source_id: str, target_id: str, repeat_count: int = 1) -> int:
         eid = self._graph.alloc_edge_id(source_id) # pyrefly: ignore [missing-attribute]
-        ed = EdgeData(edge_id=eid, source_id=source_id, target_id=target_id)
+        ed = EdgeData(
+            edge_id=eid, source_id=source_id, target_id=target_id,
+            repeat_count=max(1, repeat_count),
+        )
         self._graph.edges.append(ed) # pyrefly: ignore [missing-attribute]
         self._add_edge_item(ed)
         self.graph_changed.emit()
         return eid
+
+    def set_edge_repeat_count(self, source_id: str, edge_id: int, repeat_count: int):
+        if self._graph is None:
+            return
+        for e in self._graph.edges:
+            if e.source_id == source_id and e.edge_id == edge_id:
+                e.repeat_count = max(1, repeat_count)
+                item = self._edge_items.get((source_id, edge_id))
+                if item:
+                    item.update()
+                self.graph_changed.emit()
+                return
 
     def remove_selected(self):
         for item in list(self.selectedItems()):
@@ -521,14 +537,29 @@ class WallpaperGraphScene(QGraphicsScene):
         for (sid, eid), item in self._edge_items.items():
             if eid == edge_id and item.scene() is self:
                 source_id = sid
+                edge_item = item
                 break
         else:
             return
         menu = QMenu()
+        current_repeat = edge_item.edge_data.repeat_count
+        act_repeat = menu.addAction(
+            f"Set Repeat Count… (currently ×{current_repeat})"
+        )
         act_del = menu.addAction(f"Delete Edge #{edge_id}")
-        if menu.exec(screen_pos) == act_del:
+        chosen = menu.exec(screen_pos)
+        if chosen == act_del:
             self._remove_edge(source_id, edge_id)
             self.graph_changed.emit()
+        elif chosen == act_repeat:
+            value, ok = QInputDialog.getInt(
+                None, "Set Repeat Count",
+                "Number of times the target wallpaper repeats\n"
+                "back-to-back when this edge is taken:",
+                current_repeat, 1, 999,
+            )
+            if ok:
+                self.set_edge_repeat_count(source_id, edge_id, value)
 
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
