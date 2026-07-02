@@ -307,6 +307,7 @@ class WallpaperGraphScene(QGraphicsScene):
         
         temp_item = getattr(self, "_temp_edge_item", None)
         if temp_item:
+            self._temp_edge_item = None
             try:
                 temp_item.setVisible(False)
                 temp_item.setEnabled(False)
@@ -323,8 +324,6 @@ class WallpaperGraphScene(QGraphicsScene):
                     self._deleted_items_garbage.append(temp_item)
                     if len(self._deleted_items_garbage) > 5:
                         self._deleted_items_garbage.pop(0)
-                    if getattr(self, "_temp_edge_item", None) is temp_item:
-                        self._temp_edge_item = None
             QTimer.singleShot(0, safe_remove)
             
         self._connecting_source_node_id = None
@@ -339,8 +338,8 @@ class WallpaperGraphScene(QGraphicsScene):
         if button == Qt.MouseButton.LeftButton:
             target_node = getattr(self, "_hovered_target_node", None)
             if not target_node:
-                for item in self.items(scene_pos):
-                    if isinstance(item, NodeItem):
+                for item in self._node_items.values():
+                    if item.boundingRect().translated(item.pos()).contains(scene_pos):
                         target_node = item
                         break
             if target_node:
@@ -358,8 +357,8 @@ class WallpaperGraphScene(QGraphicsScene):
             self._temp_edge_item.set_target_pos(scene_pos)
             
         hovered_node = None
-        for item in self.items(scene_pos):
-            if isinstance(item, NodeItem):
+        for item in self._node_items.values():
+            if item.boundingRect().translated(item.pos()).contains(scene_pos):
                 hovered_node = item
                 break
                 
