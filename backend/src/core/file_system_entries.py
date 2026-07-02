@@ -8,7 +8,7 @@ class FSETool:
     """
     A comprehensive tool for managing file system entries, including path
     resolution, directory creation, file searching, and path manipulation.
-    Wrapper for Rust 'base' extension for heavy operations.
+    Wrapper for C++ 'base' extension for heavy operations.
     """
 
     # --- Utility Methods ---
@@ -78,15 +78,15 @@ class FSETool:
     @ensure_absolute_paths()
     def get_files_by_extension(directory, extension, recursive=False):
         """
-        Uses Rust backend to find files.
+        Uses C++ backend to find files.
         """
         try:
-            # Rust extension expects string args
+            # C++ extension expects string args
             return base.get_files_by_extension(
                 str(directory), str(extension), recursive
             )
         except Exception as e:
-            print(f"Error in FSETool.get_files_by_extension (Rust): {e}")
+            print(f"Error in FSETool.get_files_by_extension (C++): {e}")
             # Fallback (though ideally we shouldn't fail)
             path = Path(directory)
             if not extension.startswith("."):
@@ -102,7 +102,7 @@ class FileDeleter:
         try:
             return base.delete_path(path_to_delete)
         except Exception as e:
-            print(f"Delete Error (Rust): {e}")
+            print(f"Delete Error (C++): {e}")
             return False
 
     @staticmethod
@@ -111,5 +111,5 @@ class FileDeleter:
         try:
             return base.delete_files_by_extensions(directory, extensions)
         except Exception as e:
-            print(f"Delete Files Error (Rust): {e}")
+            print(f"Delete Files Error (C++): {e}")
             return 0

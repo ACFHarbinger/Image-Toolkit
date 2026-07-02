@@ -93,7 +93,7 @@ class ImageFormatConverterTest:
 
         output_path = "test_output.png"
         try:
-            # Under the Rust backend, since the content is valid, it decodes it successfully
+            # Under the C++ backend, since the content is valid, it decodes it successfully
             result = ImageFormatConverter.convert_single_image(
                 unsupported_path, "test_output", "png"
             )

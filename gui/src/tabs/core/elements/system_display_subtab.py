@@ -377,7 +377,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 pass
 
     def _get_daemon_script_path(self):
-        script_path = ROOT_DIR / "backend" / "src" / "utils" / "slideshow_daemon.py"
+        script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "slideshow_daemon.py"
         if script_path.exists():
             return str(script_path)
 
@@ -386,7 +386,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         while not (root / "backend").exists() and root != root.parent:
             root = root.parent
 
-        script_path = root / "backend" / "src" / "utils" / "slideshow_daemon.py"
+        script_path = root / "backend" / "src" / "utils" / "display" / "slideshow_daemon.py"
         if not script_path.exists():
             script_path = root / "slideshow_daemon.py"
 
@@ -945,7 +945,12 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             if not has_valid_path_to_set:
                 self.stop_slideshow()
                 return
-            self.monitor_image_paths = new_monitor_paths
+            # Mutate in place rather than reassign: monitor_image_paths is
+            # shared by reference with MonitorDisplaySubTab (see
+            # WallpaperTab.__init__); reassigning here would silently break
+            # that link and desync the two subtabs' view of "current path".
+            self.monitor_image_paths.clear()
+            self.monitor_image_paths.update(new_monitor_paths)
             self.run_wallpaper_worker(slideshow_mode=True)
             for monitor_id, path in new_monitor_paths.items():
                 if monitor_id in self.monitor_widgets and path:
@@ -1248,11 +1253,19 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                         if mid not in valid_order:
                             self.monitor_layout_container.addWidget(w)
 
+            # Both monitor_slideshow_queues and monitor_image_paths are
+            # shared by reference with MonitorDisplaySubTab (see
+            # WallpaperTab.__init__); mutate them in place instead of
+            # reassigning, or session restore silently breaks that link and
+            # the Monitor Display subtab's queue/current-path edits stop
+            # being visible to this tab's run_wallpaper_worker().
             if "monitor_queues" in config:
-                self.monitor_slideshow_queues = config.get("monitor_queues", {})
+                self.monitor_slideshow_queues.clear()
+                self.monitor_slideshow_queues.update(config.get("monitor_queues", {}))
             if "monitor_image_paths" in config:
                 saved_paths = config.get("monitor_image_paths", {})
-                self.monitor_image_paths = saved_paths
+                self.monitor_image_paths.clear()
+                self.monitor_image_paths.update(saved_paths)
                 for mid, path in saved_paths.items():
                     if mid in self.monitor_widgets and path:
                         if Path(path).exists():

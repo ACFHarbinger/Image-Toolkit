@@ -51,8 +51,9 @@ namespace base::core {
     void register_wallpaper(py::module_& m);  // Phase 8: wallpaper (gnome/kde)
 }
 namespace base::utils {
-    void register_migration(py::module_& m);  // Phase 10: legacy JSON→SQLCipher migration
-    void register_slideshow(py::module_& m);  // Phase 10: background slideshow daemon
+    void register_migration(py::module_& m);         // Phase 10: legacy JSON→SQLCipher migration
+    void register_slideshow(py::module_& m);          // Phase 10: background slideshow daemon
+    void register_monitor_slideshow(py::module_& m);  // per-monitor graph slideshow scheduler
 }
 void register_math(py::module_& m);       // Phase 11: distance/stats/info/graph/linalg/dim_reduce
 
@@ -94,7 +95,7 @@ PYBIND11_MODULE(base, m) {
                              find_duplicate_images, find_similar_images_phash,
                              merge_images_horizontal, merge_images_vertical, merge_images_grid,
                              set_wallpaper_gnome, evaluate_kde_script
-        base.utils           run_legacy_migration, run_slideshow_daemon
+        base.utils           run_legacy_migration, run_slideshow_daemon, run_monitor_slideshow
         base.math            distance.*, stats.*, information.*, graph.*, linalg.pca,
                              dim_reduce.mds, dim_reduce.tsne_affinities
     )doc";
@@ -175,6 +176,7 @@ PYBIND11_MODULE(base, m) {
     // Phase 10: utils
     base::utils::register_migration(m_utils);
     base::utils::register_slideshow(m_utils);
+    base::utils::register_monitor_slideshow(m_utils);
 
     // Phase 11: math
     register_math(m_math);
@@ -218,4 +220,5 @@ PYBIND11_MODULE(base, m) {
     
     m.attr("run_legacy_migration")           = m_utils.attr("run_legacy_migration");
     m.attr("run_slideshow_daemon")           = m_utils.attr("run_slideshow_daemon");
+    m.attr("run_monitor_slideshow")          = m_utils.attr("run_monitor_slideshow");
 }

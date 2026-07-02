@@ -9,7 +9,7 @@ if HAS_NATIVE_IMAGING:
 
 def process_image_batch(paths: list[str], target_size: int):
     """
-    Process a batch of images using the Rust backend in a separate process.
+    Process a batch of images using the C++ backend in a separate process.
     Returns a list of (path, buffer, width, height) tuples.
     """
     try:

@@ -16,7 +16,7 @@ class _BatchLoaderSignals(QObject):
 
 class BatchImageLoaderWorker(QRunnable):
     """
-    Worker task to load and scale a BATCH of images using Rust.
+    Worker task to load and scale a BATCH of images using C++.
     Supports running in a separate process/executor if provided.
     """
 
@@ -42,7 +42,7 @@ class BatchImageLoaderWorker(QRunnable):
                 self._run_fallback()
                 return
 
-            # 2. Native Rust Parallel Path
+            # 2. Native C++ Parallel Path
             raw_results = base.load_image_batch(self.paths, self.target_size)
 
             if self._is_cancelled:

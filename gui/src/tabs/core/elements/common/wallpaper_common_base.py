@@ -544,10 +544,8 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             self.monitor_image_paths[monitor_id] = first_path
 
             queue = self.monitor_slideshow_queues.get(monitor_id, [])
-            if first_path in queue:
-                self.monitor_current_index[monitor_id] = queue.index(first_path)
-            else:
-                self.monitor_current_index[monitor_id] = -1
+            batch_start = len(queue) - len(image_paths)
+            self.monitor_current_index[monitor_id] = max(batch_start, 0)
 
             self.update_monitor_widget_ui(monitor_id)
 
@@ -579,16 +577,12 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
 
         if monitor_id not in self.monitor_slideshow_queues:
             self.monitor_slideshow_queues[monitor_id] = []
-        if image_path not in self.monitor_slideshow_queues[monitor_id]:
-            self.monitor_slideshow_queues[monitor_id].append(image_path)
+        self.monitor_slideshow_queues[monitor_id].append(image_path)
 
         self.monitor_image_paths[monitor_id] = image_path
 
         queue = self.monitor_slideshow_queues[monitor_id]
-        if image_path in queue:
-            self.monitor_current_index[monitor_id] = queue.index(image_path)
-        else:
-            self.monitor_current_index[monitor_id] = -1
+        self.monitor_current_index[monitor_id] = len(queue) - 1
 
         self.update_monitor_widget_ui(monitor_id)
         self.check_all_monitors_set()
@@ -616,7 +610,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                 if path == current_active:
                     action.setChecked(True)
                 action.triggered.connect(
-                    lambda _, p=path: self._set_specific_wallpaper(monitor_id, p)
+                    lambda _, p=path, idx=i: self._set_specific_wallpaper(monitor_id, p, idx)
                 )
 
             other_monitors = [
@@ -671,7 +665,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                 if hasattr(self, "_on_graph_changed"):
                     self._on_graph_changed()
 
-    def _set_specific_wallpaper(self, monitor_id: str, path: str):
+    def _set_specific_wallpaper(self, monitor_id: str, path: str, index: Optional[int] = None):
         if not os.path.exists(path):
             QMessageBox.warning(self, "Error", f"File not found:\n{path}")
             return
@@ -679,7 +673,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self.monitor_image_paths[monitor_id] = path
 
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
-        if path in queue:
+        if index is not None and 0 <= index < len(queue) and queue[index] == path:
+            self.monitor_current_index[monitor_id] = index
+        elif path in queue:
             self.monitor_current_index[monitor_id] = queue.index(path)
 
         self.update_monitor_widget_ui(monitor_id)
@@ -850,6 +846,35 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                 widget.set_image(path, thumb)
             else:
                 widget.clear()
+
+    def closeEvent(self, event):
+        for win in list(self.open_queue_windows):
+            try:
+                if sip.isValid(win):
+                    win.close()
+            except RuntimeError:
+                pass
+        self.open_queue_windows = []
+
+        for win in list(self.open_image_preview_windows):
+            try:
+                if sip.isValid(win):
+                    win.close()
+            except RuntimeError:
+                pass
+        self.open_image_preview_windows = []
+
+        super().closeEvent(event)
+
+    def _refresh_open_queue_window(self, monitor_id: str):
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        for win in self.open_queue_windows:
+            if (
+                sip.isValid(win)
+                and isinstance(win, SlideshowQueueWindow)
+                and win.monitor_id == monitor_id
+            ):
+                win.populate_list(queue)
 
     def _is_daemon_running_config(self) -> bool:
         if not os.path.exists(DAEMON_CONFIG_PATH):

@@ -2,7 +2,7 @@ from backend.src.web.crawlers.image_board_crawler import ImageBoardCrawler
 
 
 class GelbooruCrawler(ImageBoardCrawler):
-    """Crawler implementation for Gelbooru (Rust-accelerated)."""
+    """Crawler implementation for Gelbooru (C++-accelerated)."""
 
     def __init__(self, config: dict):
         if not config.get("url"):

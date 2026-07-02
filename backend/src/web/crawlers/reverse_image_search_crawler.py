@@ -2,7 +2,7 @@
 
 Three concrete strategies are provided:
 
-* ``GoogleSearchStrategy``  — scrapes Google Lens via the existing Rust extension.
+* ``GoogleSearchStrategy``  — scrapes Google Lens via the existing C++ extension.
 * ``ApiSearchStrategy``     — delegates to :class:`~backend.src.web.clients.tineye_client.TinEyeClient`.
 * ``LocalCBIRStrategy``     — queries the local CLIP + FAISS index.
 
@@ -24,7 +24,7 @@ from typing import List, Optional
 
 from PySide6.QtCore import QObject, Signal
 
-import base  # Native Rust extension  # noqa: E402
+import base  # Native C++ extension  # noqa: E402
 
 from backend.src.web.models import ReverseSearchResult
 
@@ -65,10 +65,10 @@ class ReverseSearchEngine(ABC):
         """Signal the engine to abort an in-progress search (best-effort)."""
 
 
-# ── Concrete strategy: Google Lens via Rust ──────────────────────────────────
+# ── Concrete strategy: Google Lens via C++ ──────────────────────────────────
 
 class GoogleSearchStrategy(ReverseSearchEngine):
-    """Reverse image search via Google Lens using the native Rust browser driver.
+    """Reverse image search via Google Lens using the native C++ browser driver.
 
     Args:
         headless: Run the browser headlessly.
@@ -101,7 +101,7 @@ class GoogleSearchStrategy(ReverseSearchEngine):
         keep_open: bool = False,
         **kwargs,
     ) -> List[ReverseSearchResult]:
-        """Delegate to ``base.run_reverse_image_search`` (Rust implementation).
+        """Delegate to ``base.run_reverse_image_search`` (C++ implementation).
 
         Args:
             image_path: Path to the query image.
@@ -109,12 +109,12 @@ class GoogleSearchStrategy(ReverseSearchEngine):
                 ``"Visual matches"``, or ``"Exact matches"``.
             min_width: Minimum result width filter (applied post-scrape).
             min_height: Minimum result height filter (applied post-scrape).
-            keep_open: Whether the Rust layer should keep the browser open
+            keep_open: Whether the C++ layer should keep the browser open
                 after the search.
         """
         self._emit_status("Initialising browser…")
 
-        # The Rust extension accepts a JSON config blob and an optional Python
+        # The C++ extension accepts a JSON config blob and an optional Python
         # object that it calls back via the ``on_status_emitted`` method.
         config = {
             "headless": self._headless,
@@ -124,13 +124,13 @@ class GoogleSearchStrategy(ReverseSearchEngine):
         }
 
         try:
-            # _ProxyQObject is used so Rust can call on_status_emitted without
+            # _ProxyQObject is used so C++ can call on_status_emitted without
             # the strategy itself needing to inherit from QObject.
             proxy = _StatusProxy(self._emit_status)
             results_json: str = base.run_reverse_image_search(json.dumps(config), proxy)
             raw: List[dict] = json.loads(results_json)
         except Exception as exc:
-            log.error("Rust reverse image search failed: %s", exc)
+            log.error("C++ reverse image search failed: %s", exc)
             self._emit_status(f"Error: {exc}")
             return []
 
@@ -153,7 +153,7 @@ class GoogleSearchStrategy(ReverseSearchEngine):
 
 
 class _StatusProxy:
-    """Minimal duck-type used by the Rust extension to emit status messages."""
+    """Minimal duck-type used by the C++ extension to emit status messages."""
 
     def __init__(self, callback) -> None:
         self._cb = callback

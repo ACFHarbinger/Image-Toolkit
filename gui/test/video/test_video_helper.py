@@ -136,7 +136,7 @@ class TestVideoScannerWorker:
         v2 = d / "v2.mp4"
         v2.touch()
 
-        # Mock result from Rust process: (path, buffer, w, h)
+        # Mock result from C++ process: (path, buffer, w, h)
         # buffer for QImage(Format_RGBA8888) -> 4 bytes per pixel
         # 10x10 image = 100 pixels * 4 bytes = 400 bytes
         mock_buf = b"\xff" * 400

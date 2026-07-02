@@ -6,7 +6,7 @@ from pathlib import Path
 
 def start_daemon(debug: bool = False):
     """
-    Launch the Rust slideshow daemon binary.
+    Launch the C++ slideshow daemon binary.
     """
     project_root = Path(__file__).parent.parent.parent.parent
     

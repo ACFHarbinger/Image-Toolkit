@@ -1,15 +1,11 @@
 import sys
 import cv2
 import base
-import hashlib
 import numpy as np
 
 from PIL import Image
 from pathlib import Path
-from backend.src.core.file_system_entries import FSETool
 from backend.src.constants import SSIM_C1, SSIM_C2
-
-
 
 
 class SimilarityFinder:
@@ -41,16 +37,16 @@ class SimilarityFinder:
         directory: str, extensions: list[str] = None, threshold: int = 5
     ) -> dict:
         """
-        Finds similar images using Average Hash (aHash) via Rust Backend.
+        Finds similar images using Average Hash (aHash) via C++ Backend.
         """
         if extensions is None:
             extensions = [".jpg", ".jpeg", ".png", ".webp", ".bmp"]
 
         try:
-            # Rust returns HashMap<group_name, Vec<path>>
+            # C++ returns HashMap<group_name, Vec<path>>
             return base.find_similar_images_phash(directory, extensions, threshold)
         except Exception as e:
-            print(f"Error in find_similar_phash (Rust): {e}", file=sys.stderr)
+            print(f"Error in find_similar_phash (C++): {e}", file=sys.stderr)
             return {}
 
     @staticmethod

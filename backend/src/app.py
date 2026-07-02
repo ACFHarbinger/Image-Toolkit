@@ -1,12 +1,11 @@
-import os
 import sys
 import signal
 import logging
 import logging.handlers
-import traceback
 import threading
 from pathlib import Path
 
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from gui.src.windows import MainWindow, LoginWindow
@@ -135,11 +134,17 @@ def launch_app(opts):
         app.quit()
 
         # Force exit if app doesn't quit quickly (e.g., stuck thread)
-        threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1), daemon=True).start() # pyrefly: ignore [unexpected-keyword]
+        t = threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1))
+        t.daemon = True
+        t.start()
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_interrupt)
     signal.signal(signal.SIGTERM, handle_interrupt)
+
+    interpreter_timer = QTimer(app)
+    interpreter_timer.start(100)
+    interpreter_timer.timeout.connect(lambda: None)
 
     def launch_main_gui(vault_manager):
         """
@@ -147,7 +152,6 @@ def launch_app(opts):
         Replaces the LoginWindow.
         """
         nonlocal active_window
-
 
         # 1. Close the login window if it's still around
         if active_window and isinstance(active_window, LoginWindow):

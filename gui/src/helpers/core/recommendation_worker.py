@@ -3,7 +3,7 @@ QThread worker for content recommendations via the local Recommendation Engine.
 
 Uses BGE-M3 hybrid search (dense cosine + sparse dot-product, RRF fusion)
 backed by a SQLite store at IMAGE_TOOLKIT_DIR/rec_engine.db.
-No external services or Rust extensions required.
+No external services or C++ extensions required.
 """
 from __future__ import annotations
 

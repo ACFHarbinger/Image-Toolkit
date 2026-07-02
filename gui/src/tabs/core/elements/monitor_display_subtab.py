@@ -1,5 +1,8 @@
 import os
 import shutil
+import sys
+import json
+import time
 import tempfile
 import subprocess
 import platform
@@ -16,7 +19,13 @@ from PySide6.QtWidgets import (
 )
 from screeninfo import Monitor
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS, SUPPORTED_IMG_FORMATS
+from backend.src.constants import (
+    SUPPORTED_VIDEO_FORMATS,
+    SUPPORTED_IMG_FORMATS,
+    MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH,
+    ROOT_DIR,
+)
+from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from .common.wallpaper_common_base import WallpaperCommonBase
 from .graph.data import NodeData, GraphData
 from ....components import MarqueeScrollArea
@@ -74,13 +83,15 @@ def _node_duration(nd: NodeData) -> float:
 def _build_traversal(graph: GraphData) -> List[Tuple[str, float]]:
     """
     Return [(file_path, duration_sec), ...] for the graph traversal.
-    Starts from basis_node_id; at each node follows edges in per-source
-    edge_id order (edge #1 first). Stops when a sink or already-visited
-    node is encountered to avoid infinite loops.
+    Starts from basis_node_id; at each node follows the lowest-edge_id
+    outgoing edge that hasn't been used yet (so a self-edge is taken once
+    to repeat the node, then the next unused edge continues the chain).
+    Each edge can only be consumed once, which bounds the walk to at most
+    len(graph.edges) hops and terminates any cycle.
     """
     if not graph.nodes:
         return []
-    
+
     start = graph.basis_node_id
     if not start or start not in graph.nodes:
         start = next(iter(graph.nodes))
@@ -91,29 +102,32 @@ def _build_traversal(graph: GraphData) -> List[Tuple[str, float]]:
         return [(nd.file_path, _node_duration(nd))]
 
     from collections import defaultdict
-    adj: Dict[str, List[str]] = defaultdict(list)
+    adj: Dict[str, List] = defaultdict(list)
     for src in graph.nodes:
         src_edges = sorted(
             [e for e in graph.edges if e.source_id == src],
             key=lambda e: e.edge_id,
         )
-        adj[src] = [e.target_id for e in src_edges]
+        adj[src] = src_edges
 
     seq: List[Tuple[str, float]] = []
-    visited: set = set()
+    used_edges: set = set()  # (source_id, edge_id) — edge_id is only unique per-source
     current = start
     while True:
         nd = graph.nodes.get(current)
         if nd is None:
             break
         seq.append((nd.file_path, _node_duration(nd)))
-        if current in visited:
-            break  # detected loop — stop
-        visited.add(current)
-        neighbors = adj.get(current, [])
-        if not neighbors:
-            break  # sink node — stop
-        current = neighbors[0]  # always follow edge #1
+
+        next_edge = next(
+            (e for e in adj.get(current, [])
+             if (e.source_id, e.edge_id) not in used_edges),
+            None,
+        )
+        if next_edge is None:
+            break  # no unused outgoing edges — sink or cycle exhausted
+        used_edges.add((next_edge.source_id, next_edge.edge_id))
+        current = next_edge.target_id
 
     return seq
 
@@ -139,7 +153,29 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         self._preview_tmp_dir: Optional[str] = None
         self.background_type: str = "Image"
 
+        # Per-entry queue durations: monitor_id -> [seconds, ...] parallel to
+        # monitor_slideshow_queues[monitor_id]. Local to this subtab (not
+        # shared with System Display) since it models the graph-driven,
+        # per-item duration semantics unique to this queue export/slideshow.
+        self._queue_durations: Dict[str, List[float]] = {}
+
+        # In-app slideshow: delegated to the native scheduler
+        # (base.run_monitor_slideshow, via monitor_slideshow_daemon.py) which
+        # runs its own std::thread inside this GUI process. It's a
+        # process-wide singleton, so only one display's in-app slideshow can
+        # be active at a time -- same constraint as the background daemon.
+        self._inapp_active_monitor_id: Optional[str] = None
+
+        # Background daemon: only one display can run it at a time (single
+        # shared config file / detached process)
+        self._daemon_active_monitor_id: Optional[str] = None
+
         self._build_ui()
+
+        self._status_timer = QTimer(self)
+        self._status_timer.timeout.connect(self._update_queue_status_label)
+        self._status_timer.start(1000)
+        QTimer.singleShot(500, self._check_daemon_status_on_startup)
 
     # ---- UI construction --------------------------------------------------
 
@@ -195,14 +231,6 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         btn_reset_view = QPushButton("⊡ Fit View")
         btn_reset_view.clicked.connect(self._fit_view)
 
-        self._btn_preview = QPushButton("▶ Preview Timelapse")
-        self._btn_preview.setToolTip("Generate a temporary preview video and open it")
-        self._btn_preview.setStyleSheet(
-            "QPushButton { background:#7289da; color:white; border-radius:4px; padding:4px 8px; }"
-            "QPushButton:hover { background:#5f73bc; }"
-        )
-        self._btn_preview.clicked.connect(self._preview_timelapse)
-
         self._btn_set_start = QPushButton("\u2605 Set Start")
         self._btn_set_start.setToolTip("Mark the selected node as the slideshow start node")
         self._btn_set_start.setStyleSheet(
@@ -224,8 +252,6 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             btn.setFixedHeight(36)
             tb.addWidget(btn)
         tb.addStretch(1)
-        self._btn_preview.setFixedHeight(36)
-        tb.addWidget(self._btn_preview)
         graph_lyt.addLayout(tb)
 
         # Scene + View
@@ -238,6 +264,82 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         self._view.setAcceptDrops(True)
         self._view.setMinimumHeight(600)
         graph_lyt.addWidget(self._view, 1)
+
+        # Bottom toolbar: queue export/preview + slideshow controls, plus a
+        # per-display timer/counter reflecting the currently selected monitor
+        bottom_tb = QHBoxLayout()
+
+        self._btn_export_queue = QPushButton("⇥ Export to Queue")
+        self._btn_export_queue.setToolTip(
+            "Append the graph's current traversal sequence to the monitor's Wallpaper Queue"
+        )
+        self._btn_export_queue.setStyleSheet(
+            "QPushButton { background:#2ecc71; color:white; border-radius:4px; padding:4px 8px; }"
+            "QPushButton:hover { background:#27ae60; }"
+        )
+        self._btn_export_queue.clicked.connect(self._export_graph_to_queue)
+
+        self._btn_preview = QPushButton("▶ Preview Timelapse")
+        self._btn_preview.setToolTip("Generate a temporary preview video and open it")
+        self._btn_preview.setStyleSheet(
+            "QPushButton { background:#7289da; color:white; border-radius:4px; padding:4px 8px; }"
+            "QPushButton:hover { background:#5f73bc; }"
+        )
+        self._btn_preview.clicked.connect(self._preview_timelapse)
+
+        self._btn_inapp_slideshow = QPushButton("▶ Start In-App Slideshow")
+        self._btn_inapp_slideshow.setCheckable(True)
+        self._btn_inapp_slideshow.setToolTip(
+            "Cycle this display's Wallpaper Queue locally while the app stays open.\n"
+            "Each entry uses its own duration (fixed time, or full video runtime)."
+        )
+        self._btn_inapp_slideshow.setStyleSheet(
+            "QPushButton { background:#5865f2; color:white; border-radius:4px; padding:4px 8px; }"
+            "QPushButton:hover { background:#4752c4; }"
+            "QPushButton:checked { background:#c0392b; }"
+            "QPushButton:checked:hover { background:#a93226; }"
+        )
+        self._btn_inapp_slideshow.clicked.connect(self._toggle_inapp_slideshow)
+
+        self._btn_daemon_slideshow = QPushButton("⏱ Start Slideshow Daemon")
+        self._btn_daemon_slideshow.setCheckable(True)
+        self._btn_daemon_slideshow.setToolTip(
+            "Cycle this display's Wallpaper Queue via a detached background process\n"
+            "that keeps running after the app closes. Only one display's daemon can\n"
+            "run at a time."
+        )
+        self._btn_daemon_slideshow.setStyleSheet(
+            "QPushButton { background:#b8860b; color:white; border-radius:4px; padding:4px 8px; }"
+            "QPushButton:hover { background:#966f09; }"
+            "QPushButton:checked { background:#c0392b; }"
+            "QPushButton:checked:hover { background:#a93226; }"
+        )
+        self._btn_daemon_slideshow.clicked.connect(self._toggle_daemon_slideshow)
+
+        for btn in [self._btn_export_queue, self._btn_preview,
+                    self._btn_inapp_slideshow, self._btn_daemon_slideshow]:
+            btn.setFixedHeight(36)
+            bottom_tb.addWidget(btn)
+
+        bottom_tb.addStretch(1)
+
+        self._queue_position_label = QLabel("-- / --")
+        self._queue_position_label.setToolTip(
+            "Active wallpaper position within this display's Wallpaper Queue"
+        )
+        self._queue_position_label.setStyleSheet(
+            "color:#f1c40f; font-weight:bold; font-size:14px;"
+        )
+        bottom_tb.addWidget(self._queue_position_label)
+
+        self._queue_timer_label = QLabel("Timer: --:--")
+        self._queue_timer_label.setStyleSheet(
+            "color:#2ecc71; font-weight:bold; font-size:14px;"
+        )
+        self._queue_timer_label.setFixedWidth(110)
+        bottom_tb.addWidget(self._queue_timer_label)
+
+        graph_lyt.addLayout(bottom_tb)
 
         # Sequence summary label
         self._seq_label = QLabel("No graph loaded.")
@@ -470,6 +572,8 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         self._sync_end_behavior_ui(graph)
         self._update_end_jump_combo()
         self._update_seq_label()
+        self._update_slideshow_buttons()
+        self._update_queue_status_label()
         QTimer.singleShot(50, self._fit_view)
 
     # ---- Graph operations -------------------------------------------------
@@ -575,17 +679,24 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
 
     @Slot()
     def _on_selection_changed(self):
-        items = self._scene.selectedItems()
-        for item in items:
-            if isinstance(item, NodeItem):
-                self._show_node_in_props(item.node_data)
-                return
-        # Nothing or only edge selected → hide props details
-        self._props_hint.setVisible(True)
-        self._props_file.setVisible(False)
-        self._props_mode_grp.setVisible(False)
-        self._props_apply.setVisible(False)
-        self._props_node_id = None
+        def do_selection_update():
+            try:
+                if not self._scene:
+                    return
+                items = self._scene.selectedItems()
+                for item in items:
+                    if isinstance(item, NodeItem):
+                        self._show_node_in_props(item.node_data)
+                        return
+                # Nothing or only edge selected → hide props details
+                self._props_hint.setVisible(True)
+                self._props_file.setVisible(False)
+                self._props_mode_grp.setVisible(False)
+                self._props_apply.setVisible(False)
+                self._props_node_id = None
+            except RuntimeError:
+                pass
+        QTimer.singleShot(0, do_selection_update)
 
     def _show_node_in_props(self, nd: NodeData):
         self._props_node_id = nd.node_id
@@ -717,6 +828,405 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             f" ~{total:.0f}s total):  "
             + "  →  ".join(parts)
         )
+
+    # ---- Export to Queue ---------------------------------------------------
+
+    @Slot()
+    def _export_graph_to_queue(self):
+        if self._current_monitor_id is None:
+            return
+        graph = self._current_graph()
+        if graph is None:
+            return
+        seq = _build_traversal(graph)
+        if not seq:
+            QMessageBox.information(
+                self, "Empty Sequence",
+                "Add nodes and edges to build a sequence before exporting to the queue.",
+            )
+            return
+
+        monitor_id = self._current_monitor_id
+        queue = self.monitor_slideshow_queues.setdefault(monitor_id, [])
+        # Ensure any pre-existing entries have durations before we append,
+        # so the parallel durations list stays index-aligned with the queue.
+        durations = self._reconcile_queue_durations(monitor_id)
+        was_empty = not queue
+        for fp, dur in seq:
+            queue.append(fp)
+            durations.append(dur)
+
+        if was_empty or not self.monitor_image_paths.get(monitor_id):
+            self.monitor_image_paths[monitor_id] = queue[0]
+            self.monitor_current_index[monitor_id] = 0
+
+        self.update_monitor_widget_ui(monitor_id)
+        self._refresh_open_queue_window(monitor_id)
+        self.check_all_monitors_set()
+        self._update_queue_status_label()
+
+        QMessageBox.information(
+            self, "Exported to Queue",
+            f"Appended {len(seq)} item{'s' if len(seq) != 1 else ''} from the graph "
+            f"to the Wallpaper Queue, each with its own duration from the graph.",
+        )
+
+    # ---- Per-entry queue durations -----------------------------------------
+
+    def _default_entry_duration(self, path: str) -> float:
+        """Full runtime for a video, else the default fixed duration -- the
+        same fallback semantics used for graph nodes without an explicit
+        duration (see _node_duration)."""
+        if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+            dur = _get_video_duration(path)
+            if dur:
+                return dur
+        return 30.0
+
+    def _reconcile_queue_durations(self, monitor_id: str) -> List[float]:
+        """Keep self._queue_durations[monitor_id] index-aligned with
+        monitor_slideshow_queues[monitor_id], padding new entries (added by
+        drag/drop, the context menu, etc.) with a sensible default and
+        truncating stale ones. Returns the (mutable) durations list."""
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        durations = self._queue_durations.setdefault(monitor_id, [])
+        if len(durations) < len(queue):
+            durations.extend(
+                self._default_entry_duration(p) for p in queue[len(durations):]
+            )
+        elif len(durations) > len(queue):
+            del durations[len(queue):]
+        return durations
+
+    @Slot(str, list)
+    def on_queue_reordered(self, monitor_id: str, new_queue: List[str]):
+        super().on_queue_reordered(monitor_id, new_queue)
+        # A manual drag-reorder in the Wallpaper Queue window carries no
+        # duration metadata, so the old index-aligned durations no longer
+        # correspond to the right entries. Reset rather than risk silently
+        # misapplying a stale duration to the wrong item; the next
+        # reconcile recomputes sane per-item defaults.
+        self._queue_durations[monitor_id] = []
+
+    def handle_item_swap_request(self, s_mid: str, s_idx: int, t_mid: str, t_idx: int):
+        s_durs = self._reconcile_queue_durations(s_mid)
+        t_durs = self._reconcile_queue_durations(t_mid)
+        super().handle_item_swap_request(s_mid, s_idx, t_mid, t_idx)
+        if s_idx < len(s_durs) and t_idx < len(t_durs):
+            s_durs[s_idx], t_durs[t_idx] = t_durs[t_idx], s_durs[s_idx]
+
+    # ---- In-app slideshow ---------------------------------------------------
+    #
+    # Delegated to base.run_monitor_slideshow (base/src/utils/monitor_slideshow.cpp)
+    # via monitor_slideshow_daemon.start()/stop()/status(). That native
+    # scheduler runs its own std::thread inside this GUI process and calls
+    # WallpaperManager.apply_wallpaper back on each tick -- independent of
+    # the Qt event loop and GIL, so it keeps advancing reliably even if
+    # something on the Python/Qt side stalls.
+
+    @Slot()
+    def _toggle_inapp_slideshow(self):
+        monitor_id = self._current_monitor_id
+        if monitor_id is None:
+            return
+        if self._inapp_active_monitor_id == monitor_id:
+            self._stop_inapp_slideshow()
+        else:
+            self._start_inapp_slideshow(monitor_id)
+
+    def _start_inapp_slideshow(self, monitor_id: str):
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        if not queue:
+            QMessageBox.information(
+                self, "Empty Queue",
+                "This display's Wallpaper Queue is empty. Use 'Export to Queue' "
+                "or drop files onto the monitor first.",
+            )
+            self._update_slideshow_buttons()
+            return
+        if self._daemon_active_monitor_id == monitor_id:
+            QMessageBox.warning(
+                self, "Slideshow Conflict",
+                "The Slideshow Daemon is running for this display. "
+                "Stop it before starting the in-app slideshow.",
+            )
+            self._update_slideshow_buttons()
+            return
+        if self._inapp_active_monitor_id and self._inapp_active_monitor_id != monitor_id:
+            reply = QMessageBox.question(
+                self, "Slideshow Already Running",
+                "The in-app slideshow is already running for another display "
+                f"(Monitor {self._inapp_active_monitor_id}). Only one display "
+                "can run it at a time. Switch it to this display?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                self._update_slideshow_buttons()
+                return
+            self._stop_inapp_slideshow()
+
+        durations = self._reconcile_queue_durations(monitor_id)
+
+        style = "Fill"
+        video_style = "Scaled and Cropped"
+        if getattr(self, "_system_display_ref", None):
+            style = getattr(self._system_display_ref, "wallpaper_style", style)
+            video_style = getattr(self._system_display_ref, "video_style", video_style)
+
+        other_paths = {
+            mid: p for mid, p in self.monitor_image_paths.items()
+            if mid != monitor_id and p
+        }
+
+        try:
+            _monitor_slideshow.start(
+                monitor_id, queue, durations,
+                monitors=self.monitors,
+                style=style,
+                video_style=video_style,
+                other_paths=other_paths,
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to start in-app slideshow: {e}")
+            self._update_slideshow_buttons()
+            return
+
+        self._inapp_active_monitor_id = monitor_id
+        self._update_slideshow_buttons()
+        self._update_queue_status_label()
+
+    def _stop_inapp_slideshow(self):
+        if self._inapp_active_monitor_id is None:
+            return
+        try:
+            _monitor_slideshow.stop()
+        except Exception:
+            pass
+        self._inapp_active_monitor_id = None
+        self._update_slideshow_buttons()
+        self._update_queue_status_label()
+
+    def _sync_inapp_state_from_native(self, monitor_id: str, status: dict):
+        """The native scheduler applies wallpapers directly via
+        WallpaperManager (off the Qt thread), so it never touches this
+        subtab's own bookkeeping. Reconcile monitor_image_paths / the
+        current-index / the drop-widget thumbnail from the native status on
+        each poll tick so the rest of the UI (queue window highlighting,
+        "Set Active Wallpaper from Queue" checkmarks, etc.) stays in sync."""
+        idx = status.get("current_index")
+        if idx is None or idx < 0:
+            return
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        if not (0 <= idx < len(queue)):
+            return
+        path = queue[idx]
+        if self.monitor_image_paths.get(monitor_id) == path:
+            return
+        self.monitor_image_paths[monitor_id] = path
+        self.monitor_current_index[monitor_id] = idx
+        self.update_monitor_widget_ui(monitor_id)
+        self.check_all_monitors_set()
+
+    # ---- Background slideshow daemon ---------------------------------------
+
+    def _read_daemon_status(self) -> Optional[dict]:
+        try:
+            with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "r") as f:
+                return json.load(f)
+        except Exception:
+            return None
+
+    def _check_daemon_status_on_startup(self):
+        status = self._read_daemon_status()
+        if status and status.get("running"):
+            self._daemon_active_monitor_id = str(status.get("monitor_id"))
+            self._update_slideshow_buttons()
+            self._update_queue_status_label()
+
+    @Slot()
+    def _toggle_daemon_slideshow(self):
+        monitor_id = self._current_monitor_id
+        if monitor_id is None:
+            return
+        if self._daemon_active_monitor_id == monitor_id:
+            self._stop_daemon_slideshow()
+        else:
+            self._start_daemon_slideshow(monitor_id)
+
+    def _start_daemon_slideshow(self, monitor_id: str):
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        if not queue:
+            QMessageBox.information(
+                self, "Empty Queue",
+                "This display's Wallpaper Queue is empty. Use 'Export to Queue' "
+                "or drop files onto the monitor first.",
+            )
+            self._update_slideshow_buttons()
+            return
+        if self._inapp_active_monitor_id == monitor_id:
+            QMessageBox.warning(
+                self, "Slideshow Conflict",
+                "The in-app slideshow is running for this display. "
+                "Stop it before starting the Slideshow Daemon.",
+            )
+            self._update_slideshow_buttons()
+            return
+        if self._daemon_active_monitor_id and self._daemon_active_monitor_id != monitor_id:
+            reply = QMessageBox.question(
+                self, "Daemon Already Running",
+                "The Slideshow Daemon is already running for another display "
+                f"(Monitor {self._daemon_active_monitor_id}). Only one display "
+                "can run the daemon at a time. Switch it to this display?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                self._update_slideshow_buttons()
+                return
+            self._stop_daemon_slideshow()
+
+        durations = self._reconcile_queue_durations(monitor_id)
+
+        style = "Fill"
+        video_style = "Scaled and Cropped"
+        if getattr(self, "_system_display_ref", None):
+            style = getattr(self._system_display_ref, "wallpaper_style", style)
+            video_style = getattr(self._system_display_ref, "video_style", video_style)
+
+        other_paths = {
+            mid: p for mid, p in self.monitor_image_paths.items()
+            if mid != monitor_id and p
+        }
+        geometries = {
+            str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
+            for i, m in enumerate(self.monitors)
+        }
+        current_path = self.monitor_image_paths.get(monitor_id)
+        current_index = queue.index(current_path) if current_path in queue else -1
+
+        config = {
+            "running": True,
+            "monitor_id": monitor_id,
+            "queue": list(queue),
+            "durations": list(durations),
+            "style": style,
+            "video_style": video_style,
+            "monitor_geometries": geometries,
+            "other_current_paths": other_paths,
+            "current_index": current_index,
+            "last_change_timestamp": 0,
+        }
+        try:
+            MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "w") as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to write daemon config: {e}")
+            return
+
+        script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "monitor_slideshow_daemon.py"
+        if not script_path.exists():
+            QMessageBox.critical(self, "Error", f"Daemon script not found at:\n{script_path}")
+            return
+        try:
+            if platform.system() == "Windows":
+                subprocess.Popen(
+                    [sys.executable, str(script_path)],
+                    creationflags=subprocess.CREATE_NO_WINDOW, # pyrefly: ignore [missing-attribute]
+                )
+            else:
+                subprocess.Popen(
+                    [sys.executable, str(script_path)],
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to start daemon: {e}")
+            return
+
+        self._daemon_active_monitor_id = monitor_id
+        self._update_slideshow_buttons()
+        self._update_queue_status_label()
+
+    def _stop_daemon_slideshow(self):
+        try:
+            if MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH.exists():
+                with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "r") as f:
+                    config = json.load(f)
+                config["running"] = False
+                with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "w") as f:
+                    json.dump(config, f, indent=2)
+        except Exception:
+            pass
+        self._daemon_active_monitor_id = None
+        self._update_slideshow_buttons()
+        self._update_queue_status_label()
+
+    # ---- Slideshow status UI -------------------------------------------------
+
+    def _update_slideshow_buttons(self):
+        monitor_id = self._current_monitor_id
+        inapp_running = bool(monitor_id and self._inapp_active_monitor_id == monitor_id)
+        daemon_running = bool(monitor_id and self._daemon_active_monitor_id == monitor_id)
+
+        self._btn_inapp_slideshow.blockSignals(True)
+        self._btn_inapp_slideshow.setChecked(inapp_running)
+        self._btn_inapp_slideshow.setText(
+            "⏹ Stop In-App Slideshow" if inapp_running else "▶ Start In-App Slideshow"
+        )
+        self._btn_inapp_slideshow.blockSignals(False)
+
+        self._btn_daemon_slideshow.blockSignals(True)
+        self._btn_daemon_slideshow.setChecked(daemon_running)
+        self._btn_daemon_slideshow.setText(
+            "⏹ Stop Slideshow Daemon" if daemon_running else "⏱ Start Slideshow Daemon"
+        )
+        self._btn_daemon_slideshow.blockSignals(False)
+
+    def _update_queue_status_label(self):
+        monitor_id = self._current_monitor_id
+        if monitor_id is None:
+            self._queue_position_label.setText("-- / --")
+            self._queue_timer_label.setText("Timer: --:--")
+            return
+
+        queue = self.monitor_slideshow_queues.get(monitor_id, [])
+        total = len(queue)
+        idx = self.monitor_current_index.get(monitor_id, -1)
+        remaining: Optional[int] = None
+
+        if self._inapp_active_monitor_id == monitor_id:
+            status = _monitor_slideshow.status()
+            if status and status.get("running"):
+                self._sync_inapp_state_from_native(monitor_id, status)
+                idx = status.get("current_index", idx)
+                if idx is not None and idx < 0:
+                    idx = -1
+                last_change = status.get("last_change_timestamp", 0)
+                dur = status.get("current_duration")
+                if dur and last_change > 0:
+                    remaining = max(0, int(round(dur - (time.time() - last_change))))
+        elif self._daemon_active_monitor_id == monitor_id:
+            status = self._read_daemon_status()
+            if status and status.get("running"):
+                daemon_idx = status.get("current_index")
+                if daemon_idx is not None:
+                    idx = daemon_idx
+                last_change = status.get("last_change_timestamp", 0)
+                dur = status.get("current_duration")
+                if dur and last_change > 0:
+                    remaining = max(0, int(round(dur - (time.time() - last_change))))
+
+        current_num = idx + 1 if 0 <= idx < total else 0
+        self._queue_position_label.setText(f"{current_num} / {total}" if total else "-- / --")
+
+        if remaining is not None:
+            m, s = divmod(remaining, 60)
+            self._queue_timer_label.setText(f"Timer: {m:02}:{s:02}")
+        else:
+            self._queue_timer_label.setText("Timer: --:--")
 
     # ---- Preview ----------------------------------------------------------
 
@@ -882,6 +1392,12 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
     # ---- Cleanup ----------------------------------------------------------
 
     def closeEvent(self, event):
+        # In-app slideshows only make sense "while the user remains in-app",
+        # so stop the native scheduler here. The background daemon is
+        # intentionally left running -- that is its whole point.
+        if self._inapp_active_monitor_id is not None:
+            self._stop_inapp_slideshow()
+
         if self._preview_tmp_dir and os.path.isdir(self._preview_tmp_dir):
             shutil.rmtree(self._preview_tmp_dir, ignore_errors=True)
         super().closeEvent(event)
