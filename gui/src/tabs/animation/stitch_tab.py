@@ -1,7 +1,7 @@
 """
-gui/src/tabs/models/gen/stitch_tab.py
+gui/src/tabs/animation/stitch_tab.py
 ======================================
-EditTab — integrated image editing suite for anime frame stitching and
+StitchTab — integrated image editing suite for anime frame stitching and
 wallpaper creation.
 
 Sub-tabs
@@ -1239,9 +1239,9 @@ class _MatchView(QGraphicsView):
         self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
 
-class EditTab(QWidget):
+class StitchTab(QWidget):
     """
-    Full image editing suite focused on anime wallpaper creation.
+    Full image stitching suite focused on anime wallpaper creation.
 
     Stitch  — intelligent multi-frame panorama stitching with LoFTR matching.
     Adjust  — per-image corrections (tone, color, geometry) before stitching.
@@ -5949,6 +5949,3 @@ class EditTab(QWidget):
             f"Loaded {len(paths)} frame(s) into the Stitch tab.\n"
             "Switch to the Stitch tab to run the pipeline.",
         )
-
-
-StitchTab = EditTab

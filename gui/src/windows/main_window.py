@@ -99,7 +99,7 @@ class MainWindow(QWidget):
             R3GANEvaluateTab,
             MetaCLIPInferenceTab,
             ComfyUITab,
-            EditTab,
+            StitchTab,
         )
 
         # Store the authenticated vault manager instance
@@ -228,7 +228,7 @@ class MainWindow(QWidget):
         self.eval_tab = R3GANEvaluateTab()
         self.inference_tab = MetaCLIPInferenceTab()
         self.comfyui_tab = ComfyUITab(enable_manager=enable_manager)
-        self.stitch_tab = EditTab()
+        self.stitch_tab = StitchTab()
         self.stitch_feedback_tab = StitchFeedbackTab()
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
@@ -265,7 +265,7 @@ class MainWindow(QWidget):
                 "Inference": self.inference_tab,
                 "ComfyUI": self.comfyui_tab,
             },
-            "Image Edit": {
+            "Image Stitching": {
                 "Stitch": self.stitch_tab.stitch_panel,
                 "Graph": self.stitch_tab.graph_panel,
                 "Adjust": self.stitch_tab.adjust_panel,

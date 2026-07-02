@@ -45,3 +45,7 @@ tasks.shadowJar {
 }
 
 tasks.assemble { dependsOn(tasks.shadowJar) }
+
+tasks.jar {
+    enabled = false
+}

@@ -235,3 +235,12 @@ if(BASE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# ---------------------------------------------------------------------------
+# Native C++ benchmarks (Google Benchmark, opt-in)
+# Enable with: cmake -DBASE_BUILD_BENCHMARKS=ON ..
+# ---------------------------------------------------------------------------
+option(BASE_BUILD_BENCHMARKS "Build native C++ benchmarks for base" OFF)
+if(BASE_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
