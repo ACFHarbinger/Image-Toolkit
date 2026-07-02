@@ -1,6 +1,6 @@
 import os
 import json
-import psycopg2
+import psycopg2 # pyrefly: ignore [untyped-import]
 
 from pathlib import Path
 from typing import Optional
@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 from dotenv import load_dotenv
 from backend.src.database import PgvectorImageDatabase as ImageDatabase
 from backend.src.constants import LOCAL_SOURCE_PATH
-from ...styles.style import apply_shadow_effect
+from ...styles import apply_shadow_effect
 
 
 class DatabaseTab(QWidget):
@@ -407,7 +407,7 @@ class DatabaseTab(QWidget):
         create_tag_layout.addRow(self.btn_create_tag)
 
         self.new_tag_name_edit.returnPressed.connect(self.btn_create_tag.click)
-        self.new_tag_type_combo.lineEdit().returnPressed.connect(
+        self.new_tag_type_combo.lineEdit().returnPressed.connect( # pyrefly: ignore [missing-attribute]
             self.btn_create_tag.click
         )
 
@@ -808,6 +808,7 @@ class DatabaseTab(QWidget):
             QMessageBox.warning(self, "Error", "Please select a valid JSON file.")
             return
 
+        progress = None
         imported_tags = 0
         try:
             with open(file_path, "r", encoding="utf-8") as f:
@@ -882,7 +883,7 @@ class DatabaseTab(QWidget):
                 f"An error occurred during tag import:\n{str(e)}",
             )
         finally:
-            if "progress" in locals() and progress.isVisible():
+            if "progress" in locals() and progress is not None and progress.isVisible():
                 progress.close()
 
     # --- Tag and Group Management Methods ---
@@ -990,7 +991,7 @@ class DatabaseTab(QWidget):
             )
             return
         item = self.groups_table.item(current_row, 0)
-        group_name = item.text()
+        group_name = item.text() # pyrefly: ignore [missing-attribute]
         confirm = QMessageBox.question(
             self,
             "Confirm Delete",
@@ -1025,8 +1026,8 @@ class DatabaseTab(QWidget):
             return
         item_subgroup = self.subgroups_table.item(current_row, 0)
         item_group = self.subgroups_table.item(current_row, 1)
-        subgroup_name = item_subgroup.text()
-        group_name = item_group.text()
+        subgroup_name = item_subgroup.text() # pyrefly: ignore [missing-attribute]
+        group_name = item_group.text() # pyrefly: ignore [missing-attribute]
         confirm = QMessageBox.question(
             self,
             "Confirm Delete",
@@ -1059,7 +1060,7 @@ class DatabaseTab(QWidget):
             )
             return
         item = self.tags_table.item(current_row, 0)
-        tag_name = item.text()
+        tag_name = item.text() # pyrefly: ignore [missing-attribute]
         confirm = QMessageBox.question(
             self,
             "Confirm Delete",
@@ -1153,7 +1154,7 @@ class DatabaseTab(QWidget):
         table = self.sender()
         if not table:
             return
-        item = table.item(row, col)
+        item = table.item(row, col) # pyrefly: ignore [missing-attribute]
         if item:
             self.old_edit_value = item.text()
 
@@ -1198,7 +1199,7 @@ class DatabaseTab(QWidget):
         if new_name == old_name:
             return
         row = item.row()
-        parent_group = self.subgroups_table.item(row, 1).text()
+        parent_group = self.subgroups_table.item(row, 1).text() # pyrefly: ignore [missing-attribute]
         if not new_name:
             QMessageBox.warning(self, "Error", "Subgroup name cannot be empty.")
             item.setText(old_name)
@@ -1251,7 +1252,7 @@ class DatabaseTab(QWidget):
                 QMessageBox.critical(self, "Error", f"Failed to rename tag:\n{str(e)}")
                 item.setText(old_name)
         elif col == 1:
-            tag_name = self.tags_table.item(row, 0).text()
+            tag_name = self.tags_table.item(row, 0).text() # pyrefly: ignore [missing-attribute]
             new_type = new_value.title()
             try:
                 self.db.update_tag_type(tag_name, new_type)

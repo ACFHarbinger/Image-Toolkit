@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QKeyEvent
-from gui.src.windows.login_window import LoginWindow
+from gui.src.windows.main.login_window import LoginWindow
 
 pytestmark = pytest.mark.gui
 
@@ -58,8 +58,8 @@ class TestLoginWindowCryptoAutoLoad:
         window = LoginWindow()
         
         with (
-            patch("gui.src.windows.login_window.udef.SECRETS_DIR", template_dir),
-            patch("gui.src.windows.login_window.udef.LOCAL_SECRETS_DIR", target_dir)
+            patch("gui.src.windows.main.login_window.udef.SECRETS_DIR", template_dir),
+            patch("gui.src.windows.main.login_window.udef.LOCAL_SECRETS_DIR", target_dir)
         ):
             window._copy_template_crypto_files()
             

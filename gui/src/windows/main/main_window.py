@@ -31,8 +31,8 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
 )
-from .settings_window import SettingsWindow
-from ..styles.style import (
+from ..settings import SettingsWindow
+from ...styles import (
     DARK_QSS,  # noqa: F401
     LIGHT_QSS,  # noqa: F401
     DARK_ACCENT_COLOR,
@@ -43,10 +43,10 @@ from ..styles.style import (
     COMPACT_DENSITY_QSS,
     SPACIOUS_DENSITY_QSS,
 )
-from ..utils.shortcut_manager import get_registry
+from ...utils.shortcut_manager import get_registry
 from backend.src.constants import LOCAL_SOURCE_PATH
-from ..constants import NEW_LIMIT_MB
-from ..utils.lru_image_cache import LRUImageCache
+from ...constants import NEW_LIMIT_MB
+from ...utils.lru_image_cache import LRUImageCache
 from backend.src.core.vault_manager import VaultManager
 
 
@@ -79,7 +79,7 @@ class MainWindow(QWidget):
         enable_manager=False,
     ):
         super().__init__()
-        from ..tabs import (
+        from ...tabs import (
             ConvertTab,
             DeleteTab,
             ScanMetadataTab,

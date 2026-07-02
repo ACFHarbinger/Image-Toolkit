@@ -32,7 +32,7 @@ class GANTrainTab(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        self.layout = QVBoxLayout(self)
+        layout = QVBoxLayout(self)
 
         # --- Parameters ---
         form_layout = QGridLayout()
@@ -82,7 +82,7 @@ class GANTrainTab(QWidget):
         form_layout.addWidget(QLabel("Learning Rate:"), 4, 0)
         form_layout.addWidget(self.spin_lr, 4, 1)
 
-        self.layout.addLayout(form_layout)
+        layout.addLayout(form_layout)
 
         # --- Actions ---
         self.btn_train = QPushButton("Start Training")
@@ -90,20 +90,20 @@ class GANTrainTab(QWidget):
             "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;"
         )
         self.btn_train.clicked.connect(self.start_training)
-        self.layout.addWidget(self.btn_train)
+        layout.addWidget(self.btn_train)
 
         # --- Feedback ---
         self.progress_log = QTextEdit()
         self.progress_log.setReadOnly(True)
-        self.layout.addWidget(QLabel("Training Log:"))
-        self.layout.addWidget(self.progress_log)
+        layout.addWidget(QLabel("Training Log:"))
+        layout.addWidget(self.progress_log)
 
         # Preview Area
         self.lbl_preview = QLabel("Latest Training Sample")
         self.lbl_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_preview.setStyleSheet("border: 2px dashed #aaa; padding: 10px;")
         self.lbl_preview.setMinimumHeight(200)
-        self.layout.addWidget(self.lbl_preview)
+        layout.addWidget(self.lbl_preview)
 
         # Timer to update preview
         self.preview_timer = QTimer()

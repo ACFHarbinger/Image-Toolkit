@@ -3,7 +3,7 @@ import time
 import platform
 import subprocess
 
-from send2trash import send2trash
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 from typing import Dict, Any, List, Optional
 from PySide6.QtGui import QPixmap, QAction, QCursor, QColor
 from PySide6.QtCore import Qt, Signal, QPoint, Slot, QThreadPool
@@ -29,7 +29,7 @@ from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassTwoGalleries
 from ...components import OptionalField, DraggableLabel, MarqueeScrollArea
 from ...utils.sort_utils import natural_sort_key
-from ...styles.style import apply_shadow_effect
+from ...styles import apply_shadow_effect
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 
 
@@ -182,8 +182,8 @@ class SearchTab(AbstractClassTwoGalleries):
         layout.addWidget(self.progress_bar)
 
         # Connect Enter key to search
-        self.group_combo.lineEdit().returnPressed.connect(self.toggle_search)
-        self.subgroup_combo.lineEdit().returnPressed.connect(self.toggle_search)
+        self.group_combo.lineEdit().returnPressed.connect(self.toggle_search) # pyrefly: ignore [missing-attribute]
+        self.subgroup_combo.lineEdit().returnPressed.connect(self.toggle_search) # pyrefly: ignore [missing-attribute]
         self.filename_edit.returnPressed.connect(self.toggle_search)
         if not self.dropdown:
             self.input_formats_edit.returnPressed.connect(self.toggle_search)
@@ -299,14 +299,8 @@ class SearchTab(AbstractClassTwoGalleries):
     ) -> QWidget:
         """
         Creates a DraggableLabel for the Search Tab gallery.
+        Returns the label directly — no QWidget wrapper needed.
         """
-        container = QWidget()
-        container.setStyleSheet("background: transparent;")
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(1)
-
-        # Use DraggableLabel instead of ClickableLabel to support drag-and-drop
         image_label = DraggableLabel(
             path, self.thumbnail_size, selection_provider=lambda: self.selected_files
         )
@@ -314,10 +308,11 @@ class SearchTab(AbstractClassTwoGalleries):
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
         )
 
-        # Helper to get pixmap for base class caching
-        container.get_pixmap = lambda: image_label.pixmap()
-        # Helper to set style for base class updates
-        container.set_selected_style = lambda s: self._update_card_style(image_label, s)
+        # Wire up the ClickableLabel-compatible style callback so the base
+        # class can call image_label.set_selected_style(bool) transparently.
+        image_label.set_selected_style(
+            is_selected, callback=self._update_card_style
+        )
 
         # Connect signals
         image_label.path_clicked.connect(
@@ -329,7 +324,6 @@ class SearchTab(AbstractClassTwoGalleries):
         )
 
         if pixmap and not pixmap.isNull():
-            # Scale if needed (though ImageLoaderWorker usually handles this)
             if (
                 pixmap.width() > self.thumbnail_size
                 or pixmap.height() > self.thumbnail_size
@@ -342,45 +336,41 @@ class SearchTab(AbstractClassTwoGalleries):
                 )
             image_label.setPixmap(pixmap)
         else:
-            # Placeholder
             image_label.setText("Loading...")
             image_label.setStyleSheet("color: #888; font-size: 10px;")
 
-        layout.addWidget(image_label)
-
-        # Apply Initial Style
+        # Apply initial selection style
         self._update_card_style(image_label, is_selected)
 
-        return container
+        return image_label
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
         """
         Called by lazy loader when pixmap is ready or unloaded.
-        'widget' here is the container returned by create_card_widget.
+        'widget' is the DraggableLabel returned by create_card_widget.
         """
-        image_label = widget.findChild(DraggableLabel)
-        if image_label:
-            if pixmap and not pixmap.isNull():
-                if (
-                    pixmap.width() > self.thumbnail_size
-                    or pixmap.height() > self.thumbnail_size
-                ):
-                    pixmap = pixmap.scaled(
-                        self.thumbnail_size,
-                        self.thumbnail_size,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                image_label.setPixmap(pixmap)
-                image_label.setText("")
-            else:
-                image_label.clear()
-                image_label.setText("Loading...")
+        if not isinstance(widget, DraggableLabel):
+            return
+        image_label = widget
+        if pixmap and not pixmap.isNull():
+            if (
+                pixmap.width() > self.thumbnail_size
+                or pixmap.height() > self.thumbnail_size
+            ):
+                pixmap = pixmap.scaled(
+                    self.thumbnail_size,
+                    self.thumbnail_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            image_label.setPixmap(pixmap)
+            image_label.setText("")
+        else:
+            image_label.clear()
+            image_label.setText("Loading...")
 
-            # Re-apply selection style logic
-            # Check if this widget represents a selected path
-            is_selected = image_label.path in self.selected_files
-            self._update_card_style(image_label, is_selected)
+        is_selected = image_label.file_path in self.selected_files
+        self._update_card_style(image_label, is_selected)
 
     def on_selection_changed(self):
         # The base class method is sufficient here.
@@ -479,7 +469,8 @@ class SearchTab(AbstractClassTwoGalleries):
         # Uncheck all format buttons
         for btn in self.format_buttons.values():
             btn.setChecked(False)
-        self.selected_formats.clear()
+        
+        self.selected_formats.clear()  # pyrefly: ignore [missing-attribute]
 
         # Uncheck all tags
         for i in range(self.tags_list_widget.count()):
@@ -509,7 +500,7 @@ class SearchTab(AbstractClassTwoGalleries):
     # --- Format & Tag Logic (Unchanged) ---
     def toggle_format(self, fmt, checked):
         if checked:
-            self.selected_formats.add(fmt)
+            self.selected_formats.add(fmt) # pyrefly: ignore [missing-attribute]
             self.format_buttons[fmt].setStyleSheet(
                 """
                 QPushButton:checked { background-color: #3320b5; color: white; }
@@ -524,7 +515,7 @@ class SearchTab(AbstractClassTwoGalleries):
                 y_offset=3,
             )
         else:
-            self.selected_formats.discard(fmt)
+            self.selected_formats.discard(fmt) # pyrefly: ignore [missing-attribute]
             self.format_buttons[fmt].setStyleSheet(
                 "QPushButton:hover { background-color: #3498db; }"
             )
@@ -819,7 +810,7 @@ class SearchTab(AbstractClassTwoGalleries):
             image_data = db.get_image_by_path(file_path)
             image_id = image_data.get("id") if image_data else None
             for window in self.open_preview_windows[:]:
-                if window.image_path == file_path:
+                if hasattr(window, "image_path") and window.image_path == file_path:
                     window.close()
                     break
             if send_to_trash_enabled:
@@ -949,7 +940,7 @@ class SearchTab(AbstractClassTwoGalleries):
             )
             return
         for window in self.open_preview_windows:
-            if window.image_path == file_path:
+            if hasattr(window, "image_path") and window.image_path == file_path:
                 window.activateWindow()
                 return
 
@@ -988,7 +979,7 @@ class SearchTab(AbstractClassTwoGalleries):
         system = platform.system()
         try:
             if system == "Windows":
-                os.startfile(directory)
+                os.startfile(directory) # pyrefly: ignore [missing-attribute]
             elif system == "Darwin":
                 subprocess.run(["open", directory])
             else:

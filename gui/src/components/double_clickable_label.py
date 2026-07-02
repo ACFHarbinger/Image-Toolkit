@@ -47,7 +47,7 @@ class _FullImageViewerDialog(QDialog):
         )
 
         self.img_label = QLabel()
-        self.img_label.setAlignment(Qt.AlignCenter)
+        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_label.setStyleSheet("background-color: transparent;")
 
         # Load and set the full image
@@ -69,14 +69,14 @@ class _FullImageViewerDialog(QDialog):
 
         status_lbl = QLabel(dim_str)
         status_lbl.setStyleSheet("color: #99aab5; font-size: 11px; font-weight: bold;")
-        layout.addWidget(status_lbl, alignment=Qt.AlignRight)
+        layout.addWidget(status_lbl, alignment=Qt.AlignmentFlag.AlignRight)
 
 
 class DoubleClickableLabel(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._image_path = ""
-        self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     @property
     def image_path(self) -> str:
@@ -87,13 +87,13 @@ class DoubleClickableLabel(QLabel):
         self._image_path = path
         if path and Path(path).exists():
             self.setToolTip("Double-click to view full image")
-            self.setCursor(Qt.PointingHandCursor)
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
         else:
             self.setToolTip("")
-            self.setCursor(Qt.ArrowCursor)
+            self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.LeftButton and self._image_path:
+        if event.button() == Qt.MouseButton.LeftButton and self._image_path:
             if Path(self._image_path).exists():
                 dlg = _FullImageViewerDialog(self._image_path, self)
                 dlg.exec()

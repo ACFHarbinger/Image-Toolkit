@@ -1,4 +1,5 @@
-from .gallery_base import AbstractGalleryBase as AbstractGalleryBase
+from .base import *
+from .meta import *
 from .abstract_class_single_gallery import (
     AbstractClassSingleGallery as AbstractClassSingleGallery,
 )

@@ -36,10 +36,10 @@ class TestClickableLabel:
         received_doubles = []
         label.path_double_clicked.connect(lambda p: received_doubles.append(p))
 
-        QTestUtils.mouseClick(label, Qt.LeftButton)
+        QTestUtils.mouseClick(label, Qt.MouseButton.LeftButton)
         assert received_clicks == [path]
 
-        QTestUtils.mouseDClick(label, Qt.LeftButton)
+        QTestUtils.mouseDClick(label, Qt.MouseButton.LeftButton)
         assert received_doubles == [path]
 
 
@@ -64,7 +64,7 @@ class MockMonitor:
 class TestMonitorDropWidget:
     def test_init_and_set_image(self, q_app, mock_pixmap):
         monitor = MockMonitor()
-        widget = MonitorDropWidget(monitor, "1")
+        widget = MonitorDropWidget(monitor, "1")  # pyrefly: ignore [bad-argument-type]
 
         assert widget.monitor_id == "1"
         assert "Monitor 1" in widget.text()
@@ -98,9 +98,9 @@ class TestMarqueeScrollArea:
 
         # Simulate drag
         viewport = area.viewport()
-        QTestUtils.mousePress(viewport, Qt.LeftButton, pos=QPoint(10, 10))
+        QTestUtils.mousePress(viewport, Qt.MouseButton.LeftButton, pos=QPoint(10, 10))
         QTestUtils.mouseMove(viewport, pos=QPoint(50, 50))
-        QTestUtils.mouseRelease(viewport, Qt.LeftButton)
+        QTestUtils.mouseRelease(viewport, Qt.MouseButton.LeftButton)
 
 
 class TestDraggableMonitorContainer:
@@ -147,4 +147,4 @@ class TestQueueItemWidget:
         # QueueItemWidget requires a pixmap for preview
         widget = QueueItemWidget("/tmp/task1.png", mock_pixmap)
         # Verify that the filename label displays the basename
-        assert widget.layout().itemAt(1).widget().text() == "task1.png"
+        assert widget.layout().itemAt(2).widget().text() == "task1.png" # pyrefly: ignore [missing-attribute]

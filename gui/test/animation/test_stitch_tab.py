@@ -4,7 +4,7 @@ import math
 import pytest
 
 from unittest.mock import patch
-from gui.src.tabs.animation.stitch_tab import EditTab
+from gui.src.tabs.animation.stitch_tab import StitchTab
 from gui.src.tabs.animation.dialog.edge_graph_inspector_dialog import (
     EdgeGraphInspectorDialog,
     parse_edge_json,
@@ -21,8 +21,8 @@ pytestmark = pytest.mark.gui
 
 class TestStitchTabBrowseOutput:
     def test_browse_output_starts_at_last_selected_source_directory(self, q_app):
-        # Create EditTab instance
-        tab = EditTab()
+        # Create StitchTab instance
+        tab = StitchTab()
 
         # Setup mock frame paths mimicking added source frames
         tab._frame_paths = [
@@ -53,7 +53,7 @@ class TestStitchTabBrowseOutput:
             assert tab._output_path.text() == "/home/user/downloads/my_panorama.png"
 
     def test_browse_output_preserves_existing_filename(self, q_app):
-        tab = EditTab()
+        tab = StitchTab()
         tab._frame_paths = [
             "/home/user/pictures/frame1.png",
             "/home/user/downloads/frame2.png",
@@ -162,8 +162,8 @@ class TestEdgeGraphInspectorDialog:
             {"i": 1, "j": 2, "dx": 0.0, "dy": 0.0, "conf": 0.2, "method": "loftr"},
         ]
         dlg = EdgeGraphInspectorDialog(edges=edges)
-        assert dlg._table.item(0, 2).text() == "0.200"
-        assert dlg._table.item(1, 2).text() == "0.900"
+        assert dlg._table.item(0, 2).text() == "0.200" # pyrefly: ignore[missing-attribute]
+        assert dlg._table.item(1, 2).text() == "0.900" # pyrefly: ignore[missing-attribute]
 
     def test_empty_edges_shows_no_data_message(self, q_app):
         dlg = EdgeGraphInspectorDialog(edges=[])

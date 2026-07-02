@@ -7,7 +7,7 @@ import pytest
 
 from PySide6.QtCore import QPointF
 
-from gui.src.dialogs.canvas_inspector_dialog import (
+from gui.src.tabs.animation.dialog.canvas_inspector_dialog import (
     CanvasInspectorDialog,
 )
 

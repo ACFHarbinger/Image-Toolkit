@@ -111,10 +111,10 @@ from ...helpers.animation import (
     AnimClusterWorker,
     SequenceBuilderWorker,
 )
-from ...styles.style import apply_shadow_effect
+from ...styles import apply_shadow_effect
 from ...utils.splitter_persistence import persist_splitter
 from ...helpers.animation.adjust_worker import _apply_adjustments
-from ...dialogs import (
+from .dialog import (
     CoverageHeatmapDialog,
     CanvasInspectorDialog,
     EdgeReviewDialog,
@@ -142,11 +142,11 @@ from .stencil import (
     AnimClustersPanel,
 )
 
-from gui.src.dialogs.seam_painter_dialog import SeamPainterDialog
-from gui.src.dialogs.boundary_editor_dialog import BoundaryEditorDialog
-from gui.src.dialogs.seam_diagnostic_dialog import SeamDiagnosticDialog
-from gui.src.dialogs.hitl_session_viewer_dialog import HITLSessionViewerDialog
-from gui.src.dialogs.final_output_review_dialog import FinalOutputReviewDialog
+from gui.src.tabs.animation.dialog.seam_painter_dialog import SeamPainterDialog
+from gui.src.tabs.animation.dialog.boundary_editor_dialog import BoundaryEditorDialog
+from gui.src.tabs.animation.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
+from gui.src.tabs.animation.dialog.hitl_session_viewer_dialog import HITLSessionViewerDialog
+from gui.src.tabs.animation.dialog.final_output_review_dialog import FinalOutputReviewDialog
 from ...constants import (
     CONF_HIGH,
     CONF_MED,
@@ -968,7 +968,7 @@ class _NodeView(QGraphicsView):
             if ext in [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"]:
                 # Offset multiple images slightly so they don't stack perfectly
                 drop_pos = scene_pos + QPointF(i * 20, i * 20)
-                self.scene().add_source(fpath, pos=drop_pos)
+                self.scene().add_source(fpath, pos=drop_pos) # pyrefly: ignore[missing-attribute]
                 added = True
         if added:
             event.acceptProposedAction()
@@ -3138,12 +3138,7 @@ class StitchTab(QWidget):
         w = self._stitch_worker
         if w is None:
             return
-        dlg = SelectionReviewDialog(
-            paths=data.get("paths", []),
-            thumbnails=data.get("thumbnails", []),
-            frame_diffs=data.get("frame_diffs", []),
-            parent=self,
-        )
+        dlg = SelectionReviewDialog(data, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             selected = dlg.selected_paths()
             if selected:
@@ -3235,7 +3230,7 @@ class StitchTab(QWidget):
         w = self._stitch_worker
         if w is None:
             return
-        dlg = CanvasInspectorDialog(canvas_data=data, parent=self)
+        dlg = CanvasInspectorDialog(data=data, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_affines = dlg.adjusted_affines()
             if new_affines:
@@ -3713,7 +3708,7 @@ class StitchTab(QWidget):
         new_val = (current + delta + 180) % 360 - 180
         self._adj_angle_spin.setValue(new_val)
 
-    def _adj_set_flip(self, h: bool = None, v: bool = None):
+    def _adj_set_flip(self, h: Optional[bool] = None, v: Optional[bool] = None):
         if h is not None:
             self._adj_flip_h = h
         if v is not None:
@@ -3811,7 +3806,7 @@ class StitchTab(QWidget):
         if tmp_path not in self._frame_paths:
             self._frame_paths.append(tmp_path)
             item = self._make_frame_item(tmp_path)
-            item.setText(f"[adj] {os.path.basename(self._adj_img_path)}")
+            item.setText(f"[adj] {os.path.basename(self._adj_img_path)}")  # pyrefly: ignore [no-matching-overload]
             self._frame_list.addItem(item)
             self._refresh_pair_combo()
         self._tab_widget.setCurrentIndex(0)
@@ -3823,7 +3818,7 @@ class StitchTab(QWidget):
         if tmp_path not in self._cv_paths:
             self._cv_paths.append(tmp_path)
             item = self._make_cv_item(
-                tmp_path, f"[adj] {os.path.basename(self._adj_img_path)}"
+                tmp_path, f"[adj] {os.path.basename(self._adj_img_path)}"  # pyrefly: ignore [no-matching-overload]
             )
             self._cv_list.addItem(item)
         self._tab_widget.setCurrentIndex(2)
@@ -3838,8 +3833,8 @@ class StitchTab(QWidget):
         if size:
             self._cv_width_spin.blockSignals(True)
             self._cv_height_spin.blockSignals(True)
-            self._cv_width_spin.setValue(size[0])
-            self._cv_height_spin.setValue(size[1])
+            self._cv_width_spin.setValue(size[0])  # pyrefly: ignore [bad-argument-type]
+            self._cv_height_spin.setValue(size[1])  # pyrefly: ignore [bad-argument-type]
             self._cv_width_spin.blockSignals(False)
             self._cv_height_spin.blockSignals(False)
 
@@ -3925,8 +3920,16 @@ class StitchTab(QWidget):
         self._btn_cv_preview.setEnabled(False)
         self._btn_cv_export.setEnabled(False)
 
+        p_cv = self._cv_collect_params()
         self._cv_worker = CanvasWorker(
-            list(self._cv_paths), self._cv_collect_params(), preview=True
+            images_params=[(path, {}) for path in self._cv_paths],
+            layout_mode=p_cv["layout"],
+            canvas_w=p_cv["output_w"],
+            canvas_h=p_cv["output_h"],
+            bg_color=p_cv["bg_color"],
+            scale_mode=p_cv["scale_mode"],
+            gap=p_cv["gap"],
+            preview=True,
         )
         self._cv_thread = QThread(self)
         self._cv_worker.moveToThread(self._cv_thread)
@@ -3987,8 +3990,16 @@ class StitchTab(QWidget):
         self._btn_cv_preview.setEnabled(False)
         self._btn_cv_export.setEnabled(False)
 
+        p_cv = self._cv_collect_params()
         worker = CanvasWorker(
-            list(self._cv_paths), self._cv_collect_params(), preview=False
+            images_params=[(path, {}) for path in self._cv_paths],
+            layout_mode=p_cv["layout"],
+            canvas_w=p_cv["output_w"],
+            canvas_h=p_cv["output_h"],
+            bg_color=p_cv["bg_color"],
+            scale_mode=p_cv["scale_mode"],
+            gap=p_cv["gap"],
+            preview=False,
         )
         thread = QThread(self)
         worker.moveToThread(thread)

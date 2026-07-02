@@ -13,7 +13,7 @@ def _bgr_array_to_qimage(arr: np.ndarray) -> QImage:
     Convert to a tightly-packed RGB buffer and copy it into a QImage."""
     rgb = np.ascontiguousarray(arr[:, :, ::-1])
     h, w = rgb.shape[0], rgb.shape[1]
-    q_img = QImage(rgb.data, w, h, rgb.strides[0], QImage.Format_RGB888)
+    q_img = QImage(rgb.data, w, h, rgb.strides[0], QImage.Format.Format_RGB888)
     return q_img.copy()
 
 
@@ -54,7 +54,7 @@ class BatchImageLoaderWorker(QRunnable):
 
             # 2. Native C++ Parallel Path
             # Returns list[(path, HxWx3 BGR uint8 ndarray | None, error: str)]
-            raw_results = base.load_image_batch(
+            raw_results = base.load_image_batch( # pyrefly: ignore [missing-attribute]
                 self.paths, self.target_size, self.target_size, True
             )
 
@@ -103,8 +103,8 @@ class BatchImageLoaderWorker(QRunnable):
                     scaled = q_img.scaled(
                         self.target_size,
                         self.target_size,
-                        Qt.KeepAspectRatio,
-                        Qt.SmoothTransformation,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
                     )
                     results.append((path, scaled))
                     self._safe_emit_result(path, scaled)

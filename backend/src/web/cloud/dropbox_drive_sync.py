@@ -1,6 +1,6 @@
 import json
 import base  # Native extension
-from typing import Callable
+from typing import Callable, Any
 
 
 class DropboxDriveSync:
@@ -12,7 +12,7 @@ class DropboxDriveSync:
         self,
         local_source_path: str,
         drive_destination_folder_name: str,
-        access_token: str = None,
+        access_token: Any | None = None,
         dry_run: bool = False,
         logger: Callable[[str], None] = print,
         action_local_orphans: str = "upload",

@@ -549,7 +549,7 @@ class WallpaperManager:
         path_map: Dict[str, str],
         monitors: Union[List[Monitor], int],
         style_name: str,
-        qdbus: str,
+        qdbus: Optional[str] = None,
     ):
         system = platform.system()
         if style_name == "SolidColor":

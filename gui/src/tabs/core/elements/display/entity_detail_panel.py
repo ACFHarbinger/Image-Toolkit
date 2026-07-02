@@ -28,7 +28,7 @@ from gui.src.constants.listings import (
     ENTITY_TYPES,
     ENTITY_ROLES,
 )
-from gui.src.styles.style import apply_shadow_effect, SHARED_BUTTON_STYLE
+from gui.src.styles import apply_shadow_effect, SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.dialog import (
     _AssociatedEntitiesDialog,
     _AssociatedContentDialog,

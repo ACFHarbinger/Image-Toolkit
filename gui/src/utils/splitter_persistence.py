@@ -18,6 +18,6 @@ def persist_splitter(splitter: QSplitter, key: str) -> None:
         splitter.restoreState(saved)
 
     def _save(_pos: int = 0, _idx: int = 0) -> None:
-        AppSettings.set_splitter(key, splitter.saveState())
+        AppSettings.set_splitter(key, splitter.saveState()) # pyrefly: ignore [bad-argument-type]
 
     splitter.splitterMoved.connect(_save)

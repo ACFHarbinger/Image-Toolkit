@@ -449,10 +449,9 @@ class MaskReviewDialog(QDialog):
         self._refine_thread.start()
 
     def _on_refinement_done(self, new_masks: list):
-        self._refine_thread.quit()
-        self._refine_thread.wait()
+        self._refine_thread.quit() # pyrefly: ignore [missing-attribute]
+        self._refine_thread.wait() # pyrefly: ignore [missing-attribute]
         self._refine_thread = None
-
         if new_masks:
             # Replace our mask list with the refined masks
             for i, m in enumerate(new_masks):

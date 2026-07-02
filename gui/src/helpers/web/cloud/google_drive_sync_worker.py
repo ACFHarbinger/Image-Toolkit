@@ -59,18 +59,20 @@ class GoogleDriveSyncWorker(QRunnable):
             }
 
             if self.auth_mode == "service_account":
+                # pyrefly: ignore [bad-assignment]
                 gds_kwargs["service_account_data"] = self.auth_config.get(
                     "service_account_data"
                 )
-                gds_kwargs["client_secrets_data"] = None
-                gds_kwargs["token_file"] = None
+                gds_kwargs["client_secrets_data"] = None # pyrefly: ignore [bad-assignment]
+                gds_kwargs["token_file"] = None # pyrefly: ignore [bad-assignment]
 
             elif self.auth_mode == "personal_account":
+                # pyrefly: ignore [bad-assignment]
                 gds_kwargs["client_secrets_data"] = self.auth_config.get(
                     "client_secrets_data"
                 )
-                gds_kwargs["token_file"] = self.auth_config.get("token_file")
-                gds_kwargs["service_account_data"] = None
+                gds_kwargs["token_file"] = self.auth_config.get("token_file") # pyrefly: ignore [bad-assignment]
+                gds_kwargs["service_account_data"] = None # pyrefly: ignore [bad-assignment]
 
             else:
                 raise ValueError(f"Unsupported authentication mode: {self.auth_mode}")

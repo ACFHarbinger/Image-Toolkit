@@ -129,8 +129,7 @@ class _WaypointCanvas(QLabel):
         """Return the seam index whose boundary y is closest to *canvas_y*."""
         if not self._boundaries:
             return -1
-        return int(min(range(len(self._boundaries)),
-                       key=lambda i: abs(canvas_y - self._boundaries[i])))
+        return min(range(len(self._boundaries)), key=lambda i: abs(canvas_y - self._boundaries[i]))
 
     def _redraw(self) -> None:
         """Composite base pixmap with waypoint dots and update label."""
@@ -389,6 +388,7 @@ class _SeamCard(QFrame):
         h, w = arr.shape[:2]
         scale = min(max_width / max(w, 1), max_height / max(h, 1), 1.0)
         if scale < 1.0:
+            # pyrefly: ignore [no-matching-overload]
             arr = cv2.resize(
                 arr, (max(1, int(w * scale)), max(1, int(h * scale))), cv2.INTER_AREA
             )
@@ -655,7 +655,7 @@ class SeamDiagnosticDialog(QDialog):
         h, w = arr.shape[:2]
         if w > max_width:
             scale = max_width / w
-            arr = cv2.resize(arr, (max_width, max(1, int(h * scale))), cv2.INTER_AREA)
+            arr = cv2.resize(arr, (max_width, max(1, int(h * scale))), cv2.INTER_AREA) # pyrefly: ignore [no-matching-overload]
             h, w = arr.shape[:2]
         rgb = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
         qimg = QImage(rgb.data, w, h, w * 3, QImage.Format.Format_RGB888).copy()

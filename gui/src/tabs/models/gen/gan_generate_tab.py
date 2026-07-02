@@ -31,7 +31,7 @@ class GANGenerateTab(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        self.layout = QVBoxLayout(self)
+        layout = QVBoxLayout(self)
 
         # --- Input ---
         form_layout = QHBoxLayout()
@@ -43,7 +43,7 @@ class GANGenerateTab(QWidget):
         form_layout.addWidget(QLabel("Checkpoint:"))
         form_layout.addWidget(self.txt_checkpoint)
         form_layout.addWidget(btn_ckpt)
-        self.layout.addLayout(form_layout)
+        layout.addLayout(form_layout)
 
         control_layout = QHBoxLayout()
         self.spin_gen_count = QSpinBox()
@@ -56,7 +56,7 @@ class GANGenerateTab(QWidget):
         control_layout.addWidget(QLabel("Count:"))
         control_layout.addWidget(self.spin_gen_count)
         control_layout.addWidget(self.btn_generate)
-        self.layout.addLayout(control_layout)
+        layout.addLayout(control_layout)
 
         # --- Display Grid ---
         self.scroll_area = QScrollArea()
@@ -64,7 +64,7 @@ class GANGenerateTab(QWidget):
         self.gen_container = QWidget()
         self.gen_grid = QGridLayout(self.gen_container)
         self.scroll_area.setWidget(self.gen_container)
-        self.layout.addWidget(self.scroll_area)
+        layout.addWidget(self.scroll_area)
 
     def browse_file(self, line_edit):
         path, _ = QFileDialog.getOpenFileName(
@@ -81,7 +81,7 @@ class GANGenerateTab(QWidget):
 
         try:
             for i in reversed(range(self.gen_grid.count())):
-                self.gen_grid.itemAt(i).widget().setParent(None)
+                self.gen_grid.itemAt(i).widget().setParent(None) # pyrefly: ignore [missing-attribute]
 
             device = torch.device(self.device)
             gan = GAN(z_dim=100, channels=3, n_filters=32, n_blocks=3, device=device)
@@ -93,7 +93,6 @@ class GANGenerateTab(QWidget):
 
             row, col = 0, 0
             cols_per_row = 4
-
             for i in range(count):
                 img_t = images_tensor[i]
                 img_np = img_t.permute(1, 2, 0).numpy()

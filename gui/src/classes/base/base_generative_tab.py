@@ -33,9 +33,9 @@ class BaseGenerativeTab(QWidget):
             if isinstance(widget, QComboBox):
                 params[key] = widget.currentText()
             elif isinstance(widget, QCheckBox):
-                params[key] = widget.isChecked()
+                params[key] = widget.isChecked()  # pyrefly: ignore [unsupported-operation]
             elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
-                params[key] = widget.value()
+                params[key] = widget.value() # pyrefly: ignore [unsupported-operation]
             elif isinstance(widget, QLineEdit):
                 params[key] = widget.text()
             elif isinstance(widget, QTextEdit):
@@ -56,7 +56,7 @@ class BaseGenerativeTab(QWidget):
                     widget.setChecked(bool(value))
                 elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
                     try:
-                        widget.setValue(float(value))
+                        widget.setValue(value)
                     except ValueError:
                         pass
                 elif isinstance(widget, QLineEdit):

@@ -7,7 +7,7 @@ from shiboken6 import Shiboken as sip
 from pathlib import Path
 from send2trash import send2trash # pyrefly: ignore [untyped-import]
 
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, cast
 from PySide6.QtCore import (
     Qt,
     QThread,
@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 from screeninfo import get_monitors, Monitor
 
+from .....windows import ImagePreviewWindow
 from .....classes import AbstractClassSingleGallery
 from .....helpers import ImageScannerWorker, VideoScannerWorker
 from .....components import (
@@ -38,8 +39,8 @@ from .....components import (
     DraggableMonitorContainer,
 )
 from .....utils.sort_utils import natural_sort_key
-from .....styles.style import STYLE_START_ACTION
-from .....windows import SlideshowQueueWindow, ImagePreviewWindow
+from .....styles import STYLE_START_ACTION
+from .....windows import SlideshowQueueWindow
 from backend.src.constants import (
     SUPPORTED_VIDEO_FORMATS,
     SUPPORTED_IMG_FORMATS,
@@ -71,6 +72,22 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
     sync_sort_combo_changed = Signal(str)
     sync_sort_dir_changed = Signal(bool)
 
+    # Subclass-specific attributes used in shared methods
+    slideshow_timer: Optional[QTimer]
+    current_wallpaper_worker: Optional[Any]
+    set_wallpaper_btn: Optional[Any]
+    background_type_combo: Optional[Any]
+    background_type: str
+    solid_color_hex: str
+    _graphs: Dict[str, Any]
+    _monitor_display_ref: Optional[Any]
+    _view: Any
+    _scene: Any
+    main_scroll_area: Optional[Any]
+    scan_directory_path: Optional[Any]
+    interval_min_spinbox: Optional[Any]
+    style_combo: Optional[Any]
+
     def __init__(self):
         super().__init__()
 
@@ -78,7 +95,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
 
         self.monitors: List[Monitor] = []
         self.monitor_widgets: Dict[str, MonitorDropWidget] = {}
-        self.monitor_image_paths: Dict[str, str] = {}
+        self.monitor_image_paths: Dict[str, Optional[str]] = {}
         self.monitor_slideshow_queues: Dict[str, List[str]] = {}
         self.monitor_current_index: Dict[str, int] = {}
         self.monitor_history: Dict[str, List[str]] = {}
@@ -90,16 +107,31 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self.scanned_dir = None
         self.path_to_label_map = {}
         self._filtering_event = False
+        self._system_display_ref = None
 
         self._current_monitor_id = None
         self.linked_tabs = []
         self.open_image_preview_windows = []
         self.open_queue_windows = []
 
+        # Common attributes used or overridden by subclasses
+        self.slideshow_timer = None
+        self.current_wallpaper_worker = None
+        self.background_type = "Image"
+        self.solid_color_hex = "#000000"
+
         self._pagination_debounce_timer = QTimer()
         self._pagination_debounce_timer.setSingleShot(True)
         self._pagination_debounce_timer.setInterval(200)
         self._pagination_debounce_timer.timeout.connect(self._update_pagination_ui)
+
+    def set_system_display_ref(self, system_display):
+        """Set the system display reference.
+
+        Args:
+            system_display: The system display reference.
+        """
+        self._system_display_ref = system_display
 
     def create_monitor_layout_section(self, title: str) -> QGroupBox:
         group_box_style = """
@@ -220,12 +252,16 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         if not target:
             return
 
+        btn = target.set_wallpaper_btn
+        if not btn:
+            return
+
         if target.slideshow_timer and target.slideshow_timer.isActive():
             return
         if target.current_wallpaper_worker:
             return
 
-        target.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
+        btn.setStyleSheet(STYLE_START_ACTION)
         target_monitor_ids = list(target.monitor_widgets.keys())
         num_monitors = len(target_monitor_ids)
         set_count = sum(
@@ -239,44 +275,44 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         solid_color_hex = getattr(target, "solid_color_hex", "#000000")
 
         if bg_type == "Solid Color":
-            target.set_wallpaper_btn.setText(f"Set Solid Color ({solid_color_hex})")
-            target.set_wallpaper_btn.setEnabled(num_monitors > 0)
+            btn.setText(f"Set Solid Color ({solid_color_hex})")
+            btn.setEnabled(num_monitors > 0)
             return
 
         if bg_type == "Slideshow":
             if is_ready:
-                target.set_wallpaper_btn.setEnabled(True)
-                target.set_wallpaper_btn.setText(
+                btn.setEnabled(True)
+                btn.setText(
                     f"Start Slideshow ({total_images} total items)"
                 )
             else:
-                target.set_wallpaper_btn.setEnabled(False)
-                target.set_wallpaper_btn.setText("Slideshow (Drop images/videos)")
+                btn.setEnabled(False)
+                btn.setText("Slideshow (Drop images/videos)")
 
         elif bg_type == "Smart Video Slideshow":
             if is_ready:
-                target.set_wallpaper_btn.setText(
+                btn.setText(
                     f"Start Video Slideshow ({total_images} items)"
                 )
-                target.set_wallpaper_btn.setEnabled(True)
+                btn.setEnabled(True)
             else:
-                target.set_wallpaper_btn.setText("Set Video (0 items)")
-                target.set_wallpaper_btn.setEnabled(False)
+                btn.setText("Set Video (0 items)")
+                btn.setEnabled(False)
 
         elif bg_type == "Smart Video":
             if set_count > 0:
-                target.set_wallpaper_btn.setText("Set Video")
-                target.set_wallpaper_btn.setEnabled(True)
+                btn.setText("Set Video")
+                btn.setEnabled(True)
             else:
-                target.set_wallpaper_btn.setText("Set Video (0 items)")
-                target.set_wallpaper_btn.setEnabled(False)
+                btn.setText("Set Video (0 items)")
+                btn.setEnabled(False)
 
         elif set_count > 0:
-            target.set_wallpaper_btn.setText("Set Wallpaper")
-            target.set_wallpaper_btn.setEnabled(True)
+            btn.setText("Set Wallpaper")
+            btn.setEnabled(True)
         else:
-            target.set_wallpaper_btn.setText("Set Wallpaper (0 items)")
-            target.set_wallpaper_btn.setEnabled(False)
+            btn.setText("Set Wallpaper (0 items)")
+            btn.setEnabled(False)
         target.wallpapers_changed.emit()
 
     def handle_monitor_double_click(self, monitor_id: str):
@@ -300,6 +336,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         other_names = {
             mid: widget.monitor.name for mid, widget in self.monitor_widgets.items()
         }
+        assert monitor_name is not None
         window = SlideshowQueueWindow(
             monitor_name,
             monitor_id,
@@ -308,7 +345,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             other_queues=self.monitor_slideshow_queues,
             other_names=other_names,
         )
-        window.setAttribute(Qt.WA_DeleteOnClose)
+        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         window.queue_reordered.connect(self.on_queue_reordered)
         window.image_preview_requested.connect(self.handle_full_image_preview)
         window.item_swap_requested.connect(self.handle_item_swap_request)
@@ -323,7 +360,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             ]
             event.accept()
 
-        window.closeEvent = remove_closed_win
+        setattr(window, "closeEvent", remove_closed_win)
         window.show()
         self.open_queue_windows.append(window)
 
@@ -337,7 +374,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
             try:
                 if platform.system() == "Windows":
-                    os.startfile(image_path)
+                    start_fn = getattr(os, "startfile", None)
+                    if start_fn:
+                        start_fn(image_path)
                 elif platform.system() == "Linux":
                     subprocess.Popen(
                         ["xdg-open", image_path],
@@ -392,7 +431,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             ]
             event.accept()
 
-        window.closeEvent = remove_closed_win
+        setattr(window, "closeEvent", remove_closed_win)
         window.show()
         self.open_image_preview_windows.append(window)
 
@@ -567,13 +606,15 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                     target = peer
                     break
         if target:
-            bg_type = target.background_type_combo.currentText()
-            if is_video and bg_type == "Image":
-                target.background_type_combo.setCurrentText("Smart Video")
-            elif not is_video and bg_type in ["Smart Video", "Smart Video Slideshow"]:
-                target.background_type_combo.setCurrentText("Image")
-            if bg_type == "Solid Color":
-                target.background_type_combo.setCurrentText("Image")
+            combo = target.background_type_combo
+            if combo is not None:
+                bg_type = combo.currentText()
+                if is_video and bg_type == "Image":
+                    combo.setCurrentText("Smart Video")
+                elif not is_video and bg_type in ["Smart Video", "Smart Video Slideshow"]:
+                    combo.setCurrentText("Image")
+                if bg_type == "Solid Color":
+                    combo.setCurrentText("Image")
 
         if monitor_id not in self.monitor_slideshow_queues:
             self.monitor_slideshow_queues[monitor_id] = []
@@ -912,6 +953,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
     def populate_monitor_layout(self):
         self.monitor_layout_container.clear_widgets()
         self.monitor_widgets.clear()
+        system_monitors = []
         try:
             system_monitors = get_monitors()
             system_monitors = sorted(system_monitors, key=lambda m: m.x)
@@ -919,8 +961,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
             self.monitors = []
-        if not self.monitors or "Mock" in self.monitors[0].name:
-            self.monitor_layout_container.addWidget(
+        
+        if not self.monitors or not self.monitors[0].name or "Mock" in self.monitors[0].name:
+            cast(Any, self.monitor_layout_container).addWidget(
                 QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?")
             )
             self.monitors_updated.emit(self.monitors)
@@ -1010,16 +1053,16 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
 
         self.monitors_updated.emit(self.monitors)
 
-    def _get_rotated_map_for_ui(self, raw_paths: Dict[int, str]) -> Dict[str, str]:
+    def _get_rotated_map_for_ui(self, raw_paths: Dict[str, str | None]) -> Dict[str, str | None]:
         mapped = {}
         for idx, path in raw_paths.items():
-            mapped[str(idx)] = path
+            mapped[idx] = path
         return mapped
 
     def _get_current_system_image_paths_for_all(self) -> Dict[str, Optional[str]]:
         system = platform.system()
         num_monitors = len(self.monitors)
-        current_paths = {}
+        current_paths: Dict[str, Optional[str]] = {}
         if num_monitors == 0:
             return current_paths
         if system == "Linux":
@@ -1053,8 +1096,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             return
 
         self.scanned_dir = directory
-        if hasattr(self, "scan_directory_path"):
-            self.scan_directory_path.setText(directory)
+        path_edit = getattr(self, "scan_directory_path", None)
+        if path_edit is not None:
+            path_edit.setText(directory)
             
         if emit_signal:
             self.directory_scanned.emit(directory)
@@ -1182,14 +1226,17 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             self.path_to_card_widget[path] = card
 
     def _handle_autoscroll(self, global_pos: QPoint):
-        if not hasattr(self, "main_scroll_area") or not self.isVisible():
+        if not self.isVisible():
+            return
+        scroll_area = getattr(self, "main_scroll_area", None)
+        if scroll_area is None:
             return
 
-        vbar = self.main_scroll_area.verticalScrollBar()
+        vbar = scroll_area.verticalScrollBar()
         if not vbar or not vbar.isVisible():
             return
 
-        viewport = self.main_scroll_area.viewport()
+        viewport = scroll_area.viewport()
         vp_global_pos = viewport.mapToGlobal(QPoint(0, 0))
         vp_global_rect = QRect(vp_global_pos, viewport.size())
 
@@ -1224,11 +1271,13 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             if QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
                 global_pos = QCursor.pos()
                 if self.rect().contains(self.mapFromGlobal(global_pos)):
-                    vbar = self.main_scroll_area.verticalScrollBar()
-                    if vbar and vbar.isVisible():
-                        delta = event.angleDelta().y()
-                        vbar.setValue(vbar.value() - delta)
-                        return True
+                    scroll_area = getattr(self, "main_scroll_area", None)
+                    if scroll_area is not None:
+                        vbar = scroll_area.verticalScrollBar()
+                        if vbar and vbar.isVisible():
+                            delta = event.angleDelta().y()
+                            vbar.setValue(vbar.value() - delta)
+                            return True
 
         elif event.type() in (QEvent.Type.DragMove, QEvent.Type.DragEnter):
             self._handle_autoscroll(QCursor.pos())
@@ -1286,7 +1335,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
 
         if directory:
             self.last_browsed_scan_dir = directory
-            self.scan_directory_path.setText(directory)
+            path_edit = getattr(self, "scan_directory_path", None)
+            if path_edit is not None:
+                path_edit.setText(directory)
             self.populate_scan_image_gallery(directory)
 
     # ---- QML handlers -----------------------------------------------------
@@ -1315,14 +1366,17 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         else:
             if monitor_name in self.monitor_widgets:
                 self.monitor_image_paths[monitor_name] = path
-        self.handle_set_wallpaper_click()
+        if hasattr(self, "handle_set_wallpaper_click"):
+            getattr(self, "handle_set_wallpaper_click")()
 
     @Slot(int, int, str, bool, bool)
     def update_slideshow_settings_qml(
         self, interval_min, style, random_order, include_subdirs
     ):
-        self.interval_min_spinbox.setValue(interval_min)
-        self.style_combo.setCurrentText(style)
+        if hasattr(self, "interval_min_spinbox"):
+            getattr(self, "interval_min_spinbox").setValue(interval_min)
+        if hasattr(self, "style_combo"):
+            getattr(self, "style_combo").setCurrentText(style)
         self.request_monitors_qml()
 
     @Slot(str)

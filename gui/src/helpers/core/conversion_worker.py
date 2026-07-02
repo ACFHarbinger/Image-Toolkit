@@ -2,7 +2,7 @@ import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from PySide6.QtCore import QThread, Signal
 from backend.src.core import ImageFormatConverter, VideoFormatConverter
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class ConversionWorker(QThread):
-    finished = Signal(int, str)  # (count, message)
-    error = Signal(str)
-    progress_update = Signal(int)  # Signal for reporting progress (0-100)
+    progress_signal = Signal(int)  # Signal for reporting progress (0-100)
+    finished_signal = Signal(int, str)  # (count, message)
+    error_signal = Signal(str)
 
-    def __init__(self, config: ConversionConfig):
+    def __init__(self, config: Union[ConversionConfig, Dict[str, Any]]):
         super().__init__()
         self.config = config
         self._is_cancelled = False
@@ -62,12 +62,12 @@ class ConversionWorker(QThread):
                         files_to_convert.append(input_path)
 
             if not files_to_convert:
-                self.error.emit("No files to convert.")
+                self.error_signal.emit("No files to convert.")
                 return
 
             total_files = len(files_to_convert)
             converted_count = 0
-            self.progress_update.emit(0)
+            self.progress_signal.emit(0)
 
             # Define format sets for quick lookup
             img_formats = set(f.lstrip(".") for f in SUPPORTED_IMG_FORMATS)
@@ -108,7 +108,7 @@ class ConversionWorker(QThread):
 
                     # Progress Update (approximate based on completed tasks)
                     progress = int(((idx + 1) / total_files) * 100)
-                    self.progress_update.emit(progress)
+                    self.progress_signal.emit(progress)
 
                 self._executor.shutdown(wait=True)
                 self._executor = None
@@ -127,25 +127,25 @@ class ConversionWorker(QThread):
                         failures.append(str(e))
 
                     progress = int(((idx + 1) / total_files) * 100)
-                    self.progress_update.emit(progress)
+                    self.progress_signal.emit(progress)
 
             if self._is_cancelled:
-                self.finished.emit(converted_count, "**Conversion Cancelled**")
+                self.finished_signal.emit(converted_count, "**Conversion Cancelled**")
             elif failures:
                 summary = f"Processed {converted_count}/{total_files} successfully.\n{len(failures)} error(s) occurred."
                 if len(failures) == 1:
                     summary += f"\n\nError: {failures[0]}"
                 else:
                     summary += "\n\nFirst few errors:\n - " + "\n - ".join(failures[:3])
-                self.finished.emit(converted_count, summary)
+                self.finished_signal.emit(converted_count, summary)
             else:
-                self.finished.emit(
+                self.finished_signal.emit(
                     converted_count, f"Processed {converted_count} file(s)!"
                 )
 
         except Exception as e:
-            self.progress_update.emit(0)
-            self.error.emit(str(e))
+            self.progress_signal.emit(0)
+            self.error_signal.emit(str(e))
         finally:
             if self._executor:
                 self._executor.shutdown(wait=False)
@@ -259,7 +259,7 @@ class ConversionWorker(QThread):
                     process_callback=register_p,
                     target_width=ar_w,
                     target_height=ar_h,
-                    aspect_ratio=aspect_ratio,
+                    aspect_ratio=float(aspect_ratio), # pyrefly: ignore [bad-argument-type]
                     ar_mode=aspect_ratio_mode,
                 )
             elif is_src_image and target_is_image:

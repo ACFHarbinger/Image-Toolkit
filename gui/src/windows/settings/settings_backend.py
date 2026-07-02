@@ -1,6 +1,6 @@
 import json
 from PySide6.QtCore import QObject, Signal, Property, Slot
-from PySide6.QtWidgets import QMessageBox
+
 
 class SettingsBackend(QObject):
     profile_list_changed = Signal()
@@ -147,10 +147,10 @@ class SettingsBackend(QObject):
     @Slot()
     def applySettings(self):
         # Save theme and other global settings to vault
-        creds = self.vault_manager.load_account_credentials()
+        creds = self.vault_manager.load_account_credentials() # pyrefly: ignore [missing-attribute]
         creds["theme"] = self._current_theme
         # creds["system_preference_profiles"] = self._system_profiles # Already saved on modify
-        self.vault_manager.save_data(json.dumps(creds))
+        self.vault_manager.save_data(json.dumps(creds)) # pyrefly: ignore [missing-attribute]
         # Emit generic signal if needed
 
     @Slot()

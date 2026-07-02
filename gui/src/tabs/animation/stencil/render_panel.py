@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QApplication,
 )
 
-from ....styles.style import apply_shadow_effect
+from ....styles import apply_shadow_effect
 
 
 def _bgr_to_qimage(bgr: np.ndarray) -> QImage:
@@ -208,7 +208,7 @@ class RenderPanel(QWidget):
         all_pts = []
         for i, (frm, M) in enumerate(zip(frames, affines)):
             fh, fw = frm.shape[:2]
-            corners = np.float32([[0, 0], [fw, 0], [fw, fh], [0, fh]])
+            corners = np.array([[0, 0], [fw, 0], [fw, fh], [0, fh]], dtype=np.float32)
             warped_c = corners + M[:, 2]
             all_pts.append(warped_c)
         all_pts = np.vstack(all_pts)

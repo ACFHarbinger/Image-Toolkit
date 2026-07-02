@@ -22,7 +22,7 @@ class MarqueeScrollArea(QScrollArea):
         self.setViewport(OpaqueViewport(self))
         self.viewport().setMouseTracking(True)
 
-        self.rubber_band = QRubberBand(QRubberBand.Rectangle, self.viewport())
+        self.rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self.viewport())
         self.origin = QPoint()
         self.last_selected_paths = set()
 
@@ -53,7 +53,7 @@ class MarqueeScrollArea(QScrollArea):
                     break
                 curr = curr.parentWidget()
 
-        if event.button() == Qt.LeftButton and not is_on_item:
+        if event.button() == Qt.MouseButton.LeftButton and not is_on_item:
             self.origin = event.position().toPoint()
             self.rubber_band.setGeometry(QRect(self.origin, QSize()))
             self.rubber_band.show()
@@ -98,7 +98,7 @@ class MarqueeScrollArea(QScrollArea):
                             current_selected_paths.add(label.path)
 
             mods = QApplication.keyboardModifiers()
-            is_ctrl_pressed = bool(mods & Qt.ControlModifier)
+            is_ctrl_pressed = bool(mods & Qt.KeyboardModifier.ControlModifier)
 
             if current_selected_paths != self.last_selected_paths:
                 self.selection_changed.emit(current_selected_paths, is_ctrl_pressed)
@@ -109,7 +109,7 @@ class MarqueeScrollArea(QScrollArea):
             super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton and self.rubber_band.isVisible():
+        if event.button() == Qt.MouseButton.LeftButton and self.rubber_band.isVisible():
             self.rubber_band.hide()
             self.last_selected_paths = set()
             event.accept()
@@ -117,7 +117,7 @@ class MarqueeScrollArea(QScrollArea):
             super().mouseReleaseEvent(event)
 
     def wheelEvent(self, event: QWheelEvent):
-        if event.modifiers() & Qt.ControlModifier:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self.ctrl_wheel.emit(event.angleDelta().y())
             event.accept()
         else:

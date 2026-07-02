@@ -1,6 +1,6 @@
 import json
 import base  # Native extension
-from typing import Callable
+from typing import Callable, Any
 
 
 class OneDriveSync:
@@ -17,7 +17,7 @@ class OneDriveSync:
         logger: Callable[[str], None] = print,
         action_local_orphans: str = "upload",
         action_remote_orphans: str = "download",
-        client_id: str = None,
+        client_id: Any | None = None,
         **kwargs,
     ):
         self.config = {
@@ -30,6 +30,7 @@ class OneDriveSync:
         }
         self.logger = logger
         self._is_running = True
+        self.client_id = client_id
 
     def stop(self):
         self._is_running = False

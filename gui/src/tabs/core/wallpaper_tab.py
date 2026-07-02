@@ -24,7 +24,7 @@ class WallpaperTab(QWidget):
         self.monitor_display._initial_pixmap_cache = self.system_display._initial_pixmap_cache
 
         self.monitor_display.set_system_display_ref(self.system_display)
-        self.system_display._monitor_display_ref = self.monitor_display
+        self.system_display.set_system_display_ref(self.monitor_display)
 
         self.system_display.monitors_updated.connect(
             self.monitor_display.update_monitors

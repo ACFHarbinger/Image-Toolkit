@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 from PySide6.QtGui import QPixmap, QIcon, QImage
 from PySide6.QtCore import Qt, Slot, QPoint, Signal
 from PySide6.QtWidgets import (
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QStyle,
 )
 from ..components import QueueItemWidget
+from ..utils.lru_image_cache import LRUImageCache
 
 
 class SlideshowQueueWindow(QWidget):
@@ -29,9 +30,9 @@ class SlideshowQueueWindow(QWidget):
         monitor_name: str,
         monitor_id: str,
         queue: List[str],
-        pixmap_cache: Optional[Dict[str, QPixmap]] = None,
+        pixmap_cache: Optional[Union[Dict[str, QPixmap], LRUImageCache]] = None,
         other_queues: Optional[Dict[str, List[str]]] = None,
-        other_names: Optional[Dict[str, str]] = None,
+        other_names: Optional[Dict[str, str | None]] = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -158,7 +159,7 @@ class SlideshowQueueWindow(QWidget):
                 continue
             other_mon_added = True
             mon_name = self.other_names.get(mid, f"Monitor {mid}")
-            mon_menu = swap_menu.addMenu(mon_name)
+            mon_menu = swap_menu.addMenu(mon_name) # pyrefly: ignore [no-matching-overload]
             if not queue:
                 mon_menu.addAction("No items").setEnabled(False)
             else:

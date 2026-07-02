@@ -258,8 +258,8 @@ class CanvasInspectorDialog(QDialog):
 
         fh, fw = float(self._frame_h), float(self._frame_w)
         for idx, aff in enumerate(self._affines):
-            base_tx = float(aff[0][2])
-            base_ty = float(aff[1][2])
+            base_tx = aff[0][2]
+            base_ty = aff[1][2]
 
             color = _FRAME_COLORS[idx % len(_FRAME_COLORS)]
             pen = QPen(color.darker(150))
@@ -286,7 +286,7 @@ class CanvasInspectorDialog(QDialog):
             # Thumbnail as child item (moves/rotates/scales with the frame rect)
             if idx < len(self._thumbnails) and self._thumbnails[idx] is not None:
                 try:
-                    pix = _bgr_thumb_to_qpixmap(self._thumbnails[idx], int(fw), int(fh))
+                    pix = _bgr_thumb_to_qpixmap(self._thumbnails[idx], int(fw), int(fh)) # pyrefly: ignore[bad-argument-type]
                     pix_item = QGraphicsPixmapItem(pix, drag_item)
                     pix_item.setOpacity(0.6)
                     pix_item.setPos(0.0, 0.0)
@@ -374,8 +374,8 @@ class CanvasInspectorDialog(QDialog):
             self._tx_label.setText("tx: —  ty: —")
             return
         aff = self._affines[idx]
-        tx = float(aff[0][2]) + self._nudges[idx][0]
-        ty = float(aff[1][2]) + self._nudges[idx][1]
+        tx = aff[0][2] + self._nudges[idx][0]
+        ty = aff[1][2] + self._nudges[idx][1]
         ndx, ndy = self._nudges[idx]
         self._tx_label.setText(f"tx: {tx:.1f}  ty: {ty:.1f}  (nudge {ndx:+.0f}, {ndy:+.0f})")
 
@@ -414,10 +414,7 @@ class CanvasInspectorDialog(QDialog):
         self._nudges[idx][0] += dx
         self._nudges[idx][1] += dy
         aff = self._affines[idx]
-        new_pos = QPointF(
-            float(aff[0][2]) + self._nudges[idx][0],
-            float(aff[1][2]) + self._nudges[idx][1],
-        )
+        new_pos = QPointF(aff[0][2] + self._nudges[idx][0], aff[1][2] + self._nudges[idx][1])
         self._drag_items[idx].setPos(new_pos)
         self._update_tx_label()
 
@@ -430,7 +427,7 @@ class CanvasInspectorDialog(QDialog):
         self._scale_factors[idx] = 1.0
         aff = self._affines[idx]
         item = self._drag_items[idx]
-        item.setPos(QPointF(float(aff[0][2]), float(aff[1][2])))
+        item.setPos(QPointF(aff[0][2], aff[1][2]))
         item.setRotation(0.0)
         item.setScale(1.0)
         self._update_tx_label()

@@ -1,17 +1,18 @@
 import os
 import math
 
+from send2trash import send2trash # pyrefly: ignore [untyped-import]
 from abc import abstractmethod
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication, QFileDialog, QMessageBox, QInputDialog
-from PySide6.QtCore import Qt, Slot, QThreadPool, QTimer, QEvent
+from PySide6.QtCore import Qt, Slot, QTimer, QEvent
 from PySide6.QtGui import QPixmap, QImage, QAction
 from backend.src.constants import (
     LOCAL_SOURCE_PATH,
     SUPPORTED_VIDEO_FORMATS,
     THUMBNAIL_CACHE_DIR,
 )
-from .gallery_base import AbstractGalleryBase
+from .base.gallery_base import AbstractGalleryBase
 from ..utils.lru_image_cache import LRUImageCache
 from ..components import MarqueeScrollArea, ClickableLabel
 from ..helpers import (
@@ -43,6 +44,8 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         self.selected_card_map: Dict[str, QWidget] = {}
         self._selected_pixmap_cache = LRUImageCache(maxsize=200)
         self._found_pixmap_cache = LRUImageCache(maxsize=300)
+        self.found_loading_paths: Set[str] = set()
+        self._loading_paths: Set[str] = set()
 
         # --- Pagination State ---
         self.found_page_size = 150
@@ -92,7 +95,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         )
 
         # Enable keyboard focus for shortcuts
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     # --- INLINE RENAME (GUI/UX §2.26B) ---
     def _rename_focused_file(self) -> None:
@@ -147,9 +150,9 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             widget = self.path_to_label_map.pop(old_path)
             self.path_to_label_map[new_path] = widget
             if hasattr(widget, "path"):
-                widget.path = new_path
+                widget.path = new_path # pyrefly: ignore [missing-attribute]
             if hasattr(widget, "file_path"):
-                widget.file_path = new_path
+                widget.file_path = new_path # pyrefly: ignore [missing-attribute]
             if hasattr(widget, "setToolTip"):
                 widget.setToolTip(os.path.basename(new_path))
 
@@ -254,11 +257,40 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         self._sync_thumb_slider()
         self._save_thumbnail_size()
         self._on_layout_change()
-        current_page = self.common_get_paginated_slice(
-            self.master_found_files, self.found_current_page, self.found_page_size
-        )
-        if current_page:
-            self.start_loading_gallery(current_page)
+        self._recreate_galleries_on_zoom()
+
+    def _recreate_galleries_on_zoom(self) -> None:
+        """Clears all caches and existing widgets, and fully recreates the galleries at the new thumbnail size."""
+        self.cancel_loading()
+        
+        # Clear caches
+        self._found_pixmap_cache.clear()
+        self._selected_pixmap_cache.clear()
+        
+        # Clear existing widgets
+        for widget in list(self.path_to_label_map.values()):
+            try:
+                widget.deleteLater()
+            except RuntimeError:
+                pass
+        self.path_to_label_map.clear()
+        
+        for widget in list(self.selected_card_map.values()):
+            try:
+                widget.deleteLater()
+            except RuntimeError:
+                pass
+        self.selected_card_map.clear()
+        
+        # Clear the layouts entirely so they start fresh
+        if self.found_gallery_layout is not None:
+            self._clear_layout(self.found_gallery_layout)
+        if self.selected_gallery_layout is not None:
+            self._clear_layout(self.selected_gallery_layout)
+        
+        # Recreate/Refresh both panels
+        self.refresh_found_gallery()
+        self.refresh_selected_panel()
 
     def _get_disk_cache_path(self, video_path: str) -> str:
         import hashlib
@@ -269,51 +301,51 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     # --- KEYBOARD SHORTCUTS (GUI/UX §2.29 — registry-driven) ---
     def keyPressEvent(self, event: QEvent):
         from ..utils.shortcut_manager import get_registry
-        reg = get_registry()
-        key = event.key()
 
-        if reg.matches(event, "gallery.select_all"):
+        reg = get_registry()
+        key = event.key() # pyrefly: ignore [missing-attribute]
+        if reg.matches(event, "gallery.select_all"): # pyrefly: ignore [bad-argument-type]
             self.select_all_items()
             event.accept()
-        elif reg.matches(event, "gallery.deselect_all"):
+        elif reg.matches(event, "gallery.deselect_all"): # pyrefly: ignore [bad-argument-type]
             self.deselect_all_items()
             event.accept()
-        elif reg.matches(event, "gallery.nav_left"):
+        elif reg.matches(event, "gallery.nav_left"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(Qt.Key.Key_Left)
             event.accept()
-        elif reg.matches(event, "gallery.nav_right"):
+        elif reg.matches(event, "gallery.nav_right"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(Qt.Key.Key_Right)
             event.accept()
-        elif reg.matches(event, "gallery.nav_up"):
+        elif reg.matches(event, "gallery.nav_up"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(Qt.Key.Key_Up)
             event.accept()
-        elif reg.matches(event, "gallery.nav_down"):
+        elif reg.matches(event, "gallery.nav_down"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(Qt.Key.Key_Down)
             event.accept()
-        elif reg.matches(event, "gallery.open_preview") or key == Qt.Key.Key_Space:
+        elif reg.matches(event, "gallery.open_preview") or key == Qt.Key.Key_Space: # pyrefly: ignore [bad-argument-type]
             self._preview_focused_item()
             event.accept()
-        elif reg.matches(event, "gallery.export_paths"):
+        elif reg.matches(event, "gallery.export_paths"): # pyrefly: ignore [bad-argument-type]
             self._export_selection_as_paths()
             event.accept()
-        elif reg.matches(event, "gallery.copy_to_folder"):
+        elif reg.matches(event, "gallery.copy_to_folder"): # pyrefly: ignore [bad-argument-type]
             self._copy_selection_to_folder()
             event.accept()
-        elif reg.matches(event, "gallery.rename"):
+        elif reg.matches(event, "gallery.rename"): # pyrefly: ignore [bad-argument-type]
             self._rename_focused_file()
             event.accept()
-        elif reg.matches(event, "gallery.nav_back"):
+        elif reg.matches(event, "gallery.nav_back"): # pyrefly: ignore [bad-argument-type]
             prev = self._dir_go_back()
             if prev:
                 self._navigate_to_dir(prev)
             event.accept()
-        elif reg.matches(event, "gallery.nav_forward"):
+        elif reg.matches(event, "gallery.nav_forward"): # pyrefly: ignore [bad-argument-type]
             nxt = self._dir_go_forward()
             if nxt:
                 self._navigate_to_dir(nxt)
             event.accept()
         else:
-            super().keyPressEvent(event)
+            super().keyPressEvent(event) # pyrefly: ignore [bad-argument-type]
 
     # --- GALLERY NAVIGATION (GUI/UX §2.3A) ---
     def _navigate_gallery(self, key) -> None:
@@ -429,7 +461,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
         # Center the controls horizontally (User request: bottom center)
         if container.layout():
-            container.layout().setAlignment(Qt.AlignCenter)
+            container.layout().setAlignment(Qt.AlignmentFlag.AlignCenter)  # pyrefly: ignore [missing-attribute]
 
         # Bind signals depending on context
         controls["combo"].currentTextChanged.connect(
@@ -498,13 +530,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         # Keep both sliders in sync
         self._sync_thumb_slider()
         self._on_layout_change()
-        paths = self.common_get_paginated_slice(
-            self.master_found_files if is_found else self.selected_files,
-            self.found_current_page if is_found else self.selected_current_page,
-            self.found_page_size if is_found else self.selected_page_size,
-        )
-        if paths:
-            self.start_loading_gallery(paths)
+        self._recreate_galleries_on_zoom()
 
     def _change_page(self, delta: int, is_found: bool):
         if is_found:
@@ -532,7 +558,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
                 self.selected_current_page = page_index
                 self.refresh_selected_panel()
 
-    def _update_pagination_ui(self, is_found: bool):
+    def _update_pagination_ui(self, is_found: bool, mode: Optional[str]="scan"):
         if is_found:
             if not hasattr(self, "found_page_button"):
                 return
@@ -746,7 +772,6 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             if answer != QMessageBox.StandardButton.Yes:
                 return
         try:
-            from send2trash import send2trash
             send2trash(path)
         except Exception as exc:
             QMessageBox.critical(self, "Move to Trash", str(exc))
@@ -818,24 +843,21 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
         # Check for Shift modifier explicitly
         modifiers = QApplication.keyboardModifiers()
-        is_shift_pressed = bool(modifiers & Qt.ShiftModifier)
+        is_shift_pressed = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
 
         ordered_current = self.selected_files.copy()
         paths_to_update = set()
-
         if is_ctrl_pressed:
             # Subtractive selection (CTRL): Remove items in marquee from selection
             for path in paths_from_marquee:
                 if path in self.selected_files:
                     self.selected_files.remove(path)
                     paths_to_update.add(path)
-
         elif is_shift_pressed:
             # Additive selection (SHIFT): Keep current selection, add new items from marquee
             newly_added = [p for p in paths_from_marquee if p not in ordered_current]
             self.selected_files = sorted(ordered_current + newly_added, key=natural_sort_key)
             paths_to_update = set(newly_added)
-
         else:
             # Standard selection (No Modifiers):
             # Replaces selection with what is currently in the marquee.
@@ -924,7 +946,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         if is_closing:
             sender_win = self.sender()
             if sender_win in self.open_preview_windows:
-                self.open_preview_windows.remove(sender_win)
+                self.open_preview_windows.remove(sender_win) # pyrefly: ignore [bad-argument-type]
             return
 
         def highlight_card(path, card):
@@ -1010,7 +1032,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
                 # Reuse existing widget
                 card = self.selected_card_map[path]
                 self.selected_gallery_layout.addWidget(
-                    card, row, col, Qt.AlignLeft | Qt.AlignTop
+                    card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
                 )
             else:
                 # Create new widget
@@ -1028,7 +1050,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
                 self._add_filename_label(card, path)  # §2.14A
                 self.selected_card_map[path] = card
                 self.selected_gallery_layout.addWidget(
-                    card, row, col, Qt.AlignLeft | Qt.AlignTop
+                    card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
                 )
 
                 if pixmap is None:
@@ -1097,7 +1119,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
                 cache_path = self._get_disk_cache_path(path)
                 if not os.path.exists(cache_path):
                     if isinstance(image, QImage):
-                        image.save(cache_path, "JPG")
+                        image.save(cache_path, "JPG")  # pyrefly: ignore[no-matching-overload]
                     else:
                         image.toImage().save(cache_path, "JPG")
         display_pixmap = (
@@ -1168,7 +1190,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 cache_path = self._get_disk_cache_path(path)
                 if not os.path.exists(cache_path):
-                    image.save(cache_path, "JPG")
+                    image.save(cache_path, "JPG")  # pyrefly: ignore[no-matching-overload]
         elif not isinstance(image, QImage) and image and not image.isNull():
             q_image = image.toImage()
             self._found_pixmap_cache[path] = q_image
@@ -1236,7 +1258,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
                 if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                     cache_path = self._get_disk_cache_path(path)
                     if not os.path.exists(cache_path):
-                        pixmap.save(cache_path, "JPG")
+                        pixmap.save(cache_path, "JPG") # pyrefly: ignore[no-matching-overload]
             elif not isinstance(pixmap, QImage) and pixmap and not pixmap.isNull():
                 q_image = pixmap.toImage()
                 self._found_pixmap_cache[path] = q_image
@@ -1330,7 +1352,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
                 if self.found_gallery_layout:
                     # addWidget will move it if it's already in the layout
                     self.found_gallery_layout.addWidget(
-                        card, row, col, Qt.AlignLeft | Qt.AlignTop
+                        card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
                     )
                 continue
 
@@ -1366,7 +1388,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             col = i % cols
             if self.found_gallery_layout:
                 self.found_gallery_layout.addWidget(
-                    card, row, col, Qt.AlignLeft | Qt.AlignTop
+                    card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
                 )
 
             self.path_to_label_map[path] = card
@@ -1477,13 +1499,13 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             self._selected_pixmap_cache.clear()
 
         self.cancel_loading()
-        self._clear_layout(self.found_gallery_layout)
+        self._clear_layout(self.found_gallery_layout) # pyrefly: ignore [bad-argument-type]
         self.common_show_placeholder(
             self.found_gallery_layout, "No images found/loaded.", 1
         )
         self._update_pagination_ui(is_found=True)
 
-        self._clear_layout(self.selected_gallery_layout)
+        self._clear_layout(self.selected_gallery_layout) # pyrefly: ignore [bad-argument-type]
         self.common_show_placeholder(
             self.selected_gallery_layout, "Selected files will appear here.", 1
         )
@@ -1508,4 +1530,4 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         while layout.count():
             item = layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]

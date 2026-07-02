@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.constants.listings import ENTITY_TYPES, ENTITY_ROLES
-from gui.src.styles.style import SHARED_BUTTON_STYLE
+from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.common.listings_common import _persist_splitter
 from gui.src.tabs.core.elements.dialog.common.base_directory_import_dialog import (
     BaseDirectoryImportDialog,
@@ -196,11 +196,11 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         )
         if directory:
             self._directory = directory
-            self._dir_edit.setText(directory)
+            self._dir_edit.setText(directory) # pyrefly: ignore [missing-attribute]
             self._do_scan()
 
     def _do_scan(self):
-        directory = self._dir_edit.text().strip() or self._directory
+        directory = self._dir_edit.text().strip() or self._directory # pyrefly: ignore [missing-attribute]
         if not directory or not Path(directory).is_dir():
             QMessageBox.warning(
                 self, "Invalid Directory", "Please select a valid directory first."
@@ -212,7 +212,6 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         self._scan_result = []
         p = Path(directory)
         valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-
         try:
             for item in p.iterdir():
                 if item.is_file() and item.suffix.lower() in valid_exts:
@@ -234,9 +233,8 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         self._populate_table()
 
     def _populate_table(self):
-        self._table.setRowCount(0)
+        self._table.setRowCount(0) # pyrefly: ignore [missing-attribute]
         new_count = exists_count = 0
-
         for first_name, last_name, file_path in sorted(
             self._scan_result, key=lambda x: f"{x[0]} {x[1]}".lower()
         ):
@@ -247,8 +245,8 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
             else:
                 new_count += 1
 
-            row = self._table.rowCount()
-            self._table.insertRow(row)
+            row = self._table.rowCount() # pyrefly: ignore [missing-attribute]
+            self._table.insertRow(row) # pyrefly: ignore [missing-attribute]
 
             # Col 0 – checkbox (wrapped in a centred container)
             chk = QCheckBox()
@@ -259,16 +257,16 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
             c_lay.addWidget(chk)
             c_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
             c_lay.setContentsMargins(0, 0, 0, 0)
-            self._table.setCellWidget(row, 0, container)
+            self._table.setCellWidget(row, 0, container) # pyrefly: ignore [missing-attribute]
 
             # Col 1 – Detected Name
             name_item = QTableWidgetItem(full_name)
-            self._table.setItem(row, 1, name_item)
+            self._table.setItem(row, 1, name_item) # pyrefly: ignore [missing-attribute]
 
             # Col 2 – Filename
             file_item = QTableWidgetItem(Path(file_path).name)
             file_item.setToolTip(file_path)
-            self._table.setItem(row, 2, file_item)
+            self._table.setItem(row, 2, file_item) # pyrefly: ignore [missing-attribute]
 
             # Col 3 – new / already-exists badge
             if already:
@@ -277,7 +275,7 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
             else:
                 st_item = QTableWidgetItem("✓ New")
                 st_item.setForeground(QColor("#2ecc71"))
-            self._table.setItem(row, 3, st_item)
+            self._table.setItem(row, 3, st_item) # pyrefly: ignore [missing-attribute]
 
         total = len(self._scan_result)
         self._status_lbl.setText(
@@ -288,8 +286,8 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
     def get_selected_entities(self) -> "list[tuple[str, str, str]]":
         """Return the list of (first_name, last_name, file_path) whose checkboxes are ticked."""
         selected = []
-        for row in range(self._table.rowCount()):
-            cw = self._table.cellWidget(row, 0)
+        for row in range(self._table.rowCount()): # pyrefly: ignore [missing-attribute]
+            cw = self._table.cellWidget(row, 0) # pyrefly: ignore [missing-attribute]
             if cw:
                 chk = cw.findChild(QCheckBox)
                 if chk and chk.isChecked():

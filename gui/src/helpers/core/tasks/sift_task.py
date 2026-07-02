@@ -23,7 +23,7 @@ class SiftTask(QRunnable):
         try:
             # Initialize SIFT (Local instance is thread-safer)
             # limiting nfeatures helps performance while maintaining accuracy
-            sift = cv2.SIFT_create(nfeatures=1000)
+            sift = cv2.SIFT_create(nfeatures=1000) # pyrefly: ignore [missing-attribute]
 
             # --- ROBUST LOAD (Standardized pipeline) ---
             pil_img_rgba = Image.open(self.path).convert("RGBA")

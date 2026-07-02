@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 
-from gui.src.styles.style import SHARED_BUTTON_STYLE
+from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.dialog.common.base_sub_item_dialog import BaseSubItemDialog
 
 

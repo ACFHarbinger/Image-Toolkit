@@ -172,7 +172,7 @@ class FrameSelectionDialog(QDialog):
         layout.addWidget(self.info_lbl)
 
         self.preview_lbl = QLabel("Loading preview...")
-        self.preview_lbl.setAlignment(Qt.AlignCenter)
+        self.preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_lbl.setMinimumSize(400, 400)
         self.preview_lbl.setStyleSheet(
             "background-color: #1a1c1e; border: 2px solid #4f545c; border-radius: 8px;"
@@ -240,7 +240,7 @@ class FrameSelectionDialog(QDialog):
                     self.fps = probe.get(cv2.CAP_PROP_FPS) or 24.0
                     probe.release()
 
-                    self.slider = QSlider(Qt.Horizontal)
+                    self.slider = QSlider(Qt.Orientation.Horizontal)
                     self.slider.setRange(0, self.total_frames - 1)
                     
                     if self.start_ms >= 0:
@@ -285,7 +285,7 @@ class FrameSelectionDialog(QDialog):
             self.selected_image = qimg
             self.selected_frame_idx = page_index
             px = QPixmap.fromImage(qimg).scaled(
-                380, 380, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                380, 380, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
             )
             self.preview_lbl.setPixmap(px)
 
@@ -329,11 +329,11 @@ class FrameSelectionDialog(QDialog):
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         bytes_per_line = ch * w
-        qimg = QImage(rgb.data, w, h, bytes_per_line, QImage.Format_RGB888).copy()
+        qimg = QImage(rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888).copy()
         self.selected_image = qimg
         self.selected_frame_idx = self.slider.value()
         px = QPixmap.fromImage(qimg).scaled(
-            380, 380, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            380, 380, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
         )
         self.preview_lbl.setPixmap(px)
 

@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
 )
-from .main_window import show_main_status
+from .main import show_main_status
 from ..utils.shortcut_manager import get_registry
 
 

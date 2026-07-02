@@ -1,6 +1,6 @@
 from PySide6.QtCore import QObject, Property, Slot, Signal
-from gui.src.windows.settings_backend import SettingsBackend
-from gui.src.windows.log_backend import LogBackend
+from gui.src.windows.settings.settings_backend import SettingsBackend
+from gui.src.windows.logging.log_backend import LogBackend
 from gui.src.windows.slideshow_backend import SlideshowBackend
 from gui.src.tabs.animation.stitch_tab_backend import StitchTabBackend
 from gui.src.tabs.core.listings_tab import ListingsTab
@@ -39,7 +39,7 @@ class MainBackend(QObject):
         self._merge_tab = MergeTab()
         self._delete_tab = DeleteTab(dropdown=True)
         self._extractor_tab = ExtractorTab()
-        self._wallpaper_tab = WallpaperTab(self._database_tab, self)
+        self._wallpaper_tab = WallpaperTab(self._database_tab) 
         
         self._crawler_tab = ImageCrawlTab()
         self._drive_sync_tab = DriveSyncTab(vault_manager)

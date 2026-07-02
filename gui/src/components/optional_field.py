@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
-from ..styles.style import apply_shadow_effect
+from ..styles import apply_shadow_effect
 
 
 class OptionalField(QWidget):
@@ -34,7 +34,7 @@ class OptionalField(QWidget):
         )
 
         self.label = QLabel(title)
-        self.label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(6, 3, 6, 3)
@@ -44,13 +44,13 @@ class OptionalField(QWidget):
 
         header_frame = QFrame()
         header_frame.setLayout(header_layout)
-        header_frame.setFrameShape(QFrame.Box)
+        header_frame.setFrameShape(QFrame.Shape.Box)
 
         # Adaptive color based on theme
         palette = QApplication.palette()
-        base_color = palette.color(QPalette.Base)
-        text_color = palette.color(QPalette.Text)
-        border_color = palette.color(QPalette.Mid)
+        base_color = palette.color(QPalette.ColorRole.Base)
+        text_color = palette.color(QPalette.ColorRole.Text)
+        border_color = palette.color(QPalette.ColorRole.Mid)
         hover_color = (
             base_color.lighter(110)
             if base_color.value() < 128
@@ -107,3 +107,11 @@ class OptionalField(QWidget):
         visible = not self.inner_widget.isVisible()
         self.inner_widget.setVisible(visible)
         self.toggle_btn.setText("➖" if visible else "➕")
+
+    def set_open(self, open: bool):
+        """
+        Explicitly sets the expanded/collapsed state of the section.
+        """
+        # Only trigger the toggle if the current state differs from the requested state
+        if self.inner_widget.isVisible() != open:
+            self.toggle()

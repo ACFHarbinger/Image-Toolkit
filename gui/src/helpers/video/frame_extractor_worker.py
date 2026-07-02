@@ -6,7 +6,7 @@ import subprocess
 
 from pathlib import Path
 from PySide6.QtCore import QRunnable, Signal, QObject
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 from ...utils.sort_utils import natural_sort_key
 
 
@@ -64,8 +64,10 @@ class FrameExtractionWorker(QRunnable):
         output_dir: str,
         start_ms: int,
         end_ms: int = -1,
+        fps: float = 23.976,
         is_range: bool = False,
-        target_resolution: Optional[Tuple[int, int]] = None,
+        output_format: str = "png",
+        target_resolution: Optional[Union[Tuple[int | str, int | str], str]] = None,
         cuts_ms: Optional[list] = None,
         frame_interval: int = 1,
         smart_extract: bool = False,
@@ -77,6 +79,7 @@ class FrameExtractionWorker(QRunnable):
         self.start_ms = start_ms
         self.end_ms = end_ms
         self.is_range = is_range
+        self.output_format = output_format
         self.target_resolution = target_resolution
         self.cuts_ms = cuts_ms or []
         self.frame_interval = frame_interval
@@ -84,7 +87,7 @@ class FrameExtractionWorker(QRunnable):
         self.smart_method = smart_method
         self.signals = _ExtractorSignals()
         self._is_cancelled = False
-        self.fps = 23.976  # Default/detected FPS
+        self.fps = fps
 
     def _get_fps(self) -> float:
         """Get video FPS to calculate timestamps."""
@@ -173,7 +176,7 @@ class FrameExtractionWorker(QRunnable):
                 time.sleep(0.5)
 
             if process.returncode != 0:
-                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")
+                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}") # pyrefly: ignore [missing-attribute]
                 return
 
             # Rename temp files to timestamp-based names
@@ -279,7 +282,7 @@ class FrameExtractionWorker(QRunnable):
                 time.sleep(0.5)
 
             if process.returncode != 0:
-                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")
+                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}") # pyrefly: ignore [missing-attribute]
                 return
 
             prefix = f"{video_name}_smart_tmp_{temp_id}_"

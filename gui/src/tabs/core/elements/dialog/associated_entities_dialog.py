@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
 )
 
-from gui.src.styles.style import SHARED_BUTTON_STYLE
+from gui.src.styles import SHARED_BUTTON_STYLE
 
 
 class _AssociatedEntitiesDialog(QDialog):

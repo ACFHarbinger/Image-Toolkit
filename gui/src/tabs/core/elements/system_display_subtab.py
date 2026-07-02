@@ -8,7 +8,7 @@ import logging
 import random
 
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union, Mapping, cast, Tuple
 from PySide6.QtCore import (
     Qt,
     QThreadPool,
@@ -40,7 +40,7 @@ from ....components import (
     MarqueeScrollArea,
     DraggableMonitorContainer,
 )
-from ....styles.style import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
+from ....styles import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
 from backend.src.constants import (
     WALLPAPER_STYLES,
     DAEMON_CONFIG_PATH,
@@ -55,23 +55,32 @@ class SystemDisplaySubTab(WallpaperCommonBase):
     Full-featured wallpaper setter with monitor layout, gallery,
     slideshow, daemon, and solid-color modes.
     """
+    interval_min_spinbox: Any
+    interval_sec_spinbox: Any
+    playback_order_combo: Any
+    style_combo: Any
+    scan_directory_path: Any
+    gallery_scroll_area: Any
+    main_scroll_area: Any
+    set_wallpaper_btn: Any
+    background_type_combo: Any
+    style_label: Any
+    video_style_combo: Any
+    video_style_label: Any
+    style_layout_widget: Any
+    status_timer: Any
+    countdown_timer: Optional[QTimer]
 
     def __init__(self, db_tab_ref):
         super().__init__()
         self.db_tab_ref = db_tab_ref
 
-        self.current_wallpaper_worker: Optional[WallpaperWorker] = None
-        self.slideshow_timer: Optional[QTimer] = None
         self.countdown_timer: Optional[QTimer] = None
         self.time_remaining_sec: int = 0
         self.interval_sec: int = 0
-        self.open_queue_windows: List[QWidget] = []
-        self.open_image_preview_windows: List[QWidget] = []
 
         self.wallpaper_style: str = "Fill"
         self.video_style: str = "Scaled and Cropped"
-        self.background_type: str = "Image"
-        self.solid_color_hex: str = "#000000"
 
         self.pagination_widget = self.create_pagination_controls()
 
@@ -89,7 +98,9 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
         self.setAcceptDrops(True)
 
-        QApplication.instance().installEventFilter(self)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self)
         self.main_scroll_area.viewport().setAcceptDrops(True)
 
         group_box_style = """
@@ -241,7 +252,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "QComboBox { padding: 5px; border-radius: 4px; }"
         )
         initial_styles = self._get_relevant_styles()
-        self.style_combo.addItems(initial_styles.keys())
+        self.style_combo.addItems(initial_styles.keys()) # pyrefly: ignore [bad-argument-type]
         self.style_combo.setCurrentText(list(initial_styles.keys())[0])
         self.wallpaper_style = list(initial_styles.keys())[0]
         self.style_combo.currentTextChanged.connect(self._update_wallpaper_style)
@@ -509,9 +520,10 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 return
             try:
                 if platform.system() == "Windows":
+                    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
                     subprocess.Popen(
                         [sys.executable, script_path],
-                        creationflags=subprocess.CREATE_NO_WINDOW,
+                        creationflags=creationflags,
                     )
                 else:
                     subprocess.Popen(
@@ -543,7 +555,9 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             return
         try:
             if platform.system() == "Windows":
-                os.startfile(str(log_path))
+                start_fn = getattr(os, "startfile", None)
+                if start_fn:
+                    start_fn(str(log_path))
             elif platform.system() == "Darwin":
                 subprocess.run(["open", str(log_path)])
             else:
@@ -553,15 +567,15 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
     # ---- Style selectors --------------------------------------------------
 
-    def _get_relevant_styles(self) -> Dict[str, str]:
+    def _get_relevant_styles(self) -> Mapping[str, Optional[Union[str, int, Tuple[str, str]]]]:
         system = platform.system()
         if system == "Windows":
-            return WALLPAPER_STYLES["Windows"]
+            return cast(Mapping[str, Optional[Union[str, int, Tuple[str, str]]]], WALLPAPER_STYLES["Windows"])
         elif system == "Linux":
             if self.qdbus:
-                return WALLPAPER_STYLES["KDE"]
+                return cast(Mapping[str, Optional[Union[str, int, Tuple[str, str]]]], WALLPAPER_STYLES["KDE"])
             else:
-                return WALLPAPER_STYLES["GNOME"]
+                return cast(Mapping[str, Optional[Union[str, int, Tuple[str, str]]]], WALLPAPER_STYLES["GNOME"])
         else:
             return {"Default (System)": None}
 
@@ -610,7 +624,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
         self._sync_daemon_config()
         self.scan_directory_path.setEnabled(main_controls_enabled)
-        self.gallery_scroll_area.setEnabled(main_controls_enabled)
+        self.gallery_scroll_area.setEnabled(main_controls_enabled) # pyrefly: ignore [missing-attribute]
 
         if is_solid_color and self.slideshow_timer and self.slideshow_timer.isActive():
             self.stop_slideshow()
@@ -688,7 +702,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             queue = self.monitor_slideshow_queues.get(mid, [])
             current_path = self.monitor_image_paths.get(mid)
             if current_path in queue:
-                self.monitor_current_index[mid] = queue.index(current_path)
+                self.monitor_current_index[mid] = queue.index(current_path) # pyrefly: ignore [bad-argument-type]
             else:
                 self.monitor_current_index[mid] = -1
 
@@ -871,7 +885,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             self.stop_slideshow()
             return
         try:
-            new_monitor_paths = {}
+            new_monitor_paths: Dict[str, Optional[str]] = {}
             has_valid_path_to_set = False
             for monitor_id in monitor_ids:
                 current_index = self.monitor_current_index.get(monitor_id, -1)
@@ -882,11 +896,11 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                         next_index = max(0, current_index)
                         playback_order = self.playback_order_combo.currentText()
                         if playback_order == "Random" and 0 <= next_index < len(queue):
-                            path = queue[next_index]
+                            next_path = queue[next_index]
                             if monitor_id not in self.monitor_history:
                                 self.monitor_history[monitor_id] = []
-                            if path not in self.monitor_history[monitor_id]:
-                                self.monitor_history[monitor_id].append(path)
+                            if next_path not in self.monitor_history[monitor_id]:
+                                self.monitor_history[monitor_id].append(next_path)
                     else:
                         playback_order = self.playback_order_combo.currentText()
                         if playback_order == "Random":
@@ -933,14 +947,12 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                         f"increment={increment}, queue_length={current_queue_length} -> next_index={next_index}"
                     )
 
-                    path = queue[next_index]
-                    new_monitor_paths[monitor_id] = path
+                    next_path = queue[next_index]
+                    new_monitor_paths[monitor_id] = next_path
                     self.monitor_current_index[monitor_id] = next_index
                     has_valid_path_to_set = True
                 else:
-                    new_monitor_paths[monitor_id] = self.monitor_image_paths.get(
-                        monitor_id
-                    )
+                    new_monitor_paths[monitor_id] = self.monitor_image_paths.get(monitor_id)
                     self.monitor_current_index[monitor_id] = -1
             if not has_valid_path_to_set:
                 self.stop_slideshow()
@@ -972,6 +984,9 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         if self.current_wallpaper_worker:
             print("Wallpaper worker is already running.")
             return
+
+        path_map: Dict[str, Optional[str]]
+        final_path_map: Dict[str, Optional[str]]
 
         if self.background_type == "Solid Color":
             path_map = {
@@ -1071,7 +1086,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
         self.slideshow_group.setEnabled(False)
-        self.gallery_scroll_area.setEnabled(False)
+        self.gallery_scroll_area.setEnabled(False) # pyrefly: ignore [missing-attribute]
         self.scan_directory_path.setEnabled(False)
         self.style_combo.setEnabled(False)
         self.video_style_combo.setEnabled(False)
@@ -1085,7 +1100,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.set_wallpaper_btn.setText("Set Wallpaper")
         self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
         self.slideshow_group.setEnabled(True)
-        self.gallery_scroll_area.setEnabled(True)
+        self.gallery_scroll_area.setEnabled(True) # pyrefly: ignore [missing-attribute]
         self.scan_directory_path.setEnabled(True)
         self.style_combo.setEnabled(True)
         self.video_style_combo.setEnabled(True)

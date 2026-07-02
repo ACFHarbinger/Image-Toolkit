@@ -13,8 +13,8 @@ class _MonitorColumn(QWidget):
         self.layout_vbox = QVBoxLayout(self)
         self.layout_vbox.setContentsMargins(0, 0, 0, 0)
         self.layout_vbox.setSpacing(10)
-        self.layout_vbox.setAlignment(Qt.AlignTop)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
+        self.layout_vbox.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
 
     def add_monitor(self, widget: MonitorDropWidget):
         self.layout_vbox.addWidget(widget)
@@ -69,7 +69,7 @@ class DraggableMonitorContainer(QWidget):
         # Main layout is Vertical (Rows)
         self.layout_vbox = QVBoxLayout(self)
         self.layout_vbox.setSpacing(20)
-        self.layout_vbox.setAlignment(Qt.AlignTop)
+        self.layout_vbox.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         # Keep track of rows (widgets)
         # self.rows = [] # Not strictly needed if we inspect layout, but good for logic.
@@ -81,11 +81,11 @@ class DraggableMonitorContainer(QWidget):
 
     def _add_new_row(self, index=-1):
         row_widget = QWidget()
-        row_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        row_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(20)
-        row_layout.setAlignment(Qt.AlignCenter)
+        row_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         if index == -1:
             self.layout_vbox.addWidget(row_widget)
@@ -112,8 +112,8 @@ class DraggableMonitorContainer(QWidget):
         # Create a new column
         col = _MonitorColumn()
         col.add_monitor(widget)
-
-        last_row.layout().addWidget(col)
+        
+        last_row.layout().addWidget(col) # pyrefly: ignore [missing-attribute]
 
     def dragEnterEvent(self, event):
         if event.source() and isinstance(event.source(), MonitorDropWidget):
@@ -123,7 +123,7 @@ class DraggableMonitorContainer(QWidget):
 
     def dragMoveEvent(self, event):
         if event.source() and isinstance(event.source(), MonitorDropWidget):
-            event.setDropAction(Qt.MoveAction)
+            event.setDropAction(Qt.DropAction.MoveAction)
             event.accept()
         else:
             super().dragMoveEvent(event)
@@ -196,7 +196,7 @@ class DraggableMonitorContainer(QWidget):
             else:
                 # Left or Right - New Column
                 target_row = target_col.parentWidget()  # Should be Row (QWidget)
-                row_layout = target_row.layout()
+                row_layout = target_row.layout() # pyrefly: ignore [missing-attribute]
                 col_idx = row_layout.indexOf(target_col)
 
                 new_col = _MonitorColumn()
@@ -244,7 +244,7 @@ class DraggableMonitorContainer(QWidget):
             if best_row_idx != -1:
                 # Check if we are legitimately inside the row rect
                 row_w = self.layout_vbox.itemAt(best_row_idx).widget()
-                if row_w.geometry().contains(pos):
+                if row_w.geometry().contains(pos): # pyrefly: ignore [missing-attribute]
                     # Inside row, between columns probably
                     # Find correct column index
                     # Just assume end for now unless we do complex distance calc
@@ -252,8 +252,7 @@ class DraggableMonitorContainer(QWidget):
                     # So we are in spacing.
                     # Let's just find closest column X
                     closest_col_idx = -1
-                    row_layout = row_w.layout()
-
+                    row_layout = row_w.layout() # pyrefly: ignore [missing-attribute]
                     for i in range(row_layout.count()):
                         col = row_layout.itemAt(i).widget()
                         if (
@@ -282,7 +281,7 @@ class DraggableMonitorContainer(QWidget):
                 insert_idx = -1
                 for i in range(self.layout_vbox.count()):
                     w = self.layout_vbox.itemAt(i).widget()
-                    if drop_y < w.geometry().center().y():
+                    if drop_y < w.geometry().center().y(): # pyrefly: ignore [missing-attribute]
                         insert_idx = i
                         break
 
@@ -290,7 +289,7 @@ class DraggableMonitorContainer(QWidget):
 
                 new_col = _MonitorColumn()
                 new_col.add_monitor(source)
-                new_w.layout().addWidget(new_col)
+                new_w.layout().addWidget(new_col) # pyrefly: ignore [missing-attribute]
 
         self._cleanup()
         event.accept()
@@ -318,7 +317,7 @@ class DraggableMonitorContainer(QWidget):
             rows_to_check.append(row)
 
         for row in rows_to_check:
-            layout = row.layout()
+            layout = row.layout() # pyrefly: ignore [missing-attribute]
             cols_to_remove = []
             for j in range(layout.count()):
                 col = layout.itemAt(j).widget()
@@ -334,12 +333,13 @@ class DraggableMonitorContainer(QWidget):
         empty_rows = []
         for i in range(self.layout_vbox.count()):
             row = self.layout_vbox.itemAt(i).widget()
-            if row.layout().count() == 0:
+            if row.layout().count() == 0: # pyrefly: ignore [missing-attribute]
                 empty_rows.append(row)
 
         for row in empty_rows:
-            self.layout_vbox.removeWidget(row)
-            row.deleteLater()
+            if row is not None:
+                self.layout_vbox.removeWidget(row)
+                row.deleteLater()
 
         # Ensure at least one row?
         if self.layout_vbox.count() == 0:
@@ -364,7 +364,7 @@ class DraggableMonitorContainer(QWidget):
                 continue
 
             for j in range(row_layout.count()):
-                col_widget = row_layout.itemAt(j).widget()
+                col_widget = row_layout.itemAt(j).widget() # pyrefly: ignore [missing-attribute]
                 if isinstance(col_widget, _MonitorColumn):
                     row_monitors.extend(col_widget.get_widgets())
 
@@ -397,9 +397,9 @@ class DraggableMonitorContainer(QWidget):
                 continue
 
             for j in range(row_layout.count()):
-                col_widget = row_layout.itemAt(j).widget()
+                col_widget = row_layout.itemAt(j).widget() # pyrefly: ignore [missing-attribute]
                 if isinstance(col_widget, _MonitorColumn):
-                    col_monitor_ids = [w.monitor_id for w in col_widget.get_widgets()]
+                    col_monitor_ids = [w.monitor_id for w in col_widget.get_widgets()] # pyrefly: ignore [missing-attribute]
                     if col_monitor_ids:
                         row_structure.append(col_monitor_ids)
 
@@ -437,10 +437,10 @@ class DraggableMonitorContainer(QWidget):
                         has_widgets = True
 
                 if has_widgets:
-                    row_layout.addWidget(new_col)
+                    row_layout.addWidget(new_col) # pyrefly: ignore [missing-attribute]
 
             # If row ended up empty (e.g. monitors disconnected), cleanup?
-            if row_layout.count() == 0:
+            if row_layout.count() == 0: # pyrefly: ignore [missing-attribute]
                 self.layout_vbox.removeWidget(row_widget)
                 row_widget.deleteLater()
 
@@ -457,7 +457,7 @@ class DraggableMonitorContainer(QWidget):
             for widget in orphans:
                 new_col = _MonitorColumn()
                 new_col.add_monitor(widget)
-                orphan_row.layout().addWidget(new_col)
+                orphan_row.layout().addWidget(new_col) # pyrefly: ignore [missing-attribute]
 
         self._cleanup()
 
@@ -481,7 +481,7 @@ class DraggableMonitorContainer(QWidget):
             item = self.layout_vbox.takeAt(0)
             if item.widget():
                 # We unparented the monitors, so it's safe to delete containers
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
 
         # 3. Add back the initial empty row
         self._add_new_row()

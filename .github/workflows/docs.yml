@@ -160,6 +160,7 @@ jobs:
             --exclude 'https://www\.brendangregg\.com'
             --exclude 'https://huggingface\.co/spaces'
             --exclude 'https://ieeexplore\.ieee\.org'
+            --exclude 'https://openaccess\.thecvf\.com'
             '**/*.md'
           fail: true
 

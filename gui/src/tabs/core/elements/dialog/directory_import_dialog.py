@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.constants.listings import ENTRY_TYPES, ENTRY_STATUS
-from gui.src.styles.style import SHARED_BUTTON_STYLE
+from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.common.listings_common import (
     _persist_splitter,
     _scan_video_directory,
@@ -203,11 +203,11 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         )
         if directory:
             self._directory = directory
-            self._dir_edit.setText(directory)
+            self._dir_edit.setText(directory) # pyrefly: ignore [missing-attribute]
             self._do_scan()
 
     def _do_scan(self):
-        directory = self._dir_edit.text().strip() or self._directory
+        directory = self._dir_edit.text().strip() or self._directory # pyrefly: ignore [missing-attribute]
         if not directory or not Path(directory).is_dir():
             QMessageBox.warning(
                 self, "Invalid Directory", "Please select a valid directory first."
@@ -218,7 +218,7 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         self._populate_table()
 
     def _populate_table(self):
-        self._table.setRowCount(0)
+        self._table.setRowCount(0) # pyrefly: ignore [missing-attribute]
         new_count = exists_count = 0
 
         for series_name, episodes in sorted(
@@ -230,8 +230,8 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
             else:
                 new_count += 1
 
-            row = self._table.rowCount()
-            self._table.insertRow(row)
+            row = self._table.rowCount() # pyrefly: ignore [missing-attribute]
+            self._table.insertRow(row) # pyrefly: ignore [missing-attribute]
 
             # Col 0 – checkbox (wrapped in a centred container)
             chk = QCheckBox()
@@ -242,18 +242,18 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
             c_lay.addWidget(chk)
             c_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
             c_lay.setContentsMargins(0, 0, 0, 0)
-            self._table.setCellWidget(row, 0, container)
+            self._table.setCellWidget(row, 0, container) # pyrefly: ignore [missing-attribute]
 
             # Col 1 – series name (store original as UserRole for retrieval)
             name_item = QTableWidgetItem(series_name)
             name_item.setData(Qt.ItemDataRole.UserRole, series_name)
             name_item.setToolTip(series_name)
-            self._table.setItem(row, 1, name_item)
+            self._table.setItem(row, 1, name_item) # pyrefly: ignore [missing-attribute]
 
             # Col 2 – episode count
             ep_item = QTableWidgetItem(str(len(episodes)))
             ep_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._table.setItem(row, 2, ep_item)
+            self._table.setItem(row, 2, ep_item) # pyrefly: ignore [missing-attribute]
 
             # Col 3 – new / already-exists badge
             if already:
@@ -262,7 +262,7 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
             else:
                 st_item = QTableWidgetItem("✓ New")
                 st_item.setForeground(QColor("#2ecc71"))
-            self._table.setItem(row, 3, st_item)
+            self._table.setItem(row, 3, st_item) # pyrefly: ignore [missing-attribute]
 
         total = len(self._scan_result)
         self._status_lbl.setText(
@@ -273,12 +273,12 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
     def get_selected_series(self) -> "list[str]":
         """Return the list of series names whose checkboxes are ticked."""
         selected = []
-        for row in range(self._table.rowCount()):
-            cw = self._table.cellWidget(row, 0)
+        for row in range(self._table.rowCount()): # pyrefly: ignore [missing-attribute]
+            cw = self._table.cellWidget(row, 0) # pyrefly: ignore [missing-attribute]
             if cw:
                 chk = cw.findChild(QCheckBox)
                 if chk and chk.isChecked():
-                    item = self._table.item(row, 1)
+                    item = self._table.item(row, 1) # pyrefly: ignore [missing-attribute]
                     if item:
                         selected.append(item.data(Qt.ItemDataRole.UserRole))
         return selected

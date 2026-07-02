@@ -1,5 +1,6 @@
 import os
 import math
+import shutil
 
 from abc import abstractmethod
 from typing import List, Optional, Dict
@@ -21,7 +22,7 @@ from backend.src.constants import (
     SUPPORTED_VIDEO_FORMATS,
     THUMBNAIL_CACHE_DIR,
 )
-from .gallery_base import AbstractGalleryBase
+from .base.gallery_base import AbstractGalleryBase
 from ..utils.lru_image_cache import LRUImageCache
 from ..helpers import (
     ImageLoaderWorker,
@@ -171,7 +172,6 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
     def _copy_selection_to_folder(self) -> None:
         """Copy the current selection (or all visible) to a chosen folder (§2.19C)."""
-        import shutil
         paths = list(self.selected_files) if self.selected_files else list(self.gallery_image_paths)
         if not paths:
             QMessageBox.information(self, "Copy to Folder", "No files to copy.")
@@ -341,40 +341,40 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
     def keyPressEvent(self, event: QEvent):
         from PySide6.QtCore import Qt as _Qt
         from ..utils.shortcut_manager import get_registry
-        reg = get_registry()
 
-        if reg.matches(event, "gallery.select_all"):
+        reg = get_registry()
+        if reg.matches(event, "gallery.select_all"): # pyrefly: ignore [bad-argument-type]
             self.select_all_items()
             event.accept()
-        elif reg.matches(event, "gallery.deselect_all"):
+        elif reg.matches(event, "gallery.deselect_all"): # pyrefly: ignore [bad-argument-type]
             self.deselect_all_items()
             event.accept()
-        elif reg.matches(event, "gallery.export_paths"):
+        elif reg.matches(event, "gallery.export_paths"): # pyrefly: ignore [bad-argument-type]
             self._export_selection_as_paths()
             event.accept()
-        elif reg.matches(event, "gallery.copy_to_folder"):
+        elif reg.matches(event, "gallery.copy_to_folder"): # pyrefly: ignore [bad-argument-type]
             self._copy_selection_to_folder()
             event.accept()
-        elif reg.matches(event, "gallery.nav_left"):
+        elif reg.matches(event, "gallery.nav_left"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(_Qt.Key.Key_Left)
             event.accept()
-        elif reg.matches(event, "gallery.nav_right"):
+        elif reg.matches(event, "gallery.nav_right"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(_Qt.Key.Key_Right)
             event.accept()
-        elif reg.matches(event, "gallery.nav_up"):
+        elif reg.matches(event, "gallery.nav_up"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(_Qt.Key.Key_Up)
             event.accept()
-        elif reg.matches(event, "gallery.nav_down"):
+        elif reg.matches(event, "gallery.nav_down"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(_Qt.Key.Key_Down)
             event.accept()
-        elif reg.matches(event, "gallery.open_preview") or event.key() == _Qt.Key.Key_Space:
+        elif reg.matches(event, "gallery.open_preview") or event.key() == _Qt.Key.Key_Space: # pyrefly: ignore [bad-argument-type, missing-attribute]
             self._preview_focused_item()
             event.accept()
-        elif reg.matches(event, "gallery.rename"):
+        elif reg.matches(event, "gallery.rename"): # pyrefly: ignore [bad-argument-type]
             self._rename_selected_file()
             event.accept()
         else:
-            super().keyPressEvent(event)
+            super().keyPressEvent(event) # pyrefly: ignore [bad-argument-type]
 
     @Slot()
     def select_all_items(self):
@@ -481,7 +481,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         if is_closing:
             sender_win = self.sender()
             if sender_win in self.open_preview_windows:
-                self.open_preview_windows.remove(sender_win)
+                self.open_preview_windows.remove(sender_win) # pyrefly: ignore [bad-argument-type]
             return
 
         def highlight_card(path, card):
@@ -622,7 +622,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             image = thumbnailer.generate(path, self.thumbnail_size)
             if image and not image.isNull():
                 # 3. Save to disk cache
-                image.save(cache_path, "JPG")
+                image.save(cache_path, "JPG") # pyrefly: ignore [no-matching-overload]
                 return QPixmap.fromImage(image)
         except Exception as e:
             print(f"Failed to generate explicit video thumbnail for {path}: {e}")
@@ -1051,7 +1051,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 cache_path = self._get_disk_cache_path(path)
                 if not os.path.exists(cache_path):
-                    q_image.save(cache_path, "JPG")
+                    q_image.save(cache_path, "JPG") # pyrefly: ignore [no-matching-overload]
 
         widget = self.path_to_card_widget.get(path)
         if widget:
@@ -1115,4 +1115,4 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         while self.gallery_layout.count():
             item = self.gallery_layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
