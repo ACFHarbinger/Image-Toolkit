@@ -48,9 +48,9 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         self._loading_paths: Set[str] = set()
 
         # --- Pagination State ---
-        self.found_page_size = 150
+        self.found_page_size = 100
         self.found_current_page = 0
-        self.selected_page_size = 150
+        self.selected_page_size = 100
         self.selected_current_page = 0
 
         # --- Column counts (two-gallery-specific) ---
@@ -1068,15 +1068,27 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     def _trigger_batch_selected_load(
         self, paths: List[str], widgets: Dict[str, QWidget]
     ):
-        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
-        worker.signals.batch_result.connect(
-            lambda results: self._on_batch_selected_loaded(results, widgets)
-        )
-        self.thread_pool.start(worker)
+        chunk_size = 8
+        for i in range(0, len(paths), chunk_size):
+            chunk_paths = paths[i:i + chunk_size]
+            chunk_widgets = {p: widgets[p] for p in chunk_paths if p in widgets}
+            worker = BatchImageLoaderWorker(chunk_paths, self.thumbnail_size)
+            self._active_workers.add(worker)
+            worker.signals.batch_result.connect(
+                lambda results, paths_arg, cw=chunk_widgets: self._on_batch_selected_loaded(results, cw)
+            )
+            self.thread_pool.start(worker)
 
     def _on_batch_selected_loaded(
         self, results: List[tuple], widgets: Dict[str, QWidget]
     ):
+        # Cleanup worker ref
+        sender = self.sender()
+        if sender:
+            for worker in list(self._active_workers):
+                if worker.signals == sender:
+                    self._active_workers.remove(worker)
+                    break
         for path, image in results:
             if image and not image.isNull():
                 self._selected_pixmap_cache[path] = image  # store QImage
@@ -1101,6 +1113,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
         weak_widget = weakref.ref(target_widget)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
+        self._active_workers.add(worker)
         worker.signals.result.connect(
             lambda p, px: self._on_selected_image_loaded(p, px, weak_widget())
             if weak_widget() is not None
@@ -1109,6 +1122,13 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         self.thread_pool.start(worker)
 
     def _on_selected_image_loaded(self, path: str, image, widget: Optional[QWidget]):
+        # Cleanup worker ref
+        sender = self.sender()
+        if sender:
+            for worker in list(self._active_workers):
+                if worker.signals == sender:
+                    self._active_workers.remove(worker)
+                    break
         if widget is None:
             return
         if image and not image.isNull():
@@ -1146,18 +1166,22 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         # self.refresh_found_gallery() # Called by search
 
     def _trigger_batch_video_found_load(self, paths: List[str]):
-        """Trigger a single batch worker for all visible videos."""
+        """Trigger batch workers for all visible videos, chunked for parallel loading."""
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
 
         self.found_loading_paths.update(paths)
-        worker = BatchVideoLoaderWorker(paths, self.thumbnail_size)
+        chunk_size = 8
+        for i in range(0, len(paths), chunk_size):
+            chunk_paths = paths[i:i + chunk_size]
+            worker = BatchVideoLoaderWorker(chunk_paths, self.thumbnail_size)
 
-        # Connect both signals: result for individual updates, batch_result for cleanup if needed
-        worker.signals.result.connect(self._on_found_image_loaded)
-        # Note: we don't strictly need batch_result here as _on_found_image_loaded handles individual cleanup
+            # Connect both signals
+            worker.signals.result.connect(self._on_found_image_loaded)
+            worker.signals.batch_result.connect(self._on_batch_found_loaded)
 
-        self.thread_pool.start(worker)
+            self._active_workers.add(worker)
+            self.thread_pool.start(worker)
 
     def _trigger_video_found_load(self, path: str):
         """Fallback for single video load (rarely used by batch logic but kept for consistency)."""
@@ -1167,17 +1191,19 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         self.found_loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
         worker.signals.result.connect(self._on_found_image_loaded)
+        self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
     @Slot(str, object)
     def _on_found_image_loaded(self, path: str, image):
-        # Cleanup worker ref
+        # Cleanup worker ref if it is NOT a batch worker
         sender = self.sender()
         if sender:
             # We need to find the worker that owns this signals object
             for worker in list(self._active_workers):
                 if worker.signals == sender:
-                    self._active_workers.remove(worker)
+                    if not isinstance(worker, (BatchImageLoaderWorker, BatchVideoLoaderWorker)):
+                        self._active_workers.remove(worker)
                     break
 
         if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
@@ -1224,12 +1250,15 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
         self.found_loading_paths.update(paths)
-        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
-        worker.signals.result.connect(self._on_found_image_loaded)
-        worker.signals.batch_result.connect(self._on_batch_found_loaded)
+        chunk_size = 8
+        for i in range(0, len(paths), chunk_size):
+            chunk_paths = paths[i:i + chunk_size]
+            worker = BatchImageLoaderWorker(chunk_paths, self.thumbnail_size)
+            worker.signals.result.connect(self._on_found_image_loaded)
+            worker.signals.batch_result.connect(self._on_batch_found_loaded)
 
-        self._active_workers.add(worker)
-        self.thread_pool.start(worker)
+            self._active_workers.add(worker)
+            self.thread_pool.start(worker)
 
     @Slot(list, list)
     def _on_batch_found_loaded(self, results: List[tuple], requested_paths: List[str]):

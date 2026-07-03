@@ -187,6 +187,11 @@ class TestAbstractClassSingleGallery:
         gallery._on_single_image_loaded(path, qimg)
         assert widget.pixmap() is not None
 
+    def test_batch_found_load_chunking(self, gallery):
+        paths = [f"image_{i}.jpg" for i in range(10)]
+        gallery._trigger_batch_found_load(paths)
+        assert len(gallery._active_workers) == 2
+
 
 class TestAbstractClassTwoGalleries:
     def test_initial_state(self, two_galleries):
@@ -244,6 +249,11 @@ class TestAbstractClassTwoGalleries:
         two_galleries._populate_found_step()
         assert len(two_galleries.path_to_label_map) == 2
         assert "a.jpg" in two_galleries.path_to_label_map
+
+    def test_batch_found_load_chunking(self, two_galleries):
+        paths = [f"image_{i}.jpg" for i in range(10)]
+        two_galleries._trigger_batch_found_load(paths)
+        assert len(two_galleries._active_workers) == 2
 
 
 class TestMetaAbstractClassGallery:
