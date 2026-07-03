@@ -480,7 +480,7 @@ class WebRequestsTab(QWidget):
         return self._is_running
 
     @Slot(str, str)
-    def add_request(self, method, param):
+    def qml_add_request(self, method, param):
         # QML wrapper
         item_text = f"[{method}] {param}"
         self.request_list_widget.addItem(item_text)
@@ -495,7 +495,7 @@ class WebRequestsTab(QWidget):
             self.qml_requests_changed.emit()
 
     @Slot(str, str)
-    def add_action(self, action_type, param):
+    def qml_add_action(self, action_type, param):
         item_text = f"[{action_type}] {param}"
         # Assuming widget exists, logic below...
         # self.action_list_widget.addItem(item_text) # Not visible in previous view, assuming exist
@@ -517,7 +517,7 @@ class WebRequestsTab(QWidget):
             self.qml_actions_changed.emit()
 
     @Slot()
-    def start_requests(self):
+    def qml_start_requests(self):
         self._status_text = "Running..."
         self._is_running = True
         self.qml_status_changed.emit()
@@ -530,7 +530,7 @@ class WebRequestsTab(QWidget):
         self.qml_log_changed.emit()
 
     @Slot()
-    def cancel_requests(self):
+    def qml_cancel_requests(self):
         self._status_text = "Cancelled."
         self._is_running = False
         self.qml_status_changed.emit()

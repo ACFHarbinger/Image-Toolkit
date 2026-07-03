@@ -58,6 +58,11 @@ class TestMainWindowSessionRecovery:
     def setup_teardown(self):
         cleanup_recovery_files()
         yield
+        for widget in QApplication.topLevelWidgets():
+            widget.close()
+            widget.deleteLater()
+        for _ in range(5):
+            QApplication.processEvents()
         cleanup_recovery_files()
 
     def test_session_recovery_restore_all_tabs(self, q_app):

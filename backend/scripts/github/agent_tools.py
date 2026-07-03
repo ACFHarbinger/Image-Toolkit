@@ -10,7 +10,7 @@ Environment variables:
     GH_PROJECT_TOKEN      GitHub PAT with `repo` + `project` scopes.
     GITHUB_REPOSITORY     "owner/repo".
     GITHUB_PROJECT_OWNER  Login of the ProjectV2 owner (org or user).
-    GITHUB_PROJECT_NUMBER Numeric ProjectV2 project number.
+    PROJECT_NUMBER        Numeric ProjectV2 project number.
 """
 
 from __future__ import annotations
@@ -96,7 +96,7 @@ def _repo_owner_and_name() -> tuple[str, str]:
 def _project_id() -> str:
     """Resolve the node ID of the configured ProjectV2 board."""
     project_owner = os.environ.get("GITHUB_PROJECT_OWNER") or _repo_owner_and_name()[0]
-    project_number = int(_env("GITHUB_PROJECT_NUMBER"))
+    project_number = int(_env("PROJECT_NUMBER"))
 
     query = """
     query($owner: String!, $number: Int!) {

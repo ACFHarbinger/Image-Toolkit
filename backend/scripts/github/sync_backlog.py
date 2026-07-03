@@ -12,7 +12,7 @@ Environment variables:
     GITHUB_REPOSITORY     "owner/repo", supplied automatically by Actions.
     GITHUB_SHA            Commit SHA that triggered the workflow.
     GITHUB_PROJECT_OWNER  Login of the ProjectV2 owner (org or user).
-    GITHUB_PROJECT_NUMBER Numeric ProjectV2 project number.
+    PROJECT_NUMBER        Numeric ProjectV2 project number.
 """
 
 from __future__ import annotations
@@ -382,7 +382,7 @@ def main() -> int:
     owner, repo = owner_repo.split("/", 1)
     commit_sha = _env("GITHUB_SHA")
     project_owner = os.environ.get("GITHUB_PROJECT_OWNER", owner)
-    project_number = int(_env("GITHUB_PROJECT_NUMBER"))
+    project_number = int(_env("PROJECT_NUMBER"))
 
     diff, commit_message = get_diff_and_message(commit_sha)
     if not diff.strip():

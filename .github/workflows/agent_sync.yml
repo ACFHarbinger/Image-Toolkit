@@ -41,9 +41,9 @@ jobs:
         run: uv run python backend/scripts/github/sync_backlog.py
         env:
           PYTHONPATH: .
-          GH_PROJECT_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+          GH_PROJECT_TOKEN: ${{ secrets.PROJECT_ISSUES_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
-          GITHUB_PROJECT_NUMBER: ${{ vars.GITHUB_PROJECT_NUMBER }}
+          GITHUB_PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
           GITHUB_PROJECT_OWNER: ${{ github.repository_owner }}

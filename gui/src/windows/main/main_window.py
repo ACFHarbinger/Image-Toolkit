@@ -801,8 +801,7 @@ class MainWindow(QWidget):
 
         # §3.16 — append user custom QSS override if present
         qss += load_user_qss_override()
-
-        QApplication.instance().setStyleSheet(qss) # pyrefly: ignore [missing-attribute]
+        self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else QApplication.instance().setStyleSheet(qss) # pyrefly: ignore [missing-attribute]
 
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:

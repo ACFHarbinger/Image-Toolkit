@@ -94,6 +94,10 @@ class TestSeamDiagnosticDialogWaypoints:
 
     def test_get_overrides_includes_waypoints(self, q_app):
         from gui.src.tabs.animation.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
+        import cv2
+        
+        cv2.resize.side_effect = lambda arr, *args, **kwargs: arr # pyrefly: ignore [missing-attribute]
+        cv2.cvtColor.side_effect = lambda arr, *args, **kwargs: arr # pyrefly: ignore [missing-attribute]
 
         data = _make_data(n_seams=2, canvas_h=600, canvas_w=300)
         dlg = SeamDiagnosticDialog(data=data)

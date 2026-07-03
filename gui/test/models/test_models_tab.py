@@ -12,6 +12,15 @@ from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
 pytestmark = pytest.mark.gui
 
 
+@pytest.fixture(autouse=True)
+def mock_qmessagebox(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
+
+
+
 # Helper class for mocking tabs that need to be widgets
 class MockTab(QWidget):
     def __init__(self, parent=None):

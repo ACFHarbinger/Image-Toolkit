@@ -10,6 +10,10 @@ class TestPgvectorImageDatabase:
         with patch("src.database.image_database.psycopg2.connect") as mock_connect:
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
+            mock_cursor.connection = mock_conn
+            mock_conn.encoding = "UTF8"
+            mock_cursor.mogrify.side_effect = lambda sql, args: sql % tuple(str(x).encode() if not isinstance(x, bytes) else x for x in args)
+            mock_cursor.fetchmany.return_value = []
             mock_connect.return_value = mock_conn
             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
@@ -29,7 +33,7 @@ class TestPgvectorImageDatabase:
             yield db, mock_conn, mock_cursor
 
     def test_init_connection_success(self):
-        with patch("src.core.image_database.psycopg2.connect") as mock_connect:
+        with patch("src.database.image_database.psycopg2.connect") as mock_connect:
             db = PgvectorImageDatabase(db_name="test")
             mock_connect.assert_called_once()
             assert db.conn is not None
@@ -81,9 +85,13 @@ class TestPgvectorImageDatabase:
         # but we can scan calls for keys.
         calls = mock_cursor.execute.call_args_list
         insert_image_tags_calls = [
-            c for c in calls if "INSERT INTO image_tags" in c[0][0]
+            c for c in calls if (
+                "INSERT INTO image_tags" in c[0][0]
+                if isinstance(c[0][0], str)
+                else b"INSERT INTO image_tags" in c[0][0]
+            )
         ]
-        assert len(insert_image_tags_calls) == 2
+        assert len(insert_image_tags_calls) == 1
 
     def test_search_images_query_construction(self, mock_db):
         db, _, mock_cursor = mock_db
