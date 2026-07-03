@@ -138,6 +138,16 @@ def cleanup_active_workers_and_timers(q_app):
             except Exception:
                 pass
 
+    # Close and delete all top-level widgets to prevent leaks and styling hangs
+    for widget in QApplication.topLevelWidgets():
+        try:
+            widget.close()
+            widget.deleteLater()
+        except Exception:
+            pass
+
+    for _ in range(5):
+        QApplication.processEvents()
     QThreadPool.globalInstance().waitForDone(500)
 
 

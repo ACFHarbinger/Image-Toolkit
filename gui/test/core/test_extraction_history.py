@@ -103,9 +103,9 @@ def test_settings_window_resets(q_app, tmp_path, monkeypatch):
     # Mock IMAGE_TOOLKIT_DIR to use a temporary directory for this test
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
-    monkeypatch.setattr("gui.src.windows.settings_window.IMAGE_TOOLKIT_DIR", test_dir)
+    monkeypatch.setattr("gui.src.windows.settings.settings_window.IMAGE_TOOLKIT_DIR", test_dir)
     monkeypatch.setattr(
-        "gui.src.windows.settings_window.DAEMON_CONFIG_PATH",
+        "gui.src.windows.settings.settings_window.DAEMON_CONFIG_PATH",
         test_dir / ".slideshow_config.json",
     )
 
@@ -219,6 +219,10 @@ def test_export_finished_records_history(q_app, tmp_path, monkeypatch):
 
     tab = ExtractorTab()
     assert tab.recent_runs == []
+
+    # Mock QMessageBox popups to prevent blocking/hanging the test runner
+    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
 
     # Mock extraction_dir
     tab.extraction_dir = test_dir
