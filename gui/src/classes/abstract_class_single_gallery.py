@@ -51,7 +51,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         self._initial_pixmap_cache = LRUImageCache(maxsize=300)
 
         # --- Pagination State ---
-        self.page_size = 150
+        self.page_size = 100
         self.current_page = 0
 
         # --- Column count (single-gallery-specific) ---
@@ -844,12 +844,15 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         if not hasattr(self, "_loading_paths"):
             self._loading_paths = set()
         self._loading_paths.update(paths)
-        worker = BatchImageLoaderWorker(paths, self.thumbnail_size)
-        worker.signals.result.connect(self._on_single_image_loaded)
-        worker.signals.batch_result.connect(self._on_batch_images_loaded)
+        chunk_size = 8
+        for i in range(0, len(paths), chunk_size):
+            chunk_paths = paths[i:i + chunk_size]
+            worker = BatchImageLoaderWorker(chunk_paths, self.thumbnail_size)
+            worker.signals.result.connect(self._on_single_image_loaded)
+            worker.signals.batch_result.connect(self._on_batch_images_loaded)
 
-        self._active_workers.add(worker)
-        self.thread_pool.start(worker)
+            self._active_workers.add(worker)
+            self.thread_pool.start(worker)
 
     def _trigger_video_load(self, path: str):
         self._loading_paths.add(path)
@@ -857,6 +860,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         worker.signals.result.connect(
             self._on_single_image_loaded
         )  # Reuse same handler
+        self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
     def start_loading_gallery(
@@ -1014,13 +1018,15 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
     @Slot(str, QImage)
     def _on_single_image_loaded(self, path: str, q_image: QImage):
-        # Cleanup worker ref
+        # Cleanup worker ref if it is NOT a BatchImageLoaderWorker
+        # BatchImageLoaderWorker is cleaned up in _on_batch_images_loaded
         sender = self.sender()
         if sender:
             # We need to find the worker that owns this signals object
             for worker in list(self._active_workers):
                 if worker.signals == sender:
-                    self._active_workers.remove(worker)
+                    if not isinstance(worker, BatchImageLoaderWorker):
+                        self._active_workers.remove(worker)
                     break
 
         if path in self._loading_paths:
