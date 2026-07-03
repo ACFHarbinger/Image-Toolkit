@@ -1,0 +1,88 @@
+name: "[Agent] Bug Report"
+description: Structured bug ticket for autonomous agent orchestration. Fields map directly to Project Board custom fields.
+title: "[BUG] "
+labels: ["bug", "agent-generated"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template produces a machine-parsable issue. Every field below is
+        consumed verbatim by `backend/scripts/github/sync_backlog.py` and
+        `backend/scripts/github/agent_tools.py` — do not rename options.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the architecture is affected?
+      options:
+        - "Core: C++ Base"
+        - "Core: Python Backend"
+        - "UI: PySide6"
+        - "UI: Tauri Desktop"
+        - "UI: Mobile"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Kanban tier this ticket belongs to.
+      options:
+        - "Tier 1: Core Engine"
+        - "Tier 2: QA Prototype"
+        - "Tier 3: Production App"
+        - "Tier 4: Backburner"
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro_steps
+    attributes:
+      label: Reproduction Steps
+      description: Numbered steps to reproduce the bug.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Stack Trace
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: agent_notes
+    attributes:
+      label: Agent Notes
+      description: Any additional machine-readable context (file paths, module names, suspected root cause).
+    validations:
+      required: false
