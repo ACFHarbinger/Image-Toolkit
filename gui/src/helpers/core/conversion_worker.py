@@ -54,10 +54,16 @@ class ConversionWorker(QThread):
                 input_path = self.config.get("input_path")
                 if input_path and os.path.exists(input_path):
                     if os.path.isdir(input_path):
-                        # Naive walk
-                        for root, _, files in os.walk(input_path):
-                            for f in files:
-                                files_to_convert.append(os.path.join(root, f))
+                        from gui.src.utils.settings import AppSettings
+                        if AppSettings.recursive_scan():
+                            for root, _, files in os.walk(input_path):
+                                for f in files:
+                                    files_to_convert.append(os.path.join(root, f))
+                        else:
+                            with os.scandir(input_path) as it:
+                                for entry in it:
+                                    if entry.is_file():
+                                        files_to_convert.append(entry.path)
                     else:
                         files_to_convert.append(input_path)
 

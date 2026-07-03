@@ -136,20 +136,34 @@ static std::string normalise_ext(const std::string& ext) {
 
 static std::vector<std::string> collect_files(
     const std::string& directory,
-    const std::vector<std::string>& extensions)
+    const std::vector<std::string>& extensions,
+    bool recursive = true)
 {
     std::vector<std::string> exts;
     for (const auto& e : extensions) exts.push_back(normalise_ext(e));
 
     std::vector<std::string> paths;
-    for (const auto& entry :
-         fs::recursive_directory_iterator(directory,
-             fs::directory_options::skip_permission_denied)) {
-        if (!entry.is_regular_file()) continue;
-        std::string file_ext = normalise_ext(entry.path().extension().string());
-        if (std::find(exts.begin(), exts.end(), file_ext) != exts.end())
-            paths.push_back(entry.path().string());
-    }
+    try {
+        if (recursive) {
+            for (const auto& entry :
+                 fs::recursive_directory_iterator(directory,
+                     fs::directory_options::skip_permission_denied)) {
+                if (!entry.is_regular_file()) continue;
+                std::string file_ext = normalise_ext(entry.path().extension().string());
+                if (std::find(exts.begin(), exts.end(), file_ext) != exts.end())
+                    paths.push_back(entry.path().string());
+            }
+        } else {
+            for (const auto& entry :
+                 fs::directory_iterator(directory,
+                     fs::directory_options::skip_permission_denied)) {
+                if (!entry.is_regular_file()) continue;
+                std::string file_ext = normalise_ext(entry.path().extension().string());
+                if (std::find(exts.begin(), exts.end(), file_ext) != exts.end())
+                    paths.push_back(entry.path().string());
+            }
+        }
+    } catch (...) {}
     return paths;
 }
 
@@ -161,9 +175,9 @@ std::unordered_map<std::string, std::vector<std::string>>
 find_duplicate_images(
     const std::string& directory,
     const std::vector<std::string>& extensions,
-    bool /*recursive — always recursive for API parity*/)
+    bool recursive)
 {
-    auto paths = collect_files(directory, extensions);
+    auto paths = collect_files(directory, extensions, recursive);
     int N = static_cast<int>(paths.size());
     std::vector<std::string> hashes(N);
 
@@ -214,9 +228,10 @@ std::unordered_map<std::string, std::vector<std::string>>
 find_similar_images_phash(
     const std::string& directory,
     const std::vector<std::string>& extensions,
-    uint32_t threshold)
+    uint32_t threshold,
+    bool recursive)
 {
-    auto paths = collect_files(directory, extensions);
+    auto paths = collect_files(directory, extensions, recursive);
     int N = static_cast<int>(paths.size());
     std::vector<uint64_t> hash_vals(N, 0);
 
@@ -310,9 +325,10 @@ class ParityDict(dict):
     m.def("find_similar_images_phash",
         [](const std::string& directory,
            const std::vector<std::string>& extensions,
-           uint32_t threshold) {
+           uint32_t threshold,
+           bool recursive) {
             py::gil_scoped_release rel;
-            auto res = base::core::find_similar_images_phash(directory, extensions, threshold);
+            auto res = base::core::find_similar_images_phash(directory, extensions, threshold, recursive);
             py::gil_scoped_acquire acq;
             py::object parity_dict = py::module_::import("base").attr("core").attr("ParityDict")();
             for (auto& [k, v] : res) {
@@ -323,6 +339,7 @@ class ParityDict(dict):
         py::arg("directory"),
         py::arg("extensions") = std::vector<std::string>{".jpg", ".jpeg", ".png", ".webp", ".bmp"},
         py::arg("threshold") = 5,
+        py::arg("recursive") = true,
         "Find perceptually-similar images (pHash, Hamming ≤ threshold). Returns {group_N: [paths]}.");
 }
 

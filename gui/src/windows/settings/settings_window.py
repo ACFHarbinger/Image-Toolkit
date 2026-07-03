@@ -112,6 +112,7 @@ class SettingsWindow(QWidget):
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
+        self.pref_recursive_scan = _p.get("recursive_scan", True)
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -587,6 +588,15 @@ class SettingsWindow(QWidget):
         )
         self.send_to_trash_check.setChecked(self.pref_send_to_trash)
         gallery_layout.addRow(self.send_to_trash_check)
+
+        self.recursive_scan_check = QCheckBox(
+            "Enable recursive directory scanning"
+        )
+        self.recursive_scan_check.setChecked(self.pref_recursive_scan)
+        self.recursive_scan_check.setToolTip(
+            "When enabled, directory searches will walk through all subdirectories"
+        )
+        gallery_layout.addRow(self.recursive_scan_check)
 
         # ---------------------------------------------------------------------
         # --- Media Player and Extractor Section ---
@@ -1277,6 +1287,7 @@ class SettingsWindow(QWidget):
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
+        self.pref_recursive_scan = _p.get("recursive_scan", True)
 
         # Reload tab defaults from vault
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -1315,6 +1326,7 @@ class SettingsWindow(QWidget):
         self.page_size_combo.setCurrentText(str(self.pref_page_size))
         self.confirm_deletions_check.setChecked(self.pref_confirm_deletions)
         self.send_to_trash_check.setChecked(self.pref_send_to_trash)
+        self.recursive_scan_check.setChecked(self.pref_recursive_scan)
 
         # Repopulate Startup and Session
         items = [
@@ -2032,6 +2044,7 @@ class SettingsWindow(QWidget):
                 "page_size": int(self.page_size_combo.currentText()),
                 "confirm_deletions": self.confirm_deletions_check.isChecked(),
                 "send_to_trash": self.send_to_trash_check.isChecked(),
+                "recursive_scan": self.recursive_scan_check.isChecked(),
                 "found_cache_maxsize": self.found_cache_spinbox.value(),
                 "selected_cache_maxsize": self.selected_cache_spinbox.value(),
                 "initial_cache_maxsize": self.initial_cache_spinbox.value(),
@@ -2055,6 +2068,8 @@ class SettingsWindow(QWidget):
             }
 
             if self._save_vault_data(user_data):
+                # Also save to QSettings
+                AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
                 if self.main_window_ref:
                     self.main_window_ref.cached_creds = user_data
                     if selected_theme:
@@ -2091,6 +2106,7 @@ class SettingsWindow(QWidget):
         self.page_size_combo.setCurrentText("100")
         self.confirm_deletions_check.setChecked(True)
         self.send_to_trash_check.setChecked(True)
+        self.recursive_scan_check.setChecked(True)
 
         # Reset Startup and Session
         items = [

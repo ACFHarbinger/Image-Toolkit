@@ -64,6 +64,27 @@ class AppSettings:
     def set_mainwindow_geometry(cls, data: bytes) -> None:
         cls._q().setValue("mainwindow/geometry", data)
 
+    @classmethod
+    def recursive_scan(cls) -> bool:
+        """Return True if recursive directory scanning is enabled, False otherwise."""
+        val = cls._q().value("preferences/recursive_scan")
+        if val is not None:
+            if isinstance(val, str):
+                return val.lower() == "true"
+            return bool(val)
+        
+        from PySide6.QtWidgets import QApplication
+        for widget in QApplication.topLevelWidgets():
+            if hasattr(widget, "cached_creds") and widget.cached_creds:
+                prefs = widget.cached_creds.get("preferences", {})
+                if "recursive_scan" in prefs:
+                    return bool(prefs["recursive_scan"])
+        return True
+
+    @classmethod
+    def set_recursive_scan(cls, enabled: bool) -> None:
+        cls._q().setValue("preferences/recursive_scan", enabled)
+
     # ── Session namespace ─────────────────────────────────────────────────────
 
     @classmethod
