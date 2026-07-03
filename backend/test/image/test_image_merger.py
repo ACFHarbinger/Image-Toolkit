@@ -7,10 +7,9 @@ from PIL import Image
 from unittest.mock import patch, MagicMock
 
 # Add project root to Python path to import modules
-project_root = sys.path.append(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-sys.path.insert(0, project_root)
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from src.core import ImageMerger  # noqa: E402
 
@@ -496,66 +495,23 @@ class ImageMergerTest:
         # Verify matchTemplate was called to check overlap
         assert mock_cv2.matchTemplate.called
 
-    @patch("src.core.image_merger.cv2")
-    def test_perfect_stitch(self, mock_cv2, sample_images, output_dir):
+    @patch("backend.src.animation.AnimeStitchPipeline")
+    def test_perfect_stitch(self, mock_pipeline_cls, sample_images, output_dir):
         """Test perfect_stitch algorithm (mocked)"""
         temp_dir, image_paths = sample_images
         output_path = os.path.join(output_dir, "perfect_stitch.png")
 
-        # Mock imread
-        img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
-        mock_cv2.imread.return_value = img
+        # Mock pipeline instance
+        mock_pipeline = MagicMock()
+        mock_pipeline_cls.return_value = mock_pipeline
 
-        # Mock SIFT
-        mock_sift = MagicMock()
-        mock_cv2.SIFT_create.return_value = mock_sift
-        mock_kp = MagicMock()
-        mock_kp.pt = (50, 50)
-        mock_sift.detectAndCompute.return_value = (
-            [mock_kp] * 20,
-            np.random.rand(20, 128).astype(np.float32),
-        )
+        # Mock run to create a dummy image on disk and return it
+        def mock_run(paths, out_path):
+            img = Image.new("RGB", (100, 100), (255, 0, 0))
+            img.save(out_path)
+            return img
 
-        # Mock BFMatcher
-        mock_bf = MagicMock()
-        mock_cv2.BFMatcher.return_value = mock_bf
-        mock_match = MagicMock()
-        mock_match.distance = 10
-        mock_match.queryIdx = 0
-        mock_match.trainIdx = 0
-        mock_bf.knnMatch.return_value = [[mock_match, MagicMock(distance=100)]] * 20
-
-        # Mock findHomography - simulate -50px translation
-        H = np.eye(3)
-        H[1, 2] = -50
-        mock_cv2.findHomography.return_value = (H, None)
-        mock_cv2.RANSAC = 8
-
-        # Mock sub-methods for seam finding and blending
-        mock_cv2.absdiff.return_value = img
-        mock_cv2.cvtColor.return_value = np.zeros((100, 100), dtype=np.uint8)
-        mock_cv2.Sobel.return_value = np.zeros((100, 100), dtype=np.float32)
-        mock_cv2.add.return_value = np.zeros((100, 100), dtype=np.float32)
-
-        # Mock pyramids
-        def mock_down(x):
-            if len(x.shape) == 3:
-                return np.zeros((x.shape[0] // 2, x.shape[1] // 2, 3), dtype=np.float32)
-            return np.zeros((x.shape[0] // 2, x.shape[1] // 2), dtype=np.float32)
-
-        mock_cv2.pyrDown.side_effect = mock_down
-        mock_cv2.pyrUp.side_effect = lambda x, dstsize=None: np.zeros(
-            (dstsize[1], dstsize[0], x.shape[2] if len(x.shape) == 3 else 1),
-            dtype=np.float32,
-        )
-        mock_cv2.subtract.side_effect = lambda x, y: x
-        mock_cv2.merge.side_effect = lambda x: np.stack(x, axis=-1)
-
-        # Mock constants
-        mock_cv2.COLOR_BGR2GRAY = 6
-        mock_cv2.CV_32F = 5
-        mock_cv2.INTER_LANCZOS4 = 4
-        mock_cv2.COLOR_BGR2RGB = 4
+        mock_pipeline.run.side_effect = mock_run
 
         # Execute
         result = ImageMerger.perfect_stitch(image_paths[:2], output_path)
@@ -563,5 +519,5 @@ class ImageMergerTest:
         # Verify
         assert os.path.exists(output_path)
         assert isinstance(result, Image.Image)
-        assert mock_cv2.SIFT_create.called
-        assert mock_cv2.findHomography.called
+        mock_pipeline_cls.assert_called_once()
+        mock_pipeline.run.assert_called_once_with(image_paths[:2], output_path)

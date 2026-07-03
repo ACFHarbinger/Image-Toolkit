@@ -1,7 +1,6 @@
 import os
 import sys
 import pytest
-
 from unittest.mock import patch, MagicMock
 
 # Adjust path to find src (if running directly or via different runner)
@@ -11,173 +10,189 @@ sys.path.insert(0, project_root)
 from backend.src.core.video_converter import VideoFormatConverter  # noqa: E402
 
 
-# Use pytest-style class for easy fixture access
 class TestVideoFormatConverter:
-    @patch("backend.src.core.video_converter.subprocess.run")
+    @patch("backend.src.core.video_converter.subprocess.Popen")
     def test_convert_with_ffmpeg_success(
-        self, mock_subprocess, sample_video, output_dir
+        self, mock_popen, sample_video, output_dir
     ):
-        """Test successful conversion using FFmpeg engine."""
+        """Test successful conversion using FFmpeg via Popen."""
         input_path = sample_video
         output_path = os.path.join(output_dir, "output.avi")
 
-        # Mock successful subprocess
+        # Mock successful Popen process
         mock_process = MagicMock()
         mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_process.wait.return_value = None
+        mock_popen.return_value = mock_process
 
         result = VideoFormatConverter.convert_video(
-            input_path, output_path, engine="ffmpeg"
+            input_path, output_path
         )
 
         assert result is True
-        mock_subprocess.assert_called_with(
-            ["ffmpeg", "-y", "-i", input_path, output_path],
-            stdout=-1,
-            stderr=-1,
-            stdin=-3,
-            text=True,
-        )
+        mock_popen.assert_called_once()
+        # Verify the command called contains basic ffmpeg conversion flags
+        cmd_args = mock_popen.call_args[0][0]
+        assert cmd_args[0] == "ffmpeg"
+        assert "-i" in cmd_args
+        assert output_path in cmd_args
 
-    @patch("backend.src.core.video_converter.subprocess.run")
+    @patch("backend.src.core.video_converter.subprocess.Popen")
     def test_convert_with_ffmpeg_failure(
-        self, mock_subprocess, sample_video, output_dir
+        self, mock_popen, sample_video, output_dir
     ):
         """Test failure in FFmpeg conversion."""
         input_path = sample_video
         output_path = os.path.join(output_dir, "output.avi")
 
-        # Mock failed subprocess
+        # Mock failed Popen process
         mock_process = MagicMock()
         mock_process.returncode = 1
-        mock_process.stderr = "Some FFmpeg error"
-        mock_subprocess.return_value = mock_process
+        mock_process.wait.return_value = None
+        mock_popen.return_value = mock_process
 
         result = VideoFormatConverter.convert_video(
-            input_path, output_path, engine="ffmpeg"
+            input_path, output_path
         )
 
         assert result is False
-
-    @patch("backend.src.core.video_converter.VideoFileClip")
-    def test_convert_with_moviepy_success(
-        self, mock_clip_cls, sample_video, output_dir
-    ):
-        """Test successful conversion using MoviePy engine."""
-        input_path = sample_video
-        output_path = os.path.join(output_dir, "output.avi")
-
-        mock_clip = MagicMock()
-        mock_clip_cls.return_value = mock_clip
-
-        result = VideoFormatConverter.convert_video(
-            input_path, output_path, engine="moviepy"
-        )
-
-        assert result is True
-        mock_clip.write_videofile.assert_called_once()
-        mock_clip.close.assert_called_once()
-
-    @patch("backend.src.core.video_converter.VideoFileClip")
-    def test_convert_with_moviepy_failure(
-        self, mock_clip_cls, sample_video, output_dir
-    ):
-        """Test failure in MoviePy conversion."""
-        input_path = sample_video
-        output_path = os.path.join(output_dir, "output.avi")
-
-        # Mock exception
-        mock_clip_cls.side_effect = Exception("MoviePy Error")
-
-        result = VideoFormatConverter.convert_video(
-            input_path, output_path, engine="moviepy"
-        )
-
-        assert result is False
-
-    @patch("backend.src.core.video_converter.subprocess.run")
-    def test_auto_engine_ffmpeg_available(
-        self, mock_subprocess, sample_video, output_dir
-    ):
-        """Test 'auto' engine selects FFmpeg when available."""
-        input_path = sample_video
-        output_path = os.path.join(output_dir, "output.avi")
-
-        # Mock calls
-        def subprocess_side_effect(*args, **kwargs):
-            # Version check or conversion
-            return MagicMock(returncode=0)
-
-        mock_subprocess.side_effect = subprocess_side_effect
-
-        result = VideoFormatConverter.convert_video(
-            input_path, output_path, engine="auto"
-        )
-
-        assert result is True
-        # Check that it tried to run ffmpeg
-        args, _ = mock_subprocess.call_args
-        assert "-i" in args[0]
-
-    @patch("backend.src.core.video_converter.subprocess.run")
-    @patch("backend.src.core.video_converter.VideoFileClip")
-    def test_auto_engine_ffmpeg_missing(
-        self, mock_clip, mock_subprocess, sample_video, output_dir
-    ):
-        """Test 'auto' engine falls back to MoviePy when FFmpeg is missing."""
-        input_path = sample_video
-        output_path = os.path.join(output_dir, "output.avi")
-
-        # 1. Version check fails
-        def subprocess_side_effect(*args, **kwargs):
-            cmd = args[0]
-            if "-version" in cmd:
-                raise FileNotFoundError("No ffmpeg")
-            return MagicMock(returncode=0)
-
-        mock_subprocess.side_effect = subprocess_side_effect
-
-        # MoviePy setup
-        mock_instance = MagicMock()
-        mock_clip.return_value = mock_instance
-
-        result = VideoFormatConverter.convert_video(
-            input_path, output_path, engine="auto"
-        )
-
-        assert result is True
-        # Verify moviepy was used
-        mock_clip.assert_called()
 
     def test_input_file_not_found(self, output_dir):
         """Test failure when input file does not exist."""
-        # Using a guaranteed non-existent path
         input_path = "/nonexistent/video.mp4"
         output_path = os.path.join(output_dir, "output.avi")
 
         result = VideoFormatConverter.convert_video(
-            input_path, output_path, engine="auto"
+            input_path, output_path
         )
 
         assert result is False
 
     @patch("backend.src.core.video_converter.os.remove")
-    @patch("backend.src.core.video_converter.subprocess.run")
+    @patch("backend.src.core.video_converter.subprocess.Popen")
     def test_delete_original_success_ffmpeg(
-        self, mock_subprocess, mock_remove, sample_video, output_dir
+        self, mock_popen, mock_remove, sample_video, output_dir
     ):
         """Test original file is deleted after successful FFmpeg conversion."""
         input_path = sample_video
         output_path = os.path.join(output_dir, "output.avi")
 
-        mock_subprocess.return_value = MagicMock(returncode=0)
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.wait.return_value = None
+        mock_popen.return_value = mock_process
 
         result = VideoFormatConverter.convert_video(
-            input_path, output_path, engine="ffmpeg", delete=True
+            input_path, output_path, delete=True
         )
 
         assert result is True
         mock_remove.assert_called_with(input_path)
+
+    @patch("backend.src.core.video_converter.subprocess.Popen")
+    def test_convert_video_with_aspect_ratio(
+        self, mock_popen, sample_video, output_dir
+    ):
+        """Test conversion with target aspect ratio and modes."""
+        input_path = sample_video
+        output_path = os.path.join(output_dir, "output.avi")
+
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.wait.return_value = None
+        mock_popen.return_value = mock_process
+
+        # Test crop mode
+        result = VideoFormatConverter.convert_video(
+            input_path, output_path, aspect_ratio=1.77, ar_mode="crop"
+        )
+        assert result is True
+        cmd_args = mock_popen.call_args[0][0]
+        assert "-vf" in cmd_args
+        # Look for crop filter
+        vf_idx = cmd_args.index("-vf")
+        assert "crop" in cmd_args[vf_idx + 1]
+
+        # Test pad mode
+        result = VideoFormatConverter.convert_video(
+            input_path, output_path, aspect_ratio=1.77, ar_mode="pad"
+        )
+        assert result is True
+        cmd_args = mock_popen.call_args[0][0]
+        vf_idx = cmd_args.index("-vf")
+        assert "pad" in cmd_args[vf_idx + 1]
+
+        # Test stretch mode
+        result = VideoFormatConverter.convert_video(
+            input_path, output_path, aspect_ratio=1.77, ar_mode="stretch"
+        )
+        assert result is True
+        cmd_args = mock_popen.call_args[0][0]
+        vf_idx = cmd_args.index("-vf")
+        assert "scale" in cmd_args[vf_idx + 1]
+
+    @patch("backend.src.core.video_converter.subprocess.Popen")
+    def test_convert_to_gif_success(
+        self, mock_popen, sample_video, output_dir
+    ):
+        """Test successful conversion to GIF."""
+        input_path = sample_video
+        output_path = os.path.join(output_dir, "output.gif")
+
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.wait.return_value = None
+        mock_popen.return_value = mock_process
+
+        result = VideoFormatConverter.convert_to_gif(
+            input_path, output_path
+        )
+
+        assert result is True
+        mock_popen.assert_called_once()
+        cmd_args = mock_popen.call_args[0][0]
+        assert "ffmpeg" in cmd_args
+        assert "-filter_complex" in cmd_args
+
+    @patch("backend.src.core.video_converter.subprocess.Popen")
+    def test_convert_to_gif_failure(
+        self, mock_popen, sample_video, output_dir
+    ):
+        """Test failure in GIF conversion."""
+        input_path = sample_video
+        output_path = os.path.join(output_dir, "output.gif")
+
+        mock_process = MagicMock()
+        mock_process.returncode = 1
+        mock_process.wait.return_value = None
+        mock_popen.return_value = mock_process
+
+        result = VideoFormatConverter.convert_to_gif(
+            input_path, output_path
+        )
+
+        assert result is False
+
+    @patch("backend.src.core.video_converter.os.remove")
+    @patch("backend.src.core.video_converter.subprocess.Popen")
+    def test_convert_to_gif_delete(
+        self, mock_popen, mock_remove, sample_video, output_dir
+    ):
+        """Test input file is deleted after successful GIF conversion."""
+        input_path = sample_video
+        output_path = os.path.join(output_dir, "output.gif")
+
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.wait.return_value = None
+        mock_popen.return_value = mock_process
+
+        result = VideoFormatConverter.convert_to_gif(
+            input_path, output_path, delete=True
+        )
+
+        assert result is True
+        mock_remove.assert_called_once_with(input_path)
 
 
 if __name__ == "__main__":
