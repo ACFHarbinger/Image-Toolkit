@@ -2227,6 +2227,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s205-2026-07-03-recursive-directory-scanning-vault-db-c-test-cleanups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S205 — 2026-07-03 (Recursive Directory Scanning &amp; Vault DB C++ Test Cleanups)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s204-2026-07-02-46-multiband-confidence-weighted-blending" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11697,6 +11708,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s205-2026-07-03-recursive-directory-scanning-vault-db-c-test-cleanups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S205 — 2026-07-03 (Recursive Directory Scanning &amp; Vault DB C++ Test Cleanups)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s204-2026-07-02-46-multiband-confidence-weighted-blending" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -21154,6 +21176,14 @@
 
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
+<h2 id="s205-2026-07-03-recursive-directory-scanning-vault-db-c-test-cleanups">S205 — 2026-07-03 (Recursive Directory Scanning &amp; Vault DB C++ Test Cleanups)<a class="headerlink" href="#s205-2026-07-03-recursive-directory-scanning-vault-db-c-test-cleanups" title="Permanent link">&para;</a></h2>
+<p><strong>Implemented system-wide settings for recursive directory scanning and resolved local database side effects in C++ unit tests.</strong></p>
+<ul>
+<li><strong>Recursive Scanning Option</strong>: Added a "Recursive directory scanning" checkbox in the GUI <code>SettingsWindow</code>, ensuring persistent configuration via <code>QSettings</code> under <code>AppSettings.recursive_scan()</code>.</li>
+<li><strong>C++ and Python Propagation</strong>: Updated C++ <code>collect_files</code> in <code>finder.cpp</code> to conditionally toggle between recursive and shallow directory walking depending on the <code>recursive</code> boolean flag. Propagated settings to Python workers, using <code>os.scandir</code> for flat scans to optimize performance.</li>
+<li><strong>Unit Test Parity</strong>: Wrote comprehensive unit tests in <code>gui/test/core/test_settings_window.py</code> and parity tests in <code>backend/test/base/test_parity_core.py</code>.</li>
+<li><strong>Vault DB Test Cleanup</strong>: Refactored C++ Catch2 tests in <code>base/tests/secret/test_vault_db.cpp</code> to conditionally perform full CRUD validation on SQLCipher when enabled (using and programmatically removing a temporary <code>test_vault_catch2.db</code> file) or check the stub contract exceptions under <code>#ifndef HAVE_SQLCIPHER</code>, eliminating the untracked <code>db</code> file side effect from the repository root.</li>
+</ul>
 <hr />
 <h2 id="s204-2026-07-02-46-multiband-confidence-weighted-blending">S204 — 2026-07-02 (§4.6 MultiBand Confidence-Weighted Blending)<a class="headerlink" href="#s204-2026-07-02-46-multiband-confidence-weighted-blending" title="Permanent link">&para;</a></h2>
 <p><strong>ASP roadmap §4.6: replace the hard 0/255 GraphCut ownership mask fed to <code>cv::detail::MultiBandBlender</code> with a smoothly-varying per-pixel confidence mask.</strong></p>
