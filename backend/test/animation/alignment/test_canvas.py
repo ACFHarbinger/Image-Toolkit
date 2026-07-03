@@ -448,6 +448,12 @@ class TestPanoramaStitchFallback:
     no real feature matching is required.
     """
 
+    @pytest.fixture(autouse=True)
+    def mock_batch_canvas(self):
+        from unittest.mock import patch
+        with patch("backend.src.animation.alignment.canvas._BATCH_CANVAS", False):
+            yield
+
     def _solid_bgr(self, h: int = 64, w: int = 128, v: int = 128) -> np.ndarray:
         return np.full((h, w, 3), v, dtype=np.uint8)
 

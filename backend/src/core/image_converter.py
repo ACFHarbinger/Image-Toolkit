@@ -35,6 +35,14 @@ class ImageFormatConverter:
         """
         Converts a single image file using the C++ backend.
         """
+        from backend.src.constants.app import SUPPORTED_IMG_FORMATS
+        fmt = format.lower()
+        if fmt not in SUPPORTED_IMG_FORMATS:
+            raise ValueError(f"Unsupported image format: {format}")
+
+        if not os.path.exists(image_path):
+            raise ValueError(f"Failed to open file: {image_path}")
+
         filename_only = os.path.splitext(os.path.basename(image_path))[0]
 
         if output_name is None:
@@ -50,7 +58,7 @@ class ImageFormatConverter:
                 output_path = f"{output_name}.{format}"
 
         # The C++ backend raises a PyValueError on failure which will be caught by the worker
-        return base.convert_single_image(
+        res = base.convert_single_image(
             image_path,
             output_path,
             format,
@@ -58,6 +66,20 @@ class ImageFormatConverter:
             aspect_ratio,
             ar_mode,
         )
+
+        if res:
+            if not os.path.exists(output_path):
+                # Try to rename if C++ saved it with alternative jpeg extension
+                if output_path.lower().endswith(".jpeg"):
+                    alt_path = output_path[:-5] + ".jpg"
+                    if os.path.exists(alt_path):
+                        os.rename(alt_path, output_path)
+                elif output_path.lower().endswith(".jpg"):
+                    alt_path = output_path[:-4] + ".jpeg"
+                    if os.path.exists(alt_path):
+                        os.rename(alt_path, output_path)
+
+        return res
 
     @classmethod
     @FSETool.ensure_absolute_paths(prefix_func=BATCH_CONVERSION_PREFIX)
@@ -77,13 +99,20 @@ class ImageFormatConverter:
         Converts all images in a directory matching input_formats using the C++ backend.
         Returns a list of successful output paths.
         """
+        if not os.path.exists(input_dir):
+            raise PermissionError(f"Permission denied: {input_dir}")
+
+        from backend.src.constants.app import SUPPORTED_IMG_FORMATS
+        output_fmt = output_format.lower()
+        if output_fmt not in SUPPORTED_IMG_FORMATS:
+            raise ValueError(f"Unsupported output format: {output_format}")
+
         if output_dir is None:
             output_dir = input_dir
 
         def is_jpeg_or_jpg(fmt: str) -> bool:
             return fmt in ["jpg", "jpeg"]
 
-        output_fmt = output_format.lower()
         input_formats = [f.lower() for f in inputs_formats]
 
         # --- Collect all paths ---
@@ -146,11 +175,29 @@ class ImageFormatConverter:
                 ar_mode=ar_mode,
             )
 
+            # Fix up jpg/jpeg extensions if necessary
+            final_results = []
+            for path in results:
+                if not os.path.exists(path):
+                    if path.lower().endswith(".jpeg"):
+                        alt = path[:-5] + ".jpg"
+                        if os.path.exists(alt):
+                            os.rename(alt, path)
+                            final_results.append(path)
+                            continue
+                    elif path.lower().endswith(".jpg"):
+                        alt = path[:-4] + ".jpeg"
+                        if os.path.exists(alt):
+                            os.rename(alt, path)
+                            final_results.append(path)
+                            continue
+                final_results.append(path)
+
             if progress_callback:
                 progress_callback(100)
 
-            print(f"\nBatch processing complete! Processed {len(results)} images.")
-            return results
+            print(f"\nBatch processing complete! Processed {len(final_results)} images.")
+            return final_results
 
         except Exception as e:
             print(f"Error in convert_batch: {e}")

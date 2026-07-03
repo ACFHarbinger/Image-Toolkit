@@ -79,7 +79,7 @@ class TestLegacyMigration:
         if has_sqlcipher:
             pytest.skip("SQLCipher available; stub-error test not applicable")
         with pytest.raises(RuntimeError, match="[Ss][Qq][Ll][Cc]ipher|not available|not compiled"):
-            _base.utils.run_legacy_migration("/tmp/vault.json", "/tmp/out.db", "user", "pass")
+            _base.utils.run_legacy_migration("user", "pass", "/tmp/vault.json", "/tmp/out.db")
 
 
 # ---------------------------------------------------------------------------

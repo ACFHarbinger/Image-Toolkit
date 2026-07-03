@@ -169,6 +169,12 @@ bool run_legacy_migration(
 // ---------------------------------------------------------------------------
 
 void register_migration(py::module_& m) {
+#ifdef HAVE_SQLCIPHER
+    m.attr("_has_sqlcipher") = true;
+#else
+    m.attr("_has_sqlcipher") = false;
+#endif
+
     m.def("run_legacy_migration",
         [](const std::string& username, const std::string& password,
            const std::string& json_path, const std::string& db_path) -> bool {

@@ -318,7 +318,7 @@ class TestFilterEdgeGraph:
             _make_m_edge(0, 2, 0.0, 200.0, weight=0.3),  # weakest → penalized
         ]
         result = list(batch.matching.filter_edge_graph(
-            edges, min_step_px=10.0, max_tri_residual_px=50.0
+            edges, min_step_px=10.0, consistency_tol_px=150.0, max_tri_residual_px=50.0
         ))
         skip_e = next(e for e in result if e["j"] - e["i"] > 1)
         assert abs(float(skip_e["weight"]) - 0.15) < 1e-4  # 0.3 × 0.5 = 0.15
