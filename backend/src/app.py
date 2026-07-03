@@ -8,7 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
-from gui.src.main import MainWindow, LoginWindow
+from gui.src.windows.main import MainWindow, LoginWindow
 from backend.src.constants import ICON_FILE, CTRL_C_TIMEOUT
 
 # ---------------------------------------------------------------------------

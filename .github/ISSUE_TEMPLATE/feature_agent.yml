@@ -1,0 +1,77 @@
+name: "[Agent] Feature Request"
+description: Structured feature ticket for autonomous agent orchestration. Fields map directly to Project Board custom fields.
+title: "[FEATURE] "
+labels: ["feature", "agent-generated"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template produces a machine-parsable issue. Every field below is
+        consumed verbatim by `backend/scripts/github/sync_backlog.py` and
+        `backend/scripts/github/agent_tools.py` — do not rename options.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the architecture does this feature touch?
+      options:
+        - "Core: C++ Base"
+        - "Core: Python Backend"
+        - "UI: PySide6"
+        - "UI: Tauri Desktop"
+        - "UI: Mobile"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Kanban tier this ticket belongs to.
+      options:
+        - "Tier 1: Core Engine"
+        - "Tier 2: QA Prototype"
+        - "Tier 3: Production App"
+        - "Tier 4: Backburner"
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Bullet list of conditions that must hold for this ticket to be closed.
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Issue numbers or components this feature depends on (or "None").
+      placeholder: "#123, #456"
+    validations:
+      required: false
+
+  - type: textarea
+    id: agent_notes
+    attributes:
+      label: Agent Notes
+      description: Any additional machine-readable context (file paths, module names, constraints).
+    validations:
+      required: false

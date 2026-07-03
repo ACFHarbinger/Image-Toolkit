@@ -90,6 +90,12 @@ dependencies = [
     "anthropic>=0.116.0",
 ]
 
+[project.optional-dependencies]
+ci = [
+    "google-genai>=0.5.0",
+    "requests>=2.31.0",
+]
+
 # (Optional) entry-point so you can run `image-toolkit` from terminal
 [project.scripts]
 # The entry point is now 'app.py' (found in 'backend/src')
