@@ -59,7 +59,7 @@ class VideoScannerWorker(QRunnable):
     Replaces heavy OpenCV decoding with lightweight subprocess calls.
     """
 
-    def __init__(self, directory, target_height=180, crop_square=False):
+    def __init__(self, directory, target_height=180, crop_square=False, recursive=None):
         super().__init__()
         self.directory = directory
         self.target_height = target_height
@@ -68,6 +68,11 @@ class VideoScannerWorker(QRunnable):
         self.is_cancelled = False
         self.executor = None
         self.thumbnailer = VideoThumbnailer()
+        if recursive is None:
+            from gui.src.utils.settings import AppSettings
+            self.recursive = AppSettings.recursive_scan()
+        else:
+            self.recursive = recursive
 
     def stop(self):
         """Signals the worker to stop scanning."""
@@ -87,22 +92,38 @@ class VideoScannerWorker(QRunnable):
             # 1. Gather all video paths
             video_paths = []
 
-            # Use C++ backend for fast scanning if available, else standard os.scandir
+            # Use C++ backend for fast scanning if available, else standard os.scandir / os.walk
             if HAS_NATIVE_IMAGING:
                 video_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
-                    [self.directory], list(SUPPORTED_VIDEO_FORMATS), False
+                    [self.directory], list(SUPPORTED_VIDEO_FORMATS), self.recursive
                 )
             else:
                 try:
-                    entries = sorted(
-                        os.scandir(self.directory), key=lambda e: e.name.lower()
-                    )
-                    video_paths = [
-                        e.path
-                        for e in entries
-                        if e.is_file()
-                        and Path(e.path).suffix.lower() in SUPPORTED_VIDEO_FORMATS
-                    ]
+                    if self.recursive:
+                        video_paths = []
+                        for root, dirs, files in os.walk(self.directory):
+                            if self.is_cancelled:
+                                break
+                            # Skip hidden directories in-place (starts with dot)
+                            dirs[:] = [d for d in dirs if not d.startswith(".")]
+                            for file in files:
+                                if file.startswith("."):
+                                    continue
+                                path_obj = Path(root) / file
+                                if path_obj.suffix.lower() in SUPPORTED_VIDEO_FORMATS:
+                                    video_paths.append(str(path_obj))
+                        video_paths.sort(key=lambda p: os.path.basename(p).lower())
+                    else:
+                        entries = sorted(
+                            os.scandir(self.directory), key=lambda e: e.name.lower()
+                        )
+                        video_paths = [
+                            e.path
+                            for e in entries
+                            if e.is_file()
+                            and not e.name.startswith(".")
+                            and Path(e.path).suffix.lower() in SUPPORTED_VIDEO_FORMATS
+                        ]
                 except OSError:
                     pass
 

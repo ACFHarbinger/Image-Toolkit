@@ -2,7 +2,7 @@ import cv2
 import logging
 import numpy as np
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 from PySide6.QtCore import (
@@ -36,7 +36,7 @@ class DuplicateScanWorker(QObject):
         if self.aggregator_loop and self.aggregator_loop.isRunning():
             self.aggregator_loop.quit()
 
-    def __init__(self, directory: str, extensions: list, method: str = "exact"):
+    def __init__(self, directory: str, extensions: list, method: str = "exact", recursive: Optional[bool] = None):
         super().__init__()
         self.directory = directory
         self.extensions = extensions
@@ -49,6 +49,12 @@ class DuplicateScanWorker(QObject):
 
         # Event loop to pause the Worker thread while Pool threads work
         self.aggregator_loop = None
+
+        if recursive is None:
+            from gui.src.utils.settings import AppSettings
+            self.recursive = AppSettings.recursive_scan()
+        else:
+            self.recursive = recursive
 
     def _check_interrupt(self):
         if QThread.currentThread().isInterruptionRequested():
@@ -69,7 +75,7 @@ class DuplicateScanWorker(QObject):
 
                 # Reusing the image listing utility from SimilarityFinder
                 images = SimilarityFinder.get_images_list(
-                    self.directory, self.extensions
+                    self.directory, self.extensions, recursive=self.recursive
                 )
 
                 if not images:
@@ -91,7 +97,7 @@ class DuplicateScanWorker(QObject):
                 self.status.emit("Scanning for exact matches (hashing)...")
                 # Exact match is typically I/O bound, usually fast enough without granular threading.
                 results = DuplicateFinder.find_duplicate_images(
-                    self.directory, self.extensions, recursive=True
+                    self.directory, self.extensions, recursive=self.recursive
                 )
                 self._check_interrupt()
 
@@ -99,7 +105,7 @@ class DuplicateScanWorker(QObject):
             elif self.method in ["phash", "orb", "sift", "ssim", "siamese"]:
                 self.status.emit("Indexing images...")
                 images = SimilarityFinder.get_images_list(
-                    self.directory, self.extensions
+                    self.directory, self.extensions, recursive=self.recursive
                 )
                 self.total_files = len(images)
 

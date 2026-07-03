@@ -2,6 +2,15 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S205 — 2026-07-03 (Recursive Directory Scanning & Vault DB C++ Test Cleanups)
+
+**Implemented system-wide settings for recursive directory scanning and resolved local database side effects in C++ unit tests.**
+
+- **Recursive Scanning Option**: Added a "Recursive directory scanning" checkbox in the GUI `SettingsWindow`, ensuring persistent configuration via `QSettings` under `AppSettings.recursive_scan()`.
+- **C++ and Python Propagation**: Updated C++ `collect_files` in `finder.cpp` to conditionally toggle between recursive and shallow directory walking depending on the `recursive` boolean flag. Propagated settings to Python workers, using `os.scandir` for flat scans to optimize performance.
+- **Unit Test Parity**: Wrote comprehensive unit tests in `gui/test/core/test_settings_window.py` and parity tests in `backend/test/base/test_parity_core.py`.
+- **Vault DB Test Cleanup**: Refactored C++ Catch2 tests in `base/tests/secret/test_vault_db.cpp` to conditionally perform full CRUD validation on SQLCipher when enabled (using and programmatically removing a temporary `test_vault_catch2.db` file) or check the stub contract exceptions under `#ifndef HAVE_SQLCIPHER`, eliminating the untracked `db` file side effect from the repository root.
+
 ---
 
 ## S204 — 2026-07-02 (§4.6 MultiBand Confidence-Weighted Blending)

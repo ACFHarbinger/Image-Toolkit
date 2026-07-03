@@ -19,7 +19,7 @@ class TestSettingsWindowLogs:
         window = SettingsWindow()
         with (
             patch(
-                "gui.src.settings.settings_window.IMAGE_TOOLKIT_DIR",
+                "gui.src.windows.settings.settings_window.IMAGE_TOOLKIT_DIR",
                 Path("/tmp/nonexistent_dir"),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -36,12 +36,12 @@ class TestSettingsWindowLogs:
         log_file.write_text("dummy logs")
 
         with (
-            patch("gui.src.settings.settings_window.IMAGE_TOOLKIT_DIR", tmp_path),
+            patch("gui.src.windows.settings.settings_window.IMAGE_TOOLKIT_DIR", tmp_path),
             patch(
-                "gui.src.settings.settings_window.QDesktopServices.openUrl"
+                "gui.src.windows.settings.settings_window.QDesktopServices.openUrl"
             ) as mock_open_url,
             patch(
-                "gui.src.settings.settings_window.QUrl.fromLocalFile"
+                "gui.src.windows.settings.settings_window.QUrl.fromLocalFile"
             ) as mock_from_local_file,
         ):
             window._view_app_logs()
@@ -52,7 +52,7 @@ class TestSettingsWindowLogs:
         window = SettingsWindow()
         with (
             patch(
-                "gui.src.settings.settings_window.IMAGE_TOOLKIT_DIR",
+                "gui.src.windows.settings.settings_window.IMAGE_TOOLKIT_DIR",
                 Path("/tmp/nonexistent_dir"),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -69,12 +69,12 @@ class TestSettingsWindowLogs:
         log_file.write_text("dummy daemon logs")
 
         with (
-            patch("gui.src.settings.settings_window.IMAGE_TOOLKIT_DIR", tmp_path),
+            patch("gui.src.windows.settings.settings_window.IMAGE_TOOLKIT_DIR", tmp_path),
             patch(
-                "gui.src.settings.settings_window.QDesktopServices.openUrl"
+                "gui.src.windows.settings.settings_window.QDesktopServices.openUrl"
             ) as mock_open_url,
             patch(
-                "gui.src.settings.settings_window.QUrl.fromLocalFile"
+                "gui.src.windows.settings.settings_window.QUrl.fromLocalFile"
             ) as mock_from_local_file,
         ):
             window._view_daemon_logs()
@@ -126,8 +126,8 @@ class TestSettingsWindowLogs:
             json.dump({"token": "xyz"}, f)
 
         with (
-            patch("gui.src.settings.settings_window.ROOT_DIR", mock_root),
-            patch("gui.src.settings.settings_window.API_DIR", mock_api),
+            patch("gui.src.windows.settings.settings_window.ROOT_DIR", mock_root),
+            patch("gui.src.windows.settings.settings_window.API_DIR", mock_api),
             patch.object(QMessageBox, "information") as mock_info,
         ):
             window._export_credentials_to_backup()
@@ -175,13 +175,13 @@ class TestSettingsWindowLogs:
         mock_api.mkdir(parents=True, exist_ok=True)
 
         with (
-            patch("gui.src.settings.settings_window.API_DIR", mock_api),
+            patch("gui.src.windows.settings.settings_window.API_DIR", mock_api),
             patch(
-                "gui.src.settings.settings_window.QFileDialog.getOpenFileName",
+                "gui.src.windows.settings.settings_window.QFileDialog.getOpenFileName",
                 return_value=(str(dummy_import_file), "JSON"),
             ),
             patch(
-                "gui.src.settings.settings_window.QInputDialog.getText",
+                "gui.src.windows.settings.settings_window.QInputDialog.getText",
                 return_value=("imported_alias", True),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -225,7 +225,7 @@ class TestSettingsWindowLogs:
         enc_file.touch()
 
         with (
-            patch("gui.src.settings.settings_window.API_DIR", mock_api),
+            patch("gui.src.windows.settings.settings_window.API_DIR", mock_api),
             patch.object(
                 QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes
             ),
@@ -261,3 +261,41 @@ class TestSettingsWindowSessionRecovery:
         window.session_recovery_combo.setCurrentText("All Tabs")
         window.reset_settings()
         assert window.session_recovery_combo.currentText() == "None"
+
+
+class TestSettingsWindowRecursiveScan:
+    def test_recursive_scan_checkbox_exists_and_defaults(self, q_app):
+        window = SettingsWindow()
+        assert window.recursive_scan_check is not None
+        assert window.recursive_scan_check.isChecked() is True
+
+    def test_recursive_scan_reset(self, q_app):
+        window = SettingsWindow()
+        window.recursive_scan_check.setChecked(False)
+        window.reset_settings()
+        assert window.recursive_scan_check.isChecked() is True
+
+    def test_recursive_scan_save_and_load(self, q_app):
+        window = SettingsWindow()
+        window.recursive_scan_check.setChecked(False)
+        
+        from gui.src.utils.settings import AppSettings
+        AppSettings.set_recursive_scan(True)
+        assert AppSettings.recursive_scan() is True
+        
+        from unittest.mock import MagicMock
+        window.vault_manager = MagicMock()
+        window.vault_manager.load_account_credentials.return_value = {
+            "theme": "dark",
+            "active_tab_configs": {},
+            "system_preference_profiles": {},
+            "preferences": {}
+        }
+        
+        with patch.object(QMessageBox, "information"):
+            window._update_settings_logic()
+            
+        assert AppSettings.recursive_scan() is False
+        
+        # Reset setting to default True
+        AppSettings.set_recursive_scan(True)

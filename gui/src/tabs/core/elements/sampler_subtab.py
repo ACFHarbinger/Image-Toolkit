@@ -351,10 +351,18 @@ class SamplerSubTab(AbstractClassTwoGalleries):
         all_exts = vid_exts | img_exts
 
         paths = []
-        for root, _, files in os.walk(p):
-            for f in files:
-                if os.path.splitext(f)[1].lstrip(".").lower() in all_exts:
-                    paths.append(os.path.join(root, f))
+        from gui.src.utils.settings import AppSettings
+        if AppSettings.recursive_scan():
+            for root, _, files in os.walk(p):
+                for f in files:
+                    if os.path.splitext(f)[1].lstrip(".").lower() in all_exts:
+                        paths.append(os.path.join(root, f))
+        else:
+            with os.scandir(p) as it:
+                for entry in it:
+                    if entry.is_file():
+                        if os.path.splitext(entry.name)[1].lstrip(".").lower() in all_exts:
+                            paths.append(entry.path)
         return paths
 
     def _scan_and_load(self):

@@ -773,11 +773,20 @@ class FormatSubTab(AbstractClassTwoGalleries):
             input_formats = vid_formats + img_formats
 
         paths = []
-        for root, _, files in os.walk(p):
-            for file in files:
-                file_ext = os.path.splitext(file)[1].lstrip(".").lower()
-                if not input_formats or file_ext in input_formats:
-                    paths.append(os.path.join(root, file))
+        from gui.src.utils.settings import AppSettings
+        if AppSettings.recursive_scan():
+            for root, _, files in os.walk(p):
+                for file in files:
+                    file_ext = os.path.splitext(file)[1].lstrip(".").lower()
+                    if not input_formats or file_ext in input_formats:
+                        paths.append(os.path.join(root, file))
+        else:
+            with os.scandir(p) as it:
+                for entry in it:
+                    if entry.is_file():
+                        file_ext = os.path.splitext(entry.name)[1].lstrip(".").lower()
+                        if not input_formats or file_ext in input_formats:
+                            paths.append(entry.path)
         return paths
 
     @Slot()
@@ -1153,11 +1162,20 @@ class FormatSubTab(AbstractClassTwoGalleries):
             f.lstrip(".").lower() for f in SUPPORTED_VIDEO_FORMATS
         ]
 
-        for root, _, files in os.walk(input_path):
-            for file in files:
-                file_ext = os.path.splitext(file)[1].lstrip(".").lower()
-                if file_ext in input_formats:
-                    files_for_conversion.append(os.path.join(root, file))
+        from gui.src.utils.settings import AppSettings
+        if AppSettings.recursive_scan():
+            for root, _, files in os.walk(input_path):
+                for file in files:
+                    file_ext = os.path.splitext(file)[1].lstrip(".").lower()
+                    if file_ext in input_formats:
+                        files_for_conversion.append(os.path.join(root, file))
+        else:
+            with os.scandir(input_path) as it:
+                for entry in it:
+                    if entry.is_file():
+                        file_ext = os.path.splitext(entry.name)[1].lstrip(".").lower()
+                        if file_ext in input_formats:
+                            files_for_conversion.append(entry.path)
 
         config["files_to_convert"] = files_for_conversion
 

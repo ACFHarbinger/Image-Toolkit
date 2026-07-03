@@ -211,6 +211,31 @@ class TestFindDuplicateImages(unittest.TestCase):
         groups = _base.core.find_duplicate_images(self.tmpdir)
         assert groups == []
 
+    def test_recursive_flag(self):
+        img = np.full((64, 64, 3), 100, dtype=np.uint8)
+        cv2.imwrite(os.path.join(self.tmpdir, "root1.png"), img)
+        cv2.imwrite(os.path.join(self.tmpdir, "root2.png"), img)
+        
+        subdir = os.path.join(self.tmpdir, "nested")
+        os.makedirs(subdir)
+        cv2.imwrite(os.path.join(subdir, "nest1.png"), img)
+        cv2.imwrite(os.path.join(subdir, "nest2.png"), img)
+        
+        groups_flat = _base.core.find_duplicate_images(self.tmpdir, recursive=False)
+        groups_rec = _base.core.find_duplicate_images(self.tmpdir, recursive=True)
+        
+        flat_files = set()
+        for g in groups_flat:
+            flat_files.update(g)
+            
+        rec_files = set()
+        for g in groups_rec:
+            rec_files.update(g)
+            
+        assert len(flat_files) == 2
+        assert all("nested" not in f for f in flat_files)
+        assert len(rec_files) == 4
+
 
 # ---------------------------------------------------------------------------
 # find_similar_images_phash
@@ -240,6 +265,31 @@ class TestFindSimilarImagesPhash(unittest.TestCase):
         cv2.imwrite(os.path.join(self.tmpdir, "white.png"), white)
         groups = _base.core.find_similar_images_phash(self.tmpdir, threshold=5)
         assert len(groups) == 2
+
+    def test_recursive_flag(self):
+        base_img = np.full((64, 64, 3), 150, dtype=np.uint8)
+        cv2.imwrite(os.path.join(self.tmpdir, "root1.png"), base_img)
+        cv2.imwrite(os.path.join(self.tmpdir, "root2.png"), base_img)
+        
+        subdir = os.path.join(self.tmpdir, "nested")
+        os.makedirs(subdir)
+        cv2.imwrite(os.path.join(subdir, "nest1.png"), base_img)
+        cv2.imwrite(os.path.join(subdir, "nest2.png"), base_img)
+        
+        groups_flat = _base.core.find_similar_images_phash(self.tmpdir, threshold=5, recursive=False)
+        groups_rec = _base.core.find_similar_images_phash(self.tmpdir, threshold=5, recursive=True)
+        
+        flat_files = set()
+        for g in groups_flat:
+            flat_files.update(g)
+            
+        rec_files = set()
+        for g in groups_rec:
+            rec_files.update(g)
+            
+        assert len(flat_files) == 2
+        assert all("nested" not in f for f in flat_files)
+        assert len(rec_files) == 4
 
 
 # ---------------------------------------------------------------------------

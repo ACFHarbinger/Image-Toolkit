@@ -28,7 +28,8 @@ std::unordered_map<std::string, std::vector<std::string>>
 find_similar_images_phash(
     const std::string& directory,
     const std::vector<std::string>& extensions,
-    uint32_t threshold);
+    uint32_t threshold,
+    bool recursive = true);
 
 void register_finder(pybind11::module_& m);
 

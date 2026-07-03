@@ -295,15 +295,21 @@ def _parse_video_series(filename: str):
 
 
 def _scan_video_directory(directory: str) -> "dict[str, list[tuple]]":
-    """Scan *directory* (max-depth 1) for video files.
+    """Scan *directory* for video files.
 
     Returns ``{series_name: [(ep_num_or_None, abs_path), ...]}`` with each
     series' list sorted by episode number (None episodes go last).
     """
+    from gui.src.utils.settings import AppSettings
+    recursive = AppSettings.recursive_scan()
+
     result: dict = {}
     dir_path = Path(directory)
     try:
-        entries = sorted(dir_path.iterdir(), key=lambda e: e.name.lower())
+        if recursive:
+            entries = sorted(dir_path.rglob("*"), key=lambda e: e.name.lower())
+        else:
+            entries = sorted(dir_path.iterdir(), key=lambda e: e.name.lower())
     except OSError:
         return result
     for entry in entries:
