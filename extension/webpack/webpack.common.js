@@ -55,6 +55,7 @@ function makeConfig(browser) {
       background: "./src/background.ts",
       content: "./src/content.ts",
       options: "./src/options/options.ts",
+      inspect: "./src/inspect/inspect.ts",
     },
     output: {
       path: path.join(ROOT, "dist", browser),
@@ -84,6 +85,7 @@ function makeConfig(browser) {
         patterns: [
           { from: "icons", to: "icons" },
           { from: "src/options/options.html", to: "options.html" },
+          { from: "src/inspect/inspect.html", to: "inspect.html" },
           {
             from: "webpack/manifest/manifest.base.json",
             to: "manifest.json",
