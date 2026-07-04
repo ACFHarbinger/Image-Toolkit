@@ -207,13 +207,12 @@ extension/
 
 **Pain point:** Saving N images from a gallery/thread page is N right-clicks. Competing extensions (Imageye, Fatkun, Image Downloader) make page-level capture table stakes.
 
-**Approach (selected):**
-- Popup/toolbar action **"Scan this page"** → content script collects all image candidates (§7.11 extractor), including dimensions and source element info.
-- Grid preview overlay (extension page, not injected UI): thumbnails with checkboxes; filters — min width/height, format (jpg/png/webp/gif), URL substring, "hide icons/tracking pixels" (< 64px default-off); select-all/none; live count + total size estimate where known.
-- Batch download through the existing background downloader into the active folder profile (§7.10 rules apply); per-item dup-check badges when the bridge is up (§7.6 integration: "3 of 41 already in library").
-- Progress UI with per-file status; failed items retryable.
+**Approach (selected — two capture modes, per user direction 2026-07-04):**
+- **A — One-click "Download all"**: popup/toolbar button → content script collects **all images and videos** on the page (§7.11 extractor for full-res image candidates; `<video src>` / `<video><source>` for videos), dedupes by URL, filters out tiny icons (< 64px rendered, configurable), and batch-downloads through the existing background downloader (§7.10 folder rules + templating apply). Completion notification with count.
+- **B — In-page selection overlay**: popup button "Select images on page…" → content script enters overlay mode: page dims slightly, images highlight on hover, **click toggles selection** (colored outline + count badge); a floating action bar (top-center, max z-index) shows the live selection count with **Download selected** / **Cancel** buttons; Esc cancels. Selected items download via mode A's path. Overlay leaves site DOM/styles untouched apart from the injected root node.
+- Later (kept planned): grid-preview page with size/format/URL filters and per-item dup-check badges (§7.6 integration: "3 of 41 already in library"); progress UI with per-file status and retry.
 
-**Effort:** ~1w · **Impact:** High
+**Effort:** ~3d (A+B) + ~3d (grid/filters) · **Impact:** High
 
 ---
 
