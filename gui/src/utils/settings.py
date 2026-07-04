@@ -85,6 +85,23 @@ class AppSettings:
     def set_recursive_scan(cls, enabled: bool) -> None:
         cls._q().setValue("preferences/recursive_scan", enabled)
 
+    @classmethod
+    def favourite_directories(cls) -> list[str]:
+        """Return the list of favourite directories."""
+        val = cls._q().value("preferences/favourite_directories")
+        if val is None:
+            return []
+        if isinstance(val, str):
+            if not val:
+                return []
+            return [val]
+        return [str(x) for x in val]
+
+    @classmethod
+    def set_favourite_directories(cls, dirs: list[str]) -> None:
+        """Store the list of favourite directories."""
+        cls._q().setValue("preferences/favourite_directories", dirs)
+
     # ── Session namespace ─────────────────────────────────────────────────────
 
     @classmethod
