@@ -113,6 +113,11 @@ class SettingsWindow(QWidget):
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_recursive_scan = _p.get("recursive_scan", True)
+        seen_dirs = set()
+        self.pref_favourite_directories = [
+            x for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
+            if not (x in seen_dirs or seen_dirs.add(x))
+        ]
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -996,6 +1001,68 @@ class SettingsWindow(QWidget):
         creds_btn_layout.addWidget(self.btn_delete_cred)
         credentials_layout.addLayout(creds_btn_layout)
 
+        # --- Favourite Directories Section ---
+        fav_dir_groupbox = QGroupBox("Favourite Directories")
+        fav_dir_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+        )
+        fav_dir_layout = QVBoxLayout(fav_dir_groupbox)
+        fav_dir_layout.setContentsMargins(10, 10, 10, 10)
+        fav_dir_layout.setSpacing(8)
+
+        fav_dir_desc = QLabel(
+            "Configure your favourite directories. These directories will appear in the sidebar "
+            "of all directory browsing and scan windows."
+        )
+        fav_dir_desc.setStyleSheet("color: #aaa; font-size: 11px;")
+        fav_dir_desc.setWordWrap(True)
+        fav_dir_layout.addWidget(fav_dir_desc)
+
+        fav_content_layout = QHBoxLayout()
+        
+        self.fav_list_widget = QListWidget()
+        self.fav_list_widget.setMinimumHeight(100)
+        self.fav_list_widget.setMaximumHeight(200)
+        self.fav_list_widget.addItems(self.pref_favourite_directories)
+        fav_content_layout.addWidget(self.fav_list_widget, 1)
+
+        fav_buttons_layout = QVBoxLayout()
+        fav_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        
+        self.btn_add_fav_browse = QPushButton("Browse to Add 📁")
+        self.btn_add_fav_browse.setToolTip("Browse the filesystem to select a directory to add to favourites.")
+        self.btn_add_fav_browse.setStyleSheet(
+            "background-color: #2980b9; color: white; font-weight: bold;"
+        )
+        self.btn_add_fav_browse.clicked.connect(self._browse_add_favourite)
+        
+        self.btn_remove_fav = QPushButton("Remove Selected ❌")
+        self.btn_remove_fav.setToolTip("Remove the selected directory from your favourites list.")
+        self.btn_remove_fav.setStyleSheet(
+            "background-color: #c0392b; color: white; font-weight: bold;"
+        )
+        self.btn_remove_fav.clicked.connect(self._remove_selected_favourite)
+
+        fav_buttons_layout.addWidget(self.btn_add_fav_browse)
+        fav_buttons_layout.addWidget(self.btn_remove_fav)
+        fav_content_layout.addLayout(fav_buttons_layout)
+        
+        fav_dir_layout.addLayout(fav_content_layout)
+
+        fav_manual_layout = QHBoxLayout()
+        self.fav_path_input = QLineEdit()
+        self.fav_path_input.setPlaceholderText("Or paste/type absolute folder path here...")
+        
+        self.btn_add_fav_path = QPushButton("Add Path ➕")
+        self.btn_add_fav_path.setStyleSheet(
+            "background-color: #27ae60; color: white; font-weight: bold;"
+        )
+        self.btn_add_fav_path.clicked.connect(self._add_manual_favourite)
+        
+        fav_manual_layout.addWidget(self.fav_path_input, 1)
+        fav_manual_layout.addWidget(self.btn_add_fav_path)
+        fav_dir_layout.addLayout(fav_manual_layout)
+
         # --- Create QTabWidget and Add Tabs ---
         self.tab_widget = QTabWidget()
 
@@ -1041,6 +1108,7 @@ class SettingsWindow(QWidget):
         scroll_startup, layout_startup = create_tab_scroll_area()
         layout_startup.addWidget(prefs_groupbox)
         layout_startup.addWidget(session_groupbox)
+        layout_startup.addWidget(fav_dir_groupbox)
         layout_startup.addWidget(profiles_groupbox)
         layout_startup.addStretch(1)
         self.tab_widget.addTab(scroll_startup, "🚀 Startup and Profiles")
@@ -1288,6 +1356,11 @@ class SettingsWindow(QWidget):
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_recursive_scan = _p.get("recursive_scan", True)
+        seen_dirs = set()
+        self.pref_favourite_directories = [
+            x for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
+            if not (x in seen_dirs or seen_dirs.add(x))
+        ]
 
         # Reload tab defaults from vault
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -1363,6 +1436,10 @@ class SettingsWindow(QWidget):
         self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
         self.font_scale_spinbox.setValue(self.pref_font_scale)
         self.ui_density_combo.setCurrentText(self.pref_ui_density)
+
+        # Repopulate Favourite Directories list
+        self.fav_list_widget.clear()
+        self.fav_list_widget.addItems(self.pref_favourite_directories)
 
         # Repopulate Profiles dropdown
         self._refresh_profile_combo()
@@ -2065,11 +2142,13 @@ class SettingsWindow(QWidget):
                 "accent_color_light": self.pref_accent_light,
                 "font_scale": self.font_scale_spinbox.value(),
                 "ui_density": self.ui_density_combo.currentText(),
+                "favourite_directories": [self.fav_list_widget.item(i).text() for i in range(self.fav_list_widget.count())],
             }
 
             if self._save_vault_data(user_data):
                 # Also save to QSettings
                 AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
+                AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])
                 if self.main_window_ref:
                     self.main_window_ref.cached_creds = user_data
                     if selected_theme:
@@ -2145,6 +2224,7 @@ class SettingsWindow(QWidget):
         self._update_swatch(self.light_accent_swatch, "#007AFF")
         self.font_scale_spinbox.setValue(100)
         self.ui_density_combo.setCurrentText("Comfortable")
+        self.fav_list_widget.clear()
 
     # ------------------------------------------------------------------
     # --- Keyboard Shortcuts Helpers (GUI/UX §2.29) -------------------
@@ -2957,3 +3037,42 @@ class SettingsWindow(QWidget):
             QMessageBox.critical(
                 self, "Delete Failed", f"Failed to delete credential: {e}"
             )
+
+    def _browse_add_favourite(self):
+        """Opens a directory dialog and adds the selected path to the favourites list."""
+        dir_path = QFileDialog.getExistingDirectory(self, "Select Favourite Directory")
+        if dir_path:
+            dir_path = os.path.abspath(dir_path)
+            items = [self.fav_list_widget.item(i).text() for i in range(self.fav_list_widget.count())]
+            if dir_path not in items:
+                self.fav_list_widget.addItem(dir_path)
+            else:
+                QMessageBox.information(self, "Already Exists", "This directory is already in your favourites.")
+
+    def _remove_selected_favourite(self):
+        """Removes the selected item from the favourites list widget."""
+        selected_items = self.fav_list_widget.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Selection Required", "Please select a favourite directory to remove.")
+            return
+        for item in selected_items:
+            self.fav_list_widget.takeItem(self.fav_list_widget.row(item))
+
+    def _add_manual_favourite(self):
+        """Validates and adds the manually typed path to the list widget."""
+        path = self.fav_path_input.text().strip()
+        if not path:
+            QMessageBox.warning(self, "Path Required", "Please enter a directory path.")
+            return
+        
+        abs_path = os.path.abspath(path)
+        if not os.path.isdir(abs_path):
+            QMessageBox.warning(self, "Invalid Directory", f"The directory does not exist:\n{abs_path}")
+            return
+            
+        items = [self.fav_list_widget.item(i).text() for i in range(self.fav_list_widget.count())]
+        if abs_path not in items:
+            self.fav_list_widget.addItem(abs_path)
+            self.fav_path_input.clear()
+        else:
+            QMessageBox.information(self, "Already Exists", "This directory is already in your favourites.")

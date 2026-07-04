@@ -42,6 +42,9 @@ project_root = Path(__file__).resolve().parent.parent.parent
 # to resolve 'gui' as a package within Image-Toolkit/.
 sys.path.insert(0, str(project_root))
 
+from gui.src.utils.file_dialog_patch import apply_patch
+apply_patch()
+
 
 @pytest.fixture(autouse=True)
 def mock_image_toolkit_paths(tmp_path, monkeypatch):

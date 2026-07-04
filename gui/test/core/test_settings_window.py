@@ -299,3 +299,134 @@ class TestSettingsWindowRecursiveScan:
         
         # Reset setting to default True
         AppSettings.set_recursive_scan(True)
+
+
+class TestSettingsWindowFavouriteDirectories:
+    def test_favourites_ui_elements_exist(self, q_app):
+        window = SettingsWindow()
+        assert window.fav_list_widget is not None
+        assert window.btn_add_fav_browse is not None
+        assert window.btn_remove_fav is not None
+        assert window.fav_path_input is not None
+        assert window.btn_add_fav_path is not None
+
+    def test_add_manual_favourite_success(self, q_app, tmp_path):
+        window = SettingsWindow()
+        window.fav_list_widget.clear()
+        
+        # Create a dummy folder to add
+        fav_dir = tmp_path / "my_fav_dir"
+        fav_dir.mkdir()
+        
+        window.fav_path_input.setText(str(fav_dir))
+        window._add_manual_favourite()
+        
+        # Verify it was added to the UI list widget
+        assert window.fav_list_widget.count() == 1
+        assert window.fav_list_widget.item(0).text() == str(fav_dir)
+        # Check manual input cleared
+        assert window.fav_path_input.text() == ""
+
+    def test_add_manual_favourite_nonexistent(self, q_app):
+        window = SettingsWindow()
+        window.fav_list_widget.clear()
+        
+        nonexistent = "/tmp/some_extremely_unlikely_nonexistent_directory_name"
+        window.fav_path_input.setText(nonexistent)
+        
+        with patch.object(QMessageBox, "warning") as mock_warning:
+            window._add_manual_favourite()
+            mock_warning.assert_called_once()
+            assert "does not exist" in mock_warning.call_args[0][2]
+            
+        assert window.fav_list_widget.count() == 0
+
+    def test_add_manual_favourite_duplicate(self, q_app, tmp_path):
+        window = SettingsWindow()
+        window.fav_list_widget.clear()
+        fav_dir = tmp_path / "my_fav_dir"
+        fav_dir.mkdir()
+        
+        window.fav_list_widget.addItem(str(fav_dir))
+        window.fav_path_input.setText(str(fav_dir))
+        
+        with patch.object(QMessageBox, "information") as mock_info:
+            window._add_manual_favourite()
+            mock_info.assert_called_once()
+            assert "already in your favourites" in mock_info.call_args[0][2]
+            
+        assert window.fav_list_widget.count() == 1
+
+    def test_browse_add_favourite(self, q_app, tmp_path):
+        window = SettingsWindow()
+        window.fav_list_widget.clear()
+        fav_dir = tmp_path / "browse_fav"
+        fav_dir.mkdir()
+        
+        with patch("gui.src.windows.settings.settings_window.QFileDialog.getExistingDirectory", return_value=str(fav_dir)):
+            window._browse_add_favourite()
+            
+        assert window.fav_list_widget.count() == 1
+        assert window.fav_list_widget.item(0).text() == str(fav_dir)
+
+    def test_remove_selected_favourite(self, q_app):
+        window = SettingsWindow()
+        window.fav_list_widget.clear()
+        window.fav_list_widget.addItem("/path/one")
+        window.fav_list_widget.addItem("/path/two")
+        
+        # Select first item
+        window.fav_list_widget.setCurrentRow(0)
+        window._remove_selected_favourite()
+        
+        assert window.fav_list_widget.count() == 1
+        assert window.fav_list_widget.item(0).text() == "/path/two"
+
+    def test_remove_selected_favourite_none_selected(self, q_app):
+        window = SettingsWindow()
+        window.fav_list_widget.clear()
+        window.fav_list_widget.addItem("/path/one")
+        
+        # Clear selection
+        window.fav_list_widget.clearSelection()
+        window.fav_list_widget.setCurrentItem(None)
+        
+        with patch.object(QMessageBox, "warning") as mock_warning:
+            window._remove_selected_favourite()
+            mock_warning.assert_called_once()
+            
+        assert window.fav_list_widget.count() == 1
+
+    def test_save_and_load_favourite_directories(self, q_app, tmp_path):
+        window = SettingsWindow()
+        window.fav_list_widget.clear()
+        
+        fav1 = str(tmp_path / "fav1")
+        fav2 = str(tmp_path / "fav2")
+        Path(fav1).mkdir(parents=True, exist_ok=True)
+        Path(fav2).mkdir(parents=True, exist_ok=True)
+        
+        window.fav_list_widget.addItem(fav1)
+        window.fav_list_widget.addItem(fav2)
+        
+        from unittest.mock import MagicMock
+        window.vault_manager = MagicMock()
+        window.vault_manager.load_account_credentials.return_value = {
+            "theme": "dark",
+            "active_tab_configs": {},
+            "system_preference_profiles": {},
+            "preferences": {}
+        }
+        
+        from gui.src.utils.settings import AppSettings
+        # Clean current favourites first
+        AppSettings.set_favourite_directories([])
+        
+        with patch.object(QMessageBox, "information"):
+            window._update_settings_logic()
+            
+        assert AppSettings.favourite_directories() == [fav1, fav2]
+        
+        # Clean up
+        AppSettings.set_favourite_directories([])
+
