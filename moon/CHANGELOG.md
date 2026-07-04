@@ -7,6 +7,10 @@
 **Expanded Phase EXT with the duplicate-tab highlighter and CV-oriented features, then began implementing the roadmap.**
 
 - **§7.13 Duplicate Tab Highlighter (EXT.13)**: scan all tabs in the current window, group by normalized URL (fragment always stripped, tracking params optionally); duplicates highlighted via colored `chrome.tabs.group()`/`tabGroups.update()` on Chromium (chrome/edge/brave) with per-set colors, Firefox fallback = badge count + popup set list with switch-to/close/close-others actions; keep-first-close-rest per set; `tabs`/`tabGroups` permissions added through the §7.1 per-browser manifest overlays.
+- **CV & media brainstorm round 2 (user-selected, all accepted + 3 user additions)** → three new roadmap sections:
+  - **§7.14 App-Powered CV Operations (EXT.14)**: BiRefNet background removal, Real-ESRGAN upscale-before-save, WD14 auto-tag on ingest, OCR extraction **+ local translation** (user addition) — all via the §7.5 bridge with job-id polling.
+  - **§7.15 Media Capture Suite (EXT.15)**: native-res `<video>` frame grabber with burst mode (ASP-ready sequences), GIF/APNG/animated-WebP frame extractor (WebCodecs `ImageDecoder`), webtoon strip capture → ASP stitch endpoint (flagship crossover), video clip → GIF/WebP via MediaRecorder + app-side ffmpeg palette conversion, and **video downloader with time-range finder** (user addition; full video or `ffmpeg -ss/-to` stream-copy cut app-side, HLS/DASH delegated to app).
+  - **§7.16 Image Analysis Utilities (EXT.16)**: EXIF + embedded AI-generation metadata inspector (a1111/ComfyUI/NovelAI PNG chunks, client-side parsing), reverse-image-search shortcuts submenu (SauceNAO/trace.moe/Lens/IQDB/TinEye, configurable), client-side pHash pre-check against an app-exported hash snapshot, and **local-ML reverse search** (user addition; app-bridge embeddings primary, transformers.js/ONNX-Runtime-Web MobileCLIP fallback — fully offline).
 
 ---
 
