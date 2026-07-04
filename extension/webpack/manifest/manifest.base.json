@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Image Toolkit — Save Image to Folder",
+  "description": "Save images into a specific sub-folder in Downloads, with turbo capture and Image Toolkit desktop-app integration.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "contextMenus",
+    "downloads",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    },
+    "default_title": "Image Toolkit",
+    "default_popup": "options.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  }
+}

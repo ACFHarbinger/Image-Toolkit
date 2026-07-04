@@ -44,6 +44,8 @@ Untapped app-side capabilities: `PhashDeduplicator` (`backend/src/core/phash_ded
 
 ## 7.1 Webpack Multi-Browser Build System
 
+**Status: ✅ Shipped (S208, 2026-07-04).** `extension/webpack/` builds all four targets; the three hand-written manifests were deleted; `just build-extension` added.
+
 **Pain point:** Three hand-maintained manifest copies (`manifest.json`, `manifest_chrome.json`, `manifest_firefox.json`) drift apart; there is no build step, no minification, no way to emit per-browser packages for Chrome, Firefox, Edge, and Brave.
 
 **Approach (selected):** Webpack 5 build in `extension/webpack/`:
@@ -81,6 +83,8 @@ extension/
 
 ## 7.2 TypeScript Migration & Shared Core
 
+**Status: ✅ Shipped (S208, 2026-07-04).** `extension/src/` TS sources with `shared/{api,settings,messages}.ts`; strict mode; `npm run typecheck` clean.
+
 **Pain point:** The `typeof browser !== 'undefined'` adapter and the Promise/callback storage shim are copy-pasted in all three JS files; no types, no shared constants; message payloads are stringly-typed.
 
 **Approach (selected):**
@@ -94,6 +98,8 @@ extension/
 ---
 
 ## 7.3 Unified Manifest V3
+
+**Status: ✅ Shipped (S208, 2026-07-04).** MV3 everywhere; Firefox overlay swaps `service_worker` for event-page `scripts` + gecko id (min 115).
 
 **Pain point:** Firefox manifest is MV2 (`background.scripts`, `browser_action`) while Chrome is MV3; behaviour and permissions diverge.
 

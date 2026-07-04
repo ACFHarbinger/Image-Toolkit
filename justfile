@@ -90,6 +90,10 @@ build-jar: helper::_print_header
 build-frontend: helper::_print_header
     just build::build-frontend
 
+# Build browser extension for all targets (chrome, firefox, edge, brave)
+build-extension: helper::_print_header
+    just build::build-extension
+
 # Build local OpenCV from source
 build-opencv: helper::_print_header
     just build::build-opencv

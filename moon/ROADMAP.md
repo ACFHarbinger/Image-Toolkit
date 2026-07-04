@@ -216,9 +216,9 @@ Upgrades the `extension/` WebExtension from a minimal image saver into a first-c
 
 | # | Item | Effort | Roadmap Link |
 |---|------|--------|--------------|
-| EXT.1 | **[Ext] Webpack multi-browser build system** — `extension/webpack/` generates per-browser `manifest.json` (chrome, firefox, edge, brave) from `manifest.base.json` + overlays; replaces the three hand-maintained manifests; per-browser dist zips | ~2d | [extension.md §7.1](roadmaps/extension.md#71-webpack-multi-browser-build-system) |
-| EXT.2 | **[Ext] TypeScript migration + shared core** — typed message contract, single browser-API adapter, typed `storage.local` schema | ~2d | [extension.md §7.2](roadmaps/extension.md#72-typescript-migration--shared-core) |
-| EXT.3 | **[Ext] Unified Manifest V3** — drop MV2 Firefox manifest; MV3 everywhere with per-browser overlays (Firefox 109+) | ~1d | [extension.md §7.3](roadmaps/extension.md#73-unified-manifest-v3) |
+| EXT.1 | **[Ext] ✅ Webpack multi-browser build system** — `extension/webpack/` generates per-browser `manifest.json` (chrome, firefox, edge, brave) from `manifest.base.json` + overlays; replaces the three hand-maintained manifests; per-browser dist zips | ~2d | [extension.md §7.1](roadmaps/extension.md#71-webpack-multi-browser-build-system) |
+| EXT.2 | **[Ext] ✅ TypeScript migration + shared core** — typed message contract, single browser-API adapter, typed `storage.local` schema | ~2d | [extension.md §7.2](roadmaps/extension.md#72-typescript-migration--shared-core) |
+| EXT.3 | **[Ext] ✅ Unified Manifest V3** — drop MV2 Firefox manifest; MV3 everywhere with per-browser overlays (Firefox 109+) | ~1d | [extension.md §7.3](roadmaps/extension.md#73-unified-manifest-v3) |
 | EXT.4 | **[Ext] Options page redesign** — popup (profile switcher, turbo, bridge status) + full options tab (profiles, site rules, app connection) | ~2–3d | [extension.md §7.4](roadmaps/extension.md#74-options-page-redesign) |
 | EXT.5 | **[Ext] Local app bridge** — Phase A: token-authenticated localhost Django endpoints (`/api/extension/…`); Phase B: native messaging host per browser | ~3d + ~1w | [extension.md §7.5](roadmaps/extension.md#75-local-app-bridge-http--native-messaging) |
 | EXT.6 | **[Ext] In-browser duplicate search** — right-click image → pHash search (`PhashDeduplicator`, §4.6) of the user-configured directory + subdirectories; match list with thumbnails; optional auto-check on turbo downloads | ~4d | [extension.md §7.6](roadmaps/extension.md#76-in-browser-duplicate-search) |

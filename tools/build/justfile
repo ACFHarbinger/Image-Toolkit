@@ -28,6 +28,17 @@ build-frontend:
     @echo "Building production application frontend..."
     npm run build
 
+# Build the browser extension for all targets (chrome, firefox, edge, brave)
+build-extension:
+    @echo "Building browser extension (all targets)..."
+    cd extension && npm install --no-audit --no-fund && npm run build:all
+    @echo "Extension built to extension/dist/{chrome,firefox,edge,brave}."
+
+# Build the browser extension for a single browser target
+build-extension-for browser:
+    @echo "Building browser extension ({{browser}})..."
+    cd extension && npm install --no-audit --no-fund && npm run build:{{browser}}
+
 # Build local OpenCV from source (bypasses system libopencv-dev requirement)
 build-opencv:
     @echo "Building local OpenCV source..."

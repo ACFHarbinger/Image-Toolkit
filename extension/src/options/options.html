@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: sans-serif; padding: 15px; min-width: 320px; background: #2c2f33; color: #dcddde; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input[type="text"] { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; background: #23272a; color: #dcddde; border: 1px solid #4f545c; border-radius: 4px; }
+        button { background-color: #5865f2; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
+        button:hover { background-color: #4752c4; }
+        button.secondary { background-color: #4f545c; }
+        button.secondary:hover { background-color: #5d636b; }
+        #status { margin-top: 10px; color: #2ecc71; font-size: 0.9em; min-height: 1.2em; }
+        .note { font-size: 0.8em; color: #999; margin-top: 5px; }
+        .row { margin: 15px 0; }
+        hr { border: none; border-top: 1px solid #4f545c; margin: 15px 0; }
+        h3 { margin: 0 0 8px 0; font-size: 0.95em; color: #fff; }
+        #dup-results { font-size: 0.85em; margin-top: 8px; }
+        .dup-set { border: 1px solid #4f545c; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
+        .dup-set-url { color: #3498db; word-break: break-all; font-size: 0.85em; margin-bottom: 4px; }
+        .dup-tab-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+        .dup-tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+        .dup-tab-title:hover { color: #fff; text-decoration: underline; }
+        .dup-tab-row button { padding: 2px 8px; font-size: 0.8em; }
+        .dup-actions { margin-top: 4px; }
+        .dup-actions button { margin-right: 6px; }
+    </style>
+</head>
+<body>
+    <label for="folder">Target Directory Name:</label>
+    <input type="text" id="folder" placeholder="e.g. MyVacationPhotos">
+    <div class="note">Files will be saved to: Downloads/YourDirectory</div>
+
+    <div class="row">
+        <label style="display: inline-flex; align-items: center; font-weight: normal;">
+            <input type="checkbox" id="turbo" style="width: auto; margin: 0 8px 0 0;">
+            Enable Turbo Mode (Left-click image to download)
+        </label>
+    </div>
+
+    <button id="save">Save Settings</button>
+    <div id="status"></div>
+
+    <hr>
+
+    <h3>Duplicate Tabs</h3>
+    <div class="row" style="margin-top: 8px;">
+        <button id="scan-dups">Scan tabs for duplicates</button>
+        <button id="clear-dups" class="secondary">Clear highlights</button>
+    </div>
+    <label style="display: inline-flex; align-items: center; font-weight: normal; font-size: 0.85em;">
+        <input type="checkbox" id="strip-params" style="width: auto; margin: 0 8px 0 0;">
+        Ignore tracking params (utm_*, fbclid, …) when comparing
+    </label>
+    <div id="dup-results"></div>
+
+    <script src="options.js"></script>
+</body>
+</html>
