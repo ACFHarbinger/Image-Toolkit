@@ -117,6 +117,27 @@ jobs:
       - name: Install project dependencies (frozen, skip C++ build)
         run: uv sync --frozen --group dev --no-install-project
 
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Install system C++ dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
+
+      - name: Build Cryptography JAR
+        run: ./gradlew :cryptography:shadowJar
+
+      - name: Build and install C++ base extension
+        run: |
+          uv run cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release
+          uv run cmake --build build/base --parallel
+          uv run cmake --install build/base --prefix .
+
       - name: Run pytest
         run: uv run pytest --skip-gpu -m "not slow" -q --tb=short
         env:
