@@ -1,6 +1,6 @@
 # Image Toolkit — Master Roadmap
 
-*Last updated: 2026-06-18. Architecture roadmap updated: §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper ABC, worker base class, gallery consolidation, circular imports, docs/diagrams, decorators), §5.14–§5.16 (settings facade, fault isolation, ML wrapper contract tests) added. Phase 4 updated to remove stale §4.1 Vault Manager link. New Phase Arch added for code-quality items. Session 131: §1.66 NCC structural coherence gate (Stage 11.4), §1.67 pre-BA frame canvas spread validation, §1.8C/D dump_asp_config with typed TOML schema comments (827 tests). Session 130: §1.60 fg pose-gap pre-escalation, §1.62 canvas aspect-ratio gate, §1.63 sort-frames-by-index, §1.64 exact-duplicate dHash guard, §1.65 fg seam erosion buffer, §1.10D MC-dropout uncertainty, §3.17 seam NCC coherence + §3.5A composite quality score in bench (822 tests). Session 78: §2.3 Canvas Layout Inspector read-only viewer (422 tests passing). Session 77: §2.2 Edge Graph Inspector read-only viewer (413 tests passing). Session 76: GNC-TLS BA (§1.32, 412 tests passing). GUI: §2.23A accessibility, §2.4B+C range-select + context menu, §2.25A shortcut overlay, §2.20A splitter persistence, §2.17D log window, §2.16C Ctrl+T tab search, §2.12A+B+C system tray, §2.11A+B+D preview enhancements, §2.21A+D dir history + MRU, §2.26B inline rename, §2.10C QStatusBar, §2.14A filename labels, §2.18 sort + search ops, §2.19 trash, §3.9 item range, §4.11 thumbnail slider, §3.15–3.17 shortcuts/QSS/geometry all shipped. §2.30 accent colour picker + font scale + UI density shipped. New roadmap sections added: §2.29 (configurable keyboard shortcuts), §2.30–2.32 (appearance customisation), §4.12–4.13 (appearance profiles + macros). Session 9: ToonCrafter seam synthesis wired (§3.6/ML.4, `ASP_TOONCRAFTER_SEAM=1`). Session 8: DINOv2 submodular frame selection (§3.3/ML.2), LSD collinearity in ARAP (§0.1/A3), Aligned-SSIM metric. Session 7: Stage 12.5 scroll-axis content trim (§2.6). Session 6: hold detection (§1.11/ML.1), GNC BA, SLIC SGM proxy (§3.1/ML.5). 107 tests passing. Session 5: alignment stability gate (+0.074 test08, +0.049 test25), fg pixel L1 pose metric (+0.010 test27 with pose-on), 90 unit tests. Session 4: ARAP Push (Sýkora 2009), 96-test run. Research: `reports/Image_Stitching_Research.md`, `reports/ASP_Comprehensive_Research_Report.md`.*
+*Last updated: 2026-07-04. New Phase EXT (Browser Extension) added — webpack multi-browser manifest builds (chrome/firefox/edge/brave) in `extension/webpack/`, TypeScript migration, unified MV3, local app bridge (HTTP → native messaging), in-browser duplicate search against a configured directory tree (reuses `PhashDeduplicator` §4.6), send-to-app ingestion with provenance, visual similarity search, bulk page grabber, per-site folder rules + filename templating + metadata sidecar, full-resolution extraction, and turbo mode polish; full detail in [roadmaps/extension.md](roadmaps/extension.md). S206: thumbnail loading optimized (C++ reduced decode + disk cache + progressive gallery fill). Previous update 2026-06-18: Architecture roadmap updated: §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper ABC, worker base class, gallery consolidation, circular imports, docs/diagrams, decorators), §5.14–§5.16 (settings facade, fault isolation, ML wrapper contract tests) added. Phase 4 updated to remove stale §4.1 Vault Manager link. New Phase Arch added for code-quality items. Session 131: §1.66 NCC structural coherence gate (Stage 11.4), §1.67 pre-BA frame canvas spread validation, §1.8C/D dump_asp_config with typed TOML schema comments (827 tests). Session 130: §1.60 fg pose-gap pre-escalation, §1.62 canvas aspect-ratio gate, §1.63 sort-frames-by-index, §1.64 exact-duplicate dHash guard, §1.65 fg seam erosion buffer, §1.10D MC-dropout uncertainty, §3.17 seam NCC coherence + §3.5A composite quality score in bench (822 tests). Session 78: §2.3 Canvas Layout Inspector read-only viewer (422 tests passing). Session 77: §2.2 Edge Graph Inspector read-only viewer (413 tests passing). Session 76: GNC-TLS BA (§1.32, 412 tests passing). GUI: §2.23A accessibility, §2.4B+C range-select + context menu, §2.25A shortcut overlay, §2.20A splitter persistence, §2.17D log window, §2.16C Ctrl+T tab search, §2.12A+B+C system tray, §2.11A+B+D preview enhancements, §2.21A+D dir history + MRU, §2.26B inline rename, §2.10C QStatusBar, §2.14A filename labels, §2.18 sort + search ops, §2.19 trash, §3.9 item range, §4.11 thumbnail slider, §3.15–3.17 shortcuts/QSS/geometry all shipped. §2.30 accent colour picker + font scale + UI density shipped. New roadmap sections added: §2.29 (configurable keyboard shortcuts), §2.30–2.32 (appearance customisation), §4.12–4.13 (appearance profiles + macros). Session 9: ToonCrafter seam synthesis wired (§3.6/ML.4, `ASP_TOONCRAFTER_SEAM=1`). Session 8: DINOv2 submodular frame selection (§3.3/ML.2), LSD collinearity in ARAP (§0.1/A3), Aligned-SSIM metric. Session 7: Stage 12.5 scroll-axis content trim (§2.6). Session 6: hold detection (§1.11/ML.1), GNC BA, SLIC SGM proxy (§3.1/ML.5). 107 tests passing. Session 5: alignment stability gate (+0.074 test08, +0.049 test25), fg pixel L1 pose metric (+0.010 test27 with pose-on), 90 unit tests. Session 4: ARAP Push (Sýkora 2009), 96-test run. Research: `reports/Image_Stitching_Research.md`, `reports/ASP_Comprehensive_Research_Report.md`.*
 
 Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
 
@@ -17,6 +17,7 @@ Section-specific roadmaps:
 - [Performance — Compute, Memory, I/O](roadmaps/performance.md)
 - [New Features — Capabilities & Integrations](roadmaps/new_features.md)
 - [Architecture & Infrastructure](roadmaps/architecture.md)
+- [Browser Extension — Capture, Build System & App Integration](roadmaps/extension.md)
 
 Consolidated research reports (read before working on the respective pipeline):
 - [Anime Stitching — Consolidated Research](../reports/Image_Stitching_Research.md) — foreground-assembly paradigm, per-stage toolbox, 13-stage spec.
@@ -209,6 +210,29 @@ Higher-complexity features that depend on Phase 3–4 infrastructure or require 
 
 ---
 
+## Phase EXT — Browser Extension (Capture, Build System & App Integration)
+
+Upgrades the `extension/` WebExtension from a minimal image saver into a first-class companion to the desktop app. Full detail, options, and dependency graph in [extension.md](roadmaps/extension.md).
+
+| # | Item | Effort | Roadmap Link |
+|---|------|--------|--------------|
+| EXT.1 | **[Ext] Webpack multi-browser build system** — `extension/webpack/` generates per-browser `manifest.json` (chrome, firefox, edge, brave) from `manifest.base.json` + overlays; replaces the three hand-maintained manifests; per-browser dist zips | ~2d | [extension.md §7.1](roadmaps/extension.md#71-webpack-multi-browser-build-system) |
+| EXT.2 | **[Ext] TypeScript migration + shared core** — typed message contract, single browser-API adapter, typed `storage.local` schema | ~2d | [extension.md §7.2](roadmaps/extension.md#72-typescript-migration--shared-core) |
+| EXT.3 | **[Ext] Unified Manifest V3** — drop MV2 Firefox manifest; MV3 everywhere with per-browser overlays (Firefox 109+) | ~1d | [extension.md §7.3](roadmaps/extension.md#73-unified-manifest-v3) |
+| EXT.4 | **[Ext] Options page redesign** — popup (profile switcher, turbo, bridge status) + full options tab (profiles, site rules, app connection) | ~2–3d | [extension.md §7.4](roadmaps/extension.md#74-options-page-redesign) |
+| EXT.5 | **[Ext] Local app bridge** — Phase A: token-authenticated localhost Django endpoints (`/api/extension/…`); Phase B: native messaging host per browser | ~3d + ~1w | [extension.md §7.5](roadmaps/extension.md#75-local-app-bridge-http--native-messaging) |
+| EXT.6 | **[Ext] In-browser duplicate search** — right-click image → pHash search (`PhashDeduplicator`, §4.6) of the user-configured directory + subdirectories; match list with thumbnails; optional auto-check on turbo downloads | ~4d | [extension.md §7.6](roadmaps/extension.md#76-in-browser-duplicate-search) |
+| EXT.7 | **[Ext] Send to Image Toolkit** — ingest with source URL/page metadata, immediate pHash + embedding indexing | ~3d | [extension.md §7.7](roadmaps/extension.md#77-send-to-image-toolkit) |
+| EXT.8 | **[Ext] Visual similarity search from browser** — right-click → BGE-M3/CLIP vector search of local library (gated on §5.1 embedding index) | ~4d | [extension.md §7.8](roadmaps/extension.md#78-visual-similarity-search-from-browser) |
+| EXT.9 | **[Ext] Bulk page grabber** — scan page, grid preview with size/format filters, batch download with dup-check badges | ~1w | [extension.md §7.9](roadmaps/extension.md#79-bulk-page-grabber) |
+| EXT.10 | **[Ext] Per-site folder rules + filename templating + metadata sidecar** — domain→profile rules, `{site}/{date}_{name}.{ext}` templates, optional provenance JSON sidecar | ~4d | [extension.md §7.10](roadmaps/extension.md#710-per-site-folder-rules-filename-templating--metadata-sidecar) |
+| EXT.11 | **[Ext] Full-resolution extraction** — srcset/`<picture>`/lazy-load/CSS-background/canvas candidates; per-site URL upgrade table | ~4d | [extension.md §7.11](roadmaps/extension.md#711-full-resolution-extraction) |
+| EXT.12 | **[Ext] Turbo mode polish** — capture flash + badge, modifier-key mode, per-site enable list, download history panel | ~3d | [extension.md §7.12](roadmaps/extension.md#712-turbo-mode-polish) |
+
+**Dependency order:** EXT.1 → EXT.2 → (EXT.3, EXT.4) foundation first; EXT.5A → EXT.6 → EXT.7 (bridge before integration features); EXT.11 → EXT.9 → EXT.12 (extractor before grabber/turbo); EXT.8 gated on §5.1; EXT.5B last.
+
+---
+
 ## Phase Arch — Code Quality & Developer Experience (Days to 2 Weeks, No New Features)
 
 Targeted refactors that reduce maintenance burden, improve onboarding, and prevent regressions. Items are ordered by ascending effort; all are independent and can be parallelised. Full detail in [architecture.md](roadmaps/architecture.md).
@@ -306,6 +330,7 @@ flowchart TD
     PARCH["Phase Arch\nCode Quality"]:::refactor:::planned
     P5["Phase 5\nAdvanced Features"]:::feature:::planned
     P6["Phase 6\nLong-term Research"]:::research:::planned
+    PEXT["Phase EXT\nBrowser Extension"]:::integration:::planned
 
     P0  ==>  PML
     P0  -->  P1
@@ -320,6 +345,9 @@ flowchart TD
     P5  -->  P6
     P1  -->  PCG
     PML -->  P3
+
+    P4  -->|"4.5 OpenAPI + 4.6 phash\nunblock EXT.5/EXT.6"| PEXT
+    PEXT -->|"EXT.8 similarity\nneeds 5.1 CLIP index"| P5
 
     %% key item-level dependencies
     P3 -->|"3.13 tests\nunblocks 3.14 CI"| P4
