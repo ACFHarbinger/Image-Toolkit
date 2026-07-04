@@ -7,7 +7,17 @@
  */
 import { api, storageGet } from "./shared/api";
 import { findImageAt } from "./shared/extractor";
-import type { DownloadImageMsg } from "./shared/messages";
+import { collectPageMedia } from "./shared/pageMedia";
+import {
+  startSelectionOverlay,
+  overlayActive,
+} from "./contentOverlay";
+import type {
+  DownloadImageMsg,
+  DownloadBatchMsg,
+  ExtensionMessage,
+  PageCaptureResponse,
+} from "./shared/messages";
 
 console.log(`[Image-Toolkit] Content script loaded on: ${window.location.href}`);
 
@@ -39,8 +49,45 @@ const flashCaptured = (el: Element): void => {
   }, 450);
 };
 
+// --- Bulk page capture (§7.9) ---
+
+api.runtime.onMessage.addListener(
+  (
+    request: ExtensionMessage,
+    _sender,
+    sendResponse: (r: PageCaptureResponse) => void,
+  ) => {
+    if (request.action === "download_all_media") {
+      const media = collectPageMedia();
+      const urls = [...media.images, ...media.videos];
+      if (urls.length > 0) {
+        const msg: DownloadBatchMsg = {
+          action: "download_batch",
+          urls,
+          pageUrl: window.location.href,
+        };
+        void api.runtime.sendMessage(msg);
+      }
+      sendResponse({
+        ok: true,
+        images: media.images.length,
+        videos: media.videos.length,
+      });
+      return false;
+    }
+    if (request.action === "start_selection_overlay") {
+      startSelectionOverlay();
+      sendResponse({ ok: true });
+      return false;
+    }
+    return false;
+  },
+);
+
 // Intercept all relevant pointer/touch events to prevent site logic (like zoom/pan)
 const blockAndDownload = (e: Event): void => {
+  // The selection overlay owns clicks while it is active (§7.9B)
+  if (overlayActive()) return;
   if (!turboMode) return;
 
   // For mouse events, only handle main button (Left Click)

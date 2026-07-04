@@ -31,12 +31,40 @@ export interface FocusTabMsg {
   windowId: number;
 }
 
+/** Popup → content script: download every image/video on the page (§7.9A). */
+export interface DownloadAllMediaMsg {
+  action: "download_all_media";
+}
+
+/** Popup → content script: enter click-to-select overlay mode (§7.9B). */
+export interface StartSelectionOverlayMsg {
+  action: "start_selection_overlay";
+}
+
+/** Content script → background: batch-download collected URLs (§7.9). */
+export interface DownloadBatchMsg {
+  action: "download_batch";
+  urls: string[];
+  pageUrl: string;
+}
+
+/** Response to DownloadAllMediaMsg / StartSelectionOverlayMsg. */
+export interface PageCaptureResponse {
+  ok: boolean;
+  images?: number;
+  videos?: number;
+  error?: string;
+}
+
 export type ExtensionMessage =
   | DownloadImageMsg
   | ScanDupTabsMsg
   | ClearDupTabsMsg
   | CloseDupTabsMsg
-  | FocusTabMsg;
+  | FocusTabMsg
+  | DownloadAllMediaMsg
+  | StartSelectionOverlayMsg
+  | DownloadBatchMsg;
 
 /** One duplicate set: ≥2 tabs sharing the same normalized URL. */
 export interface DupTabSet {

@@ -207,6 +207,8 @@ extension/
 
 **Pain point:** Saving N images from a gallery/thread page is N right-clicks. Competing extensions (Imageye, Fatkun, Image Downloader) make page-level capture table stakes.
 
+**Status: 🔄 Modes A+B shipped (S208, 2026-07-04).** Popup "⬇ Download all media" + "🖱 Select images…" buttons; `shared/pageMedia.ts` collection (images via §7.11 extractor, ≥64px filter, video src/source, blob: skipped); `contentOverlay.ts` click-to-select overlay with floating bar + Esc; batch download via `download_batch` message (§7.10 rules apply). Grid-preview page with filters + dup badges remains planned.
+
 **Approach (selected — two capture modes, per user direction 2026-07-04):**
 - **A — One-click "Download all"**: popup/toolbar button → content script collects **all images and videos** on the page (§7.11 extractor for full-res image candidates; `<video src>` / `<video><source>` for videos), dedupes by URL, filters out tiny icons (< 64px rendered, configurable), and batch-downloads through the existing background downloader (§7.10 folder rules + templating apply). Completion notification with count.
 - **B — In-page selection overlay**: popup button "Select images on page…" → content script enters overlay mode: page dims slightly, images highlight on hover, **click toggles selection** (colored outline + count badge); a floating action bar (top-center, max z-index) shows the live selection count with **Download selected** / **Cancel** buttons; Esc cancels. Selected items download via mode A's path. Overlay leaves site DOM/styles untouched apart from the injected root node.
