@@ -10,8 +10,18 @@ import { loadSettings } from "./shared/settings";
 import type { ExtensionMessage } from "./shared/messages";
 
 const MENU_ID = "save-to-custom-folder";
+const SEARCH_MENU_ID = "reverse-search";
 
-// MV3 service workers can be restarted at any time; (re)create the menu on
+/** Reverse-image-search services (§7.16B). URL gets the image URL appended. */
+const SEARCH_SERVICES: Array<{ id: string; title: string; url: string }> = [
+  { id: "saucenao", title: "SauceNAO", url: "https://saucenao.com/search.php?url=" },
+  { id: "tracemoe", title: "trace.moe (anime scene)", url: "https://trace.moe/?auto&url=" },
+  { id: "lens", title: "Google Lens", url: "https://lens.google.com/uploadbyurl?url=" },
+  { id: "iqdb", title: "IQDB", url: "https://iqdb.org/?url=" },
+  { id: "tineye", title: "TinEye", url: "https://www.tineye.com/search?url=" },
+];
+
+// MV3 service workers can be restarted at any time; (re)create the menus on
 // install and on startup. `removeAll` avoids duplicate-id errors.
 function createContextMenu(): void {
   api.contextMenus.removeAll(() => {
@@ -20,6 +30,19 @@ function createContextMenu(): void {
       title: "Save to selected directory",
       contexts: ["image"],
     });
+    api.contextMenus.create({
+      id: SEARCH_MENU_ID,
+      title: "Search image on",
+      contexts: ["image"],
+    });
+    for (const svc of SEARCH_SERVICES) {
+      api.contextMenus.create({
+        id: `${SEARCH_MENU_ID}:${svc.id}`,
+        parentId: SEARCH_MENU_ID,
+        title: svc.title,
+        contexts: ["image"],
+      });
+    }
   });
 }
 
@@ -50,8 +73,21 @@ export async function downloadImage(imageUrl: string): Promise<void> {
 }
 
 api.contextMenus.onClicked.addListener((info) => {
-  if (info.menuItemId === MENU_ID && info.srcUrl) {
+  if (!info.srcUrl) return;
+  const menuId = String(info.menuItemId);
+
+  if (menuId === MENU_ID) {
     void downloadImage(info.srcUrl);
+    return;
+  }
+  if (menuId.startsWith(`${SEARCH_MENU_ID}:`)) {
+    const svcId = menuId.slice(SEARCH_MENU_ID.length + 1);
+    const svc = SEARCH_SERVICES.find((s) => s.id === svcId);
+    if (svc) {
+      void api.tabs.create({
+        url: svc.url + encodeURIComponent(info.srcUrl),
+      });
+    }
   }
 });
 

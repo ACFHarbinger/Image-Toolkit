@@ -6,6 +6,7 @@
  * worker to download it, while blocking the site's own handlers.
  */
 import { api, storageGet } from "./shared/api";
+import { findImageAt } from "./shared/extractor";
 import type { DownloadImageMsg } from "./shared/messages";
 
 console.log(`[Image-Toolkit] Content script loaded on: ${window.location.href}`);
@@ -24,6 +25,20 @@ api.storage.onChanged.addListener((changes, area) => {
   }
 });
 
+/** Brief outline flash on the captured element (§7.12 capture feedback). */
+const flashCaptured = (el: Element): void => {
+  const h = el as HTMLElement;
+  if (!h.style) return;
+  const prevOutline = h.style.outline;
+  const prevOffset = h.style.outlineOffset;
+  h.style.outline = "3px solid #2ecc71";
+  h.style.outlineOffset = "-3px";
+  setTimeout(() => {
+    h.style.outline = prevOutline;
+    h.style.outlineOffset = prevOffset;
+  }, 450);
+};
+
 // Intercept all relevant pointer/touch events to prevent site logic (like zoom/pan)
 const blockAndDownload = (e: Event): void => {
   if (!turboMode) return;
@@ -35,18 +50,11 @@ const blockAndDownload = (e: Event): void => {
   const x = me.clientX ?? me.touches?.[0]?.clientX ?? 0;
   const y = me.clientY ?? me.touches?.[0]?.clientY ?? 0;
 
-  // Use elementsFromPoint to find images even under overlays
-  const elements = document.elementsFromPoint(x, y);
-  let targetImage: HTMLImageElement | null = null;
+  // Find the image under the cursor, even beneath overlays; upgrades to the
+  // largest srcset/lazy-load candidate and falls back to CSS backgrounds (§7.11).
+  const hit = findImageAt(x, y);
 
-  for (const el of elements) {
-    if (el.tagName === "IMG" && (el as HTMLImageElement).src) {
-      targetImage = el as HTMLImageElement;
-      break;
-    }
-  }
-
-  if (targetImage) {
+  if (hit) {
     // Stop the event from reaching the site's elements or bubbling up
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -57,9 +65,10 @@ const blockAndDownload = (e: Event): void => {
 
       const msg: DownloadImageMsg = {
         action: "download_image",
-        src: targetImage.src,
+        src: hit.url,
       };
       void api.runtime.sendMessage(msg);
+      flashCaptured(hit.element);
     }
   }
 };

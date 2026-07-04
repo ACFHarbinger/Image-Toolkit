@@ -227,6 +227,8 @@ extension/
 
 ## 7.11 Full-Resolution Extraction
 
+**Status: 🔄 Core shipped (S208, 2026-07-04).** `shared/extractor.ts`: srcset/`<picture>` scoring, lazy-load attrs, CSS background fallback; wired into turbo mode. Remaining: per-site URL upgrade table, canvas `toDataURL` fallback, context-menu correlation.
+
 **Pain point:** `img.src` is often a thumbnail: `srcset`/`<picture>` variants, lazy-load attributes (`data-src`, `data-original`), CSS `background-image`, and `<canvas>` renders are all missed; sites like Twitter/Pixiv serve downscaled defaults.
 
 **Approach (selected):**
@@ -243,6 +245,8 @@ extension/
 ---
 
 ## 7.12 Turbo Mode Polish
+
+**Status: 🔄 Partial (S208, 2026-07-04).** Capture outline-flash feedback shipped. Remaining: badge counter, modifier-key mode, per-site enable list, history panel.
 
 **Pain point:** Turbo mode gives no feedback (was the click captured? downloaded?), is all-or-nothing (global toggle intercepts every left-click on every site), and its event blocking can break sites.
 
@@ -314,7 +318,7 @@ extension/
 
 **Approach (selected):**
 - **A — AI-metadata / EXIF inspector:** context item **"Inspect image"** → panel with EXIF/XMP/ICC basics plus **embedded AI-generation metadata**: a1111 `parameters` PNG text chunk, ComfyUI `workflow`/`prompt` JSON chunks, NovelAI/InvokeAI variants — prompt, negative prompt, model/LoRA, sampler, seed rendered in a readable card with copy buttons; "save metadata as sidecar" action. Parsing is pure client-side TS (PNG chunk + JPEG APP1 readers), no bridge needed.
-- **B — Reverse-search shortcuts:** context submenu **"Search image on ▸"** SauceNAO / trace.moe / Google Lens / IQDB / TinEye (configurable set + custom URL templates in options); opens `service_url + encodeURIComponent(image_url)` in a background tab; data-URL images uploaded via the service's POST form where supported.
+- **B — Reverse-search shortcuts: ✅ Shipped (S208, 2026-07-04)** — "Search image on ▸" submenu (SauceNAO/trace.moe/Lens/IQDB/TinEye) in `background.ts`; custom URL templates in options still planned. Original plan: context submenu **"Search image on ▸"** SauceNAO / trace.moe / Google Lens / IQDB / TinEye (configurable set + custom URL templates in options); opens `service_url + encodeURIComponent(image_url)` in a background tab; data-URL images uploaded via the service's POST form where supported.
 - **C — Client-side pHash pre-check:** TypeScript dHash/pHash (canvas 8×8 grayscale DCT) computed locally; the app periodically exports a compact hash snapshot (`GET /api/extension/phash-snapshot` → bloom filter / sorted hash list, cached in `storage.local`); turbo/bulk downloads get instant "probably already have this" hints even when the bridge is momentarily down; authoritative check remains §7.6.
 - **D — Local-ML reverse search:** **"Find source/similar (local)"** — embedding-based reverse search against the user's own library using local models only: primary path = app bridge (§7.8 similarity, BGE-M3/CLIP in the app); optional fully-in-browser fallback = quantized MobileCLIP/SigLIP via `transformers.js`/ONNX-Runtime-Web (WebGPU) matching against an exported embedding snapshot for bridge-down operation. Distinct from B: nothing leaves the machine.
 
