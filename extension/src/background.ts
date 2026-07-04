@@ -207,10 +207,27 @@ api.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+/** Batch-download URLs collected by the bulk grabber (§7.9). */
+async function downloadBatch(urls: string[], pageUrl: string): Promise<void> {
+  for (const url of urls) {
+    try {
+      await downloadImage(url, pageUrl);
+    } catch (err) {
+      console.warn("[Image-Toolkit] batch item failed:", url, err);
+    }
+  }
+  notify(
+    "Bulk download started",
+    `${urls.length} file(s) queued into your download folder.`,
+  );
+}
+
 api.runtime.onMessage.addListener(
   (request: ExtensionMessage, sender, _sendResponse) => {
     if (request.action === "download_image" && request.src) {
       void downloadImage(request.src, request.pageUrl ?? sender.tab?.url);
+    } else if (request.action === "download_batch" && request.urls?.length) {
+      void downloadBatch(request.urls, request.pageUrl ?? sender.tab?.url ?? "");
     }
     return false;
   },

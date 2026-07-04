@@ -249,9 +249,46 @@ async function renderLastDupCheck(): Promise<void> {
   }
 }
 
+// --- Page capture (§7.9) ---
+
+type CaptureAction = "download_all_media" | "start_selection_overlay";
+
+async function sendToActiveTab(action: CaptureAction): Promise<void> {
+  const statusEl = $<HTMLDivElement>("capture-status");
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    statusEl.textContent = "No active tab.";
+    return;
+  }
+  try {
+    const resp = (await api.tabs.sendMessage(tab.id, { action })) as
+      | { ok: boolean; images?: number; videos?: number }
+      | undefined;
+    if (action === "download_all_media" && resp?.ok) {
+      const total = (resp.images ?? 0) + (resp.videos ?? 0);
+      statusEl.textContent =
+        total === 0
+          ? "No downloadable media found on this page."
+          : `Queued ${resp.images ?? 0} image(s) + ${resp.videos ?? 0} video(s).`;
+    } else if (action === "start_selection_overlay" && resp?.ok) {
+      statusEl.textContent = "Selection mode active — click images in the page.";
+      window.close(); // hand focus to the page overlay
+    }
+  } catch {
+    statusEl.textContent =
+      "Cannot capture on this page (browser-internal pages are blocked).";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   void restoreOptions();
   void renderLastDupCheck();
+  $<HTMLButtonElement>("download-all").addEventListener("click", () => {
+    void sendToActiveTab("download_all_media");
+  });
+  $<HTMLButtonElement>("select-images").addEventListener("click", () => {
+    void sendToActiveTab("start_selection_overlay");
+  });
   $<HTMLButtonElement>("test-conn").addEventListener("click", () => {
     void testConnection();
   });
