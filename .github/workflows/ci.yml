@@ -130,7 +130,7 @@ jobs:
           sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
 
       - name: Build Cryptography JAR
-        run: ./gradlew :cryptography:shadowJar
+        run: ./gradlew :cryptography:shadowJar -Dorg.gradle.java.home="$JAVA_HOME"
 
       - name: Build and install C++ base extension
         run: |
