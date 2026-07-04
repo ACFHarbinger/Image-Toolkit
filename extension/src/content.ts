@@ -12,12 +12,24 @@ import {
   startSelectionOverlay,
   overlayActive,
 } from "./contentOverlay";
+import {
+  captureVideoFrames,
+  rememberContextTarget,
+} from "./videoCapture";
 import type {
   DownloadImageMsg,
   DownloadBatchMsg,
   ExtensionMessage,
   PageCaptureResponse,
 } from "./shared/messages";
+
+// Track the element under the last context-menu so video capture can find
+// the exact <video> the user right-clicked (§7.15A).
+document.addEventListener(
+  "contextmenu",
+  (e) => rememberContextTarget(e.target as Element),
+  true,
+);
 
 console.log(`[Image-Toolkit] Content script loaded on: ${window.location.href}`);
 
@@ -79,6 +91,12 @@ api.runtime.onMessage.addListener(
       startSelectionOverlay();
       sendResponse({ ok: true });
       return false;
+    }
+    if (request.action === "capture_video_frame") {
+      void captureVideoFrames(request).then((r) =>
+        sendResponse(r as PageCaptureResponse),
+      );
+      return true; // async response
     }
     return false;
   },

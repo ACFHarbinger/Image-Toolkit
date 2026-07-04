@@ -21,6 +21,8 @@ const MENU_ID = "save-to-custom-folder";
 const DUP_CHECK_MENU_ID = "dup-check";
 const INGEST_MENU_ID = "send-to-app";
 const INSPECT_MENU_ID = "inspect-metadata";
+const FRAME_MENU_ID = "capture-frame";
+const BURST_MENU_ID = "capture-frame-burst";
 const SEARCH_MENU_ID = "reverse-search";
 
 /** Reverse-image-search services (§7.16B). URL gets the image URL appended. */
@@ -57,6 +59,16 @@ function createContextMenu(): void {
       contexts: ["image"],
     });
     api.contextMenus.create({
+      id: FRAME_MENU_ID,
+      title: "Capture video frame",
+      contexts: ["video"],
+    });
+    api.contextMenus.create({
+      id: BURST_MENU_ID,
+      title: "Capture 5-frame burst",
+      contexts: ["video"],
+    });
+    api.contextMenus.create({
       id: SEARCH_MENU_ID,
       title: "Search image on",
       contexts: ["image"],
@@ -85,10 +97,13 @@ if (api.runtime.onStartup) {
 export async function downloadImage(
   imageUrl: string,
   pageUrl?: string,
+  suggestedName?: string,
 ): Promise<void> {
   const settings = await loadSettings();
   const folder = resolveFolder(settings, pageUrl);
-  const relName = buildFilename(settings.filenameTemplate, imageUrl, pageUrl);
+  const relName = suggestedName
+    ? suggestedName.replace(/[<>:"\\|?*]/g, "_")
+    : buildFilename(settings.filenameTemplate, imageUrl, pageUrl);
   const destinationPath = `${folder}/${relName}`;
 
   api.downloads.download({
@@ -187,9 +202,50 @@ async function runIngest(
   }
 }
 
+/** Ask the tab's content script to capture video frame(s) (§7.15A). */
+async function runFrameCapture(
+  tabId: number,
+  srcUrl: string | undefined,
+  burst: number,
+): Promise<void> {
+  try {
+    const resp = (await api.tabs.sendMessage(tabId, {
+      action: "capture_video_frame",
+      srcUrl,
+      burst,
+      intervalMs: 500,
+    })) as { ok: boolean; frames?: number; error?: string } | undefined;
+    if (!resp?.ok) {
+      notify("Frame capture failed", resp?.error ?? "Unknown error.");
+    } else if (resp.error) {
+      notify(
+        "Frame capture incomplete",
+        `${resp.frames} frame(s) saved. ${resp.error}`,
+      );
+    } else if (burst > 1) {
+      notify("Frames captured", `${resp.frames} frames saved.`);
+    }
+  } catch (err) {
+    notify("Frame capture failed", String(err));
+  }
+}
+
 api.contextMenus.onClicked.addListener((info, tab) => {
-  if (!info.srcUrl) return;
   const menuId = String(info.menuItemId);
+
+  // Video frame capture works even when the video has no srcUrl (MSE/blob)
+  if (menuId === FRAME_MENU_ID || menuId === BURST_MENU_ID) {
+    if (tab?.id !== undefined) {
+      void runFrameCapture(
+        tab.id,
+        info.srcUrl,
+        menuId === BURST_MENU_ID ? 5 : 1,
+      );
+    }
+    return;
+  }
+
+  if (!info.srcUrl) return;
 
   if (menuId === MENU_ID) {
     void downloadImage(info.srcUrl, info.pageUrl);
@@ -260,7 +316,11 @@ async function downloadBatch(urls: string[], pageUrl: string): Promise<void> {
 api.runtime.onMessage.addListener(
   (request: ExtensionMessage, sender, _sendResponse) => {
     if (request.action === "download_image" && request.src) {
-      void downloadImage(request.src, request.pageUrl ?? sender.tab?.url);
+      void downloadImage(
+        request.src,
+        request.pageUrl ?? sender.tab?.url,
+        request.suggestedName,
+      );
     } else if (request.action === "download_batch" && request.urls?.length) {
       void downloadBatch(request.urls, request.pageUrl ?? sender.tab?.url ?? "");
     }
