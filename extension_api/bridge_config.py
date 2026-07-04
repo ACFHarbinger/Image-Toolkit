@@ -31,6 +31,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "dup_root": "",
     "recursive": True,
     "threshold": DEFAULT_THRESHOLD,
+    # §7.7 ingest: where "Send to Image Toolkit" saves images.
+    # Empty = fall back to dup_root + "/inbox".
+    "ingest_dir": "",
 }
 
 

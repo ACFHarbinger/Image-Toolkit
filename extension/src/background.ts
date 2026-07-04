@@ -8,11 +8,17 @@
 import { api } from "./shared/api";
 import { loadSettings } from "./shared/settings";
 import { buildFilename, resolveFolder } from "./shared/naming";
-import { dupCheck, BridgeError, type DupCheckResult } from "./shared/bridge";
+import {
+  dupCheck,
+  ingest,
+  BridgeError,
+  type DupCheckResult,
+} from "./shared/bridge";
 import type { ExtensionMessage } from "./shared/messages";
 
 const MENU_ID = "save-to-custom-folder";
 const DUP_CHECK_MENU_ID = "dup-check";
+const INGEST_MENU_ID = "send-to-app";
 const SEARCH_MENU_ID = "reverse-search";
 
 /** Reverse-image-search services (§7.16B). URL gets the image URL appended. */
@@ -36,6 +42,11 @@ function createContextMenu(): void {
     api.contextMenus.create({
       id: DUP_CHECK_MENU_ID,
       title: "Check if already downloaded",
+      contexts: ["image"],
+    });
+    api.contextMenus.create({
+      id: INGEST_MENU_ID,
+      title: "Send to Image Toolkit",
       contexts: ["image"],
     });
     api.contextMenus.create({
@@ -148,7 +159,28 @@ async function runDupCheck(imageUrl: string): Promise<void> {
   await api.storage.local.set({ lastDupCheck: entry });
 }
 
-api.contextMenus.onClicked.addListener((info) => {
+/** Ingest an image into the app's library and surface the outcome (§7.7). */
+async function runIngest(
+  imageUrl: string,
+  pageUrl?: string,
+  pageTitle?: string,
+): Promise<void> {
+  try {
+    const result = await ingest(imageUrl, pageUrl, pageTitle);
+    notify("Sent to Image Toolkit", `Saved as ${result.path}`);
+  } catch (err) {
+    if (err instanceof BridgeError && err.status === 409) {
+      notify("Already in library", err.message);
+    } else {
+      notify(
+        "Send to Image Toolkit failed",
+        err instanceof BridgeError ? err.message : String(err),
+      );
+    }
+  }
+}
+
+api.contextMenus.onClicked.addListener((info, tab) => {
   if (!info.srcUrl) return;
   const menuId = String(info.menuItemId);
 
@@ -158,6 +190,10 @@ api.contextMenus.onClicked.addListener((info) => {
   }
   if (menuId === DUP_CHECK_MENU_ID) {
     void runDupCheck(info.srcUrl);
+    return;
+  }
+  if (menuId === INGEST_MENU_ID) {
+    void runIngest(info.srcUrl, info.pageUrl, tab?.title);
     return;
   }
   if (menuId.startsWith(`${SEARCH_MENU_ID}:`)) {

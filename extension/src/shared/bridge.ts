@@ -83,3 +83,27 @@ export function dupCheck(imageUrl: string): Promise<DupCheckResult> {
     body: JSON.stringify({ url: imageUrl }),
   });
 }
+
+export interface IngestResult {
+  path: string;
+}
+
+/**
+ * Ingest an image into the app's library with provenance metadata (§7.7).
+ * Throws BridgeError with status 409 when the image is already in the
+ * library (the server includes the existing paths in its message).
+ */
+export function ingest(
+  imageUrl: string,
+  pageUrl?: string,
+  pageTitle?: string,
+): Promise<IngestResult> {
+  return bridgeFetch<IngestResult>("/ingest/", {
+    method: "POST",
+    body: JSON.stringify({
+      url: imageUrl,
+      source_page_url: pageUrl,
+      page_title: pageTitle,
+    }),
+  });
+}

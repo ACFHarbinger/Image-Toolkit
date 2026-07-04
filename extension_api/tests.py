@@ -146,3 +146,66 @@ class TestDupCheck(BridgeTestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["matches"], [])
+
+
+class TestIngest(BridgeTestCase):
+    def _post(self, payload):
+        return self.client.post(
+            "/api/extension/ingest/",
+            payload,
+            content_type="application/json",
+            **self._auth(),
+        )
+
+    def test_saves_image_with_sidecar(self):
+        data = _png_bytes(seed=11)
+        resp = self._post(
+            {
+                "data_b64": base64.b64encode(data).decode(),
+                "url": "https://site.com/imgs/photo.png",
+                "source_page_url": "https://site.com/gallery",
+                "page_title": "Gallery",
+            }
+        )
+        self.assertEqual(resp.status_code, 201)
+        saved = Path(resp.json()["path"])
+        self.assertTrue(saved.exists())
+        self.assertEqual(saved.name, "photo.png")
+        self.assertEqual(saved.parent, self.images_dir / "inbox")
+        import json
+
+        sidecar = json.loads((saved.parent / (saved.name + ".json")).read_text())
+        self.assertEqual(sidecar["page_url"], "https://site.com/gallery")
+        self.assertEqual(sidecar["page_title"], "Gallery")
+
+    def test_uniquifies_existing_names(self):
+        data1 = _png_bytes(seed=21)
+        data2 = _png_bytes(seed=22)
+        payload = {"url": "https://site.com/a.png"}
+        r1 = self._post({**payload, "data_b64": base64.b64encode(data1).decode()})
+        r2 = self._post({**payload, "data_b64": base64.b64encode(data2).decode()})
+        self.assertEqual(r1.status_code, 201)
+        self.assertEqual(r2.status_code, 201)
+        self.assertNotEqual(r1.json()["path"], r2.json()["path"])
+
+    def test_409_for_known_duplicate(self):
+        data = _png_bytes(seed=31)
+        (self.images_dir / "existing.png").write_bytes(data)
+        resp = self._post({"data_b64": base64.b64encode(data).decode()})
+        self.assertEqual(resp.status_code, 409)
+        self.assertTrue(resp.json()["existing"][0].endswith("existing.png"))
+
+    def test_force_bypasses_dup_check(self):
+        data = _png_bytes(seed=31)
+        (self.images_dir / "existing.png").write_bytes(data)
+        resp = self._post(
+            {"data_b64": base64.b64encode(data).decode(), "force": True}
+        )
+        self.assertEqual(resp.status_code, 201)
+
+    def test_409_when_no_dirs_configured(self):
+        from extension_api.bridge_config import save_config
+
+        save_config({"dup_root": "", "ingest_dir": ""})
+        resp = self._post({"data_b64": base64.b64encode(_png_bytes()).decode()})
+        self.assertEqual(resp.status_code, 409)

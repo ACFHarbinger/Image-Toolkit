@@ -175,6 +175,8 @@ extension/
 
 ## 7.7 Send to Image Toolkit
 
+**Status: ✅ Core shipped (S208, 2026-07-04).** `POST /api/extension/ingest/` saves into `ingest_dir` (fallback `dup_root/inbox`) with provenance JSON sidecar, uniquified names, implicit dup-check (409 with existing paths, `force` override); "Send to Image Toolkit" context item + notifications. Remaining: embedding/DB indexing at ingest, collection picker.
+
 **Pain point:** Downloads land as bare files in `Downloads/<folder>` with no provenance; the app later has no source URL, page context, or tags, and the vector index only learns about files when a directory is rescanned.
 
 **Approach (selected):**
