@@ -1,9 +1,11 @@
 /**
  * Popup / options page: settings persistence + duplicate-tab scanning (§7.13).
  */
-import { api } from "../shared/api";
+import { api, storageGet } from "../shared/api";
 import { loadSettings, saveSettings } from "../shared/settings";
 import { scanAndHighlight, clearHighlights } from "../shared/dupTabs";
+import { ping, BridgeError } from "../shared/bridge";
+import type { LastDupCheck } from "../background";
 import type { DupTabSet } from "../shared/messages";
 
 const $ = <T extends HTMLElement>(id: string): T =>
@@ -167,8 +169,92 @@ async function scanDuplicateTabs(): Promise<void> {
   renderDupSets(result.sets, result.grouped);
 }
 
+// --- Bridge connection test (§7.5A) ---
+
+async function testConnection(): Promise<void> {
+  const dot = $<HTMLSpanElement>("conn-dot");
+  const statusEl = $<HTMLSpanElement>("conn-status");
+  dot.className = "conn-dot";
+  statusEl.textContent = "testing…";
+  // Use the *unsaved* field values so the user can iterate before saving.
+  await saveSettings({
+    bridgeUrl:
+      $<HTMLInputElement>("bridge-url").value.trim().replace(/\/+$/, "") ||
+      "http://127.0.0.1:8000/api/extension",
+    bridgeToken: $<HTMLInputElement>("bridge-token").value.trim(),
+  });
+  try {
+    const info = await ping();
+    dot.className = "conn-dot ok";
+    statusEl.textContent = info.dup_root_configured
+      ? `connected (bridge v${info.version})`
+      : `connected — set a duplicate-search directory in the app`;
+  } catch (err) {
+    dot.className = "conn-dot fail";
+    statusEl.textContent =
+      err instanceof BridgeError && err.status === 403
+        ? "invalid token"
+        : "unreachable — is the Image Toolkit API running?";
+  }
+}
+
+// --- Last duplicate-check result (§7.6) ---
+
+async function renderLastDupCheck(): Promise<void> {
+  const container = $<HTMLDivElement>("dupcheck-results");
+  const { lastDupCheck } = await storageGet<{ lastDupCheck: LastDupCheck }>(
+    "lastDupCheck",
+  );
+  if (!lastDupCheck) return;
+  container.replaceChildren();
+
+  const header = document.createElement("div");
+  header.style.marginBottom = "6px";
+  const when = new Date(lastDupCheck.when).toLocaleString();
+  if (lastDupCheck.error) {
+    header.textContent = `${when} — failed: ${lastDupCheck.error}`;
+    container.appendChild(header);
+    return;
+  }
+  const result = lastDupCheck.result;
+  if (!result) return;
+  header.textContent =
+    result.matches.length === 0
+      ? `${when} — no duplicates (${result.scanned} files checked)`
+      : `${when} — ${result.matches.length} match(es) in ${result.scanned} files:`;
+  container.appendChild(header);
+
+  for (const m of result.matches) {
+    const row = document.createElement("div");
+    row.className = "dup-tab-row";
+    if (m.thumb_b64) {
+      const img = document.createElement("img");
+      img.src = `data:image/jpeg;base64,${m.thumb_b64}`;
+      img.style.width = "48px";
+      img.style.height = "48px";
+      img.style.objectFit = "cover";
+      img.style.borderRadius = "3px";
+      row.appendChild(img);
+    }
+    const label = document.createElement("span");
+    label.className = "dup-tab-title";
+    const dims = m.width ? ` (${m.width}×${m.height})` : "";
+    label.textContent = `[d=${m.hamming}] ${m.path}${dims}`;
+    label.title = "Copy path";
+    label.addEventListener("click", () => {
+      void navigator.clipboard.writeText(m.path);
+    });
+    row.appendChild(label);
+    container.appendChild(row);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   void restoreOptions();
+  void renderLastDupCheck();
+  $<HTMLButtonElement>("test-conn").addEventListener("click", () => {
+    void testConnection();
+  });
   $<HTMLButtonElement>("save").addEventListener("click", () => {
     void saveOptions();
   });

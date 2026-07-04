@@ -156,6 +156,8 @@ extension/
 
 *The headline integration feature: "have I already downloaded this image?"*
 
+**Status: ✅ Core shipped (S208, 2026-07-04).** Context item → bridge dup-check → notification + popup match list with thumbnails; connection test in options. Verified end-to-end against a live server. Remaining: SHA-256 exact fast path, auto-check on turbo downloads (warn/skip modes).
+
 **Pain point:** Users re-download images they already have. The app has `PhashDeduplicator` (§4.6) but it is unreachable from the browser, where the decision happens.
 
 **Approach (selected):**
