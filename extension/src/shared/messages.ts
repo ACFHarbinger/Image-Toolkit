@@ -7,6 +7,8 @@
 export interface DownloadImageMsg {
   action: "download_image";
   src: string;
+  /** URL of the page the image was captured from (provenance / site rules). */
+  pageUrl?: string;
 }
 
 export interface ScanDupTabsMsg {

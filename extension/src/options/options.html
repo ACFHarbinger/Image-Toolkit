@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { font-family: sans-serif; padding: 15px; min-width: 320px; background: #2c2f33; color: #dcddde; }
+        body { font-family: sans-serif; padding: 15px; min-width: 360px; max-width: 480px; background: #2c2f33; color: #dcddde; }
         label { font-weight: bold; display: block; margin-bottom: 5px; }
         input[type="text"] { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; background: #23272a; color: #dcddde; border: 1px solid #4f545c; border-radius: 4px; }
         button { background-color: #5865f2; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
@@ -12,9 +12,24 @@
         button.secondary:hover { background-color: #5d636b; }
         #status { margin-top: 10px; color: #2ecc71; font-size: 0.9em; min-height: 1.2em; }
         .note { font-size: 0.8em; color: #999; margin-top: 5px; }
-        .row { margin: 15px 0; }
+        .row { margin: 12px 0; }
         hr { border: none; border-top: 1px solid #4f545c; margin: 15px 0; }
         h3 { margin: 0 0 8px 0; font-size: 0.95em; color: #fff; }
+        .checkbox-label { display: inline-flex; align-items: center; font-weight: normal; }
+        .checkbox-label input { width: auto; margin: 0 8px 0 0; }
+
+        /* Site rules editor (§7.10) */
+        .rule-row { display: flex; gap: 6px; margin-bottom: 6px; }
+        .rule-row input { flex: 1; margin-bottom: 0; }
+        .rule-row button { padding: 4px 10px; }
+
+        /* Connection (§7.5) */
+        .conn-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #777; margin-right: 6px; vertical-align: middle; }
+        .conn-dot.ok { background: #2ecc71; }
+        .conn-dot.fail { background: #e74c3c; }
+        #conn-status { font-size: 0.85em; }
+
+        /* Duplicate tabs (§7.13) */
         #dup-results { font-size: 0.85em; margin-top: 8px; }
         .dup-set { border: 1px solid #4f545c; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
         .dup-set-url { color: #3498db; word-break: break-all; font-size: 0.85em; margin-bottom: 4px; }
@@ -27,16 +42,50 @@
     </style>
 </head>
 <body>
-    <label for="folder">Target Directory Name:</label>
+    <h3>General</h3>
+    <label for="folder">Default Target Directory:</label>
     <input type="text" id="folder" placeholder="e.g. MyVacationPhotos">
-    <div class="note">Files will be saved to: Downloads/YourDirectory</div>
+    <div class="note">Files are saved to Downloads/&lt;directory&gt; unless a site rule matches.</div>
 
     <div class="row">
-        <label style="display: inline-flex; align-items: center; font-weight: normal;">
-            <input type="checkbox" id="turbo" style="width: auto; margin: 0 8px 0 0;">
+        <label for="template">Filename Template:</label>
+        <input type="text" id="template" placeholder="{name}.{ext}">
+        <div class="note">Tokens: {name} {ext} {site} {date} {time} — use / for subfolders, e.g. {site}/{date}_{name}.{ext}</div>
+    </div>
+
+    <div class="row">
+        <label class="checkbox-label">
+            <input type="checkbox" id="turbo">
             Enable Turbo Mode (Left-click image to download)
         </label>
     </div>
+    <div class="row">
+        <label class="checkbox-label">
+            <input type="checkbox" id="sidecar">
+            Save .json provenance sidecar (source URL, page, timestamp)
+        </label>
+    </div>
+
+    <hr>
+
+    <h3>Per-Site Folder Rules</h3>
+    <div class="note" style="margin-bottom: 8px;">First matching hostname pattern wins. Wildcards allowed, e.g. <code>*.pixiv.net</code>.</div>
+    <div id="rules-list"></div>
+    <button id="add-rule" class="secondary">+ Add rule</button>
+
+    <hr>
+
+    <h3>Image Toolkit Connection</h3>
+    <label for="bridge-url">Bridge URL:</label>
+    <input type="text" id="bridge-url" placeholder="http://127.0.0.1:8000/api/extension">
+    <label for="bridge-token">Access Token:</label>
+    <input type="text" id="bridge-token" placeholder="paste token from the desktop app">
+    <div class="row">
+        <button id="test-conn" class="secondary">Test connection</button>
+        <span style="margin-left: 8px;"><span id="conn-dot" class="conn-dot"></span><span id="conn-status">not tested</span></span>
+    </div>
+
+    <hr>
 
     <button id="save">Save Settings</button>
     <div id="status"></div>
@@ -48,8 +97,8 @@
         <button id="scan-dups">Scan tabs for duplicates</button>
         <button id="clear-dups" class="secondary">Clear highlights</button>
     </div>
-    <label style="display: inline-flex; align-items: center; font-weight: normal; font-size: 0.85em;">
-        <input type="checkbox" id="strip-params" style="width: auto; margin: 0 8px 0 0;">
+    <label class="checkbox-label" style="font-size: 0.85em;">
+        <input type="checkbox" id="strip-params">
         Ignore tracking params (utm_*, fbclid, …) when comparing
     </label>
     <div id="dup-results"></div>

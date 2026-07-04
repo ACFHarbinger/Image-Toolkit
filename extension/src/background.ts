@@ -7,6 +7,7 @@
  */
 import { api } from "./shared/api";
 import { loadSettings } from "./shared/settings";
+import { buildFilename, resolveFolder } from "./shared/naming";
 import type { ExtensionMessage } from "./shared/messages";
 
 const MENU_ID = "save-to-custom-folder";
@@ -51,25 +52,42 @@ if (api.runtime.onStartup) {
   api.runtime.onStartup.addListener(createContextMenu);
 }
 
-/** Download an image URL into the configured target folder. */
-export async function downloadImage(imageUrl: string): Promise<void> {
+/**
+ * Download an image URL into the folder resolved by site rules (§7.10),
+ * naming it via the filename template, and optionally writing a JSON
+ * provenance sidecar next to it.
+ */
+export async function downloadImage(
+  imageUrl: string,
+  pageUrl?: string,
+): Promise<void> {
   const settings = await loadSettings();
-  const folder = settings.targetFolder || "data";
-
-  // Attempt to extract a filename from the URL
-  let filename = imageUrl.split("/").pop()?.split("?")[0] ?? "";
-
-  // Fallback if filename is weird or empty
-  if (!filename || filename.length < 3 || filename.length > 200) {
-    filename = `image_${Date.now()}.jpg`;
-  }
+  const folder = resolveFolder(settings, pageUrl);
+  const relName = buildFilename(settings.filenameTemplate, imageUrl, pageUrl);
+  const destinationPath = `${folder}/${relName}`;
 
   api.downloads.download({
     url: imageUrl,
-    filename: `${folder}/${filename}`,
+    filename: destinationPath,
     conflictAction: "uniquify",
     saveAs: false,
   });
+
+  if (settings.saveSidecar) {
+    const sidecar = {
+      source_url: imageUrl,
+      page_url: pageUrl ?? null,
+      saved_at: new Date().toISOString(),
+    };
+    // btoa needs latin-1; escape non-ASCII first.
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(sidecar, null, 2))));
+    api.downloads.download({
+      url: `data:application/json;base64,${b64}`,
+      filename: `${destinationPath}.json`,
+      conflictAction: "uniquify",
+      saveAs: false,
+    });
+  }
 }
 
 api.contextMenus.onClicked.addListener((info) => {
@@ -77,7 +95,7 @@ api.contextMenus.onClicked.addListener((info) => {
   const menuId = String(info.menuItemId);
 
   if (menuId === MENU_ID) {
-    void downloadImage(info.srcUrl);
+    void downloadImage(info.srcUrl, info.pageUrl);
     return;
   }
   if (menuId.startsWith(`${SEARCH_MENU_ID}:`)) {
@@ -92,9 +110,9 @@ api.contextMenus.onClicked.addListener((info) => {
 });
 
 api.runtime.onMessage.addListener(
-  (request: ExtensionMessage, _sender, _sendResponse) => {
+  (request: ExtensionMessage, sender, _sendResponse) => {
     if (request.action === "download_image" && request.src) {
-      void downloadImage(request.src);
+      void downloadImage(request.src, request.pageUrl ?? sender.tab?.url);
     }
     return false;
   },
