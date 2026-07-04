@@ -19,6 +19,7 @@
 - [7.10 Per-Site Folder Rules, Filename Templating & Metadata Sidecar](#710-per-site-folder-rules-filename-templating--metadata-sidecar)
 - [7.11 Full-Resolution Extraction](#711-full-resolution-extraction)
 - [7.12 Turbo Mode Polish](#712-turbo-mode-polish)
+- [7.13 Duplicate Tab Highlighter](#713-duplicate-tab-highlighter)
 - [Phasing & Dependency Graph](#phasing--dependency-graph)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 
@@ -247,6 +248,22 @@ extension/
 
 ---
 
+## 7.13 Duplicate Tab Highlighter
+
+**Pain point:** Long browsing/collection sessions accumulate dozens of tabs; the same gallery page or image URL often ends up open in several tabs of the same window, wasting memory and causing double-downloads. Nothing surfaces which tabs are duplicates.
+
+**Approach (selected):**
+- **Scan:** popup/toolbar action **"Scan tabs for duplicates"** (plus optional auto-scan on `tabs.onUpdated`/`onCreated`, default off). `tabs.query({currentWindow: true})`, group by **normalized URL** — strip `#fragment` always; strip common tracking params (`utm_*`, `fbclid`, `gclid`, …) optionally (configurable); protocol/host case-folded. Groups with ≥ 2 tabs are duplicates.
+- **Highlight (Chromium — chrome/edge/brave):** move each duplicate set into a **colored tab group** via `chrome.tabs.group()` + `chrome.tabGroups.update(groupId, {color, title: "dup ×N"})` — cycling through distinct colors per set; this is the strongest native visual signal available. "Clear highlights" ungroups (`chrome.tabs.ungroup`).
+- **Highlight (Firefox):** no `tabGroups` API — fallback: badge shows total duplicate count; popup lists duplicate sets (favicon + title + URL) with per-tab *switch-to* / *close* buttons and a per-set *close others* action; duplicates are additionally marked by `tabs.highlight` multi-selection when the user hovers a set in the popup.
+- **Actions:** per-set "Keep first, close rest"; "close all duplicates" button with count preview; never auto-closes without explicit click.
+- **Permissions:** `tabs` (and `tabGroups` on Chromium) added via the §7.1 per-browser manifest overlays — a concrete first payoff of the overlay architecture.
+- **Implementation home:** background service worker owns scan/group state (`shared/dupTabs.ts`); popup renders results via the §7.2 typed message contract.
+
+**Effort:** ~2d · **Impact:** Medium-High (immediate daily QoL; zero app-bridge dependency)
+
+---
+
 ## Phasing & Dependency Graph
 
 **Phase E1 — Build & Language Foundation (~1w):** §7.1 webpack multi-manifest → §7.2 TypeScript → §7.3 unified MV3 → §7.4 options redesign.
@@ -275,8 +292,10 @@ flowchart TD
     E10["§7.10 Site rules + templating\n+ metadata sidecar"]:::feature:::planned
     E11["§7.11 Full-res extraction"]:::feature:::planned
     E12["§7.12 Turbo polish"]:::augment:::planned
+    E13["§7.13 Duplicate tab highlighter"]:::feature:::planned
 
     E1 ==> E2 ==> E4
+    E2 --> E13
     E1 --> E3
     E2 ==> E5A ==> E6 ==> E7
     E6 --> E8
@@ -291,6 +310,6 @@ flowchart TD
 
 | **Effort ↓ / Impact →** | Medium | High | Very High |
 |---|---|---|---|
-| **Low–Medium (1–3d)** | §7.3 unified MV3 · §7.4 options redesign | §7.1 webpack builds · §7.2 TypeScript · §7.7 send-to-app · §7.12 turbo polish | §7.5A HTTP bridge |
+| **Low–Medium (1–3d)** | §7.3 unified MV3 · §7.4 options redesign · §7.13 duplicate tab highlighter | §7.1 webpack builds · §7.2 TypeScript · §7.7 send-to-app · §7.12 turbo polish | §7.5A HTTP bridge |
 | **Medium–High (4d–1w)** | — | §7.9 bulk grabber · §7.10 rules/templating · §7.11 full-res extraction · §7.8 similarity search | §7.6 duplicate search |
 | **High (1w+)** | §7.5B native messaging | — | — |

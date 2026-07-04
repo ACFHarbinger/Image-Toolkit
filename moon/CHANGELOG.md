@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S208 — 2026-07-04 (Extension Roadmap Expansion + Implementation Kickoff)
+
+**Expanded Phase EXT with the duplicate-tab highlighter and CV-oriented features, then began implementing the roadmap.**
+
+- **§7.13 Duplicate Tab Highlighter (EXT.13)**: scan all tabs in the current window, group by normalized URL (fragment always stripped, tracking params optionally); duplicates highlighted via colored `chrome.tabs.group()`/`tabGroups.update()` on Chromium (chrome/edge/brave) with per-set colors, Firefox fallback = badge count + popup set list with switch-to/close/close-others actions; keep-first-close-rest per set; `tabs`/`tabGroups` permissions added through the §7.1 per-browser manifest overlays.
+
+---
+
 ## S207 — 2026-07-04 (Browser Extension Roadmap — Phase EXT)
 
 **Analyzed the `extension/` WebExtension, researched and brainstormed feature/upgrade ideas with the user, and created a dedicated extension roadmap.**
