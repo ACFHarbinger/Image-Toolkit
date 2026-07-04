@@ -31,10 +31,19 @@ struct ImageLoadResult {
 
 /// Load and thumbnail N images in parallel (OpenMP).
 /// Returns a Python list of (path, ndarray|None, error_str) tuples.
+///
+/// rgb        — when true, arrays are returned in RGB channel order so the
+///              GUI can wrap them in a QImage without an extra reversal copy.
+/// cache_dir  — when non-empty, thumbnails are persisted as JPEGs in this
+///              directory (keyed by path hash + size, invalidated by mtime)
+///              and reloaded on subsequent calls instead of re-decoding the
+///              full-size source image.
 py::list load_image_batch(
     const std::vector<std::string>& paths,
     int  thumb_w      = 256,
     int  thumb_h      = 256,
-    bool keep_aspect  = true);
+    bool keep_aspect  = true,
+    bool rgb          = false,
+    const std::string& cache_dir = "");
 
 } // namespace base::image

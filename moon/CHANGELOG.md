@@ -2,6 +2,19 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S206 — 2026-07-04 (Thumbnail Loading Optimization — C++ Fast Path + Progressive Gallery Fill)
+
+**Optimized gallery thumbnail loading end-to-end (directory scan → decode → display) and made thumbnails appear progressively instead of all at once.**
+
+- **Reduced-resolution JPEG decode (C++)**: `base/src/image/image_batch.cpp` now reads each file into memory once and, for JPEG sources, walks the libjpeg IDCT-scaling ladder (`IMREAD_REDUCED_COLOR_8/4/2` → full) stopping at the first reduction that still covers the requested thumbnail size — up to ~8× faster decode for 4K sources at 256px thumbnails. Non-JPEG codecs (PNG/WebP) decode once at full resolution as before.
+- **Persistent C++ disk thumbnail cache**: new `cache_dir` parameter on `base.load_image_batch` persists thumbnails as JPEGs in `~/.image-toolkit/thumbnail-cache/` keyed by FNV-1a path hash + size, invalidated by source mtime. Measured: 4K JPEG + PNG batch cold load 96 ms → warm load 0.5 ms (~190×). Page revisits and directory re-opens are now near-instant across sessions (previously only videos had a disk cache).
+- **RGB output (C++)**: new `rgb` parameter returns RGB arrays so the GUI wraps them in `QImage` with a single copy, removing the per-image numpy BGR→RGB reversal copy in `_bgr_array_to_qimage`. Old signature (positional 4-arg) unchanged — fully backward compatible; Python worker falls back automatically on `TypeError`.
+- **Progressive gallery fill (root cause fix)**: previously all ~13 chunk-workers per page were queued on the global `QThreadPool` at once; each calls the native loader whose OpenMP loop competes for the same cores, so all chunks progressed in parallel and completed clustered at the end — the whole page flipped from "Loading..." to loaded at once. New `common_start_chunked_load()` in `AbstractGalleryBase` dispatches at most 2 chunks in flight and chains the next chunk on `batch_result`, so thumbnails now appear top-to-bottom as each chunk of 8 finishes (per-image `result` signals were already wired). Generation counter (`_load_generation`, bumped in both `cancel_loading` implementations) invalidates queued continuations on page change/cancel. No extra C++→Python signal traffic added — throughput preserved (oversubscription removed).
+- **Main-thread rescale skip**: `AbstractClassSingleGallery.update_card_pixmap` no longer runs a redundant `SmoothTransformation` rescale for loader-produced thumbnails that already fit the target size (100× per page on the GUI thread).
+- Both `ImageLoaderWorker` and `BatchImageLoaderWorker` route through a shared `native_load_batch()` helper. `gui/test/image/test_image_helper.py` native-path assertion updated to the new call signature.
+
+---
+
 ## S205 — 2026-07-03 (Recursive Directory Scanning & Vault DB C++ Test Cleanups)
 
 **Implemented system-wide settings for recursive directory scanning and resolved local database side effects in C++ unit tests.**

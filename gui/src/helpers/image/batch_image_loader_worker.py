@@ -2,10 +2,13 @@ import numpy as np
 from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
 from shiboken6 import Shiboken
-from backend.src.constants import HAS_NATIVE_IMAGING
+from backend.src.constants import HAS_NATIVE_IMAGING, THUMBNAIL_CACHE_DIR
 
 if HAS_NATIVE_IMAGING:
     import base
+
+# Set to False if the loaded native module predates the (rgb, cache_dir) params
+_NATIVE_SUPPORTS_RGB_CACHE = True
 
 
 def _bgr_array_to_qimage(arr: np.ndarray) -> QImage:
@@ -15,6 +18,40 @@ def _bgr_array_to_qimage(arr: np.ndarray) -> QImage:
     h, w = rgb.shape[0], rgb.shape[1]
     q_img = QImage(rgb.data, w, h, rgb.strides[0], QImage.Format.Format_RGB888)
     return q_img.copy()
+
+
+def _rgb_array_to_qimage(arr: np.ndarray) -> QImage:
+    """Wrap an already-RGB HxWx3 uint8 array in a QImage (single copy)."""
+    h, w = arr.shape[0], arr.shape[1]
+    q_img = QImage(arr.data, w, h, arr.strides[0], QImage.Format.Format_RGB888)
+    return q_img.copy()
+
+
+def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QImage | None, str]]:
+    """Call base.load_image_batch with the RGB + disk-cache fast path,
+    falling back to the legacy BGR signature for older native builds.
+    Returns list of (path, QImage|None, error)."""
+    global _NATIVE_SUPPORTS_RGB_CACHE
+    if _NATIVE_SUPPORTS_RGB_CACHE:
+        try:
+            raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
+                paths, target_size, target_size, True,
+                True, str(THUMBNAIL_CACHE_DIR),
+            )
+            return [
+                (p, _rgb_array_to_qimage(a) if a is not None and not e else None, e)
+                for p, a, e in raw
+            ]
+        except TypeError:
+            _NATIVE_SUPPORTS_RGB_CACHE = False
+
+    raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
+        paths, target_size, target_size, True
+    )
+    return [
+        (p, _bgr_array_to_qimage(a) if a is not None and not e else None, e)
+        for p, a, e in raw
+    ]
 
 
 class _BatchLoaderSignals(QObject):
@@ -52,27 +89,21 @@ class BatchImageLoaderWorker(QRunnable):
                 self._run_fallback()
                 return
 
-            # 2. Native C++ Parallel Path
-            # Returns list[(path, HxWx3 BGR uint8 ndarray | None, error: str)]
-            raw_results = base.load_image_batch( # pyrefly: ignore [missing-attribute]
-                self.paths, self.target_size, self.target_size, True
-            )
+            # 2. Native C++ Parallel Path (reduced decode + disk cache + RGB out)
+            raw_results = native_load_batch(self.paths, self.target_size)
 
             if self._is_cancelled:
                 return
 
-            # Process raw results into QImages and EMIT IMMEDIATELY
+            # Process results and EMIT IMMEDIATELY
             processed_results = []
-            if raw_results:
-                for path, arr, err in raw_results:
-                    if arr is None or err:
-                        q_img = QImage()
-                    else:
-                        q_img = _bgr_array_to_qimage(arr)
-                    res = (path, q_img)
-                    processed_results.append(res)
-                    # Emit individual result for progressive UI updates
-                    self._safe_emit_result(path, res[1])
+            for path, q_img, _err in raw_results:
+                if q_img is None:
+                    q_img = QImage()
+                res = (path, q_img)
+                processed_results.append(res)
+                # Emit individual result for progressive UI updates
+                self._safe_emit_result(path, res[1])
 
             try:
                 self.signals.batch_result.emit(processed_results, self.paths)

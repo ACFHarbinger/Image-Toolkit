@@ -2,10 +2,7 @@ from PySide6.QtGui import QImage
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
 from shiboken6 import Shiboken
 from backend.src.constants import HAS_NATIVE_IMAGING
-from .batch_image_loader_worker import _bgr_array_to_qimage
-
-if HAS_NATIVE_IMAGING:
-    import base
+from .batch_image_loader_worker import native_load_batch
 
 
 class _LoaderSignals(QObject):
@@ -46,16 +43,14 @@ class ImageLoaderWorker(QRunnable):
             return
         try:
             if HAS_NATIVE_IMAGING:
-                # Returns list[(path, HxWx3 BGR uint8 ndarray | None, error: str)]
-                results = base.load_image_batch( # pyrefly: ignore [missing-attribute]
-                    [self.path], self.target_size, self.target_size, True
-                )
+                # Returns list[(path, QImage | None, error: str)]
+                results = native_load_batch([self.path], self.target_size)
                 if self._is_cancelled:
                     return
                 if results:
-                    _path, arr, err = results[0]
-                    if arr is not None and not err:
-                        self._safe_emit(self.path, _bgr_array_to_qimage(arr))
+                    _path, q_img, err = results[0]
+                    if q_img is not None and not err:
+                        self._safe_emit(self.path, q_img)
                         return
 
             # Fallback using QImage instead of QPixmap

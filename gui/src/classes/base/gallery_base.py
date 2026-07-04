@@ -85,6 +85,8 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         # --- Threading ---------------------------------------------------------
         self.thread_pool = QThreadPool.globalInstance()
         self._active_workers: set = set()
+        # Generation counter: invalidates queued load-chunks after cancel/restart
+        self._load_generation: int = 0
 
         # --- Resize debouncing ------------------------------------------------
         self._resize_timer = QTimer()
@@ -457,6 +459,57 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         p = widget.mapTo(viewport, QPoint(0, 0))
         widget_rect = QRect(p, widget.size())
         return visible_rect.intersects(widget_rect)
+
+    # =========================================================================
+    # Chunked sequential load scheduling (progressive gallery fill)
+    # =========================================================================
+
+    def common_start_chunked_load(
+        self,
+        paths: list,
+        worker_factory,
+        per_result_slot=None,
+        batch_slot=None,
+        chunk_size: int = 8,
+        max_in_flight: int = 2,
+    ) -> None:
+        """Dispatch *paths* to workers in sequential chunks.
+
+        Previously every chunk-worker was queued on the thread pool at once;
+        with the native loader's OpenMP loop competing for the same cores,
+        all chunks progressed in parallel and completed clustered at the end,
+        so the whole page appeared at once. Dispatching at most
+        *max_in_flight* chunks and starting the next only when one finishes
+        makes thumbnails appear top-to-bottom as they load, at the same (or
+        better) total throughput.
+
+        Cancellation: `cancel_loading` implementations bump
+        ``self._load_generation``; queued continuations from an older
+        generation are dropped.
+        """
+        if not paths:
+            return
+        gen = self._load_generation
+        chunks = deque(
+            paths[i : i + chunk_size] for i in range(0, len(paths), chunk_size)
+        )
+
+        def start_next(*_args):
+            if gen != self._load_generation or not chunks:
+                return
+            chunk = chunks.popleft()
+            worker = worker_factory(chunk)
+            if per_result_slot is not None:
+                worker.signals.result.connect(per_result_slot)
+            if batch_slot is not None:
+                worker.signals.batch_result.connect(batch_slot)
+            # Chain: when this chunk finishes, dispatch the next one
+            worker.signals.batch_result.connect(start_next)
+            self._active_workers.add(worker)
+            self.thread_pool.start(worker)
+
+        for _ in range(min(max_in_flight, len(chunks))):
+            start_next()
 
     # =========================================================================
     # Paginated slice
