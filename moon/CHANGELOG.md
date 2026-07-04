@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S207 — 2026-07-04 (Browser Extension Roadmap — Phase EXT)
+
+**Analyzed the `extension/` WebExtension, researched and brainstormed feature/upgrade ideas with the user, and created a dedicated extension roadmap.**
+
+- **New roadmap**: `moon/roadmaps/extension.md` (§7.1–§7.12, mirrored to `docs/roadmaps/extension.md`) covering: webpack multi-browser manifest generation in `extension/webpack/` (chrome/firefox/edge/brave overlays merged over `manifest.base.json`, replacing the three hand-maintained manifests), TypeScript migration + shared typed message contract, unified Manifest V3 (dropping the MV2 Firefox manifest), options page redesign, local app bridge (Phase A: token-authenticated localhost Django endpoints under `/api/extension/`; Phase B: native messaging host), **in-browser duplicate search** (right-click an image → pHash search of a user-configured directory and its subdirectories via the existing `PhashDeduplicator` §4.6), send-to-app ingestion with source-URL provenance + immediate indexing, visual similarity search against the local library, bulk page grabber with filterable grid preview, per-site folder rules + filename templating + metadata sidecar, full-resolution extraction (srcset/lazy-load/CSS-background/canvas), and turbo mode polish (capture feedback, modifier-key mode, per-site enable, history panel).
+- **Master roadmap**: new **Phase EXT** table (EXT.1–EXT.12) in `moon/ROADMAP.md` + `docs/roadmaps/ROADMAP.md`; extension.md added to the section-specific roadmap lists; dependency-graph mermaid gains `PEXT` node (P4 §4.5/§4.6 unblock EXT.5/EXT.6; EXT.8 gated on §5.1 CLIP index).
+- Feature selection confirmed with the user (all brainstormed items accepted; transport = HTTP-first then native messaging).
+
+---
+
 ## S206 — 2026-07-04 (Thumbnail Loading Optimization — C++ Fast Path + Progressive Gallery Fill)
 
 **Optimized gallery thumbnail loading end-to-end (directory scan → decode → display) and made thumbnails appear progressively instead of all at once.**
