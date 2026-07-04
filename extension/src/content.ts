@@ -66,6 +66,7 @@ const blockAndDownload = (e: Event): void => {
       const msg: DownloadImageMsg = {
         action: "download_image",
         src: hit.url,
+        pageUrl: window.location.href,
       };
       void api.runtime.sendMessage(msg);
       flashCaptured(hit.element);

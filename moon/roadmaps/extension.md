@@ -114,6 +114,8 @@ extension/
 
 ## 7.4 Options Page Redesign
 
+**Status: 🔄 Core shipped (S208, 2026-07-04).** Sectioned page (General / Site Rules / Connection / Duplicate Tabs) with template + sidecar + bridge URL/token fields. Remaining: separate slim popup vs full tab split, profile switcher.
+
 **Pain point:** The popup is a single folder field + turbo checkbox; upcoming features (folder profiles, per-site rules, app-bridge status) have nowhere to live.
 
 **Approach (selected):**
@@ -212,6 +214,8 @@ extension/
 ---
 
 ## 7.10 Per-Site Folder Rules, Filename Templating & Metadata Sidecar
+
+**Status: 🔄 Core shipped (S208, 2026-07-04).** `shared/naming.ts`: wildcard hostname rules (first match wins), `{name}/{ext}/{site}/{date}/{time}` template with subfolders, JSON provenance sidecar toggle. Remaining: named folder profiles + context-submenu quick-switch.
 
 **Pain point:** One global `targetFolder` for every site; filenames are whatever the URL had; provenance is lost for plain downloads (when not using §7.7 ingest).
 

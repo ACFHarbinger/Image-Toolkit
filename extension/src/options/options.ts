@@ -17,11 +17,59 @@ function showStatus(text: string): void {
   }, 1500);
 }
 
+// --- Site rules editor (§7.10) ---
+
+function addRuleRow(pattern = "", folder = ""): void {
+  const list = $<HTMLDivElement>("rules-list");
+  const row = document.createElement("div");
+  row.className = "rule-row";
+
+  const patternInput = document.createElement("input");
+  patternInput.type = "text";
+  patternInput.placeholder = "*.example.com";
+  patternInput.value = pattern;
+  patternInput.className = "rule-pattern";
+
+  const folderInput = document.createElement("input");
+  folderInput.type = "text";
+  folderInput.placeholder = "folder";
+  folderInput.value = folder;
+  folderInput.className = "rule-folder";
+
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "secondary";
+  removeBtn.textContent = "✕";
+  removeBtn.title = "Remove rule";
+  removeBtn.addEventListener("click", () => row.remove());
+
+  row.append(patternInput, folderInput, removeBtn);
+  list.appendChild(row);
+}
+
+function collectRules(): Array<{ pattern: string; folder: string }> {
+  const rules: Array<{ pattern: string; folder: string }> = [];
+  for (const row of document.querySelectorAll<HTMLDivElement>(".rule-row")) {
+    const pattern =
+      row.querySelector<HTMLInputElement>(".rule-pattern")?.value.trim() ?? "";
+    const folder =
+      row.querySelector<HTMLInputElement>(".rule-folder")?.value.trim() ?? "";
+    if (pattern && folder) rules.push({ pattern, folder });
+  }
+  return rules;
+}
+
 async function restoreOptions(): Promise<void> {
   const settings = await loadSettings();
   $<HTMLInputElement>("folder").value = settings.targetFolder;
+  $<HTMLInputElement>("template").value = settings.filenameTemplate;
   $<HTMLInputElement>("turbo").checked = settings.turboMode;
+  $<HTMLInputElement>("sidecar").checked = settings.saveSidecar;
   $<HTMLInputElement>("strip-params").checked = settings.dupTabsStripParams;
+  $<HTMLInputElement>("bridge-url").value = settings.bridgeUrl;
+  $<HTMLInputElement>("bridge-token").value = settings.bridgeToken;
+  for (const rule of settings.siteRules) {
+    addRuleRow(rule.pattern, rule.folder);
+  }
 }
 
 async function saveOptions(): Promise<void> {
@@ -31,11 +79,19 @@ async function saveOptions(): Promise<void> {
 
   await saveSettings({
     targetFolder: cleanName,
+    filenameTemplate:
+      $<HTMLInputElement>("template").value.trim() || "{name}.{ext}",
     turboMode: $<HTMLInputElement>("turbo").checked,
+    saveSidecar: $<HTMLInputElement>("sidecar").checked,
     dupTabsStripParams: $<HTMLInputElement>("strip-params").checked,
+    siteRules: collectRules(),
+    bridgeUrl:
+      $<HTMLInputElement>("bridge-url").value.trim().replace(/\/+$/, "") ||
+      "http://127.0.0.1:8000/api/extension",
+    bridgeToken: $<HTMLInputElement>("bridge-token").value.trim(),
   });
   $<HTMLInputElement>("folder").value = cleanName;
-  showStatus("Directory Saved!");
+  showStatus("Settings Saved!");
 }
 
 // --- Duplicate tab scanning (§7.13) ---
@@ -115,6 +171,9 @@ document.addEventListener("DOMContentLoaded", () => {
   void restoreOptions();
   $<HTMLButtonElement>("save").addEventListener("click", () => {
     void saveOptions();
+  });
+  $<HTMLButtonElement>("add-rule").addEventListener("click", () => {
+    addRuleRow();
   });
   $<HTMLButtonElement>("scan-dups").addEventListener("click", () => {
     void scanDuplicateTabs();
