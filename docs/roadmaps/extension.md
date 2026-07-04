@@ -133,7 +133,7 @@ extension/
 
 **Approach (selected — phased "Both"):**
 
-**Phase A — Local HTTP API (MVP):**
+**Phase A — Local HTTP API (MVP): ✅ Shipped (S208, 2026-07-04)** — `extension_api/` Django app: `GET ping/` + `POST dup-check/`, Bearer-token auth (auto-generated `~/.image-toolkit/extension-bridge/token.txt`), CORS with preflight pass-through, `DirPhashIndex` SQLite-cached phash search (no PostgreSQL needed). `/ingest` and `/similar` remain planned. Original plan:
 - New Django app `api/extension/` exposing a small, token-authenticated, localhost-bound surface:
   - `GET  /api/extension/ping` → `{version, features}` (drives the §7.4 status dot)
   - `POST /api/extension/dup-check` (§7.6)
