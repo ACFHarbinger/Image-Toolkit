@@ -9,6 +9,29 @@ export interface DownloadImageMsg {
   src: string;
   /** URL of the page the image was captured from (provenance / site rules). */
   pageUrl?: string;
+  /**
+   * Explicit filename (relative, may contain subfolders) that bypasses the
+   * template — used by generated content like video frame captures whose
+   * data: URL carries no usable name.
+   */
+  suggestedName?: string;
+}
+
+/** Background → content script: capture frame(s) from a <video> (§7.15A). */
+export interface CaptureVideoFrameMsg {
+  action: "capture_video_frame";
+  /** srcUrl from the context-menu click, used to locate the video. */
+  srcUrl?: string;
+  /** Number of frames to grab (1 = single). */
+  burst: number;
+  /** Delay between burst frames in ms. */
+  intervalMs: number;
+}
+
+export interface CaptureVideoFrameResponse {
+  ok: boolean;
+  frames?: number;
+  error?: string;
 }
 
 export interface ScanDupTabsMsg {
@@ -64,7 +87,8 @@ export type ExtensionMessage =
   | FocusTabMsg
   | DownloadAllMediaMsg
   | StartSelectionOverlayMsg
-  | DownloadBatchMsg;
+  | DownloadBatchMsg
+  | CaptureVideoFrameMsg;
 
 /** One duplicate set: ≥2 tabs sharing the same normalized URL. */
 export interface DupTabSet {
