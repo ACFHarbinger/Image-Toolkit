@@ -579,12 +579,20 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
         # 2. Check Success State
         if pixmap and not pixmap.isNull():
-            scaled = pixmap.scaled(
-                self.thumbnail_size,
-                self.thumbnail_size,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
+            if (
+                pixmap.width() > self.thumbnail_size
+                or pixmap.height() > self.thumbnail_size
+            ):
+                scaled = pixmap.scaled(
+                    self.thumbnail_size,
+                    self.thumbnail_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            else:
+                # Loader thumbnails already fit the target size — avoid a
+                # second smooth rescale on the GUI thread for every image.
+                scaled = pixmap
             label.setPixmap(scaled)
             label.setText("")
 
@@ -844,15 +852,14 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         if not hasattr(self, "_loading_paths"):
             self._loading_paths = set()
         self._loading_paths.update(paths)
-        chunk_size = 8
-        for i in range(0, len(paths), chunk_size):
-            chunk_paths = paths[i:i + chunk_size]
-            worker = BatchImageLoaderWorker(chunk_paths, self.thumbnail_size)
-            worker.signals.result.connect(self._on_single_image_loaded)
-            worker.signals.batch_result.connect(self._on_batch_images_loaded)
-
-            self._active_workers.add(worker)
-            self.thread_pool.start(worker)
+        self.common_start_chunked_load(
+            paths,
+            worker_factory=lambda chunk: BatchImageLoaderWorker(
+                chunk, self.thumbnail_size
+            ),
+            per_result_slot=self._on_single_image_loaded,
+            batch_slot=self._on_batch_images_loaded,
+        )
 
     def _trigger_video_load(self, path: str):
         self._loading_paths.add(path)
@@ -1085,6 +1092,8 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
     def cancel_loading(self):
         """Stops all active timers and background workers."""
+        # Invalidate any queued (not yet dispatched) load chunks
+        self._load_generation += 1
         if self._populate_timer.isActive():
             self._populate_timer.stop()
         if self._resize_timer.isActive():
