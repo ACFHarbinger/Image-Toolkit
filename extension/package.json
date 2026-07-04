@@ -1,0 +1,25 @@
+{
+  "name": "image-toolkit-extension",
+  "version": "1.1.0",
+  "description": "Image Toolkit companion WebExtension — save images to folders, turbo capture, duplicate tab highlighting, and desktop-app integration.",
+  "private": true,
+  "scripts": {
+    "build:chrome": "webpack --config webpack/webpack.chrome.js",
+    "build:firefox": "webpack --config webpack/webpack.firefox.js",
+    "build:edge": "webpack --config webpack/webpack.edge.js",
+    "build:brave": "webpack --config webpack/webpack.brave.js",
+    "build:all": "npm run build:chrome && npm run build:firefox && npm run build:edge && npm run build:brave",
+    "watch:chrome": "webpack --watch --config webpack/webpack.chrome.js",
+    "watch:firefox": "webpack --watch --config webpack/webpack.firefox.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "copy-webpack-plugin": "^12.0.2",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.5.4",
+    "webpack": "^5.93.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-merge": "^6.0.1"
+  }
+}
