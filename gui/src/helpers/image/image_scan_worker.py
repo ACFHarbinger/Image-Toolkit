@@ -120,7 +120,7 @@ class ImageScannerWorker(QObject):
             if HAS_NATIVE_IMAGING:
                 # cpp-based parallel scan
                 all_image_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
-                    self.directories, list(SUPPORTED_IMG_FORMATS), self.recursive
+                    self.directories, list(self.extensions), self.recursive
                 )
                 if self._is_cancelled:
                     return

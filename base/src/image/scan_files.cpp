@@ -35,6 +35,9 @@ std::vector<std::string> scan_files(
         for (const auto& e : extensions) {
             std::string lower_e = e;
             std::transform(lower_e.begin(), lower_e.end(), lower_e.begin(), ::tolower);
+            if (lower_e.empty() || lower_e[0] != '.') {
+                lower_e = "." + lower_e;
+            }
             if (ext == lower_e) return true;
         }
         return false;
