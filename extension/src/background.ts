@@ -14,11 +14,13 @@ import {
   BridgeError,
   type DupCheckResult,
 } from "./shared/bridge";
+import { parseImageMetadata } from "./shared/imageMeta";
 import type { ExtensionMessage } from "./shared/messages";
 
 const MENU_ID = "save-to-custom-folder";
 const DUP_CHECK_MENU_ID = "dup-check";
 const INGEST_MENU_ID = "send-to-app";
+const INSPECT_MENU_ID = "inspect-metadata";
 const SEARCH_MENU_ID = "reverse-search";
 
 /** Reverse-image-search services (§7.16B). URL gets the image URL appended. */
@@ -47,6 +49,11 @@ function createContextMenu(): void {
     api.contextMenus.create({
       id: INGEST_MENU_ID,
       title: "Send to Image Toolkit",
+      contexts: ["image"],
+    });
+    api.contextMenus.create({
+      id: INSPECT_MENU_ID,
+      title: "Inspect image metadata",
       contexts: ["image"],
     });
     api.contextMenus.create({
@@ -196,6 +203,10 @@ api.contextMenus.onClicked.addListener((info, tab) => {
     void runIngest(info.srcUrl, info.pageUrl, tab?.title);
     return;
   }
+  if (menuId === INSPECT_MENU_ID) {
+    void runInspect(info.srcUrl);
+    return;
+  }
   if (menuId.startsWith(`${SEARCH_MENU_ID}:`)) {
     const svcId = menuId.slice(SEARCH_MENU_ID.length + 1);
     const svc = SEARCH_SERVICES.find((s) => s.id === svcId);
@@ -206,6 +217,30 @@ api.contextMenus.onClicked.addListener((info, tab) => {
     }
   }
 });
+
+/** Fetch, parse and display an image's embedded metadata (§7.16A). */
+async function runInspect(imageUrl: string): Promise<void> {
+  let entry: { imageUrl: string; meta: unknown; error?: string };
+  try {
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+    entry = { imageUrl, meta: await parseImageMetadata(bytes) };
+  } catch (err) {
+    entry = {
+      imageUrl,
+      meta: { format: "unknown", text: {}, exif: {} },
+      error: String(err),
+    };
+  }
+  await api.storage.local.set({ lastInspect: entry });
+  void api.windows.create({
+    url: api.runtime.getURL("inspect.html"),
+    type: "popup",
+    width: 560,
+    height: 640,
+  });
+}
 
 /** Batch-download URLs collected by the bulk grabber (§7.9). */
 async function downloadBatch(urls: string[], pageUrl: string): Promise<void> {
