@@ -28,8 +28,8 @@ from .bridge_config import get_token, load_config
 
 logger = logging.getLogger(__name__)
 
-BRIDGE_VERSION = "1.0"
-FEATURES = ["ping", "dup-check"]
+BRIDGE_VERSION = "1.1"
+FEATURES = ["ping", "dup-check", "ingest"]
 
 _MAX_FETCH_BYTES = 64 * 1024 * 1024  # 64 MB
 _FETCH_TIMEOUT_S = 20
@@ -148,6 +148,140 @@ class PingView(CorsAPIView):
                 "dup_root_configured": bool(cfg.get("dup_root")),
             }
         )
+
+
+def _resolve_image_payload(request) -> tuple:  # noqa: ANN001
+    """Common `{url|data_b64}` handling → (bytes, source_url, error_response)."""
+    url = request.data.get("url")
+    data_b64 = request.data.get("data_b64")
+    if not url and not data_b64:
+        return None, None, Response(
+            {"error": "Provide 'url' or 'data_b64'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        data = base64.b64decode(data_b64) if data_b64 else _fetch_image_bytes(url)
+    except Exception as exc:
+        return None, None, Response(
+            {"error": f"Could not fetch image: {exc}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if len(data) > _MAX_FETCH_BYTES:
+        return None, None, Response(
+            {"error": "Image too large."}, status=status.HTTP_400_BAD_REQUEST
+        )
+    return data, url, None
+
+
+class IngestView(CorsAPIView):
+    """§7.7 — save an image into the app's library with provenance metadata."""
+
+    permission_classes = [BridgeTokenPermission]
+
+    @extend_schema(
+        tags=["Extension Bridge"],
+        summary="Ingest an image into the library (with provenance sidecar)",
+        request=inline_serializer(
+            name="ExtensionIngestRequest",
+            fields={
+                "url": drf_serializers.URLField(required=False),
+                "data_b64": drf_serializers.CharField(required=False),
+                "source_page_url": drf_serializers.CharField(required=False),
+                "page_title": drf_serializers.CharField(required=False),
+                "force": drf_serializers.BooleanField(required=False),
+            },
+        ),
+        responses={
+            201: OpenApiResponse(description="saved: path"),
+            400: OpenApiResponse(description="bad request"),
+            409: OpenApiResponse(
+                description="duplicate already in library (existing paths) or no ingest dir configured"
+            ),
+        },
+    )
+    def post(self, request):  # noqa: ANN001
+        import re
+        import time as _time
+        from pathlib import Path
+
+        cfg = load_config()
+        ingest_dir = cfg.get("ingest_dir") or ""
+        if not ingest_dir:
+            dup_root = cfg.get("dup_root") or ""
+            if dup_root:
+                ingest_dir = str(Path(dup_root) / "inbox")
+        if not ingest_dir:
+            return Response(
+                {"error": "No ingest directory configured in the app."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        data, url, err = _resolve_image_payload(request)
+        if err is not None:
+            return err
+
+        # Implicit dup-check before ingest (§7.7) unless force=true
+        from backend.src.core.dir_phash_index import DirPhashIndex
+
+        force = bool(request.data.get("force", False))
+        dup_root = cfg.get("dup_root") or ""
+        if dup_root and not force:
+            index = DirPhashIndex(dup_root, recursive=bool(cfg.get("recursive", True)))
+            try:
+                index.refresh()
+                matches = index.query_bytes(
+                    data, threshold=int(cfg.get("threshold", 10)), limit=5
+                )
+            finally:
+                index.close()
+            if matches:
+                return Response(
+                    {
+                        "error": "Image already in library.",
+                        "existing": [m["path"] for m in matches],
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        # Derive a safe, unique filename from the source URL
+        name = ""
+        if url:
+            try:
+                from urllib.parse import urlparse, unquote
+
+                name = unquote(urlparse(url).path.split("/")[-1])
+            except Exception:
+                name = ""
+        name = re.sub(r'[<>:"\\|?*/]', "_", name).strip() or f"image_{int(_time.time())}.jpg"
+        if "." not in name:
+            name += ".jpg"
+
+        dest_dir = Path(ingest_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / name
+        stem, suffix = dest.stem, dest.suffix
+        counter = 1
+        while dest.exists():
+            dest = dest_dir / f"{stem} ({counter}){suffix}"
+            counter += 1
+
+        dest.write_bytes(data)
+
+        import json as _json
+        from datetime import datetime, timezone
+
+        sidecar = {
+            "source_url": url,
+            "page_url": request.data.get("source_page_url"),
+            "page_title": request.data.get("page_title"),
+            "saved_at": datetime.now(timezone.utc).isoformat(),
+            "via": "image-toolkit-extension",
+        }
+        (dest_dir / (dest.name + ".json")).write_text(
+            _json.dumps(sidecar, indent=2), encoding="utf-8"
+        )
+
+        return Response({"path": str(dest)}, status=status.HTTP_201_CREATED)
 
 
 class DupCheckView(CorsAPIView):
