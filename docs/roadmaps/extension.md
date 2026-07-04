@@ -259,6 +259,8 @@ extension/
 
 ## 7.13 Duplicate Tab Highlighter
 
+**Status: ✅ Shipped (S208, 2026-07-04).** `shared/dupTabs.ts` + popup UI; colored `dup ×N` tab groups on Chromium (clear only dissolves our own groups), badge + popup set list everywhere; keep-first/close-rest wired.
+
 **Pain point:** Long browsing/collection sessions accumulate dozens of tabs; the same gallery page or image URL often ends up open in several tabs of the same window, wasting memory and causing double-downloads. Nothing surfaces which tabs are duplicates.
 
 **Approach (selected):**

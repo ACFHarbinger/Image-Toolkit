@@ -1,1 +1,9 @@
-{}
+{
+  "permissions": [
+    "contextMenus",
+    "downloads",
+    "storage",
+    "tabs",
+    "tabGroups"
+  ]
+}
