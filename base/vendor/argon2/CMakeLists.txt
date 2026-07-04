@@ -9,6 +9,8 @@ add_library(argon2 STATIC
     src/thread.c
     src/blake2/blake2b.c
 )
+set_target_properties(argon2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 
 target_include_directories(argon2 PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
