@@ -4,6 +4,7 @@
     "downloads",
     "storage",
     "tabs",
+    "notifications",
     "tabGroups"
   ]
 }

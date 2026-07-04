@@ -8,9 +8,11 @@
 import { api } from "./shared/api";
 import { loadSettings } from "./shared/settings";
 import { buildFilename, resolveFolder } from "./shared/naming";
+import { dupCheck, BridgeError, type DupCheckResult } from "./shared/bridge";
 import type { ExtensionMessage } from "./shared/messages";
 
 const MENU_ID = "save-to-custom-folder";
+const DUP_CHECK_MENU_ID = "dup-check";
 const SEARCH_MENU_ID = "reverse-search";
 
 /** Reverse-image-search services (§7.16B). URL gets the image URL appended. */
@@ -29,6 +31,11 @@ function createContextMenu(): void {
     api.contextMenus.create({
       id: MENU_ID,
       title: "Save to selected directory",
+      contexts: ["image"],
+    });
+    api.contextMenus.create({
+      id: DUP_CHECK_MENU_ID,
+      title: "Check if already downloaded",
       contexts: ["image"],
     });
     api.contextMenus.create({
@@ -90,12 +97,67 @@ export async function downloadImage(
   }
 }
 
+/** Stored under `lastDupCheck` for the popup to render (§7.6). */
+export interface LastDupCheck {
+  when: string;
+  imageUrl: string;
+  result?: DupCheckResult;
+  error?: string;
+}
+
+function notify(title: string, message: string): void {
+  try {
+    api.notifications.create({
+      type: "basic",
+      iconUrl: api.runtime.getURL("icons/icon-128.png"),
+      title,
+      message,
+    });
+  } catch (err) {
+    console.warn("[Image-Toolkit] notification failed:", err);
+  }
+}
+
+/** Run a duplicate check for an image and surface the outcome (§7.6). */
+async function runDupCheck(imageUrl: string): Promise<void> {
+  const entry: LastDupCheck = {
+    when: new Date().toISOString(),
+    imageUrl,
+  };
+  try {
+    const result = await dupCheck(imageUrl);
+    entry.result = result;
+    if (result.matches.length === 0) {
+      notify(
+        "No duplicates found",
+        `Not in your library (${result.scanned} files checked).`,
+      );
+    } else {
+      const best = result.matches[0];
+      notify(
+        `${result.matches.length} possible duplicate(s) found`,
+        `Closest: ${best.path} (distance ${best.hamming}). ` +
+          "Open the extension popup for details.",
+      );
+    }
+  } catch (err) {
+    entry.error =
+      err instanceof BridgeError ? err.message : String(err);
+    notify("Duplicate check failed", entry.error);
+  }
+  await api.storage.local.set({ lastDupCheck: entry });
+}
+
 api.contextMenus.onClicked.addListener((info) => {
   if (!info.srcUrl) return;
   const menuId = String(info.menuItemId);
 
   if (menuId === MENU_ID) {
     void downloadImage(info.srcUrl, info.pageUrl);
+    return;
+  }
+  if (menuId === DUP_CHECK_MENU_ID) {
+    void runDupCheck(info.srcUrl);
     return;
   }
   if (menuId.startsWith(`${SEARCH_MENU_ID}:`)) {
