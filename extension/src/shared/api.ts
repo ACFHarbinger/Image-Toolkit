@@ -11,7 +11,11 @@
 declare const browser: typeof chrome | undefined;
 
 export const api: typeof chrome =
-  typeof browser !== "undefined" ? browser : chrome;
+  typeof browser !== "undefined"
+    ? (browser as typeof chrome)
+    : typeof chrome !== "undefined"
+      ? chrome
+      : (undefined as unknown as typeof chrome); // non-browser (test) context
 
 export const IS_FIREFOX = typeof browser !== "undefined";
 

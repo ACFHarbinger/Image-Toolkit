@@ -10,7 +10,8 @@
   "permissions": [
     "contextMenus",
     "downloads",
-    "storage"
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"
