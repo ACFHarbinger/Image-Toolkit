@@ -228,6 +228,7 @@ Upgrades the `extension/` WebExtension from a minimal image saver into a first-c
 | EXT.10 | **[Ext] Per-site folder rules + filename templating + metadata sidecar** — domain→profile rules, `{site}/{date}_{name}.{ext}` templates, optional provenance JSON sidecar | ~4d | [extension.md §7.10](roadmaps/extension.md#710-per-site-folder-rules-filename-templating--metadata-sidecar) |
 | EXT.11 | **[Ext] Full-resolution extraction** — srcset/`<picture>`/lazy-load/CSS-background/canvas candidates; per-site URL upgrade table | ~4d | [extension.md §7.11](roadmaps/extension.md#711-full-resolution-extraction) |
 | EXT.12 | **[Ext] Turbo mode polish** — capture flash + badge, modifier-key mode, per-site enable list, download history panel | ~3d | [extension.md §7.12](roadmaps/extension.md#712-turbo-mode-polish) |
+| EXT.13 | **[Ext] Duplicate tab highlighter** — scan current window's tabs, group duplicates by normalized URL; colored tab groups on Chromium, badge + popup set list on Firefox; keep-first/close-rest actions | ~2d | [extension.md §7.13](roadmaps/extension.md#713-duplicate-tab-highlighter) |
 
 **Dependency order:** EXT.1 → EXT.2 → (EXT.3, EXT.4) foundation first; EXT.5A → EXT.6 → EXT.7 (bridge before integration features); EXT.11 → EXT.9 → EXT.12 (extractor before grabber/turbo); EXT.8 gated on §5.1; EXT.5B last.
 
