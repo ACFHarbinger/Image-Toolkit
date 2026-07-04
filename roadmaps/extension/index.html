@@ -1,0 +1,2846 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Browser Extension Roadmap — Capture, Build System, and Desktop-App Integration - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#browser-extension-roadmap-capture-build-system-and-desktop-app-integration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Browser Extension Roadmap — Capture, Build System, and Desktop-App Integration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ROADMAP/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reports/analytics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reports
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../new_features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui_ux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reports
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reports
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current State
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#71-webpack-multi-browser-build-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Webpack Multi-Browser Build System
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#72-typescript-migration-shared-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 TypeScript Migration &amp; Shared Core
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#73-unified-manifest-v3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Unified Manifest V3
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#74-options-page-redesign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.4 Options Page Redesign
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#75-local-app-bridge-http-native-messaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.5 Local App Bridge (HTTP → Native Messaging)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#76-in-browser-duplicate-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.6 In-Browser Duplicate Search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#77-send-to-image-toolkit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.7 Send to Image Toolkit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#78-visual-similarity-search-from-browser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.8 Visual Similarity Search from Browser
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#79-bulk-page-grabber" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.9 Bulk Page Grabber
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#710-per-site-folder-rules-filename-templating-metadata-sidecar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.10 Per-Site Folder Rules, Filename Templating &amp; Metadata Sidecar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#711-full-resolution-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.11 Full-Resolution Extraction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#712-turbo-mode-polish" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.12 Turbo Mode Polish
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#713-duplicate-tab-highlighter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.13 Duplicate Tab Highlighter
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#714-app-powered-cv-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.14 App-Powered CV Operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#715-media-capture-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.15 Media Capture Suite
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#716-image-analysis-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.16 Image Analysis Utilities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phasing-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phasing &amp; Dependency Graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort-impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="browser-extension-roadmap-capture-build-system-and-desktop-app-integration">Browser Extension Roadmap — Capture, Build System, and Desktop-App Integration<a class="headerlink" href="#browser-extension-roadmap-capture-build-system-and-desktop-app-integration" title="Permanent link">&para;</a></h1>
+<p><em>Created: 2026-07-04. Covers the <code>extension/</code> WebExtension ("Save Image to Folder") — its build infrastructure, capture/UX upgrades, and integration with the Image Toolkit desktop app (Django API <code>api/</code>, <code>PhashDeduplicator</code>, BGE-M3/Qdrant vector search).</em></p>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#current-state">Current State</a></li>
+<li><a href="#71-webpack-multi-browser-build-system">7.1 Webpack Multi-Browser Build System</a></li>
+<li><a href="#72-typescript-migration--shared-core">7.2 TypeScript Migration &amp; Shared Core</a></li>
+<li><a href="#73-unified-manifest-v3">7.3 Unified Manifest V3</a></li>
+<li><a href="#74-options-page-redesign">7.4 Options Page Redesign</a></li>
+<li><a href="#75-local-app-bridge-http--native-messaging">7.5 Local App Bridge (HTTP → Native Messaging)</a></li>
+<li><a href="#76-in-browser-duplicate-search">7.6 In-Browser Duplicate Search</a></li>
+<li><a href="#77-send-to-image-toolkit">7.7 Send to Image Toolkit</a></li>
+<li><a href="#78-visual-similarity-search-from-browser">7.8 Visual Similarity Search from Browser</a></li>
+<li><a href="#79-bulk-page-grabber">7.9 Bulk Page Grabber</a></li>
+<li><a href="#710-per-site-folder-rules-filename-templating--metadata-sidecar">7.10 Per-Site Folder Rules, Filename Templating &amp; Metadata Sidecar</a></li>
+<li><a href="#711-full-resolution-extraction">7.11 Full-Resolution Extraction</a></li>
+<li><a href="#712-turbo-mode-polish">7.12 Turbo Mode Polish</a></li>
+<li><a href="#713-duplicate-tab-highlighter">7.13 Duplicate Tab Highlighter</a></li>
+<li><a href="#714-app-powered-cv-operations">7.14 App-Powered CV Operations</a></li>
+<li><a href="#715-media-capture-suite">7.15 Media Capture Suite</a></li>
+<li><a href="#716-image-analysis-utilities">7.16 Image Analysis Utilities</a></li>
+<li><a href="#phasing--dependency-graph">Phasing &amp; Dependency Graph</a></li>
+<li><a href="#effort--impact-matrix">Effort × Impact Matrix</a></li>
+</ul>
+<hr />
+<h2 id="current-state">Current State<a class="headerlink" href="#current-state" title="Permanent link">&para;</a></h2>
+<p>The extension is a minimal image-saving helper:</p>
+<ul>
+<li><strong><code>background.js</code></strong> — creates a "Save to selected directory" context-menu item on images; downloads <code>info.srcUrl</code> into <code>Downloads/&lt;targetFolder&gt;/</code> via <code>downloads.download</code> with <code>conflictAction: "uniquify"</code>; also receives <code>download_image</code> messages from the content script.</li>
+<li><strong><code>content.js</code></strong> — "Turbo Mode": when enabled, intercepts click/pointer/touch events in capture phase, finds an <code>IMG</code> under the cursor via <code>elementsFromPoint</code>, blocks the site's handlers, and messages the background to download <code>img.src</code>.</li>
+<li><strong><code>options.html/js</code></strong> — popup with target-folder text field + turbo checkbox, persisted in <code>storage.local</code>.</li>
+<li><strong>Manifests</strong> — three hand-maintained copies: <code>manifest.json</code> (MV3), <code>manifest_chrome.json</code> (MV3), <code>manifest_firefox.json</code> (MV2, <code>browser_specific_settings.gecko</code>). <code>extension/webpack/</code> exists but is empty.</li>
+<li>Browser API differences handled ad-hoc via <code>typeof browser !== 'undefined'</code> + duplicated Promise/callback wrappers in every file.</li>
+</ul>
+<p>Untapped app-side capabilities: <code>PhashDeduplicator</code> (<code>backend/src/core/phash_deduplicator.py</code>, shipped §4.6), pgvector/Qdrant + BGE-M3 vector search, the Django REST API (<code>api/</code>, OpenAPI-documented since §4.5), and the C++ <code>base</code> image core.</p>
+<hr />
+<h2 id="71-webpack-multi-browser-build-system">7.1 Webpack Multi-Browser Build System<a class="headerlink" href="#71-webpack-multi-browser-build-system" title="Permanent link">&para;</a></h2>
+<p><strong>Status: ✅ Shipped (S208, 2026-07-04).</strong> <code>extension/webpack/</code> builds all four targets; the three hand-written manifests were deleted; <code>just build-extension</code> added.</p>
+<p><strong>Pain point:</strong> Three hand-maintained manifest copies (<code>manifest.json</code>, <code>manifest_chrome.json</code>, <code>manifest_firefox.json</code>) drift apart; there is no build step, no minification, no way to emit per-browser packages for Chrome, Firefox, Edge, and Brave.</p>
+<p><strong>Approach (selected):</strong> Webpack 5 build in <code>extension/webpack/</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>extension/
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── src/                       # source of truth (TS after §7.2)
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── background.ts
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── content.ts
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   ├── options/{options.html,options.ts}
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   └── shared/                # api adapter, storage, types
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── webpack/
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   ├── webpack.common.js      # entries, ts-loader, CopyPlugin (icons, html)
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── webpack.chrome.js      # merge(common) + manifest for chrome
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   ├── webpack.firefox.js
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   ├── webpack.edge.js
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├── webpack.brave.js
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   └── manifest/
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│       ├── manifest.base.json         # shared keys (name, version, icons, …)
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│       ├── manifest.chrome.json       # MV3 service_worker, host_permissions
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│       ├── manifest.firefox.json      # gecko id, background.scripts fallback
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│       ├── manifest.edge.json         # chrome-compatible; store-specific keys
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│       └── manifest.brave.json        # chrome-compatible
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>└── dist/{chrome,firefox,edge,brave}/  # unpacked builds + zips
+</span></code></pre></div>
+<ul>
+<li>A small <code>GenerateManifestPlugin</code> (or <code>webpack.DefinePlugin</code> + <code>CopyPlugin.transform</code>) deep-merges <code>manifest.base.json</code> with the per-browser overlay and stamps <code>version</code> from <code>package.json</code>, emitting a single generated <code>manifest.json</code> per target — the three hand-written manifests in <code>extension/</code> are deleted.</li>
+<li>npm scripts: <code>build:chrome</code>, <code>build:firefox</code>, <code>build:edge</code>, <code>build:brave</code>, <code>build:all</code>, <code>watch:&lt;browser&gt;</code>; <code>just</code> recipes <code>build-extension</code> / <code>build-extension-all</code> mirroring the existing <code>build-frontend</code> pattern.</li>
+<li>Edge and Brave are Chromium-based: their overlays start as <code>{}</code> + store metadata, but having explicit targets keeps store-specific divergence (e.g. Edge <code>update_url</code>, future Brave rewards keys) tractable.</li>
+<li>Output zips named <code>image-toolkit-extension-&lt;browser&gt;-&lt;version&gt;.zip</code> for store upload.</li>
+</ul>
+<p><strong>Effort:</strong> ~2d · <strong>Impact:</strong> High (unblocks everything else; kills manifest drift)</p>
+<hr />
+<h2 id="72-typescript-migration-shared-core">7.2 TypeScript Migration &amp; Shared Core<a class="headerlink" href="#72-typescript-migration-shared-core" title="Permanent link">&para;</a></h2>
+<p><strong>Status: ✅ Shipped (S208, 2026-07-04).</strong> <code>extension/src/</code> TS sources with <code>shared/{api,settings,messages}.ts</code>; strict mode; <code>npm run typecheck</code> clean.</p>
+<p><strong>Pain point:</strong> The <code>typeof browser !== 'undefined'</code> adapter and the Promise/callback storage shim are copy-pasted in all three JS files; no types, no shared constants; message payloads are stringly-typed.</p>
+<p><strong>Approach (selected):</strong>
+- Move <code>background/content/options</code> to TypeScript under <code>extension/src/</code>, compiled by the §7.1 webpack setup (<code>ts-loader</code>, <code>@types/webextension-polyfill</code>).
+- <code>shared/api.ts</code> — single browser-API adapter (or adopt <code>webextension-polyfill</code> so everything is Promise-based on Chrome too).
+- <code>shared/messages.ts</code> — discriminated-union message types (<code>DownloadImage</code>, <code>DupCheckRequest</code>, <code>DupCheckResult</code>, <code>IngestImage</code>, …) shared by background/content/options — this becomes the contract §7.5–§7.8 build on.
+- <code>shared/settings.ts</code> — typed <code>storage.local</code> schema with defaults (<code>targetFolder</code>, <code>turboMode</code>, per-site rules from §7.10, bridge URL from §7.5).</p>
+<p><strong>Effort:</strong> ~2d · <strong>Impact:</strong> Medium-High (correctness + velocity for the feature work below)</p>
+<hr />
+<h2 id="73-unified-manifest-v3">7.3 Unified Manifest V3<a class="headerlink" href="#73-unified-manifest-v3" title="Permanent link">&para;</a></h2>
+<p><strong>Status: ✅ Shipped (S208, 2026-07-04).</strong> MV3 everywhere; Firefox overlay swaps <code>service_worker</code> for event-page <code>scripts</code> + gecko id (min 115).</p>
+<p><strong>Pain point:</strong> Firefox manifest is MV2 (<code>background.scripts</code>, <code>browser_action</code>) while Chrome is MV3; behaviour and permissions diverge.</p>
+<p><strong>Approach (selected):</strong> Target MV3 everywhere. Firefox 109+ supports MV3; the remaining differences are captured in the §7.1 overlays:
+- Firefox MV3 uses <code>background.scripts</code> (event page) instead of <code>service_worker</code> — expressed in <code>manifest.firefox.json</code> overlay only.
+- <code>host_permissions</code> unified; <code>browser_specific_settings.gecko</code> kept in the Firefox overlay with a real add-on ID (replace <code>save-to-folder@example.com</code>).
+- Verify <code>storage.onChanged</code>, <code>contextMenus</code>, <code>downloads</code> parity under Firefox MV3; add <code>optional_host_permissions</code> where Firefox requires opt-in.</p>
+<p><strong>Effort:</strong> ~1d (folded into §7.1 overlays) · <strong>Impact:</strong> Medium (one API surface, MV2 EOL-proof)</p>
+<hr />
+<h2 id="74-options-page-redesign">7.4 Options Page Redesign<a class="headerlink" href="#74-options-page-redesign" title="Permanent link">&para;</a></h2>
+<p><strong>Status: 🔄 Core shipped (S208, 2026-07-04).</strong> Sectioned page (General / Site Rules / Connection / Duplicate Tabs) with template + sidecar + bridge URL/token fields. Remaining: separate slim popup vs full tab split, profile switcher.</p>
+<p><strong>Pain point:</strong> The popup is a single folder field + turbo checkbox; upcoming features (folder profiles, per-site rules, app-bridge status) have nowhere to live.</p>
+<p><strong>Approach (selected):</strong>
+- Split <strong>popup</strong> (quick actions: current folder profile switcher, turbo toggle, bridge status dot, "scan this page" launcher for §7.9) from a full <strong>options page</strong> (<code>options_ui.open_in_tab: true</code>).
+- Options page tabs: <em>General</em> (default folder, filename template), <em>Folder Profiles &amp; Site Rules</em> (§7.10 editor: domain pattern → folder/profile table), <em>Image Toolkit Connection</em> (§7.5: bridge URL/port, token, "Test connection", duplicate-search root directory display), <em>Advanced</em> (turbo behaviour, notification prefs).
+- Keep it dependency-free (no framework) or Preact-via-webpack if the rules editor gets complex; styled to match the app's dark theme.</p>
+<p><strong>Effort:</strong> ~2–3d · <strong>Impact:</strong> Medium (prerequisite UX surface for §7.5/§7.9/§7.10)</p>
+<hr />
+<h2 id="75-local-app-bridge-http-native-messaging">7.5 Local App Bridge (HTTP → Native Messaging)<a class="headerlink" href="#75-local-app-bridge-http-native-messaging" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The extension cannot reach any of the app's intelligence (dedup, vector search, ingestion). All integration features need a transport.</p>
+<p><strong>Approach (selected — phased "Both"):</strong></p>
+<p><strong>Phase A — Local HTTP API (MVP): ✅ Shipped (S208, 2026-07-04)</strong> — <code>extension_api/</code> Django app: <code>GET ping/</code> + <code>POST dup-check/</code>, Bearer-token auth (auto-generated <code>~/.image-toolkit/extension-bridge/token.txt</code>), CORS with preflight pass-through, <code>DirPhashIndex</code> SQLite-cached phash search (no PostgreSQL needed). <code>/ingest</code> and <code>/similar</code> remain planned. Original plan:
+- New Django app <code>api/extension/</code> exposing a small, token-authenticated, localhost-bound surface:
+  - <code>GET  /api/extension/ping</code> → <code>{version, features}</code> (drives the §7.4 status dot)
+  - <code>POST /api/extension/dup-check</code> (§7.6)
+  - <code>POST /api/extension/ingest</code> (§7.7)
+  - <code>POST /api/extension/similar</code> (§7.8)
+- Pairing: the app shows a one-time token in its settings ("Browser Extension" section); user pastes it into the §7.4 options page. Token sent as <code>Authorization: Bearer</code>. CORS restricted to the extension origin (<code>chrome-extension://&lt;id&gt;</code>, <code>moz-extension://…</code>).
+- Documented via the existing drf-spectacular OpenAPI setup (§4.5).
+- Failure mode: bridge unreachable → features degrade gracefully (context items disabled with tooltip "Image Toolkit is not running").</p>
+<p><strong>Phase B — Native Messaging (hardening, later):</strong>
+- <code>com.imagetoolkit.bridge</code> native host (thin Python script reusing the same handlers) + per-browser host manifests installed by the app (<code>~/.mozilla/native-messaging-hosts/</code>, <code>~/.config/google-chrome/NativeMessagingHosts/</code>, Edge/Brave equivalents — Brave reads the Chrome location).
+- Advantages once done: no open port, no token UX, browser-mediated authentication; can launch the backend on demand.
+- The §7.2 message contract is transport-agnostic so background code switches transports behind one interface.</p>
+<p><strong>Effort:</strong> Phase A ~3d, Phase B ~1w · <strong>Impact:</strong> Very High (unlocks §7.6–§7.8)</p>
+<hr />
+<h2 id="76-in-browser-duplicate-search">7.6 In-Browser Duplicate Search<a class="headerlink" href="#76-in-browser-duplicate-search" title="Permanent link">&para;</a></h2>
+<p><em>The headline integration feature: "have I already downloaded this image?"</em></p>
+<p><strong>Status: ✅ Core shipped (S208, 2026-07-04).</strong> Context item → bridge dup-check → notification + popup match list with thumbnails; connection test in options. Verified end-to-end against a live server. Remaining: SHA-256 exact fast path, auto-check on turbo downloads (warn/skip modes).</p>
+<p><strong>Pain point:</strong> Users re-download images they already have. The app has <code>PhashDeduplicator</code> (§4.6) but it is unreachable from the browser, where the decision happens.</p>
+<p><strong>Approach (selected):</strong>
+- <strong>App side:</strong> user configures a <strong>duplicate-search root directory</strong> in the desktop app's settings (persisted app-side, shown read-only in the extension options). <code>POST /api/extension/dup-check</code> accepts <code>{url}</code> or <code>{data_b64}</code>; the handler:
+  1. Fetches the image bytes (server-side fetch avoids CORS/auth cookies issues for most cases; falls back to extension-supplied bytes for login-gated content).
+  2. Computes pHash via <code>compute_phash()</code>.
+  3. Searches the configured root <strong>and its subdirectories</strong>: first against the PostgreSQL phash index (<code>find_near_duplicates_by_phash</code>, Hamming threshold ≤ 8) for already-indexed dirs; falls back to an on-demand <code>PhashDeduplicator.index_directory()</code> scan (C++ <code>base.scan_files</code> + thumbnail decode make cold scans fast; results cached/indexed for next time).
+  4. Returns <code>{matches: [{path, hamming, width, height, thumb_b64}], scanned: n, cold_scan: bool}</code>.
+- <strong>Extension side:</strong> context-menu item <strong>"Check if already downloaded"</strong> on images → badge/notification with result; popup shows match list with thumbnails, path copy button, and (later) "Reveal in Image Toolkit". Optional <strong>auto-check mode</strong>: turbo-mode downloads first call dup-check and skip/warn on hit (configurable: <em>warn</em> / <em>skip</em> / <em>save anyway</em>).
+- Exact-duplicate fast path: SHA-256 of bytes compared against an app-side content-hash index before pHash.</p>
+<p><strong>Effort:</strong> ~4d (after §7.5A) · <strong>Impact:</strong> Very High (differentiator; no store extension can do local-library dedup)</p>
+<hr />
+<h2 id="77-send-to-image-toolkit">7.7 Send to Image Toolkit<a class="headerlink" href="#77-send-to-image-toolkit" title="Permanent link">&para;</a></h2>
+<p><strong>Status: ✅ Core shipped (S208, 2026-07-04).</strong> <code>POST /api/extension/ingest/</code> saves into <code>ingest_dir</code> (fallback <code>dup_root/inbox</code>) with provenance JSON sidecar, uniquified names, implicit dup-check (409 with existing paths, <code>force</code> override); "Send to Image Toolkit" context item + notifications. Remaining: embedding/DB indexing at ingest, collection picker.</p>
+<p><strong>Pain point:</strong> Downloads land as bare files in <code>Downloads/&lt;folder&gt;</code> with no provenance; the app later has no source URL, page context, or tags, and the vector index only learns about files when a directory is rescanned.</p>
+<p><strong>Approach (selected):</strong>
+- Context-menu <strong>"Send to Image Toolkit"</strong> → <code>POST /api/extension/ingest</code> with <code>{url | data_b64, source_page_url, page_title, alt_text, target_collection?}</code>.
+- App saves into its managed library location (or the mapped folder), writes provenance to the DB (source URL, page title, capture timestamp), computes pHash + embedding, and indexes into vector search immediately.
+- Dup-check (§7.6) runs implicitly before ingest; duplicate hits return <code>409 {existing_path}</code> so the extension can tell the user it's already in the library.
+- Later: collection picker submenu fed from <code>GET /api/extension/collections</code>.</p>
+<p><strong>Effort:</strong> ~3d (after §7.6) · <strong>Impact:</strong> High</p>
+<hr />
+<h2 id="78-visual-similarity-search-from-browser">7.8 Visual Similarity Search from Browser<a class="headerlink" href="#78-visual-similarity-search-from-browser" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> "Do I have images <em>like</em> this?" — near-duplicates with different crops/resolutions and stylistically similar images are invisible to pHash.</p>
+<p><strong>Approach (selected):</strong>
+- Context-menu <strong>"Find similar in my library"</strong> → <code>POST /api/extension/similar</code> <code>{url | data_b64, top_k=12}</code>.
+- App embeds the query image (BGE-M3 visual / CLIP per §5.1 semantic-search infrastructure) and queries Qdrant/pgvector; returns ranked <code>{path, score, thumb_b64}</code>.
+- Results rendered in an extension popup grid (reuses §7.6 result UI); clicking a result can open the app's gallery at that image (deep-link handled app-side).
+- Depends on the app's embedding index covering the library (piggybacks on §5.1 OpenCLIP semantic search work; degrade to pHash-only §7.6 when no embedding index exists).</p>
+<p><strong>Effort:</strong> ~4d (after §7.6; embedding index availability gates quality) · <strong>Impact:</strong> High</p>
+<hr />
+<h2 id="79-bulk-page-grabber">7.9 Bulk Page Grabber<a class="headerlink" href="#79-bulk-page-grabber" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Saving N images from a gallery/thread page is N right-clicks. Competing extensions (Imageye, Fatkun, Image Downloader) make page-level capture table stakes.</p>
+<p><strong>Status: 🔄 Modes A+B shipped (S208, 2026-07-04).</strong> Popup "⬇ Download all media" + "🖱 Select images…" buttons; <code>shared/pageMedia.ts</code> collection (images via §7.11 extractor, ≥64px filter, video src/source, blob: skipped); <code>contentOverlay.ts</code> click-to-select overlay with floating bar + Esc; batch download via <code>download_batch</code> message (§7.10 rules apply). Grid-preview page with filters + dup badges remains planned.</p>
+<p><strong>Approach (selected — two capture modes, per user direction 2026-07-04):</strong>
+- <strong>A — One-click "Download all"</strong>: popup/toolbar button → content script collects <strong>all images and videos</strong> on the page (§7.11 extractor for full-res image candidates; <code>&lt;video src&gt;</code> / <code>&lt;video&gt;&lt;source&gt;</code> for videos), dedupes by URL, filters out tiny icons (&lt; 64px rendered, configurable), and batch-downloads through the existing background downloader (§7.10 folder rules + templating apply). Completion notification with count.
+- <strong>B — In-page selection overlay</strong>: popup button "Select images on page…" → content script enters overlay mode: page dims slightly, images highlight on hover, <strong>click toggles selection</strong> (colored outline + count badge); a floating action bar (top-center, max z-index) shows the live selection count with <strong>Download selected</strong> / <strong>Cancel</strong> buttons; Esc cancels. Selected items download via mode A's path. Overlay leaves site DOM/styles untouched apart from the injected root node.
+- Later (kept planned): grid-preview page with size/format/URL filters and per-item dup-check badges (§7.6 integration: "3 of 41 already in library"); progress UI with per-file status and retry.</p>
+<p><strong>Effort:</strong> ~3d (A+B) + ~3d (grid/filters) · <strong>Impact:</strong> High</p>
+<hr />
+<h2 id="710-per-site-folder-rules-filename-templating-metadata-sidecar">7.10 Per-Site Folder Rules, Filename Templating &amp; Metadata Sidecar<a class="headerlink" href="#710-per-site-folder-rules-filename-templating-metadata-sidecar" title="Permanent link">&para;</a></h2>
+<p><strong>Status: 🔄 Core shipped (S208, 2026-07-04).</strong> <code>shared/naming.ts</code>: wildcard hostname rules (first match wins), <code>{name}/{ext}/{site}/{date}/{time}</code> template with subfolders, JSON provenance sidecar toggle. Remaining: named folder profiles + context-submenu quick-switch.</p>
+<p><strong>Pain point:</strong> One global <code>targetFolder</code> for every site; filenames are whatever the URL had; provenance is lost for plain downloads (when not using §7.7 ingest).</p>
+<p><strong>Approach (selected):</strong>
+- <strong>Folder profiles:</strong> named profiles (e.g. "wallpapers", "refs"), quick-switchable from the popup and a context-menu submenu ("Save to ▸ wallpapers / refs / …").
+- <strong>Site rules table</strong> (§7.4 editor): ordered <code>domain-pattern → profile</code> rules (<code>*.pixiv.net → art</code>, first match wins); fallback to active profile.
+- <strong>Filename templating:</strong> <code>{site}</code>, <code>{page_title}</code>, <code>{alt}</code>, <code>{date}</code>, <code>{seq}</code>, <code>{name}</code>, <code>{ext}</code> tokens, e.g. <code>{site}/{date}_{name}.{ext}</code> (subfolders allowed — <code>downloads.download</code> supports relative paths). Sanitisation preserved from current <code>options.js</code>.
+- <strong>Metadata sidecar (optional toggle):</strong> for plain downloads, also emit <code>&lt;filename&gt;.json</code> <code>{source_url, page_url, page_title, alt, saved_at}</code> via a second <code>downloads.download</code> of a data: URL. The app's scanner can ingest sidecars to backfill provenance — bridging the gap for users who don't run the §7.5 bridge.</p>
+<p><strong>Effort:</strong> ~4d · <strong>Impact:</strong> High (most-requested QoL category for this class of extension)</p>
+<hr />
+<h2 id="711-full-resolution-extraction">7.11 Full-Resolution Extraction<a class="headerlink" href="#711-full-resolution-extraction" title="Permanent link">&para;</a></h2>
+<p><strong>Status: 🔄 Core shipped (S208, 2026-07-04).</strong> <code>shared/extractor.ts</code>: srcset/<code>&lt;picture&gt;</code> scoring, lazy-load attrs, CSS background fallback; wired into turbo mode. Remaining: per-site URL upgrade table, canvas <code>toDataURL</code> fallback, context-menu correlation.</p>
+<p><strong>Pain point:</strong> <code>img.src</code> is often a thumbnail: <code>srcset</code>/<code>&lt;picture&gt;</code> variants, lazy-load attributes (<code>data-src</code>, <code>data-original</code>), CSS <code>background-image</code>, and <code>&lt;canvas&gt;</code> renders are all missed; sites like Twitter/Pixiv serve downscaled defaults.</p>
+<p><strong>Approach (selected):</strong>
+- Shared extractor in <code>content.ts</code> used by turbo mode, context menu (via <code>info.srcUrl</code> correlation), and the §7.9 grabber:
+  - Parse <code>srcset</code>/<code>sizes</code> and <code>&lt;picture&gt;&lt;source&gt;</code> to pick the largest candidate by descriptor.
+  - Check lazy-load attributes (<code>data-src</code>, <code>data-original</code>, <code>data-lazy-src</code>, common gallery attrs) when present and larger.
+  - Resolve CSS <code>background-image: url(...)</code> on the hit-tested element chain (extends the existing <code>elementsFromPoint</code> walk, which already handles overlay layers).
+  - <code>&lt;canvas&gt;</code> fallback: <code>toDataURL()</code> capture (subject to taint), routed through the message channel as <code>data_b64</code>.
+  - Optional per-site URL upgrades table (e.g. strip <code>/thumb/</code>, <code>name=small</code> → <code>name=orig</code>) maintained as data, not code.
+- Picker returns <code>{best_url, width?, height?, origin_element}</code> so the UI can show "1200×1600 (upgraded from 300×400)".</p>
+<p><strong>Effort:</strong> ~4d · <strong>Impact:</strong> High (quality of every saved image; core to the toolkit's purpose)</p>
+<hr />
+<h2 id="712-turbo-mode-polish">7.12 Turbo Mode Polish<a class="headerlink" href="#712-turbo-mode-polish" title="Permanent link">&para;</a></h2>
+<p><strong>Status: 🔄 Partial (S208, 2026-07-04).</strong> Capture outline-flash feedback shipped. Remaining: badge counter, modifier-key mode, per-site enable list, history panel.</p>
+<p><strong>Pain point:</strong> Turbo mode gives no feedback (was the click captured? downloaded?), is all-or-nothing (global toggle intercepts every left-click on every site), and its event blocking can break sites.</p>
+<p><strong>Approach (selected):</strong>
+- <strong>Capture feedback:</strong> brief outline flash + ✓ overlay on the captured <code>IMG</code>; badge counter on the toolbar icon; failure toast when the download errors.
+- <strong>Modifier-key mode:</strong> alternative to the global toggle — hold a configurable modifier (default Alt) + click to capture without enabling interception globally; pointer cursor changes while held.
+- <strong>Per-site enable list:</strong> turbo active only on allowlisted domains (or "everywhere except denylist"), managed in §7.4 and via a popup "enable on this site" toggle.
+- <strong>Download history panel:</strong> last N captures (URL, filename, status, dup-check result) in the popup with re-download and "open folder" actions; backed by <code>storage.session</code>/<code>storage.local</code> ring buffer.
+- Uses the §7.11 extractor so turbo captures full-res candidates instead of <code>img.src</code>.</p>
+<p><strong>Effort:</strong> ~3d · <strong>Impact:</strong> Medium-High (turbo is the extension's signature interaction; make it trustworthy)</p>
+<hr />
+<h2 id="713-duplicate-tab-highlighter">7.13 Duplicate Tab Highlighter<a class="headerlink" href="#713-duplicate-tab-highlighter" title="Permanent link">&para;</a></h2>
+<p><strong>Status: ✅ Shipped (S208, 2026-07-04).</strong> <code>shared/dupTabs.ts</code> + popup UI; colored <code>dup ×N</code> tab groups on Chromium (clear only dissolves our own groups), badge + popup set list everywhere; keep-first/close-rest wired.</p>
+<p><strong>Pain point:</strong> Long browsing/collection sessions accumulate dozens of tabs; the same gallery page or image URL often ends up open in several tabs of the same window, wasting memory and causing double-downloads. Nothing surfaces which tabs are duplicates.</p>
+<p><strong>Approach (selected):</strong>
+- <strong>Scan:</strong> popup/toolbar action <strong>"Scan tabs for duplicates"</strong> (plus optional auto-scan on <code>tabs.onUpdated</code>/<code>onCreated</code>, default off). <code>tabs.query({currentWindow: true})</code>, group by <strong>normalized URL</strong> — strip <code>#fragment</code> always; strip common tracking params (<code>utm_*</code>, <code>fbclid</code>, <code>gclid</code>, …) optionally (configurable); protocol/host case-folded. Groups with ≥ 2 tabs are duplicates.
+- <strong>Highlight (Chromium — chrome/edge/brave):</strong> move each duplicate set into a <strong>colored tab group</strong> via <code>chrome.tabs.group()</code> + <code>chrome.tabGroups.update(groupId, {color, title: "dup ×N"})</code> — cycling through distinct colors per set; this is the strongest native visual signal available. "Clear highlights" ungroups (<code>chrome.tabs.ungroup</code>).
+- <strong>Highlight (Firefox):</strong> no <code>tabGroups</code> API — fallback: badge shows total duplicate count; popup lists duplicate sets (favicon + title + URL) with per-tab <em>switch-to</em> / <em>close</em> buttons and a per-set <em>close others</em> action; duplicates are additionally marked by <code>tabs.highlight</code> multi-selection when the user hovers a set in the popup.
+- <strong>Actions:</strong> per-set "Keep first, close rest"; "close all duplicates" button with count preview; never auto-closes without explicit click.
+- <strong>Permissions:</strong> <code>tabs</code> (and <code>tabGroups</code> on Chromium) added via the §7.1 per-browser manifest overlays — a concrete first payoff of the overlay architecture.
+- <strong>Implementation home:</strong> background service worker owns scan/group state (<code>shared/dupTabs.ts</code>); popup renders results via the §7.2 typed message contract.</p>
+<p><strong>Effort:</strong> ~2d · <strong>Impact:</strong> Medium-High (immediate daily QoL; zero app-bridge dependency)</p>
+<hr />
+<h2 id="714-app-powered-cv-operations">7.14 App-Powered CV Operations<a class="headerlink" href="#714-app-powered-cv-operations" title="Permanent link">&para;</a></h2>
+<p><em>Right-click an image → the desktop app's ML stack processes it → result saved or returned to the browser. All items ride the §7.5 bridge and reuse models the app already ships.</em></p>
+<p><strong>Pain point:</strong> The app's CV capabilities (BiRefNet, Real-ESRGAN, WD14) are only reachable after a manual download → open-app → find-file → process loop.</p>
+<p><strong>Approach (selected):</strong>
+- <strong>A — Background removal:</strong> context item <strong>"Remove background"</strong> → <code>POST /api/extension/cv/bg-remove</code> <code>{url|data_b64}</code> → app runs BiRefNet (<code>birefnet_wrapper.py</code>), returns/saves transparent PNG (<code>&lt;name&gt;_nobg.png</code>) into the active folder profile. Long-running: job-id + polling (or SSE) using the app's existing task queue; extension shows a progress badge and notification on completion.
+- <strong>B — Upscale before save:</strong> context item <strong>"Upscale &amp; save"</strong> → <code>POST /api/extension/cv/upscale</code> <code>{url|data_b64, scale: 2|4}</code> → Real-ESRGAN (anime_6B, shared upscaler module CG.2); auto-suggested when the §7.11 extractor reports the best candidate is small (&lt; configurable threshold, e.g. 600px).
+- <strong>C — Auto-tag on save:</strong> §7.7 ingest gains <code>auto_tag: bool</code> — WD14 (<code>wd_tagger_wrapper.py</code>, §4.4) tags computed server-side at ingest; tags stored in DB + optional sidecar; threshold + review-queue semantics reuse <code>tag_with_review()</code>.
+- <strong>D — OCR extraction + translation:</strong> context item <strong>"Extract text"</strong> → <code>POST /api/extension/cv/ocr</code> <code>{url|data_b64, translate_to?: str}</code>; app runs OCR (manga-ocr for anime-style text, tesseract otherwise — new small app-side capability) and optional translation (local model, e.g. argos-translate/NLLB via the app; explicit non-cloud default). Result shown in a copyable popup panel with per-block layout; "copy all" + "save as .txt sidecar" actions.</p>
+<p><strong>Effort:</strong> A ~2d · B ~1d · C ~1d · D ~4d (OCR+translate is a new app capability) · <strong>Impact:</strong> High (turns the extension into a remote control for the app's ML)</p>
+<hr />
+<h2 id="715-media-capture-suite">7.15 Media Capture Suite<a class="headerlink" href="#715-media-capture-suite" title="Permanent link">&para;</a></h2>
+<p><em>Extends capture beyond static <code>&lt;img&gt;</code> elements to video, animations, and multi-image sequences.</em></p>
+<p><strong>Pain point:</strong> Video frames, GIF frames, webtoon strips, and clips are un-capturable today; these are exactly the media types the app's extractor and Anime Stitch Pipeline consume.</p>
+<p><strong>Approach (selected):</strong>
+- <strong>A — Video frame grabber: 🔄 Core shipped (S208, 2026-07-04)</strong> — <code>videoCapture.ts</code>: "Capture video frame" / "Capture 5-frame burst" context items, native-res canvas grab of the right-clicked video (context-target tracking, srcUrl fallback), suggestedName download path, clear CORS/DRM-taint error with partial-burst reporting. Remaining: configurable burst size/interval, paused-video seek-clone bursts. Original plan: context item on <code>&lt;video&gt;</code> <strong>"Capture frame"</strong> — draw current frame to canvas at <code>videoWidth×videoHeight</code> (native res), save as PNG; <strong>burst mode</strong> captures N frames at a configurable interval/step (seeking a cloned muted <code>&lt;video&gt;</code> when possible to avoid disturbing playback) and downloads as a numbered sequence — drag-ready input for the app's extractor/ASP tabs. DRM/cross-origin-tainted video degrades gracefully with a clear error toast.
+- <strong>B — GIF/animation frame extractor:</strong> context item <strong>"Extract frames…"</strong> on GIF/APNG/animated-WebP → decode in an extension page (<code>ImageDecoder</code> WebCodecs API where available; <code>omggif</code>/<code>upng</code> fallbacks) → frame grid preview with scrubber → save selected/all frames or send-to-app.
+- <strong>C — Webtoon capture → ASP stitch:</strong> on long vertical comic pages, <strong>"Capture strip → stitch"</strong> collects the ordered image sequence (§7.11 extractor, same container/class heuristics), sends the list to <code>POST /api/extension/stitch</code> → app runs the Anime Stitch Pipeline (or simple vertical concat for trivially-aligned strips) → returns one seamless long image saved to the library. The flagship crossover feature — no other extension can do this.
+- <strong>D — Video clip → GIF/WebP:</strong> popup action <strong>"Record clip"</strong> → <code>MediaRecorder</code> on <code>captureStream()</code> of the target <code>&lt;video&gt;</code> for a user-set duration (≤ 30s) → WebM; optional app-side conversion to GIF/WebP via the bridge (ffmpeg already in the app stack) with palette optimization.
+- <strong>E — Video downloader with range finder:</strong> context item <strong>"Download video…"</strong> on <code>&lt;video&gt;</code> → panel showing the source list (direct <code>src</code>, <code>&lt;source&gt;</code> variants, and network-sniffed media URLs via <code>webRequest</code> where permitted) + a <strong>time-range slider</strong> (start/end thumbnails scrubbed from the video): <em>full video</em> downloads directly; <em>selected range</em> is cut app-side via the bridge (<code>ffmpeg -ss … -to … -c copy</code> for stream-copy speed) or <code>MediaRecorder</code> re-capture fallback without the bridge. HLS/DASH streams: detect manifest and delegate segment download+mux to the app (yt-dlp/ffmpeg integration app-side); DRM content excluded.</p>
+<p><strong>Effort:</strong> A ~2d · B ~3d · C ~4d (app endpoint + sequence heuristics) · D ~3d · E ~1w (network sniffing + app-side cutting/muxing) · <strong>Impact:</strong> Very High (C and E are differentiators; A/B feed the app's core pipelines)</p>
+<hr />
+<h2 id="716-image-analysis-utilities">7.16 Image Analysis Utilities<a class="headerlink" href="#716-image-analysis-utilities" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> No way to inspect what an image <em>is</em> (metadata, provenance, generation parameters) or whether/where it exists elsewhere, before deciding to save it.</p>
+<p><strong>Approach (selected):</strong>
+- <strong>A — AI-metadata / EXIF inspector: ✅ Shipped (S208, 2026-07-04)</strong> — <code>shared/imageMeta.ts</code> (PNG tEXt/iTXt/zTXt with DecompressionStream inflate, JPEG SOF/COM/XMP + compact EXIF IFD0 reader, a1111/ComfyUI/NovelAI/InvokeAI detection) + <code>inspect.html</code> popup window opened from the "Inspect image metadata" context item; sidecar-save action still planned. Original plan: context item <strong>"Inspect image"</strong> → panel with EXIF/XMP/ICC basics plus <strong>embedded AI-generation metadata</strong>: a1111 <code>parameters</code> PNG text chunk, ComfyUI <code>workflow</code>/<code>prompt</code> JSON chunks, NovelAI/InvokeAI variants — prompt, negative prompt, model/LoRA, sampler, seed rendered in a readable card with copy buttons; "save metadata as sidecar" action. Parsing is pure client-side TS (PNG chunk + JPEG APP1 readers), no bridge needed.
+- <strong>B — Reverse-search shortcuts: ✅ Shipped (S208, 2026-07-04)</strong> — "Search image on ▸" submenu (SauceNAO/trace.moe/Lens/IQDB/TinEye) in <code>background.ts</code>; custom URL templates in options still planned. Original plan: context submenu <strong>"Search image on ▸"</strong> SauceNAO / trace.moe / Google Lens / IQDB / TinEye (configurable set + custom URL templates in options); opens <code>service_url + encodeURIComponent(image_url)</code> in a background tab; data-URL images uploaded via the service's POST form where supported.
+- <strong>C — Client-side pHash pre-check:</strong> TypeScript dHash/pHash (canvas 8×8 grayscale DCT) computed locally; the app periodically exports a compact hash snapshot (<code>GET /api/extension/phash-snapshot</code> → bloom filter / sorted hash list, cached in <code>storage.local</code>); turbo/bulk downloads get instant "probably already have this" hints even when the bridge is momentarily down; authoritative check remains §7.6.
+- <strong>D — Local-ML reverse search:</strong> <strong>"Find source/similar (local)"</strong> — embedding-based reverse search against the user's own library using local models only: primary path = app bridge (§7.8 similarity, BGE-M3/CLIP in the app); optional fully-in-browser fallback = quantized MobileCLIP/SigLIP via <code>transformers.js</code>/ONNX-Runtime-Web (WebGPU) matching against an exported embedding snapshot for bridge-down operation. Distinct from B: nothing leaves the machine.</p>
+<p><strong>Effort:</strong> A ~3d · B ~1d · C ~3d · D ~1w (browser-side model + snapshot infra) · <strong>Impact:</strong> High (A/B inform the save decision; C/D extend dedup/similarity to offline)</p>
+<hr />
+<h2 id="phasing-dependency-graph">Phasing &amp; Dependency Graph<a class="headerlink" href="#phasing-dependency-graph" title="Permanent link">&para;</a></h2>
+<p><strong>Phase E1 — Build &amp; Language Foundation (~1w):</strong> §7.1 webpack multi-manifest → §7.2 TypeScript → §7.3 unified MV3 → §7.4 options redesign.
+<strong>Phase E2 — App Bridge &amp; Duplicate Search (~1.5w):</strong> §7.5A HTTP bridge → §7.6 duplicate search → §7.7 send-to-app.
+<strong>Phase E3 — Capture Excellence (~2w):</strong> §7.11 full-res extractor → §7.9 bulk grabber → §7.10 rules/templating/sidecar → §7.12 turbo polish.
+<strong>Phase E4 — Deep Integration (later):</strong> §7.8 similarity search (needs §5.1 embedding index) → §7.5B native messaging.
+<strong>Phase E5 — CV &amp; Media Suite (parallel to E3/E4 once E2 lands):</strong> §7.16A metadata inspector + §7.16B reverse-search shortcuts (no bridge needed) → §7.15A/B frame grabbers → §7.14A/B/C bg-remove/upscale/auto-tag → §7.15C webtoon stitch → §7.15D/E clip recorder + range downloader → §7.14D OCR+translate → §7.16C/D offline hash/embedding search.</p>
+<pre class="mermaid"><code>flowchart TD
+    classDef feature     fill:#2563eb,color:#fff
+    classDef augment     fill:#7c3aed,color:#fff
+    classDef infra       fill:#0891b2,color:#fff
+    classDef integration fill:#9d174d,color:#fff
+    classDef planned     stroke:#64748b,stroke-width:2px
+
+    E1["§7.1 Webpack multi-manifest\n(chrome/firefox/edge/brave)"]:::infra:::planned
+    E2["§7.2 TypeScript + shared core"]:::infra:::planned
+    E3["§7.3 Unified MV3"]:::infra:::planned
+    E4["§7.4 Options redesign"]:::augment:::planned
+    E5A["§7.5A HTTP app bridge"]:::integration:::planned
+    E5B["§7.5B Native messaging host"]:::integration:::planned
+    E6["§7.6 Duplicate search"]:::integration:::planned
+    E7["§7.7 Send to Image Toolkit"]:::integration:::planned
+    E8["§7.8 Similarity search"]:::integration:::planned
+    E9["§7.9 Bulk page grabber"]:::feature:::planned
+    E10["§7.10 Site rules + templating\n+ metadata sidecar"]:::feature:::planned
+    E11["§7.11 Full-res extraction"]:::feature:::planned
+    E12["§7.12 Turbo polish"]:::augment:::planned
+    E13["§7.13 Duplicate tab highlighter"]:::feature:::planned
+    E14["§7.14 CV ops\n(bg-remove/upscale/tag/OCR)"]:::integration:::planned
+    E15["§7.15 Media capture\n(video/GIF/webtoon/clip/range)"]:::feature:::planned
+    E16["§7.16 Analysis utils\n(AI-meta/reverse/pHash/local-ML)"]:::feature:::planned
+
+    E1 ==&gt; E2 ==&gt; E4
+    E2 --&gt; E13
+    E5A ==&gt; E14
+    E2 --&gt; E15
+    E5A --&gt; E15
+    E2 --&gt; E16
+    E8 --- E16
+    E1 --&gt; E3
+    E2 ==&gt; E5A ==&gt; E6 ==&gt; E7
+    E6 --&gt; E8
+    E5A -.-&gt; E5B
+    E2 --&gt; E11 --&gt; E9
+    E4 --&gt; E10
+    E11 --&gt; E12
+    E6 --- E9</code></pre>
+<h2 id="effort-impact-matrix">Effort × Impact Matrix<a class="headerlink" href="#effort-impact-matrix" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th><strong>Effort ↓ / Impact →</strong></th>
+<th>Medium</th>
+<th>High</th>
+<th>Very High</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Low–Medium (1–3d)</strong></td>
+<td>§7.3 unified MV3 · §7.4 options redesign · §7.13 duplicate tab highlighter · §7.16B reverse-search shortcuts</td>
+<td>§7.1 webpack builds · §7.2 TypeScript · §7.7 send-to-app · §7.12 turbo polish · §7.14A bg-remove · §7.14B upscale · §7.14C auto-tag · §7.15A frame grabber · §7.16A AI-metadata inspector</td>
+<td>§7.5A HTTP bridge</td>
+</tr>
+<tr>
+<td><strong>Medium–High (4d–1w)</strong></td>
+<td>§7.16C client pHash</td>
+<td>§7.9 bulk grabber · §7.10 rules/templating · §7.11 full-res extraction · §7.8 similarity search · §7.14D OCR+translate · §7.15B GIF frames · §7.15D clip→GIF</td>
+<td>§7.6 duplicate search · §7.15C webtoon→ASP stitch</td>
+</tr>
+<tr>
+<td><strong>High (1w+)</strong></td>
+<td>§7.5B native messaging</td>
+<td>§7.16D local-ML reverse search</td>
+<td>§7.15E video range downloader</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

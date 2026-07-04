@@ -2227,6 +2227,39 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s208-2026-07-04-extension-roadmap-expansion-implementation-kickoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S208 — 2026-07-04 (Extension Roadmap Expansion + Implementation Kickoff)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s207-2026-07-04-browser-extension-roadmap-phase-ext" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S207 — 2026-07-04 (Browser Extension Roadmap — Phase EXT)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s206-2026-07-04-thumbnail-loading-optimization-c-fast-path-progressive-gallery-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S206 — 2026-07-04 (Thumbnail Loading Optimization — C++ Fast Path + Progressive Gallery Fill)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s205-2026-07-03-recursive-directory-scanning-vault-db-c-test-cleanups" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11708,6 +11741,39 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s208-2026-07-04-extension-roadmap-expansion-implementation-kickoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S208 — 2026-07-04 (Extension Roadmap Expansion + Implementation Kickoff)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s207-2026-07-04-browser-extension-roadmap-phase-ext" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S207 — 2026-07-04 (Browser Extension Roadmap — Phase EXT)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s206-2026-07-04-thumbnail-loading-optimization-c-fast-path-progressive-gallery-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S206 — 2026-07-04 (Thumbnail Loading Optimization — C++ Fast Path + Progressive Gallery Fill)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s205-2026-07-03-recursive-directory-scanning-vault-db-c-test-cleanups" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -21176,6 +21242,49 @@
 
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
+<h2 id="s208-2026-07-04-extension-roadmap-expansion-implementation-kickoff">S208 — 2026-07-04 (Extension Roadmap Expansion + Implementation Kickoff)<a class="headerlink" href="#s208-2026-07-04-extension-roadmap-expansion-implementation-kickoff" title="Permanent link">&para;</a></h2>
+<p><strong>Expanded Phase EXT with the duplicate-tab highlighter and CV-oriented features, then began implementing the roadmap.</strong></p>
+<ul>
+<li><strong>§7.13 Duplicate Tab Highlighter (EXT.13)</strong>: scan all tabs in the current window, group by normalized URL (fragment always stripped, tracking params optionally); duplicates highlighted via colored <code>chrome.tabs.group()</code>/<code>tabGroups.update()</code> on Chromium (chrome/edge/brave) with per-set colors, Firefox fallback = badge count + popup set list with switch-to/close/close-others actions; keep-first-close-rest per set; <code>tabs</code>/<code>tabGroups</code> permissions added through the §7.1 per-browser manifest overlays.</li>
+<li><strong>CV &amp; media brainstorm round 2 (user-selected, all accepted + 3 user additions)</strong> → three new roadmap sections:</li>
+<li><strong>§7.14 App-Powered CV Operations (EXT.14)</strong>: BiRefNet background removal, Real-ESRGAN upscale-before-save, WD14 auto-tag on ingest, OCR extraction <strong>+ local translation</strong> (user addition) — all via the §7.5 bridge with job-id polling.</li>
+<li><strong>§7.15 Media Capture Suite (EXT.15)</strong>: native-res <code>&lt;video&gt;</code> frame grabber with burst mode (ASP-ready sequences), GIF/APNG/animated-WebP frame extractor (WebCodecs <code>ImageDecoder</code>), webtoon strip capture → ASP stitch endpoint (flagship crossover), video clip → GIF/WebP via MediaRecorder + app-side ffmpeg palette conversion, and <strong>video downloader with time-range finder</strong> (user addition; full video or <code>ffmpeg -ss/-to</code> stream-copy cut app-side, HLS/DASH delegated to app).</li>
+<li><strong>§7.15A core implemented (EXT.15 🔄 — video frame grabber)</strong>: <code>videoCapture.ts</code> — "Capture video frame" + "Capture 5-frame burst" context items on <code>&lt;video&gt;</code> elements; content script tracks the last right-clicked element so the exact video is captured (srcUrl match / first-video fallbacks); native-resolution canvas grab → PNG data-URL → background download with explicit <code>suggestedName</code> (<code>&lt;video-stem&gt;_&lt;ts&gt;_fNN.png</code>, bypasses the filename template via new <code>DownloadImageMsg.suggestedName</code>); burst = 5 frames at 500 ms from the live video; cross-origin/DRM canvas taint surfaces as a clear notification with partial-burst count instead of a corrupt file. Works for MSE/blob videos (no srcUrl) via context-target tracking.</li>
+<li><strong>§7.16A implemented (AI-metadata / EXIF inspector)</strong>: <code>shared/imageMeta.ts</code> — pure client-side parsers: PNG chunk walker (IHDR dims; tEXt latin-1; iTXt with language/translated-keyword skip and zlib-compressed payloads inflated via browser <code>DecompressionStream</code>; zTXt), JPEG segment walker (SOFn dims, COM comment, XMP APP1, compact EXIF IFD0 ASCII reader — Make/Model/Software/DateTime/Artist/Copyright/ImageDescription), and AI-generation detection (a1111 <code>parameters</code>, ComfyUI <code>workflow</code>/<code>prompt</code>, NovelAI <code>Software</code>+<code>Comment</code>, InvokeAI). New <code>inspect.html</code>/<code>inspect.ts</code> webpack entry — popup window with AI-tool chip, pretty-printed JSON, copy buttons, EXIF/text-chunk grids; opened by the new "Inspect image metadata" context item (background fetch → parse → <code>lastInspect</code> in storage). Parser verified in Node against PIL-generated files (a1111 params PNG, compressed-iTXt workflow, JPEG EXIF + comment).</li>
+<li><strong>§7.9 modes A+B implemented (EXT.9 🔄 — bulk page capture)</strong>: <code>shared/pageMedia.ts</code> — <code>collectImages()</code> (all <code>&lt;img&gt;</code> ≥64px rendered/natural, §7.11 full-res candidate upgrade, URL dedupe), <code>collectVideos()</code> (<code>currentSrc</code>/<code>src</code>/<code>&lt;source&gt;</code> children; blob: MediaSource streams skipped), <code>collectPageMedia()</code>. <code>contentOverlay.ts</code> — click-to-select overlay: hover = dashed blue outline, selected = solid green, floating top-center action bar (live count, Download selected, Cancel), Esc cancels; all outlines/listeners restored on exit; turbo mode stands down while the overlay is active. Popup gains a "Page Capture" section ("⬇ Download all media", "🖱 Select images…") messaging the active tab; content script responds with image/video counts; background <code>downloadBatch()</code> routes every URL through the §7.10 folder-rules/template path and notifies when queued. New typed messages: <code>DownloadAllMediaMsg</code>, <code>StartSelectionOverlayMsg</code>, <code>DownloadBatchMsg</code>, <code>PageCaptureResponse</code>.</li>
+<li><strong>§7.9 revised (user direction)</strong>: bulk page grabber now specifies two capture modes — (A) one-click "Download all" for every image <strong>and video</strong> on the page, and (B) an in-page selection overlay (hover highlight, click-to-select with outline, floating Download-selected/Cancel bar, Esc cancels); the grid-preview page with filters stays as a later sub-item.</li>
+<li><strong>§7.7 core implemented (EXT.7 🔄 — send to Image Toolkit)</strong>: <code>POST /api/extension/ingest/</code> — saves the image into <code>ingest_dir</code> (config; falls back to <code>dup_root/inbox</code>) with a <code>&lt;file&gt;.json</code> provenance sidecar (source URL, page URL, page title, timestamp), URL-derived sanitised filename with <code>(N)</code> uniquification, and an implicit pre-ingest dup-check returning 409 + existing paths (bypassed with <code>force: true</code>); bridge version bumped to 1.1 with <code>ingest</code> feature flag. Extension: <code>ingest()</code> in <code>bridge.ts</code>, "Send to Image Toolkit" context item with saved-path / already-in-library / failure notifications. 5 new Django tests (15 total, all passing). Remaining for full ✅: embedding/DB indexing at ingest, collection picker.</li>
+<li><strong>§7.6 implemented (EXT.6 ✅ — in-browser duplicate search)</strong>: <code>extension/src/shared/bridge.ts</code> — typed bridge client (<code>ping()</code>, <code>dupCheck()</code>, <code>BridgeError</code> with HTTP status). <code>background.ts</code>: "Check if already downloaded" context item → <code>runDupCheck()</code> → OS notification (no-dup / N matches with closest path+distance / failure reason) and <code>lastDupCheck</code> persisted to <code>storage.local</code>. Popup: "Duplicate Check" panel renders the last result with 48px thumbnails, dimensions, Hamming distance, click-to-copy path; "Test connection" button in the Connection section saves the URL/token fields then pings — green/red dot with distinct messages for invalid-token vs unreachable vs dup-root-unconfigured. <code>notifications</code> permission added to all targets. <strong>Verified end-to-end against a live <code>runserver</code></strong>: 403 without token, ping OK with token, dup-check on a byte-identical library image returned hamming=0 with thumbnail.</li>
+<li><strong>§7.5A implemented (EXT.5 🔄 — HTTP bridge)</strong>: new <code>extension_api/</code> Django app wired into <code>api/settings.py</code> + <code>api/urls.py</code> under <code>/api/extension/</code>. <code>GET ping/</code> (version/features/dup_root_configured), <code>POST dup-check/</code> (<code>{url|data_b64, threshold?}</code> → server-side fetch, pHash, matches with hamming/dims/128px <code>thumb_b64</code>, 409 when no root configured). Auth: <code>BridgeTokenPermission</code> — <code>Authorization: Bearer</code> compared constant-time against an auto-generated <code>~/.image-toolkit/extension-bridge/token.txt</code> (0600); OPTIONS preflight passes so browsers can learn allowed headers. <code>CorsAPIView</code> echoes the extension origin. Config in <code>extension-bridge/config.json</code> (<code>dup_root</code>, <code>recursive</code>, <code>threshold</code>). OpenAPI-annotated (drf-spectacular). <strong>New <code>backend/src/core/dir_phash_index.py</code></strong>: <code>DirPhashIndex</code> — SQLite-cached (path,mtime,size)→phash index over a directory tree (C++ <code>base.scan_files_multi</code> fast path, os.walk fallback); incremental <code>refresh()</code> (drops deleted files), <code>query_bytes()</code> Hamming sweep via masked <code>int.bit_count()</code>; signed-64 storage fold for SQLite. Tests: 10 pytest (<code>backend/test/core/test_dir_phash_index.py</code>) + 10 Django (<code>extension_api/tests.py</code>, isolated tmp bridge dir) — all passing. Note: Django tests must run with the pixi env python (<code>.pixi/envs/default/bin/python manage.py test extension_api</code>) — the venv python can't load the C++ <code>base</code> module (libtiff/libjpeg symbol mismatch).</li>
+<li><strong>§7.4 + §7.10 core implemented (EXT.4 🔄 / EXT.10 🔄)</strong>: <code>shared/naming.ts</code> — <code>hostMatches()</code> wildcard hostname patterns, <code>resolveFolder()</code> (first matching site rule wins, falls back to global folder), <code>buildFilename()</code> (<code>{name}/{ext}/{site}/{date}/{time}</code> tokens, <code>/</code> subfolders, per-component sanitisation, unit-tested). <code>background.ts</code> <code>downloadImage(imageUrl, pageUrl)</code> now resolves folder via rules, names via template, and optionally emits a <code>&lt;file&gt;.json</code> provenance sidecar (source URL, page URL, timestamp) as a base64 data-URL download. Content script passes <code>pageUrl</code>; context-menu path uses <code>info.pageUrl</code>. Options page rebuilt with sections: General (folder, template, turbo, sidecar), Per-Site Folder Rules (dynamic pattern→folder row editor), Image Toolkit Connection (bridge URL + token fields), Duplicate Tabs. New settings: <code>siteRules</code>, <code>filenameTemplate</code>, <code>saveSidecar</code>, <code>bridgeUrl</code>, <code>bridgeToken</code>.</li>
+<li><strong>§7.11 core + §7.16B + §7.12 flash implemented (EXT.11 🔄 / EXT.16 🔄 / EXT.12 🔄)</strong>: <code>shared/extractor.ts</code> — <code>parseSrcset()</code> (w/x descriptor scoring, unit-tested), <code>bestImageUrl()</code> (srcset + parent <code>&lt;picture&gt;</code> sources + lazy attrs <code>data-src</code>/<code>data-original</code>/… + <code>currentSrc</code> baseline scored by naturalWidth), <code>backgroundImageUrl()</code> CSS fallback, <code>findImageAt()</code> hit-test; turbo mode now downloads the highest-res candidate instead of <code>img.src</code> and flashes a green outline on capture. <code>background.ts</code> gains a "Search image on ▸" context submenu (SauceNAO, trace.moe, Google Lens, IQDB, TinEye). Remaining for full ✅: per-site URL upgrade table + canvas fallback (§7.11), badge/modifier/per-site/history (§7.12), metadata inspector + pHash + local-ML (§7.16A/C/D).</li>
+<li><strong>§7.13 implemented (EXT.13 ✅)</strong>: <code>extension/src/shared/dupTabs.ts</code> — <code>normalizeUrl()</code> (case-folded protocol/host, fragment dropped, tracking params <code>utm_*</code>/<code>fbclid</code>/<code>gclid</code>/… optionally stripped while preserving real query params), <code>findDuplicateSets()</code> (largest-first), <code>scanAndHighlight()</code> (colored <code>dup ×N</code> tab groups via <code>chrome.tabs.group</code>+<code>tabGroups.update</code> cycling 8 colors on Chromium; badge count everywhere; popup set list fallback for Firefox), <code>clearHighlights()</code> (only dissolves groups titled <code>dup ×…</code> — never the user's own groups). Popup UI in <code>options.html/ts</code>: scan/clear buttons, per-set keep-first-close-rest, per-tab switch-to/close, "ignore tracking params" toggle persisted as <code>dupTabsStripParams</code>. <code>tabs</code> permission in base manifest; <code>tabGroups</code> only in the three Chromium overlays. Pure logic unit-checked in Node (normalization + set-building assertions).</li>
+<li><strong>Phase E1 implemented (EXT.1 ✅ / EXT.2 ✅ / EXT.3 ✅)</strong>: extension rebuilt as a TypeScript + webpack project.</li>
+<li><code>extension/src/</code> — <code>background.ts</code> (context-menu save; MV3-safe menu re-creation on install/startup), <code>content.ts</code> (turbo mode), <code>options/options.{html,ts}</code>, and shared core <code>shared/api.ts</code> (single browser adapter + promisified storage), <code>shared/settings.ts</code> (typed schema + defaults), <code>shared/messages.ts</code> (discriminated-union message contract incl. §7.13 dup-tab types). <code>tsc --noEmit</code> strict-mode clean.</li>
+<li><code>extension/webpack/</code> — <code>webpack.common.js</code> (<code>makeConfig(browser)</code>: ts-loader bundle, CopyPlugin assets, manifest generation via deep-merge of <code>manifest/manifest.base.json</code> + <code>manifest.&lt;browser&gt;.json</code> with <code>background</code> replaced wholesale and <code>version</code> stamped from <code>package.json</code>) + four per-browser configs. <code>dist/{chrome,firefox,edge,brave}/</code> verified: all MV3; Firefox gets event-page <code>background.scripts</code> + <code>browser_specific_settings.gecko</code> (min 115), Chromium targets get <code>service_worker</code>.</li>
+<li>Legacy <code>background.js</code>/<code>content.js</code>/<code>options.*</code>/<code>manifest*.json</code> (4 manifests) deleted from <code>extension/</code>; <code>.gitignore</code> for <code>node_modules</code>/<code>dist</code>; <code>just build-extension</code> (all targets) + <code>just build::build-extension-for &lt;browser&gt;</code> recipes added.</li>
+<li><strong>§7.16 Image Analysis Utilities (EXT.16)</strong>: EXIF + embedded AI-generation metadata inspector (a1111/ComfyUI/NovelAI PNG chunks, client-side parsing), reverse-image-search shortcuts submenu (SauceNAO/trace.moe/Lens/IQDB/TinEye, configurable), client-side pHash pre-check against an app-exported hash snapshot, and <strong>local-ML reverse search</strong> (user addition; app-bridge embeddings primary, transformers.js/ONNX-Runtime-Web MobileCLIP fallback — fully offline).</li>
+</ul>
+<hr />
+<h2 id="s207-2026-07-04-browser-extension-roadmap-phase-ext">S207 — 2026-07-04 (Browser Extension Roadmap — Phase EXT)<a class="headerlink" href="#s207-2026-07-04-browser-extension-roadmap-phase-ext" title="Permanent link">&para;</a></h2>
+<p><strong>Analyzed the <code>extension/</code> WebExtension, researched and brainstormed feature/upgrade ideas with the user, and created a dedicated extension roadmap.</strong></p>
+<ul>
+<li><strong>New roadmap</strong>: <code>moon/roadmaps/extension.md</code> (§7.1–§7.12, mirrored to <code>docs/roadmaps/extension.md</code>) covering: webpack multi-browser manifest generation in <code>extension/webpack/</code> (chrome/firefox/edge/brave overlays merged over <code>manifest.base.json</code>, replacing the three hand-maintained manifests), TypeScript migration + shared typed message contract, unified Manifest V3 (dropping the MV2 Firefox manifest), options page redesign, local app bridge (Phase A: token-authenticated localhost Django endpoints under <code>/api/extension/</code>; Phase B: native messaging host), <strong>in-browser duplicate search</strong> (right-click an image → pHash search of a user-configured directory and its subdirectories via the existing <code>PhashDeduplicator</code> §4.6), send-to-app ingestion with source-URL provenance + immediate indexing, visual similarity search against the local library, bulk page grabber with filterable grid preview, per-site folder rules + filename templating + metadata sidecar, full-resolution extraction (srcset/lazy-load/CSS-background/canvas), and turbo mode polish (capture feedback, modifier-key mode, per-site enable, history panel).</li>
+<li><strong>Master roadmap</strong>: new <strong>Phase EXT</strong> table (EXT.1–EXT.12) in <code>moon/ROADMAP.md</code> + <code>docs/roadmaps/ROADMAP.md</code>; extension.md added to the section-specific roadmap lists; dependency-graph mermaid gains <code>PEXT</code> node (P4 §4.5/§4.6 unblock EXT.5/EXT.6; EXT.8 gated on §5.1 CLIP index).</li>
+<li>Feature selection confirmed with the user (all brainstormed items accepted; transport = HTTP-first then native messaging).</li>
+</ul>
+<hr />
+<h2 id="s206-2026-07-04-thumbnail-loading-optimization-c-fast-path-progressive-gallery-fill">S206 — 2026-07-04 (Thumbnail Loading Optimization — C++ Fast Path + Progressive Gallery Fill)<a class="headerlink" href="#s206-2026-07-04-thumbnail-loading-optimization-c-fast-path-progressive-gallery-fill" title="Permanent link">&para;</a></h2>
+<p><strong>Optimized gallery thumbnail loading end-to-end (directory scan → decode → display) and made thumbnails appear progressively instead of all at once.</strong></p>
+<ul>
+<li><strong>Reduced-resolution JPEG decode (C++)</strong>: <code>base/src/image/image_batch.cpp</code> now reads each file into memory once and, for JPEG sources, walks the libjpeg IDCT-scaling ladder (<code>IMREAD_REDUCED_COLOR_8/4/2</code> → full) stopping at the first reduction that still covers the requested thumbnail size — up to ~8× faster decode for 4K sources at 256px thumbnails. Non-JPEG codecs (PNG/WebP) decode once at full resolution as before.</li>
+<li><strong>Persistent C++ disk thumbnail cache</strong>: new <code>cache_dir</code> parameter on <code>base.load_image_batch</code> persists thumbnails as JPEGs in <code>~/.image-toolkit/thumbnail-cache/</code> keyed by FNV-1a path hash + size, invalidated by source mtime. Measured: 4K JPEG + PNG batch cold load 96 ms → warm load 0.5 ms (~190×). Page revisits and directory re-opens are now near-instant across sessions (previously only videos had a disk cache).</li>
+<li><strong>RGB output (C++)</strong>: new <code>rgb</code> parameter returns RGB arrays so the GUI wraps them in <code>QImage</code> with a single copy, removing the per-image numpy BGR→RGB reversal copy in <code>_bgr_array_to_qimage</code>. Old signature (positional 4-arg) unchanged — fully backward compatible; Python worker falls back automatically on <code>TypeError</code>.</li>
+<li><strong>Progressive gallery fill (root cause fix)</strong>: previously all ~13 chunk-workers per page were queued on the global <code>QThreadPool</code> at once; each calls the native loader whose OpenMP loop competes for the same cores, so all chunks progressed in parallel and completed clustered at the end — the whole page flipped from "Loading..." to loaded at once. New <code>common_start_chunked_load()</code> in <code>AbstractGalleryBase</code> dispatches at most 2 chunks in flight and chains the next chunk on <code>batch_result</code>, so thumbnails now appear top-to-bottom as each chunk of 8 finishes (per-image <code>result</code> signals were already wired). Generation counter (<code>_load_generation</code>, bumped in both <code>cancel_loading</code> implementations) invalidates queued continuations on page change/cancel. No extra C++→Python signal traffic added — throughput preserved (oversubscription removed).</li>
+<li><strong>Main-thread rescale skip</strong>: <code>AbstractClassSingleGallery.update_card_pixmap</code> no longer runs a redundant <code>SmoothTransformation</code> rescale for loader-produced thumbnails that already fit the target size (100× per page on the GUI thread).</li>
+<li>Both <code>ImageLoaderWorker</code> and <code>BatchImageLoaderWorker</code> route through a shared <code>native_load_batch()</code> helper. <code>gui/test/image/test_image_helper.py</code> native-path assertion updated to the new call signature.</li>
+</ul>
+<hr />
 <h2 id="s205-2026-07-03-recursive-directory-scanning-vault-db-c-test-cleanups">S205 — 2026-07-03 (Recursive Directory Scanning &amp; Vault DB C++ Test Cleanups)<a class="headerlink" href="#s205-2026-07-03-recursive-directory-scanning-vault-db-c-test-cleanups" title="Permanent link">&para;</a></h2>
 <p><strong>Implemented system-wide settings for recursive directory scanning and resolved local database side effects in C++ unit tests.</strong></p>
 <ul>
