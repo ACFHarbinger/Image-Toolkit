@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     # Local apps
     "tasks",
+    "extension_api",
 ]
 
 MIDDLEWARE = [
