@@ -20,6 +20,9 @@
 - [7.11 Full-Resolution Extraction](#711-full-resolution-extraction)
 - [7.12 Turbo Mode Polish](#712-turbo-mode-polish)
 - [7.13 Duplicate Tab Highlighter](#713-duplicate-tab-highlighter)
+- [7.14 App-Powered CV Operations](#714-app-powered-cv-operations)
+- [7.15 Media Capture Suite](#715-media-capture-suite)
+- [7.16 Image Analysis Utilities](#716-image-analysis-utilities)
 - [Phasing & Dependency Graph](#phasing--dependency-graph)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 
@@ -264,12 +267,60 @@ extension/
 
 ---
 
+## 7.14 App-Powered CV Operations
+
+*Right-click an image → the desktop app's ML stack processes it → result saved or returned to the browser. All items ride the §7.5 bridge and reuse models the app already ships.*
+
+**Pain point:** The app's CV capabilities (BiRefNet, Real-ESRGAN, WD14) are only reachable after a manual download → open-app → find-file → process loop.
+
+**Approach (selected):**
+- **A — Background removal:** context item **"Remove background"** → `POST /api/extension/cv/bg-remove` `{url|data_b64}` → app runs BiRefNet (`birefnet_wrapper.py`), returns/saves transparent PNG (`<name>_nobg.png`) into the active folder profile. Long-running: job-id + polling (or SSE) using the app's existing task queue; extension shows a progress badge and notification on completion.
+- **B — Upscale before save:** context item **"Upscale & save"** → `POST /api/extension/cv/upscale` `{url|data_b64, scale: 2|4}` → Real-ESRGAN (anime_6B, shared upscaler module CG.2); auto-suggested when the §7.11 extractor reports the best candidate is small (< configurable threshold, e.g. 600px).
+- **C — Auto-tag on save:** §7.7 ingest gains `auto_tag: bool` — WD14 (`wd_tagger_wrapper.py`, §4.4) tags computed server-side at ingest; tags stored in DB + optional sidecar; threshold + review-queue semantics reuse `tag_with_review()`.
+- **D — OCR extraction + translation:** context item **"Extract text"** → `POST /api/extension/cv/ocr` `{url|data_b64, translate_to?: str}`; app runs OCR (manga-ocr for anime-style text, tesseract otherwise — new small app-side capability) and optional translation (local model, e.g. argos-translate/NLLB via the app; explicit non-cloud default). Result shown in a copyable popup panel with per-block layout; "copy all" + "save as .txt sidecar" actions.
+
+**Effort:** A ~2d · B ~1d · C ~1d · D ~4d (OCR+translate is a new app capability) · **Impact:** High (turns the extension into a remote control for the app's ML)
+
+---
+
+## 7.15 Media Capture Suite
+
+*Extends capture beyond static `<img>` elements to video, animations, and multi-image sequences.*
+
+**Pain point:** Video frames, GIF frames, webtoon strips, and clips are un-capturable today; these are exactly the media types the app's extractor and Anime Stitch Pipeline consume.
+
+**Approach (selected):**
+- **A — Video frame grabber:** context item on `<video>` **"Capture frame"** — draw current frame to canvas at `videoWidth×videoHeight` (native res), save as PNG; **burst mode** captures N frames at a configurable interval/step (seeking a cloned muted `<video>` when possible to avoid disturbing playback) and downloads as a numbered sequence — drag-ready input for the app's extractor/ASP tabs. DRM/cross-origin-tainted video degrades gracefully with a clear error toast.
+- **B — GIF/animation frame extractor:** context item **"Extract frames…"** on GIF/APNG/animated-WebP → decode in an extension page (`ImageDecoder` WebCodecs API where available; `omggif`/`upng` fallbacks) → frame grid preview with scrubber → save selected/all frames or send-to-app.
+- **C — Webtoon capture → ASP stitch:** on long vertical comic pages, **"Capture strip → stitch"** collects the ordered image sequence (§7.11 extractor, same container/class heuristics), sends the list to `POST /api/extension/stitch` → app runs the Anime Stitch Pipeline (or simple vertical concat for trivially-aligned strips) → returns one seamless long image saved to the library. The flagship crossover feature — no other extension can do this.
+- **D — Video clip → GIF/WebP:** popup action **"Record clip"** → `MediaRecorder` on `captureStream()` of the target `<video>` for a user-set duration (≤ 30s) → WebM; optional app-side conversion to GIF/WebP via the bridge (ffmpeg already in the app stack) with palette optimization.
+- **E — Video downloader with range finder:** context item **"Download video…"** on `<video>` → panel showing the source list (direct `src`, `<source>` variants, and network-sniffed media URLs via `webRequest` where permitted) + a **time-range slider** (start/end thumbnails scrubbed from the video): *full video* downloads directly; *selected range* is cut app-side via the bridge (`ffmpeg -ss … -to … -c copy` for stream-copy speed) or `MediaRecorder` re-capture fallback without the bridge. HLS/DASH streams: detect manifest and delegate segment download+mux to the app (yt-dlp/ffmpeg integration app-side); DRM content excluded.
+
+**Effort:** A ~2d · B ~3d · C ~4d (app endpoint + sequence heuristics) · D ~3d · E ~1w (network sniffing + app-side cutting/muxing) · **Impact:** Very High (C and E are differentiators; A/B feed the app's core pipelines)
+
+---
+
+## 7.16 Image Analysis Utilities
+
+**Pain point:** No way to inspect what an image *is* (metadata, provenance, generation parameters) or whether/where it exists elsewhere, before deciding to save it.
+
+**Approach (selected):**
+- **A — AI-metadata / EXIF inspector:** context item **"Inspect image"** → panel with EXIF/XMP/ICC basics plus **embedded AI-generation metadata**: a1111 `parameters` PNG text chunk, ComfyUI `workflow`/`prompt` JSON chunks, NovelAI/InvokeAI variants — prompt, negative prompt, model/LoRA, sampler, seed rendered in a readable card with copy buttons; "save metadata as sidecar" action. Parsing is pure client-side TS (PNG chunk + JPEG APP1 readers), no bridge needed.
+- **B — Reverse-search shortcuts:** context submenu **"Search image on ▸"** SauceNAO / trace.moe / Google Lens / IQDB / TinEye (configurable set + custom URL templates in options); opens `service_url + encodeURIComponent(image_url)` in a background tab; data-URL images uploaded via the service's POST form where supported.
+- **C — Client-side pHash pre-check:** TypeScript dHash/pHash (canvas 8×8 grayscale DCT) computed locally; the app periodically exports a compact hash snapshot (`GET /api/extension/phash-snapshot` → bloom filter / sorted hash list, cached in `storage.local`); turbo/bulk downloads get instant "probably already have this" hints even when the bridge is momentarily down; authoritative check remains §7.6.
+- **D — Local-ML reverse search:** **"Find source/similar (local)"** — embedding-based reverse search against the user's own library using local models only: primary path = app bridge (§7.8 similarity, BGE-M3/CLIP in the app); optional fully-in-browser fallback = quantized MobileCLIP/SigLIP via `transformers.js`/ONNX-Runtime-Web (WebGPU) matching against an exported embedding snapshot for bridge-down operation. Distinct from B: nothing leaves the machine.
+
+**Effort:** A ~3d · B ~1d · C ~3d · D ~1w (browser-side model + snapshot infra) · **Impact:** High (A/B inform the save decision; C/D extend dedup/similarity to offline)
+
+---
+
 ## Phasing & Dependency Graph
 
 **Phase E1 — Build & Language Foundation (~1w):** §7.1 webpack multi-manifest → §7.2 TypeScript → §7.3 unified MV3 → §7.4 options redesign.
 **Phase E2 — App Bridge & Duplicate Search (~1.5w):** §7.5A HTTP bridge → §7.6 duplicate search → §7.7 send-to-app.
 **Phase E3 — Capture Excellence (~2w):** §7.11 full-res extractor → §7.9 bulk grabber → §7.10 rules/templating/sidecar → §7.12 turbo polish.
 **Phase E4 — Deep Integration (later):** §7.8 similarity search (needs §5.1 embedding index) → §7.5B native messaging.
+**Phase E5 — CV & Media Suite (parallel to E3/E4 once E2 lands):** §7.16A metadata inspector + §7.16B reverse-search shortcuts (no bridge needed) → §7.15A/B frame grabbers → §7.14A/B/C bg-remove/upscale/auto-tag → §7.15C webtoon stitch → §7.15D/E clip recorder + range downloader → §7.14D OCR+translate → §7.16C/D offline hash/embedding search.
 
 ```mermaid
 flowchart TD
@@ -293,9 +344,17 @@ flowchart TD
     E11["§7.11 Full-res extraction"]:::feature:::planned
     E12["§7.12 Turbo polish"]:::augment:::planned
     E13["§7.13 Duplicate tab highlighter"]:::feature:::planned
+    E14["§7.14 CV ops\n(bg-remove/upscale/tag/OCR)"]:::integration:::planned
+    E15["§7.15 Media capture\n(video/GIF/webtoon/clip/range)"]:::feature:::planned
+    E16["§7.16 Analysis utils\n(AI-meta/reverse/pHash/local-ML)"]:::feature:::planned
 
     E1 ==> E2 ==> E4
     E2 --> E13
+    E5A ==> E14
+    E2 --> E15
+    E5A --> E15
+    E2 --> E16
+    E8 --- E16
     E1 --> E3
     E2 ==> E5A ==> E6 ==> E7
     E6 --> E8
@@ -310,6 +369,6 @@ flowchart TD
 
 | **Effort ↓ / Impact →** | Medium | High | Very High |
 |---|---|---|---|
-| **Low–Medium (1–3d)** | §7.3 unified MV3 · §7.4 options redesign · §7.13 duplicate tab highlighter | §7.1 webpack builds · §7.2 TypeScript · §7.7 send-to-app · §7.12 turbo polish | §7.5A HTTP bridge |
-| **Medium–High (4d–1w)** | — | §7.9 bulk grabber · §7.10 rules/templating · §7.11 full-res extraction · §7.8 similarity search | §7.6 duplicate search |
-| **High (1w+)** | §7.5B native messaging | — | — |
+| **Low–Medium (1–3d)** | §7.3 unified MV3 · §7.4 options redesign · §7.13 duplicate tab highlighter · §7.16B reverse-search shortcuts | §7.1 webpack builds · §7.2 TypeScript · §7.7 send-to-app · §7.12 turbo polish · §7.14A bg-remove · §7.14B upscale · §7.14C auto-tag · §7.15A frame grabber · §7.16A AI-metadata inspector | §7.5A HTTP bridge |
+| **Medium–High (4d–1w)** | §7.16C client pHash | §7.9 bulk grabber · §7.10 rules/templating · §7.11 full-res extraction · §7.8 similarity search · §7.14D OCR+translate · §7.15B GIF frames · §7.15D clip→GIF | §7.6 duplicate search · §7.15C webtoon→ASP stitch |
+| **High (1w+)** | §7.5B native messaging | §7.16D local-ML reverse search | §7.15E video range downloader |
