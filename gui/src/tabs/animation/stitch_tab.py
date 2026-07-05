@@ -3603,18 +3603,18 @@ class StitchTab(QWidget):
         try:
             img = Image.open(self._adj_img_path)
             result = _apply_adjustments(img, {"auto_wb": True})
-            tmp = tempfile.NamedTemporaryFile(
+            with tempfile.NamedTemporaryFile(
                 suffix=os.path.splitext(self._adj_img_path)[1] or ".png",
                 delete=False,
-            )
-            result.save(tmp.name)
-            tmp.close()
+            ) as tmp:
+                tmp_name = tmp.name
+            result.save(tmp_name)
             # Reset temperature/tint sliders then trigger preview from tmp
             for sl in (self._adj_temperature, self._adj_tint):
                 sl.blockSignals(True)
                 sl.setValue(0)
                 sl.blockSignals(False)
-            self._adj_img_path = tmp.name
+            self._adj_img_path = tmp_name
             self._adj_schedule_preview()
         except Exception as e:
             self._adj_status_label.setText(f"Auto WB failed: {e}")
@@ -3784,9 +3784,8 @@ class StitchTab(QWidget):
         """Save the adjusted result to a temp file and return its path."""
         if not self._adj_img_path:
             return None
-        tmp = tempfile.NamedTemporaryFile(suffix=".png", prefix="adj_", delete=False)
-        tmp_path = tmp.name
-        tmp.close()
+        with tempfile.NamedTemporaryFile(suffix=".png", prefix="adj_", delete=False) as tmp:
+            tmp_path = tmp.name
         try:
             img = Image.open(self._adj_img_path)
             result = _apply_adjustments(img, self._adj_collect_params())
@@ -4076,7 +4075,7 @@ class StitchTab(QWidget):
             "active_subtab_index": self._tab_widget.currentIndex(),
         }
 
-    def set_config(self, cfg: dict):
+    def set_config(self, cfg: dict):  # noqa: C901
         # Stitch
         if "output_path" in cfg:
             self._output_path.setText(cfg["output_path"])
@@ -4641,7 +4640,7 @@ class StitchTab(QWidget):
 
     # ------------------------------------------------------------------
     @staticmethod
-    def _stats_build_recommendations(
+    def _stats_build_recommendations(  # noqa: C901
         ind: List[dict],
         pw: List[dict],
         max_orb: int,  # noqa: ARG004

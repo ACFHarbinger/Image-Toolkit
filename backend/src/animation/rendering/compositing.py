@@ -3121,38 +3121,13 @@ def _find_optimal_boundaries(
     return optimised, diffs
 
 
-def _seam_cut(
+def _compute_seam_energy(
     img1: np.ndarray,
     img2: np.ndarray,
-    edge_weight: float = 15.0,
-    sem_cost: Optional[np.ndarray] = None,
-    sem_weight: float = 200.0,
-    waypoints: Optional[List[Tuple[int, int]]] = None,
+    edge_weight: float,
+    sem_cost: Optional[np.ndarray],
+    sem_weight: float,
 ) -> np.ndarray:
-    if BATCH_AVAILABLE:
-        w_list = []
-        if waypoints:
-            w_list = [-1] * img1.shape[1]
-            for wx, wy in waypoints:
-                if 0 <= wx < len(w_list):
-                    w_list[wx] = wy
-        c_cost = (sem_cost * sem_weight) if sem_cost is not None else None
-        return batch.seam.seam_cut(img1, img2, c_cost, w_list, _SEAM_TRANSITION_PEN, edge_weight)
-    """
-    DP seam cut that strongly avoids outlines in *either* frame.
-
-    Energy = diff(img1,img2) + grad(diff) + edge_weight*(edges_in_img1 + edges_in_img2)
-             + sem_weight * sem_cost   (P2.4 — character boundary avoidance)
-
-    Returns path[x] = y-offset in [0, h-1] for the minimum-energy horizontal
-    cut running left→right across the (h × W × 3) slices.
-
-    §2.11A: *waypoints* is an optional list of ``(x, y)`` pairs in zone-local
-    coordinates (x = column 0..W-1, y = row 0..h-1).  Each waypoint forces the
-    seam to pass through that exact pixel by setting all other rows in column x
-    to ``+inf`` before the DP forward pass.  The seam then fans out from the
-    forced pixel in subsequent columns, so 3-connectivity is preserved.
-    """
     diff = cv2.absdiff(img1, img2).astype(np.float32).mean(axis=2)
     gx_d = cv2.Sobel(diff, cv2.CV_32F, 1, 0, ksize=3)
     gy_d = cv2.Sobel(diff, cv2.CV_32F, 0, 1, ksize=3)
@@ -3178,51 +3153,89 @@ def _seam_cut(
         row_dist_norm = row_dist / max(float(row_dist.max()), 1.0)
         energy = energy + row_dist_norm[:, np.newaxis] * _SEAM_TRANSITION_PEN
 
+    return energy
+
+
+def _seam_cut_batch(
+    img1: np.ndarray,
+    img2: np.ndarray,
+    edge_weight: float,
+    sem_cost: Optional[np.ndarray],
+    sem_weight: float,
+    waypoints: Optional[List[Tuple[int, int]]],
+) -> np.ndarray:
+    w_list = []
+    if waypoints:
+        w_list = [-1] * img1.shape[1]
+        for wx, wy in waypoints:
+            if 0 <= wx < len(w_list):
+                w_list[wx] = wy
+    c_cost = (sem_cost * sem_weight) if sem_cost is not None else None
+    return batch.seam.seam_cut(img1, img2, c_cost, w_list, _SEAM_TRANSITION_PEN, edge_weight)
+
+
+def _prepare_waypoints(
+    W_e: int,
+    h_e: int,
+    waypoints: Optional[List[Tuple[int, int]]],
+) -> Tuple[Dict[int, int], np.ndarray]:
+    wp_force: Dict[int, int] = {}
+    wp_inf_mask = np.zeros((W_e, h_e), dtype=bool)
+    if waypoints:
+        for x_wp, y_wp in waypoints:
+            if 0 <= x_wp < W_e and 0 <= y_wp < h_e:
+                wp_force[x_wp] = y_wp
+                wp_inf_mask[x_wp, :] = True
+                wp_inf_mask[x_wp, y_wp] = False
+    return wp_force, wp_inf_mask
+
+
+def _seam_cut(
+    img1: np.ndarray,
+    img2: np.ndarray,
+    edge_weight: float = 15.0,
+    sem_cost: Optional[np.ndarray] = None,
+    sem_weight: float = 200.0,
+    waypoints: Optional[List[Tuple[int, int]]] = None,
+) -> np.ndarray:
+    if BATCH_AVAILABLE:
+        return _seam_cut_batch(img1, img2, edge_weight, sem_cost, sem_weight, waypoints)
+    """
+    DP seam cut that strongly avoids outlines in *either* frame.
+
+    Energy = diff(img1,img2) + grad(diff) + edge_weight*(edges_in_img1 + edges_in_img2)
+             + sem_weight * sem_cost   (P2.4 — character boundary avoidance)
+
+    Returns path[x] = y-offset in [0, h-1] for the minimum-energy horizontal
+    cut running left→right across the (h × W × 3) slices.
+
+    §2.11A: *waypoints* is an optional list of ``(x, y)`` pairs in zone-local
+    coordinates (x = column 0..W-1, y = row 0..h-1).  Each waypoint forces the
+    seam to pass through that exact pixel by setting all other rows in column x
+    to ``+inf`` before the DP forward pass.  The seam then fans out from the
+    forced pixel in subsequent columns, so 3-connectivity is preserved.
+    """
+    energy = _compute_seam_energy(img1, img2, edge_weight, sem_cost, sem_weight)
+
     # Transpose (h, W) → (W, h) so DP runs left→right; path[x] = y-offset
     E = energy.T.copy()
     W_e, h_e = E.shape
 
     # §2.11A: Intelligent Scissors waypoint injection.
-    # Setting all rows except y_wp to +inf in column x_wp forces the DP forward
-    # pass to route through (x_wp, y_wp): no other row can accumulate finite cost
-    # in that column, so the traceback is guaranteed to land on y_wp.  The seam
-    # fans out from the forced pixel in subsequent columns at the normal DP rate
-    # (±1 per column), preserving 3-connectivity end-to-end.
-    if waypoints:
-        for x_wp, y_wp in waypoints:
-            x_wp, y_wp = x_wp, y_wp
-            if 0 <= x_wp < W_e and 0 <= y_wp < h_e:
-                col_mask = np.ones(h_e, dtype=bool)
-                col_mask[y_wp] = False
-                E[x_wp, col_mask] = np.inf
+    wp_force, wp_inf_mask = _prepare_waypoints(W_e, h_e, waypoints)
+    E[wp_inf_mask] = np.inf
 
     # §1.5A: Vectorized DP forward pass.
-    # minimum_filter1d(row, size=3) computes min(row[j-1], row[j], row[j+1])
-    # at every j with cval=inf boundaries — equivalent to the previous
-    # per-iteration left/right array allocations but runs as a compiled C kernel.
     for i in range(1, W_e):
         E[i] += _min_filt1d(E[i - 1], size=3, mode="constant", cval=np.inf)
 
-    # §2.11A: build lookup for forced traceback at waypoint columns.
-    # The forward-pass inf-injection ensures the seam fans out from y_wp rightward,
-    # but the traceback (right→left) may arrive at column x_wp from a row that is
-    # outside the ±1 window of y_wp when the seam moved far between x_wp and the
-    # end column.  Forcing j = y_wp in the traceback loop at each waypoint column
-    # guarantees the path lands exactly on the waypoint regardless of arrival row.
-    _wp_force: Dict[int, int] = {}
-    if waypoints:
-        for _xw, _yw in waypoints:
-            _xw, _yw = _xw, _yw
-            if 0 <= _xw < W_e and 0 <= _yw < h_e:
-                _wp_force[_xw] = _yw
-
     # Traceback: avoid per-step Python list allocation by using slice argmin.
     path = np.empty(W_e, dtype=np.int32)
-    j = _wp_force.get(W_e - 1, int(E[W_e - 1].argmin()))
+    j = wp_force.get(W_e - 1, int(E[W_e - 1].argmin()))
     path[W_e - 1] = j
     for i in range(W_e - 2, -1, -1):
-        if i in _wp_force:
-            j = _wp_force[i]  # §2.11A: hard-force seam through waypoint
+        if i in wp_force:
+            j = wp_force[i]  # §2.11A: hard-force seam through waypoint
         else:
             j_lo = max(0, j - 1)
             j_hi = min(h_e, j + 2)  # exclusive
@@ -3236,7 +3249,7 @@ def _seam_cut(
         path = _clamp_seam_path(path, h_e, _SEAM_MARGIN)
     # §2.11A: re-apply waypoints after post-processing so smoothing and clamping
     # cannot displace the user-specified seam positions.  Hard constraints win.
-    for _x_final, _y_final in _wp_force.items():
+    for _x_final, _y_final in wp_force.items():
         path[_x_final] = _y_final
     return path  # path[x] in [0, zone_h-1]
 
@@ -3340,6 +3353,138 @@ def _build_fg_mesh_barrier(
         pts = points[simplex].astype(np.int32)
         cv2.fillConvexPoly(barrier, pts, 1e6)
     return barrier
+
+
+def _apply_mesh_barrier(
+    cost: np.ndarray,
+    bg_mask_a: Optional[np.ndarray],
+    bg_mask_b: Optional[np.ndarray],
+    zone_h: int,
+    zone_w: int,
+) -> np.ndarray:
+    if _MESH_BARRIER:
+        combined_fg = np.zeros((zone_h, zone_w), dtype=np.uint8)
+        for bm in (bg_mask_a, bg_mask_b):
+            if bm is not None:
+                fg_bm = (bm < 127).astype(np.uint8) * 255
+                if fg_bm.shape != (zone_h, zone_w):
+                    fg_bm = cv2.resize(
+                        fg_bm, (zone_w, zone_h), interpolation=cv2.INTER_NEAREST
+                    )
+                combined_fg = np.maximum(combined_fg, fg_bm)
+        if combined_fg.any():
+            mesh_cost = _build_fg_mesh_barrier(combined_fg)
+            cost = np.maximum(cost, mesh_cost)
+    return cost
+
+
+def _apply_exclusion_masks(
+    cost: np.ndarray,
+    exclusion_masks: Optional[List[np.ndarray]],
+    zone_h: int,
+    zone_w: int,
+) -> np.ndarray:
+    if exclusion_masks:
+        for em in exclusion_masks:
+            if em is None:
+                continue
+            em_zone = em
+            if em.shape != (zone_h, zone_w):
+                em_zone = cv2.resize(
+                    em, (zone_w, zone_h), interpolation=cv2.INTER_NEAREST
+                )
+            cost[em_zone > 127] = 1e6
+    return cost
+
+
+def _post_process_seam_cost(
+    cost: np.ndarray,
+    canvas_zone: np.ndarray,
+    zone_h: int,
+    zone_w: int,
+) -> np.ndarray:
+    # §1.35: Line-art gradient penalty — fg-interior outline pixels cost more than flat fill.
+    # Adds normalized Laplacian magnitude (in [0, _LINE_GRAD_WEIGHT]) only to fg pixels
+    # (cost >= 1.0), so character outline pixels become more expensive than the body fill.
+    if _LINE_GRAD_WEIGHT > 0.0 and canvas_zone.size > 0:
+        grad = _fg_gradient_cost(canvas_zone, _LINE_GRAD_WEIGHT)
+        fg_mask = cost >= 1.0
+        cost[fg_mask] = cost[fg_mask] + grad[fg_mask]
+
+    # §3.17 — high-frequency column cost: penalise texture-heavy columns.
+    if _HF_SEAM_COST:
+        cost = cost + _hf_column_cost(
+            canvas_zone, canvas_zone, _HF_SEAM_THRESHOLD, _HF_SEAM_BOOST
+        )
+
+    # §1.99: Amplify fg cost at seam zone top/bottom to force bg entry/exit.
+    if _SEAM_PIN_ROWS > 0 and zone_h > 2 * _SEAM_PIN_ROWS:
+        _pin = _SEAM_PIN_ROWS
+        _fg_pin = cost >= 1.0
+        cost[:_pin] = np.where(_fg_pin[:_pin], cost[:_pin] * 10.0, cost[:_pin])
+        cost[-_pin:] = np.where(_fg_pin[-_pin:], cost[-_pin:] * 10.0, cost[-_pin:])
+
+    # §1.109: L-inf normalize non-barrier costs to [0, 1].
+    if _COST_MAP_NORM:
+        soft_mask = cost < 1e5
+        soft_max = float(cost[soft_mask].max()) if soft_mask.any() else 1.0
+        if soft_max > 1e-6:
+            cost = np.where(soft_mask, cost / soft_max, cost)
+
+    # §1.110: Gaussian blur soft-cost region to smooth tier transitions (S154).
+    if _COST_MAP_BLUR_SIGMA > 0.0:
+        from scipy.ndimage import gaussian_filter as _gf
+
+        soft_mask = cost < 1e5
+        barriers = np.where(soft_mask, 0.0, cost)
+        blurred = _gf(
+            np.where(soft_mask, cost, 0.0).astype(np.float64),
+            sigma=_COST_MAP_BLUR_SIGMA,
+        )
+        cost = np.where(soft_mask, blurred, barriers)
+
+    # §1.113: Column-wise Gaussian smooth on soft-cost region (S155).
+    if _COST_COL_SMOOTH_SIGMA > 0.0:
+        from scipy.ndimage import gaussian_filter1d as _gf1d_col
+
+        _soft_col = cost < 1e5
+        _cost_soft = np.where(_soft_col, cost, 0.0)
+        _cost_soft_smooth = _gf1d_col(
+            _cost_soft.astype(np.float64),
+            sigma=_COST_COL_SMOOTH_SIGMA,
+            axis=1,
+            mode="nearest",
+        )
+        cost = np.where(_soft_col, _cost_soft_smooth.astype(np.float32), cost)
+
+    # §1.123: Local scatter penalty — per-pixel local variance additive term (S158).
+    # Penalises high-frequency noise/texture regions, steering DP toward smooth bg.
+    if _SCATTER_COST and canvas_zone.size > 0:
+        _gray_sc = cv2.cvtColor(canvas_zone, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        _mean_sc = cv2.boxFilter(_gray_sc, cv2.CV_32F, (3, 3))
+        _mean_sq_sc = cv2.boxFilter((_gray_sc**2), cv2.CV_32F, (3, 3))
+        _var_sc = np.maximum(0.0, _mean_sq_sc - _mean_sc**2)
+        _soft_sc = cost < 1e5
+        _var_max = float(_var_sc[_soft_sc].max()) if _soft_sc.any() else 1.0
+        if _var_max > 1e-6:
+            _scatter = (_var_sc / _var_max) * _SCATTER_COST_WEIGHT
+            cost = np.where(_soft_sc, cost + _scatter.astype(np.float32), cost)
+
+    # §1.126 — Fg-majority column floor (S159).
+    # When the zone is >60% fg interior (cost ≥ 1.0), raises columns that are
+    # >80% fg to at least _FG_MAJORITY_FLOOR so the DP seam is guided toward
+    # the minority background/low-cost corridor columns.
+    if _FG_MAJORITY_FLOOR > 0.0:
+        _zone_fg_frac_126 = float((cost >= 1.0).mean())
+        if _zone_fg_frac_126 > 0.60:
+            _col_fg_frac = (cost >= 1.0).mean(axis=0)
+            _heavy_cols = _col_fg_frac > 0.80
+            if _heavy_cols.any() and not _heavy_cols.all():
+                cost[:, _heavy_cols] = np.maximum(
+                    cost[:, _heavy_cols], _FG_MAJORITY_FLOOR
+                )
+
+    return cost
 
 
 def _build_seam_cost_map(
@@ -3480,113 +3625,13 @@ def _build_seam_cost_map(
         cost[:, dominated] = np.maximum(cost[:, dominated], _barrier)
 
     # §3.15B — OBJ-GSP triangular mesh barrier (S144).
-    if _MESH_BARRIER:
-        combined_fg = np.zeros((zone_h, zone_w), dtype=np.uint8)
-        for bm in (bg_mask_a, bg_mask_b):
-            if bm is not None:
-                fg_bm = (bm < 127).astype(np.uint8) * 255
-                if fg_bm.shape != (zone_h, zone_w):
-                    fg_bm = cv2.resize(
-                        fg_bm, (zone_w, zone_h), interpolation=cv2.INTER_NEAREST
-                    )
-                combined_fg = np.maximum(combined_fg, fg_bm)
-        if combined_fg.any():
-            mesh_cost = _build_fg_mesh_barrier(combined_fg)
-            cost = np.maximum(cost, mesh_cost)
+    cost = _apply_mesh_barrier(cost, bg_mask_a, bg_mask_b, zone_h, zone_w)
 
     # Issue 10A3 — NL seam routing: inject hard-barrier exclusion masks.
-    # Each mask pixel > 127 receives cost=1e6 so the DP cannot route through it.
-    if exclusion_masks:
-        for em in exclusion_masks:
-            if em is None:
-                continue
-            em_zone = em
-            if em.shape != (zone_h, zone_w):
-                em_zone = cv2.resize(
-                    em, (zone_w, zone_h), interpolation=cv2.INTER_NEAREST
-                )
-            cost[em_zone > 127] = 1e6
+    cost = _apply_exclusion_masks(cost, exclusion_masks, zone_h, zone_w)
 
-    # §1.35: Line-art gradient penalty — fg-interior outline pixels cost more than flat fill.
-    # Adds normalized Laplacian magnitude (in [0, _LINE_GRAD_WEIGHT]) only to fg pixels
-    # (cost >= 1.0), so character outline pixels become more expensive than the body fill.
-    if _LINE_GRAD_WEIGHT > 0.0 and canvas_zone.size > 0:
-        grad = _fg_gradient_cost(canvas_zone, _LINE_GRAD_WEIGHT)
-        fg_mask = cost >= 1.0
-        cost[fg_mask] = cost[fg_mask] + grad[fg_mask]
-
-    # §3.17 — high-frequency column cost: penalise texture-heavy columns.
-    if _HF_SEAM_COST:
-        cost = cost + _hf_column_cost(
-            canvas_zone, canvas_zone, _HF_SEAM_THRESHOLD, _HF_SEAM_BOOST
-        )
-
-    # §1.99: Amplify fg cost at seam zone top/bottom to force bg entry/exit.
-    if _SEAM_PIN_ROWS > 0 and zone_h > 2 * _SEAM_PIN_ROWS:
-        _pin = _SEAM_PIN_ROWS
-        _fg_pin = cost >= 1.0
-        cost[:_pin] = np.where(_fg_pin[:_pin], cost[:_pin] * 10.0, cost[:_pin])
-        cost[-_pin:] = np.where(_fg_pin[-_pin:], cost[-_pin:] * 10.0, cost[-_pin:])
-
-    # §1.109: L-inf normalize non-barrier costs to [0, 1].
-    if _COST_MAP_NORM:
-        soft_mask = cost < 1e5
-        soft_max = float(cost[soft_mask].max()) if soft_mask.any() else 1.0
-        if soft_max > 1e-6:
-            cost = np.where(soft_mask, cost / soft_max, cost)
-
-    # §1.110: Gaussian blur soft-cost region to smooth tier transitions (S154).
-    if _COST_MAP_BLUR_SIGMA > 0.0:
-        from scipy.ndimage import gaussian_filter as _gf
-
-        soft_mask = cost < 1e5
-        barriers = np.where(soft_mask, 0.0, cost)
-        blurred = _gf(
-            np.where(soft_mask, cost, 0.0).astype(np.float64),
-            sigma=_COST_MAP_BLUR_SIGMA,
-        )
-        cost = np.where(soft_mask, blurred, barriers)
-
-    # §1.113: Column-wise Gaussian smooth on soft-cost region (S155).
-    if _COST_COL_SMOOTH_SIGMA > 0.0:
-        from scipy.ndimage import gaussian_filter1d as _gf1d_col
-
-        _soft_col = cost < 1e5
-        _cost_soft = np.where(_soft_col, cost, 0.0)
-        _cost_soft_smooth = _gf1d_col(
-            _cost_soft.astype(np.float64),
-            sigma=_COST_COL_SMOOTH_SIGMA,
-            axis=1,
-            mode="nearest",
-        )
-        cost = np.where(_soft_col, _cost_soft_smooth.astype(np.float32), cost)
-
-    # §1.123: Local scatter penalty — per-pixel local variance additive term (S158).
-    # Penalises high-frequency noise/texture regions, steering DP toward smooth bg.
-    if _SCATTER_COST and canvas_zone.size > 0:
-        _gray_sc = cv2.cvtColor(canvas_zone, cv2.COLOR_BGR2GRAY).astype(np.float32)
-        _mean_sc = cv2.boxFilter(_gray_sc, cv2.CV_32F, (3, 3))
-        _mean_sq_sc = cv2.boxFilter((_gray_sc**2), cv2.CV_32F, (3, 3))
-        _var_sc = np.maximum(0.0, _mean_sq_sc - _mean_sc**2)
-        _soft_sc = cost < 1e5
-        _var_max = float(_var_sc[_soft_sc].max()) if _soft_sc.any() else 1.0
-        if _var_max > 1e-6:
-            _scatter = (_var_sc / _var_max) * _SCATTER_COST_WEIGHT
-            cost = np.where(_soft_sc, cost + _scatter.astype(np.float32), cost)
-
-    # §1.126 — Fg-majority column floor (S159).
-    # When the zone is >60% fg interior (cost ≥ 1.0), raises columns that are
-    # >80% fg to at least _FG_MAJORITY_FLOOR so the DP seam is guided toward
-    # the minority background/low-cost corridor columns.
-    if _FG_MAJORITY_FLOOR > 0.0:
-        _zone_fg_frac_126 = float((cost >= 1.0).mean())
-        if _zone_fg_frac_126 > 0.60:
-            _col_fg_frac = (cost >= 1.0).mean(axis=0)
-            _heavy_cols = _col_fg_frac > 0.80
-            if _heavy_cols.any() and not _heavy_cols.all():
-                cost[:, _heavy_cols] = np.maximum(
-                    cost[:, _heavy_cols], _FG_MAJORITY_FLOOR
-                )
+    # Post processing steps (gradient, texture, pin, normalize, smooth)
+    cost = _post_process_seam_cost(cost, canvas_zone, zone_h, zone_w)
 
     return cost
 
@@ -4891,85 +4936,16 @@ def _compute_multiband_confidence(
     return confidences
 
 
-def _composite_foreground(
-    warped_corr: List[np.ndarray],
-    warped_fgs: List[np.ndarray],
-    canvas: np.ndarray,
+def _warp_inputs(
+    frames: list,
+    affines: list,
+    bg_masks: list,
     H: int,
     W: int,
-    frames: List[np.ndarray],
-    affines: List[np.ndarray],
-    bg_masks: List[Optional[np.ndarray]],
-    frame_keys: Optional[Tuple[str, ...]] = None,
-    seam_path_cache: Optional[Dict] = None,
-    exclusion_masks: Optional[List[np.ndarray]] = None,
-    preset_boundaries: Optional[np.ndarray] = None,
-    paint_mask: Optional[np.ndarray] = None,
-    seam_meta_out: Optional[dict] = None,
-    seam_overrides: Optional[dict] = None,
-) -> np.ndarray:
-    """
-    Deghost the temporal-median canvas by replacing animated foreground pixels
-    with single-frame content.
-
-    paint_mask: optional uint8 (H_canvas, W_canvas) mask painted by the user
-    in HITL checkpoint 4.5.  Pixels >127 are treated as hard seam barriers
-    (cost=1e6), forcing the DP to route seams around the painted region.
-    Appended to *exclusion_masks* so it is sliced per-zone identically.
-
-    seam_meta_out: optional mutable dict that is populated on return with
-    ``{"boundaries": list, "seam_post_diffs": dict, "seam_single_pose": dict}``.
-    Used by HITL checkpoint 4.6 to surface per-seam diagnostic data.
-
-    seam_overrides: optional dict mapping seam index k → override options dict.
-    Supported keys: ``"force_single_pose"`` (bool) skips ARAP and immediately
-    escalates seam k to the dominant-pose frame; ``"force_blend"`` (bool) undoes
-    any single-pose escalation for seam k after the registration pass, forcing
-    the DSFN blend path regardless of post_warp_diff.
-
-    Background pixels are always kept from the temporal median (photometrically
-    consistent across the whole canvas).  Only foreground character pixels are
-    replaced with the single best owning frame, eliminating ghosting without
-    introducing zone-level brightness discontinuities in the background.
-
-    At ownership boundaries a Laplacian pyramid blend with a DP seam path is
-    applied to foreground pixels only, providing a seamless character transition.
-    """
-    # relocated: from backend.src.animation.core.stateless import _laplacian_blend
-
-    N = len(frames)
-    print("[Stitch]   Laplacian-blend composite (foreground-only deghost)...")
-
-    # For horizontal scrolls the strip_center_ys are all equal → all N-1 boundaries
-    # pile up at canvas_h/2 → repeated overlapping Laplacian blends at the same row
-    # produce a bright artefact band.  Temporal median is already correct for
-    # horizontal scrolls (each pixel is covered by ≤2 frames so ghosting is minimal).
-    tys = np.array([float(affines[i][1, 2]) for i in range(N)])
-    txs = np.array([float(affines[i][0, 2]) for i in range(N)])
-    ty_range = float(tys.max() - tys.min())
-    tx_range = float(txs.max() - txs.min())
-    if tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1:
-        print(
-            "[Stitch]   Horizontal scroll — temporal median is already optimal, skipping zone composite."
-        )
-        return canvas.copy()
-
-    # Strip centres and ownership ordering
-    strip_center_ys = np.array(
-        [float(affines[i][1, 2]) + frames[i].shape[0] / 2.0 for i in range(N)],
-        dtype=np.float64,
-    )
-    order = np.argsort(strip_center_ys)
-    sorted_centers = strip_center_ys[order]
-    initial_boundaries = (sorted_centers[:-1] + sorted_centers[1:]) / 2.0
-    if preset_boundaries is not None and len(preset_boundaries) == N - 1:
-        initial_boundaries = np.asarray(preset_boundaries, dtype=np.float64)
-
+    N: int,
+) -> tuple:
     # Warp every frame to the full canvas.
-    # INTER_LINEAR is intentional here: INTER_LANCZOS4's negative side-lobes produce
-    # dark halos at sharp silhouette edges (character outline against black) that are
-    # incorrectly classified as foreground content, creating staircase artifacts.
-    warped_list: List[np.ndarray] = []
+    warped_list = []
     for i in range(N):
         wf = cv2.warpAffine(
             frames[i],
@@ -4982,8 +4958,7 @@ def _composite_foreground(
         warped_list.append(wf)
 
     # Warp bg_masks to canvas space (True = background pixel).
-    # Uncovered canvas positions default to background so they are never overwritten.
-    warped_bg: List[Optional[np.ndarray]] = []
+    warped_bg = []
     for i in range(N):
         if bg_masks[i] is not None:
             wm = cv2.warpAffine(
@@ -4997,35 +4972,15 @@ def _composite_foreground(
             warped_bg.append(wm > 127)
         else:
             warped_bg.append(None)
+    return warped_list, warped_bg
 
-    # Normalise every warped frame to a GLOBAL photometric reference computed from
-    # the temporal median across all background pixels from all frames.
-    #
-    # Using the same absolute reference for every frame is critical: if each frame
-    # normalised to "its own zone of the temporal median" independently, adjacent
-    # zones could end up at different absolute brightness levels (because the median
-    # itself may vary spatially if different-brightness frames dominate different
-    # parts of the canvas).  A shared global reference guarantees all frames end up
-    # on the same scale → no colour/brightness step at seam boundaries.
-    #
-    # Scalar luminance gain (not per-channel): corrects exposure without shifting hue.
-    # Per-channel gain was introducing warm/red casts when backgrounds are dominated
-    # by a strong hue (reddish dirt, orange firelight) — the skewed ref_mean would
-    # over-boost the red channel and under-boost blue, altering the output colour.
-    # BT.601 luminance weights for BGR: B=0.114, G=0.587, R=0.299.
-    print("[Stitch]   Normalising warped frames to global temporal-median reference...")
-    union_bg = np.zeros((H, W), dtype=bool)
-    for wb in warped_bg:
-        if wb is not None:
-            union_bg |= wb
 
-    global_ref_lum: Optional[float] = None
-    ref_px = canvas[union_bg & (canvas.max(axis=2) > 10)]
-    if len(ref_px) >= 500:
-        global_ref_lum = float(ref_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean())
-
-    # Compute per-frame background luminance for coherence check
-    frame_lums: List[Optional[float]] = []
+def _compute_frame_lums(
+    warped_list: list,
+    warped_bg: list,
+    N: int,
+) -> list:
+    frame_lums = []
     for i in range(N):
         if warped_bg[i] is not None:
             bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
@@ -5036,16 +4991,17 @@ def _composite_foreground(
                 )
                 continue
         frame_lums.append(None)
+    return frame_lums
 
-    # Inter-strip color coherence guard (S18: per-pair instead of global skip).
-    # Frames in adjacent pairs whose background luminance differs by more than
-    # _COHERENCE_LIMIT are excluded from normalization; other frames proceed
-    # normally.  This avoids penalising every frame when a single scene-change
-    # pair exceeds the limit.
+
+def _compute_skip_normalization_mask(
+    order: np.ndarray,
+    frame_lums: list,
+    N: int,
+) -> list:
     _COHERENCE_LIMIT = 20.0
     valid_lums = [lum for lum in frame_lums if lum is not None]
-    _skip_norm: List[bool] = _coherence_skip_mask(order, frame_lums, _COHERENCE_LIMIT)
-    # §1.4F: OR in exposure-outlier skips (absolute lum deviation from global median)
+    _skip_norm = _coherence_skip_mask(order, frame_lums, _COHERENCE_LIMIT)
     if _EXPOSURE_OUTLIER_THRESH > 0.0:
         _exp_skip = _reject_exposure_outliers(frame_lums, _EXPOSURE_OUTLIER_THRESH)
         _n_exp_skipped = sum(_exp_skip)
@@ -5073,67 +5029,103 @@ def _composite_foreground(
             print(
                 f"[Stitch]   Color coherence OK (max adj diff={_max_adj_diff:.1f}). Applying normalization."
             )
+    return _skip_norm
 
-    # §1.6B: track per-frame applied gain so the feather-width pass can widen
-    # boundaries where adjacent frames needed significantly different corrections.
-    frame_gains: List[float] = [1.0] * N
-    warped_norm: List[np.ndarray] = []
+
+def _normalize_single_frame(
+    i: int,
+    canvas: np.ndarray,
+    warped_list: list,
+    warped_bg: list,
+    _skip_norm: list,
+    global_ref_lum: float,
+    frame_lums: list,
+) -> tuple:
+    if (
+        not _skip_norm[i]
+        and global_ref_lum is not None
+        and warped_bg[i] is not None
+    ):
+        bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
+        _bg_min = _BG_NORM_MIN_PX if _BG_NORM_MIN_PX > 0 else 200
+        if _has_sufficient_bg(bg_sel, _bg_min) and frame_lums[i] is not None:
+            f32 = warped_list[i].astype(np.float32)
+            if _MULTISCALE_GAIN:
+                gain_map = _multiscale_gain_map(warped_list[i], canvas, bg_sel)
+                f32[bg_sel] = np.clip(
+                    f32[bg_sel] * gain_map[bg_sel, np.newaxis], 0, 255
+                )
+                gain = float(np.median(gain_map[bg_sel]))
+                print(
+                    f"[Stitch]     Frame {i}: multiscale_gain median={gain:.3f} (bg-only)"
+                )
+            elif _HISTOGRAM_MATCH:
+                matched = _apply_bg_histogram_match(warped_list[i], canvas, bg_sel)
+                f32 = matched.astype(np.float32)
+                src_lum_vals = (
+                    warped_list[i][bg_sel].astype(np.float32).dot(LUMINANCE_WEIGHTS)
+                )
+                out_lum_vals = (
+                    matched[bg_sel].astype(np.float32).dot(LUMINANCE_WEIGHTS)
+                )
+                ratios = np.where(
+                    src_lum_vals > 0.5,
+                    out_lum_vals / (src_lum_vals + 1e-3),
+                    1.0,
+                )
+                gain = float(np.median(ratios.clip(0.5, 2.0)))
+                print(
+                    f"[Stitch]     Frame {i}: histogram_match median_gain={gain:.3f} (bg-only)"
+                )
+            else:
+                gain = _bg_gain_unclamped(global_ref_lum, frame_lums[i])
+                f32[bg_sel] = np.clip(f32[bg_sel] * gain, 0, 255)
+                print(f"[Stitch]     Frame {i}: lum_gain={gain:.3f} (bg-only)")
+            return f32.astype(np.uint8), gain
+    return warped_list[i], 1.0
+
+
+def _normalize_warped_frames(
+    canvas: np.ndarray,
+    warped_list: list,
+    warped_bg: list,
+    order: np.ndarray,
+    N: int,
+    H: int,
+    W: int,
+) -> tuple:
+    print("[Stitch]   Normalising warped frames to global temporal-median reference...")
+    union_bg = np.zeros((H, W), dtype=bool)
+    for wb in warped_bg:
+        if wb is not None:
+            union_bg |= wb
+
+    global_ref_lum = None
+    ref_px = canvas[union_bg & (canvas.max(axis=2) > 10)]
+    if len(ref_px) >= 500:
+        global_ref_lum = float(ref_px.astype(np.float32).dot(LUMINANCE_WEIGHTS).mean())
+
+    frame_lums = _compute_frame_lums(warped_list, warped_bg, N)
+    _skip_norm = _compute_skip_normalization_mask(order, frame_lums, N)
+
+    frame_gains = [1.0] * N
+    warped_norm = []
     for i in range(N):
-        if (
-            not _skip_norm[i]
-            and global_ref_lum is not None
-            and warped_bg[i] is not None
-        ):
-            bg_sel = warped_bg[i] & (warped_list[i].max(axis=2) > 10)
-            bg_px = warped_list[i][bg_sel]
-            _bg_min = _BG_NORM_MIN_PX if _BG_NORM_MIN_PX > 0 else 200
-            if _has_sufficient_bg(bg_sel, _bg_min) and frame_lums[i] is not None:
-                f32 = warped_list[i].astype(np.float32)
-                if _MULTISCALE_GAIN:
-                    # §1.4D: spatially-varying gain map (bg-only, fg untouched).
-                    # _multiscale_gain_map uses bg_sel as the source mask; the
-                    # Gaussian blur propagates bg gains into fg regions so the
-                    # full (H,W) map covers all pixels without fg-colour shift.
-                    gain_map = _multiscale_gain_map(warped_list[i], canvas, bg_sel)
-                    f32[bg_sel] = np.clip(
-                        f32[bg_sel] * gain_map[bg_sel, np.newaxis], 0, 255
-                    )
-                    # Representative scalar for §1.6B feather widening
-                    gain = float(np.median(gain_map[bg_sel]))
-                    print(
-                        f"[Stitch]     Frame {i}: multiscale_gain median={gain:.3f} (bg-only)"
-                    )
-                elif _HISTOGRAM_MATCH:
-                    # §1.4E: CDF histogram match — tonal distribution equalisation
-                    matched = _apply_bg_histogram_match(warped_list[i], canvas, bg_sel)
-                    f32 = matched.astype(np.float32)
-                    # Compute representative scalar for §1.6B feather widening
-                    src_lum_vals = (
-                        warped_list[i][bg_sel].astype(np.float32).dot(LUMINANCE_WEIGHTS)
-                    )
-                    out_lum_vals = (
-                        matched[bg_sel].astype(np.float32).dot(LUMINANCE_WEIGHTS)
-                    )
-                    ratios = np.where(
-                        src_lum_vals > 0.5,
-                        out_lum_vals / (src_lum_vals + 1e-3),
-                        1.0,
-                    )
-                    gain = float(np.median(ratios.clip(0.5, 2.0)))
-                    print(
-                        f"[Stitch]     Frame {i}: histogram_match median_gain={gain:.3f} (bg-only)"
-                    )
-                else:
-                    # §1.4C: scalar bg gain (default path)
-                    gain = _bg_gain_unclamped(global_ref_lum, frame_lums[i])
-                    f32[bg_sel] = np.clip(f32[bg_sel] * gain, 0, 255)
-                    print(f"[Stitch]     Frame {i}: lum_gain={gain:.3f} (bg-only)")
-                frame_gains[i] = gain
-                warped_norm.append(f32.astype(np.uint8))
-                continue
-        warped_norm.append(warped_list[i])
+        wn, gain = _normalize_single_frame(
+            i, canvas, warped_list, warped_bg, _skip_norm, global_ref_lum, frame_lums
+        )
+        warped_norm.append(wn)
+        frame_gains[i] = gain
 
-    # §1.98: Smooth per-frame gains to prevent abrupt brightness staircase.
+    return warped_norm, frame_gains
+
+
+def _smooth_warped_gains(
+    warped_norm: list,
+    warped_bg: list,
+    frame_gains: list,
+    N: int,
+) -> None:
     if _SMOOTH_GAIN and N > 1:
         _smoothed_gains = _smooth_gain_array(frame_gains, sigma=_SMOOTH_GAIN_SIGMA)
         for _sg_i in range(N):
@@ -5147,7 +5139,20 @@ def _composite_foreground(
                     )
                     warped_norm[_sg_i] = _f32_sg.astype(np.uint8)
 
-    # Single-pass boundary placement — use normalised frames for accurate diff scores
+
+def _optimize_boundaries_and_feathers(
+    warped_norm: list,
+    order: np.ndarray,
+    initial_boundaries: np.ndarray,
+    bg_masks: list,
+    affines: list,
+    frames: list,
+    frame_gains: list,
+    warped_bg: list,
+    H: int,
+    W: int,
+    N: int,
+) -> tuple:
     print("[Stitch]   Optimising boundary placement...")
     boundaries, diff_scores = _find_optimal_boundaries(
         warped_norm,
@@ -5162,7 +5167,7 @@ def _composite_foreground(
 
     # Cap feathers by natural frame overlap so they never extend past real content
     n_b = len(boundaries)
-    max_feathers: List[int] = []
+    max_feathers = []
     for k in range(n_b):
         fi_a = int(order[k])
         fi_b = int(order[k + 1])
@@ -5181,10 +5186,6 @@ def _composite_foreground(
     )
 
     # §1.6B: Minimum feather from luminance gain difference at each boundary.
-    # When adjacent frames required significantly different gain corrections, the
-    # residual step after clamping is proportional to |gain_A − gain_B|.  Widen
-    # the feather to fade = max(40, int(gain_diff × 300)), capped at 120 px.
-    # The overlap cap is re-applied so the feather never exceeds real content.
     _feather_gain_widened = False
     for k in range(n_b):
         fi_a = int(order[k])
@@ -5200,8 +5201,7 @@ def _composite_foreground(
             + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
         )
 
-    # §1.19: Fg-density-aware feather cap.  When the seam blend zone is dominated
-    # by fg pixels, cap the feather to prevent long double-image ghost bands.
+    # §1.19: Fg-density-aware feather cap.
     if _FG_FEATHER_CAP > 0:
         feathers = _fg_density_feather_cap(
             feathers,
@@ -5216,11 +5216,11 @@ def _composite_foreground(
             + " ".join(f"B{k}={int(feathers[k])}px" for k in range(n_b))
         )
 
-    # §1.68: Adjacent feather ratio enforcement — prevent rhythm discontinuity.
+    # §1.68: Adjacent feather ratio enforcement.
     if _FEATHER_RATIO_MAX > 0.0 and n_b > 1:
         feathers = _enforce_feather_ratio(feathers, max_ratio=_FEATHER_RATIO_MAX)
 
-    # §1.92 — Gaussian smooth on feather widths to reduce abrupt transitions.
+    # §1.92 — Gaussian smooth on feather widths.
     if _SMOOTH_FEATHER and n_b > 1:
         feathers = _smooth_feather_array(
             feathers,
@@ -5237,24 +5237,301 @@ def _composite_foreground(
     if _FEATHER_JUMP_MAX > 0 and n_b > 1:
         feathers = _cap_feather_jumps(feathers, _FEATHER_JUMP_MAX)
 
-    # ── Stage 8.5: Foreground pose registration — global reference strategy ──
-    # The camera model is translation-only, so the BACKGROUND is aligned in
-    # warped_norm but the animating CHARACTER lands in two different poses on
-    # either side of each ownership boundary → torn/doubled edges at the seam.
-    #
-    # Strategy: global reference pose (vs. pairwise midpoint).
-    # We pick the temporally-central strip as the reference pose.  Every other
-    # frame's foreground is warped TOWARD the reference at its seam boundary.
-    # The warp fraction α decays with temporal distance from the reference so
-    # the reference frame is never warped, nearby frames are warped a little,
-    # and distant frames are warped more.  This prevents the drift accumulation
-    # that pairwise midpoint warps accumulate across long strip chains.
-    #
-    # Fallback (A6): when the residual exceeds max_residual, take the seam-zone
-    # foreground from the dominant pose frame only — no blending.
-    seam_single_pose: dict = {}
-    seam_post_diffs: dict = {}  # k → post-warp diff score (residual if fallback)
-    seam_synthesized: dict = {}  # k → synthesized seam-band crop (ToonCrafter §3.6)
+    return boundaries, feathers
+
+
+def _check_preemptive_escalations(
+    k: int,
+    by: float,
+    fi_a: int,
+    fi_b: int,
+    fg_a: np.ndarray,
+    fg_b: np.ndarray,
+    affines: list,
+    warped_norm: list,
+    feathers: np.ndarray,
+    seam_overrides: dict,
+    seam_single_pose: dict,
+    seam_post_diffs: dict,
+    H: int,
+) -> bool:
+    # §2.4A: User seam override — force single-pose for this seam.
+    _ov_k = (seam_overrides or {}).get(k, {})
+    if _ov_k.get("force_single_pose"):
+        _by_int_sp = int(by)
+        _half_sp = min(20, int(feathers[k]))
+        _y0_sp = max(0, _by_int_sp - _half_sp)
+        _y1_sp = min(H, _by_int_sp + _half_sp)
+        _fg_a_cnt_sp = int(fg_a[_y0_sp:_y1_sp].sum())
+        _fg_b_cnt_sp = int(fg_b[_y0_sp:_y1_sp].sum())
+        seam_single_pose[k] = fi_a if _fg_a_cnt_sp >= _fg_b_cnt_sp else fi_b
+        seam_post_diffs[k] = 99.0  # sentinel: user-forced single-pose
+        return True
+
+    # §1.20: Preemptive single-pose for tiny-step seams.
+    if _TIGHT_STEP_PX > 0:
+        _step_sz = _compute_seam_step_size(fi_a, fi_b, affines)
+        if _step_sz < _TIGHT_STEP_PX:
+            _by_int = int(by)
+            _half = min(20, int(feathers[k]))
+            _y0 = max(0, _by_int - _half)
+            _y1 = min(H, _by_int + _half)
+            _fg_a_cnt = int(fg_a[_y0:_y1].sum())
+            _fg_b_cnt = int(fg_b[_y0:_y1].sum())
+            _dom = fi_a if _fg_a_cnt >= _fg_b_cnt else fi_b
+            seam_single_pose[k] = _dom
+            seam_post_diffs[k] = _step_sz
+            print(
+                f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                f"step={_step_sz:.1f}px < {_TIGHT_STEP_PX}px "
+                f"→ preemptive single-pose (frame {_dom})"
+            )
+            return True
+
+    # §1.34: Seam zone texture-energy pre-escalation.
+    if _SEAM_LOW_TEXTURE_THRESH > 0.0:
+        _tex = _seam_zone_texture_energy(
+            warped_norm[fi_a], warped_norm[fi_b], int(by)
+        )
+        if _tex < _SEAM_LOW_TEXTURE_THRESH:
+            _by_int = int(by)
+            _half = min(20, int(feathers[k]))
+            _y0 = max(0, _by_int - _half)
+            _y1 = min(H, _by_int + _half)
+            _fg_a_cnt = int(fg_a[_y0:_y1].sum())
+            _fg_b_cnt = int(fg_b[_y0:_y1].sum())
+            _dom = fi_a if _fg_a_cnt >= _fg_b_cnt else fi_b
+            seam_single_pose[k] = _dom
+            seam_post_diffs[k] = _tex
+            print(
+                f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                f"texture={_tex:.2f} < {_SEAM_LOW_TEXTURE_THRESH:.2f} "
+                f"→ flat-zone single-pose (frame {_dom})"
+            )
+            return True
+
+    return False
+
+
+def _compute_flow_override(
+    seam_overrides: dict,
+    k: int,
+    fi_a: int,
+    warped_norm: list,
+) -> Optional[np.ndarray]:
+    _ov_k = (seam_overrides or {}).get(k, {})
+    _arrows_ov = _ov_k.get("flow_arrows")
+    if _arrows_ov:
+        try:
+            from backend.src.animation.alignment.fg_register import _sparse_flow_to_dense as _s2d
+
+            _H_ov, _W_ov = warped_norm[fi_a].shape[:2]
+            return _s2d(_arrows_ov, _H_ov, _W_ov)
+        except Exception as _fe:
+            print(
+                f"[Stitch] §2.10C: flow_arrows→dense failed ({_fe}); using RAFT/DIS."
+            )
+    return None
+
+
+def _apply_foreground_registration(
+    k: int,
+    by: float,
+    fi_a: int,
+    fi_b: int,
+    fg_a: np.ndarray,
+    fg_b: np.ndarray,
+    warped_norm: list,
+    warped_bg: list,
+    feathers: np.ndarray,
+    seam_single_pose: dict,
+    seam_post_diffs: dict,
+    reg_axis: int,
+    alpha_a: float,
+    alpha_b: float,
+    ref_fi: int,
+    _flow_ov: Optional[np.ndarray],
+    H: int,
+) -> None:
+    adj_a, adj_b, info = register_foreground_at_seam(
+        warped_norm[fi_a],
+        warped_norm[fi_b],
+        fg_a,
+        fg_b,
+        seam_pos=int(by),
+        axis=reg_axis,
+        alpha_a=alpha_a,
+        alpha_b=alpha_b,
+        flow_override=_flow_ov,
+    )
+    if info["warped"]:
+        warped_norm[fi_a] = adj_a
+        warped_norm[fi_b] = adj_b
+        post_diff = info.get("post_warp_diff", 0.0)
+        seam_post_diffs[k] = post_diff
+        _sp_thresh = (
+            _adaptive_sp_threshold(int(feathers[k]))
+            if _ADAPTIVE_SP_THRESH
+            else 22.0
+        )
+        # §1.102: Momentum damping
+        if _WARP_MOMENTUM_DAMP and k > 0 and k - 1 in seam_single_pose:
+            _sp_thresh *= _WARP_MOMENTUM_FACTOR
+        if _SP_THRESH_FG_SCALE:
+            _by_int_95 = int(by)
+            _half_95 = int(feathers[k])
+            _y0_95 = max(0, _by_int_95 - _half_95)
+            _y1_95 = min(H, _by_int_95 + _half_95)
+            _bg_a_95 = (
+                warped_bg[fi_a][_y0_95:_y1_95]
+                if warped_bg[fi_a] is not None
+                else None
+            )
+            _bg_b_95 = (
+                warped_bg[fi_b][_y0_95:_y1_95]
+                if warped_bg[fi_b] is not None
+                else None
+            )
+            _frac_95 = _fg_fraction_in_zone(_bg_a_95, _bg_b_95)
+            if _frac_95 > _SP_FG_FRAC_THRESH:
+                _sp_thresh *= _SP_THRESH_FG_FACTOR
+        if post_diff > _sp_thresh:
+            # §2.10A: HITL callback
+            if _flow_hitl_callback is not None:
+                try:
+                    _hitl_flow = _flow_hitl_callback(
+                        k,
+                        {
+                            "post_warp_diff": post_diff,
+                            "seam_k": k,
+                            "fi_a": fi_a,
+                            "fi_b": fi_b,
+                        },
+                    )
+                    if _hitl_flow is not None:
+                        _re_adj_a, _re_adj_b, _re_info = (
+                            register_foreground_at_seam(
+                                warped_norm[fi_a],
+                                warped_norm[fi_b],
+                                fg_a,
+                                fg_b,
+                                seam_pos=int(by),
+                                axis=reg_axis,
+                                alpha_a=alpha_a,
+                                alpha_b=alpha_b,
+                                flow_override=_hitl_flow,
+                            )
+                        )
+                        if _re_info["warped"]:
+                            warped_norm[fi_a] = _re_adj_a
+                            warped_norm[fi_b] = _re_adj_b
+                            post_diff = _re_info.get(
+                                "post_warp_diff", post_diff
+                            )
+                            seam_post_diffs[k] = post_diff
+                except Exception as _hitl_exc:
+                    print(
+                        f"[Stitch] §2.10A: HITL callback error ({_hitl_exc}); ignoring."
+                    )
+            if _SP_REF_PROX:
+                dom = (
+                    fi_a
+                    if abs(fi_a - ref_fi) <= abs(fi_b - ref_fi)
+                    else fi_b
+                )
+            else:
+                dom = fi_a if info["dominant"] == "a" else fi_b
+            seam_single_pose[k] = dom
+            print(
+                f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                f"residual={info['residual']:.1f}px post_diff={post_diff:.1f} "
+                f"→ re-posed BUT escalated to single-pose (ghost prevention)"
+            )
+        else:
+            print(
+                f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+                f"residual={info['residual']:.1f}px α=({alpha_a:.2f},{alpha_b:.2f}) "
+                f"post_diff={post_diff:.1f} fg_px={info['fg_pixels']} → re-posed"
+            )
+    elif info.get("fallback"):
+        dom = fi_a if info["dominant"] == "a" else fi_b
+        seam_single_pose[k] = dom
+        seam_post_diffs[k] = float(info.get("residual", 0.0))
+        print(
+            "[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
+            f"residual={info['residual']:.1f}px too large → "
+            f"single-pose fallback (frame {dom})"
+        )
+
+
+def _run_tooncrafter_seam_synthesis(
+    seam_single_pose: dict,
+    seam_synthesized: dict,
+    boundaries: np.ndarray,
+    order: np.ndarray,
+    warped_norm: list,
+    ty_range: float,
+    tx_range: float,
+) -> None:
+    try:
+        _tc_device = "cuda" if _tc_torch.cuda.is_available() else "cpu"
+        reg_axis = 0 if ty_range >= tx_range else 1
+        canvas_h_tc, canvas_w_tc = warped_norm[0].shape[:2]
+        _taper_crop = 64
+
+        _worst_k = max(
+            seam_single_pose.keys(),
+            key=lambda _k: _k,
+        )
+        by = boundaries[_worst_k]
+        fi_a = int(order[_worst_k])
+        fi_b = int(order[_worst_k + 1])
+
+        if reg_axis == 0:
+            _sy0 = max(0, int(by) - _taper_crop)
+            _sy1 = min(canvas_h_tc, int(by) + _taper_crop)
+            crop_a_tc = warped_norm[fi_a][_sy0:_sy1, :]
+            crop_b_tc = warped_norm[fi_b][_sy0:_sy1, :]
+        else:
+            _sx0 = max(0, int(by) - _taper_crop)
+            _sx1 = min(canvas_w_tc, int(by) + _taper_crop)
+            crop_a_tc = warped_norm[fi_a][:, _sx0:_sx1]
+            crop_b_tc = warped_norm[fi_b][:, _sx0:_sx1]
+
+        synth = _generate_canonical_cel(crop_a_tc, crop_b_tc, _tc_device)
+        seam_synthesized[_worst_k] = {
+            "synth": synth,
+            "seam_pos": int(by),
+            "crop_half": _taper_crop,
+            "axis": reg_axis,
+        }
+        print(
+            f"[ToonCrafter] Seam synthesis for B{_worst_k}: "
+            f"seam_pos={int(by)}  crop_half={_taper_crop}px"
+        )
+    except Exception as _tc_exc:
+        print(f"[ToonCrafter] Seam synthesis skipped ({_tc_exc}).")
+
+
+def _register_foreground_poses(
+    warped_norm: list,
+    warped_bg: list,
+    order: np.ndarray,
+    boundaries: np.ndarray,
+    feathers: np.ndarray,
+    affines: list,
+    frames: list,
+    seam_overrides: dict,
+    ty_range: float,
+    tx_range: float,
+    H: int,
+    W: int,
+    N: int,
+) -> tuple:
+    seam_single_pose = {}
+    seam_post_diffs = {}  # k → post-warp diff score (residual if fallback)
+    seam_synthesized = {}  # k → synthesized seam-band crop (ToonCrafter §3.6)
+    n_b = len(boundaries)
     if _FG_REGISTER_ENABLED and N >= 2:
         try:
             scroll_is_h = tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1
@@ -5264,8 +5541,6 @@ def _composite_foreground(
             ref_idx_in_order = len(order) // 2
             ref_fi = int(order[ref_idx_in_order])
 
-            n_warped = 0
-            n_fallback = 0
             for k, by in enumerate(boundaries):
                 fi_a = int(order[k])
                 fi_b = int(order[k + 1])
@@ -5274,283 +5549,177 @@ def _composite_foreground(
                 fg_a = ~warped_bg[fi_a]
                 fg_b = ~warped_bg[fi_b]
 
-                # §2.4A: User seam override — force single-pose for this seam.
-                _ov_k = (seam_overrides or {}).get(k, {})
-                if _ov_k.get("force_single_pose"):
-                    _by_int_sp = int(by)
-                    _half_sp = min(20, int(feathers[k]))
-                    _y0_sp = max(0, _by_int_sp - _half_sp)
-                    _y1_sp = min(H, _by_int_sp + _half_sp)
-                    _fg_a_cnt_sp = int(fg_a[_y0_sp:_y1_sp].sum())
-                    _fg_b_cnt_sp = int(fg_b[_y0_sp:_y1_sp].sum())
-                    seam_single_pose[k] = fi_a if _fg_a_cnt_sp >= _fg_b_cnt_sp else fi_b
-                    seam_post_diffs[k] = 99.0  # sentinel: user-forced single-pose
+                if _check_preemptive_escalations(
+                    k, by, fi_a, fi_b, fg_a, fg_b, affines, warped_norm, feathers, seam_overrides, seam_single_pose, seam_post_diffs, H
+                ):
                     continue
 
-                # §1.20: Preemptive single-pose for tiny-step seams.
-                # When the camera barely moved, the character occupies nearly
-                # the same rows in both frames but may be in a different
-                # animation pose — ARAP cannot reconcile this.
-                if _TIGHT_STEP_PX > 0:
-                    _step_sz = _compute_seam_step_size(fi_a, fi_b, affines)
-                    if _step_sz < _TIGHT_STEP_PX:
-                        _by_int = int(by)
-                        _half = min(20, int(feathers[k]))
-                        _y0 = max(0, _by_int - _half)
-                        _y1 = min(H, _by_int + _half)
-                        _fg_a_cnt = int(fg_a[_y0:_y1].sum())
-                        _fg_b_cnt = int(fg_b[_y0:_y1].sum())
-                        _dom = fi_a if _fg_a_cnt >= _fg_b_cnt else fi_b
-                        seam_single_pose[k] = _dom
-                        seam_post_diffs[k] = _step_sz
-                        n_fallback += 1
-                        print(
-                            f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
-                            f"step={_step_sz:.1f}px < {_TIGHT_STEP_PX}px "
-                            f"→ preemptive single-pose (frame {_dom})"
-                        )
-                        continue
-
-                # §1.34: Seam zone texture-energy pre-escalation.
-                # Skip ARAP when both frames have flat colour near the seam —
-                # optical flow has no gradient signal (aperture problem) and will
-                # produce garbage offsets that worsen the blend.
-                if _SEAM_LOW_TEXTURE_THRESH > 0.0 and k not in seam_single_pose:
-                    _tex = _seam_zone_texture_energy(
-                        warped_norm[fi_a], warped_norm[fi_b], int(by)
-                    )
-                    if _tex < _SEAM_LOW_TEXTURE_THRESH:
-                        _by_int = int(by)
-                        _half = min(20, int(feathers[k]))
-                        _y0 = max(0, _by_int - _half)
-                        _y1 = min(H, _by_int + _half)
-                        _fg_a_cnt = int(fg_a[_y0:_y1].sum())
-                        _fg_b_cnt = int(fg_b[_y0:_y1].sum())
-                        _dom = fi_a if _fg_a_cnt >= _fg_b_cnt else fi_b
-                        seam_single_pose[k] = _dom
-                        seam_post_diffs[k] = _tex
-                        n_fallback += 1
-                        print(
-                            f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
-                            f"texture={_tex:.2f} < {_SEAM_LOW_TEXTURE_THRESH:.2f} "
-                            f"→ flat-zone single-pose (frame {_dom})"
-                        )
-                        continue
-
-                # Symmetric midpoint: both frames move halfway toward each other.
-                # The global-reference approach (asymmetric alpha based on
-                # distance from reference) amplifies noisy flow estimates for
-                # frames far from the reference, causing regressions. Symmetric
-                # midpoint is the safe default; the reference tracking is still
-                # used for the ref= reporting/diagnostics.
                 alpha_a = 0.5
                 alpha_b = 0.5
 
                 # §2.10C: user-drawn flow field override
-                _flow_ov = None
-                _arrows_ov = (_ov_k or {}).get("flow_arrows")
-                if _arrows_ov:
-                    try:
-                        from backend.src.animation.alignment.fg_register import _sparse_flow_to_dense as _s2d
+                _flow_ov = _compute_flow_override(seam_overrides, k, fi_a, warped_norm)
 
-                        _H_ov, _W_ov = warped_norm[fi_a].shape[:2]
-                        _flow_ov = _s2d(_arrows_ov, _H_ov, _W_ov)
-                    except Exception as _fe:
-                        print(
-                            f"[Stitch] §2.10C: flow_arrows→dense failed ({_fe}); using RAFT/DIS."
-                        )
-
-                adj_a, adj_b, info = register_foreground_at_seam(
-                    warped_norm[fi_a],
-                    warped_norm[fi_b],
-                    fg_a,
-                    fg_b,
-                    seam_pos=int(by),
-                    axis=reg_axis,
-                    alpha_a=alpha_a,
-                    alpha_b=alpha_b,
-                    flow_override=_flow_ov,
+                _apply_foreground_registration(
+                    k, by, fi_a, fi_b, fg_a, fg_b, warped_norm, warped_bg, feathers,
+                    seam_single_pose, seam_post_diffs, reg_axis, alpha_a, alpha_b, ref_fi, _flow_ov, H
                 )
-                if info["warped"]:
-                    warped_norm[fi_a] = adj_a
-                    warped_norm[fi_b] = adj_b
-                    n_warped += 1
-                    # Post-warp verification: if the foreground colour discrepancy
-                    # at the seam is still large after ARAP warping, the two poses
-                    # are too different to blend cleanly — escalate to single-pose
-                    # so the blend zone doesn't create a double-image ghost.
-                    post_diff = info.get("post_warp_diff", 0.0)
-                    seam_post_diffs[k] = post_diff
-                    _sp_thresh = (
-                        _adaptive_sp_threshold(int(feathers[k]))
-                        if _ADAPTIVE_SP_THRESH
-                        else 22.0
-                    )
-                    # §1.102: Momentum damping — lower threshold when previous seam was a fallback.
-                    if _WARP_MOMENTUM_DAMP and k > 0 and k - 1 in seam_single_pose:
-                        _sp_thresh *= _WARP_MOMENTUM_FACTOR
-                    if _SP_THRESH_FG_SCALE:
-                        _by_int_95 = int(by)
-                        _half_95 = int(feathers[k])
-                        _y0_95 = max(0, _by_int_95 - _half_95)
-                        _y1_95 = min(H, _by_int_95 + _half_95)
-                        _bg_a_95 = (
-                            warped_bg[fi_a][_y0_95:_y1_95]
-                            if warped_bg[fi_a] is not None
-                            else None
-                        )
-                        _bg_b_95 = (
-                            warped_bg[fi_b][_y0_95:_y1_95]
-                            if warped_bg[fi_b] is not None
-                            else None
-                        )
-                        _frac_95 = _fg_fraction_in_zone(_bg_a_95, _bg_b_95)
-                        if _frac_95 > _SP_FG_FRAC_THRESH:
-                            _sp_thresh *= _SP_THRESH_FG_FACTOR
-                    if post_diff > _sp_thresh:
-                        # §2.10A: HITL callback — offer a flow override before committing
-                        # to single-pose escalation.
-                        if _flow_hitl_callback is not None:
-                            try:
-                                _hitl_flow = _flow_hitl_callback(
-                                    k,
-                                    {
-                                        "post_warp_diff": post_diff,
-                                        "seam_k": k,
-                                        "fi_a": fi_a,
-                                        "fi_b": fi_b,
-                                    },
-                                )
-                                if _hitl_flow is not None:
-                                    _re_adj_a, _re_adj_b, _re_info = (
-                                        register_foreground_at_seam(
-                                            warped_norm[fi_a],
-                                            warped_norm[fi_b],
-                                            fg_a,
-                                            fg_b,
-                                            seam_pos=int(by),
-                                            axis=reg_axis,
-                                            alpha_a=alpha_a,
-                                            alpha_b=alpha_b,
-                                            flow_override=_hitl_flow,
-                                        )
-                                    )
-                                    if _re_info["warped"]:
-                                        warped_norm[fi_a] = _re_adj_a
-                                        warped_norm[fi_b] = _re_adj_b
-                                        post_diff = _re_info.get(
-                                            "post_warp_diff", post_diff
-                                        )
-                                        seam_post_diffs[k] = post_diff
-                            except Exception as _hitl_exc:
-                                print(
-                                    f"[Stitch] §2.10A: HITL callback error ({_hitl_exc}); ignoring."
-                                )
-                        # §1.103: Reference-proximity dominant frame selection.
-                        if _SP_REF_PROX:
-                            dom = (
-                                fi_a
-                                if abs(fi_a - ref_fi) <= abs(fi_b - ref_fi)
-                                else fi_b
-                            )
-                        else:
-                            dom = fi_a if info["dominant"] == "a" else fi_b
-                        seam_single_pose[k] = dom
-                        n_fallback += 1
-                        print(
-                            f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
-                            f"residual={info['residual']:.1f}px post_diff={post_diff:.1f} "
-                            f"→ re-posed BUT escalated to single-pose (ghost prevention)"
-                        )
-                    else:
-                        print(
-                            f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
-                            f"residual={info['residual']:.1f}px α=({alpha_a:.2f},{alpha_b:.2f}) "
-                            f"post_diff={post_diff:.1f} fg_px={info['fg_pixels']} → re-posed"
-                        )
-                elif info.get("fallback"):
-                    dom = fi_a if info["dominant"] == "a" else fi_b
-                    seam_single_pose[k] = dom
-                    seam_post_diffs[k] = float(info.get("residual", 0.0))
-                    n_fallback += 1
-                    print(
-                        f"[Stitch]     FG-register B{k} (frames {fi_a}/{fi_b}): "
-                        f"residual={info['residual']:.1f}px too large → "
-                        f"single-pose fallback (frame {dom})"
-                    )
-            print(
-                f"[Stitch]   FG pose registration: {n_warped}/{n_b} re-posed, "
-                f"{n_fallback}/{n_b} single-pose fallback. ref={ref_fi}"
-            )
 
-            # §2.4A: Post-loop force_blend override — undo single-pose escalation
-            # for any seam the user explicitly wants to keep blended.
-            if seam_overrides:
-                for _k_fb, _opts_fb in seam_overrides.items():
-                    if _opts_fb.get("force_blend"):
-                        seam_single_pose.pop(int(_k_fb), None)
+            # §1.something Proximity escalation
+            if _SP_REF_PROX > 0 and len(seam_single_pose) > 0:
+                ref_fi = int(order[n_b // 2])
+                for k in range(n_b):
+                    fi_a = int(order[k])
+                    fi_b = int(order[k + 1])
+                    if k not in seam_single_pose:
+                        dist_a = abs(fi_a - ref_fi)
+                        dist_b = abs(fi_b - ref_fi)
+                        if max(dist_a, dist_b) > _SP_REF_PROX:
+                            fg_a_cnt = int((warped_norm[fi_a].max(axis=2) > 0).sum())
+                            fg_b_cnt = int((warped_norm[fi_b].max(axis=2) > 0).sum())
+                            seam_single_pose[k] = fi_a if fg_a_cnt >= fg_b_cnt else fi_b
+                            print(f"[Stitch]   Ref-proximity B{k}: single-pose frame {seam_single_pose[k]}")
 
-            # ToonCrafter seam synthesis (§3.6B) — applied to single-pose
-            # escalated seams when ASP_TOONCRAFTER_SEAM=1.  Synthesizes a
-            # coherent intermediate pose that replaces the hard-partition
-            # boundary.  Only the worst seam (highest post_warp_diff) per run
-            # is synthesized to keep inference overhead bounded (~24s on A100).
+            # ToonCrafter
             if _TOONCRAFTER_SEAM and seam_single_pose:
-                try:
-                    # relocated: from backend.src.animation.rendering.anim_fill import _generate_canonical_cel
-                    # relocated: import torch as _tc_torch
-
-                    _tc_device = "cuda" if _tc_torch.cuda.is_available() else "cpu"
-                    canvas_h_tc, canvas_w_tc = warped_norm[0].shape[:2]
-                    _taper_crop = 64  # half-height of the seam-band crop for synthesis
-
-                    # Synthesize only the single worst seam (highest post_diff)
-                    # to keep overhead bounded.  Track post_diffs across all seams.
-                    _worst_k = max(
-                        seam_single_pose.keys(),
-                        key=lambda _k: _k,  # fallback: last seam; override if tracked
-                    )
-                    by = boundaries[_worst_k]
-                    fi_a = int(order[_worst_k])
-                    fi_b = int(order[_worst_k + 1])
-
-                    if reg_axis == 0:  # vertical scroll seam
-                        _sy0 = max(0, int(by) - _taper_crop)
-                        _sy1 = min(canvas_h_tc, int(by) + _taper_crop)
-                        crop_a_tc = warped_norm[fi_a][_sy0:_sy1, :]
-                        crop_b_tc = warped_norm[fi_b][_sy0:_sy1, :]
-                    else:  # horizontal scroll seam
-                        _sx0 = max(0, int(by) - _taper_crop)
-                        _sx1 = min(canvas_w_tc, int(by) + _taper_crop)
-                        crop_a_tc = warped_norm[fi_a][:, _sx0:_sx1]
-                        crop_b_tc = warped_norm[fi_b][:, _sx0:_sx1]
-
-                    synth = _generate_canonical_cel(crop_a_tc, crop_b_tc, _tc_device)
-                    seam_synthesized[_worst_k] = {
-                        "synth": synth,
-                        "seam_pos": int(by),
-                        "crop_half": _taper_crop,
-                        "axis": reg_axis,
-                    }
-                    print(
-                        f"[ToonCrafter] Seam synthesis for B{_worst_k}: "
-                        f"seam_pos={int(by)}  crop_half={_taper_crop}px"
-                    )
-                except Exception as _tc_exc:
-                    print(f"[ToonCrafter] Seam synthesis skipped ({_tc_exc}).")
+                _run_tooncrafter_seam_synthesis(
+                    seam_single_pose, seam_synthesized, boundaries, order, warped_norm, ty_range, tx_range
+                )
 
         except Exception as _fg_exc:
             print(f"[Stitch]   FG pose registration skipped ({_fg_exc}).")
 
-    # §S12: Adaptive feather refinement based on FG registration quality.
-    # post_warp_diff < 8  → excellent alignment: widen feather 1.5× for a
-    #                         smoother Laplacian blend (less visible step at seam).
-    # post_warp_diff > 16 → poor alignment: narrow feather 0.75× to reduce the
-    #                         blend zone where misaligned fg would create ghosting.
-    # Seams that became single-pose (post_diff > 22) are skipped — feather still
-    # governs the background blend width but fg routing is already single-pose.
-    # Re-applies the overlap cap after modification.
+    return seam_single_pose, seam_post_diffs, seam_synthesized
+
+def _composite_foreground(
+    warped_corr: List[np.ndarray],
+    warped_fgs: List[np.ndarray],
+    canvas: np.ndarray,
+    H: int,
+    W: int,
+    frames: List[np.ndarray],
+    affines: List[np.ndarray],
+    bg_masks: List[Optional[np.ndarray]],
+    frame_keys: Optional[Tuple[str, ...]] = None,
+    seam_path_cache: Optional[Dict] = None,
+    exclusion_masks: Optional[List[np.ndarray]] = None,
+    preset_boundaries: Optional[np.ndarray] = None,
+    paint_mask: Optional[np.ndarray] = None,
+    seam_meta_out: Optional[dict] = None,
+    seam_overrides: Optional[dict] = None,
+) -> np.ndarray:
+    N = len(frames)
+    print("[Stitch]   Laplacian-blend composite (foreground-only deghost)...")
+
+    # Scroll check
+    tys = np.array([float(affines[i][1, 2]) for i in range(N)])
+    txs = np.array([float(affines[i][0, 2]) for i in range(N)])
+    ty_range = float(tys.max() - tys.min())
+    tx_range = float(txs.max() - txs.min())
+    if tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1:
+        print(
+            "[Stitch]   Horizontal scroll — temporal median is already optimal, skipping zone composite."
+        )
+        return canvas.copy()
+
+    # Strip centres and ownership ordering
+    strip_center_ys = np.array(
+        [float(affines[i][1, 2]) + frames[i].shape[0] / 2.0 for i in range(N)],
+        dtype=np.float64,
+    )
+    order = np.argsort(strip_center_ys)
+    sorted_centers = strip_center_ys[order]
+    initial_boundaries = (sorted_centers[:-1] + sorted_centers[1:]) / 2.0
+    if preset_boundaries is not None and len(preset_boundaries) == N - 1:
+        initial_boundaries = np.asarray(preset_boundaries, dtype=np.float64)
+
+    # Warp inputs
+    warped_list, warped_bg = _warp_inputs(frames, affines, bg_masks, H, W, N)
+
+    # Normalise warped frames
+    warped_norm, frame_gains = _normalize_warped_frames(
+        canvas, warped_list, warped_bg, order, N, H, W
+    )
+
+    # Smooth per-frame gains
+    _smooth_warped_gains(warped_norm, warped_bg, frame_gains, N)
+
+    # Optimize boundary placement and feathers
+    boundaries, feathers = _optimize_boundaries_and_feathers(
+        warped_norm, order, initial_boundaries, bg_masks, affines, frames, frame_gains, warped_bg, H, W, N
+    )
+
+    # Foreground pose registration
+    seam_single_pose, seam_post_diffs, seam_synthesized = _register_foreground_poses(
+        warped_norm, warped_bg, order, boundaries, feathers, affines, frames, seam_overrides, ty_range, tx_range, H, W, N
+    )
+
+    # Adaptive feather refinement and canonical crop synthesis
+    seam_canonical_crops = _adapt_feathers_and_synthesize(
+        seam_post_diffs, seam_single_pose, seam_synthesized, feathers, boundaries, order, affines, frames, warped_norm, H, W
+    )
+
+    # Equalise inter-frame luminance before seam finding.
+    if _GLOBAL_GAIN_COMP and len(warped_norm) >= 2:
+        warped_norm = _equalize_warped_gains(warped_norm, block_size=32)
+
+    # Try global GraphCut / Canvas-space DP composite
+    global_res = _try_global_seam_composite(
+        warped_norm, warped_bg, canvas, H, W, N, boundaries,
+        seam_post_diffs, seam_single_pose, seam_meta_out
+    )
+    if global_res is not None:
+        return global_res
+
+    # Hard-partition fill
+    result = _initial_hard_partition_fill(
+        canvas, warped_norm, warped_bg, order, boundaries, N, H
+    )
+
+    # Pre-compute seam DP paths
+    _precomp_paths, _eff_exclusion = _precompute_seam_paths(
+        result, boundaries, order, feathers, warped_norm, warped_bg,
+        frame_keys, seam_path_cache, exclusion_masks, seam_overrides, paint_mask, H, W
+    )
+
+    # Uneven layout gate
+    _apply_uneven_layout_gate(boundaries, order, warped_norm, seam_single_pose, len(boundaries))
+
+    # Laplacian blend at each boundary seam zone
+    _seam_order = list(range(len(boundaries)))
+    if _SEAM_ORDER_RESIDUAL and seam_post_diffs:
+        _seam_order = sorted(_seam_order, key=lambda _k: seam_post_diffs.get(_k, 0.0))
+    for k in _seam_order:
+        by = boundaries[k]
+        _process_single_seam(
+            k, by, result, order, feathers, warped_norm, warped_bg,
+            seam_single_pose, seam_post_diffs, seam_synthesized, seam_canonical_crops,
+            seam_overrides, _precomp_paths, _eff_exclusion, seam_meta_out, H, W
+        )
+
+    # Post-composite audit and annotations
+    result = _audit_and_annotate_composite(
+        result, boundaries, order, feathers, warped_norm, _precomp_paths,
+        seam_post_diffs, seam_single_pose, seam_meta_out
+    )
+
+    return result
+
+def _adapt_feathers_and_synthesize(
+    seam_post_diffs: dict,
+    seam_single_pose: dict,
+    seam_synthesized: dict,
+    feathers: np.ndarray,
+    boundaries: np.ndarray,
+    order: np.ndarray,
+    affines: List[np.ndarray],
+    frames: List[np.ndarray],
+    warped_norm: List[np.ndarray],
+    H: int,
+    W: int,
+) -> dict:
     _feather_adapted = False
+    n_b = len(boundaries)
     for _k, _pdiff in seam_post_diffs.items():
         if _k in seam_single_pose:
             continue
@@ -5560,8 +5729,8 @@ def _composite_foreground(
         elif _pdiff > 16.0:
             feathers[_k] = max(int(feathers[_k] * 0.75), FEATHER_MIN)
             _feather_adapted = True
+
     if _feather_adapted:
-        # Re-apply natural overlap cap so widened feathers never exceed real content
         for _k in range(n_b):
             _fi_a = int(order[_k])
             _fi_b = int(order[_k + 1])
@@ -5578,10 +5747,6 @@ def _composite_foreground(
             + " ".join(f"B{_k}={int(feathers[_k])}px" for _k in range(n_b))
         )
 
-    # ToonCrafter seam synthesis (§3.6 / S9): generate a canonical interpolated
-    # cel at the single worst post-diff seam so the hard single-pose partition
-    # is replaced by a smoothly interpolated character pose.  Only fires when
-    # ASP_TOONCRAFTER_SEAM=1 and at least one seam was escalated to single-pose.
     seam_canonical_crops: dict = {}
     if _TOONCRAFTER_SEAM and seam_single_pose:
         try:
@@ -5594,8 +5759,6 @@ def _composite_foreground(
             y1_fw = min(H, int(by_w) + feather_w + 1)
             crop_a_tc = warped_norm[fi_a_w][y0_fw:y1_fw]
             crop_b_tc = warped_norm[fi_b_w][y0_fw:y1_fw]
-            # relocated: from backend.src.animation.rendering.anim_fill import _generate_canonical_cel
-            # relocated: import torch as _tc_torch
 
             _dev_tc_seam = "cuda" if _tc_torch.cuda.is_available() else "cpu"
             canonical_cel = _generate_canonical_cel(crop_a_tc, crop_b_tc, _dev_tc_seam)
@@ -5608,97 +5771,113 @@ def _composite_foreground(
         except Exception as _tc_seam_e:
             print(f"[Stitch]   ToonCrafter seam synthesis skipped ({_tc_seam_e}).")
 
-    # §4.10: Equalise inter-frame luminance before seam finding.
-    if _GLOBAL_GAIN_COMP and len(warped_norm) >= 2:
-        warped_norm = _equalize_warped_gains(warped_norm, block_size=32)
+    return seam_canonical_crops
 
-    # §4.2/§4.6: GraphCut global seam + optional MultiBand blend (Phase 4).
-    # When ASP_GRAPHCUT_SEAM=1, replaces the hard-partition + DP blend loop below
-    # with a single global cv::detail::GraphCutSeamFinder call that assigns each
-    # canvas pixel to one frame simultaneously across all N frames, eliminating
-    # pairwise DP seam conflicts.  If ASP_MULTIBAND_BLEND=1 is also set, the
-    # cv::detail::MultiBandBlender replaces the per-zone Laplacian blend.
+
+def _execute_graphcut_composite(
+    warped_norm: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+    canvas: np.ndarray,
+    H: int,
+    W: int,
+    N: int,
+    boundaries: np.ndarray,
+    seam_post_diffs: dict,
+    seam_single_pose: dict,
+    seam_meta_out: Optional[dict],
+) -> np.ndarray:
+    _gc_frames  = [np.ascontiguousarray(warped_norm[i]) for i in range(N)]
+    _gc_masks   = [
+        (warped_norm[i].max(axis=2) > 0).astype(np.uint8) * 255
+        for i in range(N)
+    ]
+    _gc_corners = [(0, 0)] * N
+    print(f"[Stitch]   §4.2 GraphCut seam (global, {N} frames)...")
+    _ownership = batch.seam.graphcut_seam_find(
+        _gc_frames, _gc_masks, _gc_corners
+    )
+    result = canvas.copy()
+    if _MULTIBAND_BLEND:
+        print(f"[Stitch]   §4.6 MultiBand blend ({N} frames, 5 bands)...")
+        _mb_feed_masks = _ownership
+        if _MULTIBAND_CONF:
+            _mb_feed_masks = _compute_multiband_confidence(
+                _gc_frames, _ownership, warped_bg
+            )
+            print(
+                f"[Stitch]   §4.6 confidence-weighted feed masks "
+                f"(band={_MULTIBAND_CONF_BAND_PX}px)."
+            )
+        _mb = batch.compositing.multiband_blend(
+            _gc_frames, _mb_feed_masks, _gc_corners, num_bands=5
+        )
+        rh, rw = min(_mb.shape[0], H), min(_mb.shape[1], W)
+        result[:rh, :rw] = _mb[:rh, :rw]
+        print(f"[Stitch]   MultiBand blend done ({rh}×{rw}px).")
+    else:
+        for i in range(N):
+            own = _ownership[i] > 127
+            src = warped_norm[i]
+            has_content = src.max(axis=2) > 0
+            _apply_gc = own & has_content
+            if warped_bg[i] is not None:
+                _apply_gc = _apply_gc & (~warped_bg[i])
+            result[_apply_gc] = src[_apply_gc]
+
+    _gc_black = result.max(axis=2) == 0
+    if _gc_black.any():
+        for _gcwn in warped_norm:
+            _gc_fill = _gc_black & (_gcwn.max(axis=2) > 0)
+            if _gc_fill.any():
+                result[_gc_fill] = _gcwn[_gc_fill]
+                _gc_black = result.max(axis=2) == 0
+            if not _gc_black.any():
+                break
+
+    if not _MULTIBAND_BLEND and _GC_FEATHER_PX > 0:
+        result = _feather_gc_boundaries(result, _ownership, _gc_frames, feather_px=_GC_FEATHER_PX)
+
+    if seam_meta_out is not None:
+        seam_meta_out.update(
+            {
+                "boundaries": (
+                    boundaries.tolist()
+                    if hasattr(boundaries, "tolist")
+                    else list(boundaries)
+                ),
+                "seam_post_diffs": dict(seam_post_diffs),
+                "seam_single_pose": dict(seam_single_pose),
+                "seam_crops": _extract_seam_crops(result, boundaries),
+            }
+        )
+    print("[Stitch]   GraphCut composite done.")
+    return result
+
+
+def _try_global_seam_composite(
+    warped_norm: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+    canvas: np.ndarray,
+    H: int,
+    W: int,
+    N: int,
+    boundaries: np.ndarray,
+    seam_post_diffs: dict,
+    seam_single_pose: dict,
+    seam_meta_out: Optional[dict],
+) -> Optional[np.ndarray]:
     if _GRAPHCUT_SEAM and BATCH_AVAILABLE and N >= 2:
         try:
-            _gc_frames  = [np.ascontiguousarray(warped_norm[i]) for i in range(N)]
-            # Coverage mask: pixels this frame actually covers on the canvas
-            _gc_masks   = [
-                (warped_norm[i].max(axis=2) > 0).astype(np.uint8) * 255
-                for i in range(N)
-            ]
-            # Frames are full canvas-size — all corners at (0,0)
-            _gc_corners = [(0, 0)] * N
-            print(f"[Stitch]   §4.2 GraphCut seam (global, {N} frames)...")
-            _ownership = batch.seam.graphcut_seam_find(
-                _gc_frames, _gc_masks, _gc_corners
+            return _execute_graphcut_composite(
+                warped_norm, warped_bg, canvas, H, W, N, boundaries,
+                seam_post_diffs, seam_single_pose, seam_meta_out
             )
-            result = canvas.copy()
-            if _MULTIBAND_BLEND:
-                print(f"[Stitch]   §4.6 MultiBand blend ({N} frames, 5 bands)...")
-                _mb_feed_masks = _ownership
-                if _MULTIBAND_CONF:
-                    _mb_feed_masks = _compute_multiband_confidence(
-                        _gc_frames, _ownership, warped_bg
-                    )
-                    print(
-                        f"[Stitch]   §4.6 confidence-weighted feed masks "
-                        f"(band={_MULTIBAND_CONF_BAND_PX}px)."
-                    )
-                _mb = batch.compositing.multiband_blend(
-                    _gc_frames, _mb_feed_masks, _gc_corners, num_bands=5
-                )
-                rh, rw = min(_mb.shape[0], H), min(_mb.shape[1], W)
-                result[:rh, :rw] = _mb[:rh, :rw]
-                print(f"[Stitch]   MultiBand blend done ({rh}×{rw}px).")
-            else:
-                for i in range(N):
-                    own = _ownership[i] > 127
-                    src = warped_norm[i]
-                    has_content = src.max(axis=2) > 0
-                    _apply_gc = own & has_content
-                    if warped_bg[i] is not None:
-                        _apply_gc = _apply_gc & (~warped_bg[i])
-                    result[_apply_gc] = src[_apply_gc]
-            # Gap fill — same as DP path
-            _gc_black = result.max(axis=2) == 0
-            if _gc_black.any():
-                for _gcwn in warped_norm:
-                    _gc_fill = _gc_black & (_gcwn.max(axis=2) > 0)
-                    if _gc_fill.any():
-                        result[_gc_fill] = _gcwn[_gc_fill]
-                        _gc_black = result.max(axis=2) == 0
-                    if not _gc_black.any():
-                        break
-            # §3.33: feather GC ownership boundaries (hard-partition only; MultiBand handles its own blend)
-            if not _MULTIBAND_BLEND and _GC_FEATHER_PX > 0:
-                result = _feather_gc_boundaries(result, _ownership, _gc_frames, feather_px=_GC_FEATHER_PX)
-            # Seam metadata for HITL
-            if seam_meta_out is not None:
-                seam_meta_out.update(
-                    {
-                        "boundaries": (
-                            boundaries.tolist()
-                            if hasattr(boundaries, "tolist")
-                            else list(boundaries)
-                        ),
-                        "seam_post_diffs": dict(seam_post_diffs),
-                        "seam_single_pose": dict(seam_single_pose),
-                        "seam_crops": _extract_seam_crops(result, boundaries),
-                    }
-                )
-            print("[Stitch]   GraphCut composite done.")
-            return result
         except Exception as _gc_exc:
             print(
                 f"[Stitch]   §4.2 GraphCut seam failed ({_gc_exc}), "
                 "falling back to DP blend."
             )
 
-    # §4.5: Canvas-space DP seam (cv2.detail_DpSeamFinder) — intermediate fallback
-    # between GraphCut (batch, global) and the pairwise DP blend loop below.
-    # Uses the same ownership-mask→composite path as GraphCut but with OpenCV's
-    # built-in DpSeamFinder, which handles 3-way overlaps the pairwise DP misses.
-    # Enable: ASP_DP_CANVAS_SEAM=1 (only useful when GraphCut is disabled).
     if _DP_CANVAS_SEAM and N >= 2:
         try:
             _dp_result = _canvas_dp_seam_composite(
@@ -5726,13 +5905,19 @@ def _composite_foreground(
                 "falling back to pairwise DP."
             )
 
+    return None
 
-    # Start from temporal median canvas — background pixels stay here permanently
+
+def _initial_hard_partition_fill(
+    canvas: np.ndarray,
+    warped_norm: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+    order: np.ndarray,
+    boundaries: np.ndarray,
+    N: int,
+    H: int,
+) -> np.ndarray:
     result = canvas.copy()
-
-    # Hard-partition: write FOREGROUND pixels only from each ownership zone.
-    # Background pixels are intentionally left as the temporal median so the
-    # static scene elements (walls, floors, props) retain photometric consistency.
     for k in range(N):
         fi = int(order[k])
         y_start = 0 if k == 0 else int(boundaries[k - 1])
@@ -5740,41 +5925,32 @@ def _composite_foreground(
         src = warped_norm[fi][y_start:y_end]
         has_content = src.max(axis=2) > 0
         if warped_bg[fi] is not None:
-            is_fg = ~warped_bg[fi][y_start:y_end]  # foreground = not background
+            is_fg = ~warped_bg[fi][y_start:y_end]
             replace = has_content & is_fg
         else:
             replace = has_content
         result[y_start:y_end][replace] = src[replace]
+    return result
 
-    # §S12: Pre-compute seam DP paths for all boundaries in parallel.
-    # _seam_cut() is read-only (reads warped_norm + result snapshot from hard-partition).
-    # Since result is fully populated before the blend loop starts, all seam cuts are
-    # independent — no write conflicts.  ThreadPoolExecutor releases the GIL for NumPy ops.
-    # relocated: import concurrent.futures as _cf
 
-    def _seam_job(job_args):
-        _k, _fa_z, _fb_z, _sem, _W, _zh, _wps = job_args
-        _both = (_fa_z.max(axis=2) > 0) & (_fb_z.max(axis=2) > 0)
-        if int(_both.sum()) > _zh * _W // 20:
-            try:
-                return _k, _seam_cut(_fa_z, _fb_z, sem_cost=_sem, waypoints=_wps)
-            except Exception:
-                pass
-        return _k, np.full(_W, _zh // 2, dtype=np.int32)
-
-    # §S86: merge painter canvas-space mask into exclusion_masks list.
-    # paint_mask is (H_canvas, W_canvas) uint8; sliced per-zone identically to
-    # existing exclusion_masks entries so no additional handling is needed.
-    _eff_exclusion = list(exclusion_masks or [])
-    if paint_mask is not None and paint_mask.shape[0] == H and paint_mask.shape[1] == W:
-        _eff_exclusion.append(paint_mask)
-    _eff_exclusion = _eff_exclusion or None  # type: ignore[assignment]
-
-    _seam_cost_flags = _get_seam_cost_flags()
+def _prepare_seam_jobs(
+    boundaries: np.ndarray,
+    order: np.ndarray,
+    feathers: np.ndarray,
+    warped_norm: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+    frame_keys: Optional[Tuple[str, ...]],
+    seam_path_cache: Optional[Dict],
+    seam_overrides: Optional[dict],
+    _eff_exclusion: Optional[List[np.ndarray]],
+    _seam_cost_flags: dict,
+    result: np.ndarray,
+    H: int,
+    W: int,
+    _precomp_paths: dict,
+) -> List[Tuple]:
     _seam_jobs = []
-    _precomp_paths: dict = {}
     for _k, _by in enumerate(boundaries):
-        # §1.5D: serve from cache when the same frame set + cost config was seen before
         _ck = _make_seam_cache_key(frame_keys, _k, _seam_cost_flags)
         if _ck is not None and seam_path_cache is not None and _ck in seam_path_cache:
             _precomp_paths[_k] = seam_path_cache[_ck]
@@ -5801,9 +5977,8 @@ def _composite_foreground(
             ((_bg_b_z.astype(np.uint8) * 255) if _bg_b_z is not None else None),
             exclusion_masks=_em_zone or None,
         )
-        # §2.11A: per-seam waypoints from seam_overrides (canvas-space y offset to zone-local)
         _ov_wps_raw = (seam_overrides or {}).get(_k, {}).get("waypoints")
-        _ov_wps: Optional[List[Tuple[int, int]]] = None
+        _ov_wps = None
         if _ov_wps_raw:
             _ov_wps = [
                 (int(x), int(y) - _y0)
@@ -5811,9 +5986,48 @@ def _composite_foreground(
                 if 0 <= int(y) - _y0 < _y1 - _y0
             ]
         _seam_jobs.append((_k, _fa_z, _fb_z, _sem, W, _y1 - _y0, _ov_wps))
+    return _seam_jobs
+
+
+def _precompute_seam_paths(
+    result: np.ndarray,
+    boundaries: np.ndarray,
+    order: np.ndarray,
+    feathers: np.ndarray,
+    warped_norm: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+    frame_keys: Optional[Tuple[str, ...]],
+    seam_path_cache: Optional[Dict],
+    exclusion_masks: Optional[List[np.ndarray]],
+    seam_overrides: Optional[dict],
+    paint_mask: Optional[np.ndarray],
+    H: int,
+    W: int,
+) -> Tuple[dict, Optional[List[np.ndarray]]]:
+    def _seam_job(job_args):
+        _k, _fa_z, _fb_z, _sem, _W, _zh, _wps = job_args
+        _both = (_fa_z.max(axis=2) > 0) & (_fb_z.max(axis=2) > 0)
+        if int(_both.sum()) > _zh * _W // 20:
+            try:
+                return _k, _seam_cut(_fa_z, _fb_z, sem_cost=_sem, waypoints=_wps)
+            except Exception:
+                pass
+        return _k, np.full(_W, _zh // 2, dtype=np.int32)
+
+    _eff_exclusion = list(exclusion_masks or [])
+    if paint_mask is not None and paint_mask.shape[0] == H and paint_mask.shape[1] == W:
+        _eff_exclusion.append(paint_mask)
+    _eff_exclusion = _eff_exclusion or None
+
+    _seam_cost_flags = _get_seam_cost_flags()
+    _precomp_paths: dict = {}
+    _seam_jobs = _prepare_seam_jobs(
+        boundaries, order, feathers, warped_norm, warped_bg, frame_keys,
+        seam_path_cache, seam_overrides, _eff_exclusion, _seam_cost_flags,
+        result, H, W, _precomp_paths
+    )
 
     if _SEAM_BATCH and len(_seam_jobs) > 1:
-        # Phase 4: dispatch all seams to C++ OpenMP parallel batch (GIL released)
         _zone_pairs = [
             {
                 "fa": np.ascontiguousarray(_j[1]),
@@ -5834,15 +6048,22 @@ def _composite_foreground(
         _k, _path = _seam_job(_seam_jobs[0])
         _precomp_paths[_k] = _path
 
-    # §1.5D: populate cache with all newly computed paths
     if frame_keys is not None and seam_path_cache is not None:
         for _k, _path in _precomp_paths.items():
             _ck = _make_seam_cache_key(frame_keys, _k, _seam_cost_flags)
             if _ck not in seam_path_cache:
                 seam_path_cache[_ck] = _path
 
-    # §1.119: Zone width variance gate — pre-escalate narrowest seam when
-    # boundary layout is highly uneven (indicates bad boundary optimisation).
+    return _precomp_paths, _eff_exclusion
+
+
+def _apply_uneven_layout_gate(
+    boundaries: np.ndarray,
+    order: np.ndarray,
+    warped_norm: List[np.ndarray],
+    seam_single_pose: dict,
+    n_b: int,
+):
     if _ZONE_WIDTH_CV_MAX > 0.0 and n_b >= 2:
         _cv119 = _zone_width_cv(list(boundaries))
         if _cv119 > _ZONE_WIDTH_CV_MAX:
@@ -5857,474 +6078,571 @@ def _composite_foreground(
                     _fi_a119 if _fga119 >= _fgb119 else _fi_b119
                 )
 
-    # Laplacian blend at each boundary seam zone (foreground pixels only)
-    # §1.89 — process lowest-residual seams first to establish quality baseline.
-    _seam_order = list(range(n_b))
-    if _SEAM_ORDER_RESIDUAL and seam_post_diffs:
-        _seam_order = sorted(_seam_order, key=lambda _k: seam_post_diffs.get(_k, 0.0))
-    for _loop_idx in _seam_order:
-        k, by = _loop_idx, boundaries[_loop_idx]
-        fi_a = int(order[k])
-        fi_b = int(order[k + 1])
-        feather = int(feathers[k])
 
-        y0_f = max(0, int(by) - feather)
-        y1_f = min(H, int(by) + feather + 1)
-        zone_h = y1_f - y0_f
-        if zone_h < 4:
-            continue
+def _evaluate_seam_pre_gates_first_half(
+    k: int,
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    bg_a_zone: Optional[np.ndarray],
+    bg_b_zone: Optional[np.ndarray],
+    fi_a: int,
+    fi_b: int,
+    zone_h: int,
+    seam_single_pose: dict,
+):
+    if (
+        _ZONE_MIN_HEIGHT > 0
+        and _zone_is_degenerate(zone_h, _ZONE_MIN_HEIGHT)
+    ):
+        _fg_a = int((fa_zone.max(axis=2) > 0).sum())
+        _fg_b = int((fb_zone.max(axis=2) > 0).sum())
+        seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+        return
 
-        fa_zone = warped_norm[fi_a][y0_f:y1_f]
-        fb_zone = warped_norm[fi_b][y0_f:y1_f]
-
-        # §1.30: degenerate zone guard — escalate to single-pose before DP when
-        # zone is too short for a meaningful blend (DP collapses to constant path).
-        if (
-            _ZONE_MIN_HEIGHT > 0
-            and _zone_is_degenerate(zone_h, _ZONE_MIN_HEIGHT)
-            and k not in seam_single_pose
-        ):
-            _fg_a = int((fa_zone.max(axis=2) > 0).sum())
-            _fg_b = int((fb_zone.max(axis=2) > 0).sum())
-            seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
-
-        # §1.60: fg pose-gap pre-escalation — when the two warped frames differ
-        # significantly in their shared fg pixels, the character poses are too
-        # dissimilar for Laplacian blending to produce a ghost-free result.
-        # Escalate to single-pose before the DP seam cut fires.
-        if _FG_POSE_GAP_THRESH > 0.0 and k not in seam_single_pose:
-            _pose_gap = _fg_zone_pose_gap(fa_zone, fb_zone)
-            if _pose_gap > _FG_POSE_GAP_THRESH:
-                _fg_a2 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b2 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a2 >= _fg_b2 else fi_b
-                print(
-                    f"[Stitch]   §1.60 pose-gap B{k}: fg MAD={_pose_gap:.1f} "
-                    f"> {_FG_POSE_GAP_THRESH:.1f} → single-pose frame {seam_single_pose[k]}"
-                )
-
-        # §1.121: Zone histogram intersection pre-gate (S157).
-        if _ZONE_HIST_THRESH > 0.0 and k not in seam_single_pose:
-            _hist_score = _zone_hist_intersection(fa_zone, fb_zone)
-            if _hist_score < _ZONE_HIST_THRESH:
-                _fg_a121 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b121 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a121 >= _fg_b121 else fi_b
-
-        # §1.70: blend-zone fg-coverage pre-escalation — when the entire overlap
-        # zone is fg-dominated (no background corridor for the DP seam to use),
-        # skip the DP and immediately escalate to single-pose.
-        _bg_a_zone = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
-        _bg_b_zone = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
-        # §1.116: Always compute zone bg fraction for diagnostics.
-        _zone_bg_frac_116 = 1.0 - _fg_fraction_in_zone(_bg_a_zone, _bg_b_zone)
-        if _ZONE_BG_FRAC_DIAG and debug_context is not None:
-            _zone_bg_fracs_116 = debug_context.setdefault("zone_bg_fracs", {})
-            _zone_bg_fracs_116[k] = _zone_bg_frac_116
-        if _SEAM_ZONE_FG_MAX > 0.0 and k not in seam_single_pose:
-            _zone_fg_frac = _fg_fraction_in_zone(_bg_a_zone, _bg_b_zone)
-            if _zone_fg_frac > _SEAM_ZONE_FG_MAX:
-                _fg_a3 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b3 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a3 >= _fg_b3 else fi_b
-                print(
-                    f"[Stitch]   §1.70 zone-fg B{k}: fg={_zone_fg_frac:.2f} "
-                    f"> {_SEAM_ZONE_FG_MAX:.2f} → single-pose frame {seam_single_pose[k]}"
-                )
-
-        # §1.86: Zone SSIM pre-gate — escalate to single-pose when the two warped
-        # zone crops are structurally incompatible after ARAP registration.  A low
-        # SSIM means different character poses that blending will ghost.
-        if _ZONE_PRE_SSIM_THRESH > 0.0 and k not in seam_single_pose:
-            _zone_ssim = _zone_pair_ssim(fa_zone, fb_zone)
-            if _zone_ssim < _ZONE_PRE_SSIM_THRESH:
-                _fg_a_86 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b_86 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a_86 >= _fg_b_86 else fi_b
-                print(
-                    f"[Stitch]   §1.86 zone-ssim B{k}: ssim={_zone_ssim:.3f} "
-                    f"< {_ZONE_PRE_SSIM_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
-                )
-
-        # §1.97: Seam zone entropy asymmetry gate.
-        if _ENTROPY_GAP_THRESH > 0.0 and k not in seam_single_pose:
-            _entr_gap = _seam_zone_entropy_gap(fa_zone, fb_zone)
-            if _entr_gap > _ENTROPY_GAP_THRESH:
-                _fg_a97 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b97 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a97 >= _fg_b97 else fi_b
-                print(
-                    f"[Stitch]   §1.97 entropy-gap B{k}: gap={_entr_gap:.2f} "
-                    f"> {_ENTROPY_GAP_THRESH:.2f} → single-pose frame {seam_single_pose[k]}"
-                )
-
-        # §1.117: Fast thumbnail NCC structural pre-gate.
-        if _ZONE_FAST_NCC_THRESH > 0.0 and k not in seam_single_pose:
-            _fast_ncc = _zone_pair_ncc(fa_zone, fb_zone)
-            if _fast_ncc < _ZONE_FAST_NCC_THRESH:
-                _fg_a117 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b117 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a117 >= _fg_b117 else fi_b
-                print(
-                    f"[Stitch]   §1.117 fast-NCC B{k}: ncc={_fast_ncc:.3f} "
-                    f"< {_ZONE_FAST_NCC_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
-                )
-
-        # §1.101: Full blend-zone MAD pre-escalation.
-        if _ZONE_MAD_THRESH > 0.0 and k not in seam_single_pose:
-            _mad_101 = float(
-                np.abs(fa_zone.astype(np.float32) - fb_zone.astype(np.float32)).mean()
+    if _FG_POSE_GAP_THRESH > 0.0:
+        _pose_gap = _fg_zone_pose_gap(fa_zone, fb_zone)
+        if _pose_gap > _FG_POSE_GAP_THRESH:
+            _fg_a2 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b2 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a2 >= _fg_b2 else fi_b
+            print(
+                f"[Stitch]   §1.60 pose-gap B{k}: fg MAD={_pose_gap:.1f} "
+                f"> {_FG_POSE_GAP_THRESH:.1f} → single-pose frame {seam_single_pose[k]}"
             )
-            if _mad_101 > _ZONE_MAD_THRESH:
-                _fg_a101 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b101 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a101 >= _fg_b101 else fi_b
-                print(
-                    f"[Stitch]   §1.101 zone-MAD B{k}: mad={_mad_101:.1f} "
-                    f"> {_ZONE_MAD_THRESH:.1f} → single-pose frame {seam_single_pose[k]}"
-                )
+            return
 
-        # P2.4 — Semantic seam routing: build a character-boundary cost map so
-        # the DP path avoids cutting through foreground outlines.
+    if _ZONE_HIST_THRESH > 0.0:
+        _hist_score = _zone_hist_intersection(fa_zone, fb_zone)
+        if _hist_score < _ZONE_HIST_THRESH:
+            _fg_a121 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b121 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a121 >= _fg_b121 else fi_b
+            return
 
-        # Use pre-computed seam path when available (parallel pre-computation above)
-        path_local = _precomp_paths.get(k)
-        if path_local is None:
-            # Fallback: compute inline (zone was skipped in pre-compute or < 4px)
-            _em_zone_fb = [
-                em[y0_f:y1_f]
-                for em in (_eff_exclusion or [])
-                if em is not None and em.shape[0] >= y1_f
-            ]
-            _sem_cost = _build_seam_cost_map(
-                result[y0_f:y1_f],
-                (
-                    (_bg_a_zone.astype(np.uint8) * 255)
-                    if _bg_a_zone is not None
-                    else None
-                ),
-                (
-                    (_bg_b_zone.astype(np.uint8) * 255)
-                    if _bg_b_zone is not None
-                    else None
-                ),
-                exclusion_masks=_em_zone_fb or None,
+    if _SEAM_ZONE_FG_MAX > 0.0:
+        _zone_fg_frac = _fg_fraction_in_zone(bg_a_zone, bg_b_zone)
+        if _zone_fg_frac > _SEAM_ZONE_FG_MAX:
+            _fg_a3 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b3 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a3 >= _fg_b3 else fi_b
+            print(
+                f"[Stitch]   §1.70 zone-fg B{k}: fg={_zone_fg_frac:.2f} "
+                f"> {_SEAM_ZONE_FG_MAX:.2f} → single-pose frame {seam_single_pose[k]}"
             )
-            both = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
-            if int(both.sum()) > zone_h * W // 20:
-                try:
-                    # §2.11A: thread waypoints into inline fallback seam cut
-                    _fb_wps_raw = (seam_overrides or {}).get(k, {}).get("waypoints")
-                    _fb_wps: Optional[List[Tuple[int, int]]] = None
-                    if _fb_wps_raw:
-                        _fb_wps = [
-                            (int(_wx), int(_wy) - y0_f)
-                            for _wx, _wy in _fb_wps_raw
-                            if 0 <= int(_wy) - y0_f < zone_h
-                        ]
-                    path_local = _seam_cut(
-                        fa_zone, fb_zone, sem_cost=_sem_cost, waypoints=_fb_wps
-                    )
-                except Exception:
-                    path_local = np.full(W, zone_h // 2, dtype=np.int32)
-            else:
-                path_local = np.full(W, zone_h // 2, dtype=np.int32)
+            return
 
-        # §1.69: Post-DP bg-routing ratio check — if the DP seam was forced
-        # through too many fg pixels despite cost-map steering, escalate to
-        # single-pose for this boundary before applying the blend.
-        if _SEAM_DP_BG_MIN > 0.0 and k not in seam_single_pose:
-            _bg_a_dp = (
-                warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
-            )
-            _bg_b_dp = (
-                warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
-            )
-            _dp_bg_r = _seam_dp_bg_ratio(path_local, _bg_a_dp, _bg_b_dp)
-            if _dp_bg_r < _SEAM_DP_BG_MIN:
-                _fg_a4 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b4 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a4 >= _fg_b4 else fi_b
-                print(
-                    f"[Stitch]   §1.69 dp-bg-ratio B{k}: bg={_dp_bg_r:.2f} "
-                    f"< {_SEAM_DP_BG_MIN:.2f} → single-pose frame {seam_single_pose[k]}"
-                )
 
-        # §1.122: High seam path cost escalation (S158) — mean DP path cost gate.
-        if (
-            _HIGH_PATH_COST_THRESH > 0.0
-            and k not in seam_single_pose
-            and path_local is not None
-        ):
+def _evaluate_seam_pre_gates_second_half(
+    k: int,
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    bg_a_zone: Optional[np.ndarray],
+    bg_b_zone: Optional[np.ndarray],
+    fi_a: int,
+    fi_b: int,
+    seam_single_pose: dict,
+):
+    if _ZONE_PRE_SSIM_THRESH > 0.0:
+        _zone_ssim = _zone_pair_ssim(fa_zone, fb_zone)
+        if _zone_ssim < _ZONE_PRE_SSIM_THRESH:
+            _fg_a_86 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b_86 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a_86 >= _fg_b_86 else fi_b
+            print(
+                f"[Stitch]   §1.86 zone-ssim B{k}: ssim={_zone_ssim:.3f} "
+                f"< {_ZONE_PRE_SSIM_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
+            )
+            return
+
+    if _ENTROPY_GAP_THRESH > 0.0:
+        _entr_gap = _seam_zone_entropy_gap(fa_zone, fb_zone)
+        if _entr_gap > _ENTROPY_GAP_THRESH:
+            _fg_a97 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b97 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a97 >= _fg_b97 else fi_b
+            print(
+                f"[Stitch]   §1.97 entropy-gap B{k}: gap={_entr_gap:.2f} "
+                f"> {_ENTROPY_GAP_THRESH:.2f} → single-pose frame {seam_single_pose[k]}"
+            )
+            return
+
+    if _ZONE_FAST_NCC_THRESH > 0.0:
+        _fast_ncc = _zone_pair_ncc(fa_zone, fb_zone)
+        if _fast_ncc < _ZONE_FAST_NCC_THRESH:
+            _fg_a117 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b117 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a117 >= _fg_b117 else fi_b
+            print(
+                f"[Stitch]   §1.117 fast-NCC B{k}: ncc={_fast_ncc:.3f} "
+                f"< {_ZONE_FAST_NCC_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
+            )
+            return
+
+    if _ZONE_MAD_THRESH > 0.0:
+        _mad_101 = float(
+            np.abs(fa_zone.astype(np.float32) - fb_zone.astype(np.float32)).mean()
+        )
+        if _mad_101 > _ZONE_MAD_THRESH:
+            _fg_a101 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b101 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a101 >= _fg_b101 else fi_b
+            print(
+                f"[Stitch]   §1.101 zone-MAD B{k}: mad={_mad_101:.1f} "
+                f"> {_ZONE_MAD_THRESH:.1f} → single-pose frame {seam_single_pose[k]}"
+            )
+            return
+
+
+def _evaluate_seam_pre_gates(
+    k: int,
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    bg_a_zone: Optional[np.ndarray],
+    bg_b_zone: Optional[np.ndarray],
+    fi_a: int,
+    fi_b: int,
+    zone_h: int,
+    seam_single_pose: dict,
+    seam_meta_out: Optional[dict],
+):
+    _zone_bg_frac_116 = 1.0 - _fg_fraction_in_zone(bg_a_zone, bg_b_zone)
+    if _ZONE_BG_FRAC_DIAG and seam_meta_out is not None:
+        _zone_bg_fracs_116 = seam_meta_out.setdefault("zone_bg_fracs", {})
+        _zone_bg_fracs_116[k] = _zone_bg_frac_116
+
+    if k in seam_single_pose:
+        return
+
+    _evaluate_seam_pre_gates_first_half(
+        k, fa_zone, fb_zone, bg_a_zone, bg_b_zone, fi_a, fi_b, zone_h, seam_single_pose
+    )
+    if k in seam_single_pose:
+        return
+
+    _evaluate_seam_pre_gates_second_half(
+        k, fa_zone, fb_zone, bg_a_zone, bg_b_zone, fi_a, fi_b, seam_single_pose
+    )
+
+
+def _get_or_compute_path_local(
+    k: int,
+    y0_f: int,
+    y1_f: int,
+    zone_h: int,
+    W: int,
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    bg_a_zone: Optional[np.ndarray],
+    bg_b_zone: Optional[np.ndarray],
+    result_zone: np.ndarray,
+    _precomp_paths: dict,
+    _eff_exclusion: Optional[List[np.ndarray]],
+    seam_overrides: Optional[dict],
+) -> Tuple[np.ndarray, np.ndarray]:
+    path_local = _precomp_paths.get(k)
+    _em_zone_fb = [
+        em[y0_f:y1_f]
+        for em in (_eff_exclusion or [])
+        if em is not None and em.shape[0] >= y1_f
+    ]
+    _sem_cost = _build_seam_cost_map(
+        result_zone,
+        (
+            (bg_a_zone.astype(np.uint8) * 255)
+            if bg_a_zone is not None
+            else None
+        ),
+        (
+            (bg_b_zone.astype(np.uint8) * 255)
+            if bg_b_zone is not None
+            else None
+        ),
+        exclusion_masks=_em_zone_fb or None,
+    )
+    if path_local is None:
+        both = (fa_zone.max(axis=2) > 0) & (fb_zone.max(axis=2) > 0)
+        if int(both.sum()) > zone_h * W // 20:
             try:
-                _mpc = _mean_path_cost(path_local, _sem_cost)
+                _fb_wps_raw = (seam_overrides or {}).get(k, {}).get("waypoints")
+                _fb_wps = None
+                if _fb_wps_raw:
+                    _fb_wps = [
+                        (int(_wx), int(_wy) - y0_f)
+                        for _wx, _wy in _fb_wps_raw
+                        if 0 <= int(_wy) - y0_f < zone_h
+                    ]
+                path_local = _seam_cut(
+                    fa_zone, fb_zone, sem_cost=_sem_cost, waypoints=_fb_wps
+                )
             except Exception:
-                _mpc = 0.0
-            if _mpc > _HIGH_PATH_COST_THRESH:
-                _fg_a122 = int((fa_zone.max(axis=2) > 0).sum())
-                _fg_b122 = int((fb_zone.max(axis=2) > 0).sum())
-                seam_single_pose[k] = fi_a if _fg_a122 >= _fg_b122 else fi_b
-                print(
-                    f"[Stitch]   §1.122 high-path-cost B{k}: mean_cost={_mpc:.3f} "
-                    f"> {_HIGH_PATH_COST_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
-                )
+                path_local = np.full(W, zone_h // 2, dtype=np.int32)
+        else:
+            path_local = np.full(W, zone_h // 2, dtype=np.int32)
 
-        # P2.5 — Soft-seam diffusion blending (DSFN technique).
-        # Instead of a fixed-width linear ramp, compute a spatially-adaptive blend
-        # weight from the photometric similarity between the two frames in the zone.
-        # High similarity (flat background) → wide, smooth transition.
-        # Low similarity (character edge) → narrow, hard cut that preserves outlines.
-        # The seam path still anchors the 50% iso-contour of the weight.
-        # warped_bg[i] is True=background; pass background masks directly so the
-        # seam weight can apply a tight cut at foreground pixels specifically.
-        _wbg_a = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
-        _wbg_b = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
-        mask_float = _soft_seam_weight(
-            fa_zone,
-            fb_zone,
+    return path_local, _sem_cost
+
+
+def _evaluate_seam_post_path_gates(
+    k: int,
+    path_local: np.ndarray,
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    bg_a_dp: Optional[np.ndarray],
+    bg_b_dp: Optional[np.ndarray],
+    fi_a: int,
+    fi_b: int,
+    sem_cost: np.ndarray,
+    seam_single_pose: dict,
+):
+    if _SEAM_DP_BG_MIN > 0.0 and k not in seam_single_pose:
+        _dp_bg_r = _seam_dp_bg_ratio(path_local, bg_a_dp, bg_b_dp)
+        if _dp_bg_r < _SEAM_DP_BG_MIN:
+            _fg_a4 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b4 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a4 >= _fg_b4 else fi_b
+            print(
+                f"[Stitch]   §1.69 dp-bg-ratio B{k}: bg={_dp_bg_r:.2f} "
+                f"< {_SEAM_DP_BG_MIN:.2f} → single-pose frame {seam_single_pose[k]}"
+            )
+
+    if (
+        _HIGH_PATH_COST_THRESH > 0.0
+        and k not in seam_single_pose
+        and path_local is not None
+    ):
+        try:
+            _mpc = _mean_path_cost(path_local, sem_cost)
+        except Exception:
+            _mpc = 0.0
+        if _mpc > _HIGH_PATH_COST_THRESH:
+            _fg_a122 = int((fa_zone.max(axis=2) > 0).sum())
+            _fg_b122 = int((fb_zone.max(axis=2) > 0).sum())
+            seam_single_pose[k] = fi_a if _fg_a122 >= _fg_b122 else fi_b
+            print(
+                f"[Stitch]   §1.122 high-path-cost B{k}: mean_cost={_mpc:.3f} "
+                f"> {_HIGH_PATH_COST_THRESH:.3f} → single-pose frame {seam_single_pose[k]}"
+            )
+
+
+def _evaluate_seam_post_blend_gates(
+    k: int,
+    path_local: np.ndarray,
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    fi_a: int,
+    fi_b: int,
+    seam_single_pose: dict,
+):
+    if (
+        _SEAM_INSTABILITY_THRESH > 0.0
+        and k not in seam_single_pose
+        and _seam_path_std(path_local) > _SEAM_INSTABILITY_THRESH
+    ):
+        _fg_a = int((fa_zone.max(axis=2) > 0).sum())
+        _fg_b = int((fb_zone.max(axis=2) > 0).sum())
+        seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+
+    if (
+        _SEAM_FG_PENETRATION_MAX > 0.0
+        and k not in seam_single_pose
+        and _seam_fg_penetration(path_local, fa_zone, fb_zone)
+        > _SEAM_FG_PENETRATION_MAX
+    ):
+        _fg_a = int((fa_zone.max(axis=2) > 0).sum())
+        _fg_b = int((fb_zone.max(axis=2) > 0).sum())
+        seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+
+    if (
+        _SEAM_DRIFT_THRESH > 0.0
+        and k not in seam_single_pose
+        and _seam_path_drift(path_local) > _SEAM_DRIFT_THRESH
+    ):
+        _fg_a = int((fa_zone.max(axis=2) > 0).sum())
+        _fg_b = int((fb_zone.max(axis=2) > 0).sum())
+        seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+
+
+def _fill_single_pose(
+    k: int,
+    y0_f: int,
+    y1_f: int,
+    zone_h: int,
+    result: np.ndarray,
+    fi_a: int,
+    fi_b: int,
+    warped_norm: List[np.ndarray],
+    _single: int,
+    seam_post_diffs: dict,
+    path_local: np.ndarray,
+    apply_mask: np.ndarray,
+    feather: int,
+):
+    dom_zone = warped_norm[_single][y0_f:y1_f]
+    oth = fi_b if _single == fi_a else fi_a
+    oth_zone = warped_norm[oth][y0_f:y1_f]
+    dom_has = dom_zone.max(axis=2) > 0
+    fg_apply = apply_mask
+    take_dom = fg_apply & dom_has
+    take_oth = fg_apply & (~dom_has) & (oth_zone.max(axis=2) > 0)
+    result[y0_f:y1_f][take_dom] = dom_zone[take_dom]
+    result[y0_f:y1_f][take_oth] = oth_zone[take_oth]
+
+    _sp_soft_px_base = int(os.environ.get("ASP_SP_SOFT_PX", "6"))
+    _sp_soft_px = (
+        _adaptive_sp_soft_px(feather) if _ADAPTIVE_SP_SOFT else _sp_soft_px_base
+    )
+    _eff_sp_soft_px = _sp_soft_px
+    if _ADAPTIVE_SP_SOFT:
+        _post_d124 = seam_post_diffs.get(k, 22.0)
+        if _post_d124 > 30.0:
+            _eff_sp_soft_px = _ADAPTIVE_SP_SOFT_MIN
+        elif _post_d124 < 10.0:
+            _eff_sp_soft_px = _ADAPTIVE_SP_SOFT_MAX
+    _band_px_sp = (
+        _adaptive_seam_band(
+            zone_h, _eff_sp_soft_px + 4, _ADAPTIVE_SEAM_BAND_MAX
+        )
+        if _ADAPTIVE_SEAM_BAND
+        else _eff_sp_soft_px + 4
+    )
+    _oth_matched = _seam_color_match(
+        dom_zone, oth_zone, path_local, _band_px_sp
+    )
+    if _HIST_MATCH_SEAM:
+        _oth_matched = _seam_band_hist_match(
+            dom_zone, _oth_matched, path_local, _band_px_sp
+        )
+    if _SEAM_LUM_CONVERGE:
+        _oth_matched = _seam_lum_converge(
+            dom_zone,
+            _oth_matched,
             path_local,
-            zone_h,
-            W,
-            bg_mask_a=_wbg_a,
-            bg_mask_b=_wbg_b,
+            _band_px_sp,
+            target_delta=_SEAM_LUM_CONVERGE_TARGET,
         )
+    _sp_zone = _single_pose_soft_edge(
+        dom_zone, _oth_matched, path_local, fg_apply, _eff_sp_soft_px
+    )
+    _both_for_sp = dom_has & (oth_zone.max(axis=2) > 0) & fg_apply
+    if _both_for_sp.any():
+        result[y0_f:y1_f][_both_for_sp] = _sp_zone[_both_for_sp]
 
-        _fb_for_blend = fb_zone
-        if k not in seam_single_pose:
-            if _ZONE_CHROMA_ALIGN:
-                _fb_for_blend = _zone_chroma_align(fa_zone, _fb_for_blend)
-            if _ZONE_LUM_NORM:
-                _fb_for_blend = _zone_lum_norm(fa_zone, _fb_for_blend)
-            if _BLOCKS_GAIN_COMP:
-                _fb_for_blend = _blocks_gain_compensate(fa_zone, _fb_for_blend)
-            if _BLOCKS_LUM_COMP:
-                _fb_for_blend = _blocks_lum_compensate(fa_zone, _fb_for_blend)
-            if _ZONE_SAT_NORM:
-                _fb_for_blend = _zone_sat_norm(fa_zone, _fb_for_blend)
-            if _ZONE_CONTRAST_EQ:
-                _fb_for_blend = _zone_contrast_eq(fa_zone, _fb_for_blend)
-            if _ZONE_HUE_EQ:
-                _fb_for_blend = _zone_hue_eq(fa_zone, _fb_for_blend)
+    print(
+        f"[Stitch]   Single-pose B{k} (frame {_single}): "
+        f"zone=[{y0_f}–{y1_f}] fg_px={int(fg_apply.sum())} "
+        f"soft_px={_eff_sp_soft_px}"
+    )
 
-        # §1.105: Cap blend weight for fg-overlap pixels with high lum diff.
-        _mask_for_blend = mask_float
-        if _FG_OVERLAP_BLEND_CAP > 0.0 and k not in seam_single_pose:
-            _has_fg_a = fa_zone.max(axis=2) > 0
-            _has_fg_b = _fb_for_blend.max(axis=2) > 0
-            _both_fg = _has_fg_a & _has_fg_b
-            if _both_fg.any():
-                _lum_diff = np.abs(
-                    fa_zone[..., 0].astype(np.float32) * 0.114
-                    + fa_zone[..., 1].astype(np.float32) * 0.587
-                    + fa_zone[..., 2].astype(np.float32) * 0.299
-                    - (
-                        _fb_for_blend[..., 0].astype(np.float32) * 0.114
-                        + _fb_for_blend[..., 1].astype(np.float32) * 0.587
-                        + _fb_for_blend[..., 2].astype(np.float32) * 0.299
-                    )
-                )
-                _high_diff_fg = _both_fg & (_lum_diff > 10.0)
-                if _high_diff_fg.any():
-                    _mask_for_blend = mask_float.copy()
-                    _mask_for_blend[_high_diff_fg] = np.minimum(
-                        _mask_for_blend[_high_diff_fg], _FG_OVERLAP_BLEND_CAP
-                    )
-        blended = _laplacian_blend(
-            fa_zone,
-            _fb_for_blend,
-            _mask_for_blend,
-            alpha_schedule=_LAPLACIAN_ALPHA_SCHEDULE,
+
+def _blend_or_single_pose_fill(
+    k: int,
+    y0_f: int,
+    y1_f: int,
+    zone_h: int,
+    W: int,
+    result: np.ndarray,
+    fa_zone: np.ndarray,
+    fb_zone: np.ndarray,
+    fi_a: int,
+    fi_b: int,
+    warped_norm: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+    seam_single_pose: dict,
+    seam_post_diffs: dict,
+    seam_synthesized: dict,
+    seam_canonical_crops: dict,
+    path_local: np.ndarray,
+    blended: np.ndarray,
+    apply_mask: np.ndarray,
+    is_fg: Optional[np.ndarray],
+    feather: int,
+):
+    _single = seam_single_pose.get(k)
+    _synth_info = seam_synthesized.get(k)
+    if _synth_info is not None and is_fg is not None:
+        synth = _synth_info["synth"]
+        sp = _synth_info["seam_pos"]
+        ch = _synth_info["crop_half"]
+        ax = _synth_info["axis"]
+
+        dom_fi = _single if _single is not None else fi_a
+        oth_fi = fi_b if dom_fi == fi_a else fi_a
+        dom_zone = warped_norm[dom_fi][y0_f:y1_f]
+        oth_zone = warped_norm[oth_fi][y0_f:y1_f]
+
+        dom_has = dom_zone.max(axis=2) > 0
+        result[y0_f:y1_f][apply_mask & dom_has] = dom_zone[apply_mask & dom_has]
+        oth_fill = apply_mask & (~dom_has) & (oth_zone.max(axis=2) > 0)
+        result[y0_f:y1_f][oth_fill] = oth_zone[oth_fill]
+
+        if ax == 0:
+            _syn_y0 = max(y0_f, sp - ch)
+            _syn_y1 = min(y1_f, sp + ch)
+            if _syn_y0 < _syn_y1 and synth.shape[0] > 0:
+                _rel0 = _syn_y0 - (sp - ch)
+                _rel1 = _rel0 + (_syn_y1 - _syn_y0)
+                if 0 <= _rel0 < synth.shape[0] and _rel1 <= synth.shape[0]:
+                    _s = synth[_rel0:_rel1, :]
+                    _has_s = _s.max(axis=2) > 0
+                    result[_syn_y0:_syn_y1][_has_s] = _s[_has_s]
+        print(f"[ToonCrafter] Composite B{k}: synthesis at seam {sp}±{ch}px")
+    elif _single is not None and is_fg is not None:
+        _fill_single_pose(
+            k, y0_f, y1_f, zone_h, result, fi_a, fi_b, warped_norm,
+            _single, seam_post_diffs, path_local, apply_mask, feather
         )
+    else:
+        if _POISSON_SEAM:
+            blended = _poisson_seam_blend(fa_zone, fb_zone, path_local, apply_mask)
 
-        # Apply blend only to FOREGROUND pixels so background stays from temporal median.
-        # Where both frames agree the pixel is background, leave the temporal median value.
         has_a = fa_zone.max(axis=2) > 0
         has_b = fb_zone.max(axis=2) > 0
-        has_any = has_a | has_b
+        both_content = has_a & has_b & apply_mask
+        only_a = has_a & (~has_b) & apply_mask
+        only_b = (~has_a) & has_b & apply_mask
+        if both_content.any():
+            result[y0_f:y1_f][both_content] = blended[both_content]
+        if only_a.any():
+            result[y0_f:y1_f][only_a] = fa_zone[only_a]
+        if only_b.any():
+            result[y0_f:y1_f][only_b] = fb_zone[only_b]
+        _blend_mode = "poisson" if _POISSON_SEAM else "laplacian"
+        print(
+            f"[Stitch]   Blended B{k} (frames {fi_a}/{fi_b}, {_blend_mode}): "
+            f"zone=[{y0_f}–{y1_f}] feather={feather}px "
+            f"seam=[{int(path_local.min())}–{int(path_local.max())}]"
+        )
 
-        if warped_bg[fi_a] is not None and warped_bg[fi_b] is not None:
-            bg_a_z = warped_bg[fi_a][y0_f:y1_f]
-            bg_b_z = warped_bg[fi_b][y0_f:y1_f]
-            # Foreground in at least one frame — apply blend
-            is_fg = ~(bg_a_z & bg_b_z)
-            apply = has_any & is_fg
-        else:
-            is_fg = None
-            apply = has_any
 
-        # §1.28: Instability escalation — if the seam path has high column variance
-        # and no prior single-pose decision exists, escalate to single-pose now.
-        if (
-            _SEAM_INSTABILITY_THRESH > 0.0
-            and k not in seam_single_pose
-            and _seam_path_std(path_local) > _SEAM_INSTABILITY_THRESH
-        ):
-            _fg_a = int((fa_zone.max(axis=2) > 0).sum())
-            _fg_b = int((fb_zone.max(axis=2) > 0).sum())
-            seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+def _process_single_seam(
+    k: int,
+    by: float,
+    result: np.ndarray,
+    order: np.ndarray,
+    feathers: np.ndarray,
+    warped_norm: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+    seam_single_pose: dict,
+    seam_post_diffs: dict,
+    seam_synthesized: dict,
+    seam_canonical_crops: dict,
+    seam_overrides: Optional[dict],
+    _precomp_paths: dict,
+    _eff_exclusion: Optional[List[np.ndarray]],
+    seam_meta_out: Optional[dict],
+    H: int,
+    W: int,
+):
+    fi_a = int(order[k])
+    fi_b = int(order[k + 1])
+    feather = int(feathers[k])
 
-        # §1.31: FG penetration escalation — if the seam path cuts through
-        # foreground pixels in too many columns, the DP has routed through
-        # character bodies.  Escalate to single-pose to avoid a bisected character.
-        if (
-            _SEAM_FG_PENETRATION_MAX > 0.0
-            and k not in seam_single_pose
-            and _seam_fg_penetration(path_local, fa_zone, fb_zone)
-            > _SEAM_FG_PENETRATION_MAX
-        ):
-            _fg_a = int((fa_zone.max(axis=2) > 0).sum())
-            _fg_b = int((fb_zone.max(axis=2) > 0).sum())
-            seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+    y0_f = max(0, int(by) - feather)
+    y1_f = min(H, int(by) + feather + 1)
+    zone_h = y1_f - y0_f
+    if zone_h < 4:
+        return
 
-        # §1.112: Drift escalation — if the seam path has a sudden vertical
-        # column-to-column jump, escalate to single-pose to avoid a kink artefact.
-        if (
-            _SEAM_DRIFT_THRESH > 0.0
-            and k not in seam_single_pose
-            and _seam_path_drift(path_local) > _SEAM_DRIFT_THRESH
-        ):
-            _fg_a = int((fa_zone.max(axis=2) > 0).sum())
-            _fg_b = int((fb_zone.max(axis=2) > 0).sum())
-            seam_single_pose[k] = fi_a if _fg_a >= _fg_b else fi_b
+    fa_zone = warped_norm[fi_a][y0_f:y1_f]
+    fb_zone = warped_norm[fi_b][y0_f:y1_f]
+    bg_a_zone = warped_bg[fi_a][y0_f:y1_f] if warped_bg[fi_a] is not None else None
+    bg_b_zone = warped_bg[fi_b][y0_f:y1_f] if warped_bg[fi_b] is not None else None
 
-        # A6 — single-pose fallback: when the warp was unsafe at this seam, the
-        # two frames hold the character in irreconcilable poses.  Blending them
-        # produces a double image, so take the FOREGROUND from the dominant frame
-        # only (background still blends).  The dominant frame's foreground pixels
-        # win; the other frame fills only where the dominant has no content.
-        # ToonCrafter upgrade (§3.6): if a canonical cel was synthesised for this
-        # seam, use it instead of the hard dominant-frame partition.
-        _single = seam_single_pose.get(k)
-        _synth_info = seam_synthesized.get(k)
-        if _synth_info is not None and is_fg is not None:
-            # ToonCrafter synthesized seam (§3.6B): the synthesis covers the
-            # band around the seam boundary.  Apply it where both frames have
-            # foreground content; fall back to single-pose for the rest.
-            synth = _synth_info["synth"]  # crop of the seam zone
-            sp = _synth_info["seam_pos"]  # canvas row of the seam
-            ch = _synth_info["crop_half"]  # half-height of the crop
-            ax = _synth_info["axis"]  # 0=vertical, 1=horizontal
+    _evaluate_seam_pre_gates(
+        k, fa_zone, fb_zone, bg_a_zone, bg_b_zone, fi_a, fi_b, zone_h, seam_single_pose, seam_meta_out
+    )
 
-            dom_fi = _single if _single is not None else fi_a
-            oth_fi = fi_b if dom_fi == fi_a else fi_a
-            dom_zone = warped_norm[dom_fi][y0_f:y1_f]
-            oth_zone = warped_norm[oth_fi][y0_f:y1_f]
+    path_local, sem_cost = _get_or_compute_path_local(
+        k, y0_f, y1_f, zone_h, W, fa_zone, fb_zone, bg_a_zone, bg_b_zone, result[y0_f:y1_f],
+        _precomp_paths, _eff_exclusion, seam_overrides
+    )
 
-            # Single-pose baseline (covers entire zone)
-            dom_has = dom_zone.max(axis=2) > 0
-            result[y0_f:y1_f][apply & dom_has] = dom_zone[apply & dom_has]
-            oth_fill = apply & (~dom_has) & (oth_zone.max(axis=2) > 0)
-            result[y0_f:y1_f][oth_fill] = oth_zone[oth_fill]
+    _evaluate_seam_post_path_gates(
+        k, path_local, fa_zone, fb_zone, bg_a_zone, bg_b_zone, fi_a, fi_b, sem_cost, seam_single_pose
+    )
 
-            # Overwrite the synthesis band with the ToonCrafter output
-            if ax == 0:
-                _syn_y0 = max(y0_f, sp - ch)
-                _syn_y1 = min(y1_f, sp + ch)
-                if _syn_y0 < _syn_y1 and synth.shape[0] > 0:
-                    _rel0 = _syn_y0 - (sp - ch)
-                    _rel1 = _rel0 + (_syn_y1 - _syn_y0)
-                    if 0 <= _rel0 < synth.shape[0] and _rel1 <= synth.shape[0]:
-                        _s = synth[_rel0:_rel1, :]
-                        _has_s = _s.max(axis=2) > 0
-                        result[_syn_y0:_syn_y1][_has_s] = _s[_has_s]
-            print(f"[ToonCrafter] Composite B{k}: synthesis at seam {sp}±{ch}px")
-        elif _single is not None and is_fg is not None:
-            dom_zone = warped_norm[_single][y0_f:y1_f]
-            oth = fi_b if _single == fi_a else fi_a
-            oth_zone = warped_norm[oth][y0_f:y1_f]
-            dom_has = dom_zone.max(axis=2) > 0
-            fg_apply = apply  # foreground pixels in the zone
-            take_dom = fg_apply & dom_has
-            take_oth = fg_apply & (~dom_has) & (oth_zone.max(axis=2) > 0)
-            result[y0_f:y1_f][take_dom] = dom_zone[take_dom]
-            result[y0_f:y1_f][take_oth] = oth_zone[take_oth]
+    mask_float = _soft_seam_weight(
+        fa_zone,
+        fb_zone,
+        path_local,
+        zone_h,
+        W,
+        bg_mask_a=bg_a_zone,
+        bg_mask_b=bg_b_zone,
+    )
 
-            # S15+S16 — color-match oth_zone to dom_zone in the seam band, then
-            # apply a narrow soft-edge blend along the seam path.
-            # _seam_color_match reduces the channel-mean delta from post_warp_diff
-            # lum-units toward zero before the ±sp_soft_px ramp is applied, making
-            # the composite transition nearly imperceptible.
-            _sp_soft_px_base = int(os.environ.get("ASP_SP_SOFT_PX", "6"))
-            _sp_soft_px = (
-                _adaptive_sp_soft_px(feather) if _ADAPTIVE_SP_SOFT else _sp_soft_px_base
-            )
-            # §1.124: Residual-based adaptive clipping of soft-edge width (S158).
-            # High post-warp diff → narrow ramp (artefact risk); low diff → allow wider.
-            _eff_sp_soft_px = _sp_soft_px
-            if _ADAPTIVE_SP_SOFT:
-                _post_d124 = seam_post_diffs.get(k, 22.0)
-                if _post_d124 > 30.0:
-                    _eff_sp_soft_px = _ADAPTIVE_SP_SOFT_MIN
-                elif _post_d124 < 10.0:
-                    _eff_sp_soft_px = _ADAPTIVE_SP_SOFT_MAX
-            # §1.107: Adaptive seam band width based on zone height.
-            _band_px_sp = (
-                _adaptive_seam_band(
-                    zone_h, _eff_sp_soft_px + 4, _ADAPTIVE_SEAM_BAND_MAX
+    _fb_for_blend = fb_zone
+    if k not in seam_single_pose:
+        if _ZONE_CHROMA_ALIGN:
+            _fb_for_blend = _zone_chroma_align(fa_zone, _fb_for_blend)
+        if _ZONE_LUM_NORM:
+            _fb_for_blend = _zone_lum_norm(fa_zone, _fb_for_blend)
+        if _BLOCKS_GAIN_COMP:
+            _fb_for_blend = _blocks_gain_compensate(fa_zone, _fb_for_blend)
+        if _BLOCKS_LUM_COMP:
+            _fb_for_blend = _blocks_lum_compensate(fa_zone, _fb_for_blend)
+        if _ZONE_SAT_NORM:
+            _fb_for_blend = _zone_sat_norm(fa_zone, _fb_for_blend)
+        if _ZONE_CONTRAST_EQ:
+            _fb_for_blend = _zone_contrast_eq(fa_zone, _fb_for_blend)
+        if _ZONE_HUE_EQ:
+            _fb_for_blend = _zone_hue_eq(fa_zone, _fb_for_blend)
+
+    _mask_for_blend = mask_float
+    if _FG_OVERLAP_BLEND_CAP > 0.0 and k not in seam_single_pose:
+        _has_fg_a = fa_zone.max(axis=2) > 0
+        _has_fg_b = _fb_for_blend.max(axis=2) > 0
+        _both_fg = _has_fg_a & _has_fg_b
+        if _both_fg.any():
+            _lum_diff = np.abs(
+                fa_zone[..., 0].astype(np.float32) * 0.114
+                + fa_zone[..., 1].astype(np.float32) * 0.587
+                + fa_zone[..., 2].astype(np.float32) * 0.299
+                - (
+                    _fb_for_blend[..., 0].astype(np.float32) * 0.114
+                    + _fb_for_blend[..., 1].astype(np.float32) * 0.587
+                    + _fb_for_blend[..., 2].astype(np.float32) * 0.299
                 )
-                if _ADAPTIVE_SEAM_BAND
-                else _eff_sp_soft_px + 4
             )
-            _oth_matched = _seam_color_match(
-                dom_zone, oth_zone, path_local, _band_px_sp
-            )
-            # §1.88 — ECDF histogram matching after mean-shift for fuller distribution alignment.
-            if _HIST_MATCH_SEAM:
-                _oth_matched = _seam_band_hist_match(
-                    dom_zone, _oth_matched, path_local, _band_px_sp
+            _high_diff_fg = _both_fg & (_lum_diff > 10.0)
+            if _high_diff_fg.any():
+                _mask_for_blend = mask_float.copy()
+                _mask_for_blend[_high_diff_fg] = np.minimum(
+                    _mask_for_blend[_high_diff_fg], _FG_OVERLAP_BLEND_CAP
                 )
-            # §1.91 — iterative convergence: re-apply color match if residual delta > target.
-            if _SEAM_LUM_CONVERGE:
-                _oth_matched = _seam_lum_converge(
-                    dom_zone,
-                    _oth_matched,
-                    path_local,
-                    _band_px_sp,
-                    target_delta=_SEAM_LUM_CONVERGE_TARGET,
-                )
-            _sp_zone = _single_pose_soft_edge(
-                dom_zone, _oth_matched, path_local, fg_apply, _eff_sp_soft_px
-            )
-            _both_for_sp = dom_has & (oth_zone.max(axis=2) > 0) & fg_apply
-            if _both_for_sp.any():
-                result[y0_f:y1_f][_both_for_sp] = _sp_zone[_both_for_sp]
 
-            print(
-                f"[Stitch]   Single-pose B{k} (frame {_single}): "
-                f"zone=[{y0_f}–{y1_f}] fg_px={int(fg_apply.sum())} "
-                f"soft_px={_eff_sp_soft_px}"
-            )
-        else:
-            # §1.6C — Poisson seam blend (ASP_POISSON_SEAM=1): replace Laplacian
-            # blend with gradient-domain cv2.seamlessClone at normal seams.
-            if _POISSON_SEAM:
-                blended = _poisson_seam_blend(fa_zone, fb_zone, path_local, apply)
+    blended = _laplacian_blend(
+        fa_zone,
+        _fb_for_blend,
+        _mask_for_blend,
+        alpha_schedule=_LAPLACIAN_ALPHA_SCHEDULE,
+    )
 
-            # Apply blend only where BOTH frames have actual content.
-            # At canvas boundary positions where only one frame has content, the
-            # Laplacian pyramid creates ringing at the content-vs-zero transition.
-            # For single-frame positions, take that frame directly.
-            both_content = has_a & has_b & apply
-            only_a = has_a & (~has_b) & apply
-            only_b = (~has_a) & has_b & apply
-            if both_content.any():
-                result[y0_f:y1_f][both_content] = blended[both_content]
-            if only_a.any():
-                result[y0_f:y1_f][only_a] = fa_zone[only_a]
-            if only_b.any():
-                result[y0_f:y1_f][only_b] = fb_zone[only_b]
-            _blend_mode = "poisson" if _POISSON_SEAM else "laplacian"
-            print(
-                f"[Stitch]   Blended B{k} (frames {fi_a}/{fi_b}, {_blend_mode}): "
-                f"zone=[{y0_f}–{y1_f}] feather={feather}px "
-                f"seam=[{int(path_local.min())}–{int(path_local.max())}]"
-            )
+    has_a = fa_zone.max(axis=2) > 0
+    has_b = fb_zone.max(axis=2) > 0
+    has_any = has_a | has_b
 
-    # Fallback: fill remaining black pixels with content from any frame.
-    # When frames have different horizontal extents (diagonal scroll), the warped
-    # coverage areas create interior gaps not covered by the zone's owning frame.
-    # These gaps would show as staircase black edges in the final image.  Any frame
-    # that has content at the gap location is used to fill it.
+    if bg_a_zone is not None and bg_b_zone is not None:
+        is_fg = ~(bg_a_zone & bg_b_zone)
+        apply_mask = has_any & is_fg
+    else:
+        is_fg = None
+        apply_mask = has_any
+
+    _evaluate_seam_post_blend_gates(k, path_local, fa_zone, fb_zone, fi_a, fi_b, seam_single_pose)
+
+    _blend_or_single_pose_fill(
+        k, y0_f, y1_f, zone_h, W, result, fa_zone, fb_zone, fi_a, fi_b,
+        warped_norm, warped_bg, seam_single_pose, seam_post_diffs,
+        seam_synthesized, seam_canonical_crops, path_local, blended,
+        apply_mask, is_fg, feather
+    )
+
+
+def _fill_still_black_pixels(
+    result: np.ndarray,
+    warped_norm: List[np.ndarray],
+):
     still_black = result.max(axis=2) == 0
     if still_black.any():
         for wn in warped_norm:
@@ -6335,32 +6653,46 @@ def _composite_foreground(
                 if not still_black.any():
                     break
 
-    # §1.21: Post-composite seam luminance equalisation.
+
+def _print_seam_blur_warnings(
+    seam_sharpness: dict,
+):
+    if _SEAM_SHARP_MIN > 0.0:
+        for _sh_k, _sh_v in seam_sharpness.items():
+            if _sh_v < _SEAM_SHARP_MIN:
+                print(
+                    f"[Stitch] §1.118 seam-blur WARNING: B{_sh_k} lap_var={_sh_v:.2f} "
+                    f"< {_SEAM_SHARP_MIN:.2f}"
+                )
+
+
+def _audit_and_annotate_composite(
+    result: np.ndarray,
+    boundaries: np.ndarray,
+    order: np.ndarray,
+    feathers: np.ndarray,
+    warped_norm: List[np.ndarray],
+    _precomp_paths: dict,
+    seam_post_diffs: dict,
+    seam_single_pose: dict,
+    seam_meta_out: Optional[dict],
+) -> np.ndarray:
+    _fill_still_black_pixels(result, warped_norm)
+
     if _SEAM_LUM_EQ and boundaries:
         result = _seam_lum_equalize(result, boundaries)
 
-    # §1.56: Post-composite chroma seam correction.
     if _SEAM_CHROMA_EQ and boundaries:
         result = _seam_chroma_equalize(result, boundaries)
 
-    # §1.90 — post-seam bilateral smoothing pass in ±5px around each seam path.
     if _BILATERAL_SEAM and _precomp_paths:
         result = _bilateral_seam_smooth(result, _precomp_paths)
 
-    # §1.106: Post-composite seam luminance step audit.
     _seam_lum_steps = _audit_seam_lum_steps(
         result, boundaries, band_px=5, warn_thresh=_POST_SEAM_WARN_THRESH
     )
     _max_step = max(_seam_lum_steps.values()) if _seam_lum_steps else 0.0
-    if seam_meta_out is not None:
-        seam_meta_out.update(
-            {
-                "seam_lum_steps": _seam_lum_steps,
-                "max_seam_lum_step": _max_step,
-            }
-        )
 
-    # §1.118: Post-composite seam sharpness guard.
     _seam_sharpness = _measure_seam_sharpness(result, boundaries, band_px=5)
     _max_blur_k = (
         min(_seam_sharpness, key=_seam_sharpness.get) if _seam_sharpness else None
@@ -6368,25 +6700,12 @@ def _composite_foreground(
     _max_seam_blur = (
         _seam_sharpness.get(_max_blur_k, 0.0) if _max_blur_k is not None else 0.0
     )
-    if _SEAM_SHARP_MIN > 0.0:
-        for _sh_k, _sh_v in _seam_sharpness.items():
-            if _sh_v < _SEAM_SHARP_MIN:
-                print(
-                    f"[Stitch] §1.118 seam-blur WARNING: B{_sh_k} lap_var={_sh_v:.2f} "
-                    f"< {_SEAM_SHARP_MIN:.2f}"
-                )
-    if seam_meta_out is not None:
-        seam_meta_out["seam_sharpness"] = _seam_sharpness
-        seam_meta_out["max_seam_blur"] = _max_seam_blur
+    _print_seam_blur_warnings(_seam_sharpness)
 
-    # §1.120: Post-composite saturation step audit (S157).
     _seam_sat_steps = _audit_seam_sat_steps(
         result, boundaries, band_px=5, warn_thresh=_SEAM_SAT_WARN_THRESH
     )
     _max_sat_step = max(_seam_sat_steps.values()) if _seam_sat_steps else 0.0
-    if seam_meta_out is not None:
-        seam_meta_out["seam_sat_steps"] = _seam_sat_steps
-        seam_meta_out["max_seam_sat_step"] = _max_sat_step
 
     # §2.4B: Seam overlay annotation — draw coloured diagnostic lines.
     if _SEAM_OVERLAY and len(boundaries) > 0:
@@ -6396,6 +6715,12 @@ def _composite_foreground(
     if seam_meta_out is not None:
         seam_meta_out.update(
             {
+                "seam_lum_steps": _seam_lum_steps,
+                "max_seam_lum_step": _max_step,
+                "seam_sharpness": _seam_sharpness,
+                "max_seam_blur": _max_seam_blur,
+                "seam_sat_steps": _seam_sat_steps,
+                "max_seam_sat_step": _max_sat_step,
                 "boundaries": (
                     boundaries.tolist()
                     if hasattr(boundaries, "tolist")

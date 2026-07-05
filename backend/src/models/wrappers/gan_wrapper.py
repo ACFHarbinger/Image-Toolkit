@@ -4,14 +4,13 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-logger = logging.getLogger(__name__)
-
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.utils import save_image
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 class GanWrapper:
@@ -26,8 +25,10 @@ class GanWrapper:
     def __init__(
         self,
         model_name="bryandlee/animegan2-pytorch:main",
-        device="cuda" if torch.cuda.is_available() else "cpu",
+        device=None,
     ):
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
         GanWrapper.is_cancelled = False  # Reset flag on new instance creation
 

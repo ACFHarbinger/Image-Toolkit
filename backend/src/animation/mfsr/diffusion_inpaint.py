@@ -46,8 +46,8 @@ def _try_stable_diffusion(
         raise RuntimeError("Stable Diffusion inpaint requires >=4 GB free VRAM")
     try:
         from diffusers import StableDiffusionInpaintPipeline  # type: ignore  # §3.14 lazy
-    except ImportError:
-        raise RuntimeError("diffusers not installed")
+    except ImportError as e:
+        raise RuntimeError("diffusers not installed") from e
 
     dtype = torch.float16 if _TORCH_OK and torch.cuda.is_available() else torch.float32
     # Force a more robust model and ensure no safetensors mismatch
@@ -102,8 +102,8 @@ def _try_lama(canvas: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Run the LaMa large-mask inpainter (HuggingFace simple-lama-inpainting)."""
     try:
         from simple_lama_inpainting import SimpleLama  # type: ignore  # §3.14 lazy
-    except ImportError:
-        raise RuntimeError("simple_lama_inpainting not installed")
+    except ImportError as e:
+        raise RuntimeError("simple_lama_inpainting not installed") from e
 
     rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)
     pil_img = _PIL.fromarray(rgb)

@@ -12,140 +12,147 @@ class FileDialogEventFilter(QObject):
         super().__init__(dialog)
         self.dialog = dialog
 
+    def _handle_favorite_action(self, path, favs, is_fav):
+        if is_fav:
+            if path in favs:
+                favs.remove(path)
+            AppSettings.set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
+            self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
+            QMessageBox.information(self.dialog, "Favourite Removed", f"Removed from favourites:\n{path}")
+        else:
+            favs.append(path)
+            AppSettings.set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
+            self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
+            QMessageBox.information(self.dialog, "Favourite Added", f"Added to favourites:\n{path}")
+
+    def _handle_new_folder_action(self, path):
+        name, ok = QInputDialog.getText(self.dialog, "New Folder", "Enter folder name:")
+        if ok and name.strip():
+            new_dir_path = os.path.join(path, name.strip())
+            try:
+                os.makedirs(new_dir_path, exist_ok=True)
+            except Exception as e:
+                QMessageBox.critical(self.dialog, "Error", f"Failed to create folder: {e}")
+
+    def _handle_rename_action(self, path):
+        old_name = os.path.basename(path)
+        new_name, ok = QInputDialog.getText(self.dialog, "Rename Folder", f"Rename '{old_name}' to:", text=old_name)
+        if ok and new_name.strip() and new_name.strip() != old_name:
+            new_path = os.path.join(os.path.dirname(path), new_name.strip())
+            try:
+                os.rename(path, new_path)
+            except Exception as e:
+                QMessageBox.critical(self.dialog, "Error", f"Failed to rename folder: {e}")
+
+    def _handle_delete_action(self, path):
+        reply = QMessageBox.question(
+            self.dialog,
+            "Confirm Delete",
+            f"Are you sure you want to delete this folder and all its contents?\n{path}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                shutil.rmtree(path)
+            except Exception as e:
+                QMessageBox.critical(self.dialog, "Error", f"Failed to delete folder: {e}")
+
     def eventFilter(self, watched, event):
-        if event.type() == QEvent.Type.ContextMenu:
-            index = watched.indexAt(event.pos())
-            if index.isValid():
-                model = watched.model()
+        if event.type() != QEvent.Type.ContextMenu:
+            return False
 
-                actual_index = index
-                actual_model = model
-                while isinstance(actual_model, QSortFilterProxyModel):
-                    actual_index = actual_model.mapToSource(actual_index)
-                    actual_model = actual_model.sourceModel()
+        index = watched.indexAt(event.pos())
+        if not index.isValid():
+            return False
 
-                path = actual_model.filePath(actual_index) if hasattr(actual_model, "filePath") else ""
+        model = watched.model()
 
-                if path and os.path.isdir(path):
-                    menu = QMenu(watched)
+        actual_index = index
+        actual_model = model
+        while isinstance(actual_model, QSortFilterProxyModel):
+            actual_index = actual_model.mapToSource(actual_index)
+            actual_model = actual_model.sourceModel()
 
-                    # Premium Modern Styling matching the application theme
-                    is_dark = AppSettings.get("preferences/theme", "dark") == "dark"
-                    if is_dark:
-                        menu.setStyleSheet("""
-                            QMenu {
-                                background-color: #2d2d30;
-                                color: white;
-                                border: 1px solid #3e3e42;
-                                font-family: 'Segoe UI', Arial, sans-serif;
-                                font-size: 12px;
-                            }
-                            QMenu::item {
-                                padding: 6px 20px;
-                            }
-                            QMenu::item:selected {
-                                background-color: #00bcd4;
-                                color: black;
-                            }
-                            QMenu::separator {
-                                height: 1px;
-                                background-color: #3e3e42;
-                                margin: 4px 0px;
-                            }
-                        """)
-                    else:
-                        menu.setStyleSheet("""
-                            QMenu {
-                                background-color: #ffffff;
-                                color: #333;
-                                border: 1px solid #ccc;
-                                font-family: 'Segoe UI', Arial, sans-serif;
-                                font-size: 12px;
-                            }
-                            QMenu::item {
-                                padding: 6px 20px;
-                            }
-                            QMenu::item:selected {
-                                background-color: #007AFF;
-                                color: white;
-                            }
-                            QMenu::separator {
-                                height: 1px;
-                                background-color: #ccc;
-                                margin: 4px 0px;
-                            }
-                        """)
+        path = actual_model.filePath(actual_index) if hasattr(actual_model, "filePath") else ""
 
-                    favs = AppSettings.favourite_directories() # pyrefly: ignore [missing-attribute]
-                    is_fav = path in favs
-                    if is_fav:
-                        fav_action = QAction("❌ Remove from Favourites", menu)
-                    else:
-                        fav_action = QAction("⭐ Add to Favourites", menu)
+        if not path or not os.path.isdir(path):
+            return False
 
-                    menu.addAction(fav_action)
-                    menu.addSeparator()
+        menu = QMenu(watched)
 
-                    new_folder_act = QAction("New Folder", menu)
-                    rename_act = QAction("Rename", menu)
-                    delete_act = QAction("Delete", menu)
+        # Premium Modern Styling matching the application theme
+        is_dark = AppSettings.get("preferences/theme", "dark") == "dark"
+        if is_dark:
+            menu.setStyleSheet("""
+                QMenu {
+                    background-color: #2d2d30;
+                    color: white;
+                    border: 1px solid #3e3e42;
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-size: 12px;
+                }
+                QMenu::item {
+                    padding: 6px 20px;
+                }
+                QMenu::item:selected {
+                    background-color: #00bcd4;
+                    color: black;
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #3e3e42;
+                    margin: 4px 0px;
+                }
+            """)
+        else:
+            menu.setStyleSheet("""
+                QMenu {
+                    background-color: #ffffff;
+                    color: #333;
+                    border: 1px solid #ccc;
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-size: 12px;
+                }
+                QMenu::item {
+                    padding: 6px 20px;
+                }
+                QMenu::item:selected {
+                    background-color: #007AFF;
+                    color: white;
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #ccc;
+                    margin: 4px 0px;
+                }
+            """)
 
-                    menu.addAction(new_folder_act)
-                    menu.addAction(rename_act)
-                    menu.addAction(delete_act)
+        favs = AppSettings.favourite_directories() # pyrefly: ignore [missing-attribute]
+        is_fav = path in favs
+        fav_action = QAction("❌ Remove from Favourites", menu) if is_fav else QAction("⭐ Add to Favourites", menu)
 
-                    action = menu.exec(event.globalPos())
-                    if action == fav_action:
-                        if is_fav:
-                            if path in favs:
-                                favs.remove(path)
-                            AppSettings.set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
-                            self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
-                            QMessageBox.information(self.dialog, "Favourite Removed", f"Removed from favourites:\n{path}")
-                        else:
-                            favs.append(path)
-                            AppSettings.set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
-                            self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
-                            QMessageBox.information(self.dialog, "Favourite Added", f"Added to favourites:\n{path}")
-                        return True
+        menu.addAction(fav_action)
+        menu.addSeparator()
 
-                    elif action == new_folder_act:
-                        name, ok = QInputDialog.getText(self.dialog, "New Folder", "Enter folder name:")
-                        if ok and name.strip():
-                            new_dir_path = os.path.join(path, name.strip())
-                            try:
-                                os.makedirs(new_dir_path, exist_ok=True)
-                            except Exception as e:
-                                QMessageBox.critical(self.dialog, "Error", f"Failed to create folder: {e}")
-                        return True
+        new_folder_act = QAction("New Folder", menu)
+        rename_act = QAction("Rename", menu)
+        delete_act = QAction("Delete", menu)
 
-                    elif action == rename_act:
-                        old_name = os.path.basename(path)
-                        new_name, ok = QInputDialog.getText(self.dialog, "Rename Folder", f"Rename '{old_name}' to:", text=old_name)
-                        if ok and new_name.strip() and new_name.strip() != old_name:
-                            new_path = os.path.join(os.path.dirname(path), new_name.strip())
-                            try:
-                                os.rename(path, new_path)
-                            except Exception as e:
-                                QMessageBox.critical(self.dialog, "Error", f"Failed to rename folder: {e}")
-                        return True
+        menu.addAction(new_folder_act)
+        menu.addAction(rename_act)
+        menu.addAction(delete_act)
 
-                    elif action == delete_act:
-                        reply = QMessageBox.question(
-                            self.dialog,
-                            "Confirm Delete",
-                            f"Are you sure you want to delete this folder and all its contents?\n{path}",
-                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                            QMessageBox.StandardButton.No
-                        )
-                        if reply == QMessageBox.StandardButton.Yes:
-                            try:
-                                shutil.rmtree(path)
-                            except Exception as e:
-                                QMessageBox.critical(self.dialog, "Error", f"Failed to delete folder: {e}")
-                        return True
-                    return True
-        return False
+        action = menu.exec(event.globalPos())
+        if action == fav_action:
+            self._handle_favorite_action(path, favs, is_fav)
+        elif action == new_folder_act:
+            self._handle_new_folder_action(path)
+        elif action == rename_act:
+            self._handle_rename_action(path)
+        elif action == delete_act:
+            self._handle_delete_action(path)
+        return True
 
 class CustomFileDialog(QFileDialog):
     def __init__(self, parent=None, caption="", directory="", filter=""):
@@ -196,7 +203,9 @@ def my_getExistingDirectory(parent=None, caption="", dir="", options=QFileDialog
     return ""
 
 # pyrefly: ignore [no-matching-overload]
-def my_getOpenFileName(parent=None, caption="", dir="", filter="", selectedFilter="", options=QFileDialog.Option()):
+def my_getOpenFileName(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
+    if options is None:
+        options = QFileDialog.Option()
     dialog = CustomFileDialog(parent, caption, dir, filter)
     dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
     dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
@@ -209,7 +218,9 @@ def my_getOpenFileName(parent=None, caption="", dir="", filter="", selectedFilte
     return "", ""
 
 # pyrefly: ignore [no-matching-overload]
-def my_getOpenFileNames(parent=None, caption="", dir="", filter="", selectedFilter="", options=QFileDialog.Option()):
+def my_getOpenFileNames(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
+    if options is None:
+        options = QFileDialog.Option()
     dialog = CustomFileDialog(parent, caption, dir, filter)
     dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
     dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
@@ -221,7 +232,9 @@ def my_getOpenFileNames(parent=None, caption="", dir="", filter="", selectedFilt
     return [], ""
 
 # pyrefly: ignore [no-matching-overload]
-def my_getSaveFileName(parent=None, caption="", dir="", filter="", selectedFilter="", options=QFileDialog.Option()):
+def my_getSaveFileName(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
+    if options is None:
+        options = QFileDialog.Option()
     dialog = CustomFileDialog(parent, caption, dir, filter)
     dialog.setFileMode(QFileDialog.FileMode.AnyFile)
     dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)

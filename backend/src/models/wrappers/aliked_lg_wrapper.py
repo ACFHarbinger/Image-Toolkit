@@ -17,9 +17,6 @@ keypoints, before falling back to template matching.
 from __future__ import annotations
 
 import logging
-
-logger = logging.getLogger(__name__)
-
 from typing import Optional, Tuple
 
 import cv2
@@ -34,6 +31,8 @@ except ImportError:
     _KORNIA_OK = False
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
+
+logger = logging.getLogger(__name__)
 
 _MIN_INLIERS = 15
 

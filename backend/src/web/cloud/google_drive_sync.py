@@ -11,7 +11,7 @@ class GoogleDriveSync:
     Supports both Service Account and Personal account flows.
     """
 
-    def __init__(
+    def __init__(  # noqa: C901
         self,
         local_source_path: str,
         drive_destination_folder_name: str,

@@ -876,7 +876,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 self.update_countdown()
 
     @Slot()
-    def _cycle_slideshow_wallpaper(self, increment: bool = True):
+    def _cycle_slideshow_wallpaper(self, increment: bool = True):  # noqa: C901
         monitor_ids = list(self.monitor_widgets.keys())
         if not monitor_ids:
             return
@@ -978,7 +978,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
     # ---- Wallpaper worker -------------------------------------------------
 
-    def run_wallpaper_worker(self, slideshow_mode=False):
+    def run_wallpaper_worker(self, slideshow_mode=False):  # noqa: C901
         from ....helpers import ImageScannerWorker
         if self.current_wallpaper_worker:
             print("Wallpaper worker is already running.")
@@ -1200,7 +1200,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "monitor_layout": [],
         }
 
-    def set_config(self, config: Dict[str, Any]):
+    def set_config(self, config: Dict[str, Any]):  # noqa: C901
         try:
             if "scan_directory" in config:
                 self.scan_directory_path.setText(config.get("scan_directory", ""))

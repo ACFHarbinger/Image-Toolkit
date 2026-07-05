@@ -22,9 +22,9 @@ import cv2
 import numpy as np
 import torch
 
-logger = logging.getLogger(__name__)
-
 from backend.src.models.core.base import ModelWrapper
+
+logger = logging.getLogger(__name__)
 
 
 class BaSiCWrapper(ModelWrapper):
@@ -116,11 +116,7 @@ class BaSiCWrapper(ModelWrapper):
         X = torch.stack(frames)  # (N, 3, H, W)
         N, C, H, W = X.shape
 
-        if luma_only:
-            # Convert to Y′ only for flat-field estimation
-            X_est = self._bgr_to_luma(X)  # (N, 1, H, W)
-        else:
-            X_est = X
+        X_est = self._bgr_to_luma(X) if luma_only else X
 
         # --- ALM-style iterative estimation ---
         # Initialise flat-field F as the median (robust to moving characters)

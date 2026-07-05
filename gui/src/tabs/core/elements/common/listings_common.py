@@ -192,7 +192,7 @@ def _persist_splitter(splitter, key: str) -> None:
     )
 
 
-def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:
+def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:  # noqa: C901
     p = Path(file_path)
     if not p.exists():
         return False

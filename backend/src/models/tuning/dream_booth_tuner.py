@@ -36,33 +36,6 @@ from backend.src.models.tuning.lo_ra_tuner_config import LoRATunerConfig
 from backend.src.models.tuning.lo_ra_tuner_v2 import LoRATunerV2
 
 # ---------------------------------------------------------------------------
-# Optional dependencies
-# ---------------------------------------------------------------------------
-try:
-    import bitsandbytes as bnb
-    _BNB_OK = True
-except ImportError:
-    _BNB_OK = False
-
-try:
-    from prodigyopt import Prodigy
-    _PRODIGY_OK = True
-except ImportError:
-    _PRODIGY_OK = False
-
-try:
-    from transformers.optimization import Adafactor
-    _ADAFACTOR_OK = True
-except ImportError:
-    _ADAFACTOR_OK = False
-
-try:
-    import lycoris.kohya as lycoris_kohya
-    _LYCORIS_OK = True
-except ImportError:
-    _LYCORIS_OK = False
-
-# ---------------------------------------------------------------------------
 # SDXL LoRA target modules
 # ---------------------------------------------------------------------------
 SDXL_ATTN_TARGETS = (

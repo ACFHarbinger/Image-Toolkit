@@ -7,6 +7,7 @@ so the file can be appended to without locking and inspected with standard tools
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import time
@@ -110,10 +111,8 @@ class FeedbackStore:
                 line = line.strip()
                 if not line:
                     continue
-                try:
+                with contextlib.suppress(Exception):
                     yield StitchFeedback.from_dict(json.loads(line))
-                except Exception:
-                    pass  # skip malformed lines
 
     def all(self) -> List[StitchFeedback]:
         return list(self)

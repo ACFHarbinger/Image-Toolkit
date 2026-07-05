@@ -53,6 +53,7 @@ import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, IterableDataset
+from transformers import AutoImageProcessor, EfficientLoFTRForKeypointMatching
 
 # ── Dataset ────────────────────────────────────────────────────────────────────
 
@@ -243,12 +244,10 @@ def train(args: argparse.Namespace) -> None:
     scheduler = CosineAnnealingLR(optimizer, T_max=args.max_steps, eta_min=1e-7)
 
     os.makedirs(args.output_dir, exist_ok=True)
-    step = 0
     running_loss = 0.0
-
     loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=0)
-    for img1, img2, tx, ty, _bg_mask in loader:
-        if step >= args.max_steps:
+    for step, (img1, img2, tx, ty, _bg_mask) in enumerate(loader, start=1):
+        if step > args.max_steps:
             break
 
         inputs = _prep_batch(img1, img2)
@@ -271,7 +270,6 @@ def train(args: argparse.Namespace) -> None:
         scheduler.step()
 
         running_loss += loss.item()
-        step += 1
 
         if step % 100 == 0:
             avg = running_loss / 100

@@ -1336,7 +1336,7 @@ def _reject_scene_change_edges(
     return kept
 
 
-def _normalize_frame_scales(
+def _normalize_frame_scales(  # noqa: C901
     frames: List[np.ndarray],
     edges: List[Dict],
     scale_thresh: float = SCALE_NORM_THRESH,
@@ -2871,7 +2871,7 @@ class AnimeStitchPipeline:
 
     # -------------------------------------------------------------- edge filter
 
-    def _filter_edges(
+    def _filter_edges(  # noqa: C901
         self,
         edges: List[Dict],
         image_paths: List[str],
@@ -3168,7 +3168,7 @@ class AnimeStitchPipeline:
 
     # ---------------------------------------------------------------- public
 
-    def run(
+    def run(  # noqa: C901
         self,
         image_paths: List[str],
         output_path: str,
@@ -3914,10 +3914,9 @@ class AnimeStitchPipeline:
                             continue
                         _best_e, _best_span = None, float("inf")
                         for _e in edges:
-                            if _e["j"] == _f and _e["i"] in _anchored:
-                                if _f - _e["i"] < _best_span:
-                                    _best_span = _f - _e["i"]
-                                    _best_e = _e
+                            if _e["j"] == _f and _e["i"] in _anchored and _f - _e["i"] < _best_span:
+                                _best_span = _f - _e["i"]
+                                _best_e = _e
                         if _best_e is not None:
                             _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(
                                 _best_e["M"][0, 2]

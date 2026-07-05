@@ -287,7 +287,7 @@ class EntityListingsSubTab(QWidget):
     # ------------------------------------------------------------------
     # Gallery
     # ------------------------------------------------------------------
-    def _filtered_entities(self) -> List[Dict[str, Any]]:
+    def _filtered_entities(self) -> List[Dict[str, Any]]:  # noqa: C901
         result = self._entities
         if self._filter_type and self._filter_type not in (
             "All",

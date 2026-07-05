@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 
 class _AdvancedSearchDialog(QDialog):
-    def __init__(self, parent=None, entries=None, entities=None):
+    def __init__(self, parent=None, entries=None, entities=None):  # noqa: C901
         super().__init__(parent)
         self.setWindowTitle("🔍 Advanced Search Settings")
         self.setMinimumSize(600, 500)

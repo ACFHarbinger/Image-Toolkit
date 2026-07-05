@@ -396,7 +396,7 @@ def _cluster_animation_phases(
     return anim_mask_full, phase_groups
 
 
-def _render_median(
+def _render_median(  # noqa: C901
     frames: List[np.ndarray],
     affines: List[np.ndarray],
     bg_masks: List[Optional[np.ndarray]],
@@ -1140,7 +1140,7 @@ def _render_laplacian(
         canvas_m |= m_i
 
     warped_fgs = []
-    for i, (M, bg) in enumerate(zip(affines, bg_masks, strict=False)):
+    for _i, (M, bg) in enumerate(zip(affines, bg_masks, strict=False)):
         if bg is not None:
             fg = (bg < 127).astype(np.uint8) * 255
             w_fg = cv2.warpAffine(

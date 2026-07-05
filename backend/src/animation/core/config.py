@@ -1008,18 +1008,6 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         None,
         "§4.3: Post-BA wave correction axis — '' (off), 'vertical', or 'horizontal'",
     ),
-    "ASP_GATE_SEAM_VIS": (
-        float,
-        0.0,
-        90.0,
-        "§4.8: SeamVisGate ratio limit — ASP seam_visibility must not exceed ratio×SCANS; ≥90=disabled (default 3.0)",
-    ),
-    "ASP_GATE_SEAM_VIS_FLOOR": (
-        float,
-        0.0,
-        200.0,
-        "§4.8: SeamVisGate absolute floor (seam_vis units); gate only fires when ASP seam_vis exceeds this value (default 20.0)",
-    ),
     "ASP_SEAM_SMOOTH_PX": (
         int,
         0,
@@ -1103,18 +1091,6 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
         0.0,
         100.0,
         "§5.15: EntropyGate absolute floor (entropy score); gate only fires when ASP entropy exceeds this value (default 3.0)",
-    ),
-    "ASP_GATE_STRIP_SSIM": (
-        float,
-        0.0,
-        1.0,
-        "§5.17: StripSSIMGate ratio limit — ASP strip_self_ssim must not be below ratio×SCANS; 0=disabled (default 0.5)",
-    ),
-    "ASP_GATE_STRIP_SSIM_FLOOR": (
-        float,
-        0.0,
-        1.0,
-        "§5.17: StripSSIMGate absolute floor (strip_self_ssim [0,1]); gate fires when ASP ssim < min(floor, ratio×sim) (default 0.60)",
     ),
     "ASP_GATE_CHROMA_COH": (
         float,

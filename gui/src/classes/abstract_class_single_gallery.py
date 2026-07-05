@@ -799,7 +799,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         super().closeEvent(event)
 
     @Slot(list, list)
-    def _on_batch_images_loaded(self, results: List[tuple], requested_paths: List[str]):
+    def _on_batch_images_loaded(self, results: List[tuple], requested_paths: List[str]):  # noqa: C901
         # Cleanup worker reference if called from signals
         sender = self.sender()
         if sender:

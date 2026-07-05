@@ -226,7 +226,7 @@ class ImageMerger:
         return merged_image
 
     @staticmethod
-    def _merge_images_sequential(
+    def _merge_images_sequential(  # noqa: C901
         image_paths: List[str], output_path: str
     ) -> Image.Image:
         """

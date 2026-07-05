@@ -1360,7 +1360,7 @@ class DatabaseTab(QWidget):
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
 
-    def auto_populate_from_source(self):
+    def auto_populate_from_source(self):  # noqa: C901
         """
         Scans LOCAL_SOURCE_PATH.
         Level 1 Directories -> Groups

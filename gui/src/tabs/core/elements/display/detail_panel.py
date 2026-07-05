@@ -298,7 +298,7 @@ class _DetailPanel(BaseDetailPanel):
                 names.append(entity_map[ent_id])
         self.f_assoc_entities_display.setText(", ".join(names))
 
-    def load_entry(
+    def load_entry(  # noqa: C901
         self,
         entry: Dict[str, Any],
         cached_entities: Optional[List[Dict[str, Any]]] = None,
@@ -524,7 +524,7 @@ class _DetailPanel(BaseDetailPanel):
         self.btn_mal.setText("Auto-Fill from MAL")
         self.btn_mal.setEnabled(True)
 
-    def _auto_associate_entities(self, data: dict) -> None:
+    def _auto_associate_entities(self, data: dict) -> None:  # noqa: C901
         try:
             all_entities: list = []
             if (

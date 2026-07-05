@@ -21,14 +21,15 @@ model weights are unavailable.
 from __future__ import annotations
 
 import logging
-
-logger = logging.getLogger(__name__)
-
 from typing import Optional, Tuple
 
 import cv2
 import numpy as np
 import torch
+
+from backend.src.models.core.base import ModelWrapper, lazy_load
+
+logger = logging.getLogger(__name__)
 
 try:
     from PIL import Image as _PILImage
@@ -36,8 +37,6 @@ try:
     _TRANSFORMERS_OK = True
 except ImportError:
     _TRANSFORMERS_OK = False
-
-from backend.src.models.core.base import ModelWrapper, lazy_load
 
 _HF_REPO = "zju-community/efficientloftr"
 _MIN_INLIERS = 20

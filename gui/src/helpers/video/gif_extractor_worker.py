@@ -70,7 +70,7 @@ class GifCreationWorker(QRunnable):
 
         return keep
 
-    def run(self):
+    def run(self):  # noqa: C901
         if self._is_cancelled:
             return
 

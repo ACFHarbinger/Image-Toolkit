@@ -212,7 +212,7 @@ class FrameExtractionWorker(QRunnable):
         except Exception as e:
             self.signals.error.emit(str(e))
 
-    def _run_smart_extraction(self, saved_files, fps):
+    def _run_smart_extraction(self, saved_files, fps):  # noqa: C901
         try:
             video_name = Path(self.video_path).stem
             t_start = self.start_ms / 1000.0

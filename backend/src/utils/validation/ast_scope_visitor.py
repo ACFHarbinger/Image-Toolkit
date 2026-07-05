@@ -16,7 +16,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 try:
-    from pyvis.network import Network
+    from pyvis.network import Network  # noqa: F401
 except ImportError:
     print("Error: Required libraries not found.")
     print("Please run: pip install pyvis networkx")

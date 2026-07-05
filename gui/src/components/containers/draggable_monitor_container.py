@@ -128,7 +128,7 @@ class DraggableMonitorContainer(QWidget):
         else:
             super().dragMoveEvent(event)
 
-    def dropEvent(self, event):
+    def dropEvent(self, event):  # noqa: C901
         source = event.source()
         if not isinstance(source, MonitorDropView):
             super().dropEvent(event)

@@ -75,7 +75,7 @@ class VideoScannerWorker(QRunnable):
         if self.executor:
             self.executor.shutdown(wait=False, cancel_futures=True)
 
-    def run(self):
+    def run(self):  # noqa: C901
         if self.is_cancelled:
             return
 

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
+import cv2
+import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from PIL import Image

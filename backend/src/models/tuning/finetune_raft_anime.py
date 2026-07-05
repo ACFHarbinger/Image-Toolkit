@@ -52,6 +52,7 @@ from typing import Iterator, List, Optional, Tuple
 
 import cv2
 import numpy as np
+import ptlflow
 import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -292,11 +293,10 @@ def train(args: argparse.Namespace) -> None:
     scheduler = CosineAnnealingLR(optimizer, T_max=args.max_steps, eta_min=1e-7)
 
     os.makedirs(args.output_dir, exist_ok=True)
-    step = 0
     running_loss = 0.0
 
-    for img1, img2, gt_flow in loader:
-        if step >= args.max_steps:
+    for step, (img1, img2, gt_flow) in enumerate(loader, start=1):
+        if step > args.max_steps:
             break
 
         img1 = img1.to(device)
@@ -316,7 +316,6 @@ def train(args: argparse.Namespace) -> None:
         scheduler.step()
 
         running_loss += loss.item()
-        step += 1
 
         if step % 100 == 0:
             avg = running_loss / 100

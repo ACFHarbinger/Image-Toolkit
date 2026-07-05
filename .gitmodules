@@ -1,18 +1,24 @@
-[submodule "backend/src/models/R3GAN"]
-	path = backend/src/models/R3GAN
-	url = https://github.com/brownvc/R3GAN.git
-[submodule "backend/src/models/sd3.5"]
-	path = backend/src/models/sd3.5
-	url = https://github.com/Stability-AI/sd3.5.git
-[submodule "backend/src/models/MetaCLIP"]
-	path = backend/src/models/MetaCLIP
-	url = https://github.com/facebookresearch/MetaCLIP.git
-[submodule "BiRefNet"]
-	path = BiRefNet
+#[submodule "backend/src/models/R3GAN"]
+#	path = backend/src/models/R3GAN
+#	url = https://github.com/brownvc/R3GAN.git
+#[submodule "backend/src/models/sd3.5"]
+#	path = backend/src/models/sd3.5
+#	url = https://github.com/Stability-AI/sd3.5.git
+#[submodule "backend/src/models/MetaCLIP"]
+#	path = backend/src/models/MetaCLIP
+#	url = https://github.com/facebookresearch/MetaCLIP.git
+[submodule "vendor/EfficientLoFTR"]
+	path = vendor/EfficientLoFTR
+	url = https://github.com/ACFHarbinger/EfficientLoFTR
+[submodule "vendor/JamMa"]
+	path = vendor/JamMa
+	url = https://github.com/ACFHarbinger/JamMa
+[submodule "vendor/BiRefNet"]
+	path = vendor/BiRefNet
 	url = https://github.com/ACFHarbinger/BiRefNet.git
-[submodule "ComfyUI"]
-	path = ComfyUI
+[submodule "submodules/ComfyUI"]
+	path = submodules/ComfyUI
 	url = https://github.com/ACFHarbinger/ComfyUI.git
-[submodule "Recommendation-Engine"]
-	path = Recommendation-Engine
+[submodule "submodules/Recommendation-Engine"]
+	path = submodules/Recommendation-Engine
 	url = https://github.com/ACFHarbinger/Recommendation-Engine.git
