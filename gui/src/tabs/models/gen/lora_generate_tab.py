@@ -329,5 +329,5 @@ class LoRAGenerateTab(BaseGenerativeTab):
                 self, "File Not Found", f"Could not find:\n{path}"
             )
             return
-        from gui.src.components.safetensors_inspector import SafetensorsInspectorDialog
+        from gui.src.components.dialogs.safetensors_inspector_dialog import SafetensorsInspectorDialog
         SafetensorsInspectorDialog(path=path, parent=self).exec()

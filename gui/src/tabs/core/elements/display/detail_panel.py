@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import base
 from backend.src.constants import IMAGE_TOOLKIT_DIR
-from gui.src.components.dialog.frame_selection_dialog import FrameSelectionDialog
+from gui.src.components.dialogs.frame_selection_dialog import FrameSelectionDialog
 from gui.src.constants.listings import (
     ENTRY_STATUS,
     ENTRY_TYPES,

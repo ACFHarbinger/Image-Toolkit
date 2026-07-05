@@ -6,7 +6,7 @@ of a .safetensors file without loading any tensor data.
 
 Usage
 -----
-    from gui.src.components.safetensors_inspector import SafetensorsInspectorDialog
+    from gui.src.components.dialogs.safetensors_inspector import SafetensorsInspectorDialog
     dlg = SafetensorsInspectorDialog(path="/path/to/model.safetensors", parent=self)
     dlg.exec()
 """

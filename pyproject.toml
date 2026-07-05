@@ -148,13 +148,13 @@ venvPath = "."              # The directory containing the venv
 venv = ".venv"              # The name of the venv folder
 type_checking_mode = "basic"
 include = ["gui", "logic"]
-extraPaths = ["Recommendation-Engine"]
+extraPaths = ["submodules/Recommendation-Engine"]
 
 # Ignore rules (Migration of your pyright/pylance ignores)
 ignore = ["**/__init__.py"]
 
 [tool.pyright]
-extraPaths = ["Recommendation-Engine"]
+extraPaths = ["submodules/Recommendation-Engine"]
 
 [tool.ruff]
 src = ["backend/src", "gui/src"]

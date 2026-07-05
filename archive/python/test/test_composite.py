@@ -64,7 +64,7 @@ if canvas.shape[0] != canvas_h or canvas.shape[1] != canvas_w:
 # 5. Run improved composite
 print("Running improved _composite_foreground...")
 canvas_out = _composite_foreground(
-    [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
+    [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks # pyrefly: ignore [bad-argument-type]
 )
 
 # 6. Apply same crop logic as the worker (stage12)

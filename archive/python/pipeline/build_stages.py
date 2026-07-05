@@ -121,7 +121,7 @@ except Exception as e:
     print(f"  LoFTR unavailable ({e})")
     loftr = None
 
-edges = _pairwise_match(frames, bg_masks, loftr_wrapper=loftr)
+edges = _pairwise_match(frames, bg_masks, loftr_wrapper=loftr) # pyrefly: ignore [bad-argument-type]
 
 if loftr is not None:
     if torch.cuda.is_available():
@@ -138,7 +138,7 @@ if loftr is not None:
 pipe = AnimeStitchPipeline(
     use_basic=False, use_birefnet=False, use_loftr=False, use_ecc=False
 )
-edges = pipe._filter_edges(edges, frames_paths, H, W, frames, bg_masks)
+edges = pipe._filter_edges(edges, frames_paths, H, W, frames, bg_masks) # pyrefly: ignore [bad-argument-type]
 print(f"  {len(edges)} edges after filtering")
 
 affines = _bundle_adjust_affine(edges, N)
@@ -146,7 +146,7 @@ print("  Bundle adjust complete")
 
 # ── Stage 8: ECC sub-pixel refinement ─────────────────────────────────────────
 print("Stage 8: ECC refinement...")
-affines = _ecc_refine(frames, affines, bg_masks)
+affines = _ecc_refine(frames, affines, bg_masks) # pyrefly: ignore [bad-argument-type]
 
 # ── Stage 9: Canvas construction ──────────────────────────────────────────────
 print("Stage 9: canvas...")
@@ -173,7 +173,7 @@ print("  Saved stage08_canvas_info.json")
 
 # ── Stage 10: Temporal median render ──────────────────────────────────────────
 print("Stage 10: temporal median render...")
-canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, canvas_w)
+canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, canvas_w) # pyrefly: ignore [bad-argument-type]
 cv2.imwrite(f"{STAGE_DIR}/stage09_temporal_render.png", canvas)
 print("  Saved stage09_temporal_render.png")
 
