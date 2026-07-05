@@ -4,13 +4,14 @@ import math
 from typing import List, Tuple
 
 import cv2
+from backend.src.animation.core.pipeline import _build_landmark_affine
 from PySide6.QtCore import Qt
 from PySide6.QtGui import (
     QBrush,
     QColor,
     QFont,
-    QPen,
     QPainter,
+    QPen,
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -33,7 +34,6 @@ from PySide6.QtWidgets import (
 )
 
 from .landmark_editor_dialog import LandmarkEditorDialog
-from backend.src.animation.core.pipeline import _build_landmark_affine
 
 _RADIUS = 200.0
 _CENTRE = 230.0
@@ -285,7 +285,7 @@ class EdgeReviewDialog(QDialog):
 
         self._table.blockSignals(True)
         self._table.setRowCount(len(edges))
-        for row, (e, enabled) in enumerate(zip(edges, self._enabled)):
+        for row, (e, enabled) in enumerate(zip(edges, self._enabled, strict=False)):
             color = _conf_color(e["conf"]) if enabled else _CONF_DIS
             chk = QTableWidgetItem()
             chk.setCheckState(
@@ -348,7 +348,7 @@ class EdgeReviewDialog(QDialog):
         self._table.blockSignals(False)
 
         n_on = sum(self._enabled)
-        n_low = sum(1 for e, en in zip(edges, self._enabled) if en and e["conf"] < 0.5)
+        n_low = sum(1 for e, en in zip(edges, self._enabled, strict=False) if en and e["conf"] < 0.5)
         self._status_label.setText(
             f"{n_nodes} frames · {len(edges)} edges · {n_on} enabled"
             f" · {n_low} low-conf · {len(self._manual_edges)} manual"
@@ -374,10 +374,7 @@ class EdgeReviewDialog(QDialog):
         row = sorted(rows)[0]
         # Resolve edge at this row (base or manual)
         n_base = len(self._edges)
-        if row < n_base:
-            edge = self._edges[row]
-        else:
-            edge = self._manual_edges[row - n_base]
+        edge = self._edges[row] if row < n_base else self._manual_edges[row - n_base]
         fi, fj = edge["i"], edge["j"]
 
         if not self._image_paths:
@@ -447,6 +444,6 @@ class EdgeReviewDialog(QDialog):
 
     def accepted_edges(self) -> List[dict]:
         """Return enabled original edges + all manual edges (S89)."""
-        return [e for e, en in zip(self._edges, self._enabled) if en] + list(
+        return [e for e, en in zip(self._edges, self._enabled, strict=False) if en] + list(
             self._manual_edges
         )

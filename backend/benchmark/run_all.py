@@ -5,11 +5,11 @@ Master benchmark runner for Image-Toolkit backend and base.
 Runs all benchmark suites and generates a combined report.
 """
 
-import sys
-import subprocess
 import argparse
-from pathlib import Path
+import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # Benchmark modules
 import backend.benchmark.bench_database as bench_database

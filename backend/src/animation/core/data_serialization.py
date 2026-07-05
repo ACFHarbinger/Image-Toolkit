@@ -15,20 +15,18 @@ try:
     from pycocotools import mask as coco_mask  # type: ignore
 except ImportError:
     coco_mask = None
-import uuid
 # --------------------------------
-
-
+import contextlib
 import json
 import os
 import tempfile
+import uuid
 import warnings
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -79,10 +77,8 @@ def _atomic_write(path: str, data: Any) -> None:
             json.dump(data, f, ensure_ascii=False, indent=2)
         os.replace(tmp_path, path)
     except Exception:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
         raise
 
 
@@ -273,7 +269,7 @@ class COCOAnnotationBuilder:
         try:
             _atomic_write(path, self.to_dict())
         except Exception as exc:
-            warnings.warn(f"[ASP] COCOAnnotationBuilder.save failed: {exc}")
+            warnings.warn(f"[ASP] COCOAnnotationBuilder.save failed: {exc}", stacklevel=2)
 
     def __len__(self) -> int:
         return len(self._annotations)
@@ -415,7 +411,7 @@ class LabelStudioExporter:
         try:
             _atomic_write(path, self.to_list())
         except Exception as exc:
-            warnings.warn(f"[ASP] LabelStudioExporter.save failed: {exc}")
+            warnings.warn(f"[ASP] LabelStudioExporter.save failed: {exc}", stacklevel=2)
 
     def __len__(self) -> int:
         return len(self._tasks)

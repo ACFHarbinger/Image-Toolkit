@@ -1,20 +1,20 @@
 import json
-import os
 import math
-import pytest
-
+import os
 from unittest.mock import patch
-from gui.src.tabs.animation.stitch_tab import StitchTab
-from gui.src.tabs.animation.dialog.edge_graph_inspector_dialog import (
-    EdgeGraphInspectorDialog,
-    parse_edge_json,
-    _edge_graph_node_positions,
-)
+
+import pytest
 from gui.src.tabs.animation.dialog.canvas_layout_inspector_dialog import (
     CanvasLayoutInspectorDialog,
-    parse_canvas_json,
     _canvas_frame_corners,
+    parse_canvas_json,
 )
+from gui.src.tabs.animation.dialog.edge_graph_inspector_dialog import (
+    EdgeGraphInspectorDialog,
+    _edge_graph_node_positions,
+    parse_edge_json,
+)
+from gui.src.tabs.animation.stitch_tab import StitchTab
 
 pytestmark = pytest.mark.gui
 

@@ -333,7 +333,7 @@ def _propainter_complete_frames(
 
     def _nn_fallback() -> List[np.ndarray]:
         out: List[np.ndarray] = []
-        for frame, mask in zip(frames, bg_masks):
+        for frame, mask in zip(frames, bg_masks, strict=False):
             if mask is None:
                 out.append(frame)
                 continue

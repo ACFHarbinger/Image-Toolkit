@@ -1,18 +1,13 @@
-import os
-import shutil
-import subprocess
 import concurrent.futures
+import os
 from pathlib import Path
 
-from PySide6.QtGui import QImage
-from PySide6.QtCore import Signal, QRunnable, QObject
 from backend.src.constants import (
-    SUPPORTED_VIDEO_FORMATS,
-    THUMBNAIL_CACHE_DIR,
     HAS_NATIVE_IMAGING,
-    IS_LINUX,
+    SUPPORTED_VIDEO_FORMATS,
 )
-import hashlib
+from PySide6.QtCore import QObject, QRunnable, Signal
+from PySide6.QtGui import QImage
 
 if HAS_NATIVE_IMAGING:
     import base
@@ -69,7 +64,7 @@ class VideoScannerWorker(QRunnable):
         self.executor = None
         self.thumbnailer = VideoThumbnailer()
         if recursive is None:
-            from gui.src.utils.settings import AppSettings
+            from gui.src.windows.settings.app_settings import AppSettings
             self.recursive = AppSettings.recursive_scan()
         else:
             self.recursive = recursive

@@ -1,20 +1,19 @@
 import uuid
-from typing import Dict, Any, Optional
 from datetime import date
-
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
-    QFormLayout,
-    QLineEdit,
-    QTextEdit,
-    QSpinBox,
-    QPushButton,
-)
+from typing import Any, Dict, Optional
 
 from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.dialog.common.base_sub_item_dialog import BaseSubItemDialog
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QFormLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+)
 
 
 class _CreditDialog(BaseSubItemDialog):

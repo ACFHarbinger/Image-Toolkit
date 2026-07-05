@@ -469,7 +469,7 @@ class MaskReviewDialog(QDialog):
         self._set_busy(False)
         import warnings
 
-        warnings.warn(f"[ASP] Mask refinement error: {msg}", RuntimeWarning)
+        warnings.warn(f"[ASP] Mask refinement error: {msg}", RuntimeWarning, stacklevel=2)
         self._refresh_display()
 
     # ── seam exclusion (Issue 10A3) ───────────────────────────────────────────

@@ -54,10 +54,7 @@ def idct_block(block: np.ndarray) -> np.ndarray:
 def quantize(coeffs: np.ndarray, q_table: np.ndarray, quality: int = 75) -> np.ndarray:
     """Quantize DCT coefficients using a quality-scaled quant table."""
     quality = int(max(1, min(100, quality)))
-    if quality >= 50:
-        scale = (100 - quality) / 50
-    else:
-        scale = 50 / quality
+    scale = (100 - quality) / 50 if quality >= 50 else 50 / quality
     scaled = q_table.reshape(8, 8) * scale
     scaled = np.maximum(1.0, np.round(scaled))
     return np.round(coeffs / scaled), scaled
@@ -128,7 +125,7 @@ def restore_dct(
 
     # Warp every source frame onto the canvas (uint8, cached).
     warped = [
-        _warp_to_canvas(f, M, canvas_h, canvas_w) for f, M in zip(frames, affines)
+        _warp_to_canvas(f, M, canvas_h, canvas_w) for f, M in zip(frames, affines, strict=False)
     ]
 
     # Pad dimensions to multiples of B.
@@ -188,7 +185,7 @@ def restore_dct(
     # estimate coefficient into the source's quantisation cell.
     print(f"[MFSR/DCT] Precomputing clip bounds for {len(warped)} source frames…")
     frame_bounds: list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
-    for w_uint8, v_ok in zip(warped, valid_masks):
+    for w_uint8, v_ok in zip(warped, valid_masks, strict=False):
         w_f = np.pad(
             w_uint8.astype(np.float64),
             ((0, pad_h), (0, pad_w), (0, 0)),
@@ -250,7 +247,7 @@ def _restore_dct_scalar(
     q_table_scaled = _quant_table_array(quality)
 
     warped = [
-        _warp_to_canvas(f, M, canvas_h, canvas_w) for f, M in zip(frames, affines)
+        _warp_to_canvas(f, M, canvas_h, canvas_w) for f, M in zip(frames, affines, strict=False)
     ]
     valids = [(w.max(axis=2) > 0).astype(np.uint8) for w in warped]
 
@@ -259,24 +256,21 @@ def _restore_dct_scalar(
     else:
         accum = np.zeros((canvas_h, canvas_w, 3), dtype=np.float64)
         count = np.zeros((canvas_h, canvas_w), dtype=np.float64)
-        for w, v in zip(warped, valids):
+        for w, v in zip(warped, valids, strict=False):
             accum += w.astype(np.float64)
             count += v.astype(np.float64)
         estimate = accum / np.maximum(count, 1.0)[:, :, None]
 
     pad_h = (-canvas_h) % B
     pad_w = (-canvas_w) % B
-    if pad_h or pad_w:
-        estimate_p = np.pad(estimate, ((0, pad_h), (0, pad_w), (0, 0)), mode="edge")
-    else:
-        estimate_p = estimate.copy()
+    estimate_p = np.pad(estimate, ((0, pad_h), (0, pad_w), (0, 0)), mode="edge") if pad_h or pad_w else estimate.copy()
     H_p, W_p, _ = estimate_p.shape
 
     for it in range(n_iter):
         weight_map = np.ones((H_p, W_p), dtype=np.float64) * 1e-3
         accum_blocks = np.zeros_like(estimate_p)
 
-        for w_img, v_img in zip(warped, valids):
+        for w_img, v_img in zip(warped, valids, strict=False):
             w_p = np.pad(w_img, ((0, pad_h), (0, pad_w), (0, 0)), mode="edge").astype(
                 np.float64
             )

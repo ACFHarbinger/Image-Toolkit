@@ -1,36 +1,38 @@
-import os
+import contextlib
 import math
+import os
 import shutil
-
 from abc import abstractmethod
-from typing import List, Optional, Dict
-from PySide6.QtCore import Qt, Slot, QTimer, QEvent
-from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage, QPainter, QColor
-from PySide6.QtWidgets import (
-    QWidget,
-    QGridLayout,
-    QScrollArea,
-    QMenu,
-    QLabel,
-    QVBoxLayout,
-    QFileDialog,
-    QMessageBox,
-    QInputDialog,
-)
+from typing import Dict, List, Optional
+
 from backend.src.constants import (
     LOCAL_SOURCE_PATH,
     SUPPORTED_VIDEO_FORMATS,
     THUMBNAIL_CACHE_DIR,
 )
-from .base.gallery_base import AbstractGalleryBase
-from ..utils.lru_image_cache import LRUImageCache
+from PySide6.QtCore import QEvent, Qt, QTimer, Slot
+from PySide6.QtGui import QAction, QColor, QImage, QPainter, QPixmap, QResizeEvent
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QGridLayout,
+    QInputDialog,
+    QLabel,
+    QMenu,
+    QMessageBox,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
+
 from ..helpers import (
-    ImageLoaderWorker,
     BatchImageLoaderWorker,
+    ImageLoaderWorker,
     VideoLoaderWorker,
 )
 from ..helpers.video.video_scan_worker import VideoThumbnailer
+from ..utils.lru_image_cache import LRUImageCache
 from ..utils.sort_utils import natural_sort_key
+from .base.gallery_base import AbstractGalleryBase
 
 
 class AbstractClassSingleGallery(AbstractGalleryBase):
@@ -340,6 +342,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
     # --- KEYBOARD SHORTCUTS (GUI/UX §2.29 — registry-driven) ---
     def keyPressEvent(self, event: QEvent):
         from PySide6.QtCore import Qt as _Qt
+
         from ..utils.shortcut_manager import get_registry
 
         reg = get_registry()
@@ -1106,10 +1109,8 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
         # Stop all active workers
         for worker in list(self._active_workers):
-            try:
+            with contextlib.suppress(Exception):
                 worker.stop()
-            except Exception:
-                pass
         self._active_workers.clear()
 
         if hasattr(self, "thread_pool"):

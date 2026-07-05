@@ -10,20 +10,19 @@ from __future__ import annotations
 import logging
 import os
 import warnings
-
 from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
 
-from backend.src.constants import (
-    MEDIAN_MIN_SAMPLES,  # noqa: F401
-    RENDERING_FADE_ROWS,
-    LANCZOS_BLEED,
-    MAX_SAFE_GAIN_DEV,
-)
 from backend.src.animation.alignment.canvas import _detect_scroll_axis
 from backend.src.animation.core.stateless import _laplacian_blend
+from backend.src.constants import (
+    LANCZOS_BLEED,
+    MAX_SAFE_GAIN_DEV,
+    MEDIAN_MIN_SAMPLES,  # noqa: F401
+    RENDERING_FADE_ROWS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -971,7 +970,7 @@ def _render_first(
             mask[:] = 0
 
     _frame_masks = [np.full(f.shape[:2], 255, dtype=np.uint8) for f in frames]
-    for img, M, f_mask in reversed(list(zip(frames, affines, _frame_masks))):
+    for img, M, f_mask in reversed(list(zip(frames, affines, _frame_masks, strict=False))):
         w = cv2.warpAffine(
             img,
             M,
@@ -1028,7 +1027,7 @@ def _render_laplacian(
             mask_list = []
 
     if not warped_list:
-        for img, M in zip(frames, affines):
+        for img, M in zip(frames, affines, strict=False):
             w = cv2.warpAffine(
                 img,
                 M,
@@ -1141,7 +1140,7 @@ def _render_laplacian(
         canvas_m |= m_i
 
     warped_fgs = []
-    for i, (M, bg) in enumerate(zip(affines, bg_masks)):
+    for i, (M, bg) in enumerate(zip(affines, bg_masks, strict=False)):
         if bg is not None:
             fg = (bg < 127).astype(np.uint8) * 255
             w_fg = cv2.warpAffine(

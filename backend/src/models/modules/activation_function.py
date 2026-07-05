@@ -1,8 +1,9 @@
 import math
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
 
-from typing import Optional, Tuple
 
 class ActivationFunction(nn.Module):
     def __init__(
@@ -16,7 +17,7 @@ class ActivationFunction(nn.Module):
         inplace: Optional[bool] = False,
     ):
         super(ActivationFunction, self).__init__()
-        if tval and rval is None and not af_name == "softplus":
+        if tval and rval is None and af_name != "softplus":
             rval = tval  # Replacement value = threshold
         self.activation = {
             "relu": nn.ReLU(inplace=inplace),
@@ -47,7 +48,7 @@ class ActivationFunction(nn.Module):
             "softplus": nn.Softplus(beta=fparam, threshold=tval),
             "softshrink": nn.Softshrink(lambd=fparam),
             "softsign": nn.Softsign(),
-        }.get(af_name, None)
+        }.get(af_name)
         assert self.activation is not None, "Unknown activation function: {}".format(
             af_name
         )

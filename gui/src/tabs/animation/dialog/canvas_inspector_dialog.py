@@ -12,9 +12,9 @@ from PySide6.QtGui import (
     QBrush,
     QColor,
     QImage,
+    QPainter,
     QPen,
     QPixmap,
-    QPainter,
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -91,9 +91,8 @@ class _DraggableFrameItem(QGraphicsRectItem):
             self._nudge_list[self._idx][0] = new_x - self._base_tx
             self._nudge_list[self._idx][1] = new_y - self._base_ty
             return value
-        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
-            if value:
-                self._on_select(self._idx)
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange and value:
+            self._on_select(self._idx)
         return super().itemChange(change, value)
 
 

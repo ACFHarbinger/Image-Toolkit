@@ -1,10 +1,10 @@
 import os
-from typing import Dict, Any, Optional, List
-from PySide6.QtCore import Qt, QTimer, Signal, QPointF
-from PySide6.QtGui import QPixmap, QAction, QPen, QBrush, QColor, QPainter, QImageReader
-from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QMenu
+from typing import Any, Dict, List, Optional
 
-from gui.src.components.merge_canvas_item import MergeCanvasItem
+from gui.src.components.elements.merge_canvas_item import MergeCanvasItem
+from PySide6.QtCore import QPointF, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QBrush, QColor, QImageReader, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QMenu
 
 
 class MergeCanvas(QGraphicsView):
@@ -212,7 +212,7 @@ class MergeCanvas(QGraphicsView):
     def mousePressEvent(self, event):
         from PySide6.QtGui import QMouseEvent
         from PySide6.QtWidgets import QGraphicsItem
-        
+
         if event.button() == Qt.MouseButton.LeftButton:
             item = self.itemAt(event.position().toPoint())
             is_interactive = False
@@ -221,12 +221,15 @@ class MergeCanvas(QGraphicsView):
                 if curr.__class__.__name__ in ("NodeItem", "EdgeItem", "MergeCanvasItem"):
                     is_interactive = True
                     break
-                if curr.flags() & (QGraphicsItem.GraphicsItemFlag.ItemIsMovable | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
-                    if not (hasattr(self, "_bg") and curr is self._bg):
-                        is_interactive = True
-                        break
+                if (
+                    (curr.flags() and (
+                        QGraphicsItem.GraphicsItemFlag.ItemIsMovable | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable))
+                    and not (hasattr(self, "_bg") and curr is self._bg)
+                ):
+                    is_interactive = True
+                    break
                 curr = curr.parentItem()
-            
+
             if is_interactive:
                 super().mousePressEvent(event)
             else:
@@ -251,7 +254,7 @@ class MergeCanvas(QGraphicsView):
 
     def mouseMoveEvent(self, event):
         from PySide6.QtGui import QMouseEvent
-        
+
         if getattr(self, "_is_panning", False):
             delta = event.position().toPoint() - self._pan_start_pos
             self._pan_start_pos = event.position().toPoint()
@@ -274,7 +277,7 @@ class MergeCanvas(QGraphicsView):
 
     def mouseReleaseEvent(self, event):
         from PySide6.QtGui import QMouseEvent
-        
+
         if getattr(self, "_is_panning", False):
             self._is_panning = False
             self.setCursor(Qt.CursorShape.ArrowCursor)

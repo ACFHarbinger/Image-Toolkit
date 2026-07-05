@@ -6,9 +6,10 @@ decoupling camera motion from character animation.
 """
 from __future__ import annotations
 
+from typing import Optional, Tuple
+
 import cv2
 import numpy as np
-from typing import Optional, Tuple
 
 __all__ = [
     "bg_masked_phase_correlate",

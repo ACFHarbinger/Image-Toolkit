@@ -1,24 +1,23 @@
 from pathlib import Path
-from PySide6.QtCore import Qt, QSize, QThreadPool
-from PySide6.QtGui import QPixmap, QIcon
-from PySide6.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QComboBox,
-    QTabWidget,
-    QWidget,
-    QListWidget,
-    QListWidgetItem,
-    QPushButton,
-)
 
 from gui.src.helpers.image import (
     _CARD_THUMB_CACHE,
     _ThumbWorker,
 )
-
+from PySide6.QtCore import QSize, Qt, QThreadPool
+from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class _AdvancedSearchDialog(QDialog):

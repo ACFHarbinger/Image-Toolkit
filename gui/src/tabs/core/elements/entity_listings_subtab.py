@@ -1,49 +1,46 @@
-import os
 import json
-import uuid
+import os
 import shutil
+import uuid
 from datetime import date
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import Qt, Signal, Slot, QTimer
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QComboBox,
-    QScrollArea,
-    QSplitter,
-    QGridLayout,
-    QMessageBox,
-    QMenu,
-    QProgressDialog,
-    QPushButton,
-    QDialog,
-)
-from PySide6.QtGui import QAction
-
-import base
 import backend.src.constants as udef
+import base
 from backend.src.constants import IMAGE_TOOLKIT_DIR
-
-from gui.src.styles import apply_shadow_effect, SHARED_BUTTON_STYLE
 from gui.src.constants.listings import (
-    ENTITY_TYPES,
-    ENTITY_ROLES,
     CARD_SIZE,
+    ENTITY_ROLES,
+    ENTITY_TYPES,
     LISTING_IMAGES_DIR,
 )
-
+from gui.src.helpers.web.sync_backup_worker import _SyncBackupWorker
+from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.common.listings_common import (
     _persist_splitter,
 )
-from gui.src.helpers.web.sync_backup_worker import _SyncBackupWorker
+from gui.src.tabs.core.elements.dialog.entity_directory_import_dialog import _EntityDirectoryImportDialog
 from gui.src.tabs.core.elements.display.entity_card import _EntityCard
 from gui.src.tabs.core.elements.display.entity_detail_panel import _EntityDetailPanel
-from gui.src.tabs.core.elements.dialog.entity_directory_import_dialog import _EntityDirectoryImportDialog
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QMessageBox,
+    QProgressDialog,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class EntityListingsSubTab(QWidget):

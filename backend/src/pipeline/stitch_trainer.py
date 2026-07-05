@@ -31,18 +31,7 @@ Usage (from GUI, runs in a daemon thread)
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-from backend.src.models.core.stitch_net import AnimeStitchNet
-from backend.src.models.data.stitch_dataset import (
-SyntheticStitchDataset,
-stitch_collate_fn,
-)
-from backend.src.pipeline.stitch_losses import StitchNetLoss
-from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
-from backend.src.models.core.stitch_net.model import AnimeStitchNet
 # --------------------------------
-
-
 import gc
 import math
 import os
@@ -57,8 +46,15 @@ import torch.nn as nn
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, random_split
-from backend.src.models.core.stitch_net import AnimeStitchNet
 
+# --- Relocated Nested Imports ---
+from backend.src.models.core.stitch_net import AnimeStitchNet
+from backend.src.models.data.stitch_dataset import (
+    SyntheticStitchDataset,
+    stitch_collate_fn,
+)
+from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+from backend.src.pipeline.stitch_losses import StitchNetLoss
 
 # ---------------------------------------------------------------------------
 # Default configuration
@@ -534,7 +530,7 @@ class _WarmupCosineScheduler:
     def step(self):
         self._step += 1
         s, w, T = self._step, self.warmup_steps, self.total_steps
-        for g, base_lr in zip(self.opt.param_groups, self._base_lrs):
+        for g, base_lr in zip(self.opt.param_groups, self._base_lrs, strict=False):
             if s < w:
                 g["lr"] = base_lr * (s / max(w, 1))
             else:

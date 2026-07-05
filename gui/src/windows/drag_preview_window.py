@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QWidget, QLabel
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QLabel, QWidget
 
 
 class DragPreviewWindow(QWidget):

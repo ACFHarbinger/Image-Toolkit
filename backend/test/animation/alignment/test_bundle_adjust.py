@@ -29,7 +29,6 @@ from backend.src.animation.alignment.bundle_adjust import (  # noqa: E402
 )
 from conftest import compute_ty_gaps, make_edge  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

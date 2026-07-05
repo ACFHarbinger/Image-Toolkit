@@ -1,11 +1,10 @@
-import os
 import json
-import pytest
 from pathlib import Path
-from PySide6.QtWidgets import QApplication, QMessageBox
+
+import pytest
 from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.windows.settings.settings_window import SettingsWindow
-from backend.src.constants import IMAGE_TOOLKIT_DIR, DAEMON_CONFIG_PATH
+from PySide6.QtWidgets import QMessageBox
 
 pytestmark = pytest.mark.gui
 

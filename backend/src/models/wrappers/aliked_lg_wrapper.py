@@ -16,8 +16,6 @@ keypoints, before falling back to template matching.
 
 from __future__ import annotations
 
-import gc
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -135,7 +133,6 @@ class ALIKEDLightGlueWrapper(ModelWrapper):
             if hasattr(matcher, "matcher") and hasattr(matcher.matcher, "forward"):
                 # Detect keypoints with ALIKED via kornia's get_laf_descriptors
                 try:
-                    inp = {"image0": t_i, "image1": t_j}
                     # Direct LightGlue pipeline (detector-free internal path not exposed).
                     # Use the lower-level path: LocalFeatureMatcher with ALIKED.
                     raise NotImplementedError("use lower-level path")

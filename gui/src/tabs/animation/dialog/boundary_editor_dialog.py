@@ -16,8 +16,8 @@ from typing import List
 
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt, QRectF, QPointF
-from PySide6.QtGui import QColor, QImage, QPixmap, QPen, QBrush, QFont
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QColor, QFont, QImage, QPen, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QGraphicsItem,
@@ -30,9 +30,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
-    QWidget,
 )
-
 
 _MAX_PREVIEW_W = 480
 _MAX_PREVIEW_H = 700
@@ -118,7 +116,7 @@ class BoundaryEditorDialog(QDialog):
             label.setPos(4, by - 16)
 
         # Frame-range labels along the left edge
-        tys_sorted = sorted(data.get("frame_tys_scaled", []))
+        # tys_sorted = sorted(data.get("frame_tys_scaled", []))
         for fi in range(frame_count):
             lbl_y = (
                 boundaries_px[fi - 1] if fi > 0 else 0
@@ -166,7 +164,7 @@ class BoundaryEditorDialog(QDialog):
 
     def _reset(self):
         boundaries_px = [b * self._scale for b in self._boundaries_full]
-        for line, by in zip(self._lines, boundaries_px):
+        for line, by in zip(self._lines, boundaries_px, strict=False):
             line.setY(0)
             line.setLine(0, by, self._preview_w, by)
 

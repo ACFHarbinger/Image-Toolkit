@@ -1,7 +1,8 @@
 import math
+from typing import Optional
+
 import torch.nn as nn
 
-from typing import Optional
 
 class Normalization(nn.Module):
     def __init__(
@@ -41,7 +42,7 @@ class Normalization(nn.Module):
             "local_response": nn.LocalResponseNorm(
                 size, alpha=eps_alpha, beta=mbval, k=kval
             ),
-        }.get(norm_name, None)
+        }.get(norm_name)
         assert self.normalizer is not None, "Unknown normalization method: {}".format(
             norm_name
         )

@@ -1,36 +1,38 @@
+import contextlib
 import os
 
+from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from PySide6.QtCore import QPoint, Qt, Slot
+from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
-    QLineEdit,
-    QPushButton,
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QGridLayout,
+    QGroupBox,
     QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
-    QCheckBox,
-    QMessageBox,
-    QLabel,
-    QGroupBox,
-    QScrollArea,
-    QGridLayout,
-    QProgressBar,
-    QComboBox,
-    QMenu,
-    QSpinBox,
-    QDoubleSpinBox,
-    QButtonGroup,
-    QRadioButton,
 )
-from PySide6.QtCore import Qt, Slot, QPoint
-from PySide6.QtGui import QPixmap, QAction, QImage
+
 from ....classes import AbstractClassTwoGalleries
+from ....components import ClickableLabel, MarqueeScrollArea
 from ....helpers import SamplerWorker
-from ....components import MarqueeScrollArea, ClickableLabel
-from ....windows import ImagePreviewWindow
+from ....styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from ....utils.sort_utils import natural_sort_key
-from ....styles import apply_shadow_effect, SHARED_BUTTON_STYLE
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from ....windows import ImagePreviewWindow
 
 
 class SamplerSubTab(AbstractClassTwoGalleries):
@@ -351,7 +353,7 @@ class SamplerSubTab(AbstractClassTwoGalleries):
         all_exts = vid_exts | img_exts
 
         paths = []
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         if AppSettings.recursive_scan():
             for root, _, files in os.walk(p):
                 for f in files:
@@ -360,9 +362,8 @@ class SamplerSubTab(AbstractClassTwoGalleries):
         else:
             with os.scandir(p) as it:
                 for entry in it:
-                    if entry.is_file():
-                        if os.path.splitext(entry.name)[1].lstrip(".").lower() in all_exts:
-                            paths.append(entry.path)
+                    if entry.is_file() and os.path.splitext(entry.name)[1].lstrip(".").lower() in all_exts:
+                        paths.append(entry.path)
         return paths
 
     def _scan_and_load(self):
@@ -396,13 +397,13 @@ class SamplerSubTab(AbstractClassTwoGalleries):
         else:
             img_label.setText("Loading…")
             img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
-        
+
         card_layout.addWidget(img_label)
-        
+
         # Initialize the label's internal references
         card.set_image_label(img_label)
         card.style_callback = self._update_card_style
-        
+
         # Trigger the style
         card.set_selected_style(is_selected)
 
@@ -584,10 +585,8 @@ class SamplerSubTab(AbstractClassTwoGalleries):
     def cancel_loading(self):
         super().cancel_loading()
         if self.worker:
-            try:
+            with contextlib.suppress(Exception):
                 self.worker.cancel()
-            except Exception:
-                pass
 
     def get_default_config(self) -> dict:
         """Return the default tab configuration dict."""

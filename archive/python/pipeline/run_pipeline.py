@@ -8,13 +8,13 @@ with the improved _GAIN_CLAMP=(0.93,1.07) code.
 import json
 import os
 import sys
+
 import cv2
 import numpy as np
-
-from PIL import Image
 from backend.src.animation.alignment.canvas import _crop_to_valid
-from backend.src.animation.rendering.rendering import _render_median
 from backend.src.animation.rendering.compositing import _composite_foreground
+from backend.src.animation.rendering.rendering import _render_median
+from PIL import Image
 
 sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
@@ -51,7 +51,7 @@ print(f"  Canvas {canvas_w}×{canvas_h}, {N} frames")
 
 # ─── Stage 9: Temporal median render (re-run) ────────────────────────────────
 print("Stage 9: temporal median render...")
-canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, canvas_w)
+canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, canvas_w) # pyrefly: ignore [bad-argument-type]
 cv2.imwrite(f"{STAGE_DIR}/stage09_temporal_render_v2.png", canvas)
 print("  Saved stage09_temporal_render_v2.png")
 
@@ -60,11 +60,9 @@ print("Stage 10: MFSR skipped.")
 
 # ─── Stage 11: Foreground composite (improved gain clamp) ────────────────────
 print("Stage 11: hard-partition composite (improved _GAIN_CLAMP=(0.93,1.07))...")
-canvas = _composite_foreground(
-    [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
-)
+canvas = _composite_foreground([], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks) # pyrefly: ignore [bad-argument-type]
 cv2.imwrite(f"{STAGE_DIR}/stage11_fg_composite_v2.png", canvas)
-print(f"  Saved stage11_fg_composite_v2.png")
+print("  Saved stage11_fg_composite_v2.png")
 
 # ─── Stage 12: Crop ──────────────────────────────────────────────────────────
 print("Stage 12: crop...")

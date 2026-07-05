@@ -66,7 +66,7 @@ def load_hitl_preset(test_name: str, base_dir: Optional[str] = None) -> Optional
         with path.open() as f:
             return HitlPreset.from_dict(json.load(f))
     except Exception as exc:
-        warnings.warn(f"hitl_presets: failed to load {path}: {exc}")
+        warnings.warn(f"hitl_presets: failed to load {path}: {exc}", stacklevel=2)
         return None
 
 

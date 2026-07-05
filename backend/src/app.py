@@ -1,15 +1,16 @@
-import sys
-import signal
 import logging
 import logging.handlers
+import signal
+import sys
 import threading
 from pathlib import Path
 
+from gui.src.windows.main import LoginWindow, MainWindow
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
-from gui.src.windows.main import MainWindow, LoginWindow
-from backend.src.constants import ICON_FILE, CTRL_C_TIMEOUT
+
+from backend.src.constants import CTRL_C_TIMEOUT, ICON_FILE
 
 # ---------------------------------------------------------------------------
 # Logging setup (item 1.13) — rotating file handler + coloured console output

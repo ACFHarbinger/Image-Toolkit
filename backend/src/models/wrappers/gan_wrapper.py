@@ -1,5 +1,6 @@
 import logging
 import os
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,10 +8,11 @@ import torch.optim as optim
 logger = logging.getLogger(__name__)
 
 from PIL import Image
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.utils import save_image
-from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+
 
 class GanWrapper:
     # --- Cancellation Flag ---

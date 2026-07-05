@@ -36,14 +36,13 @@ cancel_stitch_qml()
 
 from __future__ import annotations
 
-import os
 import glob
+import os
 from typing import Optional
 
-from PySide6.QtCore import QObject, Property, Signal, Slot, QThread
-from PySide6.QtWidgets import QFileDialog
-
 from gui.src.helpers.animation.stitch_worker import StitchWorker
+from PySide6.QtCore import Property, QObject, QThread, Signal, Slot
+from PySide6.QtWidgets import QFileDialog
 
 _IMAGE_EXTS = ("*.jpg", "*.jpeg", "*.png", "*.webp", "*.bmp", "*.tiff", "*.tif")
 

@@ -3,7 +3,7 @@
 # so there is no need to re-export them from this package __init__.  Eager imports
 # of aliked_lg_wrapper, birefnet_wrapper, etc. pulled in torchvision + transformers
 # at pytest collection time, causing the test-suite freeze.
-from .core.base import ModelWrapper, ModelRegistry, lazy_load
+from .core.base import ModelRegistry, ModelWrapper, lazy_load
 
 __all__ = [
     "ModelWrapper",

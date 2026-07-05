@@ -26,22 +26,21 @@ import sys
 import cv2
 import numpy as np
 import pytest
-
 from backend.src.animation.ingestion.frame_selection import (
-    _hold_block_average,
-    _otsu_bg_mask_pair,
-    _fg_center_diff,
+    _DINOV2_CACHE,  # noqa: F401
+    _compute_dhash,
+    _compute_dinov2_features,
     _detect_hold_blocks,
     _detect_hold_blocks_dhash,
-    _compute_dhash,
     _drop_exact_dhash_duplicates,
+    _fg_center_diff,
+    _hold_block_average,
+    _near_dup_luma_filter,
+    _otsu_bg_mask_pair,
     _refine_hold_ids_by_response,
-    _temporal_variance_filter,
     _reject_blurry_frames,
     _reject_low_contrast_frames,
-    _near_dup_luma_filter,
-    _compute_dinov2_features,
-    _DINOV2_CACHE,  # noqa: F401
+    _temporal_variance_filter,
 )
 
 _repo_root = os.path.dirname(
@@ -288,8 +287,8 @@ class TestDINOv2Features:
 
     def test_returns_none_when_model_unavailable(self, tmp_path):
         """When the cache records a failed model load, the function returns None."""
-        import torch
         import backend.src.animation.ingestion.frame_selection as fs_mod
+        import torch
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         original = fs_mod._DINOV2_CACHE.get(device, "missing")

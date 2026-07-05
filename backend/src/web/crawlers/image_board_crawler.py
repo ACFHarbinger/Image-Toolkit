@@ -1,4 +1,5 @@
 import json
+
 import base  # Native extension
 from PySide6.QtCore import QObject, Signal
 

@@ -1,52 +1,48 @@
-import os
 import json
+import os
 import uuid
 from datetime import date
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from send2trash import send2trash # pyrefly: ignore [untyped-import]
-from PySide6.QtCore import Qt, Signal, Slot, QTimer
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QComboBox,
-    QScrollArea,
-    QSplitter,
-    QGridLayout,
-    QMessageBox,
-    QMenu,
-    QProgressDialog,
-    QPushButton,
-    QDialog,
-)
-from PySide6.QtGui import QAction
-
-import base
 import backend.src.constants as udef
+import base
 from backend.src.constants import IMAGE_TOOLKIT_DIR
-
-from gui.src.helpers.core.recommendation_worker import RecommendationWorker
-from gui.src.styles import apply_shadow_effect, SHARED_BUTTON_STYLE
 from gui.src.constants.listings import (
-    ENTRY_TYPES,
-    ENTRY_STATUS,
     CARD_SIZE,
+    ENTRY_STATUS,
+    ENTRY_TYPES,
 )
-
+from gui.src.helpers.core.recommendation_worker import RecommendationWorker
+from gui.src.helpers.web.sync_backup_worker import _SyncBackupWorker
+from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.common.listings_common import (
     _persist_splitter,
 )
-from gui.src.helpers.web.sync_backup_worker import _SyncBackupWorker
-from gui.src.tabs.core.elements.dialog.episode_dialog import _EpisodeDialog
-from gui.src.tabs.core.elements.display.listing_card import _ListingCard
-from gui.src.tabs.core.elements.display.detail_panel import _DetailPanel
 from gui.src.tabs.core.elements.dialog.advanced_search_dialog import _AdvancedSearchDialog
 from gui.src.tabs.core.elements.dialog.directory_import_dialog import _DirectoryImportDialog
 from gui.src.tabs.core.elements.dialog.recommendation_dialog import _RecommendationDialog
+from gui.src.tabs.core.elements.display.detail_panel import _DetailPanel
+from gui.src.tabs.core.elements.display.listing_card import _ListingCard
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QMessageBox,
+    QProgressDialog,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 
 class ContentListingsSubTab(QWidget):

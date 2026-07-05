@@ -13,11 +13,10 @@ import os
 import warnings
 
 import pytest
-
 from backend.src.animation.core.config import (
+    dump_asp_config,
     load_asp_config,
     validate_asp_config,
-    dump_asp_config,
 )
 from backend.src.errors import ConfigError
 

@@ -28,7 +28,7 @@ for f in paths_to_scan:
     except Exception as e:
         print(f"Could not read {f}: {e}")
         continue
-        
+
     # Strip fenced code blocks (``` ... ```) before link scanning so that
     # C++ lambda syntax like [&](auto&&) is not misread as a Markdown link.
     stripped = re.sub(r'```.*?```', '', content, flags=re.DOTALL)
@@ -38,24 +38,24 @@ for f in paths_to_scan:
     for match in re.finditer(r'\[([^\]]+)\]\(([^)]+)\)', stripped):
         text = match.group(1)
         url = match.group(2).strip()
-        
+
         # Split off markdown title if any (e.g. [Link](url "title"))
         parts = url.split(None, 1)
         url = parts[0]
-        
+
         # Ignore external links, mailto, anchor links, etc.
         if url.startswith(("http://", "https://", "mailto:", "ftp:", "git:", "ssh:", "#")):
             continue
-            
+
         url = urllib.parse.unquote(url)
         url_parsed = urllib.parse.urlparse(url)
         path_part = url_parsed.path
-        
+
         if not path_part:
             continue
-            
+
         target = (f.parent / path_part).resolve()
-        
+
         if not target.exists():
             try:
                 rel_target = target.relative_to(root)

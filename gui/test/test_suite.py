@@ -5,11 +5,11 @@ This script provides a convenient interface to run all GUI tests.
 Based on backend/test/test_suite.py
 """
 
-import subprocess
 import argparse
-
+import subprocess
 from pathlib import Path
 from typing import List, Optional
+
 from .test_definitions import TEST_MODULES
 
 

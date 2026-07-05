@@ -1,9 +1,11 @@
+import contextlib
 import json
 import os
-import pytest
 from unittest.mock import patch
-from PySide6.QtWidgets import QApplication
+
+import pytest
 from gui.src.windows.main.main_window import MainWindow
+from PySide6.QtWidgets import QApplication
 
 pytestmark = pytest.mark.gui
 
@@ -47,10 +49,8 @@ def cleanup_recovery_files():
     for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
         enc_file = os.path.join(recovery_dir, "recovery_test_user.enc")
         if os.path.exists(enc_file):
-            try:
+            with contextlib.suppress(Exception):
                 os.remove(enc_file)
-            except Exception:
-                pass
 
 
 class TestMainWindowSessionRecovery:
@@ -81,13 +81,13 @@ class TestMainWindowSessionRecovery:
             }
         }
         vault = MockVaultManager(creds)
-        
+
         # Patch set_config on SearchTab to check if it gets called
         with patch("gui.src.tabs.database.search_tab.SearchTab.set_config") as mock_set_config:
             window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             # Process events to allow QTimer to fire
             QApplication.processEvents()
-            
+
             # Check if active category is selected
             assert window.command_combo.currentText() == "Database Management"
             # Check if correct tab is active in the QTabWidget
@@ -105,24 +105,24 @@ class TestMainWindowSessionRecovery:
             "session_recovery_data": {}
         }
         vault = MockVaultManager(creds)
-        
+
         with (
             patch("gui.src.tabs.database.search_tab.SearchTab.collect", return_value={"search_key": "val1"}),
             patch("gui.src.tabs.core.convert_tab.ConvertTab.collect", return_value={"convert_key": "val2"})
         ):
             window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             QApplication.processEvents()
-            
+
             # Let's change current category and tab
             window.command_combo.setCurrentText("System Tools")
             for index in range(window.tabs.count()):
                 if window.tabs.tabText(index) == "Convert":
                     window.tabs.setCurrentIndex(index)
                     break
-            
+
             # Trigger save
             window._save_session_recovery()
-            
+
             # Verify saved data in vault / file
             saved = vault.saved_data
             assert saved is not None
@@ -148,14 +148,14 @@ class TestMainWindowSessionRecovery:
             }
         }
         vault = MockVaultManager(creds)
-        
+
         with (
             patch("gui.src.tabs.database.search_tab.SearchTab.set_config") as mock_search_set,
             patch("gui.src.tabs.core.convert_tab.ConvertTab.set_config") as mock_convert_set
         ):
             MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             QApplication.processEvents()
-            
+
             # Only SearchTab (which is the active one) should be loaded
             mock_search_set.assert_called_with({"search_key": "val1"})
             mock_convert_set.assert_not_called()
@@ -175,11 +175,11 @@ class TestMainWindowSessionRecovery:
             }
         }
         vault = MockVaultManager(creds)
-        
+
         with patch("gui.src.tabs.database.search_tab.SearchTab.set_config") as mock_search_set:
             window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             QApplication.processEvents()
-            
+
             # Category/tab should default (e.g. System Tools) instead of restored
             assert window.command_combo.currentText() == "System Tools"
             mock_search_set.assert_not_called()

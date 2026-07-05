@@ -1,19 +1,20 @@
-import cv2
+import contextlib
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QObject, QThread, QTimer, QSize
-from PySide6.QtGui import QPixmap, QImage
+import cv2
+from PySide6.QtCore import QObject, QSize, Qt, QThread, QTimer, Signal
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QSlider,
     QSpinBox,
+    QVBoxLayout,
 )
 
 
@@ -49,10 +50,8 @@ def extract_video_frame_via_ffmpeg(
     except Exception as e:
         print(f"ffmpeg fallback failed: {e}")
     finally:
-        try:
+        with contextlib.suppress(Exception):
             Path(tmp_name).unlink(missing_ok=True)
-        except Exception:
-            pass
     return None
 
 
@@ -242,7 +241,7 @@ class FrameSelectionDialog(QDialog):
 
                     self.slider = QSlider(Qt.Orientation.Horizontal)
                     self.slider.setRange(0, self.total_frames - 1)
-                    
+
                     if self.start_ms >= 0:
                         start_frame = int(self.start_ms / 1000.0 * self.fps)
                         start_frame = min(max(0, start_frame), self.total_frames - 1)
@@ -250,7 +249,7 @@ class FrameSelectionDialog(QDialog):
                         start_frame = min(
                             max(1, self.total_frames // 10), self.total_frames - 1
                         )
-                        
+
                     self.slider.setValue(start_frame)
                     # Debounce: slider movement restarts the timer instead of
                     # calling the (slow) extraction synchronously each tick

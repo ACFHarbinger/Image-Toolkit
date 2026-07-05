@@ -1,7 +1,8 @@
 import os
-from typing import List, Union, Tuple, Optional
+from typing import List, Optional, Tuple, Union
+
+from backend.src.constants import HAS_NATIVE_IMAGING, SUPPORTED_IMG_FORMATS
 from PySide6.QtCore import QObject, Signal, Slot
-from backend.src.constants import SUPPORTED_IMG_FORMATS, HAS_NATIVE_IMAGING
 
 if HAS_NATIVE_IMAGING:
     import base
@@ -34,7 +35,7 @@ class ImageScannerWorker(QObject):
         self._is_cancelled = False
 
         if recursive is None:
-            from gui.src.utils.settings import AppSettings
+            from gui.src.windows.settings.app_settings import AppSettings
             self.recursive = AppSettings.recursive_scan()
         else:
             self.recursive = recursive
@@ -61,9 +62,8 @@ class ImageScannerWorker(QObject):
                     if entry.name.startswith("."):
                         continue
 
-                    if entry.is_file(follow_symlinks=False):
-                        if entry.name.lower().endswith(self.extensions):
-                            found_images.append(entry.path)
+                    if entry.is_file(follow_symlinks=False) and entry.name.lower().endswith(self.extensions):
+                        found_images.append(entry.path)
         except PermissionError:
             print(f"Permission denied: {path}")
         except OSError as e:
@@ -93,9 +93,8 @@ class ImageScannerWorker(QObject):
                     if entry.is_dir(follow_symlinks=False):
                         # Recursive call
                         found_images.extend(self._scan_recursive(entry.path))
-                    elif entry.is_file(follow_symlinks=False):
-                        if entry.name.lower().endswith(self.extensions):
-                            found_images.append(entry.path)
+                    elif entry.is_file(follow_symlinks=False) and entry.name.lower().endswith(self.extensions):
+                        found_images.append(entry.path)
         except PermissionError:
             # Log strictly to console or emit a non-breaking warning if desired
             # We skip this specific folder but return what we found so far
@@ -135,10 +134,7 @@ class ImageScannerWorker(QObject):
                     continue  # Continue to next dir instead of aborting
 
                 # Use the optimized scanner
-                if self.recursive:
-                    images_in_dir = self._scan_recursive(directory)
-                else:
-                    images_in_dir = self._scan_flat(directory)
+                images_in_dir = self._scan_recursive(directory) if self.recursive else self._scan_flat(directory)
                 all_image_paths.extend(images_in_dir)
 
             # Sort strictly at the end to minimize overhead

@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QWidget
-from PySide6.QtGui import QPainter, QColor
 
 
 class OpaqueViewport(QWidget):

@@ -44,7 +44,7 @@ import argparse
 import os
 import random
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple
+from typing import Iterator, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -247,7 +247,7 @@ def train(args: argparse.Namespace) -> None:
     running_loss = 0.0
 
     loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=0)
-    for img1, img2, tx, ty, bg_mask in loader:
+    for img1, img2, tx, ty, _bg_mask in loader:
         if step >= args.max_steps:
             break
 

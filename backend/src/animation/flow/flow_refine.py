@@ -25,15 +25,16 @@ a robust per-pair sub-pixel translation estimate.
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import ptlflow
+from typing import List, Optional
+
 # --------------------------------
-
-
 import cv2
 import numpy as np
+
+# --- Relocated Nested Imports ---
+import ptlflow
 import torch
-from typing import List, Optional
+
 from backend.src.constants import FLOW_MAX_DRIFT, FLOW_PATCH_SIZE
 
 
@@ -172,10 +173,7 @@ def _flow_refine(
         v = flow[:, :, 1] / scale
 
         # Background-only flow
-        if bm_crop is not None and bm_crop.shape == u.shape:
-            bg_sel = bm_crop
-        else:
-            bg_sel = np.ones(u.shape, dtype=bool)
+        bg_sel = bm_crop if bm_crop is not None and bm_crop.shape == u.shape else np.ones(u.shape, dtype=bool)
 
         if bg_sel.sum() < 50:
             refined.append(M_cur.copy())

@@ -1,7 +1,8 @@
 import json
 import os
+from typing import Any, Callable
+
 import base  # Native extension
-from typing import Callable, Any
 
 
 class GoogleDriveSync:
@@ -32,8 +33,8 @@ class GoogleDriveSync:
         # 1. Resolve Service Account Authentication
         if not access_token and service_account_data:
             try:
-                from google.oauth2 import service_account
                 from google.auth.transport.requests import Request
+                from google.oauth2 import service_account
 
                 if isinstance(service_account_data, str):
                     service_account_data = json.loads(service_account_data)
@@ -49,8 +50,8 @@ class GoogleDriveSync:
         # 2. Resolve Personal Account (OAuth2 Flow) Authentication
         if not access_token and client_secrets_data:
             try:
-                from google.oauth2.credentials import Credentials
                 from google.auth.transport.requests import Request
+                from google.oauth2.credentials import Credentials
 
                 if isinstance(client_secrets_data, str):
                     client_secrets_data = json.loads(client_secrets_data)
@@ -74,14 +75,14 @@ class GoogleDriveSync:
                         import subprocess
                         import sys
                         import time
-                        
+
                         helper_path = os.path.join(os.path.dirname(__file__), "gdrive_auth_helper.py")
                         input_payload = {
                             "client_secrets_data": client_secrets_data,
                             "token_file": token_file,
                             "scopes": SCOPES
                         }
-                        
+
                         logger("🔑 Launching Google Drive authentication helper in a separate process...")
                         proc = subprocess.Popen(
                             [sys.executable, helper_path],
@@ -90,12 +91,12 @@ class GoogleDriveSync:
                             stderr=subprocess.PIPE,
                             text=True
                         )
-                        
+
                         try:
                             # Send configuration to the helper via stdin
                             proc.stdin.write(json.dumps(input_payload))
                             proc.stdin.close()
-                            
+
                             # Poll the helper process while checking for user cancellation
                             while proc.poll() is None:
                                 if not getattr(self, "_is_running", True):
@@ -104,13 +105,13 @@ class GoogleDriveSync:
                                     proc.wait(timeout=2)
                                     raise Exception("Authentication cancelled by user.")
                                 time.sleep(0.5)
-                                
+
                             stdout, stderr = proc.communicate()
                             if proc.returncode != 0:
                                 raise Exception(stderr.strip() or f"Helper process exited with code {proc.returncode}")
-                                
+
                             logger("✅ Google authentication completed successfully.")
-                            
+
                             # Reload the credentials from the newly written token file
                             if token_file and os.path.exists(token_file):
                                 creds = Credentials.from_authorized_user_file(token_file, SCOPES)

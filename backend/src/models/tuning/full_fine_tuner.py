@@ -18,7 +18,6 @@ Usage
 """
 
 from __future__ import annotations
-from backend.src.models.tuning.full_ft_config import FullFTConfig
 
 import os
 from dataclasses import dataclass
@@ -36,8 +35,10 @@ from diffusers import (
 from diffusers.optimization import get_scheduler
 from diffusers.training_utils import EMAModel, compute_snr
 from torch.utils.data import DataLoader
-from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
 from tqdm.auto import tqdm
+from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
+
+from backend.src.models.tuning.full_ft_config import FullFTConfig
 
 try:
     import bitsandbytes as bnb

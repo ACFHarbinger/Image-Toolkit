@@ -1,13 +1,13 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from PySide6.QtWidgets import QWidget
 
+import pytest
+from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
+from gui.src.tabs.models.gen.ddm_generate_tab import SD3GenerateTab
 from gui.src.tabs.models.generate_tab import UnifiedGenerateTab
-from gui.src.tabs.models.train_tab import UnifiedTrainTab
 from gui.src.tabs.models.meta_clip_inference_tab import MetaCLIPInferenceTab
 from gui.src.tabs.models.r3gan_evaluate_tab import R3GANEvaluateTab
-from gui.src.tabs.models.gen.ddm_generate_tab import SD3GenerateTab
-from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
+from gui.src.tabs.models.train_tab import UnifiedTrainTab
+from PySide6.QtWidgets import QWidget
 
 pytestmark = pytest.mark.gui
 

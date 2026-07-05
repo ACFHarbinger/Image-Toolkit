@@ -15,6 +15,7 @@ paste into the extension options page.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import secrets
@@ -70,9 +71,7 @@ def get_token() -> str:
     token = secrets.token_urlsafe(32)
     BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
     TOKEN_PATH.write_text(token, encoding="utf-8")
-    try:
+    with contextlib.suppress(OSError):
         TOKEN_PATH.chmod(0o600)
-    except OSError:
-        pass
     logger.info("extension bridge token generated at %s", TOKEN_PATH)
     return token

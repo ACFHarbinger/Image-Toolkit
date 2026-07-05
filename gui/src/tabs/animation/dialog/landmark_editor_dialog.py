@@ -18,7 +18,7 @@ from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt, QPointF
+from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -30,7 +30,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QGraphicsEllipseItem,
-    QGraphicsLineItem,
     QGraphicsPixmapItem,
     QGraphicsScene,
     QGraphicsView,

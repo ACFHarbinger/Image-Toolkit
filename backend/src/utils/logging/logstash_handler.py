@@ -1,6 +1,7 @@
 import logging
 import socket
 
+
 class LogstashTcpHandler(logging.Handler):
     def __init__(self, host: str, port: int = 5000):
         super().__init__()

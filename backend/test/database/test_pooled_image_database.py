@@ -7,12 +7,8 @@ All tests run without a live PostgreSQL server by mocking
 
 from __future__ import annotations
 
-import sys
 from contextlib import contextmanager
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -226,9 +222,7 @@ class TestPoolLifecycle:
         pool = _make_pool(conn)
         with patch(_PATCH_GET_POOL, return_value=pool), \
              patch("backend.src.database.pooled_image_database.load_dotenv"):
-            from backend.src.database.pooled_image_database import (
-                PooledPgvectorDatabase, _pools
-            )
+            from backend.src.database.pooled_image_database import PooledPgvectorDatabase
             db = PooledPgvectorDatabase.__new__(PooledPgvectorDatabase)
             db.embedding_dim = 128
             db._conninfo = "dsn_lifecycle_test"

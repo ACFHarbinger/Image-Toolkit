@@ -1,8 +1,9 @@
 
 from unittest.mock import MagicMock, patch
-from gui.src.helpers.web.web_requests_worker import WebRequestsWorker
-from gui.src.helpers.web.reverse_search_worker import ReverseSearchWorker
+
 from gui.src.helpers.web.cloud.google_drive_sync_worker import GoogleDriveSyncWorker
+from gui.src.helpers.web.reverse_search_worker import ReverseSearchWorker
+from gui.src.helpers.web.web_requests_worker import WebRequestsWorker
 
 # --- WebRequestsWorker Tests ---
 

@@ -1,10 +1,12 @@
 import os
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.utils as vutils
 
-from backend.src.models.subnets import Generator, Discriminator
+from backend.src.models.subnets import Discriminator, Generator
+
 
 class GAN:
     def __init__(

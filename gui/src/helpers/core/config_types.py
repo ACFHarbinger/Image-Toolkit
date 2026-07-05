@@ -25,7 +25,8 @@ Usage
 from __future__ import annotations
 
 from typing import List, Optional
-from typing_extensions import TypedDict, NotRequired
+
+from typing_extensions import TypedDict
 
 
 class ConversionConfig(TypedDict, total=False):

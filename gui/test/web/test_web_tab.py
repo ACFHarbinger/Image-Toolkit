@@ -1,11 +1,11 @@
-import pytest
-
 from unittest.mock import MagicMock, patch
-from PySide6.QtWidgets import QWidget
+
+import pytest
 from gui.src.tabs.web.drive_sync_tab import DriveSyncTab
 from gui.src.tabs.web.image_crawler_tab import ImageCrawlTab
 from gui.src.tabs.web.reverse_search_tab import ReverseImageSearchTab
 from gui.src.tabs.web.web_requests_tab import WebRequestsTab
+from PySide6.QtWidgets import QWidget
 
 pytestmark = pytest.mark.gui
 

@@ -1,12 +1,12 @@
+import contextlib
 import os
 import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import QThread, Signal
-
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from PySide6.QtCore import QThread, Signal
 
 _PILLOW_FILTERS = {
     "lanczos": None,  # resolved at runtime via Image.LANCZOS
@@ -48,10 +48,8 @@ class SamplerWorker(QThread):
             self._executor.shutdown(wait=False, cancel_futures=True)
         with self._process_lock:
             for p in list(self._active_procs):
-                try:
+                with contextlib.suppress(Exception):
                     p.terminate()
-                except Exception:
-                    pass
             self._active_procs.clear()
 
     def stop(self):
@@ -147,17 +145,11 @@ class SamplerWorker(QThread):
         out_ext = fmt_override if fmt_override else src_ext
 
         out_dir_cfg = self.config.get("output_path") or ""
-        if out_dir_cfg and os.path.isdir(out_dir_cfg):
-            out_dir = out_dir_cfg
-        else:
-            out_dir = os.path.dirname(input_path)
+        out_dir = out_dir_cfg if out_dir_cfg and os.path.isdir(out_dir_cfg) else os.path.dirname(input_path)
 
         prefix = self.config.get("output_filename_prefix") or ""
         base = os.path.splitext(os.path.basename(input_path))[0]
-        if prefix:
-            name = f"{prefix}{idx + 1}" if total > 1 else prefix
-        else:
-            name = f"{base}_resampled"
+        name = (f"{prefix}{idx + 1}" if total > 1 else prefix) if prefix else f"{base}_resampled"
 
         return os.path.join(out_dir, f"{name}.{out_ext}")
 
@@ -216,9 +208,8 @@ class SamplerWorker(QThread):
                 save_fmt = "JPEG"
             resampled.save(out_path, format=save_fmt)
 
-        if self.config.get("delete_original") and os.path.exists(out_path):
-            if os.path.abspath(in_path) != os.path.abspath(out_path):
-                os.remove(in_path)
+        if self.config.get("delete_original") and os.path.exists(out_path) and os.path.abspath(in_path) != os.path.abspath(out_path):
+            os.remove(in_path)
         return True
 
     # ------------------------------------------------------------------
@@ -261,9 +252,8 @@ class SamplerWorker(QThread):
                 optimize=False,
             )
 
-        if self.config.get("delete_original") and os.path.exists(out_path):
-            if os.path.abspath(in_path) != os.path.abspath(out_path):
-                os.remove(in_path)
+        if self.config.get("delete_original") and os.path.exists(out_path) and os.path.abspath(in_path) != os.path.abspath(out_path):
+            os.remove(in_path)
         return True
 
     # ------------------------------------------------------------------
@@ -307,9 +297,8 @@ class SamplerWorker(QThread):
             return False
 
         success = proc.returncode == 0 and os.path.exists(out_path)
-        if success and self.config.get("delete_original"):
-            if os.path.abspath(in_path) != os.path.abspath(out_path):
-                os.remove(in_path)
+        if success and self.config.get("delete_original") and os.path.abspath(in_path) != os.path.abspath(out_path):
+            os.remove(in_path)
         return success
 
     @staticmethod

@@ -14,16 +14,16 @@ from __future__ import annotations
 import os
 import sys
 
+import backend.src.animation.rendering.rendering as _rendering_mod
 import numpy as np
 import pytest
-
 from backend.src.animation.rendering.rendering import (
+    _adaptive_render_gain_clamp,
+    _check_gain_chain_drift,
     _render,
     _render_first,
     _render_laplacian,
     _render_median,
-    _adaptive_render_gain_clamp,
-    _check_gain_chain_drift,
 )  # noqa: E402
 from conftest import make_frame, make_rotation_affine, make_translation_affine  # noqa: E402
 
@@ -360,6 +360,7 @@ class TestForegroundExcludedMedian:
         """Character in 3/4 frames at a pixel → exclusion yields clean bg (80)."""
         monkeypatch.setenv("ASP_FG_EXCLUDE_MEDIAN", "1")
         import importlib
+
         import backend.src.animation.rendering.rendering as r
 
         importlib.reload(r)
@@ -373,6 +374,7 @@ class TestForegroundExcludedMedian:
         """With exclusion OFF the majority character ghosts the background."""
         monkeypatch.setenv("ASP_FG_EXCLUDE_MEDIAN", "0")
         import importlib
+
         import backend.src.animation.rendering.rendering as r
 
         importlib.reload(r)
@@ -387,6 +389,7 @@ class TestForegroundExcludedMedian:
         (no holes)."""
         monkeypatch.setenv("ASP_FG_EXCLUDE_MEDIAN", "1")
         import importlib
+
         import backend.src.animation.rendering.rendering as r
 
         importlib.reload(r)
@@ -472,8 +475,6 @@ class TestCheckGainChainDrift:
 # ---------------------------------------------------------------------------
 # Phase 5e — render_median C++ fast path wiring
 # ---------------------------------------------------------------------------
-
-import backend.src.animation.rendering.rendering as _rendering_mod
 
 
 def _has_batch_render_median():
@@ -563,7 +564,6 @@ class TestRenderMedianBatchFastPath:
 # Phase 5f — _render_laplacian C++ parallel warp wiring
 # ---------------------------------------------------------------------------
 
-import backend.src.animation.rendering.rendering as _rendering_mod2
 
 
 def _has_batch_laplacian_warp():
@@ -626,7 +626,6 @@ class TestRenderLaplacianBatchWarp:
     @_skip_no_batch_lap
     def test_laplacian_fallback_on_batch_error(self, monkeypatch):
         """If batch warp raises, Python sequential path produces a valid canvas."""
-        import unittest.mock as mock
 
         frames, affines, bg_masks, H, W = self._inputs(n=3)
 

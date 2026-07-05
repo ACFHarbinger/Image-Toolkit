@@ -53,7 +53,6 @@ from typing import Iterator, List, Optional, Tuple
 import cv2
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, IterableDataset
@@ -122,7 +121,7 @@ class _AnimeSyntheticFlowDataset(IterableDataset):
         if img is None:
             return None
         H, W = img.shape[:2]
-        if H < self.crop_h + 50 or W < self.crop_w + 50:
+        if self.crop_h + 50 > H or self.crop_w + 50 > W:
             return None
 
         # Random crop (with margin for translation)
@@ -222,7 +221,7 @@ class _LinkToAnimeDataset(IterableDataset):
             if img1 is None or img2 is None:
                 continue
             H, W = img1.shape[:2]
-            if H < self.crop_h or W < self.crop_w:
+            if self.crop_h > H or self.crop_w > W:
                 continue
             r0 = random.randint(0, H - self.crop_h)
             c0 = random.randint(0, W - self.crop_w)

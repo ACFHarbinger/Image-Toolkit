@@ -1,31 +1,34 @@
+import contextlib
 import os
-from PySide6.QtCore import Qt, QPoint, QProcess, Property, Signal, Slot
+
+from backend.src.constants import LOCAL_SOURCE_PATH
+from PySide6.QtCore import Property, QPoint, QProcess, Qt, Signal, Slot
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QLineEdit,
-    QPushButton,
-    QFileDialog,
-    QLabel,
-    QGroupBox,
     QCheckBox,
     QComboBox,
-    QMessageBox,
+    QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
-    QVBoxLayout,
-    QWidget,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QMenu,
+    QMessageBox,
     QProgressBar,
-    QInputDialog,
+    QPushButton,
     QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QAction
-from ...windows.logging import LogWindow
-from ...helpers import ImageCrawlWorker
+
 from ...components import OptionalField
-from ...styles import apply_shadow_effect
 from ...constants import SCREENSHOTS_DIR
-from backend.src.constants import LOCAL_SOURCE_PATH
+from ...helpers import ImageCrawlWorker
+from ...styles import apply_shadow_effect
+from ...windows.logging import LogWindow
 
 
 class ImageCrawlTab(QWidget):
@@ -592,7 +595,7 @@ class ImageCrawlTab(QWidget):
         self.qml_crawling_changed.emit()
         self._log_output = "Starting crawl...\n"
         self.qml_log_changed.emit()
-        
+
         download_dir = self.download_dir_path.text().strip()
         if not download_dir:
             QMessageBox.warning(self, "Error", "Please select a download directory.")
@@ -621,26 +624,22 @@ class ImageCrawlTab(QWidget):
                 atype = txt.split(" | Param: ")[0]
                 param = txt.split(" | Param: ")[1] if " | Param: " in txt else None
                 if param and ("Seconds" in atype):
-                    try:
+                    with contextlib.suppress(Exception):
                         param = float(param)
-                    except Exception:
-                        pass
                 elif param and ("Number X" in atype):
-                    try:
+                    with contextlib.suppress(Exception):
                         param = int(param)
-                    except Exception:
-                        pass
 
                 actions.append({"type": atype, "param": param})
 
             if not actions:
                 actions.append({"type": "Extract High-Res Preview URL", "param": None})
-            
+
             config["actions"] = actions # pyrefly: ignore [bad-assignment]
             config["login_config"] = { # pyrefly: ignore [bad-assignment]
-                "url": self.gen_login_url.text().strip() or None, 
-                "username": self.gen_username.text().strip() or None, 
-                "password": self.gen_password.text().strip() or None, 
+                "url": self.gen_login_url.text().strip() or None,
+                "username": self.gen_username.text().strip() or None,
+                "password": self.gen_password.text().strip() or None,
             }
 
             try:
@@ -935,7 +934,7 @@ class ImageCrawlTab(QWidget):
     @Property(bool, notify=qml_settings_changed)
     def save_screenshots(self):
         return self._save_screenshots
-    
+
     @save_screenshots.setter
     def save_screenshots(self, val):
         if self._save_screenshots != val:

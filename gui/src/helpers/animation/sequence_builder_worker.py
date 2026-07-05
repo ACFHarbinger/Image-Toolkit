@@ -1,8 +1,10 @@
 import os
+from typing import Dict, List, Optional
+
 import cv2
 import numpy as np
-from typing import List, Dict, Optional
 from PySide6.QtCore import QObject, QRunnable, Signal
+
 
 class _SeqBuilderSignals(QObject):
     progress = Signal(int)  # 0-100
@@ -186,10 +188,7 @@ class SequenceBuilderWorker(QRunnable):
                 return zero
 
             peak = 0.30
-            if ratio <= peak:
-                disp_q = ratio / peak
-            else:
-                disp_q = (self._max_pan - ratio) / (self._max_pan - peak)
+            disp_q = ratio / peak if ratio <= peak else (self._max_pan - ratio) / (self._max_pan - peak)
             disp_q = max(0.0, disp_q)
 
             inlier_ratio = inliers / max(len(good), 1)
@@ -239,10 +238,7 @@ class SequenceBuilderWorker(QRunnable):
 
         result: List[dict] = []
         for idx, p in enumerate(chain):
-            if idx == 0:
-                s_prev = None
-            else:
-                s_prev = stitch_fitness(chain[idx - 1], p)[0]
+            s_prev = None if idx == 0 else stitch_fitness(chain[idx - 1], p)[0]
             result.append(
                 {"path": p, "name": os.path.basename(p), "score_to_prev": s_prev}
             )

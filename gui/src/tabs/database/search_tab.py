@@ -1,36 +1,38 @@
+import contextlib
 import os
-import time
 import platform
 import subprocess
+import time
+from typing import Any, Dict, List, Optional
 
-from send2trash import send2trash  # pyrefly: ignore [untyped-import]
-from typing import Dict, Any, List, Optional
-from PySide6.QtGui import QPixmap, QAction, QCursor, QColor
-from PySide6.QtCore import Qt, Signal, QPoint, Slot, QThreadPool
+from backend.src.constants import SUPPORTED_IMG_FORMATS
+from PySide6.QtCore import QPoint, Qt, QThreadPool, Signal, Slot
+from PySide6.QtGui import QAction, QColor, QCursor, QPixmap
 from PySide6.QtWidgets import (
-    QLineEdit,
-    QPushButton,
     QComboBox,
-    QProgressBar,
-    QWidget,
-    QLabel,
-    QMessageBox,
-    QMenu,
     QFormLayout,
-    QHBoxLayout,
-    QVBoxLayout,
     QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QGroupBox,
+    QMenu,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from ...helpers import SearchWorker
-from ...windows import ImagePreviewWindow
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
 from ...classes import AbstractClassTwoGalleries
-from ...components import OptionalField, DraggableLabel, MarqueeScrollArea
-from ...utils.sort_utils import natural_sort_key
+from ...components import DraggableLabel, MarqueeScrollArea, OptionalField
+from ...helpers import SearchWorker
 from ...styles import apply_shadow_effect
-from backend.src.constants import SUPPORTED_IMG_FORMATS
+from ...utils.sort_utils import natural_sort_key
+from ...windows import ImagePreviewWindow
 
 
 class SearchTab(AbstractClassTwoGalleries):
@@ -469,7 +471,7 @@ class SearchTab(AbstractClassTwoGalleries):
         # Uncheck all format buttons
         for btn in self.format_buttons.values():
             btn.setChecked(False)
-        
+
         self.selected_formats.clear()  # pyrefly: ignore [missing-attribute]
 
         # Uncheck all tags
@@ -580,10 +582,7 @@ class SearchTab(AbstractClassTwoGalleries):
             self.tags_list_widget.addItem(item)
 
     def update_search_button_state(self, connected: Optional[bool] = None):
-        if connected is None:
-            db_connected = self.db_tab_ref.db is not None
-        else:
-            db_connected = connected
+        db_connected = self.db_tab_ref.db is not None if connected is None else connected
         self.search_button.setEnabled(db_connected)
 
         if not db_connected:
@@ -1014,10 +1013,8 @@ class SearchTab(AbstractClassTwoGalleries):
 
         # Close sub-windows
         for win in list(self.open_preview_windows):
-            try:
+            with contextlib.suppress(Exception):
                 win.close()
-            except Exception:
-                pass
         self.open_preview_windows.clear()
 
     def closeEvent(self, event):

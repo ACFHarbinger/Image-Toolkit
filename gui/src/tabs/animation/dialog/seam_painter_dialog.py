@@ -16,10 +16,9 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt, QPoint, QPointF, QRectF
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import (
     QColor,
-    QCursor,
     QImage,
     QPainter,
     QPen,
@@ -30,12 +29,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSizePolicy,
     QSlider,
     QVBoxLayout,
-    QWidget,
 )
-
 
 _MAX_PREVIEW_W = 520
 _MAX_PREVIEW_H = 720

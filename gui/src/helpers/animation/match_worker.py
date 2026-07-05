@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import cv2
 import numpy as np
-from typing import Optional
 from PySide6.QtCore import QObject, Signal
 
 

@@ -114,8 +114,8 @@ class WDTaggerWrapper(ModelWrapper):
     def is_available(cls) -> bool:
         """Return True when onnxruntime and huggingface_hub are importable."""
         try:
-            import onnxruntime  # noqa: F401
             import huggingface_hub  # noqa: F401
+            import onnxruntime  # noqa: F401
             return True
         except ImportError:
             return False

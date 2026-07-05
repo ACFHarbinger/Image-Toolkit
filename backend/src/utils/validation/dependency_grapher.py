@@ -1,4 +1,3 @@
-from .ast_scope_visitor import ASTScopeVisitor
 """
 A tool to visually trace the origin and usages of a Python component,
 outputting an interactive graph with clickable, natively nested UML-style info panels.
@@ -12,13 +11,14 @@ Example:
     >>> python logic/src/utils/validation/trace_dependencies.py logic/src/policies/route_construction/exact_and_decomposition_solvers/branch_and_cut/bc.py
 """
 
-import argparse
 import ast
 import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple
 
 import jinja2
+
+from .ast_scope_visitor import ASTScopeVisitor
 
 try:
     from pyvis.network import Network

@@ -16,23 +16,23 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QThreadPool, QRunnable, QObject, Signal, Slot
+from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
     QDialog,
-    QVBoxLayout,
+    QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
+    QProgressBar,
     QPushButton,
+    QSplitter,
     QTreeWidget,
     QTreeWidgetItem,
-    QProgressBar,
-    QSplitter,
+    QVBoxLayout,
     QWidget,
-    QApplication,
-    QGroupBox,
-    QAbstractItemView,
-    QHeaderView,
 )
 
 if TYPE_CHECKING:

@@ -1,8 +1,9 @@
 import math
-import cv2
 import os
-import numpy as np
 from typing import List, Optional, Tuple
+
+import cv2
+import numpy as np
 from PySide6.QtCore import (
     QPointF,
     QRectF,
@@ -22,24 +23,24 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtWidgets import (
-    QWidget,
+    QComboBox,
+    QGraphicsEllipseItem,
+    QGraphicsItem,
+    QGraphicsPixmapItem,
+    QGraphicsScene,
+    QGraphicsView,
+    QHBoxLayout,
     QLabel,
     QPushButton,
-    QComboBox,
     QSplitter,
     QVBoxLayout,
-    QHBoxLayout,
-    QGraphicsEllipseItem,
-    QGraphicsView,
-    QGraphicsScene,
-    QGraphicsPixmapItem,
-    QGraphicsItem,
+    QWidget,
 )
 
 from ....constants import (
-    STITCH_THUMB_W,
-    STITCH_THUMB_H,
     STITCH_CP_COLORS,
+    STITCH_THUMB_H,
+    STITCH_THUMB_W,
 )
 from ....styles import apply_shadow_effect
 from ....utils.splitter_persistence import persist_splitter
@@ -481,7 +482,7 @@ class ControlPointEditor(QWidget):
         manual_a = set(self._canvas_a.point_positions())
         unused = [
             (i, pa, pb)
-            for i, (pa, pb) in enumerate(zip(self._auto_pts_a, self._auto_pts_b))
+            for i, (pa, pb) in enumerate(zip(self._auto_pts_a, self._auto_pts_b, strict=False))
             if pa not in manual_a
         ]
         if not unused:

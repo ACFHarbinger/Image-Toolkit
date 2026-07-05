@@ -1,8 +1,9 @@
-import os
 import glob
+import os
+from typing import Callable, List, Optional
+
 import base  # The new C++ extension
 
-from typing import List, Optional, Callable
 from backend.src.core.file_system_entries import FSETool
 
 # Define the decorator factories needed for the format conversion methods
@@ -67,17 +68,16 @@ class ImageFormatConverter:
             ar_mode,
         )
 
-        if res:
-            if not os.path.exists(output_path):
-                # Try to rename if C++ saved it with alternative jpeg extension
-                if output_path.lower().endswith(".jpeg"):
-                    alt_path = output_path[:-5] + ".jpg"
-                    if os.path.exists(alt_path):
-                        os.rename(alt_path, output_path)
-                elif output_path.lower().endswith(".jpg"):
-                    alt_path = output_path[:-4] + ".jpeg"
-                    if os.path.exists(alt_path):
-                        os.rename(alt_path, output_path)
+        if res and not os.path.exists(output_path):
+            # Try to rename if C++ saved it with alternative jpeg extension
+            if output_path.lower().endswith(".jpeg"):
+                alt_path = output_path[:-5] + ".jpg"
+                if os.path.exists(alt_path):
+                    os.rename(alt_path, output_path)
+            elif output_path.lower().endswith(".jpg"):
+                alt_path = output_path[:-4] + ".jpeg"
+                if os.path.exists(alt_path):
+                    os.rename(alt_path, output_path)
 
         return res
 
@@ -145,10 +145,7 @@ class ImageFormatConverter:
             filename_base = os.path.splitext(os.path.basename(input_file))[0]
 
             if output_filename_prefix:
-                if total_files > 1:
-                    output_filename = f"{output_filename_prefix}{idx + 1}"
-                else:
-                    output_filename = output_filename_prefix
+                output_filename = f"{output_filename_prefix}{idx + 1}" if total_files > 1 else output_filename_prefix
             else:
                 output_filename = filename_base
 

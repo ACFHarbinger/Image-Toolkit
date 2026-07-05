@@ -12,8 +12,8 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from backend.src.constants import DE_CR, DE_F, DE_MAX_GEN, DE_POP_SIZE
 from backend.src.animation.core.stateless import _seam_dp
+from backend.src.constants import DE_CR, DE_F, DE_MAX_GEN, DE_POP_SIZE
 
 try:
     import base as _batch_sr
@@ -122,7 +122,7 @@ def de_seam(
         dtype=np.float64,
     )
 
-    for gen in range(n_gen):
+    for _gen in range(n_gen):
         for i in range(pop_size):
             # Sample three distinct random indices != i
             idxs = list(range(pop_size))

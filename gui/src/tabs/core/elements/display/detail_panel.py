@@ -1,51 +1,50 @@
 import json
-import uuid
 import shutil
+import uuid
 from datetime import date
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-
-from PySide6.QtCore import Qt, Signal, Slot, QTimer, QThreadPool
-from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtWidgets import (
-    QFormLayout,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QComboBox,
-    QSpinBox,
-    QDoubleSpinBox,
-    QTextEdit,
-    QGroupBox,
-    QFrame,
-    QPushButton,
-    QMessageBox,
-    QFileDialog,
-    QDialog,
-)
+from typing import Any, Dict, List, Optional
 
 import base
 from backend.src.constants import IMAGE_TOOLKIT_DIR
+from gui.src.components.dialog.frame_selection_dialog import FrameSelectionDialog
 from gui.src.constants.listings import (
-    ENTRY_TYPES,
     ENTRY_STATUS,
+    ENTRY_TYPES,
     LISTING_IMAGES_DIR,
 )
-from gui.src.styles import apply_shadow_effect, SHARED_BUTTON_STYLE
-from gui.src.components.frame_selection_dialog import FrameSelectionDialog
+from gui.src.helpers.image import (
+    _CARD_THUMB_CACHE,
+    _ThumbWorker,
+)
 from gui.src.helpers.web.mal_sync_worker import MalSyncWorker
+from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.common.listings_common import (
     open_file_location,
     open_web_link,
 )
 from gui.src.tabs.core.elements.dialog import _AssociatedEntitiesDialog
-from gui.src.helpers.image import (
-    _CARD_THUMB_CACHE,
-    _ThumbWorker,
-)
-from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDetailPanel
 from gui.src.tabs.core.elements.dialog.episode_dialog import _EpisodeDialog
+from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDetailPanel
+from PySide6.QtCore import Qt, QThreadPool, QTimer, Signal, Slot
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+)
 
 
 class _DetailPanel(BaseDetailPanel):

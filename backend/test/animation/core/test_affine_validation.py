@@ -22,13 +22,12 @@ sys.path.insert(0, _repo_root)
 
 from backend.src.animation.core.validation import (  # noqa: E402
     AffineHealth,  # noqa: F401
-    _validate_affines,
+    _check_translation_monotonicity,
     _compute_adaptive_min_gap,
     _compute_adaptive_rot_scale,
-    _check_translation_monotonicity,
+    _validate_affines,
 )
 from conftest import make_rotation_affine, make_translation_affine  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # 1. Clean affines — should pass

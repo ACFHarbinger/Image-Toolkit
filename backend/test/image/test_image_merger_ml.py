@@ -1,9 +1,10 @@
-import sys
 import os
+import sys
+from unittest.mock import patch
+
 import cv2
 import numpy as np
 import pytest
-from unittest.mock import patch
 from PIL import Image
 
 # Add backend to path

@@ -1,6 +1,5 @@
 """Tests for §4.6 PhashDeduplicator and compute_phash."""
 
-import struct
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -59,7 +58,9 @@ class TestComputePhash(unittest.TestCase):
 
         with patch.dict("sys.modules", {"imagehash": None}):
             # Re-import to trigger ImportError path
-            import importlib, backend.src.core.phash_deduplicator as mod
+            import importlib
+
+            import backend.src.core.phash_deduplicator as mod
             importlib.reload(mod)
             # patch imagehash inside the reloaded module
             with patch.object(mod, "compute_phash", wraps=mod.compute_phash):

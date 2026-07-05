@@ -1,10 +1,11 @@
+import hashlib
+import json
 import os
 import sys
-import json
-import hashlib
 import threading
-import backend.src.constants as udef
 from typing import Optional
+
+import backend.src.constants as udef
 
 # §3.15B — jpype triggers JVM introspection at import time; guard so test
 # collection does not start a JVM when jpype is absent or no JAR is loaded.

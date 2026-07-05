@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QThread, Signal
 
@@ -160,7 +160,7 @@ class RecommendationWorker(QThread):
 
         filter_clauses = []
         if type_val and type_val not in ("All Types", "All", ""):
-            from src.schema import FilterClause # pyrefly: ignore [missing-import]
+            from src.schema import FilterClause  # pyrefly: ignore [missing-import]
             filter_clauses.append(FilterClause(field="type", op="eq", value=type_val))
 
         return semantic_query, filter_clauses
@@ -173,14 +173,15 @@ class RecommendationWorker(QThread):
         try:
             _ensure_re_on_path()
 
-            from src.config import Settings # pyrefly: ignore [missing-import]
-            from src.store import SQLiteStore # pyrefly: ignore [missing-import]
-            from src.embedder import Embedder # pyrefly: ignore [missing-import]
-            from src.retriever import HybridRetriever # pyrefly: ignore [missing-import]
-            from src.scorer import Scorer # pyrefly: ignore [missing-import]
-            from src.schema import MediaItem, ParsedQuery, HistoryProfile # pyrefly: ignore [missing-import]
-            from src.query_parser import _build_sql_filter # pyrefly: ignore [missing-import]
             from backend.src.constants import IMAGE_TOOLKIT_DIR
+
+            from src.config import Settings  # pyrefly: ignore [missing-import]
+            from src.embedder import Embedder  # pyrefly: ignore [missing-import]
+            from src.query_parser import _build_sql_filter  # pyrefly: ignore [missing-import]
+            from src.retriever import HybridRetriever  # pyrefly: ignore [missing-import]
+            from src.schema import HistoryProfile, MediaItem, ParsedQuery  # pyrefly: ignore [missing-import]
+            from src.scorer import Scorer  # pyrefly: ignore [missing-import]
+            from src.store import SQLiteStore  # pyrefly: ignore [missing-import]
 
             # ---- Store setup ----
             db_path = str(IMAGE_TOOLKIT_DIR / "rec_engine.db")

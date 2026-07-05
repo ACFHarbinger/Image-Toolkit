@@ -1,6 +1,7 @@
+from typing import Optional
+
 import cv2
 import numpy as np
-from typing import Optional
 from PySide6.QtCore import (
     QPointF,
     Qt,
@@ -14,15 +15,15 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtWidgets import (
-    QWidget,
+    QGraphicsPixmapItem,
+    QGraphicsScene,
+    QGraphicsView,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
-    QHBoxLayout,
-    QGraphicsView,
-    QGraphicsScene,
-    QGraphicsPixmapItem,
+    QWidget,
 )
 
 from ....styles import apply_shadow_effect

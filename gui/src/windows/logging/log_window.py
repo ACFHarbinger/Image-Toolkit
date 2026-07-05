@@ -1,15 +1,15 @@
-from PySide6.QtCore import Qt, QDateTime
-from PySide6.QtGui import QTextCursor, QColor, QTextCharFormat, QFont, QGuiApplication
+from gui.src.constants import LEVEL_COLORS
+from PySide6.QtCore import QDateTime, Qt
+from PySide6.QtGui import QColor, QFont, QGuiApplication, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
     QCheckBox,
     QFileDialog,
+    QHBoxLayout,
     QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from gui.src.constants import LEVEL_COLORS
 
 
 class LogWindow(QWidget):

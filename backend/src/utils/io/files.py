@@ -1,6 +1,7 @@
 import os
 import zipfile
 
+
 def zip_directory(input_dir: str, output_zip: str) -> None:
     """Create a zip archive of a directory."""
     with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zipf:

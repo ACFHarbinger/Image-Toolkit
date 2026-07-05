@@ -6,7 +6,6 @@ import json
 import os
 
 import numpy as np
-
 from backend.src.animation.core.data_serialization import (
     COCOAnnotationBuilder,
     LabelStudioExporter,
@@ -14,7 +13,6 @@ from backend.src.animation.core.data_serialization import (
     _mask_to_polygon,
     create_session_serializers,
 )
-
 
 # ── helper fixtures ───────────────────────────────────────────────────────────
 
@@ -107,7 +105,7 @@ class TestCOCOAnnotationBuilder:
     def test_add_seam_exclusion_with_bbox(self):
         b = COCOAnnotationBuilder()
         img_id = b.add_image("f0.jpg", width=640, height=360)
-        ann_id = b.add_seam_exclusion(
+        b.add_seam_exclusion(
             img_id, bbox=[100, 50, 80, 60], text_prompt="right arm"
         )
         d = b.to_dict()
@@ -149,7 +147,7 @@ class TestCOCOAnnotationBuilder:
     def test_frame_selection_override_annotation(self):
         b = COCOAnnotationBuilder()
         img_id = b.add_image("f0.jpg")
-        ann_id = b.add_frame_selection_override(
+        b.add_frame_selection_override(
             img_id, accepted=False, reason="duplicate pose"
         )
         d = b.to_dict()

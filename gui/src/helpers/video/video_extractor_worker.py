@@ -1,9 +1,10 @@
+import contextlib
 import os
 import subprocess
-
 from typing import Optional, Tuple, Union
+
 from moviepy.editor import VideoFileClip
-from PySide6.QtCore import QObject, Signal, QRunnable
+from PySide6.QtCore import QObject, QRunnable, Signal
 
 # Ensure this import matches your MoviePy version
 try:
@@ -50,7 +51,7 @@ class VideoExtractionWorker(QRunnable):
     def _get_keep_regions(self, t_start: float, t_end: float):
         if not self.cuts_ms:
             return [(0.0, t_end - t_start)]
-        
+
         sorted_cuts = sorted([(max(t_start, c[0]/1000.0), min(t_end, c[1]/1000.0)) for c in self.cuts_ms])
         merged_cuts = []
         for c in sorted_cuts:
@@ -64,23 +65,23 @@ class VideoExtractionWorker(QRunnable):
                     merged_cuts[-1] = (last[0], max(last[1], c[1]))
                 else:
                     merged_cuts.append(c)
-                    
+
         keep = []
         current = t_start
         for c_start, c_end in merged_cuts:
             if c_start > current:
                 keep.append((current - t_start, c_start - t_start))
             current = max(current, c_end)
-        
+
         if current < t_end:
             keep.append((current - t_start, t_end - t_start))
-            
+
         return keep
 
     def run(self):
         if self._is_cancelled:
             return
-            
+
         t_start = self.start_ms / 1000.0
         t_end = self.end_ms / 1000.0
 
@@ -108,9 +109,9 @@ class VideoExtractionWorker(QRunnable):
 
                 # Filters (Scaling + Speed + Cuts)
                 filters = []
-                
+
                 keep_regions = self._get_keep_regions(t_start, t_end)
-                
+
                 # Apply select filter for cuts
                 if self.cuts_ms and keep_regions:
                     select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
@@ -139,12 +140,12 @@ class VideoExtractionWorker(QRunnable):
                 else:
                     # Audio Speed: atempo
                     audio_filters = []
-                    
+
                     if self.cuts_ms and keep_regions:
                         aselect_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                         audio_filters.append(f"aselect='{aselect_expr}'")
                         audio_filters.append("asetpts=N/SR/TB")
-                        
+
                     if self.speed != 1.0:
                         s = self.speed
                         # Handle speeds > 2.0
@@ -208,9 +209,9 @@ class VideoExtractionWorker(QRunnable):
         try:
             from moviepy.editor import concatenate_videoclips
             self.signals.progress.emit(10)
-            
+
             base_clip = VideoFileClip(self.video_path)
-            
+
             if self.mute_audio or base_clip.audio is None:
                 base_clip.audio = None
                 audio_codec = None
@@ -228,16 +229,13 @@ class VideoExtractionWorker(QRunnable):
             # Apply subclip to start/end range
             subclipped_base = base_clip.subclip(t_start, t_end)
             keep_regions = self._get_keep_regions(t_start, t_end)
-            
+
             if self.cuts_ms and keep_regions:
                 clips = []
                 for start_sec, end_sec in keep_regions:
                     if end_sec > start_sec:
                         clips.append(subclipped_base.subclip(start_sec, end_sec))
-                if clips:
-                    clip = concatenate_videoclips(clips)
-                else:
-                    clip = subclipped_base
+                clip = concatenate_videoclips(clips) if clips else subclipped_base
             else:
                 clip = subclipped_base
 
@@ -275,10 +273,8 @@ class VideoExtractionWorker(QRunnable):
             )
         except Exception as e:
             if os.path.exists(temp_audio_path):
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(temp_audio_path)
-                except OSError:
-                    pass
 
             error_message = f"Failed to create video. Try checking the 'Mute Audio' box if this persists.\nDetails: {e}"
             self.signals.error.emit(error_message)
@@ -291,7 +287,5 @@ class VideoExtractionWorker(QRunnable):
             if base_clip:
                 base_clip.close()
             if os.path.exists(temp_audio_path):
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(temp_audio_path)
-                except OSError:
-                    pass

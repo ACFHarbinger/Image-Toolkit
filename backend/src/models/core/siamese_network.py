@@ -1,7 +1,7 @@
 import torch
 import torchvision.models as models
-
 from PIL import Image
+
 
 class SiameseModelLoader:
     """

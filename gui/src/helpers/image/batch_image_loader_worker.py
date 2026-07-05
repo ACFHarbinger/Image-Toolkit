@@ -1,8 +1,10 @@
+import contextlib
+
 import numpy as np
-from PySide6.QtGui import QImage
-from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
-from shiboken6 import Shiboken
 from backend.src.constants import HAS_NATIVE_IMAGING, THUMBNAIL_CACHE_DIR
+from PySide6.QtCore import QObject, QRunnable, Qt, Signal, Slot
+from PySide6.QtGui import QImage
+from shiboken6 import Shiboken
 
 if HAS_NATIVE_IMAGING:
     import base
@@ -105,10 +107,8 @@ class BatchImageLoaderWorker(QRunnable):
                 # Emit individual result for progressive UI updates
                 self._safe_emit_result(path, res[1])
 
-            try:
+            with contextlib.suppress(RuntimeError):
                 self.signals.batch_result.emit(processed_results, self.paths)
-            except RuntimeError:
-                pass
         except Exception:
             # A failure anywhere in the native path (unexpected return shape,
             # decode error, etc.) must not leave the gallery's placeholders
@@ -146,13 +146,9 @@ class BatchImageLoaderWorker(QRunnable):
                 results.append((path, QImage()))
                 self._safe_emit_result(path, QImage())
 
-        try:
+        with contextlib.suppress(RuntimeError):
             self.signals.batch_result.emit(results, self.paths)
-        except RuntimeError:
-            pass
 
     def _safe_emit_result(self, path, image):
-        try:
+        with contextlib.suppress(RuntimeError):
             self.signals.result.emit(path, image)
-        except RuntimeError:
-            pass

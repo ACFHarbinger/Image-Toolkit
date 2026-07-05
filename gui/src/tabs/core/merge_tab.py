@@ -1,54 +1,54 @@
+import contextlib
 import os
-import cv2
 import shutil
 import tempfile
+from typing import Any, Dict, Optional
 
-from send2trash import send2trash # pyrefly: ignore [untyped-import]
-from typing import Dict, Any, Optional
-from PySide6.QtGui import (
-    QPixmap,
-    QAction,
-    QImage,
-)
+import cv2
+from backend.src.constants import SUPPORTED_IMG_FORMATS
+from gui.src.components.containers.merge_canvas import MergeCanvas
 from PySide6.QtCore import (
-    Qt,
-    QTimer,
-    QThread,
-    Slot,
-    QPoint,
+    Q_ARG,
     QEventLoop,
     QMetaObject,
+    QPoint,
+    Qt,
+    QThread,
+    QTimer,
     Signal,
-    Q_ARG,
+    Slot,
+)
+from PySide6.QtGui import (
+    QAction,
+    QImage,
+    QPixmap,
 )
 from PySide6.QtWidgets import (
-    QMenu,
-    QPushButton,
-    QFormLayout,
     QApplication,
-    QLineEdit,
-    QFileDialog,
-    QWidget,
-    QLabel,
     QCheckBox,
     QComboBox,
-    QSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
-    QVBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
     QMessageBox,
-    QGridLayout,
+    QPushButton,
     QScrollArea,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
-from ...windows import ImagePreviewWindow
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea, MergeCanvasItem
-from ...helpers import MergeWorker, ImageScannerWorker
-from ...styles import apply_shadow_effect, SHARED_BUTTON_STYLE
-from backend.src.constants import SUPPORTED_IMG_FORMATS
-from gui.src.components.merge_canvas import MergeCanvas
-
+from ...helpers import ImageScannerWorker, MergeWorker
+from ...styles import SHARED_BUTTON_STYLE, apply_shadow_effect
+from ...windows import ImagePreviewWindow
 
 # ─── Main Tab ───────────────────────────────────────────────────────────────────
 
@@ -811,10 +811,8 @@ class MergeTab(AbstractClassSingleGallery):
                     self.master_image_paths,
                     self.selected_files,
                 ):
-                    try:
+                    with contextlib.suppress(ValueError, AttributeError):
                         lst.remove(path)
-                    except (ValueError, AttributeError):
-                        pass
 
                 self.canvas_widget.remove_item(path)
 
@@ -870,10 +868,8 @@ class MergeTab(AbstractClassSingleGallery):
             lambda c, t: self.status_label.setText(f"Merging {c}/{t}")
         )
 
-        try:
+        with contextlib.suppress(Exception):
             worker.finished.disconnect()
-        except Exception:
-            pass
 
         worker.finished.connect(thread.quit)
         worker.error.connect(self.on_merge_error)
@@ -1194,20 +1190,16 @@ class MergeTab(AbstractClassSingleGallery):
         super().cancel_loading()
 
         if self.current_scan_worker:
-            try:
+            with contextlib.suppress(Exception):
                 self.current_scan_worker.stop()
-            except Exception:
-                pass
 
         if self.current_merge_worker and self.current_merge_thread:
             self.current_merge_thread.requestInterruption()
             self.current_merge_thread.quit()
 
         for win in list(self.open_preview_windows):
-            try:
+            with contextlib.suppress(Exception):
                 win.close()
-            except Exception:
-                pass
         self.open_preview_windows.clear()
 
     def closeEvent(self, event):

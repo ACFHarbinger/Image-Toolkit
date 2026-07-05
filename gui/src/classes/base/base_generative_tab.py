@@ -1,13 +1,15 @@
+import contextlib
+
 from PySide6.QtWidgets import (
-    QWidget,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
     QFormLayout,
     QLabel,
-    QComboBox,
-    QCheckBox,
-    QSpinBox,
-    QDoubleSpinBox,
     QLineEdit,
+    QSpinBox,
     QTextEdit,
+    QWidget,
 )
 
 
@@ -55,10 +57,8 @@ class BaseGenerativeTab(QWidget):
                 elif isinstance(widget, QCheckBox):
                     widget.setChecked(bool(value))
                 elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
-                    try:
+                    with contextlib.suppress(ValueError):
                         widget.setValue(value)
-                    except ValueError:
-                        pass
                 elif isinstance(widget, QLineEdit):
                     widget.setText(str(value))
                 elif isinstance(widget, QTextEdit):

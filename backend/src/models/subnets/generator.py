@@ -3,10 +3,11 @@ import torch.nn as nn
 
 from backend.src.models.modules import (
     ActivationFunction,
-    SkipConnection,
-    Normalization,
     BilinearUpsample,
+    Normalization,
+    SkipConnection,
 )
+
 
 class ConvolutionalBlock(nn.Module):
     def __init__(

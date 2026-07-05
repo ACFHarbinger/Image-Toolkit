@@ -1,24 +1,22 @@
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
 
 from gui.src.helpers.models.training_worker import TrainingWorker
 
 
 class TestTrainingWorker:
     def test_run_success(self, q_app):
-        import sys
-        
+
         mock_torch = MagicMock()
         mock_datasets = MagicMock()
         mock_loader = MagicMock()
         MockGAN = MagicMock()
-        
+
         mock_torch_utils_data = MagicMock()
         mock_torch_utils_data.DataLoader = mock_loader
-        
+
         mock_torchvision = MagicMock()
         mock_torchvision.datasets = mock_datasets
-        
+
         mock_gan_module = MagicMock()
         mock_gan_module.GAN = MockGAN
 
@@ -65,19 +63,18 @@ class TestTrainingWorker:
             assert "Training complete." in logs[-1]
 
     def test_run_dataset_error(self, q_app):
-        import sys
-        
+
         mock_torch = MagicMock()
         mock_datasets = MagicMock()
         mock_loader = MagicMock()
         MockGAN = MagicMock()
-        
+
         mock_torch_utils_data = MagicMock()
         mock_torch_utils_data.DataLoader = mock_loader
-        
+
         mock_torchvision = MagicMock()
         mock_torchvision.datasets = mock_datasets
-        
+
         mock_gan_module = MagicMock()
         mock_gan_module.GAN = MockGAN
 

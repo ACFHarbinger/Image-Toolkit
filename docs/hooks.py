@@ -6,9 +6,9 @@ docs/reports/, and stub API pages that the nav references.
 
 from __future__ import annotations
 
-import shutil
 import os
 import re
+import shutil
 import urllib.parse
 from pathlib import Path
 

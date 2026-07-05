@@ -1,17 +1,16 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
+from gui.src.styles import SHARED_BUTTON_STYLE
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
     QHBoxLayout,
     QLineEdit,
-    QPushButton,
     QListWidget,
     QListWidgetItem,
+    QPushButton,
+    QVBoxLayout,
 )
-
-from gui.src.styles import SHARED_BUTTON_STYLE
 
 
 class _AssociatedContentDialog(QDialog):

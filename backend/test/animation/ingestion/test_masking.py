@@ -12,7 +12,6 @@ import tempfile
 import unittest.mock as mock
 
 import numpy as np
-
 from backend.src.animation.ingestion.masking import (
     _cleanup_sam2_state,
     _compute_fg_masks_sam2_stateful,

@@ -22,9 +22,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from PySide6.QtCore import QObject, Signal
-
 import base  # Native C++ extension  # noqa: E402
+from PySide6.QtCore import QObject, Signal
 
 from backend.src.web.models import ReverseSearchResult
 
@@ -61,6 +60,7 @@ class ReverseSearchEngine(ABC):
             highest relevance first.
         """
 
+    @abstractmethod
     def stop(self) -> None:
         """Signal the engine to abort an in-progress search (best-effort)."""
 

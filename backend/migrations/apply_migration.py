@@ -1,10 +1,12 @@
 import sys
-import psycopg2 # pyrefly: ignore [untyped-import]
 from urllib.parse import urlparse
+
+import psycopg2  # pyrefly: ignore [untyped-import]
+
 
 def apply_migration(db_url, sql_file):
     print(f"Applying migration from {sql_file} to {db_url}...")
-    
+
     try:
         # Parse connection URL
         result = urlparse(db_url)
@@ -31,7 +33,7 @@ def apply_migration(db_url, sql_file):
 
         # Execute SQL
         cur.execute(sql)
-        
+
         print("Migration applied successfully.")
         cur.close()
         conn.close()
@@ -43,5 +45,5 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: python apply_migration.py <db_url> <sql_file>")
         sys.exit(1)
-    
+
     apply_migration(sys.argv[1], sys.argv[2])

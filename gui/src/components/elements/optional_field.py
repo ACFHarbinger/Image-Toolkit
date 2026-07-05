@@ -1,14 +1,15 @@
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QApplication,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QFrame,
-    QApplication,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPalette
+
 from ..styles import apply_shadow_effect
 
 
@@ -73,9 +74,9 @@ class OptionalField(QWidget):
                 font-weight: 600;
             }}
             /* Target the button using the ID and set color and background to transparent */
-            QPushButton#OptionalFieldToggleBtn {{ 
+            QPushButton#OptionalFieldToggleBtn {{
                 color: {text_color_name}; /* Forcing the foreground color */
-                background-color: transparent; 
+                background-color: transparent;
                 border: none;
                 padding: 0; /* Minimize padding influence */
                 font-size: 14px;

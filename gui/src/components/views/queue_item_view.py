@@ -1,10 +1,11 @@
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QWidget, QLabel, QHBoxLayout
 from pathlib import Path
 
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
-class QueueItemWidget(QWidget):
+
+class QueueItemView(QWidget):
     """A widget to display an image preview and its name in the queue."""
 
     def __init__(self, path: str, pixmap: QPixmap, index: int = 0, parent=None):

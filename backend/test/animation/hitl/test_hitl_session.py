@@ -11,7 +11,6 @@ import json
 
 import numpy as np
 import pytest
-
 from backend.src.animation.hitl.hitl_session import (
     _decode_array,
     _encode_array,
@@ -20,7 +19,6 @@ from backend.src.animation.hitl.hitl_session import (
     load_session,
     save_session,
 )
-
 
 # ---------------------------------------------------------------------------
 # ndarray codec

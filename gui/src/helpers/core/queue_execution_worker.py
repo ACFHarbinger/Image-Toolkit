@@ -1,14 +1,16 @@
+import contextlib
+import multiprocessing
 import os
 import re
-import cv2
-import time
 import subprocess
-import multiprocessing
-from pathlib import Path
+import time
 from multiprocessing import Pool
+from pathlib import Path
 from typing import Any, Dict
-from PySide6.QtCore import QRunnable, QObject, Signal
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
+
+import cv2
+from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
+from PySide6.QtCore import QObject, QRunnable, Signal
 
 
 def run_extraction_in_process(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -415,10 +417,8 @@ def run_extraction_in_process(config: Dict[str, Any]) -> Dict[str, Any]:
                 clip.close()
                 base_clip.close()
                 if os.path.exists(temp_audio_path):
-                    try:
+                    with contextlib.suppress(OSError):
                         os.remove(temp_audio_path)
-                    except OSError:
-                        pass
                 return {"status": "success", "output_path": output_path}
     except Exception as e:
         return {"status": "error", "message": str(e)}

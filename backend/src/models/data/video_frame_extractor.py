@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 # Try to import optional dependencies gracefully
 # ---------------------------------------------------------------------------
 try:
-    from scenedetect import open_video, SceneManager
+    from scenedetect import SceneManager, open_video
     from scenedetect.detectors import AdaptiveDetector, ContentDetector
     _SCENEDETECT_OK = True
 except ImportError:

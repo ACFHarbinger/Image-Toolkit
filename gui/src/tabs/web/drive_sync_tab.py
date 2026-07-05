@@ -1,29 +1,30 @@
 import os
-import backend.src.constants as udef
-
 from pathlib import Path
-from typing import Optional, Dict, Any
-from PySide6.QtCore import QThreadPool, Slot, Property, Signal
+from typing import Any, Dict, Optional
+
+import backend.src.constants as udef
+from PySide6.QtCore import Property, QThreadPool, Signal, Slot
 from PySide6.QtWidgets import (
     QApplication,
-    QMessageBox,
-    QHBoxLayout,
-    QVBoxLayout,
-    QPushButton,
-    QLabel,
-    QGroupBox,
+    QButtonGroup,
     QCheckBox,
-    QWidget,
-    QLineEdit,
     QComboBox,
     QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
     QRadioButton,
-    QButtonGroup,
+    QVBoxLayout,
+    QWidget,
 )
+
 from ...constants import DRY_RUN
+from ...helpers import DropboxDriveSyncWorker, GoogleDriveSyncWorker, OneDriveSyncWorker
+from ...styles import STYLE_SYNC_RUN, STYLE_SYNC_STOP, apply_shadow_effect
 from ...windows.logging import LogWindow
-from ...helpers import GoogleDriveSyncWorker, DropboxDriveSyncWorker, OneDriveSyncWorker
-from ...styles import apply_shadow_effect, STYLE_SYNC_RUN, STYLE_SYNC_STOP
 
 
 class DriveSyncTab(QWidget):
@@ -535,7 +536,7 @@ class DriveSyncTab(QWidget):
             self.current_worker = DropboxDriveSyncWorker(**common_args)
         elif provider_text == "OneDrive":
             self.current_worker = OneDriveSyncWorker(**common_args)
-        
+
         self.current_worker.signals.status_update.connect(self.handle_status_update) # pyrefly: ignore [missing-attribute]
         self.current_worker.signals.sync_finished.connect(self.handle_sync_finished) # pyrefly: ignore [missing-attribute]
 
@@ -610,7 +611,10 @@ class DriveSyncTab(QWidget):
     # ------------------------------------------------------------------ #
     @Slot(str)
     def handle_status_update(self, msg: str):
+        super().handle_status_update(msg) if hasattr(super(), 'handle_status_update') else None # pyrefly: ignore [missing-attribute]
         self.log_window.append_log(msg)
+        self._log_text += msg + "\n"
+        self.qml_log_changed.emit()
 
     # ------------------------------------------------------------------ #
     #                           FINISHED                               #
@@ -828,14 +832,6 @@ class DriveSyncTab(QWidget):
 
     @Slot(str)
     def update_log_qml(self, msg):
-        self._log_text += msg + "\n"
-        self.qml_log_changed.emit()
-
-    # Override handle_status_update to also update QML log
-    @Slot(str)
-    def handle_status_update(self, msg: str):
-        super().handle_status_update(msg) if hasattr(super(), 'handle_status_update') else None # pyrefly: ignore [missing-attribute]
-        self.log_window.append_log(msg)
         self._log_text += msg + "\n"
         self.qml_log_changed.emit()
 

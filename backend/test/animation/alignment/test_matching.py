@@ -13,11 +13,10 @@ import sys
 
 import numpy as np
 import pytest
-
 from backend.src.animation.alignment.matching import (
-    _extract_similarity,
-    _compute_translation_spread,
     _compute_bg_match_ratio,
+    _compute_translation_spread,
+    _extract_similarity,
 )  # noqa: E402
 
 _repo_root = os.path.dirname(

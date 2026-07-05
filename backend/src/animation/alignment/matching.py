@@ -23,13 +23,13 @@ try:
 except ImportError:
     torch = None  # type: ignore[assignment]
 
+from backend.src.animation.core.stateless import _highpass, _luma
 from backend.src.constants import (
     MATCH_EDGE_CROP,
     MAX_DX_DRIFT_RATIO,
     MIN_TEMPLATE_SCORE,
     PC_CONF_THRESHOLD,
 )
-from backend.src.animation.core.stateless import _highpass, _luma
 
 # §1.3E — Similarity-mode flag.  When ON, matched affines are projected to
 # their best-fit 4-DOF similarity (scale + rotation + translation, no shear)
@@ -416,7 +416,7 @@ def _segment_guided_match(
     colors_j = np.array([segs_j[l]["color"] for l in labels_j], dtype=np.float32)
 
     displacements = []
-    for li, si in segs_i.items():
+    for _li, si in segs_i.items():
         c_i = si["color"]
         # L2 color distance to all segments in j
         color_dists = np.linalg.norm(colors_j - c_i[np.newaxis], axis=1)
@@ -489,9 +489,7 @@ def _match_pair(
         if M is None:
             return False
         dx = abs(M[0, 2])
-        if dx > W * MAX_DX_DRIFT_RATIO:
-            return False
-        return True
+        return not dx > W * MAX_DX_DRIFT_RATIO
 
     M: Optional[np.ndarray] = None
     mean_conf = 0.0
@@ -734,7 +732,7 @@ def _pairwise_match(
         pairs.append((i, i + 3))  # skip-2
 
     edges: List[Dict] = []
-    for idx, (i, j) in enumerate(pairs):
+    for _idx, (i, j) in enumerate(pairs):
         edge = _match_pair(
             frames,
             bg_masks,

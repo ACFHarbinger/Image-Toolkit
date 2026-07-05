@@ -1,38 +1,40 @@
+import contextlib
 import os
 import platform
 import subprocess
-
-from send2trash import send2trash # pyrefly: ignore [untyped-import]
 from typing import Optional, Set
+
+from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from PySide6.QtCore import QPoint, Qt, Signal, Slot
+from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
-    QLineEdit,
-    QPushButton,
+    QCheckBox,
+    QComboBox,
     QFileDialog,
     QFormLayout,
-    QHBoxLayout,
-    QVBoxLayout,
-    QWidget,
-    QCheckBox,
-    QMessageBox,
-    QLabel,
-    QGroupBox,
     QGridLayout,
-    QProgressBar,
-    QComboBox,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMenu,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
     QSpinBox,
     QToolButton,
-    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Slot, QPoint, Signal
-from PySide6.QtGui import QPixmap, QImage, QAction
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
 from ....classes import AbstractClassTwoGalleries
+from ....components import ClickableLabel, MarqueeScrollArea, OptionalField
 from ....helpers import ConversionWorker
-from ....windows import ImagePreviewWindow
-from ....components import OptionalField, MarqueeScrollArea, ClickableLabel
+from ....styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from ....utils.sort_utils import natural_sort_key
-from ....styles import apply_shadow_effect, SHARED_BUTTON_STYLE
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from ....windows import ImagePreviewWindow
 
 
 class FormatSubTab(AbstractClassTwoGalleries):
@@ -432,7 +434,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
             for btn in self.format_buttons.values():
                 self.format_btn_layout.removeWidget(btn)
                 btn.deleteLater()
-                
+
             self.format_buttons.clear()
             self.selected_formats.clear()  # pyrefly: ignore [missing-attribute]
 
@@ -445,10 +447,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
             # definitions.py: SUPPORTED_VIDEO_FORMATS = {".mp4", ...} (has dots)
 
             clean_formats = []
-            if is_video:
-                clean_formats = sorted([f.lstrip(".") for f in target_formats])
-            else:
-                clean_formats = target_formats
+            clean_formats = sorted([f.lstrip(".") for f in target_formats]) if is_video else target_formats
 
             for fmt in clean_formats:
                 self._add_format_button(fmt, self.format_btn_layout)
@@ -678,10 +677,8 @@ class FormatSubTab(AbstractClassTwoGalleries):
                     and path in self.path_to_label_map
                 ):
                     widget = self.path_to_label_map.pop(path)
-                    try:
+                    with contextlib.suppress(RuntimeError):
                         widget.deleteLater()
-                    except RuntimeError:
-                        pass
 
                 self.on_selection_changed()
 
@@ -773,7 +770,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
             input_formats = vid_formats + img_formats
 
         paths = []
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         if AppSettings.recursive_scan():
             for root, _, files in os.walk(p):
                 for file in files:
@@ -1103,10 +1100,8 @@ class FormatSubTab(AbstractClassTwoGalleries):
 
         # Close sub-windows
         for win in list(self.open_preview_windows):
-            try:
+            with contextlib.suppress(Exception):
                 win.close()
-            except Exception:
-                pass
         self.open_preview_windows.clear()
 
     def closeEvent(self, event):
@@ -1162,7 +1157,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
             f.lstrip(".").lower() for f in SUPPORTED_VIDEO_FORMATS
         ]
 
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         if AppSettings.recursive_scan():
             for root, _, files in os.walk(input_path):
                 for file in files:

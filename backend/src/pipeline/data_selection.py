@@ -18,17 +18,16 @@ Usage
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-import torch
-from PIL import Image
-import torchvision.transforms.functional as TF
 # --------------------------------
-
-
 import logging
 from typing import Optional
 
 import numpy as np
+
+# --- Relocated Nested Imports ---
+import torch
+import torchvision.transforms.functional as TF
+from PIL import Image
 
 log = logging.getLogger(__name__)
 

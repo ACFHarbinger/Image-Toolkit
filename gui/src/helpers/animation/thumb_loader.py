@@ -1,7 +1,7 @@
 import cv2
+from gui.src.constants import STITCH_THUMB_H, STITCH_THUMB_W
 from PySide6.QtCore import QObject, QRunnable, Signal
-from PySide6.QtGui import QColor, QPixmap, QImage
-from gui.src.constants import STITCH_THUMB_W, STITCH_THUMB_H
+from PySide6.QtGui import QColor, QImage, QPixmap
 
 
 def _load_thumb(path: str, w: int = STITCH_THUMB_W, h: int = STITCH_THUMB_H) -> QPixmap:

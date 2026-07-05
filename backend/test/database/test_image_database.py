@@ -1,6 +1,6 @@
-import pytest
-
 from unittest.mock import MagicMock, patch
+
+import pytest
 from src.database.image_database import PgvectorImageDatabase
 
 
@@ -43,7 +43,7 @@ class TestPgvectorImageDatabase:
         db.add_group("My Group")
         mock_cursor.execute.assert_called()
         assert "INSERT INTO groups" in mock_cursor.execute.call_args[0][0]
-        assert ("My Group",) == mock_cursor.execute.call_args[0][1]
+        assert mock_cursor.execute.call_args[0][1] == ("My Group",)
 
     def test_add_subgroup(self, mock_db):
         db, _, mock_cursor = mock_db

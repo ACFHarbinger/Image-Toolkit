@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gui.src.utils.settings import AppSettings
+from gui.src.windows.settings.app_settings import AppSettings
 
 
 def save_thumbnail_size(class_name: str, size: int) -> None:

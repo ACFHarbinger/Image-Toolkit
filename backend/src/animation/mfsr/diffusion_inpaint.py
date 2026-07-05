@@ -147,10 +147,7 @@ def inpaint_gaps(
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
 
     chain = []
-    if method == "auto":
-        chain = ["stable_diffusion", "lama", "ns", "telea"]
-    else:
-        chain = [method]
+    chain = ["stable_diffusion", "lama", "ns", "telea"] if method == "auto" else [method]
 
     last_err = None
     for m in chain:

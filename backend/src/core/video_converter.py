@@ -1,6 +1,6 @@
 import os
 import subprocess
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 
 class VideoFormatConverter:
@@ -43,13 +43,12 @@ class VideoFormatConverter:
 
 
         filters = []
-        
+
         # Heuristic: If target dimensions are tiny (e.g. 16x9), assume they are Ratio info passed as dimensions by mistake
         # and ignore them if we have explicit aspect_ratio logic coming in, or just ignore them anyway.
         valid_scaling = False
-        if target_width and target_height:
-            if target_width > 128 and target_height > 128:
-                valid_scaling = True
+        if target_width and target_height and target_width > 128 and target_height > 128:
+            valid_scaling = True
 
         if aspect_ratio:
             # Use crop or pad
@@ -59,7 +58,7 @@ class VideoFormatConverter:
             #   if (a > AR) -> width is too big, crop width -> new_w = ih * AR
             #   else        -> height is too big, crop height -> new_h = iw / AR
             ar = float(aspect_ratio)
-            
+
             if "pad" in str(ar_mode).lower():
                 # Pad logic:
                 # If image is too wide (a > AR), we need to pad height.
@@ -159,12 +158,12 @@ class VideoFormatConverter:
         # Base filter: fps control
         # We can also add scaling here
         filter_str = f"fps={fps}"
-        
+
         if target_width and target_height:
             # Scale if requested
             filter_str += f",scale={target_width}:{target_height}:flags=lanczos"
         else:
-            # Default scaling to something reasonable if source is huge? 
+            # Default scaling to something reasonable if source is huge?
             # For now, keep original resolution or let user define.
             # But we enable lanczos scaling for quality if scaling happens elsewhere.
             pass

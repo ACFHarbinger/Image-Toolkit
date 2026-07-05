@@ -13,7 +13,6 @@ import os
 import cv2
 import numpy as np
 import pytest
-
 from backend.src.animation.ingestion.video_ingestion import (
     VideoIngestionStream,
     _telecine_dedup,

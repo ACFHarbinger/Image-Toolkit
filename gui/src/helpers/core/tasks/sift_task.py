@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
-
 from PIL import Image
 from PySide6.QtCore import QRunnable, Slot
+
 from .scan_signals import ScanSignals
 
 

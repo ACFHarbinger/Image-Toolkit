@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+
 class SkipConnection(nn.Module):
     def __init__(self, module: nn.Module):
         super(SkipConnection, self).__init__()

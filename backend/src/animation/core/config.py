@@ -1657,10 +1657,7 @@ def dump_asp_config(
             # Preserve numeric type: if the value looks like a float with decimal
             # point keep it; if it looks like a plain integer, omit quotes.
             try:
-                if "." in val_str:
-                    toml_val = str(float(val_str))
-                else:
-                    toml_val = str(int(val_str))
+                toml_val = str(float(val_str)) if "." in val_str else str(int(val_str))
             except ValueError:
                 toml_val = f'"{val_str}"'
             schema_entry = _CONFIG_SCHEMA.get(key)
@@ -1687,10 +1684,7 @@ def dump_asp_config(
     for key, val in os.environ.items():
         if key.startswith("ASP_") and key not in written_keys:
             try:
-                if "." in val:
-                    toml_val = str(float(val))
-                else:
-                    toml_val = str(int(val))
+                toml_val = str(float(val)) if "." in val else str(int(val))
             except ValueError:
                 toml_val = f'"{val}"'
             extra_lines.append(f"{key} = {toml_val}")

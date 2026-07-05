@@ -1,7 +1,5 @@
-import os
-import json
-from unittest.mock import MagicMock, patch, mock_open
-import pytest
+from unittest.mock import MagicMock, patch
+
 from backend.src.web.cloud.google_drive_sync import GoogleDriveSync
 
 
@@ -75,7 +73,7 @@ class TestGoogleDriveSync:
         mock_creds = MagicMock()
         mock_creds.token = "flow_token"
         mock_from_file.return_value = mock_creds
-        
+
         mock_process = MagicMock()
         mock_process.poll.return_value = 0  # Exited immediately/successfully in mock
         mock_process.returncode = 0
@@ -83,7 +81,7 @@ class TestGoogleDriveSync:
         mock_popen.return_value = mock_process
 
         client_secrets = {"client_id": "123", "client_secret": "abc"}
-        
+
         called_exists = []
         def side_effect_exists(path):
             if path == "/tmp/token.json":
@@ -95,17 +93,17 @@ class TestGoogleDriveSync:
 
         with patch("os.path.exists", side_effect=side_effect_exists), \
              patch("os.path.dirname", return_value="/tmp"):
-            
+
             sync = GoogleDriveSync(
                 local_source_path="/tmp/local",
                 drive_destination_folder_name="Backup",
                 client_secrets_data=client_secrets,
                 token_file="/tmp/token.json",
             )
-            
+
             mock_popen.assert_called_once()
             args, kwargs = mock_popen.call_args
             assert "gdrive_auth_helper.py" in args[0][1]
-            
+
         assert sync.config["access_token"] == "flow_token"
 

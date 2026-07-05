@@ -1,27 +1,28 @@
+from typing import Dict, List, Optional, Tuple
+
 import cv2
 import numpy as np
-from typing import Dict, List, Optional, Tuple
 from PySide6.QtCore import (
     Qt,
 )
 from PySide6.QtGui import (
-    QPixmap,
     QImage,
+    QPixmap,
 )
 from PySide6.QtWidgets import (
-    QWidget,
-    QLabel,
-    QPushButton,
-    QComboBox,
-    QFormLayout,
-    QCheckBox,
-    QHBoxLayout,
-    QVBoxLayout,
-    QProgressBar,
-    QSizePolicy,
-    QFileDialog,
-    QMessageBox,
     QApplication,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
 from ....styles import apply_shadow_effect
@@ -206,7 +207,7 @@ class RenderPanel(QWidget):
             QApplication.processEvents()
 
         all_pts = []
-        for i, (frm, M) in enumerate(zip(frames, affines)):
+        for _i, (frm, M) in enumerate(zip(frames, affines, strict=False)):
             fh, fw = frm.shape[:2]
             corners = np.array([[0, 0], [fw, 0], [fw, fh], [0, fh]], dtype=np.float32)
             warped_c = corners + M[:, 2]
@@ -224,7 +225,7 @@ class RenderPanel(QWidget):
 
         blend_mode = self._blend_mode.currentText()
 
-        for i, (frm, M) in enumerate(zip(frames, affines)):
+        for i, (frm, M) in enumerate(zip(frames, affines, strict=False)):
             Mt = M.copy()
             Mt[0, 2] += T[0]
             Mt[1, 2] += T[1]

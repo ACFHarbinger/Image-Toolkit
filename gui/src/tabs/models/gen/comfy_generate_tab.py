@@ -1,20 +1,19 @@
 import threading
 
+from backend.src.models.core.comfy_manager import ComfyUIManager
 from PySide6.QtCore import QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices, QTextCursor
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QLabel,
-    QSpinBox,
-    QGroupBox,
-    QTextEdit,
     QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-
-from backend.src.models.core.comfy_manager import ComfyUIManager
 
 # QWebEngineView is intentionally NOT used here.
 # Chromium (QtWebEngine) loads native libstdc++ via Vulkan/GBM at first render,

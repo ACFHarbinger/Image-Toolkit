@@ -10,8 +10,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-import torch
 import safetensors.torch as sf
+import torch
 
 
 def analyze(checkpoint_path: str) -> None:

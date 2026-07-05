@@ -160,9 +160,8 @@ class PooledPgvectorDatabase:
     @contextmanager
     def _transaction(self) -> Generator[psycopg.Connection, None, None]:
         """Borrow a connection in an explicit transaction block."""
-        with self._pool.connection() as conn:
-            with conn.transaction():
-                yield conn
+        with self._pool.connection() as conn, conn.transaction():
+            yield conn
 
     # ── Schema initialisation ──────────────────────────────────────────────────
 
@@ -264,10 +263,9 @@ class PooledPgvectorDatabase:
     def get_all_subgroups_detailed(self, limit: int = 10000) -> List[tuple]:
         # The SQL selects s.name, g.name — both columns named "name".
         # Use tuple_row to avoid dict_row silently discarding one of the duplicates.
-        with self._conn() as conn:
-            with conn.cursor(row_factory=psycopg.rows.tuple_row) as cur:
-                cur.execute(_groups["get_all_subgroups_detailed"], (limit,))
-                rows = cur.fetchall()
+        with self._conn() as conn, conn.cursor(row_factory=psycopg.rows.tuple_row) as cur:
+            cur.execute(_groups["get_all_subgroups_detailed"], (limit,))
+            rows = cur.fetchall()
         return list(rows)
 
     # ── Tag management ─────────────────────────────────────────────────────────
@@ -530,20 +528,19 @@ class PooledPgvectorDatabase:
     def get_statistics(self) -> Dict[str, Any]:
         # Use tuple_row so aggregate function column names don't matter.
         stats: Dict[str, Any] = {}
-        with self._conn() as conn:
-            with conn.cursor(row_factory=psycopg.rows.tuple_row) as cur:
-                cur.execute(_stats["count_images"])
-                stats["total_images"] = cur.fetchone()[0]
-                cur.execute(_stats["count_tags"])
-                stats["total_tags"] = cur.fetchone()[0]
-                cur.execute(_stats["count_groups"])
-                stats["total_groups"] = cur.fetchone()[0]
-                cur.execute(_stats["count_subgroups"])
-                stats["total_subgroups"] = cur.fetchone()[0]
-                cur.execute(_stats["sum_file_size"])
-                stats["total_file_size"] = cur.fetchone()[0] or 0
-                cur.execute(_stats["max_date_added"])
-                stats["last_sync_date"] = cur.fetchone()[0]
+        with self._conn() as conn, conn.cursor(row_factory=psycopg.rows.tuple_row) as cur:
+            cur.execute(_stats["count_images"])
+            stats["total_images"] = cur.fetchone()[0]
+            cur.execute(_stats["count_tags"])
+            stats["total_tags"] = cur.fetchone()[0]
+            cur.execute(_stats["count_groups"])
+            stats["total_groups"] = cur.fetchone()[0]
+            cur.execute(_stats["count_subgroups"])
+            stats["total_subgroups"] = cur.fetchone()[0]
+            cur.execute(_stats["sum_file_size"])
+            stats["total_file_size"] = cur.fetchone()[0] or 0
+            cur.execute(_stats["max_date_added"])
+            stats["last_sync_date"] = cur.fetchone()[0]
         return stats
 
     # ── Maintenance ────────────────────────────────────────────────────────────

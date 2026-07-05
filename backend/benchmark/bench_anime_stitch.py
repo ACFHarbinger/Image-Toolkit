@@ -9,17 +9,17 @@ analysis (2-D and 3-D visualizations), and structured feedback blocks for
 human review and LLM-assisted iteration.
 """
 
+import datetime
 import gc
 import glob
 import json
+import logging
 import math
 import os
 import platform
 import shutil
 import sys
 import time
-import datetime
-import logging
 from typing import Dict, List, Optional
 
 import cv2
@@ -29,23 +29,25 @@ import torch
 sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
-from backend.src.animation.core.pipeline import AnimeStitchPipeline
+import contextlib
+
+from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
 from backend.src.animation.alignment.canvas import (
-    _load_frames,
-    _normalise_widths,
+    _chroma_seam_coherence,
     _compute_canvas,
     _crop_to_valid,
+    _load_frames,
+    _normalise_widths,
     _scan_stitch_fallback,
     _strip_self_ssim,
-    _chroma_seam_coherence,
 )
+from backend.src.animation.alignment.ecc import _ecc_refine
+from backend.src.animation.alignment.matching import _pairwise_match
+from backend.src.animation.core.pipeline import AnimeStitchPipeline
 from backend.src.animation.core.validation import _validate_affines
 from backend.src.animation.ingestion.masking import _compute_fg_masks
-from backend.src.animation.alignment.matching import _pairwise_match
-from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
-from backend.src.animation.alignment.ecc import _ecc_refine
-from backend.src.animation.rendering.rendering import _render_median
 from backend.src.animation.rendering.compositing import _composite_foreground
+from backend.src.animation.rendering.rendering import _render_median
 
 # ---------------------------------------------------------------------------
 # Lazy-import heavy plotting deps so the benchmark still runs without them
@@ -1167,12 +1169,9 @@ def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
     if img is None or n_strips < 1:
         return 0.0
     gray: np.ndarray
-    if img.ndim == 3:
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    else:
-        gray = img.astype(np.float32)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
     H = gray.shape[0]
-    if H < n_strips:
+    if n_strips > H:
         return 0.0
     strip_h = H // n_strips
     if strip_h < 1:
@@ -1232,7 +1231,7 @@ def _horizontal_fft_banding(img: np.ndarray, n_strips: int = 8) -> float:
         return 0.0
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
     H = gray.shape[0]
-    if H < n_strips * 4:
+    if n_strips * 4 > H:
         return 0.0
     # Column-mean luminance profile (length H)
     profile = gray.mean(axis=1)  # shape (H,)
@@ -1359,7 +1358,7 @@ def _compute_si_fid_score(
         ys = rng.integers(0, h - patch_size, size=n_patches)
         xs = rng.integers(0, w - patch_size, size=n_patches)
         asp_var, sim_var = [], []
-        for y, x in zip(ys, xs):
+        for y, x in zip(ys, xs, strict=False):
             pa = asp_img[y : y + patch_size, x : x + patch_size]
             ps = sim_img[y : y + patch_size, x : x + patch_size]
             ga = cv2.cvtColor(pa, cv2.COLOR_BGR2GRAY) if pa.ndim == 3 else pa
@@ -1623,7 +1622,7 @@ def _save_affine_path_plot(
     ax.set_xlabel("X (px)")
     ax.set_ylabel("Y (px)")
     colors = plt.cm.plasma(np.linspace(0, 1, len(affines)))  # pyrefly: ignore [missing-attribute]
-    for idx, (M, color) in enumerate(zip(affines, colors)):
+    for idx, (M, color) in enumerate(zip(affines, colors, strict=False)):
         tx = float(M[0, 2])
         ty = float(M[1, 2])
         rect = plt.Rectangle(
@@ -1677,7 +1676,7 @@ def _save_translation_plot(
     frames = list(range(N))
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
     for ax, vals, label, color in zip(
-        axes, [txs, tys], ["tx (horizontal)", "ty (vertical)"], ["#4ecdc4", "#ff6b6b"]
+        axes, [txs, tys], ["tx (horizontal)", "ty (vertical)"], ["#4ecdc4", "#ff6b6b"], strict=False
     ):
         ax.plot(frames, vals, marker="o", color=color, linewidth=2, markersize=5)
         ax.set_xlabel("Frame index")
@@ -1895,9 +1894,9 @@ def _save_metrics_bar(metrics_asp: Dict, metrics_simple: Dict, out_path: str) ->
     asp_vals = [metrics_asp.get(k, 0) for k in keys]
     sim_vals = [metrics_simple.get(k, 0) for k in keys]
     # Normalize each metric to [0,1] for display
-    maxes = [max(a, b, 1e-9) for a, b in zip(asp_vals, sim_vals)]
-    asp_n = [v / m for v, m in zip(asp_vals, maxes)]
-    sim_n = [v / m for v, m in zip(sim_vals, maxes)]
+    maxes = [max(a, b, 1e-9) for a, b in zip(asp_vals, sim_vals, strict=False)]
+    asp_n = [v / m for v, m in zip(asp_vals, maxes, strict=False)]
+    sim_n = [v / m for v, m in zip(sim_vals, maxes, strict=False)]
     x = np.arange(len(keys))
     width = 0.35
     fig, ax = plt.subplots(figsize=(9, 4))
@@ -1915,7 +1914,7 @@ def _save_metrics_bar(metrics_asp: Dict, metrics_simple: Dict, out_path: str) ->
     for spine in ax.spines.values():
         spine.set_edgecolor("#444")
     # Raw value annotations
-    for bar, val in zip(b1, asp_vals):
+    for bar, val in zip(b1, asp_vals, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.02,
@@ -1925,7 +1924,7 @@ def _save_metrics_bar(metrics_asp: Dict, metrics_simple: Dict, out_path: str) ->
             fontsize=7,
             color="#4ecdc4",
         )
-    for bar, val in zip(b2, sim_vals):
+    for bar, val in zip(b2, sim_vals, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.02,
@@ -2219,9 +2218,11 @@ def _smart_select_frames(
     )
     if _needs_biref_probes:
         try:
-            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
             import gc as _gc
+
             import torch as _torch
+
+            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
             _biref = BiRefNetWrapper()
             _probe_idxs = sorted({0, N // 4, N // 2, 3 * N // 4, N - 1})
@@ -2245,10 +2246,8 @@ def _smart_select_frames(
                 _bg_accum = np.minimum(_bg_accum, _bg_prob)  # conservative bg
                 _fg_accum = np.maximum(_fg_accum, _fg_prob)  # permissive fg
                 _n_ok += 1
-            try:
+            with contextlib.suppress(Exception):
                 _biref.offload()
-            except Exception:
-                pass
             del _biref
             _gc.collect()
             if _torch.cuda.is_available():
@@ -2578,10 +2577,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
         bg_masks = _compute_fg_masks(frames, birefnet)
         birefnet_ok = True
         if torch.cuda.is_available():
-            try:
+            with contextlib.suppress(Exception):
                 birefnet.offload()
-            except Exception:
-                pass
         del birefnet
         gc.collect()
         torch.cuda.empty_cache()
@@ -2608,7 +2605,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     # ------------------------------------------------------------------
     _LUM_W = np.array([0.114, 0.587, 0.299], dtype=np.float32)
     bg_frame_lums: List[Optional[float]] = []
-    for frame, mask in zip(frames, bg_masks):
+    for frame, mask in zip(frames, bg_masks, strict=False):
         if mask is not None:
             bg_px = frame[mask > 127].astype(np.float32)
             if len(bg_px) >= 1000:
@@ -2662,10 +2659,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
     edges = _pairwise_match(frames, bg_masks, loftr_wrapper=loftr) # pyrefly: ignore [bad-argument-type]
     if loftr is not None:
         if torch.cuda.is_available():
-            try:
+            with contextlib.suppress(Exception):
                 loftr.offload()
-            except Exception:
-                pass
         del loftr
         gc.collect()
         torch.cuda.empty_cache()
@@ -2786,10 +2781,9 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
             for _f in range(1, N):
                 _best_e, _best_span = None, float("inf")
                 for _e in edges:
-                    if _e["j"] == _f and _e["i"] in _anchored:
-                        if _f - _e["i"] < _best_span:
-                            _best_span = _f - _e["i"]
-                            _best_e = _e
+                    if _e["j"] == _f and _e["i"] in _anchored and _f - _e["i"] < _best_span:
+                        _best_span = _f - _e["i"]
+                        _best_e = _e
                 if _best_e is not None:
                     _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(
                         _best_e["M"][0, 2]
@@ -2824,10 +2818,9 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:
                         continue
                     _best_e, _best_span = None, float("inf")
                     for _e in edges:
-                        if _e["j"] == _f and _e["i"] in _anchored:
-                            if _f - _e["i"] < _best_span:
-                                _best_span = _f - _e["i"]
-                                _best_e = _e
+                        if _e["j"] == _f and _e["i"] in _anchored and _f - _e["i"] < _best_span:
+                            _best_span = _f - _e["i"]
+                            _best_e = _e
                     if _best_e is not None:
                         _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(
                             _best_e["M"][0, 2]
@@ -5328,15 +5321,14 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         mask_any = False
         for i in range(3):
             mp = os.path.join(pd, f"mask_overlay_frame{i:02d}.png")
-            if os.path.exists(mp):
-                if not mask_any:
-                    lines.append(
-                        "**BiRefNet Foreground Mask Overlays (first 3 frames)**\n\n"
-                    )
-                    lines.append(
-                        "| Frame 0 | Frame 1 | Frame 2 |\n|:---:|:---:|:---:|\n| "
-                    )
-                    mask_any = True
+            if os.path.exists(mp) and not mask_any:
+                lines.append(
+                    "**BiRefNet Foreground Mask Overlays (first 3 frames)**\n\n"
+                )
+                lines.append(
+                    "| Frame 0 | Frame 1 | Frame 2 |\n|:---:|:---:|:---:|\n| "
+                )
+                mask_any = True
         if mask_any:
             cells = []
             for i in range(3):

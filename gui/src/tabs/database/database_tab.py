@@ -1,35 +1,36 @@
-import os
 import json
-import psycopg2 # pyrefly: ignore [untyped-import]
-
+import os
 from pathlib import Path
 from typing import Optional
-from PySide6.QtCore import Qt, Property, Signal, Slot
+
+import psycopg2  # pyrefly: ignore [untyped-import]
+from backend.src.constants import LOCAL_SOURCE_PATH
+from backend.src.database import PgvectorImageDatabase as ImageDatabase
+from dotenv import load_dotenv
+from PySide6.QtCore import Property, Qt, Signal
 from PySide6.QtWidgets import (
-    QMessageBox,
-    QComboBox,
-    QInputDialog,
-    QFormLayout,
-    QHBoxLayout,
-    QVBoxLayout,
     QAbstractItemView,
-    QMenu,
-    QProgressDialog,
-    QLineEdit,
-    QPushButton,
-    QLabel,
+    QComboBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
     QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QMessageBox,
+    QProgressDialog,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
-    QSizePolicy,
-    QScrollArea,
-    QGroupBox,
+    QVBoxLayout,
     QWidget,
-    QFileDialog,
 )
-from dotenv import load_dotenv
-from backend.src.database import PgvectorImageDatabase as ImageDatabase
-from backend.src.constants import LOCAL_SOURCE_PATH
+
 from ...styles import apply_shadow_effect
 
 
@@ -236,15 +237,15 @@ class DatabaseTab(QWidget):
         )
         self.groups_table.setStyleSheet(
             """
-            QTableWidget { 
-                background-color: #36393f; 
+            QTableWidget {
+                background-color: #36393f;
                 border: 1px solid #4f545c;
                 alternate-background-color: #3b3e44;
             }
-            QHeaderView::section { 
-                background-color: #4f545c; 
-                color: white; 
-                padding: 4px; 
+            QHeaderView::section {
+                background-color: #4f545c;
+                color: white;
+                padding: 4px;
                 border: 1px solid #36393f;
             }
         """
@@ -1287,10 +1288,7 @@ class DatabaseTab(QWidget):
         if not item:
             return
         menu = QMenu()
-        if item.column() == 0:
-            edit_action = menu.addAction("Edit Subgroup")
-        else:
-            edit_action = None
+        edit_action = menu.addAction("Edit Subgroup") if item.column() == 0 else None
         remove_action = menu.addAction("Remove Subgroup")
         action = menu.exec(self.subgroups_table.mapToGlobal(pos))
         if action == edit_action:
@@ -1478,14 +1476,3 @@ class DatabaseTab(QWidget):
     @Property(str, notify=qml_stats_changed)
     def statsText(self):
         return self._stats_text
-
-    @Slot()
-    def run_vacuum(self):
-        # Trigger vacuum logic
-        pass
-
-    @Slot()
-    def run_reindex(self):
-        # Trigger reindex logic
-        pass
-

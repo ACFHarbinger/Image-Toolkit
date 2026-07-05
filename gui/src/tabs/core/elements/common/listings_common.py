@@ -1,28 +1,28 @@
 import json
-import zipfile
-import re
-import subprocess
 import platform
-import cv2
+import re
 import shutil
-
-from pathlib import Path
+import subprocess
+import zipfile
 from datetime import date
-from typing import List, Dict, Any
-from PySide6.QtPdf import QPdfDocument
-from PySide6.QtCore import Qt, QUrl, QSize
+from pathlib import Path
+from typing import Any, Dict, List
+
+import backend.src.constants as udef
+import base
+import cv2
+from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
+from PySide6.QtPdf import QPdfDocument
 from PySide6.QtWidgets import QLabel
 
-import base
-import backend.src.constants as udef
 from .....components.frame_selection_dialog import (
     extract_video_frame_via_ffmpeg,
 )
 from .....constants.listings import (
-    LISTINGS_FILE,  # noqa: F401
     ENTITIES_FILE,  # noqa: F401
     LISTING_IMAGES_DIR,
+    LISTINGS_FILE,  # noqa: F401
     VIDEO_IMPORT_EXTS,
 )
 
@@ -182,7 +182,7 @@ def open_web_link(url_str: str):
 
 def _persist_splitter(splitter, key: str) -> None:
     """Wire a QSplitter to QSettings so its position survives restarts (GUI/UX §2.20A)."""
-    from gui.src.utils.settings import AppSettings
+    from gui.src.windows.settings.app_settings import AppSettings
     state = AppSettings.listings_splitter(key)
     if state:
         splitter.restoreState(state)
@@ -300,7 +300,7 @@ def _scan_video_directory(directory: str) -> "dict[str, list[tuple]]":
     Returns ``{series_name: [(ep_num_or_None, abs_path), ...]}`` with each
     series' list sorted by episode number (None episodes go last).
     """
-    from gui.src.utils.settings import AppSettings
+    from gui.src.windows.settings.app_settings import AppSettings
     recursive = AppSettings.recursive_scan()
 
     result: dict = {}

@@ -10,14 +10,13 @@ All three engines return the same ``List[dict]`` payload through the
 
 from typing import Optional
 
-from PySide6.QtCore import Signal, QObject, QRunnable
-
 from backend.src.web import (
-    ReverseImageSearchManager,
     ENGINE_GOOGLE,
-    ENGINE_TINEYE,
     ENGINE_LOCAL_CBIR,
+    ENGINE_TINEYE,
+    ReverseImageSearchManager,
 )
+from PySide6.QtCore import QObject, QRunnable, Signal
 
 
 class _ReverseSearchWorkerSignals(QObject):

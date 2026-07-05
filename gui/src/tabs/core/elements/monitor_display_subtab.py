@@ -1,43 +1,61 @@
-import os
-import shutil
-import sys
+import contextlib
 import json
-import time
-import tempfile
-import subprocess
+import os
 import platform
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
 from typing import Dict, List, Optional, Tuple, cast
 
-from PySide6.QtCore import Qt, QPointF, QTimer, Slot, QPoint
+from backend.src.constants import (
+    MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH,
+    ROOT_DIR,
+    SUPPORTED_IMG_FORMATS,
+    SUPPORTED_VIDEO_FORMATS,
+)
+from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
+from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QSpinBox, QGroupBox, QDialog,
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QRadioButton, QButtonGroup, QStackedWidget,
-    QFileDialog, QMessageBox, QMenu, QLabel,
-    QLineEdit, QGridLayout, QPushButton,
-    QListWidget, QListWidgetItem, QInputDialog,
+    QButtonGroup,
+    QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QFileDialog,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QSpinBox,
+    QSplitter,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
 from screeninfo import Monitor
 
-from backend.src.constants import (
-    SUPPORTED_VIDEO_FORMATS,
-    SUPPORTED_IMG_FORMATS,
-    MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH,
-    ROOT_DIR,
-)
-from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
-from .common.wallpaper_common_base import WallpaperCommonBase
-from .graph.data import NodeData, GraphData
 from ....components import MarqueeScrollArea
 from ....styles import apply_shadow_effect
-
+from .common.wallpaper_common_base import WallpaperCommonBase
 from .graph import (
-    NodeItem, NODE_W, is_video,
-    WallpaperGraphScene, WallpaperGraphView,
+    NODE_W,
     NodeEditDialog,
+    NodeItem,
+    WallpaperGraphScene,
+    WallpaperGraphView,
+    is_video,
 )
-
+from .graph.data import GraphData, NodeData
 
 _VIDEO_DURATION_CACHE: Dict[str, float] = {}
 
@@ -537,7 +555,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         mode_grp.setVisible(False)
         self._props_file.setVisible(False)
         self._props_dur.setEnabled(True)
-        for w in [mode_grp, self._props_file, self._props_dur,
+        for _w in [mode_grp, self._props_file, self._props_dur,
                   self._props_apply, dur_row]:
             pass  # shown on demand
 
@@ -599,10 +617,9 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         if monitors:
             self._stack.setCurrentIndex(1)
             # Auto-select the first monitor on update if nothing is selected or current is invalid
-            if not self._current_monitor_id or self._current_monitor_id not in self.monitor_widgets:
-                if self.monitor_widgets:
-                    first_id = next(iter(self.monitor_widgets.keys()))
-                    self._select_monitor(first_id)
+            if not self._current_monitor_id or self._current_monitor_id not in self.monitor_widgets and self.monitor_widgets:
+                first_id = next(iter(self.monitor_widgets.keys()))
+                self._select_monitor(first_id)
         else:
             self._stack.setCurrentIndex(0)
 
@@ -1156,10 +1173,8 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
     def _stop_inapp_slideshow(self):
         if self._inapp_active_monitor_id is None:
             return
-        try:
+        with contextlib.suppress(Exception):
             _monitor_slideshow.stop()
-        except Exception:
-            pass
         self._inapp_active_monitor_id = None
         self._update_slideshow_buttons()
         self._update_queue_status_label()
@@ -1523,7 +1538,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
             self._read_end_behavior_to_graph(graph)
 
     # ---- Thumbnail Actions ------------------------------------------------
-    
+
     @Slot(str)
     def handle_thumbnail_double_click(self, image_path: str):
         if self._current_monitor_id is None:

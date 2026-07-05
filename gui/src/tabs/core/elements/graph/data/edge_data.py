@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class EdgeData:
     """Represents a directed edge in the graph."""

@@ -1,7 +1,7 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
+from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
-from .elements.system_display_subtab import SystemDisplaySubTab
 from .elements.monitor_display_subtab import MonitorDisplaySubTab
+from .elements.system_display_subtab import SystemDisplaySubTab
 
 
 class WallpaperTab(QWidget):
@@ -11,7 +11,7 @@ class WallpaperTab(QWidget):
 
         self.system_display = SystemDisplaySubTab(db_tab_ref)
         self.monitor_display = MonitorDisplaySubTab()
-        
+
         # Link them for updates
         self.system_display.linked_tabs = [self.monitor_display]
         self.monitor_display.linked_tabs = [self.system_display]

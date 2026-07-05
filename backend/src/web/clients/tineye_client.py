@@ -25,7 +25,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import List, Optional
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlparse
 
 import requests
 

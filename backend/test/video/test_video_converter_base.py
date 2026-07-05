@@ -1,7 +1,8 @@
 import os
 import sys
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 # Adjust path to find src (if running directly or via different runner)
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

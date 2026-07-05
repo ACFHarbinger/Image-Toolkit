@@ -44,7 +44,7 @@ except ImportError:
 
 try:
     import torch
-    from transformers import AutoProcessor, AutoModelForCausalLM
+    from transformers import AutoModelForCausalLM, AutoProcessor
     _TRANSFORMERS_OK = True
 except ImportError:
     _TRANSFORMERS_OK = False
@@ -105,7 +105,7 @@ class WD14Tagger:
         probs = self.sess.run(None, {self.input_name: arr})[0][0]
 
         rating, general, character = [], [], []
-        for name, cat, p in zip(self.tag_names, self.tag_categories, probs):
+        for name, cat, p in zip(self.tag_names, self.tag_categories, probs, strict=False):
             name_clean = name.replace("_", " ")
             if cat == 9 and p > 0.5:
                 rating.append(name_clean)
@@ -247,10 +247,7 @@ class HybridCaptioner:
         if self.trigger and self.trigger not in ordered:
             ordered = [self.trigger] + ordered
 
-        if self.prefix:
-            tag_str = self.prefix + ", " + ", ".join(ordered)
-        else:
-            tag_str = ", ".join(ordered)
+        tag_str = self.prefix + ", " + ", ".join(ordered) if self.prefix else ", ".join(ordered)
 
         nl = self.fl(image) if self.fl is not None else ""
         final = (tag_str + ". " + nl).strip(". ") if nl else tag_str

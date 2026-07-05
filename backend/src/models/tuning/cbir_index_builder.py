@@ -28,8 +28,8 @@ import time
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
-import torch
 import numpy as np
+import torch
 
 from backend.src.models.data.cbir_dataset import scan_images
 

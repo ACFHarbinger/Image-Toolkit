@@ -1,13 +1,12 @@
 from .exceptions import (
-    ImageToolkitError,
-    PipelineError,
     AlignmentFailedError,
     CanvasError,
-    FallbackExhaustedError,
-    ModelLoadError,
     ConfigError,
+    FallbackExhaustedError,
+    ImageToolkitError,
+    ModelLoadError,
+    PipelineError,
 )
-
 
 __all__ = [
     "ImageToolkitError",

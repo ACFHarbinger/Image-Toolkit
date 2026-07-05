@@ -1,8 +1,10 @@
+import contextlib
+import os
+
+from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 from PySide6.QtGui import QImage
-from PySide6.QtCore import QRunnable, QObject, Signal, Slot
 from shiboken6 import Shiboken
 
-import os
 from .video_scan_worker import VideoThumbnailer, get_video_thumbnail_cache_path
 
 
@@ -67,8 +69,6 @@ class VideoLoaderWorker(QRunnable):
                 self.signals.deleteLater()
 
     def _safe_emit(self, path, image):
-        try:
+        with contextlib.suppress(RuntimeError):
             self.signals.result.emit(path, image)
-        except RuntimeError:
-            pass
 

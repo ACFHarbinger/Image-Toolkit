@@ -1,12 +1,12 @@
 import os
 from typing import Optional
 
-from PySide6.QtCore import Qt, QRectF
-from PySide6.QtGui import QPixmap, QFont, QColor, QPen, QBrush, QPainter
-from PySide6.QtWidgets import QGraphicsObject, QGraphicsItem
-
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from .....helpers.video.video_thumbnailer import get_video_thumbnail_cache_path, VideoThumbnailer
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
+
+from .....helpers.video.video_thumbnailer import VideoThumbnailer, get_video_thumbnail_cache_path
 from .data import NodeData
 
 NODE_W = 140

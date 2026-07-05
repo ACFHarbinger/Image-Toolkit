@@ -1,22 +1,21 @@
 from unittest.mock import MagicMock, patch
 
+# Ensure mocks are in place (should be handled by conftest, but explicit check or re-import is safe)
+import cv2
 import numpy as np
 import pytest
 
-# Ensure mocks are in place (should be handled by conftest, but explicit check or re-import is safe)
-import cv2
-from PIL import Image
+# Note: backend modules are mocked in conftest.py, so we can mock the Loader class return
+from backend.src.models.core.siamese_network import SiameseModelLoader
 
 # Import the tasks
 from gui.src.helpers.core.tasks.orb_task import OrbTask
 from gui.src.helpers.core.tasks.phask_task import PhashTask
+from gui.src.helpers.core.tasks.scan_signals import ScanSignals
 from gui.src.helpers.core.tasks.sift_task import SiftTask
 from gui.src.helpers.core.tasks.sn_task import SiameseTask
 from gui.src.helpers.core.tasks.ssim_task import SsimTask
-from gui.src.helpers.core.tasks.scan_signals import ScanSignals
-
-# Note: backend modules are mocked in conftest.py, so we can mock the Loader class return
-from backend.src.models.core.siamese_network import SiameseModelLoader
+from PIL import Image
 
 
 class TestCoreHelperTasks:

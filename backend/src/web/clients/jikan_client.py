@@ -2,7 +2,6 @@ import time
 
 import requests
 
-
 _STATUS_MAP = {
     "Finished Airing": "Completed",
     "Currently Airing": "Watching / Reading",

@@ -1,4 +1,3 @@
-from typing import Set
 
 # Conversion Prefixes
 SINGLE_CONVERSION_PREFIX = "converted_"

@@ -1,23 +1,23 @@
 import os
-
 from typing import Optional
-from screeninfo import Monitor
-from PySide6.QtCore import Qt, Signal, QMimeData, QTimer
+
+from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from PySide6.QtCore import QMimeData, Qt, QTimer, Signal
 from PySide6.QtGui import (
-    QPixmap,
-    QDragEnterEvent,
-    QDropEvent,
-    QDragMoveEvent,
-    QDragLeaveEvent,
-    QMouseEvent,
     QDrag,
+    QDragEnterEvent,
+    QDragLeaveEvent,
+    QDragMoveEvent,
+    QDropEvent,
+    QMouseEvent,
+    QPixmap,
     QResizeEvent,
 )
-from PySide6.QtWidgets import QLabel, QMenu, QApplication
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from PySide6.QtWidgets import QApplication, QLabel, QMenu
+from screeninfo import Monitor
 
 
-class MonitorDropWidget(QLabel):
+class MonitorDropView(QLabel):
     """
     A custom QLabel that acts as a drop target for images,
     displays monitor info, and shows a preview of the dropped image.
@@ -130,7 +130,7 @@ class MonitorDropWidget(QLabel):
         import platform
         if platform.system() != "Linux":
             return None
-            
+
         import glob
         import re
         port_name = self.monitor.name
@@ -147,7 +147,7 @@ class MonitorDropWidget(QLabel):
             char2 = chr(((mfg_id_val >> 5) & 0x1F) + 64)
             char3 = chr((mfg_id_val & 0x1F) + 64)
             mfg = f'{char1}{char2}{char3}'
-            
+
             monitor_name = None
             for offset in (54, 72, 90, 108):
                 desc = edid_bytes[offset:offset+18]
@@ -160,7 +160,7 @@ class MonitorDropWidget(QLabel):
                         name_len += 1
                     monitor_name = name_bytes[:name_len].decode('ascii', errors='ignore').strip()
                     break
-                    
+
             if monitor_name:
                 mfg_map = {
                     'LGD': 'LG Electronics',
@@ -234,7 +234,7 @@ class MonitorDropWidget(QLabel):
                         self.monitor_id, tid
                     )
                 )
-                
+
             swap_graph_menu = menu.addMenu("Swap Wallpaper Graph with...")
             for target_id, target_name in self.other_monitors:
                 action = swap_graph_menu.addAction(f"{target_name} (ID: {target_id})")
@@ -312,11 +312,9 @@ class MonitorDropWidget(QLabel):
                 h = getattr(self.monitor, "height", None)
                 if w and h and w < h:
                     active_is_portrait = True
-            
+
             # Align parsed native resolution with current active orientation
-            if active_is_portrait and h_active > v_active:
-                width, height = v_active, h_active
-            elif not active_is_portrait and h_active < v_active:
+            if active_is_portrait and h_active > v_active or not active_is_portrait and h_active < v_active:
                 width, height = v_active, h_active
             else:
                 width, height = h_active, v_active
@@ -341,23 +339,20 @@ class MonitorDropWidget(QLabel):
         monitor_name = f"Monitor {self.monitor_id}"
         if self.monitor.name:
             monitor_name = f"{monitor_name} ({self.monitor.name})"
-        
+
         self.top_label.setText(monitor_name)
-        
-        if self.hardware_name:
-            real_name = self.hardware_name
-        else:
-            real_name = self.get_real_monitor_name()
-            
+
+        real_name = self.hardware_name or self.get_real_monitor_name()
+
         if not real_name:
             real_name = "Generic Display"
-            
+
         width, height = self.get_resolved_dimensions()
         if width and height:
             real_name = f"{real_name} ({width}x{height})"
-            
+
         self.bottom_label.setText(real_name)
-        
+
         # Center text inside the main label
         self.setText("\n\nDrag and Drop Image Here")
 
@@ -369,7 +364,7 @@ class MonitorDropWidget(QLabel):
         import platform
         if platform.system() != "Linux":
             return None
-            
+
         import glob
         import re
         port_name = self.monitor.name
@@ -420,7 +415,7 @@ class MonitorDropWidget(QLabel):
         return None
 
     def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.source() and isinstance(event.source(), MonitorDropWidget):
+        if event.source() and isinstance(event.source(), MonitorDropView):
             event.ignore()
             return
         if self.has_valid_image_url(event.mimeData()):
@@ -431,7 +426,7 @@ class MonitorDropWidget(QLabel):
             event.ignore()
 
     def dragMoveEvent(self, event: QDragMoveEvent):
-        if event.source() and isinstance(event.source(), MonitorDropWidget):
+        if event.source() and isinstance(event.source(), MonitorDropView):
             event.ignore()
             return
         if self.has_valid_image_url(event.mimeData()):
@@ -470,9 +465,7 @@ class MonitorDropWidget(QLabel):
         valid_exts = set(SUPPORTED_IMG_FORMATS).union(SUPPORTED_VIDEO_FORMATS)
         _, ext = os.path.splitext(file_path)
         ext_no_dot = ext.lstrip(".")
-        if ext_no_dot in valid_exts or ext in valid_exts:
-            return True
-        return False
+        return bool(ext_no_dot in valid_exts or ext in valid_exts)
 
     def handle_custom_drop(self, file_paths: list[str]):
         """
@@ -515,12 +508,10 @@ class MonitorDropWidget(QLabel):
             source_pixmap = thumbnail
         else:
             # Source 2: Try to load from file (Only useful for non-video files)
-            if not is_video:
-                # Use QImageReader logic or simple QPixmap but check file existence first
-                if os.path.exists(file_path):
-                    temp_pixmap = QPixmap(file_path)
-                    if not temp_pixmap.isNull():
-                        source_pixmap = temp_pixmap
+            if not is_video and os.path.exists(file_path):
+                temp_pixmap = QPixmap(file_path)
+                if not temp_pixmap.isNull():
+                    source_pixmap = temp_pixmap
 
         # 2. Update internal state and display
         if source_pixmap and not source_pixmap.isNull():
@@ -548,9 +539,9 @@ class MonitorDropWidget(QLabel):
             elif is_video:
                 self.setStyleSheet(
                     """
-                    QLabel { 
-                        background-color: #36393f; 
-                        border: 2px solid #3498db; 
+                    QLabel {
+                        background-color: #36393f;
+                        border: 2px solid #3498db;
                         border-radius: 8px;
                     }
                 """
@@ -577,11 +568,11 @@ class MonitorDropWidget(QLabel):
             self.setText(f"\n\n🎥 VIDEO SET:\n{filename}")
             self.setStyleSheet(
                 """
-                QLabel { 
-                    background-color: #2c3e50; 
-                    border: 2px solid #3498db; 
-                    color: #ecf0f1; 
-                    font-size: 13px; 
+                QLabel {
+                    background-color: #2c3e50;
+                    border: 2px solid #3498db;
+                    color: #ecf0f1;
+                    font-size: 13px;
                     border-radius: 8px;
                 }
             """
@@ -626,9 +617,9 @@ class MonitorDropWidget(QLabel):
                 is_video = self.image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
                 if is_video:
                     self.setStyleSheet("""
-                        QLabel { 
-                            background-color: #36393f; 
-                            border: 2px solid #3498db; 
+                        QLabel {
+                            background-color: #36393f;
+                            border: 2px solid #3498db;
                             border-radius: 8px;
                         }
                     """)

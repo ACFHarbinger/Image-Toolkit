@@ -1,7 +1,7 @@
+from typing import Any, Dict, List, Optional, Tuple
+
 import cv2
 import numpy as np
-from scipy.interpolate import RBFInterpolator
-from typing import Any, Dict, List, Optional, Tuple
 from PySide6.QtCore import (
     Qt,
     QTimer,
@@ -16,19 +16,20 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtWidgets import (
-    QWidget,
+    QGraphicsEllipseItem,
+    QGraphicsItem,
+    QGraphicsLineItem,
+    QGraphicsPixmapItem,
+    QGraphicsScene,
+    QGraphicsView,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
-    QHBoxLayout,
-    QGraphicsEllipseItem,
-    QGraphicsView,
-    QGraphicsScene,
-    QGraphicsPixmapItem,
-    QGraphicsLineItem,
-    QGraphicsItem,
+    QWidget,
 )
+from scipy.interpolate import RBFInterpolator
 
 from ....styles import apply_shadow_effect
 

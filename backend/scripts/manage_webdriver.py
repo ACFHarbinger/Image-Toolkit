@@ -1,7 +1,9 @@
-import sys
-import subprocess
 import os
+import subprocess
+import sys
+
 from webdriver_manager.chrome import ChromeDriverManager
+
 
 def install_driver():
     """Download and install the correct chromedriver for the system."""
@@ -13,14 +15,14 @@ def install_driver():
         return path
     except Exception as e:
         print(f"❌ Failed to install driver: {e}")
-        # Try to find an existing one as fallback? 
+        # Try to find an existing one as fallback?
         # No, better to fail and inform the user.
         sys.exit(1)
 
 def start_driver(port=9515):
     """Start the chromedriver server on the specified port."""
     driver_path = install_driver()
-    
+
     # Ensure the driver is executable
     if not os.access(driver_path, os.X_OK):
         print(f"🛠️ Setting executable permissions on {driver_path}...")

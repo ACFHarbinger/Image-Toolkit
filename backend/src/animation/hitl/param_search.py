@@ -28,7 +28,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-
 from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -188,7 +187,7 @@ def run_param_search(
 
     def objective(trial: "optuna.Trial") -> float:
         cfg: Dict[str, float] = {}
-        for name, (dtype, lo, hi, default, _desc) in ASP_SEARCH_PARAMS.items():
+        for name, (dtype, lo, hi, _default, _desc) in ASP_SEARCH_PARAMS.items():
             if dtype is float:
                 cfg[name] = trial.suggest_float(name, lo, hi)
             else:

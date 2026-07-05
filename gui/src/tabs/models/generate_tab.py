@@ -1,12 +1,13 @@
 from PySide6.QtWidgets import (
-    QVBoxLayout,
     QComboBox,
-    QStackedWidget,
-    QLabel,
     QFormLayout,
+    QLabel,
+    QStackedWidget,
+    QVBoxLayout,
 )
+
 from ...classes.base.base_generative_tab import BaseGenerativeTab
-from .gen import R3GANGenerateTab, LoRAGenerateTab, SD3GenerateTab, GANGenerateTab
+from .gen import GANGenerateTab, LoRAGenerateTab, R3GANGenerateTab, SD3GenerateTab
 
 
 class UnifiedGenerateTab(BaseGenerativeTab):

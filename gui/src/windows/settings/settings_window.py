@@ -1,52 +1,54 @@
-import os
-import json
-import shutil
 import base64
-
+import contextlib
+import json
+import os
+import shutil
 from pathlib import Path
-from PySide6.QtCore import Qt, QUrl, QByteArray
-from PySide6.QtGui import QColor, QDesktopServices, QKeySequence
-from PySide6.QtWidgets import (
-    QCheckBox,
-    QLineEdit,
-    QRadioButton,
-    QHBoxLayout,
-    QLabel,
-    QWidget,
-    QSizePolicy,
-    QScrollArea,
-    QPushButton,
-    QMessageBox,
-    QComboBox,
-    QSpinBox,
-    QTextEdit,
-    QVBoxLayout,
-    QGroupBox,
-    QFormLayout,
-    QApplication,
-    QTabWidget,
-    QListWidget,
-    QFileDialog,
-    QInputDialog,
-    QDialog,
-    QDialogButtonBox,
-    QColorDialog,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QKeySequenceEdit,
-)
-from ...utils.shortcut_manager import get_registry, SHORTCUT_REGISTRY
-from ...utils.settings import AppSettings
+
 from backend.src.constants import (
-    IMAGE_TOOLKIT_DIR,
+    API_DIR,
     DAEMON_CONFIG_PATH,
-    THUMBNAIL_CACHE_DIR,
-    SECRETS_DIR,
+    IMAGE_TOOLKIT_DIR,
     LOCAL_SECRETS_DIR,
     ROOT_DIR,
-    API_DIR,
+    SECRETS_DIR,
+    THUMBNAIL_CACHE_DIR,
 )
+from PySide6.QtCore import QByteArray, Qt, QUrl
+from PySide6.QtGui import QColor, QDesktopServices, QKeySequence
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QColorDialog,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QKeySequenceEdit,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ...utils.shortcut_manager import SHORTCUT_REGISTRY, get_registry
+from .app_settings import AppSettings
 
 
 class SettingsWindow(QWidget):
@@ -1019,7 +1021,7 @@ class SettingsWindow(QWidget):
         fav_dir_layout.addWidget(fav_dir_desc)
 
         fav_content_layout = QHBoxLayout()
-        
+
         self.fav_list_widget = QListWidget()
         self.fav_list_widget.setMinimumHeight(100)
         self.fav_list_widget.setMaximumHeight(200)
@@ -1028,14 +1030,14 @@ class SettingsWindow(QWidget):
 
         fav_buttons_layout = QVBoxLayout()
         fav_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        
+
         self.btn_add_fav_browse = QPushButton("Browse to Add 📁")
         self.btn_add_fav_browse.setToolTip("Browse the filesystem to select a directory to add to favourites.")
         self.btn_add_fav_browse.setStyleSheet(
             "background-color: #2980b9; color: white; font-weight: bold;"
         )
         self.btn_add_fav_browse.clicked.connect(self._browse_add_favourite)
-        
+
         self.btn_remove_fav = QPushButton("Remove Selected ❌")
         self.btn_remove_fav.setToolTip("Remove the selected directory from your favourites list.")
         self.btn_remove_fav.setStyleSheet(
@@ -1046,19 +1048,19 @@ class SettingsWindow(QWidget):
         fav_buttons_layout.addWidget(self.btn_add_fav_browse)
         fav_buttons_layout.addWidget(self.btn_remove_fav)
         fav_content_layout.addLayout(fav_buttons_layout)
-        
+
         fav_dir_layout.addLayout(fav_content_layout)
 
         fav_manual_layout = QHBoxLayout()
         self.fav_path_input = QLineEdit()
         self.fav_path_input.setPlaceholderText("Or paste/type absolute folder path here...")
-        
+
         self.btn_add_fav_path = QPushButton("Add Path ➕")
         self.btn_add_fav_path.setStyleSheet(
             "background-color: #27ae60; color: white; font-weight: bold;"
         )
         self.btn_add_fav_path.clicked.connect(self._add_manual_favourite)
-        
+
         fav_manual_layout.addWidget(self.fav_path_input, 1)
         fav_manual_layout.addWidget(self.btn_add_fav_path)
         fav_dir_layout.addLayout(fav_manual_layout)
@@ -1247,10 +1249,8 @@ class SettingsWindow(QWidget):
             if key.startswith("splitters/"):
                 raw = AppSettings.get(key)
                 if raw:
-                    try:
+                    with contextlib.suppress(Exception):
                         splitters_dict[key] = base64.b64encode(bytes(raw)).decode("ascii")
-                    except Exception:
-                        pass
         if splitters_dict:
             profile_data["layout_splitters"] = splitters_dict
 
@@ -1618,7 +1618,7 @@ class SettingsWindow(QWidget):
         tab class names.
         """
         tab_map = {}
-        for category, sub_tabs in self._get_tab_mapping().items():
+        for _category, sub_tabs in self._get_tab_mapping().items():
             for tab_instance in sub_tabs.values():
                 class_name = type(tab_instance).__name__
                 if class_name not in tab_map:
@@ -1641,18 +1641,16 @@ class SettingsWindow(QWidget):
         if not display_name:
             return None
 
-        for category, sub_tabs in self._get_tab_mapping().items():
+        for _category, sub_tabs in self._get_tab_mapping().items():
             if display_name in sub_tabs:
                 return sub_tabs[display_name]
         return None
 
     def _on_tab_group_changed(self, group_name: str):
-        try:
+        with contextlib.suppress(RuntimeError):
             self.tab_select_combo.currentTextChanged.disconnect(
                 self._refresh_config_dropdown
             )
-        except RuntimeError:
-            pass
 
         self.tab_select_combo.clear()
 
@@ -1742,12 +1740,10 @@ class SettingsWindow(QWidget):
         populates the editor with the default config for that tab.
         """
 
-        try:
+        with contextlib.suppress(RuntimeError):
             self.config_select_combo.currentTextChanged.disconnect(
                 self._load_selected_tab_config
             )
-        except RuntimeError:
-            pass
 
         self.config_select_combo.clear()
         self.current_loaded_config_name = None
@@ -2148,7 +2144,7 @@ class SettingsWindow(QWidget):
             if self._save_vault_data(user_data):
                 # Also save to QSettings
                 AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
-                AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])
+                AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"]) # pyrefly: ignore [bad-argument-type]
                 if self.main_window_ref:
                     self.main_window_ref.cached_creds = user_data
                     if selected_theme:
@@ -3064,12 +3060,12 @@ class SettingsWindow(QWidget):
         if not path:
             QMessageBox.warning(self, "Path Required", "Please enter a directory path.")
             return
-        
+
         abs_path = os.path.abspath(path)
         if not os.path.isdir(abs_path):
             QMessageBox.warning(self, "Invalid Directory", f"The directory does not exist:\n{abs_path}")
             return
-            
+
         items = [self.fav_list_widget.item(i).text() for i in range(self.fav_list_widget.count())]
         if abs_path not in items:
             self.fav_list_widget.addItem(abs_path)

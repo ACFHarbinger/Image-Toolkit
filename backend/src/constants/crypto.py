@@ -1,7 +1,8 @@
 import os
-import sys
 import shutil
-from .paths import BASE_KEYSTORE_FILE, BASE_VAULT_FILE, BASE_PEPPER_FILE, LOCAL_SECRETS_DIR
+import sys
+
+from .paths import BASE_KEYSTORE_FILE, BASE_PEPPER_FILE, BASE_VAULT_FILE, LOCAL_SECRETS_DIR
 
 KEY_ALIAS = "my-aes-key"
 
@@ -17,7 +18,7 @@ def _get_active_path(base_path, suffix=None):
         ).rstrip()
         if safe_suffix:
             filename = f"{name}-{safe_suffix}{ext}"
-    
+
     active_path = os.path.join(ACTIVE_SECRETS_DIR, filename)
     # If the active file does not exist, but the base template file does, copy it!
     if not os.path.exists(active_path) and os.path.exists(base_path):
@@ -26,7 +27,7 @@ def _get_active_path(base_path, suffix=None):
             print(f"Copied template {base_path} to {active_path}", file=sys.stderr)
         except Exception as e:
             print(f"Error copying template {base_path} to {active_path}: {e}", file=sys.stderr)
-            
+
     return active_path
 
 # --- Active Dynamic Paths (Mutable) ---

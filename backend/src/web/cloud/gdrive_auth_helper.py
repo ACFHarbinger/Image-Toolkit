@@ -1,6 +1,8 @@
-import sys
 import json
+import sys
+
 from google_auth_oauthlib.flow import InstalledAppFlow
+
 
 def main():
     try:
@@ -14,7 +16,7 @@ def main():
         flow = InstalledAppFlow.from_client_config(
             client_secrets_data, scopes=scopes
         )
-        
+
         # Run the local server flow.
         # This will launch the default browser and listen on a local port.
         creds = flow.run_local_server(
@@ -30,7 +32,7 @@ def main():
                 os.makedirs(token_dir, exist_ok=True)
             with open(token_file, "w") as f:
                 f.write(creds.to_json())
-        
+
         print("SUCCESS")
         sys.exit(0)
     except Exception as e:

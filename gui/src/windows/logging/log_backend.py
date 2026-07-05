@@ -1,4 +1,5 @@
-from PySide6.QtCore import QObject, Signal, Property, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
+
 
 class LogBackend(QObject):
     log_changed = Signal()

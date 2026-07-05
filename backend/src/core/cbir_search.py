@@ -182,7 +182,7 @@ class LocalCBIRSearch:
         so they are already in [0, 1] when ``normalize_embeddings=True`` is used.
         """
         results: List[ReverseSearchResult] = []
-        for dist, idx in zip(distances, indices):
+        for dist, idx in zip(distances, indices, strict=False):
             if idx < 0 or idx >= len(self._paths):
                 continue
             path = self._paths[int(idx)]
