@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import uuid
 from datetime import date
@@ -311,8 +312,8 @@ class ContentListingsSubTab(QWidget):
                         entry["type"] = category
                         entry["title"] = title
                         self._entries.append(entry)
-            except Exception as e:
-                print(f"[ContentListingsSubTab] Failed to load from secure DB: {e}")
+            except Exception:
+                logging.exception("[ContentListingsSubTab] Failed to load from secure DB")
 
     def _save_data(self):
         if (
@@ -346,8 +347,8 @@ class ContentListingsSubTab(QWidget):
                         edate,
                         [],
                     )
-            except Exception as e:
-                print(f"[ContentListingsSubTab] Failed to save to secure DB: {e}")
+            except Exception:
+                logging.exception("[ContentListingsSubTab] Failed to save to secure DB")
 
     # ------------------------------------------------------------------
     # Gallery

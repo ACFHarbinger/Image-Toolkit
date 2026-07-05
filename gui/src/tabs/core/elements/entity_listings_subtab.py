@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shutil
 import uuid
@@ -245,8 +246,8 @@ class EntityListingsSubTab(QWidget):
                         entity["name"] = title
                         entity["date_added"] = date_added
                         self._entities.append(entity)
-            except Exception as e:
-                print(f"[EntityListingsSubTab] Failed to load from secure DB: {e}")
+            except Exception:
+                logging.exception("[EntityListingsSubTab] Failed to load from secure DB")
 
     def _save_data(self):
         if (
@@ -279,9 +280,9 @@ class EntityListingsSubTab(QWidget):
                         edate,
                         [],
                     )
-            except Exception as e:
-                print(
-                    f"[EntityListingsSubTab] Failed to save entities to secure DB: {e}"
+            except Exception:
+                logging.exception(
+                    "[EntityListingsSubTab] Failed to save entities to secure DB"
                 )
 
     # ------------------------------------------------------------------
