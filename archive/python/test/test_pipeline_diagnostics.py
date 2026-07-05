@@ -51,12 +51,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -508,7 +507,7 @@ def test_C2_frame_clustering(ds_dir: Path, dataset: str) -> TestResult:
     passed = n_clustered == 0
     verdict = (
         f"{n_clustered} clustered frame pairs (<30px apart) — "
-        + ("OK" if passed else f"FRAME CLUSTERING (root cause of ghosting in test8/test9)")
+        + ("OK" if passed else "FRAME CLUSTERING (root cause of ghosting in test8/test9)")
     )
     # Report the actual clusters
     tys = sorted(a[2] for a in affines)

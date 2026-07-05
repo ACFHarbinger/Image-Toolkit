@@ -1,17 +1,19 @@
-import os
+import contextlib
 import ctypes
-import platform
-import subprocess
 import logging
-import base  # Native extension
+import os
+import platform
 import re
 import shutil
-
-from PIL import Image
+import subprocess
 from pathlib import Path
-from screeninfo import Monitor
 from typing import Dict, List, Optional, Union
-from backend.src.constants import WALLPAPER_STYLES, SUPPORTED_VIDEO_FORMATS
+
+import base  # Native extension
+from PIL import Image
+from screeninfo import Monitor
+
+from backend.src.constants import SUPPORTED_VIDEO_FORMATS, WALLPAPER_STYLES
 
 logger = logging.getLogger(__name__)
 
@@ -102,10 +104,11 @@ if platform.system() == "Windows":
     import winreg
 
     try:
-        import comtypes
-        from comtypes import IUnknown, GUID, COMMETHOD, HRESULT, POINTER
-        from ctypes.wintypes import LPCWSTR, UINT, LPWSTR
         from ctypes import pointer
+        from ctypes.wintypes import LPCWSTR, LPWSTR, UINT
+
+        import comtypes
+        from comtypes import COMMETHOD, GUID, HRESULT, POINTER, IUnknown
 
         class IDesktopWallpaper(IUnknown):
             _iid_ = GUID(IDESKTOPWALLPAPER_IID)
@@ -308,7 +311,7 @@ class WallpaperManager:
 
         mapping = {}
         # Zip them together based on visual order
-        for (m_idx, _), k_desktop in zip(sorted_monitors, sorted_kde):
+        for (m_idx, _), k_desktop in zip(sorted_monitors, sorted_kde, strict=False):
             mapping[m_idx] = k_desktop
 
         return mapping
@@ -376,23 +379,23 @@ class WallpaperManager:
                     if (d && d.screen >= 0) {{
                         if (d.wallpaperPlugin !== "{target_plugin}") d.wallpaperPlugin = "{target_plugin}";
                         d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
-                        
+
                         // DEBUG: Log the values being written
                         // console.log("[ImageToolkit] Setting Video FillMode to: {video_fill_mode} for monitor {i}");
-                        
+
                         d.writeConfig("FillMode", {video_fill_mode});
                         d.writeConfig("fillMode", {video_fill_mode});
                         {"d.writeConfig('overridePause', true);" if is_smarter else ""}
-                        
+
                         d.writeConfig("{video_key}", "{file_uri}");
 
                         // Plasma 6 uses the same Qt AspectRatioMode for org.kde.image
                         var imageFillMode = {video_fill_mode};
-                        
+
                         d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
                         d.writeConfig("FillMode", imageFillMode);
                         d.writeConfig("Color", "#00000000");
-                        
+
                         // IMPORTANT: Restore the config group to the active plugin before reloading
                         d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
                         d.reloadConfig();
@@ -560,7 +563,7 @@ class WallpaperManager:
                 script = f"""
                 var d = desktops();
                 for (var i = 0; i < d.length; i++) {{
-                    d[i].currentConfigGroup = Array("Color"); 
+                    d[i].currentConfigGroup = Array("Color");
                     d[i].writeConfig("Color", "{color_hex}");
                     d[i].currentConfigGroup = Array("Wallpaper", "org.kde.color", "General");
                     d[i].writeConfig("Color", "{color_hex}");
@@ -695,10 +698,8 @@ class WallpaperManager:
 
                         # Resolve path
                         final_path = path
-                        try:
+                        with contextlib.suppress(Exception):
                             final_path = str(Path(path).resolve())
-                        except Exception:
-                            pass
 
                         # Map back to monitor ID
                         if kde_idx in kde_idx_to_monitor_idx:

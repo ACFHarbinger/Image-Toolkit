@@ -30,8 +30,8 @@ from __future__ import annotations
 import argparse
 import pathlib
 import sys
-from xml.dom import minidom
 import xml.etree.ElementTree as ET
+from xml.dom import minidom
 
 IMAGE_EXTS: frozenset[str] = frozenset(
     {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif"}

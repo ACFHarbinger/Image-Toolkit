@@ -39,17 +39,16 @@ Environment variables
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-from backend.src.animation.ingestion.frame_selection import smart_select_frames
 # --------------------------------
-
-
 import logging
 import os
 from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
+
+# --- Relocated Nested Imports ---
+from backend.src.animation.ingestion.frame_selection import smart_select_frames
 
 logger = logging.getLogger(__name__)
 

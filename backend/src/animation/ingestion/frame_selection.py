@@ -52,6 +52,7 @@ for camera displacement estimation (currently disabled; see note below).
 from __future__ import annotations
 
 import concurrent.futures
+import contextlib
 import os
 from typing import List, Optional, Tuple
 
@@ -305,10 +306,7 @@ def _compute_dhash(
     -------
     np.ndarray of dtype bool, shape (hash_size²,).
     """
-    if thumb.dtype != np.uint8:
-        src = np.clip(thumb * 255, 0, 255).astype(np.uint8)
-    else:
-        src = thumb
+    src = np.clip(thumb * 255, 0, 255).astype(np.uint8) if thumb.dtype != np.uint8 else thumb
     if len(src.shape) == 3:
         src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
     small = cv2.resize(src, (hash_size + 1, hash_size), interpolation=cv2.INTER_AREA)
@@ -424,8 +422,8 @@ def _drop_exact_dhash_duplicates(
 
     n_dropped = keep.count(False)
     return (
-        [t for t, k in zip(thumbs, keep) if k],
-        [p for p, k in zip(paths, keep) if k],
+        [t for t, k in zip(thumbs, keep, strict=False) if k],
+        [p for p, k in zip(paths, keep, strict=False) if k],
         n_dropped,
     )
 
@@ -548,7 +546,7 @@ def _temporal_variance_filter(
                 u8, list(paths), sigma_threshold)
             n_dropped = N - len(ft)
             # Recover original float32 thumb objects by path matching
-            path_to_thumb = {p: t for p, t in zip(paths, thumbs)}
+            path_to_thumb = {p: t for p, t in zip(paths, thumbs, strict=False)}
             kept_thumbs = [path_to_thumb.get(p, u8[i]) for i, p in enumerate(fp)]
             return kept_thumbs, list(fp), n_dropped
         except Exception:
@@ -565,8 +563,8 @@ def _temporal_variance_filter(
 
     n_dropped = keep.count(False)
     return (
-        [t for t, k in zip(thumbs, keep) if k],
-        [p for p, k in zip(paths, keep) if k],
+        [t for t, k in zip(thumbs, keep, strict=False) if k],
+        [p for p, k in zip(paths, keep, strict=False) if k],
         n_dropped,
     )
 
@@ -623,8 +621,8 @@ def _reject_blurry_frames(
 
     n_dropped = keep.count(False)
     return (
-        [t for t, k in zip(thumbs, keep) if k],
-        [p for p, k in zip(paths, keep) if k],
+        [t for t, k in zip(thumbs, keep, strict=False) if k],
+        [p for p, k in zip(paths, keep, strict=False) if k],
         n_dropped,
     )
 
@@ -680,8 +678,8 @@ def _reject_low_contrast_frames(
 
     n_dropped = keep.count(False)
     return (
-        [t for t, k in zip(thumbs, keep) if k],
-        [p for p, k in zip(paths, keep) if k],
+        [t for t, k in zip(thumbs, keep, strict=False) if k],
+        [p for p, k in zip(paths, keep, strict=False) if k],
         n_dropped,
     )
 
@@ -1258,10 +1256,8 @@ def smart_select_frames(
                 _bg_accum = np.minimum(_bg_accum, _bg_prob)
                 _fg_accum = np.maximum(_fg_accum, _fg_prob)
                 _n_ok += 1
-            try:
+            with contextlib.suppress(Exception):
                 _biref.offload()
-            except Exception:
-                pass
             del _biref
             _gc.collect()
             if _torch.cuda.is_available():
@@ -1496,7 +1492,7 @@ def smart_select_frames(
                     if _HOLD_THRESHOLD > 0 and hold_ids[c] == hold_ids[s_prev]
                     else 0.0
                 )
-                for s, c in zip(scores, candidates)
+                for s, c in zip(scores, candidates, strict=False)
             ]
             best_local = int(np.argmin(scores_adj))
             best = candidates[best_local]

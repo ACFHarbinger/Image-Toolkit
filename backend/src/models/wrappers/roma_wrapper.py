@@ -15,19 +15,18 @@ translation as a 2-DOF estimate compatible with the BA anchor format.
 
 from __future__ import annotations
 
-import gc
-
+import contextlib
 import logging
-
-logger = logging.getLogger(__name__)
+from typing import Optional, Tuple
 
 import cv2
 import numpy as np
 import torch
-from typing import Optional, Tuple
+from PIL import Image
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
 
+logger = logging.getLogger(__name__)
 try:
     from romatch import roma_outdoor
 
@@ -65,20 +64,16 @@ class RoMaWrapper(ModelWrapper):
     def unload(self) -> None:
         """Delete model from VRAM/RAM, then flush CUDA cache."""
         if self._model is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._model.to("cpu")
-            except Exception:
-                pass
             del self._model
             self._model = None
         super().unload()
 
     def offload(self) -> None:
         if self._model is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._model.to("cpu")
-            except Exception:
-                pass
             import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -124,9 +119,8 @@ class RoMaWrapper(ModelWrapper):
             new_h, new_w = h, w
             scale = 1.0
 
-        pil_i = _PILImage.fromarray(cv2.cvtColor(img_i_rs, cv2.COLOR_BGR2RGB))
-        pil_j = _PILImage.fromarray(cv2.cvtColor(img_j_rs, cv2.COLOR_BGR2RGB))
-
+        pil_i = Image.fromarray(cv2.cvtColor(img_i_rs, cv2.COLOR_BGR2RGB))
+        pil_j = Image.fromarray(cv2.cvtColor(img_j_rs, cv2.COLOR_BGR2RGB))
         try:
             with torch.no_grad():
                 warp, certainty = self._model.match(pil_i, pil_j, device=self.device)

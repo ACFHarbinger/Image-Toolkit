@@ -1,22 +1,23 @@
 import os
-import torch
-
 from pathlib import Path
+
+import torch
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QPushButton,
-    QLabel,
-    QLineEdit,
-    QSpinBox,
     QDoubleSpinBox,
     QFileDialog,
-    QTextEdit,
     QGridLayout,
+    QLabel,
+    QLineEdit,
     QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt, QTimer
+
 from ....helpers.models.training_worker import TrainingWorker
 
 

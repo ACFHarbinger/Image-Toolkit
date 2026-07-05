@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class NodeData:
     """Represents a node in the graph."""

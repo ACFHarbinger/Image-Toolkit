@@ -122,7 +122,7 @@ def start(
     other_paths: Optional[Dict[str, str]] = None,
     qdbus: Optional[str] = None,
 ) -> str:
-    resolved = [resolve_duration(p, d) for p, d in zip(queue, durations)]
+    resolved = [resolve_duration(p, d) for p, d in zip(queue, durations, strict=False)]
     config = {"monitor_id": monitor_id, "queue": list(queue), "durations": resolved}
     callback = make_apply_callback(monitors, style, video_style, other_paths, qdbus)
     return base.run_monitor_slideshow("start", json.dumps(config), callback)

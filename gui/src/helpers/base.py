@@ -60,7 +60,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject, QRunnable, QThread, Signal, Slot
 
 if TYPE_CHECKING:
-    from backend.src.errors import ImageToolkitError
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +118,9 @@ class BaseQThreadWorker(QThread):
             from backend.src.errors import (
                 AlignmentFailedError,
                 CanvasError,
-                PipelineError,
-                ModelLoadError,
                 ConfigError,
+                ModelLoadError,
+                PipelineError,
             )
             if isinstance(exc, (AlignmentFailedError, CanvasError)):
                 logger.warning("%s: %s", type(exc).__name__, exc)

@@ -1,7 +1,8 @@
 import os
+from typing import Dict, List, Tuple
+
 import cv2
 import numpy as np
-from typing import Dict, List, Tuple
 from PySide6.QtCore import (
     QSize,
     Qt,
@@ -27,13 +28,13 @@ from PySide6.QtWidgets import (
 )
 
 from ....constants import (
-    STITCH_THUMB_W,
-    STITCH_THUMB_H,
     DARK_GROUP_STYLE,
+    STITCH_THUMB_H,
+    STITCH_THUMB_W,
 )
 from ....styles import apply_shadow_effect
-from .control_point_editor import ControlPointEditor, _load_thumb, _apply_color_correction
 from ..widgets import ColorCorrectionWidget, MeshWarpWidget, SeamPainterWidget
+from .control_point_editor import ControlPointEditor, _apply_color_correction, _load_thumb
 from .render_panel import RenderPanel
 
 

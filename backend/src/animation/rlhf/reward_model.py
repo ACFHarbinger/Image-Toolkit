@@ -15,7 +15,7 @@ At inference time ``predict(img_bgr)`` returns a scalar in [0, 1] where
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -30,9 +30,9 @@ try:
 except ImportError:
     _TORCH_OK = False
 
-from .feedback_store import FeedbackStore
 from backend.src.constants import REWARD_MODEL_DEFAULT_PATH, REWARD_MODEL_INPUT_SIZE
 
+from .feedback_store import FeedbackStore
 
 # ---------------------------------------------------------------------------
 # Network

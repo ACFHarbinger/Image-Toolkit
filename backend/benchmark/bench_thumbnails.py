@@ -4,13 +4,14 @@ Thumbnail generation performance benchmarks.
 Measures the speed of native C++ image scaling and FFmpeg video thumbnailing.
 """
 
-import sys
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from PIL import Image
+
 import numpy as np
+from PIL import Image
 
 # Add parent to path (backend) and root (Image-Toolkit)
 backend_dir = Path(__file__).parent.parent

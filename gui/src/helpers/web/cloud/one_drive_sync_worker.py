@@ -1,8 +1,9 @@
 import time
+from typing import Any, Dict
 
-from typing import Dict, Any
-from PySide6.QtCore import QRunnable
 from backend.src.web import OneDriveSync
+from PySide6.QtCore import QRunnable
+
 from .cloud_drive_sync_signals import CloudDriveSyncWorkerSignals
 
 

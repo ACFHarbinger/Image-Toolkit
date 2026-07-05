@@ -1,20 +1,5 @@
-from .clickable_label import ClickableLabel as ClickableLabel
-from .draggable_label import DraggableLabel as DraggableLabel
-from .opaque_viewport import OpaqueViewport as OpaqueViewport
-from .frame_selection_dialog import FrameSelectionDialog as FrameSelectionDialog
-from .marquee_scroll_area import MarqueeScrollArea as MarqueeScrollArea
-from .optional_field import OptionalField as OptionalField
-from .property_comparison_dialog import (
-    PropertyComparisonDialog as PropertyComparisonDialog,
-)
-from .queue_item_widget import QueueItemWidget as QueueItemWidget
-from .drag_preview_window import DragPreviewWindow as DragPreviewWindow
-
-from .monitor_drop_widget import MonitorDropWidget as MonitorDropWidget
-from .draggable_monitor_container import (
-    DraggableMonitorContainer as DraggableMonitorContainer,
-)
-from .double_clickable_label import (
-    DoubleClickableLabel as DoubleClickableLabel,
-)
-from .merge_canvas_item import MergeCanvasItem as MergeCanvasItem
+from .containers import *  # noqa: F403
+from .dialogs import *  # noqa: F403
+from .elements import *  # noqa: F403
+from .labels import *  # noqa: F403
+from .views import *  # noqa: F403

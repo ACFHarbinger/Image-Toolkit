@@ -1,8 +1,10 @@
+import contextlib
 import os
-from typing import Optional, Callable
+from typing import Callable, Optional
+
+from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel
-from PySide6.QtGui import QMouseEvent, QPainter, QColor, QPen, QPixmap
-from PySide6.QtCore import Qt, Signal, QPoint
 
 
 class ClickableLabel(QLabel):
@@ -61,13 +63,11 @@ class ClickableLabel(QLabel):
             self.style_callback = callback
         if target_label:
             self.img_label = target_label
-            
+
         if self.style_callback and self.img_label:
-            try:
-                # Pass the label we want to style, not self
+            # Pass the label we want to style, not self
+            with contextlib.suppress(RuntimeError):
                 self.style_callback(self.img_label, is_selected)
-            except RuntimeError:
-                pass
 
     def enterEvent(self, event):
         self._hovered = True

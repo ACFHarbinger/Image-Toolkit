@@ -1,24 +1,25 @@
 from django.urls import path
+
 from .views import (
-    ConvertView,
-    MergeView,
-    DeleteView,
-    DuplicateScanView,
-    SearchView,
-    TrainingView,
-    FrameExtractionView,
-    GifExtractionView,
-    VideoExtractionView,
     CloudSyncView,
-    ImageCrawlView,
-    ReverseSearchView,
-    WebRequestView,
-    DatabaseConnectView,
+    ConvertView,
     DatabaseAddGroupView,
     DatabaseAddSubgroupView,
     DatabaseAddTagView,
     DatabaseAutoPopulateView,
+    DatabaseConnectView,
     DatabaseResetView,
+    DeleteView,
+    DuplicateScanView,
+    FrameExtractionView,
+    GifExtractionView,
+    ImageCrawlView,
+    MergeView,
+    ReverseSearchView,
+    SearchView,
+    TrainingView,
+    VideoExtractionView,
+    WebRequestView,
 )
 
 urlpatterns = [

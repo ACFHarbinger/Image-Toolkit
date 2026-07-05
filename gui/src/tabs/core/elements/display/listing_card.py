@@ -1,13 +1,10 @@
-from typing import Dict, Any
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QMenu, QPushButton
+from typing import Any, Dict
 
 from gui.src.constants.listings import (
     CARD_SIZE,
     PLACEHOLDER,
-    TYPE_COLORS,
     STATUS_COLORS,
+    TYPE_COLORS,
 )
 from gui.src.tabs.core.elements.common.listings_common import (
     _badge,
@@ -15,6 +12,9 @@ from gui.src.tabs.core.elements.common.listings_common import (
     open_web_link,
 )
 from gui.src.tabs.core.elements.display.common.base_card import BaseCard
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QVBoxLayout
 
 
 class _ListingCard(BaseCard):

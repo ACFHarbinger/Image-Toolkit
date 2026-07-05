@@ -1,23 +1,23 @@
-import os
-import json
-import shutil
 import hashlib
-import backend.src.constants as udef
-
+import json
+import os
+import shutil
 from pathlib import Path
+
+import backend.src.constants as udef
+from backend.src.core.vault_manager import VaultManager
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
-    QMessageBox,
-    QInputDialog,
+    QVBoxLayout,
+    QWidget,
 )
-from backend.src.core.vault_manager import VaultManager
 
 
 class LoginWindow(QWidget):
@@ -170,7 +170,7 @@ class LoginWindow(QWidget):
             QPushButton:hover {{
                 background-color: {btn_hover};
             }}
-            
+
             /* Theme Button Specific Style */
             #ThemeButton {{
                 background-color: transparent;

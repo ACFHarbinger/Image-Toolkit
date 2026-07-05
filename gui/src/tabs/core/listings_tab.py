@@ -1,18 +1,16 @@
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QTabWidget,
-)
-
 from backend.src.core.vault_manager import VaultManager  # noqa: F401
-from ...constants.listings import (
-    LISTINGS_FILE,  # noqa: F401
-    ENTITIES_FILE,  # noqa: F401
+from PySide6.QtWidgets import (
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
+from ...constants.listings import (
+    ENTITIES_FILE,  # noqa: F401
+    LISTINGS_FILE,  # noqa: F401
+)
 
 # ---------------------------------------------------------------------------
-
 from .elements.content_listings_subtab import ContentListingsSubTab
 from .elements.entity_listings_subtab import EntityListingsSubTab
 

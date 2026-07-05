@@ -1,13 +1,12 @@
 import os
 import sys
 import tempfile
-
 from unittest.mock import patch
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.core import FSETool, FileDeleter  # noqa: E402
+from src.core import FileDeleter, FSETool  # noqa: E402
 
 
 class FSEToolTest:

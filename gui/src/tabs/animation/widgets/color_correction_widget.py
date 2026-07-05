@@ -1,6 +1,7 @@
+from typing import Dict
+
 import cv2
 import numpy as np
-from typing import Dict
 from PySide6.QtCore import (
     Qt,
     QTimer,
@@ -11,13 +12,13 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtWidgets import (
-    QWidget,
+    QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QSlider,
     QVBoxLayout,
-    QHBoxLayout,
-    QSizePolicy,
+    QWidget,
 )
 
 from ....styles import apply_shadow_effect

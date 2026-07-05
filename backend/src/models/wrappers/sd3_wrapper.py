@@ -1,6 +1,8 @@
 import os
+
 import torch
 from diffusers import StableDiffusion3Pipeline
+
 
 class SD3Wrapper:
     is_cancelled = False

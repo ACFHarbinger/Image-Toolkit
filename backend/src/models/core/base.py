@@ -27,8 +27,8 @@ from __future__ import annotations
 
 import functools
 import gc
-import weakref
 import logging
+import weakref
 from abc import abstractmethod
 from typing import Callable, List, Optional, TypeVar
 

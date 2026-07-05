@@ -25,13 +25,12 @@ Both passes are optional and controlled by flags on AnimeStitchPipeline.
 
 from __future__ import annotations
 
+import importlib.util as _importlib_util
 from typing import List, Optional
 
 import cv2
 import numpy as np
 import torch
-
-import importlib.util as _importlib_util
 
 # Fast availability probe — no import, just checks for the package on sys.path.
 # §3.14: actual `from diffusers import ...` is deferred to _ensure_diffusers().
@@ -65,9 +64,11 @@ def _ensure_diffusers() -> bool:
     if _DIFFUSERS_LOADED:
         return True
     try:
+        from diffusers import (
+            AutoPipelineForInpainting as _AP,
+        )
         from diffusers import (  # type: ignore
             StableDiffusionInpaintPipeline as _SD,
-            AutoPipelineForInpainting as _AP,
         )
         from PIL import Image as _PI
 

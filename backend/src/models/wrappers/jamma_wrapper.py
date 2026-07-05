@@ -27,8 +27,6 @@ Interface: identical to LoFTRWrapper and EfficientLoFTRWrapper:
 
 from __future__ import annotations
 
-import gc
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -53,8 +51,8 @@ try:
     if os.path.isdir(_VENDOR_PATH) and _VENDOR_PATH not in sys.path:
         sys.path.insert(0, _VENDOR_PATH)
     import mamba_ssm  # noqa: F401 — confirm CUDA extension is loadable
-    from src.jamma.jamma import JamMa  # type: ignore
     from src.config.default import get_cfg_defaults  # type: ignore
+    from src.jamma.jamma import JamMa  # type: ignore
     _JAMMA_OK = True
 except Exception as _e:
     _JAMMA_ERR = str(_e)

@@ -12,14 +12,13 @@ Issue categories covered:
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-from backend.src.animation.alignment.canvas import _detect_scroll_axis
 # --------------------------------
-
-
 from typing import List, NamedTuple, Tuple
 
 import numpy as np
+
+# --- Relocated Nested Imports ---
+from backend.src.animation.alignment.canvas import _detect_scroll_axis
 
 try:
     from backend.src.animation import base as _batch

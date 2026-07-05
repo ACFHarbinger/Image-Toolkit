@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
-import numpy as np
 
-from gui.src.helpers.image.image_loader_worker import ImageLoaderWorker
+import numpy as np
 from gui.src.helpers.image.batch_image_loader_worker import BatchImageLoaderWorker
+from gui.src.helpers.image.image_loader_worker import ImageLoaderWorker
 from gui.src.helpers.image.image_scan_worker import ImageScannerWorker
 
 # --- ImageLoaderWorker Tests ---
@@ -90,29 +90,28 @@ class TestBatchImageLoaderWorker:
         # Force fallback by mocking HAS_NATIVE_IMAGING = False
         with patch(
             "gui.src.helpers.image.batch_image_loader_worker.HAS_NATIVE_IMAGING", False
-        ):
-            with patch(
-                "gui.src.helpers.image.batch_image_loader_worker.QImage"
-            ) as MockQImage:
-                mock_inst = MagicMock()
-                MockQImage.return_value = mock_inst
-                mock_inst.isNull.return_value = False
-                mock_inst.scaled.return_value = MagicMock()
+        ), patch(
+            "gui.src.helpers.image.batch_image_loader_worker.QImage"
+        ) as MockQImage:
+            mock_inst = MagicMock()
+            MockQImage.return_value = mock_inst
+            mock_inst.isNull.return_value = False
+            mock_inst.scaled.return_value = MagicMock()
 
-                paths = ["/tmp/1.jpg", "/tmp/2.jpg"]
-                worker = BatchImageLoaderWorker(paths, 100)
+            paths = ["/tmp/1.jpg", "/tmp/2.jpg"]
+            worker = BatchImageLoaderWorker(paths, 100)
 
-                results = []
-                # batch_result emits list of (path, QImage)
-                worker.signals.batch_result.connect(lambda res: results.append(res))
+            results = []
+            # batch_result emits list of (path, QImage)
+            worker.signals.batch_result.connect(lambda res: results.append(res))
 
-                worker.run()
+            worker.run()
 
-                assert len(results) == 1
-                batch = results[0]
-                assert len(batch) == 2
-                assert batch[0][0] == "/tmp/1.jpg"
-                assert batch[1][0] == "/tmp/2.jpg"
+            assert len(results) == 1
+            batch = results[0]
+            assert len(batch) == 2
+            assert batch[0][0] == "/tmp/1.jpg"
+            assert batch[1][0] == "/tmp/2.jpg"
 
     def test_run_native(self, q_app):
         # Test native C++ path

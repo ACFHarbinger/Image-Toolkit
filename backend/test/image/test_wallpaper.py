@@ -1,6 +1,6 @@
-import pytest
-
 from unittest.mock import MagicMock, patch
+
+import pytest
 from src.core.wallpaper import WallpaperManager
 
 
@@ -183,7 +183,4 @@ class TestWallpaperManager:
 
 # Helper to check winreg calls simpler
 def winreg_set_value_ex_called_with(mock_winreg, result_key):
-    for call in mock_winreg.SetValueEx.call_args_list:
-        if result_key in call[0]:
-            return True
-    return False
+    return any(result_key in call[0] for call in mock_winreg.SetValueEx.call_args_list)

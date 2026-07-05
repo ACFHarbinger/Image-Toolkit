@@ -37,11 +37,9 @@ from __future__ import annotations
 
 import logging
 import math
-import time
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -437,7 +435,7 @@ def _build_model(backbone: str, embed_dim: int, proj_layers: int) -> CBIRModel:
 
 def _build_clip(embed_dim: int, proj_layers: int) -> CBIRModel:
     try:
-        from transformers import CLIPVisionModel, CLIPVisionConfig
+        from transformers import CLIPVisionConfig, CLIPVisionModel
     except ImportError as exc:
         raise ImportError(
             "transformers>=4.30 required for CLIP backbone.  "
@@ -558,5 +556,5 @@ class _CosineWithWarmup:
         else:
             progress = (s - self._warmup) / (self._total - self._warmup)
             scale = 0.5 * (1.0 + math.cos(math.pi * progress))
-        for pg, base_lr in zip(self._opt.param_groups, self._base_lrs):
+        for pg, base_lr in zip(self._opt.param_groups, self._base_lrs, strict=False):
             pg["lr"] = base_lr * scale

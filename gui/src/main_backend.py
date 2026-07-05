@@ -1,51 +1,52 @@
-from PySide6.QtCore import QObject, Property, Slot, Signal
-from gui.src.windows.settings.settings_backend import SettingsBackend
-from gui.src.windows.logging.log_backend import LogBackend
-from gui.src.windows.slideshow_backend import SlideshowBackend
-from gui.src.tabs.animation.stitch_tab_backend import StitchTabBackend
-from gui.src.tabs.core.listings_tab import ListingsTab
 from gui.src.tabs import (
     ConvertTab,
+    DatabaseTab,
     DeleteTab,
+    DriveSyncTab,
+    ExtractorTab,
+    ImageCrawlTab,
+    MergeTab,
+    MetaCLIPInferenceTab,
+    R3GANEvaluateTab,
+    ReverseImageSearchTab,
     ScanMetadataTab,
     SearchTab,
-    ExtractorTab,
-    MergeTab,
-    ImageCrawlTab,
-    DriveSyncTab,
+    UnifiedGenerateTab,
+    UnifiedTrainTab,
     WallpaperTab,
     WebRequestsTab,
-    DatabaseTab,
-    ReverseImageSearchTab,
-    UnifiedTrainTab,
-    UnifiedGenerateTab,
-    R3GANEvaluateTab,
-    MetaCLIPInferenceTab,
 )
+from gui.src.tabs.animation.stitch_tab_backend import StitchTabBackend
+from gui.src.tabs.core.listings_tab import ListingsTab
+from gui.src.windows.logging.log_backend import LogBackend
+from gui.src.windows.settings.settings_backend import SettingsBackend
+from gui.src.windows.slideshow_backend import SlideshowBackend
+from PySide6.QtCore import Property, QObject, Signal, Slot
+
 
 class MainBackend(QObject):
     def __init__(self, vault_manager):
         super().__init__()
         self.vault_manager = vault_manager
-        
+
         # Initialize Tabs
         # Note: We pass minimal args where possible. Some tabs depend on others (e.g. search depends on db).
-        
+
         self._database_tab = DatabaseTab()
         self._search_tab = SearchTab(self._database_tab, dropdown=True)
         self._scan_metadata_tab = ScanMetadataTab(self._database_tab)
-        
+
         self._convert_tab = ConvertTab(dropdown=True)
         self._merge_tab = MergeTab()
         self._delete_tab = DeleteTab(dropdown=True)
         self._extractor_tab = ExtractorTab()
-        self._wallpaper_tab = WallpaperTab(self._database_tab) 
-        
+        self._wallpaper_tab = WallpaperTab(self._database_tab)
+
         self._crawler_tab = ImageCrawlTab()
         self._drive_sync_tab = DriveSyncTab(vault_manager)
         self._web_requests_tab = WebRequestsTab()
         self._reverse_search_tab = ReverseImageSearchTab()
-        
+
         self._train_tab = UnifiedTrainTab()
         self._generate_tab = UnifiedGenerateTab()
         self._eval_tab = R3GANEvaluateTab()
@@ -85,13 +86,13 @@ class MainBackend(QObject):
 
     @Property(QObject, constant=True)
     def mergeTab(self): return self._merge_tab
-    
+
     @Property(QObject, constant=True)
     def deleteTab(self): return self._delete_tab
 
     @Property(QObject, constant=True)
     def extractorTab(self): return self._extractor_tab
-    
+
     @Property(QObject, constant=True)
     def wallpaperTab(self):
         return self._wallpaper_tab
@@ -107,14 +108,14 @@ class MainBackend(QObject):
     @Property(QObject, constant=True)
     def slideshowBackend(self):
         return self._slideshow_backend
-    
+
     # --- Methods ---
 
     # --- Window Management Signals ---
     requestShowSettings = Signal()
     requestShowLog = Signal(str) # str for tab name optional
     requestShowPreview = Signal(str) # path
-    requestShowSlideshow = Signal() 
+    requestShowSlideshow = Signal()
 
     @Slot()
     def open_settings(self):
@@ -145,7 +146,7 @@ class MainBackend(QObject):
     # --- Web Properties ---
     @Property(QObject, constant=True)
     def imageCrawlTab(self): return self._crawler_tab
-    
+
     @Property(QObject, constant=True)
     def driveSyncTab(self): return self._drive_sync_tab
 

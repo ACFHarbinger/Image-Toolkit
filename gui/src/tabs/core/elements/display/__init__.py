@@ -1,7 +1,7 @@
-from .listing_card import _ListingCard
-from .entity_card import _EntityCard
 from .detail_panel import _DetailPanel
+from .entity_card import _EntityCard
 from .entity_detail_panel import _EntityDetailPanel
+from .listing_card import _ListingCard
 
 __all__ = [
     "_ListingCard",

@@ -1,9 +1,9 @@
 import pytest
-from gui.src.components.draggable_monitor_container import (
+from gui.src.components.containers.draggable_monitor_container import (
     DraggableMonitorContainer,
     _MonitorColumn,
 )
-from gui.src.components.monitor_drop_widget import MonitorDropWidget
+from gui.src.components.views.monitor_drop_view import MonitorDropView
 
 pytestmark = pytest.mark.gui
 
@@ -21,7 +21,7 @@ class TestMonitorColumnLogic:
 
         # Add 1 widget
         m1 = MockMonitor("M1", "1")
-        w1 = MonitorDropWidget(m1, "1")  # pyrefly: ignore [bad-argument-type]
+        w1 = MonitorDropView(m1, "1")  # pyrefly: ignore [bad-argument-type]
         container.addWidget(w1)
 
         # Structure should be: Row -> Column -> Widget
@@ -34,8 +34,8 @@ class TestMonitorColumnLogic:
 
     def test_add_second_widget_new_column(self, q_app):
         container = DraggableMonitorContainer()
-        w1 = MonitorDropWidget(MockMonitor("M1"), "1") # pyrefly: ignore [bad-argument-type]
-        w2 = MonitorDropWidget(MockMonitor("M2"), "2") # pyrefly: ignore [bad-argument-type]
+        w1 = MonitorDropView(MockMonitor("M1"), "1") # pyrefly: ignore [bad-argument-type]
+        w2 = MonitorDropView(MockMonitor("M2"), "2") # pyrefly: ignore [bad-argument-type]
 
         container.addWidget(w1)
         container.addWidget(w2)
@@ -57,11 +57,11 @@ class TestMonitorColumnLogic:
         container.show()
 
         # Create dummy widgets with monitor IDs
-        # MonitorDropWidget(monitor, monitor_id)
-        w1 = MonitorDropWidget(MockMonitor("M1"), "M1") # pyrefly: ignore [bad-argument-type]
-        w2 = MonitorDropWidget(MockMonitor("M2"), "M2") # pyrefly: ignore [bad-argument-type]
-        w3 = MonitorDropWidget(MockMonitor("M3"), "M3") # pyrefly: ignore [bad-argument-type]
-        w4 = MonitorDropWidget(MockMonitor("M4"), "M4") # pyrefly: ignore [bad-argument-type]
+        # MonitorDropView(monitor, monitor_id)
+        w1 = MonitorDropView(MockMonitor("M1"), "M1") # pyrefly: ignore [bad-argument-type]
+        w2 = MonitorDropView(MockMonitor("M2"), "M2") # pyrefly: ignore [bad-argument-type]
+        w3 = MonitorDropView(MockMonitor("M3"), "M3") # pyrefly: ignore [bad-argument-type]
+        w4 = MonitorDropView(MockMonitor("M4"), "M4") # pyrefly: ignore [bad-argument-type]
 
         # Setup: Row 1: [M1, M2] | [M3]
         #        Row 2: [M4]
@@ -126,8 +126,8 @@ class TestMonitorColumnLogic:
 
     def test_column_helpers(self, q_app):
         col = _MonitorColumn()
-        w1 = MonitorDropWidget(MockMonitor("M1"), "1")  # pyrefly: ignore [bad-argument-type]
-        w2 = MonitorDropWidget(MockMonitor("M2"), "2")  # pyrefly: ignore [bad-argument-type]
+        w1 = MonitorDropView(MockMonitor("M1"), "1")  # pyrefly: ignore [bad-argument-type]
+        w2 = MonitorDropView(MockMonitor("M2"), "2")  # pyrefly: ignore [bad-argument-type]
 
         col.add_monitor(w1)
         assert col.count() == 1

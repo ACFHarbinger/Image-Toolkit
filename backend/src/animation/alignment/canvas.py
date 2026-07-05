@@ -4,20 +4,16 @@ Canvas geometry, frame loading & normalization, and SCANS-mode fallback.
 
 from __future__ import annotations
 
-
-from backend.src.animation.core.stateless import _largest_valid_rect
-
+import logging
 from typing import List, Tuple, Union
 
 import cv2
 import numpy as np
 from PIL import Image
 
-from backend.src.errors import CanvasError
+from backend.src.animation.core.stateless import _largest_valid_rect, _trim_dark_border
 from backend.src.constants import CANVAS_MAX_DIM
-from backend.src.animation.core.stateless import _trim_dark_border
-
-import logging
+from backend.src.errors import CanvasError
 
 logger = logging.getLogger(__name__)
 
@@ -572,7 +568,7 @@ def _horizontal_fft_banding(img: np.ndarray, n_strips: int = 8) -> float:
         return 0.0
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
     H = gray.shape[0]
-    if H < n_strips * 4:
+    if n_strips * 4 > H:
         return 0.0
     # Row-mean luminance profile (length H)
     profile = gray.mean(axis=1)  # shape (H,)
@@ -605,7 +601,7 @@ def _canvas_gain_uniformity(img: np.ndarray, n_strips: int = 8) -> float:
     gray: np.ndarray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
     H = gray.shape[0]
     strip_h = H // n_strips
-    if H < n_strips or strip_h < 1:
+    if n_strips > H or strip_h < 1:
         return 0.0
     strip_means = [float(gray[i * strip_h:(i + 1) * strip_h].mean()) for i in range(n_strips)]
     mean_val = float(np.mean(strip_means))
@@ -621,7 +617,7 @@ def _strip_luma_monotonicity(img: np.ndarray, n_strips: int = 8) -> float:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
     H = gray.shape[0]
     strip_h = H // n_strips
-    if H < n_strips or strip_h < 1:
+    if n_strips > H or strip_h < 1:
         return 0.0
     strip_means = [float(gray[i * strip_h:(i + 1) * strip_h].mean()) for i in range(n_strips)]
     diffs = [strip_means[i + 1] - strip_means[i] for i in range(n_strips - 1)]
@@ -905,10 +901,7 @@ def _strip_seam_gradient_score(img: np.ndarray, n_strips: int = 8) -> float:
         boundary_grad = float(gy[b0:b1].mean()) if b1 > b0 else 0.0
         s0 = (i - 1) * strip_h + strip_h // 3
         s1 = i * strip_h - strip_h // 3
-        if s1 > s0 and s0 < H - 1 and s1 < H:
-            interior_grad = float(gy[s0:s1].mean())
-        else:
-            interior_grad = 0.0
+        interior_grad = float(gy[s0:s1].mean()) if s1 > s0 and s0 < H - 1 and s1 < H else 0.0
         ratio = boundary_grad / (interior_grad + 1e-6)
         if ratio > max_ratio:
             max_ratio = ratio

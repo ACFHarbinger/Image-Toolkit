@@ -1,44 +1,42 @@
 import json
 import uuid
-
 from datetime import date
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-
-from PySide6.QtCore import Qt, Signal, Slot, QTimer, QThreadPool
-from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QComboBox,
-    QSpinBox,
-    QTextEdit,
-    QGroupBox,
-    QFrame,
-    QPushButton,
-    QMessageBox,
-    QFormLayout,
-)
+from typing import Any, Dict, List, Optional
 
 import base
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 from gui.src.constants.listings import (
-    ENTITY_TYPES,
     ENTITY_ROLES,
-)
-from gui.src.styles import apply_shadow_effect, SHARED_BUTTON_STYLE
-from gui.src.tabs.core.elements.dialog import (
-    _AssociatedEntitiesDialog,
-    _AssociatedContentDialog,
+    ENTITY_TYPES,
 )
 from gui.src.helpers.image import (
     _CARD_THUMB_CACHE,
     _ThumbWorker,
 )
-from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDetailPanel
+from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
+from gui.src.tabs.core.elements.dialog import (
+    _AssociatedContentDialog,
+    _AssociatedEntitiesDialog,
+)
 from gui.src.tabs.core.elements.dialog.credit_dialog import _CreditDialog
+from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDetailPanel
+from PySide6.QtCore import Qt, QThreadPool, QTimer, Signal, Slot
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+)
 
 
 class _EntityDetailPanel(BaseDetailPanel):

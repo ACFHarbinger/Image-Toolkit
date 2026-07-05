@@ -9,31 +9,30 @@ All tests run without GPU — no BiRefNet or LoFTR dependencies.
 """
 
 from __future__ import annotations
+
 import importlib
-from backend.src.animation.rendering import compositing
-from backend.src.animation.rendering.compositing import (
-    _blocks_gain_compensate,
-    _blocks_lum_compensate,
-    _canvas_dp_seam_composite,
-    _DP_CANVAS_SEAM,
-    _equalize_warped_gains,
-    _feather_gc_boundaries,
-    _GC_FEATHER_PX,
-    _GLOBAL_GAIN_COMP,
-    _compute_ecc_confidence,
-    _compute_multiband_confidence,
-    _MULTIBAND_CONF,
-    _MULTIBAND_CONF_BAND_PX,
-)
-from backend.src.animation.core import config
-
-
 import os
 import sys
 
 import cv2
 import numpy as np
 import pytest
+from backend.src.animation.core import config
+from backend.src.animation.rendering import compositing
+from backend.src.animation.rendering.compositing import (
+    _DP_CANVAS_SEAM,
+    _GC_FEATHER_PX,
+    _GLOBAL_GAIN_COMP,
+    _MULTIBAND_CONF,
+    _MULTIBAND_CONF_BAND_PX,
+    _blocks_gain_compensate,
+    _blocks_lum_compensate,
+    _canvas_dp_seam_composite,
+    _compute_ecc_confidence,
+    _compute_multiband_confidence,
+    _equalize_warped_gains,
+    _feather_gc_boundaries,
+)
 
 _repo_root = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -41,82 +40,89 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 from backend.src.animation.rendering.compositing import (  # noqa: E402
-    _adaptive_sp_threshold,
-    _compute_seam_step_size,
-    _fg_density_feather_cap,
-    _seam_lum_equalize,
     _adaptive_gain_clamp,
+    _adaptive_sp_soft_px,
+    _adaptive_sp_threshold,
+    _annotate_seams,
     _apply_bg_histogram_match,  # noqa: F401
-    _seam_ncc_coherence,
-    _check_seam_ncc_gate,
     _bg_gain_unclamped,
     _bg_histogram_lut,
-    _reject_exposure_outliers,
     _build_seam_cost_map,
     _check_seam_color_gate,
+    _check_seam_ensemble_gate,
+    _check_seam_entropy_gate,
+    _check_seam_freq_gate,
+    _check_seam_grad_direction_gate,
+    _check_seam_hue_gate,
+    _check_seam_max_col_gate,
+    _check_seam_ncc_gate,
+    _check_seam_noise_gate,
+    _check_seam_rms_contrast_gate,
+    _check_seam_saturation_gate,
+    _check_seam_sharpness_gate,
+    _check_seam_ssim_gate,
+    _clamp_seam_path,
     _coherence_skip_mask,
     _composite_foreground,
+    _compute_seam_step_size,
     _diff_to_feather,
+    _enforce_feather_ratio,
+    _fg_density_feather_cap,
+    _fg_fraction_in_zone,
+    _fg_gradient_cost,
+    _fg_zone_pose_gap,
     _gain_to_min_feather,
     _get_seam_cost_flags,
+    _has_sufficient_bg,
     _make_seam_cache_key,
     _multiscale_gain_map,
     _poisson_seam_blend,
-    _seam_cut,
+    _reject_exposure_outliers,
+    _seam_band_ssim,
+    _seam_chroma_equalize,
     _seam_color_match,
     _seam_color_similarity,
     _seam_color_similarity_bgr,
-    _single_pose_soft_edge,
-    _soft_seam_weight,
-    _adaptive_sp_soft_px,
     _seam_corridor_exists,
-    _smooth_seam_path,
-    _clamp_seam_path,
-    _has_sufficient_bg,
-    _seam_path_std,
-    _zone_is_degenerate,
-    _seam_fg_penetration,
-    _seam_zone_texture_energy,
-    _fg_gradient_cost,
-    _annotate_seams,
-    _seam_chroma_equalize,
-    _fg_zone_pose_gap,
-    _fg_fraction_in_zone,
-    _enforce_feather_ratio,
+    _seam_cut,
     _seam_dp_bg_ratio,
     _seam_entropy_asymmetry,
-    _check_seam_entropy_gate,
-    _seam_max_col_luma_step,
-    _check_seam_max_col_gate,
-    _seam_saturation_jump,
-    _check_seam_saturation_gate,
-    _seam_hue_shift,
-    _check_seam_hue_gate,
-    _seam_sharpness_mismatch,
-    _check_seam_sharpness_gate,
-    _seam_grad_direction,
-    _check_seam_grad_direction_gate,
-    _seam_band_ssim,
-    _check_seam_ssim_gate,
+    _seam_fg_penetration,
     _seam_freq_profile,
-    _check_seam_freq_gate,
-    _seam_noise_mismatch,
-    _check_seam_noise_gate,
-    _seam_rms_contrast_ratio,
-    _check_seam_rms_contrast_gate,
     _seam_gate_vote_counts,
-    _check_seam_ensemble_gate,
+    _seam_grad_direction,
+    _seam_hue_shift,
+    _seam_lum_equalize,
+    _seam_max_col_luma_step,
+    _seam_ncc_coherence,
+    _seam_noise_mismatch,
+    _seam_path_std,
+    _seam_rms_contrast_ratio,
+    _seam_saturation_jump,
+    _seam_sharpness_mismatch,
+    _seam_zone_texture_energy,
+    _single_pose_soft_edge,
+    _smooth_seam_path,
+    _soft_seam_weight,
+    _zone_is_degenerate,
     _zone_pair_ssim,
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
+)
+from backend.src.constants import (  # noqa: E402
     FEATHER_MIN as _FEATHER_MIN,
+)
+from backend.src.constants import (  # noqa: E402
     FEATHER_TABLE as _FEATHER_TABLE,  # noqa: F401
+)
+from backend.src.constants import (  # noqa: E402
     SEAM_OVERLAY_AMBER_THRESH as _AMBER,
+)
+from backend.src.constants import (  # noqa: E402
     SEAM_OVERLAY_RED_THRESH as _RED,
 )
 from conftest import make_frame, make_translation_affine  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # 1. _diff_to_feather lookup table (Bug 1 regression)
@@ -190,7 +196,7 @@ class TestCompositeForeground:
         ]
         canvas_h = int((n - 1) * frame_h * 0.8 + frame_h)
         canvas = np.zeros((canvas_h, W, 3), dtype=np.uint8)
-        for i, (f, aff) in enumerate(zip(frames, affines)):
+        for _i, (f, aff) in enumerate(zip(frames, affines, strict=False)):
             wf = cv2.warpAffine(
                 f,
                 aff,
@@ -246,7 +252,7 @@ class TestCompositeForeground:
         ]
         canvas_h = frame_h * 2
         canvas = np.zeros((canvas_h, W, 3), dtype=np.uint8)
-        for i, (f, aff) in enumerate(zip(frames, affines)):
+        for i, (f, aff) in enumerate(zip(frames, affines, strict=False)):
             wf = cv2.warpAffine(
                 f,
                 aff,
@@ -434,7 +440,7 @@ class TestParallelSeamPrecompute:
         ]
         canvas_h = int((n - 1) * frame_h * 0.9 + frame_h)
         canvas = np.zeros((canvas_h, W, 3), dtype=np.uint8)
-        for i, (f, aff) in enumerate(zip(frames, affines)):
+        for _i, (f, aff) in enumerate(zip(frames, affines, strict=False)):
             wf = cv2.warpAffine(
                 f,
                 aff,
@@ -3994,8 +4000,8 @@ class TestMeshBarrier:
 
     def test_cost_map_respects_mesh_barrier_env(self, monkeypatch):
         """With ASP_MESH_BARRIER=1 and a large fg mask the seam cost map has 1e6 entries."""
-        import numpy as np
         import backend.src.animation.rendering.compositing as comp
+        import numpy as np
 
         monkeypatch.setattr(comp, "_MESH_BARRIER", True)
         H, W = 128, 128
@@ -4433,8 +4439,8 @@ class TestBgConsistencyScore:
         assert isinstance(s3, float)
 
     def test_empty_image_returns_zero(self):
-        from backend.benchmark.bench_anime_stitch import _bg_consistency_score
         import numpy as np
+        from backend.benchmark.bench_anime_stitch import _bg_consistency_score
 
         img = np.zeros((0, 10, 3), dtype=np.uint8)
         score = _bg_consistency_score(img, n_strips=1)
@@ -4471,12 +4477,12 @@ class TestSpThreshFgScale:
 
     def test_constants_defined(self):
         from backend.src.constants.animation import (
-            SP_THRESH_FG_FACTOR,
             SP_FG_FRAC_THRESH,
+            SP_THRESH_FG_FACTOR,
         )
 
-        assert SP_THRESH_FG_FACTOR == pytest.approx(0.7)
-        assert SP_FG_FRAC_THRESH == pytest.approx(0.5)
+        assert pytest.approx(0.7) == SP_THRESH_FG_FACTOR
+        assert pytest.approx(0.5) == SP_FG_FRAC_THRESH
 
 
 # ---------------------------------------------------------------------------
@@ -4493,8 +4499,8 @@ class TestZoneChromaAlign:
         assert out.shape == zone.shape
 
     def test_shifts_chroma_toward_reference(self):
-        from backend.src.animation.rendering.compositing import _zone_chroma_align
         import cv2
+        from backend.src.animation.rendering.compositing import _zone_chroma_align
 
         fa = np.full((20, 20, 3), [200, 100, 50], dtype=np.uint8)
         fb = np.full((20, 20, 3), [100, 200, 150], dtype=np.uint8)
@@ -4559,8 +4565,8 @@ class TestSeamZoneEntropyGap:
 
     def test_empty_zone_returns_zero(self):
         from backend.src.animation.rendering.compositing import (
-            _zone_entropy,
             _seam_zone_entropy_gap,
+            _zone_entropy,
         )
 
         empty = np.zeros((0, 10, 3), dtype=np.uint8)
@@ -4739,7 +4745,7 @@ class TestZoneMadThresh:
     def test_default_is_zero(self):
         import backend.src.animation.rendering.compositing as comp
 
-        assert comp._ZONE_MAD_THRESH == pytest.approx(0.0)
+        assert pytest.approx(0.0) == comp._ZONE_MAD_THRESH
 
     def test_constant_defined(self):
         from backend.src.constants.animation import ZONE_MAD_THRESH_DEFAULT
@@ -4886,7 +4892,7 @@ class TestFgOverlapBlendCap:
     def test_default_is_zero(self):
         import backend.src.animation.rendering.compositing as comp
 
-        assert comp._FG_OVERLAP_BLEND_CAP == pytest.approx(0.0)
+        assert pytest.approx(0.0) == comp._FG_OVERLAP_BLEND_CAP
 
     def test_constant_defined(self):
         from backend.src.constants.animation import FG_OVERLAP_BLEND_CAP_DEFAULT
@@ -5003,8 +5009,9 @@ class TestLaplacianAlphaSchedule:
         assert "_LAPLACIAN_ALPHA_SCHEDULE" in comp.__all__
 
     def test_alpha_schedule_accepted_by_laplacian_blend(self):
-        from backend.src.animation.core.stateless import _laplacian_blend
         import inspect
+
+        from backend.src.animation.core.stateless import _laplacian_blend
 
         sig = inspect.signature(_laplacian_blend)
         assert "alpha_schedule" in sig.parameters
@@ -5274,7 +5281,7 @@ class TestCostColSmoothSigma:
     def test_default_is_zero(self):
         import backend.src.animation.rendering.compositing as comp
 
-        assert comp._COST_COL_SMOOTH_SIGMA == pytest.approx(0.0)
+        assert pytest.approx(0.0) == comp._COST_COL_SMOOTH_SIGMA
 
     def test_column_smooth_spreads_cost(self):
         import backend.src.animation.rendering.compositing as comp
@@ -6282,7 +6289,7 @@ class TestBlocksLumCompensateBatchWiring:
         # All channels scaled by same scalar → ratios preserved (within rounding)
         r_b = float(result[:, :, 0].mean())
         r_g = float(result[:, :, 1].mean())
-        r_r = float(result[:, :, 2].mean())
+        float(result[:, :, 2].mean())
         # B/G ratio ≈ 2.0 as in input
         assert abs(r_b / max(r_g, 0.5) - 2.0) < 0.15
 
@@ -6307,8 +6314,8 @@ def _call_find_optimal_boundaries_cpp(warped_list, order, init_bounds, H, W, **k
             H, W,
             kw.get("search_range", 250),
             kw.get("search_slab", 20),
-            kw.get("bg_masks", None),
-            kw.get("affines", None),
+            kw.get("bg_masks"),
+            kw.get("affines"),
         )
     except RuntimeError as e:
         if "not yet implemented" in str(e).lower() or "stub" in str(e).lower():

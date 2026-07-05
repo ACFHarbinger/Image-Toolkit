@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-import pytest
 from pathlib import Path
+
+import pytest
 from gui.src.tabs.animation.dialog.hitl_session_viewer_dialog import (
     HITLSessionViewerDialog,
     _format_session_info,

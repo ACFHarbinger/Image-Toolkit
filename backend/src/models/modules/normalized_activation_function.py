@@ -1,7 +1,8 @@
 import math
+from typing import Optional, Sequence
+
 import torch.nn as nn
 
-from typing import Optional, Sequence
 
 class NormalizedActivationFunction(nn.Module):
     def __init__(
@@ -26,7 +27,7 @@ class NormalizedActivationFunction(nn.Module):
                 div_value=dval,
                 head_bias=bias,
             ),
-        }.get(naf_name, None)
+        }.get(naf_name)
         assert (
             self.norm_activation is not None
         ), "Unknown normalized activation function: {}".format(naf_name)

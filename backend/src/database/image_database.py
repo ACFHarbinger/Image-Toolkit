@@ -1,15 +1,14 @@
 import os
 import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import psycopg2
 import psycopg2.extras
-
-from pathlib import Path
-from datetime import datetime
-from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 
 from .sql_loader import load_sql
-
 
 _schema = load_sql("schema.sql")
 _images = load_sql("images.sql")

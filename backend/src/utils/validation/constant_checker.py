@@ -1,7 +1,7 @@
 import ast
-import os
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
+
 
 def is_constant_name(name: str) -> bool:
     """Checks if a name follows the all-uppercase constant convention."""
@@ -50,18 +50,18 @@ def find_constants(root_dirs: List[str]) -> List[Dict]:
 if __name__ == "__main__":
     script_path = Path(__file__).resolve()
     project_root = script_path.parents[4]
-    
+
     dirs_to_check = [
         str(project_root / "backend"),
         str(project_root / "gui")
     ]
-    
+
     constants = find_constants(dirs_to_check)
-    
+
     grouped = {}
     for c in constants:
         grouped.setdefault(c["file"], []).append(f"{c['name']} (L{c['line']})")
-    
+
     print(f"Found {len(constants)} constant declarations:\n")
     for file, consts in sorted(grouped.items()):
         print(f"--- {file} ---")

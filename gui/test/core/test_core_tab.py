@@ -1,15 +1,15 @@
-import pytest
-import cv2
-import time
 import json
-from unittest.mock import MagicMock, patch, mock_open
-from PySide6.QtWidgets import QWidget
+import time
+from unittest.mock import MagicMock, mock_open, patch
 
+import cv2
+import pytest
 from gui.src.tabs.core.convert_tab import ConvertTab
 from gui.src.tabs.core.delete_tab import DeleteTab
 from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.tabs.core.merge_tab import MergeTab
 from gui.src.tabs.core.wallpaper_tab import WallpaperTab
+from PySide6.QtWidgets import QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -169,8 +169,8 @@ class TestWallpaperTab:
 
     def test_video_duration_caching(self, q_app):
         from gui.src.tabs.core.elements.monitor_display_subtab import (
-            _get_video_duration,
             _VIDEO_DURATION_CACHE,
+            _get_video_duration,
         )
 
         # Clear cache first
@@ -199,31 +199,31 @@ class TestWallpaperTab:
         g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
         tab.monitor_display._graphs["0"] = g
         tab.monitor_display._current_monitor_id = "0"
-        
+
         assert "node1" in tab.monitor_display._graphs["0"].nodes
-        
+
         from PySide6.QtWidgets import QMessageBox
         with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes) as mock_q:
             tab.monitor_display.clear_monitor_graph("0")
             mock_q.assert_called_once()
-            
+
         assert not tab.monitor_display._graphs["0"].nodes
 
     def test_clear_monitor_graph_from_system_tab(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
         tab.system_display._monitor_display_ref = tab.monitor_display
-        
+
         from gui.src.tabs.core.elements.graph.data import GraphData, NodeData
         g = GraphData()
         g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
         tab.monitor_display._graphs["0"] = g
         tab.monitor_display._current_monitor_id = "0"
-        
+
         from PySide6.QtWidgets import QMessageBox
         with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes) as mock_q:
             tab.system_display.clear_monitor_graph("0")
             mock_q.assert_called_once()
-            
+
         assert not tab.monitor_display._graphs["0"].nodes
 
 
@@ -334,7 +334,7 @@ class TestExtractorTab:
             tab = ExtractorTab()
             tab._extracted_stems_cache.clear()
             tab._extracted_stems_cache.add("my_cool_video")
-            
+
             assert tab._has_extracted_files("/path/to/my_cool_video.mp4") is True
             assert tab._has_extracted_files("/path/to/other.mp4") is False
 
@@ -346,16 +346,16 @@ class TestExtractorTab:
             tab = ExtractorTab()
             dummy_video = tmp_path / "dummy_video.mp4"
             dummy_video.write_text("dummy")
-            
+
             config = {
                 "source_directory": str(tmp_path),
                 "extraction_directory": str(tmp_path),
                 "active_videos_config": {str(dummy_video): {}},
                 "video_path": str(dummy_video)
             }
-            
+
             tab.load_media = MagicMock()
-            
+
             with patch("gui.src.tabs.core.extractor_tab.QMessageBox") as mock_box:
                 tab.set_config(config, quiet=True)
                 mock_box.information.assert_not_called()
@@ -375,8 +375,9 @@ class TestListingsTab:
         assert tab.entity_listings is not None
 
     def test_listing_images_subdirectory(self):
-        from gui.src.tabs.core.elements.common.listings_common import LISTING_IMAGES_DIR
         from pathlib import Path
+
+        from gui.src.tabs.core.elements.common.listings_common import LISTING_IMAGES_DIR
 
         assert LISTING_IMAGES_DIR is not None
         assert isinstance(LISTING_IMAGES_DIR, Path)
@@ -419,9 +420,10 @@ class TestListingsTab:
 
     def test_sync_with_mock_vault(self, q_app, monkeypatch, tmp_path):
         import json
+
+        import backend.src.constants as udef
         from gui.src.tabs.core.listings_tab import ListingsTab
         from PySide6.QtWidgets import QMessageBox
-        import backend.src.constants as udef
 
         # Override ROOT_DIR for tests to prevent modifying actual project files
         monkeypatch.setattr(udef, "ROOT_DIR", tmp_path)

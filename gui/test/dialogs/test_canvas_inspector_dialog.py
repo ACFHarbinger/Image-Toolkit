@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import math
+
 import pytest
-
-from PySide6.QtCore import QPointF
-
 from gui.src.tabs.animation.dialog.canvas_inspector_dialog import (
     CanvasInspectorDialog,
 )
+from PySide6.QtCore import QPointF
 
 pytestmark = pytest.mark.gui
 
@@ -36,7 +35,7 @@ class TestCanvasInspectorDrag:
         dlg = CanvasInspectorDialog(data)
         result = dlg.adjusted_affines()
         assert len(result) == 3
-        for idx, (orig, adj) in enumerate(zip(data["affines"], result)):
+        for _idx, (orig, adj) in enumerate(zip(data["affines"], result, strict=False)):
             assert adj[0][2] == pytest.approx(orig[0][2])
             assert adj[1][2] == pytest.approx(orig[1][2])
 

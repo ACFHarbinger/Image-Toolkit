@@ -15,17 +15,17 @@ Legacy API (backward-compatible):
     corrected_images      = basic.process_batch(images)
 """
 
-import gc
+import logging
+from typing import List, Optional, Tuple
+
 import cv2
 import numpy as np
 import torch
-from typing import List, Optional, Tuple
-
-import logging
 
 logger = logging.getLogger(__name__)
 
 from backend.src.models.core.base import ModelWrapper
+
 
 class BaSiCWrapper(ModelWrapper):
     """
@@ -106,7 +106,7 @@ class BaSiCWrapper(ModelWrapper):
         TARGET_W = 512
         ref_h_orig, ref_w_orig = images[0].shape[:2]
         target_h = int(ref_h_orig * TARGET_W / ref_w_orig)
-        
+
         frames = []
         for img in images:
             # Resize to small target size

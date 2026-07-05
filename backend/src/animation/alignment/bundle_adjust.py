@@ -20,7 +20,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.optimize import least_squares
-from backend.src.constants import DY_RATIO_THRESH, DY_ABS_THRESH, GNC_C_PX, GNC_MU_ANNEAL
+
+from backend.src.constants import DY_ABS_THRESH, DY_RATIO_THRESH, GNC_C_PX, GNC_MU_ANNEAL
 
 try:
     from backend.src.animation import base as batch
@@ -222,7 +223,7 @@ def _bundle_adjust_affine(
             ce["dy"] = float(e["M"][1, 2])
             ce["weight"] = float(e.get("weight", 1.0))
             cpp_edges.append(ce)
-        
+
         cpp_out = batch.bundle_adjust.bundle_adjust_affine(
             cpp_edges,
             num_frames,
@@ -230,7 +231,7 @@ def _bundle_adjust_affine(
             use_gnc=(_GNC_OUTER > 0),
             adaptive_f_scale=True,
         )
-        
+
         out = []
         for f in range(num_frames):
             cd = cpp_out[f]
@@ -238,7 +239,7 @@ def _bundle_adjust_affine(
             M[0, 2] = cd["tx"]
             M[1, 2] = cd["ty"]
             out.append(M)
-            
+
         # We skip the python solver but continue to Python outlier rejection
     else:
         # DOF for Partial Affine: [a, b, tx, ty]
@@ -369,7 +370,7 @@ def _bundle_adjust_affine(
             c_sq = _GNC_C_PX ** 2
             x_cur = x0.copy()
             mu: Optional[float] = None
-    
+
             for _outer in range(_GNC_OUTER):
                 # Per-edge squared translation disagreement (scalar, no point unpacking)
                 edge_res_sq = np.zeros(len(edges), dtype=np.float64)
@@ -380,18 +381,18 @@ def _bundle_adjust_affine(
                     obs_dx = -float(e["M"][0, 2])
                     obs_dy = -float(e["M"][1, 2])
                     edge_res_sq[idx_e] = (pred_dx - obs_dx) ** 2 + (pred_dy - obs_dy) ** 2
-    
+
                 # μ₀: largest initialisation such that the surrogate is still convex
                 # (2μ₀c² ≥ max rᵢ²).
                 if mu is None:
                     max_sq = float(edge_res_sq.max()) if len(edge_res_sq) > 0 else 0.0
                     mu = (max_sq / (2.0 * c_sq)) if max_sq > 0 and c_sq > 0 else 1.0
                     mu = max(mu, 1.0)
-    
+
                 gnc_w = _gnc_weights_geman_mcclure(edge_res_sq, mu, c_sq)
                 for idx_e in range(len(edges)):
                     _gnc_ws[idx_e] = float(np.sqrt(max(float(gnc_w[idx_e]), 1e-12)))
-    
+
                 _result_gnc = least_squares(
                     residuals,
                     x_cur,
@@ -408,7 +409,7 @@ def _bundle_adjust_affine(
                 mu /= _GNC_MU_ANNEAL
                 if dx_norm < 1e-3 or mu < 1e-2:
                     break
-    
+
             # Restore unity weights so post-solve residual computations are unweighted
             for idx_e in range(len(_gnc_ws)):
                 _gnc_ws[idx_e] = 1.0
@@ -443,7 +444,7 @@ def _bundle_adjust_affine(
                     max_nfev=iterations * num_frames,
                 )
                 x_opt = result.x
-    
+
         out = _extract_affines(x_opt)
 
     # ── Outlier rejection ───────────────────────────────────────────────────
@@ -496,14 +497,14 @@ def _bundle_adjust_affine(
 
         n_pruned = sum(not k for k in clean_mask)
         if n_pruned > 0:
-            clean_edges = [e for e, keep in zip(edges, clean_mask) if keep]
+            clean_edges = [e for e, keep in zip(edges, clean_mask, strict=False) if keep]
             # Re-solve as long as we have some edges. If the graph is disconnected,
             # unconstrained frames will remain at ty=0, which will trigger the
             # min_gap validation failure later and properly fall back to SCANS.
             if len(clean_edges) >= 2:
                 pruned_info = ", ".join(
                     f"{e['i']}→{e['j']}"
-                    for e, keep in zip(edges, clean_mask)
+                    for e, keep in zip(edges, clean_mask, strict=False)
                     if not keep
                 )
                 print(

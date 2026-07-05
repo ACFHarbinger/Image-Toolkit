@@ -2,15 +2,16 @@
 Benchmark utilities for measuring memory and time across backend operations.
 """
 
-import os
 import gc
-import time
-import psutil # pyrefly: ignore [untyped-import]
 import json
-from typing import Callable, Any, Dict, List, Optional
-from functools import wraps
+import os
+import time
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
+import psutil  # pyrefly: ignore [untyped-import]
 
 
 class MemoryTracker:
@@ -83,6 +84,7 @@ class BenchmarkManager:
     def _get_system_info(self) -> Dict[str, Any]:
         """Collect system information."""
         import platform
+
         import torch
 
         info = {

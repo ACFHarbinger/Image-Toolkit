@@ -25,7 +25,7 @@ from abc import abstractmethod
 from collections import deque
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import Qt, QPoint, QRect, QThreadPool, QTimer
+from PySide6.QtCore import QPoint, QRect, Qt, QThreadPool, QTimer
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -40,7 +40,6 @@ from PySide6.QtWidgets import (
 )
 
 from ..meta.meta_abstract_class_gallery import MetaAbstractClassGallery
-
 
 # ---------------------------------------------------------------------------
 # Internal helper
@@ -172,7 +171,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
 
     def _add_recent_dir(self, path: str, max_entries: int = 10) -> None:
         """Push *path* to the front of the per-class MRU directory list."""
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         cn = self.__class__.__name__
         dirs: list = AppSettings.session(cn, "recent_dirs", []) or []
         if path in dirs:
@@ -192,7 +191,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
                 return []
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         return AppSettings.session(self.__class__.__name__, "recent_dirs", []) or []
 
     def _save_last_dir(self, path: str) -> None:
@@ -206,7 +205,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
                 return
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         AppSettings.set_session(self.__class__.__name__, "last_dir", path)
 
     def _load_last_dir(self, default: str = "") -> str:
@@ -220,7 +219,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
                 return default
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         return AppSettings.session(self.__class__.__name__, "last_dir", default)
 
     # =========================================================================
@@ -618,10 +617,9 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
                     if val not in lower:
                         match = False
                         break
-                elif kind == "or":
-                    if not any(v in lower for v in val):
-                        match = False
-                        break
+                elif kind == "or" and not any(v in lower for v in val):
+                    match = False
+                    break
             if match:
                 result.append(item)
         return result

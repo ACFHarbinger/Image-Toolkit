@@ -27,7 +27,6 @@ from typing import Optional
 
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
-
 # ---------------------------------------------------------------------------
 # Registry definition — one entry per bindable action
 # ---------------------------------------------------------------------------
@@ -238,7 +237,7 @@ class ShortcutRegistry:
             if isinstance(raw_key, int)
             else (raw_key.value if hasattr(raw_key, "value") else int(raw_key))
         )
-        
+
         mods_int: int = raw_mods.value if hasattr(raw_mods, "value") else int(raw_mods) # pyrefly: ignore [bad-argument-type]
         event_seq = QKeySequence(mods_int | key_int)
         return seq == event_seq

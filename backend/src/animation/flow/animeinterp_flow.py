@@ -100,7 +100,7 @@ def trapped_ball_segment(
         tol = radius * 4
         flood_flags = cv2.FLOODFILL_MASK_ONLY | cv2.FLOODFILL_FIXED_RANGE | (255 << 8)
 
-        for sy, sx in zip(seed_ys, seed_xs):
+        for sy, sx in zip(seed_ys, seed_xs, strict=False):
             if labels[sy, sx] != -1:
                 continue
             flood_mask = np.zeros((H + 2, W + 2), dtype=np.uint8)

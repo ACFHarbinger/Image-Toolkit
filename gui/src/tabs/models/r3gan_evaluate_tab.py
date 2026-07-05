@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QFormLayout, QLabel, QLineEdit, QCheckBox
+from PySide6.QtWidgets import QCheckBox, QFormLayout, QLabel, QLineEdit
+
 from ...classes.base.base_generative_tab import BaseGenerativeTab
 
 

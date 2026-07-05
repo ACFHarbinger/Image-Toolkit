@@ -1,7 +1,6 @@
 """Tests for §1.10B param_search.py — Bayesian ASP threshold search."""
 
 import pytest
-
 from backend.src.animation.hitl.param_search import (
     ASP_SEARCH_PARAMS,
     _score_config,

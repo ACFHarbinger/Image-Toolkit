@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
-from .node_data import NodeData
+
 from .edge_data import EdgeData
+from .node_data import NodeData
+
 
 @dataclass
 class GraphData:
@@ -47,7 +49,7 @@ class GraphData:
             e.edge_id = new_id
 
         positions = [i for i, e in enumerate(self.edges) if e.source_id == source_id]
-        for pos, e in zip(positions, ordered):
+        for pos, e in zip(positions, ordered, strict=False):
             self.edges[pos] = e
 
     def to_dict(self) -> dict:

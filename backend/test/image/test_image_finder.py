@@ -1,4 +1,5 @@
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
+
 from backend.src.core.duplicate_finder import DuplicateFinder
 from backend.src.core.similarity_finder import SimilarityFinder
 

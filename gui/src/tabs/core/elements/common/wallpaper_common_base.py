@@ -1,55 +1,53 @@
+import json
 import os
 import platform
 import subprocess
 import uuid
-import json
-from shiboken6 import Shiboken as sip
 from pathlib import Path
-from send2trash import send2trash # pyrefly: ignore [untyped-import]
+from typing import Any, Dict, List, Optional, Tuple, cast
 
-from typing import Dict, List, Optional, Any, Tuple, cast
-from PySide6.QtCore import (
-    Qt,
-    QThread,
-    QTimer,
-    Slot,
-    QPoint,
-    QEvent,
-    QRect,
-    Signal,
-)
-from PySide6.QtGui import QPixmap, QImage, QCursor, QAction
-from PySide6.QtWidgets import (
-    QWidget,
-    QLabel,
-    QApplication,
-    QMessageBox,
-    QGroupBox,
-    QVBoxLayout,
-    QMenu,
-)
-from screeninfo import get_monitors, Monitor
-
-from .....windows import ImagePreviewWindow
-from .....classes import AbstractClassSingleGallery
-from .....helpers import ImageScannerWorker, VideoScannerWorker
-from .....components import (
-    MonitorDropWidget,
-    DraggableLabel,
-    DraggableMonitorContainer,
-)
-from .....utils.sort_utils import natural_sort_key
-from .....styles import STYLE_START_ACTION
-from .....windows import SlideshowQueueWindow
 from backend.src.constants import (
-    SUPPORTED_VIDEO_FORMATS,
-    SUPPORTED_IMG_FORMATS,
     DAEMON_CONFIG_PATH,
+    SUPPORTED_IMG_FORMATS,
+    SUPPORTED_VIDEO_FORMATS,
 )
 from backend.src.core import WallpaperManager
 from backend.src.core.wallpaper import find_qdbus_binary
+from PySide6.QtCore import (
+    QEvent,
+    QPoint,
+    QRect,
+    Qt,
+    QThread,
+    QTimer,
+    Signal,
+    Slot,
+)
+from PySide6.QtGui import QAction, QCursor, QImage, QPixmap
+from PySide6.QtWidgets import (
+    QApplication,
+    QGroupBox,
+    QLabel,
+    QMenu,
+    QMessageBox,
+    QVBoxLayout,
+    QWidget,
+)
+from screeninfo import Monitor, get_monitors
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+from shiboken6 import Shiboken as sip
 
-from ..graph.data import NodeData, EdgeData, GraphData
+from .....classes import AbstractClassSingleGallery
+from .....components import (
+    DraggableLabel,
+    DraggableMonitorContainer,
+    MonitorDropView,
+)
+from .....helpers import ImageScannerWorker, VideoScannerWorker
+from .....styles import STYLE_START_ACTION
+from .....utils.sort_utils import natural_sort_key
+from .....windows import ImagePreviewWindow, SlideshowQueueWindow
+from ..graph.data import GraphData, NodeData
 
 
 class WallpaperCommonBase(AbstractClassSingleGallery):
@@ -64,7 +62,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
     qml_monitors_changed = Signal(list)  # List of dicts
     qml_status_changed = Signal(str)
     directory_scanned = Signal(str)
-    
+
     # Sync signals
     sync_page_changed = Signal(int)
     sync_page_size_changed = Signal(str)
@@ -94,7 +92,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self.qdbus: Optional[str] = find_qdbus_binary()
 
         self.monitors: List[Monitor] = []
-        self.monitor_widgets: Dict[str, MonitorDropWidget] = {}
+        self.monitor_widgets: Dict[str, MonitorDropView] = {}
         self.monitor_image_paths: Dict[str, Optional[str]] = {}
         self.monitor_slideshow_queues: Dict[str, List[str]] = {}
         self.monitor_current_index: Dict[str, int] = {}
@@ -158,16 +156,13 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         return layout_group
 
     def _select_monitor(self, monitor_id: Optional[str]):
-        if self._current_monitor_id == monitor_id:
-            new_id = None
-        else:
-            new_id = monitor_id
+        new_id = None if self._current_monitor_id == monitor_id else monitor_id
 
         self._current_monitor_id = new_id
 
         # Sync selection styling locally
         for mid, widget in self.monitor_widgets.items():
-            if isinstance(widget, MonitorDropWidget):
+            if isinstance(widget, MonitorDropView):
                 widget.set_selected(mid == new_id)
                 widget.repaint()
 
@@ -187,7 +182,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
     def _select_monitor_peer(self, monitor_id: Optional[str]):
         self._current_monitor_id = monitor_id
         for mid, widget in self.monitor_widgets.items():
-            if isinstance(widget, MonitorDropWidget):
+            if isinstance(widget, MonitorDropView):
                 widget.set_selected(mid == monitor_id)
                 widget.repaint()
 
@@ -360,7 +355,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             ]
             event.accept()
 
-        setattr(window, "closeEvent", remove_closed_win)
+        window.closeEvent = remove_closed_win
         window.show()
         self.open_queue_windows.append(window)
 
@@ -431,7 +426,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             ]
             event.accept()
 
-        setattr(window, "closeEvent", remove_closed_win)
+        window.closeEvent = remove_closed_win
         window.show()
         self.open_image_preview_windows.append(window)
 
@@ -783,14 +778,13 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
 
         if hasattr(self, "_monitor_display_ref") and self._monitor_display_ref:
             self._monitor_display_ref.swap_graphs(m0, m1)
-        elif hasattr(self, "_graphs"):
-            if m0 in self._graphs or m1 in self._graphs:
-                self._graphs[m0], self._graphs[m1] = (
-                    self._graphs.get(m1, GraphData()),
-                    self._graphs.get(m0, GraphData()),
-                )
-                if self._current_monitor_id in [m0, m1]:
-                    self._on_monitor_selected(self._current_monitor_id)
+        elif hasattr(self, "_graphs") and (m0 in self._graphs or m1 in self._graphs):
+            self._graphs[m0], self._graphs[m1] = (
+                self._graphs.get(m1, GraphData()),
+                self._graphs.get(m0, GraphData()),
+            )
+            if self._current_monitor_id in [m0, m1]:
+                self._on_monitor_selected(self._current_monitor_id)
 
     def handle_item_swap_request(self, s_mid: str, s_idx: int, t_mid: str, t_idx: int):
         src_queue = self.monitor_slideshow_queues.get(s_mid, [])
@@ -961,7 +955,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
             self.monitors = []
-        
+
         if not self.monitors or not self.monitors[0].name or "Mock" in self.monitors[0].name:
             cast(Any, self.monitor_layout_container).addWidget(
                 QLabel("Could not detect any monitors.\nIs 'screeninfo' installed?")
@@ -992,7 +986,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         monitor_id_to_widget = {}
         for i, monitor in enumerate(self.monitors):
             monitor_id = str(i)
-            drop_widget = MonitorDropWidget(monitor, monitor_id)
+            drop_widget = MonitorDropView(monitor, monitor_id)
 
             real_name = drop_widget.get_real_monitor_name()
             if real_name:
@@ -1047,9 +1041,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             if system_index != -1:
                 monitor_id = str(system_index)
                 if monitor_id in monitor_id_to_widget:
-                    self.monitor_layout_container.addWidget(
-                        monitor_id_to_widget[monitor_id]
-                    )
+                    self.monitor_layout_container.addWidget(monitor_id_to_widget[monitor_id]) # pyrefly: ignore [bad-argument-type]
 
         self.monitors_updated.emit(self.monitors)
 
@@ -1099,7 +1091,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         path_edit = getattr(self, "scan_directory_path", None)
         if path_edit is not None:
             path_edit.setText(directory)
-            
+
         if emit_signal:
             self.directory_scanned.emit(directory)
 
@@ -1367,16 +1359,16 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             if monitor_name in self.monitor_widgets:
                 self.monitor_image_paths[monitor_name] = path
         if hasattr(self, "handle_set_wallpaper_click"):
-            getattr(self, "handle_set_wallpaper_click")()
+            self.handle_set_wallpaper_click()
 
     @Slot(int, int, str, bool, bool)
     def update_slideshow_settings_qml(
         self, interval_min, style, random_order, include_subdirs
     ):
         if hasattr(self, "interval_min_spinbox"):
-            getattr(self, "interval_min_spinbox").setValue(interval_min)
+            self.interval_min_spinbox.setValue(interval_min)
         if hasattr(self, "style_combo"):
-            getattr(self, "style_combo").setCurrentText(style)
+            self.style_combo.setCurrentText(style)
         self.request_monitors_qml()
 
     @Slot(str)

@@ -8,18 +8,17 @@ stitch quality annotations without requiring GPU or file-system state.
 from __future__ import annotations
 
 import json
-import numpy as np
 
+import numpy as np
 from backend.src.animation.rlhf.feedback_store import (
     FeedbackStore,
     StitchAnnotation,
     StitchFeedback,
 )
 from backend.src.animation.rlhf.reward_model import (
-    StitchRewardModel,
     MC_DROPOUT_UNCERTAINTY_THRESHOLD,
+    StitchRewardModel,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

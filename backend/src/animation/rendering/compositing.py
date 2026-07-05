@@ -21,12 +21,14 @@ overlap between the two adjacent frames.
 
 from __future__ import annotations
 
+import concurrent.futures as _cf
+
 from scipy.ndimage import median_filter as _mf
 from skimage.metrics import structural_similarity as ssim_fn
-from backend.src.animation.core.stateless import _laplacian_blend
+
 from backend.src.animation.alignment.fg_register import register_foreground_at_seam
+from backend.src.animation.core.stateless import _laplacian_blend
 from backend.src.animation.rendering.anim_fill import _generate_canonical_cel
-import concurrent.futures as _cf
 
 try:
     import torch as _tc_torch
@@ -49,14 +51,14 @@ from scipy.ndimage import minimum_filter1d as _min_filt1d
 from backend.src.constants import (
     FEATHER_MAX,
     FEATHER_MIN,
-    MULTISCALE_GAIN_SIGMA,
-    SEARCH_RANGE,
-    SEARCH_SLAB,
     FEATHER_TABLE,
     LUMINANCE_WEIGHTS,
+    MULTISCALE_GAIN_SIGMA,
+    SEAM_CROP_BAND_PX,
     SEAM_OVERLAY_AMBER_THRESH,
     SEAM_OVERLAY_RED_THRESH,
-    SEAM_CROP_BAND_PX,
+    SEARCH_RANGE,
+    SEARCH_SLAB,
 )
 
 # §3.11 — Session-level seam ThreadPoolExecutor.  Creating a new pool per
@@ -849,15 +851,9 @@ def _seam_dp_bg_ratio(
     xs = np.arange(W, dtype=np.int32)
     ys = np.clip(path.astype(np.int32), 0, H - 1)
 
-    if bg_mask_a is not None:
-        bg_a = bg_mask_a[ys, xs].astype(bool)
-    else:
-        bg_a = np.ones(W, dtype=bool)
+    bg_a = bg_mask_a[ys, xs].astype(bool) if bg_mask_a is not None else np.ones(W, dtype=bool)
 
-    if bg_mask_b is not None:
-        bg_b = bg_mask_b[ys, xs].astype(bool)
-    else:
-        bg_b = np.ones(W, dtype=bool)
+    bg_b = bg_mask_b[ys, xs].astype(bool) if bg_mask_b is not None else np.ones(W, dtype=bool)
 
     both_bg = bg_a & bg_b
     return round(float(both_bg.mean()), 4)
@@ -1324,10 +1320,7 @@ def _seam_zone_texture_energy(
     variances: list[float] = []
     for frame in (fa, fb):
         band = frame[y0:y1]
-        if band.ndim == 3:
-            gray = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = band
+        gray = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY) if band.ndim == 3 else band
         variances.append(float(cv2.Laplacian(gray, cv2.CV_32F).var()))
     return float(np.mean(variances)) if variances else 0.0
 
@@ -1899,7 +1892,7 @@ def _seam_max_col_luma_step(
     List of ``n_strips − 1`` floats, each the worst-column luma step (0–255).
     """
     H, W = img.shape[:2]
-    if n_strips <= 1 or H < 2 * (band_px + guard) or W == 0:
+    if n_strips <= 1 or 2 * (band_px + guard) > H or W == 0:
         return []
     luma = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
     steps: "List[float]" = []
@@ -2195,10 +2188,7 @@ def _seam_sharpness_mismatch(
     if n_strips <= 1:
         return []
     H = img.shape[0]
-    if img.ndim == 3:
-        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    else:
-        grey = img.astype(np.float32)
+    grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
     lap = cv2.Laplacian(grey, cv2.CV_32F)
     zone_h = H / n_strips
     scores: "List[float]" = []
@@ -2286,10 +2276,7 @@ def _seam_grad_direction(
     if n_strips <= 1:
         return []
     H = img.shape[0]
-    if img.ndim == 3:
-        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    else:
-        grey = img.astype(np.float32)
+    grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
 
     gx = cv2.Sobel(grey, cv2.CV_32F, 1, 0, ksize=3)
     gy = cv2.Sobel(grey, cv2.CV_32F, 0, 1, ksize=3)
@@ -2436,10 +2423,7 @@ def _seam_band_ssim(
         return []
     H = img.shape[0]
     multichannel = img.ndim == 3 and img.shape[2] == 3
-    if multichannel:
-        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    else:
-        grey = img if img.ndim == 2 else img[:, :, 0]
+    grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if multichannel else img if img.ndim == 2 else img[:, :, 0]
     grey = grey.astype(np.float32) / 255.0
 
     zone_h = H / n_strips
@@ -2530,10 +2514,7 @@ def _seam_freq_profile(
     if n_strips <= 1:
         return []
     H = img.shape[0]
-    if img.ndim == 3:
-        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    else:
-        grey = img.astype(np.float32)
+    grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
 
     zone_h = H / n_strips
     scores: "List[float]" = []
@@ -2737,10 +2718,7 @@ def _seam_rms_contrast_ratio(
     if n_strips <= 1:
         return []
     H = img.shape[0]
-    if img.ndim == 3:
-        grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    else:
-        grey = img.astype(np.float32)
+    grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) if img.ndim == 3 else img.astype(np.float32)
 
     zone_h = H / n_strips
     scores: "List[float]" = []
@@ -4335,7 +4313,7 @@ def _bilateral_seam_smooth(
     """
     out = canvas.copy()
 
-    for k, path in seam_paths.items():
+    for _k, path in seam_paths.items():
         if path is None or len(path) == 0:
             continue
         zone_h = min(len(path), canvas.shape[0])
@@ -5076,7 +5054,7 @@ def _composite_foreground(
                 f"[Stitch]   Exposure outlier gate: {_n_exp_skipped}/{N} frames excluded"
                 f" (|lum - median| > {_EXPOSURE_OUTLIER_THRESH:.1f})."
             )
-        _skip_norm = [a or b for a, b in zip(_skip_norm, _exp_skip)]
+        _skip_norm = [a or b for a, b in zip(_skip_norm, _exp_skip, strict=False)]
     if len(valid_lums) >= 2:
         lum_by_order = [frame_lums[int(order[k])] for k in range(N)]
         adj_diffs = [

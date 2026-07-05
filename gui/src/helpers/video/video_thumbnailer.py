@@ -1,14 +1,14 @@
+import hashlib
 import os
 import shutil
 import subprocess
 
-from PySide6.QtGui import QImage
-from PySide6.QtCore import Qt
-import hashlib
 from backend.src.constants import (
-    THUMBNAIL_CACHE_DIR,
     IS_LINUX,
+    THUMBNAIL_CACHE_DIR,
 )
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QImage
 
 
 def get_video_thumbnail_cache_path(video_path: str) -> str:

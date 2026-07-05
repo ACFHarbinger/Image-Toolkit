@@ -20,20 +20,19 @@ model weights are unavailable.
 
 from __future__ import annotations
 
-import gc
-
 import logging
 
 logger = logging.getLogger(__name__)
 
+from typing import Optional, Tuple
+
 import cv2
 import numpy as np
 import torch
-from typing import Optional, Tuple
 
 try:
-    from transformers import AutoImageProcessor, EfficientLoFTRForKeypointMatching
     from PIL import Image as _PILImage
+    from transformers import AutoImageProcessor, EfficientLoFTRForKeypointMatching
     _TRANSFORMERS_OK = True
 except ImportError:
     _TRANSFORMERS_OK = False
@@ -134,8 +133,8 @@ class EfficientLoFTRWrapper(ModelWrapper):
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         # Model resizes internally; track the model-input size to scale back.
-        H_model = inputs["pixel_values"].shape[-2]
-        W_model = inputs["pixel_values"].shape[-1]
+        inputs["pixel_values"].shape[-2]
+        inputs["pixel_values"].shape[-1]
 
         with torch.no_grad():
             outputs = self._model(**inputs)

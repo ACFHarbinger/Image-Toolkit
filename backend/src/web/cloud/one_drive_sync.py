@@ -1,6 +1,7 @@
 import json
+from typing import Any, Callable
+
 import base  # Native extension
-from typing import Callable, Any
 
 
 class OneDriveSync:

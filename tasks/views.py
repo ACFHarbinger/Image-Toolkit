@@ -1,47 +1,48 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers as drf_serializers
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .serializers import (
-    FrameExtractionSerializer,
-    DbAutoPopulateSerializer,
+    CloudSyncSerializer,
+    ConversionSerializer,
     DatabaseConfigSerializer,
     DbAddGroupSerializer,
     DbAddSubgroupSerializer,
     DbAddTagSerializer,
-    SearchSerializer,
-    TrainingSerializer,
-    ConversionSerializer,
-    MergeSerializer,
-    CloudSyncSerializer,
-    ImageCrawlSerializer,
+    DbAutoPopulateSerializer,
     DeletionSerializer,
     DuplicateScanSerializer,
-    ReverseSearchSerializer,
-    WebRequestSerializer,
+    FrameExtractionSerializer,
     GifExtractionSerializer,
+    ImageCrawlSerializer,
+    MergeSerializer,
+    ReverseSearchSerializer,
+    SearchSerializer,
+    TrainingSerializer,
     VideoExtractionSerializer,
+    WebRequestSerializer,
 )
 from .tasks import (
-    task_convert_images,
-    task_merge_images,
-    task_delete_files,
-    task_scan_duplicates,
-    task_train_gan,
-    task_extract_frames,
-    task_create_gif,
-    task_extract_video_clip,
     task_cloud_sync,
+    task_convert_images,
     task_crawl_images,
-    task_reverse_search,
-    task_web_request,
-    task_db_test_connection,
+    task_create_gif,
     task_db_add_group,
     task_db_add_subgroup,
     task_db_add_tag,
     task_db_auto_populate,
     task_db_reset,
+    task_db_test_connection,
+    task_delete_files,
+    task_extract_frames,
+    task_extract_video_clip,
+    task_merge_images,
+    task_reverse_search,
+    task_scan_duplicates,
+    task_train_gan,
+    task_web_request,
 )
 
 # Shared response schemas used by all async task endpoints.

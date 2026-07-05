@@ -1,8 +1,9 @@
 import os
+from math import gcd
+from typing import Dict, List
+
 import cv2
 import numpy as np
-from math import gcd
-from typing import Dict, List, Optional, Tuple
 from PySide6.QtCore import QObject, QRunnable, Signal
 
 
@@ -54,10 +55,7 @@ class StatsWorker(QRunnable):
 
         individual: List[dict] = []
         knn = self._knn_window
-        if n <= 12:
-            _n_pw_est = n * (n - 1) // 2
-        else:
-            _n_pw_est = (n - 1) + (n - 1) * min(knn - 1, n - 2)
+        _n_pw_est = n * (n - 1) // 2 if n <= 12 else n - 1 + (n - 1) * min(knn - 1, n - 2)
         total_steps = n + max(_n_pw_est, 1)
         done = 0
 
@@ -78,7 +76,7 @@ class StatsWorker(QRunnable):
                         (int(w * scale), int(h * scale)),
                         interpolation=cv2.INTER_AREA,
                     )
-            bgr_cache[path] = bgr
+            bgr_cache[path] = bgr # pyrefly: ignore [unsupported-operation]
             done += 1
             self.signals.progress.emit(int(done / total_steps * 100))
 
@@ -104,7 +102,7 @@ class StatsWorker(QRunnable):
         total_steps_pw = max(len(pairs), 1)
         done_pw = 0
 
-        orb = cv2.ORB_create(nfeatures=500)
+        orb = cv2.ORB_create(nfeatures=500) # pyrefly: ignore [missing-attribute]
         for i, j, is_consec in pairs:
             if self._cancelled:
                 return
@@ -241,9 +239,11 @@ class StatsWorker(QRunnable):
                 matches = bf.knnMatch(des_a, des_b, k=2)
                 good = [m for m, n in matches if m.distance < 0.75 * n.distance]
                 if len(good) >= 4:
+                    # pyrefly: ignore [bad-argument-type]
                     src_pts = np.float32([kp_a[m.queryIdx].pt for m in good]).reshape(
                         -1, 1, 2
                     )
+                    # pyrefly: ignore [bad-argument-type]
                     dst_pts = np.float32([kp_b[m.trainIdx].pt for m in good]).reshape(
                         -1, 1, 2
                     )

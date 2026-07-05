@@ -1,7 +1,7 @@
 import pytest
-from PySide6.QtCore import Qt, QPointF
-from gui.src.tabs.core.elements.graph.wallpaper_graph_scene import WallpaperGraphScene
 from gui.src.tabs.core.elements.graph.data import GraphData
+from gui.src.tabs.core.elements.graph.wallpaper_graph_scene import WallpaperGraphScene
+from PySide6.QtCore import QPointF, Qt
 
 pytestmark = pytest.mark.gui
 
@@ -23,7 +23,7 @@ def test_wallpaper_graph_scene_connection_mode(q_app):
     scene.start_connection_mode(n1_id)
     # Process events to allow the deferred connection mode start to run
     q_app.processEvents()
-    
+
     assert scene._connecting_source_node_id == n1_id
     assert scene._temp_connection_pos is not None
 
@@ -68,7 +68,7 @@ def test_wallpaper_graph_scene_cancel_connection_right_click(q_app):
     # Start connection mode
     scene.start_connection_mode(n1_id)
     q_app.processEvents()
-    
+
     assert scene._connecting_source_node_id == n1_id
     assert scene._temp_connection_pos is not None
 

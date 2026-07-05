@@ -1,21 +1,20 @@
 import pytest
-
-from PySide6.QtCore import Qt, QPoint
-from PySide6.QtWidgets import QWidget, QVBoxLayout
-
-from gui.src.components.clickable_label import ClickableLabel
-from gui.src.components.draggable_label import DraggableLabel
-from gui.src.components.monitor_drop_widget import MonitorDropWidget
-from gui.src.components.marquee_scroll_area import MarqueeScrollArea
-from gui.src.components.draggable_monitor_container import DraggableMonitorContainer
-from gui.src.components.opaque_viewport import OpaqueViewport
-from gui.src.components.optional_field import OptionalField
-from gui.src.components.property_comparison_dialog import PropertyComparisonDialog
-from gui.src.components.queue_item_widget import QueueItemWidget
+from gui.src.components import (
+    ClickableLabel,
+    DraggableLabel,
+    DraggableMonitorContainer,
+    MarqueeScrollArea,
+    MonitorDropView,
+    OpaqueViewport,
+    OptionalField,
+    PropertyComparisonDialog,
+    QueueItemView,
+)
+from PySide6.QtCore import QPoint, Qt
 
 # --- ClickableLabel Tests ---
-
 from PySide6.QtTest import QTest as QTestUtils
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -53,7 +52,7 @@ class TestDraggableLabel:
         assert label.width() == 100
 
 
-# --- MonitorDropWidget Tests ---
+# --- MonitorDropView Tests ---
 
 
 class MockMonitor:
@@ -61,10 +60,10 @@ class MockMonitor:
         self.name = name
 
 
-class TestMonitorDropWidget:
+class TestMonitorDropView:
     def test_init_and_set_image(self, q_app, mock_pixmap):
         monitor = MockMonitor()
-        widget = MonitorDropWidget(monitor, "1")  # pyrefly: ignore [bad-argument-type]
+        widget = MonitorDropView(monitor, "1")  # pyrefly: ignore [bad-argument-type]
 
         assert widget.monitor_id == "1"
         assert "Monitor 1" in widget.text()
@@ -142,9 +141,9 @@ class TestPropertyComparisonDialog:
         assert dialog.table.rowCount() > 0
 
 
-class TestQueueItemWidget:
+class TestQueueItemView:
     def test_display_text(self, q_app, mock_pixmap):
         # QueueItemWidget requires a pixmap for preview
-        widget = QueueItemWidget("/tmp/task1.png", mock_pixmap)
+        widget = QueueItemView("/tmp/task1.png", mock_pixmap)
         # Verify that the filename label displays the basename
         assert widget.layout().itemAt(2).widget().text() == "task1.png" # pyrefly: ignore [missing-attribute]

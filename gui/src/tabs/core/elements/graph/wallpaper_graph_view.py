@@ -1,11 +1,10 @@
 import os
-from typing import Optional
 
-from PySide6.QtCore import Qt, QPointF
-from PySide6.QtGui import QBrush, QColor, QPainter, QMouseEvent
-from PySide6.QtWidgets import QGraphicsView, QGraphicsItem
+from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsView
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS, SUPPORTED_IMG_FORMATS
 from .node_item import NODE_W
 from .wallpaper_graph_scene import WallpaperGraphScene
 
@@ -115,12 +114,14 @@ class WallpaperGraphView(QGraphicsView):
                 if curr.__class__.__name__ in ("NodeItem", "EdgeItem", "MergeCanvasItem"):
                     is_interactive = True
                     break
-                if curr.flags() & (QGraphicsItem.GraphicsItemFlag.ItemIsMovable | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
-                    if not (hasattr(self, "_bg") and curr is self._bg):
-                        is_interactive = True
-                        break
+                if (
+                    (curr.flags() and (QGraphicsItem.GraphicsItemFlag.ItemIsMovable | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable))
+                    and not (hasattr(self, "_bg") and curr is self._bg)
+                ):
+                    is_interactive = True
+                    break
                 curr = curr.parentItem()
-            
+
             if is_interactive:
                 super().mousePressEvent(event)
             else:

@@ -1,14 +1,14 @@
 """
 A tool to visually trace the origin and usages of a Python component.
 """
-import sys
 import os
+import sys
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
 
 from backend.src.utils.validation.dependency_grapher import DependencyGrapher
-from backend.src.utils.validation.ast_scope_visitor import ASTScopeVisitor
+
 
 def main():
     import argparse

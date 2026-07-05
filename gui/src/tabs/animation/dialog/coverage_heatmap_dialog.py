@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt, QRect
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import (
     QBrush,
     QColor,

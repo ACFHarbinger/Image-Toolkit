@@ -1,16 +1,16 @@
 import os
-import sys
-import pytest
 import shutil
-
-from PIL import Image
+import sys
 from pathlib import Path
+
+import pytest
+from PIL import Image
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
+from src.constants import ROOT_DIR, SUPPORTED_IMG_FORMATS  # noqa: E402
 from src.core import ImageFormatConverter  # noqa: E402
-from src.constants import SUPPORTED_IMG_FORMATS, ROOT_DIR  # noqa: E402
 
 
 # --- TESTS (Adapted to Class Methods and Corrected Path Logic) ---

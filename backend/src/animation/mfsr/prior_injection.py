@@ -15,14 +15,12 @@ from __future__ import annotations
 
 # --- Relocated Nested Imports ---
 from huggingface_hub import hf_hub_download
+
 try:
     from RealESRGAN import RealESRGAN  # type: ignore
 except ImportError:
     RealESRGAN = None
-from PIL import Image as _PIL
 # --------------------------------
-
-
 import os
 import shutil
 import subprocess
@@ -30,6 +28,7 @@ import tempfile
 
 import cv2
 import numpy as np
+from PIL import Image as _PIL
 
 try:
     import torch
@@ -162,10 +161,7 @@ def apply_prior(
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     chain = []
-    if backend == "auto":
-        chain = ["real_esrgan", "waifu2x", "edsr", "bicubic"]
-    else:
-        chain = [backend]
+    chain = ["real_esrgan", "waifu2x", "edsr", "bicubic"] if backend == "auto" else [backend]
     last_err = None
     for b in chain:
         try:

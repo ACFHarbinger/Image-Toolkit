@@ -27,39 +27,39 @@ Or override any key:
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-from backend.src.models.data.video_frame_extractor import VideoFrameExtractor
-import cv2
-from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
-import numpy as np
-from PIL import Image
-from backend.src.models.data.captioner import (
-WD14Tagger,
-Florence2Captioner,
-HybridCaptioner,
-)
-from backend.src.pipeline.data_selection import cluster_duplicates
-from backend.src.models.data.video_frame_extractor import _phash64
-from transformers import CLIPTokenizer
-from backend.src.models.data.lora_dataset import BucketSample, LoRADatasetV2
-from backend.src.models.data.augmentations import default_anime_augmentations
-from backend.src.models.lora_diffusion import (
-LoRATunerConfig,
-LoRATunerV2,
-DreamBoothTuner,
-)
-from backend.src.models.full_finetune import FullFTConfig, FullFineTuner
-from torch.utils.data import DataLoader
-from backend.src.models.data.lora_dataset import AspectRatioBucketSampler
+import contextlib
+
 # --------------------------------
-
-
 import logging
 from pathlib import Path
 
+import cv2
+import numpy as np
 from omegaconf import DictConfig, OmegaConf
+from PIL import Image
+from torch.utils.data import DataLoader
+from transformers import CLIPTokenizer
+
+from backend.src.models.data.augmentations import default_anime_augmentations
+from backend.src.models.data.captioner import (
+    Florence2Captioner,
+    HybridCaptioner,
+    WD14Tagger,
+)
+from backend.src.models.data.lora_dataset import AspectRatioBucketSampler, BucketSample, LoRADatasetV2
+
+# --- Relocated Nested Imports ---
+from backend.src.models.data.video_frame_extractor import VideoFrameExtractor, _phash64
+from backend.src.models.full_finetune import FullFineTuner, FullFTConfig
 from backend.src.models.hooks import DiagnosticsLogger
+from backend.src.models.lora_diffusion import (
+    DreamBoothTuner,
+    LoRATunerConfig,
+    LoRATunerV2,
+)
+from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
+from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+from backend.src.pipeline.data_selection import cluster_duplicates
 
 log = logging.getLogger(__name__)
 
@@ -251,21 +251,13 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
     # BiRefNet for augmentations (optional)
     birefnet = None
     if bool(cfg.get("data", {}).get("use_birefnet", True)):
-        try:
-            # relocated: from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-
+        with contextlib.suppress(Exception):
             birefnet = BiRefNetWrapper()
-        except Exception:
-            pass
 
     basic = None
     if bool(cfg.get("data", {}).get("use_basic", True)):
-        try:
-            # relocated: from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
-
+        with contextlib.suppress(Exception):
             basic = BaSiCWrapper()
-        except Exception:
-            pass
 
     samples = [
         BucketSample.from_path(p, trigger=trigger) for p in image_paths if p.exists()

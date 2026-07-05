@@ -2,9 +2,9 @@
 
 import numpy as np
 from backend.src.animation.flow.cam_flow import (
-    bg_masked_phase_correlate,
-    CamFlowEstimator,
     CAM_FLOW_MIN_BG_PIXELS,  # noqa: F401
+    CamFlowEstimator,
+    bg_masked_phase_correlate,
 )
 
 

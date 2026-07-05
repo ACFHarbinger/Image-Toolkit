@@ -1,21 +1,22 @@
-import cv2
 import logging
+from typing import Any, Dict, List, Optional, Tuple
+
+import cv2
 import numpy as np
-
-from typing import Dict, Any, List, Tuple, Optional
-
-logger = logging.getLogger(__name__)
+from backend.src.constants import SSIM_C1, SSIM_C2
+from backend.src.core import DuplicateFinder, SimilarityFinder
 from PySide6.QtCore import (
-    Slot,
-    Signal,
+    QEventLoop,
     QObject,
     QThread,
     QThreadPool,
-    QEventLoop,
+    Signal,
+    Slot,
 )
-from .tasks import PhashTask, OrbTask, SiftTask, SsimTask, SiameseTask
-from backend.src.core import DuplicateFinder, SimilarityFinder
-from backend.src.constants import SSIM_C1, SSIM_C2
+
+from .tasks import OrbTask, PhashTask, SiameseTask, SiftTask, SsimTask
+
+logger = logging.getLogger(__name__)
 
 
 class DuplicateScanWorker(QObject):
@@ -51,7 +52,7 @@ class DuplicateScanWorker(QObject):
         self.aggregator_loop = None
 
         if recursive is None:
-            from gui.src.utils.settings import AppSettings
+            from gui.src.windows.settings.app_settings import AppSettings
             self.recursive = AppSettings.recursive_scan()
         else:
             self.recursive = recursive
@@ -220,9 +221,8 @@ class DuplicateScanWorker(QObject):
             self.status.emit(f"Processed {self.processed_count}/{self.total_files}...")
 
         # If all tasks are accounted for, quit the blocking loop
-        if self.processed_count >= self.total_files:
-            if self.aggregator_loop and self.aggregator_loop.isRunning():
-                self.aggregator_loop.quit()
+        if self.processed_count >= self.total_files and self.aggregator_loop and self.aggregator_loop.isRunning():
+            self.aggregator_loop.quit()
 
     def _chunked_compare(
         self, method_prefix: str, is_similar_fn, chunk_size: int = 500

@@ -5,8 +5,8 @@ from .cloud.one_drive_sync_worker import OneDriveSyncWorker
 from .image_crawl_worker import ImageCrawlWorker
 from .mal_sync_worker import MalSyncWorker
 from .reverse_search_worker import ReverseSearchWorker
-from .web_requests_worker import WebRequestsWorker
 from .sync_backup_worker import _SyncBackupWorker
+from .web_requests_worker import WebRequestsWorker
 
 __all__ = [
     "CloudDriveSyncWorkerSignals",

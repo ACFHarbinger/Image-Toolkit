@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import os
-from typing import List, Optional
+from typing import List
 
 import cv2
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QImage, QPixmap, QColor, QPainter, QBrush
+from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
 
 _CARD_W = 160
 _CARD_H = 120
@@ -112,7 +111,7 @@ class SelectionReviewDialog(QDialog):
 
         self._cards: List[_ThumbnailCard] = [
             _ThumbnailCard(p, t, d)
-            for p, t, d in zip(self._paths, thumbnails, diffs)
+            for p, t, d in zip(self._paths, thumbnails, diffs, strict=False)
         ]
         self._build_ui()
         self._update_status()

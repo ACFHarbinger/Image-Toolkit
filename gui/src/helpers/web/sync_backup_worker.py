@@ -4,11 +4,10 @@ import json
 import zipfile
 from pathlib import Path
 
-from PySide6.QtCore import Signal, QThread
-
-import base
 import backend.src.constants as udef
+import base
 from gui.src.constants.listings import LISTING_IMAGES_DIR
+from PySide6.QtCore import QThread, Signal
 
 
 def _sync_images_from_backup(prefix: str) -> int:
@@ -95,9 +94,7 @@ class _SyncBackupWorker(QThread):
         total_rows = len(rows)
         for i, row in enumerate(rows):
             id_, category, _, _, _ = row
-            if self.category == "Content" and category != "Entity":
-                base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
-            elif self.category == "Entity" and category == "Entity":
+            if self.category == "Content" and category != "Entity" or self.category == "Entity" and category == "Entity":
                 base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
             percent = 30 + int(10 * (i + 1) / (total_rows if total_rows > 0 else 1))
             self.progress.emit(

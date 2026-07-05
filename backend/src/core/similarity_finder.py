@@ -1,10 +1,11 @@
 import sys
-import cv2
-import base
-import numpy as np
-
-from PIL import Image
 from pathlib import Path
+
+import base
+import cv2
+import numpy as np
+from PIL import Image
+
 from backend.src.constants import SSIM_C1, SSIM_C2
 
 

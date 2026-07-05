@@ -1,28 +1,6 @@
 from pathlib import Path
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
-    QFormLayout,
-    QLabel,
-    QLineEdit,
-    QSpinBox,
-    QPushButton,
-    QFileDialog,
-    QMessageBox,
-    QGroupBox,
-    QComboBox,
-    QSplitter,
-    QWidget,
-    QCheckBox,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QAbstractItemView,
-)
 
-from gui.src.constants.listings import ENTRY_TYPES, ENTRY_STATUS
+from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.common.listings_common import (
     _persist_splitter,
@@ -30,6 +8,28 @@ from gui.src.tabs.core.elements.common.listings_common import (
 )
 from gui.src.tabs.core.elements.dialog.common.base_directory_import_dialog import (
     BaseDirectoryImportDialog,
+)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
 

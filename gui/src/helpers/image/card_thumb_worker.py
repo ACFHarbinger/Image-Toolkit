@@ -1,10 +1,8 @@
 """Async thumbnail infrastructure for listing/entity cards."""
 
-from PySide6.QtCore import Qt, Signal, Slot, QObject, QRunnable
-from PySide6.QtGui import QImage
-
 from gui.src.utils.lru_image_cache import LRUImageCache
-
+from PySide6.QtCore import QObject, QRunnable, Qt, Signal, Slot
+from PySide6.QtGui import QImage
 
 # Shared LRU cache: stores scaled QImages keyed by absolute path.
 # 250 entries ≈ ~30 MB at 130×130 RGBA — well within budget.

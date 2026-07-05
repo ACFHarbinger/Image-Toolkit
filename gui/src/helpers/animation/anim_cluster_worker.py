@@ -1,9 +1,11 @@
 import os
+from typing import List
+
 import cv2
 import numpy as np
-from sklearn.cluster import KMeans
-from typing import List
 from PySide6.QtCore import QObject, QRunnable, Signal
+from sklearn.cluster import KMeans
+
 
 class _AnimClusterSignals(QObject):
     progress = Signal(int)

@@ -18,11 +18,29 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import torch
 from typing import List, Optional
 
 import cv2
-from PySide6.QtCore import QObject, QThread, Signal, Slot, Qt
+import torch
+from backend.src.animation.mfsr.drl_registration import RegistrationAgent
+from backend.src.animation.rlhf import (
+    StitchRewardModel,
+    fine_tune_drl_agent,
+    train_reward_model,
+)
+from backend.src.animation.rlhf.bench_import import (
+    parse_bench_json,
+    resolve_anime_path,
+    suggested_rating,
+    verdict_label,
+)
+from backend.src.animation.rlhf.feedback_store import (
+    RLHF_FLAW_TYPES,
+    FeedbackStore,
+    StitchAnnotation,
+)
+from backend.src.constants import SUPPORTED_IMG_FORMATS
+from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
 from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
@@ -45,26 +63,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...helpers.animation.annotation_canvas import AnnotationCanvas
-from backend.src.animation.rlhf.feedback_store import (
-    RLHF_FLAW_TYPES,
-    FeedbackStore,
-    StitchAnnotation,
-)
-from backend.src.animation.rlhf.bench_import import (
-    parse_bench_json,
-    resolve_anime_path,
-    suggested_rating,
-    verdict_label,
-)
-
-from backend.src.animation.rlhf import (
-    train_reward_model,
-    StitchRewardModel,
-    fine_tune_drl_agent,
-)
-from backend.src.animation.mfsr.drl_registration import RegistrationAgent
 from ...utils.splitter_persistence import persist_splitter
-from backend.src.constants import SUPPORTED_IMG_FORMATS
 
 # ---------------------------------------------------------------------------
 # Background workers
@@ -145,7 +144,7 @@ class _DRLFineTuneWorker(QObject):
                 img = cv2.imread(path, cv2.IMREAD_COLOR)
                 if img is not None:
                     pairs.append(img)
-            frame_pairs = list(zip(pairs, pairs[1:]))
+            frame_pairs = list(zip(pairs, pairs[1:], strict=False))
             if not frame_pairs:
                 self.error.emit("Need at least 2 valid images to form training pairs.")
                 return

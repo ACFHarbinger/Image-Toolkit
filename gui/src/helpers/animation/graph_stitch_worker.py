@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from typing import Dict, List
+
 from PySide6.QtCore import QObject, Signal
 
 from .stitch_worker import (
     _TOTAL_STAGES,
-    _ProgressPipeline,
     _build_pipeline_kwargs,
+    _ProgressPipeline,
 )
 
 

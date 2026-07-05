@@ -1,5 +1,5 @@
-from PySide6.QtCore import Signal, Slot, QObject
-from PySide6.QtGui import QPixmap, QGuiApplication
+from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtGui import QGuiApplication, QPixmap
 
 
 # Mock the worker signals

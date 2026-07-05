@@ -1,22 +1,23 @@
+from PySide6.QtCore import Property, QPoint, Qt, Signal, Slot
 from PySide6.QtGui import QAction
-from PySide6.QtCore import Qt, QPoint, Slot, Property, Signal
 from PySide6.QtWidgets import (
-    QLineEdit,
-    QPushButton,
-    QLabel,
-    QGroupBox,
     QComboBox,
-    QMessageBox,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
-    QVBoxLayout,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QMenu,
+    QMessageBox,
     QProgressBar,
+    QPushButton,
+    QVBoxLayout,
     QWidget,
 )
-from ...windows.logging import LogWindow
+
 from ...helpers import WebRequestsWorker
+from ...windows.logging import LogWindow
 
 
 class WebRequestsTab(QWidget):
@@ -40,12 +41,12 @@ class WebRequestsTab(QWidget):
 
         # --- Group Box Styling ---
         group_box_style = """
-            QGroupBox { 
-                border: 1px solid #4f545c; 
+            QGroupBox {
+                border: 1px solid #4f545c;
                 border-radius: 8px;
                 margin-top: 10px;
             }
-            QGroupBox::title { 
+            QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 4px 10px;
@@ -466,7 +467,7 @@ class WebRequestsTab(QWidget):
     @Property(list, notify=qml_actions_changed)
     def actions_model(self):
         return [{"display_text": a} for a in self._actions_data]
-    
+
     @Property(str, notify=qml_status_changed)
     def status_text(self):
         return self._status_text

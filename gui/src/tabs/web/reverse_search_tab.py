@@ -1,31 +1,31 @@
 import os
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
-from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
-from PySide6.QtCore import Qt, QThread, Slot, QThreadPool, Property, Signal
+from backend.src.web import ENGINE_GOOGLE, ENGINE_LOCAL_CBIR, ENGINE_TINEYE
+from PySide6.QtCore import Property, Qt, QThread, QThreadPool, Signal, Slot
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QPixmap
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QGridLayout,
+    QGroupBox,
     QHBoxLayout,
-    QPushButton,
     QLabel,
     QLineEdit,
-    QCheckBox,
-    QGroupBox,
-    QGridLayout,
     QMessageBox,
-    QFileDialog,
-    QComboBox,
+    QPushButton,
     QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ...components import ClickableLabel, MarqueeScrollArea
-from ...windows import ImagePreviewWindow
-from ...utils.sort_utils import natural_sort_key
 from ...classes import AbstractClassSingleGallery
-from ...helpers import ImageScannerWorker, ReverseSearchWorker, ImageLoaderWorker
+from ...components import ClickableLabel, MarqueeScrollArea
+from ...helpers import ImageLoaderWorker, ImageScannerWorker, ReverseSearchWorker
 from ...styles import apply_shadow_effect
-from backend.src.web import ENGINE_GOOGLE, ENGINE_TINEYE, ENGINE_LOCAL_CBIR
+from ...utils.sort_utils import natural_sort_key
+from ...windows import ImagePreviewWindow
 
 _ENGINE_LABELS = {
     "Google Lens": ENGINE_GOOGLE,
@@ -59,7 +59,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
 
         self.scan_thread: Optional[QThread] = None
         self.scan_worker: Optional[ImageScannerWorker] = None
-        
+
         # QML State
         self._is_searching = False
 

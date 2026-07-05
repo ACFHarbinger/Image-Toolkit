@@ -21,13 +21,12 @@ _repo_root = os.path.dirname(
 sys.path.insert(0, _repo_root)
 
 from backend.src.animation.alignment.fg_register import (  # noqa: E402
-    register_foreground_at_seam,
-    _seam_taper,
-    _dense_flow,
     _arap_push,
     _arap_regularise,  # noqa: F401
+    _dense_flow,
+    _seam_taper,
+    register_foreground_at_seam,
 )
-
 
 # ---------------------------------------------------------------------------
 # Synthetic scene helpers

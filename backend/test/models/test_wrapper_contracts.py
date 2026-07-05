@@ -27,13 +27,10 @@ Contract categories tested:
 
 from __future__ import annotations
 
-import gc
 import os
 import sys
 import types
-import unittest
-from typing import Optional
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -128,7 +125,6 @@ class TestBaSiCWrapperLifecycle:
     def test_init_no_device_defaults_to_string(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
-            from importlib import reload
             import backend.src.models.wrappers.basic_wrapper as _mod
             w = _mod.BaSiCWrapper()
         assert isinstance(w.device, str)
@@ -227,7 +223,7 @@ class TestALIKEDWrapperLifecycle:
 
     def test_unavailable_when_kornia_blocked(self):
         """When kornia is blocked from import, _KORNIA_OK must be False after reload."""
-        from importlib import reload, import_module
+        from importlib import reload
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub, "kornia": None, "kornia.feature": None}):
             import backend.src.models.wrappers.aliked_lg_wrapper as _mod

@@ -1,23 +1,24 @@
 import threading
 
+from backend.src.constants import LOCAL_SOURCE_PATH
+from backend.src.models.tuning.lo_ra_tuner import LoRATuner
+from backend.src.models.wrappers.gan_wrapper import GanWrapper
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
-    QFormLayout,
-    QLineEdit,
-    QSpinBox,
-    QDoubleSpinBox,
-    QPushButton,
     QComboBox,
-    QLabel,
-    QWidget,
-    QHBoxLayout,
+    QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QWidget,
 )
+
 from ....classes.base.base_generative_tab import BaseGenerativeTab
-from backend.src.models.wrappers.gan_wrapper import GanWrapper
-from backend.src.models.tuning.lo_ra_tuner import LoRATuner
-from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class LoRATrainTab(BaseGenerativeTab):

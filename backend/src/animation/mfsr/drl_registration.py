@@ -32,12 +32,12 @@ except ImportError:
     _TORCH_OK = False
 
 from backend.src.constants import (
+    DRL_AXIS_STEPS,
     DRL_BATCH_SIZE,
     DRL_GAMMA,
     DRL_LR,
     DRL_MEMORY_SIZE,
     DRL_STATE_SIZE,
-    DRL_AXIS_STEPS,
     NUM_ACTIONS,
 )
 
@@ -194,7 +194,7 @@ class RegistrationAgent:
         if (not _TORCH_OK) or len(self.memory) < self.batch_size:
             return None
         batch = random.sample(self.memory, self.batch_size)
-        states, actions, rewards, next_states, dones = zip(*batch)
+        states, actions, rewards, next_states, dones = zip(*batch, strict=False)
         s = torch.from_numpy(np.stack(states).astype(np.float32)).to(self.device)
         a = torch.tensor(actions, dtype=torch.long, device=self.device).unsqueeze(1)
         r = torch.tensor(rewards, dtype=torch.float32, device=self.device).unsqueeze(1)
@@ -366,7 +366,7 @@ class RegistrationAgent:
         best_ssim = _ssim(img_ref, warped)
         best_params = params.copy()
 
-        for t in range(max_steps):
+        for _t in range(max_steps):
             state = self._state_vector(img_ref, warped, self.state_dim)
             action = self._select_action(state, epsilon=0.05 if self._trained else 1.0)
             axis, step = DRL_AXIS_STEPS[action]

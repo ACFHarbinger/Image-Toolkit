@@ -16,7 +16,7 @@ try:
 except Exception:
     pass
 
-from .mfsr import de_seam, pso_register, run_mfsr
 from .core.pipeline import AnimeStitchPipeline
+from .mfsr import de_seam, pso_register, run_mfsr
 
 __all__ = ["AnimeStitchPipeline", "run_mfsr", "pso_register", "de_seam"]

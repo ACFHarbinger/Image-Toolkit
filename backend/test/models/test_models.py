@@ -1,7 +1,7 @@
-import pytest
 import sys
-
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Back up original sys.modules to prevent leaks to other test files
 _original_sys_modules = dict(sys.modules)
@@ -21,8 +21,8 @@ sys.modules["torchvision.utils"] = MagicMock()
 sys.modules["torchvision.transforms"] = MagicMock()
 
 try:
-    from backend.src.models.wrappers.gan_wrapper import GanWrapper  # noqa: E402
     from backend.src.models.core.siamese_network import SiameseModelLoader  # noqa: E402
+    from backend.src.models.wrappers.gan_wrapper import GanWrapper  # noqa: E402
 finally:
     # Restore sys.modules to pre-test state immediately
     for k in list(sys.modules.keys()):

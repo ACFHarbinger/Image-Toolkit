@@ -1,6 +1,6 @@
-import pytest
-
 from unittest.mock import MagicMock
+
+import pytest
 from conftest import MockKeyStoreManager
 from src.core.vault_manager import VaultManager as JavaVaultManager
 
@@ -42,11 +42,10 @@ class JavaVaultManagerTest:
             assert loaded_data == JSON_DATA
 
     def test_keystore_load_with_path_error(self, mock_jpype):
-        with JavaVaultManager("test.jar") as manager:
-            with pytest.raises(
-                Exception, match="java.io.IOException: Keystore was tampered with."
-            ):
-                manager.load_keystore("wrong.p12", "badpass")
+        with JavaVaultManager("test.jar") as manager, pytest.raises(
+            Exception, match="java.io.IOException: Keystore was tampered with."
+        ):
+            manager.load_keystore("wrong.p12", "badpass")
 
     def test_error_saving_data_before_init_vault(self, mock_jpype):
         with JavaVaultManager("test.jar") as manager:
@@ -57,9 +56,8 @@ class JavaVaultManagerTest:
                 manager.save_data("{}")
 
     def test_error_getting_key_before_load_keystore(self, mock_jpype):
-        with JavaVaultManager("test.jar") as manager:
-            with pytest.raises(ValueError, match="Keystore is not loaded"):
-                manager.get_secret_key("alias", "keypass")
+        with JavaVaultManager("test.jar") as manager, pytest.raises(ValueError, match="Keystore is not loaded"):
+            manager.get_secret_key("alias", "keypass")
 
     def test_error_non_existent_key_alias(self, mock_jpype):
         with JavaVaultManager("test.jar") as manager:

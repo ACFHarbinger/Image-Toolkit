@@ -4,6 +4,7 @@ Centralized from backend/src/animation/*
 """
 
 from pathlib import Path
+
 import numpy as np
 
 # Core stitching constants

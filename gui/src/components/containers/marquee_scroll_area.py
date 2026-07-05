@@ -1,6 +1,7 @@
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QMouseEvent, QWheelEvent
-from PySide6.QtCore import Qt, Signal, QPoint, QRect, QSize
-from PySide6.QtWidgets import QScrollArea, QRubberBand, QApplication
+from PySide6.QtWidgets import QApplication, QRubberBand, QScrollArea
+
 from . import ClickableLabel, OpaqueViewport
 
 
@@ -93,9 +94,8 @@ class MarqueeScrollArea(QScrollArea):
                     label_rect = QRect(label_top_left, label.size())
                     # --- CRITICAL FIX END ---
 
-                    if selection_rect_content.intersects(label_rect):
-                        if hasattr(label, "path"):
-                            current_selected_paths.add(label.path)
+                    if selection_rect_content.intersects(label_rect) and hasattr(label, "path"):
+                        current_selected_paths.add(label.path)
 
             mods = QApplication.keyboardModifiers()
             is_ctrl_pressed = bool(mods & Qt.KeyboardModifier.ControlModifier)

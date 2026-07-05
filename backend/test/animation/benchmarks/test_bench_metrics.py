@@ -9,92 +9,99 @@ Covers:
 """
 
 from __future__ import annotations
-from backend.benchmark.bench_anime_stitch import _zone_coverage_fraction
-from backend.benchmark.bench_anime_stitch import _canvas_gain_uniformity
-from backend.benchmark.bench_anime_stitch import _strip_luma_monotonicity
-from backend.benchmark.bench_anime_stitch import _compute_si_fid_score
 
 import os
 import sys
-import pytest
+
 import numpy as np
+import pytest
+from backend.benchmark.bench_anime_stitch import (
+    _canvas_gain_uniformity,
+    _compute_si_fid_score,
+    _strip_luma_monotonicity,
+    _zone_coverage_fraction,
+)
 
 _repo_root = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 sys.path.insert(0, _repo_root)
 
+from backend.benchmark import bench_anime_stitch as bench_mod  # noqa: E402
 from backend.benchmark.bench_anime_stitch import (  # noqa: E402
-    _seam_visibility_score,
-    _compute_aligned_ssim,
-    _compute_rlhf_score,
-    _compute_all_metrics,
-    _compute_per_seam_ghost_scores,
-    _seam_bhattacharyya_distances,
-    _ghosting_score_v2,
-    _ghosting_score,
-    _edge_energy_score,
-    _SSIM_OK,
-    _RLHF_FLAG_THRESHOLD,
-    _seam_ncc_coherence,
-    _composite_quality_score,
-    _seam_ownership_entropy,
-    _NOISE_CV_ABS_FLOOR,
-    _NOISE_CV_RATIO,
-    _ENTROPY_CV_ABS_FLOOR,
-    _ENTROPY_CV_RATIO,
-    _CHROMA_STEP_CV_ABS_FLOOR,
-    _CHROMA_STEP_CV_RATIO,
-    _CHROMA_ENERGY_CV_ABS_FLOOR,
-    _CHROMA_ENERGY_CV_RATIO,
-    _SEAM_GRADIENT_CV_ABS_FLOOR,
-    _SEAM_GRADIENT_CV_RATIO,
-    _LUMA_IQR_CV_ABS_FLOOR,
-    _LUMA_IQR_CV_RATIO,
-    _SEAM_COL_VAR_CV_ABS_FLOOR,
-    _SEAM_COL_VAR_CV_RATIO,
-    _LUMA_SKEW_CV_ABS_FLOOR,
-    _LUMA_SKEW_CV_RATIO,
-    _SEAM_SIGNED_STEP_CV_ABS_FLOOR,
-    _SEAM_SIGNED_STEP_CV_RATIO,
-    _LUMA_KURTOSIS_CV_ABS_FLOOR,
-    _LUMA_KURTOSIS_CV_RATIO,
-    _SEAM_TEXTURE_RATIO_CV_ABS_FLOOR,
-    _SEAM_TEXTURE_RATIO_CV_RATIO,
-    _EDGE_DENSITY_CV_ABS_FLOOR,
-    _EDGE_DENSITY_CV_RATIO,
-    _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR,
-    _SEAM_LOCAL_CONTRAST_CV_RATIO,
-    _LUMA_P90P10_CV_ABS_FLOOR,
-    _LUMA_P90P10_CV_RATIO,
-    _SEAM_HUE_SHIFT_CV_ABS_FLOOR,
-    _SEAM_HUE_SHIFT_CV_RATIO,
-    _DARK_PIXEL_FRAC_CV_ABS_FLOOR,
-    _DARK_PIXEL_FRAC_CV_RATIO,
-    _SEAM_SAT_SHIFT_CV_ABS_FLOOR,
-    _SEAM_SAT_SHIFT_CV_RATIO,
-    _SOBEL_ENERGY_CV_ABS_FLOOR,
-    _SOBEL_ENERGY_CV_RATIO,
-    _SEAM_VALUE_SHIFT_CV_ABS_FLOOR,
-    _SEAM_VALUE_SHIFT_CV_RATIO,
-    _MEDIAN_LUMA_CV_ABS_FLOOR,
-    _MEDIAN_LUMA_CV_RATIO,
-    _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR,
-    _SEAM_ENTROPY_SHIFT_CV_RATIO,
-    _RED_CHANNEL_CV_ABS_FLOOR,
-    _RED_CHANNEL_CV_RATIO,
-    _SEAM_BLUE_SHIFT_CV_ABS_FLOOR,
-    _SEAM_BLUE_SHIFT_CV_RATIO,
-    _GREEN_CHANNEL_CV_ABS_FLOOR,
-    _GREEN_CHANNEL_CV_RATIO,
-    _SEAM_RED_SHIFT_CV_ABS_FLOOR,
-    _SEAM_RED_SHIFT_CV_RATIO,
     _BLUE_CHANNEL_CV_ABS_FLOOR,
     _BLUE_CHANNEL_CV_RATIO,
+    _CHROMA_ENERGY_CV_ABS_FLOOR,
+    _CHROMA_ENERGY_CV_RATIO,
+    _CHROMA_STEP_CV_ABS_FLOOR,
+    _CHROMA_STEP_CV_RATIO,
+    _DARK_PIXEL_FRAC_CV_ABS_FLOOR,
+    _DARK_PIXEL_FRAC_CV_RATIO,
+    _EDGE_DENSITY_CV_ABS_FLOOR,
+    _EDGE_DENSITY_CV_RATIO,
+    _ENTROPY_CV_ABS_FLOOR,
+    _ENTROPY_CV_RATIO,
+    _GREEN_CHANNEL_CV_ABS_FLOOR,
+    _GREEN_CHANNEL_CV_RATIO,
+    _LUMA_IQR_CV_ABS_FLOOR,
+    _LUMA_IQR_CV_RATIO,
+    _LUMA_KURTOSIS_CV_ABS_FLOOR,
+    _LUMA_KURTOSIS_CV_RATIO,
+    _LUMA_P90P10_CV_ABS_FLOOR,
+    _LUMA_P90P10_CV_RATIO,
+    _LUMA_SKEW_CV_ABS_FLOOR,
+    _LUMA_SKEW_CV_RATIO,
+    _MEDIAN_LUMA_CV_ABS_FLOOR,
+    _MEDIAN_LUMA_CV_RATIO,
+    _NOISE_CV_ABS_FLOOR,
+    _NOISE_CV_RATIO,
+    _RED_CHANNEL_CV_ABS_FLOOR,
+    _RED_CHANNEL_CV_RATIO,
+    _RLHF_FLAG_THRESHOLD,
+    _SEAM_BLUE_SHIFT_CV_ABS_FLOOR,
+    _SEAM_BLUE_SHIFT_CV_RATIO,
+    _SEAM_COL_VAR_CV_ABS_FLOOR,
+    _SEAM_COL_VAR_CV_RATIO,
+    _SEAM_ENTROPY_SHIFT_CV_ABS_FLOOR,
+    _SEAM_ENTROPY_SHIFT_CV_RATIO,
+    _SEAM_GRADIENT_CV_ABS_FLOOR,
+    _SEAM_GRADIENT_CV_RATIO,
     _SEAM_GREEN_SHIFT_CV_ABS_FLOOR,
     _SEAM_GREEN_SHIFT_CV_RATIO,
+    _SEAM_HUE_SHIFT_CV_ABS_FLOOR,
+    _SEAM_HUE_SHIFT_CV_RATIO,
+    _SEAM_LOCAL_CONTRAST_CV_ABS_FLOOR,
+    _SEAM_LOCAL_CONTRAST_CV_RATIO,
+    _SEAM_RED_SHIFT_CV_ABS_FLOOR,
+    _SEAM_RED_SHIFT_CV_RATIO,
+    _SEAM_SAT_SHIFT_CV_ABS_FLOOR,
+    _SEAM_SAT_SHIFT_CV_RATIO,
+    _SEAM_SIGNED_STEP_CV_ABS_FLOOR,
+    _SEAM_SIGNED_STEP_CV_RATIO,
+    _SEAM_TEXTURE_RATIO_CV_ABS_FLOOR,
+    _SEAM_TEXTURE_RATIO_CV_RATIO,
+    _SEAM_VALUE_SHIFT_CV_ABS_FLOOR,
+    _SEAM_VALUE_SHIFT_CV_RATIO,
+    _SOBEL_ENERGY_CV_ABS_FLOOR,
+    _SOBEL_ENERGY_CV_RATIO,
+    _SSIM_OK,
+    _composite_quality_score,
+    _compute_aligned_ssim,
+    _compute_all_metrics,
+    _compute_per_seam_ghost_scores,
+    _compute_rlhf_score,
+    _edge_energy_score,
+    _ghosting_score,
+    _ghosting_score_v2,
+    _horizontal_fft_banding,
+    _seam_bhattacharyya_distances,
+    _seam_ncc_coherence,
+    _seam_ownership_entropy,
+    _seam_visibility_score,
 )
+from backend.src.animation.alignment.canvas import _strip_hist_intersection_min  # noqa: E402
 from backend.src.animation.core import config as _asp_config  # noqa: E402
+from backend.src.animation.core import config as config_mod  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -609,7 +616,6 @@ class TestMllmScorer:
         import base64
 
         import cv2 as _cv2
-
         from backend.src.animation.hitl.mllm_scorer import MLLM_MAX_IMAGE_DIM, MllmScorer
 
         scorer = MllmScorer()
@@ -1345,13 +1351,13 @@ class TestSeamVisibilityGate:
         # sim_sv=0 → limit = max(20, 3×1) = 20; floor prevents firing at asp=15
         limit = self._limit(sim_sv=0.0)
         assert limit == 20.0
-        assert 15.0 <= limit  # no fire
+        assert limit >= 15.0  # no fire
 
     def test_ratio_dominates_when_sim_is_high(self):
         # sim_sv=15 → limit = max(20, 3×15) = 45; asp=30 should not fire
         limit = self._limit(sim_sv=15.0)
         assert limit == 45.0
-        assert 30.0 <= limit
+        assert limit >= 30.0
 
     def test_disabled_via_ratio_90(self):
         # ratio=90 ≥ 90 → gate bypass (tested by the outer if-guard in bench)
@@ -1384,7 +1390,7 @@ class TestCanvasGainUniformityGate:
         # sim_cgu=0.001 → limit = max(0.15, 2.0×0.001) = 0.15; asp=0.12 no fire
         limit = self._limit(sim_cgu=0.001)
         assert limit == 0.15
-        assert 0.12 <= limit  # no fire
+        assert limit >= 0.12  # no fire
 
     def test_asp_better_than_sim_never_fires(self):
         # asp_cgu=0.08 vs sim=0.18 → asp better → no fire regardless of floor
@@ -1423,13 +1429,13 @@ class TestSeamCoherenceGate:
         # sim_sc=1.0 → limit = max(15, 2.5×1.0) = 15; asp_sc=12 → no fire
         limit = self._limit(sim_sc=1.0)
         assert limit == 15.0
-        assert 12.0 <= limit  # no fire
+        assert limit >= 12.0  # no fire
 
     def test_ratio_dominates_when_sim_is_high(self):
         # sim_sc=30.0 → limit = max(15, 2.5×30) = 75; asp_sc=50 → no fire
         limit = self._limit(sim_sc=30.0)
         assert limit == 75.0
-        assert 50.0 <= limit  # no fire
+        assert limit >= 50.0  # no fire
 
     def test_disabled_via_ratio_90(self):
         # ratio=90 ≥ 90 → gate bypass
@@ -1445,7 +1451,6 @@ class TestCompositeQualityScoreWithCGU:
 
     def test_cgu_score_perfect_uniformity(self):
         # cgu=0.0 → cgu_score = clip(1 - 0/0.40, 0, 1) = 1.0
-        from backend.benchmark.bench_anime_stitch import _compute_cqas
         import numpy as np
         cgu = 0.0
         cgu_score = float(np.clip(1.0 - cgu / 0.40, 0.0, 1.0))
@@ -1536,8 +1541,6 @@ class TestStripLumaMonotonicity:
 # ---------------------------------------------------------------------------
 # §5.12 — Horizontal FFT Banding Score (S170)
 # ---------------------------------------------------------------------------
-from backend.benchmark.bench_anime_stitch import _horizontal_fft_banding
-
 
 class TestHorizontalFftBanding:
     """§5.12: Periodic horizontal banding detection via column-mean luminance FFT."""
@@ -1892,8 +1895,8 @@ class TestBenchStripSsimChromaMetrics:
     def test_functions_importable_from_canvas(self):
         """_strip_self_ssim and _chroma_seam_coherence must be importable from canvas.py."""
         from backend.src.animation.alignment.canvas import (
-            _strip_self_ssim,
             _chroma_seam_coherence,
+            _strip_self_ssim,
         )
         img = self._uniform()
         assert isinstance(_strip_self_ssim(img, n_strips=8), float)
@@ -1919,8 +1922,6 @@ class TestGhostSiqeGate:
 
     def test_defaults_are_sane(self):
         """Default ratio limit should be 2.0 and floor 30.0 when env vars absent."""
-        import os
-        import importlib
 
         # Remove env vars if set, then re-read the defaults via the module constants
         import backend.benchmark.bench_anime_stitch as bench
@@ -2010,11 +2011,6 @@ class TestSeamBandNccGateBench:
 # ===========================================================================
 # §5.37 Bench Histogram Intersection Gate
 # ===========================================================================
-
-from backend.benchmark import bench_anime_stitch as bench_mod
-from backend.src.animation.alignment.canvas import _strip_hist_intersection_min
-from backend.src.animation.core import config as config_mod
-
 
 class TestHistIntersectGateBench:
 
@@ -2177,7 +2173,7 @@ class TestSatCvGateBench:
         sim_cv = _strip_sat_cv(sim, n_strips=8)
         # Gate fires: asp_cv > floor AND asp_cv > 2.0 × sim_cv
         assert asp_cv > 0.30, f"Expected asp_cv > 0.30, got {asp_cv}"
-        assert asp_cv > 2.0 * max(sim_cv, 0.001), f"Expected asp_cv > 2×sim_cv"
+        assert asp_cv > 2.0 * max(sim_cv, 0.001), "Expected asp_cv > 2×sim_cv"
 
 
 # ---------------------------------------------------------------------------
@@ -2211,7 +2207,7 @@ class TestLumaRangeGateBench:
         # Uniform image → all strip means equal → luma range = 0 < floor (30.0)
         # A gate with asp_lr=0 should NOT fire (below floor).
         import backend.benchmark.bench_anime_stitch as bm
-        img = np.full((160, 80, 3), 128, dtype=np.uint8)
+        np.full((160, 80, 3), 128, dtype=np.uint8)
         # Simulate gate condition: asp_lr below floor
         asp_lr = 0.0
         floor = bm._LUMA_RANGE_ABS_FLOOR

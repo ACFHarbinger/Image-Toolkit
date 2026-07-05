@@ -6,19 +6,20 @@ Measures inference time, memory usage, and model load/unload performance.
 
 import sys
 import time
-import torch
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from PIL import Image
+
 import numpy as np
+import torch
+from PIL import Image
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.src.models.core.siamese_network import SiameseModelLoader
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
-from .tracker_manager import BenchmarkManager, measure_memory
 
+from .tracker_manager import BenchmarkManager, measure_memory
 
 runner = BenchmarkManager("ML Model Inference")
 
@@ -80,7 +81,7 @@ def bench_siamese_batch_10_cpu():
 
     # Create 10 test images
     tmp_paths = []
-    for i in range(10):
+    for _i in range(10):
         with NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
             img = create_test_image()
             img.save(tmp.name)

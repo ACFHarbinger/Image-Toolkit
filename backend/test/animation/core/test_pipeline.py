@@ -9,56 +9,55 @@ Tests for pipeline.py module-level functions:
   §5.8  — _compute_adaptive_dy_cv_max (adaptive dy_cv ceiling for large-N sequences)
 """
 
-from backend.src.animation.core import pipeline
-from backend.src.animation.core.pipeline import _wave_correct_affines
-from backend.src.animation.core import config
-
-
+import cv2
 import numpy as np
 import pytest
-import cv2
-
+from backend.src.animation.alignment.canvas import _strip_sat_cv as _pipeline_strip_sat_cv
+from backend.src.animation.alignment.canvas import _strip_self_ssim
+from backend.src.animation.core import config, pipeline
 from backend.src.animation.core.pipeline import (
-    _compute_dy_cv,
-    _compute_adaptive_dy_cv_max,
+    _apply_hires_keyframes,
+    _check_canvas_spread,
     _check_edge_graph_connectivity,
-    _compute_mst_weight,
-    _compute_canvas_span_utilization,
-    _spatial_dedup_frames,
-    _filter_high_conf_edges,
-    _reload_scans_frames,
-    _reject_scene_change_edges,
-    _normalize_frame_scales,
-    _measure_max_seam_step,
-    _detect_static_input,
-    _compute_bg_coverage_fraction,
-    _compute_render_coverage,
-    _compute_adj_edge_coverage,
-    _compute_max_adjacent_gap,
-    _compute_canvas_width_ratio,
-    _compute_sign_inconsistency_rate,
+    _compute_adaptive_dy_cv_max,
     _compute_adj_disp_cv,
+    _compute_adj_edge_coverage,
     _compute_adj_min_weight,
     _compute_ba_max_residual,
-    _compute_min_adjacent_overlap,
     _compute_ba_weighted_mean_residual,
-    _compute_canvas_memory_mb,
-    _compute_canvas_aspect_ratio,
-    _compute_render_luma_std,
-    _compute_max_affine_rotation_deg,
-    _smooth_affine_trajectory,
-    _apply_hires_keyframes,
-    _sort_frames_by_index,
-    _check_canvas_spread,
-    _compute_bg_lum_spread,
+    _compute_bg_coverage_fraction,
     _compute_bg_lum_monotonicity,
+    _compute_bg_lum_spread,
+    _compute_canvas_aspect_ratio,
     _compute_canvas_fill_ratio,
+    _compute_canvas_memory_mb,
+    _compute_canvas_span_utilization,
+    _compute_canvas_width_ratio,
+    _compute_dy_cv,
+    _compute_max_adjacent_gap,
+    _compute_max_affine_rotation_deg,
+    _compute_min_adjacent_overlap,
+    _compute_mst_weight,
+    _compute_render_coverage,
+    _compute_render_luma_std,
+    _compute_sign_inconsistency_rate,
     _compute_strip_variance_ratio,
+    _detect_static_input,
+    _filter_high_conf_edges,
+    _measure_max_seam_step,
+    _normalize_frame_scales,
+    _reject_scene_change_edges,
+    _reload_scans_frames,
+    _smooth_affine_trajectory,
+    _sort_frames_by_index,
+    _spatial_dedup_frames,
+    _wave_correct_affines,
 )
 from backend.src.constants.animation import (
     HIGH_CONF_EDGE_THRESH,
     SCALE_NORM_THRESH,  # noqa: F401
     SCENE_CHANGE_LUMA_THRESH,  # noqa: F401
+    STRIP_SELF_SSIM_GATE_FLOOR,
 )
 
 
@@ -1675,7 +1674,7 @@ class TestSmoothAffineTrajectory:
         out, applied = _smooth_affine_trajectory(affines, sigma=1.5, iqr_threshold=5.0)
 
         if applied:
-            for orig, sm in zip(affines, out):
+            for orig, sm in zip(affines, out, strict=False):
                 np.testing.assert_array_almost_equal(orig[:, :2], sm[:, :2], decimal=5)
 
 
@@ -1990,8 +1989,8 @@ class TestHybridExport:
         """save_hybrid_export + load_hybrid_export recovers original data."""
         from backend.src.animation.rendering.hybrid_export import (
             build_hybrid_export,
-            save_hybrid_export,
             load_hybrid_export,
+            save_hybrid_export,
         )
 
         state = self._make_state()
@@ -2006,8 +2005,8 @@ class TestHybridExport:
 
     def test_load_missing_file_raises(self, tmp_path):
         """load_hybrid_export raises FileNotFoundError for missing path."""
-        from backend.src.animation.rendering.hybrid_export import load_hybrid_export
         import pytest
+        from backend.src.animation.rendering.hybrid_export import load_hybrid_export
 
         with pytest.raises(FileNotFoundError):
             load_hybrid_export(str(tmp_path / "nonexistent.json"))
@@ -2042,7 +2041,7 @@ class TestWaveCorrectAffines:
         affines = [_make_affine_wave_correct(0.0, float(i * 100)) for i in range(3)]
         result = _wave_correct_affines(affines, axis="vertical")
         # C++ always returns new arrays; compare values, not identity
-        for r, a in zip(result, affines):
+        for r, a in zip(result, affines, strict=False):
             np.testing.assert_allclose(r, a, atol=1e-4)
 
     def test_vertical_corrects_tx_drift(self):
@@ -2062,7 +2061,7 @@ class TestWaveCorrectAffines:
             _make_affine_wave_correct(float(i * 2), float(i * 100)) for i in range(3)
         ]
         result = _wave_correct_affines(affines, axis="vertical")
-        for r, a in zip(result, affines):
+        for r, a in zip(result, affines, strict=False):
             np.testing.assert_allclose(r, a, atol=1e-4)
 
     def test_schema_entry(self):
@@ -2277,22 +2276,22 @@ class TestCguAutoLumStep:
         # CGU_AUTO_LUM_STEP must exist in constants/animation.py
         from backend.src.constants.animation import CGU_AUTO_LUM_STEP
         assert isinstance(CGU_AUTO_LUM_STEP, float)
-        assert CGU_AUTO_LUM_STEP == pytest.approx(0.08)
+        assert pytest.approx(0.08) == CGU_AUTO_LUM_STEP
 
 
 class TestScGatePipeline:
     """§5.19: Pipeline seam coherence gate tests."""
 
     def test_seam_coherence_score_uniform(self):
-        from backend.src.animation.alignment.canvas import _seam_coherence_score
         import numpy as np
+        from backend.src.animation.alignment.canvas import _seam_coherence_score
         canvas = np.full((200, 300, 3), 128, dtype=np.uint8)
         sc = _seam_coherence_score(canvas)
         assert sc < 1.0, f"Expected sc≈0 for uniform canvas, got {sc}"
 
     def test_seam_coherence_score_banded(self):
-        from backend.src.animation.alignment.canvas import _seam_coherence_score
         import numpy as np
+        from backend.src.animation.alignment.canvas import _seam_coherence_score
         canvas = np.zeros((200, 300, 3), dtype=np.uint8)
         canvas[::2] = 255
         sc = _seam_coherence_score(canvas)
@@ -2334,7 +2333,7 @@ class TestFftBandGatePipeline:
 
     def test_fft_band_gate_floor_in_constants(self):
         from backend.src.constants.animation import FFT_BAND_GATE_FLOOR
-        assert FFT_BAND_GATE_FLOOR == pytest.approx(0.35)
+        assert pytest.approx(0.35) == FFT_BAND_GATE_FLOOR
 
     def test_fft_band_gate_exported(self):
         import backend.src.animation.core.pipeline as _pl
@@ -2368,7 +2367,7 @@ class TestMonoGatePipeline:
 
     def test_mono_gate_floor_in_constants(self):
         from backend.src.constants.animation import MONO_GATE_FLOOR
-        assert MONO_GATE_FLOOR == pytest.approx(0.60)
+        assert pytest.approx(0.60) == MONO_GATE_FLOOR
 
     def test_mono_gate_exported(self):
         import backend.src.animation.core.pipeline as _pl
@@ -2385,16 +2384,16 @@ class TestSvGatePipeline:
 
     def test_seam_vis_uniform_canvas(self):
         """Uniform canvas → seam_visibility_score ≈ 0."""
-        from backend.src.animation.alignment.canvas import _seam_visibility_score
         import numpy as np
+        from backend.src.animation.alignment.canvas import _seam_visibility_score
         canvas = np.full((200, 300, 3), 128, dtype=np.uint8)
         sv = _seam_visibility_score(canvas)
         assert sv < 1.0, f"Expected sv≈0 for uniform canvas, got {sv}"
 
     def test_seam_vis_hard_step(self):
         """Canvas with hard luminance cut (top half 50, bottom half 200) → sv ≥ 100."""
-        from backend.src.animation.alignment.canvas import _seam_visibility_score
         import numpy as np
+        from backend.src.animation.alignment.canvas import _seam_visibility_score
         canvas = np.zeros((200, 300, 3), dtype=np.uint8)
         canvas[:100, :] = 50
         canvas[100:, :] = 200
@@ -2405,7 +2404,7 @@ class TestSvGatePipeline:
         """SV_GATE_FLOOR constant exists in constants/animation.py at 30.0."""
         import pytest
         from backend.src.constants.animation import SV_GATE_FLOOR
-        assert SV_GATE_FLOOR == pytest.approx(30.0)
+        assert pytest.approx(30.0) == SV_GATE_FLOOR
 
     def test_sv_gate_exported(self):
         """_SV_GATE_FLOOR is exported in pipeline.__all__."""
@@ -2449,7 +2448,7 @@ class TestChromaCohGatePipeline:
     def test_chroma_gate_floor_in_constants(self):
         """CHROMA_COH_GATE_FLOOR constant exists and equals 20.0."""
         from backend.src.constants.animation import CHROMA_COH_GATE_FLOOR
-        assert CHROMA_COH_GATE_FLOOR == pytest.approx(20.0)
+        assert pytest.approx(20.0) == CHROMA_COH_GATE_FLOOR
 
     def test_chroma_gate_exported(self):
         """_CHROMA_COH_GATE_FLOOR is exported from pipeline __all__."""
@@ -2465,10 +2464,6 @@ class TestChromaCohGatePipeline:
 # ===========================================================================
 # §5.25 — _strip_self_ssim / Stage 11.27 strip self-SSIM gate
 # ===========================================================================
-
-from backend.src.animation.alignment.canvas import _strip_self_ssim
-from backend.src.constants.animation import STRIP_SELF_SSIM_GATE_FLOOR
-
 
 class TestStripSsimGatePipeline:
     """§5.25: Strip self-SSIM gate — canvas.py function + pipeline wiring."""
@@ -2488,7 +2483,7 @@ class TestStripSsimGatePipeline:
 
     def test_gate_floor_constant(self):
         """STRIP_SELF_SSIM_GATE_FLOOR constant equals 0.85."""
-        assert STRIP_SELF_SSIM_GATE_FLOOR == pytest.approx(0.85)
+        assert pytest.approx(0.85) == STRIP_SELF_SSIM_GATE_FLOOR
 
     def test_strip_ssim_gate_floor_in_pipeline_all(self):
         """_STRIP_SSIM_GATE_FLOOR is exported in pipeline.__all__."""
@@ -2597,7 +2592,6 @@ class TestSeamBandNccGatePipeline:
         """NCC=0.80 (> floor 0.30) → gate does not fire."""
         import backend.src.animation.core.pipeline as _pl
 
-        captured = []
         monkeypatch.setattr(_pl, "_seam_band_ncc_min", lambda *args, **kwargs: 0.80)
         monkeypatch.setattr(_pl, "_SEAM_BAND_NCC_GATE_ENABLED", True)
         monkeypatch.setattr(_pl, "_SEAM_BAND_NCC_GATE_FLOOR", 0.30)
@@ -2605,7 +2599,6 @@ class TestSeamBandNccGatePipeline:
         ncc_val = _pl._seam_band_ncc_min(None)
         assert ncc_val == pytest.approx(0.80)
         assert ncc_val >= _pl._SEAM_BAND_NCC_GATE_FLOOR
-        captured  # gate would NOT call fallback
 
     def test_seam_band_ncc_gate_fails_low_ncc(self, monkeypatch):
         """NCC=0.10 (< floor 0.30) → gate logic detects failure condition."""
@@ -2847,9 +2840,6 @@ class TestHistIntersectGatePipeline:
 # §5.38 Strip Saturation CV Gate — pipeline flag tests
 # ===========================================================================
 
-from backend.src.animation.alignment.canvas import _strip_sat_cv as _pipeline_strip_sat_cv
-
-
 class TestSatCvGatePipeline:
 
     def test_flag_enabled_exists_in_module(self):
@@ -2912,14 +2902,16 @@ class TestValidAreaGatePipeline:
 
 class TestHueCvGatePipeline:
     def test_flag_enabled_by_default(self):
-        from backend.src.animation.core.pipeline import _HUE_CV_GATE_ENABLED
         import os
+
+        from backend.src.animation.core.pipeline import _HUE_CV_GATE_ENABLED
         env_val = os.environ.get("ASP_GATE_HUE_CV", "1")
-        assert _HUE_CV_GATE_ENABLED == (env_val != "0")
+        assert (env_val != "0") == _HUE_CV_GATE_ENABLED
 
     def test_floor_default_value(self):
-        from backend.src.animation.core.pipeline import _HUE_CV_GATE_FLOOR
         import os
+
+        from backend.src.animation.core.pipeline import _HUE_CV_GATE_FLOOR
         env_val = os.environ.get("ASP_GATE_HUE_CV_FLOOR", "0.50")
         assert abs(_HUE_CV_GATE_FLOOR - float(env_val)) < 1e-9
 
@@ -2936,14 +2928,16 @@ class TestHueCvGatePipeline:
 
 class TestSeamSharpRatioGatePipeline:
     def test_flag_enabled_by_default(self):
-        from backend.src.animation.core.pipeline import _SEAM_SHARP_RATIO_GATE_ENABLED
         import os
+
+        from backend.src.animation.core.pipeline import _SEAM_SHARP_RATIO_GATE_ENABLED
         env_val = os.environ.get("ASP_GATE_SEAM_SHARP_RATIO", "1")
-        assert _SEAM_SHARP_RATIO_GATE_ENABLED == (env_val != "0")
+        assert (env_val != "0") == _SEAM_SHARP_RATIO_GATE_ENABLED
 
     def test_floor_default_value(self):
-        from backend.src.animation.core.pipeline import _SEAM_SHARP_RATIO_GATE_FLOOR
         import os
+
+        from backend.src.animation.core.pipeline import _SEAM_SHARP_RATIO_GATE_FLOOR
         env_val = os.environ.get("ASP_GATE_SEAM_SHARP_RATIO_FLOOR", "4.0")
         assert abs(_SEAM_SHARP_RATIO_GATE_FLOOR - float(env_val)) < 1e-9
 
@@ -2966,7 +2960,7 @@ class TestLumaRangeGatePipeline:
 
     def test_floor_default_value(self):
         from backend.src.constants.animation import LUMA_RANGE_GATE_FLOOR
-        assert LUMA_RANGE_GATE_FLOOR == pytest.approx(60.0)
+        assert pytest.approx(60.0) == LUMA_RANGE_GATE_FLOOR
 
     def test_metric_importable_from_pipeline(self):
         from backend.src.animation.core.pipeline import _strip_luma_range
@@ -2987,7 +2981,7 @@ class TestEdgeDensityGatePipeline:
 
     def test_floor_default_value(self):
         from backend.src.constants.animation import EDGE_DENSITY_GATE_FLOOR
-        assert EDGE_DENSITY_GATE_FLOOR == pytest.approx(0.30)
+        assert pytest.approx(0.30) == EDGE_DENSITY_GATE_FLOOR
 
     def test_metric_importable_from_canvas(self):
         from backend.src.animation.alignment.canvas import _seam_edge_density
@@ -3030,7 +3024,6 @@ class TestLumaMadGatePipeline:
         banded = np.zeros((160, 100, 3), dtype=np.uint8)
         banded[:80, :] = 200
         banded[80:, :] = 20
-        calls = []
         monkeypatch.setattr(pl, "_LUMA_MAD_GATE_ENABLED", True)
         monkeypatch.setattr(pl, "_LUMA_MAD_GATE_FLOOR", 5.0)
         from backend.src.animation.alignment.canvas import _strip_luma_mad

@@ -1,12 +1,14 @@
+import contextlib
 import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Any, List, Optional, Union
-from PySide6.QtCore import QThread, Signal
-from backend.src.core import ImageFormatConverter, VideoFormatConverter
+from typing import Any, Dict, List, Optional, Union
+
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from backend.src.core import ImageFormatConverter, VideoFormatConverter
 from gui.src.helpers.core.config_types import ConversionConfig
+from PySide6.QtCore import QThread, Signal
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +36,8 @@ class ConversionWorker(QThread):
 
         with self.process_lock:
             for p in list(self.active_processes):
-                try:
+                with contextlib.suppress(Exception):
                     p.terminate()
-                except Exception:
-                    pass
             self.active_processes.clear()
 
     def stop(self):
@@ -54,7 +54,7 @@ class ConversionWorker(QThread):
                 input_path = self.config.get("input_path")
                 if input_path and os.path.exists(input_path):
                     if os.path.isdir(input_path):
-                        from gui.src.utils.settings import AppSettings
+                        from gui.src.windows.settings.app_settings import AppSettings
                         if AppSettings.recursive_scan():
                             for root, _, files in os.walk(input_path):
                                 for f in files:
@@ -190,11 +190,7 @@ class ConversionWorker(QThread):
             return False
 
         valid_pair = False
-        if is_src_video and target_is_video:
-            valid_pair = True
-        elif is_src_image and target_is_image:
-            valid_pair = True
-        elif is_src_video and target_is_gif:
+        if is_src_video and target_is_video or is_src_image and target_is_image or is_src_video and target_is_gif:
             valid_pair = True
 
         if not valid_pair:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from PySide6.QtGui import QPixmap
 
 pytestmark = pytest.mark.gui
@@ -93,9 +92,9 @@ class TestSeamDiagnosticDialogWaypoints:
     """Integration tests for get_overrides() including waypoints."""
 
     def test_get_overrides_includes_waypoints(self, q_app):
-        from gui.src.tabs.animation.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
         import cv2
-        
+        from gui.src.tabs.animation.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
+
         cv2.resize.side_effect = lambda arr, *args, **kwargs: arr # pyrefly: ignore [missing-attribute]
         cv2.cvtColor.side_effect = lambda arr, *args, **kwargs: arr # pyrefly: ignore [missing-attribute]
 

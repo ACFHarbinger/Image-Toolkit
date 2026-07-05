@@ -1,11 +1,11 @@
+from gui.src.components.views.monitor_drop_view import MonitorDropView
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget, QSizePolicy
-from .monitor_drop_widget import MonitorDropWidget
+from PySide6.QtWidgets import QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 
 
 class _MonitorColumn(QWidget):
     """
-    A vertical column that can hold multiple MonitorDropWidgets.
+    A vertical column that can hold multiple MonitorDropViews.
     """
 
     def __init__(self, parent=None):
@@ -16,18 +16,18 @@ class _MonitorColumn(QWidget):
         self.layout_vbox.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
 
-    def add_monitor(self, widget: MonitorDropWidget):
+    def add_monitor(self, widget: MonitorDropView):
         self.layout_vbox.addWidget(widget)
         widget.show()  # Ensure it's visible if it was hidden during clear_widgets
         # Adjust width to match the widget
         self.setFixedWidth(widget.width())
 
-    def insert_monitor(self, index: int, widget: MonitorDropWidget):
+    def insert_monitor(self, index: int, widget: MonitorDropView):
         self.layout_vbox.insertWidget(index, widget)
         widget.show()  # Ensure visibility
         self.setFixedWidth(widget.width())
 
-    def remove_monitor(self, widget: MonitorDropWidget):
+    def remove_monitor(self, widget: MonitorDropView):
         self.layout_vbox.removeWidget(widget)
         if self.layout_vbox.count() == 0:
             self.setFixedWidth(0)
@@ -52,11 +52,11 @@ class _MonitorColumn(QWidget):
 
 class DraggableMonitorContainer(QWidget):
     """
-    A Custom Container that accepts MonitorDropWidget drops and reorders them.
+    A Custom Container that accepts MonitorDropView drops and reorders them.
     Supports a grid-like layout where:
     - Main layout is Vertical (Rows).
     - Each Row is Horizontal (Columns).
-    - Each Column is Vertical (Stack of MonitorDropWidgets).
+    - Each Column is Vertical (Stack of MonitorDropViews).
     """
 
     layout_changed = Signal()
@@ -99,7 +99,7 @@ class DraggableMonitorContainer(QWidget):
             return f"{self.monitor.name}"
         return ""
 
-    def addWidget(self, widget: MonitorDropWidget):
+    def addWidget(self, widget: MonitorDropView):
         """Adds a widget to the last row, in a new column."""
         # Find last row
         count = self.layout_vbox.count()
@@ -112,17 +112,17 @@ class DraggableMonitorContainer(QWidget):
         # Create a new column
         col = _MonitorColumn()
         col.add_monitor(widget)
-        
+
         last_row.layout().addWidget(col) # pyrefly: ignore [missing-attribute]
 
     def dragEnterEvent(self, event):
-        if event.source() and isinstance(event.source(), MonitorDropWidget):
+        if event.source() and isinstance(event.source(), MonitorDropView):
             event.accept()
         else:
             super().dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
-        if event.source() and isinstance(event.source(), MonitorDropWidget):
+        if event.source() and isinstance(event.source(), MonitorDropView):
             event.setDropAction(Qt.DropAction.MoveAction)
             event.accept()
         else:
@@ -130,7 +130,7 @@ class DraggableMonitorContainer(QWidget):
 
     def dropEvent(self, event):
         source = event.source()
-        if not isinstance(source, MonitorDropWidget):
+        if not isinstance(source, MonitorDropView):
             super().dropEvent(event)
             return
 
@@ -141,15 +141,15 @@ class DraggableMonitorContainer(QWidget):
         self._detach_widget(source)
 
         # 2. Find drop target
-        # Strategy: Use childAt to find if we are over a specific MonitorDropWidget
+        # Strategy: Use childAt to find if we are over a specific MonitorDropView
         target_child = self.childAt(pos)
 
         # childAt matches the deepest child, might be a label inside or the widget itself.
-        # Walk up until we find a MonitorDropWidget or MonitorColumn or Row
+        # Walk up until we find a MonitorDropView or MonitorColumn or Row
         target_monitor_widget = None
         current = target_child
         while current and current != self:
-            if isinstance(current, MonitorDropWidget):
+            if isinstance(current, MonitorDropView):
                 target_monitor_widget = current
                 break
             current = current.parentWidget()
@@ -296,7 +296,7 @@ class DraggableMonitorContainer(QWidget):
         self.update()
         self.layout_changed.emit()
 
-    def _detach_widget(self, widget: MonitorDropWidget):
+    def _detach_widget(self, widget: MonitorDropView):
         """Removes the widget from its current column. Does NOT delete it."""
         parent_col = widget.parentWidget()
         if isinstance(parent_col, _MonitorColumn):
@@ -321,9 +321,8 @@ class DraggableMonitorContainer(QWidget):
             cols_to_remove = []
             for j in range(layout.count()):
                 col = layout.itemAt(j).widget()
-                if isinstance(col, _MonitorColumn):
-                    if col.count() == 0:
-                        cols_to_remove.append(col)
+                if isinstance(col, _MonitorColumn) and col.count() == 0:
+                    cols_to_remove.append(col)
 
             for col in cols_to_remove:
                 layout.removeWidget(col)
@@ -349,7 +348,7 @@ class DraggableMonitorContainer(QWidget):
     def rows(self):
         """
         Backward compatibility for accessing rows of widgets.
-        Returns a list of lists, where each inner list contains all MonitorDropWidgets
+        Returns a list of lists, where each inner list contains all MonitorDropViews
         in that visual row (aggregated from all columns).
         """
         result = []
@@ -410,7 +409,7 @@ class DraggableMonitorContainer(QWidget):
     def set_layout_structure(self, structure: list, monitor_widgets_map: dict):
         """
         Reconstructs the layout from a structure list.
-        monitor_widgets_map: Dict connecting monitor_id -> MonitorDropWidget
+        monitor_widgets_map: Dict connecting monitor_id -> MonitorDropView
         """
         self.clear_widgets()
 
@@ -463,16 +462,16 @@ class DraggableMonitorContainer(QWidget):
 
     def clear_widgets(self):
         """
-        Safely clears all rows and columns while detaching MonitorDropWidgets.
+        Safely clears all rows and columns while detaching MonitorDropViews.
         We detach them (setParent(None)) instead of letting them be deleted
         by their parent's destruction, because WallpaperTab maintains a
         persistent monitor_widgets_map that is reused across layout changes.
         """
-        # 1. First, find and detach ALL MonitorDropWidgets from the entire hierarchy
+        # 1. First, find and detach ALL MonitorDropViews from the entire hierarchy
         # We do this before deleting rows/columns to prevent child deletion.
         for row_monitors in self.rows:  # self.rows property handles the traversal
             for widget in row_monitors:
-                if isinstance(widget, MonitorDropWidget):
+                if isinstance(widget, MonitorDropView):
                     widget.setParent(None)
                     widget.hide()  # Hide until re-added to new layout
 

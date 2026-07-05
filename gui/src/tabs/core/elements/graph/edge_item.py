@@ -1,11 +1,11 @@
 import math
 
-from PySide6.QtCore import Qt, QPointF, QRectF
-from PySide6.QtGui import QColor, QPen, QBrush, QPainter, QPainterPath, QPainterPathStroker, QPolygonF, QFont
-from PySide6.QtWidgets import QGraphicsObject, QGraphicsItem
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPainterPathStroker, QPen, QPolygonF
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
-from .node_item import NodeItem, NODE_W, NODE_H
 from .data import EdgeData
+from .node_item import NODE_H, NODE_W, NodeItem
 
 
 class EdgeItem(QGraphicsObject):
@@ -61,10 +61,7 @@ class EdgeItem(QGraphicsObject):
         dx = towards.x() - center.x()
         dy = towards.y() - center.y()
         hw, hh = NODE_W / 2 + 4, NODE_H / 2 + 4
-        if abs(dx) * hh >= abs(dy) * hw:
-            t = hw / abs(dx) if dx != 0 else 1.0
-        else:
-            t = hh / abs(dy) if dy != 0 else 1.0
+        t = (hw / abs(dx) if dx != 0 else 1.0) if abs(dx) * hh >= abs(dy) * hw else hh / abs(dy) if dy != 0 else 1.0
         return QPointF(center.x() + dx * t, center.y() + dy * t)
 
     def _build_arrow(self):
@@ -97,7 +94,7 @@ class EdgeItem(QGraphicsObject):
         stroker = QPainterPathStroker()
         stroker.setWidth(12)
         shape_path = stroker.createStroke(self._path)
-        
+
         # Add the label rectangle to the clickable shape
         lp = self._label_pos
         repeat = getattr(self.edge_data, "repeat_count", 1)
@@ -133,10 +130,7 @@ class EdgeItem(QGraphicsObject):
         lp = self._label_pos
         repeat = getattr(self.edge_data, "repeat_count", 1)
         label = f"#{self.edge_data.edge_id}" if repeat <= 1 else f"#{self.edge_data.edge_id} ×{repeat}"
-        if is_active or is_sel:
-            bg = QColor("#2c2f33")
-        else:
-            bg = QColor("#1e1212")   # darker tint for dead-edge labels
+        bg = QColor("#2c2f33") if is_active or is_sel else QColor("#1e1212")
         label_w = 28 if repeat <= 1 else 28 + 9 * len(str(repeat))
         text_rect = QRectF(lp.x() - label_w / 2, lp.y() - 9, label_w, 18)
         painter.fillRect(text_rect, bg)

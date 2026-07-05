@@ -1,5 +1,6 @@
 import json
-from PySide6.QtCore import QObject, Signal, Property, Slot
+
+from PySide6.QtCore import Property, QObject, Signal, Slot
 
 
 class SettingsBackend(QObject):
@@ -14,12 +15,12 @@ class SettingsBackend(QObject):
         super().__init__()
         self.main_backend = main_backend_ref
         self.vault_manager = getattr(main_backend_ref, "vault_manager", None)
-        
+
         self._system_profiles = {}
         self._account_name = "N/A"
         self._current_theme = "dark"
         self._tab_defaults_config = {}
-        
+
         # Load initial data
         if self.vault_manager:
             try:
@@ -58,8 +59,8 @@ class SettingsBackend(QObject):
         # existing SettingsWindow iterated over MainWindow tabs.
         # main_backend has explicit tab instances.
         tabs = [
-            "ExtractorTab", "ImageCrawlTab", "ReverseImageSearchTab", 
-            "DriveSyncTab", "WebRequestsTab", "DeleteTab", "ConvertTab", 
+            "ExtractorTab", "ImageCrawlTab", "ReverseImageSearchTab",
+            "DriveSyncTab", "WebRequestsTab", "DeleteTab", "ConvertTab",
             "WallpaperTab", "ScanMetadataTab", "DatabaseTab", "SearchTab", "MergeTab"
         ]
         return sorted(tabs)
@@ -106,7 +107,7 @@ class SettingsBackend(QObject):
         self.theme_changed.emit()
         # Save to vault immediately? Or wait for apply?
         # SettingsWindow saved via 'applySettings'.
-        
+
     @Slot(str)
     def setTabSelection(self, tab_name):
         self._selected_tab_class = tab_name
@@ -138,11 +139,10 @@ class SettingsBackend(QObject):
 
     @Slot(str)
     def deleteCurrentConfig(self, name):
-         if self._selected_tab_class and name:
-             if name in self._tab_defaults_config.get(self._selected_tab_class, {}):
-                 del self._tab_defaults_config[self._selected_tab_class][name]
-                 self._save_vault()
-                 self.config_list_changed.emit()
+        if self._selected_tab_class and name and name in self._tab_defaults_config.get(self._selected_tab_class, {}):
+            del self._tab_defaults_config[self._selected_tab_class][name]
+            self._save_vault()
+            self.config_list_changed.emit()
 
     @Slot()
     def applySettings(self):

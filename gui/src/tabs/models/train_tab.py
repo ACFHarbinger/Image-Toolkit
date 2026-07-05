@@ -1,12 +1,13 @@
 from PySide6.QtWidgets import (
-    QVBoxLayout,
     QComboBox,
-    QStackedWidget,
-    QLabel,
     QFormLayout,
+    QLabel,
+    QStackedWidget,
+    QVBoxLayout,
 )
+
 from ...classes.base.base_generative_tab import BaseGenerativeTab
-from .delta import R3GANTrainTab, LoRATrainTab, GANTrainTab
+from .delta import GANTrainTab, LoRATrainTab, R3GANTrainTab
 
 
 class UnifiedTrainTab(BaseGenerativeTab):

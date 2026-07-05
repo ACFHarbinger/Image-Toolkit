@@ -1,37 +1,39 @@
-import os
+import contextlib
 import math
-
+import os
 from pathlib import Path
-from send2trash import send2trash # pyrefly: ignore [untyped-import]
-from typing import Set, Dict, Any, List, Tuple, Optional
-from PySide6.QtGui import QPixmap, QImage, QAction, QResizeEvent, QColor
-from PySide6.QtCore import Qt, QThread, Slot, QPoint, QTimer, QThreadPool, QEventLoop
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from backend.src.constants import LOCAL_SOURCE_PATH
+from PySide6.QtCore import QEventLoop, QPoint, Qt, QThread, QThreadPool, QTimer, Slot
+from PySide6.QtGui import QAction, QColor, QImage, QPixmap, QResizeEvent
 from PySide6.QtWidgets import (
-    QWidget,
+    QComboBox,
+    QFileDialog,
+    QFormLayout,
+    QGridLayout,
     QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
-    QGridLayout,
     QMenu,
+    QMessageBox,
     QPushButton,
-    QLabel,
-    QFormLayout,
-    QComboBox,
-    QLineEdit,
-    QFileDialog,
-    QHBoxLayout,
-    QVBoxLayout,
     QScrollArea,
     QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
-from ...windows import ImagePreviewWindow
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
 from ...classes import AbstractClassTwoGalleries
 from ...components import ClickableLabel, MarqueeScrollArea
-from ...utils.sort_utils import natural_sort_key
-from ...helpers import ImageScannerWorker, ImageLoaderWorker
+from ...helpers import ImageLoaderWorker, ImageScannerWorker
 from ...styles import apply_shadow_effect
-from backend.src.constants import LOCAL_SOURCE_PATH
+from ...utils.sort_utils import natural_sort_key
+from ...windows import ImagePreviewWindow
 
 
 class ScanMetadataTab(AbstractClassTwoGalleries):
@@ -228,7 +230,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.group_combo.setEditable(True)
         self.group_combo.setPlaceholderText("Enter or select Group/Series name...")
         # pyrefly: ignore [missing-attribute]
-        self.group_combo.lineEdit().returnPressed.connect( 
+        self.group_combo.lineEdit().returnPressed.connect(
             lambda: self.upsert_button.click()
         )
         group_layout.addWidget(self.group_combo)
@@ -371,10 +373,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # FIX: Force the button to display as a dropdown (InstantPopup style).
         # We also set a dummy menu immediately. This forces the UI to render the
         # dropdown arrow and reserve the correct spacing/size even before data is loaded.
-        try:
+        with contextlib.suppress(AttributeError):
             btn_page.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup) # pyrefly: ignore [missing-attribute]
-        except AttributeError:
-            pass  # Ignore if it is a QPushButton
 
         # Explicitly attaching a menu ensures the arrow style appears
         btn_page.setMenu(QMenu(self))

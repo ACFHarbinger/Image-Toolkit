@@ -35,7 +35,7 @@ def _temporal_accumulate(
     """High-precision (float64) per-pixel mean of warped frames."""
     accum = np.zeros((canvas_h, canvas_w, 3), dtype=np.float64)
     count = np.zeros((canvas_h, canvas_w), dtype=np.float64)
-    for f, M in zip(frames, affines):
+    for f, M in zip(frames, affines, strict=False):
         w = cv2.warpAffine(
             f,
             M,
@@ -60,7 +60,7 @@ def _build_gap_mask(
 ) -> np.ndarray:
     """Construct a gap mask (255 = no source frame covered this pixel)."""
     cov = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
-    for f, M in zip(frames, affines):
+    for f, M in zip(frames, affines, strict=False):
         valid = np.ones((f.shape[0], f.shape[1]), dtype=np.uint8) * 255
         w = cv2.warpAffine(
             valid,

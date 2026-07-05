@@ -9,13 +9,13 @@ from typing import List, Optional
 import cv2
 import numpy as np
 
+from backend.src.animation.core.stateless import _luma
 from backend.src.constants import (
     ECC_EPS,
+    ECC_MAX_DRIFT,
     ECC_MAX_ITER,
     ECC_PYRAMID_LEVELS,
-    ECC_MAX_DRIFT,
 )
-from backend.src.animation.core.stateless import _luma
 
 try:
     from backend.src.animation import base as _batch_ecc

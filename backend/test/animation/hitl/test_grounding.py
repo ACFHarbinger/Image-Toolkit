@@ -6,7 +6,6 @@ GroundingDINO is optional; all tests must pass when it is NOT installed.
 
 import numpy as np
 import pytest
-
 from backend.src.animation.hitl.grounding import (
     _detect_best_box,
     _detect_exclusion_mask,
@@ -14,7 +13,6 @@ from backend.src.animation.hitl.grounding import (
     _gdino_available,
     reset_grounding_dino_model,
 )
-
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
 

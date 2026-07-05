@@ -20,27 +20,36 @@ Sub-tabs
 """
 
 from __future__ import annotations
-from backend.src.animation import AnimeStitchPipeline
 
 import os
-import re
-import cv2
 import pathlib
+import re
 import tempfile
-import numpy as np
-
-from PIL import Image
 from typing import Dict, List, Optional, Tuple
+
+import cv2
+import numpy as np
+from backend.src.animation import AnimeStitchPipeline
+from backend.src.animation.ingestion.masking import (
+    _compute_fg_masks_grounded_sam2,
+    _refine_masks_with_clicks,
+)
+from gui.src.tabs.animation.dialog.boundary_editor_dialog import BoundaryEditorDialog
+from gui.src.tabs.animation.dialog.final_output_review_dialog import FinalOutputReviewDialog
+from gui.src.tabs.animation.dialog.hitl_session_viewer_dialog import HITLSessionViewerDialog
+from gui.src.tabs.animation.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
+from gui.src.tabs.animation.dialog.seam_painter_dialog import SeamPainterDialog
+from PIL import Image
 from PySide6.QtCore import (
     QObject,
     QPointF,
     QRectF,
     QRunnable,
     QSize,
+    Qt,
     QThread,
     QThreadPool,
     QTimer,
-    Qt,
     Signal,
     Slot,
 )
@@ -92,76 +101,64 @@ from PySide6.QtWidgets import (
     QSlider,
     QSpinBox,
     QSplitter,
-    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
+from ...constants import (
+    ANCHOR_RADIUS,
+    ANIM_CLUSTER_COLORS,
+    CONF_HIGH,
+    CONF_LOW,
+    CONF_MED,
+    CROP_PRESETS,
+    EDGE_COLOR,
+    MAX_DISPLAYED_MATCHES,
+    NODE_BODY_HEIGHT,
+    NODE_HDR_HEIGHT,
+    NODE_THUMB_HEIGHT,
+    NODE_WIDTH,
+    PORT_RADIUS,
+    SIZE_PRESETS,
+)
 from ...helpers.animation import (
     AdjustWorker,
+    AnimClusterWorker,
     CanvasWorker,
     GraphStitchWorker,
-    MatchWorker,
     MaskPreviewWorker,
-    StitchWorker,
-    StatsWorker,
-    AnimClusterWorker,
+    MatchWorker,
     SequenceBuilderWorker,
+    StatsWorker,
+    StitchWorker,
 )
+from ...helpers.animation.adjust_worker import _apply_adjustments
 from ...styles import apply_shadow_effect
 from ...utils.splitter_persistence import persist_splitter
-from ...helpers.animation.adjust_worker import _apply_adjustments
 from .dialog import (
-    CoverageHeatmapDialog,
     CanvasInspectorDialog,
+    CanvasLayoutInspectorDialog,
+    CoverageHeatmapDialog,
+    EdgeGraphInspectorDialog,
     EdgeReviewDialog,
     MaskReviewDialog,
     SelectionReviewDialog,
-)
-from backend.src.animation.ingestion.masking import (
-    _compute_fg_masks_grounded_sam2,
-    _refine_masks_with_clicks,
-)
-from .dialog import (
-    CanvasLayoutInspectorDialog,
     parse_canvas_json,
-    EdgeGraphInspectorDialog,
     parse_edge_json,
 )
 from .stencil import (
-    StitchPanel,
-    GraphPanel,
     AdjustPanel,
-    CanvasPanel,
-    StatsPanel,
-    SeqBuilderPanel,
-    HybridStitchPanel,
     AnimClustersPanel,
-)
-
-from gui.src.tabs.animation.dialog.seam_painter_dialog import SeamPainterDialog
-from gui.src.tabs.animation.dialog.boundary_editor_dialog import BoundaryEditorDialog
-from gui.src.tabs.animation.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
-from gui.src.tabs.animation.dialog.hitl_session_viewer_dialog import HITLSessionViewerDialog
-from gui.src.tabs.animation.dialog.final_output_review_dialog import FinalOutputReviewDialog
-from ...constants import (
-    CONF_HIGH,
-    CONF_MED,
-    CONF_LOW,
-    ANCHOR_RADIUS,
-    MAX_DISPLAYED_MATCHES,
-    PORT_RADIUS,
-    NODE_WIDTH,
-    NODE_HDR_HEIGHT,
-    NODE_BODY_HEIGHT,
-    NODE_THUMB_HEIGHT,
-    EDGE_COLOR,
-    SIZE_PRESETS,
-    CROP_PRESETS,
-    ANIM_CLUSTER_COLORS,
+    CanvasPanel,
+    GraphPanel,
+    HybridStitchPanel,
+    SeqBuilderPanel,
+    StatsPanel,
+    StitchPanel,
 )
 
 # ---------------------------------------------------------------------------
@@ -1119,7 +1116,7 @@ class _MatchScene(QGraphicsScene):
             idx = np.argsort(conf)[::-1][:MAX_DISPLAYED_MATCHES]
             pts1, pts2, conf = pts1[idx], pts2[idx], conf[idx]
 
-        for p1, p2, c in zip(pts1, pts2, conf):
+        for p1, p2, c in zip(pts1, pts2, conf, strict=False):
             color = _conf_color(float(c))
             sx_a = float(p1[0]) * self._scale_a
             sy_a = float(p1[1]) * self._scale_a
@@ -4674,7 +4671,7 @@ class StitchTab(QWidget):
         avg_sat = float(np.mean(saturations))
         max_w = max(widths) if widths else 0
         max_h = max(heights) if heights else 0
-        res_uniform = len(set(zip(widths, heights))) == 1
+        res_uniform = len(set(zip(widths, heights, strict=False))) == 1
         total_mb = sum(file_sizes_kb) / 1024
 
         # Pairwise aggregates — use consecutive pairs only for summary metrics

@@ -1,5 +1,4 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QFileDialog, QCheckBox, QTableWidget
+from PySide6.QtWidgets import QCheckBox, QDialog, QFileDialog
 
 
 class BaseDirectoryImportDialog(QDialog):

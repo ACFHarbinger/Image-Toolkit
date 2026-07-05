@@ -1,17 +1,19 @@
 import os
 import threading
+
+from backend.src.constants import LOCAL_SOURCE_PATH
+from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QFormLayout,
     QLineEdit,
-    QComboBox,
-    QSpinBox,
-    QCheckBox,
     QMessageBox,
+    QSpinBox,
 )
+
 from ....classes.base.base_generative_tab import BaseGenerativeTab
-from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
-from backend.src.constants import LOCAL_SOURCE_PATH
 
 
 class SD3GenerateTab(BaseGenerativeTab):

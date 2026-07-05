@@ -5,14 +5,12 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from backend.src.animation.rlhf.bench_import import (
     parse_bench_json,
     resolve_anime_path,
     suggested_rating,
     verdict_label,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

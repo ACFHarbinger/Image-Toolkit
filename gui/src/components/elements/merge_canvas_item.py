@@ -1,8 +1,9 @@
 import os
 from typing import Dict, Union
-from PySide6.QtCore import Qt, Signal, QRectF, QPointF
-from PySide6.QtGui import QPixmap, QPen, QBrush, QColor, QPainter
-from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsObject
+
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QGraphicsObject, QGraphicsRectItem
 
 
 class _HandleItem(QGraphicsRectItem):

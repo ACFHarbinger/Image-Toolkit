@@ -1,8 +1,10 @@
-from typing import Optional, Callable
-from PySide6.QtWidgets import QLabel, QApplication
-from PySide6.QtCore import Qt, Signal, QPoint
-from PySide6.QtGui import QMouseEvent, QPixmap, QPainter, QColor, QCursor, QPen
-from .drag_preview_window import DragPreviewWindow
+import contextlib
+from typing import Callable, Optional
+
+from gui.src.windows.drag_preview_window import DragPreviewWindow
+from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtGui import QColor, QCursor, QMouseEvent, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QApplication, QLabel
 
 
 class DraggableLabel(QLabel):
@@ -93,10 +95,8 @@ class DraggableLabel(QLabel):
 
         if self.style_callback:
             label = self.img_label if self.img_label else self
-            try:
+            with contextlib.suppress(RuntimeError):
                 self.style_callback(label, is_selected)
-            except RuntimeError:
-                pass
 
     def enterEvent(self, event):
         self._hovered = True
@@ -137,10 +137,9 @@ class DraggableLabel(QLabel):
             # Start custom drag
             self._start_custom_drag()
 
-        if self.is_dragging:
-            # Update drag preview position
-            if self.drag_preview_window:
-                self.drag_preview_window.update_position(QCursor.pos())
+        # Update drag preview position
+        if self.is_dragging and self.drag_preview_window:
+            self.drag_preview_window.update_position(QCursor.pos())
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Handle mouse release - end custom drag."""
@@ -189,7 +188,7 @@ class DraggableLabel(QLabel):
     def _try_drop_on_widget(self, widget):
         """Try to drop the file on the target widget."""
         # Import here to avoid circular dependency
-        from .monitor_drop_widget import MonitorDropWidget
+        from gui.src.components.views.monitor_drop_view import MonitorDropView
         from PySide6.QtCore import QPointF
 
         # Get all files to drop
@@ -199,10 +198,10 @@ class DraggableLabel(QLabel):
             if self.file_path in selected_files:
                 files_to_drop = selected_files
 
-        # Check if widget or any of its parents is a MonitorDropWidget or WallpaperGraphView
+        # Check if widget or any of its parents is a MonitorDropView or WallpaperGraphView
         current = widget
         while current:
-            if isinstance(current, MonitorDropWidget):
+            if isinstance(current, MonitorDropView):
                 # Simulate a drop by calling the widget's method directly
                 current.handle_custom_drop(files_to_drop)
                 return

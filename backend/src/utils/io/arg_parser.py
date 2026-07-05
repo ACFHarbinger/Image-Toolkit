@@ -5,10 +5,11 @@ This module provides a unified interface for parsing command-line arguments
 across all entry points of the application.
 """
 
-import sys
 import argparse
+import sys
 from typing import Sequence
-from backend.src.constants import SUPPORTED_IMG_FORMATS, APP_STYLES
+
+from backend.src.constants import APP_STYLES, SUPPORTED_IMG_FORMATS
 
 
 class ConfigsParser(argparse.ArgumentParser):
@@ -297,11 +298,10 @@ def get_main_parser():
 
 
 def validate_core_args(opts):
-    if opts.get("core_command") == "merge":
-        if opts.get("direction") == "grid" and not opts.get("grid_size"):
-            raise argparse.ArgumentError(
-                None, "Merge mode 'grid' requires --grid_size R C"
-            )
+    if opts.get("core_command") == "merge" and opts.get("direction") == "grid" and not opts.get("grid_size"):
+        raise argparse.ArgumentError(
+            None, "Merge mode 'grid' requires --grid_size R C"
+        )
     return opts
 
 

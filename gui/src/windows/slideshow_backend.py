@@ -1,4 +1,5 @@
-from PySide6.QtCore import QObject, Signal, Property, Slot, QTimer
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+
 
 class SlideshowBackend(QObject):
     image_changed = Signal()
@@ -12,7 +13,7 @@ class SlideshowBackend(QObject):
         self._current_index = 0
         self._is_playing = False
         self._interval = 5000 # ms
-        
+
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.next)
 
@@ -33,7 +34,7 @@ class SlideshowBackend(QObject):
     @Property(int, notify=interval_changed)
     def interval(self):
         return self._interval
-    
+
     @interval.setter
     def interval(self, val):
         if self._interval != val:

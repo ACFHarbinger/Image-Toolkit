@@ -33,7 +33,7 @@ from __future__ import annotations
 import math
 import random
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import cv2
 import numpy as np
@@ -179,7 +179,7 @@ class SyntheticStitchDataset(Dataset):
         y = _luma(bgr)
         H, W = y.shape
         mH, mW = min_hw
-        if H < mH or W < mW:
+        if mH > H or mW > W:
             scale = max(mH / H, mW / W) * 1.05
             y = cv2.resize(
                 y, (int(W * scale), int(H * scale)), interpolation=cv2.INTER_LANCZOS4

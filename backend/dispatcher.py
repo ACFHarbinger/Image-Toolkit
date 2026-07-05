@@ -1,14 +1,14 @@
 # --- Relocated Nested Imports ---
-from backend.src.pipeline.anime_training_pipeline import main as train_main
-from backend.src.utils.data.safetensors_metadata import main as embed_main
 # --------------------------------
-
 import logging
 import subprocess
 import sys
 
 import hydra
 from omegaconf import DictConfig
+
+from backend.src.pipeline.anime_training_pipeline import main as train_main
+from backend.src.utils.data.safetensors_metadata import main as embed_main
 
 logger = logging.getLogger(__name__)
 

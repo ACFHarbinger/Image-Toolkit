@@ -21,7 +21,7 @@ Usage
 -----
 ::
 
-    from gui.src.utils.settings import AppSettings
+    from gui.src.windows.settings.app_settings import AppSettings
 
     # Read
     geom = AppSettings.mainwindow_geometry()
@@ -72,7 +72,7 @@ class AppSettings:
             if isinstance(val, str):
                 return val.lower() == "true"
             return bool(val)
-        
+
         from PySide6.QtWidgets import QApplication
         for widget in QApplication.topLevelWidgets():
             if hasattr(widget, "cached_creds") and widget.cached_creds:

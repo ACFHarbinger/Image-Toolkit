@@ -47,7 +47,7 @@ except ImportError:
 
 import os
 import warnings
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import cv2
 import numpy as np

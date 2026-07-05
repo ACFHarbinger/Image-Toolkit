@@ -1,17 +1,17 @@
 import os
+from typing import Any, Dict, List
 
-from typing import Dict, Any, List
-from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QDialog,
-    QSizePolicy,
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QDialog,
+    QHeaderView,
+    QPushButton,
+    QSizePolicy,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+)
 
 
 class PropertyComparisonDialog(QDialog):
@@ -23,7 +23,7 @@ class PropertyComparisonDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Image Property Comparison")
         self.setMinimumSize(600, 600)
-        
+
         main_layout = QVBoxLayout(self)
 
         self.property_data = property_data
@@ -87,7 +87,7 @@ class PropertyComparisonDialog(QDialog):
                 item_prop = QTableWidgetItem(key)
                 item_prop.setBackground(bg_color)
                 item_prop.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-                
+
                 item_name = QTableWidgetItem(img_name) # pyrefly: ignore [no-matching-overload]
                 item_name.setBackground(bg_color)
                 item_name.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)

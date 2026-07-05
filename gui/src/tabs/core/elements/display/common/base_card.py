@@ -1,7 +1,4 @@
 from pathlib import Path
-from PySide6.QtCore import Qt, Signal, Slot, QThreadPool
-from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtWidgets import QWidget
 
 from gui.src.components import DoubleClickableLabel
 from gui.src.constants.listings import CARD_SIZE, THUMB_SIZE
@@ -9,6 +6,9 @@ from gui.src.helpers.image import (
     _CARD_THUMB_CACHE,
     _ThumbWorker,
 )
+from PySide6.QtCore import Qt, QThreadPool, Signal, Slot
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import QWidget
 
 
 class BaseCard(QWidget):

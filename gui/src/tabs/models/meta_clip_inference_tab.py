@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import (
+    QComboBox,
     QFormLayout,
     QLabel,
     QLineEdit,
-    QComboBox,
     QTextEdit,
     QVBoxLayout,
 )
+
 from ...classes.base.base_generative_tab import BaseGenerativeTab
 
 

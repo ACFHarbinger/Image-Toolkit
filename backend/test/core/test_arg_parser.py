@@ -1,6 +1,7 @@
-import pytest
 import sys
 from unittest.mock import patch
+
+import pytest
 from src.utils.io.arg_parser import parse_params
 
 
@@ -75,10 +76,10 @@ class TestConfigsParser:
             "-d",
             "grid",
         ]
-        with patch.object(sys, "argv", ["prog"] + test_args_fail):
-            # Should catch error message
-            with pytest.raises(SystemExit):
-                parse_params()
+
+        # Should catch error message
+        with patch.object(sys, "argv", ["prog"] + test_args_fail), pytest.raises(SystemExit):
+            parse_params()
 
         # Case 2: Success
         test_args_success = [

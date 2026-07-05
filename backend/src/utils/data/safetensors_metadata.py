@@ -1,18 +1,17 @@
 
 # --- Relocated Nested Imports ---
-from PIL import Image
-import io
 # --------------------------------
-
 import base64
+import contextlib
+import io
 import logging
 import os
 import sys
 from collections import Counter
-
-from omegaconf import DictConfig
 from typing import Any, Dict, Optional
 
+from omegaconf import DictConfig
+from PIL import Image
 from safetensors import safe_open
 from safetensors.torch import save_file
 
@@ -151,10 +150,8 @@ def embed_preview_image(
         logger.exception(f"An error occurred while embedding the preview image: {e}")
         # Clean up the temporary file if an error occurs during saving
         if "temp_output" in locals() and os.path.exists(temp_output):
-            try:
+            with contextlib.suppress(OSError):
                 os.remove(temp_output)
-            except OSError:
-                pass
         return False
 
 

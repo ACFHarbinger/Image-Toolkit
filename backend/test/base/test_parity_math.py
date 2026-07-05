@@ -11,8 +11,6 @@ Run (when base is built):
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
@@ -190,11 +188,15 @@ class TestLinalg:
     def test_matrix_multiply_2x2(self):
         # [[1,2],[3,4]] × [[1,0],[0,1]] = [[1,2],[3,4]]
         a = _base.math.linalg.Matrix(2, 2)
-        a.set(0, 0, 1.0); a.set(0, 1, 2.0)
-        a.set(1, 0, 3.0); a.set(1, 1, 4.0)
+        a.set(0, 0, 1.0)
+        a.set(0, 1, 2.0)
+        a.set(1, 0, 3.0)
+        a.set(1, 1, 4.0)
         b = _base.math.linalg.Matrix(2, 2)
-        b.set(0, 0, 1.0); b.set(0, 1, 0.0)
-        b.set(1, 0, 0.0); b.set(1, 1, 1.0)
+        b.set(0, 0, 1.0)
+        b.set(0, 1, 0.0)
+        b.set(1, 0, 0.0)
+        b.set(1, 1, 1.0)
         c = a.multiply(b)
         assert c.get(0, 0) == pytest.approx(1.0)
         assert c.get(1, 1) == pytest.approx(4.0)

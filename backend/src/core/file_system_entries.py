@@ -1,7 +1,8 @@
-import os
 import functools
-import base
+import os
 from pathlib import Path
+
+import base
 
 
 class FSETool:
@@ -25,7 +26,7 @@ class FSETool:
     @staticmethod
     def prefix_create_directory(arg_id=0, kwarg_name="", is_filepath=False):
         def inner(*args, **kwargs):
-            path = kwargs.get(kwarg_name, None)
+            path = kwargs.get(kwarg_name)
             if path is None and len(args) > arg_id:
                 path = args[arg_id]
             if path:

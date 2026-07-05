@@ -14,16 +14,15 @@ is used internally so large panoramas (5000×4000+) fit in VRAM.
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-from torchvision.transforms import functional as _tvF
-from huggingface_hub import hf_hub_download
 # --------------------------------
-
-
 import sys
 import types
 
 import numpy as np
+from huggingface_hub import hf_hub_download
+
+# --- Relocated Nested Imports ---
+from torchvision.transforms import functional as _tvF
 
 _UPSCALE_OK = False
 _UPSCALE_ERR = ""

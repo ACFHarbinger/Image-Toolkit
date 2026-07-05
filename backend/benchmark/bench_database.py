@@ -5,15 +5,16 @@ Measures PostgreSQL query performance, memory usage, and vector search operation
 """
 
 import sys
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.src.database.image_database import PgvectorImageDatabase
-from .tracker_manager import BenchmarkManager, measure_memory
 
+from .tracker_manager import BenchmarkManager, measure_memory
 
 runner = BenchmarkManager("Database Operations")
 

@@ -7,11 +7,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from backend.src.animation.rendering.photometric import (
     _correct_vignetting,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

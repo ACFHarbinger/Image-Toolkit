@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import csv
 import os
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -15,10 +14,9 @@ from backend.src.models.wrappers.wd_tagger_wrapper import (
     DEFAULT_THRESHOLD,
     WDTaggerWrapper,
     _filter_tags,
-    _load_labels,
     _load_and_preprocess,
+    _load_labels,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

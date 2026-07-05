@@ -117,14 +117,8 @@ def pso_register(
         except Exception:
             pass
 
-    if img_ref.ndim == 3:
-        ref_g = cv2.cvtColor(img_ref, cv2.COLOR_BGR2GRAY)
-    else:
-        ref_g = img_ref
-    if img_src.ndim == 3:
-        src_g = cv2.cvtColor(img_src, cv2.COLOR_BGR2GRAY)
-    else:
-        src_g = img_src
+    ref_g = cv2.cvtColor(img_ref, cv2.COLOR_BGR2GRAY) if img_ref.ndim == 3 else img_ref
+    src_g = cv2.cvtColor(img_src, cv2.COLOR_BGR2GRAY) if img_src.ndim == 3 else img_src
 
     h, w = ref_g.shape[:2]
     lo, hi = search_range[0], search_range[1]
@@ -168,7 +162,7 @@ def pso_register(
     gbest_pos = pbest_pos[gbest_idx].copy()
     gbest_val = float(pbest_val[gbest_idx])
 
-    for it in range(n_iter):
+    for _it in range(n_iter):
         r1 = rng.uniform(0.0, 1.0, size=(n_particles, dim))
         r2 = rng.uniform(0.0, 1.0, size=(n_particles, dim))
         vel = (

@@ -27,10 +27,10 @@ import random
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
+
 
 # ---------------------------------------------------------------------------
 # Base class
@@ -99,7 +99,7 @@ class _CharacterAwareCrop(AnimeAugmentation):
     ) -> torch.Tensor:
         _, H, W = x.shape
         cs = self.crop_size
-        if H < cs or W < cs:
+        if cs > H or cs > W:
             return TF.center_crop(x, cs)
 
         fg_total = mask.sum().item() if mask is not None else 1.0

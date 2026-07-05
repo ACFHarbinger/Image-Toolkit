@@ -8,39 +8,38 @@ runs the MFSR super-resolution pass after stage 10 when ``mfsr_mode=True``.
 
 from __future__ import annotations
 
-from backend.src.constants import LUMINANCE_WEIGHTS
-from scipy.ndimage import gaussian_filter1d
-from backend.src.animation.mfsr import run_mfsr
-from backend.src.animation.mfsr import inpaint_gaps
-
-from pathlib import Path
-
+import contextlib
 import gc
+
+# §3.14 — Heavy model wrapper imports are deferred to first use.
+# Each module-level try/except was loading kornia/transformers/torchvision at pytest
+# collection time, contributing to the test-suite freeze (S140 root causes).
+# We probe availability cheaply with importlib.util.find_spec(); the actual class
+# is imported inside the method that instantiates it.
+import importlib.util as _importlib_util_pipeline
+import logging
 import os
 import re
 import warnings
-from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+from scipy.ndimage import gaussian_filter1d
 
 from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
-from backend.src.animation.core.validation import (
-    _validate_affines,
-    _compute_adaptive_min_gap,
-    _compute_adaptive_rot_scale,
-)
 from backend.src.animation.alignment.canvas import (
     _canvas_aspect_ratio,
     _canvas_gain_uniformity,
     _canvas_ghosting_siqe,
     _canvas_valid_area_ratio,
+    _chroma_seam_coherence,
     _compute_adaptive_seam_smooth_px,
     _compute_canvas,
     _correct_seam_lum_steps,
     _crop_to_valid,
     _detect_scroll_axis,
-    _chroma_seam_coherence,
     _horizontal_fft_banding,
     _load_frames,
     _normalise_widths,
@@ -49,45 +48,45 @@ from backend.src.animation.alignment.canvas import (
     _scan_stitch_fallback,
     _seam_band_ncc_min,
     _seam_blue_shift_cv,
-    _seam_red_shift_cv,
-    _seam_green_shift_cv,
     _seam_boundary_sharpness_ratio,
     _seam_chroma_jump,
     _seam_chroma_step_cv,
     _seam_coherence_score,
     _seam_column_variance_cv,
-    _seam_gradient_cv,
     _seam_edge_density,
     _seam_entropy_shift_cv,
+    _seam_gradient_cv,
+    _seam_green_shift_cv,
     _seam_hue_shift_cv,
     _seam_local_contrast_cv,
     _seam_luma_step_cv,
+    _seam_red_shift_cv,
     _seam_saturation_shift_cv,
     _seam_signed_step_cv,
-    _seam_value_shift_cv,
     _seam_texture_ratio_cv,
+    _seam_value_shift_cv,
     _seam_visibility_score,
     _smooth_seam_bands,
+    _strip_blue_channel_cv,
+    _strip_chroma_energy_cv,
     _strip_contrast_cv,
     _strip_dark_pixel_fraction_cv,
     _strip_edge_density_cv,
-    _strip_chroma_energy_cv,
     _strip_entropy_cv,
-    _strip_luma_iqr_cv,
-    _strip_luma_kurtosis_cv,
     _strip_gradient_cv,
+    _strip_green_channel_cv,
     _strip_hist_intersection_min,
     _strip_hue_cv,
+    _strip_luma_iqr_cv,
+    _strip_luma_kurtosis_cv,
     _strip_luma_mad,
-    _strip_median_luma_cv,
     _strip_luma_monotonicity,
     _strip_luma_p90p10_cv,
     _strip_luma_range,
     _strip_luma_skewness_cv,
+    _strip_median_luma_cv,
     _strip_noise_cv,
     _strip_red_channel_cv,
-    _strip_green_channel_cv,
-    _strip_blue_channel_cv,
     _strip_sat_cv,
     _strip_seam_gradient_score,
     _strip_self_ssim,
@@ -96,10 +95,33 @@ from backend.src.animation.alignment.canvas import (
     _telea_fill_gaps,
     find_optimal_sequence,
 )
+from backend.src.animation.alignment.ecc import _ecc_refine
+from backend.src.animation.alignment.matching import (
+    _match_pair,
+    _pairwise_match,
+    _phase_correlate,
+    _sample_bg_points,
+    _sample_bg_points_grid,  # noqa: F401
+    _template_match,
+)
+from backend.src.animation.core.validation import (
+    _compute_adaptive_min_gap,
+    _compute_adaptive_rot_scale,
+    _validate_affines,
+)
+from backend.src.animation.hitl.hitl_presets import apply_hitl_preset, load_hitl_preset
+from backend.src.animation.ingestion.bg_complete import _propainter_complete_frames, complete_background
+from backend.src.animation.ingestion.masking import (
+    _cleanup_sam2_state,
+    _compute_fg_masks,
+    _compute_fg_masks_sam2,  # noqa: F401
+    _compute_fg_masks_sam2_stateful,
+)
+from backend.src.animation.mfsr import inpaint_gaps, run_mfsr
 from backend.src.animation.rendering.compositing import (
     _check_seam_color_gate,
-    _check_seam_entropy_gate,
     _check_seam_ensemble_gate,
+    _check_seam_entropy_gate,
     _check_seam_freq_gate,
     _check_seam_grad_direction_gate,
     _check_seam_hue_gate,
@@ -112,44 +134,7 @@ from backend.src.animation.rendering.compositing import (
     _check_seam_ssim_gate,
     _composite_foreground,
 )
-from backend.src.constants import (
-    ADAPTIVE_MIN_DISP_FRAC,
-    HIGH_CONF_EDGE_THRESH,
-    LAPLACIAN_BANDS,
-    MATCH_EDGE_CROP,
-    MIN_EXPECTED_STEP,
-    NEAR_DUP_LUMA_THRESH,
-    SCALE_NORM_THRESH,
-    SCENE_CHANGE_LUMA_THRESH,  # noqa: F401
-    SCENE_CHANGE_BGR_THRESH,  # noqa: F401
-    SEAM_COLOR_GATE_THRESH,  # noqa: F401
-    STATIC_EDGE_MIN_DISP_PX,
-    TRI_CONSISTENCY_PENALTY,
-    SPATIAL_DEDUP_PX,
-)
-from backend.src.animation.alignment.ecc import _ecc_refine
-from backend.src.animation.ingestion.bg_complete import complete_background, _propainter_complete_frames
-from backend.src.animation.hitl.hitl_presets import load_hitl_preset, apply_hitl_preset
-from backend.src.animation.ingestion.masking import (
-    _cleanup_sam2_state,
-    _compute_fg_masks,
-    _compute_fg_masks_sam2,  # noqa: F401
-    _compute_fg_masks_sam2_stateful,
-)
-from backend.src.animation.alignment.matching import (
-    _match_pair,
-    _pairwise_match,
-    _phase_correlate,
-    _sample_bg_points,
-    _sample_bg_points_grid,  # noqa: F401
-    _template_match,
-)
 from backend.src.animation.rendering.photometric import _apply_basic, _correct_vignetting
-from backend.src.errors import (
-    AlignmentFailedError,  # noqa: F401
-    CanvasError,
-    PipelineError,
-)
 from backend.src.animation.rendering.rendering import (
     _cluster_animation_phases,
     _render,
@@ -157,15 +142,34 @@ from backend.src.animation.rendering.rendering import (
     _render_laplacian,
     _render_median,
 )
+from backend.src.constants import (
+    ADAPTIVE_MIN_DISP_FRAC,
+    HIGH_CONF_EDGE_THRESH,
+    LAPLACIAN_BANDS,
+    LUMINANCE_WEIGHTS,
+    MATCH_EDGE_CROP,
+    MIN_EXPECTED_STEP,
+    NEAR_DUP_LUMA_THRESH,
+    SCALE_NORM_THRESH,
+    SCENE_CHANGE_BGR_THRESH,  # noqa: F401
+    SCENE_CHANGE_LUMA_THRESH,  # noqa: F401
+    SEAM_COLOR_GATE_THRESH,  # noqa: F401
+    SPATIAL_DEDUP_PX,
+    STATIC_EDGE_MIN_DISP_PX,
+    TRI_CONSISTENCY_PENALTY,
+)
+from backend.src.errors import (
+    AlignmentFailedError,  # noqa: F401
+    CanvasError,
+    PipelineError,
+)
 
-# §3.14 — Heavy model wrapper imports are deferred to first use.
-# Each module-level try/except was loading kornia/transformers/torchvision at pytest
-# collection time, contributing to the test-suite freeze (S140 root causes).
-# We probe availability cheaply with importlib.util.find_spec(); the actual class
-# is imported inside the method that instantiates it.
-import importlib.util as _importlib_util_pipeline
-
-import logging
+if TYPE_CHECKING:
+    from backend.src.models.core.stitch_net import AnimeStitchNet
+    from backend.src.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
+    from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+    from backend.src.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
+    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +222,8 @@ except ImportError:
     _SEA_RAFT_OK = False
 
 try:
-    from backend.src.animation.rendering.super_res import upscale_anime, _UPSCALE_OK as _SR_OK
+    from backend.src.animation.rendering.super_res import _UPSCALE_OK as _SR_OK
+    from backend.src.animation.rendering.super_res import upscale_anime
 except ImportError:
     _SR_OK = False
 
@@ -231,9 +236,11 @@ except ImportError:
 
 try:
     from backend.src.animation.rendering.sr_stitcher import (
-        seam_diffusion_fusion,
-        border_diffusion_fill,
         _DIFFUSERS_OK as _SRSTITCHER_OK,
+    )
+    from backend.src.animation.rendering.sr_stitcher import (
+        border_diffusion_fill,
+        seam_diffusion_fusion,
     )
 except ImportError:
     _SRSTITCHER_OK = False
@@ -926,11 +933,8 @@ def _compute_bg_lum_spread(
     # relocated: from backend.src.constants import LUMINANCE_WEIGHTS
 
     lums: List[float] = []
-    for frame, mask in zip(frames, bg_masks):
-        if mask is None:
-            bg_sel = np.ones(frame.shape[:2], dtype=bool)
-        else:
-            bg_sel = mask > 127
+    for frame, mask in zip(frames, bg_masks, strict=False):
+        bg_sel = np.ones(frame.shape[:2], dtype=bool) if mask is None else mask > 127
         bg_px = frame[bg_sel]
         if len(bg_px) < min_bg_px:
             continue
@@ -973,11 +977,8 @@ def _compute_bg_lum_monotonicity(
     # relocated: from backend.src.constants import LUMINANCE_WEIGHTS
 
     lums: List[float] = []
-    for frame, mask in zip(frames, bg_masks):
-        if mask is None:
-            bg_sel = np.ones(frame.shape[:2], dtype=bool)
-        else:
-            bg_sel = mask > 127
+    for frame, mask in zip(frames, bg_masks, strict=False):
+        bg_sel = np.ones(frame.shape[:2], dtype=bool) if mask is None else mask > 127
         bg_px = frame[bg_sel]
         if len(bg_px) < min_bg_px:
             continue
@@ -1106,7 +1107,7 @@ def _compute_canvas_edge_void_rate(
         a distinct border (H or W ≤ 2 × border_px).
     """
     H, W = canvas.shape[:2]
-    if H < 2 * border_px or W < 2 * border_px:
+    if 2 * border_px > H or 2 * border_px > W:
         return 0.0
     top = canvas[:border_px, :, :].reshape(-1, 3)
     bottom = canvas[-border_px:, :, :].reshape(-1, 3)
@@ -1145,11 +1146,8 @@ def _compute_gain_sign_flips(
     # relocated: from backend.src.constants import LUMINANCE_WEIGHTS
 
     lums: "List[float]" = []
-    for frame, mask in zip(frames, bg_masks):
-        if mask is None:
-            bg_sel = np.ones(frame.shape[:2], dtype=bool)
-        else:
-            bg_sel = mask > 127
+    for frame, mask in zip(frames, bg_masks, strict=False):
+        bg_sel = np.ones(frame.shape[:2], dtype=bool) if mask is None else mask > 127
         bg_px = frame[bg_sel]
         if len(bg_px) < min_bg_px:
             continue
@@ -1215,7 +1213,7 @@ def _measure_max_seam_step(
     across all boundaries. Returns 0.0 when n_strips ≤ 1 or the canvas is too small.
     """
     H = canvas.shape[0]
-    if n_strips <= 1 or H < 2 * (band_px + guard):
+    if n_strips <= 1 or 2 * (band_px + guard) > H:
         return 0.0
     luma = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY).astype(np.float32)
     max_step = 0.0
@@ -2360,10 +2358,7 @@ def _wave_correct_affines(
     correct_tx = axis.lower() != "horizontal"
     # idx = 2 if correct_tx else (1, 2)  # matrix column index for tx vs ty
     # Extract the sequence to correct
-    if correct_tx:
-        vals = np.array([float(M[0, 2]) for M in affines])
-    else:
-        vals = np.array([float(M[1, 2]) for M in affines])
+    vals = np.array([float(M[0, 2]) for M in affines]) if correct_tx else np.array([float(M[1, 2]) for M in affines])
 
     if (vals.max() - vals.min()) < WAVE_CORRECT_MIN_TX_RANGE:
         return affines
@@ -2691,7 +2686,7 @@ def _compute_row_coverage(
       median_cov : median coverage among content rows
     """
     row_cov = np.zeros(canvas_h, dtype=np.int32)
-    for _aff, _frame in zip(affines, frames):
+    for _aff, _frame in zip(affines, frames, strict=False):
         _r0 = max(0, round(float(_aff[1, 2])))
         _r1 = min(canvas_h, _r0 + _frame.shape[0])
         if _r1 > _r0:
@@ -3280,10 +3275,8 @@ class AnimeStitchPipeline:
             use_birefnet=self.use_birefnet,
         )
         if self._birefnet is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._birefnet.unload()
-            except Exception:
-                pass
             self._birefnet = None
         logger.debug(
             f"[Stitch] Stage 4 complete: foreground masks ready "
@@ -3309,7 +3302,7 @@ class AnimeStitchPipeline:
         # frame-to-frame ambient lighting variation (anime cel flicker) which
         # would otherwise appear as horizontal color seams in the temporal median.
         bg_frame_means: List[Optional[np.ndarray]] = []
-        for _i, (_frame, _mask) in enumerate(zip(frames, bg_masks)):
+        for _i, (_frame, _mask) in enumerate(zip(frames, bg_masks, strict=False)):
             if _mask is not None:
                 _bg_px = _frame[_mask > 127].astype(np.float32)
                 if len(_bg_px) >= 1000:
@@ -3602,10 +3595,8 @@ class AnimeStitchPipeline:
                 try:
                     _mdl.unload()
                 except Exception:
-                    try:
+                    with contextlib.suppress(Exception):
                         _mdl.offload()
-                    except Exception:
-                        pass
         self._loftr = None
         self._eloftr = None
         self._aliked = None
@@ -3615,7 +3606,7 @@ class AnimeStitchPipeline:
         gc.collect()
         logger.info(f"[Stitch] Stages 5-6 complete: {len(edges)} valid edges found.")
         if not edges:
-            warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
+            warnings.warn("[Stitch] No valid edges — falling back to scan stitch.", stacklevel=2)
             _sf = scans_frames or _reload_scans_frames(image_paths)
             return _scan_stitch_fallback(_sf, output_path)
 
@@ -3652,15 +3643,14 @@ class AnimeStitchPipeline:
         # Verifies that the raw pairwise translations span at least
         # _CANVAS_SPREAD_MIN of the expected full-canvas range before BA runs.
         # Catches clustered frame sets that cannot produce good coverage.
-        if _CANVAS_SPREAD_MIN > 0.0:
-            if not _check_canvas_spread(edges, _CANVAS_SPREAD_MIN):
-                logger.info(
-                    "[Stitch] §1.67: canvas spread < %.0f%% of expected range "
-                    "— selected frames cluster at one end of scroll → SCANS fallback.",
-                    _CANVAS_SPREAD_MIN * 100,
-                )
-                _sf = scans_frames or _reload_scans_frames(image_paths)
-                return _scan_stitch_fallback(_sf, output_path)
+        if _CANVAS_SPREAD_MIN > 0.0 and not _check_canvas_spread(edges, _CANVAS_SPREAD_MIN):
+            logger.info(
+                "[Stitch] §1.67: canvas spread < %.0f%% of expected range "
+                "— selected frames cluster at one end of scroll → SCANS fallback.",
+                _CANVAS_SPREAD_MIN * 100,
+            )
+            _sf = scans_frames or _reload_scans_frames(image_paths)
+            return _scan_stitch_fallback(_sf, output_path)
 
         # ── §1.43: Adjacent edge coverage ratio gate ──────────────────────────
         if _ADJ_COVERAGE_MIN > 0.0:
@@ -3883,10 +3873,9 @@ class AnimeStitchPipeline:
                 for _f in range(1, N):
                     _best_e, _best_span = None, float("inf")
                     for _e in edges:
-                        if _e["j"] == _f and _e["i"] in _anchored:
-                            if _f - _e["i"] < _best_span:
-                                _best_span = _f - _e["i"]
-                                _best_e = _e
+                        if _e["j"] == _f and _e["i"] in _anchored and _f - _e["i"] < _best_span:
+                            _best_span = _f - _e["i"]
+                            _best_e = _e
                     if _best_e is not None:
                         _seq[_f][0, 2] = _seq[_best_e["i"]][0, 2] - float(
                             _best_e["M"][0, 2]
@@ -3967,7 +3956,7 @@ class AnimeStitchPipeline:
                     )
                 warnings.warn(
                     f"[Stitch] Affine validation FAILED ({health.reason}) after retries. "
-                    f"Falling back to SCANS stitch."
+                    f"Falling back to SCANS stitch.", stacklevel=2
                 )
                 _sf = scans_frames or _reload_scans_frames(image_paths)
                 return _scan_stitch_fallback(_sf, output_path)
@@ -3992,10 +3981,8 @@ class AnimeStitchPipeline:
                 logger.info("[Stitch] Stage 8 complete: SEA-RAFT flow refinement done.")
                 # Offload SEA-RAFT after use
                 if torch.cuda.is_available():
-                    try:
+                    with contextlib.suppress(Exception):
                         self._sea_raft.cpu()
-                    except Exception:
-                        pass
                     torch.cuda.empty_cache()
                     self._sea_raft = None
             except Exception as _ecc_e:

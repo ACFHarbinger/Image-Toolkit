@@ -1,8 +1,9 @@
 import time
+from typing import Any, Dict, Optional
 
-from typing import Optional, Dict, Any
-from PySide6.QtCore import QRunnable
 from backend.src.web import GoogleDriveSync
+from PySide6.QtCore import QRunnable
+
 from .cloud_drive_sync_signals import CloudDriveSyncWorkerSignals
 
 

@@ -26,26 +26,25 @@ import logging
 import os
 
 logger = logging.getLogger(__name__)
-from dataclasses import dataclass, field
 
 import torch
 import torch.nn.functional as F
-from PIL import Image
 from accelerate import Accelerator
 from diffusers import (
-    DDPMScheduler,
     AutoencoderKL,
-    UNet2DConditionModel,
+    DDPMScheduler,
+    DPMSolverMultistepScheduler,
     StableDiffusionPipeline,
     StableDiffusionXLPipeline,
-    DPMSolverMultistepScheduler,
+    UNet2DConditionModel,
 )
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-from transformers import CLIPTextModel, CLIPTokenizer, CLIPTextModelWithProjection
 from huggingface_hub import hf_hub_download
 from peft import LoraConfig, get_peft_model
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
 from tqdm.auto import tqdm
+from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
 
 # ---------------------------------------------------------------------------
 # Optional dependencies
@@ -350,7 +349,7 @@ class LoRATuner:
             )
             progress_bar.set_description(f"Epoch {epoch}")
 
-            for step, batch in enumerate(dataloader):
+            for _step, batch in enumerate(dataloader):
                 if self.is_cancelled:
                     progress_bar.close()
                     print("Training stopped by cancellation.")

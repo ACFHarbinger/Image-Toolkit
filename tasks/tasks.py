@@ -1,33 +1,34 @@
+import contextlib
 import os
-import cv2
 import time
-import torch
-
-from celery import shared_task
 from pathlib import Path
+
+import cv2
+import torch
+from backend.src.constants import LOCAL_SOURCE_PATH
+from backend.src.core import (
+    DuplicateFinder,
+    FileDeleter,
+    ImageFormatConverter,
+    ImageMerger,
+)
+from backend.src.database import PgvectorImageDatabase as ImageDatabase
+from backend.src.models.core.gan import GAN
+from backend.src.web import (
+    DanbooruCrawler,
+    DropboxDriveSync,
+    GelbooruCrawler,
+    GoogleDriveSync,
+    ImageCrawler,
+    OneDriveSync,
+    ReverseImageSearchCrawler,
+    SankakuCrawler,
+    WebRequestsLogic,
+)
+from celery import shared_task
 from moviepy.editor import VideoFileClip
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from backend.src.core import (
-    ImageFormatConverter,
-    ImageMerger,
-    FileDeleter,
-    DuplicateFinder,
-)
-from backend.src.web import (
-    GoogleDriveSync,
-    DropboxDriveSync,
-    OneDriveSync,
-    ImageCrawler,
-    DanbooruCrawler,
-    GelbooruCrawler,
-    SankakuCrawler,
-    ReverseImageSearchCrawler,
-    WebRequestsLogic,
-)
-from backend.src.models.core.gan import GAN
-from backend.src.database import PgvectorImageDatabase as ImageDatabase
-from backend.src.constants import LOCAL_SOURCE_PATH
 
 # Ensure you handle DB initialization for Search if strictly necessary,
 # though Search is often fast enough for a direct View.
@@ -118,21 +119,9 @@ def task_scan_duplicates(self, directory, extensions, method):
     """
     self.update_state(state="PROGRESS", meta={"status": "Indexing images..."})
 
-    if method == "exact":
-        results = DuplicateFinder.find_duplicate_images(
-            directory, extensions, recursive=True
-        )
-    else:
-        # For 'phash', 'orb', etc., we must call the heavy logic.
-        # Since we are essentially inside a worker process, we can run the
-        # SimilarityFinder logic directly.
-        # Note: If SimilarityFinder relies on Qt signals, it needs refactoring.
-        # Assuming SimilarityFinder is pure Python/OpenCV:
-        # images = SimilarityFinder.get_images_list(directory, extensions)
-
-        # ... Perform hashing/feature extraction loop here ...
-        # ... Perform comparison logic (_compare_phash, etc) here ...
-        results = {}  # Placeholder for actual logic result
+    results = DuplicateFinder.find_duplicate_images(
+        directory, extensions, recursive=True
+    )
 
     return {"status": "success", "results": results}
 
@@ -316,10 +305,8 @@ def task_extract_video_clip(self, config):
         return {"status": "success", "output_path": output_path}
     except Exception as e:
         if os.path.exists(temp_audio_path):
-            try:
+            with contextlib.suppress(Exception):
                 os.remove(temp_audio_path)
-            except Exception:
-                pass
         return {"status": "error", "message": str(e)}
 
 

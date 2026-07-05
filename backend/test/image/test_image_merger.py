@@ -1,10 +1,10 @@
 import os
 import sys
-import pytest
-import numpy as np
+from unittest.mock import MagicMock, patch
 
+import numpy as np
+import pytest
 from PIL import Image
-from unittest.mock import patch, MagicMock
 
 # Add project root to Python path to import modules
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

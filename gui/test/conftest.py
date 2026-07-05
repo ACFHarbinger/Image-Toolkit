@@ -1,12 +1,13 @@
-import sys
-import pytest
+import contextlib
 import importlib.machinery
-
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
+from PySide6.QtCore import QObject, QRunnable, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QObject, Signal, QRunnable
 
 # --- BLOCK HEAVY IMPORTS ---
 sys.modules["backend.src.models"] = MagicMock()
@@ -42,7 +43,8 @@ project_root = Path(__file__).resolve().parent.parent.parent
 # to resolve 'gui' as a package within Image-Toolkit/.
 sys.path.insert(0, str(project_root))
 
-from gui.src.utils.file_dialog_patch import apply_patch
+from gui.src.utils.file_dialog_patch import apply_patch  # noqa: E402
+
 apply_patch()
 
 
@@ -51,8 +53,8 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
     """
     Ensure all tests run in a completely isolated sandbox and never write to the user's home directory.
     """
-    from backend.src.constants import paths
     import backend.src.constants as constants
+    from backend.src.constants import paths
 
     fake_config_path = tmp_path / ".slideshow_config.json"
 
@@ -101,7 +103,7 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True, scope="function")
 def cleanup_active_workers_and_timers(q_app):
     from PySide6.QtCore import QThreadPool, QTimer
-    from PySide6.QtWidgets import QWidget, QApplication
+    from PySide6.QtWidgets import QApplication, QWidget
 
     started_workers = []
     original_start = QThreadPool.globalInstance().start
@@ -125,10 +127,8 @@ def cleanup_active_workers_and_timers(q_app):
 
     for widget in QApplication.topLevelWidgets():
         for timer in widget.findChildren(QTimer):
-            try:
+            with contextlib.suppress(Exception):
                 timer.stop()
-            except Exception:
-                pass
         for subtab in widget.findChildren(QWidget):
             try:
                 if hasattr(subtab, "slideshow_timer") and subtab.slideshow_timer:

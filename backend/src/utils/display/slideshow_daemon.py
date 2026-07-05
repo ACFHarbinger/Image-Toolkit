@@ -9,20 +9,20 @@ def start_daemon(debug: bool = False):
     Launch the C++ slideshow daemon binary.
     """
     project_root = Path(__file__).parent.parent.parent.parent
-    
+
     # Priority: release, then debug
     candidates = [
         project_root / "target" / "release" / "slideshow_daemon",
         project_root / "target" / "debug" / "slideshow_daemon",
         project_root / "base" / "target" / "release" / "slideshow_daemon",
     ]
-    
+
     bin_path = None
     for cand in candidates:
         if cand.exists():
             bin_path = cand
             break
-            
+
     if not bin_path:
         print("ERROR: slideshow_daemon binary not found. Please run 'cargo build --release' in 'base/'")
         return

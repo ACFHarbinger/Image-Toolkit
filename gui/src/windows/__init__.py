@@ -1,12 +1,13 @@
+from .drag_preview_window import DragPreviewWindow
 from .image_preview_window import ImagePreviewWindow
+from .logging import LogBackend, LogWindow
+from .main import LoginWindow, MainWindow
+from .settings import SettingsBackend, SettingsWindow
 from .slideshow_backend import SlideshowBackend
 from .slideshow_window import SlideshowQueueWindow
-from .logging import LogBackend, LogWindow
-from .settings import SettingsBackend, SettingsWindow
-
-from .main import LoginWindow, MainWindow
 
 __all__ = [
+    "DragPreviewWindow",
     "ImagePreviewWindow",
     "SlideshowBackend",
     "SlideshowQueueWindow",

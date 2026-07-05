@@ -1,19 +1,20 @@
+import contextlib
+import importlib.util as _importlib_util_merger
+import os
 import tempfile
 import uuid
-import importlib.util as _importlib_util_merger
+from typing import Dict, List, Optional, Tuple
 
 import cv2
-import os
 import numpy as np
 import yaml
 from loguru import logger
+from PIL import Image
 from scipy.optimize import least_squares
-from backend.src.constants import BACKEND_DIR
+
+from backend.src.constants import BACKEND_DIR, AlignMode
 
 from . import FSETool
-from PIL import Image
-from typing import List, Tuple, Optional, Dict
-from backend.src.constants import AlignMode
 
 try:
     import base
@@ -147,10 +148,8 @@ class ImageMerger:
         status, pano = stitcher.stitch(cv_images)
 
         # Force cleanup of any internal highgui/Qt resources before we return
-        try:
+        with contextlib.suppress(cv2.error):
             cv2.destroyAllWindows()
-        except cv2.error:
-            pass
 
         if status != cv2.Stitcher_OK:
             error_map = {
@@ -207,10 +206,8 @@ class ImageMerger:
         status, pano = stitcher.stitch(cv_images)
 
         # Force cleanup of any internal highgui/Qt resources before we return
-        try:
+        with contextlib.suppress(cv2.error):
             cv2.destroyAllWindows()
-        except cv2.error:
-            pass
 
         if status != cv2.Stitcher_OK:
             error_map = {

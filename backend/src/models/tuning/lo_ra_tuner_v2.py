@@ -21,34 +21,33 @@ FullFineTuner lives in backend/src/models/full_finetune.py.
 """
 
 from __future__ import annotations
-from backend.src.models.tuning.lo_ra_tuner_config import LoRATunerConfig
 
 import os
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from PIL import Image
 from accelerate import Accelerator
 from diffusers import (
-    DDPMScheduler,
     AutoencoderKL,
-    UNet2DConditionModel,
+    DDPMScheduler,
+    DPMSolverMultistepScheduler,
     StableDiffusionPipeline,
     StableDiffusionXLPipeline,
-    DPMSolverMultistepScheduler,
+    UNet2DConditionModel,
 )
 from diffusers.optimization import get_scheduler
 from diffusers.training_utils import EMAModel, compute_snr
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-from transformers import CLIPTextModel, CLIPTokenizer, CLIPTextModelWithProjection
-from huggingface_hub import hf_hub_download
 from peft import LoraConfig, get_peft_model
+from PIL import Image
+from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
+
+from backend.src.models.tuning.lo_ra_tuner_config import LoRATunerConfig
 
 # ---------------------------------------------------------------------------
 # Optional dependencies
@@ -332,10 +331,7 @@ class LoRATunerV2:
             [snr, cfg.snr_gamma * torch.ones_like(snr)], dim=1
         ).min(dim=1)[0]
 
-        if cfg.prediction_type == "v_prediction":
-            weights = (snr_clamped + 1.0) / (snr + 1.0)
-        else:
-            weights = snr_clamped / snr
+        weights = (snr_clamped + 1.0) / (snr + 1.0) if cfg.prediction_type == "v_prediction" else snr_clamped / snr
 
         loss = F.mse_loss(noise_pred.float(), target.float(), reduction="none")
         loss = loss.mean(dim=list(range(1, loss.dim()))) * weights

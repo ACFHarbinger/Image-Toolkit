@@ -1,14 +1,29 @@
-import os
-import sys
+import contextlib
 import json
-import time
-import platform
-import subprocess
 import logging
+import os
+import platform
 import random
-
+import subprocess
+import sys
+import time
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union, Mapping, cast, Tuple
+from typing import (
+    Any,
+    Dict,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
+
+from backend.src.constants import (
+    DAEMON_CONFIG_PATH,
+    ROOT_DIR,
+    WALLPAPER_STYLES,
+)
+from backend.src.core import WallpaperManager
 from PySide6.QtCore import (
     Qt,
     QThreadPool,
@@ -17,36 +32,30 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QGroupBox,
-    QComboBox,
-    QWidget,
-    QLabel,
-    QPushButton,
-    QGridLayout,
-    QSpinBox,
-    QHBoxLayout,
-    QLineEdit,
-    QScrollArea,
-    QMessageBox,
     QApplication,
     QColorDialog,
+    QComboBox,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
-from .common.wallpaper_common_base import WallpaperCommonBase
-from ....helpers import WallpaperWorker
 from ....components import (
-    MonitorDropWidget,
-    MarqueeScrollArea,
     DraggableMonitorContainer,
+    MarqueeScrollArea,
+    MonitorDropView,
 )
-from ....styles import apply_shadow_effect, STYLE_START_ACTION, STYLE_STOP_ACTION
-from backend.src.constants import (
-    WALLPAPER_STYLES,
-    DAEMON_CONFIG_PATH,
-    ROOT_DIR,
-)
-from backend.src.core import WallpaperManager
+from ....helpers import WallpaperWorker
+from ....styles import STYLE_START_ACTION, STYLE_STOP_ACTION, apply_shadow_effect
+from .common.wallpaper_common_base import WallpaperCommonBase
 
 
 class SystemDisplaySubTab(WallpaperCommonBase):
@@ -776,11 +785,10 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 self, "Slideshow Stopped", "Wallpaper slideshow stopped."
             )
 
-        if self.countdown_timer and self.countdown_timer.isActive():
-            if not self._is_daemon_running_config():
-                self.countdown_timer.stop()
-                self.countdown_timer.deleteLater()
-                self.countdown_timer = None
+        if self.countdown_timer and self.countdown_timer.isActive() and not self._is_daemon_running_config():
+            self.countdown_timer.stop()
+            self.countdown_timer.deleteLater()
+            self.countdown_timer = None
 
         self.stop_wallpaper_worker()
         self.check_all_monitors_set()
@@ -789,16 +797,12 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         super().cancel_loading()
 
         if self.img_scanner_worker:
-            try:
+            with contextlib.suppress(Exception):
                 self.img_scanner_worker.stop()
-            except Exception:
-                pass
 
         if self.vid_scanner_worker:
-            try:
+            with contextlib.suppress(Exception):
                 self.vid_scanner_worker.stop()
-            except Exception:
-                pass
 
         if (
             hasattr(self, "_pagination_debounce_timer")
@@ -808,22 +812,17 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.slideshow_timer.stop()
-        if self.countdown_timer and self.countdown_timer.isActive():
-            if not self._is_daemon_running_config():
-                self.countdown_timer.stop()
+        if self.countdown_timer and self.countdown_timer.isActive() and not self._is_daemon_running_config():
+            self.countdown_timer.stop()
 
         for win in list(self.open_queue_windows):
-            try:
+            with contextlib.suppress(Exception):
                 win.close()
-            except Exception:
-                pass
         self.open_queue_windows.clear()
 
         for win in list(self.open_image_preview_windows):
-            try:
+            with contextlib.suppress(Exception):
                 win.close()
-            except Exception:
-                pass
         self.open_image_preview_windows.clear()
 
         for win in list(self.open_queue_windows):
@@ -1031,10 +1030,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             system = platform.system()
             if system == "Linux":
                 try:
-                    if self.qdbus:
-                        desktop = "KDE"
-                    else:
-                        desktop = "Gnome"
+                    desktop = "KDE" if self.qdbus else "Gnome"
                 except Exception:
                     desktop = None
             elif system == "Windows":
@@ -1167,7 +1163,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
             for row in self.monitor_layout_container.rows:
                 for widget in row:
-                    if isinstance(widget, MonitorDropWidget):
+                    if isinstance(widget, MonitorDropView):
                         monitor_order.append(widget.monitor_id)
             monitor_layout = self.monitor_layout_container.get_layout_structure()
 
@@ -1239,8 +1235,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 )
 
             layout_restored = False
-            if "monitor_layout" in config and config["monitor_layout"]:
-                if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
+            if "monitor_layout" in config and config["monitor_layout"] and isinstance(self.monitor_layout_container, DraggableMonitorContainer):
                     self.monitor_layout_container.set_layout_structure(
                         config["monitor_layout"], self.monitor_widgets
                     )
@@ -1261,12 +1256,10 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                     self.monitor_layout_container.clear_widgets()
                     for mid in valid_order:
                         if mid in self.monitor_widgets:
-                            self.monitor_layout_container.addWidget(
-                                self.monitor_widgets[mid]
-                            )
+                            self.monitor_layout_container.addWidget(self.monitor_widgets[mid]) # pyrefly: ignore [bad-argument-type]
                     for mid, w in self.monitor_widgets.items():
                         if mid not in valid_order:
-                            self.monitor_layout_container.addWidget(w)
+                            self.monitor_layout_container.addWidget(w) # pyrefly: ignore [bad-argument-type]
 
             # Both monitor_slideshow_queues and monitor_image_paths are
             # shared by reference with MonitorDisplaySubTab (see

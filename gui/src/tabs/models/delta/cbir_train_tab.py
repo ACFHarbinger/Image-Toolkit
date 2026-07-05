@@ -19,6 +19,7 @@ Architecture overview
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from pathlib import Path
 from typing import Optional
@@ -723,10 +724,8 @@ class CBIRTrainTab(QWidget):
         }
         for key, setter in _set.items():
             if key in cfg:
-                try:
+                with contextlib.suppress(Exception):
                     setter(cfg[key])
-                except Exception:
-                    pass
 
     def get_default_config(self) -> dict:
         return {

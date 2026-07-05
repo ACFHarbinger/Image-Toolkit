@@ -14,19 +14,17 @@ Legacy API (backward-compatible):
     H                = wrapper.get_transform(img1, img2)   # (3,3) homography
 """
 
-import gc
+import logging
+from typing import Optional, Tuple
+
 import cv2
+import kornia.feature as KF
 import numpy as np
 import torch
 
-import logging
+from backend.src.models.core.base import ModelWrapper, lazy_load
 
 logger = logging.getLogger(__name__)
-
-import kornia.feature as KF
-from typing import Optional, Tuple
-
-from backend.src.models.core.base import ModelWrapper, lazy_load
 
 torch.backends.cudnn.benchmark = False
 

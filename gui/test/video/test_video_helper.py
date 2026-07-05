@@ -1,7 +1,6 @@
-import pytest
-import numpy as np
-import os
 from unittest.mock import MagicMock, patch
+
+import pytest
 from gui.src.helpers.video.frame_extractor_worker import FrameExtractionWorker
 from gui.src.helpers.video.video_scan_worker import VideoScannerWorker
 
@@ -29,7 +28,7 @@ class TestFrameExtractionWorker:
         # Patch cv2 and subprocess.Popen in the WORKER module
         with (
             patch("gui.src.helpers.video.frame_extractor_worker.cv2") as mock_cv2,
-            patch("gui.src.helpers.video.frame_extractor_worker.subprocess.Popen", return_value=mock_process) as mock_popen,
+            patch("gui.src.helpers.video.frame_extractor_worker.subprocess.Popen", return_value=mock_process) as _mock_popen,
         ):
             mock_cv2.VideoCapture.return_value = mock_cap
 
@@ -70,7 +69,7 @@ class TestFrameExtractionWorker:
 
         with (
             patch("gui.src.helpers.video.frame_extractor_worker.cv2") as mock_cv2,
-            patch("gui.src.helpers.video.frame_extractor_worker.subprocess.Popen", return_value=mock_process) as mock_popen,
+            patch("gui.src.helpers.video.frame_extractor_worker.subprocess.Popen", return_value=mock_process) as _mock_popen,
         ):
             mock_cv2.VideoCapture.return_value = mock_cap
 

@@ -12,19 +12,16 @@ Two entry points:
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-from ..mfsr.drl_registration import _AXIS_STEPS, _warp
 # --------------------------------
-
-
 import random
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 
+# --- Relocated Nested Imports ---
+from ..mfsr.drl_registration import _AXIS_STEPS, _warp
 from .feedback_store import FeedbackStore
 from .reward_model import StitchRewardModel
-
 
 # ---------------------------------------------------------------------------
 # Reward-model training (thin wrapper kept for IDE discoverability)
@@ -138,7 +135,7 @@ def fine_tune_drl_agent(
     for ref, src in frame_pairs:
         h, w = ref.shape[:2]
 
-        for ep in range(episodes):
+        for _ep in range(episodes):
             ep_idx += 1
             # Random initial perturbation so the agent sees diverse states
             params = np.array(

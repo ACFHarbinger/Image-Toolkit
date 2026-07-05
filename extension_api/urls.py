@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import PingView, DupCheckView, IngestView
+from .views import DupCheckView, IngestView, PingView
 
 urlpatterns = [
     path("ping/", PingView.as_view(), name="ext_ping"),

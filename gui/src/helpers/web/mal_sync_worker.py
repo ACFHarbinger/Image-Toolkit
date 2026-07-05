@@ -1,5 +1,5 @@
-from PySide6.QtCore import QThread, Signal
 from backend.src.web.clients.jikan_client import fetch_mal_anime_data
+from PySide6.QtCore import QThread, Signal
 
 
 class MalSyncWorker(QThread):

@@ -1,31 +1,32 @@
 import os
-
 from typing import List, Optional
-from PySide6.QtCore import Qt, QSize, QTimer, Signal
+
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
-    QShortcut,
-    QWheelEvent,
     QAction,
-    QPixmap,
-    QKeySequence,
     QKeyEvent,
-    QMovie,
+    QKeySequence,
     QMouseEvent,
+    QMovie,
+    QPixmap,
+    QShortcut,
     QTransform,
+    QWheelEvent,
 )
 from PySide6.QtWidgets import (
-    QMenu,
-    QMessageBox,
-    QLabel,
     QApplication,
-    QScrollArea,
-    QVBoxLayout,
     QDialog,
     QHBoxLayout,
+    QLabel,
+    QMenu,
+    QMessageBox,
     QPushButton,
+    QScrollArea,
+    QVBoxLayout,
 )
-from .main import show_main_status
+
 from ..utils.shortcut_manager import get_registry
+from .main import show_main_status
 
 
 class ImagePreviewWindow(QDialog):
@@ -108,22 +109,22 @@ class ImagePreviewWindow(QDialog):
 
         # New Arrow Design (Larger, more visible, but minimally intrusive)
         arrow_style = """
-            QPushButton { 
-                font-size: 40px; 
+            QPushButton {
+                font-size: 40px;
                 font-weight: bold;
-                color: rgba(255, 255, 255, 0.9); 
-                background: rgba(30, 33, 36, 0.3); 
+                color: rgba(255, 255, 255, 0.9);
+                background: rgba(30, 33, 36, 0.3);
                 border: none;
                 padding: 10px;
                 margin: 0 10px;
             }
-            QPushButton:hover { 
-                background: rgba(30, 33, 36, 0.7); 
-                color: #7289da; 
+            QPushButton:hover {
+                background: rgba(30, 33, 36, 0.7);
+                color: #7289da;
             }
-            QPushButton:disabled { 
-                color: rgba(255, 255, 255, 0.2); 
-                background: transparent; 
+            QPushButton:disabled {
+                color: rgba(255, 255, 255, 0.2);
+                background: transparent;
             }
         """
         self.btn_prev.setStyleSheet(arrow_style)

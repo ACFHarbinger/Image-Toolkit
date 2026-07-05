@@ -17,9 +17,8 @@ from __future__ import annotations
 
 import sys
 import unittest
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-import cv2
 import numpy as np
 
 

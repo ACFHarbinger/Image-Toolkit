@@ -11,15 +11,15 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
 
-import sys
-import pytest
-import tempfile
 import gc
-
-import numpy as np
-from PIL import Image
+import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pytest
+from PIL import Image
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 repo_root = os.path.dirname(project_root)
@@ -50,10 +50,8 @@ except ImportError:
     pass
 
 import src.constants as udef  # noqa: E402
-
 from src.core import FSETool  # noqa: E402
 from src.web import ImageCrawler  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # §3.12 — CLI options and collection hooks for GPU isolation
@@ -252,7 +250,9 @@ class MockWebCrawler:
         # Always return True for success in the mock
         return True
 
-    def wait_for_page_to_load(self, timeout=3, selectors=[], screenshot_name=None):
+    def wait_for_page_to_load(self, timeout=3, selectors=None, screenshot_name=None):
+        if selectors is None:
+            selectors = []
         return True
 
     # Mock the combination of metaclasses for the class definition
@@ -456,7 +456,7 @@ def sample_images():
         ]  # Red, Green, Blue, Yellow
         sizes = [(100, 100), (150, 100), (100, 150), (120, 120)]  # Different sizes
 
-        for i, (color, size) in enumerate(zip(colors, sizes)):
+        for i, (color, size) in enumerate(zip(colors, sizes, strict=False)):
             img_path = os.path.join(temp_dir, f"test_image_{i}.png")
             img = Image.new("RGB", size, color)
             img.save(img_path)

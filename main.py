@@ -5,7 +5,6 @@ import warnings
 from backend.src.app import launch_app, log_uncaught_exceptions
 from backend.src.utils.io.arg_parser import parse_params
 from backend.src.utils.io.dispatcher import dispatch_command
-
 from gui.src.utils.file_dialog_patch import apply_patch
 
 # Apply the patch to add the favorites side bar to the file dialogs

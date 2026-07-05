@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import math
-from PIL import Image
 from typing import List
+
+from PIL import Image
 from PySide6.QtCore import QObject, Signal
 
-from .adjust_worker import _pil_to_qimage, _apply_adjustments
+from .adjust_worker import _apply_adjustments, _pil_to_qimage
 
 
 def _scale_pil_image(im, cell_w: int, cell_h: int, scale_mode: str):

@@ -1,27 +1,29 @@
-import os
+import contextlib
 import math
-
-from send2trash import send2trash # pyrefly: ignore [untyped-import]
+import os
 from abc import abstractmethod
-from typing import List, Dict, Optional, Set
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QMenu, QApplication, QFileDialog, QMessageBox, QInputDialog
-from PySide6.QtCore import Qt, Slot, QTimer, QEvent
-from PySide6.QtGui import QPixmap, QImage, QAction
+from typing import Dict, List, Optional, Set
+
 from backend.src.constants import (
     LOCAL_SOURCE_PATH,
     SUPPORTED_VIDEO_FORMATS,
     THUMBNAIL_CACHE_DIR,
 )
-from .base.gallery_base import AbstractGalleryBase
-from ..utils.lru_image_cache import LRUImageCache
-from ..components import MarqueeScrollArea, ClickableLabel
+from PySide6.QtCore import QEvent, Qt, QTimer, Slot
+from PySide6.QtGui import QAction, QImage, QPixmap
+from PySide6.QtWidgets import QApplication, QFileDialog, QGridLayout, QInputDialog, QLabel, QMenu, QMessageBox, QWidget
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
+from ..components import ClickableLabel, MarqueeScrollArea
 from ..helpers import (
-    ImageLoaderWorker,
     BatchImageLoaderWorker,
-    VideoLoaderWorker,
     BatchVideoLoaderWorker,
+    ImageLoaderWorker,
+    VideoLoaderWorker,
 )
+from ..utils.lru_image_cache import LRUImageCache
 from ..utils.sort_utils import natural_sort_key
+from .base.gallery_base import AbstractGalleryBase
 
 
 class AbstractClassTwoGalleries(AbstractGalleryBase):
@@ -262,32 +264,28 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     def _recreate_galleries_on_zoom(self) -> None:
         """Clears all caches and existing widgets, and fully recreates the galleries at the new thumbnail size."""
         self.cancel_loading()
-        
+
         # Clear caches
         self._found_pixmap_cache.clear()
         self._selected_pixmap_cache.clear()
-        
+
         # Clear existing widgets
         for widget in list(self.path_to_label_map.values()):
-            try:
+            with contextlib.suppress(RuntimeError):
                 widget.deleteLater()
-            except RuntimeError:
-                pass
         self.path_to_label_map.clear()
-        
+
         for widget in list(self.selected_card_map.values()):
-            try:
+            with contextlib.suppress(RuntimeError):
                 widget.deleteLater()
-            except RuntimeError:
-                pass
         self.selected_card_map.clear()
-        
+
         # Clear the layouts entirely so they start fresh
         if self.found_gallery_layout is not None:
             self._clear_layout(self.found_gallery_layout)
         if self.selected_gallery_layout is not None:
             self._clear_layout(self.selected_gallery_layout)
-        
+
         # Recreate/Refresh both panels
         self.refresh_found_gallery()
         self.refresh_selected_panel()
@@ -679,8 +677,8 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     # §2.4C — right-click context menu on found-gallery cards -----------
     @Slot(object, str)
     def _on_found_card_right_clicked(self, global_pos, path: str) -> None:
-        from PySide6.QtWidgets import QMenu as _QMenu
         from PySide6.QtGui import QAction as _QAct
+        from PySide6.QtWidgets import QMenu as _QMenu
         menu = _QMenu(self)
 
         open_act = _QAct("Open Preview", menu)
@@ -727,7 +725,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         # Color label submenu (§2.18B)
         label_menu = menu.addMenu("Color Label")
         current_label = self._get_color_label(path)
-        for key, hex_color in self._LABEL_COLORS.items():
+        for key, _hex_color in self._LABEL_COLORS.items():
             icon_txt = self._LABEL_ICONS.get(key, "")
             lbl_act = _QAct(f"{icon_txt} {key.capitalize()}", label_menu)
             lbl_act.setCheckable(True)
@@ -777,10 +775,8 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             QMessageBox.critical(self, "Move to Trash", str(exc))
             return
         for lst in (self.found_files, self.master_found_files, self.selected_files):
-            try:
+            with contextlib.suppress(ValueError):
                 lst.remove(path)
-            except ValueError:
-                pass
         self.path_to_label_map.pop(path, None)
         self._update_found_card_styles()
         self.refresh_selected_panel()
@@ -832,10 +828,8 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
         label = self.path_to_label_map.get(path)
         if label:
-            try:
+            with contextlib.suppress(RuntimeError):
                 self.update_card_style(label, selected)
-            except RuntimeError:
-                pass
 
         self.refresh_selected_panel()
         self.on_selection_changed()
@@ -892,12 +886,12 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
     def _get_color_label(self, path: str) -> Optional[str]:
         """Return the color key for *path*, or None if unlabelled."""
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         return AppSettings.label(path)
 
     def _set_color_label(self, path: str, color_key: Optional[str]) -> None:
         """Persist *color_key* (or clear it) for *path*, then refresh the card border."""
-        from gui.src.utils.settings import AppSettings
+        from gui.src.windows.settings.app_settings import AppSettings
         if color_key:
             AppSettings.set_label(path, color_key)
         else:
@@ -1225,10 +1219,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         widget = self.path_to_label_map.get(path)
         if widget:
             try:
-                if isinstance(image, QImage):
-                    pixmap = QPixmap.fromImage(image)
-                else:
-                    pixmap = image
+                pixmap = QPixmap.fromImage(image) if isinstance(image, QImage) else image
 
                 if pixmap.isNull():
                     # Explicitly handle failure instead of resetting to "Loading..."
@@ -1297,10 +1288,8 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
             widget = self.path_to_label_map.get(path)
             if widget:
-                try:
+                with contextlib.suppress(RuntimeError):
                     self.update_card_pixmap(widget, final_pixmap)
-                except RuntimeError:
-                    pass
 
     def refresh_found_gallery(self):
         self.cancel_loading()
@@ -1497,10 +1486,8 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
         # Stop all active workers
         for worker in list(self._active_workers):
-            try:
+            with contextlib.suppress(Exception):
                 worker.stop()
-            except Exception:
-                pass
         self._active_workers.clear()
 
         if hasattr(self, "thread_pool"):

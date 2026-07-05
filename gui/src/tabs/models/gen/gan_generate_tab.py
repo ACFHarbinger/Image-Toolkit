@@ -1,23 +1,23 @@
 import os
-import torch
 
+import torch
+from backend.src.models.core.gan import GAN
+from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
-    QLabel,
-    QLineEdit,
-    QSpinBox,
     QFileDialog,
     QFrame,
-    QScrollArea,
     QGridLayout,
-    QMessageBox,
-    QWidget,
-    QVBoxLayout,
     QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QPixmap, QImage
-from backend.src.models.core.gan import GAN
 
 
 class GANGenerateTab(QWidget):

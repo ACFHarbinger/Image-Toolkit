@@ -1,6 +1,5 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtWidgets import QLabel
-from PySide6.QtCore import QPoint
 
 
 class _CutLabel(QLabel):

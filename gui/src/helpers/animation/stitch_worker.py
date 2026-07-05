@@ -12,37 +12,39 @@ Workers
 
 from __future__ import annotations
 
+import contextlib
+import datetime as _dt
 import gc
 import json
 import os
 import os as _os
 import shutil
-import warnings
 import tempfile
 import time as _time
-import datetime as _dt
+import warnings
 from typing import Callable, Dict, List, Optional
 
 import cv2
 import numpy as np
-from PIL import Image as _Image
 import torch
-from PySide6.QtCore import QMutex, QObject, QWaitCondition, Signal
-
 from backend.src.animation import AnimeStitchPipeline
-from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-from backend.src.animation.rendering.compositing import _compute_initial_boundaries
 from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
 from backend.src.animation.core.data_serialization import create_session_serializers
 from backend.src.animation.core.pipeline import _build_manual_edge
-from backend.src.animation.mfsr import run_mfsr
-from backend.src.animation.rlhf.feedback_store import FeedbackStore, StitchAnnotation
+from backend.src.animation.hitl.hitl_session import (
+    autosave_path,
+    load_session,
+)
 from backend.src.animation.hitl.hitl_session import (
     save_session as _save_session_impl,
-    load_session,
-    autosave_path,
 )
 from backend.src.animation.ingestion.video_ingestion import ingest_video
+from backend.src.animation.mfsr import run_mfsr
+from backend.src.animation.rendering.compositing import _compute_initial_boundaries
+from backend.src.animation.rlhf.feedback_store import FeedbackStore, StitchAnnotation
+from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+from PIL import Image as _Image
+from PySide6.QtCore import QMutex, QObject, QWaitCondition, Signal
 
 # ---------------------------------------------------------------------------
 # _ProgressPipeline — AnimeStitchPipeline subclass with progress callbacks
@@ -102,9 +104,13 @@ class _ProgressPipeline(AnimeStitchPipeline):
         save_intermediate: bool = False,
         intermediate_dir: str = "",
         pause_cb: Optional[Callable] = None,
+        pipeline_config: Optional[dict] = None,
+        hitl_session_overrides: Optional[Dict[str, dict]] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self._pipeline_config = pipeline_config
+        self._hitl_session_overrides = hitl_session_overrides
         self._progress_cb = progress_cb
         self._log_cb = log_cb
         self._manual_affines = manual_affines or {}
@@ -124,7 +130,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
         if self._cancel_flag[0]:
             raise InterruptedError("Stitch cancelled by user.")
 
-    def run(self, image_paths: List[str], output_path: str):
+    def run(self, image_paths: List[str], output_path: str, hires_keyframes: Optional[Dict[int, str]] = None):  # noqa: C901
         out_abs = os.path.abspath(output_path)
         image_paths = [p for p in image_paths if os.path.abspath(p) != out_abs]
 
@@ -221,6 +227,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
         # ─────────────────────────────────────────────────────────────────
 
         # Issue 10B: HITL annotation serialization (lazy, no-op if not installed)
+        _hitl_session_dir = None
         try:
             _hitl_dir = os.path.join(
                 os.path.expanduser("~"), ".image-toolkit", "hitl_annotations"
@@ -240,9 +247,11 @@ class _ProgressPipeline(AnimeStitchPipeline):
                 return
             try:
                 _os.makedirs(_hitl_session_dir, exist_ok=True)
+                # pyrefly: ignore [missing-attribute]
                 _coco_builder.save(
                     _os.path.join(_hitl_session_dir, "annotations_coco.json")
                 )
+                # pyrefly: ignore [missing-attribute]
                 _ls_exporter.save(
                     _os.path.join(_hitl_session_dir, "annotations_ls.json")
                 )
@@ -291,10 +300,8 @@ class _ProgressPipeline(AnimeStitchPipeline):
         bg_masks = self._compute_fg_masks(frames)
         _save_masks(4, bg_masks)
         if torch.cuda.is_available() and self._birefnet:
-            try:
+            with contextlib.suppress(Exception):
                 BiRefNetWrapper.purge_all_models()
-            except Exception:
-                pass
             self._birefnet = None
             torch.cuda.empty_cache()
 
@@ -304,6 +311,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
             _fh, _fw = _f.shape[:2]
             _sc = min(1.0, 256 / max(_fh, _fw, 1))
             _thumbs.append(
+                # pyrefly: ignore [no-matching-overload]
                 cv2.resize(
                     _f,
                     (max(1, int(_fw * _sc)), max(1, int(_fh * _sc))),
@@ -313,10 +321,12 @@ class _ProgressPipeline(AnimeStitchPipeline):
         _diffs = [0.0]
         for _i in range(1, N):
             _a = (
+                # pyrefly: ignore [no-matching-overload]
                 cv2.resize(frames[_i - 1], (64, 64), cv2.INTER_AREA).astype(np.float32)
                 / 255.0
             )
             _b = (
+                # pyrefly: ignore [no-matching-overload]
                 cv2.resize(frames[_i], (64, 64), cv2.INTER_AREA).astype(np.float32)
                 / 255.0
             )
@@ -372,13 +382,16 @@ class _ProgressPipeline(AnimeStitchPipeline):
 
         # Record confirmed masks into COCO / Label Studio annotation files
         if _serialization_ok:
-            for _fi, (_fpath, _mask) in enumerate(zip(image_paths, bg_masks)):
+            for _fi, (_fpath, _mask) in enumerate(zip(image_paths, bg_masks, strict=False)):
                 _fh, _fw = frames[_fi].shape[:2] if _fi < len(frames) else (0, 0)
+                # pyrefly: ignore [missing-attribute]
                 _img_id = _coco_builder.add_image(
                     os.path.basename(_fpath), width=_fw, height=_fh, temporal_id=_fi
                 )
                 if _mask is not None:
+                    # pyrefly: ignore [missing-attribute]
                     _coco_builder.add_segmentation_mask(_img_id, _mask)
+                # pyrefly: ignore [missing-attribute]
                 _ls_exporter.add_task(_fpath, temporal_id=_fi, model_mask=_mask)
             _save_hitl_annotations()
             self._log_cb(f"[HITL] Annotations saved to {_hitl_session_dir}")
@@ -405,10 +418,8 @@ class _ProgressPipeline(AnimeStitchPipeline):
         # Purge LoFTR
         if torch.cuda.is_available():
             if self._loftr is not None:
-                try:
+                with contextlib.suppress(Exception):
                     self._loftr.offload()
-                except Exception:
-                    pass
                 self._loftr = None
             torch.cuda.empty_cache()
             gc.collect()
@@ -465,7 +476,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
                 )
 
         if not edges:
-            warnings.warn("[Stitch] No valid edges — falling back to scan stitch.")
+            warnings.warn("[Stitch] No valid edges — falling back to scan stitch.", stacklevel=2)
             _trace["fallback_used"] = True
             result = self._scan_stitch_fallback(frames, output_path)
             _trace["success"] = True
@@ -512,6 +523,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
             _fh, _fw = _f.shape[:2]
             _sc = min(1.0, 160 / max(_fh, _fw, 1))
             _c_thumbs.append(
+                # pyrefly: ignore [no-matching-overload]
                 cv2.resize(
                     _f,
                     (max(1, int(_fw * _sc)), max(1, int(_fh * _sc))),
@@ -546,10 +558,8 @@ class _ProgressPipeline(AnimeStitchPipeline):
         del _c_thumbs, _cov
 
         if torch.cuda.is_available():
-            try:
+            with contextlib.suppress(Exception):
                 BiRefNetWrapper.purge_all_models()
-            except Exception:
-                pass
             self._birefnet = self._loftr = self._stitch_net = None
             torch.cuda.synchronize()
             torch.cuda.empty_cache()
@@ -564,6 +574,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
 
         # HITL checkpoint 4 — render review (coverage heatmap + preview)
         _prev_sc = min(1.0, 600 / max(canvas_h, 1))
+        # pyrefly: ignore [no-matching-overload]
         _canvas_prev = cv2.resize(
             canvas,
             (max(1, int(canvas_w * _prev_sc)), max(1, int(canvas_h * _prev_sc))),
@@ -619,6 +630,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
             if _compute_initial_boundaries is not None:
                 _init_bnd = _compute_initial_boundaries(affines, frames)
                 _prev_sc = min(1.0, 600 / max(canvas_h, 1))
+                # pyrefly: ignore [no-matching-overload]
                 _bnd_prev = cv2.resize(
                     canvas,
                     (
@@ -664,6 +676,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
                 seam_meta_out=_seam_meta,
             )
             _prev_sc46 = min(1.0, 600 / max(canvas_h, 1))
+            # pyrefly: ignore [no-matching-overload]
             _diag_prev = cv2.resize(
                 canvas,
                 (
@@ -729,6 +742,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
                     )
                 _cp45_iter += 1
                 _prev_sc45 = min(1.0, 600 / max(canvas_h, 1))
+                # pyrefly: ignore [no-matching-overload]
                 _comp_prev = cv2.resize(
                     canvas,
                     (
@@ -781,6 +795,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
 
         # HITL checkpoint 5 — final output RLHF feedback (S87)
         _prev_sc5 = min(1.0, 600 / max(canvas_h, 1))
+        # pyrefly: ignore [no-matching-overload]
         _out_prev = cv2.resize(
             canvas,
             (max(1, int(canvas_w * _prev_sc5)), max(1, int(canvas_h * _prev_sc5))),
@@ -917,10 +932,8 @@ class StitchWorker(QObject):
         self._current_session_path: Optional[str] = None
         self._replay_session: Dict[str, dict] = {}
         if session_path:
-            try:
+            with contextlib.suppress(Exception):
                 self._replay_session = load_session(session_path)
-            except Exception:
-                pass  # bad session file → run interactively
 
     def cancel(self):
         self._cancel_flag[0] = True
@@ -1093,6 +1106,7 @@ class StitchWorker(QObject):
                     _fh, _fw = _f.shape[:2]
                     _sc = min(1.0, 256 / max(_fh, _fw, 1))
                     _thumbs.append(
+                        # pyrefly: ignore [no-matching-overload]
                         cv2.resize(
                             _f,
                             (max(1, int(_fw * _sc)), max(1, int(_fh * _sc))),
@@ -1102,12 +1116,14 @@ class StitchWorker(QObject):
                 _diffs = [0.0]
                 for _i in range(1, len(_vframes)):
                     _a = (
+                        # pyrefly: ignore [no-matching-overload]
                         cv2.resize(_vframes[_i - 1], (64, 64), cv2.INTER_AREA).astype(
                             np.float32
                         )
                         / 255.0
                     )
                     _b = (
+                        # pyrefly: ignore [no-matching-overload]
                         cv2.resize(_vframes[_i], (64, 64), cv2.INTER_AREA).astype(
                             np.float32
                         )
@@ -1143,6 +1159,8 @@ class StitchWorker(QObject):
                 save_intermediate=self._save_intermediate,
                 intermediate_dir=self._intermediate_dir,
                 pause_cb=self._make_hitl_pause_cb(),
+                pipeline_config=self._pipeline_config,
+                hitl_session_overrides=self._hitl_session_overrides,
                 **_build_pipeline_kwargs(cfg),
             )
             # Apply any exclusion masks set via set_exclusion_masks() before run

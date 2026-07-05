@@ -19,17 +19,18 @@ Key improvements over the previous version:
 """
 
 import gc
+import logging
+
 import cv2
 import numpy as np
 import torch
 
-import logging
-
 logger = logging.getLogger(__name__)
+
+from typing import List, Optional
 
 from PIL import Image
 from torchvision import transforms
-from typing import List, Optional
 
 torch.backends.cudnn.benchmark = False
 
@@ -55,8 +56,9 @@ except ImportError:
     _TRANSFORMERS_OK = False
     logger.info("[BiRefNet] 'transformers' not installed — segmentation unavailable.")
 
-from backend.src.models.core.base import ModelWrapper, lazy_load
 from backend.src.errors import ModelLoadError
+from backend.src.models.core.base import ModelWrapper, lazy_load
+
 
 class BiRefNetWrapper(ModelWrapper):
     """

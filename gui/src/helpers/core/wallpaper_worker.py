@@ -1,13 +1,14 @@
-import time
 import platform
+import time
 
 if platform.system() == "Windows":
     import comtypes
 
-from screeninfo import Monitor
-from typing import Dict, List, Optional, Any
-from PySide6.QtCore import QObject, Signal, QRunnable, Slot
+from typing import Any, Dict, List, Optional
+
 from backend.src.core import WallpaperManager
+from PySide6.QtCore import QObject, QRunnable, Signal, Slot
+from screeninfo import Monitor
 
 
 class _WallpaperWorkerSignals(QObject):

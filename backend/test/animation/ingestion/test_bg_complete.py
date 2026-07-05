@@ -8,14 +8,14 @@ Tests for bg_complete.py — §5A/C background zero-coverage fill.
 5. complete_background: fills gap when zero rows >= min_rows
 """
 
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pytest
-from unittest.mock import patch, MagicMock
-
 from backend.src.animation.ingestion.bg_complete import (
-    _nn_fill_zero_bg,
     _linear_interp_zero_bg,
     _masked_median_bg,
+    _nn_fill_zero_bg,
     _propainter_complete_frames,
     complete_background,
 )

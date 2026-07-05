@@ -38,6 +38,7 @@ load) and has no side effects.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 from typing import List, Optional, Tuple
@@ -46,10 +47,12 @@ import cv2
 import numpy as np
 
 from backend.src.constants import (
-    FG_REG_TAPER_PX,
     FG_REG_MAX_RESIDUAL as _FG_REG_MAX_RESIDUAL_DEFAULT,
+)
+from backend.src.constants import (
     FG_REG_MIN_FG_PIXELS,
     FG_REG_SMOOTH_SIGMA,
+    FG_REG_TAPER_PX,
 )
 
 logger = logging.getLogger(__name__)
@@ -146,10 +149,8 @@ def _get_dis():
     global _DIS_SINGLETON
     if _DIS_SINGLETON is None:
         _DIS_SINGLETON = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_MEDIUM)
-        try:
+        with contextlib.suppress(Exception):
             _DIS_SINGLETON.setUseSpatialPropagation(True)
-        except Exception:
-            pass
     return _DIS_SINGLETON
 
 
@@ -1008,7 +1009,7 @@ def _arap_regularise(
                 ys = np.linspace(y1, y2, num_pts)
 
                 cells_hit = set()
-                for lx, ly in zip(xs, ys):
+                for lx, ly in zip(xs, ys, strict=False):
                     ci = int(ly // cell_size)
                     cj = int(lx // cell_size)
                     fy = int(ly)
@@ -1323,10 +1324,7 @@ def register_foreground_at_seam(
     # don't move in contradictory directions (prevents line-art bending).
     # Previously only Regularise was present; Push was omitted.
     try:
-        if axis == 0:
-            crop_fg = fg_union[y0_crop:y1_crop, :]
-        else:
-            crop_fg = fg_union[:, x0_crop:x1_crop]
+        crop_fg = fg_union[y0_crop:y1_crop, :] if axis == 0 else fg_union[:, x0_crop:x1_crop]
 
         # SGM (§3.1A AnimeInterp full / §3.1B SLIC proxy): segment-guided flow
         # for flat cel-shaded regions where RAFT/DIS aperture problem yields zero
@@ -1463,10 +1461,7 @@ def register_foreground_at_seam(
         strip_b = adj_b[:, x0_s:x1_s].astype(np.float32)
         fg_strip = fg_union[:, x0_s:x1_s]
 
-    if fg_strip.any():
-        diff_fg = float(np.abs(strip_a - strip_b).mean(axis=2)[fg_strip].mean())
-    else:
-        diff_fg = 0.0
+    diff_fg = float(np.abs(strip_a - strip_b).mean(axis=2)[fg_strip].mean()) if fg_strip.any() else 0.0
     info["post_warp_diff"] = round(diff_fg, 2)
 
     info["warped"] = True

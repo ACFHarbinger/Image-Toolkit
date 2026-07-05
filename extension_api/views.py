@@ -17,12 +17,12 @@ import urllib.request
 from typing import Any, Dict, Optional
 
 from django.http import HttpResponse
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
 
 from .bridge_config import get_token, load_config
 
@@ -247,7 +247,7 @@ class IngestView(CorsAPIView):
         name = ""
         if url:
             try:
-                from urllib.parse import urlparse, unquote
+                from urllib.parse import unquote, urlparse
 
                 name = unquote(urlparse(url).path.split("/")[-1])
             except Exception:
@@ -322,10 +322,7 @@ class DupCheckView(CorsAPIView):
             )
 
         try:
-            if data_b64:
-                data = base64.b64decode(data_b64)
-            else:
-                data = _fetch_image_bytes(url)
+            data = base64.b64decode(data_b64) if data_b64 else _fetch_image_bytes(url)
         except Exception as exc:
             return Response(
                 {"error": f"Could not fetch image: {exc}"},

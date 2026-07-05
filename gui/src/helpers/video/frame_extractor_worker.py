@@ -1,12 +1,13 @@
 import os
 import re
-import cv2
-import time
 import subprocess
-
+import time
 from pathlib import Path
-from PySide6.QtCore import QRunnable, Signal, QObject
 from typing import Optional, Tuple, Union
+
+import cv2
+from PySide6.QtCore import QObject, QRunnable, Signal
+
 from ...utils.sort_utils import natural_sort_key
 
 
@@ -265,7 +266,7 @@ class FrameExtractionWorker(QRunnable):
                     "1",
                 ]
             )
-            
+
             # Use a more unique temp prefix to avoid collisions during extraction
             temp_id = int(time.time() * 1000) % 100000
             out_pattern = os.path.join(self.output_dir, f"{video_name}_smart_tmp_{temp_id}_%08d.png")
@@ -294,25 +295,25 @@ class FrameExtractionWorker(QRunnable):
                 ],
                 key=natural_sort_key
             )
-            
+
             for f in tmp_files:
                 # Extract PTS from filename
                 match = re.search(r"_(\d+)\.png$", f)
                 if not match:
                     continue
-                
+
                 pts = int(match.group(1))
                 # Calculate MS: current_ms = start_ms + (pts * 1000 / fps)
                 # Assumes input seeking (-ss before -i) resets timestamps to 0
                 current_ms = self.start_ms + int(pts * 1000.0 / fps)
-                
+
                 new_name = f"{video_name}_smart_{current_ms}ms.png"
                 final_path = os.path.join(self.output_dir, new_name)
-                
+
                 # Deduplicate if necessary
                 if os.path.exists(final_path):
                     final_path = os.path.join(self.output_dir, f"{video_name}_smart_{current_ms}ms_{temp_id}.png")
-                
+
                 os.rename(os.path.join(self.output_dir, f), final_path)
                 saved_files.append(final_path)
 

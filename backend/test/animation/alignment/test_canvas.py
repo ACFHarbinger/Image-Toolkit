@@ -29,43 +29,43 @@ from backend.src.animation.alignment.canvas import (  # noqa: E402
     _detect_scroll_axis,
     _panorama_stitch_fallback,
     _per_seam_lum_step_px,
+    _seam_blue_shift_cv,
     _seam_boundary_sharpness_ratio,
     _seam_chroma_step_cv,
     _seam_column_variance_cv,
+    _seam_entropy_shift_cv,
     _seam_gradient_cv,
+    _seam_green_shift_cv,
+    _seam_hue_shift_cv,
+    _seam_local_contrast_cv,
+    _seam_luma_step_cv,
+    _seam_red_shift_cv,
+    _seam_saturation_shift_cv,
     _seam_signed_step_cv,
     _seam_texture_ratio_cv,
-    _seam_luma_step_cv,
+    _seam_value_shift_cv,
     _smooth_seam_bands,
+    _strip_blue_channel_cv,
     _strip_chroma_energy_cv,
+    _strip_dark_pixel_fraction_cv,
+    _strip_edge_density_cv,
     _strip_entropy_cv,
+    _strip_green_channel_cv,
     _strip_hue_cv,
     _strip_luma_iqr_cv,
-    _strip_edge_density_cv,
     _strip_luma_kurtosis_cv,
-    _strip_luma_skewness_cv,
-    _seam_local_contrast_cv,
     _strip_luma_p90p10_cv,
-    _seam_hue_shift_cv,
-    _strip_dark_pixel_fraction_cv,
-    _seam_saturation_shift_cv,
-    _strip_sobel_energy_cv,
-    _seam_value_shift_cv,
+    _strip_luma_skewness_cv,
     _strip_median_luma_cv,
-    _seam_entropy_shift_cv,
-    _strip_red_channel_cv,
-    _seam_blue_shift_cv,
-    _strip_green_channel_cv,
-    _seam_red_shift_cv,
-    _strip_blue_channel_cv,
-    _seam_green_shift_cv,
     _strip_noise_cv,
+    _strip_red_channel_cv,
+    _strip_sat_cv,  # noqa: E402
+    _strip_sobel_energy_cv,
     _telea_fill_gaps,
 )
 from backend.src.animation.core.pipeline import _compute_row_coverage  # noqa: E402
 from backend.src.constants import CANVAS_MAX_DIM as _CANVAS_MAX_DIM  # noqa: E402
 from conftest import make_frame, make_translation_affine  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -128,7 +128,7 @@ class TestComputeCanvas:
             make_translation_affine(tx=30.0, ty=200.0),
         ]
         ch, cw, T = _compute_canvas(frames, affines)
-        for i, (frm, aff) in enumerate(zip(frames, affines)):
+        for i, (frm, aff) in enumerate(zip(frames, affines, strict=False)):
             h, w = frm.shape[:2]
             corners = np.array([[0, 0], [w, 0], [w, h], [0, h]], np.float32)
             warped = (aff[:2, :2] @ corners.T + aff[:2, 2:3]).T
@@ -460,6 +460,7 @@ class TestPanoramaStitchFallback:
     def test_returns_pil_image_on_success(self, tmp_path):
         """Mock stitcher returns OK + valid image → PIL.Image returned."""
         from unittest.mock import MagicMock, patch
+
         from PIL import Image as PILImage
 
         fake_pano = self._solid_bgr(60, 120, 200)
@@ -474,17 +475,17 @@ class TestPanoramaStitchFallback:
 
     def test_raises_runtime_error_on_non_ok_status(self, tmp_path):
         """Non-OK status from stitcher → CanvasError (caller falls through to SCANS)."""
-        from backend.src.errors import CanvasError
         from unittest.mock import MagicMock, patch
+
+        from backend.src.errors import CanvasError
 
         mock_stitcher = MagicMock()
         mock_stitcher.stitch.return_value = (cv2.Stitcher_ERR_NEED_MORE_IMGS, None)
 
-        with patch("cv2.Stitcher_create", return_value=mock_stitcher):
-            with pytest.raises(CanvasError, match="PANORAMA stitcher failed"):
-                _panorama_stitch_fallback(
-                    [self._solid_bgr()], str(tmp_path / "out.png")
-                )
+        with patch("cv2.Stitcher_create", return_value=mock_stitcher), pytest.raises(CanvasError, match="PANORAMA stitcher failed"):
+            _panorama_stitch_fallback(
+                [self._solid_bgr()], str(tmp_path / "out.png")
+            )
 
     def test_saves_file_on_success(self, tmp_path):
         """Successful stitch → output file written to output_path."""
@@ -502,8 +503,8 @@ class TestPanoramaStitchFallback:
 
     def test_uses_panorama_mode_zero(self):
         """cv2.Stitcher_create must be called with mode=0 (PANORAMA)."""
-        from unittest.mock import MagicMock, patch
         import tempfile
+        from unittest.mock import MagicMock, patch
 
         fake_pano = self._solid_bgr(40, 80, 100)
         mock_stitcher = MagicMock()
@@ -517,6 +518,7 @@ class TestPanoramaStitchFallback:
     def test_output_dimensions_match_pano(self, tmp_path):
         """Result image dimensions match the (possibly cropped) stitcher output."""
         from unittest.mock import MagicMock, patch
+
         from PIL import Image as PILImage
 
         h, w = 80, 160
@@ -910,9 +912,6 @@ class TestCorrectSeamLumStepsListBandPx:
 # ===========================================================================
 # §5.38 Strip Saturation CV Gate — metric function tests
 # ===========================================================================
-
-from backend.src.animation.alignment.canvas import _strip_sat_cv
-
 
 class TestStripSatCv:
 
@@ -1407,7 +1406,7 @@ class TestStripChromaEnergyCv:
         assert _strip_chroma_energy_cv(img, n_strips=8) == 0.0
 
     def test_mixed_saturation_returns_high_cv(self):
-        rng = np.random.default_rng(42)
+        np.random.default_rng(42)
         img = np.full((128, 128, 3), 128, dtype=np.uint8)
         img[:64, :, 0] = 220
         img[:64, :, 2] = 30
@@ -1684,7 +1683,7 @@ class TestSeamLocalContrastCv:
         # seam1 band: all 128 (std=0) → CV > 0
         h, w = 64, 32
         img = np.full((h, w, 3), 128, dtype=np.uint8)
-        strip_h = h // 4  # 16 rows per strip; boundaries at 16, 32, 48
+        h // 4  # 16 rows per strip; boundaries at 16, 32, 48
         band_px = 5
         # seam0 band (rows 11–20): alternating 0/255 columns
         for r in range(max(0, 16 - band_px), min(h, 16 + band_px)):

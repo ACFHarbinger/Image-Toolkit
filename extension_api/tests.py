@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 import numpy as np
-from django.test import SimpleTestCase, Client
+from django.test import Client, SimpleTestCase
 from PIL import Image
 
 

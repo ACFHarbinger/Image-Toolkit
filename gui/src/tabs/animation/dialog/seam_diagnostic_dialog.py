@@ -17,12 +17,12 @@ user-designated pixels.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
-
-from PySide6.QtCore import Qt, QPointF, Signal
+from backend.src.constants import SEAM_OVERLAY_AMBER_THRESH, SEAM_OVERLAY_RED_THRESH
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -37,9 +37,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-from backend.src.constants import SEAM_OVERLAY_AMBER_THRESH, SEAM_OVERLAY_RED_THRESH
-
 
 # ── §2.11B: waypoint canvas ───────────────────────────────────────────────────
 
@@ -688,7 +685,7 @@ class SeamDiagnosticDialog(QDialog):
         # or just attach to seam 0 when no card override exists.
         if flow_arrows_global:
             if seam_keys:
-                for k in set(seam_keys):
+                for _k in set(seam_keys):
                     pass  # each seam gets the arrows below
             else:
                 seam_keys.add(0)

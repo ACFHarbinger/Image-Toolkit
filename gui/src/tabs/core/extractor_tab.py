@@ -1,77 +1,76 @@
-import os
-import cv2
-import time
-import json
+import contextlib
 import copy
-import subprocess
+import json
+import os
 import re
-
+import subprocess
+import time
 from pathlib import Path
-from send2trash import send2trash # pyrefly: ignore [untyped-import]
-from typing import Optional, List, Set, Tuple, Any, Dict, Union
-from PySide6.QtWidgets import (
-    QLabel,
-    QComboBox,
-    QStyle,
-    QSlider,
-    QFileDialog,
-    QGroupBox,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QMenu,
-    QGraphicsView,
-    QGraphicsScene,
-    QScrollArea,
-    QGridLayout,
-    QMessageBox,
-    QPushButton,
-    QApplication,
-    QLineEdit,
-    QProgressDialog,
-    QSpinBox,
-    QCheckBox,
-    QProgressBar,
-    QInputDialog,
-    QDialog,
-    QTabBar,
-    QListWidget,
-    QSizePolicy,
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
+import cv2
+from backend.src.constants import (
+    IMAGE_TOOLKIT_DIR,
+    LOCAL_SOURCE_PATH,
+    SUPPORTED_VIDEO_FORMATS,
 )
-from PySide6.QtGui import QPixmap, QResizeEvent, QAction, QImage
-from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import (
-    Qt,
-    QUrl,
-    Slot,
-    QThreadPool,
-    QPoint,
     QEvent,
-    Signal,
     QObject,
+    QPoint,
+    Qt,
+    QThreadPool,
+    QUrl,
+    Signal,
+    Slot,
 )
-from ...windows import ImagePreviewWindow
+from PySide6.QtGui import QAction, QImage, QPixmap, QResizeEvent
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QGraphicsScene,
+    QGraphicsView,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMenu,
+    QMessageBox,
+    QProgressBar,
+    QProgressDialog,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSlider,
+    QSpinBox,
+    QStyle,
+    QTabBar,
+    QVBoxLayout,
+    QWidget,
+)
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
 from ...classes import AbstractClassSingleGallery
-from ...components import ClickableLabel, MarqueeScrollArea
-from ...components.frame_selection_dialog import FrameSelectionDialog
-from ...utils.sort_utils import natural_sort_key
+from ...components import ClickableLabel, FrameSelectionDialog, MarqueeScrollArea
+from ...constants import MAX_PREVIEW_ITEMS
 from ...helpers import (
-    VideoScannerWorker,
-    GifCreationWorker,
     FrameExtractionWorker,
+    GifCreationWorker,
     VideoExtractionWorker,
+    VideoScannerWorker,
 )
 from ...helpers.core.queue_execution_worker import QueueExecutionWorker
 from ...helpers.video.video_scan_worker import VideoThumbnailer
-from ...constants import MAX_PREVIEW_ITEMS
-from backend.src.constants import (
-    LOCAL_SOURCE_PATH,
-    SUPPORTED_VIDEO_FORMATS,
-    IMAGE_TOOLKIT_DIR,
-)
-
-
+from ...utils.sort_utils import natural_sort_key
+from ...windows import ImagePreviewWindow
 from .labels import _CutLabel, _TagLabel
 
 
@@ -699,10 +698,10 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.gallery_scroll_area.setWidgetResizable(True) # pyrefly: ignore [missing-attribute]
         self.gallery_scroll_area.setStyleSheet( # pyrefly: ignore [missing-attribute]
             """
-            QScrollArea { 
-                border: 1px solid #4f545c; 
-                background-color: #2c2f33; 
-                border-radius: 8px; 
+            QScrollArea {
+                border: 1px solid #4f545c;
+                background-color: #2c2f33;
+                border-radius: 8px;
             }
             QScrollBar:vertical {
                 border: none;
@@ -711,7 +710,7 @@ class ExtractorTab(AbstractClassSingleGallery):
                 margin: 0px 0px 0px 0px;
             }
             QScrollBar::handle:vertical {
-                background: #00BCD4; 
+                background: #00BCD4;
                 min-height: 20px;
                 border-radius: 6px;
                 margin: 0 2px;
@@ -725,12 +724,12 @@ class ExtractorTab(AbstractClassSingleGallery):
             }
             QScrollBar:horizontal {
                 border: none;
-                background: #2c2f33; 
+                background: #2c2f33;
                 height: 12px;
                 margin: 0px 0px 0px 0px;
             }
             QScrollBar::handle:horizontal {
-                background: #00BCD4; 
+                background: #00BCD4;
                 min-width: 20px;
                 border-radius: 6px;
                 margin: 2px 0;
@@ -828,10 +827,8 @@ class ExtractorTab(AbstractClassSingleGallery):
 
         # Close sub-windows
         for win in list(self.open_preview_windows):
-            try:
+            with contextlib.suppress(Exception):
                 win.close()
-            except Exception:
-                pass
         self.open_preview_windows.clear()
 
     def closeEvent(self, event):
@@ -1001,8 +998,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         else:
             pixmap = QPixmap()
 
-        if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-            if hasattr(self, "_generate_video_thumbnail"):
+        if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)) and hasattr(self, "_generate_video_thumbnail"):
                 thumb = self._generate_video_thumbnail(path)
                 if thumb:
                     pixmap = thumb
@@ -1087,7 +1083,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         self._extracted_stems_cache.clear()
         if not self.extraction_dir.exists():
             return
-        
+
         # Regex to extract stem from all known extraction outputs:
         # {stem}_{ms}ms.png, {stem}_{ms}ms_{i}.png, {stem}_smart_{ms}ms.png,
         # {stem}_smart_{ms}ms_{temp_id}.png, {stem}_snap_{ms}ms.png,
@@ -1355,7 +1351,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.extract_group.setVisible(True)
 
         self.btn_snapshot.setEnabled(
-            True if getattr(self, "start_time_ms", 0) else False
+            bool(getattr(self, "start_time_ms", 0))
         )
         if not getattr(self, "start_time_ms", 0):
             self.btn_snapshot.setText("📸 Snapshot (Set Start First)")
@@ -1499,12 +1495,10 @@ class ExtractorTab(AbstractClassSingleGallery):
     def _update_recent_extractions_ui(self):
         """Updates the dropdown of recent extractions in the Extract tab."""
         if self._recent_combo_connected:
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 self.combo_recent_extractions.currentIndexChanged.disconnect(
                     self._on_recent_extraction_selected
                 )
-            except (RuntimeError, TypeError):
-                pass
             self._recent_combo_connected = False
 
         self.combo_recent_extractions.clear()
@@ -1599,8 +1593,7 @@ class ExtractorTab(AbstractClassSingleGallery):
     # --- Event Filters & Resizing ---
     def eventFilter(self, watched: QObject, event: QEvent
     ) -> bool:
-        if self.lbl_current_time and watched is self.lbl_current_time:
-            if event.type() == QEvent.Type.MouseButtonPress:
+        if self.lbl_current_time and watched is self.lbl_current_time and event.type() == QEvent.Type.MouseButtonPress:
                 self.lbl_current_time.hide()
                 self.edit_current_time.setText(self.lbl_current_time.text()) # pyrefly: ignore [missing-attribute]
                 self.edit_current_time.show() # pyrefly: ignore [missing-attribute]
@@ -1646,48 +1639,44 @@ class ExtractorTab(AbstractClassSingleGallery):
                 event.accept()
                 return True
 
-        if self.video_view and watched is self.video_view:
-            if self.use_internal_player:
-                # toggle play on click
-                if (
-                    event.type() == QEvent.Type.MouseButtonPress
-                    and event.button() == Qt.MouseButton.LeftButton # pyrefly: ignore [missing-attribute]
-                ):
-                    self.toggle_playback()
-                    return True
+        if self.video_view and watched is self.video_view and self.use_internal_player:
+            # toggle play on click
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton # pyrefly: ignore [missing-attribute]
+            ):
+                self.toggle_playback()
+                return True
 
-                # --- Arrow Keys for Video Seeking (When video has focus) ---
-                if event.type() == QEvent.Type.KeyPress:
-                    if event.key() == Qt.Key.Key_Right:# pyrefly: ignore [missing-attribute]
-                        # Seek forward
-                        pos = self.media_player.position()
-                        duration = self.media_player.duration()
-                        new_pos = min(pos + self.wheel_seek_ms, duration)
-                        self.media_player.setPosition(new_pos)
-                        return True
-                    elif event.key() == Qt.Key.Key_Left:# pyrefly: ignore [missing-attribute]
-                        # Seek backward
-                        pos = self.media_player.position()
-                        new_pos = max(0, pos - self.wheel_seek_ms)
-                        self.media_player.setPosition(new_pos)
-                        return True
-                    elif event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
-                        if (
-                            self.player_container
-                            and self.player_container.isFullScreen()
-                        ):
-                            self.toggle_fullscreen()
-                            return True
-
-        if self.player_container and watched is self.player_container:
+            # --- Arrow Keys for Video Seeking (When video has focus) ---
             if event.type() == QEvent.Type.KeyPress:
-                if event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
-                    if self.player_container.isFullScreen():
+                if event.key() == Qt.Key.Key_Right:# pyrefly: ignore [missing-attribute]
+                    # Seek forward
+                    pos = self.media_player.position()
+                    duration = self.media_player.duration()
+                    new_pos = min(pos + self.wheel_seek_ms, duration)
+                    self.media_player.setPosition(new_pos)
+                    return True
+                elif event.key() == Qt.Key.Key_Left:# pyrefly: ignore [missing-attribute]
+                    # Seek backward
+                    pos = self.media_player.position()
+                    new_pos = max(0, pos - self.wheel_seek_ms)
+                    self.media_player.setPosition(new_pos)
+                    return True
+                elif event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
+                    if (
+                        self.player_container
+                        and self.player_container.isFullScreen()
+                    ):
                         self.toggle_fullscreen()
                         return True
-            if event.type() == QEvent.Type.Resize:
-                if self.video_view.isVisible(): # pyrefly: ignore [missing-attribute]
-                    self.fit_video_in_view()
+
+        if self.player_container and watched is self.player_container:
+            if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape and self.player_container.isFullScreen(): # pyrefly: ignore [missing-attribute]
+                self.toggle_fullscreen()
+                return True
+            if event.type() == QEvent.Type.Resize and self.video_view.isVisible(): # pyrefly: ignore [missing-attribute]
+                self.fit_video_in_view()
 
         return super().eventFilter(watched, event)
 
@@ -1949,14 +1938,13 @@ class ExtractorTab(AbstractClassSingleGallery):
 
             menu.addSeparator()
 
-        if count == 1:
-            if not path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-                view_action = QAction("View Full Size", self)
-                view_action.triggered.connect(
-                    lambda: self.handle_thumbnail_double_click(path)
-                )
-                menu.addAction(view_action)
-                menu.addSeparator()
+        if count == 1 and not path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+            view_action = QAction("View Full Size", self)
+            view_action.triggered.connect(
+                lambda: self.handle_thumbnail_double_click(path)
+            )
+            menu.addAction(view_action)
+            menu.addSeparator()
 
         del_text = f"Delete {count} Items" if count > 1 else "Delete Item"
         delete_action = QAction(del_text, self)
@@ -1982,9 +1970,8 @@ class ExtractorTab(AbstractClassSingleGallery):
 
     def _reload_extraction(self, metadata: dict):
         video_path = metadata.get("video_path")
-        if video_path and os.path.exists(video_path):
-            if video_path != self.video_path:
-                self.load_media(video_path)
+        if video_path and os.path.exists(video_path) and video_path != self.video_path:
+            self.load_media(video_path)
 
         # Reload Times
         self.start_time_ms = metadata.get("start_ms", 0)
@@ -2573,10 +2560,7 @@ class ExtractorTab(AbstractClassSingleGallery):
                 w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
                 cap.release()
-                if w > 0 and h > 0:
-                    target_size = (w, h)
-                else:
-                    target_size = None
+                target_size = (w, h) if w > 0 and h > 0 else None
             else:
                 target_size = None
         # If vertical output is checked, flip dimensions
@@ -3300,12 +3284,11 @@ class ExtractorTab(AbstractClassSingleGallery):
 
             # Load the current video path
             curr_video = config.get("video_path", "")
-            if not curr_video or not os.path.exists(curr_video):
-                if self.active_videos_config:
-                    for path in self.active_videos_config.keys():
-                        if os.path.exists(path):
-                            curr_video = path
-                            break
+            if (not curr_video or not os.path.exists(curr_video)) and self.active_videos_config:
+                for path in self.active_videos_config.keys():
+                    if os.path.exists(path):
+                        curr_video = path
+                        break
 
             if curr_video and os.path.exists(curr_video):
                 # Select the matching tab in the tabbar *before* releasing the guard

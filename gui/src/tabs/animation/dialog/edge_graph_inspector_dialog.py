@@ -1,20 +1,22 @@
-import os
 import json
-import numpy as np
+import os
 from typing import List, Optional, Tuple
+
+import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import (
     QBrush,
     QColor,
     QFont,
-    QPen,
     QPainter,
+    QPen,
 )
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QGraphicsScene,
     QGraphicsView,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QMessageBox,
@@ -24,13 +26,12 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QHBoxLayout,
 )
 
 from ....constants import (
     CONF_HIGH,
-    CONF_MED,
     CONF_LOW,
+    CONF_MED,
 )
 from ....styles import apply_shadow_effect
 

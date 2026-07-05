@@ -1,46 +1,48 @@
+import contextlib
 import os
-
-from PIL import Image
-from pathlib import Path
 from datetime import datetime
-from send2trash import send2trash # pyrefly: ignore [untyped-import]
-from typing import Dict, Any, Optional, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from backend.src.constants import SUPPORTED_IMG_FORMATS
+from PIL import Image
+from PySide6.QtCore import QPoint, Qt, QThread, Signal, Slot
+from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtWidgets import (
-    QFormLayout,
-    QHBoxLayout,
-    QVBoxLayout,
     QApplication,
-    QComboBox,
-    QMessageBox,
-    QLineEdit,
-    QPushButton,
     QCheckBox,
-    QProgressBar,
-    QMenu,
+    QComboBox,
     QFileDialog,
-    QLabel,
-    QGroupBox,
-    QWidget,
-    QScrollArea,
+    QFormLayout,
     QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Slot, QThread, QPoint, Signal
-from PySide6.QtGui import QPixmap, QAction
+from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
 from ...classes import AbstractClassTwoGalleries
 from ...components import (
-    OptionalField,
-    MarqueeScrollArea,
     ClickableLabel,
+    MarqueeScrollArea,
+    OptionalField,
     PropertyComparisonDialog,
 )
-from ...utils.sort_utils import natural_sort_key
 from ...helpers import (
     DeletionWorker,
     DuplicateScanWorker,
 )
-from ...styles import apply_shadow_effect, STYLE_SCAN_CANCEL
+from ...styles import STYLE_SCAN_CANCEL, apply_shadow_effect
+from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow
-from backend.src.constants import SUPPORTED_IMG_FORMATS
 
 
 class DeleteTab(AbstractClassTwoGalleries):
@@ -330,12 +332,12 @@ class DeleteTab(AbstractClassTwoGalleries):
         img_label = QLabel()
         img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label.setFixedSize(thumb_size, thumb_size)
-        
+
         # Store the reference in the wrapper so it knows what to style
         card_wrapper.set_image_label(img_label)
         if pixmap and not pixmap.isNull():
-            img_label.setPixmap(pixmap.scaled(thumb_size, thumb_size, 
-                                Qt.AspectRatioMode.KeepAspectRatio, 
+            img_label.setPixmap(pixmap.scaled(thumb_size, thumb_size,
+                                Qt.AspectRatioMode.KeepAspectRatio,
                                 Qt.TransformationMode.SmoothTransformation))
         else:
             img_label.setText("Loading...")
@@ -350,7 +352,7 @@ class DeleteTab(AbstractClassTwoGalleries):
 
         # Initialize styling
         card_wrapper.set_selected_style(is_selected, self._update_card_style, img_label)
-        
+
         return card_wrapper
 
     def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
@@ -447,10 +449,8 @@ class DeleteTab(AbstractClassTwoGalleries):
         )
 
         # Disconnect any cancel slots and reconnect delete slots
-        try:
+        with contextlib.suppress(RuntimeError):
             self.btn_delete_files.clicked.disconnect()
-        except RuntimeError:
-            pass
 
         self.btn_delete_files.clicked.connect(self.delete_selected_duplicates)
 
@@ -516,10 +516,8 @@ class DeleteTab(AbstractClassTwoGalleries):
         self.btn_delete_files.setText("Cancel Scan")
         self.btn_delete_files.setStyleSheet(STYLE_SCAN_CANCEL)
 
-        try:
+        with contextlib.suppress(RuntimeError):
             self.btn_delete_files.clicked.disconnect()
-        except RuntimeError:
-            pass
         self.btn_delete_files.clicked.connect(self.cancel_scan)
 
         self.btn_delete_files.setEnabled(True)
@@ -561,7 +559,7 @@ class DeleteTab(AbstractClassTwoGalleries):
         flattened_paths = []
 
         is_all_files_scan = "All Files" in self.scan_method_combo.currentText()
-        for gid, paths in results.items():
+        for _gid, paths in results.items():
             if len(paths) > 1 or is_all_files_scan:
                 flattened_paths.extend(paths)
 
@@ -686,7 +684,7 @@ class DeleteTab(AbstractClassTwoGalleries):
     def get_image_properties(self, file_path: str) -> Dict[str, Any]:
         if not Path(file_path).exists():
             return {"Error": "File not found."}
-        
+
         props: Dict[str, Any] = {"Path": file_path, "File Name": os.path.basename(file_path)}
         try:
             stat = os.stat(file_path)
@@ -1015,10 +1013,8 @@ class DeleteTab(AbstractClassTwoGalleries):
 
         # Close sub-windows
         for win in list(self.open_preview_windows):
-            try:
+            with contextlib.suppress(Exception):
                 win.close()
-            except Exception:
-                pass
         self.open_preview_windows.clear()
 
     def closeEvent(self, event):

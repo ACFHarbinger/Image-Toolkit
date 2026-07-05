@@ -1,9 +1,6 @@
-import uuid
 import shutil
+import uuid
 from pathlib import Path
-from PySide6.QtCore import Qt, Slot, QThreadPool
-from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtWidgets import QWidget, QFileDialog
 
 from gui.src.components import DoubleClickableLabel
 from gui.src.constants.listings import LISTING_IMAGES_DIR
@@ -11,6 +8,9 @@ from gui.src.helpers.image import (
     _CARD_THUMB_CACHE,
     _ThumbWorker,
 )
+from PySide6.QtCore import Qt, QThreadPool, Slot
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import QFileDialog, QWidget
 
 
 class BaseDetailPanel(QWidget):

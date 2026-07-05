@@ -1,5 +1,5 @@
-from PySide6.QtCore import QThread, Signal
 from backend.src.web import WebRequestsLogic
+from PySide6.QtCore import QThread, Signal
 
 
 class WebRequestsWorker(QThread):

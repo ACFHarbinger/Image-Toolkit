@@ -1,17 +1,19 @@
 from pathlib import Path
-from typing import List, Dict, Optional, Union
-from PySide6.QtGui import QPixmap, QIcon, QImage
-from PySide6.QtCore import Qt, Slot, QPoint, Signal
+from typing import Dict, List, Optional, Union
+
+from PySide6.QtCore import QPoint, Qt, Signal, Slot
+from PySide6.QtGui import QIcon, QImage, QPixmap
 from PySide6.QtWidgets import (
-    QWidget,
-    QLabel,
-    QVBoxLayout,
-    QListWidget,
-    QMenu,
-    QListWidgetItem,
     QApplication,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
     QStyle,
+    QVBoxLayout,
+    QWidget,
 )
+
 from ..components import QueueItemWidget
 from ..utils.lru_image_cache import LRUImageCache
 

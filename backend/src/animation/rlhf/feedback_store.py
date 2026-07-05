@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterator, List, Optional
 
-from backend.src.constants import RLHF_STORE_PATH, RLHF_FLAW_TYPES
+from backend.src.constants import RLHF_FLAW_TYPES, RLHF_STORE_PATH
 
 # ---------------------------------------------------------------------------
 # Data model

@@ -1,12 +1,12 @@
 import os
 
-from PySide6.QtCore import QThread, Signal
 from backend.src.web import (
-    ImageCrawler,
     DanbooruCrawler,
     GelbooruCrawler,
+    ImageCrawler,
     SankakuCrawler,
 )
+from PySide6.QtCore import QThread, Signal
 
 
 class ImageCrawlWorker(QThread):

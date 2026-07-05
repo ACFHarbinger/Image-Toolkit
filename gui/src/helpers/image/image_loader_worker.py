@@ -1,7 +1,10 @@
-from PySide6.QtGui import QImage
-from PySide6.QtCore import QRunnable, QObject, Signal, Slot, Qt
-from shiboken6 import Shiboken
+import contextlib
+
 from backend.src.constants import HAS_NATIVE_IMAGING
+from PySide6.QtCore import QObject, QRunnable, Qt, Signal, Slot
+from PySide6.QtGui import QImage
+from shiboken6 import Shiboken
+
 from .batch_image_loader_worker import native_load_batch
 
 
@@ -72,8 +75,6 @@ class ImageLoaderWorker(QRunnable):
                 self.signals.deleteLater()
 
     def _safe_emit(self, path, image):
-        try:
+        with contextlib.suppress(RuntimeError):
             self.signals.result.emit(path, image)
-        except RuntimeError:
-            pass
 

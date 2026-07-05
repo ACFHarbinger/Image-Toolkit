@@ -1,53 +1,55 @@
+import contextlib
+import copy
+import inspect
+import json
 import os
 import sys
-import copy
-import json
-import inspect
 
-from PySide6.QtCore import Qt, QSize, QTimer
-from gui.src.utils.settings import AppSettings
-from PySide6.QtGui import QIcon, QFont, QImageReader, QGuiApplication
+from backend.src.constants import LOCAL_SOURCE_PATH
+from backend.src.core.vault_manager import VaultManager
+from gui.src.windows.settings.app_settings import AppSettings
+from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtGui import QFont, QGuiApplication, QIcon, QImageReader
 from PySide6.QtWidgets import (
-    QSizePolicy,
-    QPushButton,
-    QStyle,
-    QComboBox,
-    QLabel,
-    QWidget,
-    QTabWidget,
-    QScrollArea,
-    QVBoxLayout,
-    QHBoxLayout,
     QApplication,
-    QMessageBox,
-    QStatusBar,
-    QSystemTrayIcon,
-    QMenu,
+    QComboBox,
     QDialog,
-    QTableWidget,
-    QTableWidgetItem,
-    QLineEdit,
+    QHBoxLayout,
     QHeaderView,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QStatusBar,
+    QStyle,
+    QSystemTrayIcon,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from ..settings import SettingsWindow
+
+from ...constants import NEW_LIMIT_MB
 from ...styles import (
-    DARK_QSS,  # noqa: F401
-    LIGHT_QSS,  # noqa: F401
+    COMPACT_DENSITY_QSS,
     DARK_ACCENT_COLOR,
+    DARK_QSS,  # noqa: F401
     LIGHT_ACCENT_COLOR,
+    LIGHT_QSS,  # noqa: F401
+    SPACIOUS_DENSITY_QSS,
+    compute_accent_vars,
     load_qss_with_overrides,
     load_user_qss_override,
-    compute_accent_vars,
-    COMPACT_DENSITY_QSS,
-    SPACIOUS_DENSITY_QSS,
 )
-from ...utils.shortcut_manager import get_registry
-from backend.src.constants import LOCAL_SOURCE_PATH
-from ...constants import NEW_LIMIT_MB
 from ...utils.lru_image_cache import LRUImageCache
-from backend.src.core.vault_manager import VaultManager
+from ...utils.shortcut_manager import get_registry
+from ..settings import SettingsWindow
 
 
 def show_tray_notification(title: str, message: str, timeout_ms: int = 4000) -> None:
@@ -80,26 +82,26 @@ class MainWindow(QWidget):
     ):
         super().__init__()
         from ...tabs import (
+            ComfyUITab,
             ConvertTab,
+            DatabaseTab,
             DeleteTab,
-            ScanMetadataTab,
-            SearchTab,
+            DriveSyncTab,
             ExtractorTab,
+            ImageCrawlTab,
             ListingsTab,
             MergeTab,
+            MetaCLIPInferenceTab,
+            R3GANEvaluateTab,
+            ReverseImageSearchTab,
+            ScanMetadataTab,
+            SearchTab,
             StitchFeedbackTab,
-            ImageCrawlTab,
-            DriveSyncTab,
+            StitchTab,
+            UnifiedGenerateTab,
+            UnifiedTrainTab,
             WallpaperTab,
             WebRequestsTab,
-            DatabaseTab,
-            ReverseImageSearchTab,
-            UnifiedTrainTab,
-            UnifiedGenerateTab,
-            R3GANEvaluateTab,
-            MetaCLIPInferenceTab,
-            ComfyUITab,
-            StitchTab,
         )
 
         # Store the authenticated vault manager instance
@@ -133,10 +135,7 @@ class MainWindow(QWidget):
         if not self.cached_creds.get("theme"):
             try:
                 os_scheme = QGuiApplication.styleHints().colorScheme()
-                if os_scheme == Qt.ColorScheme.Light:
-                    initial_theme = "light"
-                else:
-                    initial_theme = "dark"
+                initial_theme = "light" if os_scheme == Qt.ColorScheme.Light else "dark"
             except Exception:
                 pass
 
@@ -201,7 +200,7 @@ class MainWindow(QWidget):
                 background-color: transparent;
                 border: none;
                 padding: 5px;
-                border-radius: 18px; 
+                border-radius: 18px;
             }
         """
         )
@@ -423,7 +422,7 @@ class MainWindow(QWidget):
         active_configs = self.cached_creds.get("active_tab_configs", {})
         saved_tab_configs = self.cached_creds.get("tab_configurations", {})
 
-        for category, tabs_in_category in self.all_tabs.items():
+        for _category, tabs_in_category in self.all_tabs.items():
             for tab_instance in tabs_in_category.values():
                 tab_class_name = type(tab_instance).__name__
 
@@ -986,12 +985,12 @@ class MainWindow(QWidget):
 
             # Apply config information depending on the level of recovery configured
             if recovery_level == "All Tabs":
-                for category, tabs_in_category in self.all_tabs.items():
+                for _category, tabs_in_category in self.all_tabs.items():
                     for tab_instance in tabs_in_category.values():
                         tab_class_name = type(tab_instance).__name__
-                        if tab_class_name in tab_configs:
-                            if hasattr(tab_instance, "set_config") and callable(
-                                tab_instance.set_config
+                        if (tab_class_name in tab_configs and
+                                hasattr(tab_instance, "set_config") and
+                                callable(tab_instance.set_config)
                             ):
                                 try:
                                     sanitized_cfg = self._sanitize_config_if_needed(
@@ -1016,9 +1015,9 @@ class MainWindow(QWidget):
                     )
                     if tab_instance:
                         tab_class_name = type(tab_instance).__name__
-                        if tab_class_name in tab_configs:
-                            if hasattr(tab_instance, "set_config") and callable(
-                                tab_instance.set_config
+                        if (tab_class_name in tab_configs and
+                                hasattr(tab_instance, "set_config") and
+                                callable(tab_instance.set_config)
                             ):
                                 try:
                                     sanitized_cfg = self._sanitize_config_if_needed(
@@ -1076,7 +1075,7 @@ class MainWindow(QWidget):
 
                 tab_configs = {}
                 if recovery_level == "All Tabs":
-                    for category, tabs_in_category in self.all_tabs.items():
+                    for _category, tabs_in_category in self.all_tabs.items():
                         for tab_instance in tabs_in_category.values():
                             if hasattr(tab_instance, "collect") and callable(
                                 tab_instance.collect
@@ -1089,8 +1088,7 @@ class MainWindow(QWidget):
                                     print(
                                         f"Warning: Failed to collect config from {type(tab_instance).__name__}: {e}"
                                     )
-                elif recovery_level == "Current Tab":
-                    if active_category and active_tab_name:
+                elif recovery_level == "Current Tab" and active_category and active_tab_name:
                         tab_instance = self.all_tabs.get(active_category, {}).get(
                             active_tab_name
                         )
@@ -1209,10 +1207,8 @@ class MainWindow(QWidget):
             for category in self.all_tabs.values():
                 for tab in category.values():
                     if tab:
-                        try:
+                        with contextlib.suppress(Exception):
                             tab.close()
-                        except Exception:
-                            pass
 
         if self.vault_manager is not None:
             self.vault_manager.shutdown()

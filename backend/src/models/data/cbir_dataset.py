@@ -17,9 +17,8 @@ from __future__ import annotations
 import logging
 import random
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Tuple
 
-import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms

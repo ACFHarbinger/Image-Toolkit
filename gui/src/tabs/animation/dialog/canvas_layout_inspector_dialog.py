@@ -1,18 +1,20 @@
 import json
 from typing import List, Optional, Tuple
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import (
     QBrush,
     QColor,
-    QPen,
     QPainter,
     QPainterPath,
+    QPen,
 )
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QGraphicsScene,
     QGraphicsView,
+    QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -20,7 +22,6 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QHBoxLayout,
 )
 
 
