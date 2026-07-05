@@ -2,6 +2,13 @@ import os
 import sys
 import warnings
 
+# Qt Multimedia's FFmpeg backend lazily loads VA-API hardware video decode
+# libraries (e.g. iHD_drv_video.so) on first video playback/probe. Loading
+# those native libs alongside JPype's JVM triggers the same libstdc++ RTTI
+# symbol-conflict SIGSEGV documented for QWebEngineView/Chromium — force
+# software-only decoding so the VA-API driver never loads.
+os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "")
+
 from backend.src.app import launch_app, log_uncaught_exceptions
 from backend.src.utils.io.arg_parser import parse_params
 from backend.src.utils.io.dispatcher import dispatch_command

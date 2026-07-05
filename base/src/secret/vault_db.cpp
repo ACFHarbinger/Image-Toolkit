@@ -149,6 +149,29 @@ static DbHandle open_db(const std::string& db_path, const std::string& password,
         sqlite3_free(errmsg);
         throw std::runtime_error("base::secret: schema init failed: " + err);
     }
+
+    // Migrate pre-existing DBs (e.g. created by the retired Rust module,
+    // whose `listings` table had no `embedding`/`dim` columns) so that
+    // CREATE TABLE IF NOT EXISTS above being a no-op doesn't leave the
+    // table missing columns the rest of this module relies on.
+    {
+        bool has_embedding = false, has_dim = false;
+        sqlite3_stmt* info_stmt = nullptr;
+        if (sqlite3_prepare_v2(h.db, "PRAGMA table_info(listings);", -1, &info_stmt, nullptr) == SQLITE_OK) {
+            while (sqlite3_step(info_stmt) == SQLITE_ROW) {
+                const char* col = reinterpret_cast<const char*>(sqlite3_column_text(info_stmt, 1));
+                if (col && std::strcmp(col, "embedding") == 0) has_embedding = true;
+                if (col && std::strcmp(col, "dim") == 0) has_dim = true;
+            }
+            sqlite3_finalize(info_stmt);
+        }
+        if (!has_embedding) {
+            sqlite3_exec(h.db, "ALTER TABLE listings ADD COLUMN embedding BLOB NOT NULL DEFAULT (x'');", nullptr, nullptr, nullptr);
+        }
+        if (!has_dim) {
+            sqlite3_exec(h.db, "ALTER TABLE listings ADD COLUMN dim INTEGER NOT NULL DEFAULT 0;", nullptr, nullptr, nullptr);
+        }
+    }
     return h;
 }
 

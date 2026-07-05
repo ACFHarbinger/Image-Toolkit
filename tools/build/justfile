@@ -9,7 +9,7 @@ set working-directory := '../..'
 # Replaces the former Rust/maturin build-base (Phase 7: batch/ renamed to base/).
 build-base:
     @echo "Building C++ base extension..."
-    PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/base base/ \
+    PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$(pwd)/.pixi/envs/default/lib/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/base base/ \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
         -DCMAKE_INSTALL_PREFIX="." \

@@ -4,6 +4,8 @@ import warnings
 
 from backend.src.app import launch_app
 
+os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "")
+
 # Suppress RequestsDependencyWarning: urllib3/chardet version mismatch
 # This can happen when transitive dependencies (like comfyui-manager) pull in
 # newer versions of chardet than 'requests' 2.32.x expects.

@@ -44,7 +44,7 @@ _BIREFNET_OK = False
 _BIREFNET_ERR = ""
 
 _VENDOR_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "vendor", "BiRefNet"
+    os.path.dirname(__file__), "..", "..", "..", "..", "vendor", "BiRefNet"
 )
 
 try:
