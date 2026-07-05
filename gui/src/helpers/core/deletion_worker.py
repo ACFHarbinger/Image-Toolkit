@@ -34,7 +34,7 @@ class DeletionWorker(QThread):
         self.mutex.unlock()
         self.wait_condition.wakeOne()
 
-    def run(self):
+    def run(self):  # noqa: C901
         try:
             target_path = self.config["target_path"]
             mode = self.config.get("mode", "files")

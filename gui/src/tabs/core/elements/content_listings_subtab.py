@@ -352,7 +352,7 @@ class ContentListingsSubTab(QWidget):
     # ------------------------------------------------------------------
     # Gallery
     # ------------------------------------------------------------------
-    def _filtered_entries(self) -> List[Dict[str, Any]]:
+    def _filtered_entries(self) -> List[Dict[str, Any]]:  # noqa: C901
         # Recommendation mode: show results sorted by descending relevance score
         if getattr(self, "_recommendation_results", None) is not None:
             assert self._recommendation_results is not None

@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import safetensors.torch as sf
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
@@ -41,7 +42,7 @@ from diffusers import (
 )
 from diffusers.optimization import get_scheduler
 from diffusers.training_utils import EMAModel, compute_snr
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, get_peft_model, get_peft_model_state_dict
 from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm

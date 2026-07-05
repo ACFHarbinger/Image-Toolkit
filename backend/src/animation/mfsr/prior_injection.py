@@ -96,7 +96,7 @@ def _try_waifu2x(img: np.ndarray, scale: int, noise_level: int) -> np.ndarray:
         try:
             subprocess.run(cmd, check=True, capture_output=True, timeout=120)
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
-            raise RuntimeError(f"waifu2x failed: {e}")
+            raise RuntimeError(f"waifu2x failed: {e}") from e
         out = cv2.imread(out_path)
         if out is None:
             raise RuntimeError("waifu2x produced no output")
@@ -112,7 +112,7 @@ def _try_edsr(img: np.ndarray, scale: int, noise_level: int) -> np.ndarray:
     try:
         sr = cv2.dnn_superres.DnnSuperResImpl_create()
     except AttributeError as e:
-        raise RuntimeError(f"OpenCV super-resolution not available: {e}")
+        raise RuntimeError(f"OpenCV super-resolution not available: {e}") from e
 
     # Try a couple of common model filenames on disk
     candidates = [

@@ -451,7 +451,7 @@ class MainWindow(QWidget):
                             except Exception as e:
                                 print(f"Error applying config to {tab_class_name}: {e}")
 
-    def _apply_startup_preferences(self) -> None:
+    def _apply_startup_preferences(self) -> None:  # noqa: C901
         """Apply vault-stored preferences to gallery tabs at startup (GUI/UX §2.16 A/B/C/E)."""
         prefs = self.cached_creds.get("preferences", {})
         if not prefs:
@@ -869,7 +869,7 @@ class MainWindow(QWidget):
         super().showEvent(event)
         self._shown = True
 
-    def _restore_session_recovery(self) -> None:
+    def _restore_session_recovery(self) -> None:  # noqa: C901
         """Restores the previously opened tab and configurations on startup."""
         if not self.vault_manager or not self.cached_creds:
             return
@@ -1043,7 +1043,7 @@ class MainWindow(QWidget):
         else:
             QTimer.singleShot(150, do_restore)
 
-    def _save_session_recovery(self) -> None:
+    def _save_session_recovery(self) -> None:  # noqa: C901
         """Saves current active tab and tab configurations for session recovery."""
         if not self.vault_manager:
             return

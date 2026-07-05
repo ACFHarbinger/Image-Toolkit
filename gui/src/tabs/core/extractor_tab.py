@@ -1591,7 +1591,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.btn_jump_end.setEnabled(False)
 
     # --- Event Filters & Resizing ---
-    def eventFilter(self, watched: QObject, event: QEvent
+    def eventFilter(self, watched: QObject, event: QEvent  # noqa: C901
     ) -> bool:
         if self.lbl_current_time and watched is self.lbl_current_time and event.type() == QEvent.Type.MouseButtonPress:
                 self.lbl_current_time.hide()
@@ -3220,7 +3220,7 @@ class ExtractorTab(AbstractClassSingleGallery):
             "video_path": self.video_path,
         }
 
-    def set_config(self, config: Dict[str, Any], quiet: bool = False):
+    def set_config(self, config: Dict[str, Any], quiet: bool = False):  # noqa: C901
         try:
             # 1. Restore active videos tab state FIRST so scan_directory can style them
             active_configs = config.get("active_videos_config", {})
@@ -3458,7 +3458,7 @@ class ExtractorTab(AbstractClassSingleGallery):
             self.extraction_status_label.setText("Removed item from queue.")
             self.extraction_status_label.show()
 
-    def load_extraction_config(self, idx: int):
+    def load_extraction_config(self, idx: int):  # noqa: C901
         if idx < 0 or idx >= len(self.extraction_queue):
             return
         item = self.extraction_queue[idx]

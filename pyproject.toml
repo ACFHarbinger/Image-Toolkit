@@ -166,6 +166,7 @@ exclude = [
     "docs/notebooks/",
     "site/",
     "vendor/",
+    "submodules/",
     "archive/python/",
 ]
 force-exclude = true

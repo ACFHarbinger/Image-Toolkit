@@ -1069,7 +1069,7 @@ def _hold_block_average(
 # ---------------------------------------------------------------------------
 
 
-def smart_select_frames(
+def smart_select_frames(  # noqa: C901
     frames_paths: List[str],
     min_step_px: float = 25.0,
     min_phase_response: float = 0.04,
@@ -1259,6 +1259,7 @@ def smart_select_frames(
             with contextlib.suppress(Exception):
                 _biref.offload()
             del _biref
+            import gc as _gc
             _gc.collect()
             if _torch.cuda.is_available():
                 _torch.cuda.empty_cache()
@@ -1455,12 +1456,12 @@ def smart_select_frames(
             lo = max(s_prev + 1, s_curr - _LOOK_RANGE)
             hi = min(N - 1, s_curr + _LOOK_RANGE)
 
-            def _valid(c: int) -> bool:
+            candidates = []
+            for c in range(lo, hi + 1):
                 adv = cumpos[c] - cumpos[s_prev]
                 nf = adv * dominant_sign if dominant_sign != 0 else abs(adv)
-                return _MIN_ADV_FRAC * min_step_px <= nf <= _MAX_ADV_FRAC * min_step_px
-
-            candidates = [c for c in range(lo, hi + 1) if _valid(c)]
+                if _MIN_ADV_FRAC * min_step_px <= nf <= _MAX_ADV_FRAC * min_step_px:
+                    candidates.append(c)
             if not candidates:
                 refined.append(s_curr)
                 continue

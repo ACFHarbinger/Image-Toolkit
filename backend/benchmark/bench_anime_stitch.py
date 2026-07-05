@@ -20,7 +20,7 @@ import platform
 import shutil
 import sys
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -2127,96 +2127,15 @@ def _compute_dinov2_features(frames_paths: List[str]) -> Optional[np.ndarray]:
     return np.array(features, dtype=np.float32)
 
 
-def _smart_select_frames(
+def _get_biref_probes_benchmark(
     frames_paths: List[str],
-    min_step_px: float = 50.0,
-    min_phase_response: float = 0.04,
-    high_anim_mad: float = 0.10,
-    tiny_step_px: float = 8.0,
-) -> List[str]:
-    """
-    Return a subset of ``frames_paths`` suitable for the stitch pipeline.
-
-    **v2 upgrade — pose-consistent lookahead window (§6.1 of the research report).**
-
-    Instead of selecting the *first* frame past ``min_step_px`` (v1 behaviour),
-    v2 accumulates all candidates within a ``[min_step_px, min_step_px +
-    _POSE_WINDOW_PX]`` window beyond the last selected frame and then picks the
-    candidate with the lowest central-crop L1 distance to the last selected
-    thumbnail.  The central-crop (inner 50% of each thumbnail) isolates the
-    character region; peripheral background pixels are excluded because they
-    always differ between frames due to camera panning.  A low L1 value means
-    the character is in the same animation pose as the previous anchor frame —
-    the "on twos" principle.
-
-    Four rejection gates (applied before the window logic):
-
-    **1. Displacement sufficiency.**
-    Track cumulative canvas position along the dominant scroll axis.  Only frames
-    that advance ≥ ``min_step_px`` from the last selected frame enter the window.
-
-    **2. Direction consistency.**
-    Backward-direction steps do not contribute positive progress; frames that
-    re-expose already-covered canvas rows are skipped.
-
-    **3. High-animation / low-movement filter.**
-    Camera barely moved (< ``tiny_step_px``) but thumbnail MAD is high
-    (> ``high_anim_mad``) → character is animating at a near-stationary canvas
-    position.  Discarded.
-
-    **4. Phase-correlation quality gate.**
-    Response < ``min_phase_response`` → displacement estimate unreliable
-    (motion blur, scene transition).  Position still accumulated but frame not
-    entered into the window.
-
-    Always includes the first and last frames to preserve the full scroll extent.
-    Returns the original list unchanged when fewer than 3 frames are provided.
-    Set ``ASP_POSE_WINDOW_PX=0`` to revert to v1 first-past-threshold behaviour.
-    """
-    N = len(frames_paths)
-    if N <= 2:
-        return frames_paths
-
-    # ── 1. Load thumbnails and compute pairwise displacements ─────────────
-    thumbs = _load_thumbs_parallel(frames_paths)
-
-    # Derive pixel scale: thumb-space displacement → full-resolution px
-    img0 = cv2.imread(frames_paths[0])
-    if img0 is not None:
-        full_h, full_w = img0.shape[:2]
-        th0, tw0 = thumbs[0].shape[:2]
-        scale_y = full_h / max(th0, 1)
-        scale_x = full_w / max(tw0, 1)
-    else:
-        scale_y = scale_x = float(_SELECTOR_THUMB_LONG)
-
-    # ── §0.1c DINOv2 Features (Pass 2) ─────────────────────────────────────
-    dinov2_features = None
-    if _POSE_WINDOW_PX > 0:
-        print("  [SmartSelect] Computing DINOv2 pose features...")
-        dinov2_features = _compute_dinov2_features(frames_paths)
-        if dinov2_features is not None:
-            print("  [SmartSelect] DINOv2 features loaded successfully.")
-
-    # ── §0.2 BiRefNet probe masks for two-channel displacement and pose sim ──
-    # Run BiRefNet on 5 evenly-spaced frames to build per-pixel probability
-    # maps at thumbnail scale:
-    #   _bg_thumb_mask: intersection of bg masks (pixel is background in ALL
-    #                   probe frames) — used for camera-displacement phase
-    #                   correlation when _TWO_CHANNEL_SELECT is enabled.
-    #   _fg_thumb_mask: union of fg masks (pixel is foreground in ANY probe
-    #                   frame) — used to weight the gradient diff in Pass 2
-    #                   pose-consistency refinement.  Excludes background
-    #                   edges (lockers, walls) that change as the camera pans.
-    #
-    # BiRefNet is run at full resolution on each probe frame, then the mask
-    # is downsampled to thumbnail scale.  Total overhead: ~2–3 s per dataset.
-    _bg_thumb_mask: Optional[np.ndarray] = None
-    _fg_thumb_mask: Optional[np.ndarray] = None
-    _needs_biref_probes = _TWO_CHANNEL_SELECT or (
-        _POSE_WINDOW_PX > 0 and dinov2_features is None
-    )
-    if _needs_biref_probes:
+    thumbs: List[np.ndarray],
+    N: int,
+    needs_biref_probes: bool,
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    _bg_thumb_mask = None
+    _fg_thumb_mask = None
+    if needs_biref_probes:
         try:
             import gc as _gc
 
@@ -2226,25 +2145,24 @@ def _smart_select_frames(
 
             _biref = BiRefNetWrapper()
             _probe_idxs = sorted({0, N // 4, N // 2, 3 * N // 4, N - 1})
-            _th_shape = thumbs[0].shape[:2]  # (th, tw) at thumbnail scale
-            _bg_accum = np.ones(_th_shape, dtype=np.float32)  # intersection → bg
-            _fg_accum = np.zeros(_th_shape, dtype=np.float32)  # union → fg
+            _th_shape = thumbs[0].shape[:2]
+            _bg_accum = np.ones(_th_shape, dtype=np.float32)
+            _fg_accum = np.zeros(_th_shape, dtype=np.float32)
             _n_ok = 0
             for _pi in _probe_idxs:
                 _full = cv2.imread(frames_paths[_pi])
                 if _full is None:
                     continue
-                _mk = _biref.get_mask(_full)  # BiRefNet: 0=fg, 255=bg
+                _mk = _biref.get_mask(_full)
                 _th = thumbs[_pi].shape
-                # bg_prob: 1.0 = background pixel, 0.0 = foreground pixel
                 _bg_prob = cv2.resize(
                     (_mk > 127).astype(np.float32),
                     (_th[1], _th[0]),
                     interpolation=cv2.INTER_NEAREST,
                 )
                 _fg_prob = 1.0 - _bg_prob
-                _bg_accum = np.minimum(_bg_accum, _bg_prob)  # conservative bg
-                _fg_accum = np.maximum(_fg_accum, _fg_prob)  # permissive fg
+                _bg_accum = np.minimum(_bg_accum, _bg_prob)
+                _fg_accum = np.maximum(_fg_accum, _fg_prob)
                 _n_ok += 1
             with contextlib.suppress(Exception):
                 _biref.offload()
@@ -2272,7 +2190,16 @@ def _smart_select_frames(
                 f"  [SmartSelect] BiRefNet unavailable ({_e}); "
                 "using whole-frame phase correlation and central-crop pose diff"
             )
+    return _bg_thumb_mask, _fg_thumb_mask
 
+
+def _run_phase_correlations(
+    thumbs: List[np.ndarray],
+    N: int,
+    scale_x: float,
+    scale_y: float,
+    _bg_thumb_mask: Optional[np.ndarray],
+) -> Tuple[List[float], List[float], List[float], List[float]]:
     raw_dx: List[float] = []
     raw_dy: List[float] = []
     responses: List[float] = []
@@ -2281,7 +2208,6 @@ def _smart_select_frames(
     for i in range(N - 1):
         a = thumbs[i]
         b = thumbs[i + 1]
-        # Ensure identical size (may differ by 1px due to rounding)
         th = max(a.shape[0], b.shape[0])
         tw = max(a.shape[1], b.shape[1])
         if a.shape != (th, tw):
@@ -2290,10 +2216,8 @@ def _smart_select_frames(
             b = np.pad(b, ((0, th - b.shape[0]), (0, tw - b.shape[1])))
 
         if _bg_thumb_mask is not None and _bg_thumb_mask.shape == a.shape:
-            # Camera channel: background-only phase correlation.
             _m = _bg_thumb_mask
             (dx_t, dy_t), response = cv2.phaseCorrelate(a * _m, b * _m)
-            # Animation channel: foreground MAD
             _fg = 1.0 - _m
             frame_mads.append(float(np.sum(np.abs(b - a) * _fg) / max(_fg.sum(), 1.0)))
         else:
@@ -2302,8 +2226,141 @@ def _smart_select_frames(
         raw_dx.append(dx_t * scale_x)
         raw_dy.append(dy_t * scale_y)
         responses.append(response)
+    return raw_dx, raw_dy, responses, frame_mads
 
-    # ── 2. Dominant scroll axis and direction ──────────────────────────────
+
+def _greedy_v1_selection(
+    cumpos: List[float],
+    N: int,
+    min_step_px: float,
+    dominant_sign: int,
+) -> List[int]:
+    selected_v1: List[int] = [0]
+    last_sel_pos_v1: float = 0.0
+
+    for i in range(N - 1):
+        canvas_pos = cumpos[i + 1]
+        advance = canvas_pos - last_sel_pos_v1
+        net_forward = advance * dominant_sign if dominant_sign != 0 else abs(advance)
+        if net_forward >= min_step_px:
+            selected_v1.append(i + 1)
+            last_sel_pos_v1 = canvas_pos
+
+    if selected_v1[-1] != N - 1:
+        selected_v1.append(N - 1)
+    return selected_v1
+
+
+def _pose_refinement(
+    selected_v1: List[int],
+    cumpos: List[float],
+    thumbs: List[np.ndarray],
+    dinov2_features: Optional[np.ndarray],
+    _fg_thumb_mask: Optional[np.ndarray],
+    N: int,
+    min_step_px: float,
+    dominant_sign: int,
+) -> List[int]:
+    _POSE_LOOK_RANGE = 2
+    _POSE_MIN_GAIN = 0.10
+    _MIN_ADV_FRAC = 0.50
+    _MAX_ADV_FRAC = 2.50
+
+    _pose_mode = "biref-fg" if _fg_thumb_mask is not None else "central-crop"
+    selected: List[int] = [selected_v1[0]]
+    n_subs = 0
+    for k in range(1, len(selected_v1) - 1):
+        s_prev = selected[-1]
+        s_curr = selected_v1[k]
+        lo = max(s_prev + 1, s_curr - _POSE_LOOK_RANGE)
+        hi = min(N - 1, s_curr + _POSE_LOOK_RANGE)
+
+        def _valid_advance(c: int, s_prev_val: int = s_prev) -> bool:
+            adv = cumpos[c] - cumpos[s_prev_val]
+            nf = adv * dominant_sign if dominant_sign != 0 else abs(adv)
+            return _MIN_ADV_FRAC * min_step_px <= nf <= _MAX_ADV_FRAC * min_step_px
+
+        candidates = [c for c in range(lo, hi + 1) if _valid_advance(c)]
+        if not candidates:
+            selected.append(s_curr)
+            continue
+        if dinov2_features is not None:
+            last_t = dinov2_features[s_prev]
+            curr_score = 1.0 - float(np.dot(last_t, dinov2_features[s_curr]))
+            scores = [
+                1.0 - float(np.dot(last_t, dinov2_features[c])) for c in candidates
+            ]
+            _pose_mode = "dinov2"
+        else:
+            last_t = thumbs[s_prev]
+            curr_score = _fg_center_diff(last_t, thumbs[s_curr], _fg_thumb_mask)
+            scores = [
+                _fg_center_diff(last_t, thumbs[c], _fg_thumb_mask)
+                for c in candidates
+            ]
+        best_local = int(np.argmin(scores))
+        best = candidates[best_local]
+        best_score = scores[best_local]
+        if best != s_curr and best_score < curr_score * (1.0 - _POSE_MIN_GAIN):
+            selected.append(best)
+            n_subs += 1
+            print(
+                f"  [PoseSelect/{_pose_mode}] Slot {k}: {s_curr}→{best} "
+                f"(score {curr_score:.3f}→{best_score:.3f})"
+            )
+        else:
+            selected.append(s_curr)
+    selected.append(selected_v1[-1])
+    if n_subs > 0:
+        print(
+            f"  [PoseSelect/{_pose_mode}] {n_subs}/{len(selected_v1) - 2} slots refined."
+        )
+    return selected
+
+
+def _smart_select_frames(
+    frames_paths: List[str],
+    min_step_px: float = 50.0,
+    min_phase_response: float = 0.04,
+    high_anim_mad: float = 0.10,
+    tiny_step_px: float = 8.0,
+) -> List[str]:
+    """
+    Return a subset of ``frames_paths`` suitable for the stitch pipeline.
+    """
+    N = len(frames_paths)
+    if N <= 2:
+        return frames_paths
+
+    thumbs = _load_thumbs_parallel(frames_paths)
+
+    img0 = cv2.imread(frames_paths[0])
+    if img0 is not None:
+        full_h, full_w = img0.shape[:2]
+        th0, tw0 = thumbs[0].shape[:2]
+        scale_y = full_h / max(th0, 1)
+        scale_x = full_w / max(tw0, 1)
+    else:
+        scale_y = scale_x = float(_SELECTOR_THUMB_LONG)
+
+    dinov2_features = None
+    if _POSE_WINDOW_PX > 0:
+        print("  [SmartSelect] Computing DINOv2 pose features...")
+        dinov2_features = _compute_dinov2_features(frames_paths)
+        if dinov2_features is not None:
+            print("  [SmartSelect] DINOv2 features loaded successfully.")
+
+    _needs_biref_probes = _TWO_CHANNEL_SELECT or (
+        _POSE_WINDOW_PX > 0 and dinov2_features is None
+    )
+    _bg_thumb_mask, _fg_thumb_mask = _get_biref_probes_benchmark(
+        frames_paths, thumbs, N, _needs_biref_probes
+    )
+
+    raw_dx, raw_dy, responses, frame_mads = _run_phase_correlations(
+        thumbs, N, scale_x, scale_y, _bg_thumb_mask
+    )
+
     med_dy = float(np.median(raw_dy))
     med_dx = float(np.median(raw_dx))
 
@@ -2322,11 +2379,6 @@ def _smart_select_frames(
         f"  mode={_chan}  pose_window={_POSE_WINDOW_PX:.0f}px"
     )
 
-    # ── 3. Pre-compute cumulative canvas positions ─────────────────────────
-    # Each frame gets a cumulative position along the dominant axis.  Frames
-    # rejected by phase-correlation or high-animation gates contribute zero
-    # advance (their phase estimate is unreliable and we don't want to count
-    # that noisy displacement toward the min_step threshold).
     cumpos: List[float] = [0.0] * N
     for i in range(N - 1):
         step = axis_steps[i]
@@ -2335,100 +2387,12 @@ def _smart_select_frames(
         )
         cumpos[i + 1] = cumpos[i] + (0.0 if rejected else step)
 
-    # ── 4. Pass 1 — v1 greedy forward-selection (first-past-threshold) ───────
-    # This is the session-2 baseline: select the first frame that crosses
-    # min_step_px, accumulate, repeat.  Preserves frame count and even
-    # spacing needed for luminance normalisation.
-
-    selected_v1: List[int] = [0]
-    canvas_pos: float = 0.0
-    last_sel_pos_v1: float = 0.0
-
-    for i in range(N - 1):
-        canvas_pos = cumpos[i + 1]
-        advance = canvas_pos - last_sel_pos_v1
-        net_forward = advance * dominant_sign if dominant_sign != 0 else abs(advance)
-        if net_forward >= min_step_px:
-            selected_v1.append(i + 1)
-            last_sel_pos_v1 = canvas_pos
-
-    if selected_v1[-1] != N - 1:
-        selected_v1.append(N - 1)
-
-    # ── 5. Pass 2 — pose-consistent local refinement ──────────────────────
-    # For each interior frame in selected_v1, check whether a nearby frame
-    # within ±_POSE_LOOK_RANGE frames has significantly better gradient
-    # similarity to the previous selected frame (>= 10% improvement).  If
-    # so, substitute it.  Frame count is preserved exactly.
-    #
-    # Key constraints (prevent backward clustering / sub-threshold gaps):
-    #   • Replacement must advance at least min_step_px × 0.5 from previous
-    #     selection in cumulative position space.
-    #   • Replacement must be at most min_step_px × 2.0 ahead of previous
-    #     selection (prevents huge forward jumps that skip canvas content).
-    #   • ±_POSE_LOOK_RANGE = 2 frames from the v1 candidate.
-    #
-    # This implements §6.1 "on twos" pose-consistency without requiring any
-    # pose-estimation model: fg pixel similarity ≈ animation phase matching.
-
-    _POSE_LOOK_RANGE = 2  # at most ±2 frames from v1 candidate
-    _POSE_MIN_GAIN = 0.10  # must improve fg pixel L1 by ≥ 10% to substitute
-    _MIN_ADV_FRAC = 0.50  # replacement must advance ≥ min_step_px × 0.50
-    _MAX_ADV_FRAC = 2.50  # replacement must advance ≤ min_step_px × 2.50
+    selected_v1 = _greedy_v1_selection(cumpos, N, min_step_px, dominant_sign)
 
     if _POSE_WINDOW_PX > 0 and len(selected_v1) > 2:
-        _pose_mode = "biref-fg" if _fg_thumb_mask is not None else "central-crop"
-        selected: List[int] = [selected_v1[0]]
-        n_subs = 0
-        for k in range(1, len(selected_v1) - 1):
-            s_prev = selected[-1]
-            s_curr = selected_v1[k]
-            # Candidate pool: ±LOOK_RANGE around s_curr, bounded by (s_prev+1, N-1)
-            lo = max(s_prev + 1, s_curr - _POSE_LOOK_RANGE)
-            hi = min(N - 1, s_curr + _POSE_LOOK_RANGE)
-
-            # Filter: minimum and maximum canvas advance from previous selection
-            def _valid_advance(c: int) -> bool:
-                adv = cumpos[c] - cumpos[s_prev]
-                nf = adv * dominant_sign if dominant_sign != 0 else abs(adv)
-                return _MIN_ADV_FRAC * min_step_px <= nf <= _MAX_ADV_FRAC * min_step_px
-
-            candidates = [c for c in range(lo, hi + 1) if _valid_advance(c)]
-            if not candidates:
-                selected.append(s_curr)
-                continue
-            if dinov2_features is not None:
-                last_t = dinov2_features[s_prev]
-                curr_score = 1.0 - float(np.dot(last_t, dinov2_features[s_curr]))
-                scores = [
-                    1.0 - float(np.dot(last_t, dinov2_features[c])) for c in candidates
-                ]
-                _pose_mode = "dinov2"
-            else:
-                last_t = thumbs[s_prev]
-                # Pass BiRefNet fg mask so background edges are excluded from score
-                curr_score = _fg_center_diff(last_t, thumbs[s_curr], _fg_thumb_mask)
-                scores = [
-                    _fg_center_diff(last_t, thumbs[c], _fg_thumb_mask)
-                    for c in candidates
-                ]
-            best_local = int(np.argmin(scores))
-            best = candidates[best_local]
-            best_score = scores[best_local]
-            if best != s_curr and best_score < curr_score * (1.0 - _POSE_MIN_GAIN):
-                selected.append(best)
-                n_subs += 1
-                print(
-                    f"  [PoseSelect/{_pose_mode}] Slot {k}: {s_curr}→{best} "
-                    f"(score {curr_score:.3f}→{best_score:.3f})"
-                )
-            else:
-                selected.append(s_curr)
-        selected.append(selected_v1[-1])
-        if n_subs > 0:
-            print(
-                f"  [PoseSelect/{_pose_mode}] {n_subs}/{len(selected_v1) - 2} slots refined."
-            )
+        selected = _pose_refinement(
+            selected_v1, cumpos, thumbs, dinov2_features, _fg_thumb_mask, N, min_step_px, dominant_sign
+        )
     else:
         selected = selected_v1
 
@@ -2464,7 +2428,7 @@ def _run_simple_stitch(frames_paths: List[str], out_path: str) -> bool:
 # ============================================================================
 
 
-def process_dataset(dataset_dir: str) -> Optional[Dict]:
+def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     """
     Run both pipelines on a single dataset directory.
 
@@ -5045,16 +5009,7 @@ def _plot_exists(plots_dir: str, name: str) -> bool:
     return os.path.exists(os.path.join(plots_dir, name))
 
 
-def generate_report(results: List[Dict], output_dir: str) -> str:
-    """
-    Write benchmark_report.md inside output_dir.
-    Returns the path to the written file.
-    """
-    report_path = os.path.join(output_dir, "benchmark_report.md")
-    rd = output_dir  # report dir = base for relative paths
-
-    lines = []
-
+def _report_header_and_summary(results: List[Dict], lines: List[str]) -> None:
     # Header
     lines.append(
         _REPORT_HEADER.format(
@@ -5086,11 +5041,6 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         align_ssim_a_s = f"{align_ssim_a:.3f}" if align_ssim_a is not None else "—"
         align_ssim_s_s = f"{align_ssim_s:.3f}" if align_ssim_s is not None else "—"
 
-        ssim_v = (
-            f"{r['comparison']['ssim']:.3f}"
-            if r["comparison"]["ssim"] is not None
-            else "—"
-        )
         verdict = r["comparison"]["verdict"]
         vsrc = r["comparison"].get("verdict_source", "cv")[:2].upper()
         fallback = "✓" if r["used_fallback"] else ""
@@ -5103,6 +5053,8 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         "*SC = seam_coherence (lower is better); GT SSIM = raw SSIM; Align SSIM = ECC-aligned SSIM (no framing bias)*\n\n"
     )
 
+
+def _report_fail_breakdown(results: List[Dict], lines: List[str]) -> None:
     # Global ASP failure breakdown
     lines.append("### Failure Mode Counts (ASP)\n\n")
     fail_counts: Dict[str, int] = {}
@@ -5115,7 +5067,313 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
         lines.append(f"| `{k}` | {v} |\n")
     lines.append("\n")
 
-    # Per-test sections
+
+def _report_single_test_outputs(r: Dict, anime_rel: Optional[str], simple_rel: Optional[str], lines: List[str]) -> None:
+    lines.append("### Final Outputs\n\n")
+    lines.append("| Anime Stitch Pipeline | OpenCV Simple Stitch |\n")
+    lines.append("|:---------------------:|:--------------------:|\n")
+    asp_cell = (
+        f"![ASP]({anime_rel})"
+        if os.path.exists(r["anime_path"])
+        else "_not generated_"
+    )
+    simple_cell = (
+        f"![Simple]({simple_rel})"
+        if simple_rel and os.path.exists(r["simple_path"])
+        else "_not generated_"
+    )
+    lines.append(f"| {asp_cell} | {simple_cell} |\n\n")
+
+
+def _report_single_test_cv_metrics(r: Dict, am: Optional[Dict], sm: Optional[Dict], lines: List[str]) -> None:
+    lines.append("### CV Metrics\n\n")
+    lines.append("| Metric | ASP | Simple | Notes |\n")
+    lines.append("|--------|-----|--------|-------|\n")
+    metric_defs = [
+        ("sharpness", "Laplacian variance — higher = sharper edges"),
+        ("coverage", "Fraction of non-black pixels — lower = heavy crop"),
+        (
+            "seam_gradient",
+            "Mean gradient magnitude at seam rows — higher = abrupt transitions",
+        ),
+        ("color_entropy", "Shannon entropy of luma histogram — lower = washed out"),
+        ("ghosting_score", "2nd-order vertical gradient — higher = double-edges"),
+        (
+            "ghosting_siqe",
+            "§3.8A autocorr double-edge score [0–100], higher = ghost",
+        ),
+        ("width", "Output width (px)"),
+        ("height", "Output height (px)"),
+    ]
+    for key, note in metric_defs:
+        a_val = f"{am.get(key, '—')}" if am else "—"
+        s_val = f"{sm.get(key, '—')}" if sm else "—"
+        lines.append(f"| `{key}` | {a_val} | {s_val} | {note} |\n")
+    ssim_v = (
+        f"{r['comparison']['ssim']:.3f}"
+        if r["comparison"]["ssim"] is not None
+        else "—"
+    )
+    psnr_v = (
+        f"{r['comparison']['psnr_db']:.1f} dB"
+        if r["comparison"]["psnr_db"] is not None
+        else "—"
+    )
+    lines.append(
+        f"| `ssim (asp vs simple)` | {ssim_v} | — | Structural similarity between the two outputs |\n"
+    )
+    lines.append(
+        f"| `psnr (asp vs simple)` | {psnr_v} | — | Peak SNR between the two outputs |\n"
+    )
+    lines.append(
+        f"| `seam_coherence` | {am.get('seam_coherence', '—') if am else '—'} | "
+        f"{sm.get('seam_coherence', '—') if sm else '—'} | "
+        f"Row-mean lum std — lower = less color banding (≤18 good, 18–28 moderate, >28 severe) |\n"
+    )
+    lines.append("\n")
+
+
+def _report_single_test_gt(r: Dict, lines: List[str]) -> None:
+    gt = r.get("ground_truth", {})
+    if gt.get("available"):
+        lines.append("### Ground Truth Comparison\n\n")
+        gt_am = gt.get("metrics_asp", {})
+        gt_sm = gt.get("metrics_simple", {})
+        asp_ssim_gt = gt_am.get("ssim_vs_gt")
+        sim_ssim_gt = gt_sm.get("ssim_vs_gt")
+        asp_psnr_gt = gt_am.get("psnr_vs_gt")
+        sim_psnr_gt = gt_sm.get("psnr_vs_gt")
+        gt_ver = gt.get("verdict", "—")
+        lines.append("| Metric | ASP | Simple | Notes |\n")
+        lines.append("|--------|-----|--------|-------|\n")
+        lines.append(
+            f"| SSIM vs Ground Truth | "
+            f"{f'{asp_ssim_gt:.4f}' if asp_ssim_gt is not None else '—'} | "
+            f"{f'{sim_ssim_gt:.4f}' if sim_ssim_gt is not None else '—'} | "
+            f"Higher = closer to reference |\n"
+        )
+        lines.append(
+            f"| PSNR vs Ground Truth | "
+            f"{f'{asp_psnr_gt:.1f} dB' if asp_psnr_gt is not None else '—'} | "
+            f"{f'{sim_psnr_gt:.1f} dB' if sim_psnr_gt is not None else '—'} | "
+            f"Higher = closer to reference |\n"
+        )
+        lines.append(
+            f"| **GT-based verdict** | **{gt_ver}** | — | Most reliable quality signal |\n"
+        )
+        lines.append("\n")
+
+
+def _report_single_test_align(r: Dict, lines: List[str]) -> None:
+    ah = r["affine_health"]
+    lines.append("### Alignment Health\n\n")
+    lines.append("```yaml\n")
+    lines.append(f"valid: {ah['valid']}\n")
+    lines.append(f"reason: {ah['reason']}\n")
+    lines.append(f"spacing_ratio: {ah['ratio']}\n")
+    lines.append(f"min_gap_px: {ah['min_gap_px']}\n")
+    lines.append(f"max_rotation: {ah['max_rotation']}\n")
+    lines.append(f"max_scale_deviation: {ah['max_scale_dev']}\n")
+    lines.append(f"used_scans_fallback: {r['used_fallback']}\n")
+    if r["canvas"]["height"] is not None:
+        lines.append(f"canvas: {r['canvas']['width']}×{r['canvas']['height']}\n")
+    lines.append("```\n\n")
+
+
+def _report_single_test_photo(r: Dict, lines: List[str]) -> None:
+    gains = r["photometric"]["applied_gains"]
+    non_trivial = [g for g in gains if abs(g - 1.0) > 0.01]
+    lines.append("### Photometric Correction\n\n")
+    lines.append(f"- Frames: **{len(gains)}**  \n")
+    lines.append(
+        f"- Frames corrected (|gain − 1| > 0.01): **{len(non_trivial)}**  \n"
+    )
+    if non_trivial:
+        lines.append(
+            f"- Gain range: [{min(non_trivial):.4f}, {max(non_trivial):.4f}]  \n"
+        )
+    lines.append("\n")
+
+
+def _report_single_test_visualizations_plots(pd: str, rd: str, lines: List[str]) -> None:
+    def _img_row(label, fname, alt=""):
+        p = os.path.join(pd, fname)
+        if os.path.exists(p):
+            rel = _rel_path(p, rd)
+            return f"**{label}**  \n![{alt or label}]({rel})\n\n"
+        return ""
+
+    # Metrics comparison bar
+    bar_path = os.path.join(pd, "metrics_comparison.png")
+    if os.path.exists(bar_path):
+        lines.append(
+            _img_row("CV Metrics Comparison (normalised)", "metrics_comparison.png")
+        )
+
+    # Gains
+    gains_path = os.path.join(pd, "gains.png")
+    if os.path.exists(gains_path):
+        lines.append(_img_row("Per-Frame Luminance Gains", "gains.png"))
+
+    # 2D canvas & overlap
+    cp = os.path.join(pd, "canvas_frame_placement.png")
+    if os.path.exists(cp):
+        lines.append(
+            _img_row("Canvas Frame Placement (2D)", "canvas_frame_placement.png")
+        )
+
+    tv = os.path.join(pd, "translation_vectors.png")
+    if os.path.exists(tv):
+        lines.append(
+            _img_row("Translation Vectors (2D)", "translation_vectors.png")
+        )
+
+    om = os.path.join(pd, "overlap_map.png")
+    if os.path.exists(om):
+        lines.append(_img_row("Frame Overlap Count Map (2D)", "overlap_map.png"))
+
+    # Seam heatmaps
+    for img_type in ["asp", "simple"]:
+        hm = os.path.join(pd, f"{img_type}_seam_heatmap.png")
+        if os.path.exists(hm):
+            label = "ASP" if img_type == "asp" else "Simple Stitch"
+            lines.append(
+                _img_row(
+                    f"{label} — Seam Gradient Heatmap (2D)",
+                    f"{img_type}_seam_heatmap.png",
+                )
+            )
+
+    # 3D surface plots
+    for fname, label in [
+        ("asp_3d_surface.png", "ASP — Luminance Surface (3D)"),
+        ("simple_3d_surface.png", "Simple Stitch — Luminance Surface (3D)"),
+        (
+            "temporal_render_3d.png",
+            "Stage 9 Temporal Render — Luminance Surface (3D)",
+        ),
+    ]:
+        p = os.path.join(pd, fname)
+        if os.path.exists(p):
+            lines.append(_img_row(label, fname))
+
+
+def _report_single_test_visualizations_masks(pd: str, rd: str, lines: List[str]) -> None:
+    mask_any = False
+    for i in range(3):
+        mp = os.path.join(pd, f"mask_overlay_frame{i:02d}.png")
+        if os.path.exists(mp) and not mask_any:
+            lines.append(
+                "**BiRefNet Foreground Mask Overlays (first 3 frames)**\n\n"
+            )
+            lines.append(
+                "| Frame 0 | Frame 1 | Frame 2 |\n|:---:|:---:|:---:|\n| "
+            )
+            mask_any = True
+    if mask_any:
+        cells = []
+        for i in range(3):
+            mp = os.path.join(pd, f"mask_overlay_frame{i:02d}.png")
+            if os.path.exists(mp):
+                cells.append(f"![mask f{i}]({_rel_path(mp, rd)})")
+            else:
+                cells.append("—")
+        lines.append(" | ".join(cells) + " |\n\n")
+
+
+def _report_single_test_visualizations_stages(sd: str, rd: str, r: Dict, lines: List[str]) -> None:
+    # Stage images
+    lines.append("#### Stage Intermediate Outputs\n\n")
+    _n_frames = min(r.get("frames", {}).get("count", 4), 4)
+    stage_imgs = {
+        "Stage 2 Normalised Frames": [
+            os.path.join(sd, f"stage02_normalised_frame{i:02d}.png")
+            for i in range(_n_frames)
+        ],
+        "Stage 3 Corrected Frames": [
+            os.path.join(sd, f"stage03_basic_corrected_frame{i:02d}.png")
+            for i in range(_n_frames)
+        ],
+        "Stage 4 BG Masks": [
+            os.path.join(sd, f"stage04_bgmask_frame{i:02d}.png")
+            for i in range(_n_frames)
+        ],
+    }
+    for stage_label, paths in stage_imgs.items():
+        existing = [p for p in paths if os.path.exists(p)]
+        if not existing:
+            continue
+        lines.append(f"**{stage_label}**\n\n")
+        cols = min(4, len(existing))
+        header = "| " + " | ".join([f"Frame {i}" for i in range(cols)]) + " |\n"
+        sep = "|" + "---|" * cols + "\n"
+        row = (
+            "| "
+            + " | ".join(
+                [
+                    f"![f{i}]({_rel_path(p, rd)})"
+                    for i, p in enumerate(existing[:cols])
+                ]
+            )
+            + " |\n\n"
+        )
+        lines.append(header + sep + row)
+
+    # Temporal render and composite
+    for fname, label in [
+        ("stage09_temporal_render.png", "Stage 9 — Temporal Median Render"),
+        ("stage11_fg_composite.png", "Stage 11 — FG Composite"),
+    ]:
+        sp = os.path.join(sd, fname)
+        if os.path.exists(sp):
+            rel = _rel_path(sp, rd)
+            lines.append(f"**{label}**  \n![{label}]({rel})\n\n")
+
+
+def _report_single_test_visualizations(r: Dict, pd: str, sd: str, rd: str, lines: List[str]) -> None:
+    lines.append("### Intermediate Output Visualizations\n\n")
+    _report_single_test_visualizations_plots(pd, rd, lines)
+    _report_single_test_visualizations_masks(pd, rd, lines)
+    _report_single_test_visualizations_stages(sd, rd, r, lines)
+
+
+def _report_single_test_analysis(r: Dict, am: Optional[Dict], sm: Optional[Dict], lines: List[str]) -> None:
+    lines.append("### Automated Analysis\n\n")
+    verdict = _auto_verdict(am, sm)
+    verdict_map = {
+        "asp_better": "ASP produces a **higher-quality** output by CV metrics.",
+        "simple_better": "Simple/OpenCV produces a **higher-quality** output by CV metrics.",
+        "comparable": "Both pipelines produce **comparable** quality by CV metrics.",
+        "insufficient_data": "Insufficient data to determine a verdict.",
+    }
+    lines.append(f"> **CV Verdict:** {verdict_map.get(verdict, verdict)}\n\n")
+
+    lines.append("**Detected issues — ASP:**\n")
+    for issue in _auto_issues(am, is_asp=True):
+        lines.append(f"{issue}\n")
+    lines.append("\n**Detected issues — Simple Stitch:**\n")
+    for issue in _auto_issues(sm, is_asp=False):
+        lines.append(f"{issue}\n")
+    lines.append("\n")
+
+    if r["used_fallback"]:
+        lines.append(
+            "> ⚠️ **SCANS Fallback used** — Alignment failed, ASP result is identical to Simple Stitch.\n\n"
+        )
+
+    # Human feedback block
+    asp_issues_yaml = "\n".join(_auto_issues(am, True))
+    simple_issues_yaml = "\n".join(_auto_issues(sm, False))
+    lines.append(
+        _PER_TEST_HUMAN_SECTION.format(
+            asp_issues=asp_issues_yaml,
+            simple_issues=simple_issues_yaml,
+            verdict=verdict,
+        )
+    )
+
+
+def _report_per_test_details(results: List[Dict], rd: str, lines: List[str]) -> None:
     for r in results:
         name = r["name"]
         anime_rel = _rel_path(r["anime_path"], rd)
@@ -5130,296 +5388,28 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
 
         lines.append(f"---\n\n## {name}\n\n")
 
-        # Side-by-side final outputs
-        lines.append("### Final Outputs\n\n")
-        lines.append("| Anime Stitch Pipeline | OpenCV Simple Stitch |\n")
-        lines.append("|:---------------------:|:--------------------:|\n")
-        asp_cell = (
-            f"![ASP]({anime_rel})"
-            if os.path.exists(r["anime_path"])
-            else "_not generated_"
-        )
-        simple_cell = (
-            f"![Simple]({simple_rel})"
-            if simple_rel and os.path.exists(r["simple_path"])
-            else "_not generated_"
-        )
-        lines.append(f"| {asp_cell} | {simple_cell} |\n\n")
+        _report_single_test_outputs(r, anime_rel, simple_rel, lines)
+        _report_single_test_cv_metrics(r, am, sm, lines)
+        _report_single_test_gt(r, lines)
+        _report_single_test_align(r, lines)
+        _report_single_test_photo(r, lines)
+        _report_single_test_visualizations(r, pd, sd, rd, lines)
+        _report_single_test_analysis(r, am, sm, lines)
 
-        # CV Metrics table
-        lines.append("### CV Metrics\n\n")
-        lines.append("| Metric | ASP | Simple | Notes |\n")
-        lines.append("|--------|-----|--------|-------|\n")
-        metric_defs = [
-            ("sharpness", "Laplacian variance — higher = sharper edges"),
-            ("coverage", "Fraction of non-black pixels — lower = heavy crop"),
-            (
-                "seam_gradient",
-                "Mean gradient magnitude at seam rows — higher = abrupt transitions",
-            ),
-            ("color_entropy", "Shannon entropy of luma histogram — lower = washed out"),
-            ("ghosting_score", "2nd-order vertical gradient — higher = double-edges"),
-            (
-                "ghosting_siqe",
-                "§3.8A autocorr double-edge score [0–100], higher = ghost",
-            ),
-            ("width", "Output width (px)"),
-            ("height", "Output height (px)"),
-        ]
-        for key, note in metric_defs:
-            a_val = f"{am.get(key, '—')}" if am else "—"
-            s_val = f"{sm.get(key, '—')}" if sm else "—"
-            lines.append(f"| `{key}` | {a_val} | {s_val} | {note} |\n")
-        ssim_v = (
-            f"{r['comparison']['ssim']:.3f}"
-            if r["comparison"]["ssim"] is not None
-            else "—"
-        )
-        psnr_v = (
-            f"{r['comparison']['psnr_db']:.1f} dB"
-            if r["comparison"]["psnr_db"] is not None
-            else "—"
-        )
-        lines.append(
-            f"| `ssim (asp vs simple)` | {ssim_v} | — | Structural similarity between the two outputs |\n"
-        )
-        lines.append(
-            f"| `psnr (asp vs simple)` | {psnr_v} | — | Peak SNR between the two outputs |\n"
-        )
-        lines.append(
-            f"| `seam_coherence` | {am.get('seam_coherence', '—') if am else '—'} | "
-            f"{sm.get('seam_coherence', '—') if sm else '—'} | "
-            f"Row-mean lum std — lower = less color banding (≤18 good, 18–28 moderate, >28 severe) |\n"
-        )
-        lines.append("\n")
 
-        # Ground truth comparison (if available)
-        gt = r.get("ground_truth", {})
-        if gt.get("available"):
-            lines.append("### Ground Truth Comparison\n\n")
-            gt_am = gt.get("metrics_asp", {})
-            gt_sm = gt.get("metrics_simple", {})
-            asp_ssim_gt = gt_am.get("ssim_vs_gt")
-            sim_ssim_gt = gt_sm.get("ssim_vs_gt")
-            asp_psnr_gt = gt_am.get("psnr_vs_gt")
-            sim_psnr_gt = gt_sm.get("psnr_vs_gt")
-            gt_ver = gt.get("verdict", "—")
-            lines.append("| Metric | ASP | Simple | Notes |\n")
-            lines.append("|--------|-----|--------|-------|\n")
-            lines.append(
-                f"| SSIM vs Ground Truth | "
-                f"{f'{asp_ssim_gt:.4f}' if asp_ssim_gt is not None else '—'} | "
-                f"{f'{sim_ssim_gt:.4f}' if sim_ssim_gt is not None else '—'} | "
-                f"Higher = closer to reference |\n"
-            )
-            lines.append(
-                f"| PSNR vs Ground Truth | "
-                f"{f'{asp_psnr_gt:.1f} dB' if asp_psnr_gt is not None else '—'} | "
-                f"{f'{sim_psnr_gt:.1f} dB' if sim_psnr_gt is not None else '—'} | "
-                f"Higher = closer to reference |\n"
-            )
-            lines.append(
-                f"| **GT-based verdict** | **{gt_ver}** | — | Most reliable quality signal |\n"
-            )
-            lines.append("\n")
+def generate_report(results: List[Dict], output_dir: str) -> str:
+    """
+    Write benchmark_report.md inside output_dir.
+    Returns the path to the written file.
+    """
+    report_path = os.path.join(output_dir, "benchmark_report.md")
+    rd = output_dir  # report dir = base for relative paths
 
-        # Affine health
-        ah = r["affine_health"]
-        lines.append("### Alignment Health\n\n")
-        lines.append("```yaml\n")
-        lines.append(f"valid: {ah['valid']}\n")
-        lines.append(f"reason: {ah['reason']}\n")
-        lines.append(f"spacing_ratio: {ah['ratio']}\n")
-        lines.append(f"min_gap_px: {ah['min_gap_px']}\n")
-        lines.append(f"max_rotation: {ah['max_rotation']}\n")
-        lines.append(f"max_scale_deviation: {ah['max_scale_dev']}\n")
-        lines.append(f"used_scans_fallback: {r['used_fallback']}\n")
-        if r["canvas"]["height"] is not None:
-            lines.append(f"canvas: {r['canvas']['width']}×{r['canvas']['height']}\n")
-        lines.append("```\n\n")
+    lines = []
 
-        # Gains summary
-        gains = r["photometric"]["applied_gains"]
-        # lums = r["photometric"]["bg_lums"]
-        non_trivial = [g for g in gains if abs(g - 1.0) > 0.01]
-        lines.append("### Photometric Correction\n\n")
-        lines.append(f"- Frames: **{len(gains)}**  \n")
-        lines.append(
-            f"- Frames corrected (|gain − 1| > 0.01): **{len(non_trivial)}**  \n"
-        )
-        if non_trivial:
-            lines.append(
-                f"- Gain range: [{min(non_trivial):.4f}, {max(non_trivial):.4f}]  \n"
-            )
-        lines.append("\n")
-
-        # Visualisation section
-        lines.append("### Intermediate Output Visualizations\n\n")
-
-        def _img_row(label, fname, alt=""):
-            p = os.path.join(pd, fname)
-            if os.path.exists(p):
-                rel = _rel_path(p, rd)
-                return f"**{label}**  \n![{alt or label}]({rel})\n\n"
-            return ""
-
-        # Metrics comparison bar
-        bar_path = os.path.join(pd, "metrics_comparison.png")
-        if os.path.exists(bar_path):
-            lines.append(
-                _img_row("CV Metrics Comparison (normalised)", "metrics_comparison.png")
-            )
-
-        # Gains
-        gains_path = os.path.join(pd, "gains.png")
-        if os.path.exists(gains_path):
-            lines.append(_img_row("Per-Frame Luminance Gains", "gains.png"))
-
-        # 2D canvas & overlap
-        cp = os.path.join(pd, "canvas_frame_placement.png")
-        if os.path.exists(cp):
-            lines.append(
-                _img_row("Canvas Frame Placement (2D)", "canvas_frame_placement.png")
-            )
-
-        tv = os.path.join(pd, "translation_vectors.png")
-        if os.path.exists(tv):
-            lines.append(
-                _img_row("Translation Vectors (2D)", "translation_vectors.png")
-            )
-
-        om = os.path.join(pd, "overlap_map.png")
-        if os.path.exists(om):
-            lines.append(_img_row("Frame Overlap Count Map (2D)", "overlap_map.png"))
-
-        # Seam heatmaps
-        for img_type in ["asp", "simple"]:
-            hm = os.path.join(pd, f"{img_type}_seam_heatmap.png")
-            if os.path.exists(hm):
-                label = "ASP" if img_type == "asp" else "Simple Stitch"
-                lines.append(
-                    _img_row(
-                        f"{label} — Seam Gradient Heatmap (2D)",
-                        f"{img_type}_seam_heatmap.png",
-                    )
-                )
-
-        # 3D surface plots
-        for fname, label in [
-            ("asp_3d_surface.png", "ASP — Luminance Surface (3D)"),
-            ("simple_3d_surface.png", "Simple Stitch — Luminance Surface (3D)"),
-            (
-                "temporal_render_3d.png",
-                "Stage 9 Temporal Render — Luminance Surface (3D)",
-            ),
-        ]:
-            p = os.path.join(pd, fname)
-            if os.path.exists(p):
-                lines.append(_img_row(label, fname))
-
-        # Mask overlays
-        mask_any = False
-        for i in range(3):
-            mp = os.path.join(pd, f"mask_overlay_frame{i:02d}.png")
-            if os.path.exists(mp) and not mask_any:
-                lines.append(
-                    "**BiRefNet Foreground Mask Overlays (first 3 frames)**\n\n"
-                )
-                lines.append(
-                    "| Frame 0 | Frame 1 | Frame 2 |\n|:---:|:---:|:---:|\n| "
-                )
-                mask_any = True
-        if mask_any:
-            cells = []
-            for i in range(3):
-                mp = os.path.join(pd, f"mask_overlay_frame{i:02d}.png")
-                if os.path.exists(mp):
-                    cells.append(f"![mask f{i}]({_rel_path(mp, rd)})")
-                else:
-                    cells.append("—")
-            lines.append(" | ".join(cells) + " |\n\n")
-
-        # Stage images
-        lines.append("#### Stage Intermediate Outputs\n\n")
-        _n_frames = min(r.get("frames", {}).get("count", 4), 4)
-        stage_imgs = {
-            "Stage 2 Normalised Frames": [
-                os.path.join(sd, f"stage02_normalised_frame{i:02d}.png")
-                for i in range(_n_frames)
-            ],
-            "Stage 3 Corrected Frames": [
-                os.path.join(sd, f"stage03_basic_corrected_frame{i:02d}.png")
-                for i in range(_n_frames)
-            ],
-            "Stage 4 BG Masks": [
-                os.path.join(sd, f"stage04_bgmask_frame{i:02d}.png")
-                for i in range(_n_frames)
-            ],
-        }
-        for stage_label, paths in stage_imgs.items():
-            existing = [p for p in paths if os.path.exists(p)]
-            if not existing:
-                continue
-            lines.append(f"**{stage_label}**\n\n")
-            cols = min(4, len(existing))
-            header = "| " + " | ".join([f"Frame {i}" for i in range(cols)]) + " |\n"
-            sep = "|" + "---|" * cols + "\n"
-            row = (
-                "| "
-                + " | ".join(
-                    [
-                        f"![f{i}]({_rel_path(p, rd)})"
-                        for i, p in enumerate(existing[:cols])
-                    ]
-                )
-                + " |\n\n"
-            )
-            lines.append(header + sep + row)
-
-        # Temporal render and composite
-        for fname, label in [
-            ("stage09_temporal_render.png", "Stage 9 — Temporal Median Render"),
-            ("stage11_fg_composite.png", "Stage 11 — FG Composite"),
-        ]:
-            sp = os.path.join(sd, fname)
-            if os.path.exists(sp):
-                rel = _rel_path(sp, rd)
-                lines.append(f"**{label}**  \n![{label}]({rel})\n\n")
-
-        # Auto-generated analysis
-        lines.append("### Automated Analysis\n\n")
-        verdict = _auto_verdict(am, sm)
-        verdict_map = {
-            "asp_better": "ASP produces a **higher-quality** output by CV metrics.",
-            "simple_better": "Simple/OpenCV produces a **higher-quality** output by CV metrics.",
-            "comparable": "Both pipelines produce **comparable** quality by CV metrics.",
-            "insufficient_data": "Insufficient data to determine a verdict.",
-        }
-        lines.append(f"> **CV Verdict:** {verdict_map.get(verdict, verdict)}\n\n")
-
-        lines.append("**Detected issues — ASP:**\n")
-        for issue in _auto_issues(am, is_asp=True):
-            lines.append(f"{issue}\n")
-        lines.append("\n**Detected issues — Simple Stitch:**\n")
-        for issue in _auto_issues(sm, is_asp=False):
-            lines.append(f"{issue}\n")
-        lines.append("\n")
-
-        if r["used_fallback"]:
-            lines.append(
-                "> ⚠️ **SCANS Fallback used** — Alignment failed, ASP result is identical to Simple Stitch.\n\n"
-            )
-
-        # Human feedback block
-        asp_issues_yaml = "\n".join(_auto_issues(am, True))
-        simple_issues_yaml = "\n".join(_auto_issues(sm, False))
-        lines.append(
-            _PER_TEST_HUMAN_SECTION.format(
-                asp_issues=asp_issues_yaml,
-                simple_issues=simple_issues_yaml,
-                verdict=verdict,
-            )
-        )
+    _report_header_and_summary(results, lines)
+    _report_fail_breakdown(results, lines)
+    _report_per_test_details(results, rd, lines)
 
     # Global feedback section
     lines.append(_GLOBAL_FEEDBACK_BLOCK)

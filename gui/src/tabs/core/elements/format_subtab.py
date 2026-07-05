@@ -996,7 +996,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
             "video_engine": "auto",
         }
 
-    def set_config(self, config: dict):
+    def set_config(self, config: dict):  # noqa: C901
         """Applies the configuration dictionary to the ConvertTab UI elements."""
         try:
             # 1. Paths

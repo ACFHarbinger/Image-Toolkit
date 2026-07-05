@@ -28,9 +28,6 @@ Interface: identical to LoFTRWrapper and EfficientLoFTRWrapper:
 from __future__ import annotations
 
 import logging
-
-logger = logging.getLogger(__name__)
-
 import os
 import sys
 from copy import deepcopy
@@ -39,6 +36,9 @@ from typing import Optional, Tuple
 import cv2
 import numpy as np
 import torch
+from huggingface_hub import hf_hub_download
+
+from backend.src.models.core.base import ModelWrapper, lazy_load
 
 _JAMMA_OK = False
 _JAMMA_ERR = ""
@@ -57,7 +57,7 @@ try:
 except Exception as _e:
     _JAMMA_ERR = str(_e)
 
-from backend.src.models.core.base import ModelWrapper, lazy_load
+logger = logging.getLogger(__name__)
 
 _HF_REPO = "leoluxxx/JamMa"
 _CKPT_FILE = "jamma_outdoor.ckpt"

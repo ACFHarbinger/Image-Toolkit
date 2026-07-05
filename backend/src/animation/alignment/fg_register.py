@@ -559,6 +559,7 @@ def _get_vgg19_feat():
     try:
         import torchvision.models as tvm  # §3.14 lazy
 
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         vgg = tvm.vgg19(weights=tvm.VGG19_Weights.IMAGENET1K_V1).features
         # conv3_4 is index 18 in VGG-19 features (0-indexed, after pool2 block)
         partial = nn.Sequential(*list(vgg.children())[:19]).to(device).eval()
@@ -882,7 +883,7 @@ def _arap_push(
     return out
 
 
-def _arap_regularise(
+def _arap_regularise(  # noqa: C901
     flow: np.ndarray,
     fg_mask: np.ndarray,
     cell_size: int = 32,
@@ -1188,7 +1189,7 @@ def _remap_by_displacement(img: np.ndarray, disp: np.ndarray) -> np.ndarray:
     return remapped
 
 
-def register_foreground_at_seam(
+def register_foreground_at_seam(  # noqa: C901
     warped_a: np.ndarray,
     warped_b: np.ndarray,
     fg_a: np.ndarray,

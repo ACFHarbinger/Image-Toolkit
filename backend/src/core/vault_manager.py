@@ -299,7 +299,7 @@ class VaultManager:
             except Exception as e:
                 raise RuntimeError(
                     f"Failed to load data from old vault before reset: {e}"
-                )
+                ) from e
 
             # 2. Shutdown JVM to release file locks before deleting files
             # NOTE: JPype cannot restart the JVM in the same process.
@@ -424,4 +424,4 @@ class VaultManager:
                 print(f"Error parsing loaded data: {e}", file=sys.stderr)
                 raise ValueError(
                     "The vault file contains invalid or corrupted JSON data."
-                )
+                ) from e

@@ -17,7 +17,7 @@ def _pil_to_qimage(pil_img):
     return QImage(data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
 
 
-def _apply_adjustments(pil_img, params: dict):
+def _apply_adjustments(pil_img, params: dict):  # noqa: C901
     """
     Apply layered adjustments to a PIL Image and return the result.
 

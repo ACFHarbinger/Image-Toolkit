@@ -69,7 +69,7 @@ class SequenceBuilderWorker(QRunnable):
         except Exception as exc:
             self.signals.error.emit(str(exc))
 
-    def _build(self):
+    def _build(self):  # noqa: C901
         all_paths = [self._anchor] + self._candidates
         n = len(all_paths)
         if n < 2:

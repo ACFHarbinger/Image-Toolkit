@@ -569,7 +569,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
     # Search filter
     # =========================================================================
 
-    def common_filter_string_list(self, full_list: list, query: str) -> list:
+    def common_filter_string_list(self, full_list: list, query: str) -> list:  # noqa: C901
         """Filter a list of strings with extended search operators (§2.13E).
 
         Supported syntax::

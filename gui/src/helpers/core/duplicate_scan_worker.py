@@ -64,7 +64,7 @@ class DuplicateScanWorker(QObject):
             raise InterruptedError("Scan cancelled by user.")
 
     @Slot()
-    def run(self):
+    def run(self):  # noqa: C901
         try:
             results = {}
             self.scan_cache = {}
@@ -224,7 +224,7 @@ class DuplicateScanWorker(QObject):
         if self.processed_count >= self.total_files and self.aggregator_loop and self.aggregator_loop.isRunning():
             self.aggregator_loop.quit()
 
-    def _chunked_compare(
+    def _chunked_compare(  # noqa: C901
         self, method_prefix: str, is_similar_fn, chunk_size: int = 500
     ) -> Dict[str, List[str]]:
         """

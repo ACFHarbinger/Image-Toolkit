@@ -23,13 +23,13 @@ from dataclasses import dataclass
 from typing import Optional
 
 try:
-    import bitsandbytes as bnb
+    import bitsandbytes as bnb  # noqa: F401
     _BNB_OK = True
 except ImportError:
     _BNB_OK = False
 
 try:
-    from transformers.optimization import Adafactor
+    from transformers.optimization import Adafactor  # noqa: F401
     _ADAFACTOR_OK = True
 except ImportError:
     _ADAFACTOR_OK = False

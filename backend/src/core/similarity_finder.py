@@ -171,11 +171,10 @@ class SimilarityFinder:
                     # Ratio of matched features to total features in the base image
                     similarity = len(good_matches) / len(des1)
 
-                    if similarity > 0.20:  # Lower threshold for ORB as it's strict
-                        # Double check reverse
-                        if len(good_matches) > 10:  # At least 10 strong points
-                            group.append(candidate_path)
-                            to_remove.append(candidate_path)
+                    # Double check reverse
+                    if similarity > 0.20 and len(good_matches) > 10:
+                        group.append(candidate_path)
+                        to_remove.append(candidate_path)
                 except Exception:
                     continue
 

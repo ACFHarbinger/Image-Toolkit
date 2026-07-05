@@ -435,7 +435,7 @@ def _build_model(backbone: str, embed_dim: int, proj_layers: int) -> CBIRModel:
 
 def _build_clip(embed_dim: int, proj_layers: int) -> CBIRModel:
     try:
-        from transformers import CLIPVisionConfig, CLIPVisionModel
+        from transformers import CLIPVisionModel
     except ImportError as exc:
         raise ImportError(
             "transformers>=4.30 required for CLIP backbone.  "

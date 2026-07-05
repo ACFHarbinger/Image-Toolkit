@@ -204,10 +204,7 @@ class CrossAttnRecorder:
             if m.dim() < 3:
                 continue
             # m shape: (batch*heads, hw, tokens) or (heads, hw, tokens)
-            if m.dim() == 3:
-                probs = m.mean(0)  # (hw, tokens)
-            else:
-                probs = m.mean(dim=(0, 1))  # fallback
+            probs = m.mean(0) if m.dim() == 3 else m.mean(dim=(0, 1))
             if token_idx >= probs.shape[-1]:
                 continue
             weights = probs[:, token_idx]
@@ -273,7 +270,7 @@ def lora_delta_heatmap(peft_model: nn.Module, out_path: str):
     Lights up layers that moved the most — useful for rank-utilisation audits.
     """
     try:
-        pass
+        import matplotlib.pyplot as plt
     except ImportError:
         log.warning("matplotlib required for lora_delta_heatmap")
         return

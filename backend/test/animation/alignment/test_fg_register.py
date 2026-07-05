@@ -476,7 +476,7 @@ class TestAnimeInterpFlow:
 # ---------------------------------------------------------------------------
 
 try:
-    import base as _batch_fgreg_test
+    import base as _batch_fgreg_test  # noqa: F401
     _HAS_BATCH_FGREG = True
 except ImportError:
     _HAS_BATCH_FGREG = False

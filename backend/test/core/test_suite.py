@@ -52,7 +52,7 @@ class PyTestRunner:
         test_files = list(self.test_dir.glob("test_*.py"))
         return [f.stem for f in test_files]
 
-    def _build_pytest_command(
+    def _build_pytest_command(  # noqa: C901
         self,
         modules: Optional[List[str]] = None,
         test_class: Optional[str] = None,

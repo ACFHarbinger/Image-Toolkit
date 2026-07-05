@@ -588,7 +588,7 @@ class ImageCrawlTab(QWidget):
             self.screenshot_dir_path.setText(d)
 
     @Slot()
-    def start_crawl(self):
+    def start_crawl(self):  # noqa: C901
         # ... validation ...
         # Need to ensure QML knows we started
         self._is_crawling = True

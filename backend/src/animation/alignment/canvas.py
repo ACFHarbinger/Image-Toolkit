@@ -441,7 +441,7 @@ def _strip_sat_cv(img: np.ndarray, n_strips: int = 8) -> float:
     return float(np.std(strip_means) / mean_val)
 
 
-def find_optimal_sequence(
+def find_optimal_sequence(  # noqa: C901
     ref_path: str,
     candidates: List[str],
     min_inliers: int = 30,
@@ -798,7 +798,13 @@ def _strip_gradient_cv(img: np.ndarray, n_strips: int = 8) -> float:
     or blurrier than adjacent ones — a signature of seam-induced sharpness
     discontinuities.  Returns 0.0 for degenerate inputs.
     """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if img is None or n_strips < 1:
+        return 0.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    H = gray.shape[0]
+    strip_h = H // n_strips
+    if strip_h < 1:
+        return 0.0
     energies = []
     for i in range(n_strips):
         y0 = i * strip_h

@@ -71,7 +71,7 @@ def _compute_fg_masks(
     return masks
 
 
-def _compute_fg_masks_sam2(
+def _compute_fg_masks_sam2(  # noqa: C901
     frames: List[np.ndarray],
     birefnet_wrapper,
     use_birefnet: bool = True,
@@ -314,7 +314,7 @@ def _compute_fg_masks_grounded_sam2(
         return _compute_fg_masks(frames, birefnet_wrapper, use_birefnet)
 
 
-def _compute_fg_masks_sam2_stateful(
+def _compute_fg_masks_sam2_stateful(  # noqa: C901
     frames: List[np.ndarray],
     birefnet_wrapper,
     use_birefnet: bool = True,

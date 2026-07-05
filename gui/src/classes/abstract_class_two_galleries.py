@@ -974,7 +974,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             return None
         return QPixmap.fromImage(img) if isinstance(img, QImage) else img
 
-    def refresh_selected_panel(self):
+    def refresh_selected_panel(self):  # noqa: C901
         if not self.selected_gallery_layout:
             return
 
@@ -1185,7 +1185,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         self.thread_pool.start(worker)
 
     @Slot(str, object)
-    def _on_found_image_loaded(self, path: str, image):
+    def _on_found_image_loaded(self, path: str, image):  # noqa: C901
         # Cleanup worker ref if it is NOT a batch worker
         sender = self.sender()
         if sender:

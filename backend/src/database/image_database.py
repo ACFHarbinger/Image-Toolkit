@@ -363,7 +363,7 @@ class PgvectorImageDatabase:
                     tag_id = self._get_or_create_tag(tag_name)
                     cur.execute(_images["insert_image_tag"], (image_id, tag_id))
 
-    def search_images(
+    def search_images(  # noqa: C901
         self,
         group_name: Optional[str] = None,
         subgroup_name: Optional[str] = None,

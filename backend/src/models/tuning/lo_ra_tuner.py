@@ -25,8 +25,6 @@ from __future__ import annotations
 import logging
 import os
 
-logger = logging.getLogger(__name__)
-
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
@@ -46,36 +44,8 @@ from torchvision import transforms
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
 
-# ---------------------------------------------------------------------------
-# Optional dependencies
-# ---------------------------------------------------------------------------
-try:
-    import bitsandbytes as bnb
+logger = logging.getLogger(__name__)
 
-    _BNB_OK = True
-except ImportError:
-    _BNB_OK = False
-
-try:
-    from prodigyopt import Prodigy
-
-    _PRODIGY_OK = True
-except ImportError:
-    _PRODIGY_OK = False
-
-try:
-    from transformers.optimization import Adafactor
-
-    _ADAFACTOR_OK = True
-except ImportError:
-    _ADAFACTOR_OK = False
-
-try:
-    import lycoris.kohya as lycoris_kohya
-
-    _LYCORIS_OK = True
-except ImportError:
-    _LYCORIS_OK = False
 
 # ---------------------------------------------------------------------------
 # SDXL LoRA target modules

@@ -55,7 +55,7 @@ class SamplerWorker(QThread):
     def stop(self):
         self.cancel()
 
-    def run(self):
+    def run(self):  # noqa: C901
         try:
             files: List[str] = self.config.get("files_to_process", [])
             if not files:

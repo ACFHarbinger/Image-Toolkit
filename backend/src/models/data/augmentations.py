@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 import torch
+import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from PIL import Image
 

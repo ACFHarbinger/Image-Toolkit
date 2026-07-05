@@ -126,7 +126,7 @@ class MonitorDropView(QLabel):
         top_txt = self.top_label.text() if hasattr(self, "top_label") else ""
         return f"{top_txt} {super().text()}"
 
-    def get_real_monitor_name(self) -> Optional[str]:
+    def get_real_monitor_name(self) -> Optional[str]:  # noqa: C901
         import platform
         if platform.system() != "Linux":
             return None
@@ -360,7 +360,7 @@ class MonitorDropView(QLabel):
         self.hardware_name = name
         self.update_text()
 
-    def get_real_monitor_resolution(self) -> Optional[tuple[int, int]]:
+    def get_real_monitor_resolution(self) -> Optional[tuple[int, int]]:  # noqa: C901
         import platform
         if platform.system() != "Linux":
             return None

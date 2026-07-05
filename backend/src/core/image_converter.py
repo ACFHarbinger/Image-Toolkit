@@ -83,7 +83,7 @@ class ImageFormatConverter:
 
     @classmethod
     @FSETool.ensure_absolute_paths(prefix_func=BATCH_CONVERSION_PREFIX)
-    def convert_batch(
+    def convert_batch(  # noqa: C901
         cls,
         input_dir: str,
         inputs_formats: List[str],

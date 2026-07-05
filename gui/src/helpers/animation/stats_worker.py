@@ -57,11 +57,9 @@ class StatsWorker(QRunnable):
         knn = self._knn_window
         _n_pw_est = n * (n - 1) // 2 if n <= 12 else n - 1 + (n - 1) * min(knn - 1, n - 2)
         total_steps = n + max(_n_pw_est, 1)
-        done = 0
-
         bgr_cache: Dict[str, np.ndarray] = {}
 
-        for path in paths:
+        for done, path in enumerate(paths, start=1):
             if self._cancelled:
                 return
             row = self._image_stats(path)
@@ -77,7 +75,6 @@ class StatsWorker(QRunnable):
                         interpolation=cv2.INTER_AREA,
                     )
             bgr_cache[path] = bgr # pyrefly: ignore [unsupported-operation]
-            done += 1
             self.signals.progress.emit(int(done / total_steps * 100))
 
         self.signals.individual_done.emit(individual)
@@ -100,10 +97,9 @@ class StatsWorker(QRunnable):
 
         pairwise: List[dict] = []
         total_steps_pw = max(len(pairs), 1)
-        done_pw = 0
 
         orb = cv2.ORB_create(nfeatures=500) # pyrefly: ignore [missing-attribute]
-        for i, j, is_consec in pairs:
+        for done_pw, (i, j, is_consec) in enumerate(pairs, start=1):
             if self._cancelled:
                 return
             pa, pb = paths[i], paths[j]
@@ -112,7 +108,6 @@ class StatsWorker(QRunnable):
             row = self._pair_stats(pa, pb, a, b, i, j, orb)
             row["consecutive"] = is_consec
             pairwise.append(row)
-            done_pw += 1
             pct = int((n + done_pw / total_steps_pw * (n - 1)) / total_steps * 100)
             self.signals.progress.emit(min(pct, 99))
 

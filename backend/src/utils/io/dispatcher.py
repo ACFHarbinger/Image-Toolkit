@@ -221,7 +221,7 @@ def _run_single_stitch(image_paths: list, output: str, renderer: str) -> bool:
         return False
 
 
-def dispatch_stitch(args: dict) -> None:
+def dispatch_stitch(args: dict) -> None:  # noqa: C901
     """Top-level `stitch` command: single-sequence or --batch-dir mode."""
     import json
 

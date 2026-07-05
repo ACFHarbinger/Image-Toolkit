@@ -73,26 +73,22 @@ def evaluate_kde_script_with_fallback(qdbus: Optional[str], script: str) -> str:
 
     Returns the script output string.
     """
-    last_exc: Optional[Exception] = None
     if qdbus:
         try:
             return base.evaluate_kde_script(qdbus, script)
         except Exception as exc:
             logger.debug("qdbus CLI failed (%s), trying dbus-python fallback.", exc)
-            last_exc = exc
+            raise exc from None
     try:
         return evaluate_kde_script_dbus_python(script)
     except ImportError:
-        if last_exc is not None:
-            raise last_exc
         raise RuntimeError(
             "Neither qdbus CLI nor dbus-python is available. "
             "Install 'qdbus6'/'qdbus-qt6' or 'dbus-python' to enable KDE wallpaper support."
-        )
+        ) from None
     except Exception as exc:
-        if last_exc is not None:
-            raise last_exc
-        raise exc
+        raise exc from None
+
 
 # Global Definitions for COM components
 IDESKTOPWALLPAPER_IID = "{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}"
@@ -196,7 +192,7 @@ class WallpaperManager:
             winreg.CloseKey(key_colors)
             ctypes.windll.user32.SystemParametersInfoW(20, 0, None, 3)
         except Exception as e:
-            raise RuntimeError(f"Error setting Windows solid color wallpaper: {e}")
+            raise RuntimeError(f"Error setting Windows solid color wallpaper: {e}") from e
 
     @staticmethod
     def _set_wallpaper_solid_color_gnome(color_hex: str):
@@ -232,7 +228,7 @@ class WallpaperManager:
                 check=True,
             )
         except Exception as e:
-            raise RuntimeError(f"Error setting GNOME solid color: {e}")
+            raise RuntimeError(f"Error setting GNOME solid color: {e}") from e
 
     @staticmethod
     def get_best_video_plugin() -> Optional[str]:
@@ -414,7 +410,7 @@ class WallpaperManager:
         try:
             evaluate_kde_script_with_fallback(qdbus, full_script)
         except Exception as e:
-            raise RuntimeError(f"KDE method failed: {e}")
+            raise RuntimeError(f"KDE method failed: {e}") from e
 
     @staticmethod
     def _set_wallpaper_kde_plasma_apply(
@@ -507,7 +503,7 @@ class WallpaperManager:
             winreg.CloseKey(key)
             ctypes.windll.user32.SystemParametersInfoW(20, 0, save_path, 3)
         except Exception as e:
-            raise RuntimeError(f"Error setting Windows single wallpaper: {e}")
+            raise RuntimeError(f"Error setting Windows single wallpaper: {e}") from e
 
     @staticmethod
     def _set_wallpaper_windows_multi(
@@ -545,10 +541,10 @@ class WallpaperManager:
                         monitor_id_path, str(Path(path).resolve())
                     )
         except Exception as e:
-            raise RuntimeError(f"Windows multi-monitor failed: {e}")
+            raise RuntimeError(f"Windows multi-monitor failed: {e}") from e
 
     @staticmethod
-    def apply_wallpaper(
+    def apply_wallpaper(  # noqa: C901
         path_map: Dict[str, str],
         monitors: Union[List[Monitor], int],
         style_name: str,

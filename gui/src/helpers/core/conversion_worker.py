@@ -44,7 +44,7 @@ class ConversionWorker(QThread):
         """Signals the worker to stop (alias for cancel)."""
         self.cancel()
 
-    def run(self):
+    def run(self):  # noqa: C901
         try:
             # Config extraction
             files_to_convert: List[str] = self.config.get("files_to_convert", [])
@@ -156,7 +156,7 @@ class ConversionWorker(QThread):
             if self._executor:
                 self._executor.shutdown(wait=False)
 
-    def _convert_single_file(
+    def _convert_single_file(  # noqa: C901
         self, input_file, idx, total_files, img_formats, vid_formats
     ) -> bool:
         """Internal helper to convert a single file. Thread-safe."""

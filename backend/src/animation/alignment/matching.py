@@ -7,21 +7,14 @@ explicitly when LoFTR matching is enabled.
 
 from __future__ import annotations
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 import gc
+import logging
 import os
 from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
-
-try:
-    import torch
-except ImportError:
-    torch = None  # type: ignore[assignment]
+import torch
 
 from backend.src.animation.core.stateless import _highpass, _luma
 from backend.src.constants import (
@@ -30,6 +23,8 @@ from backend.src.constants import (
     MIN_TEMPLATE_SCORE,
     PC_CONF_THRESHOLD,
 )
+
+logger = logging.getLogger(__name__)
 
 # §1.3E — Similarity-mode flag.  When ON, matched affines are projected to
 # their best-fit 4-DOF similarity (scale + rotation + translation, no shear)
@@ -456,7 +451,7 @@ def _segment_guided_match(
     return M, max(conf, 0.15)
 
 
-def _match_pair(
+def _match_pair(  # noqa: C901
     frames: List[np.ndarray],
     bg_masks: List[Optional[np.ndarray]],
     i: int,

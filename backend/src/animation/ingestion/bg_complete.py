@@ -34,11 +34,6 @@ Configuration
 
 from __future__ import annotations
 
-# --- Relocated Nested Imports ---
-try:
-    import torch  # noqa: F401  # required by ProPainterInference when available
-except ImportError:
-    pass
 try:
     from propainter.inference_propainter import (  # type: ignore
         ProPainterInference,
@@ -114,10 +109,7 @@ def _masked_median_bg(
     med = np.ma.median(masked, axis=0)  # (H, W, C) masked array
 
     # Pixels where median is valid (at least one bg sample).
-    if hasattr(med, "mask") and med.mask is not np.ma.nomask:
-        valid = ~med.mask[:, :, 0]  # (H, W) bool — any channel tells us
-    else:
-        valid = np.ones((H, W), dtype=bool)
+    valid = ~(med.mask.any(axis=-1) if hasattr(med, "mask") else False)
 
     result[valid] = med.filled(0.0)[valid]
 

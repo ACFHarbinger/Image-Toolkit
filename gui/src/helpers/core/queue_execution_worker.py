@@ -13,7 +13,7 @@ from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
 from PySide6.QtCore import QObject, QRunnable, Signal
 
 
-def run_extraction_in_process(config: Dict[str, Any]) -> Dict[str, Any]:
+def run_extraction_in_process(config: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C901
     def natural_sort_key(s):
         return [
             int(text) if text.isdigit() else text.lower()

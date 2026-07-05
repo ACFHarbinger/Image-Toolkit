@@ -233,7 +233,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             total_images += len(self.monitor_slideshow_queues.get(mid, []))
         return total_images > 0, total_images
 
-    def check_all_monitors_set(self):
+    def check_all_monitors_set(self):  # noqa: C901
         self._refresh_gallery_highlights()
         for peer in getattr(self, "linked_tabs", []):
             peer._refresh_gallery_highlights()
@@ -944,7 +944,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
 
     # ---- Monitor layout ---------------------------------------------------
 
-    def populate_monitor_layout(self):
+    def populate_monitor_layout(self):  # noqa: C901
         self.monitor_layout_container.clear_widgets()
         self.monitor_widgets.clear()
         system_monitors = []
