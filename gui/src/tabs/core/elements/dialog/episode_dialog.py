@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from gui.src.components.dialog.frame_selection_dialog import FrameSelectionDialog
+from gui.src.components.dialogs.frame_selection_dialog import FrameSelectionDialog
 from gui.src.constants.listings import LISTING_IMAGES_DIR
 from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.dialog.common.base_sub_item_dialog import BaseSubItemDialog

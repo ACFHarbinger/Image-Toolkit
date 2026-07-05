@@ -59,7 +59,7 @@ for i, a in enumerate(affines):
 # ── Stage 9: Temporal median render ──────────────────────────────────────────
 print("\nStage 9: temporal median render (improved gain clamp ±12%)...")
 
-canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, canvas_w)
+canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, canvas_w) # pyrefly: ignore [bad-argument-type]
 cv2.imwrite(f"{STAGE_DIR}/stage09_temporal_render_v2.png", canvas)
 print("  Saved stage09_temporal_render_v2.png")
 
@@ -70,7 +70,7 @@ print("Stage 10: MFSR skipped (DCT blocks harm pan composites).")
 print("\nStage 11: hard-partition composite (improved gain + strip gradient)...")
 
 canvas = _composite_foreground(
-    [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks
+    [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks # pyrefly: ignore [bad-argument-type]
 )
 cv2.imwrite(f"{STAGE_DIR}/stage11_fg_composite_v2.png", canvas)
 print("  Saved stage11_fg_composite_v2.png")

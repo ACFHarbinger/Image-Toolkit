@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..components import QueueItemWidget
+from ..components import QueueItemView
 from ..utils.lru_image_cache import LRUImageCache
 
 
@@ -98,7 +98,7 @@ class SlideshowQueueWindow(QWidget):
                 pixmap = QPixmap(80, 60)
                 pixmap.fill(Qt.GlobalColor.darkGray)
 
-            item_widget = QueueItemWidget(path, pixmap, index=idx)
+            item_widget = QueueItemView(path, pixmap, index=idx)
 
             list_item = QListWidgetItem(self.list_widget)
             list_item.setSizeHint(item_widget.sizeHint())
@@ -222,7 +222,7 @@ class SlideshowQueueWindow(QWidget):
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
             widget = self.list_widget.itemWidget(item)
-            if isinstance(widget, QueueItemWidget):
+            if isinstance(widget, QueueItemView):
                 widget.update_index(i + 1)
 
     @Slot(QListWidgetItem)
@@ -240,7 +240,7 @@ class SlideshowQueueWindow(QWidget):
                     pixmap = QPixmap(80, 60)
                     pixmap.fill(Qt.GlobalColor.darkGray)
 
-            new_widget = QueueItemWidget(path, pixmap, index=current_row)
+            new_widget = QueueItemView(path, pixmap, index=current_row)
             new_item = QListWidgetItem()
             new_item.setData(Qt.ItemDataRole.UserRole, path)
             new_item.setSizeHint(new_widget.sizeHint())
@@ -266,7 +266,7 @@ class SlideshowQueueWindow(QWidget):
                     pixmap = QPixmap(80, 60)
                     pixmap.fill(Qt.GlobalColor.darkGray)
 
-            new_widget = QueueItemWidget(path, pixmap, index=current_row + 2)
+            new_widget = QueueItemView(path, pixmap, index=current_row + 2)
             new_item = QListWidgetItem()
             new_item.setData(Qt.ItemDataRole.UserRole, path)
             new_item.setSizeHint(new_widget.sizeHint())

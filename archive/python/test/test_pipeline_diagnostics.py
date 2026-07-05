@@ -311,7 +311,7 @@ def _tx_drift_score(affines: List[Tuple[int, float, float]]) -> Tuple[float, flo
     Returns (score 1.0=no drift .. 0.0=severe drift, tx_range_px).
     """
     txs = [a[1] for a in affines]
-    tx_range = float(max(txs) - min(txs))
+    tx_range = (max(txs) - min(txs))
     # Threshold: if tx drift exceeds 5% of a typical 4K frame width (3840px) → 192px
     score = float(np.clip(1.0 - tx_range / 500.0, 0.0, 1.0))
     return score, tx_range
@@ -452,7 +452,7 @@ def test_B3_mask_quality(ds_dir: Path, dataset: str) -> TestResult:
     bad_frames = []
     for p in mask_paths:
         mask = _load_gray(p)
-        s, v = _mask_quality_score(mask)
+        s, v = _mask_quality_score(mask) # pyrefly: ignore [bad-argument-type]
         scores.append(s)
         if s < 0.6:
             bad_frames.append(f"{p.name}: {v}")
@@ -478,7 +478,7 @@ def test_C1_alignment_ratio(ds_dir: Path, dataset: str) -> TestResult:
     (Bad datasets: test7=4.7, test8=5.9, test9=11.8)
     """
     info = _load_json(ds_dir / "output" / "panorama_stages" / "stage08_canvas_info.json")
-    affines = _parse_affines(info)
+    affines = _parse_affines(info) # pyrefly: ignore [bad-argument-type]
     if affines is None:
         return TestResult("C1_alignment_ratio", "C", dataset, False, -1.0,
                           "stage08_canvas_info.json missing or unrecognised schema")
@@ -499,7 +499,7 @@ def test_C2_frame_clustering(ds_dir: Path, dataset: str) -> TestResult:
     causing multiple frames to collapse onto the same canvas rows.
     """
     info = _load_json(ds_dir / "output" / "panorama_stages" / "stage08_canvas_info.json")
-    affines = _parse_affines(info)
+    affines = _parse_affines(info) # pyrefly: ignore [bad-argument-type]
     if affines is None:
         return TestResult("C2_frame_clustering", "C", dataset, False, -1.0,
                           "stage08_canvas_info.json missing")
@@ -512,7 +512,7 @@ def test_C2_frame_clustering(ds_dir: Path, dataset: str) -> TestResult:
     # Report the actual clusters
     tys = sorted(a[2] for a in affines)
     gaps = np.diff(tys)
-    bad_gaps = [(float(tys[i]), float(tys[i+1]), float(gaps[i]))
+    bad_gaps = [(tys[i], tys[i+1], gaps[i])
                 for i in range(len(gaps)) if gaps[i] < 30.0]
     detail = "\n".join(f"  ty={a:.1f} and ty={b:.1f} → gap={g:.1f}px" for a, b, g in bad_gaps)
     return TestResult("C2_frame_clustering", "C", dataset, passed, score, verdict, detail=detail)
@@ -524,7 +524,7 @@ def test_C3_frame_ordering(ds_dir: Path, dataset: str) -> TestResult:
     Non-monotonic ordering (test2, test7) indicates wrong-direction LoFTR matches.
     """
     info = _load_json(ds_dir / "output" / "panorama_stages" / "stage08_canvas_info.json")
-    affines = _parse_affines(info)
+    affines = _parse_affines(info) # pyrefly: ignore [bad-argument-type]
     if affines is None:
         return TestResult("C3_frame_ordering", "C", dataset, False, -1.0,
                           "stage08_canvas_info.json missing")
@@ -582,7 +582,7 @@ def test_C4_affine_residuals(ds_dir: Path, dataset: str) -> TestResult:
                           "No matching edges found")
     med_res = float(np.median(residuals))
     max_res = float(np.max(residuals))
-    outliers = int(sum(1 for r in residuals if r > 3.0 * med_res + 20.0))
+    outliers = sum(1 for r in residuals if r > 3.0 * med_res + 20.0)
     score = float(np.clip(1.0 - outliers / max(len(residuals), 1), 0.0, 1.0))
     passed = outliers == 0
     verdict = (
@@ -605,7 +605,7 @@ def test_D1_tx_drift(ds_dir: Path, dataset: str) -> TestResult:
     Threshold: tx range > 200px is a problem.
     """
     info = _load_json(ds_dir / "output" / "panorama_stages" / "stage08_canvas_info.json")
-    affines = _parse_affines(info)
+    affines = _parse_affines(info) # pyrefly: ignore [bad-argument-type]
     if affines is None:
         return TestResult("D1_tx_drift", "D", dataset, False, -1.0,
                           "stage08_canvas_info.json missing")

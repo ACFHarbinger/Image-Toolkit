@@ -2,7 +2,8 @@ from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QApplication, QRubberBand, QScrollArea
 
-from . import ClickableLabel, OpaqueViewport
+from ..labels import ClickableLabel
+from ..views import OpaqueViewport
 
 
 class MarqueeScrollArea(QScrollArea):

@@ -143,7 +143,7 @@ class TestPropertyComparisonDialog:
 
 class TestQueueItemView:
     def test_display_text(self, q_app, mock_pixmap):
-        # QueueItemWidget requires a pixmap for preview
+        # QueueItemView requires a pixmap for preview
         widget = QueueItemView("/tmp/task1.png", mock_pixmap)
         # Verify that the filename label displays the basename
         assert widget.layout().itemAt(2).widget().text() == "task1.png" # pyrefly: ignore [missing-attribute]

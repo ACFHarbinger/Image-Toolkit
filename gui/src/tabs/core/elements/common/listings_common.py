@@ -16,7 +16,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtWidgets import QLabel
 
-from .....components.frame_selection_dialog import (
+from gui.src.components.dialogs.frame_selection_dialog import (
     extract_video_frame_via_ffmpeg,
 )
 from .....constants.listings import (
