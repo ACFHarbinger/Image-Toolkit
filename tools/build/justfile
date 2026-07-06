@@ -11,9 +11,10 @@ build-base:
     @echo "Building C++ base extension..."
     PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$(pwd)/.pixi/envs/default/lib/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/base base/ \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
+        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install;$(pwd)/.pixi/envs/default" \
         -DCMAKE_INSTALL_PREFIX="." \
         -DPython_EXECUTABLE="$$(which python)" \
+        -DBASE_BUILD_TESTS=OFF \
         && cmake --build build/base -j$(nproc) \
         && cmake --install build/base
     @echo "base extension built and installed."
