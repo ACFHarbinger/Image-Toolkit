@@ -425,6 +425,9 @@ env/README.md
 /**/mods/
 dump/
 CMakeFiles/
+models/wd14/
+outputs/**/*.log
+outputs/**/*.yaml
 backend/benchmark/output/*.json
 
 # Build directories
