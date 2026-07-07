@@ -63,6 +63,7 @@ def _make_torch_stub() -> types.ModuleType:
     torch.from_numpy = MagicMock(return_value=MagicMock())
     torch.stack = MagicMock(return_value=MagicMock())
     torch.median = MagicMock(return_value=(MagicMock(), MagicMock()))
+    torch.Tensor = MagicMock
     return torch
 
 
