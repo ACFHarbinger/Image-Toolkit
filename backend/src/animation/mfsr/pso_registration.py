@@ -28,7 +28,13 @@ from backend.src.constants import (
 )
 
 try:
-    import base as _batch_sr
+    try:
+        import base as _batch_sr
+    except ImportError:
+        from backend.src.animation import base as _batch_sr
+
+    if getattr(_batch_sr, "__file__", None) is None:
+        raise ImportError("base is a namespace package, not the compiled extension")
     _BATCH_SR = True
 except ImportError:
     _batch_sr = None

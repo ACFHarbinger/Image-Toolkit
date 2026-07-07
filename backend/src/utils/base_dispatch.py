@@ -16,7 +16,12 @@ from __future__ import annotations
 
 from typing import Any
 
-import base as _base  # C++ pybind11 extension (Phase 7+)
+try:
+    import base as _base  # C++ pybind11 extension (Phase 7+)
+    if getattr(_base, "__file__", None) is None:
+        raise ImportError("base is a namespace package, not the compiled extension")
+except ImportError:
+    _base = None
 
 
 class NativeExt:

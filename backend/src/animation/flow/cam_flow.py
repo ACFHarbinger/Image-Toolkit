@@ -24,6 +24,9 @@ try:
         import base as _batch
     except ImportError:
         from backend.src.animation import base as _batch
+
+    if getattr(_batch, "__file__", None) is None:
+        raise ImportError("base is a namespace package, not the compiled extension")
     _HAS_BATCH: bool = True
 except ImportError:
     _batch = None  # type: ignore[assignment]

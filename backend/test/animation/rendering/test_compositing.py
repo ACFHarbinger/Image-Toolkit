@@ -295,6 +295,14 @@ class TestSeamCutDP:
         h, W = 40, 80
         fa = self._make_zone(h, W, 100)
         fb = self._make_zone(h, W, 150)
+        import sys
+        print("DEBUG: sys.path =", sys.path)
+        print("DEBUG: BATCH_AVAILABLE =", compositing.BATCH_AVAILABLE)
+        print("DEBUG: batch module =", compositing.batch)
+        if compositing.batch is not None:
+            print("DEBUG: batch file =", getattr(compositing.batch, "__file__", None))
+            print("DEBUG: batch path =", getattr(compositing.batch, "__path__", None))
+            print("DEBUG: batch dir =", dir(compositing.batch))
         path = _seam_cut(fa, fb)
         assert path.shape == (W,), f"Expected path shape ({W},), got {path.shape}"
 

@@ -14,8 +14,12 @@ import numpy as np
 import pytest
 
 try:
-    from backend.src.animation import base as batch
-
+    try:
+        import base as batch
+    except ImportError:
+        from backend.src.animation import base as batch
+    if getattr(batch, "__file__", None) is None:
+        raise ImportError("base is a namespace package, not the compiled extension")
     HAS_BATCH = True
 except ImportError:
     HAS_BATCH = False

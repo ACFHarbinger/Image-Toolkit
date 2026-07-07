@@ -40,8 +40,12 @@ try:
         import base as batch
     except ImportError:
         from backend.src.animation import base as batch
+
+    if getattr(batch, "__file__", None) is None:
+        raise ImportError("base is a namespace package, not the compiled extension")
     BATCH_AVAILABLE = True
 except ImportError:
+    batch = None
     BATCH_AVAILABLE = False
 
 import os
@@ -3131,13 +3135,13 @@ def _compute_seam_energy(
     sem_cost: Optional[np.ndarray],
     sem_weight: float,
 ) -> np.ndarray:
-    diff = cv2.absdiff(img1, img2).astype(np.float32).mean(axis=2)
+    diff = cv2.absdiff(img1, img2).astype(np.float32).dot(LUMINANCE_WEIGHTS)
     gx_d = cv2.Sobel(diff, cv2.CV_32F, 1, 0, ksize=3)
     gy_d = cv2.Sobel(diff, cv2.CV_32F, 0, 1, ksize=3)
     energy = diff + 0.5 * (np.abs(gx_d) + np.abs(gy_d))
 
     for img in (img1, img2):
-        gray = img.astype(np.float32).mean(axis=2)
+        gray = img.astype(np.float32).dot(LUMINANCE_WEIGHTS)
         gx_i = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
         gy_i = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
         energy += edge_weight * (np.abs(gx_i) + np.abs(gy_i))
@@ -3193,7 +3197,7 @@ def _prepare_waypoints(
     return wp_force, wp_inf_mask
 
 
-def _seam_cut(
+def _seam_cut_python(
     img1: np.ndarray,
     img2: np.ndarray,
     edge_weight: float = 15.0,
@@ -3201,8 +3205,6 @@ def _seam_cut(
     sem_weight: float = 200.0,
     waypoints: Optional[List[Tuple[int, int]]] = None,
 ) -> np.ndarray:
-    if BATCH_AVAILABLE:
-        return _seam_cut_batch(img1, img2, edge_weight, sem_cost, sem_weight, waypoints)
     """
     DP seam cut that strongly avoids outlines in *either* frame.
 
@@ -3244,17 +3246,42 @@ def _seam_cut(
             j_hi = min(h_e, j + 2)  # exclusive
             j = j_lo + int(E[i, j_lo:j_hi].argmin())
         path[i] = j
-    # §1.25: smooth jitter when flag is enabled
+    return path  # path[x] in [0, zone_h-1]  — post-processing lives in _seam_cut
+
+
+def _seam_cut(
+    img1: np.ndarray,
+    img2: np.ndarray,
+    edge_weight: float = 15.0,
+    sem_cost: Optional[np.ndarray] = None,
+    sem_weight: float = 200.0,
+    waypoints: Optional[List[Tuple[int, int]]] = None,
+) -> np.ndarray:
+    """Public seam-cut entry point.  Dispatches to C++ or Python DP backend,
+    then applies §1.25 smooth + §1.26 clamp + §2.11A waypoint hard-pin
+    post-processing in a single shared code-path so both backends behave
+    identically in production."""
+    if BATCH_AVAILABLE:
+        path = _seam_cut_batch(img1, img2, edge_weight, sem_cost, sem_weight, waypoints)
+    else:
+        path = _seam_cut_python(img1, img2, edge_weight, sem_cost, sem_weight, waypoints)
+
+    h_e = img1.shape[0]  # zone height (path rows are in [0, h_e-1])
+
+    # §1.25: smooth column jitter when flag is enabled
     if _SEAM_SMOOTH_WINDOW > 1:
         path = _smooth_seam_path(path, _SEAM_SMOOTH_WINDOW)
     # §1.26: clamp seam away from zone top/bottom edges
     if _SEAM_MARGIN > 0:
         path = _clamp_seam_path(path, h_e, _SEAM_MARGIN)
-    # §2.11A: re-apply waypoints after post-processing so smoothing and clamping
+    # §2.11A: re-apply waypoints after post-processing so smoothing / clamping
     # cannot displace the user-specified seam positions.  Hard constraints win.
-    for _x_final, _y_final in wp_force.items():
-        path[_x_final] = _y_final
-    return path  # path[x] in [0, zone_h-1]
+    if waypoints:
+        W_e = img1.shape[1]
+        for x_wp, y_wp in waypoints:
+            if 0 <= x_wp < W_e and 0 <= y_wp < h_e:
+                path[x_wp] = y_wp
+    return path
 
 
 def _soft_seam_weight(
