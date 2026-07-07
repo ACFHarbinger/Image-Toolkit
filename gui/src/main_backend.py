@@ -1,7 +1,6 @@
 from gui.src.tabs import (
     ConvertTab,
     DatabaseTab,
-    DeleteTab,
     DriveSyncTab,
     ExtractorTab,
     ImageCrawlTab,
@@ -11,6 +10,7 @@ from gui.src.tabs import (
     ReverseImageSearchTab,
     ScanMetadataTab,
     SearchTab,
+    SimilarityTab,
     UnifiedGenerateTab,
     UnifiedTrainTab,
     WallpaperTab,
@@ -38,7 +38,8 @@ class MainBackend(QObject):
 
         self._convert_tab = ConvertTab(dropdown=True)
         self._merge_tab = MergeTab()
-        self._delete_tab = DeleteTab(dropdown=True)
+        # SimilarityTab is the refactored Delete tab (keeps its delete API)
+        self._delete_tab = SimilarityTab(dropdown=True)
         self._extractor_tab = ExtractorTab()
         self._wallpaper_tab = WallpaperTab(self._database_tab)
 
@@ -89,6 +90,10 @@ class MainBackend(QObject):
 
     @Property(QObject, constant=True)
     def deleteTab(self): return self._delete_tab
+
+    # New canonical name for the refactored tab; deleteTab stays as an alias.
+    @Property(QObject, constant=True)
+    def similarityTab(self): return self._delete_tab
 
     @Property(QObject, constant=True)
     def extractorTab(self): return self._extractor_tab

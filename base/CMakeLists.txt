@@ -174,6 +174,13 @@ pybind11_add_module(base
     src/core/merger.cpp
     src/core/wallpaper.cpp
 
+    # Similarity Finder engine (hashing, VP-tree, HNSW, SSIM/features, diff)
+    src/core/similarity/hashing.cpp
+    src/core/similarity/vptree.cpp
+    src/core/similarity/hnsw.cpp
+    src/core/similarity/visual.cpp
+    src/core/similarity/bindings.cpp
+
     # Phase 10: utils (migration, slideshow daemon)
     src/utils/migration.cpp
     src/utils/slideshow.cpp
@@ -216,7 +223,12 @@ endif()
 if(SQLCIPHER_FOUND AND SODIUM_FOUND)
     target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS} /usr/include /usr/include/sqlcipher)
     target_link_libraries(base PRIVATE sqlcipher sodium argon2)
-    target_link_directories(base PRIVATE /usr/lib/x86_64-linux-gnu ${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib)
+    # pixi lib dir must precede /usr/lib in the RPATH: old-style RPATH resolves
+    # transitively, and pixi's libssl needs pixi's libcrypto (not the system one).
+    # An explicit -rpath link option lands before CMake's auto-generated entries.
+    target_link_options(base PRIVATE
+        "-Wl,-rpath,${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib")
+    target_link_directories(base PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib /usr/lib/x86_64-linux-gnu)
 endif()
 
 if(OpenSSL_FOUND OR OPENSSL_FOUND)

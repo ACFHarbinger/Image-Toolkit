@@ -911,7 +911,7 @@ class SearchTab(AbstractClassTwoGalleries):
         scan_action = QAction("Scan Metadata Tab", self)
         scan_action.triggered.connect(lambda: self.send_selection_to_scan_tab())
         send_menu.addAction(scan_action)
-        delete_tab_action = QAction("Delete Tab", self)
+        delete_tab_action = QAction("Similarity Tab", self)
         delete_tab_action.triggered.connect(
             lambda: self.send_selection_to_delete_tab(file_path)
         )

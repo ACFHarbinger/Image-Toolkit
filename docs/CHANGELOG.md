@@ -4,6 +4,18 @@
 
 ---
 
+## S197 — 2026-07-07 (Similarity Finder — Delete tab overhaul)
+
+**Tests**: +50 (`backend/test/similarity/`)
+
+- **Delete tab → Similarity Finder**: the Delete tab was refactored into a tiered local dedup/similarity module and the old `DeleteTab` (`delete_tab.py`, `DeleteTab.qml`) was **removed**; all of its functionality (two galleries, directory/extension deletion, property comparison, context menus, standard file/dir delete, confirmation) was folded into the new self-contained `SimilarityTab`. `mainBackend.deleteTab` remains as an alias of `similarityTab`.
+- **C++ `base.similarity`** (`base/src/core/similarity/`): xxHash64 exact digests (Tier 1); DCT pHash + dHash + Haar wHash at hash size 8/16/32 with weighted consensus confidence (Tier 2); in-repo VP-tree (Hamming) and HNSW (cosine) indexes; SSIM + ORB/SIFT with Lowe's ratio + RANSAC homography (Tier 3); neon-green `diff_mask`. All GIL-released, OpenMP batch hashing.
+- **Python `backend/src/core/similarity/`**: `SimilarityConfig`/`TriageRules` (all GUI hyperparameters), `SimilarityCache` (SQLite incremental scan by mtime+size+hash_size, `~/.image-toolkit/similarity_cache.db`), `SimilarityEngine.scan()`/`regroup()` (instant confidence-slider re-clustering, no rescan), `embedder.py` (mobileclip→openclip→resnet18 fallback), `triage.auto_select`, `consolidate_cluster` (atomic hardlink/symlink).
+- **GUI**: `SimilarityScanWorker` (QThread), `ClusterListModel`, three-pane `SimilarityTab.qml` (settings + all hyperparameters, cluster "album" stacks, confidence slider) and comparators `ClusterStack`/`BlinkComparator`/`SwipeCompare`/`DiffMaskView`/`TetheredViewport`. Cross-directory Reference/Target directional scanning.
+- **Build**: five new `base` sources; RPATH fix — explicit `-Wl,-rpath,<pixi lib>` forces the pixi lib dir ahead of `/usr/lib` so pixi `libssl` resolves pixi `libcrypto` (fixes `import base` under pytest). Full design in `docs/roadmaps/similarity_finder.md`.
+
+---
+
 ## S196 — 2026-06-25 (§5.109 Pipeline Strip Blue Channel CV Gate · §5.110 Pipeline Seam Green Shift CV Gate · §5.111 Bench Strip Blue Channel CV Gate · §5.112 Bench Seam Green Shift CV Gate)
 
 **Tests**: 2135 passing, 78 skipped (30 new)

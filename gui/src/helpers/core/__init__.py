@@ -6,6 +6,7 @@ from .queue_execution_worker import QueueExecutionWorker
 from .recommendation_worker import RecommendationWorker
 from .sampler_worker import SamplerWorker
 from .search_worker import SearchWorker
+from .similarity_scan_worker import SimilarityScanWorker
 from .wallpaper_worker import WallpaperWorker
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "RecommendationWorker",
     "SamplerWorker",
     "SearchWorker",
+    "SimilarityScanWorker",
     "WallpaperWorker",
 ]
