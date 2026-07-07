@@ -249,41 +249,74 @@ class EntityListingsSubTab(QWidget):
             except Exception:
                 logging.exception("[EntityListingsSubTab] Failed to load from secure DB")
 
-    def _save_data(self):
+    def _db_ctx(self):
+        """Return (db_path, password, salt) when the vault is unlocked, else None."""
         if (
             self.vault_manager
             and hasattr(self.vault_manager, "raw_password")
             and self.vault_manager.raw_password
         ):
-            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-            password = self.vault_manager.raw_password
-            salt = self.vault_manager.account_name
-            try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                for row in rows:
-                    id_, category, _, _, _ = row
-                    if category == "Entity":
-                        base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
-                for entity in self._entities:
-                    eid = entity.get("id")
-                    ename = entity.get("name", "")
-                    edate = entity.get("date_added", "")
-                    meta = dict(entity)
-                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                        db_path,
-                        password,
-                        salt,
-                        eid,
-                        "Entity",
-                        ename,
-                        json.dumps(meta, ensure_ascii=False),
-                        edate,
-                        [],
-                    )
-            except Exception:
-                logging.exception(
-                    "[EntityListingsSubTab] Failed to save entities to secure DB"
-                )
+            return (
+                str(IMAGE_TOOLKIT_DIR / "listings_secure.db"),
+                self.vault_manager.raw_password,
+                self.vault_manager.account_name,
+            )
+        return None
+
+    def _upsert_entity(self, entity: Dict[str, Any]) -> None:
+        """Persist a single entity with one upsert (one key derivation).
+
+        Avoids the delete-and-reinsert-everything pattern that ran the Argon2id
+        KDF ~2N times per save and froze the UI on large libraries."""
+        ctx = self._db_ctx()
+        if not ctx:
+            return
+        db_path, password, salt = ctx
+        try:
+            base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
+                db_path,
+                password,
+                salt,
+                entity.get("id"),
+                "Entity",
+                entity.get("name", ""),
+                json.dumps(dict(entity), ensure_ascii=False),
+                entity.get("date_added", ""),
+                [],
+            )
+        except Exception:
+            logging.exception("[EntityListingsSubTab] Failed to upsert entity")
+
+    def _delete_entity_row(self, entity_id: str) -> None:
+        """Delete a single entity row (one key derivation)."""
+        ctx = self._db_ctx()
+        if not ctx:
+            return
+        db_path, password, salt = ctx
+        try:
+            base.delete_listing_secure(db_path, password, salt, entity_id) # pyrefly: ignore [missing-attribute]
+        except Exception:
+            logging.exception("[EntityListingsSubTab] Failed to delete entity")
+
+    def _save_data(self):
+        """Full rewrite of all entity rows. Kept for bulk callers; prefer the
+        targeted :meth:`_upsert_entity` / :meth:`_delete_entity_row` on hot paths."""
+        ctx = self._db_ctx()
+        if not ctx:
+            return
+        db_path, password, salt = ctx
+        try:
+            rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
+            for row in rows:
+                id_, category, _, _, _ = row
+                if category == "Entity":
+                    base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
+            for entity in self._entities:
+                self._upsert_entity(entity)
+        except Exception:
+            logging.exception(
+                "[EntityListingsSubTab] Failed to save entities to secure DB"
+            )
 
     # ------------------------------------------------------------------
     # Gallery
@@ -451,6 +484,7 @@ class EntityListingsSubTab(QWidget):
         meta = dlg.get_metadata()
         today = str(date.today())
         created = 0
+        new_entities: List[Dict[str, Any]] = []
 
         # Ensure listing-images directory exists
         LISTING_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
@@ -489,10 +523,12 @@ class EntityListingsSubTab(QWidget):
             }
 
             self._entities.insert(0, entity)
+            new_entities.append(entity)
             created += 1
 
         if created:
-            self._save_data()
+            for entity in new_entities:
+                self._upsert_entity(entity)
             self._rebuild_gallery()
             QMessageBox.information(
                 self,
@@ -521,7 +557,7 @@ class EntityListingsSubTab(QWidget):
             self._entities[idx] = entity
         else:
             self._entities.insert(0, entity)
-        self._save_data()
+        self._upsert_entity(entity)
         if self._sync_listings_for_entity(entity):
             self.listings_changed.emit()
         self._rebuild_gallery()
@@ -530,7 +566,7 @@ class EntityListingsSubTab(QWidget):
     @Slot(str)
     def _on_entity_deleted(self, entity_id: str):
         self._entities = [e for e in self._entities if e["id"] != entity_id]
-        self._save_data()
+        self._delete_entity_row(entity_id)
         if self._remove_entity_from_listings(entity_id):
             self.listings_changed.emit()
         self._rebuild_gallery()
@@ -567,7 +603,7 @@ class EntityListingsSubTab(QWidget):
                         entry["date_added"] = date_added
                         listings.append(entry)
 
-                changed = False
+                changed_entries = []
                 for listing in listings:
                     lid = listing.get("id")
                     if not lid:
@@ -576,28 +612,27 @@ class EntityListingsSubTab(QWidget):
                     if lid in new_assoc and entity_id not in current:
                         current.add(entity_id)
                         listing["associated_entities"] = list(current)
-                        changed = True
+                        changed_entries.append(listing)
                     elif lid not in new_assoc and entity_id in current:
                         current.discard(entity_id)
                         listing["associated_entities"] = list(current)
-                        changed = True
+                        changed_entries.append(listing)
 
-                if changed:
-                    for entry in listings:
-                        base.delete_listing_secure(db_path, password, salt, entry["id"]) # pyrefly: ignore [missing-attribute]
-                        meta = dict(entry)
-                        base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                            db_path,
-                            password,
-                            salt,
-                            entry["id"],
-                            entry.get("type", "Anime"),
-                            entry.get("title", ""),
-                            json.dumps(meta, ensure_ascii=False),
-                            entry.get("date_added", ""),
-                            [],
-                        )
-                return changed
+                # Upsert only the listings whose associations changed — rewriting
+                # every listing here re-ran the Argon2id KDF per row.
+                for entry in changed_entries:
+                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
+                        db_path,
+                        password,
+                        salt,
+                        entry["id"],
+                        entry.get("type", "Anime"),
+                        entry.get("title", ""),
+                        json.dumps(dict(entry), ensure_ascii=False),
+                        entry.get("date_added", ""),
+                        [],
+                    )
+                return bool(changed_entries)
             except Exception as e:
                 print(
                     f"[EntityListingsSubTab] Failed to sync listings in secure DB: {e}"
@@ -630,30 +665,27 @@ class EntityListingsSubTab(QWidget):
                         entry["date_added"] = date_added
                         listings.append(entry)
 
-                changed = False
+                changed_entries = []
                 for listing in listings:
                     current = set(listing.get("associated_entities", []))
                     if entity_id in current:
                         current.discard(entity_id)
                         listing["associated_entities"] = list(current)
-                        changed = True
+                        changed_entries.append(listing)
 
-                if changed:
-                    for entry in listings:
-                        base.delete_listing_secure(db_path, password, salt, entry["id"]) # pyrefly: ignore [missing-attribute]
-                        meta = dict(entry)
-                        base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                            db_path,
-                            password,
-                            salt,
-                            entry["id"],
-                            entry.get("type", "Anime"),
-                            entry.get("title", ""),
-                            json.dumps(meta, ensure_ascii=False),
-                            entry.get("date_added", ""),
-                            [],
-                        )
-                return changed
+                for entry in changed_entries:
+                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
+                        db_path,
+                        password,
+                        salt,
+                        entry["id"],
+                        entry.get("type", "Anime"),
+                        entry.get("title", ""),
+                        json.dumps(dict(entry), ensure_ascii=False),
+                        entry.get("date_added", ""),
+                        [],
+                    )
+                return bool(changed_entries)
             except Exception as e:
                 print(
                     f"[EntityListingsSubTab] Failed to clean up listings in secure DB: {e}"

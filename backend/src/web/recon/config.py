@@ -13,6 +13,11 @@ EMBED_CLIP = "clip"     # CLIP — non-human / fictional characters
 
 REVERSE_ENGINES = ["google_lens", "yandex", "bing", "saucenao"]
 
+# Discovery scope for identity resolution
+SCOPE_LOCAL = "local"   # local identity index only (fully offline)
+SCOPE_WEB = "web"       # reverse-image web discovery only (skip local index)
+SCOPE_BOTH = "both"     # local first, fall back to web on no local match
+
 
 @dataclass
 class ReconConfig:
@@ -26,8 +31,14 @@ class ReconConfig:
     top_k: int = 5
 
     # --- privacy / web ----------------------------------------------------
+    # Discovery scope: SCOPE_LOCAL | SCOPE_WEB | SCOPE_BOTH.
+    #   local → 100% offline (local index only)
+    #   web   → reverse-image web discovery only (local index skipped)
+    #   both  → local first, web fallback on no local match
+    search_scope: str = SCOPE_LOCAL
     # Strict Privacy Mode: when True, ALL external dispatchers are disabled and
-    # the tool runs 100% offline (local models + local index only).
+    # the tool runs 100% offline. Kept as the network gate the dispatcher reads;
+    # it is derived from ``search_scope`` (True only for SCOPE_LOCAL).
     privacy_mode: bool = True
     reverse_engines: List[str] = field(default_factory=lambda: list(REVERSE_ENGINES))
 
@@ -50,5 +61,10 @@ class ReconConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> "ReconConfig":
+        data = dict(data or {})
+        # Legacy configs stored only ``privacy_mode``; derive the scope from it
+        # when ``search_scope`` is absent so web discovery isn't silently lost.
+        if "search_scope" not in data and "privacy_mode" in data:
+            data["search_scope"] = SCOPE_LOCAL if data["privacy_mode"] else SCOPE_BOTH
         known = {f for f in cls.__dataclass_fields__}
-        return cls(**{k: v for k, v in (data or {}).items() if k in known})
+        return cls(**{k: v for k, v in data.items() if k in known})

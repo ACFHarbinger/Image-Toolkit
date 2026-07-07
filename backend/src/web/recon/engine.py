@@ -17,7 +17,7 @@ from typing import List, Optional
 
 import numpy as np
 
-from .config import EMBED_FACE, ReconConfig
+from .config import EMBED_FACE, SCOPE_BOTH, SCOPE_LOCAL, SCOPE_WEB, ReconConfig
 from .consensus import consensus_names
 from .dispatcher import ReverseSearchDispatcher
 from .embedder import embed
@@ -60,37 +60,47 @@ class ReconEngine:
         report = ProvenanceReport(method="", predicted_name="")
         res = IdentityResolution(report=report)
 
-        embedding = embed(cutout_rgb, self.config.embed_mode)
-        if embedding is None:
-            res.method = "no subject embedding"
-            res.origin = "none"
-            return res
+        # Resolve the effective scope. ``search_scope`` is authoritative; fall
+        # back to the legacy ``privacy_mode`` flag for configs that predate it.
+        scope = getattr(self.config, "search_scope", None)
+        if scope not in (SCOPE_LOCAL, SCOPE_WEB, SCOPE_BOTH):
+            scope = SCOPE_LOCAL if self.config.privacy_mode else SCOPE_BOTH
+        do_local = scope in (SCOPE_LOCAL, SCOPE_BOTH)
+        do_web = scope in (SCOPE_WEB, SCOPE_BOTH)
 
         # --- 1. local identity index -------------------------------------
-        matches = self.indexer.query(embedding)
-        res.local_matches = [
-            {"label": label, "path": path, "score": float(score)}
-            for label, path, score in matches
-        ]
-        if matches and matches[0][2] >= self.config.local_match_threshold:
-            label, path, score = matches[0]
-            res.name = label.replace("_", " ")
-            res.confidence = float(score)
-            res.method = f"{self._method_label()} -> Local DB"
-            res.origin = "local"
-            report.predicted_name = res.name
-            report.confidence = res.confidence
-            report.method = res.method
-            for m_label, m_path, m_score in matches:
-                report.add(ProvenanceEntry(
-                    kind="local", label=m_label.replace("_", " "), source=m_path,
-                    score=float(m_score), method=res.method,
-                ))
-            return res
+        if do_local:
+            embedding = embed(cutout_rgb, self.config.embed_mode)
+            if embedding is None:
+                res.method = "no subject embedding"
+                res.origin = "none"
+                if not do_web:
+                    return res
+            else:
+                matches = self.indexer.query(embedding)
+                res.local_matches = [
+                    {"label": label, "path": path, "score": float(score)}
+                    for label, path, score in matches
+                ]
+                if matches and matches[0][2] >= self.config.local_match_threshold:
+                    label, path, score = matches[0]
+                    res.name = label.replace("_", " ")
+                    res.confidence = float(score)
+                    res.method = f"{self._method_label()} -> Local DB"
+                    res.origin = "local"
+                    report.predicted_name = res.name
+                    report.confidence = res.confidence
+                    report.method = res.method
+                    for m_label, m_path, m_score in matches:
+                        report.add(ProvenanceEntry(
+                            kind="local", label=m_label.replace("_", " "), source=m_path,
+                            score=float(m_score), method=res.method,
+                        ))
+                    return res
 
-        # --- 2. web discovery (privacy-gated) ----------------------------
-        if self.config.privacy_mode:
-            res.method = "Local DB (no match) · web disabled (privacy mode)"
+        # --- 2. web discovery --------------------------------------------
+        if not do_web:
+            res.method = "Local DB (no match) · web disabled (local-only scope)"
             res.origin = "none"
             report.query_hash = self.dispatcher.cutout_hash(cutout_png)
             report.method = res.method

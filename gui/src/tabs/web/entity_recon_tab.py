@@ -29,13 +29,18 @@ from backend.src.web.recon import (
     ReconEngine,
     export_provenance,
 )
-from backend.src.web.recon.config import EMBED_CLIP, EMBED_FACE
+from backend.src.web.recon.config import (
+    EMBED_CLIP,
+    EMBED_FACE,
+    SCOPE_BOTH,
+    SCOPE_LOCAL,
+    SCOPE_WEB,
+)
 from backend.src.web.recon.provenance import ProvenanceReport
 from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QImage, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QComboBox,
     QFileDialog,
     QFormLayout,
@@ -135,6 +140,7 @@ class EntityReconTab(QWidget):
         self._tmp_dir = os.path.join(tempfile.gettempdir(), "image-toolkit-recon")
         os.makedirs(self._tmp_dir, exist_ok=True)
         self._threads: list = []
+        self._warmed_modes: set = set()
 
         self._build_ui()
 
@@ -170,12 +176,24 @@ class EntityReconTab(QWidget):
         self.embed_combo.currentIndexChanged.connect(self._on_embed_changed)
         opts_row.addWidget(QLabel("Embedding:"))
         opts_row.addWidget(self.embed_combo)
-        self.privacy_check = QCheckBox("Strict Privacy Mode (offline only)")
-        self.privacy_check.setChecked(self._config.privacy_mode)
-        self.privacy_check.toggled.connect(self._on_privacy_toggled)
-        opts_row.addWidget(self.privacy_check)
+        opts_row.addSpacing(16)
+        self.scope_combo = QComboBox()
+        self.scope_combo.addItem("Local only (offline)", SCOPE_LOCAL)
+        self.scope_combo.addItem("Web only", SCOPE_WEB)
+        self.scope_combo.addItem("Local + Web", SCOPE_BOTH)
+        self.scope_combo.setToolTip(
+            "Local only — resolve against the local identity index, fully offline.\n"
+            "Web only — reverse-image web discovery only (skips the local index).\n"
+            "Local + Web — try the local index first, fall back to web on no match.")
+        self.scope_combo.setCurrentIndex(
+            self.scope_combo.findData(getattr(self._config, "search_scope", SCOPE_LOCAL)))
+        self.scope_combo.currentIndexChanged.connect(self._on_scope_changed)
+        opts_row.addWidget(QLabel("Search scope:"))
+        opts_row.addWidget(self.scope_combo)
         opts_row.addStretch(1)
         cfg_form.addRow("Options:", opts_row)
+        # Apply the initial scope so privacy_mode/search_scope start consistent.
+        self._apply_scope(getattr(self._config, "search_scope", SCOPE_LOCAL))
         root.addWidget(cfg_group)
 
         self.progress = QProgressBar()
@@ -266,6 +284,21 @@ class EntityReconTab(QWidget):
         # --- batch dataset builder -----------------------------------------
         batch_group = QGroupBox("Batch Dataset Builder")
         batch_v = QVBoxLayout(batch_group)
+
+        # Target directory: approved images are moved into
+        # <target>/<FirstName_LastName>/. Defaults to the dataset root, or —
+        # when blank — next to each source image (original behaviour).
+        target_row = QHBoxLayout()
+        target_row.addWidget(QLabel("Target directory:"))
+        self.target_edit = QLineEdit()
+        self.target_edit.setPlaceholderText(
+            "Where identity folders are created (defaults to the dataset root)")
+        target_row.addWidget(self.target_edit, 1)
+        btn_target = QPushButton("Browse...")
+        btn_target.clicked.connect(self._browse_target)
+        target_row.addWidget(btn_target)
+        batch_v.addLayout(target_row)
+
         batch_btns = QHBoxLayout()
         btn_add = QPushButton("Add Images...")
         btn_add.clicked.connect(self._browse_batch)
@@ -309,13 +342,23 @@ class EntityReconTab(QWidget):
         if self._engine is not None:
             self._engine.config = self._config
 
-    def _on_privacy_toggled(self, checked: bool):
-        self._config.privacy_mode = checked
+    def _apply_scope(self, scope: str):
+        """Push a discovery scope onto the config, keeping the legacy
+        ``privacy_mode`` network gate in sync (offline only for local scope)."""
+        self._config.search_scope = scope
+        self._config.privacy_mode = scope == SCOPE_LOCAL
         if self._engine is not None:
             self._engine.config = self._config
-        self._set_status(
-            "Privacy mode ON — offline only." if checked
-            else "Privacy mode OFF — web discovery enabled.")
+
+    def _on_scope_changed(self, _idx: int):
+        scope = self.scope_combo.currentData()
+        self._apply_scope(scope)
+        msg = {
+            SCOPE_LOCAL: "Search scope: Local only — offline, local index only.",
+            SCOPE_WEB: "Search scope: Web only — reverse-image web discovery.",
+            SCOPE_BOTH: "Search scope: Local + Web — local first, web fallback.",
+        }.get(scope, "Search scope updated.")
+        self._set_status(msg)
 
     # ------------------------------------------------------------------
     # Dataset indexing
@@ -327,6 +370,17 @@ class EntityReconTab(QWidget):
         if d:
             self.dataset_edit.setText(d)
             self._config.dataset_root = d
+            # Default the batch target to the dataset root until the user picks
+            # a different destination.
+            if not self.target_edit.text().strip():
+                self.target_edit.setText(d)
+
+    def _browse_target(self):
+        start = self.target_edit.text() if os.path.isdir(self.target_edit.text()) else ""
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Target Directory", start, _DIALOG_OPTS)
+        if d:
+            self.target_edit.setText(d)
 
     def _build_index(self):
         root_dir = self.dataset_edit.text().strip()
@@ -335,6 +389,8 @@ class EntityReconTab(QWidget):
             return
         self._config.dataset_root = root_dir
         self._set_busy(True)
+        self._set_status("Loading embedding model...")
+        self._warm_embedder()
         self._set_status("Building identity index...")
         worker = IndexBuildWorker(self._config)
         self._run_worker(worker, self._on_index_built)
@@ -430,6 +486,11 @@ class EntityReconTab(QWidget):
         png = segmenter.cutout_to_png_bytes(cutout)
 
         self._set_busy(True)
+        # Local/both scopes embed the cutout; warm the model on the main thread
+        # first (web-only skips embedding, so no need to load torch).
+        if getattr(self._config, "search_scope", SCOPE_LOCAL) in (SCOPE_LOCAL, SCOPE_BOTH):
+            self._set_status("Loading embedding model...")
+            self._warm_embedder()
         self._set_status("Resolving identity...")
         worker = ResolveWorker(self._engine, cutout_rgb, png)
         self._run_worker(worker, self._on_resolved)
@@ -522,6 +583,8 @@ class EntityReconTab(QWidget):
         if not paths:
             return
         self._set_busy(True)
+        self._set_status("Loading embedding model...")
+        self._warm_embedder()
         self._set_status(f"Analyzing {len(paths)} images...")
         worker = BatchSuggestWorker(self._engine, paths)
         self._run_worker(worker, self._on_batch)
@@ -541,10 +604,14 @@ class EntityReconTab(QWidget):
     def _approve_batch(self):
         import shutil
 
+        # A user-specified target root overrides the per-row default (which puts
+        # identity folders next to each source image).
+        target_root = self.target_edit.text().strip()
         moved = 0
         for row in self._batch_rows:
-            target = row.get("target_dir")
             path = row.get("path")
+            label = row.get("suggested_label")
+            target = os.path.join(target_root, label) if target_root and label else row.get("target_dir")
             if not target or not path or not os.path.isfile(path):
                 continue
             try:
@@ -563,6 +630,30 @@ class EntityReconTab(QWidget):
     # ------------------------------------------------------------------
     # Worker plumbing
     # ------------------------------------------------------------------
+
+    def _warm_embedder(self) -> None:
+        """Force the heavy embedding model to load on the MAIN thread once.
+
+        torch / InsightFace lazily ``dlopen`` their native libraries on first
+        use. Doing that first-time load inside a worker ``QThread`` while the
+        JPype JVM is live triggers a heap-corruption crash ("corrupted size vs.
+        prev_size", QSocketNotifier-from-another-thread) — the documented
+        JVM + lazily-loaded-native-lib conflict. Warming here loads those libs
+        on the main thread; subsequent worker-thread inference is then safe."""
+        mode = self._config.embed_mode
+        if mode in self._warmed_modes:
+            return
+        try:
+            import numpy as np
+            from backend.src.web.recon.embedder import embed
+
+            embed(np.zeros((64, 64, 3), dtype=np.uint8), mode)
+        except Exception as e:  # noqa: BLE001 - warm-up is best-effort
+            logger.warning("Embedder warm-up failed for %s: %s", mode, e)
+        finally:
+            # Mark warmed regardless: a failed load won't succeed off-thread
+            # either, and we must not retry it inside a worker.
+            self._warmed_modes.add(mode)
 
     def _run_worker(self, worker, on_finished):
         # Workers are QThread subclasses (override run(), no event loop). A plain
