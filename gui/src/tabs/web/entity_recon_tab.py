@@ -1,13 +1,20 @@
-"""Entity Recon & Provenance tab backend.
+"""Entity Recon & Provenance tab — localized OSINT identity resolution.
 
-Orchestrates the localized OSINT pipeline for the three-pane QML UI:
-    Left    source image + SAM hover masking / manual bounding box
-    Center  resolved identity card (name, confidence ring, method/origin)
-    Right   provenance trail (local file paths or grouped web domains)
+A native three-pane QWidget (this app is widget-based, not QML-based):
 
-Heavy work runs in QThread workers; the C++ ``base.recon`` HNSW index and the
-Python SAM 2 / embedding / NER models sit behind graceful fallbacks so the tab
-is usable even fully offline (Strict Privacy Mode).
+    Left    source image; click a subject to segment it (SAM 2 → GrabCut
+            fallback) or resolve the whole frame
+    Center  resolved identity card (name, confidence, method, origin) with
+            JSON/CSV provenance export
+    Right   provenance trail (local dataset matches or grouped web domains)
+
+Plus a dataset indexer (``/Dataset/FirstName_LastName/image.jpg`` → HNSW
+identity index), a Strict Privacy Mode toggle (offline-only), and a batch
+dataset builder that auto-sorts dropped images into identity folders.
+
+Heavy work (indexing, segmentation, embedding, resolution) runs in QThread
+workers; the C++ ``base.recon`` HNSW index and the torch/SAM models sit behind
+graceful fallbacks so the tab stays usable fully offline.
 """
 
 import logging
@@ -22,285 +29,321 @@ from backend.src.web.recon import (
     ReconEngine,
     export_provenance,
 )
+from backend.src.web.recon.config import EMBED_CLIP, EMBED_FACE
 from backend.src.web.recon.provenance import ProvenanceReport
-from PySide6.QtCore import (
-    Property,
-    QAbstractListModel,
-    QByteArray,
-    QObject,
-    Qt,
-    QThread,
-    QUrl,
-    Signal,
-    Slot,
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QImage, QPixmap
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QFileDialog
 
 from ...helpers.web.recon_worker import (
     BatchSuggestWorker,
     IndexBuildWorker,
     ResolveWorker,
 )
+from ...styles import apply_shadow_effect
 
 logger = logging.getLogger(__name__)
 
-
-class ProvenanceModel(QAbstractListModel):
-    """Flat list of provenance rows (local paths or grouped web domains)."""
-
-    KindRole = Qt.ItemDataRole.UserRole + 1
-    LabelRole = Qt.ItemDataRole.UserRole + 2
-    SourceRole = Qt.ItemDataRole.UserRole + 3
-    DomainRole = Qt.ItemDataRole.UserRole + 4
-    ScoreRole = Qt.ItemDataRole.UserRole + 5
-    CountRole = Qt.ItemDataRole.UserRole + 6
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._rows: List[dict] = []
-
-    def roleNames(self):
-        return {
-            self.KindRole: QByteArray(b"kind"),
-            self.LabelRole: QByteArray(b"label"),
-            self.SourceRole: QByteArray(b"source"),
-            self.DomainRole: QByteArray(b"domain"),
-            self.ScoreRole: QByteArray(b"score"),
-            self.CountRole: QByteArray(b"matchCount"),
-        }
-
-    def rowCount(self, parent=None):
-        if parent is not None and parent.isValid():
-            return 0
-        return len(self._rows)
-
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid() or not (0 <= index.row() < len(self._rows)):
-            return None
-        row = self._rows[index.row()]
-        return {
-            self.KindRole: row.get("kind", ""),
-            self.LabelRole: row.get("label", ""),
-            self.SourceRole: row.get("source", ""),
-            self.DomainRole: row.get("domain", ""),
-            self.ScoreRole: row.get("score", 0.0),
-            self.CountRole: row.get("count", 1),
-        }.get(role)
-
-    def set_rows(self, rows: List[dict]):
-        self.beginResetModel()
-        self._rows = rows
-        self.endResetModel()
+_DIALOG_OPTS = QFileDialog.Option.DontUseNativeDialog
+_IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.webp *.bmp)"
 
 
-class BatchModel(QAbstractListModel):
-    """Suggested bulk renames/moves for the Dataset Builder dropzone."""
+class _ClickableImageLabel(QLabel):
+    """Displays the source image and reports clicks in *original* image
+    coordinates (accounting for the letterboxed scale)."""
 
-    PathRole = Qt.ItemDataRole.UserRole + 1
-    LabelRole = Qt.ItemDataRole.UserRole + 2
-    ScoreRole = Qt.ItemDataRole.UserRole + 3
-    TargetRole = Qt.ItemDataRole.UserRole + 4
+    clicked = Signal(int, int)   # x, y in original-image pixels
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._rows: List[dict] = []
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMinimumSize(320, 320)
+        self.setText("Load an image to begin.")
+        self.setStyleSheet("color: #999; border: 1px dashed #4f545c; background: #2c2f33;")
+        self._src_w = 0
+        self._src_h = 0
+        self._scaled_w = 0
+        self._scaled_h = 0
+        self._off_x = 0
+        self._off_y = 0
 
-    def roleNames(self):
-        return {
-            self.PathRole: QByteArray(b"path"),
-            self.LabelRole: QByteArray(b"suggestedLabel"),
-            self.ScoreRole: QByteArray(b"score"),
-            self.TargetRole: QByteArray(b"targetDir"),
-        }
+    def set_source_pixmap(self, pixmap: QPixmap, src_w: int, src_h: int):
+        self._src_w, self._src_h = src_w, src_h
+        self._rescale(pixmap)
 
-    def rowCount(self, parent=None):
-        if parent is not None and parent.isValid():
-            return 0
-        return len(self._rows)
+    def _rescale(self, pixmap: QPixmap):
+        if pixmap.isNull():
+            return
+        area = self.size()
+        scaled = pixmap.scaled(
+            area, Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
+        self._scaled_w, self._scaled_h = scaled.width(), scaled.height()
+        self._off_x = max(0, (area.width() - self._scaled_w) // 2)
+        self._off_y = max(0, (area.height() - self._scaled_h) // 2)
+        self.setPixmap(scaled)
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid() or not (0 <= index.row() < len(self._rows)):
-            return None
-        row = self._rows[index.row()]
-        return {
-            self.PathRole: row.get("path", ""),
-            self.LabelRole: row.get("suggested_label", ""),
-            self.ScoreRole: row.get("score", 0.0),
-            self.TargetRole: row.get("target_dir", ""),
-        }.get(role)
-
-    def set_rows(self, rows: List[dict]):
-        self.beginResetModel()
-        self._rows = rows
-        self.endResetModel()
-
-    def rows(self) -> List[dict]:
-        return self._rows
+    def mousePressEvent(self, event):
+        if self._src_w and self._scaled_w and self.pixmap() and not self.pixmap().isNull():
+            lx = event.position().x() - self._off_x
+            ly = event.position().y() - self._off_y
+            if 0 <= lx < self._scaled_w and 0 <= ly < self._scaled_h:
+                x = int(lx / self._scaled_w * self._src_w)
+                y = int(ly / self._scaled_h * self._src_h)
+                self.clicked.emit(x, y)
+        super().mousePressEvent(event)
 
 
-class EntityReconTab(QObject):
-    # identity card
-    identity_changed = Signal()
-    # source pane
-    source_changed = Signal(str)
-    mask_ready = Signal(str)          # translucent overlay PNG for hover render
-    # lifecycle / status
-    status_changed = Signal(str)
-    index_ready = Signal(int, int)    # images, labels
-    busy_changed = Signal(bool)
-    privacy_changed = Signal(bool)
-    batch_changed = Signal()
+class EntityReconTab(QWidget):
+    """Native three-pane Entity Recon & Provenance tab."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self._config = ReconConfig()
         self._engine: Optional[ReconEngine] = None
         self._indexer = None
-        self._provenance_model = ProvenanceModel(self)
-        self._batch_model = BatchModel(self)
         self._report: Optional[ProvenanceReport] = None
 
         self._source_path = ""
         self._source_rgb = None       # np.ndarray (RGB)
         self._cur_alpha = None
         self._cur_bbox = None
-
-        self._name = ""
-        self._confidence = 0.0
-        self._method = ""
-        self._origin = "none"
-        self._busy = False
+        self._batch_rows: List[dict] = []
 
         self._tmp_dir = os.path.join(tempfile.gettempdir(), "image-toolkit-recon")
         os.makedirs(self._tmp_dir, exist_ok=True)
-
         self._threads: list = []
 
-    # ------------------------------------------------------------------
-    # Properties
-    # ------------------------------------------------------------------
-
-    @Property(QAbstractListModel, constant=True)
-    def provenanceModel(self):
-        return self._provenance_model
-
-    @Property(QAbstractListModel, constant=True)
-    def batchModel(self):
-        return self._batch_model
-
-    def _get_name(self):
-        return self._name
-
-    identityName = Property(str, _get_name, notify=identity_changed)
-
-    def _get_conf(self):
-        return self._confidence
-
-    identityConfidence = Property(float, _get_conf, notify=identity_changed)
-
-    def _get_method(self):
-        return self._method
-
-    identityMethod = Property(str, _get_method, notify=identity_changed)
-
-    def _get_origin(self):
-        return self._origin
-
-    identityOrigin = Property(str, _get_origin, notify=identity_changed)
-
-    def _get_privacy(self):
-        return self._config.privacy_mode
-
-    def _set_privacy(self, value: bool):
-        self.set_privacy_mode(value)
-
-    privacyMode = Property(bool, _get_privacy, _set_privacy, notify=privacy_changed)
-
-    def _get_busy(self):
-        return self._busy
-
-    busy = Property(bool, _get_busy, notify=busy_changed)
-
-    def _set_busy(self, value: bool):
-        if self._busy != value:
-            self._busy = value
-            self.busy_changed.emit(value)
+        self._build_ui()
 
     # ------------------------------------------------------------------
-    # Settings
+    # UI construction
     # ------------------------------------------------------------------
 
-    @Slot("QVariantMap")
-    def set_recon_settings(self, values: dict):
-        data = self._config.to_dict()
-        for k, v in dict(values).items():
-            if k in data:
-                data[k] = v
-        self._config = ReconConfig.from_dict(data)
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+
+        # --- dataset / config bar ------------------------------------------
+        cfg_group = QGroupBox("Identity Dataset & Discovery")
+        cfg_form = QFormLayout(cfg_group)
+
+        ds_row = QHBoxLayout()
+        self.dataset_edit = QLineEdit()
+        self.dataset_edit.setPlaceholderText(
+            "Dataset root — /Dataset/FirstName_LastName/image.jpg ...")
+        ds_row.addWidget(self.dataset_edit)
+        btn_ds = QPushButton("Browse...")
+        btn_ds.clicked.connect(self._browse_dataset)
+        ds_row.addWidget(btn_ds)
+        self.btn_build = QPushButton("Build Identity Index")
+        self.btn_build.clicked.connect(self._build_index)
+        apply_shadow_effect(self.btn_build, "#000000", 8, 0, 3)
+        ds_row.addWidget(self.btn_build)
+        cfg_form.addRow("Dataset root:", ds_row)
+
+        opts_row = QHBoxLayout()
+        self.embed_combo = QComboBox()
+        self.embed_combo.addItem("Faces (ArcFace)", EMBED_FACE)
+        self.embed_combo.addItem("Characters / objects (CLIP)", EMBED_CLIP)
+        self.embed_combo.currentIndexChanged.connect(self._on_embed_changed)
+        opts_row.addWidget(QLabel("Embedding:"))
+        opts_row.addWidget(self.embed_combo)
+        self.privacy_check = QCheckBox("Strict Privacy Mode (offline only)")
+        self.privacy_check.setChecked(self._config.privacy_mode)
+        self.privacy_check.toggled.connect(self._on_privacy_toggled)
+        opts_row.addWidget(self.privacy_check)
+        opts_row.addStretch(1)
+        cfg_form.addRow("Options:", opts_row)
+        root.addWidget(cfg_group)
+
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 0)
+        self.progress.setTextVisible(False)
+        self.progress.hide()
+        root.addWidget(self.progress)
+
+        # --- three-pane splitter -------------------------------------------
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # Left: source + segmentation
+        left = QWidget()
+        left_v = QVBoxLayout(left)
+        left_v.addWidget(QLabel("Source"))
+        self.image_label = _ClickableImageLabel()
+        self.image_label.clicked.connect(self._on_image_clicked)
+        img_scroll = QScrollArea()
+        img_scroll.setWidgetResizable(True)
+        img_scroll.setWidget(self.image_label)
+        left_v.addWidget(img_scroll, 1)
+        src_btns = QHBoxLayout()
+        btn_load = QPushButton("Load Image...")
+        btn_load.clicked.connect(self._browse_source)
+        src_btns.addWidget(btn_load)
+        self.btn_resolve = QPushButton("Resolve Identity")
+        self.btn_resolve.clicked.connect(self._resolve)
+        apply_shadow_effect(self.btn_resolve, "#000000", 8, 0, 3)
+        src_btns.addWidget(self.btn_resolve)
+        left_v.addLayout(src_btns)
+        self.hint_label = QLabel("Click a subject in the image to segment it, "
+                                 "or Resolve the whole frame.")
+        self.hint_label.setWordWrap(True)
+        self.hint_label.setStyleSheet("color: #99aab5; font-size: 11px;")
+        left_v.addWidget(self.hint_label)
+        splitter.addWidget(left)
+
+        # Center: identity card
+        center = QWidget()
+        center_v = QVBoxLayout(center)
+        center_v.addWidget(QLabel("Identity"))
+        card = QGroupBox()
+        card_v = QVBoxLayout(card)
+        self.name_label = QLabel("—")
+        self.name_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #ffffff;")
+        self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        card_v.addWidget(self.name_label)
+        self.conf_bar = QProgressBar()
+        self.conf_bar.setRange(0, 100)
+        self.conf_bar.setValue(0)
+        self.conf_bar.setFormat("%p%")
+        card_v.addWidget(self.conf_bar)
+        self.method_label = QLabel("Method: —")
+        self.method_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.method_label.setStyleSheet("color: #b9bbbe;")
+        card_v.addWidget(self.method_label)
+        self.origin_label = QLabel("Origin: —")
+        self.origin_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.origin_label.setStyleSheet("color: #b9bbbe;")
+        card_v.addWidget(self.origin_label)
+        card_v.addStretch(1)
+        exp_row = QHBoxLayout()
+        self.btn_export_json = QPushButton("Export JSON")
+        self.btn_export_json.clicked.connect(lambda: self._export("json"))
+        self.btn_export_csv = QPushButton("Export CSV")
+        self.btn_export_csv.clicked.connect(lambda: self._export("csv"))
+        exp_row.addWidget(self.btn_export_json)
+        exp_row.addWidget(self.btn_export_csv)
+        card_v.addLayout(exp_row)
+        center_v.addWidget(card, 1)
+        splitter.addWidget(center)
+
+        # Right: provenance trail
+        right = QWidget()
+        right_v = QVBoxLayout(right)
+        right_v.addWidget(QLabel("Provenance"))
+        self.prov_tree = QTreeWidget()
+        self.prov_tree.setHeaderLabels(["Source", "Score"])
+        self.prov_tree.setRootIsDecorated(True)
+        self.prov_tree.itemDoubleClicked.connect(self._on_prov_activated)
+        self.prov_tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        right_v.addWidget(self.prov_tree, 1)
+        splitter.addWidget(right)
+
+        splitter.setSizes([420, 320, 380])
+        root.addWidget(splitter, 1)
+
+        # --- batch dataset builder -----------------------------------------
+        batch_group = QGroupBox("Batch Dataset Builder")
+        batch_v = QVBoxLayout(batch_group)
+        batch_btns = QHBoxLayout()
+        btn_add = QPushButton("Add Images...")
+        btn_add.clicked.connect(self._browse_batch)
+        batch_btns.addWidget(btn_add)
+        self.btn_approve = QPushButton("Approve All → Move to Identity Folders")
+        self.btn_approve.clicked.connect(self._approve_batch)
+        self.btn_approve.setEnabled(False)
+        batch_btns.addWidget(self.btn_approve)
+        batch_btns.addStretch(1)
+        batch_v.addLayout(batch_btns)
+        self.batch_table = QTableWidget(0, 3)
+        self.batch_table.setHorizontalHeaderLabels(["Image", "Suggested identity", "Score"])
+        self.batch_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.batch_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.batch_table.setMaximumHeight(180)
+        batch_v.addWidget(self.batch_table)
+        root.addWidget(batch_group)
+
+        self.status_label = QLabel("Ready. Build an identity index to begin.")
+        self.status_label.setStyleSheet("color: #b9bbbe;")
+        root.addWidget(self.status_label)
+
+    # ------------------------------------------------------------------
+    # Status helpers
+    # ------------------------------------------------------------------
+
+    def _set_status(self, msg: str):
+        self.status_label.setText(msg)
+
+    def _set_busy(self, busy: bool):
+        self.progress.setVisible(busy)
+        self.btn_build.setEnabled(not busy)
+        self.btn_resolve.setEnabled(not busy)
+
+    # ------------------------------------------------------------------
+    # Config
+    # ------------------------------------------------------------------
+
+    def _on_embed_changed(self, _idx: int):
+        self._config.embed_mode = self.embed_combo.currentData()
         if self._engine is not None:
             self._engine.config = self._config
 
-    @Slot(result="QVariantMap")
-    def get_recon_settings(self):
-        return self._config.to_dict()
-
-    @Slot(bool)
-    def set_privacy_mode(self, value: bool):
-        value = bool(value)
-        if self._config.privacy_mode != value:
-            self._config.privacy_mode = value
-            if self._engine is not None:
-                self._engine.config = self._config
-            self.privacy_changed.emit(value)
-            self.status_changed.emit(
-                "Privacy mode ON — offline only." if value
-                else "Privacy mode OFF — web discovery enabled.")
+    def _on_privacy_toggled(self, checked: bool):
+        self._config.privacy_mode = checked
+        if self._engine is not None:
+            self._engine.config = self._config
+        self._set_status(
+            "Privacy mode ON — offline only." if checked
+            else "Privacy mode OFF — web discovery enabled.")
 
     # ------------------------------------------------------------------
     # Dataset indexing
     # ------------------------------------------------------------------
 
-    @Slot(str, result=str)
-    def browse_dataset_qml(self, current=""):
-        start = current if os.path.isdir(current) else ""
-        d = QFileDialog.getExistingDirectory(None, "Select Dataset Root", start)
+    def _browse_dataset(self):
+        start = self.dataset_edit.text() if os.path.isdir(self.dataset_edit.text()) else ""
+        d = QFileDialog.getExistingDirectory(self, "Select Dataset Root", start, _DIALOG_OPTS)
         if d:
+            self.dataset_edit.setText(d)
             self._config.dataset_root = d
-            return d
-        return ""
 
-    @Slot(str)
-    def build_index(self, dataset_root=""):
-        if dataset_root:
-            self._config.dataset_root = dataset_root
-        if not self._config.dataset_root or not os.path.isdir(self._config.dataset_root):
-            self.status_changed.emit("Invalid dataset root.")
+    def _build_index(self):
+        root_dir = self.dataset_edit.text().strip()
+        if not root_dir or not os.path.isdir(root_dir):
+            QMessageBox.warning(self, "Invalid Dataset", "Select a valid dataset root directory.")
             return
+        self._config.dataset_root = root_dir
         self._set_busy(True)
-        self.status_changed.emit("Building identity index...")
-        thread = QThread()
+        self._set_status("Building identity index...")
         worker = IndexBuildWorker(self._config)
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.status.connect(self.status_changed)
-        worker.finished.connect(self._on_index_built)
-        worker.error.connect(self._on_worker_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
-        thread.finished.connect(lambda t=thread: self._threads.remove(t) if t in self._threads else None)
-        thread.finished.connect(thread.deleteLater)
-        self._threads.append(thread)
-        thread.start()
+        self._run_worker(worker, self._on_index_built)
 
-    @Slot(object, dict)
     def _on_index_built(self, indexer, stats):
         self._indexer = indexer
         self._engine = ReconEngine(self._config, indexer=indexer)
         self._set_busy(False)
-        self.index_ready.emit(stats.get("indexed", 0), stats.get("labels", 0))
-        self.status_changed.emit(
+        self._set_status(
             f"Index ready: {stats.get('indexed', 0)} images, "
             f"{stats.get('labels', 0)} identities.")
 
@@ -308,207 +351,198 @@ class EntityReconTab(QObject):
     # Source image + segmentation
     # ------------------------------------------------------------------
 
-    @Slot(str, result=str)
-    def browse_source_qml(self, current=""):
-        start = current if os.path.isdir(os.path.dirname(current)) else ""
+    def _browse_source(self):
+        start = os.path.dirname(self._source_path) if self._source_path else ""
         path, _ = QFileDialog.getOpenFileName(
-            None, "Select Source Image", start,
-            "Images (*.png *.jpg *.jpeg *.webp *.bmp)")
+            self, "Select Source Image", start, _IMAGE_FILTER, options=_DIALOG_OPTS)
         if path:
-            self.load_source(path)
-            return path
-        return ""
+            self._load_source(path)
 
-    @Slot(str)
-    def load_source(self, path: str):
+    def _load_source(self, path: str):
         import cv2
 
         if not path or not os.path.isfile(path):
             return
         img = cv2.imread(path)
         if img is None:
-            self.status_changed.emit("Could not read image.")
+            self._set_status("Could not read image.")
             return
         self._source_path = path
         self._source_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self._cur_alpha = None
         self._cur_bbox = None
-        self.source_changed.emit(path)
-        self.status_changed.emit(f"Loaded {os.path.basename(path)}.")
-
-    @Slot(int, int, result=str)
-    def segment_at(self, x: int, y: int) -> str:
-        """Segment the subject under (x, y) and render a translucent overlay
-        for hover feedback. Returns the overlay PNG path."""
-        if self._source_rgb is None:
-            return ""
-        from backend.src.web.recon import segmenter
-
         h, w = self._source_rgb.shape[:2]
-        x = max(0, min(w - 1, int(x)))
-        y = max(0, min(h - 1, int(y)))
-        alpha, bbox = segmenter.segment_at_point(self._source_rgb, x, y)
-        self._cur_alpha = alpha
-        self._cur_bbox = bbox
-        return self._render_overlay(alpha)
+        pix = QPixmap.fromImage(QImage(self._source_rgb.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy())
+        self.image_label.set_source_pixmap(pix, w, h)
+        self._set_status(f"Loaded {os.path.basename(path)}. Click a subject to segment.")
 
-    @Slot(int, int, int, int, result=str)
-    def segment_bbox(self, x0: int, y0: int, x1: int, y1: int) -> str:
-        """Manual fallback: use a bounding box as the subject."""
+    def _on_image_clicked(self, x: int, y: int):
         if self._source_rgb is None:
-            return ""
+            return
         from backend.src.web.recon import segmenter
 
-        alpha, bbox = segmenter.segment_bbox(self._source_rgb, (x0, y0, x1, y1))
+        try:
+            alpha, bbox = segmenter.segment_at_point(self._source_rgb, x, y)
+        except Exception as e:  # noqa: BLE001 - segmentation is best-effort
+            logger.warning("Segmentation failed: %s", e)
+            self._set_status(f"Segmentation failed: {e}")
+            return
         self._cur_alpha = alpha
         self._cur_bbox = bbox
-        return self._render_overlay(alpha)
+        self._show_overlay(alpha)
+        self._set_status("Subject selected. Press 'Resolve Identity'.")
 
-    def _render_overlay(self, alpha) -> str:
-        import cv2
+    def _show_overlay(self, alpha):
         import numpy as np
 
-        overlay = cv2.cvtColor(self._source_rgb, cv2.COLOR_RGB2RGBA)
-        tint = np.zeros_like(overlay)
-        tint[alpha > 0] = (88, 101, 242, 130)   # translucent accent (RGBA)
+        overlay = self._source_rgb.copy() # pyrefly: ignore [missing-attribute]
         mask = alpha > 0
+        tint = np.zeros_like(overlay)
+        tint[mask] = (88, 101, 242)
         overlay[mask] = (0.55 * overlay[mask] + 0.45 * tint[mask]).astype(np.uint8)
-        overlay[~mask, 3] = 255
-        out = os.path.join(self._tmp_dir, "mask_overlay.png")
-        cv2.imwrite(out, cv2.cvtColor(overlay, cv2.COLOR_RGBA2BGRA))
-        self.mask_ready.emit(out)
-        return out
+        h, w = overlay.shape[:2]
+        pix = QPixmap.fromImage(
+            QImage(overlay.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy())
+        self.image_label.set_source_pixmap(pix, w, h)
 
     # ------------------------------------------------------------------
     # Identity resolution
     # ------------------------------------------------------------------
 
-    @Slot()
-    def confirm_extract(self):
-        """Confirm the current mask/bbox as the subject and resolve identity."""
-        if self._source_rgb is None or self._cur_alpha is None:
-            self.status_changed.emit("Hover and click a subject first.")
+    def _resolve(self):
+        if self._source_rgb is None:
+            self._set_status("Load an image first.")
             return
         if self._engine is None:
-            self.status_changed.emit("Build the identity index first.")
+            QMessageBox.information(self, "No Index",
+                                    "Build the identity index first.")
             return
         from backend.src.web.recon import segmenter
 
-        cutout = segmenter.alpha_cutout(self._source_rgb, self._cur_alpha)
+        if self._cur_alpha is not None:
+            cutout = segmenter.alpha_cutout(self._source_rgb, self._cur_alpha)
+        else:
+            # whole-frame fallback: opaque alpha
+            import numpy as np
+            full = np.full(self._source_rgb.shape[:2], 255, dtype=np.uint8)
+            cutout = segmenter.alpha_cutout(self._source_rgb, full)
         cutout_rgb = cutout[:, :, :3]
         png = segmenter.cutout_to_png_bytes(cutout)
 
         self._set_busy(True)
-        thread = QThread()
+        self._set_status("Resolving identity...")
         worker = ResolveWorker(self._engine, cutout_rgb, png)
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.status.connect(self.status_changed)
-        worker.finished.connect(self._on_resolved)
-        worker.error.connect(self._on_worker_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
-        thread.finished.connect(lambda t=thread: self._threads.remove(t) if t in self._threads else None)
-        thread.finished.connect(thread.deleteLater)
-        self._threads.append(thread)
-        thread.start()
+        self._run_worker(worker, self._on_resolved)
 
-    @Slot(object)
     def _on_resolved(self, res):
         self._set_busy(False)
-        self._name = res.name or "Unknown"
-        self._confidence = res.confidence
-        self._method = res.method
-        self._origin = res.origin
         self._report = res.report
-        self.identity_changed.emit()
+        self.name_label.setText(res.name or "Unknown")
+        self.conf_bar.setValue(int(round(res.confidence * 100)))
+        self.method_label.setText(f"Method: {res.method or '—'}")
+        self.origin_label.setText(f"Origin: {res.origin or 'none'}")
 
-        rows: List[dict] = []
+        self.prov_tree.clear()
         if res.origin == "local":
             for m in res.local_matches:
-                rows.append({"kind": "local", "label": m["label"].replace("_", " "),
-                             "source": m["path"], "score": m["score"]})
+                item = QTreeWidgetItem([m["label"].replace("_", " "), f"{m['score'] * 100:.0f}%"])
+                item.setData(0, Qt.ItemDataRole.UserRole, ("local", m["path"]))
+                child = QTreeWidgetItem([m["path"], ""])
+                child.setData(0, Qt.ItemDataRole.UserRole, ("local", m["path"]))
+                item.addChild(child)
+                self.prov_tree.addTopLevelItem(item)
         else:
             for d in res.web_domains:
-                rows.append({"kind": "web", "label": self._name, "domain": d["domain"],
-                             "source": d["urls"][0] if d["urls"] else "",
-                             "count": d["count"], "score": self._confidence})
-        self._provenance_model.set_rows(rows)
-        self.status_changed.emit(
-            f"Identity: {self._name} ({self._confidence * 100:.0f}%) via {self._method}")
+                parent = QTreeWidgetItem([f"{d['domain']} ({d['count']})", ""])
+                for url in d.get("urls", []):
+                    child = QTreeWidgetItem([url, ""])
+                    child.setData(0, Qt.ItemDataRole.UserRole, ("web", url))
+                    parent.addChild(child)
+                self.prov_tree.addTopLevelItem(parent)
+        self.prov_tree.expandAll()
+        self._set_status(
+            f"Identity: {res.name or 'Unknown'} "
+            f"({res.confidence * 100:.0f}%) via {res.method or '—'}")
+
+    def _on_prov_activated(self, item: QTreeWidgetItem, _col: int):
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+        kind, target = data
+        if kind == "web":
+            QDesktopServices.openUrl(QUrl(target))
+        else:
+            self._open_in_file_manager(target)
+
+    def _open_in_file_manager(self, path: str):
+        if not path:
+            return
+        directory = path if os.path.isdir(path) else os.path.dirname(path)
+        try:
+            if sys.platform.startswith("linux"):
+                subprocess.Popen(["xdg-open", directory])
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", directory])
+            elif sys.platform.startswith("win"):
+                os.startfile(directory)  # noqa: S606
+        except Exception as e:  # noqa: BLE001
+            logger.warning("open_in_file_manager failed: %s", e)
 
     # ------------------------------------------------------------------
     # Provenance export
     # ------------------------------------------------------------------
 
-    @Slot(str, result=str)
-    def export_report_qml(self, fmt="json"):
+    def _export(self, fmt: str):
         if self._report is None:
-            self.status_changed.emit("Nothing to export yet.")
-            return ""
+            self._set_status("Nothing to export yet.")
+            return
         ext = "csv" if fmt == "csv" else "json"
         path, _ = QFileDialog.getSaveFileName(
-            None, "Export Provenance", f"provenance.{ext}",
-            f"{ext.upper()} (*.{ext})")
+            self, "Export Provenance", f"provenance.{ext}",
+            f"{ext.upper()} (*.{ext})", options=_DIALOG_OPTS)
         if not path:
-            return ""
+            return
         try:
             export_provenance(self._report, path, fmt=ext)
-            self.status_changed.emit(f"Exported provenance to {path}")
-            return path
-        except Exception as e:
-            self.status_changed.emit(f"Export failed: {e}")
-            return ""
+            self._set_status(f"Exported provenance to {path}")
+        except Exception as e:  # noqa: BLE001
+            QMessageBox.critical(self, "Export Failed", str(e))
 
     # ------------------------------------------------------------------
     # Batch dataset builder
     # ------------------------------------------------------------------
 
-    @Slot("QStringList")
-    def drop_batch(self, urls: List[str]):
+    def _browse_batch(self):
         if self._engine is None:
-            self.status_changed.emit("Build the identity index first.")
+            QMessageBox.information(self, "No Index", "Build the identity index first.")
             return
-        paths = []
-        for u in urls:
-            p = QUrl(u).toLocalFile() if u.startswith("file:") else u
-            if os.path.isfile(p):
-                paths.append(p)
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Select Images", "", _IMAGE_FILTER, options=_DIALOG_OPTS)
+        paths = [p for p in paths if os.path.isfile(p)]
         if not paths:
-            self.status_changed.emit("No valid image files dropped.")
             return
         self._set_busy(True)
-        thread = QThread()
+        self._set_status(f"Analyzing {len(paths)} images...")
         worker = BatchSuggestWorker(self._engine, paths)
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.status.connect(self.status_changed)
-        worker.finished.connect(self._on_batch)
-        worker.error.connect(self._on_worker_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
-        thread.finished.connect(lambda t=thread: self._threads.remove(t) if t in self._threads else None)
-        thread.finished.connect(thread.deleteLater)
-        self._threads.append(thread)
-        thread.start()
+        self._run_worker(worker, self._on_batch)
 
-    @Slot(list)
     def _on_batch(self, suggestions):
         self._set_busy(False)
-        self._batch_model.set_rows(suggestions)
-        self.batch_changed.emit()
-        n = sum(1 for s in suggestions if s.get("suggested_label"))
-        self.status_changed.emit(f"{n}/{len(suggestions)} images matched an identity.")
+        self._batch_rows = suggestions
+        self.batch_table.setRowCount(len(suggestions))
+        for row, s in enumerate(suggestions):
+            self.batch_table.setItem(row, 0, QTableWidgetItem(os.path.basename(s.get("path", ""))))
+            self.batch_table.setItem(row, 1, QTableWidgetItem((s.get("suggested_label") or "—").replace("_", " ")))
+            self.batch_table.setItem(row, 2, QTableWidgetItem(f"{s.get('score', 0.0) * 100:.0f}%"))
+        matched = sum(1 for s in suggestions if s.get("suggested_label"))
+        self.btn_approve.setEnabled(matched > 0)
+        self._set_status(f"{matched}/{len(suggestions)} images matched an identity.")
 
-    @Slot(result=int)
-    def approve_all_batch(self) -> int:
-        """Move each matched image into its suggested FirstName_LastName folder."""
+    def _approve_batch(self):
         import shutil
 
         moved = 0
-        for row in self._batch_model.rows():
+        for row in self._batch_rows:
             target = row.get("target_dir")
             path = row.get("path")
             if not target or not path or not os.path.isfile(path):
@@ -521,34 +555,36 @@ class EntityReconTab(QObject):
                     moved += 1
             except OSError as e:
                 logger.warning("Batch move failed for %s: %s", path, e)
-        self.status_changed.emit(f"Moved {moved} images into identity folders.")
-        self._batch_model.set_rows([])
-        self.batch_changed.emit()
-        return moved
+        self._batch_rows = []
+        self.batch_table.setRowCount(0)
+        self.btn_approve.setEnabled(False)
+        self._set_status(f"Moved {moved} images into identity folders.")
 
     # ------------------------------------------------------------------
-    # Navigation helpers
+    # Worker plumbing
     # ------------------------------------------------------------------
 
-    @Slot(str)
-    def open_in_file_manager(self, path: str):
-        if not path:
-            return
-        directory = path if os.path.isdir(path) else os.path.dirname(path)
-        try:
-            if sys.platform.startswith("linux"):
-                subprocess.Popen(["xdg-open", directory])
-            elif sys.platform == "darwin":
-                subprocess.Popen(["open", directory])
-            elif sys.platform.startswith("win"):
-                os.startfile(directory)  # noqa: S606
-        except Exception as e:
-            logger.warning("open_in_file_manager failed: %s", e)
+    def _run_worker(self, worker, on_finished):
+        # Workers are QThread subclasses (override run(), no event loop). A plain
+        # QThread + moveToThread spins a glib socket-notifier event dispatcher in
+        # the worker thread which SIGSEGVs under the live JVM.
+        worker.status.connect(self._set_status)
+        worker.finished.connect(on_finished)
+        worker.finished.connect(lambda *_: self._reap_worker(worker))
+        worker.error.connect(self._on_worker_error)
+        worker.error.connect(lambda *_: self._reap_worker(worker))
+        self._threads.append(worker)
+        worker.start()
 
-    @Slot(str)
-    def open_url(self, url: str):
-        if url:
-            QDesktopServices.openUrl(QUrl(url))
+    def _reap_worker(self, worker):
+        if worker in self._threads:
+            self._threads.remove(worker)
+        worker.wait(5000)
+        worker.deleteLater()
+
+    def _on_worker_error(self, message: str):
+        self._set_busy(False)
+        self._set_status(f"Error: {message}")
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -560,11 +596,10 @@ class EntityReconTab(QObject):
                 t.requestInterruption()
                 t.quit()
                 t.wait(2000)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
         self._threads.clear()
 
-    @Slot(str)
-    def _on_worker_error(self, message: str):
-        self._set_busy(False)
-        self.status_changed.emit(f"Error: {message}")
+    def closeEvent(self, event):
+        self.cancel_loading()
+        super().closeEvent(event)

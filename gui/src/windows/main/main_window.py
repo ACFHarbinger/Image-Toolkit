@@ -399,6 +399,7 @@ class MainWindow(QWidget):
         keys_to_clear = [
             "scan_directory",
             "source_directory",
+            "reference_path",
             "extraction_directory",
             "download_dir",
             "screenshot_dir",
