@@ -85,7 +85,6 @@ class MainWindow(QWidget):
             ComfyUITab,
             ConvertTab,
             DatabaseTab,
-            DeleteTab,
             DriveSyncTab,
             ExtractorTab,
             ImageCrawlTab,
@@ -96,6 +95,7 @@ class MainWindow(QWidget):
             ReverseImageSearchTab,
             ScanMetadataTab,
             SearchTab,
+            SimilarityTab,
             StitchFeedbackTab,
             StitchTab,
             UnifiedGenerateTab,
@@ -214,7 +214,7 @@ class MainWindow(QWidget):
         self.scan_metadata_tab = ScanMetadataTab(self.database_tab) # pyrefly: ignore [bad-instantiation]
         self.convert_tab = ConvertTab(dropdown=dropdown)
         self.merge_tab = MergeTab()
-        self.delete_tab = DeleteTab(dropdown=dropdown)
+        self.delete_tab = SimilarityTab(dropdown=dropdown)
         self.crawler_tab = ImageCrawlTab()
         self.reverse_search_tab = ReverseImageSearchTab() # pyrefly: ignore [bad-instantiation]
         self.drive_sync_tab = DriveSyncTab(vault_manager)
@@ -241,7 +241,7 @@ class MainWindow(QWidget):
             "System Tools": {
                 "Convert": self.convert_tab,
                 "Merge": self.merge_tab,
-                "Delete": self.delete_tab,
+                "Similarity": self.delete_tab,
                 "Extractor": self.extractor_tab,
                 "Display Wallpaper": self.wallpaper_tab,
                 "Listings": self.listings_tab,

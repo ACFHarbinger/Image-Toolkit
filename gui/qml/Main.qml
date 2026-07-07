@@ -128,7 +128,7 @@ ApplicationWindow {
                     }
 
                     Repeater {
-                        model: ["Convert", "Delete", "Merge", "Image Extractor", "Wallpaper", "Listings"]
+                        model: ["Convert", "Similarity", "Merge", "Image Extractor", "Wallpaper", "Listings"]
                         
                         Button {
                             text: modelData
@@ -364,7 +364,7 @@ ApplicationWindow {
 
             // Core Tabs (0-5)
             ConvertTab {}
-            DeleteTab {}
+            SimilarityTab {}
             MergeTab {}
             ImageExtractorTab {}
             WallpaperTab {}
