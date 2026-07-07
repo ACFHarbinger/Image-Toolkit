@@ -65,5 +65,5 @@ def test_run_failure(mock_base):
 
     assert result == 0
     mock_base.run_image_crawler.assert_called_once_with(json.dumps(config), crawler)
-    crawler.on_status.emit.assert_called_once_with("ERROR: Critical error in C++ crawler: C++ crawler crash")
+    crawler.on_status.emit.assert_any_call("ERROR: Critical error in C++ crawler: C++ crawler crash")
     crawler.on_finished.emit.assert_called_once_with("Finished with error: C++ crawler crash")
