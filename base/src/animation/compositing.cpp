@@ -980,13 +980,14 @@ static py::tuple find_optimal_boundaries(
     std::vector<double> result_diffs(n_bounds, std::numeric_limits<double>::infinity());
     {
         py::gil_scoped_release release;
+        double prev_optimised = 0.0;
         for (int k = 0; k < n_bounds; ++k) {
             int fi_a = (int)order[k];
             int fi_b = (int)order[k + 1];
             double by = init[k];
 
             int lo_limit = (k > 0)
-                ? (int)optimised[k-1] + 2*search_slab + 1
+                ? (int)prev_optimised + 2*search_slab + 1
                 : search_slab;
             int hi_limit = (k < n_bounds - 1)
                 ? (int)init[k+1] - 2*search_slab - 1
@@ -1001,6 +1002,7 @@ static py::tuple find_optimal_boundaries(
 
             if (fi_a >= n_total || fi_b >= n_total) {
                 optimised[k]    = by;
+                prev_optimised  = by;
                 result_diffs[k] = 0.0;
                 continue;
             }
@@ -1054,7 +1056,7 @@ static py::tuple find_optimal_boundaries(
             // Final measurement at best_y ±half for feather metric
             int half = search_slab / 2;
             int y0_f = std::max(0, best_y - half);
-            int y1_f = std::min(H, best_y + half);
+            int y1_f = std::min(H - 1, best_y + half);
             int valid_f = 0; double sum_f = 0.0;
             for (int y = y0_f; y < y1_f; ++y) {
                 const uchar* pa = fa.ptr<uchar>(y);
@@ -1072,6 +1074,7 @@ static py::tuple find_optimal_boundaries(
                                     ? best_diff : total_diff;
 
             optimised[k]    = (double)best_y;
+            prev_optimised  = (double)best_y;
             result_diffs[k] = feather_metric;
         }
     }

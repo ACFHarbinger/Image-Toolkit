@@ -18,7 +18,10 @@ from backend.src.constants import (
 )
 
 try:
-    from backend.src.animation import base as _batch_ecc
+    try:
+        import base as _batch_ecc
+    except ImportError:
+        from backend.src.animation import base as _batch_ecc
     _BATCH_ECC = hasattr(_batch_ecc, "fg_register") and hasattr(
         _batch_ecc.fg_register, "ecc_refine"
     )

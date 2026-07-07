@@ -119,7 +119,7 @@ endif()
 # ---------------------------------------------------------------------------
 # Compiler flags
 # ---------------------------------------------------------------------------
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 if(OpenMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
