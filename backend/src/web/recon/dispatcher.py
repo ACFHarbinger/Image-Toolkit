@@ -174,12 +174,12 @@ class ReverseSearchDispatcher:
             self.limiter.wait(engine)
             try:
                 hits = self._query_engine(engine, cutout_png)
+                self.cache.put(result.cutout_hash, engine, hits)
+                result.from_cache[engine] = False
             except Exception as e:
                 logger.warning("Reverse search on %s failed: %s", engine, e)
                 hits = []
-            self.cache.put(result.cutout_hash, engine, hits)
             result.hits.extend(hits)
-            result.from_cache[engine] = False
         return result
 
     def _query_engine(self, engine: str, cutout_png: bytes) -> List[WebHit]:
