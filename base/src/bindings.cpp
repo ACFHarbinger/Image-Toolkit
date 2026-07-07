@@ -53,6 +53,9 @@ namespace base::core {
 namespace base::similarity {
     void register_similarity(py::module_& m);  // Similarity Finder detection engine
 }
+namespace base::recon {
+    void register_recon(py::module_& m);       // Entity Recon identity index + hashing
+}
 namespace base::utils {
     void register_migration(py::module_& m);         // Phase 10: legacy JSON→SQLCipher migration
     void register_slideshow(py::module_& m);          // Phase 10: background slideshow daemon
@@ -147,6 +150,9 @@ PYBIND11_MODULE(base, m) {
     auto m_sim       = m.def_submodule("similarity",
         "Similarity Finder: xxHash64, pHash/dHash/wHash consensus, VP-tree, HNSW, "
         "SSIM, ORB/SIFT geometric verification, difference masks.");
+    auto m_recon     = m.def_submodule("recon",
+        "Entity Recon: HNSW identity index (embedding→FirstName_LastName) and "
+        "alpha-cutout hashing for provenance caching.");
     auto m_utils     = m.def_submodule("utils",
         "Legacy JSON→SQLCipher migration and background slideshow daemon.");
     auto m_math      = m.def_submodule("math",
@@ -181,6 +187,9 @@ PYBIND11_MODULE(base, m) {
 
     // Similarity Finder engine
     base::similarity::register_similarity(m_sim);
+
+    // Entity Recon data/discovery engine
+    base::recon::register_recon(m_recon);
 
     // Phase 10: utils
     base::utils::register_migration(m_utils);
