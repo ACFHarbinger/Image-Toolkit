@@ -81,7 +81,7 @@ class TestResolution:
         assert res.report.predicted_name == "Jane Smith"
 
     def test_privacy_mode_blocks_web(self, tmp_path):
-        # Empty index → no local match; privacy on → must not go to web.
+        # Empty index → no local match; local-only scope → must not go to web.
         cfg = ReconConfig(dataset_root=str(tmp_path / "empty"), embed_mode="clip",
                           cache_path=":memory:", privacy_mode=True)
         (tmp_path / "empty").mkdir()
@@ -92,7 +92,32 @@ class TestResolution:
         png = cutout_to_png_bytes(alpha_cutout(q, np.full((128, 128), 255, np.uint8)))
         res = eng.resolve(q, png)
         assert res.origin == "none"
-        assert "privacy" in res.method.lower()
+        assert "web disabled" in res.method.lower()
+
+    def test_web_only_scope_skips_local(self, dataset, tmp_path):
+        # Web-only scope must not report a local match even when the index would
+        # match; with the stub dispatcher (no hits) it falls through to "none".
+        from backend.src.web.recon.config import SCOPE_WEB
+
+        cfg = _config(dataset, tmp_path)
+        cfg.search_scope = SCOPE_WEB
+        cfg.privacy_mode = False
+        idxr = DatasetIndexer(cfg)
+        idxr.build()
+        eng = ReconEngine(cfg, indexer=idxr)
+        q = cv2.cvtColor(_person_image("John_Doe", 7), cv2.COLOR_BGR2RGB)
+        png = cutout_to_png_bytes(alpha_cutout(q, np.full((128, 128), 255, np.uint8)))
+        res = eng.resolve(q, png)
+        assert res.origin != "local"
+        assert res.local_matches == []
+
+    def test_legacy_privacy_false_enables_web_scope(self):
+        # A persisted config without search_scope should derive it from the
+        # legacy privacy_mode flag (False → both, so web is not lost).
+        from backend.src.web.recon.config import SCOPE_BOTH
+
+        cfg = ReconConfig.from_dict({"privacy_mode": False})
+        assert cfg.search_scope == SCOPE_BOTH
 
     def test_batch_suggestions(self, dataset, tmp_path):
         cfg = _config(dataset, tmp_path)

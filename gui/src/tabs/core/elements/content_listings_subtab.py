@@ -315,40 +315,74 @@ class ContentListingsSubTab(QWidget):
             except Exception:
                 logging.exception("[ContentListingsSubTab] Failed to load from secure DB")
 
-    def _save_data(self):
+    def _db_ctx(self):
+        """Return (db_path, password, salt) when the vault is unlocked, else None."""
         if (
             self.vault_manager
             and hasattr(self.vault_manager, "raw_password")
             and self.vault_manager.raw_password
         ):
-            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-            password = self.vault_manager.raw_password
-            salt = self.vault_manager.account_name
-            try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                for row in rows:
-                    id_, category, _, _, _ = row
-                    if category != "Entity":
-                        base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
-                for entry in self._entries:
-                    eid = entry.get("id")
-                    ecat = entry.get("type", "Anime")
-                    etitle = entry.get("title", "")
-                    edate = entry.get("date_added", "")
-                    meta = dict(entry)
-                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                        db_path,
-                        password,
-                        salt,
-                        eid,
-                        ecat,
-                        etitle,
-                        json.dumps(meta, ensure_ascii=False),
-                        edate,
-                        [],
-                    )
-            except Exception:
-                logging.exception("[ContentListingsSubTab] Failed to save to secure DB")
+            return (
+                str(IMAGE_TOOLKIT_DIR / "listings_secure.db"),
+                self.vault_manager.raw_password,
+                self.vault_manager.account_name,
+            )
+        return None
+
+    def _upsert_entry(self, entry: Dict[str, Any]) -> None:
+        """Persist a single content entry with one upsert (one key derivation).
+
+        ``insert_listing_secure`` performs an ``ON CONFLICT DO UPDATE`` upsert,
+        so we no longer delete-and-reinsert every row on each save — that ran
+        the Argon2id KDF ~2N times and froze the UI for seconds on large
+        libraries (and risked data loss mid-rewrite)."""
+        ctx = self._db_ctx()
+        if not ctx:
+            return
+        db_path, password, salt = ctx
+        try:
+            base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
+                db_path,
+                password,
+                salt,
+                entry.get("id"),
+                entry.get("type", "Anime"),
+                entry.get("title", ""),
+                json.dumps(dict(entry), ensure_ascii=False),
+                entry.get("date_added", ""),
+                [],
+            )
+        except Exception:
+            logging.exception("[ContentListingsSubTab] Failed to upsert entry")
+
+    def _delete_entry_row(self, entry_id: str) -> None:
+        """Delete a single content row (one key derivation)."""
+        ctx = self._db_ctx()
+        if not ctx:
+            return
+        db_path, password, salt = ctx
+        try:
+            base.delete_listing_secure(db_path, password, salt, entry_id) # pyrefly: ignore [missing-attribute]
+        except Exception:
+            logging.exception("[ContentListingsSubTab] Failed to delete entry")
+
+    def _save_data(self):
+        """Full rewrite of all content rows. Kept for bulk callers; prefer the
+        targeted :meth:`_upsert_entry` / :meth:`_delete_entry_row` on hot paths."""
+        ctx = self._db_ctx()
+        if not ctx:
+            return
+        db_path, password, salt = ctx
+        try:
+            rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
+            for row in rows:
+                id_, category, _, _, _ = row
+                if category != "Entity":
+                    base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
+            for entry in self._entries:
+                self._upsert_entry(entry)
+        except Exception:
+            logging.exception("[ContentListingsSubTab] Failed to save to secure DB")
 
     # ------------------------------------------------------------------
     # Gallery
@@ -633,7 +667,7 @@ class ContentListingsSubTab(QWidget):
                     except Exception as e:
                         print(f"Failed to delete physical image file: {e}")
                 entry["image_path"] = ""
-                self._save_data()
+                self._upsert_entry(entry)
                 self._rebuild_gallery()
                 if self._selected_id == entry_id:
                     self._detail.load_entry(entry)
@@ -663,7 +697,7 @@ class ContentListingsSubTab(QWidget):
             self._entries[idx] = entry
         else:
             self._entries.insert(0, entry)
-        self._save_data()
+        self._upsert_entry(entry)
         if self._sync_entities_for_entry(entry):
             self.entities_changed.emit()
         self._rebuild_gallery()
@@ -672,7 +706,7 @@ class ContentListingsSubTab(QWidget):
     @Slot(str)
     def _on_entry_deleted(self, entry_id: str):
         self._entries = [e for e in self._entries if e["id"] != entry_id]
-        self._save_data()
+        self._delete_entry_row(entry_id)
         if self._remove_content_from_entities(entry_id):
             self.entities_changed.emit()
         self._rebuild_gallery()
@@ -709,7 +743,7 @@ class ContentListingsSubTab(QWidget):
                         ent["date_added"] = date_added
                         entities.append(ent)
 
-                changed = False
+                changed_ents = []
                 for ent in entities:
                     eid = ent.get("id")
                     if not eid:
@@ -719,28 +753,27 @@ class ContentListingsSubTab(QWidget):
                     if eid in new_assoc and entry_id not in current:
                         current.add(entry_id)
                         ent["associated_content"] = list(current)
-                        changed = True
+                        changed_ents.append(ent)
                     elif eid not in new_assoc and entry_id in current:
                         current.discard(entry_id)
                         ent["associated_content"] = list(current)
-                        changed = True
+                        changed_ents.append(ent)
 
-                if changed:
-                    for ent in entities:
-                        base.delete_listing_secure(db_path, password, salt, ent["id"]) # pyrefly: ignore [missing-attribute]
-                        meta = dict(ent)
-                        base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                            db_path,
-                            password,
-                            salt,
-                            ent["id"],
-                            "Entity",
-                            ent.get("name", ""),
-                            json.dumps(meta, ensure_ascii=False),
-                            ent.get("date_added", ""),
-                            [],
-                        )
-                return changed
+                # Upsert only the entities whose associations actually changed —
+                # rewriting every entity here re-ran the Argon2id KDF per row.
+                for ent in changed_ents:
+                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
+                        db_path,
+                        password,
+                        salt,
+                        ent["id"],
+                        "Entity",
+                        ent.get("name", ""),
+                        json.dumps(dict(ent), ensure_ascii=False),
+                        ent.get("date_added", ""),
+                        [],
+                    )
+                return bool(changed_ents)
             except Exception as e:
                 print(
                     f"[ContentListingsSubTab] Failed to sync entities in secure DB: {e}"
@@ -772,31 +805,28 @@ class ContentListingsSubTab(QWidget):
                         ent["date_added"] = date_added
                         entities.append(ent)
 
-                changed = False
+                changed_ents = []
                 for ent in entities:
                     raw = ent.get("associated_content", [])
                     current = set(raw) if isinstance(raw, list) else set()
                     if entry_id in current:
                         current.discard(entry_id)
                         ent["associated_content"] = list(current)
-                        changed = True
+                        changed_ents.append(ent)
 
-                if changed:
-                    for ent in entities:
-                        base.delete_listing_secure(db_path, password, salt, ent["id"]) # pyrefly: ignore [missing-attribute]
-                        meta = dict(ent)
-                        base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                            db_path,
-                            password,
-                            salt,
-                            ent["id"],
-                            "Entity",
-                            ent.get("name", ""),
-                            json.dumps(meta, ensure_ascii=False),
-                            ent.get("date_added", ""),
-                            [],
-                        )
-                return changed
+                for ent in changed_ents:
+                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
+                        db_path,
+                        password,
+                        salt,
+                        ent["id"],
+                        "Entity",
+                        ent.get("name", ""),
+                        json.dumps(dict(ent), ensure_ascii=False),
+                        ent.get("date_added", ""),
+                        [],
+                    )
+                return bool(changed_ents)
             except Exception as e:
                 print(
                     f"[ContentListingsSubTab] Failed to clean up entities in secure DB: {e}"
@@ -1055,6 +1085,7 @@ class ContentListingsSubTab(QWidget):
         meta = dlg.get_metadata()
         today = str(date.today())
         created = 0
+        new_entries: List[Dict[str, Any]] = []
 
         for series_name in selected_series:
             episodes = scan_result.get(series_name, [])
@@ -1101,10 +1132,12 @@ class ContentListingsSubTab(QWidget):
                 "date_added": today,
             }
             self._entries.insert(0, entry)
+            new_entries.append(entry)
             created += 1
 
         if created:
-            self._save_data()
+            for entry in new_entries:
+                self._upsert_entry(entry)
             self._rebuild_gallery()
             QMessageBox.information(
                 self,
