@@ -20,7 +20,10 @@ __all__ = [
 CAM_FLOW_MIN_BG_PIXELS = 500  # Fall back to whole-frame if fewer bg pixels available
 
 try:
-    from backend.src.animation import base as _batch
+    try:
+        import base as _batch
+    except ImportError:
+        from backend.src.animation import base as _batch
     _HAS_BATCH: bool = True
 except ImportError:
     _batch = None  # type: ignore[assignment]
