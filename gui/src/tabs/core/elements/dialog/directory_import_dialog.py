@@ -1,8 +1,10 @@
+import re
 from pathlib import Path
 
-from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
+from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES, VIDEO_IMPORT_EXTS
 from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.common.listings_common import (
+    _parse_video_series,
     _persist_splitter,
     _scan_video_directory,
 )
@@ -60,7 +62,7 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         browse_btn.clicked.connect(self._browse)
         scan_btn = QPushButton("🔍 Scan")
         scan_btn.setFixedWidth(80)
-        scan_btn.clicked.connect(self._do_scan)
+        scan_btn.clicked.connect(self._do_subdirectory_scan)
         dir_row.addWidget(self._dir_edit, 1)
         dir_row.addWidget(browse_btn)
         dir_row.addWidget(scan_btn)
@@ -204,9 +206,9 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         if directory:
             self._directory = directory
             self._dir_edit.setText(directory) # pyrefly: ignore [missing-attribute]
-            self._do_scan()
+            self._do_filename_scan()
 
-    def _do_scan(self):
+    def _do_filename_scan(self):
         directory = self._dir_edit.text().strip() or self._directory # pyrefly: ignore [missing-attribute]
         if not directory or not Path(directory).is_dir():
             QMessageBox.warning(
@@ -215,6 +217,64 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
             return
         self._directory = directory
         self._scan_result = _scan_video_directory(directory)
+        self._populate_table()
+
+    def _do_subdirectory_scan(self):
+        directory = self._dir_edit.text().strip() or self._directory # pyrefly: ignore [missing-attribute]
+        if not directory or not Path(directory).is_dir():
+            QMessageBox.warning(
+                self, "Invalid Directory", "Please select a valid directory first."
+            )
+            return
+        self._directory = directory
+
+        self._scan_result = {}
+        p = Path(directory)
+        pattern = re.compile(r"^[^\W_]+(?:_[^\W_]+)*$", re.UNICODE)
+
+        from gui.src.windows.settings.app_settings import AppSettings
+        recursive = AppSettings.recursive_scan()
+
+        try:
+            for child in p.iterdir():
+                if child.is_dir() and pattern.match(child.name):
+                    # parse series name by splitting on underscores and joining with space
+                    parts = child.name.split("_")
+                    series_name = " ".join(parts)
+
+                    # scan child directory for video files
+                    episodes = []
+                    try:
+                        if recursive:
+                            entries = sorted(child.rglob("*"), key=lambda e: e.name.lower())
+                        else:
+                            entries = sorted(child.iterdir(), key=lambda e: e.name.lower())
+                    except OSError:
+                        continue
+
+                    for entry in entries:
+                        if not entry.is_file():
+                            continue
+                        if entry.suffix.lower() not in VIDEO_IMPORT_EXTS:
+                            continue
+
+                        # Extract episode number
+                        if " - " in entry.name:
+                            _, ep_num = _parse_video_series(entry.name)
+                        else:
+                            m = re.search(r"(\d+)", entry.name)
+                            ep_num = int(m.group(1)) if m else None
+
+                        episodes.append((ep_num, str(entry.absolute())))
+
+                    if episodes:
+                        # Sort episodes: None episodes go last, otherwise numeric order
+                        episodes.sort(key=lambda x: (x[0] is None, x[0] or 0))
+                        self._scan_result[series_name] = episodes
+        except Exception as e:
+            QMessageBox.critical(self, "Scan Error", f"Failed to scan directory: {e}")
+            return
+
         self._populate_table()
 
     def _populate_table(self):
