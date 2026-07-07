@@ -14,6 +14,7 @@ class ImageCrawlWorker(QThread):
     status = Signal(str)  # status message
     finished = Signal(int, str)  # (count, message)
     error = Signal(str)  # error message
+    image_downloaded = Signal(str)  # saved file path
 
     def __init__(self, config: dict):
         super().__init__()
@@ -45,6 +46,7 @@ class ImageCrawlWorker(QThread):
                 nonlocal downloaded
                 downloaded += 1
                 self.status.emit(f"Saved: {os.path.basename(path)}")
+                self.image_downloaded.emit(path)
 
             # Connect signals
             crawler.on_status.connect(self.status.emit)
