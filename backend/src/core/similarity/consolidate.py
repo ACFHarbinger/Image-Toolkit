@@ -28,19 +28,25 @@ def _same_filesystem(a: str, b: str) -> bool:
     except OSError:
         return False
 
-
 def _atomic_replace_with_link(keeper: str, duplicate: str, symlink: bool):
     """Create the link at a temp name in the same directory, then atomically
     rename over the duplicate — never leaves a window with no file present."""
+    import uuid
     dup_dir = os.path.dirname(duplicate) or "."
-    fd, tmp = tempfile.mkstemp(dir=dup_dir, prefix=".itk-link-")
-    os.close(fd)
-    os.unlink(tmp)
+    for _ in range(10):
+        tmp = os.path.join(dup_dir, f".itk-link-{uuid.uuid4().hex}")
+        try:
+            if symlink:
+                os.symlink(os.path.abspath(keeper), tmp)
+            else:
+                os.link(keeper, tmp)
+            break
+        except FileExistsError:
+            continue
+    else:
+        raise OSError("Failed to generate a unique temporary link name")
+
     try:
-        if symlink:
-            os.symlink(os.path.abspath(keeper), tmp)
-        else:
-            os.link(keeper, tmp)
         os.replace(tmp, duplicate)
     except OSError:
         if os.path.lexists(tmp):
