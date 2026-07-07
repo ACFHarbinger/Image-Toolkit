@@ -1,0 +1,20 @@
+# Reverse-image-search engine credentials (optional).
+# Copy to backend/config/api_keys.yaml (git-ignored) or set the matching
+# environment variables. Engines without a key run in their keyless/anonymous
+# tier where one exists (SauceNao public tier, IQDB, Bing scrape fallback).
+
+tineye:
+  api_key: ""        # or TINEYE_API_KEY
+  api_secret: ""     # or TINEYE_API_SECRET
+
+saucenao:
+  api_key: ""        # or SAUCENAO_API_KEY  (raises rate limit + unlocks DBs)
+
+bing:
+  api_key: ""        # or BING_API_KEY  (official Visual Search API; else scrape)
+
+# Reddit API app credentials for the subreddit pHash sweep:
+#   REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET
+reddit:
+  client_id: ""
+  client_secret: ""

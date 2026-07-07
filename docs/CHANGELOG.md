@@ -4,6 +4,43 @@
 
 ---
 
+## S199 — 2026-07-07 (Reverse-image-search overhaul — real scrapers, ROI, meta-crawl)
+
+**Tests**: +25 (`backend/test/reverse_search/`)
+
+- **Real reverse-search scrapers** (`backend/src/web/search_engines/`): SauceNao (JSON API), IQDB (multi-booru HTML), Bing Visual Search (official API + keyless scrape), Yandex (CBIR upload + results scrape). All implement the shared `ReverseSearchEngine` interface, resolve credentials via env / `api_keys.yaml`, map throttling to a typed `RateLimited`/`EngineBlocked`, and expose static `_parse_*` methods so parsing is unit-tested offline against captured payloads. Wired into `ReverseImageSearchManager` (`SUPPORTED_ENGINES` now 7) and the Entity Recon dispatcher's `_query_engine`.
+- **Rust → C++**: the tmp `phash_engine` (PyO3) crate is replaced by C++ in `base.similarity` — `phash_bytes(data, hash_size)` (pHash an in-memory buffer, no disk round-trip) and `batch_hamming(query, candidates)` (one query vs many). The tmp ROI processor (`imagetoolkit::core`) becomes `base.roi` — `crop_roi` (pixel-space crop, clamped) + `auto_crop` (spectral-residual saliency, no model weights).
+- **Meta-crawl + consensus** (`meta_search_dispatcher.py`): async scatter-gather across all engines with per-engine timeout/failure isolation; consensus scoring boosts URLs multiple engines agree on (canonical-URL dedup, better-resolution merge) and returns a single ranked list.
+- **Targeted scraping**: `search_url_builder.py` (site:/`-site:` operator injection, subreddit scoping) and `subreddit_phash_sweep.py` (asyncpraw recent-post sweep → aiohttp download → C++ `phash_bytes`/`batch_hamming` fast-path Hamming match, zero-index).
+- **ROI UI**: `ROISelector.qml` draggable/resizable marquee emitting source-pixel `[x,y,w,h]` → `base.roi.crop_roi` before dispatch (rewritten with version-safe primitives).
+- Deps: `beautifulsoup4`, `asyncpraw` (lazy/optional); `backend/config/api_keys.yaml.example` added.
+
+---
+
+## S198 — 2026-07-07 (Entity Recon & Provenance tab — localized OSINT)
+
+**Tests**: +24 (`backend/test/recon/`)
+
+- **New "Entity Recon" tab** (Web Integration category): localized OSINT / identity resolution / dataset management, added to `main_backend`, `main_window` and the QML sidebar (StackLayout index 19, appended so existing tab indices are unshifted).
+- **C++ `base.recon`** (`base/src/web/recon/`): `IdentityIndex` — an HNSW-backed index (reusing `base.similarity`) mapping a face/CLIP embedding to its dataset label (`FirstName_LastName`) + source path, collapsing duplicate-label hits to distinct identities; `cutout_hash` — xxHash64 of an alpha-cutout byte stream for provenance-cache keys. *(Spec named Rust; the base module is post-Rust→C++, so the native engine is C++.)*
+- **Python `backend/src/web/recon/`**: SAM 2 segmenter (SAM 2 → SAM 1 → GrabCut → bbox fallback), face (InsightFace/ArcFace) + CLIP embedders with deterministic fallback, a dataset indexing daemon, a privacy-gated reverse-search dispatcher with SQLite provenance cache + per-engine rate limiting, an NER "Name Guesser" (gliner → spaCy → heuristic) with a cross-domain **consensus algorithm**, a `ReconEngine` orchestrator (local HNSW → web consensus) and JSON/CSV provenance export.
+- **GUI**: `EntityReconTab` backend (identity card + provenance/batch models), index/segment/resolve/batch QThread workers, and a **three-pane** `EntityReconTab.qml` — source pane with SAM hover masking + manual bounding box, center identity card with a `ConfidenceRing`, right provenance trail (local paths "Open in File Manager" / grouped web domains with links). Plus a **Strict Privacy Mode** toggle (100% offline), provenance export buttons and a drag-and-drop **Dataset Builder** with "Approve All" bulk folder moves.
+- Everything degrades gracefully: SAM 2 / InsightFace / gliner are lazy-loaded with offline fallbacks, so the tab is fully usable air-gapped.
+
+---
+
+## S197 — 2026-07-07 (Similarity Finder — Delete tab overhaul)
+
+**Tests**: +50 (`backend/test/similarity/`)
+
+- **Delete tab → Similarity Finder**: the Delete tab was refactored into a tiered local dedup/similarity module and the old `DeleteTab` (`delete_tab.py`, `DeleteTab.qml`) was **removed**; all of its functionality (two galleries, directory/extension deletion, property comparison, context menus, standard file/dir delete, confirmation) was folded into the new self-contained `SimilarityTab`. `mainBackend.deleteTab` remains as an alias of `similarityTab`.
+- **C++ `base.similarity`** (`base/src/core/similarity/`): xxHash64 exact digests (Tier 1); DCT pHash + dHash + Haar wHash at hash size 8/16/32 with weighted consensus confidence (Tier 2); in-repo VP-tree (Hamming) and HNSW (cosine) indexes; SSIM + ORB/SIFT with Lowe's ratio + RANSAC homography (Tier 3); neon-green `diff_mask`. All GIL-released, OpenMP batch hashing.
+- **Python `backend/src/core/similarity/`**: `SimilarityConfig`/`TriageRules` (all GUI hyperparameters), `SimilarityCache` (SQLite incremental scan by mtime+size+hash_size, `~/.image-toolkit/similarity_cache.db`), `SimilarityEngine.scan()`/`regroup()` (instant confidence-slider re-clustering, no rescan), `embedder.py` (mobileclip→openclip→resnet18 fallback), `triage.auto_select`, `consolidate_cluster` (atomic hardlink/symlink).
+- **GUI**: `SimilarityScanWorker` (QThread), `ClusterListModel`, three-pane `SimilarityTab.qml` (settings + all hyperparameters, cluster "album" stacks, confidence slider) and comparators `ClusterStack`/`BlinkComparator`/`SwipeCompare`/`DiffMaskView`/`TetheredViewport`. Cross-directory Reference/Target directional scanning.
+- **Build**: five new `base` sources; RPATH fix — explicit `-Wl,-rpath,<pixi lib>` forces the pixi lib dir ahead of `/usr/lib` so pixi `libssl` resolves pixi `libcrypto` (fixes `import base` under pytest). Full design in `docs/roadmaps/similarity_finder.md`.
+
+---
+
 ## S196 — 2026-06-25 (§5.109 Pipeline Strip Blue Channel CV Gate · §5.110 Pipeline Seam Green Shift CV Gate · §5.111 Bench Strip Blue Channel CV Gate · §5.112 Bench Seam Green Shift CV Gate)
 
 **Tests**: 2135 passing, 78 skipped (30 new)

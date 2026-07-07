@@ -5,6 +5,11 @@ from .image_converter import ImageFormatConverter as ImageFormatConverter
 from .image_merger import ImageMerger as ImageMerger
 from .phash_deduplicator import PhashDeduplicator as PhashDeduplicator
 from .phash_deduplicator import compute_phash as compute_phash
+from .similarity import SimilarityCache as SimilarityCache
+from .similarity import SimilarityConfig as SimilarityConfig
+from .similarity import SimilarityEngine as SimilarityEngine
+from .similarity import SimilarityReport as SimilarityReport
+from .similarity import TriageRules as TriageRules
 from .similarity_finder import SimilarityFinder as SimilarityFinder
 from .vault_manager import VaultManager as VaultManager
 from .video_converter import VideoFormatConverter as VideoFormatConverter
@@ -27,7 +32,12 @@ __all__ = [
     "ImageFormatConverter",
     "VideoFormatConverter",
     "DuplicateFinder",
+    "SimilarityCache",
+    "SimilarityConfig",
+    "SimilarityEngine",
     "SimilarityFinder",
+    "SimilarityReport",
+    "TriageRules",
     "ImageMerger",
     "VaultManager",
     "WallpaperManager",

@@ -27,6 +27,8 @@ class ImageCrawler(QObject):
         self.on_status.emit(msg)
 
     def run(self):
+        selection_mode = self.config.get("selection_mode", "Download All (Default)")
+        self.on_status.emit(f"Crawl starting with selection mode: {selection_mode}")
         config_json = json.dumps(self.config)
         try:
             total = base.run_image_crawler(config_json, self)
