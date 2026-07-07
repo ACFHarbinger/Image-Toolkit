@@ -25,7 +25,7 @@ except ImportError:
     HAS_BATCH = False
 
 # Phase 6 symbols live in the same .so but may not be in the currently compiled binary.
-HAS_PHASE6 = HAS_BATCH and hasattr(batch.canvas, "gpu_device_count")
+HAS_PHASE6 = HAS_BATCH and hasattr(batch, "canvas") and hasattr(batch.canvas, "gpu_device_count")
 
 pytestmark = pytest.mark.skipif(not HAS_BATCH, reason="batch not built")
 

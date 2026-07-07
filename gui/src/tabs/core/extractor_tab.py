@@ -274,11 +274,18 @@ class ExtractorTab(AbstractClassSingleGallery):
             self.video_view, 1, Qt.AlignmentFlag.AlignCenter
         )
 
-        self.media_player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.audio_output.setVolume(0.0)
-        self.media_player.setAudioOutput(self.audio_output)
-        self.media_player.setVideoOutput(self.video_item)
+        # QMediaPlayer/QAudioOutput are constructed lazily (see the
+        # media_player/audio_output properties below) on first real use
+        # rather than here. Constructing QAudioOutput eagerly for every tab
+        # at app startup — before every tab is even visible, let alone used —
+        # triggers the platform audio backend (PipeWire) to probe devices on
+        # its own thread; that probe can race Qt's event loop startup and
+        # raise "QSocketNotifier: Socket notifiers cannot be enabled or
+        # disabled from another thread", cascading into heap corruption and
+        # a SIGABRT. Deferring construction until a video is actually opened
+        # avoids doing this during the fragile startup window.
+        self._media_player: Optional[QMediaPlayer] = None
+        self._audio_output: Optional[QAudioOutput] = None
 
         # Controls Row 1 (Top)
         controls_top_layout = QHBoxLayout()
@@ -360,7 +367,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
         self.slider.sliderMoved.connect(self.set_position)
-        self.slider.sliderPressed.connect(self.media_player.pause)
+        self.slider.sliderPressed.connect(lambda: self.media_player.pause())
         self.slider.sliderReleased.connect(self.set_position_on_release)
         self.slider.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.slider.customContextMenuRequested.connect(self.show_video_context_menu)
@@ -805,13 +812,26 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.extraction_status_label.hide()
         self.main_layout.addWidget(self.extraction_status_label)
 
-        # --- Connections ---
-        self.media_player.positionChanged.connect(self.position_changed)
-        self.media_player.durationChanged.connect(self.duration_changed)
-        self.media_player.errorOccurred.connect(self.handle_player_error)
-
         self._load_existing_output_images()
         self._update_recent_extractions_ui()
+
+    @property
+    def audio_output(self) -> QAudioOutput:
+        if self._audio_output is None:
+            self._audio_output = QAudioOutput()
+            self._audio_output.setVolume(0.0)
+        return self._audio_output
+
+    @property
+    def media_player(self) -> QMediaPlayer:
+        if self._media_player is None:
+            self._media_player = QMediaPlayer()
+            self._media_player.setAudioOutput(self.audio_output)
+            self._media_player.setVideoOutput(self.video_item)
+            self._media_player.positionChanged.connect(self.position_changed)
+            self._media_player.durationChanged.connect(self.duration_changed)
+            self._media_player.errorOccurred.connect(self.handle_player_error)
+        return self._media_player
 
     def cancel_loading(self):
         """Stops all active media players, timers, and background workers."""
@@ -1185,7 +1205,7 @@ class ExtractorTab(AbstractClassSingleGallery):
             "spin_interval": self.spin_interval.value(),
             "check_smart_extract": self.check_smart_extract.isChecked(),
             "combo_smart_method": self.combo_smart_method.currentText(),
-            "media_position": self.media_player.position() if self.media_player else 0,
+            "media_position": self._media_player.position() if self._media_player is not None else 0,
         }
         self.active_videos_config[self.video_path] = config
 
@@ -3136,7 +3156,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         return None
 
     def refresh_time_display(self):
-        if self.media_player:
+        if self._media_player is not None:
             pos = self.media_player.position()
             dur = self.media_player.duration()
             if self.lbl_current_time:

@@ -312,8 +312,17 @@ class ContentListingsSubTab(QWidget):
                         entry["type"] = category
                         entry["title"] = title
                         self._entries.append(entry)
-            except Exception:
+            except Exception as e:
                 logging.exception("[ContentListingsSubTab] Failed to load from secure DB")
+                QMessageBox.critical(
+                    self,
+                    "Secure Database Unavailable",
+                    "Could not load listings from the encrypted database:\n"
+                    f"{e}\n\n"
+                    "Your existing listings may not be visible, and anything "
+                    "added or changed in this session will NOT be saved until "
+                    "this is fixed. Check the app log for details.",
+                )
 
     def _db_ctx(self):
         """Return (db_path, password, salt) when the vault is unlocked, else None."""
@@ -329,16 +338,29 @@ class ContentListingsSubTab(QWidget):
             )
         return None
 
-    def _upsert_entry(self, entry: Dict[str, Any]) -> None:
+    def _upsert_entry(self, entry: Dict[str, Any]) -> bool:
         """Persist a single content entry with one upsert (one key derivation).
 
         ``insert_listing_secure`` performs an ``ON CONFLICT DO UPDATE`` upsert,
         so we no longer delete-and-reinsert every row on each save — that ran
         the Argon2id KDF ~2N times and froze the UI for seconds on large
-        libraries (and risked data loss mid-rewrite)."""
+        libraries (and risked data loss mid-rewrite).
+
+        Returns ``True`` on success. Callers MUST check this and warn the user
+        on failure — silently swallowing the error here previously meant a
+        newly added entry could look saved (present in the in-memory list and
+        the gallery) while never actually reaching disk, only to vanish the
+        next time the app was launched."""
         ctx = self._db_ctx()
         if not ctx:
-            return
+            QMessageBox.warning(
+                self,
+                "Not Saved",
+                "The vault is locked (no active password), so this entry was "
+                "NOT written to the secure database. It will be lost when you "
+                "close the app.",
+            )
+            return False
         db_path, password, salt = ctx
         try:
             base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
@@ -352,19 +374,35 @@ class ContentListingsSubTab(QWidget):
                 entry.get("date_added", ""),
                 [],
             )
-        except Exception:
+            return True
+        except Exception as e:
             logging.exception("[ContentListingsSubTab] Failed to upsert entry")
+            QMessageBox.critical(
+                self,
+                "Save Failed",
+                f"Failed to save '{entry.get('title', '')}' to the secure "
+                f"database:\n{e}\n\n"
+                "This entry was NOT persisted and will be lost on restart.",
+            )
+            return False
 
-    def _delete_entry_row(self, entry_id: str) -> None:
+    def _delete_entry_row(self, entry_id: str) -> bool:
         """Delete a single content row (one key derivation)."""
         ctx = self._db_ctx()
         if not ctx:
-            return
+            return False
         db_path, password, salt = ctx
         try:
             base.delete_listing_secure(db_path, password, salt, entry_id) # pyrefly: ignore [missing-attribute]
-        except Exception:
+            return True
+        except Exception as e:
             logging.exception("[ContentListingsSubTab] Failed to delete entry")
+            QMessageBox.critical(
+                self,
+                "Delete Failed",
+                f"Failed to delete entry from the secure database:\n{e}",
+            )
+            return False
 
     def _save_data(self):
         """Full rewrite of all content rows. Kept for bulk callers; prefer the

@@ -234,8 +234,14 @@ if(SQLCIPHER_FOUND AND SODIUM_FOUND)
     # pixi lib dir must precede /usr/lib in the RPATH: old-style RPATH resolves
     # transitively, and pixi's libssl needs pixi's libcrypto (not the system one).
     # An explicit -rpath link option lands before CMake's auto-generated entries.
+    # --enable-new-dtags forces RUNPATH (not legacy RPATH) generation: an
+    # old-style RPATH on this MODULE-type target gets appended to the dynamic
+    # linker's *global* search path for the whole process, hijacking unrelated
+    # libraries loaded later by PySide6/Qt. Verify with `readelf -d base.so`
+    # — must say RUNPATH, never RPATH.
     target_link_options(base PRIVATE
-        "-Wl,-rpath,${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib")
+        "-Wl,-rpath,${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib"
+        "-Wl,--enable-new-dtags")
     target_link_directories(base PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib /usr/lib/x86_64-linux-gnu)
 endif()
 
