@@ -460,3 +460,6 @@ mcp.json
 # Forcefully add to path
 !tools/build/
 !backend/src/utils/validation/target
+
+# Reverse-search engine credentials (keep the .example, ignore the real file)
+backend/config/api_keys.yaml

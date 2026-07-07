@@ -41,6 +41,11 @@ struct PerceptualHashes {
 
 PerceptualHashes compute_perceptual_hashes(const std::string& path, int hash_size);
 
+// Decode an in-memory image buffer (JPEG/PNG/WebP/…) and compute its pHash
+// only — used by the subreddit sweep which never touches disk. Empty on
+// decode failure.
+BitHash phash_from_buffer(const void* data, size_t len, int hash_size);
+
 uint32_t hamming_distance(const BitHash& a, const BitHash& b);
 
 std::string bithash_to_hex(const BitHash& h);

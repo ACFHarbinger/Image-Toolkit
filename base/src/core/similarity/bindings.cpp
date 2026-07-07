@@ -100,6 +100,37 @@ void register_similarity(py::module_& m) {
         py::arg("hash_a"), py::arg("hash_b"),
         "Hamming distance between two hex-encoded hashes.");
 
+    // Replaces the Rust phash_engine.compute_phash: pHash a raw image byte
+    // buffer (no disk round-trip) and return it hex-encoded.
+    m.def("phash_bytes",
+        [](const py::bytes& data, int hash_size) -> std::string {
+            std::string s = data;
+            py::gil_scoped_release rel;
+            BitHash h = phash_from_buffer(s.data(), s.size(), hash_size);
+            return bithash_to_hex(h);
+        },
+        py::arg("data"), py::arg("hash_size") = 8,
+        "Perceptual hash (hex) of an in-memory image buffer; '' on decode error.");
+
+    // Replaces the Rust phash_engine.batch_hamming_distance: one query hash
+    // against many candidates in a single call, returning (index, distance).
+    m.def("batch_hamming",
+        [](const std::string& query_hex,
+           const std::vector<std::string>& candidate_hex) {
+            py::gil_scoped_release rel;
+            BitHash q = bithash_from_hex(query_hex);
+            std::vector<std::pair<size_t, uint32_t>> out;
+            out.reserve(candidate_hex.size());
+            for (size_t i = 0; i < candidate_hex.size(); ++i) {
+                if (candidate_hex[i].empty()) continue;
+                out.emplace_back(i, hamming_distance(q, bithash_from_hex(candidate_hex[i])));
+            }
+            return out;
+        },
+        py::arg("query_hash"), py::arg("candidate_hashes"),
+        "Hamming distance of query_hash against each candidate; returns "
+        "(index, distance) pairs (skipping empty candidates).");
+
     m.def("consensus_confidence",
         [](const std::string& pa, const std::string& da, const std::string& wa,
            const std::string& pb, const std::string& db, const std::string& wb,

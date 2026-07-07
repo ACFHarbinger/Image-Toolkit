@@ -185,6 +185,10 @@ pybind11_add_module(base
     src/web/recon/identity_index.cpp
     src/web/recon/bindings.cpp
 
+    # Reverse-search ROI preprocessing (crop + saliency auto-crop)
+    src/web/roi/roi_processor.cpp
+    src/web/roi/bindings.cpp
+
     # Phase 10: utils (migration, slideshow daemon)
     src/utils/migration.cpp
     src/utils/slideshow.cpp
