@@ -907,10 +907,21 @@ static py::tuple find_optimal_boundaries(
     py::object bg_masks_obj = py::none(),           // None or List[Optional[ndarray]]
     py::object affines_obj  = py::none()            // None or List[ndarray 2×3 float32]
 ) {
-    auto order = order_arr.unchecked<1>();
-    auto init  = init_bounds.unchecked<1>();
-    int N       = (int)order.shape(0);
-    int n_bounds = (int)init.shape(0);
+    int N        = (int)order_arr.size();
+    int n_bounds = (int)init_bounds.size();
+
+    auto r_order = order_arr.unchecked<1>();
+    auto r_init  = init_bounds.unchecked<1>();
+
+    std::vector<int64_t> order(N);
+    for (int i = 0; i < N; ++i) {
+        order[i] = r_order(i);
+    }
+
+    std::vector<double> init(n_bounds);
+    for (int i = 0; i < n_bounds; ++i) {
+        init[i] = r_init(i);
+    }
 
     // Load frames by frame index
     int n_total = (int)warped_frames.size();
@@ -928,7 +939,7 @@ static py::tuple find_optimal_boundaries(
             float tx_min = std::numeric_limits<float>::max();
             float tx_max = std::numeric_limits<float>::lowest();
             for (int i = 0; i < N; ++i) {
-                int fi = (int)order(i);
+                int fi = (int)order[i];
                 if (fi < (int)affines_list.size()) {
                     auto aff = affines_list[fi].cast<py::array_t<float>>().unchecked<2>();
                     float tx = aff(0, 2);
@@ -946,10 +957,10 @@ static py::tuple find_optimal_boundaries(
     if (has_bg) {
         py::list bg_list = bg_masks_obj.cast<py::list>();
         int max_fi = 0;
-        for (int i = 0; i < N; ++i) max_fi = std::max(max_fi, (int)order(i));
+        for (int i = 0; i < N; ++i) max_fi = std::max(max_fi, (int)order[i]);
         warped_bgs.resize(max_fi + 1);
         for (int i = 0; i < N; ++i) {
-            int fi = (int)order(i);
+            int fi = (int)order[i];
             if (fi >= (int)bg_list.size() || fi >= (int)affines_list.size()) continue;
             py::object bg_obj = bg_list[fi];
             if (bg_obj.is_none()) continue;
@@ -970,15 +981,15 @@ static py::tuple find_optimal_boundaries(
     {
         py::gil_scoped_release release;
         for (int k = 0; k < n_bounds; ++k) {
-            int fi_a = (int)order(k);
-            int fi_b = (int)order(k + 1);
-            double by = init(k);
+            int fi_a = (int)order[k];
+            int fi_b = (int)order[k + 1];
+            double by = init[k];
 
             int lo_limit = (k > 0)
                 ? (int)optimised[k-1] + 2*search_slab + 1
                 : search_slab;
             int hi_limit = (k < n_bounds - 1)
-                ? (int)init(k+1) - 2*search_slab - 1
+                ? (int)init[k+1] - 2*search_slab - 1
                 : H - 2*search_slab;
 
             int y_lo = std::max(lo_limit, (int)by - effective_range);
