@@ -379,7 +379,15 @@ class ReverseImageSearchManager(QObject):
         self._active_strategy = strategy
 
         try:
-            results = strategy.search(search_image_path, **kwargs)
+            try:
+                results = strategy.search(search_image_path, **kwargs)
+            finally:
+                if search_image_path != image_path:
+                    import os
+                    try:
+                        os.unlink(search_image_path)
+                    except OSError:
+                        pass
         finally:
             self._active_strategy = None
 
