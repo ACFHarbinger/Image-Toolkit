@@ -181,6 +181,10 @@ pybind11_add_module(base
     src/core/similarity/visual.cpp
     src/core/similarity/bindings.cpp
 
+    # Entity Recon data/discovery engine (HNSW identity index + cutout hashing)
+    src/web/recon/identity_index.cpp
+    src/web/recon/bindings.cpp
+
     # Phase 10: utils (migration, slideshow daemon)
     src/utils/migration.cpp
     src/utils/slideshow.cpp

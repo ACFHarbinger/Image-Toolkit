@@ -4,6 +4,18 @@
 
 ---
 
+## S198 — 2026-07-07 (Entity Recon & Provenance tab — localized OSINT)
+
+**Tests**: +24 (`backend/test/recon/`)
+
+- **New "Entity Recon" tab** (Web Integration category): localized OSINT / identity resolution / dataset management, added to `main_backend`, `main_window` and the QML sidebar (StackLayout index 19, appended so existing tab indices are unshifted).
+- **C++ `base.recon`** (`base/src/web/recon/`): `IdentityIndex` — an HNSW-backed index (reusing `base.similarity`) mapping a face/CLIP embedding to its dataset label (`FirstName_LastName`) + source path, collapsing duplicate-label hits to distinct identities; `cutout_hash` — xxHash64 of an alpha-cutout byte stream for provenance-cache keys. *(Spec named Rust; the base module is post-Rust→C++, so the native engine is C++.)*
+- **Python `backend/src/web/recon/`**: SAM 2 segmenter (SAM 2 → SAM 1 → GrabCut → bbox fallback), face (InsightFace/ArcFace) + CLIP embedders with deterministic fallback, a dataset indexing daemon, a privacy-gated reverse-search dispatcher with SQLite provenance cache + per-engine rate limiting, an NER "Name Guesser" (gliner → spaCy → heuristic) with a cross-domain **consensus algorithm**, a `ReconEngine` orchestrator (local HNSW → web consensus) and JSON/CSV provenance export.
+- **GUI**: `EntityReconTab` backend (identity card + provenance/batch models), index/segment/resolve/batch QThread workers, and a **three-pane** `EntityReconTab.qml` — source pane with SAM hover masking + manual bounding box, center identity card with a `ConfidenceRing`, right provenance trail (local paths "Open in File Manager" / grouped web domains with links). Plus a **Strict Privacy Mode** toggle (100% offline), provenance export buttons and a drag-and-drop **Dataset Builder** with "Approve All" bulk folder moves.
+- Everything degrades gracefully: SAM 2 / InsightFace / gliner are lazy-loaded with offline fallbacks, so the tab is fully usable air-gapped.
+
+---
+
 ## S197 — 2026-07-07 (Similarity Finder — Delete tab overhaul)
 
 **Tests**: +50 (`backend/test/similarity/`)

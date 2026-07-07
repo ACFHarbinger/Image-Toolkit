@@ -93,6 +93,7 @@ class MainWindow(QWidget):
             MetaCLIPInferenceTab,
             R3GANEvaluateTab,
             ReverseImageSearchTab,
+            EntityReconTab,
             ScanMetadataTab,
             SearchTab,
             SimilarityTab,
@@ -217,6 +218,7 @@ class MainWindow(QWidget):
         self.delete_tab = SimilarityTab(dropdown=dropdown)
         self.crawler_tab = ImageCrawlTab()
         self.reverse_search_tab = ReverseImageSearchTab() # pyrefly: ignore [bad-instantiation]
+        self.entity_recon_tab = EntityReconTab()
         self.drive_sync_tab = DriveSyncTab(vault_manager)
         self.wallpaper_tab = WallpaperTab(self.database_tab)
         self.web_requests_tab = WebRequestsTab()
@@ -256,6 +258,7 @@ class MainWindow(QWidget):
                 "Web Requests": self.web_requests_tab,
                 "Cloud Synchronization": self.drive_sync_tab,
                 "Reverse Search": self.reverse_search_tab,
+                "Entity Recon": self.entity_recon_tab,
             },
             "Deep Learning": {
                 "Training": self.train_tab,

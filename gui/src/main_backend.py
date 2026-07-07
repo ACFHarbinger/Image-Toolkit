@@ -2,6 +2,7 @@ from gui.src.tabs import (
     ConvertTab,
     DatabaseTab,
     DriveSyncTab,
+    EntityReconTab,
     ExtractorTab,
     ImageCrawlTab,
     MergeTab,
@@ -47,6 +48,7 @@ class MainBackend(QObject):
         self._drive_sync_tab = DriveSyncTab(vault_manager)
         self._web_requests_tab = WebRequestsTab()
         self._reverse_search_tab = ReverseImageSearchTab()
+        self._entity_recon_tab = EntityReconTab()
 
         self._train_tab = UnifiedTrainTab()
         self._generate_tab = UnifiedGenerateTab()
@@ -160,6 +162,9 @@ class MainBackend(QObject):
 
     @Property(QObject, constant=True)
     def reverseSearchTab(self): return self._reverse_search_tab
+
+    @Property(QObject, constant=True)
+    def entityReconTab(self): return self._entity_recon_tab
 
     # --- Models Properties ---
     @Property(QObject, constant=True)
