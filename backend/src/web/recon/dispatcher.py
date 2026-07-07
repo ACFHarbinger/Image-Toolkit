@@ -6,6 +6,7 @@ network and returns cached results only. Every request is keyed by the C++
 is served from cache — preventing IP bans / API throttling.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -182,7 +183,69 @@ class ReverseSearchDispatcher:
         return result
 
     def _query_engine(self, engine: str, cutout_png: bytes) -> List[WebHit]:
-        """Real engine adapter hook. Returns [] until a concrete scraper for
-        Google Lens / Yandex / Bing / SauceNao is wired in (kept out of the
-        orchestration path so caching/rate-limiting stay independently testable)."""
-        return []
+        """Dispatch to a concrete reverse-search scraper for *engine*.
+
+        Writes the alpha cutout to a temp file (the strategies take a path),
+        runs the matching scraper and maps its ``ReverseSearchResult`` list to
+        ``WebHit``. Kept out of the caching/rate-limit path so those remain
+        independently testable; failures propagate to ``dispatch`` which
+        isolates them per engine.
+        """
+        strategy = self._build_strategy(engine)
+        if strategy is None:
+            return []
+
+        import os
+        import tempfile
+
+        fd, tmp = tempfile.mkstemp(suffix=".png", prefix="recon-cutout-")
+        try:
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(cutout_png)
+            results = strategy.search(tmp)
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+
+        return [
+            WebHit(url=r.url, title=r.title or "", snippet="", engine=engine)
+            for r in results if r.url
+        ]
+
+    @staticmethod
+    def _build_strategy(engine: str):
+        """Construct a reverse-search strategy for an Entity-Recon engine name.
+
+        Maps the recon engine ids to the shared search-engine strategies; the
+        actual web-scraping / API logic lives there so it is not duplicated.
+        """
+        try:
+            from backend.src.web.search_engines import (
+                BingVisualSearchStrategy,
+                IqdbStrategy,
+                SauceNaoStrategy,
+                YandexSearchStrategy,
+            )
+        except Exception as exc:  # optional deps (requests/bs4) missing
+            logger.info("Reverse-search strategies unavailable: %s", exc)
+            return None
+
+        builders = {
+            "yandex": YandexSearchStrategy,
+            "bing": BingVisualSearchStrategy,
+            "saucenao": SauceNaoStrategy,
+            "iqdb": IqdbStrategy,
+        }
+        # Google Lens uses the existing C++ browser-driver strategy.
+        if engine in ("google_lens", "google"):
+            try:
+                from backend.src.web.crawlers.reverse_image_search_crawler import (
+                    GoogleSearchStrategy,
+                )
+
+                return GoogleSearchStrategy(headless=True)
+            except Exception as exc:
+                logger.info("Google Lens strategy unavailable: %s", exc)
+                return None
+        factory = builders.get(engine)
+        return factory() if factory else None

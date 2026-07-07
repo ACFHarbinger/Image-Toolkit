@@ -254,6 +254,16 @@ PerceptualHashes compute_perceptual_hashes(const std::string& path, int hash_siz
     return out;
 }
 
+BitHash phash_from_buffer(const void* data, size_t len, int hash_size) {
+    if (hash_size != 8 && hash_size != 16 && hash_size != 32) hash_size = 8;
+    std::vector<uint8_t> buf(static_cast<const uint8_t*>(data),
+                             static_cast<const uint8_t*>(data) + len);
+    cv::Mat raw(1, static_cast<int>(buf.size()), CV_8U, buf.data());
+    cv::Mat gray = cv::imdecode(raw, cv::IMREAD_GRAYSCALE);
+    if (gray.empty()) return {};
+    return phash_of(gray, hash_size);
+}
+
 double consensus_confidence(const PerceptualHashes& a, const PerceptualHashes& b,
                             int hash_size) {
     if (!a.ok || !b.ok) return 0.0;

@@ -4,6 +4,19 @@
 
 ---
 
+## S199 — 2026-07-07 (Reverse-image-search overhaul — real scrapers, ROI, meta-crawl)
+
+**Tests**: +25 (`backend/test/reverse_search/`)
+
+- **Real reverse-search scrapers** (`backend/src/web/search_engines/`): SauceNao (JSON API), IQDB (multi-booru HTML), Bing Visual Search (official API + keyless scrape), Yandex (CBIR upload + results scrape). All implement the shared `ReverseSearchEngine` interface, resolve credentials via env / `api_keys.yaml`, map throttling to a typed `RateLimited`/`EngineBlocked`, and expose static `_parse_*` methods so parsing is unit-tested offline against captured payloads. Wired into `ReverseImageSearchManager` (`SUPPORTED_ENGINES` now 7) and the Entity Recon dispatcher's `_query_engine`.
+- **Rust → C++**: the tmp `phash_engine` (PyO3) crate is replaced by C++ in `base.similarity` — `phash_bytes(data, hash_size)` (pHash an in-memory buffer, no disk round-trip) and `batch_hamming(query, candidates)` (one query vs many). The tmp ROI processor (`imagetoolkit::core`) becomes `base.roi` — `crop_roi` (pixel-space crop, clamped) + `auto_crop` (spectral-residual saliency, no model weights).
+- **Meta-crawl + consensus** (`meta_search_dispatcher.py`): async scatter-gather across all engines with per-engine timeout/failure isolation; consensus scoring boosts URLs multiple engines agree on (canonical-URL dedup, better-resolution merge) and returns a single ranked list.
+- **Targeted scraping**: `search_url_builder.py` (site:/`-site:` operator injection, subreddit scoping) and `subreddit_phash_sweep.py` (asyncpraw recent-post sweep → aiohttp download → C++ `phash_bytes`/`batch_hamming` fast-path Hamming match, zero-index).
+- **ROI UI**: `ROISelector.qml` draggable/resizable marquee emitting source-pixel `[x,y,w,h]` → `base.roi.crop_roi` before dispatch (rewritten with version-safe primitives).
+- Deps: `beautifulsoup4`, `asyncpraw` (lazy/optional); `backend/config/api_keys.yaml.example` added.
+
+---
+
 ## S198 — 2026-07-07 (Entity Recon & Provenance tab — localized OSINT)
 
 **Tests**: +24 (`backend/test/recon/`)

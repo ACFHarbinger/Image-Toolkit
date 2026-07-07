@@ -56,6 +56,9 @@ namespace base::similarity {
 namespace base::recon {
     void register_recon(py::module_& m);       // Entity Recon identity index + hashing
 }
+namespace base::roi {
+    void register_roi(py::module_& m);         // Reverse-search ROI crop + auto-crop
+}
 namespace base::utils {
     void register_migration(py::module_& m);         // Phase 10: legacy JSON→SQLCipher migration
     void register_slideshow(py::module_& m);          // Phase 10: background slideshow daemon
@@ -153,6 +156,8 @@ PYBIND11_MODULE(base, m) {
     auto m_recon     = m.def_submodule("recon",
         "Entity Recon: HNSW identity index (embedding→FirstName_LastName) and "
         "alpha-cutout hashing for provenance caching.");
+    auto m_roi       = m.def_submodule("roi",
+        "Reverse-search ROI preprocessing: pixel-space crop + saliency auto-crop.");
     auto m_utils     = m.def_submodule("utils",
         "Legacy JSON→SQLCipher migration and background slideshow daemon.");
     auto m_math      = m.def_submodule("math",
@@ -190,6 +195,9 @@ PYBIND11_MODULE(base, m) {
 
     // Entity Recon data/discovery engine
     base::recon::register_recon(m_recon);
+
+    // Reverse-search ROI preprocessing
+    base::roi::register_roi(m_roi);
 
     // Phase 10: utils
     base::utils::register_migration(m_utils);
