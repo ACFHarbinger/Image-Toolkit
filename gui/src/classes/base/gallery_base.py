@@ -158,11 +158,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
     # =========================================================================
 
     def _save_thumbnail_size(self) -> None:
-        from gui.src.utils.thumbnail_size import save_thumbnail_size
+        from gui.src.windows.settings.thumbnail_size import save_thumbnail_size
         save_thumbnail_size(self.__class__.__name__, self.thumbnail_size)
 
     def _load_thumbnail_size(self, default: int = 180) -> int:
-        from gui.src.utils.thumbnail_size import load_thumbnail_size
+        from gui.src.windows.settings.thumbnail_size import load_thumbnail_size
         return load_thumbnail_size(self.__class__.__name__, default)
 
     # =========================================================================

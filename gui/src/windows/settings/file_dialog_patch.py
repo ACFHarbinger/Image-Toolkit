@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from gui.src.windows.settings.app_settings import AppSettings
+from .app_settings import AppSettings
 from PySide6.QtCore import QEvent, QObject, QSortFilterProxyModel, QUrl
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QInputDialog, QMenu, QMessageBox
@@ -205,7 +205,7 @@ def my_getExistingDirectory(parent=None, caption="", dir="", options=QFileDialog
 # pyrefly: ignore [no-matching-overload]
 def my_getOpenFileName(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
     if options is None:
-        options = QFileDialog.Option()
+        options = QFileDialog.Option() # pyrefly: ignore [no-matching-overload]
     dialog = CustomFileDialog(parent, caption, dir, filter)
     dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
     dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
@@ -220,7 +220,7 @@ def my_getOpenFileName(parent=None, caption="", dir="", filter="", selectedFilte
 # pyrefly: ignore [no-matching-overload]
 def my_getOpenFileNames(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
     if options is None:
-        options = QFileDialog.Option()
+        options = QFileDialog.Option() # pyrefly: ignore [no-matching-overload]
     dialog = CustomFileDialog(parent, caption, dir, filter)
     dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
     dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
@@ -234,7 +234,7 @@ def my_getOpenFileNames(parent=None, caption="", dir="", filter="", selectedFilt
 # pyrefly: ignore [no-matching-overload]
 def my_getSaveFileName(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
     if options is None:
-        options = QFileDialog.Option()
+        options = QFileDialog.Option() # pyrefly: ignore [no-matching-overload]
     dialog = CustomFileDialog(parent, caption, dir, filter)
     dialog.setFileMode(QFileDialog.FileMode.AnyFile)
     dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
