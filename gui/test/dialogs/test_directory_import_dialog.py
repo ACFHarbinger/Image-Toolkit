@@ -69,6 +69,22 @@ class TestDirectoryImportDialogSubdirScan:
         assert marisa_eps[0][0] == 5
         assert marisa_eps[0][1].endswith("Marisa 05.mp4")
 
+        # Test Deselect All
+        from PySide6.QtWidgets import QCheckBox
+        dialog._deselect_all()
+        for r in range(dialog._table.rowCount()):
+            cw = dialog._table.cellWidget(r, 0)
+            chk = cw.findChild(QCheckBox)
+            assert not chk.isChecked()
+
+        # Test Select All New
+        dialog._select_all_new()
+        for r in range(dialog._table.rowCount()):
+            cw = dialog._table.cellWidget(r, 0)
+            chk = cw.findChild(QCheckBox)
+            assert chk.isChecked()
+
+
 
 class TestEntityDirectoryImportDialogSubdirScan:
     def test_entity_subdirectory_scan_happy_path(self, q_app, tmp_path):
@@ -121,3 +137,19 @@ class TestEntityDirectoryImportDialogSubdirScan:
         # Verify Reimu-Hakurei is not in results
         reimu = next((r for r in scan_res if r[0] == "Reimu"), None)
         assert reimu is None
+
+        # Test Deselect All
+        from PySide6.QtWidgets import QCheckBox
+        dialog._deselect_all()
+        for r in range(dialog._table.rowCount()):
+            cw = dialog._table.cellWidget(r, 0)
+            chk = cw.findChild(QCheckBox)
+            assert not chk.isChecked()
+
+        # Test Select All New
+        dialog._select_all_new()
+        for r in range(dialog._table.rowCount()):
+            cw = dialog._table.cellWidget(r, 0)
+            chk = cw.findChild(QCheckBox)
+            assert chk.isChecked()
+

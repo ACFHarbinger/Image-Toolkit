@@ -33,7 +33,7 @@ class BaseDirectoryImportDialog(QDialog):
             return
         for r in range(self._table.rowCount()):
             status_item = self._table.item(r, 3)
-            if status_item and status_item.text() == "New":
+            if status_item and "New" in status_item.text():
                 self._set_row_check(r, True)
 
     def _deselect_all(self):
@@ -45,6 +45,11 @@ class BaseDirectoryImportDialog(QDialog):
     def _set_row_check(self, row: int, state: bool):
         if not self._table:
             return
-        chk = self._table.cellWidget(row, 0)
-        if isinstance(chk, QCheckBox):
-            chk.setChecked(state)
+        widget = self._table.cellWidget(row, 0)
+        if isinstance(widget, QCheckBox):
+            widget.setChecked(state)
+        elif widget:
+            chk = widget.findChild(QCheckBox)
+            if chk:
+                chk.setChecked(state)
+
