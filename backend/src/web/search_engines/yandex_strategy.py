@@ -42,6 +42,8 @@ class YandexSearchStrategy(ReverseSearchEngine):
     def stop(self) -> None:
         self._is_running = False
         self._emit_status("Cancellation pending…")
+        if self._session is not None:
+            self._session.close()
 
     def search(self, image_path: str, **kwargs) -> List[ReverseSearchResult]:
         if self._session is None:
