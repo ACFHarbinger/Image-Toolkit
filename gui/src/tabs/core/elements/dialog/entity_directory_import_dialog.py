@@ -58,7 +58,7 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         browse_btn.clicked.connect(self._browse)
         scan_btn = QPushButton("🔍 Scan")
         scan_btn.setFixedWidth(80)
-        scan_btn.clicked.connect(self._do_scan)
+        scan_btn.clicked.connect(self._do_subdirectory_scan)
         dir_row.addWidget(self._dir_edit, 1)
         dir_row.addWidget(browse_btn)
         dir_row.addWidget(scan_btn)
@@ -197,9 +197,9 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         if directory:
             self._directory = directory
             self._dir_edit.setText(directory) # pyrefly: ignore [missing-attribute]
-            self._do_scan()
+            self._do_filename_scan()
 
-    def _do_scan(self):
+    def _do_filename_scan(self):
         directory = self._dir_edit.text().strip() or self._directory # pyrefly: ignore [missing-attribute]
         if not directory or not Path(directory).is_dir():
             QMessageBox.warning(
@@ -225,6 +225,43 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
                     last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
                     self._scan_result.append(
                         (first_name, last_name, str(item.absolute()))
+                    )
+        except Exception as e:
+            QMessageBox.critical(self, "Scan Error", f"Failed to scan directory: {e}")
+            return
+
+        self._populate_table()
+
+    def _do_subdirectory_scan(self):
+        directory = self._dir_edit.text().strip() or self._directory # pyrefly: ignore [missing-attribute]
+        if not directory or not Path(directory).is_dir():
+            QMessageBox.warning(
+                self, "Invalid Directory", "Please select a valid directory first."
+            )
+            return
+        self._directory = directory
+
+        self._scan_result = []
+        p = Path(directory)
+        valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+        pattern = re.compile(r"^[^\W_]+(?:_[^\W_]+)*$", re.UNICODE)
+        try:
+            for child in p.iterdir():
+                if child.is_dir() and pattern.match(child.name):
+                    # parse first name and last name by splitting on underscores
+                    parts = child.name.split("_")
+                    first_name = parts[0]
+                    last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+
+                    # Search for profile image (first image file in subdirectory)
+                    image_path = ""
+                    for f in child.iterdir():
+                        if f.is_file() and f.suffix.lower() in valid_exts:
+                            image_path = str(f.absolute())
+                            break
+
+                    self._scan_result.append(
+                        (first_name, last_name, image_path)
                     )
         except Exception as e:
             QMessageBox.critical(self, "Scan Error", f"Failed to scan directory: {e}")

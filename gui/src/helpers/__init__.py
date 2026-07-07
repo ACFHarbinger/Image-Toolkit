@@ -3,6 +3,7 @@ from .core.deletion_worker import DeletionWorker as DeletionWorker
 from .core.duplicate_scan_worker import DuplicateScanWorker as DuplicateScanWorker
 from .core.merge_worker import MergeWorker as MergeWorker
 from .core.sampler_worker import SamplerWorker as SamplerWorker
+from .core.similarity_scan_worker import SimilarityScanWorker as SimilarityScanWorker
 from .core.search_worker import SearchWorker as SearchWorker
 from .core.wallpaper_worker import WallpaperWorker as WallpaperWorker
 from .image.batch_image_loader_worker import (

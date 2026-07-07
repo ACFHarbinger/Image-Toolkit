@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import cv2
 import pytest
 from gui.src.tabs.core.convert_tab import ConvertTab
-from gui.src.tabs.core.delete_tab import DeleteTab
+from gui.src.tabs.core.similarity_tab import SimilarityTab
 from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.tabs.core.merge_tab import MergeTab
 from gui.src.tabs.core.wallpaper_tab import WallpaperTab
@@ -228,16 +228,13 @@ class TestWallpaperTab:
 
 
 
-# --- DeleteTab Tests ---
+# --- SimilarityTab Tests (formerly DeleteTab) ---
 
 
-class TestDeleteTab:
+class TestSimilarityTab:
     def test_init(self, q_app):
-        with (
-            patch("gui.src.tabs.core.delete_tab.DeletionWorker"),
-            patch("gui.src.tabs.core.delete_tab.DuplicateScanWorker"),
-        ):
-            tab = DeleteTab()
+        with patch("gui.src.tabs.core.similarity_tab.DeletionWorker"):
+            tab = SimilarityTab()
             assert isinstance(tab, QWidget)
 
 

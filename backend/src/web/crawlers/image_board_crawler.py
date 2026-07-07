@@ -34,6 +34,8 @@ class ImageBoardCrawler(QObject):
         Calls the C++ implementation via base.run_board_crawler.
         """
         crawler_name = self.__class__.__name__.replace("Crawler", "").lower()
+        selection_mode = self.config.get("selection_mode", "Download All (Default)")
+        self.on_status.emit(f"Crawl starting with selection mode: {selection_mode}")
         config_json = json.dumps(self.config)
 
         try:

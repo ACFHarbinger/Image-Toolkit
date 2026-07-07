@@ -32,8 +32,35 @@ from .crawlers.reverse_image_search_crawler import (
 from .crawlers.reverse_image_search_crawler import (
     ReverseSearchEngine as ReverseSearchEngine,
 )
+from .crawlers.reverse_image_search_crawler import (
+    resolve_search_image as resolve_search_image,
+)
 from .crawlers.sankaku_crawler import SankakuCrawler as SankakuCrawler
+from .meta_search_dispatcher import (
+    ConsensusResult as ConsensusResult,
+)
+from .meta_search_dispatcher import (
+    MetaSearchDispatcher as MetaSearchDispatcher,
+)
 from .models import ReverseSearchResult as ReverseSearchResult
+from .search_engines import (
+    BingVisualSearchStrategy as BingVisualSearchStrategy,
+)
+from .search_engines import (
+    IqdbStrategy as IqdbStrategy,
+)
+from .search_engines import (
+    SauceNaoStrategy as SauceNaoStrategy,
+)
+from .search_engines import (
+    YandexSearchStrategy as YandexSearchStrategy,
+)
+from .search_url_builder import (
+    DomainScope as DomainScope,
+)
+from .search_url_builder import (
+    SearchOperatorBuilder as SearchOperatorBuilder,
+)
 
 __all__ = [
     "ImageCrawler",
@@ -51,6 +78,15 @@ __all__ = [
     "ENGINE_TINEYE",
     "ENGINE_LOCAL_CBIR",
     "ReverseSearchResult",
+    "resolve_search_image",
+    "MetaSearchDispatcher",
+    "ConsensusResult",
+    "BingVisualSearchStrategy",
+    "YandexSearchStrategy",
+    "SauceNaoStrategy",
+    "IqdbStrategy",
+    "SearchOperatorBuilder",
+    "DomainScope",
     "DropboxDriveSync",
     "GoogleDriveSync",
     "OneDriveSync",

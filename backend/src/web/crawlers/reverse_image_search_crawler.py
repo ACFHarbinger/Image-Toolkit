@@ -20,7 +20,7 @@ instantiate strategy objects directly.
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import base  # Native C++ extension  # noqa: E402
 from PySide6.QtCore import QObject, Signal
@@ -33,8 +33,43 @@ log = logging.getLogger(__name__)
 ENGINE_GOOGLE = "google"
 ENGINE_TINEYE = "tineye"
 ENGINE_LOCAL_CBIR = "local_cbir"
+ENGINE_BING = "bing"
+ENGINE_YANDEX = "yandex"
+ENGINE_SAUCENAO = "saucenao"
+ENGINE_IQDB = "iqdb"
 
-SUPPORTED_ENGINES = (ENGINE_GOOGLE, ENGINE_TINEYE, ENGINE_LOCAL_CBIR)
+SUPPORTED_ENGINES = (
+    ENGINE_GOOGLE, ENGINE_TINEYE, ENGINE_LOCAL_CBIR,
+    ENGINE_BING, ENGINE_YANDEX, ENGINE_SAUCENAO, ENGINE_IQDB,
+)
+
+
+def resolve_search_image(
+    image_path: str,
+    roi: Optional[Tuple[int, int, int, int]] = None,
+) -> str:
+    """Return the path to feed into a search strategy.
+
+    If ``roi`` (x, y, width, height in source-image pixels) is given, crops
+    ``image_path`` via the C++ core (``base.roi.crop_roi``) and returns the
+    crop's temp path. Falls back to the original image if the ROI is
+    empty/invalid or the crop fails — reverse search should never hard-fail
+    because ROI cropping did.
+    """
+    if not roi:
+        return image_path
+    x, y, w, h = roi
+    if w <= 0 or h <= 0:
+        return image_path
+    try:
+        result = base.roi.crop_roi(image_path, int(x), int(y), int(w), int(h))
+    except Exception as exc:
+        log.warning("ROI crop failed (%s); using full image instead.", exc)
+        return image_path
+    if not result.get("ok"):
+        log.warning("ROI crop rejected: %s; using full image.", result.get("error"))
+        return image_path
+    return result["temp_path"]
 
 
 # ── Base interface ────────────────────────────────────────────────────────────
@@ -311,20 +346,21 @@ class ReverseImageSearchManager(QObject):
         self,
         image_path: str,
         engine_type: str = ENGINE_GOOGLE,
+        roi: Optional[Tuple[int, int, int, int]] = None,
         **kwargs,
     ) -> List[dict]:
         """Run a reverse image search and return serialisable result dicts.
 
         Args:
             image_path: Absolute path to the query image.
-            engine_type: One of ``"google"``, ``"tineye"``, ``"local_cbir"``.
-            **kwargs: Forwarded to the selected strategy's ``search()`` method
-                (e.g. ``search_mode``, ``min_width``, ``limit``, ``top_k``).
+            engine_type: One of the values in ``SUPPORTED_ENGINES``.
+            roi: Optional ``(x, y, width, height)`` in source-image pixel space
+                (as emitted by ``ROISelector.qml``); the image is cropped to
+                this region via the C++ core before dispatch.
+            **kwargs: Forwarded to the selected strategy's ``search()`` method.
 
         Returns:
             List of dicts compatible with the GUI's ``Signal(list)`` format.
-            Each dict has ``url``, ``resolution``, ``score``, ``engine``,
-            ``title`` keys.
 
         Raises:
             ValueError: For unrecognised ``engine_type`` values.
@@ -335,11 +371,23 @@ class ReverseImageSearchManager(QObject):
                 f"Choose from {SUPPORTED_ENGINES}."
             )
 
+        search_image_path = resolve_search_image(image_path, roi)
+        if search_image_path != image_path:
+            self.on_status.emit("Using cropped region for search…")
+
         strategy = self._build_strategy(engine_type)
         self._active_strategy = strategy
 
         try:
-            results = strategy.search(image_path, **kwargs)
+            try:
+                results = strategy.search(search_image_path, **kwargs)
+            finally:
+                if search_image_path != image_path:
+                    import os
+                    try:
+                        os.unlink(search_image_path)
+                    except OSError:
+                        pass
         finally:
             self._active_strategy = None
 
@@ -357,6 +405,23 @@ class ReverseImageSearchManager(QObject):
             return ApiSearchStrategy(status_callback=cb)
         if engine_type == ENGINE_LOCAL_CBIR:
             return LocalCBIRStrategy(status_callback=cb)
+        # Extended web engines (SauceNao/IQDB/Bing/Yandex) live in the
+        # search_engines package and share the same interface.
+        from backend.src.web.search_engines import (
+            BingVisualSearchStrategy,
+            IqdbStrategy,
+            SauceNaoStrategy,
+            YandexSearchStrategy,
+        )
+        extended = {
+            ENGINE_BING: BingVisualSearchStrategy,
+            ENGINE_YANDEX: YandexSearchStrategy,
+            ENGINE_SAUCENAO: SauceNaoStrategy,
+            ENGINE_IQDB: IqdbStrategy,
+        }
+        factory = extended.get(engine_type)
+        if factory is not None:
+            return factory(status_callback=cb)
         raise ValueError(f"Unhandled engine_type: {engine_type!r}")  # pragma: no cover
 
 

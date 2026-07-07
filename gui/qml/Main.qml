@@ -128,7 +128,7 @@ ApplicationWindow {
                     }
 
                     Repeater {
-                        model: ["Convert", "Delete", "Merge", "Image Extractor", "Wallpaper", "Listings"]
+                        model: ["Convert", "Similarity", "Merge", "Image Extractor", "Wallpaper", "Listings"]
                         
                         Button {
                             text: modelData
@@ -239,6 +239,32 @@ ApplicationWindow {
                             
                             onClicked: mainStack.currentIndex = tabIndex
                         }
+                    }
+
+                    // Entity Recon lives at the end of the StackLayout (index 19)
+                    // so adding it did not shift the Models/Animation indices.
+                    Button {
+                        property int tabIndex: 19
+                        text: "Entity Recon"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 32
+                        Layout.leftMargin: 5
+                        Layout.rightMargin: 5
+                        font.bold: mainStack.currentIndex === tabIndex
+                        checked: mainStack.currentIndex === tabIndex
+                        checkable: true
+                        background: Rectangle {
+                            color: parent.checked ? Style.accent : (parent.hovered ? Style.border : "transparent")
+                            radius: 4
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: parent.checked ? "#ffffff" : Style.text
+                            font: parent.font
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: mainStack.currentIndex = tabIndex
                     }
 
                     // Section: Models
@@ -364,7 +390,7 @@ ApplicationWindow {
 
             // Core Tabs (0-5)
             ConvertTab {}
-            DeleteTab {}
+            SimilarityTab {}
             MergeTab {}
             ImageExtractorTab {}
             WallpaperTab {}
@@ -390,6 +416,9 @@ ApplicationWindow {
             // Animation Tabs (17-18)
             StitchTab {}
             StitchFeedbackTab {}
+
+            // Web (extended) — index 19
+            EntityReconTab {}
         }
     }
 }

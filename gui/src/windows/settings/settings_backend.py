@@ -60,7 +60,7 @@ class SettingsBackend(QObject):
         # main_backend has explicit tab instances.
         tabs = [
             "ExtractorTab", "ImageCrawlTab", "ReverseImageSearchTab",
-            "DriveSyncTab", "WebRequestsTab", "DeleteTab", "ConvertTab",
+            "DriveSyncTab", "WebRequestsTab", "SimilarityTab", "ConvertTab",
             "WallpaperTab", "ScanMetadataTab", "DatabaseTab", "SearchTab", "MergeTab"
         ]
         return sorted(tabs)
