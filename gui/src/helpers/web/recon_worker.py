@@ -1,8 +1,15 @@
 """Background workers for the Entity Recon tab.
 
 All heavy work (dataset indexing, SAM segmentation, embedding + resolution)
-runs off the UI thread. C++ HNSW and torch forward passes release the GIL, so
-the Qt event loop stays responsive.
+runs off the UI thread. The workers are ``QThread`` *subclasses* that override
+``run()`` — NOT QObjects moved onto a plain QThread. A plain QThread runs the
+default event loop (``exec()``), which on Linux/glib creates a socket-notifier
+event dispatcher in a secondary thread; with the JPype JVM loaded in-process
+that collides fatally ("QSocketNotifier: ... from another thread" → SIGSEGV).
+Overriding ``run()`` guarantees no event loop is started in the worker thread.
+
+C++ HNSW and torch forward passes release the GIL; progress/results flow to
+the GUI thread through queued Qt signals.
 """
 
 import logging
@@ -10,12 +17,12 @@ from typing import List
 
 import numpy as np
 from backend.src.web.recon import DatasetIndexer, ReconConfig, ReconEngine
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QThread, Signal
 
 logger = logging.getLogger(__name__)
 
 
-class IndexBuildWorker(QObject):
+class IndexBuildWorker(QThread):
     """Builds the local identity HNSW index from a dataset root."""
 
     finished = Signal(object, dict)   # DatasetIndexer, stats
@@ -27,12 +34,9 @@ class IndexBuildWorker(QObject):
         super().__init__()
         self.config = config
 
-    @staticmethod
-    def _cancelled() -> bool:
-        t = QThread.currentThread()
-        return bool(t and t.isInterruptionRequested())
+    def _cancelled(self) -> bool:
+        return self.isInterruptionRequested()
 
-    @Slot()
     def run(self):
         try:
             indexer = DatasetIndexer(
@@ -48,7 +52,7 @@ class IndexBuildWorker(QObject):
             self.error.emit(str(e))
 
 
-class ResolveWorker(QObject):
+class ResolveWorker(QThread):
     """Segments (optional), embeds and resolves a subject cutout."""
 
     finished = Signal(object)   # IdentityResolution
@@ -61,7 +65,6 @@ class ResolveWorker(QObject):
         self.cutout_rgb = cutout_rgb
         self.cutout_png = cutout_png
 
-    @Slot()
     def run(self):
         try:
             self.status.emit("Resolving identity...")
@@ -72,7 +75,7 @@ class ResolveWorker(QObject):
             self.error.emit(str(e))
 
 
-class BatchSuggestWorker(QObject):
+class BatchSuggestWorker(QThread):
     """Runs identity resolution over a dropped batch of images."""
 
     finished = Signal(list)     # list[dict]
@@ -84,7 +87,6 @@ class BatchSuggestWorker(QObject):
         self.engine = engine
         self.paths = paths
 
-    @Slot()
     def run(self):
         try:
             self.status.emit(f"Analyzing {len(self.paths)} images...")

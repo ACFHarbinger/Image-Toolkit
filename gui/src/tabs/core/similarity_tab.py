@@ -44,7 +44,6 @@ from PySide6.QtCore import (
     QByteArray,
     QPoint,
     Qt,
-    QThread,
     Signal,
     Slot,
 )
@@ -193,7 +192,6 @@ class SimilarityTab(AbstractClassTwoGalleries):
         self._ref_set: set = set()
         self._cluster_model = ClusterListModel(self)
         self._scan_running = False
-        self._sim_thread: Optional[QThread] = None
         self._sim_worker: Optional[SimilarityScanWorker] = None
         self._diff_dir = os.path.join(tempfile.gettempdir(), "image-toolkit-diffs")
         os.makedirs(self._diff_dir, exist_ok=True)
@@ -211,24 +209,52 @@ class SimilarityTab(AbstractClassTwoGalleries):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
 
-        # --- 1. Target Group ---
-        target_group = QGroupBox("Similarity Target")
-        target_layout = QFormLayout(target_group)
-        v_target_group = QVBoxLayout()
+        # --- 1. Directories Group (Source [required] + Target [optional]) ---
+        # Mapping to the engine (kept stable so the inherited delete/list logic
+        # keeps working): ``self.target_path`` is the SOURCE — the primary,
+        # obligatory directory that is listed, scanned and whose duplicates get
+        # selected/deleted (engine.target_dir). ``self.reference_path`` is the
+        # optional TARGET — a second corpus to compare against; its files are
+        # protected keepers (engine.reference_dir). If the Target is empty the
+        # search runs within the Source directory alone.
+        from gui.src.windows.settings.app_settings import AppSettings
 
+        target_group = QGroupBox("Directories")
+        target_layout = QFormLayout(target_group)
+
+        # Source (required): the directory of images to search / de-duplicate.
         browse_layout = QHBoxLayout()
         self.target_path = QLineEdit()
-        self.target_path.setPlaceholderText("Path to scan for duplicates / delete...")
-        self.target_path.returnPressed.connect(self.start_duplicate_scan)
+        self.target_path.setPlaceholderText("Source directory to search (required)...")
+        self.target_path.returnPressed.connect(self.browse_and_populate)
         browse_layout.addWidget(self.target_path)
-
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_directory)
         apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         browse_layout.addWidget(btn_browse_scan)
+        target_layout.addRow("Source path (required):", browse_layout)
 
-        v_target_group.addLayout(browse_layout)
-        target_layout.addRow("Target path:", v_target_group)
+        # Target (optional): a second directory to compare the Source against.
+        # Its files are protected keepers in cross-directory de-duplication.
+        ref_layout = QHBoxLayout()
+        self.reference_path = QLineEdit()
+        self.reference_path.setPlaceholderText(
+            "Optional — compare Source against another directory (leave empty to "
+            "search within Source)...")
+        ref_layout.addWidget(self.reference_path)
+        btn_browse_ref = QPushButton("Browse...")
+        btn_browse_ref.clicked.connect(self.browse_reference_directory)
+        apply_shadow_effect(btn_browse_ref, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        ref_layout.addWidget(btn_browse_ref)
+        btn_clear_ref = QPushButton("Clear")
+        btn_clear_ref.clicked.connect(self._clear_reference_widget)
+        ref_layout.addWidget(btn_clear_ref)
+        target_layout.addRow("Target path (optional):", ref_layout)
+
+        # Recurse into subdirectories of both Source and Target.
+        self.recursive_check = QCheckBox("Include subdirectories (recursive)")
+        self.recursive_check.setChecked(AppSettings.recursive_scan())
+        target_layout.addRow("", self.recursive_check)
         content_layout.addWidget(target_group)
 
         # --- 2. Options Group ---
@@ -248,6 +274,28 @@ class SimilarityTab(AbstractClassTwoGalleries):
             ]
         )
         settings_layout.addRow("Scan Method:", self.scan_method_combo)
+
+        scan_btn_row = QHBoxLayout()
+        # Single button: runs the scan when idle, cancels it while running.
+        self._scan_label = "🔍 Scan for Similar Images"
+        self._cancel_label = "✖ Cancel Scan"
+        self.btn_scan = QPushButton(self._scan_label)
+        self.btn_scan.setStyleSheet(
+            "QPushButton { background-color: #5865f2; color: white; font-weight: bold; "
+            "padding: 10px; border-radius: 8px; } QPushButton:hover { background-color: #4752c4; }")
+        apply_shadow_effect(self.btn_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_scan.clicked.connect(self.on_scan_button_clicked)
+        scan_btn_row.addWidget(self.btn_scan)
+        # Reset/Clear: re-display the whole Source directory after a scan filters
+        # the gallery down to just the similar images.
+        self.btn_reset = QPushButton("🔄 Reset / Show All")
+        self.btn_reset.setStyleSheet(
+            "QPushButton { background-color: #4f545c; color: white; font-weight: bold; "
+            "padding: 10px; border-radius: 8px; } QPushButton:hover { background-color: #5d6269; }")
+        apply_shadow_effect(self.btn_reset, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_reset.clicked.connect(self.reset_gallery)
+        scan_btn_row.addWidget(self.btn_reset)
+        settings_layout.addRow(scan_btn_row)
         content_layout.addWidget(settings_group)
 
         # --- 3. Galleries ---
@@ -389,12 +437,12 @@ class SimilarityTab(AbstractClassTwoGalleries):
         self.clear_galleries()
 
     # ==================================================================
-    # QML properties (similarity)
+    # Similarity state accessors
     # ==================================================================
-
-    @Property(QAbstractListModel, constant=True)
-    def clusterModel(self):
-        return self._cluster_model
+    # NOTE: ``_cluster_model`` (a ClusterListModel) is kept for internal cluster
+    # bookkeeping/auto-select. It is intentionally NOT exposed as a Qt Property:
+    # this is a native widget tab, and a ``QAbstractListModel*`` property type
+    # is not registerable on a plain QObject meta-object (it only warned).
 
     def _get_scan_running(self) -> bool:
         return self._scan_running
@@ -493,15 +541,44 @@ class SimilarityTab(AbstractClassTwoGalleries):
     # Legacy single-method scanning (widget combo box)
     # ==================================================================
 
+    def on_scan_button_clicked(self):
+        """The scan button doubles as a cancel button: cancel a running scan,
+        otherwise start a new one."""
+        if self._scan_running:
+            self.cancel_similarity_scan()
+        else:
+            self.start_duplicate_scan()
+
+    def reset_gallery(self):
+        """Clear any similarity clustering and re-display every image in the
+        Source directory (the full listing) in the thumbnail gallery."""
+        target_dir = self.target_path.text().strip()
+        if not target_dir or not os.path.isdir(target_dir):
+            QMessageBox.warning(self, "Invalid Source",
+                "Select a valid Source directory to display.")
+            return
+        self._report = None
+        self._ref_set = set()
+        self._cluster_model.set_clusters([])
+        self.clusters_changed.emit()
+        self._deselect_paths(list(self.selected_files))
+        self.on_selection_changed()
+        self._list_all_files(target_dir, self._current_extensions())
+
     def start_duplicate_scan(self):
         """Widget-mode scan dispatched from the combo box. The default option
         runs the full tiered similarity engine; the others map to single
         detection tiers for a quick, focused scan."""
         target_dir = self.target_path.text().strip()
         if not target_dir or not os.path.isdir(target_dir):
-            QMessageBox.warning(self, "Invalid Path",
-                "Please select a valid directory in the 'Target path' field to scan.")
+            QMessageBox.warning(self, "Invalid Source",
+                "Please select a valid Source directory to search.")
             return
+
+        # Pick up the optional Target directory to compare the Source against.
+        ref_dir = self.reference_path.text().strip()
+        self._sim_config.reference_dir = ref_dir if os.path.isdir(ref_dir) else None
+        self._sim_config.recursive = self.recursive_check.isChecked()
 
         extensions = self._current_extensions()
         method_text = self.scan_method_combo.currentText()
@@ -534,11 +611,11 @@ class SimilarityTab(AbstractClassTwoGalleries):
 
     def _list_all_files(self, target_dir: str, extensions: list):
         from backend.src.core import SimilarityFinder
-        from gui.src.windows.settings.app_settings import AppSettings
 
         exts = extensions or list(SUPPORTED_IMG_FORMATS)
+        recursive = self.recursive_check.isChecked() if hasattr(self, "recursive_check") else False
         images = SimilarityFinder.get_images_list(
-            target_dir, exts, recursive=AppSettings.recursive_scan()
+            target_dir, exts, recursive=recursive
         )
         self.duplicate_results = {str(i): [p] for i, p in enumerate(images)}
         self._cluster_model.set_clusters([])
@@ -569,22 +646,16 @@ class SimilarityTab(AbstractClassTwoGalleries):
         self.status_label.setText("Starting similarity scan...")
         self.scan_status_changed.emit("Starting similarity scan...")
 
-        self._sim_thread = QThread()
+        # SimilarityScanWorker is a QThread subclass (overrides run(), no event
+        # loop) — the plain-QThread + moveToThread pattern spins a glib event
+        # dispatcher in the worker thread which SIGSEGVs under the live JVM.
         self._sim_worker = SimilarityScanWorker(self._sim_config)
-        self._sim_worker.moveToThread(self._sim_thread)
-        self._sim_thread.started.connect(self._sim_worker.run)
         self._sim_worker.status.connect(self._on_sim_status)
         self._sim_worker.progress.connect(self.scan_progress)
         self._sim_worker.finished.connect(self._on_sim_scan_finished)
         self._sim_worker.error.connect(self._on_sim_scan_error)
         self._sim_worker.cancelled.connect(self._on_sim_scan_cancelled)
-        for terminal in (self._sim_worker.finished, self._sim_worker.error,
-                         self._sim_worker.cancelled):
-            terminal.connect(self._sim_thread.quit)
-        self._sim_thread.finished.connect(self._sim_worker.deleteLater)
-        self._sim_thread.finished.connect(self._on_sim_thread_finished)
-        self._sim_thread.finished.connect(self._sim_thread.deleteLater)
-        self._sim_thread.start()
+        self._sim_worker.start()
 
     @Slot(str, str)
     def start_duplicate_scan_qml(self, target_dir, method="Exact Match"):
@@ -599,14 +670,18 @@ class SimilarityTab(AbstractClassTwoGalleries):
 
     @Slot()
     def cancel_similarity_scan(self):
-        if self._sim_thread and self._sim_thread.isRunning():
-            self._sim_thread.requestInterruption()
+        if self._sim_worker and self._sim_worker.isRunning():
+            self._sim_worker.requestInterruption()
             self.scan_status_changed.emit("Cancelling scan...")
 
     def _set_running(self, running: bool):
         if self._scan_running != running:
             self._scan_running = running
             self.scan_running_changed.emit(running)
+        if hasattr(self, "btn_scan"):
+            # The scan button doubles as the cancel button while a scan runs.
+            self.btn_scan.setText(self._cancel_label if running else self._scan_label)
+            self.btn_reset.setEnabled(not running)
         if not running:
             self.scan_progress_bar.hide()
 
@@ -615,10 +690,15 @@ class SimilarityTab(AbstractClassTwoGalleries):
         self.status_label.setText(message)
         self.scan_status_changed.emit(message)
 
-    @Slot()
-    def _on_sim_thread_finished(self):
-        self._sim_thread = None
+    def _finalize_scan(self):
+        """Common teardown for every terminal outcome (done/error/cancelled).
+        The worker (a QThread) lives in the main thread's affinity, so it is safe
+        to wait() and deleteLater() it from here."""
+        worker = self._sim_worker
         self._sim_worker = None
+        if worker is not None:
+            worker.wait(5000)
+            worker.deleteLater()
         self._set_running(False)
 
     @Slot(object)
@@ -639,16 +719,19 @@ class SimilarityTab(AbstractClassTwoGalleries):
         self.scan_status_changed.emit(msg)
         self.duplicate_results = {c["id"]: c["paths"] for c in report.clusters}
         flattened = [p for c in report.clusters for p in c["paths"]]
+        self._finalize_scan()
         if flattened:
             self.start_loading_thumbnails(sorted(flattened, key=natural_sort_key))
 
     @Slot(str)
     def _on_sim_scan_error(self, message: str):
+        self._finalize_scan()
         self.status_label.setText(f"Scan failed: {message}")
         self.scan_status_changed.emit(f"Scan failed: {message}")
 
     @Slot()
     def _on_sim_scan_cancelled(self):
+        self._finalize_scan()
         self.status_label.setText("Scan cancelled.")
         self.scan_status_changed.emit("Scan cancelled.")
 
@@ -706,7 +789,9 @@ class SimilarityTab(AbstractClassTwoGalleries):
     @Slot(str, result=str)
     def browse_reference_qml(self, current_path=""):
         starting = current_path if os.path.isdir(current_path) else ""
-        d = QFileDialog.getExistingDirectory(self, "Select Reference Directory", starting)
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Reference Directory", starting,
+            QFileDialog.Option.DontUseNativeDialog)
         if d:
             self._sim_config.reference_dir = d
             self.reference_dir_changed.emit(d)
@@ -1088,16 +1173,45 @@ class SimilarityTab(AbstractClassTwoGalleries):
     # ==================================================================
 
     def browse_directory(self):
-        d = QFileDialog.getExistingDirectory(self, "Select Directory", self.last_browsed_dir)
+        start = getattr(self, "last_browsed_dir", "") or ""
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Source Directory", start,
+            QFileDialog.Option.DontUseNativeDialog)
         if d:
             self.target_path.setText(d)
             self.last_browsed_dir = d
-            self.start_duplicate_scan()
+            self.browse_and_populate()
+
+    def browse_and_populate(self):
+        """Browsing just lists the directory into the gallery (fast, main-thread).
+        The heavy tiered similarity scan is a separate, explicit action so simply
+        picking a folder never launches background compute."""
+        target_dir = self.target_path.text().strip()
+        if not target_dir or not os.path.isdir(target_dir):
+            return
+        self._list_all_files(target_dir, self._current_extensions())
+
+    def browse_reference_directory(self):
+        start = self.reference_path.text() if os.path.isdir(self.reference_path.text()) else ""
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Source / Reference Directory", start,
+            QFileDialog.Option.DontUseNativeDialog)
+        if d:
+            self.reference_path.setText(d)
+            self._sim_config.reference_dir = d
+            self.reference_dir_changed.emit(d)
+
+    def _clear_reference_widget(self):
+        self.reference_path.clear()
+        self._sim_config.reference_dir = None
+        self.reference_dir_changed.emit("")
 
     @Slot(str)
     def browse_target_qml(self, current_path=""):
         starting_dir = current_path if os.path.isdir(current_path) else ""
-        d = QFileDialog.getExistingDirectory(self, "Select Directory to Scan", starting_dir)
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Directory to Scan", starting_dir,
+            QFileDialog.Option.DontUseNativeDialog)
         if d:
             self.target_path.setText(d)
             self.qml_input_path_changed.emit(d)
@@ -1144,6 +1258,8 @@ class SimilarityTab(AbstractClassTwoGalleries):
         send_to_trash_enabled = self._prefs().get("send_to_trash", True)
         return {
             "target_path": self.target_path.text().strip(),
+            "reference_path": self.reference_path.text().strip(),
+            "recursive": self.recursive_check.isChecked(),
             "mode": mode,
             "target_extensions": [e.strip().lstrip(".") for e in exts if e.strip()],
             "scan_method": self.scan_method_combo.currentText(),
@@ -1163,6 +1279,8 @@ class SimilarityTab(AbstractClassTwoGalleries):
         extensions = SUPPORTED_IMG_FORMATS if self.dropdown else "jpg png"
         return {
             "target_path": "",
+            "reference_path": "",
+            "recursive": False,
             "scan_method": "Similarity Engine (tiered clusters)",
             "target_extensions": extensions,
             "require_confirm": True,
@@ -1173,6 +1291,10 @@ class SimilarityTab(AbstractClassTwoGalleries):
     def set_config(self, config: dict):
         try:
             self.target_path.setText(config.get("target_path", ""))
+            ref_path = config.get("reference_path", "")
+            self.reference_path.setText(ref_path)
+            self._sim_config.reference_dir = ref_path if os.path.isdir(ref_path) else None
+            self.recursive_check.setChecked(bool(config.get("recursive", False)))
             scan_method = config.get("scan_method", "Similarity Engine (tiered clusters)")
             index = self.scan_method_combo.findText(scan_method)
             if index != -1:
@@ -1205,11 +1327,10 @@ class SimilarityTab(AbstractClassTwoGalleries):
     # ==================================================================
 
     def cancel_loading(self):
-        thread = getattr(self, "_sim_thread", None)
-        if thread and thread.isRunning():
-            thread.requestInterruption()
-            thread.quit()
-            thread.wait(2000)
+        worker = getattr(self, "_sim_worker", None)
+        if worker and worker.isRunning():
+            worker.requestInterruption()
+            worker.wait(5000)
         with contextlib.suppress(Exception):
             super().cancel_loading()
         if self.worker:
