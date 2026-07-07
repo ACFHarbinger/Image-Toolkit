@@ -43,7 +43,7 @@ from ....constants import (
     STITCH_THUMB_W,
 )
 from ....styles import apply_shadow_effect
-from ....utils.splitter_persistence import persist_splitter
+from ....windows.settings.splitter_persistence import persist_splitter
 
 
 def _load_thumb(path: str, w: int = STITCH_THUMB_W, h: int = STITCH_THUMB_H) -> QPixmap:

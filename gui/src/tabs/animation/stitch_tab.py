@@ -138,7 +138,7 @@ from ...helpers.animation import (
 )
 from ...helpers.animation.adjust_worker import _apply_adjustments
 from ...styles import apply_shadow_effect
-from ...utils.splitter_persistence import persist_splitter
+from ...windows.settings.splitter_persistence import persist_splitter
 from .dialog import (
     CanvasInspectorDialog,
     CanvasLayoutInspectorDialog,

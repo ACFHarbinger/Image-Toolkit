@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from gui.src.utils.file_dialog_patch import CustomFileDialog, FileDialogEventFilter
+from gui.src.windows.settings.file_dialog_patch import CustomFileDialog, FileDialogEventFilter
 from gui.src.windows.settings.app_settings import AppSettings
 from PySide6.QtCore import QPoint
 from PySide6.QtGui import QContextMenuEvent, QStandardItem, QStandardItemModel
@@ -88,7 +88,7 @@ class TestFileDialogPatch:
         )
 
         # Patch QMenu class to be MyMenu
-        with patch("gui.src.utils.file_dialog_patch.QMenu", MyMenu), \
+        with patch("gui.src.windows.settings.file_dialog_patch.QMenu", MyMenu), \
              patch.object(QMessageBox, "information") as mock_info:
 
             res = event_filter.eventFilter(mock_view, event)

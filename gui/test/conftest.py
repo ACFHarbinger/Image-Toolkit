@@ -43,7 +43,7 @@ project_root = Path(__file__).resolve().parent.parent.parent
 # to resolve 'gui' as a package within Image-Toolkit/.
 sys.path.insert(0, str(project_root))
 
-from gui.src.utils.file_dialog_patch import apply_patch  # noqa: E402
+from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
 
 apply_patch()
 

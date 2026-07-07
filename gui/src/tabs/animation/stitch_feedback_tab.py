@@ -63,7 +63,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...helpers.animation.annotation_canvas import AnnotationCanvas
-from ...utils.splitter_persistence import persist_splitter
+from ...windows.settings.splitter_persistence import persist_splitter
 
 # ---------------------------------------------------------------------------
 # Background workers

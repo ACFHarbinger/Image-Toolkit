@@ -1,7 +1,7 @@
 """§2.20A — QSplitter state persistence via QSettings."""
 from __future__ import annotations
 
-from gui.src.windows.settings.app_settings import AppSettings
+from .app_settings import AppSettings
 from PySide6.QtWidgets import QSplitter
 
 
