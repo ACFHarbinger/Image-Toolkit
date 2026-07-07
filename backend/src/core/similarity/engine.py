@@ -143,15 +143,13 @@ class SimilarityEngine:
             self._progress("Hashing", 0, len(stale))
             # Hash in chunks so progress + cancellation stay responsive.
             chunk = 256
-            new_records = []
             for i in range(0, len(stale), chunk):
                 self._check_cancel()
                 part = base.similarity.compute_hashes(
                     stale[i : i + chunk], hash_size=cfg.hash_size, with_exact=True
                 )
-                new_records.extend(part)
+                self.cache.upsert_hashes(part, cfg.hash_size)
                 self._progress("Hashing", min(i + chunk, len(stale)), len(stale))
-            self.cache.upsert_hashes(new_records, cfg.hash_size)
             fresh, _still_stale = self.cache.partition_stale(files, cfg.hash_size)
 
         # In-memory hash table (only files that hashed successfully)
