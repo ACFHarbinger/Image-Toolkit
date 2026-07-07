@@ -21,6 +21,9 @@ try:
         import base as _batch_photo
     except ImportError:
         from backend.src.animation import base as _batch_photo
+
+    if getattr(_batch_photo, "__file__", None) is None:
+        raise ImportError("base is a namespace package, not the compiled extension")
     _BATCH_PHOTO = hasattr(_batch_photo, "exposure") and hasattr(
         _batch_photo.exposure, "correct_vignetting"
     )

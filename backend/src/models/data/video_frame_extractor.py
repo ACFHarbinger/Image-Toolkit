@@ -43,6 +43,8 @@ except ImportError:
 
 try:
     import base as cpp_base  # C++ extension
+    if getattr(cpp_base, "__file__", None) is None:
+        raise ImportError("base is a namespace package, not the compiled extension")
     _CPP_OK = True
 except ImportError:
     _CPP_OK = False

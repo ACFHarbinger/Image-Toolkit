@@ -329,7 +329,7 @@ static py::array_t<int32_t> seam_cut(
     py::object           sem_cost           = py::none(),  // float32 (H,W) or None
     py::object           waypoints          = py::none(),  // list[int] or None
     float                transition_penalty = 0.0f,
-    float                edge_weight        = 1.0f)
+    float                edge_weight        = 15.0f)
 {
     cv::Mat fa = as_mat(fa_zone);
     cv::Mat fb = as_mat(fb_zone);
@@ -478,7 +478,7 @@ static py::list graphcut_seam_find(
 // ---------------------------------------------------------------------------
 static py::list seam_batch(
     py::list zone_pairs,         // list of dicts with "fa","fb","cost"
-    float    edge_weight         = 1.0f,
+    float    edge_weight         = 15.0f,
     float    transition_penalty  = 0.0f)
 {
     size_t N = zone_pairs.size();
@@ -539,7 +539,7 @@ void register_seam(py::module_& m) {
         py::arg("sem_cost")           = py::none(),
         py::arg("waypoints")          = py::none(),
         py::arg("transition_penalty") = 0.0f,
-        py::arg("edge_weight")        = 1.0f,
+        py::arg("edge_weight")        = 15.0f,
         R"doc(
             Column-wise DP seam cutter.
 
@@ -595,7 +595,7 @@ void register_seam(py::module_& m) {
 
     m.def("seam_batch", &seam_batch,
         py::arg("zone_pairs"),
-        py::arg("edge_weight")        = 1.0f,
+        py::arg("edge_weight")        = 15.0f,
         py::arg("transition_penalty") = 0.0f,
         R"doc(
             Compute N-1 seam paths in parallel via OpenMP (GIL released).

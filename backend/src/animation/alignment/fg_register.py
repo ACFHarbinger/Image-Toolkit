@@ -86,7 +86,13 @@ except ImportError:
     RegularGridInterpolator = None
 
 try:
-    import base as _batch_fgreg
+    try:
+        import base as _batch_fgreg
+    except ImportError:
+        from backend.src.animation import base as _batch_fgreg
+
+    if getattr(_batch_fgreg, "__file__", None) is None:
+        raise ImportError("base is a namespace package, not the compiled extension")
     _BATCH_FGREG = True
 except ImportError:
     _batch_fgreg = None
