@@ -6,7 +6,7 @@
     Main is the top-level \l ApplicationWindow for Image Toolkit.  It renders a
     collapsible left sidebar organised into five sections — Core, Database, Web,
     Models, and Animation — and a \c StackLayout (\c mainStack) that hosts all
-    19 feature tabs.
+    18 feature tabs.
 
     Auxiliary windows (\l SettingsWindow, \l LogWindow, \l ImagePreviewWindow,
     \l SlideshowWindow) are created on demand via \c Qt.createComponent and
@@ -18,7 +18,7 @@
       \li 6–8   Database tabs (Database, Search, ScanMetadata)
       \li 9–12  Web tabs (ImageCrawl, DriveSync, WebRequests, ReverseSearch)
       \li 13–16 Model tabs (Train, Generate, R3GANEvaluate, MetaClipInference)
-      \li 17–18 Animation tabs (Stitch, StitchFeedback)
+      \li 17    Animation tab (Stitch)
     \endlist
 */
 import QtQuick 2.15
@@ -244,7 +244,7 @@ ApplicationWindow {
                     // Entity Recon lives at the end of the StackLayout (index 19)
                     // so adding it did not shift the Models/Animation indices.
                     Button {
-                        property int tabIndex: 19
+                        property int tabIndex: 18
                         text: "Entity Recon"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 32
@@ -321,7 +321,7 @@ ApplicationWindow {
                     }
 
                     Repeater {
-                        model: ["Stitch", "Stitch Feedback"]
+                        model: ["Stitch"]
 
                         Button {
                             property int tabIndex: 17 + index
@@ -413,11 +413,10 @@ ApplicationWindow {
             R3GANEvaluateTab {}
             MetaClipInferenceTab {}
 
-            // Animation Tabs (17-18)
+            // Animation Tab (17)
             StitchTab {}
-            StitchFeedbackTab {}
 
-            // Web (extended) — index 19
+            // Web (extended) — index 18
             EntityReconTab {}
         }
     }

@@ -113,11 +113,6 @@ _PERIPH_BORDER_FRAC = 0.24
 # Default OFF — enable with ASP_OTSU_BG_CORR=1 or in asp_config.toml.
 _OTSU_BG_CORR: bool = os.environ.get("ASP_OTSU_BG_CORR", "0") != "0"
 
-# §3.5B — CamFlow background-masked phase correlation.
-# ASP_CAMFLOW=bg_masked: use bg_masked_phase_correlate (cam_flow.py) on BiRefNet masks.
-# Decouples camera displacement from character animation without frame-timing changes.
-_CAMFLOW: str = os.environ.get("ASP_CAMFLOW", "")
-
 # Animation hold detection — FD-Means preprocessing (§1.11 / §3.4).
 # Default 0.025 corresponds to 2.5% mean absolute difference between
 # consecutive thumbnails.  Within-hold frames typically score 0.003–0.010;
@@ -1316,20 +1311,7 @@ def smart_select_frames(  # noqa: C901
             frame_mads.append(0.0)
             continue
 
-        if (
-            _CAMFLOW == "bg_masked"
-            and _bg_thumb_mask is not None
-            and _bg_thumb_mask.shape == a.shape
-        ):
-            from backend.src.animation.flow.cam_flow import (
-                bg_masked_phase_correlate as _bgpc,
-            )
-
-            _bg_bool = _bg_thumb_mask > 0.5
-            dx_t, dy_t, response = _bgpc(a, b, _bg_bool, _bg_bool)
-            _fg = 1.0 - _bg_thumb_mask
-            frame_mads.append(float(np.sum(np.abs(b - a) * _fg) / max(_fg.sum(), 1.0)))
-        elif _bg_thumb_mask is not None and _bg_thumb_mask.shape == a.shape:
+        if _bg_thumb_mask is not None and _bg_thumb_mask.shape == a.shape:
             _m = _bg_thumb_mask
             (dx_t, dy_t), response = cv2.phaseCorrelate(a * _m, b * _m)
             _fg = 1.0 - _m

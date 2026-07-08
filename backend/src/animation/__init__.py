@@ -2,9 +2,8 @@
 animation — anime panorama stitching package.
 
 Top-level orchestrator :class:`AnimeStitchPipeline` lives in ``pipeline.py`` and
-delegates each stage to a sibling module (utils, matching, photometric,
-masking, ecc, rendering, compositing, canvas, bundle_adjust).  The ``mfsr``
-sub-package adds an optional Multi-Frame Super-Resolution post-processing pass.
+delegates each stage to a sibling module (matching, photometric, masking, ecc,
+rendering, compositing, canvas, bundle_adjust).
 """
 
 # §1.8A: auto-load backend/config/asp_config.toml before any module-level env flags are read.
@@ -17,6 +16,5 @@ except Exception:
     pass
 
 from .core.pipeline import AnimeStitchPipeline
-from .mfsr import de_seam, pso_register, run_mfsr
 
-__all__ = ["AnimeStitchPipeline", "run_mfsr", "pso_register", "de_seam"]
+__all__ = ["AnimeStitchPipeline"]

@@ -1723,43 +1723,6 @@ class StitchTab(QWidget):
 
         right_layout.addWidget(motion_group)
 
-        mfsr_group = QGroupBox("MFSR Super-Resolution")
-        mfsr_layout = QVBoxLayout(mfsr_group)
-        mfsr_form = QFormLayout()
-
-        self._cb_mfsr = QCheckBox("Enable MFSR post-processing")
-        self._cb_mfsr.setChecked(False)
-        self._cb_mfsr.setToolTip(
-            "Run the Multi-Frame Super-Resolution pipeline after stitching.\n"
-            "Significantly slower — best for final exports."
-        )
-        mfsr_layout.addWidget(self._cb_mfsr)
-
-        self._mfsr_dct_iter_spin = QSpinBox()
-        self._mfsr_dct_iter_spin.setRange(1, 100)
-        self._mfsr_dct_iter_spin.setValue(20)
-        self._mfsr_dct_iter_spin.setToolTip("Number of DCT regularisation iterations.")
-        mfsr_form.addRow("DCT iterations:", self._mfsr_dct_iter_spin)
-
-        self._cb_mfsr_prior = QCheckBox("CNN prior injection")
-        self._cb_mfsr_prior.setChecked(True)
-        self._cb_mfsr_prior.setToolTip(
-            "Inject CNN-estimated prior into the DCT solver."
-        )
-
-        self._cb_mfsr_diffusion = QCheckBox("Diffusion inpainting")
-        self._cb_mfsr_diffusion.setChecked(False)
-        self._cb_mfsr_diffusion.setToolTip(
-            "Use diffusion-based inpainting for large missing regions.\n"
-            "Requires additional VRAM; slower."
-        )
-
-        mfsr_form.addRow(self._cb_mfsr_prior)
-        mfsr_form.addRow(self._cb_mfsr_diffusion)
-        mfsr_layout.addLayout(mfsr_form)
-
-        right_layout.addWidget(mfsr_group)
-
         ckpt_group = QGroupBox("StitchNet Checkpoint (Optional)")
         ckpt_layout = QVBoxLayout(ckpt_group)
         self._ckpt_path = QLineEdit()
@@ -2961,10 +2924,6 @@ class StitchTab(QWidget):
             "stitch_net_ckpt": self._ckpt_path.text().strip(),
             "motion_model": self._motion_model_combo.currentData(),
             "edge_crop": self._edge_crop_spin.value(),
-            "mfsr_mode": self._cb_mfsr.isChecked(),
-            "mfsr_n_dct_iter": self._mfsr_dct_iter_spin.value(),
-            "mfsr_use_prior": self._cb_mfsr_prior.isChecked(),
-            "mfsr_use_diffusion": self._cb_mfsr_diffusion.isChecked(),
             "save_intermediate": self._cb_save_intermediate.isChecked(),
         }
 
@@ -3530,10 +3489,6 @@ class StitchTab(QWidget):
             "laplacian_bands": 5,
             "motion_model": "translation",
             "edge_crop": 30,
-            "mfsr_mode": False,
-            "mfsr_n_dct_iter": 20,
-            "mfsr_use_prior": True,
-            "mfsr_use_diffusion": False,
         }
 
         self._graph_worker = GraphStitchWorker(plan, cfg)
@@ -4041,10 +3996,6 @@ class StitchTab(QWidget):
             "conf_threshold": self._conf_thresh_spin.value(),
             "motion_model": self._motion_model_combo.currentData(),
             "edge_crop": self._edge_crop_spin.value(),
-            "mfsr_mode": self._cb_mfsr.isChecked(),
-            "mfsr_n_dct_iter": self._mfsr_dct_iter_spin.value(),
-            "mfsr_use_prior": self._cb_mfsr_prior.isChecked(),
-            "mfsr_use_diffusion": self._cb_mfsr_diffusion.isChecked(),
             "save_intermediate": self._cb_save_intermediate.isChecked(),
             # Adjust
             "adj_brightness": self._adj_brightness.value(),
@@ -4105,14 +4056,6 @@ class StitchTab(QWidget):
                 self._motion_model_combo.setCurrentIndex(idx)
         if "edge_crop" in cfg:
             self._edge_crop_spin.setValue(cfg["edge_crop"])
-        if "mfsr_mode" in cfg:
-            self._cb_mfsr.setChecked(cfg["mfsr_mode"])
-        if "mfsr_n_dct_iter" in cfg:
-            self._mfsr_dct_iter_spin.setValue(cfg["mfsr_n_dct_iter"])
-        if "mfsr_use_prior" in cfg:
-            self._cb_mfsr_prior.setChecked(cfg["mfsr_use_prior"])
-        if "mfsr_use_diffusion" in cfg:
-            self._cb_mfsr_diffusion.setChecked(cfg["mfsr_use_diffusion"])
         if "save_intermediate" in cfg:
             self._cb_save_intermediate.setChecked(cfg["save_intermediate"])
         if "frame_paths" in cfg:
