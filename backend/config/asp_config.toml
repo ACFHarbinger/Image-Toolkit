@@ -10,6 +10,6 @@
 # change is an improvement.
 
 [compositing]
-# §4.2: GraphCut global multi-image seam (default ON; set 0 to fall back to
-# pairwise DP seams for A/B comparison).
-ASP_GRAPHCUT_SEAM = 1
+# §4.2 GraphCut global seam is OFF by default (first measurement 2026-07-09
+# showed it worsens seam_visibility as currently wired); enable here for A/B:
+# ASP_GRAPHCUT_SEAM = 1

@@ -90,7 +90,7 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_GPU_MEDIAN": (int, 0, 1, "GPU temporal median via base (UMat)"),
     "ASP_COV_MIN_MULTI_PCT": (float, 0.0, 1.0, "Min multi-frame canvas coverage before SCANS fallback"),
     # ── Compositing (Stage 11) ───────────────────────────────────────────
-    "ASP_GRAPHCUT_SEAM": (int, 0, 1, "GraphCut global multi-image seam (§4.2)"),
+    "ASP_GRAPHCUT_SEAM": (int, 0, 1, "GraphCut global multi-image seam (§4.2; default OFF — measured worse seam_visibility than DP path)"),
     "ASP_GC_FEATHER_PX": (int, 0, None, "Feather width at GraphCut ownership boundaries"),
     "ASP_BLOCKS_GAIN_COMP": (int, 0, 1, "32×32 blocks BGR gain compensation in blend zones (§4.1)"),
     "ASP_BLOCKS_LUM_COMP": (int, 0, 1, "LAB-L blocks gain compensation in blend zones (§4.4)"),

@@ -75,10 +75,13 @@ def _get_seam_pool() -> "_cf.ThreadPoolExecutor":
 _FG_REGISTER_ENABLED = os.environ.get("ASP_FG_REGISTER", "1") != "0"
 
 # Phase 4 — cv::detail::GraphCutSeamFinder global multi-image seam.
-# Default ON (BATCH_AVAILABLE) — replaces pairwise DP with globally optimal
-# multi-image seam; 97-test benchmark showed seam_visibility 6.1× worse with
-# pairwise DP as the dominant failure mode.  Set ASP_GRAPHCUT_SEAM=0 to disable.
-_GRAPHCUT_SEAM: bool = BATCH_AVAILABLE and os.environ.get("ASP_GRAPHCUT_SEAM", "1") != "0"
+# Default OFF (2026-07-09): the first full measurement of this path (5-test
+# verify, post-trim) showed seam_visibility 20–80 vs the pairwise-DP path's
+# ~26 S160 average — the hard ownership cut + ±8px feather without per-seam
+# blocks gain compensation produces *more* visible seams than the wide-feather
+# DP blend, not fewer.  Re-enable via ASP_GRAPHCUT_SEAM=1 only together with
+# work on GC-boundary photometric correction, and benchmark before defaulting.
+_GRAPHCUT_SEAM: bool = BATCH_AVAILABLE and os.environ.get("ASP_GRAPHCUT_SEAM", "0") != "0"
 
 # §3.33 — Feather width (px) at GraphCut ownership boundaries.
 # A narrow linear alpha ramp eliminates the 1-pixel luminance step at GC transitions.
