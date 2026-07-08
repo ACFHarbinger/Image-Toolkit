@@ -1629,16 +1629,39 @@ def _execute_graphcut_composite(
     seam_single_pose: dict,
     seam_meta_out: Optional[dict],
 ) -> np.ndarray:
-    _gc_frames  = [np.ascontiguousarray(warped_norm[i]) for i in range(N)]
-    _gc_masks   = [
-        (warped_norm[i].max(axis=2) > 0).astype(np.uint8) * 255
-        for i in range(N)
+    # Seam-estimation downscale (cv2.Stitcher runs GraphCut at seam_est_resol
+    # ≈ 0.1 MPix; full-resolution min-cut over N frames is O(hours) on tall
+    # canvases).  Find seams on a ≤ _GC_SEAM_EST_MPIX proxy, then upscale the
+    # ownership masks back to canvas size with nearest-neighbour.
+    _GC_SEAM_EST_MPIX = 0.4
+    _scale = min(1.0, (_GC_SEAM_EST_MPIX * 1e6 / max(H * W, 1)) ** 0.5)
+    if _scale < 1.0:
+        _sw, _sh = max(8, int(W * _scale)), max(8, int(H * _scale))
+        _gc_frames = [
+            np.ascontiguousarray(
+                cv2.resize(warped_norm[i], (_sw, _sh), interpolation=cv2.INTER_AREA)
+            )
+            for i in range(N)
+        ]
+    else:
+        _gc_frames = [np.ascontiguousarray(warped_norm[i]) for i in range(N)]
+    _gc_masks = [
+        (f.max(axis=2) > 0).astype(np.uint8) * 255 for f in _gc_frames
     ]
     _gc_corners = [(0, 0)] * N
-    print(f"[Stitch]   §4.2 GraphCut seam (global, {N} frames)...")
+    print(
+        f"[Stitch]   §4.2 GraphCut seam (global, {N} frames, "
+        f"est scale={_scale:.2f})..."
+    )
     _ownership = batch.seam.graphcut_seam_find(
         _gc_frames, _gc_masks, _gc_corners
     )
+    if _scale < 1.0:
+        _ownership = [
+            cv2.resize(o, (W, H), interpolation=cv2.INTER_NEAREST)
+            for o in _ownership
+        ]
+        _gc_frames = [np.ascontiguousarray(warped_norm[i]) for i in range(N)]
     result = canvas.copy()
     for i in range(N):
         own = _ownership[i] > 127
