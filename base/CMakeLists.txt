@@ -57,7 +57,6 @@ endif()
 # ---------------------------------------------------------------------------
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
-    pkg_check_modules(FFTW3 QUIET fftw3)   # for sr_classical.cpp DCT/FFT
 endif()
 find_package(CUDA QUIET)                    # for GPU-accelerated compositing
 find_package(OpenMP REQUIRED)              # for parallel pixel loops
@@ -106,15 +105,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cpp_httplib nlohmann_json)
 
 # ---------------------------------------------------------------------------
-# Optional: OpenCV ximgproc (SLIC for fg_register)
-# ---------------------------------------------------------------------------
-find_package(OpenCV QUIET COMPONENTS ximgproc)
-if(OpenCV_ximgproc_FOUND OR TARGET opencv_ximgproc)
-    add_compile_definitions(HAVE_OPENCV_XIMGPROC=1)
-    message(STATUS "base: OpenCV ximgproc found — SLIC support enabled")
-else()
-    message(STATUS "base: OpenCV ximgproc NOT found — SLIC will use Python fallback")
-endif()
 
 # ---------------------------------------------------------------------------
 # Compiler flags
@@ -142,9 +132,7 @@ pybind11_add_module(base
     src/animation/compositing.cpp
     src/animation/exposure.cpp
     src/animation/frame_selection.cpp
-    src/animation/wave_correct.cpp
     src/animation/fg_register.cpp
-    src/animation/sr_classical.cpp
 
     # Image I/O + filesystem (Phase 2)
     src/image/image_batch.cpp
@@ -214,14 +202,6 @@ target_link_libraries(base PRIVATE
     OpenMP::OpenMP_CXX
 )
 
-if(FFTW3_FOUND)
-    target_include_directories(base PRIVATE ${FFTW3_INCLUDE_DIRS})
-    target_link_libraries(base PRIVATE ${FFTW3_LIBRARIES})
-    target_compile_definitions(base PRIVATE HAVE_FFTW3=1)
-    message(STATUS "base: FFTW3 found — fast DCT/FFT enabled")
-else()
-    message(STATUS "base: FFTW3 NOT found — using cv::dft (BSD) fallback")
-endif()
 
 if(CUDA_FOUND)
     target_compile_definitions(base PRIVATE HAVE_CUDA=1)

@@ -48,9 +48,7 @@ class TestModuleMetadata:
             "compositing",
             "exposure",
             "frame_selection",
-            "wave_correct",
             "fg_register",
-            "sr_classical",
         ]
         for name in expected:
             assert hasattr(batch, name), f"batch.{name} submodule missing"
@@ -99,26 +97,18 @@ SUBMODULE_APIS = {
         "seam_cut",
         "build_seam_cost_map",
         "graphcut_seam_find",
-        "seam_batch",
     ],
     "compositing": [
-        "zone_chroma_align",
-        "zone_lum_norm",
-        "zone_sat_norm",
-        "zone_contrast_eq",
-        "zone_hue_eq",
         "laplacian_blend",
         "single_pose_soft_edge",
         "seam_color_match",
         "normalize_warped_frames",
-        # "find_optimal_boundaries",      # add after next C++ build (Phase 5d)
-        # "blocks_gain_compensate_pair",  # add after next C++ build (Phase 5b)
-        # "blocks_lum_compensate_pair",   # add after next C++ build (Phase 5b)
-        # "multiband_blend",              # add after next C++ build (Phase 4)
+        "find_optimal_boundaries",
+        "blocks_gain_compensate_pair",
+        "blocks_lum_compensate_pair",
     ],
     "exposure": [
         "blocks_gain_compensate",
-        "blocks_channels_compensate",
         "correct_vignetting",
     ],
     "frame_selection": [
@@ -128,20 +118,9 @@ SUBMODULE_APIS = {
         "near_dup_luma_filter",
         "spatial_dedup_frames",
     ],
-    "wave_correct": [
-        "wave_correct_affines",
-    ],
     "fg_register": [
-        "slic_sgm_proxy",
-        "lsd_collinearity",
         "arap_push_regularise",
         "ecc_refine",
-    ],
-    "sr_classical": [
-        "dct_restore",
-        "pso_register",
-        "de_seam",
-        "robust_sr",
     ],
 }
 
@@ -197,22 +176,9 @@ class TestDefaultArguments:
         fb = np.zeros((20, 30, 3), dtype=np.uint8)
         self._call_tolerating_not_impl(batch.seam.seam_cut, fa, fb)
 
-    def test_zone_lum_norm_minimal_args(self):
-        import numpy as np
-
-        fa = np.zeros((20, 30, 3), dtype=np.uint8)
-        fb = np.zeros((20, 30, 3), dtype=np.uint8)
-        self._call_tolerating_not_impl(batch.compositing.zone_lum_norm, fa, fb)
-
     def test_bundle_adjust_affine_minimal_args(self):
         edges = [{"i": 0, "j": 1, "dx": 0.0, "dy": 100.0, "weight": 0.9, "type": "adjacent"}]
         self._call_tolerating_not_impl(batch.bundle_adjust.bundle_adjust_affine, edges, 2)
-
-    def test_wave_correct_affines_minimal_args(self):
-        import numpy as np
-        affines = [np.eye(2, 3, dtype=np.float32),
-                   np.array([[1, 0, 0], [0, 1, 100]], dtype=np.float32)]
-        self._call_tolerating_not_impl(batch.wave_correct.wave_correct_affines, affines)
 
     def test_blocks_gain_compensate_minimal_args(self):
         import numpy as np

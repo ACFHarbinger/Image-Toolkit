@@ -28,9 +28,7 @@ void register_seam(py::module_& m);
 void register_compositing(py::module_& m);
 void register_exposure(py::module_& m);
 void register_frame_selection(py::module_& m);
-void register_wave_correct(py::module_& m);
 void register_fg_register(py::module_& m);
-void register_sr_classical(py::module_& m);
 
 // ---------------------------------------------------------------------------
 // Native base submodules (Phases 2–5, complete)
@@ -85,9 +83,7 @@ PYBIND11_MODULE(base, m) {
         base.compositing     Zone normalisation chain, Laplacian blend, gain
         base.exposure        BlocksGainCompensator, vignetting correction
         base.frame_selection Hold detection, temporal filter, dedup
-        base.wave_correct    Linear drift subtraction
         base.fg_register     ARAP solver, ECC refinement, SLIC-SGM proxy
-        base.sr_classical    DCT restoration, PSO registration, de-seam
 
         Native base submodules (Phase 2–5)
         ------------------------------------
@@ -128,12 +124,8 @@ PYBIND11_MODULE(base, m) {
         "BlocksGainCompensator, ChannelsCompensator, vignetting correction.");
     auto m_fsel      = m.def_submodule("frame_selection",
         "Hold detection (MAD + dHash), temporal variance, near-dup, spatial dedup.");
-    auto m_wave      = m.def_submodule("wave_correct",
-        "Linear drift subtraction via least-squares polyfit.");
     auto m_fgreg     = m.def_submodule("fg_register",
-        "SLIC-SGM proxy, LSD collinearity, ARAP sparse solver, ECC refinement.");
-    auto m_sr        = m.def_submodule("sr_classical",
-        "DCT restoration, PSO sub-pixel registration, de-seam, Overmix L1 SR.");
+        "ARAP Push+Regularise sparse solver, ECC refinement.");
 
     // ------------------------------------------------------------------
     // Native base submodules
@@ -174,9 +166,7 @@ PYBIND11_MODULE(base, m) {
     register_compositing(m_comp);
     register_exposure(m_exp);
     register_frame_selection(m_fsel);
-    register_wave_correct(m_wave);
     register_fg_register(m_fgreg);
-    register_sr_classical(m_sr);
 
     register_image(m_images);
     register_video(m_video);
