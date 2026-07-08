@@ -39,9 +39,7 @@ from backend.src.animation.hitl.hitl_session import (
     save_session as _save_session_impl,
 )
 from backend.src.animation.ingestion.video_ingestion import ingest_video
-from backend.src.animation.mfsr import run_mfsr
 from backend.src.animation.rendering.compositing import _compute_initial_boundaries
-from backend.src.animation.rlhf.feedback_store import FeedbackStore, StitchAnnotation
 from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 from PIL import Image as _Image
 from PySide6.QtCore import QMutex, QObject, QWaitCondition, Signal
@@ -60,7 +58,7 @@ _STAGE_LABELS = [
     "ECC sub-pixel refinement",  # 7
     "Building canvas",  # 8
     "Temporal render",  # 9
-    "MFSR super-resolution",  # 10
+    "Post-processing",  # 10
     "Compositing foreground",  # 11
     "Boundary crop",  # 12
     "Saving output",  # 13
@@ -81,7 +79,6 @@ def _build_pipeline_kwargs(cfg: dict) -> dict:
         stitch_net_ckpt=cfg.get("stitch_net_ckpt", ""),
         edge_crop=cfg.get("edge_crop", 30),
         motion_model=cfg.get("motion_model", "translation"),
-        mfsr_mode=cfg.get("mfsr_mode", False),
     )
 
 
@@ -98,9 +95,6 @@ class _ProgressPipeline(AnimeStitchPipeline):
         log_cb,
         manual_affines: Optional[Dict] = None,
         cancel_flag: Optional[list] = None,
-        mfsr_n_dct_iter: int = 20,
-        mfsr_use_prior: bool = True,
-        mfsr_use_diffusion: bool = False,
         save_intermediate: bool = False,
         intermediate_dir: str = "",
         pause_cb: Optional[Callable] = None,
@@ -115,9 +109,6 @@ class _ProgressPipeline(AnimeStitchPipeline):
         self._log_cb = log_cb
         self._manual_affines = manual_affines or {}
         self._cancel_flag = cancel_flag or [False]
-        self._mfsr_n_dct_iter = mfsr_n_dct_iter
-        self._mfsr_use_prior = mfsr_use_prior
-        self._mfsr_use_diffusion = mfsr_use_diffusion
         self._save_intermediate = save_intermediate
         self._intermediate_dir = intermediate_dir
         self._pause_cb: Callable = pause_cb or (lambda event, data: {})
@@ -602,25 +593,8 @@ class _ProgressPipeline(AnimeStitchPipeline):
 
         _emit(10)
         self._check_cancel()
-        if self.mfsr_mode:
-            try:
-                canvas = run_mfsr(
-                    frames,
-                    affines,
-                    canvas_h,
-                    canvas_w,
-                    quality=75,
-                    use_prior=self._mfsr_use_prior,
-                    use_diffusion_inpaint=self._mfsr_use_diffusion,
-                    n_dct_iter=self._mfsr_n_dct_iter,
-                )
-                valid_mask = (canvas.max(axis=2) > 0).astype(np.uint8) * 255
-                self._log_cb("[Stitch] MFSR refinement complete.")
-            except Exception as exc:
-                self._log_cb(f"[Stitch] MFSR failed ({exc}); keeping median canvas.")
-        else:
-            self._log_cb("[Stitch] Stage 10 skipped (mfsr_mode=False).")
-        _save_canvas(10, "mfsr", canvas)
+        self._log_cb("[Stitch] Stage 10 pass-through (MFSR removed in ASP trim).")
+        _save_canvas(10, "render", canvas)
 
         _emit(11)
         self._check_cancel()
@@ -810,23 +784,6 @@ class _ProgressPipeline(AnimeStitchPipeline):
             },
         )
         del _out_prev
-        _fb = _ov5.get("output_feedback")
-        if _fb is not None:
-            try:
-                _store = FeedbackStore()
-                _anns = [StitchAnnotation(**a) for a in _fb.get("annotations", [])]
-                _store.add_from_image(
-                    image_path=output_path,
-                    overall_rating=float(_fb.get("overall_rating", 5.0)),
-                    annotations=_anns,
-                    pipeline_config=self._pipeline_config,
-                )
-                self._log_cb(
-                    f"[HITL] RLHF feedback saved (rating={_fb.get('overall_rating', 5.0):.1f}/10, "
-                    f"{len(_anns)} annotation(s))."
-                )
-            except Exception as _fb_exc:
-                self._log_cb(f"[HITL] Could not save RLHF feedback: {_fb_exc}")
 
         _trace["success"] = True
         _write_trace()
@@ -1153,9 +1110,6 @@ class StitchWorker(QObject):
                 log_cb=_log_cb,
                 manual_affines=self._manual_affines,
                 cancel_flag=self._cancel_flag,
-                mfsr_n_dct_iter=cfg.get("mfsr_n_dct_iter", 20),
-                mfsr_use_prior=cfg.get("mfsr_use_prior", True),
-                mfsr_use_diffusion=cfg.get("mfsr_use_diffusion", False),
                 save_intermediate=self._save_intermediate,
                 intermediate_dir=self._intermediate_dir,
                 pause_cb=self._make_hitl_pause_cb(),
