@@ -4,6 +4,51 @@
 
 ---
 
+## S200 — 2026-07-08 (ASP great trim — pipeline reduced to its benchmarked core)
+
+**Tests**: animation suite 632 passing, 14 skipped (was 2,230 collected; ~1,550 ritual/dead-feature tests removed)
+
+Driven by `reports/ASP_Critical_Evaluation_2026-07-08.md`: two months (~200 sessions) of
+feature/gate accretion produced no measured corpus-level improvement, and most shipped
+work was default-OFF or never benchmarked. This session removes everything not on the
+verified core path so future changes can be measured one at a time.
+
+- **Docs**: all six `.agent/cache/` ASP analyses archived to `archive/agent/cache/`;
+  `moon/roadmaps/asp.md` (3,596 lines) and its `docs/roadmaps/` mirror deleted;
+  critical evaluation report added to `reports/`.
+- **Python** (`backend/src/animation/`, 30,640 → ~12,700 lines): deleted `mfsr/`,
+  `rlhf/`, HITL presets/grounding/MLLM scorer/param search, AnimeInterp + CamFlow flow
+  engines, ToonCrafter `anim_fill`, SRStitcher, Real-ESRGAN wrapper, ProPainter
+  `bg_complete`, `hybrid_export`, and a stray 9.7 MB vendored eigen3 tree.
+  `compositing.py` 6,939 → 2,184; `pipeline.py` 6,536 → 2,227 (all ~40 default-ON
+  §5.x CV gates and ~30 default-OFF §1.x gates removed); `canvas.py` 2,209 → 419
+  (55 §5.x strip/seam statistic helpers); `config.py` schema 490 → 43 keys;
+  `constants/animation.py` 673 → 125 lines. ASP env-flag surface: 387 → 43.
+  Kept core path: smart selection + hold detection, BiRefNet/SAM-2 masking, LoFTR→
+  ALIKED→TM→PC matching cascade, GNC-TLS BA, affine validation, dy_cv gate (§4.7),
+  SEA-RAFT/ECC refinement, A5 fg-excluded median, Stage 8.5 ARAP fg registration with
+  fixed 22-lum single-pose escalation (A6), GraphCut global seam (§4.2) + GC feather
+  (§3.33) + pairwise-DP fallback, blocks/global gain compensation (§4.1/§4.4/§4.10),
+  render CompositeGate (SC/SB), coverage gate, TELEA border fill.
+- **GUI**: RLHF `StitchFeedbackTab` removed (QML index 18; `EntityReconTab` 19→18);
+  MFSR settings group and MFSR/RLHF stitch-worker hooks removed. All HITL checkpoints,
+  seam diagnostics (waypoints / force-single-pose), session persistence and video
+  ingestion preserved.
+- **Benchmark** (`bench_anime_stitch.py`, 5,603 → ~3,400 lines): 40-gate §5.x
+  comparative cascade, RLHF/MLLM/SI-FID hooks removed; kept CompositeGate, GhostGate
+  (ghosting_siqe), SeamVisGate (§4.8). Metric set reduced to the validated core;
+  §3.32 taxonomy fix completed — the double-Sobel proxy is emitted only as
+  `edge_energy_score`, verdicts/issues/summary use `ghosting_siqe`.
+- **C++** (`base/src/animation/`, 5,753 → 4,189 lines, 11 → 9 files):
+  `wave_correct.cpp` and `sr_classical.cpp` deleted (bindings, FFTW probe removed);
+  `seam_batch`, five `zone_*` kernels, `multiband_blend`, `slic_sgm_proxy`,
+  `lsd_collinearity` export, `blocks_channels_compensate` removed; ximgproc/SLIC
+  CMake probe dropped. Rebuilt via `just build-base`.
+- **Config**: `backend/config/asp_config.toml` reset to benchmarked defaults (it had
+  been silently enabling unverified S62–S75 flags via `os.environ.setdefault`).
+
+---
+
 ## S199 — 2026-07-07 (Reverse-image-search overhaul — real scrapers, ROI, meta-crawl)
 
 **Tests**: +25 (`backend/test/reverse_search/`)

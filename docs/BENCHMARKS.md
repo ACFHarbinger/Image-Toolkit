@@ -325,13 +325,13 @@ the Python ML pipeline and Recommendation Engine. Catch2 benchmarks live in
 ## Anime Stitch Pipeline Benchmark
 
 The anime stitch benchmark runs both the **Anime Stitch Pipeline (ASP)** and the
-**OpenCV SCANS Simple Stitch** on every `data/asp_testX/` dataset, computes CV
+**OpenCV SCANS Simple Stitch** on every `dump/asp_testX/` dataset, computes CV
 metrics for each output, saves intermediate visualisations, and generates a
 structured Markdown report for human review and LLM-assisted iteration.
 
 ### ASP Benchmark Corpus
 
-**Corpus size**: 97 test datasets (`data/asp_test1/` – `data/asp_test97/`).
+**Corpus size**: 97 test datasets (`dump/asp_test01/` – `dump/asp_test97/`).
 Each contains 4–20 source frames captured from scroll-through anime content.
 The safe test runner (no GPU, uses pre-computed fixtures) is:
 
@@ -354,8 +354,8 @@ pytest backend/test/animation/ --skip-gpu -q
 |---|---|---|---|---|
 | `sharpness` (Laplacian var) | > 120 | > 80 | — | higher better |
 | `coverage` | > 0.90 | > 0.85 | < 0.70 = failure | higher better |
-| `ghosting_score` (proxy gate) | < 15 | < 10 | GhostGate at `max(40, 2× sim_ghost)` | lower better |
-| `ghosting_siqe` (FFT autocorr) | < 20 | — | flag > 30 | lower better |
+| `edge_energy_score` (sharpness proxy; NOT ghosting) | — | — | diagnostic only | — |
+| `ghosting_siqe` (FFT autocorr, true ghost metric) | < 20 | — | GhostGate at `max(40, 2× sim)`; flag > 30 | lower better |
 | `seam_visibility` | < 12 | — | flag > 25 | lower better |
 | `aligned_ssim` vs GT | > 0.75 | > 0.65 | < 0.70 = regression | higher better |
 | SCANS fallback rate | 4/96 tests | — | target ≤ 5 | lower better |
@@ -384,7 +384,7 @@ back to CPU otherwise.
 
 ```bash
 # From the repository root, with the venv active:
-python backend/benchmark/bench_anime_stitch.py
+python -m backend.benchmark.bench_anime_stitch   # or: just asp-benchmark
 ```
 
 The script processes every `data/asp_test*` directory in natural sort order.
@@ -672,7 +672,7 @@ with the workspace root set to `data/output/`, or use the absolute path override
 
 ```bash
 # Re-generate with absolute paths (edit generate_report() if needed)
-REPORT_ABS_PATHS=1 python backend/benchmark/bench_anime_stitch.py
+REPORT_ABS_PATHS=1 python -m backend.benchmark.bench_anime_stitch   # or: just asp-benchmark
 ```
 
 ## Registering a New Benchmark with CI
