@@ -2094,9 +2094,13 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         except ValueError:
             _SEAM_VIS_RATIO_LIMIT = 3.0
         try:
-            _SEAM_VIS_ABS_FLOOR = float(os.environ.get("ASP_GATE_SEAM_VIS_FLOOR", "20.0"))
+            # Floor calibrated 2026-07-09: the gate's motivating failures
+            # (test74=92.6, test34=62.8, test12=38.2) all exceed 35, while the
+            # S160 corpus ASP average (25.8) must not auto-fallback — a floor
+            # of 20 silently replaced most ASP output with SCANS.
+            _SEAM_VIS_ABS_FLOOR = float(os.environ.get("ASP_GATE_SEAM_VIS_FLOOR", "35.0"))
         except ValueError:
-            _SEAM_VIS_ABS_FLOOR = 20.0
+            _SEAM_VIS_ABS_FLOOR = 35.0
         if simple_ok and _SEAM_VIS_RATIO_LIMIT < 90:
             _simple_img_sv = cv2.imread(central_simple_path)
             if _simple_img_sv is not None:
