@@ -82,7 +82,7 @@ class TestValidateAspConfig:
             "ASP_HOLD_THRESHOLD": 0.03,
             "ASP_COV_MIN_MULTI_PCT": 0.30,
             "ASP_SP_SOFT_PX": 6,
-            "ASP_POISSON_SEAM": 0,
+            "ASP_HOLD_AVERAGE": 0,
         }
         assert validate_asp_config(config) == []
 
@@ -106,7 +106,7 @@ class TestValidateAspConfig:
         """strict=True must raise ValueError listing all violations."""
         config = {
             "ASP_HOLD_THRESHOLD": -0.1,  # below minimum 0.0
-            "ASP_POISSON_SEAM": 2,  # exceeds maximum 1
+            "ASP_HOLD_AVERAGE": 2,  # exceeds maximum 1
         }
         with pytest.raises(
             (ValueError, ConfigError), match="ASP config validation failed"
@@ -133,34 +133,34 @@ class TestDumpAspConfig:
 
     def test_creates_file(self, tmp_path, monkeypatch):
         out = tmp_path / "out.toml"
-        monkeypatch.setenv("ASP_SEAM_LUM_EQ", "1")
+        monkeypatch.setenv("ASP_GRAPHCUT_SEAM", "1")
         result = dump_asp_config(str(out))
         assert out.exists()
         assert result == str(out.resolve())
 
     def test_set_env_var_appears_in_output(self, tmp_path, monkeypatch):
         out = tmp_path / "dump.toml"
-        monkeypatch.setenv("ASP_FG_POSE_GAP_THRESH", "35.0")
+        monkeypatch.setenv("ASP_FG_MAX_RESIDUAL", "35.0")
         dump_asp_config(str(out))
         content = out.read_text()
-        assert "ASP_FG_POSE_GAP_THRESH" in content
+        assert "ASP_FG_MAX_RESIDUAL" in content
         assert "35.0" in content
 
     def test_unset_env_var_not_in_output_by_default(self, tmp_path, monkeypatch):
         out = tmp_path / "dump.toml"
-        monkeypatch.delenv("ASP_POISSON_SEAM", raising=False)
+        monkeypatch.delenv("ASP_HOLD_AVERAGE", raising=False)
         dump_asp_config(str(out))
         content = out.read_text()
-        assert "ASP_POISSON_SEAM" not in content
+        assert "ASP_HOLD_AVERAGE" not in content
 
     def test_include_defaults_includes_all_schema_keys(self, tmp_path, monkeypatch):
         out = tmp_path / "full.toml"
-        for k in ["ASP_SEAM_LUM_EQ", "ASP_FG_POSE_GAP_THRESH"]:
+        for k in ["ASP_GRAPHCUT_SEAM", "ASP_FG_MAX_RESIDUAL"]:
             monkeypatch.delenv(k, raising=False)
         dump_asp_config(str(out), include_defaults=True)
         content = out.read_text()
-        assert "ASP_SEAM_LUM_EQ" in content
-        assert "ASP_FG_POSE_GAP_THRESH" in content
+        assert "ASP_GRAPHCUT_SEAM" in content
+        assert "ASP_FG_MAX_RESIDUAL" in content
 
     def test_output_is_valid_toml(self, tmp_path, monkeypatch):
         """The dumped file must be parseable by tomllib."""
@@ -208,11 +208,11 @@ class TestDumpAspConfigSchemaComments:
     def test_type_annotation_precedes_key_line(self, tmp_path, monkeypatch):
         """The type comment must appear on the line immediately before the key = value line."""
         out = tmp_path / "order.toml"
-        monkeypatch.setenv("ASP_CANVAS_SPREAD_MIN", "0.5")
+        monkeypatch.setenv("ASP_DY_CV_MAX", "0.5")
         dump_asp_config(str(out))
         lines = out.read_text().splitlines()
         for idx, line in enumerate(lines):
-            if line.startswith("ASP_CANVAS_SPREAD_MIN"):
+            if line.startswith("ASP_DY_CV_MAX"):
                 # Previous non-empty lines should include the type annotation
                 prev_lines = [line for line in lines[:idx] if line.strip()]
                 assert any("type:" in line for line in prev_lines[-3:]), (
