@@ -10,9 +10,8 @@
 //
 // New algorithms (Phase 4):
 //   cv::detail::GraphCutSeamFinder — global multi-image seam
-//   OpenMP seam_batch              — parallel N-1 seams
 //
-// Implementation roadmap: Phase 2 (seam DP + cost map) + Phase 4 (GraphCut + seam_batch).
+// Implementation roadmap: Phase 2 (seam DP + cost map) + Phase 4 (GraphCut).
 // See moon/roadmaps/asp_cpp_migration.md §base::seam
 // ---------------------------------------------------------------------------
 
@@ -298,15 +297,6 @@ cv::Mat build_seam_cost_map_impl(const cv::Mat& fa_zone, const cv::Mat& bg_mask_
     return cost;
 }
 
-std::vector<std::vector<int>> seam_batch_impl(const std::vector<base::ZonePair>& pairs, float transition_penalty, float edge_weight) {
-    std::vector<std::vector<int>> results(pairs.size());
-    #pragma omp parallel for
-    for (size_t i = 0; i < pairs.size(); i++) {
-        results[i] = seam_cut_impl(pairs[i].fa, pairs[i].fb, pairs[i].cost, {}, transition_penalty, edge_weight);
-    }
-    return results;
-}
-
 // ---------------------------------------------------------------------------
 // seam_cut
 //
@@ -466,63 +456,12 @@ static py::list graphcut_seam_find(
     }
     return result;
 }
-
-// ---------------------------------------------------------------------------
-// seam_batch
-//
-// Compute N-1 seams in parallel via OpenMP.
-// Each ZonePair provides (fa, fb, cost) for one adjacent pair.
-// GIL is released during the OpenMP parallel region.
-//
-// Returns list[ndarray int32 (W,)] — one seam path per pair.
-// ---------------------------------------------------------------------------
-static py::list seam_batch(
-    py::list zone_pairs,         // list of dicts with "fa","fb","cost"
-    float    edge_weight         = 15.0f,
-    float    transition_penalty  = 0.0f)
-{
-    size_t N = zone_pairs.size();
-    if (N == 0) return py::list();
-
-    std::vector<base::ZonePair> pairs;
-    pairs.reserve(N);
-
-    for (auto item : zone_pairs) {
-        auto d = item.cast<py::dict>();
-        base::ZonePair zp;
-        zp.fa   = as_mat(d["fa"].cast<py::array_t<uint8_t>>());
-        zp.fb   = as_mat(d["fb"].cast<py::array_t<uint8_t>>());
-        if (d.contains("cost") && !d["cost"].is_none()) {
-            auto cost_arr = d["cost"].cast<py::array_t<float>>();
-            auto req = cost_arr.request();
-            zp.cost = cv::Mat(req.shape[0], req.shape[1], CV_32F, req.ptr).clone();
-        }
-        pairs.push_back(std::move(zp));
-    }
-
-    std::vector<std::vector<int>> results;
-    {
-        py::gil_scoped_release release;
-        results = seam_batch_impl(pairs, transition_penalty, edge_weight);
-    }
-
-    py::list ret;
-    for (auto& path : results) {
-        std::vector<ssize_t> sh = {static_cast<ssize_t>(path.size())};
-        std::vector<ssize_t> st = {static_cast<ssize_t>(sizeof(int32_t))};
-        py::array_t<int32_t> arr(sh, st);
-        std::copy(path.begin(), path.end(), arr.mutable_data());
-        ret.append(arr);
-    }
-    return ret;
-}
-
 // ---------------------------------------------------------------------------
 // register_seam — called from bindings.cpp
 // ---------------------------------------------------------------------------
 void register_seam(py::module_& m) {
     m.doc() = R"doc(
-        batch.seam — Seam DP, cost map, GraphCut seam, parallel batch.
+        batch.seam — Seam DP, cost map, GraphCut seam.
 
         Functions
         ---------
@@ -530,7 +469,6 @@ void register_seam(py::module_& m) {
             -> ndarray[int32, shape=(W,)]
         build_seam_cost_map(fa_zone, bg_mask_a, bg_mask_b, ...) -> ndarray[float32]
         graphcut_seam_find(warped_frames, warped_masks, corners) -> list[ndarray]
-        seam_batch(zone_pairs, edge_weight, transition_penalty) -> list[ndarray]
     )doc";
 
     m.def("seam_cut", &seam_cut,
@@ -593,18 +531,4 @@ void register_seam(py::module_& m) {
             Gate: ASP_GRAPHCUT_SEAM=1 in Python wrapper (Phase 4).
         )doc");
 
-    m.def("seam_batch", &seam_batch,
-        py::arg("zone_pairs"),
-        py::arg("edge_weight")        = 15.0f,
-        py::arg("transition_penalty") = 0.0f,
-        R"doc(
-            Compute N-1 seam paths in parallel via OpenMP (GIL released).
-
-            Args
-            ----
-            zone_pairs : list[dict] each with keys "fa","fb","cost"
-            edge_weight, transition_penalty : forwarded to seam_cut
-
-            Returns list[ndarray int32 (W,)].
-        )doc");
 }

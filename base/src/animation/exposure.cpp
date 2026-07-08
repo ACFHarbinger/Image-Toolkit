@@ -180,54 +180,6 @@ static py::list blocks_gain_compensate(
     return result;
 }
 
-
-// ---------------------------------------------------------------------------
-// blocks_channels_compensate  (§4.4 white-balance correction)
-//
-// Wraps cv::detail::BlocksChannelsCompensator.
-// Three separate per-block gain maps (B, G, R) for white-balance correction.
-// Same interface as blocks_gain_compensate but operates per-channel.
-//
-// Returns list[ndarray uint8 (H,W,C)].
-// ---------------------------------------------------------------------------
-static py::list blocks_channels_compensate(
-    py::list warped_frames,
-    py::list warped_masks,
-    py::list corners,
-    int      bl_width  = 32,
-    int      bl_height = 32)
-{
-    size_t N = warped_frames.size();
-    if (N == 0) return py::list();
-
-    std::vector<cv::UMat> imgs  = list_to_umats_bgr(warped_frames);
-    std::vector<cv::UMat> masks = list_to_umats_mask(warped_masks);
-    std::vector<cv::Point> pts  = list_to_points(corners);
-
-    std::vector<std::pair<cv::UMat, uchar>> mask_pairs(N);
-    for (size_t i = 0; i < N; ++i) {
-        mask_pairs[i] = {masks[i], uchar(255)};
-    }
-
-    cv::detail::BlocksChannelsCompensator compensator(bl_width, bl_height);
-
-    {
-        py::gil_scoped_release release;
-        compensator.feed(pts, imgs, mask_pairs);
-    }
-
-    py::list result;
-    for (size_t i = 0; i < N; ++i) {
-        cv::UMat img_out;
-        imgs[i].copyTo(img_out);
-        compensator.apply(static_cast<int>(i), pts[i], img_out, masks[i]);
-        cv::Mat out = img_out.getMat(cv::ACCESS_READ).clone();
-        result.append(array_from_mat(out));
-    }
-    return result;
-}
-
-
 // ---------------------------------------------------------------------------
 // register_exposure — called from bindings.cpp
 // ---------------------------------------------------------------------------
@@ -239,7 +191,6 @@ void register_exposure(py::module_& m) {
         ---------
         blocks_gain_compensate(frames, masks, corners, bl_w, bl_h, nr_feeds, nr_iters)
             -> list[ndarray]
-        blocks_channels_compensate(frames, masks, corners, bl_w, bl_h) -> list[ndarray]
         correct_vignetting(frame, vignette_map) -> ndarray
     )doc";
 
@@ -266,18 +217,6 @@ void register_exposure(py::module_& m) {
             Returns list[uint8 ndarray].
         )doc");
 
-    m.def("blocks_channels_compensate", &blocks_channels_compensate,
-        py::arg("warped_frames"),
-        py::arg("warped_masks"),
-        py::arg("corners"),
-        py::arg("bl_width")  = 32,
-        py::arg("bl_height") = 32,
-        R"doc(
-            Per-block per-channel (B,G,R) gain for white-balance correction.
-            Wraps cv::detail::BlocksChannelsCompensator (Phase 4, §4.4).
-
-            Returns list[uint8 ndarray].
-        )doc");
 
     m.def("correct_vignetting", &correct_vignetting,
         py::arg("frame"),
@@ -304,16 +243,6 @@ std::vector<cv::Mat> blocks_gain_compensate_impl(
 {
     throw std::runtime_error("blocks_gain_compensate_impl: not implemented");
 }
-
-std::vector<cv::Mat> blocks_channels_compensate_impl(
-    const std::vector<cv::Mat>& /*frames*/,
-    const std::vector<cv::Mat>& /*masks*/,
-    const std::vector<cv::Point>& /*corners*/,
-    int /*bl_width*/, int /*bl_height*/)
-{
-    throw std::runtime_error("blocks_channels_compensate_impl: not implemented");
-}
-
 cv::Mat correct_vignetting_impl(
     const cv::Mat& /*frame*/,
     const cv::Mat& /*vignette_map*/)
