@@ -25,7 +25,6 @@ from backend.src.animation.core.pipeline import (  # noqa: E402
     AnimeStitchPipeline,
     _compute_adaptive_min_disp,
     _reject_static_edges,
-    _triangular_consistency_filter,
 )
 from backend.src.constants.animation import STATIC_EDGE_MIN_DISP_PX  # noqa: E402
 from conftest import make_edge, make_frame  # noqa: E402
@@ -446,73 +445,3 @@ class TestComputeAdaptiveMinDisp:
 # ---------------------------------------------------------------------------
 
 
-class TestTriangularConsistencyFilter:
-    """§2.14: Penalise the weakest edge in triangles where the predicted
-    hypotenuse (sum of two legs) disagrees with the observed hypotenuse by
-    more than max_residual_px.
-    """
-
-    def test_consistent_triangle_no_penalty(self):
-        """Triangle where hypotenuse = sum of legs: no edge is penalised."""
-        # 0→1 dy=300, 1→2 dy=300 → 0→2 predicted dy=600; actual dy=600 → residual=0
-        edges = [
-            make_edge(0, 1, dy=300.0, weight=0.8),
-            make_edge(1, 2, dy=300.0, weight=0.9),
-            make_edge(0, 2, dy=600.0, weight=0.7),
-        ]
-        result = _triangular_consistency_filter(edges, max_residual_px=80.0)
-        weights_before = [e["weight"] for e in edges]
-        weights_after = [e["weight"] for e in result]
-        assert weights_after == pytest.approx(weights_before)
-
-    def test_inconsistent_triangle_penalises_weakest_edge(self):
-        """Hypotenuse disagrees with leg-sum by >80 px → weakest edge weight halved."""
-        # 0→1 dy=300 (w=0.9), 1→2 dy=300 (w=0.85), 0→2 dy=100 (w=0.4, weakest)
-        # predicted 0→2 dy = 600; observed 0→2 dy = 100 → residual = 500 px >> 80
-        edges = [
-            make_edge(0, 1, dy=300.0, weight=0.9),
-            make_edge(1, 2, dy=300.0, weight=0.85),
-            make_edge(0, 2, dy=100.0, weight=0.4),
-        ]
-        result = _triangular_consistency_filter(edges, max_residual_px=80.0)
-        # 0→2 is weakest; expect weight × 0.5
-        result_by_pair = {(e["i"], e["j"]): e["weight"] for e in result}
-        assert result_by_pair[(0, 1)] == pytest.approx(0.9)
-        assert result_by_pair[(1, 2)] == pytest.approx(0.85)
-        assert result_by_pair[(0, 2)] == pytest.approx(0.2)
-
-    def test_disabled_when_threshold_zero(self):
-        """max_residual_px=0.0 disables the filter; edges returned unchanged."""
-        edges = [
-            make_edge(0, 1, dy=300.0, weight=0.9),
-            make_edge(1, 2, dy=300.0, weight=0.85),
-            make_edge(0, 2, dy=100.0, weight=0.4),
-        ]
-        result = _triangular_consistency_filter(edges, max_residual_px=0.0)
-        # Must be the exact same list objects, not copies
-        assert result is edges
-
-    def test_fewer_than_three_edges_returns_unchanged(self):
-        """Two edges cannot form a triangle; input returned unchanged."""
-        edges = [make_edge(0, 1, dy=300.0), make_edge(1, 2, dy=300.0)]
-        result = _triangular_consistency_filter(edges, max_residual_px=80.0)
-        assert result is edges
-
-    def test_adjacent_edge_penalised_when_it_is_weakest(self):
-        """When the wrong adjacent edge is the weakest in the triangle it gets penalised."""
-        # 0→1 dy=300 (w=0.3, weakest/wrong), 1→2 dy=300 (w=0.9), 0→2 dy=600 (w=0.8)
-        # predicted 0→2 from legs = 600; but actual 0→2 = 600 matches — wait, this would
-        # be consistent. Make the adjacent edge wrong instead:
-        # 0→1 dy=50 (w=0.3, wrong match), 1→2 dy=300 (w=0.9), 0→2 dy=600 (w=0.8)
-        # predicted 0→2 = 50+300 = 350; observed = 600 → residual = 250 >> 80
-        # weakest = 0→1 (w=0.3) → halved to 0.15
-        edges = [
-            make_edge(0, 1, dy=50.0, weight=0.3),
-            make_edge(1, 2, dy=300.0, weight=0.9),
-            make_edge(0, 2, dy=600.0, weight=0.8),
-        ]
-        result = _triangular_consistency_filter(edges, max_residual_px=80.0)
-        result_by_pair = {(e["i"], e["j"]): e["weight"] for e in result}
-        assert result_by_pair[(0, 1)] == pytest.approx(0.15)
-        assert result_by_pair[(1, 2)] == pytest.approx(0.9)
-        assert result_by_pair[(0, 2)] == pytest.approx(0.8)

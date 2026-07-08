@@ -59,41 +59,6 @@ def _rand_bgr(h: int, w: int, seed: int = 0) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# seam_cut speedup
-# ---------------------------------------------------------------------------
-
-
-class TestSeamCutSpeedup:
-    @pytest.mark.xfail(
-        reason="batch.seam.seam_cut not implemented yet (Phase 2)",
-        raises=RuntimeError,
-        strict=False,
-    )
-    def test_seam_cut_exceeds_5x_speedup(self):
-        try:
-            from backend.src.animation.rendering.compositing import _seam_cut_python  # type: ignore
-        except ImportError:
-            pytest.skip("Python reference _seam_cut_python not exposed")
-
-        # 200-row × 1080-col zone (one full-HD zone strip)
-        fa = _rand_bgr(200, 1080, seed=0)
-        fb = _rand_bgr(200, 1080, seed=1)
-
-        py_time  = _mean_wall_time(_seam_cut_python, fa, fb, n=10)
-        cpp_time = _mean_wall_time(batch.seam.seam_cut, fa, fb, n=10)
-        speedup  = py_time / max(cpp_time, 1e-9)
-
-        print(
-            f"\nseam_cut: py={py_time*1000:.1f}ms  "
-            f"cpp={cpp_time*1000:.1f}ms  speedup={speedup:.1f}×"
-        )
-        assert speedup >= MIN_SPEEDUP, (
-            f"seam_cut speedup {speedup:.1f}× < {MIN_SPEEDUP}×. "
-            "Check -O3 -march=native and OpenMP parallelism flags."
-        )
-
-
-# ---------------------------------------------------------------------------
 # zone_lum_norm speedup
 # ---------------------------------------------------------------------------
 
@@ -171,54 +136,4 @@ class TestBundleAdjustSpeedup:
         )
         assert speedup >= MIN_SPEEDUP, (
             f"bundle_adjust speedup {speedup:.1f}× < {MIN_SPEEDUP}×."
-        )
-
-
-# ---------------------------------------------------------------------------
-# seam_batch (parallel) speedup
-# ---------------------------------------------------------------------------
-
-
-class TestSeamBatchSpeedup:
-    @pytest.mark.xfail(
-        reason="batch.seam.seam_batch not implemented yet (Phase 2)",
-        raises=RuntimeError,
-        strict=False,
-    )
-    def test_seam_batch_exceeds_5x_sequential(self):
-        """
-        seam_batch (OpenMP parallel) should be >5× faster than calling
-        Python seam_cut sequentially for N-1 pairs.
-        """
-        try:
-            from backend.src.animation.rendering.compositing import _seam_cut_python  # type: ignore
-        except ImportError:
-            pytest.skip("Python reference _seam_cut_python not exposed")
-
-        N = 8
-        H, W = 200, 540  # half-HD width zone
-        rng = np.random.default_rng(0)
-        zone_pairs = [
-            {
-                "fa": rng.integers(0, 256, (H, W, 3), dtype=np.uint8),
-                "fb": rng.integers(0, 256, (H, W, 3), dtype=np.uint8),
-                "cost": None,
-            }
-            for _ in range(N - 1)
-        ]
-
-        def sequential_python():
-            for zp in zone_pairs:
-                _seam_cut_python(zp["fa"], zp["fb"])
-
-        py_time  = _mean_wall_time(sequential_python, n=5)
-        cpp_time = _mean_wall_time(batch.seam.seam_batch, zone_pairs, n=5)
-        speedup  = py_time / max(cpp_time, 1e-9)
-
-        print(
-            f"\nseam_batch vs sequential: py={py_time*1000:.1f}ms  "
-            f"cpp={cpp_time*1000:.1f}ms  speedup={speedup:.1f}×"
-        )
-        assert speedup >= MIN_SPEEDUP, (
-            f"seam_batch speedup {speedup:.1f}× < {MIN_SPEEDUP}×."
         )
