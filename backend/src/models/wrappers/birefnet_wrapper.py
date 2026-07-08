@@ -140,29 +140,40 @@ class BiRefNetWrapper(ModelWrapper):
                 model = BiRefNet(bb_pretrained=False)  # Don't load backbone pretrained
                 model.eval()
 
-                # Download weights from HuggingFace Hub
+                # Load weights: prefer the local HF cache, try safetensors first
+                # (ZhengPeng7/BiRefNet ships model.safetensors, not pytorch_model.bin).
+                def _load_weights(repo_id: str):
+                    cache = os.path.expanduser("~/.cache/huggingface/hub")
+                    last_err: Exception | None = None
+                    for fname in ("model.safetensors", "pytorch_model.bin"):
+                        for local_only in (True, False):
+                            try:
+                                ckpt = hf_hub_download(
+                                    repo_id=repo_id,
+                                    filename=fname,
+                                    cache_dir=cache,
+                                    local_files_only=local_only,
+                                )
+                                logger.info(f"[BiRefNet] Loading weights from {ckpt}…")
+                                if fname.endswith(".safetensors"):
+                                    from safetensors.torch import load_file
+
+                                    return load_file(ckpt)
+                                return torch.load(ckpt, map_location="cpu")
+                            except Exception as e:  # noqa: PERF203
+                                last_err = e
+                    raise last_err  # type: ignore[misc]
+
                 try:
-                    ckpt_path = hf_hub_download(
-                        repo_id=self.model_name,
-                        filename="pytorch_model.bin",
-                        cache_dir=os.path.expanduser("~/.cache/huggingface/hub"),
-                    )
-                    logger.info(f"[BiRefNet] Loading weights from {ckpt_path}…")
-                    state_dict = torch.load(ckpt_path, map_location="cpu")
+                    state_dict = _load_weights(self.model_name)
                     model.load_state_dict(state_dict, strict=True)
                 except Exception as hf_err:
-                    # Fallback to generic BiRefNet if ToonOut is unavailable
                     logger.debug(
                         f"[BiRefNet] Could not load {self.model_name} weights: {hf_err}; "
                         f"falling back to {BIREFNET_MODEL}."
                     )
                     try:
-                        ckpt_path = hf_hub_download(
-                            repo_id=BIREFNET_MODEL,
-                            filename="pytorch_model.bin",
-                            cache_dir=os.path.expanduser("~/.cache/huggingface/hub"),
-                        )
-                        state_dict = torch.load(ckpt_path, map_location="cpu")
+                        state_dict = _load_weights(BIREFNET_MODEL)
                         model.load_state_dict(state_dict, strict=True)
                     except Exception as fallback_err:
                         raise ModelLoadError(
