@@ -2,12 +2,9 @@ from pathlib import Path
 
 from gui.src.components import DoubleClickableLabel
 from gui.src.constants.listings import CARD_SIZE, THUMB_SIZE
-from gui.src.helpers.image import (
-    _CARD_THUMB_CACHE,
-    _ThumbWorker,
-)
-from PySide6.QtCore import Qt, QThreadPool, Signal, Slot
-from PySide6.QtGui import QImage, QPixmap
+from gui.src.helpers.image.card_thumb_worker import _CARD_THUMB_CACHE
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget
 
 
@@ -35,6 +32,7 @@ class BaseCard(QWidget):
         self._apply_thumbnail(image_path)
 
     def _apply_thumbnail(self, path: str) -> None:
+        self.thumb_label.setProperty("_thumb_path", path or "")
         self.thumb_label.set_image_path(path)
         if not path or not Path(path).exists():
             self.thumb_label.setText(self.placeholder)
@@ -54,15 +52,9 @@ class BaseCard(QWidget):
         self.thumb_label.setStyleSheet(
             "background:#23272a;border-radius:6px;border:none;"
         )
-        worker = _ThumbWorker(path, THUMB_SIZE)
-        worker.signals.ready.connect(self._on_thumb_ready)
-        QThreadPool.globalInstance().start(worker)
+        from gui.src.helpers.image.card_thumb_worker import _queue_thumbnail_load
 
-    @Slot(str, QImage)
-    def _on_thumb_ready(self, path: str, img: QImage) -> None:
-        if path == self.thumb_label.image_path:
-            self.thumb_label.setPixmap(QPixmap.fromImage(img))
-            self.thumb_label.setStyleSheet("")
+        _queue_thumbnail_load(path, self.thumb_label, THUMB_SIZE, THUMB_SIZE, THUMB_SIZE)
 
     def mousePressEvent(self, ev):
         if ev.button() == Qt.MouseButton.LeftButton:

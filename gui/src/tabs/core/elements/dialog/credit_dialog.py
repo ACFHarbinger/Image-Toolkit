@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from gui.src.styles import SHARED_BUTTON_STYLE
@@ -20,6 +21,7 @@ class _CreditDialog(BaseSubItemDialog):
     def __init__(self, credit_data: Optional[Dict[str, Any]] = None, parent=None):
         super().__init__("Credit / Work Details", parent)
         self.data = credit_data or {}
+        self._item_id = self.data.get("id") or str(uuid.uuid4())
         self.image_path = self.data.get("image_path", "")
 
         layout = QVBoxLayout(self)
@@ -79,9 +81,13 @@ class _CreditDialog(BaseSubItemDialog):
         btns.addWidget(save_btn)
         layout.addLayout(btns)
 
+    def _listing_image_basename(self, source_path: str) -> Optional[str]:
+        suffix = Path(source_path).suffix.lower() or ".png"
+        return f"cr_{self._item_id}{suffix}"
+
     def get_data(self) -> Dict[str, Any]:
         return {
-            "id": self.data.get("id") or str(uuid.uuid4()),
+            "id": self._item_id,
             "title": self.f_title.text().strip(),
             "role": self.f_role.text().strip(),
             "year": self.f_year.value(),

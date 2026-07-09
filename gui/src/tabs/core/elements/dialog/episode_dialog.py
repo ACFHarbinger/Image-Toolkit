@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 from gui.src.components.dialogs.frame_selection_dialog import FrameSelectionDialog
 from gui.src.constants.listings import LISTING_IMAGES_DIR
+from gui.src.helpers.image.card_thumb_worker import invalidate_thumbnail_cache
 from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.tabs.core.elements.dialog.common.base_sub_item_dialog import BaseSubItemDialog
 from PySide6.QtWidgets import (
@@ -27,6 +28,7 @@ class _EpisodeDialog(BaseSubItemDialog):
     def __init__(self, episode_data: Optional[Dict[str, Any]] = None, parent=None):
         super().__init__("Episode / Chapter Details", parent)
         self.data = episode_data or {}
+        self._item_id = self.data.get("id") or str(uuid.uuid4())
         self.image_path = self.data.get("image_path", "")
 
         layout = QVBoxLayout(self)
@@ -118,6 +120,10 @@ class _EpisodeDialog(BaseSubItemDialog):
         btns.addWidget(save_btn)
         layout.addLayout(btns)
 
+    def _listing_image_basename(self, source_path: str) -> Optional[str]:
+        suffix = Path(source_path).suffix.lower() or ".png"
+        return f"ep_{self._item_id}{suffix}"
+
     def _browse_local_file(self):
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -150,14 +156,14 @@ class _EpisodeDialog(BaseSubItemDialog):
         suffix = p.suffix.lower()
         LISTING_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-        ep_id = self.data.get("id") or str(uuid.uuid4())
-        dest_p = LISTING_IMAGES_DIR / f"ep_{ep_id}.png"
+        dest_p = LISTING_IMAGES_DIR / f"ep_{self._item_id}.png"
 
         # Image formats - shortcut direct copy
         if suffix in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"):
             try:
                 shutil.copy2(file_path, dest_p)
                 self.image_path = str(dest_p.absolute())
+                invalidate_thumbnail_cache(self.image_path)
                 self._update_preview()
                 QMessageBox.information(
                     self, "Success", "Image set as thumbnail successfully!"
@@ -172,6 +178,7 @@ class _EpisodeDialog(BaseSubItemDialog):
             if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_image:
                 if dlg.selected_image.save(str(dest_p.absolute())):
                     self.image_path = str(dest_p.absolute())
+                    invalidate_thumbnail_cache(self.image_path)
                     self._update_preview()
                     QMessageBox.information(
                         self,
@@ -193,7 +200,7 @@ class _EpisodeDialog(BaseSubItemDialog):
     def get_data(self) -> Dict[str, Any]:
         date_obj = self.f_date.date().toPython()
         return {
-            "id": self.data.get("id") or str(uuid.uuid4()),
+            "id": self._item_id,
             "number": self.f_number.value(),
             "title": self.f_title.text().strip(),
             "date_watched": date_obj.isoformat(),  # pyrefly: ignore [missing-attribute]

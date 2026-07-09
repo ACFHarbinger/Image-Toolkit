@@ -4,11 +4,11 @@ from pathlib import Path
 
 from gui.src.components import DoubleClickableLabel
 from gui.src.constants.listings import LISTING_IMAGES_DIR
-from gui.src.helpers.image import (
+from gui.src.helpers.image.card_thumb_worker import (
     _CARD_THUMB_CACHE,
-    _ThumbWorker,
+    invalidate_thumbnail_cache,
 )
-from PySide6.QtCore import Qt, QThreadPool, Slot
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QFileDialog, QWidget
 
@@ -35,6 +35,7 @@ class BaseDetailPanel(QWidget):
             try:
                 shutil.copy2(path, dest_p)
                 self._image_path = str(dest_p.absolute())
+                invalidate_thumbnail_cache(self._image_path)
             except Exception as e:
                 print(f"Failed to copy image: {e}")
                 self._image_path = path
@@ -51,23 +52,26 @@ class BaseDetailPanel(QWidget):
                 "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
             )
             return
-        cache_key = f"preview160:{path}"
-        cached = _CARD_THUMB_CACHE.get(cache_key)
-        if cached is not None:
-            self.img_preview.setPixmap(QPixmap.fromImage(cached))
-            self.img_preview.setStyleSheet(
-                "border:2px solid #4f545c;border-radius:8px;"
-            )
-            return
-        worker = _ThumbWorker(path, 160)
-        worker.signals.ready.connect(self._on_preview_ready)
-        QThreadPool.globalInstance().start(worker)
 
-    @Slot(str, QImage)
-    def _on_preview_ready(self, path: str, img: QImage) -> None:
-        if path == self.img_preview.image_path:
-            _CARD_THUMB_CACHE[f"preview160:{path}"] = img
-            self.img_preview.setPixmap(QPixmap.fromImage(img))
+        px = QPixmap(path)
+        if not px.isNull():
+            scaled = px.scaled(
+                160,
+                160,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self.img_preview.setPixmap(scaled)
             self.img_preview.setStyleSheet(
                 "border:2px solid #4f545c;border-radius:8px;"
             )
+            img = QImage(path)
+            if not img.isNull():
+                thumb = img.scaled(
+                    160,
+                    160,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                _CARD_THUMB_CACHE[path] = thumb
+                _CARD_THUMB_CACHE[f"preview160:{path}"] = thumb

@@ -41,5 +41,8 @@ class LRUImageCache:
         while the cache is modified (e.g. when copying into a new cache)."""
         return list(self._cache.items())
 
+    def pop(self, key: str, default=None):
+        return self._cache.pop(key, default)
+
     def clear(self):
         self._cache.clear()
