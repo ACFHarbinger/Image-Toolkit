@@ -46,6 +46,19 @@ verified core path so future changes can be measured one at a time.
   CMake probe dropped. Rebuilt via `just build-base`.
 - **Config**: `backend/config/asp_config.toml` reset to benchmarked defaults (it had
   been silently enabling unverified S62–S75 flags via `os.environ.setdefault`).
+- **Fixes found by re-running**: BiRefNet had been completely broken since the
+  July-5 vendoring (ruff autofix stripped `eval()`-resolved imports; weights
+  filename mismatch `pytorch_model.bin` vs `model.safetensors`) — the ASP was
+  silently running without foreground masks; §4.2 GraphCut ran its min-cut at
+  full canvas resolution (30+ min/test) — added cv2-style ≤0.4 MPix seam
+  estimation, then **defaulted GraphCut OFF** after its first measurement showed
+  seam_visibility 20–80 vs the DP path's 2–16; SeamVisGate floor recalibrated
+  20 → 35 (at 20 it silently replaced most ASP output with SCANS).
+- **Full 97-test benchmark re-run** (`anime_stitch_20260709_030853.json`,
+  87 s/test, −32%): verdicts 27 asp / 41 comparable / 29 simple (S160:
+  10/41/45); aligned GT-SSIM 0.693 vs 0.718 (gap −0.040 → −0.025);
+  seam_visibility 12.1 vs 3.3 (was 25.8/4.2); 51 true composites + 46 guarded
+  fallbacks. Analysis: `.agent/cache/asp_benchmark_2026-07.md`.
 
 ---
 
