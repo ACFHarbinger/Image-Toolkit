@@ -13,10 +13,8 @@ from gui.src.constants.listings import (
     ENTRY_TYPES,
     LISTING_IMAGES_DIR,
 )
-from gui.src.helpers.image import (
-    _CARD_THUMB_CACHE,
-    _ThumbWorker,
-)
+from gui.src.helpers.image import apply_thumbnail_to_label
+from gui.src.helpers.image.card_thumb_worker import invalidate_thumbnail_cache
 from gui.src.helpers.web.mal_sync_worker import MalSyncWorker
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.common.listings_common import (
@@ -26,8 +24,7 @@ from gui.src.tabs.core.elements.common.listings_common import (
 from gui.src.tabs.core.elements.dialog import _AssociatedEntitiesDialog
 from gui.src.tabs.core.elements.dialog.episode_dialog import _EpisodeDialog
 from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDetailPanel
-from PySide6.QtCore import Qt, QThreadPool, QTimer, Signal, Slot
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -449,6 +446,7 @@ class _DetailPanel(BaseDetailPanel):
             try:
                 shutil.copy2(file_path, dest_p)
                 self._image_path = str(dest_p.absolute())
+                invalidate_thumbnail_cache(self._image_path)
                 self._refresh_image()
                 QMessageBox.information(
                     self, "Success", "Image set as thumbnail successfully!"
@@ -462,6 +460,7 @@ class _DetailPanel(BaseDetailPanel):
             if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_image:
                 if dlg.selected_image.save(str(dest_p.absolute())):
                     self._image_path = str(dest_p.absolute())
+                    invalidate_thumbnail_cache(self._image_path)
                     self._refresh_image()
                     QMessageBox.information(
                         self,
@@ -631,39 +630,17 @@ class _DetailPanel(BaseDetailPanel):
             t_lbl = QLabel()
             t_lbl.setFixedSize(50, 40)
             t_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            t_lbl.setStyleSheet("background:#1a1c1e; border-radius:3px;")
-            if img_path and Path(img_path).exists():
-                cached = _CARD_THUMB_CACHE.get(img_path)
-                if cached is not None:
-                    t_lbl.setPixmap(
-                        QPixmap.fromImage(cached).scaled(
-                            50,
-                            40,
-                            Qt.AspectRatioMode.KeepAspectRatio,
-                            Qt.TransformationMode.SmoothTransformation,
-                        )
-                    )
-                else:
-
-                    def _set_ep_thumb(p: str, img: QImage, lbl=t_lbl) -> None:
-                        if lbl and not lbl.pixmap():
-                            lbl.setPixmap(
-                                QPixmap.fromImage(img).scaled(
-                                    50,
-                                    40,
-                                    Qt.AspectRatioMode.KeepAspectRatio,
-                                    Qt.TransformationMode.SmoothTransformation,
-                                )
-                            )
-
-                    w = _ThumbWorker(img_path, 80)
-                    w.signals.ready.connect(_set_ep_thumb)
-                    QThreadPool.globalInstance().start(w)
-            else:
-                t_lbl.setText("No Img")
-                t_lbl.setStyleSheet(
+            apply_thumbnail_to_label(
+                t_lbl,
+                img_path,
+                50,
+                40,
+                worker_size=80,
+                placeholder_text="No Img",
+                placeholder_style=(
                     "background:#1a1c1e; border-radius:3px; color:#555; font-size:8px;"
-                )
+                ),
+            )
             rl.addWidget(t_lbl)
             info = QLabel(f"<b>#{num}</b> {title}")
             rl.addWidget(info, 1)

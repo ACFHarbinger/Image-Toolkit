@@ -1,10 +1,7 @@
 from pathlib import Path
 
-from gui.src.helpers.image import (
-    _CARD_THUMB_CACHE,
-    _ThumbWorker,
-)
-from PySide6.QtCore import QSize, Qt, QThreadPool
+from gui.src.helpers.image import _CARD_THUMB_CACHE
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
@@ -101,14 +98,14 @@ class _AdvancedSearchDialog(QDialog):
             if cached is not None:
                 item.setIcon(QIcon(QPixmap.fromImage(cached)))
             else:
-
-                def _on_ready(p, img):
-                    if p == path:
-                        item.setIcon(QIcon(QPixmap.fromImage(img)))
-
-                w = _ThumbWorker(path, 40)
-                w.signals.ready.connect(_on_ready)
-                QThreadPool.globalInstance().start(w)
+                px = QPixmap(path).scaled(
+                    40,
+                    40,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                if not px.isNull():
+                    item.setIcon(QIcon(px))
 
         # Include Entities
         inc_ent_box = QVBoxLayout()
