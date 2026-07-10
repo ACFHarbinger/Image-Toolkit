@@ -43,7 +43,7 @@ def apply_migration(db_url, sql_file):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python apply_migration.py <db_url> <sql_file>")
+        print("Usage: python backend/migrations/psycopg_migration.py <db_url> <sql_file>")
         sys.exit(1)
 
     apply_migration(sys.argv[1], sys.argv[2])
