@@ -95,6 +95,76 @@ def test_compute_association_fixes_warns_on_missing_targets():
     assert len(plan.warnings) == 2
 
 
+def test_compute_association_fixes_entity_peer_missing_reverse_link():
+    entities = {
+        "e1": {
+            "id": "e1",
+            "name": "Alice",
+            "associated_content": [],
+            "associated_entities": ["e2"],
+        },
+        "e2": {
+            "id": "e2",
+            "name": "Bob",
+            "associated_content": [],
+            "associated_entities": [],
+        },
+    }
+
+    plan = compute_association_fixes({}, entities)
+
+    assert plan.total_fixes == 1
+    assert plan.entity_to_entity_fixes == [("e2", "e1")]
+    assert entities["e2"]["associated_entities"] == ["e1"]
+    assert entities["e1"]["associated_entities"] == ["e2"]
+
+
+def test_compute_association_fixes_entity_peer_both_directions_at_once():
+    entities = {
+        "e1": {
+            "id": "e1",
+            "name": "Alice",
+            "associated_content": [],
+            "associated_entities": ["e2"],
+        },
+        "e2": {
+            "id": "e2",
+            "name": "Bob",
+            "associated_content": [],
+            "associated_entities": ["e3"],
+        },
+        "e3": {
+            "id": "e3",
+            "name": "Carol",
+            "associated_content": [],
+            "associated_entities": [],
+        },
+    }
+
+    plan = compute_association_fixes({}, entities)
+
+    assert plan.total_fixes == 2
+    assert set(plan.entity_to_entity_fixes) == {("e2", "e1"), ("e3", "e2")}
+    assert entities["e2"]["associated_entities"] == ["e1", "e3"]
+    assert entities["e3"]["associated_entities"] == ["e2"]
+
+
+def test_compute_association_fixes_warns_on_missing_entity_peer():
+    entities = {
+        "e1": {
+            "id": "e1",
+            "name": "Alice",
+            "associated_content": [],
+            "associated_entities": ["missing"],
+        }
+    }
+
+    plan = compute_association_fixes({}, entities)
+
+    assert plan.total_fixes == 0
+    assert len(plan.warnings) == 1
+
+
 def test_compute_association_fixes_noop_when_already_synced():
     contents = {"c1": {"id": "c1", "title": "Show A", "associated_entities": ["e1"]}}
     entities = {"e1": {"id": "e1", "name": "Person A", "associated_content": ["c1"]}}

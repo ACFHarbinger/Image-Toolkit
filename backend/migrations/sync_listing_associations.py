@@ -2,12 +2,12 @@
 """Backfill two-way associations between content and entity listings.
 
 Before the secure-database migration, associations made on only one side of the
-pair (content → entity or entity → content) were not mirrored automatically.
-This script:
+pair (content → entity, entity → content, or entity → entity) were not mirrored
+automatically. This script:
 
 1. Creates a timestamped backup of ``listings_secure.db``.
 2. Scans every content entry's ``associated_entities`` and every entity entry's
-   ``associated_content``.
+   ``associated_content`` and ``associated_entities``.
 3. Adds any missing reverse links so both sides agree.
 4. Writes only rows that actually changed.
 
@@ -72,11 +72,16 @@ class AssociationFixPlan:
     changed_entity_ids: Set[str] = field(default_factory=set)
     content_to_entity_fixes: List[Tuple[str, str]] = field(default_factory=list)
     entity_to_content_fixes: List[Tuple[str, str]] = field(default_factory=list)
+    entity_to_entity_fixes: List[Tuple[str, str]] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
     @property
     def total_fixes(self) -> int:
-        return len(self.content_to_entity_fixes) + len(self.entity_to_content_fixes)
+        return (
+            len(self.content_to_entity_fixes)
+            + len(self.entity_to_content_fixes)
+            + len(self.entity_to_entity_fixes)
+        )
 
 
 def compute_association_fixes(
@@ -92,6 +97,10 @@ def compute_association_fixes(
     }
     entity_content: Dict[str, Set[str]] = {
         eid: set(normalize_id_list(entry.get("associated_content")))
+        for eid, entry in entities.items()
+    }
+    entity_entities: Dict[str, Set[str]] = {
+        eid: set(normalize_id_list(entry.get("associated_entities")))
         for eid, entry in entities.items()
     }
 
@@ -121,11 +130,27 @@ def compute_association_fixes(
                 plan.content_to_entity_fixes.append((cid, eid))
                 plan.changed_content_ids.add(cid)
 
+    for eid, peer_ids in entity_entities.items():
+        for peer_id in peer_ids:
+            if peer_id == eid:
+                continue
+            if peer_id not in entities:
+                plan.warnings.append(
+                    f"Entity '{entities[eid].get('name', eid)}' ({eid}) "
+                    f"references missing entity id '{peer_id}'"
+                )
+                continue
+            if eid not in entity_entities[peer_id]:
+                entity_entities[peer_id].add(eid)
+                plan.entity_to_entity_fixes.append((peer_id, eid))
+                plan.changed_entity_ids.add(peer_id)
+
     for cid in plan.changed_content_ids:
         contents[cid]["associated_entities"] = sorted(content_entities[cid])
 
     for eid in plan.changed_entity_ids:
         entities[eid]["associated_content"] = sorted(entity_content[eid])
+        entities[eid]["associated_entities"] = sorted(entity_entities[eid])
 
     return plan
 
@@ -250,6 +275,12 @@ def print_plan(
         entity_name = entities[eid].get("name", eid)
         title = contents.get(cid, {}).get("title", cid)
         print(f"  + entity '{entity_name}' ({eid}) → content '{title}' ({cid})")
+    for peer_id, eid in plan.entity_to_entity_fixes:
+        peer_name = entities.get(peer_id, {}).get("name", peer_id)
+        entity_name = entities.get(eid, {}).get("name", eid)
+        print(
+            f"  + entity '{peer_name}' ({peer_id}) → entity '{entity_name}' ({eid})"
+        )
 
     if plan.warnings:
         print(f"\nWarnings ({len(plan.warnings)}):")
@@ -297,8 +328,8 @@ def run_migration(
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Backfill missing two-way associations between content listings and "
-            "entity listings in listings_secure.db."
+            "Backfill missing two-way associations between content listings, "
+            "entity listings, and peer entity links in listings_secure.db."
         )
     )
     parser.add_argument(
