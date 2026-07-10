@@ -597,6 +597,7 @@ class EntityListingsSubTab(QWidget):
         self._upsert_entity(entity)
         if self._sync_listings_for_entity(entity):
             self.listings_changed.emit()
+        self._sync_entities_for_entity(entity)
         self._rebuild_gallery()
         self._detail.load_entity(entity)
 
@@ -606,6 +607,7 @@ class EntityListingsSubTab(QWidget):
         self._delete_entity_row(entity_id)
         if self._remove_entity_from_listings(entity_id):
             self.listings_changed.emit()
+        self._remove_entity_from_entities(entity_id)
         self._rebuild_gallery()
         self._detail.clear_for_new()
 
@@ -676,6 +678,75 @@ class EntityListingsSubTab(QWidget):
                 )
         return False
 
+    def _sync_entities_for_entity(self, entity: Dict[str, Any]) -> bool:
+        """Keep peer entities in sync: each associated entity gains this entity's ID
+        in its associated_entities list; removed peers lose it."""
+        entity_id = entity.get("id")
+        if not entity_id:
+            return False
+        new_assoc = set(entity.get("associated_entities", []))
+
+        ctx = self._db_ctx()
+        if not ctx:
+            return False
+        db_path, password, salt = ctx
+        try:
+            rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
+            peers: List[Dict[str, Any]] = []
+            for row in rows:
+                id_, category, title, metadata_json, date_added = row
+                if category == "Entity" and id_ != entity_id:
+                    try:
+                        peer = json.loads(metadata_json)
+                    except Exception:
+                        peer = {}
+                    peer["id"] = id_
+                    peer["name"] = title
+                    peer["date_added"] = date_added
+                    peers.append(peer)
+
+            changed_peers: List[Dict[str, Any]] = []
+            for peer in peers:
+                pid = peer.get("id")
+                if not pid:
+                    continue
+                raw = peer.get("associated_entities", [])
+                current = set(raw) if isinstance(raw, list) else set()
+                if pid in new_assoc and entity_id not in current:
+                    current.add(entity_id)
+                    peer["associated_entities"] = list(current)
+                    changed_peers.append(peer)
+                elif pid not in new_assoc and entity_id in current:
+                    current.discard(entity_id)
+                    peer["associated_entities"] = list(current)
+                    changed_peers.append(peer)
+
+            for peer in changed_peers:
+                base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
+                    db_path,
+                    password,
+                    salt,
+                    peer["id"],
+                    "Entity",
+                    peer.get("name", ""),
+                    json.dumps(dict(peer), ensure_ascii=False),
+                    peer.get("date_added", ""),
+                    [],
+                )
+                idx = next(
+                    (i for i, e in enumerate(self._entities) if e["id"] == peer["id"]),
+                    None,
+                )
+                if idx is not None:
+                    self._entities[idx] = peer
+
+            return bool(changed_peers)
+        except Exception as e:
+            print(
+                f"[EntityListingsSubTab] Failed to sync peer entities in secure DB: {e}"
+            )
+        return False
+
     def _remove_entity_from_listings(self, entity_id: str) -> bool:
         """Remove a deleted entity's ID from all content entries' associated_entities in secure DB."""
         if (
@@ -727,6 +798,62 @@ class EntityListingsSubTab(QWidget):
                 print(
                     f"[EntityListingsSubTab] Failed to clean up listings in secure DB: {e}"
                 )
+        return False
+
+    def _remove_entity_from_entities(self, entity_id: str) -> bool:
+        """Remove a deleted entity's ID from all peer entities' associated_entities."""
+        ctx = self._db_ctx()
+        if not ctx:
+            return False
+        db_path, password, salt = ctx
+        try:
+            rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
+            peers: List[Dict[str, Any]] = []
+            for row in rows:
+                id_, category, title, metadata_json, date_added = row
+                if category == "Entity" and id_ != entity_id:
+                    try:
+                        peer = json.loads(metadata_json)
+                    except Exception:
+                        peer = {}
+                    peer["id"] = id_
+                    peer["name"] = title
+                    peer["date_added"] = date_added
+                    peers.append(peer)
+
+            changed_peers: List[Dict[str, Any]] = []
+            for peer in peers:
+                raw = peer.get("associated_entities", [])
+                current = set(raw) if isinstance(raw, list) else set()
+                if entity_id in current:
+                    current.discard(entity_id)
+                    peer["associated_entities"] = list(current)
+                    changed_peers.append(peer)
+
+            for peer in changed_peers:
+                base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
+                    db_path,
+                    password,
+                    salt,
+                    peer["id"],
+                    "Entity",
+                    peer.get("name", ""),
+                    json.dumps(dict(peer), ensure_ascii=False),
+                    peer.get("date_added", ""),
+                    [],
+                )
+                idx = next(
+                    (i for i, e in enumerate(self._entities) if e["id"] == peer["id"]),
+                    None,
+                )
+                if idx is not None:
+                    self._entities[idx] = peer
+
+            return bool(changed_peers)
+        except Exception as e:
+            print(
+                f"[EntityListingsSubTab] Failed to clean up peer entities in secure DB: {e}"
+            )
         return False
 
     def _on_external_reload(self) -> None:
