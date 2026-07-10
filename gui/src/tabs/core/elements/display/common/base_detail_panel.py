@@ -8,8 +8,9 @@ from gui.src.helpers.image.card_thumb_worker import (
     _CARD_THUMB_CACHE,
     invalidate_thumbnail_cache,
 )
+from gui.src.utils.image_load import IMAGE_FILE_DIALOG_FILTER, load_qimage
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QWidget
 
 
@@ -25,7 +26,7 @@ class BaseDetailPanel(QWidget):
             self,
             "Select Reference Image",
             "",
-            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)",
+            IMAGE_FILE_DIALOG_FILTER,
         )
         if path:
             LISTING_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
@@ -53,9 +54,9 @@ class BaseDetailPanel(QWidget):
             )
             return
 
-        px = QPixmap(path)
-        if not px.isNull():
-            scaled = px.scaled(
+        img = load_qimage(path)
+        if not img.isNull():
+            scaled = QPixmap.fromImage(img).scaled(
                 160,
                 160,
                 Qt.AspectRatioMode.KeepAspectRatio,
@@ -65,13 +66,11 @@ class BaseDetailPanel(QWidget):
             self.img_preview.setStyleSheet(
                 "border:2px solid #4f545c;border-radius:8px;"
             )
-            img = QImage(path)
-            if not img.isNull():
-                thumb = img.scaled(
-                    160,
-                    160,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                _CARD_THUMB_CACHE[path] = thumb
-                _CARD_THUMB_CACHE[f"preview160:{path}"] = thumb
+            thumb = img.scaled(
+                160,
+                160,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            _CARD_THUMB_CACHE[path] = thumb
+            _CARD_THUMB_CACHE[f"preview160:{path}"] = thumb

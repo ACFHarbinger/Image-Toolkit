@@ -6,6 +6,7 @@ from typing import Optional
 from gui.src.components import DoubleClickableLabel
 from gui.src.constants.listings import LISTING_IMAGES_DIR
 from gui.src.helpers.image.card_thumb_worker import invalidate_thumbnail_cache
+from gui.src.utils.image_load import IMAGE_FILE_DIALOG_FILTER, load_qimage
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
@@ -30,7 +31,7 @@ class BaseSubItemDialog(QDialog):
 
     def _browse(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)"
+            self, "Select Image", "", IMAGE_FILE_DIALOG_FILTER
         )
         if not path:
             return
@@ -56,12 +57,16 @@ class BaseSubItemDialog(QDialog):
     def _update_preview(self):
         self.img_preview.set_image_path(self.image_path)
         if self.image_path and Path(self.image_path).exists():
-            px = QPixmap(self.image_path).scaled(
-                120,
-                120,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            self.img_preview.setPixmap(px)
+            img = load_qimage(self.image_path)
+            if not img.isNull():
+                px = QPixmap.fromImage(img).scaled(
+                    120,
+                    120,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                self.img_preview.setPixmap(px)
+            else:
+                self.img_preview.setText("No Image")
         else:
             self.img_preview.setText("No Image")

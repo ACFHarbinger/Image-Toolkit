@@ -2,6 +2,7 @@
 
 from typing import List, Optional, Tuple
 
+from gui.src.utils.image_load import load_qimage
 from gui.src.utils.lru_image_cache import LRUImageCache
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
@@ -57,7 +58,7 @@ class _ThumbWorker(QRunnable):
     @Slot()
     def run(self) -> None:
         try:
-            img = QImage(self._path)
+            img = load_qimage(self._path)
             if img.isNull():
                 return
             img = img.scaled(
