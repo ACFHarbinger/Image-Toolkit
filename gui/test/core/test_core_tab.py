@@ -9,7 +9,7 @@ from gui.src.tabs.core.similarity_tab import SimilarityTab
 from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.tabs.core.merge_tab import MergeTab
 from gui.src.tabs.core.wallpaper_tab import WallpaperTab
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QDialog, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -334,6 +334,104 @@ class TestExtractorTab:
 
             assert tab._has_extracted_files("/path/to/my_cool_video.mp4") is True
             assert tab._has_extracted_files("/path/to/other.mp4") is False
+
+    def test_browse_output_directory_does_not_change_source(self, q_app, tmp_path):
+        source_dir = tmp_path / "source"
+        output_dir = tmp_path / "output"
+        source_dir.mkdir()
+        output_dir.mkdir()
+        (source_dir / "video.mp4").touch()
+
+        with (
+            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch(
+                "gui.src.tabs.core.extractor_tab.QFileDialog.getExistingDirectory",
+                return_value=str(output_dir),
+            ),
+        ):
+            tab = ExtractorTab()
+            tab.scan_directory(str(source_dir))
+
+            tab.browse_extraction_directory()
+
+            assert tab.line_edit_dir.text() == str(source_dir)
+            assert tab.line_edit_extract_dir.text() == str(output_dir)
+
+    def test_scan_directory_ignores_output_directory(self, q_app, tmp_path):
+        source_dir = tmp_path / "source"
+        output_dir = tmp_path / "output"
+        source_dir.mkdir()
+        output_dir.mkdir()
+        (source_dir / "video.mp4").touch()
+        (output_dir / "clip.mp4").touch()
+
+        with (
+            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+        ):
+            tab = ExtractorTab()
+            tab.scan_directory(str(source_dir))
+            tab.extraction_dir = output_dir
+
+            tab.scan_directory(str(output_dir))
+
+            assert tab.line_edit_dir.text() == str(source_dir)
+            assert str(source_dir / "video.mp4") in tab.source_path_to_widget
+            assert str(output_dir / "clip.mp4") not in tab.source_path_to_widget
+
+    def test_snapshot_save_does_not_change_source_directory(
+        self, q_app, tmp_path, monkeypatch
+    ):
+        source_dir = tmp_path / "source"
+        output_dir = tmp_path / "output"
+        source_dir.mkdir()
+        output_dir.mkdir()
+        video_path = source_dir / "clip.mp4"
+        video_path.touch()
+
+        with (
+            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+        ):
+            tab = ExtractorTab()
+            tab.extraction_dir = output_dir
+            tab.line_edit_extract_dir.setText(str(output_dir))
+            tab.scan_directory(str(source_dir))
+            tab.video_path = str(video_path)
+            tab.start_time_ms = 1000
+            tab.end_time_ms = 2000
+            tab.extraction_queue_enabled = False
+
+            mock_player = MagicMock()
+            mock_player.playbackState.return_value = 0
+            mock_player.position.return_value = 1000
+            tab._media_player = mock_player
+
+            from PySide6.QtGui import QImage
+
+            mock_image = QImage(16, 16, QImage.Format.Format_RGB32)
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = QDialog.DialogCode.Accepted
+            mock_dlg.selected_image = mock_image
+            mock_dlg.selected_frame_idx = 24
+            mock_dlg.fps = 24.0
+
+            monkeypatch.setattr(
+                "gui.src.tabs.core.extractor_tab.FrameSelectionDialog",
+                lambda *args, **kwargs: mock_dlg,
+            )
+            monkeypatch.setattr(
+                "gui.src.tabs.core.extractor_tab.QMessageBox.critical",
+                lambda *args, **kwargs: None,
+            )
+            monkeypatch.setattr(tab, "_get_target_size", lambda: None)
+
+            tab.extract_single_frame()
+
+            assert tab.line_edit_dir.text() == str(source_dir)
+            saved_path = output_dir / "clip_snap_1000ms.png"
+            assert saved_path.exists()
 
     def test_set_config_quiet_and_force_load(self, q_app, tmp_path):
         with (

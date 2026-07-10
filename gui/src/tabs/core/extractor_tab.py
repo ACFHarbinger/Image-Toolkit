@@ -131,7 +131,9 @@ class ExtractorTab(AbstractClassSingleGallery):
 
         self.extraction_dir = Path(LOCAL_SOURCE_PATH) / "Frames"
         self.extraction_dir.mkdir(parents=True, exist_ok=True)
-        self.last_browsed_extraction_dir = str(self.extraction_dir)
+        self.last_browsed_extraction_dir = self._load_last_extraction_dir(
+            str(self.extraction_dir)
+        )
 
         # --- Extraction History ---
         self.recent_extractions_limit = 10
@@ -887,13 +889,58 @@ class ExtractorTab(AbstractClassSingleGallery):
         )
         if d:
             self.last_browsed_scan_dir = d
+            self._save_last_dir(d)
             self.scan_directory(d)
+
+    def _load_last_extraction_dir(self, default: str = "") -> str:
+        from gui.src.windows.settings.app_settings import AppSettings
+
+        return AppSettings.session(
+            self.__class__.__name__, "last_extraction_dir", default
+        )
+
+    def _save_last_extraction_dir(self, path: str) -> None:
+        from gui.src.windows.settings.app_settings import AppSettings
+
+        AppSettings.set_session(
+            self.__class__.__name__, "last_extraction_dir", path
+        )
+
+    def _refresh_source_extracted_indicators(self) -> None:
+        """Refresh source thumbnail borders after output-dir or extraction changes."""
+        for path, widget in self.source_path_to_widget.items():
+            label = widget.findChild(ClickableLabel)
+            if label:
+                self._update_source_label_style(
+                    path, label, path == getattr(self, "video_path", None)
+                )
 
     def scan_directory(self, path: str):
         if not os.path.isdir(path):
             return
 
+        normalized = os.path.normpath(path)
+        current_source = (
+            os.path.normpath(self.line_edit_dir.text())
+            if self.line_edit_dir.text()
+            else ""
+        )
+        extraction_path = (
+            os.path.normpath(str(self.extraction_dir))
+            if getattr(self, "extraction_dir", None)
+            else ""
+        )
+        if (
+            extraction_path
+            and normalized == extraction_path
+            and current_source
+            and current_source != extraction_path
+        ):
+            return
+
         self.line_edit_dir.setText(path)
+        self.last_browsed_scan_dir = path
+        self._save_last_dir(path)
 
         # Clear grid and path tracking
         paths_to_remove = list(self.source_path_to_widget.keys())
@@ -1396,18 +1443,13 @@ class ExtractorTab(AbstractClassSingleGallery):
             new_path.mkdir(parents=True, exist_ok=True)
             self.extraction_dir = new_path
             self.last_browsed_extraction_dir = str(new_path)
+            self._save_last_extraction_dir(str(new_path))
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
-            self._clear_gallery()
+            self._clear_output_gallery()
             self._refresh_extracted_stems_cache()
             self._load_extraction_history()
             self._load_existing_output_images()
-
-            for path, widget in self.source_path_to_widget.items():
-                label = widget.findChild(ClickableLabel)
-                if label:
-                    self._update_source_label_style(
-                        path, label, path == getattr(self, "video_path", None)
-                    )
+            self._refresh_source_extracted_indicators()
 
     def _load_extraction_history(self):
         """Loads metadata for extracted frames from a central hidden JSON file."""
@@ -1575,12 +1617,22 @@ class ExtractorTab(AbstractClassSingleGallery):
                 self, "Success", "Extraction configuration loaded successfully."
             )
 
-    def _clear_gallery(self):
+    def _clear_output_gallery(self):
+        """Clear only the extracted-output gallery (not source media or player state)."""
+        output_paths = set(self.gallery_image_paths) | set(
+            self.current_extracted_paths
+        )
+        for path in output_paths:
+            self._initial_pixmap_cache.pop(path, None)
+
         self.current_extracted_paths.clear()
         self.selected_paths.clear()
         self.gallery_image_paths.clear()
-        self._initial_pixmap_cache.clear()
         self.clear_gallery_widgets()
+
+    def _clear_gallery(self):
+        self._clear_output_gallery()
+        self._initial_pixmap_cache.clear()
         self.start_time_ms = 0
         self.end_time_ms = 0
 
@@ -2682,8 +2734,8 @@ class ExtractorTab(AbstractClassSingleGallery):
                                 self.video_path, label, True
                             )
 
-                    # Auto-refresh gallery if needed
-                    self.scan_directory(str(self.extraction_dir))
+                    self.start_loading_gallery([str(out_path)], append=True)
+                    self.current_extracted_paths = self.gallery_image_paths[:]
                 else:
                     QMessageBox.critical(self, "Error", "Failed to save snapshot.")
 
@@ -3058,13 +3110,7 @@ class ExtractorTab(AbstractClassSingleGallery):
 
         self.start_loading_gallery(new_paths, append=True)
         self.current_extracted_paths = self.gallery_image_paths[:]
-
-        for path, widget in self.source_path_to_widget.items():
-            label = widget.findChild(ClickableLabel)
-            if label:
-                self._update_source_label_style(
-                    path, label, path == getattr(self, "video_path", None)
-                )
+        self._refresh_source_extracted_indicators()
 
         QMessageBox.information(
             self,
@@ -3264,6 +3310,7 @@ class ExtractorTab(AbstractClassSingleGallery):
                 new_path = Path(extract_dir_str)
                 self.extraction_dir = new_path
                 self.last_browsed_extraction_dir = str(new_path)
+                self._save_last_extraction_dir(str(new_path))
                 self.line_edit_extract_dir.setText(str(new_path))
                 self._refresh_extracted_stems_cache()
                 self._load_existing_output_images()
