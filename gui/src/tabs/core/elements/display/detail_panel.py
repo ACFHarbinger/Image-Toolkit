@@ -18,6 +18,8 @@ from gui.src.helpers.image.card_thumb_worker import invalidate_thumbnail_cache
 from gui.src.helpers.web.mal_sync_worker import MalSyncWorker
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.common.listings_common import (
+    fetch_entity_name_map,
+    normalize_id_list,
     open_file_location,
     open_web_link,
 )
@@ -146,9 +148,15 @@ class _DetailPanel(BaseDetailPanel):
 
         # Associated Entities selection row
         self.assoc_entities_ids = []
-        self.f_assoc_entities_display = QLineEdit()
-        self.f_assoc_entities_display.setReadOnly(True)
-        self.f_assoc_entities_display.setPlaceholderText("None selected")
+        self.f_assoc_entities_display = QLabel("None selected")
+        self.f_assoc_entities_display.setWordWrap(True)
+        self.f_assoc_entities_display.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.f_assoc_entities_display.setStyleSheet(
+            "background:#23272a; border:1px solid #4f545c; border-radius:4px;"
+            "padding:4px 6px; color:white;"
+        )
 
         self.btn_select_entities = QPushButton("🔗 Select Entities")
         self.btn_select_entities.clicked.connect(self._select_associated_entities)
@@ -285,15 +293,33 @@ class _DetailPanel(BaseDetailPanel):
         )
         if dlg.exec():
             self.assoc_entities_ids = dlg.get_selected_ids()
-            self._update_assoc_entities_display(all_entities)
+            self._update_assoc_entities_display()
 
-    def _update_assoc_entities_display(self, all_entities: List[Dict[str, Any]]):
-        names = []
-        entity_map = {e["id"]: e["name"] for e in all_entities}
-        for ent_id in self.assoc_entities_ids:
-            if ent_id in entity_map:
-                names.append(entity_map[ent_id])
-        self.f_assoc_entities_display.setText(", ".join(names))
+    def _update_assoc_entities_display(self, _all_entities: Optional[List[Dict[str, Any]]] = None):
+        """Resolve associated entity IDs to names using a fresh DB lookup."""
+        del _all_entities  # kept for callers; display always reads live data
+        if not self.assoc_entities_ids:
+            self.f_assoc_entities_display.setText("None selected")
+            self.f_assoc_entities_display.setToolTip("")
+            return
+
+        name_map: Dict[str, str] = {}
+        if (
+            self.vault_manager
+            and hasattr(self.vault_manager, "raw_password")
+            and self.vault_manager.raw_password
+        ):
+            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+            name_map = fetch_entity_name_map(
+                db_path,
+                self.vault_manager.raw_password,
+                self.vault_manager.account_name,
+            )
+
+        names = [name_map.get(ent_id, ent_id) for ent_id in self.assoc_entities_ids]
+        display_text = ", ".join(names)
+        self.f_assoc_entities_display.setText(display_text or "None selected")
+        self.f_assoc_entities_display.setToolTip(display_text)
 
     def load_entry(  # noqa: C901
         self,
@@ -314,39 +340,14 @@ class _DetailPanel(BaseDetailPanel):
         self.f_current_episode.setValue(entry.get("current_episode", 0))
         self.f_genres.setText(entry.get("genres", ""))
         self.f_tags.setText(entry.get("tags", ""))
-        self.assoc_entities_ids = entry.get("associated_entities", [])
+        self.assoc_entities_ids = normalize_id_list(
+            entry.get("associated_entities", [])
+        )
 
         self.f_local_file.setText(entry.get("local_file", ""))
         self.f_web_link.setText(entry.get("web_link", ""))
 
-        if cached_entities is not None:
-            all_entities = cached_entities
-        else:
-            all_entities = []
-            if (
-                self.vault_manager
-                and hasattr(self.vault_manager, "raw_password")
-                and self.vault_manager.raw_password
-            ):
-                db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-                password = self.vault_manager.raw_password
-                salt = self.vault_manager.account_name
-                try:
-                    rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                    for row in rows:
-                        id_, category, title, metadata_json, date_added = row
-                        if category == "Entity":
-                            try:
-                                entity = json.loads(metadata_json)
-                            except Exception:
-                                entity = {}
-                            entity["id"] = id_
-                            entity["name"] = title
-                            entity["date_added"] = date_added
-                            all_entities.append(entity)
-                except Exception as e:
-                    print(f"Failed to load entities: {e}")
-        self._update_assoc_entities_display(all_entities)
+        self._update_assoc_entities_display()
 
         self.f_summary.setPlainText(entry.get("summary", ""))
         self.f_review.setPlainText(entry.get("review", ""))
@@ -372,7 +373,8 @@ class _DetailPanel(BaseDetailPanel):
         self.f_genres.clear()
         self.f_tags.clear()
         self.assoc_entities_ids = []
-        self.f_assoc_entities_display.clear()
+        self.f_assoc_entities_display.setText("None selected")
+        self.f_assoc_entities_display.setToolTip("")
         self.f_local_file.clear()
         self.f_web_link.clear()
         self.f_summary.clear()
@@ -589,7 +591,7 @@ class _DetailPanel(BaseDetailPanel):
 
         if added_count > 0:
             self.assoc_entities_ids = list(current_ids)
-            self._update_assoc_entities_display(all_entities)
+            self._update_assoc_entities_display()
 
         if not data.get("characters_available", True):
             msg = (
