@@ -6,7 +6,7 @@ import subprocess
 import zipfile
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import backend.src.constants as udef
 import base
@@ -331,6 +331,46 @@ def normalize_id_list(raw) -> List[str]:
     if isinstance(raw, str) and raw.strip():
         return [raw.strip()]
     return []
+
+
+def _mal_name_lookup_key(name: str) -> str:
+    return name.strip().lower()
+
+
+def resolve_entity_id_for_mal_name(
+    name: str, name_index: Dict[str, str]
+) -> Optional[str]:
+    """Match a MAL person/org name against local entity display names.
+
+    Tries exact match, single-name duplication (``Tomoko`` → ``Tomoko Tomoko``),
+    reversed multi-word order, and ``Last, First`` → ``First Last`` forms.
+    """
+    if not name or not name.strip():
+        return None
+
+    key = _mal_name_lookup_key(name)
+    eid = name_index.get(key)
+    if eid is not None:
+        return eid
+
+    words = name.split()
+    if len(words) == 1:
+        duplicate = _mal_name_lookup_key(f"{words[0]} {words[0]}")
+        eid = name_index.get(duplicate)
+        if eid is not None:
+            return eid
+    elif len(words) >= 2:
+        eid = name_index.get(_mal_name_lookup_key(" ".join(reversed(words))))
+        if eid is not None:
+            return eid
+
+    if ", " in name:
+        last, first = name.split(", ", 1)
+        eid = name_index.get(_mal_name_lookup_key(f"{first} {last}"))
+        if eid is not None:
+            return eid
+
+    return None
 
 
 def fetch_entity_name_map(db_path: str, password: str, salt: str) -> Dict[str, str]:
