@@ -708,7 +708,7 @@ class ContentListingsSubTab(QWidget):
                 self._upsert_entry(entry)
                 self._rebuild_gallery()
                 if self._selected_id == entry_id:
-                    self._detail.load_entry(entry)
+                    self._detail.load_entry(entry, cached_entities=self._all_entities)
 
     def _show_gallery_context_menu(self, pos):
         menu = QMenu(self)
@@ -875,6 +875,12 @@ class ContentListingsSubTab(QWidget):
         """Called when another subtab modifies listings.json; refreshes in-memory data."""
         self._load_data()
         self._rebuild_gallery()
+        if self._selected_id:
+            entry = next(
+                (e for e in self._entries if e["id"] == self._selected_id), None
+            )
+            if entry:
+                self._detail.load_entry(entry, cached_entities=self._all_entities)
 
     @Slot(str)
     def _on_search(self, text: str):

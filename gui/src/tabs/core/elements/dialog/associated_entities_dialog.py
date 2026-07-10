@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 
 from gui.src.styles import SHARED_BUTTON_STYLE
+from gui.src.tabs.core.elements.common.listings_common import normalize_id_list
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -23,7 +24,7 @@ class _AssociatedEntitiesDialog(QDialog):
         self.setStyleSheet("background:#2c2f33; color:white;")
 
         self.all_entities = all_entities
-        self.selected_ids = set(selected_ids)
+        self.selected_ids = {str(i) for i in normalize_id_list(selected_ids)}
 
         layout = QVBoxLayout(self)
 
@@ -68,9 +69,11 @@ class _AssociatedEntitiesDialog(QDialog):
                 continue
 
             item = QListWidgetItem(f"{name} ({ent_type} - {role})")
-            item.setData(Qt.ItemDataRole.UserRole, ent["id"])
+            ent_id = str(ent["id"])
+            item.setData(Qt.ItemDataRole.UserRole, ent_id)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
 
-            if ent["id"] in self.selected_ids:
+            if ent_id in self.selected_ids:
                 item.setCheckState(Qt.CheckState.Checked)
             else:
                 item.setCheckState(Qt.CheckState.Unchecked)

@@ -324,6 +324,29 @@ def _scan_video_directory(directory: str) -> "dict[str, list[tuple]]":
     return result
 
 
+def normalize_id_list(raw) -> List[str]:
+    """Coerce associated-ID fields from JSON into a list of non-empty strings."""
+    if isinstance(raw, list):
+        return [str(item) for item in raw if item]
+    if isinstance(raw, str) and raw.strip():
+        return [raw.strip()]
+    return []
+
+
+def fetch_entity_name_map(db_path: str, password: str, salt: str) -> Dict[str, str]:
+    """Return ``{entity_id: display_name}`` from the secure listings database."""
+    name_map: Dict[str, str] = {}
+    try:
+        rows = base.fetch_all_listings_secure(db_path, password, salt)  # pyrefly: ignore [missing-attribute]
+        for row in rows:
+            id_, category, title, _, _ = row
+            if category == "Entity":
+                name_map[str(id_)] = title
+    except Exception as e:
+        print(f"Failed to load entity names: {e}")
+    return name_map
+
+
 # -------------------------------------------------------------------
 # Helper – coloured badge label
 # -------------------------------------------------------------------
