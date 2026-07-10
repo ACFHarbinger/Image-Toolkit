@@ -22,6 +22,7 @@ from gui.src.tabs.core.elements.common.listings_common import (
     normalize_id_list,
     open_file_location,
     open_web_link,
+    resolve_entity_id_for_mal_name,
 )
 from gui.src.tabs.core.elements.dialog import _AssociatedEntitiesDialog
 from gui.src.tabs.core.elements.dialog.episode_dialog import _EpisodeDialog
@@ -555,25 +556,15 @@ class _DetailPanel(BaseDetailPanel):
         if not all_entities:
             return
 
-        def _key(s: str) -> str:
-            return s.strip().lower()
-
-        name_index: dict[str, str] = {_key(e["name"]): e["id"] for e in all_entities}
+        name_index: dict[str, str] = {
+            name.strip().lower(): e["id"] for e in all_entities for name in [e["name"]]
+        }
         current_ids: set[str] = set(self.assoc_entities_ids)
         added_count = 0
 
         def _try_add(name: str) -> None:
             nonlocal added_count
-            if not name:
-                return
-            eid = name_index.get(_key(name))
-            if eid is None:
-                words = name.split()
-                if len(words) >= 2:
-                    eid = name_index.get(_key(" ".join(reversed(words))))
-            if eid is None and ", " in name:
-                last, first = name.split(", ", 1)
-                eid = name_index.get(_key(f"{first} {last}"))
+            eid = resolve_entity_id_for_mal_name(name, name_index)
             if eid and eid not in current_ids:
                 current_ids.add(eid)
                 added_count += 1
