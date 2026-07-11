@@ -3151,11 +3151,6 @@ class StitchTab(QWidget):
 
         dlg = MaskReviewDialog(data, refine_callback=_refine_cb, parent=self)
         dlg.sig_mask_accepted.connect(lambda masks: w.set_mask_override(masks))
-        dlg.sig_exclusion_masks_accepted.connect(
-            lambda ex_masks: w.set_exclusion_masks(ex_masks)
-            if any(m is not None for m in ex_masks)
-            else None
-        )
         result = dlg.exec()
         if result == QDialog.DialogCode.Accepted:
             w.resume()
