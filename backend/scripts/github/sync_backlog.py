@@ -1,7 +1,7 @@
 """Asynchronous backlog sync: Gemini-driven Project Board updates.
 
 Triggered by `.github/workflows/agent_sync.yml` on pushes to `main` that
-modify `moon/ROADMAP.md` or `moon/CHANGELOG.md`. Reads the diff of the
+modify `moon/ROADMAP.md` or `docs/CHANGELOG.md`. Reads the diff of the
 triggering commit, asks Gemini 2.5 Pro to act as a Product Manager and
 propose a strict JSON list of Project Board actions, then applies those
 actions to the GitHub ProjectV2 board via the GraphQL API.
@@ -30,7 +30,7 @@ from google import genai
 GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 GEMINI_MODEL = "gemini-2.5-pro"
 
-WATCHED_FILES = ("moon/ROADMAP.md", "moon/CHANGELOG.md")
+WATCHED_FILES = ("moon/ROADMAP.md", "docs/CHANGELOG.md")
 
 COMPONENT_OPTIONS = (
     "Core: C++ Base",
@@ -92,7 +92,7 @@ def build_prompt(diff: str, commit_message: str) -> str:
     """Build the Gemini prompt instructing it to act as a Product Manager."""
     return f"""You are an experienced Product Manager for the Image-Toolkit project.
 
-You will be given a git diff of `moon/ROADMAP.md` and/or `moon/CHANGELOG.md`
+You will be given a git diff of `moon/ROADMAP.md` and/or `docs/CHANGELOG.md`
 along with the commit message that introduced it. Read the diff and decide
 which GitHub Project Board tickets should be created, updated, or closed as
 a result.

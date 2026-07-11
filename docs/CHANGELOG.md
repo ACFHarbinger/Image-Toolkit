@@ -99,6 +99,203 @@ verified core path so future changes can be measured one at a time.
 
 ---
 
+> **Note (2026-07-11):** this changelog was maintained as two separately-updated copies (`docs/CHANGELOG.md` and `moon/CHANGELOG.md`) that forked after the "S196 — 2026-06-25" entry below and were merged back into this single file. The entries immediately above this note (originally logged in `moon/CHANGELOG.md`, 2026-06-29 to 2026-07-04, Rust→C++ migration and related work) reused session numbers S197–S208 independently of, and chronologically *before*, the S197–S200 entries at the very top of this file (2026-07-07 to 2026-07-08). The numbers collide between the two blocks; use the dates to disambiguate.
+
+---
+
+## S208 — 2026-07-04 (Extension Roadmap Expansion + Implementation Kickoff)
+
+**Expanded Phase EXT with the duplicate-tab highlighter and CV-oriented features, then began implementing the roadmap.**
+
+- **§7.13 Duplicate Tab Highlighter (EXT.13)**: scan all tabs in the current window, group by normalized URL (fragment always stripped, tracking params optionally); duplicates highlighted via colored `chrome.tabs.group()`/`tabGroups.update()` on Chromium (chrome/edge/brave) with per-set colors, Firefox fallback = badge count + popup set list with switch-to/close/close-others actions; keep-first-close-rest per set; `tabs`/`tabGroups` permissions added through the §7.1 per-browser manifest overlays.
+- **CV & media brainstorm round 2 (user-selected, all accepted + 3 user additions)** → three new roadmap sections:
+  - **§7.14 App-Powered CV Operations (EXT.14)**: BiRefNet background removal, Real-ESRGAN upscale-before-save, WD14 auto-tag on ingest, OCR extraction **+ local translation** (user addition) — all via the §7.5 bridge with job-id polling.
+  - **§7.15 Media Capture Suite (EXT.15)**: native-res `<video>` frame grabber with burst mode (ASP-ready sequences), GIF/APNG/animated-WebP frame extractor (WebCodecs `ImageDecoder`), webtoon strip capture → ASP stitch endpoint (flagship crossover), video clip → GIF/WebP via MediaRecorder + app-side ffmpeg palette conversion, and **video downloader with time-range finder** (user addition; full video or `ffmpeg -ss/-to` stream-copy cut app-side, HLS/DASH delegated to app).
+- **§7.15A core implemented (EXT.15 🔄 — video frame grabber)**: `videoCapture.ts` — "Capture video frame" + "Capture 5-frame burst" context items on `<video>` elements; content script tracks the last right-clicked element so the exact video is captured (srcUrl match / first-video fallbacks); native-resolution canvas grab → PNG data-URL → background download with explicit `suggestedName` (`<video-stem>_<ts>_fNN.png`, bypasses the filename template via new `DownloadImageMsg.suggestedName`); burst = 5 frames at 500 ms from the live video; cross-origin/DRM canvas taint surfaces as a clear notification with partial-burst count instead of a corrupt file. Works for MSE/blob videos (no srcUrl) via context-target tracking.
+- **§7.16A implemented (AI-metadata / EXIF inspector)**: `shared/imageMeta.ts` — pure client-side parsers: PNG chunk walker (IHDR dims; tEXt latin-1; iTXt with language/translated-keyword skip and zlib-compressed payloads inflated via browser `DecompressionStream`; zTXt), JPEG segment walker (SOFn dims, COM comment, XMP APP1, compact EXIF IFD0 ASCII reader — Make/Model/Software/DateTime/Artist/Copyright/ImageDescription), and AI-generation detection (a1111 `parameters`, ComfyUI `workflow`/`prompt`, NovelAI `Software`+`Comment`, InvokeAI). New `inspect.html`/`inspect.ts` webpack entry — popup window with AI-tool chip, pretty-printed JSON, copy buttons, EXIF/text-chunk grids; opened by the new "Inspect image metadata" context item (background fetch → parse → `lastInspect` in storage). Parser verified in Node against PIL-generated files (a1111 params PNG, compressed-iTXt workflow, JPEG EXIF + comment).
+- **§7.9 modes A+B implemented (EXT.9 🔄 — bulk page capture)**: `shared/pageMedia.ts` — `collectImages()` (all `<img>` ≥64px rendered/natural, §7.11 full-res candidate upgrade, URL dedupe), `collectVideos()` (`currentSrc`/`src`/`<source>` children; blob: MediaSource streams skipped), `collectPageMedia()`. `contentOverlay.ts` — click-to-select overlay: hover = dashed blue outline, selected = solid green, floating top-center action bar (live count, Download selected, Cancel), Esc cancels; all outlines/listeners restored on exit; turbo mode stands down while the overlay is active. Popup gains a "Page Capture" section ("⬇ Download all media", "🖱 Select images…") messaging the active tab; content script responds with image/video counts; background `downloadBatch()` routes every URL through the §7.10 folder-rules/template path and notifies when queued. New typed messages: `DownloadAllMediaMsg`, `StartSelectionOverlayMsg`, `DownloadBatchMsg`, `PageCaptureResponse`.
+- **§7.9 revised (user direction)**: bulk page grabber now specifies two capture modes — (A) one-click "Download all" for every image **and video** on the page, and (B) an in-page selection overlay (hover highlight, click-to-select with outline, floating Download-selected/Cancel bar, Esc cancels); the grid-preview page with filters stays as a later sub-item.
+- **§7.7 core implemented (EXT.7 🔄 — send to Image Toolkit)**: `POST /api/extension/ingest/` — saves the image into `ingest_dir` (config; falls back to `dup_root/inbox`) with a `<file>.json` provenance sidecar (source URL, page URL, page title, timestamp), URL-derived sanitised filename with ` (N)` uniquification, and an implicit pre-ingest dup-check returning 409 + existing paths (bypassed with `force: true`); bridge version bumped to 1.1 with `ingest` feature flag. Extension: `ingest()` in `bridge.ts`, "Send to Image Toolkit" context item with saved-path / already-in-library / failure notifications. 5 new Django tests (15 total, all passing). Remaining for full ✅: embedding/DB indexing at ingest, collection picker.
+- **§7.6 implemented (EXT.6 ✅ — in-browser duplicate search)**: `extension/src/shared/bridge.ts` — typed bridge client (`ping()`, `dupCheck()`, `BridgeError` with HTTP status). `background.ts`: "Check if already downloaded" context item → `runDupCheck()` → OS notification (no-dup / N matches with closest path+distance / failure reason) and `lastDupCheck` persisted to `storage.local`. Popup: "Duplicate Check" panel renders the last result with 48px thumbnails, dimensions, Hamming distance, click-to-copy path; "Test connection" button in the Connection section saves the URL/token fields then pings — green/red dot with distinct messages for invalid-token vs unreachable vs dup-root-unconfigured. `notifications` permission added to all targets. **Verified end-to-end against a live `runserver`**: 403 without token, ping OK with token, dup-check on a byte-identical library image returned hamming=0 with thumbnail.
+- **§7.5A implemented (EXT.5 🔄 — HTTP bridge)**: new `extension_api/` Django app wired into `api/settings.py` + `api/urls.py` under `/api/extension/`. `GET ping/` (version/features/dup_root_configured), `POST dup-check/` (`{url|data_b64, threshold?}` → server-side fetch, pHash, matches with hamming/dims/128px `thumb_b64`, 409 when no root configured). Auth: `BridgeTokenPermission` — `Authorization: Bearer` compared constant-time against an auto-generated `~/.image-toolkit/extension-bridge/token.txt` (0600); OPTIONS preflight passes so browsers can learn allowed headers. `CorsAPIView` echoes the extension origin. Config in `extension-bridge/config.json` (`dup_root`, `recursive`, `threshold`). OpenAPI-annotated (drf-spectacular). **New `backend/src/core/dir_phash_index.py`**: `DirPhashIndex` — SQLite-cached (path,mtime,size)→phash index over a directory tree (C++ `base.scan_files_multi` fast path, os.walk fallback); incremental `refresh()` (drops deleted files), `query_bytes()` Hamming sweep via masked `int.bit_count()`; signed-64 storage fold for SQLite. Tests: 10 pytest (`backend/test/core/test_dir_phash_index.py`) + 10 Django (`extension_api/tests.py`, isolated tmp bridge dir) — all passing. Note: Django tests must run with the pixi env python (`.pixi/envs/default/bin/python manage.py test extension_api`) — the venv python can't load the C++ `base` module (libtiff/libjpeg symbol mismatch).
+- **§7.4 + §7.10 core implemented (EXT.4 🔄 / EXT.10 🔄)**: `shared/naming.ts` — `hostMatches()` wildcard hostname patterns, `resolveFolder()` (first matching site rule wins, falls back to global folder), `buildFilename()` (`{name}/{ext}/{site}/{date}/{time}` tokens, `/` subfolders, per-component sanitisation, unit-tested). `background.ts` `downloadImage(imageUrl, pageUrl)` now resolves folder via rules, names via template, and optionally emits a `<file>.json` provenance sidecar (source URL, page URL, timestamp) as a base64 data-URL download. Content script passes `pageUrl`; context-menu path uses `info.pageUrl`. Options page rebuilt with sections: General (folder, template, turbo, sidecar), Per-Site Folder Rules (dynamic pattern→folder row editor), Image Toolkit Connection (bridge URL + token fields), Duplicate Tabs. New settings: `siteRules`, `filenameTemplate`, `saveSidecar`, `bridgeUrl`, `bridgeToken`.
+- **§7.11 core + §7.16B + §7.12 flash implemented (EXT.11 🔄 / EXT.16 🔄 / EXT.12 🔄)**: `shared/extractor.ts` — `parseSrcset()` (w/x descriptor scoring, unit-tested), `bestImageUrl()` (srcset + parent `<picture>` sources + lazy attrs `data-src`/`data-original`/… + `currentSrc` baseline scored by naturalWidth), `backgroundImageUrl()` CSS fallback, `findImageAt()` hit-test; turbo mode now downloads the highest-res candidate instead of `img.src` and flashes a green outline on capture. `background.ts` gains a "Search image on ▸" context submenu (SauceNAO, trace.moe, Google Lens, IQDB, TinEye). Remaining for full ✅: per-site URL upgrade table + canvas fallback (§7.11), badge/modifier/per-site/history (§7.12), metadata inspector + pHash + local-ML (§7.16A/C/D).
+- **§7.13 implemented (EXT.13 ✅)**: `extension/src/shared/dupTabs.ts` — `normalizeUrl()` (case-folded protocol/host, fragment dropped, tracking params `utm_*`/`fbclid`/`gclid`/… optionally stripped while preserving real query params), `findDuplicateSets()` (largest-first), `scanAndHighlight()` (colored `dup ×N` tab groups via `chrome.tabs.group`+`tabGroups.update` cycling 8 colors on Chromium; badge count everywhere; popup set list fallback for Firefox), `clearHighlights()` (only dissolves groups titled `dup ×…` — never the user's own groups). Popup UI in `options.html/ts`: scan/clear buttons, per-set keep-first-close-rest, per-tab switch-to/close, "ignore tracking params" toggle persisted as `dupTabsStripParams`. `tabs` permission in base manifest; `tabGroups` only in the three Chromium overlays. Pure logic unit-checked in Node (normalization + set-building assertions).
+- **Phase E1 implemented (EXT.1 ✅ / EXT.2 ✅ / EXT.3 ✅)**: extension rebuilt as a TypeScript + webpack project.
+  - `extension/src/` — `background.ts` (context-menu save; MV3-safe menu re-creation on install/startup), `content.ts` (turbo mode), `options/options.{html,ts}`, and shared core `shared/api.ts` (single browser adapter + promisified storage), `shared/settings.ts` (typed schema + defaults), `shared/messages.ts` (discriminated-union message contract incl. §7.13 dup-tab types). `tsc --noEmit` strict-mode clean.
+  - `extension/webpack/` — `webpack.common.js` (`makeConfig(browser)`: ts-loader bundle, CopyPlugin assets, manifest generation via deep-merge of `manifest/manifest.base.json` + `manifest.<browser>.json` with `background` replaced wholesale and `version` stamped from `package.json`) + four per-browser configs. `dist/{chrome,firefox,edge,brave}/` verified: all MV3; Firefox gets event-page `background.scripts` + `browser_specific_settings.gecko` (min 115), Chromium targets get `service_worker`.
+  - Legacy `background.js`/`content.js`/`options.*`/`manifest*.json` (4 manifests) deleted from `extension/`; `.gitignore` for `node_modules`/`dist`; `just build-extension` (all targets) + `just build::build-extension-for <browser>` recipes added.
+  - **§7.16 Image Analysis Utilities (EXT.16)**: EXIF + embedded AI-generation metadata inspector (a1111/ComfyUI/NovelAI PNG chunks, client-side parsing), reverse-image-search shortcuts submenu (SauceNAO/trace.moe/Lens/IQDB/TinEye, configurable), client-side pHash pre-check against an app-exported hash snapshot, and **local-ML reverse search** (user addition; app-bridge embeddings primary, transformers.js/ONNX-Runtime-Web MobileCLIP fallback — fully offline).
+
+---
+
+## S207 — 2026-07-04 (Browser Extension Roadmap — Phase EXT)
+
+**Analyzed the `extension/` WebExtension, researched and brainstormed feature/upgrade ideas with the user, and created a dedicated extension roadmap.**
+
+- **New roadmap**: `moon/roadmaps/extension.md` (§7.1–§7.12, mirrored to `docs/roadmaps/extension.md`) covering: webpack multi-browser manifest generation in `extension/webpack/` (chrome/firefox/edge/brave overlays merged over `manifest.base.json`, replacing the three hand-maintained manifests), TypeScript migration + shared typed message contract, unified Manifest V3 (dropping the MV2 Firefox manifest), options page redesign, local app bridge (Phase A: token-authenticated localhost Django endpoints under `/api/extension/`; Phase B: native messaging host), **in-browser duplicate search** (right-click an image → pHash search of a user-configured directory and its subdirectories via the existing `PhashDeduplicator` §4.6), send-to-app ingestion with source-URL provenance + immediate indexing, visual similarity search against the local library, bulk page grabber with filterable grid preview, per-site folder rules + filename templating + metadata sidecar, full-resolution extraction (srcset/lazy-load/CSS-background/canvas), and turbo mode polish (capture feedback, modifier-key mode, per-site enable, history panel).
+- **Master roadmap**: new **Phase EXT** table (EXT.1–EXT.12) in `moon/ROADMAP.md` + `docs/roadmaps/ROADMAP.md`; extension.md added to the section-specific roadmap lists; dependency-graph mermaid gains `PEXT` node (P4 §4.5/§4.6 unblock EXT.5/EXT.6; EXT.8 gated on §5.1 CLIP index).
+- Feature selection confirmed with the user (all brainstormed items accepted; transport = HTTP-first then native messaging).
+
+---
+
+## S206 — 2026-07-04 (Thumbnail Loading Optimization — C++ Fast Path + Progressive Gallery Fill)
+
+**Optimized gallery thumbnail loading end-to-end (directory scan → decode → display) and made thumbnails appear progressively instead of all at once.**
+
+- **Reduced-resolution JPEG decode (C++)**: `base/src/image/image_batch.cpp` now reads each file into memory once and, for JPEG sources, walks the libjpeg IDCT-scaling ladder (`IMREAD_REDUCED_COLOR_8/4/2` → full) stopping at the first reduction that still covers the requested thumbnail size — up to ~8× faster decode for 4K sources at 256px thumbnails. Non-JPEG codecs (PNG/WebP) decode once at full resolution as before.
+- **Persistent C++ disk thumbnail cache**: new `cache_dir` parameter on `base.load_image_batch` persists thumbnails as JPEGs in `~/.image-toolkit/thumbnail-cache/` keyed by FNV-1a path hash + size, invalidated by source mtime. Measured: 4K JPEG + PNG batch cold load 96 ms → warm load 0.5 ms (~190×). Page revisits and directory re-opens are now near-instant across sessions (previously only videos had a disk cache).
+- **RGB output (C++)**: new `rgb` parameter returns RGB arrays so the GUI wraps them in `QImage` with a single copy, removing the per-image numpy BGR→RGB reversal copy in `_bgr_array_to_qimage`. Old signature (positional 4-arg) unchanged — fully backward compatible; Python worker falls back automatically on `TypeError`.
+- **Progressive gallery fill (root cause fix)**: previously all ~13 chunk-workers per page were queued on the global `QThreadPool` at once; each calls the native loader whose OpenMP loop competes for the same cores, so all chunks progressed in parallel and completed clustered at the end — the whole page flipped from "Loading..." to loaded at once. New `common_start_chunked_load()` in `AbstractGalleryBase` dispatches at most 2 chunks in flight and chains the next chunk on `batch_result`, so thumbnails now appear top-to-bottom as each chunk of 8 finishes (per-image `result` signals were already wired). Generation counter (`_load_generation`, bumped in both `cancel_loading` implementations) invalidates queued continuations on page change/cancel. No extra C++→Python signal traffic added — throughput preserved (oversubscription removed).
+- **Main-thread rescale skip**: `AbstractClassSingleGallery.update_card_pixmap` no longer runs a redundant `SmoothTransformation` rescale for loader-produced thumbnails that already fit the target size (100× per page on the GUI thread).
+- Both `ImageLoaderWorker` and `BatchImageLoaderWorker` route through a shared `native_load_batch()` helper. `gui/test/image/test_image_helper.py` native-path assertion updated to the new call signature.
+
+---
+
+## S205 — 2026-07-03 (Recursive Directory Scanning & Vault DB C++ Test Cleanups)
+
+**Implemented system-wide settings for recursive directory scanning and resolved local database side effects in C++ unit tests.**
+
+- **Recursive Scanning Option**: Added a "Recursive directory scanning" checkbox in the GUI `SettingsWindow`, ensuring persistent configuration via `QSettings` under `AppSettings.recursive_scan()`.
+- **C++ and Python Propagation**: Updated C++ `collect_files` in `finder.cpp` to conditionally toggle between recursive and shallow directory walking depending on the `recursive` boolean flag. Propagated settings to Python workers, using `os.scandir` for flat scans to optimize performance.
+- **Unit Test Parity**: Wrote comprehensive unit tests in `gui/test/core/test_settings_window.py` and parity tests in `backend/test/base/test_parity_core.py`.
+- **Vault DB Test Cleanup**: Refactored C++ Catch2 tests in `base/tests/secret/test_vault_db.cpp` to conditionally perform full CRUD validation on SQLCipher when enabled (using and programmatically removing a temporary `test_vault_catch2.db` file) or check the stub contract exceptions under `#ifndef HAVE_SQLCIPHER`, eliminating the untracked `db` file side effect from the repository root.
+
+---
+
+## S204 — 2026-07-02 (§4.6 MultiBand Confidence-Weighted Blending)
+
+**ASP roadmap §4.6: replace the hard 0/255 GraphCut ownership mask fed to `cv::detail::MultiBandBlender` with a smoothly-varying per-pixel confidence mask.**
+
+- `_compute_multiband_confidence(gc_frames, ownership, bg_masks, band_px)` in `backend/src/animation/rendering/compositing.py` combines three signals into a uint8 [0, 255] per-frame mask: `dist_to_seam_norm` (`cv2.distanceTransform` softening near the GraphCut boundary, `[0.5, 1.0]`), `bg_conf` (distance-transform softening at the BiRefNet fg/bg mask edge, `[0.6, 1.0]`), and `ecc_conf` (`_compute_ecc_confidence()` — `cv2.computeECC` agreement between a frame's owned content and the union of all other frames' owned content, restricted to the seam-adjacent band).
+- `own_binary` keeps pixel ownership byte-identical to the hard GraphCut label; only the blend *weighting* within an owned region is graded — cannot regress coverage.
+- **Bug found and fixed while wiring this up**: `base/src/animation/compositing.cpp`'s `multiband_blend_impl` was hard-binarizing every mask (`cv::Mat mask8 = (masks[i] > 0);`) before `MultiBandBlender::feed()`, which would have silently discarded any Python-side gradation. Fixed to pass the CV_8UC1 mask through as-is — `MultiBandBlender::feed()` already normalizes an 8U mask to a `[0,1]` float weight map internally, so existing hard 0/255 callers are unaffected (0 stays 0, 255 stays 255) while a graded mask now genuinely softens the blend.
+- Gate: `ASP_MULTIBAND_CONF=1` (default OFF; requires `ASP_MULTIBAND_BLEND=1`). `ASP_MULTIBAND_CONF_BAND_PX=24` controls the seam-adjacent softening band width.
+- 10 new Python tests (`TestComputeEccConfidence`, `TestComputeMultibandConfidence` in `test_compositing.py`) + 1 new Catch2 regression test in `test_compositing.cpp` guarding against the binarization bug recurring. `base_tests [compositing]`: 19 test cases, 47 assertions, all passing. `test_compositing.py --skip-gpu`: 587 passed, 5 skipped.
+- Roadmap: `moon/roadmaps/asp.md` / `docs/roadmaps/asp.md` §4.6 marked ✅; Effort × Impact Matrix pending-items table updated (S204, 2026-07-02).
+
+---
+
+## S203 — 2026-06-30 (Rust→C++ migration complete — file split + archive)
+
+**Finalise the Rust→C++ migration: one class per file, web module reorganised, roadmap archived.**
+
+- **board crawlers split** — `board_crawler.cpp` now includes per-class headers: `include/web/crawlers/crawler_base.hpp`, `danbooru.hpp`, `gelbooru.hpp`, `sankaku.hpp`. Orchestrator + registration remain in `board_crawler.cpp`.
+- **cloud sync split** — `cloud_sync.cpp` now includes per-class headers: `include/web/cloud/cloud_sync_base.hpp`, `dropbox_sync.hpp`, `google_drive_sync.hpp`, `onedrive_sync.hpp`. Orchestrator + registration remain in `cloud_sync.cpp`.
+- **web/clients/ subdir** — `web_requests.cpp`, `image_crawler.cpp`, `reverse_image_search.cpp` moved to `src/web/clients/` (mirrors Rust archive's `web/clients/` layout). `CMakeLists.txt` updated.
+- **Roadmap archived** — `moon/roadmaps/rust_to_cpp_migration.md` → `moon/archive/rust_to_cpp_migration.md`. Status updated to "All 13 phases done". Stale path references in `image_batch.cpp`, `video_batch.cpp`, `vault_db.cpp` updated.
+
+---
+
+## S202 — 2026-06-29 (Rust→C++ migration Phase 13 — full math parity + scan_files_multi)
+
+**Phase 13: Close all remaining gaps between Rust archive math and C++ headers**
+
+Math library additions (all headers in `base/include/math/`):
+- **distance**: `chebyshev`, `minkowski(p)`, `pairwise_distance_matrix`, `condensed_distance_matrix`
+- **stats**: `sample_variance`, `sample_std_dev`, `covariance`, `min_val`, `max_val`, `percentile`, `iqr`, `histogram`, `counts_to_probs`, `covariance_matrix`
+- **information**: `entropy_nats`, `empirical_entropy`, `joint_entropy`, `conditional_entropy`, `total_variation`, `mutual_information_discrete`, `normalised_mutual_information`, `cross_entropy`
+- **graph**: `connected_components` (BFS-based, vector-as-queue pattern)
+- **linalg**: `dot`, `norm`, `normalize`, `vec_sub`, `vec_add`, `vec_scale`, `gram_schmidt_step`, `pca_2d`; added `<array>` and `<cmath>` includes
+- **dim_reduce**: `geodesic_distances` (O(n³) Dijkstra all-pairs)
+- `base/src/math/math_bindings.cpp`: all new functions bound with `py::gil_scoped_release`
+- `base/src/image/scan_files.cpp` + `base/include/image/scan_files.hpp`: `scan_files_multi(root_dirs, exts, recursive)` — sorted+deduplicated multi-directory scan
+- `backend/src/utils/base_dispatch.py`: `NativeExt.scan_files_multi` wired
+- Migration roadmap updated with Phase 13 section
+
+---
+
+## S201 — 2026-06-29 (Rust→C++ migration Phase 12 — parity tests)
+
+**Phase 12: Integration tests for all Phase 8–11 C++ base functions**
+- `backend/test/base/test_parity_core.py`: 15+ tests for `base.core` (convert_single_image, get_files_by_extension, delete_path, find_duplicate_images, find_similar_images_phash, merge_images_*, wallpaper callables)
+- `backend/test/base/test_parity_math.py`: 25+ tests for `base.math` submodules (distance, stats, information, graph, linalg, dim_reduce)
+- `backend/test/base/test_parity_utils.py`: 12 tests for `base.utils` (slideshow daemon JSON protocol, migration callable/stub error) and `base.web` (reverse_image_search/image_crawler stub contracts, board_crawler/run_sync callable checks)
+- All tests guarded by `skipif(not HAS_BASE)` — pass without building C++ extension; run on CI when built
+- Migration roadmap status updated to reflect 12 phases complete
+
+---
+
+## S200 — 2026-06-29 (Rust→C++ migration Phases 8–11 — all 27 functions ported)
+
+**Phase 8: `base.core` — image/video conversion, filesystem, finder, merger, wallpaper**
+- `base/src/core/convert.cpp`: `convert_single_image` (OpenCV AR transforms: crop/pad/stretch), `convert_image_batch` (OpenMP parallel), `convert_video` (ffmpeg subprocess)
+- `base/src/core/filesystem.cpp`: `get_files_by_extension` (case-insensitive, recursive), `delete_files_by_extensions` (OpenMP parallel, `std::atomic<int>` counter), `delete_path` (file or tree)
+- `base/src/core/finder.cpp`: `find_duplicate_images` (SHA-256 via OpenSSL EVP or inline FIPS 180-4 fallback, OpenMP parallel hashing), `find_similar_images_phash` (8×8 INTER_AREA pHash, Union-Find grouping, Hamming ≤ threshold)
+- `base/src/core/merger.cpp`: `merge_images_horizontal`, `merge_images_vertical`, `merge_images_grid` (two-pass OpenCV: dims pass → blit pass, white canvas, BGRA/GRAY → BGR flatten)
+- `base/src/core/wallpaper.cpp`: `set_wallpaper_gnome` (gsettings picture-uri + picture-options), `evaluate_kde_script` (qdbus via `popen`)
+- `base/CMakeLists.txt`: OpenSSL detection added (→ `HAVE_OPENSSL=1`); inline SHA-256 fallback when absent
+
+**Phase 9: `base.web` extensions — board crawlers, cloud sync, stubs**
+- `base/src/web/board_crawler.cpp`: abstract `Crawler` interface + `DanbooruCrawler` (GET JSON API), `GelbooruCrawler` (dapi envelope unwrap), `SankakuCrawler` (POST JWT auth to `login.sankakucomplex.com`, then capi-v2); `BoardCrawlerRunner` orchestrates pagination + 5-req/1s rate limit + 500ms post delay; `run_board_crawler(name, config, cb) -> int`
+- `base/src/web/cloud_sync.cpp`: abstract `CloudSync` interface + `DropboxSync` (list_folder cursor pagination, upload to content API, download), `GoogleDriveSync` (multipart REST upload, Drive v3), `OneDriveSync` (Graph API v1.0); bidirectional sync plan builder; `run_sync(provider, config, cb) -> str`
+- `base/src/web/reverse_image_search.cpp`: STUB — raises `RuntimeError` (Rust impl used `thirtyfour`/Selenium; no C++ WebDriver equivalent)
+- `base/src/web/image_crawler.cpp`: STUB — same reason
+- `web_requests.cpp`: Phase 9 functions registered via `register_web()`
+
+**Phase 10: `base.utils` — migration and slideshow daemon**
+- `base/src/utils/migration.cpp`: `run_legacy_migration` — JSON vault (flat map, entries array, or `{entries:[...]}`) → SQLCipher DB; key = `username:password`; creates `vault_entries` + `vault_meta` tables; guarded by `#ifdef HAVE_SQLCIPHER` (raises `RuntimeError` otherwise)
+- `base/src/utils/slideshow.cpp`: `run_slideshow_daemon` — process-lifetime `std::thread` singleton; actions: start/stop/status/next/configure; timed advance via `std::condition_variable::wait_for`; config persisted to `~/.image-toolkit/.slideshow_config.json` (nlohmann/json); wallpaper set via gsettings
+
+**Phase 11: `base.math` Python bindings**
+- `base/src/math/math_bindings.cpp`: pybind11 wrappers for all 6 math headers (previously header-only, no Python access)
+- `base.math.distance`: euclidean, euclidean_sq, cosine_similarity, cosine_distance, hamming, bhattacharyya, hellinger, manhattan
+- `base.math.stats`: mean, median, std_dev, variance, pearson, z_score, min_max_normalize
+- `base.math.information`: shannon_entropy, kl_divergence, js_divergence, js_distance, mutual_information
+- `base.math.graph`: `Graph` class + bfs, dfs, kruskal_mst, kruskal_max_mst, tarjan_scc, topological_sort; `KruskalEdge` + `SCCResult` types exposed
+- `base.math.linalg`: `Matrix` class (Eigen backend) + pca → `PCAResult` (scores, components, explained_variance_ratio)
+- `base.math.dim_reduce`: mds (classical MDS on distance matrix), tsne_affinities (symmetric P matrix)
+- `backend/src/utils/base_dispatch.py`: all 27 new functions routed via `NativeExt` static methods
+
+**Migration audit: all 27 Rust `#[pyfunction]`s now ported**
+- 9 previously ported (Phases 2–5 + 7): `load_image_batch`, `scan_files`, `extract_video_thumbnails_batch`, 5 secret functions, `run_web_requests_sequence`
+- 18 newly ported (Phases 8–11): all above + `run_legacy_migration`, `run_slideshow_daemon`, `run_board_crawler`, `run_sync`, `run_reverse_image_search` (stub), `run_image_crawler` (stub), all core/math functions
+- Roadmap updated: status line corrected to "All 11 phases done"
+
+---
+
+## S199 — 2026-06-29 (Rust→C++ migration Phase 7 — final rename & retirement)
+
+- **Phase 7 complete** — `batch/` renamed to `base/` via `git mv`; Rust `base/` archived to `archive/base_rust/`
+- `PYBIND11_MODULE(batch, m)` → `PYBIND11_MODULE(base, m)`; all `batch::` namespaces → `base::`; all `#include "batch/..."` → `#include "base/..."`; `batch/include/batch/` → `base/include/`
+- `base/CMakeLists.txt` + `base/tests/CMakeLists.txt`: target names updated (`batch` → `base`, `batch_impl` → `base_impl`, `batch_tests` → `base_tests`, `BATCH_BUILD_TESTS` → `BASE_BUILD_TESTS`)
+- `backend/src/utils/base_dispatch.py` simplified: dual-module dispatch removed; `import base` resolves directly to C++ extension; `NativeExt` now a thin alias with static submodule forwarders
+- `tools/build/justfile`: `build-base` now runs cmake against `base/`; `build-batch` recipe removed; `build-all` no longer includes `build-batch`
+- `tools/test/justfile`: `test-batch-cpp/py/bench` → `test-base-cpp/py/bench`; backwards-compat aliases kept
+- `desktop/linux/scripts/build_base.sh`: replaces Rust maturin/cargo build with cmake build
+- `Cargo.toml`: `base` workspace member removed (archived)
+- `.github/workflows/security.yml`: `cargo-audit` step updated to scan `frontend/src-tauri` only (base Rust crate retired)
+- Animation Python files: `import batch` → `import base as batch` (25 call sites)
+- Rust→C++ migration fully complete — all 7 phases done
+
+---
+
+## S198 — 2026-06-29 (Rust→C++ migration · Phases 1–6 implementation)
+
+- **CMake Phase 1 deps** — `batch/CMakeLists.txt` and `batch/tests/CMakeLists.txt` extended: optional SQLCipher+libsodium via `pkg_check_modules` (sets `HAVE_SQLCIPHER=1` when both found); `cpp-httplib v0.18.0` and `nlohmann/json v3.11.3` auto-fetched via FetchContent; include dirs wired to both `batch` and `batch_impl` targets; conditional SQLCipher/libsodium link block added
+- **Dispatch shim** — `backend/src/utils/base_dispatch.py` created; `NativeExt` class with static methods routing Phase 2–5 functions to `batch.image/video/secret/web` with exception-guarded fallback to Rust `base`; module-level `__getattr__` proxies any unrecognised name to Rust `base`; `_HAS_IMAGE/VIDEO/SECRET/WEB` flags set once at import
+- **Phase 4 — vault_db.cpp** — full `HAVE_SQLCIPHER` implementation: `load_or_create_salt` ({db_path}.salt sidecar), `derive_key` (Argon2id via `crypto_pwhash`), `open_db` (PRAGMA key with raw 32-byte hex blob), schema init; `insert_listing_secure` (upsert), `hybrid_search_secure` (linear-scan cosine + `partial_sort` top-k), `fetch_all_listings_secure`, `delete_listing_secure`, `fetch_listings_as_arrow_pointers` (ArrowArray/ArrowSchema structs defined inline — no nanoarrow dep; id+metadata utf8 columns; RAII release callbacks); `#else` stubs raise `py::type_error` for graceful Rust fallback
+- **Phase 5 — web_requests.cpp** — full cpp-httplib + nlohmann/json implementation; `parse_base_url` splits scheme/host/port/path; `parse_post_data` parses "key:val,key:val" form params; GIL released for HTTP I/O, reacquired for `on_status_emitted`/`on_error_emitted` callbacks and `_is_running` cancellation check; all 5 action types implemented (`Print Response URL/Status/Headers/Content`, `Save Response Content (Binary)` with parent dir creation); 500ms inter-request delay; returns `"All requests finished."` or `"Cancelled."` — matches Rust protocol exactly
+- **Phase 6 — bundle_adjust.cpp** — replaced local `parent` vector + `find_root` lambda with `batch::math::UnionFind uf(N)` from `batch/math/graph.hpp`; inner `if (pi != pj)` block replaced with `if (uf.unite(i, j))`; include added
+- **Roadmap** — `moon/roadmaps/rust_to_cpp_migration.md` updated: status line → `IN PROGRESS — Phases 1–6 complete; Phase 7 pending`; Phases 1–6 marked ✅; Phase 7 marked PENDING
+
+---
+
+## S197 — 2026-06-29 (Rust→C++ migration skeleton · batch/ directory reorganisation)
+
+- **Rust→C++ migration roadmap** — `moon/roadmaps/rust_to_cpp_migration.md` created; 7-phase plan covering `batch::image`, `batch::video`, `batch::secret`, `batch::web`, `batch::math` (header-only) and final rename `batch/`→`base/`
+- **batch/ reorganisation** — all existing animation/ASP source files moved from `batch/src/*.cpp` → `batch/src/animation/`; test files moved from `batch/tests/*.cpp` → `batch/tests/animation/`; both CMakeLists updated
+- **batch::image skeleton** — `src/image/image_batch.cpp` (fully implemented: OpenCV imread + INTER_AREA + OpenMP), `src/image/scan_files.cpp` (fully implemented: `std::filesystem`); headers in `include/batch/image/`
+- **batch::video skeleton** — `src/video/video_batch.cpp` (fully implemented: OpenCV `VideoCapture` + OpenMP, replaces Rust ffmpeg subprocess); header in `include/batch/video/`
+- **batch::secret skeleton** — `src/secret/locked_secret.cpp` (libsodium init guard), `src/secret/vault_db.cpp` (Phase 4 stubs raising `NotImplementedError`); headers in `include/batch/secret/` including `LockedSecret<N>` RAII wrapper and `derive_dek` (Argon2id)
+- **batch::web skeleton** — `src/web/web_requests.cpp` (Phase 5 stub); header in `include/batch/web/`
+- **batch::math headers** — `include/batch/math/{linalg,graph,distance,stats,information,dim_reduce}.hpp`; header-only C++ port of `base/src/math/`; `linalg.hpp` and `dim_reduce.hpp` use Eigen3; no pybind11 bindings
+- **Native test skeletons** — `tests/image/`, `tests/video/`, `tests/secret/`, `tests/web/`, `tests/math/`; 60+ Catch2 test cases total; math tests fully runnable; vault security tests cover `LockedSecret` zeroing and `derive_dek` determinism
+- **bindings.cpp** — updated module docstring; `register_image / register_secret / register_web` forward declarations; `batch.image`, `batch.secret`, `batch.web` submodules registered
+- **Directory naming** — `http`→`web`, `vault`→`secret`, `images`→`image` applied consistently across `src/`, `tests/`, `include/`, `bindings.cpp`, CMakeLists, and roadmap
+
+---
+
 ## S196 — 2026-06-25 (§5.109 Pipeline Strip Blue Channel CV Gate · §5.110 Pipeline Seam Green Shift CV Gate · §5.111 Bench Strip Blue Channel CV Gate · §5.112 Bench Seam Green Shift CV Gate)
 
 **Tests**: 2135 passing, 78 skipped (30 new)

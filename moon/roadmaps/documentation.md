@@ -313,12 +313,12 @@ Embed a Mermaid module graph directly in README.md rather than a separate file.
 
 ## ✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
 
-**Pain point:** `moon/CHANGELOG.md` exists but is not yet structured with the [Keep a Changelog](https://keepachangelog.com/) format. `DEPENDENCY_POLICY.md` and `DOCUMENTATION_STANDARDS.md` do not exist.
+**Pain point:** `docs/CHANGELOG.md` exists but is not yet structured with the [Keep a Changelog](https://keepachangelog.com/) format. `DEPENDENCY_POLICY.md` and `DOCUMENTATION_STANDARDS.md` do not exist. (This file previously also existed as a separately-maintained `moon/CHANGELOG.md` copy; the two were merged back into one file on 2026-07-11 — see the note at the top of `docs/CHANGELOG.md`.)
 
 ### Options
 
 **A — Keep a Changelog format for CHANGELOG.md [Quick Win]**
-Restructure `moon/CHANGELOG.md` to use sections `[Unreleased]`, `[x.y.z] — YYYY-MM-DD`, with subsections `Added`, `Changed`, `Fixed`, `Removed`. Link version numbers to GitHub diff URLs.
+Restructure `docs/CHANGELOG.md` to use sections `[Unreleased]`, `[x.y.z] — YYYY-MM-DD`, with subsections `Added`, `Changed`, `Fixed`, `Removed`. Link version numbers to GitHub diff URLs.
 - Effort: < 1 hour to reformat; ongoing discipline to maintain.
 - Pros: Machine-parseable for automated release notes. Standard format recognised by GitHub release automation.
 - Reference: [keepachangelog.com](https://keepachangelog.com/)

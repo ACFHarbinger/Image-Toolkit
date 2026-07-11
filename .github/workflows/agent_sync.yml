@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'moon/ROADMAP.md'
-      - 'moon/CHANGELOG.md'
+      - 'docs/CHANGELOG.md'
 
 # Cancel in-progress runs for the same branch on new push
 concurrency:
