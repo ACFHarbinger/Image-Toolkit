@@ -1,5 +1,5 @@
 """
-Canvas geometry, frame loading & normalization, and SCANS-mode fallback.
+Canvas geometry, frame loading and normalization, and SCANS-mode fallback.
 """
 
 from __future__ import annotations

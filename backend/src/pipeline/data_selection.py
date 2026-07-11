@@ -202,7 +202,7 @@ class _DataSelector:
     """
     Parameters
     ----------
-    db              : PgvectorImageDatabase (for embedding & quality queries)
+    db              : PgvectorImageDatabase (for embedding and quality queries)
     blur_min        : minimum Laplacian variance to accept
     niqe_max_pct    : reject worst N% by NIQE
     iqa_scorer      : optional _IQAScorer instance

@@ -49,7 +49,7 @@ for p in frames_paths:
     print(f"  {p}")
 assert len(frames_paths) >= 2
 
-# ── Stage 1-2: Load & normalise ───────────────────────────────────────────────
+# ── Stage 1-2: Load and normalise ───────────────────────────────────────────────
 print("\nStages 1-2: load + normalise widths...")
 frames = _load_frames(frames_paths)
 N = len(frames)

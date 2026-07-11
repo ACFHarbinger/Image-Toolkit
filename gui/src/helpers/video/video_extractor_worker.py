@@ -132,7 +132,7 @@ class VideoExtractionWorker(QRunnable):
                 if filters:
                     cmd.extend(["-vf", ",".join(filters)])
 
-                # Codecs & Audio
+                # Codecs and Audio
                 cmd.extend(["-c:v", "libx264", "-movflags", "+faststart"])
 
                 if self.mute_audio:

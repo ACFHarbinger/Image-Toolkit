@@ -760,7 +760,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             menu.addAction(action)
         self.page_button.setMenu(menu)
 
-    # --- GEOMETRY & EVENTS ---
+    # --- GEOMETRY and EVENTS ---
 
     def resizeEvent(self, event: QResizeEvent):
         QWidget.resizeEvent(self, event)

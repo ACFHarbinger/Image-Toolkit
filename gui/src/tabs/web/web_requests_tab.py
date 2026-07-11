@@ -159,7 +159,7 @@ class WebRequestsTab(QWidget):
         action_builder_group.setLayout(action_builder_layout)
         main_layout.addWidget(action_builder_group)
 
-        # --- Progress & Status ---
+        # --- Progress and Status ---
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(

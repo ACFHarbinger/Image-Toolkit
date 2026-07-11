@@ -108,7 +108,7 @@ class LoRATuner:
         else:
             print("Mode: SD1.5/2.1 (Standard) detected.")
 
-        # 1. Load Tokenizers & Encoders
+        # 1. Load Tokenizers and Encoders
         self.tokenizer_one = CLIPTokenizer.from_pretrained(
             model_id, subfolder="tokenizer"
         )
@@ -127,7 +127,7 @@ class LoRATuner:
             self.text_encoder_two.requires_grad_(False)
             self.text_encoder_two.to(self.accelerator.device)
 
-        # 2. Load VAE & UNet
+        # 2. Load VAE and UNet
         self.vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae")
         self.unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet")
         self.noise_scheduler = DDPMScheduler.from_pretrained(
@@ -345,7 +345,7 @@ class LoRATuner:
                     latents, noise, timesteps
                 )
 
-                # 3. Get Text Embeddings & Conditions
+                # 3. Get Text Embeddings and Conditions
                 added_cond_kwargs = None
 
                 if self.is_sdxl:
@@ -382,7 +382,7 @@ class LoRATuner:
                     with torch.no_grad():
                         encoder_hidden_states = self.text_encoder_one(input_ids)[0]
 
-                # 4. Prediction & Backprop
+                # 4. Prediction and Backprop
                 # Pass added_cond_kwargs if it exists (SDXL), otherwise Diffusers ignores it for SD1.5 if not needed
                 if added_cond_kwargs:
                     model_pred = self.unet(

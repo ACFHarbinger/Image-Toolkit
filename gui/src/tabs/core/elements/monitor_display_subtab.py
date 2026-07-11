@@ -242,6 +242,11 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
 
         # Toolbar
         tb = QHBoxLayout()
+        graph_lbl = QLabel("Graph Canvas")
+        graph_lbl.setStyleSheet("font-weight: bold; padding: 4px;")
+        tb.addWidget(graph_lbl)
+        tb.addStretch(1)
+
         self._btn_add_node = QPushButton("➕ Add Node")
         self._btn_add_node.setToolTip("Add a wallpaper file to the graph")
         self._btn_add_node.clicked.connect(self._add_node)
@@ -281,7 +286,6 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
                     self._btn_delete, btn_reset_view, self._btn_set_start, self._btn_clear_graph]:
             btn.setFixedHeight(36)
             tb.addWidget(btn)
-        tb.addStretch(1)
         graph_lyt.addLayout(tb)
 
         # Scene + View

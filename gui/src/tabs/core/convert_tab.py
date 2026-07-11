@@ -1,12 +1,13 @@
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
+from .elements.codec_subtab import CodecSubTab
 from .elements.format_subtab import FormatSubTab
 from .elements.sampler_subtab import SamplerSubTab
 
 
 class ConvertTab(QWidget):
-    """Outer Convert tab containing Format and Sampler subtabs."""
+    """Outer Convert tab containing Format, Codec, and Sampler subtabs."""
 
     qml_input_path_changed = Signal(str)
 
@@ -20,9 +21,11 @@ class ConvertTab(QWidget):
         self._subtabs.setDocumentMode(True)
 
         self.format_subtab = FormatSubTab(dropdown=dropdown)
+        self.codec_subtab = CodecSubTab()
         self.sampler_subtab = SamplerSubTab()
 
         self._subtabs.addTab(self.format_subtab, "Format")
+        self._subtabs.addTab(self.codec_subtab, "Codec")
         self._subtabs.addTab(self.sampler_subtab, "Sampler")
 
         # Forward the QML signal from the inner FormatSubTab
@@ -55,9 +58,11 @@ class ConvertTab(QWidget):
 
     def cancel_loading(self):
         self.format_subtab.cancel_loading()
+        self.codec_subtab.cancel_loading()
         self.sampler_subtab.cancel_loading()
 
     def closeEvent(self, event):
         self.format_subtab.close()
+        self.codec_subtab.close()
         self.sampler_subtab.close()
         super().closeEvent(event)

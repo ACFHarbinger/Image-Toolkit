@@ -1521,7 +1521,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         print(f"  Warning: simple stitch failed for {dataset_name}")
 
     # ------------------------------------------------------------------
-    # STEP 1-2: Load & normalise
+    # STEP 1-2: Load and normalise
     # ------------------------------------------------------------------
     frames = _load_frames(frames_paths)
     N = len(frames)
@@ -2671,7 +2671,7 @@ datasets: {num_datasets}
 > Each test section contains:
 > - Side-by-side outputs (ASP vs Simple/OpenCV)
 > - CV metric table
-> - Intermediate output visualizations (2D & 3D)
+> - Intermediate output visualizations (2D and 3D)
 > - A structured `<!-- FEEDBACK -->` block
 >
 > To review/correct feedback, edit the YAML inside each `<!-- FEEDBACK -->…<!-- /FEEDBACK -->`
@@ -2693,7 +2693,7 @@ _GLOBAL_FEEDBACK_BLOCK = """\
 
 ---
 
-## Global Feedback & Human Notes
+## Global Feedback and Human Notes
 
 <!-- GLOBAL_FEEDBACK
 status: pending
@@ -3036,7 +3036,7 @@ def _report_single_test_visualizations_plots(pd: str, rd: str, lines: List[str])
     if os.path.exists(gains_path):
         lines.append(_img_row("Per-Frame Luminance Gains", "gains.png"))
 
-    # 2D canvas & overlap
+    # 2D canvas and overlap
     cp = os.path.join(pd, "canvas_frame_placement.png")
     if os.path.exists(cp):
         lines.append(

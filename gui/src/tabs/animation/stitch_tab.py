@@ -1676,7 +1676,7 @@ class StitchTab(QWidget):
 
         right_layout.addWidget(pipeline_group)
 
-        render_group = QGroupBox("Renderer & Quality")
+        render_group = QGroupBox("Renderer and Quality")
         render_form = QFormLayout(render_group)
 
         self._renderer_combo = QComboBox()
@@ -1700,7 +1700,7 @@ class StitchTab(QWidget):
 
         right_layout.addWidget(render_group)
 
-        motion_group = QGroupBox("Motion Model & Edge Crop")
+        motion_group = QGroupBox("Motion Model and Edge Crop")
         motion_form = QFormLayout(motion_group)
 
         self._motion_model_combo = QComboBox()
@@ -2022,7 +2022,7 @@ class StitchTab(QWidget):
         v_split.addWidget(split)
 
         # ── BOTTOM: pipeline options + progress + run ─────────────────────
-        bottom_group = QGroupBox("Pipeline & Execution")
+        bottom_group = QGroupBox("Pipeline and Execution")
         bottom_lay = QVBoxLayout(bottom_group)
         bottom_lay.setSpacing(4)
 

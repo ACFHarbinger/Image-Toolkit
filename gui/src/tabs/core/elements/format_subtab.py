@@ -149,7 +149,7 @@ class FormatSubTab(AbstractClassTwoGalleries):
         output_path_container = QWidget()
         output_path_container.setLayout(output_settings_container)
         self.output_field = OptionalField(
-            "Output Directory & Filename", output_path_container, start_open=False
+            "Output Directory and Filename", output_path_container, start_open=False
         )
         settings_layout.addRow(self.output_field)
 
@@ -200,25 +200,25 @@ class FormatSubTab(AbstractClassTwoGalleries):
             self.input_formats.setPlaceholderText("e.g. .jpg .png .gif")
             settings_layout.addRow("Input formats (optional):", self.input_formats)
 
-        self.delete_checkbox = QCheckBox("Delete original files after conversion")
-        self.delete_checkbox.setStyleSheet(
-            """
-            QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #555; border-radius: 3px; background-color: #333; }
-            QCheckBox::indicator:checked { background-color: #4CAF50; border: 1px solid #4CAF50; image: url(./src/gui/assets/check.png); }
-        """
-        )
-        self.delete_checkbox.setChecked(False)
-        settings_layout.addRow(self.delete_checkbox)
-
         self.multicore_checkbox = QCheckBox(
             "Multi-core Processing (Faster for Batches)"
         )
         self.multicore_checkbox.setToolTip(
             "Process multiple files in parallel across multiple CPU cores."
         )
-        self.multicore_checkbox.setStyleSheet(self.delete_checkbox.styleSheet())
+        self.multicore_checkbox.setStyleSheet(
+            """
+            QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #555; border-radius: 3px; background-color: #333; }
+            QCheckBox::indicator:checked { background-color: #4CAF50; border: 1px solid #4CAF50; image: url(./src/gui/assets/check.png); }
+        """
+        )
         self.multicore_checkbox.setChecked(True)
         settings_layout.addRow(self.multicore_checkbox)
+
+        self.delete_checkbox = QCheckBox("Delete original files after conversion")
+        self.delete_checkbox.setStyleSheet(self.multicore_checkbox.styleSheet())
+        self.delete_checkbox.setChecked(False)
+        settings_layout.addRow(self.delete_checkbox)
 
         content_layout.addWidget(settings_group)
 

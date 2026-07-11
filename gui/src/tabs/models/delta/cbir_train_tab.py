@@ -212,7 +212,7 @@ class CBIRTrainTab(QWidget):
             self._embed_dim.addItem(str(d), d)
         self._embed_dim.setCurrentIndex(2)  # 256
         self._embed_dim.setToolTip(
-            "Projection head output dimension.  Smaller → faster search & less RAM.  "
+            "Projection head output dimension.  Smaller → faster search and less RAM.  "
             "Larger → higher discriminative capacity."
         )
         bgl.addRow("Embedding dim:", self._embed_dim)

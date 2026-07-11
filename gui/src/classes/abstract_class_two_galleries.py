@@ -619,7 +619,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             menu.addAction(action)
         controls["btn_page"].setMenu(menu)
 
-    # --- GEOMETRY & LAYOUT LOGIC ---
+    # --- GEOMETRY and LAYOUT LOGIC ---
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

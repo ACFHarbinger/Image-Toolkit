@@ -956,7 +956,7 @@ class AnimeStitchPipeline:
         _test_name = Path(image_paths[0]).parent.name if image_paths else ""
         _hitl_pipeline_state: dict = {}
 
-        # ── Stage 1: Load & trim ─────────────────────────────────────────────
+        # ── Stage 1: Load and trim ─────────────────────────────────────────────
         frames = _load_frames(image_paths)
         N = len(frames)
         if N < 2:

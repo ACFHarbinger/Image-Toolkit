@@ -59,7 +59,7 @@ from .common.wallpaper_common_base import WallpaperCommonBase
 
 
 class SystemDisplaySubTab(WallpaperCommonBase):
-    """System display wallpaper management subtab.
+    """System wallpaper management subtab.
 
     Full-featured wallpaper setter with monitor layout, gallery,
     slideshow, daemon, and solid-color modes.

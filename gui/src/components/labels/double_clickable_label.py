@@ -58,7 +58,7 @@ class _FullImageViewerDialog(QDialog):
         scroll.setWidget(self.img_label)
         layout.addWidget(scroll)
 
-        # Dimensions & File Size label
+        # Dimensions and File Size label
         try:
             sz = Path(image_path).stat().st_size
             size_kb = sz / 1024

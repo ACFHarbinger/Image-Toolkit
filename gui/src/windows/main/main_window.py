@@ -243,20 +243,20 @@ class MainWindow(QWidget):
                 "Merge": self.merge_tab,
                 "Similarity": self.delete_tab,
                 "Extractor": self.extractor_tab,
-                "Display Wallpaper": self.wallpaper_tab,
+                "Wallpaper": self.wallpaper_tab,
                 "Listings": self.listings_tab,
             },
             "Database Management": {
-                "Database Configuration": self.database_tab,
-                "Search Images": self.search_tab,
-                "Scan Metadata": self.scan_metadata_tab,
+                "Configuration": self.database_tab,
+                "Search": self.search_tab,
+                "Metadata": self.scan_metadata_tab,
             },
             "Web Integration": {
-                "Web Crawler": self.crawler_tab,
-                "Web Requests": self.web_requests_tab,
+                "Crawler": self.crawler_tab,
+                "Requests": self.web_requests_tab,
                 "Cloud Synchronization": self.drive_sync_tab,
                 "Reverse Search": self.reverse_search_tab,
-                "Entity Recon": self.entity_recon_tab,
+                "Entity Reconnaissance": self.entity_recon_tab,
             },
             "Deep Learning": {
                 "Training": self.train_tab,
@@ -466,7 +466,7 @@ class MainWindow(QWidget):
         selected_cache = int(prefs.get("selected_cache_maxsize", 200))
         initial_cache = int(prefs.get("initial_cache_maxsize", 300))
 
-        # NEW: Extractor seek interval & recent extractions count
+        # NEW: Extractor seek interval and recent extractions count
         extractor_seek_ms = int(prefs.get("extractor_seek_ms", 100))
         recent_extractions_count = int(prefs.get("recent_extractions_count", 10))
         extractor_time_format = prefs.get("extractor_time_format", "m:s:ms")
@@ -476,7 +476,7 @@ class MainWindow(QWidget):
         default_dir = LOCAL_SOURCE_PATH
         for cat_tabs in self.all_tabs.values():
             for tab in cat_tabs.values():
-                # Thumbnail & page size (§2.16A)
+                # Thumbnail and page size (§2.16A)
                 if hasattr(tab, "thumbnail_size"):
                     tab.thumbnail_size = thumb_size # pyrefly: ignore [missing-attribute]
                     if hasattr(tab, "padding_width"):

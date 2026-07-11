@@ -1,4 +1,4 @@
-"""Entity Recon & Provenance tab — localized OSINT identity resolution.
+"""Entity Recon and Provenance tab — localized OSINT identity resolution.
 
 A native three-pane QWidget (this app is widget-based, not QML-based):
 
@@ -122,7 +122,7 @@ class _ClickableImageLabel(QLabel):
 
 
 class EntityReconTab(QWidget):
-    """Native three-pane Entity Recon & Provenance tab."""
+    """Native three-pane Entity Recon and Provenance tab."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -152,7 +152,7 @@ class EntityReconTab(QWidget):
         root = QVBoxLayout(self)
 
         # --- dataset / config bar ------------------------------------------
-        cfg_group = QGroupBox("Identity Dataset & Discovery")
+        cfg_group = QGroupBox("Identity Dataset and Discovery")
         cfg_form = QFormLayout(cfg_group)
 
         ds_row = QHBoxLayout()

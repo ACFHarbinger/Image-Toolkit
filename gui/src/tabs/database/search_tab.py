@@ -499,7 +499,7 @@ class SearchTab(AbstractClassTwoGalleries):
         # Call base class to clear galleries
         self.clear_galleries(clear_data=True)
 
-    # --- Format & Tag Logic (Unchanged) ---
+    # --- Format and Tag Logic (Unchanged) ---
     def toggle_format(self, fmt, checked):
         if checked:
             self.selected_formats.add(fmt) # pyrefly: ignore [missing-attribute]
@@ -639,7 +639,7 @@ class SearchTab(AbstractClassTwoGalleries):
                     is_selected = path in self.selected_files
                     self._update_card_style(image_label, is_selected)
 
-    # --- TAB COMMUNICATION & FILE ACTIONS ---
+    # --- TAB COMMUNICATION and FILE ACTIONS ---
 
     def _get_target_selection(self, single_path=None):
         # Use self.selected_files instead of self.selected_paths
