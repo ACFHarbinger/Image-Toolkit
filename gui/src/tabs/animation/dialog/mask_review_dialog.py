@@ -1,17 +1,19 @@
 """
-MaskReviewDialog — Issue 10A2/10A3 (click-based segmentation + NL seam routing).
+MaskReviewDialog — Issue 10A2 (click-based segmentation review).
 
 Displays a frame with its SAM-2 foreground mask overlaid. The user can:
   - Left-click  → add a positive prompt (expand the mask to include this point)
   - Right-click → add a negative prompt (exclude this point from the mask)
   - Type a character description and click "Re-segment" to re-run Grounded SAM-2
-  - Type a region description in the Seam Exclusion box to route DP seam away
-    from the named area (e.g. "right arm", "logo on shirt")
   - Click "Accept" to confirm the current masks and resume the pipeline
 
 The dialog communicates back to StitchWorker via:
-  ``sig_mask_accepted``           — list[Optional[ndarray]]  refined fg masks
-  ``sig_exclusion_masks_accepted`` — list[Optional[ndarray]] per-frame exclusion masks
+  ``sig_mask_accepted`` — list[Optional[ndarray]] refined fg masks
+
+The former GroundingDINO "Seam Exclusion (NL routing)" feature (Issue 10A3) was
+removed with the hitl.grounding module in the 2026-07 ASP trim; seam routing
+overrides are now done visually via the SeamPainterDialog / SeamDiagnosticDialog
+(waypoints, force-single-pose, painted barriers) instead of text prompts.
 
 Architecture: all model inference is delegated to a ``_RefinementWorker`` QThread.
 """
@@ -172,9 +174,6 @@ class MaskReviewDialog(QDialog):
     """
 
     sig_mask_accepted = Signal(object)  # list[Optional[np.ndarray]]
-    sig_exclusion_masks_accepted = Signal(
-        object
-    )  # list[Optional[np.ndarray]] Issue 10A3
 
     def __init__(self, data: dict, refine_callback=None, parent=None):
         super().__init__(parent)
@@ -185,11 +184,6 @@ class MaskReviewDialog(QDialog):
         self._masks: List[Optional[np.ndarray]] = list(data.get("bg_masks", []))
         self._paths: List[str] = list(data.get("image_paths", []))
         self._refine_callback = refine_callback
-
-        # Issue 10A3: NL seam-routing exclusion masks (one per frame, computed lazily)
-        self._exclusion_masks: List[Optional[np.ndarray]] = [None] * len(self._frames)
-        self._exclusion_thread: Optional[QThread] = None
-        self._exclusion_worker: Optional[_RefinementWorker] = None
 
         # Ensure mask list is same length as frames
         while len(self._masks) < len(self._frames):
@@ -280,32 +274,6 @@ class MaskReviewDialog(QDialog):
         clicks_row.addWidget(self._btn_apply_clicks)
         clicks_row.addWidget(self._btn_clear_clicks)
         root.addLayout(clicks_row)
-
-        # Seam exclusion row — Issue 10A3
-        sep2 = QFrame()
-        sep2.setFrameShape(QFrame.Shape.HLine)
-        sep2.setFrameShadow(QFrame.Shadow.Sunken)
-        root.addWidget(sep2)
-        excl_hdr = QLabel(
-            "<b>Seam Exclusion (NL routing)</b>  —  "
-            "Name a region to route the DP seam away from "
-            "(e.g. 'right arm', 'logo on shirt', 'character face')."
-        )
-        excl_hdr.setWordWrap(True)
-        excl_hdr.setStyleSheet("color: #bbb; font-size: 11px;")
-        root.addWidget(excl_hdr)
-        excl_row = QHBoxLayout()
-        self._excl_input = QLineEdit()
-        self._excl_input.setPlaceholderText("Region to avoid (e.g. 'right arm')…")
-        self._btn_excl_detect = QPushButton("Detect and Exclude (GroundingDINO)")
-        self._btn_excl_detect.clicked.connect(self._on_detect_exclusion)
-        self._btn_excl_detect.setEnabled(self._refine_callback is not None)
-        self._excl_status = QLabel("No exclusion mask")
-        self._excl_status.setStyleSheet("font-size: 10px; color: #888;")
-        excl_row.addWidget(self._excl_input, stretch=1)
-        excl_row.addWidget(self._btn_excl_detect)
-        root.addLayout(excl_row)
-        root.addWidget(self._excl_status)
 
         # Progress bar (hidden when idle)
         self._progress = QProgressBar()
@@ -412,7 +380,6 @@ class MaskReviewDialog(QDialog):
         self._btn_apply_clicks.setEnabled(
             not busy and self._refine_callback is not None
         )
-        self._btn_excl_detect.setEnabled(not busy and self._refine_callback is not None)
 
     def _on_resegment(self):
         """Re-run Grounded SAM-2 with the user's text prompt."""
@@ -472,80 +439,15 @@ class MaskReviewDialog(QDialog):
         warnings.warn(f"[ASP] Mask refinement error: {msg}", RuntimeWarning, stacklevel=2)
         self._refresh_display()
 
-    # ── seam exclusion (Issue 10A3) ───────────────────────────────────────────
-
-    def _on_detect_exclusion(self):
-        """Run GroundingDINO to build per-frame exclusion masks for NL seam routing."""
-        prompt = self._excl_input.text().strip()
-        if not prompt:
-            self._excl_input.setPlaceholderText(
-                "Please enter a region description first…"
-            )
-            return
-        if self._refine_callback is None:
-            return
-        self._set_busy(True)
-        self._excl_status.setText(f"Detecting '{prompt}' via GroundingDINO…")
-
-        frames = list(self._frames)
-
-        def _run_exclusion():
-            try:
-                from backend.src.animation.hitl.grounding import _detect_exclusion_mask
-            except ImportError:
-                return [None] * len(frames)
-            masks = []
-            for f in frames:
-                m = _detect_exclusion_mask(f, prompt)
-                masks.append(m)
-            return masks
-
-        self._exclusion_thread = QThread()
-        self._exclusion_worker = _RefinementWorker(_run_exclusion)
-        self._exclusion_worker.moveToThread(self._exclusion_thread)
-        self._exclusion_thread.started.connect(self._exclusion_worker.run)
-        self._exclusion_worker.sig_done.connect(self._on_exclusion_done)
-        self._exclusion_worker.sig_error.connect(self._on_exclusion_error)
-        self._exclusion_thread.start()
-
-    def _on_exclusion_done(self, masks: list):
-        if self._exclusion_thread:
-            self._exclusion_thread.quit()
-            self._exclusion_thread.wait()
-            self._exclusion_thread = None
-        self._exclusion_masks = masks
-        n_detected = sum(1 for m in masks if m is not None)
-        prompt = self._excl_input.text().strip()
-        self._excl_status.setText(
-            f"Exclusion mask ready: '{prompt}' detected in {n_detected}/{len(masks)} frames."
-        )
-        self._excl_status.setStyleSheet("font-size: 10px; color: #6cf;")
-        self._set_busy(False)
-
-    def _on_exclusion_error(self, msg: str):
-        if self._exclusion_thread:
-            self._exclusion_thread.quit()
-            self._exclusion_thread.wait()
-            self._exclusion_thread = None
-        self._excl_status.setText(f"Exclusion detection failed: {msg}")
-        self._excl_status.setStyleSheet("font-size: 10px; color: #f66;")
-        self._set_busy(False)
-
-    def exclusion_masks(self) -> List[Optional[np.ndarray]]:
-        """Return the per-frame seam-exclusion masks (may be all-None if not detected)."""
-        return list(self._exclusion_masks)
-
     # ── accept / skip ─────────────────────────────────────────────────────────
 
     def _on_accept(self):
         self.sig_mask_accepted.emit(list(self._masks))
-        self.sig_exclusion_masks_accepted.emit(list(self._exclusion_masks))
         self.accept()
 
     def _on_skip(self):
-        # Emit original masks (from data dict) unchanged; no exclusion masks applied
+        # Emit original masks (from data dict) unchanged
         self.sig_mask_accepted.emit(list(self._masks))
-        self.sig_exclusion_masks_accepted.emit([None] * len(self._masks))
         self.accept()
 
     def accepted_masks(self) -> List[Optional[np.ndarray]]:
