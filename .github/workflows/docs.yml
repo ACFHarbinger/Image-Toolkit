@@ -6,7 +6,6 @@ on:
     paths:
       - 'docs/**'
       - 'moon/roadmaps/**'
-      - 'moon/CHANGELOG.md'
       - 'moon/ROADMAP.md'
       - 'reports/**'
       - 'backend/src/**/*.py'

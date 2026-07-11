@@ -2,7 +2,7 @@
 
 *Last updated: 2026-07-04. New Phase EXT (Browser Extension) added — webpack multi-browser manifest builds (chrome/firefox/edge/brave) in `extension/webpack/`, TypeScript migration, unified MV3, local app bridge (HTTP → native messaging), in-browser duplicate search against a configured directory tree (reuses `PhashDeduplicator` §4.6), send-to-app ingestion with provenance, visual similarity search, bulk page grabber, per-site folder rules + filename templating + metadata sidecar, full-resolution extraction, and turbo mode polish; full detail in [roadmaps/extension.md](roadmaps/extension.md). S206: thumbnail loading optimized (C++ reduced decode + disk cache + progressive gallery fill). Previous update 2026-06-18: Architecture roadmap updated: §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper ABC, worker base class, gallery consolidation, circular imports, docs/diagrams, decorators), §5.14–§5.16 (settings facade, fault isolation, ML wrapper contract tests) added. Phase 4 updated to remove stale §4.1 Vault Manager link. New Phase Arch added for code-quality items. Session 131: §1.66 NCC structural coherence gate (Stage 11.4), §1.67 pre-BA frame canvas spread validation, §1.8C/D dump_asp_config with typed TOML schema comments (827 tests). Session 130: §1.60 fg pose-gap pre-escalation, §1.62 canvas aspect-ratio gate, §1.63 sort-frames-by-index, §1.64 exact-duplicate dHash guard, §1.65 fg seam erosion buffer, §1.10D MC-dropout uncertainty, §3.17 seam NCC coherence + §3.5A composite quality score in bench (822 tests). Session 78: §2.3 Canvas Layout Inspector read-only viewer (422 tests passing). Session 77: §2.2 Edge Graph Inspector read-only viewer (413 tests passing). Session 76: GNC-TLS BA (§1.32, 412 tests passing). GUI: §2.23A accessibility, §2.4B+C range-select + context menu, §2.25A shortcut overlay, §2.20A splitter persistence, §2.17D log window, §2.16C Ctrl+T tab search, §2.12A+B+C system tray, §2.11A+B+D preview enhancements, §2.21A+D dir history + MRU, §2.26B inline rename, §2.10C QStatusBar, §2.14A filename labels, §2.18 sort + search ops, §2.19 trash, §3.9 item range, §4.11 thumbnail slider, §3.15–3.17 shortcuts/QSS/geometry all shipped. §2.30 accent colour picker + font scale + UI density shipped. New roadmap sections added: §2.29 (configurable keyboard shortcuts), §2.30–2.32 (appearance customisation), §4.12–4.13 (appearance profiles + macros). Session 9: ToonCrafter seam synthesis wired (§3.6/ML.4, `ASP_TOONCRAFTER_SEAM=1`). Session 8: DINOv2 submodular frame selection (§3.3/ML.2), LSD collinearity in ARAP (§0.1/A3), Aligned-SSIM metric. Session 7: Stage 12.5 scroll-axis content trim (§2.6). Session 6: hold detection (§1.11/ML.1), GNC BA, SLIC SGM proxy (§3.1/ML.5). 107 tests passing. Session 5: alignment stability gate (+0.074 test08, +0.049 test25), fg pixel L1 pose metric (+0.010 test27 with pose-on), 90 unit tests. Session 4: ARAP Push (Sýkora 2009), 96-test run. Research: `reports/Image_Stitching_Research.md`, `reports/ASP_Comprehensive_Research_Report.md`.*
 
-Completed items have been moved to [CHANGELOG.md](CHANGELOG.md).
+Completed items have been moved to [CHANGELOG.md](../docs/CHANGELOG.md).
 
 ---
 
@@ -18,6 +18,7 @@ Section-specific roadmaps:
 - [New Features — Capabilities & Integrations](roadmaps/new_features.md)
 - [Architecture & Infrastructure](roadmaps/architecture.md)
 - [Browser Extension — Capture, Build System & App Integration](roadmaps/extension.md)
+- [Unified Database — Merging Listings Subtabs & Database Tabs](roadmaps/unified_database.md)
 
 Consolidated research reports (read before working on the respective pipeline):
 - [Anime Stitching — Consolidated Research](../reports/Image_Stitching_Research.md) — foreground-assembly paradigm, per-stage toolbox, 13-stage spec.
@@ -207,6 +208,28 @@ Higher-complexity features that depend on Phase 3–4 infrastructure or require 
 | 5.9 | **[ASP] Seam DP cache for RLHF iteration** — keyed by `(frame_ids, seam_cost_config)` (Option D) | ~1d | [asp.md §1.5](roadmaps/asp.md#15-stage-11-composite-performance) |
 | 5.10 | **[Arch] Compositor registry** — same pattern as Matcher (Option E) | ~1w | [architecture.md §5.3](roadmaps/architecture.md#53-plugin-system-for-matchers-and-compositors) |
 | 5.11 | **[Perf] Rust memory-mapped output buffer** — `memmap2` for >10K px panoramas (Option C) | ~2d | [performance.md §3.1](roadmaps/performance.md#31-rust-streaming-image-merger) |
+| 5.12 | **[GUI] Extractor tab `libmpv` playback engine spike** — swap `QMediaPlayer`/`QGraphicsVideoItem` for `python-mpv` (Option A), gated on an isolated JVM-coexistence smoke test per the project's prior JPype/native-lib SIGSEGV history; falls back to mpv's OpenGL render API (Option B) if X11 `wid` window embedding proves unreliable on Wayland | ~2w | [gui_ux.md §2.33](roadmaps/gui_ux.md#233-extractor-tab-playback-engine--libmpv-integration) |
+
+---
+
+## Phase DB — Unified Database (Merging Listings Subtabs & Database Tabs)
+
+Merges the SQLCipher listings store (`base.secret`/`listings_secure.db`, Content/Entity Listings subtabs) and the PostgreSQL + pgvector image index (Configuration/Search/Metadata tabs) into one encrypted, serverless SQLCipher store (`~/.image-toolkit/library.db`) behind a new **`base.database`** C++ module (session-keyed handle — Argon2id runs once at login; `base.secret` untouched) and a Python DAL. PostgreSQL is dropped entirely. Full detail, schema, phasing, and risk register in [unified_database.md](roadmaps/unified_database.md).
+
+| # | Item | Effort | Roadmap Link |
+|---|------|--------|--------------|
+| DB.1 | **[DB] Unified schema design** — normalized relational schema replacing the listings JSON blob and the pgvector schema; media/entity/episode/credit tables, M2M associations, shared typed-tag vocabulary, FK'd groups/subgroups, `embeddings` + FTS5 | ~2d | [unified_database.md DB.1](roadmaps/unified_database.md#db1-unified-schema-design) |
+| DB.2 | **[DB] `base.database` native engine** — new C++ module (NOT `base.secret`): session-keyed SQLCipher handle (one KDF per session), WAL, generic parameterized query/execute, maintenance ops, HNSW vector search + FTS5 | ~1w | [unified_database.md DB.2](roadmaps/unified_database.md#db2-basedatabase--the-native-storage-engine) |
+| DB.3 | **[DB] Python DAL** — `backend/src/database/unified/` repositories (media/entity/image/tag/search/maintenance); single-transaction saves; both tab families consume it | ~4d | [unified_database.md DB.3](roadmaps/unified_database.md#db3-python-dal-backendsrcdatabaseunified) |
+| DB.4 | **[DB] Backups + migration scripts** — `backend/migrations/` 000–004: mandatory full backup gate, DDL, listings migration, Postgres migration (skippable), verification report; idempotent resumable runner | ~4d | [unified_database.md DB.4](roadmaps/unified_database.md#db4-backups--migration-scripts-backendmigrations) |
+| DB.5 | **[DB] Listings subtabs port** — repos replace fetch-all/diff/re-upsert association loops (~500 LOC deleted); FTS/SQL search; `.enc` backup format preserved | ~1w | [unified_database.md DB.5](roadmaps/unified_database.md#db5-listings-subtabs-on-the-unified-store) |
+| DB.6 | **[DB] Image tabs port + Postgres retirement** — Search/Scan/Preview/Wallpaper onto the DAL; Configuration tab → Library Maintenance; psycopg2/pgvector removed; unified "Library" tab category; upsert loop moved off the GUI thread | ~1.5w | [unified_database.md DB.6](roadmaps/unified_database.md#db6-image-tabs-on-the-unified-store-postgres-retirement) |
+| DB.7 | **[DB] Semantic search & CBIR** — MetaCLIP image/text embeddings + BGE-M3 listings embeddings in one `embeddings` table; HNSW knn with SQL prefilter; text→image search + find-similar; pHash demoted to dedup-only; rec_engine.db absorbed | ~1.5w | [unified_database.md DB.7](roadmaps/unified_database.md#db7-semantic-search--cbir) |
+| DB.8 | **[DB] Cross-domain features** — media↔image-group links, entity↔image links (Entity Recon bridge), unified tag vocabulary + merge tool, auto-create listings from scans | ~1w | [unified_database.md DB.8](roadmaps/unified_database.md#db8-cross-domain-features) |
+| DB.9 | **[DB] Data Browser tab** — crow's-foot ER schema view auto-generated from PRAGMAs + raw-value table grid with FK navigation and reverse-reference panel | ~4d | [unified_database.md DB.9](roadmaps/unified_database.md#db9-data-browser-tab-raw-tables--er-view) |
+| DB.10 | **[DB] Backup pipeline retarget + cleanup** — `.enc` exports from the unified store, full-library encrypted dump, dead-code removal, docs, tests | ~3d | [unified_database.md DB.10](roadmaps/unified_database.md#db10-backup-pipeline-retarget--final-cleanup) |
+
+**Dependency order:** DB.1 → DB.2 → DB.3 → DB.4 (foundation, strictly sequential); DB.4 → DB.5 → DB.6 (listings cut over before Postgres retires); DB.6 → DB.7 → DB.8; DB.9 anytime after DB.3; DB.10 last.
 
 ---
 

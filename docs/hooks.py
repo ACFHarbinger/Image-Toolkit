@@ -72,7 +72,6 @@ def on_pre_build(config: dict) -> None:
             "BENCHMARKS.md",
             "DEPENDENCY_POLICY.md",
             "DOCUMENTATION_STANDARDS.md",
-            "TROUBLESHOOT.md",
             "TROUBLESHOOTING.md",
             "STRUCTURIZR.md",
         ],

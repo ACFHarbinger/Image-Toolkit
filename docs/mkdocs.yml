@@ -10,7 +10,6 @@ edit_uri: edit/main/docs/
 docs_dir: .
 site_dir: ../site
 exclude_docs: |
-  TROUBLESHOOT.md
   hooks.py
   sphinx/conf.py
 

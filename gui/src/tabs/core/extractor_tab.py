@@ -20,6 +20,7 @@ from PySide6.QtCore import (
     QPoint,
     Qt,
     QThreadPool,
+    QTimer,
     QUrl,
     Signal,
     Slot,
@@ -33,7 +34,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QFileDialog,
-    QGraphicsPixmapItem,
     QGraphicsScene,
     QGraphicsView,
     QGridLayout,
@@ -60,7 +60,12 @@ from PySide6.QtWidgets import (
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ...classes import AbstractClassSingleGallery
-from ...components import ClickableLabel, FrameSelectionDialog, MarqueeScrollArea
+from ...components import (
+    ClickableLabel,
+    FrameSelectionDialog,
+    MarqueeScrollArea,
+    ScrubPreviewPopup,
+)
 from ...constants import MAX_PREVIEW_ITEMS
 from ...helpers import (
     FrameExtractionWorker,
@@ -69,10 +74,12 @@ from ...helpers import (
     VideoScannerWorker,
 )
 from ...helpers.core.queue_execution_worker import QueueExecutionWorker
-from ...helpers.video.transcoded_playback import (
-    NativeScrubPreview,
-    TranscodedPlayback,
-    needs_transcoded_playback,
+from ...helpers.video.storyboard import (
+    StoryboardBuilder,
+    StoryboardMeta,
+    probe_duration_ms,
+    storyboard_is_complete,
+    storyboard_meta_path_for,
 )
 from ...helpers.video.video_scan_worker import VideoThumbnailer
 from ...utils.sort_utils import natural_sort_key
@@ -106,10 +113,23 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.time_display_format = "m:s:ms"
 
         self.use_internal_player = True
-        self._transcoded: Optional[TranscodedPlayback] = None
-        self._native_scrub: Optional[NativeScrubPreview] = None
-        self._preview_item: Optional[QGraphicsPixmapItem] = None
         self._slider_scrubbing = False
+
+        # --- Storyboard drag-scrub preview (YouTube-style) ---
+        # While the playhead is being dragged, the main video surface is
+        # never touched at all -- a floating popup crops a pre-generated
+        # sprite sheet instead (see helpers/video/storyboard.py), which is
+        # cheap enough to update on every tick regardless of drag speed or
+        # the source's codec. The real player frame is only committed once
+        # the drag pauses ("settles") or releases -- see _on_drag_settled().
+        self._storyboard_builder: Optional[StoryboardBuilder] = None
+        self._storyboard_pages: List[QPixmap] = []
+        self._storyboard_meta: Optional[StoryboardMeta] = None
+        self._scrub_popup: Optional[ScrubPreviewPopup] = None
+        self._drag_settle_timer = QTimer(self)
+        self._drag_settle_timer.setSingleShot(True)
+        self._drag_settle_timer.setInterval(200)
+        self._drag_settle_timer.timeout.connect(self._on_drag_settled)
         self.video_view: Optional[QGraphicsView] = None
         self.player_container: Optional[QWidget] = None
         self.lbl_current_time: Optional[QLabel] = None
@@ -263,11 +283,8 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
         self.video_item = QGraphicsVideoItem()
-        self._preview_item = QGraphicsPixmapItem()
-        self._preview_item.setVisible(False)
         self.graphics_scene = QGraphicsScene(self)
         self.graphics_scene.addItem(self.video_item)
-        self.graphics_scene.addItem(self._preview_item)
 
         self.video_view = QGraphicsView(self.graphics_scene)
         self.video_view.setFixedSize(1920, 1080)
@@ -417,6 +434,22 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_label.setVisible(False)
         self.player_inner_layout.addWidget(self.info_label)
+
+        self.storyboard_progress_bar = QProgressBar()
+        self.storyboard_progress_bar.setTextVisible(True)
+        self.storyboard_progress_bar.setFormat("Generating scrub preview... %p%")
+        self.storyboard_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.storyboard_progress_bar.setFixedHeight(14)
+        self.storyboard_progress_bar.setStyleSheet(
+            "QProgressBar { background-color: #36393f; color: #aaa; border: 1px solid #4f545c;"
+            " border-radius: 4px; font-size: 10px; }"
+            "QProgressBar::chunk { background-color: #5865f2; border-radius: 4px; }"
+        )
+        self.storyboard_progress_bar.setMinimum(0)
+        self.storyboard_progress_bar.setMaximum(100)
+        self.storyboard_progress_bar.setValue(0)
+        self.storyboard_progress_bar.hide()
+        self.player_inner_layout.addWidget(self.storyboard_progress_bar)
 
         self.player_layout_container.addWidget(self.player_container)
         self.player_container.installEventFilter(self)
@@ -851,7 +884,7 @@ class ExtractorTab(AbstractClassSingleGallery):
     def cancel_loading(self):
         """Stops all active media players, timers, and background workers."""
         super().cancel_loading()
-        self._stop_transcoded()
+        self._stop_storyboard()
 
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
@@ -893,153 +926,175 @@ class ExtractorTab(AbstractClassSingleGallery):
     @Slot()
     def _on_slider_pressed(self):
         self._slider_scrubbing = True
-        if self._transcoded is not None:
-            self._transcoded.set_scrubbing(True)
-        if self._native_scrub is not None:
-            self._native_scrub.set_scrubbing(True)
         self.media_player.pause()
         self.btn_play.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
         )
+        self._update_drag_preview(self.slider.value())
 
     @Slot(int)
     def _on_slider_value_changed(self, position: int):
         if self.slider.isSliderDown():
-            self._seek_to(position, from_scrub=True)
+            self._update_drag_preview(position)
 
     @Slot()
     def set_position_on_release(self):
         self._slider_scrubbing = False
-        if self._transcoded is not None:
-            self._transcoded.set_scrubbing(False)
-        if self._native_scrub is not None:
-            self._native_scrub.set_scrubbing(False)
-        self._seek_to(self.slider.value(), from_scrub=False)
+        self._drag_settle_timer.stop()
+        self._hide_scrub_popup()
+        self._seek_to(self.slider.value())
 
-    def _stop_native_scrub(self):
-        if self._native_scrub is not None:
-            self._native_scrub.stop()
-            self._native_scrub.deleteLater()
-            self._native_scrub = None
-
-    def _start_native_scrub(self):
-        self._stop_native_scrub()
-        if not self.video_path:
+    @Slot()
+    def _on_drag_settled(self):
+        """Fires ~200ms after the last drag tick, while the slider is still
+        held down. Commits the real player frame without waiting for the
+        user to actually release -- matches how a paused pointer hovering a
+        target still updates the preview, just debounced so it isn't
+        re-triggered on every single pixel of motion."""
+        if not self.slider.isSliderDown():
             return
-        self._native_scrub = NativeScrubPreview(self.video_path, self)
-        self._native_scrub.preview_image.connect(self._on_transcoded_preview)
-        self._native_scrub.start()
+        self._seek_to(self.slider.value())
 
-    def _stop_transcoded(self):
-        if self._transcoded is not None:
-            self._transcoded.stop()
-            self._transcoded.deleteLater()
-            self._transcoded = None
-        self._stop_native_scrub()
-        if self._preview_item is not None:
-            self._preview_item.setPixmap(QPixmap())
-            self._preview_item.setVisible(False)
-        self.video_item.setVisible(True)
+    def _seek_to(self, position_ms: int):
+        """Seeks the real player to position_ms immediately. Used by every
+        seek trigger except an active slider drag -- a drag instead shows a
+        storyboard preview via _update_drag_preview() and only ever calls
+        this once the drag pauses or releases, so QMediaPlayer's inherent
+        seek latency (observed ~100-300ms) stays a one-off, unremarkable
+        wait instead of looking like the player is stuck."""
+        self.slider.blockSignals(True)
+        self.slider.setValue(position_ms)
+        self.slider.blockSignals(False)
+        self.lbl_current_time.setText(self._format_time(position_ms)) # pyrefly: ignore [missing-attribute]
+        self.media_player.setPosition(position_ms)
 
-    def _start_transcoded(self):
-        if not self.video_path:
+    # --- Storyboard drag-scrub preview ---
+
+    def _stop_storyboard(self):
+        if self._storyboard_builder is not None:
+            self._storyboard_builder.cancel()
+            self._storyboard_builder.wait(1000)
+            self._storyboard_builder.deleteLater()
+            self._storyboard_builder = None
+        self._storyboard_pages = []
+        self._storyboard_meta = None
+        self._hide_scrub_popup()
+        self.storyboard_progress_bar.hide()
+
+    def _start_storyboard(self):
+        self._stop_storyboard()
+        if not self.video_path or not self.use_internal_player:
             return
-        self._stop_transcoded()
-        self._transcoded = TranscodedPlayback(self.video_path, self)
-        self._transcoded.player_source_changed.connect(self._on_transcoded_source)
-        self._transcoded.preview_image.connect(self._on_transcoded_preview)
-        self._transcoded.build_progress.connect(self._on_transcoded_progress)
-        self._transcoded.build_failed.connect(self._on_transcoded_failed)
-        if self._transcoded.duration_ms > 0:
-            self.duration_ms = self._transcoded.duration_ms
-            self.slider.setRange(0, self.duration_ms)
-            self.lbl_total_time.setText(self._format_time(self.duration_ms)) # pyrefly: ignore [missing-attribute]
-        self.info_label.setText("Preparing playback proxy (one-time)... 0%")
-        self.info_label.setVisible(True)
-        self._show_preview_surface()
-        self._transcoded.start()
-        self._transcoded.request_preview(self.slider.value(), force=True)
 
-    @Slot(str)
-    def _on_transcoded_source(self, path: str):
-        self.media_player.setSource(QUrl.fromLocalFile(path))
-        self.media_player.setVideoOutput(self.video_item)
-        self.media_player.setAudioOutput(self.audio_output)
-        self.btn_play.setEnabled(True)
-        self.info_label.setVisible(False)
-        self._show_video_surface()
-        self.media_player.setPosition(self.slider.value())
-        self.change_resolution(self.combo_resolution.currentIndex())
-
-    @Slot(object)
-    def _on_transcoded_preview(self, image: QImage):
-        if self._preview_item is None:
+        if storyboard_is_complete(self.video_path):
+            self._load_storyboard_cache()
             return
-        self._preview_item.setPixmap(QPixmap.fromImage(image))
-        self._preview_item.setOffset(0, 0)
-        self._preview_item.setVisible(True)
-        self.fit_video_in_view()
+
+        duration_ms = self.duration_ms or probe_duration_ms(self.video_path)
+        if duration_ms <= 0:
+            return
+
+        self._storyboard_builder = StoryboardBuilder(self.video_path, duration_ms, self)
+        self._storyboard_builder.finished_ok.connect(self._on_storyboard_ready)
+        self._storyboard_builder.failed.connect(self._on_storyboard_failed)
+        self._storyboard_builder.progress_changed.connect(self._on_storyboard_progress)
+        self._storyboard_builder.finished.connect(self._storyboard_builder.deleteLater)
+        self.storyboard_progress_bar.setValue(0)
+        self.storyboard_progress_bar.show()
+        self._storyboard_builder.start()
+
+    def _load_storyboard_cache(self):
+        meta_path = storyboard_meta_path_for(self.video_path) # pyrefly: ignore [bad-argument-type]
+        self._on_storyboard_ready(str(meta_path))
 
     @Slot(int)
-    def _on_transcoded_progress(self, percent: int):
-        if self._transcoded and self._transcoded.use_preview_scrub:
-            self.info_label.setText(
-                f"Preparing playback proxy (one-time)... {percent}%"
-            )
+    def _on_storyboard_progress(self, percent: int):
+        self.storyboard_progress_bar.setValue(percent)
 
     @Slot(str)
-    def _on_transcoded_failed(self, message: str):
-        if self._transcoded and self._transcoded.use_preview_scrub:
-            self.info_label.setText(
-                f"Proxy build failed: {message}. Scrub preview still works."
-            )
+    def _on_storyboard_ready(self, meta_path: str):
+        self.storyboard_progress_bar.hide()
+        try:
+            meta = StoryboardMeta.load(Path(meta_path))
+        except (OSError, ValueError, TypeError):
+            return
 
-    def _show_preview_surface(self):
-        self.video_item.setVisible(False)
-        if self._preview_item is not None:
-            self._preview_item.setVisible(True)
+        page_dir = Path(meta_path).parent
+        pages: List[QPixmap] = []
+        for page_name in meta.pages:
+            pixmap = QPixmap(str(page_dir / page_name))
+            if pixmap.isNull():
+                # A corrupt/truncated page makes the whole set unusable for
+                # correct indexing -- bail rather than show tiles from the
+                # wrong page.
+                return
+            pages.append(pixmap)
 
-    def _show_video_surface(self):
-        if self._preview_item is not None:
-            self._preview_item.setVisible(False)
-        self.video_item.setVisible(True)
+        self._storyboard_pages = pages
+        self._storyboard_meta = meta
+        self._storyboard_builder = None
 
-    def _seek_to(self, position_ms: int, *, from_scrub: bool = False):
-        if self._transcoded is not None and self.use_internal_player:
-            limit_ms = self._transcoded.scrub_limit_ms()
-            if limit_ms > 0:
-                position_ms = max(0, min(position_ms, limit_ms))
+    @Slot(str)
+    def _on_storyboard_failed(self, message: str):
+        # Silent: the drag preview simply won't appear for this video, but
+        # dragging still works (it just commits real frames on pause/
+        # release, same as if the storyboard were never attempted).
+        self.storyboard_progress_bar.hide()
+        self._storyboard_builder = None
+
+    def _ensure_scrub_popup(self) -> ScrubPreviewPopup:
+        # Parented to the tab's top-level window (not `self`): Wayland
+        # compositors ignore a client's attempt to freely reposition a
+        # top-level window (confirmed empirically -- .move() on one is
+        # silently a no-op), so this can't be a separate floating window at
+        # all. It has to be a plain child widget of something already
+        # correctly on-screen, positioned via local-coordinate .move() +
+        # .raise_(), which Wayland always honors. It must be the *window*
+        # specifically (not `self`) so it isn't clipped by the tab's own
+        # QScrollArea viewport.
+        top_level = self.window()
+        if self._scrub_popup is None or self._scrub_popup.parentWidget() is not top_level:
+            if self._scrub_popup is not None:
+                self._scrub_popup.deleteLater()
+            self._scrub_popup = ScrubPreviewPopup(top_level)
+        return self._scrub_popup
+
+    def _hide_scrub_popup(self):
+        if self._scrub_popup is not None:
+            self._scrub_popup.hide_popup()
+
+    def _slider_handle_local_pos(self) -> QPoint:
+        """The slider's current handle position, mapped into the top-level
+        window's local coordinate space (see _ensure_scrub_popup for why
+        this can't be a screen-global point)."""
+        rng = self.slider.maximum() - self.slider.minimum()
+        frac = 0.0 if rng <= 0 else (self.slider.value() - self.slider.minimum()) / rng
+        local_x = int(frac * self.slider.width())
+        return self.slider.mapTo(self.window(), QPoint(local_x, 0))
+
+    def _update_drag_preview(self, position_ms: int):
+        """Called on every slider tick while actively dragging. Never
+        touches QMediaPlayer or the video surface -- only crops the
+        pre-generated storyboard sprite sheet (cheap pixmap slicing, no
+        decode) into the floating popup, so update speed is bound by
+        nothing but repaint cost. The real player frame is committed
+        separately once the drag pauses -- see _on_drag_settled()."""
         self.slider.blockSignals(True)
         self.slider.setValue(position_ms)
         self.slider.blockSignals(False)
         self.lbl_current_time.setText(self._format_time(position_ms)) # pyrefly: ignore [missing-attribute]
 
-        if (
-            self.use_internal_player
-            and self._transcoded is not None
-            and self._transcoded.use_preview_scrub
-        ):
-            self._show_preview_surface()
-            self._transcoded.request_preview(position_ms, force=not from_scrub)
-            return
+        if self._storyboard_pages and self._storyboard_meta is not None:
+            page_index, x, y, w, h = self._storyboard_meta.tile_location_for(position_ms)
+            if 0 <= page_index < len(self._storyboard_pages):
+                self._ensure_scrub_popup().show_at(
+                    pixmap=self._storyboard_pages[page_index],
+                    tile_rect=(x, y, w, h),
+                    time_text=self._format_time(position_ms), # pyrefly: ignore [missing-attribute]
+                    anchor_local=self._slider_handle_local_pos(),
+                )
 
-        if (
-            self.use_internal_player
-            and self._transcoded is None
-            and self._native_scrub is not None
-        ):
-            if from_scrub:
-                # Never call setPosition() mid-drag: Qt doesn't render
-                # intermediate frames for it, and it would also fight the
-                # ffmpeg overlay for access to the same file. QMediaPlayer
-                # just keeps showing the last real frame underneath until
-                # the overlay pixmap arrives.
-                self._native_scrub.request_preview(position_ms)
-                return
-            if self._preview_item is not None:
-                self._preview_item.setVisible(False)
-
-        self.media_player.setPosition(position_ms)
+        self._drag_settle_timer.start()
 
     # --- Directory Browsing and Scanning ---
     @Slot()
@@ -1530,13 +1585,12 @@ class ExtractorTab(AbstractClassSingleGallery):
             self._save_current_video_config()
 
         if old_path and old_path != file_path:
-            self._stop_transcoded()
+            self._stop_storyboard()
 
         self.video_path = file_path
 
         ext = Path(file_path).suffix.lower()
         if ext == ".gif":
-            self._stop_transcoded()
             self.video_container_widget.setVisible(False)
             self.extract_group.setVisible(False)
             self.media_player.stop()
@@ -1596,6 +1650,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.btn_add_tag.setEnabled(True)
 
         self._apply_player_mode()
+        self._start_storyboard()
 
     @Slot()
     def browse_extraction_directory(self):
@@ -1917,15 +1972,6 @@ class ExtractorTab(AbstractClassSingleGallery):
 
     def fit_video_in_view(self):
         rect = self.video_view.viewport().rect() # pyrefly: ignore [missing-attribute]
-        if (
-            self._preview_item is not None
-            and self._preview_item.isVisible()
-        ):
-            self.video_view.fitInView( # pyrefly: ignore [missing-attribute]
-                self._preview_item,
-                Qt.AspectRatioMode.KeepAspectRatio,
-            )
-            return
         self.video_item.setSize(rect.size()) # pyrefly: ignore [missing-attribute]
         self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio) # pyrefly: ignore [missing-attribute]
 
@@ -2338,28 +2384,13 @@ class ExtractorTab(AbstractClassSingleGallery):
             self.lbl_vol.setVisible(True)
             self.volume_slider.setVisible(True)
 
-            if needs_transcoded_playback(self.video_path):
-                if self._transcoded is None:
-                    self._start_transcoded()
-                if self._transcoded and self._transcoded.use_preview_scrub:
-                    self.media_player.stop()
-                    self.media_player.setSource(QUrl())
-                    self.media_player.setVideoOutput(None) # pyrefly: ignore [bad-argument-type]
-                    self.btn_play.setEnabled(False)
-                elif self._transcoded and self._transcoded.player_media_path:
-                    self._on_transcoded_source(self._transcoded.player_media_path)
-            else:
-                self._stop_transcoded()
-                self.info_label.setVisible(False)
-                self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
-                self.media_player.setVideoOutput(self.video_item)
-                self.media_player.setAudioOutput(self.audio_output)
-                self.btn_play.setEnabled(True)
-                self._show_video_surface()
-                self.change_resolution(self.combo_resolution.currentIndex())
-                self._start_native_scrub()
+            self.info_label.setVisible(False)
+            self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
+            self.media_player.setVideoOutput(self.video_item)
+            self.media_player.setAudioOutput(self.audio_output)
+            self.btn_play.setEnabled(True)
+            self.change_resolution(self.combo_resolution.currentIndex())
         else:
-            self._stop_transcoded()
             self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
             self.btn_toggle_mode.setText("Switch to Internal Player")
             self.btn_toggle_mode.setIcon(
@@ -2423,12 +2454,6 @@ class ExtractorTab(AbstractClassSingleGallery):
 
     @Slot(QMediaPlayer.Error, str)
     def handle_player_error(self, error: QMediaPlayer.Error, error_string: str):
-        if (
-            self.use_internal_player
-            and self._transcoded is not None
-            and self._transcoded.use_preview_scrub
-        ):
-            return
         if self.use_internal_player:
             self.btn_play.setEnabled(False)
             QMessageBox.critical(

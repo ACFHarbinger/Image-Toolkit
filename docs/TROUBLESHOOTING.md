@@ -1,12 +1,13 @@
 # Troubleshooting Guide
 
-*Last updated: 2026-06-29. Supersedes `docs/TROUBLESHOOT.md` (SIGSEGV-only). Expanded to cover PySide6/Qt crashes, ASP pipeline errors, C++/pybind11 build failures, Hydra CLI issues, mobile build failures, and database problems.*
+*Last updated: 2026-07-11. Absorbed the full content of `docs/TROUBLESHOOT.md` (the older, SIGSEGV-only guide) and that file has been deleted — this is now the single troubleshooting doc. Covers PySide6/Qt crashes, Qt Multimedia video playback failures, ASP pipeline errors, C++/pybind11 build failures, Hydra CLI issues, mobile build failures, and database problems.*
 
 ---
 
 ## Table of Contents
 
 - [PySide6 / Qt Crashes (SIGSEGV)](#pyside6--qt-crashes-sigsegv)
+- [Qt Multimedia / Video Playback Decode Failures](#qt-multimedia--video-playback-decode-failures)
 - [ASP Pipeline Errors](#asp-pipeline-errors)
 - [C++ / pybind11 Build Failures](#cpp-pybind11-build-failures)
 - [Hydra CLI Configuration Errors](#hydra-cli-configuration-errors)
@@ -92,6 +93,14 @@ Context: Concurrent access to `VaultManager` (JPype JVM) from multiple threads a
 
 Fix: A `threading.RLock` in `VaultManager` serialises all JNI calls. If you see this crash, check that `VaultManager` is not being called from worker threads without acquiring the lock.
 
+**7 — Widget Parent/Ownership Conflicts**
+
+Context: Reusing a persistent widget (e.g. `MonitorDropWidget`) across transient layout containers.
+
+Cause: Calling `deleteLater()` on a container implicitly deletes its children too, even if a child widget was meant to be reused elsewhere.
+
+Fix: Explicitly call `setParent(None)` on the child widget *before* deleting/replacing the parent layout or container.
+
 ---
 
 ### `libpyside6.abi3.so.6.10` crash in `__dynamic_cast` on tab switch
@@ -99,6 +108,33 @@ Fix: A `threading.RLock` in `VaultManager` serialises all JNI calls. If you see 
 **Symptom:** Fatal crash when switching to any tab that contains a `QWebEngineView` for the first time.
 
 **Cause:** Same as root cause #3 above. See the fix there.
+
+---
+
+## <a id="qt-multimedia--video-playback-decode-failures"></a>Qt Multimedia / Video Playback Decode Failures
+
+### AV1 video shows a blank frame + `Failed to get pixel format` / `Get current frame error` spam
+
+**Symptom:** Loading an AV1-encoded video in the Extractor tab's internal player shows a solid blank/black frame. The console repeats, once per frame:
+```
+[av1 @ 0x...] Failed to get pixel format.
+[av1 @ 0x...] Get current frame error
+```
+Playback position still advances (the demuxer is fine), but nothing renders. Other codecs (H.264, HEVC, VP9) are unaffected. Not a crash — the process stays alive.
+
+**Root cause:** `main.py` sets `QT_FFMPEG_DECODING_HW_DEVICE_TYPES` to steer Qt's FFmpeg backend away from hardware video decode (originally added to keep VA-API's `iHD_drv_video.so` from loading next to JPype's JVM — see root cause #2/#3 above). Qt's own docs say an empty/`","` value should disable hardware decode entirely, but on this Qt/FFmpeg build that value does **not** reliably do that — VA-API context creation is still probed, and when it fails (or is skipped), the backend falls through to CUDA/NVDEC. This system's Qt-bundled FFmpeg has a broken `av1_cuvid` decoder for this content (10-bit "Main" profile `yuv420p10le` AV1), so every frame fails pixel-format negotiation. Confirmed empirically by toggling the env var across ~15 repeated loads: `""`/`","` failed on nearly every run; leaving the var unset, or restricting it to `"cuda"` explicitly, decoded correctly every time.
+
+A related, separate failure mode was also reproduced during investigation: heavy **concurrent GPU video decode from other processes** (e.g. a browser with several video tabs open) can exhaust the GPU's limited hardware decode-session pool, causing the exact same symptom intermittently even with a healthy config. This is a real hardware/driver limit, not something the env var can fix — if it happens only occasionally and correlates with heavy concurrent GPU video use elsewhere, that's this second cause, not the config bug above.
+
+**Fix:** In `main.py`, set the decode restriction to `"cuda"` specifically, not `""` or `","`:
+```python
+os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "cuda")
+```
+This keeps VA-API from ever being the *selected* decode device (preserving the original JVM-safety intent) while avoiding the "fully disabled" code path that was actually broken. Verify with:
+```bash
+QT_LOGGING_RULES="qt.multimedia.ffmpeg.hwaccel=true" python main.py
+```
+— the enumeration log line (`Checking HW context: vaapi ... Using above hw context.`) appears regardless of this setting in this Qt build (that step seems unconditional), but per-codec device *selection* does respect it, which is what actually matters here.
 
 ---
 
@@ -542,3 +578,5 @@ pip install pytest-forked pytest-xdist
 5. **No `QWebEngineView`** — Open URLs via `QDesktopServices.openUrl()`. The Chromium/Vulkan renderer conflicts with the JVM.
 6. **Lazy ML imports** — Never import `diffusers`, `transformers`, `torch`, or large ML libraries at module level in `animation/` modules. Use lazy imports inside functions.
 7. **Thread-local GPU state** — Do not share CUDA tensors across thread pool workers. Each QRunnable that uses a GPU model should have its own `torch.no_grad()` context.
+8. **Widget reuse** — Call `setParent(None)` on a widget before deleting/replacing a container it's about to be reparented out of; deleting the container deletes its children first.
+9. **Qt Multimedia hw-decode env vars** — Prefer no override, or an explicit device name (e.g. `"cuda"`), over `""`/`","` for `QT_FFMPEG_DECODING_HW_DEVICE_TYPES`. The "disable entirely" syntax is unreliable on some Qt/FFmpeg builds — see the Qt Multimedia section above.

@@ -37,6 +37,7 @@
 - [2.30 Accent Color and UI Density Customization](#230-accent-color-and-ui-density-customization)
 - [2.31 Custom QSS User Theme Override](#231-custom-qss-user-theme-override)
 - [2.32 Window Layout and State Profiles](#232-window-layout-and-state-profiles)
+- [2.33 Extractor Tab Playback Engine — libmpv Integration](#233-extractor-tab-playback-engine--libmpv-integration)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -1167,6 +1168,33 @@ Each tab class saves and restores its own internal splitter + scroll position in
 
 ---
 
+## 2.33 Extractor Tab Playback Engine — libmpv Integration {: #233-extractor-tab-playback-engine--libmpv-integration }
+
+**Pain point:** The Extractor tab's internal player is built on `QMediaPlayer`/`QGraphicsVideoItem`. Repeated attempts (2026-07) to make the main player itself track the playhead in real time during a drag — subprocess-per-frame extraction, a background dense-keyframe H.264 "scrub proxy," and finally a persistent in-process PyAV decoder feeding an overlay pixmap — all ran into some combination of latency, image quality, or `QMediaPlayer`/`QVideoSink` surface-swap timing bugs (aspect-ratio corruption on release, a stale-frame "flash" between the pre-drag and post-drag frame, and a final regression that only manifested under real interactive dragging, never in scripted reproductions). The conclusion: the class of bug repeatedly hit is inherent to driving `QMediaPlayer`'s own video surface at drag speed, not something a better preview-fetching algorithm alone fixes.
+
+The chosen near-term fix (§4.14, tracked in `new_features.md`) is a YouTube-style storyboard/sprite-sheet scrub preview shown in a small floating widget above the slider, which never touches the main player's surface during the drag at all — see that section for the accepted design. This section instead tracks the complementary, larger initiative: giving the *main player itself* fast, high-quality seeking, by swapping its engine to `libmpv` — the same engine Haruna (the reference UX for this feature) is built on.
+
+### Options
+
+**A — Embed via `python-mpv` + native window ID (`wid`)**
+`python-mpv` is a ctypes wrapper around `libmpv`. Hand it the native window handle of a Qt widget (`int(widget.winId())`) and let mpv render into it directly, replacing `QMediaPlayer`/`QGraphicsVideoItem` as the Extractor tab's internal engine. mpv owns seeking, its own demuxer cache, and hr-seek/keyframe-seek tuning — this is literally Haruna's own approach, not an approximation of it.
+- Pros: Highest ceiling — inherits 15+ years of tuned scrub-seek behavior for free. No custom decode/overlay code to maintain going forward.
+- Cons: New native dependency (`libmpv`/`libmpv2`). Per this project's own history (three prior SIGSEGVs from JPype/JVM colliding with lazily-loaded native GPU/media libs — GTK file dialog, QWebEngineView/Chromium, QMediaPlayer FFmpeg VA-API — see `jvm_native_lib_conflicts` in project memory), a fourth native lib coexisting with the JVM needs a deliberate isolated smoke test before wiring it into the main app. Window embedding (`wid`) is straightforward on X11 but meaningfully more fragile on Wayland (frequently requires falling back through XWayland) — worth confirming the target session type first. This is a genuine engine swap, not a small patch: audio routing, playback-speed control, and the existing AV1/VP9 H.264-proxy workaround (`transcoded_playback.py`) would all need to be re-plumbed through mpv's own APIs (mpv can decode AV1/VP9 natively via ffmpeg, likely obsoleting that proxy entirely) or bridged.
+
+**B — mpv render API into a `QOpenGLWidget`**
+Instead of native window embedding, use mpv's render API to draw into an OpenGL context Qt owns (`QOpenGLWidget`), pulling frames via a render callback instead of handing mpv a raw window handle.
+- Pros: Avoids the X11/Wayland window-embedding fragility of Option A entirely — works identically on both since Qt owns the surface. More natural fit for compositing mpv's output with Qt-drawn overlays (e.g. the storyboard preview widget, HUD elements) in the same widget.
+- Cons: More integration code than `wid` embedding (explicit OpenGL context sharing, render callback wiring). Requires `PyOpenGL` or equivalent alongside `python-mpv`.
+
+**C — Status quo (`QMediaPlayer`) + debounced seeks only**
+Keep `QMediaPlayer` as the engine; rely on the storyboard preview (§4.14) for the live-drag visual, and only ever call `QMediaPlayer.setPosition()` when the drag pauses or releases (not on every tick), reusing the existing `videoSink().videoFrameChanged`-gated safe-reveal logic.
+- Pros: Zero new dependencies, zero engine-swap risk. Already-fixed bugs (aspect ratio, release flash) stay fixed because the code paths that caused them aren't exercised at drag speed anymore.
+- Cons: The main player's seek latency (observed ~100-300ms per real seek) is still whatever `QMediaPlayer` gives you on pause/release — noticeably slower to "settle" than mpv's own seeking, just no longer perceptible as continuous stutter since it doesn't fire on every tick.
+
+**Recommendation:** Ship C now (it's the low-risk baseline the storyboard work already assumes). Pursue A as a follow-up spike behind a feature flag, with an isolated smoke test for JVM/libmpv coexistence before any wider integration; fall back to B if `wid` embedding proves unreliable on the team's actual desktop session (Wayland).
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
@@ -1177,7 +1205,7 @@ Each tab class saves and restores its own internal splitter + scroll position in
 | **Low (<1d)** | §2.4B right-click context menu · §2.10 toast notifications · §2.14 thumbnail metadata overlay · §2.24 hover animations · §2.25 shortcut discovery overlay · §2.26 inline rename | §2.2B Ctrl+scroll zoom [Quick Win] · §2.5A session path persistence · §2.9 settings extensions · §2.12 system tray · §2.17 log panel · §2.18 image rating + labels · §2.31A QSS user override | §2.3A+C keyboard nav shortcuts · §2.7A progress bar + cancel button [Quick Win] · §2.32A auto-save geometry [Quick Win] | — |
 | **Medium (1d–1w)** | §2.19 contact sheet export | §2.2A slider control · §2.5B session restore dialog · §2.6B side-by-side before/after · §2.13 gallery filter+sort · §2.15 undo/redo deletions · §2.20A QSplitter persistence · §2.21 nav history · §2.27 multi-image compare · §2.28 global search · §2.29 configurable shortcuts · §2.30 accent colour + density | §2.4A multi-select with QItemSelectionModel · §2.8A dark/light theme toggle · §2.8B dynamic colour extraction · §2.12B+C tray preview + context ops · §2.22 tag chip compound search · §2.32B named layout profiles | §2.6A interactive zoom/pan preview · §2.16A command palette + registry |
 | **High (1–2w)** | — | §2.30C density modes (compact/comfortable/spacious) · §2.31B in-app QSS editor | §2.23 accessibility audit · §2.29B global keybinding conflict detection | §2.1A QListView virtual scroll (full refactor) |
-| **Very High (2w+)** | — | §2.4E drag-and-drop reorder | — | §4.12C named workspaces (superset of §2.29+§2.30+§2.32) |
+| **Very High (2w+)** | — | §2.4E drag-and-drop reorder | §2.33A libmpv engine swap (spike, gated on JVM coexistence smoke test) | §4.12C named workspaces (superset of §2.29+§2.30+§2.32) |
 
 ---
 
@@ -1217,9 +1245,10 @@ Each tab class saves and restores its own internal splitter + scroll position in
 | 2.30 Accent Color and UI Density | [#230-accent-color-and-ui-density-customization](#230-accent-color-and-ui-density-customization) |
 | 2.31 Custom QSS User Theme Override | [#231-custom-qss-user-theme-override](#231-custom-qss-user-theme-override) |
 | 2.32 Window Layout and State Profiles | [#232-window-layout-and-state-profiles](#232-window-layout-and-state-profiles) |
+| 2.33 Extractor Tab Playback Engine — libmpv | [#233-extractor-tab-playback-engine--libmpv-integration](#233-extractor-tab-playback-engine--libmpv-integration) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.*
+*Last updated: 2026-07-11 — §2.33 Extractor Tab Playback Engine (libmpv integration) added; near-term scrub-preview UX handled separately via `new_features.md` §4.14 (storyboard sprite sheet). Previous update 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.*

@@ -1,7 +1,5 @@
 [workspace]
 members = [
-    # "base" was removed in Phase 7 (Rust→C++ migration).
-    # The Rust source is archived at archive/base_rust/.
     "frontend/src-tauri",
 ]
 resolver = "2"
