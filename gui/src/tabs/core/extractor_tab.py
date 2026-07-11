@@ -70,6 +70,7 @@ from ...helpers import (
 )
 from ...helpers.core.queue_execution_worker import QueueExecutionWorker
 from ...helpers.video.transcoded_playback import (
+    NativeScrubPreview,
     TranscodedPlayback,
     needs_transcoded_playback,
 )
@@ -106,6 +107,7 @@ class ExtractorTab(AbstractClassSingleGallery):
 
         self.use_internal_player = True
         self._transcoded: Optional[TranscodedPlayback] = None
+        self._native_scrub: Optional[NativeScrubPreview] = None
         self._preview_item: Optional[QGraphicsPixmapItem] = None
         self._slider_scrubbing = False
         self.video_view: Optional[QGraphicsView] = None
@@ -893,6 +895,8 @@ class ExtractorTab(AbstractClassSingleGallery):
         self._slider_scrubbing = True
         if self._transcoded is not None:
             self._transcoded.set_scrubbing(True)
+        if self._native_scrub is not None:
+            self._native_scrub.set_scrubbing(True)
         self.media_player.pause()
         self.btn_play.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
@@ -908,13 +912,30 @@ class ExtractorTab(AbstractClassSingleGallery):
         self._slider_scrubbing = False
         if self._transcoded is not None:
             self._transcoded.set_scrubbing(False)
+        if self._native_scrub is not None:
+            self._native_scrub.set_scrubbing(False)
         self._seek_to(self.slider.value(), from_scrub=False)
+
+    def _stop_native_scrub(self):
+        if self._native_scrub is not None:
+            self._native_scrub.stop()
+            self._native_scrub.deleteLater()
+            self._native_scrub = None
+
+    def _start_native_scrub(self):
+        self._stop_native_scrub()
+        if not self.video_path:
+            return
+        self._native_scrub = NativeScrubPreview(self.video_path, self)
+        self._native_scrub.preview_image.connect(self._on_transcoded_preview)
+        self._native_scrub.start()
 
     def _stop_transcoded(self):
         if self._transcoded is not None:
             self._transcoded.stop()
             self._transcoded.deleteLater()
             self._transcoded = None
+        self._stop_native_scrub()
         if self._preview_item is not None:
             self._preview_item.setPixmap(QPixmap())
             self._preview_item.setVisible(False)
@@ -956,6 +977,7 @@ class ExtractorTab(AbstractClassSingleGallery):
             return
         self._preview_item.setPixmap(QPixmap.fromImage(image))
         self._preview_item.setOffset(0, 0)
+        self._preview_item.setVisible(True)
         self.fit_video_in_view()
 
     @Slot(int)
@@ -1000,6 +1022,22 @@ class ExtractorTab(AbstractClassSingleGallery):
             self._show_preview_surface()
             self._transcoded.request_preview(position_ms, force=not from_scrub)
             return
+
+        if (
+            self.use_internal_player
+            and self._transcoded is None
+            and self._native_scrub is not None
+        ):
+            if from_scrub:
+                # Never call setPosition() mid-drag: Qt doesn't render
+                # intermediate frames for it, and it would also fight the
+                # ffmpeg overlay for access to the same file. QMediaPlayer
+                # just keeps showing the last real frame underneath until
+                # the overlay pixmap arrives.
+                self._native_scrub.request_preview(position_ms)
+                return
+            if self._preview_item is not None:
+                self._preview_item.setVisible(False)
 
         self.media_player.setPosition(position_ms)
 
@@ -2319,6 +2357,7 @@ class ExtractorTab(AbstractClassSingleGallery):
                 self.btn_play.setEnabled(True)
                 self._show_video_surface()
                 self.change_resolution(self.combo_resolution.currentIndex())
+                self._start_native_scrub()
         else:
             self._stop_transcoded()
             self.media_player.setSource(QUrl.fromLocalFile(self.video_path))

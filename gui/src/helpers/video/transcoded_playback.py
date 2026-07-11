@@ -21,6 +21,20 @@ _PARTIAL_MIN_BYTES = 200_000
 _PARTIAL_MIN_MS = 500
 _OUT_TIME_RE = re.compile(r"out_time_ms=(\d+)")
 
+# Scrub-only proxy for codecs Qt already plays natively (e.g. HEVC). Unlike
+# the AV1 playback proxy above, this is never fed to QMediaPlayer -- its only
+# job is to let ffmpeg pull an arbitrary single frame back in well under
+# 100ms while the user drags the slider. A full HEVC decode of an on-disk
+# frame averages ~1.1s because ffmpeg has to seek to the nearest keyframe and
+# decode forward through the source's (long) GOP; a small, low-res, dense-
+# keyframe H.264 proxy collapses that forward-decode distance to a handful
+# of frames, which is what actually makes scrubbing feel instantaneous.
+_SCRUB_PROXY_CACHE_VERSION = "v1"
+_SCRUB_PROXY_DIR = IMAGE_TOOLKIT_DIR / "scrub-preview-cache"
+_SCRUB_PROXY_HEIGHT = 360
+_SCRUB_PROXY_GOP = 10
+_SCRUB_PROXY_CRF = 30
+
 
 def needs_transcoded_playback(video_path: str) -> bool:
     codec = _probe_codec(video_path)
@@ -108,6 +122,33 @@ def proxy_is_complete(video_path: str) -> bool:
     return True
 
 
+def _scrub_cache_key(video_path: str) -> str:
+    resolved = os.path.abspath(video_path)
+    stat = os.stat(resolved)
+    payload = (
+        f"{resolved}|{stat.st_mtime_ns}|{stat.st_size}|{_SCRUB_PROXY_CACHE_VERSION}"
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
+def scrub_proxy_path_for(video_path: str) -> Path:
+    _SCRUB_PROXY_DIR.mkdir(parents=True, exist_ok=True)
+    return _SCRUB_PROXY_DIR / f"{_scrub_cache_key(video_path)}.mp4"
+
+
+def scrub_proxy_is_complete(video_path: str) -> bool:
+    proxy = scrub_proxy_path_for(video_path)
+    if not proxy.exists() or proxy.stat().st_size < 4096:
+        return False
+    proxy_ms = probe_duration_ms(str(proxy))
+    if proxy_ms <= 0:
+        return False
+    source_ms = probe_duration_ms(video_path)
+    if source_ms > 0 and proxy_ms < int(source_ms * 0.9):
+        return False
+    return True
+
+
 def _extract_frame_jpeg(media_path: str, position_ms: int, *, max_height: int) -> Optional[bytes]:
     if position_ms < 0:
         position_ms = 0
@@ -179,11 +220,27 @@ class _ProxyBuilder(QThread):
     finished_ok = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, video_path: str, duration_ms: int):
+    def __init__(
+        self,
+        video_path: str,
+        duration_ms: int,
+        proxy_path: Optional[Path] = None,
+        *,
+        target_height: int = 720,
+        crf: int = 23,
+        gop: int = 48,
+        include_audio: bool = True,
+        extra_video_args: Optional[list[str]] = None,
+    ):
         super().__init__()
         self.video_path = video_path
         self.duration_ms = max(0, duration_ms)
-        self.proxy_path = proxy_path_for(video_path)
+        self.proxy_path = proxy_path if proxy_path is not None else proxy_path_for(video_path)
+        self.target_height = target_height
+        self.crf = crf
+        self.gop = gop
+        self.include_audio = include_audio
+        self.extra_video_args = extra_video_args or []
         self._cancelled = False
         self._partial_emitted = False
         self._process: subprocess.Popen[str] | None = None
@@ -215,23 +272,26 @@ class _ProxyBuilder(QThread):
             "-i",
             self.video_path,
             "-vf",
-            "scale=-2:720",
+            f"scale=-2:{self.target_height}",
             "-c:v",
             "libx264",
             "-preset",
             "ultrafast",
             "-crf",
-            "23",
+            str(self.crf),
             "-pix_fmt",
             "yuv420p",
             "-g",
-            "48",
+            str(self.gop),
             "-keyint_min",
-            "48",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "128k",
+            str(self.gop),
+            *self.extra_video_args,
+        ]
+        if self.include_audio:
+            cmd += ["-c:a", "aac", "-b:a", "128k"]
+        else:
+            cmd += ["-an"]
+        cmd += [
             "-movflags",
             "+frag_keyframe+empty_moov+default_base_moof",
             str(partial),
@@ -442,3 +502,149 @@ class TranscodedPlayback(QObject):
         self._request_id += 1
         self._in_flight = False
         self.player_source_changed.emit(path)
+
+
+class NativeScrubPreview(QObject):
+    """FFmpeg-based live frame overlay for codecs Qt already plays natively
+    (e.g. HEVC/H.264) so scrubbing shows intermediate frames like it does for
+    the AV1/VP9 proxy path.
+
+    Unlike ``TranscodedPlayback``, QMediaPlayer keeps decoding this source
+    directly and is never disconnected -- ``setPosition()`` is simply skipped
+    while the slider is held down. That means the video surface already shows
+    the last real frame at all times, so this class only ever needs to draw
+    an overlay on top of it once a frame is ready; there is nothing to hide
+    or blank while waiting.
+
+    Pulling a still frame straight out of the original source is slow for
+    long-GOP codecs like HEVC (~1.1s/frame: ffmpeg has to seek to the nearest
+    keyframe and decode forward through the whole GOP), which is far too slow
+    to feel continuous during a fast drag. So in the background this also
+    builds a small, dense-keyframe H.264 "scrub proxy" (like the AV1 playback
+    proxy, but silent and never handed to QMediaPlayer) that collapses that
+    forward-decode distance to a handful of frames. Once it's ready (or a
+    partial prefix of it is), frame requests switch to pulling from it and
+    become fast enough (~tens of ms) to keep up with a fast drag; requests
+    made before then fall back to the slow direct-from-source path so there's
+    still *something* to look at in the meantime.
+    """
+
+    preview_image = Signal(object)
+
+    def __init__(self, source_path: str, parent: Optional[QObject] = None):
+        super().__init__(parent)
+        self.source_path = source_path
+        self.duration_ms = probe_duration_ms(source_path)
+        self._proxy_path: Optional[str] = None
+        self._partial_path: Optional[str] = None
+        self._builder: Optional[_ProxyBuilder] = None
+        self._pending_ms = 0
+        self._request_id = 0
+        self._in_flight = False
+        self._scrubbing = False
+
+    def start(self):
+        proxy = scrub_proxy_path_for(self.source_path)
+        if proxy.exists() and not scrub_proxy_is_complete(self.source_path):
+            proxy.unlink(missing_ok=True)
+
+        if scrub_proxy_is_complete(self.source_path):
+            self._proxy_path = str(proxy)
+            return
+
+        self._builder = _ProxyBuilder(
+            self.source_path,
+            self.duration_ms,
+            proxy,
+            target_height=_SCRUB_PROXY_HEIGHT,
+            crf=_SCRUB_PROXY_CRF,
+            gop=_SCRUB_PROXY_GOP,
+            include_audio=False,
+            extra_video_args=["-sc_threshold", "0"],
+        )
+        self._builder.partial_ready.connect(self._on_partial_ready)
+        self._builder.finished_ok.connect(self._on_build_finished)
+        self._builder.finished.connect(self._builder.deleteLater)
+        self._builder.start()
+
+    def stop(self):
+        self._request_id += 1
+        self._in_flight = False
+        if self._builder is not None:
+            self._builder.cancel()
+            self._builder.wait(1000)
+            self._builder = None
+
+    def set_scrubbing(self, active: bool):
+        self._scrubbing = active
+        if not active:
+            self._request_id += 1
+            self._in_flight = False
+
+    def _is_fast(self) -> bool:
+        return bool(self._proxy_path or self._partial_path)
+
+    def _frame_source(self) -> str:
+        if self._proxy_path:
+            return self._proxy_path
+        if self._partial_path:
+            return self._partial_path
+        return self.source_path
+
+    def _frame_height(self) -> int:
+        return 480 if self._is_fast() else 240
+
+    def request_preview(self, position_ms: int):
+        self._pending_ms = max(0, position_ms)
+        if self._in_flight:
+            # Deliberately never cancel-and-restart here: a fast drag
+            # delivers slider ticks far more often than any single frame
+            # extraction can complete, even on the proxy. Racing a fresh
+            # ffmpeg process against every tick just piles up work that
+            # gets thrown away and starves the UI of any visible update at
+            # all. Instead let the current extraction finish -- it always
+            # picks up whatever the latest pending position is by then (see
+            # _on_frame_ready) -- so the update rate is bound by real
+            # extraction throughput instead of by input rate.
+            return
+        self._start_frame_request()
+
+    def _start_frame_request(self):
+        self._in_flight = True
+        self._request_id += 1
+        request_id = self._request_id
+        position_ms = self._pending_ms
+
+        worker = _FrameWorker(
+            self._frame_source(), position_ms, request_id, self._frame_height()
+        )
+        worker.signals.ready.connect(self._on_frame_ready)
+        worker.signals.failed.connect(self._on_frame_failed)
+        QThreadPool.globalInstance().start(worker)
+
+    @Slot(int, int, object)
+    def _on_frame_ready(self, request_id: int, position_ms: int, image: QImage):
+        if request_id != self._request_id:
+            return
+        self._in_flight = False
+        self.preview_image.emit(image)
+        if self._scrubbing and abs(position_ms - self._pending_ms) >= 30:
+            self._start_frame_request()
+
+    @Slot(int, int)
+    def _on_frame_failed(self, request_id: int, position_ms: int):
+        if request_id != self._request_id:
+            return
+        self._in_flight = False
+
+    @Slot(str)
+    def _on_partial_ready(self, partial_path: str):
+        if self._proxy_path:
+            return
+        self._partial_path = partial_path
+
+    @Slot(str)
+    def _on_build_finished(self, proxy_path: str):
+        self._builder = None
+        self._partial_path = None
+        self._proxy_path = proxy_path
