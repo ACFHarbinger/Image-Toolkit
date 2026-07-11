@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QFileDialog,
+    QGraphicsPixmapItem,
     QGraphicsScene,
     QGraphicsView,
     QGridLayout,
@@ -68,6 +69,10 @@ from ...helpers import (
     VideoScannerWorker,
 )
 from ...helpers.core.queue_execution_worker import QueueExecutionWorker
+from ...helpers.video.transcoded_playback import (
+    TranscodedPlayback,
+    needs_transcoded_playback,
+)
 from ...helpers.video.video_scan_worker import VideoThumbnailer
 from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow
@@ -100,6 +105,9 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.time_display_format = "m:s:ms"
 
         self.use_internal_player = True
+        self._transcoded: Optional[TranscodedPlayback] = None
+        self._preview_item: Optional[QGraphicsPixmapItem] = None
+        self._slider_scrubbing = False
         self.video_view: Optional[QGraphicsView] = None
         self.player_container: Optional[QWidget] = None
         self.lbl_current_time: Optional[QLabel] = None
@@ -253,8 +261,11 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
         self.video_item = QGraphicsVideoItem()
+        self._preview_item = QGraphicsPixmapItem()
+        self._preview_item.setVisible(False)
         self.graphics_scene = QGraphicsScene(self)
         self.graphics_scene.addItem(self.video_item)
+        self.graphics_scene.addItem(self._preview_item)
 
         self.video_view = QGraphicsView(self.graphics_scene)
         self.video_view.setFixedSize(1920, 1080)
@@ -368,8 +379,8 @@ class ExtractorTab(AbstractClassSingleGallery):
 
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
-        self.slider.sliderMoved.connect(self.set_position)
-        self.slider.sliderPressed.connect(lambda: self.media_player.pause())
+        self.slider.valueChanged.connect(self._on_slider_value_changed)
+        self.slider.sliderPressed.connect(self._on_slider_pressed)
         self.slider.sliderReleased.connect(self.set_position_on_release)
         self.slider.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.slider.customContextMenuRequested.connect(self.show_video_context_menu)
@@ -838,6 +849,7 @@ class ExtractorTab(AbstractClassSingleGallery):
     def cancel_loading(self):
         """Stops all active media players, timers, and background workers."""
         super().cancel_loading()
+        self._stop_transcoded()
 
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
@@ -877,9 +889,119 @@ class ExtractorTab(AbstractClassSingleGallery):
             )
 
     @Slot()
+    def _on_slider_pressed(self):
+        self._slider_scrubbing = True
+        if self._transcoded is not None:
+            self._transcoded.set_scrubbing(True)
+        self.media_player.pause()
+        self.btn_play.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
+        )
+
+    @Slot(int)
+    def _on_slider_value_changed(self, position: int):
+        if self.slider.isSliderDown():
+            self._seek_to(position, from_scrub=True)
+
+    @Slot()
     def set_position_on_release(self):
-        position = self.slider.value()
-        self.media_player.setPosition(position)
+        self._slider_scrubbing = False
+        if self._transcoded is not None:
+            self._transcoded.set_scrubbing(False)
+        self._seek_to(self.slider.value(), from_scrub=False)
+
+    def _stop_transcoded(self):
+        if self._transcoded is not None:
+            self._transcoded.stop()
+            self._transcoded.deleteLater()
+            self._transcoded = None
+        if self._preview_item is not None:
+            self._preview_item.setPixmap(QPixmap())
+            self._preview_item.setVisible(False)
+        self.video_item.setVisible(True)
+
+    def _start_transcoded(self):
+        if not self.video_path:
+            return
+        self._stop_transcoded()
+        self._transcoded = TranscodedPlayback(self.video_path, self)
+        self._transcoded.player_source_changed.connect(self._on_transcoded_source)
+        self._transcoded.preview_image.connect(self._on_transcoded_preview)
+        self._transcoded.build_progress.connect(self._on_transcoded_progress)
+        self._transcoded.build_failed.connect(self._on_transcoded_failed)
+        if self._transcoded.duration_ms > 0:
+            self.duration_ms = self._transcoded.duration_ms
+            self.slider.setRange(0, self.duration_ms)
+            self.lbl_total_time.setText(self._format_time(self.duration_ms)) # pyrefly: ignore [missing-attribute]
+        self.info_label.setText("Preparing playback proxy (one-time)... 0%")
+        self.info_label.setVisible(True)
+        self._show_preview_surface()
+        self._transcoded.start()
+        self._transcoded.request_preview(self.slider.value(), force=True)
+
+    @Slot(str)
+    def _on_transcoded_source(self, path: str):
+        self.media_player.setSource(QUrl.fromLocalFile(path))
+        self.media_player.setVideoOutput(self.video_item)
+        self.media_player.setAudioOutput(self.audio_output)
+        self.btn_play.setEnabled(True)
+        self.info_label.setVisible(False)
+        self._show_video_surface()
+        self.media_player.setPosition(self.slider.value())
+        self.change_resolution(self.combo_resolution.currentIndex())
+
+    @Slot(object)
+    def _on_transcoded_preview(self, image: QImage):
+        if self._preview_item is None:
+            return
+        self._preview_item.setPixmap(QPixmap.fromImage(image))
+        self._preview_item.setOffset(0, 0)
+        self.fit_video_in_view()
+
+    @Slot(int)
+    def _on_transcoded_progress(self, percent: int):
+        if self._transcoded and self._transcoded.use_preview_scrub:
+            self.info_label.setText(
+                f"Preparing playback proxy (one-time)... {percent}%"
+            )
+
+    @Slot(str)
+    def _on_transcoded_failed(self, message: str):
+        if self._transcoded and self._transcoded.use_preview_scrub:
+            self.info_label.setText(
+                f"Proxy build failed: {message}. Scrub preview still works."
+            )
+
+    def _show_preview_surface(self):
+        self.video_item.setVisible(False)
+        if self._preview_item is not None:
+            self._preview_item.setVisible(True)
+
+    def _show_video_surface(self):
+        if self._preview_item is not None:
+            self._preview_item.setVisible(False)
+        self.video_item.setVisible(True)
+
+    def _seek_to(self, position_ms: int, *, from_scrub: bool = False):
+        if self._transcoded is not None and self.use_internal_player:
+            limit_ms = self._transcoded.scrub_limit_ms()
+            if limit_ms > 0:
+                position_ms = max(0, min(position_ms, limit_ms))
+        self.slider.blockSignals(True)
+        self.slider.setValue(position_ms)
+        self.slider.blockSignals(False)
+        self.lbl_current_time.setText(self._format_time(position_ms)) # pyrefly: ignore [missing-attribute]
+
+        if (
+            self.use_internal_player
+            and self._transcoded is not None
+            and self._transcoded.use_preview_scrub
+        ):
+            self._show_preview_surface()
+            self._transcoded.request_preview(position_ms, force=not from_scrub)
+            return
+
+        self.media_player.setPosition(position_ms)
 
     # --- Directory Browsing & Scanning ---
     @Slot()
@@ -1369,10 +1491,14 @@ class ExtractorTab(AbstractClassSingleGallery):
         if old_path:
             self._save_current_video_config()
 
+        if old_path and old_path != file_path:
+            self._stop_transcoded()
+
         self.video_path = file_path
 
         ext = Path(file_path).suffix.lower()
         if ext == ".gif":
+            self._stop_transcoded()
             self.video_container_widget.setVisible(False)
             self.extract_group.setVisible(False)
             self.media_player.stop()
@@ -1696,15 +1822,14 @@ class ExtractorTab(AbstractClassSingleGallery):
 
             if is_view or is_viewport or is_container:
                 # Only perform seek logic if the video is loaded and we are in internal player mode
-                if self.use_internal_player and self.media_player.duration() > 0:
+                duration_ms = self.duration_ms or self.media_player.duration()
+                if self.use_internal_player and duration_ms > 0:
                     delta = event.angleDelta().y() # pyrefly: ignore [missing-attribute]
                     # Jump by configured ms per scroll tick
                     step = self.wheel_seek_ms if delta > 0 else -self.wheel_seek_ms
-                    current_pos = self.media_player.position()
-                    new_pos = max(
-                        0, min(current_pos + step, self.media_player.duration())
-                    )
-                    self.media_player.setPosition(new_pos)
+                    current_pos = self.slider.value()
+                    new_pos = max(0, min(current_pos + step, duration_ms))
+                    self._seek_to(new_pos)
 
                 # ALWAYS accept the event and return True.
                 # This explicitly blocks the parent QScrollArea from shifting the player's alignment.
@@ -1724,16 +1849,16 @@ class ExtractorTab(AbstractClassSingleGallery):
             if event.type() == QEvent.Type.KeyPress:
                 if event.key() == Qt.Key.Key_Right:# pyrefly: ignore [missing-attribute]
                     # Seek forward
-                    pos = self.media_player.position()
-                    duration = self.media_player.duration()
+                    pos = self.slider.value()
+                    duration = self.duration_ms or self.media_player.duration()
                     new_pos = min(pos + self.wheel_seek_ms, duration)
-                    self.media_player.setPosition(new_pos)
+                    self._seek_to(new_pos)
                     return True
                 elif event.key() == Qt.Key.Key_Left:# pyrefly: ignore [missing-attribute]
                     # Seek backward
-                    pos = self.media_player.position()
+                    pos = self.slider.value()
                     new_pos = max(0, pos - self.wheel_seek_ms)
-                    self.media_player.setPosition(new_pos)
+                    self._seek_to(new_pos)
                     return True
                 elif event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
                     if (
@@ -1754,6 +1879,15 @@ class ExtractorTab(AbstractClassSingleGallery):
 
     def fit_video_in_view(self):
         rect = self.video_view.viewport().rect() # pyrefly: ignore [missing-attribute]
+        if (
+            self._preview_item is not None
+            and self._preview_item.isVisible()
+        ):
+            self.video_view.fitInView( # pyrefly: ignore [missing-attribute]
+                self._preview_item,
+                Qt.AspectRatioMode.KeepAspectRatio,
+            )
+            return
         self.video_item.setSize(rect.size()) # pyrefly: ignore [missing-attribute]
         self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio) # pyrefly: ignore [missing-attribute]
 
@@ -2153,25 +2287,41 @@ class ExtractorTab(AbstractClassSingleGallery):
         ext = Path(self.video_path).suffix.lower()
         if ext == ".gif":
             return
-        self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
 
         if self.use_internal_player:
             self.btn_toggle_mode.setText("Switch to External Player")
             self.btn_toggle_mode.setIcon(
                 self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)
             )
-            self.info_label.setVisible(False)
             self.combo_resolution.setEnabled(True)
             self.video_view.setVisible(True) # pyrefly: ignore [missing-attribute]
             self.btn_play.setVisible(True)
             self.btn_fullscreen.setVisible(True)
             self.lbl_vol.setVisible(True)
             self.volume_slider.setVisible(True)
-            self.btn_play.setEnabled(True)
-            self.media_player.setVideoOutput(self.video_item)
-            self.media_player.setAudioOutput(self.audio_output)
-            self.change_resolution(self.combo_resolution.currentIndex())
+
+            if needs_transcoded_playback(self.video_path):
+                if self._transcoded is None:
+                    self._start_transcoded()
+                if self._transcoded and self._transcoded.use_preview_scrub:
+                    self.media_player.stop()
+                    self.media_player.setSource(QUrl())
+                    self.media_player.setVideoOutput(None) # pyrefly: ignore [bad-argument-type]
+                    self.btn_play.setEnabled(False)
+                elif self._transcoded and self._transcoded.player_media_path:
+                    self._on_transcoded_source(self._transcoded.player_media_path)
+            else:
+                self._stop_transcoded()
+                self.info_label.setVisible(False)
+                self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
+                self.media_player.setVideoOutput(self.video_item)
+                self.media_player.setAudioOutput(self.audio_output)
+                self.btn_play.setEnabled(True)
+                self._show_video_surface()
+                self.change_resolution(self.combo_resolution.currentIndex())
         else:
+            self._stop_transcoded()
+            self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
             self.btn_toggle_mode.setText("Switch to Internal Player")
             self.btn_toggle_mode.setIcon(
                 self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
@@ -2217,7 +2367,9 @@ class ExtractorTab(AbstractClassSingleGallery):
 
     @Slot(int)
     def position_changed(self, position: int):
+        self.slider.blockSignals(True)
         self.slider.setValue(position)
+        self.slider.blockSignals(False)
         self.lbl_current_time.setText(self._format_time(position)) # pyrefly: ignore [missing-attribute]
 
     @Slot(int)
@@ -2228,10 +2380,16 @@ class ExtractorTab(AbstractClassSingleGallery):
 
     @Slot(int)
     def set_position(self, position: int):
-        self.media_player.setPosition(position)
+        self._seek_to(position)
 
     @Slot(QMediaPlayer.Error, str)
     def handle_player_error(self, error: QMediaPlayer.Error, error_string: str):
+        if (
+            self.use_internal_player
+            and self._transcoded is not None
+            and self._transcoded.use_preview_scrub
+        ):
+            return
         if self.use_internal_player:
             self.btn_play.setEnabled(False)
             QMessageBox.critical(
