@@ -606,8 +606,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
     # ------------------------------------
 
-    # --- RESIZE & REFLOW LOGIC ---
-
+    # --- RESIZE and REFLOW LOGIC ---
     def resizeEvent(self, event: QResizeEvent):
         """Trigger grid reflow and lazy load check when window is resized."""
         self._resize_timer.start(150)  # existing debounce for layout repack

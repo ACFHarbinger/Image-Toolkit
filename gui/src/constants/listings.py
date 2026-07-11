@@ -1,6 +1,6 @@
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 
-# Constants & Storage Files
+# Constants and Storage Files
 LISTINGS_FILE = IMAGE_TOOLKIT_DIR / "listings.json"
 ENTITIES_FILE = IMAGE_TOOLKIT_DIR / "entities.json"
 LISTING_IMAGES_DIR = IMAGE_TOOLKIT_DIR / "listing-images"

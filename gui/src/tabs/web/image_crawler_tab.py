@@ -129,8 +129,8 @@ class ImageCrawlTab(QWidget):
 
         main_layout.addWidget(download_group)
 
-        # --- 3b. Selection & Deduplication Mode ---
-        selection_group = QGroupBox("Deduplication & Selection Mode")
+        # --- 3b. Selection and Deduplication Mode ---
+        selection_group = QGroupBox("Deduplication and Selection Mode")
         selection_group.setStyleSheet(self._get_group_style())
         selection_layout = QFormLayout(selection_group)
         selection_layout.setContentsMargins(10, 20, 10, 10)
@@ -147,7 +147,7 @@ class ImageCrawlTab(QWidget):
         main_layout.addWidget(selection_group)
 
         # --- 4. Run Controls ---
-        # Progress & Status
+        # Progress and Status
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(
@@ -1016,8 +1016,8 @@ class ImageCrawlTab(QWidget):
             QMessageBox.warning(
                 self, "Config Error", f"Failed to apply some settings: {e}"
             )
-    # --- QML Properties & Slots ---
 
+    # --- QML Properties and Slots ---
     qml_crawling_changed = Signal()
     qml_log_changed = Signal()
     qml_settings_changed = Signal()

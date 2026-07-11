@@ -218,7 +218,7 @@ class ImageMerger:
             err_msg = error_map.get(status, f"Error code {status}")
             raise RuntimeError(f"Scan stitching failed: {err_msg}")
 
-        # 5. Convert & Save
+        # 5. Convert and Save
         pano_rgb = cv2.cvtColor(pano, cv2.COLOR_BGR2RGB)
         merged_image = Image.fromarray(pano_rgb)
 

@@ -1365,9 +1365,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
     def update_slideshow_settings_qml(
         self, interval_min, style, random_order, include_subdirs
     ):
-        if hasattr(self, "interval_min_spinbox"):
+        if hasattr(self, "interval_min_spinbox") and self.interval_min_spinbox is not None:
             self.interval_min_spinbox.setValue(interval_min)
-        if hasattr(self, "style_combo"):
+        if hasattr(self, "style_combo") and self.style_combo is not None:
             self.style_combo.setCurrentText(style)
         self.request_monitors_qml()
 

@@ -297,7 +297,7 @@ class MaskReviewDialog(QDialog):
         excl_row = QHBoxLayout()
         self._excl_input = QLineEdit()
         self._excl_input.setPlaceholderText("Region to avoid (e.g. 'right arm')…")
-        self._btn_excl_detect = QPushButton("Detect & Exclude (GroundingDINO)")
+        self._btn_excl_detect = QPushButton("Detect and Exclude (GroundingDINO)")
         self._btn_excl_detect.clicked.connect(self._on_detect_exclusion)
         self._btn_excl_detect.setEnabled(self._refine_callback is not None)
         self._excl_status = QLabel("No exclusion mask")
@@ -323,7 +323,7 @@ class MaskReviewDialog(QDialog):
 
         # Accept / Skip / Cancel row
         bottom_row = QHBoxLayout()
-        self._btn_accept = QPushButton("Accept Masks & Resume")
+        self._btn_accept = QPushButton("Accept Masks and Resume")
         self._btn_accept.setDefault(True)
         self._btn_accept.clicked.connect(self._on_accept)
         btn_skip = QPushButton("Skip (use original masks)")

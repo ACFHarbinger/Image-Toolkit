@@ -36,7 +36,7 @@ class _AdvancedSearchDialog(QDialog):
         self.entries = entries or []
         self.entities = entities or []
 
-        # Extract unique tags & genres
+        # Extract unique tags and genres
         all_tags = set()
         all_genres = set()
         for e in self.entries:

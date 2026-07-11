@@ -2,6 +2,36 @@ import os
 import subprocess
 from typing import Callable, Optional
 
+# Target codec -> (ffmpeg encoder, extra fixed args). Keys match the codec
+# names ffprobe reports for these encoders (h264, hevc, av1, vp9), so a
+# probed source codec can be compared directly against a target key.
+VIDEO_CODEC_ENCODERS = {
+    "h264": ("libx264", ["-pix_fmt", "yuv420p"]),
+    "hevc": ("libx265", ["-pix_fmt", "yuv420p", "-tag:v", "hvc1"]),
+    "av1": ("libsvtav1", ["-pix_fmt", "yuv420p"]),
+    "vp9": ("libvpx-vp9", ["-pix_fmt", "yuv420p", "-b:v", "0"]),
+}
+
+AUDIO_CODEC_ENCODERS = {
+    "aac": ("aac", ["-b:a", "192k"]),
+    "opus": ("libopus", ["-b:a", "128k"]),
+    "mp3": ("libmp3lame", ["-q:a", "2"]),
+    "flac": ("flac", []),
+}
+
+# Speed level 0 (fastest/lowest quality) .. 4 (slowest/best quality), mapped
+# to each encoder's own preset vocabulary.
+_SPEED_PRESETS = {
+    "h264": {0: "ultrafast", 1: "faster", 2: "medium", 3: "slow", 4: "veryslow"},
+    "hevc": {0: "ultrafast", 1: "faster", 2: "medium", 3: "slow", 4: "veryslow"},
+    # libsvtav1: lower preset number = slower/better.
+    "av1": {0: "12", 1: "10", 2: "8", 3: "5", 4: "2"},
+    # libvpx-vp9: lower -cpu-used = slower/better.
+    "vp9": {0: "8", 1: "6", 2: "4", 3: "2", 4: "0"},
+}
+
+_MAX_CRF = {"h264": 51, "hevc": 51, "av1": 63, "vp9": 63}
+
 
 class VideoFormatConverter:
     """
@@ -132,6 +162,96 @@ class VideoFormatConverter:
             return False
         finally:
             pass  # Popen object cleanup is handled by GC or explicit termination externally
+
+    @classmethod
+    def convert_codec(
+        cls,
+        input_path: str,
+        output_path: str,
+        video_codec: Optional[str] = None,
+        audio_codec: Optional[str] = None,
+        crf: int = 28,
+        speed: int = 2,
+        delete: bool = False,
+        process_callback: Optional[Callable[[subprocess.Popen], None]] = None,
+    ) -> bool:
+        """
+        Re-encodes a video's video and/or audio stream to a different codec via
+        FFmpeg, leaving the other stream (and container) untouched. Passing
+        ``None`` (or "copy") for either codec stream-copies it unchanged.
+
+        ``speed`` is a generic 0 (fastest) .. 4 (best quality) dial, mapped
+        internally to each target encoder's own preset vocabulary since x264/
+        x265, libsvtav1, and libvpx-vp9 all use different scales.
+        """
+        if not os.path.exists(input_path):
+            print(f"Error: Input file '{input_path}' not found.")
+            return False
+
+        cmd = ["ffmpeg", "-y", "-i", input_path]
+
+        vcodec_key = (video_codec or "copy").strip().lower()
+        if vcodec_key in ("copy", "", "none"):
+            cmd += ["-c:v", "copy"]
+        else:
+            encoder = VIDEO_CODEC_ENCODERS.get(vcodec_key)
+            if encoder is None:
+                print(f"Unsupported video codec: {video_codec}")
+                return False
+            encoder_name, extra_args = encoder
+            clamped_crf = max(0, min(crf, _MAX_CRF.get(vcodec_key, 51)))
+            speed_val = _SPEED_PRESETS.get(vcodec_key, {}).get(speed, "medium")
+
+            cmd += ["-c:v", encoder_name, "-crf", str(clamped_crf)]
+            if vcodec_key == "vp9":
+                cmd += ["-deadline", "good", "-cpu-used", str(speed_val)]
+            else:
+                cmd += ["-preset", str(speed_val)]
+            cmd += extra_args
+
+        acodec_key = (audio_codec or "copy").strip().lower()
+        if acodec_key in ("copy", "", "none"):
+            cmd += ["-c:a", "copy"]
+        else:
+            audio_encoder = AUDIO_CODEC_ENCODERS.get(acodec_key)
+            if audio_encoder is None:
+                print(f"Unsupported audio codec: {audio_codec}")
+                return False
+            encoder_name, extra_args = audio_encoder
+            cmd += ["-c:a", encoder_name, *extra_args]
+
+        cmd.append(output_path)
+
+        print(
+            f"Re-encoding '{os.path.basename(input_path)}' "
+            f"(video={vcodec_key}, audio={acodec_key}) -> '{os.path.basename(output_path)}'..."
+        )
+
+        process = None
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+            if process_callback:
+                process_callback(process)
+
+            process.wait()
+            success = process.returncode == 0
+
+            if success and delete:
+                try:
+                    os.remove(input_path)
+                except Exception as e:
+                    print(f"Failed to delete original file: {e}")
+
+            return success
+
+        except Exception as e:
+            print(f"Error re-encoding video codec: {e}")
+            return False
 
     @classmethod
     def convert_to_gif(

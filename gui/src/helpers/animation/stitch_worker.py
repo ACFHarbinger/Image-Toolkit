@@ -49,11 +49,11 @@ from PySide6.QtCore import QMutex, QObject, QWaitCondition, Signal
 # ---------------------------------------------------------------------------
 
 _STAGE_LABELS = [
-    "Loading & trimming frames",  # 1
+    "Loading and trimming frames",  # 1
     "Normalising widths",  # 2
     "BaSiC photometric correction",  # 3
     "BiRefNet foreground masking",  # 4
-    "Pairwise matching & edge filter",  # 5
+    "Pairwise matching and edge filter",  # 5
     "Bundle adjustment",  # 6
     "ECC sub-pixel refinement",  # 7
     "Building canvas",  # 8

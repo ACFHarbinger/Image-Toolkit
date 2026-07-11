@@ -1,4 +1,4 @@
-"""Bridge configuration & pairing token (§7.5A).
+"""Bridge configuration and pairing token (§7.5A).
 
 Config lives in ``~/.image-toolkit/extension-bridge/config.json``::
 

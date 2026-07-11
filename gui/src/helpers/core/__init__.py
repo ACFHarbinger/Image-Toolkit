@@ -1,3 +1,4 @@
+from .codec_conversion_worker import CodecConversionWorker
 from .conversion_worker import ConversionWorker
 from .deletion_worker import DeletionWorker
 from .duplicate_scan_worker import DuplicateScanWorker
@@ -10,6 +11,7 @@ from .similarity_scan_worker import SimilarityScanWorker
 from .wallpaper_worker import WallpaperWorker
 
 __all__ = [
+    "CodecConversionWorker",
     "ConversionWorker",
     "DeletionWorker",
     "DuplicateScanWorker",

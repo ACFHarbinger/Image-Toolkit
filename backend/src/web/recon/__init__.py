@@ -1,4 +1,4 @@
-"""Entity Recon & Provenance — localized OSINT / identity-resolution backend.
+"""Entity Recon and Provenance — localized OSINT / identity-resolution backend.
 
 Cross-language split:
     C++  (base.recon)   HNSW identity index + alpha-cutout hashing

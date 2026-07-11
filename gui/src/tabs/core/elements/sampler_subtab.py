@@ -618,7 +618,7 @@ class SamplerSubTab(AbstractClassTwoGalleries):
             prefix = config.get("output_filename_prefix", config.get("prefix", ""))
             self.prefix_edit.setText(prefix)
 
-            # 2. Scale mode & values
+            # 2. Scale mode and values
             scale_mode = config.get("scale_mode", "factor")
             if scale_mode == "factor":
                 self._radio_factor.setChecked(True)

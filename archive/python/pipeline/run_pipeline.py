@@ -41,7 +41,7 @@ for i in range(8):
     assert m is not None
     bg_masks.append(m)
 
-print("Stage 8: loading canvas info & final affines...")
+print("Stage 8: loading canvas info and final affines...")
 with open(f"{STAGE_DIR}/stage08_canvas_info.json") as fh:
     info = json.load(fh)
 canvas_h = info["canvas_h"]

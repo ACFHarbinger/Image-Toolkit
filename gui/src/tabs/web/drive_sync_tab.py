@@ -98,7 +98,7 @@ class DriveSyncTab(QWidget):
         self.token_file_path.setPlaceholderText("Path to store token.json")
         token_file_layout.addWidget(self.token_file_path)
 
-        # Local & Remote paths
+        # Local and Remote paths
         local_layout = QHBoxLayout()
         self.local_path = QLineEdit(udef.LOCAL_SOURCE_PATH)
         self.local_path.setPlaceholderText("Local directory to synchronize")
@@ -511,7 +511,7 @@ class DriveSyncTab(QWidget):
         else:
             act_remote = "download"
 
-        # 3. UI LOCK & SETUP
+        # 3. UI LOCK and SETUP
         msg = "STOP" if not is_dry_run else "STOP (Dry Run)"
         self.lock_ui(message=msg, is_running=True, clear_log=clear_log)
         self.log_window.show()

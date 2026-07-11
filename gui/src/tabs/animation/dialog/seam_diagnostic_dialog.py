@@ -598,7 +598,7 @@ class SeamDiagnosticDialog(QDialog):
         btn_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        btn_box.button(QDialogButtonBox.StandardButton.Ok).setText("Accept && Continue")
+        btn_box.button(QDialogButtonBox.StandardButton.Ok).setText("Accept and Continue")
         btn_box.accepted.connect(self.accept)
         btn_box.rejected.connect(self.reject)
         right.addWidget(btn_box)

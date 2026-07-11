@@ -147,7 +147,7 @@ class FinalOutputReviewDialog(QDialog):
         root.addWidget(flaw_box)
 
         # -- Buttons --
-        self._save_btn = QPushButton("Save Feedback && Continue")
+        self._save_btn = QPushButton("Save Feedback and Continue")
         self._save_btn.setDefault(True)
         self._skip_btn = QPushButton("Skip (no feedback)")
         self._save_btn.clicked.connect(self._on_save)

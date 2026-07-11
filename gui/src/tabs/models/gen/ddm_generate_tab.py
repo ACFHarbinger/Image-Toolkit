@@ -17,7 +17,7 @@ from ....classes.base.base_generative_tab import BaseGenerativeTab
 
 
 class SD3GenerateTab(BaseGenerativeTab):
-    """Unified Tab for SD 3.5 Generation (Text-to-Image & ControlNet)."""
+    """Unified Tab for SD 3.5 Generation (Text-to-Image and ControlNet)."""
 
     def __init__(self):
         super().__init__()
@@ -43,7 +43,7 @@ class SD3GenerateTab(BaseGenerativeTab):
         )
         self.add_param_widget(layout, "Output Postfix (opt.):", QLineEdit(), "postfix")
 
-        # --- Dimensions & Steps ---
+        # --- Dimensions and Steps ---
         self.add_param_widget(
             layout, "Width:", QSpinBox(minimum=256, maximum=4096, value=1024), "width"
         )

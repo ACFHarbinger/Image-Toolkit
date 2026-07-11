@@ -1041,7 +1041,7 @@ class ExtractorTab(AbstractClassSingleGallery):
 
         self.media_player.setPosition(position_ms)
 
-    # --- Directory Browsing & Scanning ---
+    # --- Directory Browsing and Scanning ---
     @Slot()
     def browse_directory(self):
         d = QFileDialog.getExistingDirectory(
@@ -1826,7 +1826,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         self.btn_jump_start.setEnabled(False)
         self.btn_jump_end.setEnabled(False)
 
-    # --- Event Filters & Resizing ---
+    # --- Event Filters and Resizing ---
     def eventFilter(self, watched: QObject, event: QEvent  # noqa: C901
     ) -> bool:
         if self.lbl_current_time and watched is self.lbl_current_time and event.type() == QEvent.Type.MouseButtonPress:
@@ -1976,7 +1976,7 @@ class ExtractorTab(AbstractClassSingleGallery):
         clickable_label.path_right_clicked.connect(self.show_image_context_menu)
         return clickable_label
 
-    # --- Gallery & Selection Logic (Extracted Frames) ---
+    # --- Gallery and Selection Logic (Extracted Frames) ---
     def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
         container.setStyleSheet("background: transparent;")

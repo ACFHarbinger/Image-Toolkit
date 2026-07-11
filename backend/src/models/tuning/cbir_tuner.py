@@ -125,7 +125,7 @@ class CBIRTuner:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._log(f"Device: {device} | backbone: {cfg['backbone']} | loss: {cfg['loss_fn']}")
 
-        # ── Datasets & loaders ────────────────────────────────────────────
+        # ── Datasets and loaders ────────────────────────────────────────────
         use_triplet = cfg["loss_fn"] == "triplet"
         train_ds, val_ds = make_cbir_datasets(
             image_dir=cfg["image_dir"],

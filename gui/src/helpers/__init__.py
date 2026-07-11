@@ -1,3 +1,6 @@
+from .core.codec_conversion_worker import (
+    CodecConversionWorker as CodecConversionWorker,
+)
 from .core.conversion_worker import ConversionWorker as ConversionWorker
 from .core.deletion_worker import DeletionWorker as DeletionWorker
 from .core.duplicate_scan_worker import DuplicateScanWorker as DuplicateScanWorker
@@ -16,6 +19,7 @@ from .image.image_scan_worker import ImageScannerWorker as ImageScannerWorker
 from .video.batch_video_loader_worker import (
     BatchVideoLoaderWorker as BatchVideoLoaderWorker,
 )
+from .video.codec_scan_worker import CodecScanWorker as CodecScanWorker
 from .video.frame_extractor_worker import FrameExtractionWorker as FrameExtractionWorker
 from .video.gif_extractor_worker import GifCreationWorker as GifCreationWorker
 from .video.video_extractor_worker import VideoExtractionWorker as VideoExtractionWorker

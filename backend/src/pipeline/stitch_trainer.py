@@ -222,7 +222,7 @@ class StitchTrainer:
             warmup_steps=cfg["warmup_steps"],
         )
 
-        # ── Optimiser & scheduler ─────────────────────────────────────────
+        # ── Optimiser and scheduler ─────────────────────────────────────────
         self.opt = AdamW(
             self.model.parameters(),
             lr=cfg["lr"],
