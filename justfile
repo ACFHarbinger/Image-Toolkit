@@ -17,12 +17,54 @@ reset := '\033[0m'
 
 # --- Default variables (can be overridden on the command line) ---
 
+asp_n := "5"
+
+crawler_query := "anime"
+crawler_limit := "10"
+crawler_output_dir := "./Downloads"
+
+dataset := "data"
+trigger := "akane_nanao"
+florence2_flag := "true"
+model := "illustrious_xl"
 size := "50"
 rank := "16"
-dataset := "data"
-model := "illustrious_xl"
-trigger := "akane_nanao"
 class_prompt := "1girl"
+lora_checkpoint_dir := "outputs"
+lora_tensorboard_dir := "runs"
+
+asp_input_dir := "~/Downloads/Data/Frames/"
+asp_output_dir := "~/Repositories/Image-Toolkit/images/"
+
+convert_format := "png"
+convert_input_dir := "~/Downloads/Data/Frames/"
+convert_output_dir := "~/Downloads/Data/Frames/tmp/"
+
+merge_input_paths := """
+    ~/Downloads/Data/Frames/tmp/image1.png
+    ~/Downloads/Data/Frames/tmp/image2.png
+    ~/Downloads/Data/Frames/tmp/image3.png
+"""
+merge_output_path := "~/Repositories/Image-Toolkit/images/stitched_panorama.png"
+merge_direction := "horizontal"
+
+val_loc_group := "0"
+val_imports_exclude := "true"
+val_imports_html := ""
+val_cov_sort := "coverage"
+val_cov_limit := "40"
+val_graph_html := "module_graph.html"
+val_graph_depth := "10"
+val_dep_file := "backend/src/utils/decorators.py"
+val_dep_name := "log_call"
+
+commit_msg := ""
+
+agent_prompt := """
+    Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps. 
+    After analysing the relevant files, but before beginning the implementation, always ask questions to clarify assumptions or missing requirements.
+    Also ask me which options to select from the specific roadmaps in case the roadmap is not purelly sequential (e.g., multiple phases have some completed items, but are not yet fully completed).
+"""
 
 # --- Sub-module declarations ---
 
@@ -155,7 +197,7 @@ asp-benchmark-range range: helper::_print_header
 
 # Run ASP benchmark on the first N datasets
 # Usage: just asp-benchmark-first 5
-asp-benchmark-first n="5": helper::_print_header
+asp-benchmark-first n=asp_n: helper::_print_header
     just benchmark::asp-benchmark-first {{n}}
 
 # Run ASP benchmark only on datasets not yet processed (panorama.png absent)
@@ -219,8 +261,8 @@ web-driver: helper::_print_header
     just web::web-driver
 
 # Run the image crawler via CLI
-# Usage: just crawl "https://example.com/gallery" 20 "./downloads"
-crawl query limit="10" output="./downloads": helper::_print_header
+# Usage: just crawl "https://example.com/gallery" 10 "./Downloads"
+crawl query=crawler_query limit=crawler_limit output=crawler_output_dir: helper::_print_header
     just web::crawl '{{query}}' '{{limit}}' '{{output}}'
 
 # --- LoRA Fine-Tuning ---
@@ -231,7 +273,7 @@ lora-setup-tagger: helper::_print_header
 
 # Caption all images in a directory with WD14 tags + optional Florence-2
 # Usage: just lora-tag data/my_character my_char_xyz
-lora-tag images=dataset trigger=trigger florence2="true": helper::_print_header
+lora-tag images=dataset trigger=trigger florence2=florence2_flag: helper::_print_header
     just model::lora-tag '{{images}}' '{{trigger}}' '{{florence2}}'
 
 # Train a character LoRA on RTX 3090 Ti (24 GB)
@@ -271,11 +313,11 @@ lora-pipeline images=dataset trigger=trigger model=model size=size: helper::_pri
 
 # Analyse a trained LoRA checkpoint: SVD effective rank + weight delta heatmap
 # Usage: just lora-analyze outputs/my_char_lora/checkpoint-epoch0010
-lora-analyze checkpoint="outputs": helper::_print_header
+lora-analyze checkpoint=lora_checkpoint_dir: helper::_print_header
     just model::lora-analyze '{{checkpoint}}'
 
 # Launch TensorBoard to monitor active or completed training runs
-lora-tensorboard dir="runs": helper::_print_header
+lora-tensorboard dir=lora_tensorboard_dir: helper::_print_header
     just model::lora-tensorboard '{{dir}}'
 
 # Embed an image icon as metadata into a safetensors file
@@ -286,8 +328,8 @@ embed-icon model_path image_path: helper::_print_header
 # --- External Repositories ---
 
 # Start ComfyUI headlessly (without the main desktop app)
-comfyui args="": helper::_print_header
-    just repository::comfyui '{{args}}'
+comfyui *args: helper::_print_header
+    just repository::comfyui {{args}}
 
 # Stop any running ComfyUI instances
 comfyui-stop: helper::_print_header
@@ -302,17 +344,17 @@ gui-manager: helper::_print_header
 # --- Core Image Processing ---
 
 # Run the 'Perfect Stitch' pipeline on the default data directory
-perfect-stitch images="/home/pkhunter/Downloads/data/new/" output="/home/pkhunter/Downloads/data/new/stitched_panorama.png": helper::_print_header
+perfect-stitch images=asp_input_dir output=asp_output_dir: helper::_print_header
     just core::perfect-stitch '{{images}}' '{{output}}'
 
 # Batch convert images in a directory
 # Usage: just convert-batch ./input_dir png
-convert-batch input format="png" output="": helper::_print_header
+convert-batch input=convert_input_dir format=convert_format output=convert_output_dir: helper::_print_header
     just core::convert-batch '{{input}}' '{{format}}' '{{output}}'
 
 # Merge images into a strip or grid
 # Usage: just merge-images "./img1.png ./img2.png" ./output.png vertical
-merge-images inputs output direction="horizontal": helper::_print_header
+merge-images inputs=merge_input_paths output=merge_output_path direction=merge_direction: helper::_print_header
     just core::merge-images '{{inputs}}' '{{output}}' '{{direction}}'
 
 # Start the background slideshow daemon
@@ -322,7 +364,7 @@ slideshow: helper::_print_header
 # --- Validation ---
 
 # Count lines of code and comments
-count-loc group_by="0": helper::_print_header
+count-loc group_by=val_loc_group: helper::_print_header
     just validation::count-loc '{{group_by}}'
 
 # Tree view of lines of code and comments
@@ -342,7 +384,7 @@ check-multi-classes: helper::_print_header
     just validation::check-multi-classes
 
 # Find all relative imports
-check-relative-imports exclude_same_package="": helper::_print_header
+check-relative-imports exclude_same_package=val_imports_exclude: helper::_print_header
     just validation::check-relative-imports '{{exclude_same_package}}'
 
 # Check for nested imports
@@ -354,7 +396,7 @@ check-nested-imports-stats: helper::_print_header
     just validation::check-nested-imports-stats
 
 # Detect circular import chains using Tarjan's SCC algorithm
-check-circular-imports html="": helper::_print_header
+check-circular-imports html=val_imports_html: helper::_print_header
     just validation::check-circular-imports '{{html}}'
 
 # Check that all concrete classes fully implement their ABC/Protocol interface contracts
@@ -362,15 +404,15 @@ check-interface-compliance: helper::_print_header
     just validation::check-interface-compliance
 
 # Measure type annotation coverage per file
-check-type-coverage sort="coverage" limit="40": helper::_print_header
+check-type-coverage sort=val_cov_sort limit=val_cov_limit: helper::_print_header
     just validation::check-type-coverage '{{sort}}' '{{limit}}'
 
 # Generate interactive module-level import graph (opens in browser)
-module-graph html="module_graph.html" depth="10": helper::_print_header
+module-graph html=val_graph_html depth=val_graph_depth: helper::_print_header
     just validation::module-graph '{{html}}' '{{depth}}'
 
 # Create a graph with exported and imported dependencies
-dependency-graph target_file="backend/src/utils/decorators.py" target_name="log_call": helper::_print_header
+dependency-graph target_file=val_dep_file target_name=val_dep_name: helper::_print_header
     just validation::dependency-graph '{{target_file}}' '{{target_name}}'
 
 # Check for embedded languages in the Python source code
@@ -388,13 +430,15 @@ check-constants: helper::_print_header
 # --- Helpers ---
 
 # Commit staged changes with Gemini as co-author
-commit message: helper::_print_header
+commit message=commit_msg: helper::_print_header
     just helper::commit '{{message}}'
 
 # Legacy alias for 'gui' — run Python/PySide6 app directly
-python args="": helper::_print_header
+python *args: helper::_print_header
     just helper::python {{args}}
 
+# --- AI Tools ---
+
 # Loop the Claude Code agent on a stateful context
-loop-agent prompt="Continue upgrading the ASP, while continuing to update the ASP-related markdown files like the changelog and roadmaps. After analysing the relevant files, but before beginning the implementation, always ask questions to clarify assumptions or missing requirements, and to select which options to purse from the specific roadmaps.": helper::_print_header
+loop-agent prompt=agent_prompt: helper::_print_header
     just agent::loop-agent '{{prompt}}'
