@@ -21,7 +21,6 @@ clean:
     find . -type f -name ".gradle" -exec rm {} +
     rm -f *.so
     rm -f hs_err_pid*.log
-    rm -rf backend/benchmark/output/*
     rm -rf frontend/dist/
     rm -rf frontend/build/
     rm -rf frontend/node_modules/
@@ -30,13 +29,14 @@ clean:
     rm -rf tmp/
     rm -rf target/
     rm -rf images/
-    rm -rf build/batch/
+    rm -rf build/base/
     find . -type d -empty -delete
     @echo "✅ Clean complete!"
 
 # Clean ASP benchmark output directories
 clean-outputs:
     @echo "🧹 Cleaning ASP benchmark output directories..."
+    rm -rf backend/benchmark/output/*
     rm -rf dump/asp_test*/output
     rm -rf dump/output
     @echo "✅ Cleanup complete!"
