@@ -8,6 +8,7 @@
 
 - [PySide6 / Qt Crashes (SIGSEGV)](#pyside6--qt-crashes-sigsegv)
 - [Qt Multimedia / Video Playback Decode Failures](#qt-multimedia--video-playback-decode-failures)
+- [External API Failures (Jikan / MyAnimeList Auto-Fill)](#external-api-failures-jikan--myanimelist-auto-fill)
 - [ASP Pipeline Errors](#asp-pipeline-errors)
 - [C++ / pybind11 Build Failures](#cpp-pybind11-build-failures)
 - [Hydra CLI Configuration Errors](#hydra-cli-configuration-errors)
@@ -135,6 +136,35 @@ This keeps VA-API from ever being the *selected* decode device (preserving the o
 QT_LOGGING_RULES="qt.multimedia.ffmpeg.hwaccel=true" python main.py
 ```
 — the enumeration log line (`Checking HW context: vaapi ... Using above hw context.`) appears regardless of this setting in this Qt build (that step seems unconditional), but per-codec device *selection* does respect it, which is what actually matters here.
+
+---
+
+## <a id="external-api-failures-jikan--myanimelist-auto-fill"></a>External API Failures (Jikan / MyAnimeList Auto-Fill)
+
+### "Auto-Fill from MAL" fails with `Network error: 504 Server Error: Gateway Time-out`
+
+**Symptom:** Clicking "Auto-Fill from MAL" in the Content Listings detail panel shows a `QMessageBox.critical` with a message like:
+```
+Network error: 504 Server Error: Gateway Time-out for url: https://api.jikan.moe/v4/anime?q=<title>&limit=1
+```
+It may work for some titles and not others, and can persist across many manual retries over minutes.
+
+**Root cause:** This is **not a bug in this codebase** — confirmed by bypassing `jikan_client.py` entirely and hitting the Jikan API directly with `curl`. `api.jikan.moe` is a caching proxy in front of MyAnimeList, not MAL itself: a title someone has searched recently is served instantly from cache, but a cache miss makes Jikan scrape MAL live, and *that* leg is what fails. Direct evidence gathered during investigation:
+- `GET https://api.jikan.moe/v4/anime/1` (cached, by ID) → `200 OK`
+- `GET https://api.jikan.moe/v4/anime?q=<uncached title>` → `504`, `{"message": "Jikan failed to connect to MyAnimeList. MyAnimeList may be down/unavailable or refuses to connect"}`, persisting across 6+ retries over 20+ seconds regardless of query params
+- `GET https://myanimelist.net/anime.php?q=<same title>` (MAL directly, bypassing Jikan) → `200 OK`, title found fine
+
+So MAL itself is reachable and has the title; Jikan's own scraper currently can't reach MAL for this specific (likely rarely-searched) query. Even mainstream titles 504'd if not already hot in Jikan's cache — this is a known, recurring pattern in Jikan's own issue tracker (e.g. `jikan-me/jikan#357`, `#381`), not something client-side retries can paper over.
+
+**Fix:** No client-side fix removes the underlying Jikan↔MAL outage, but `jikan_client.py` now does two things:
+1. Retries transient gateway errors (429/502/503/504, connection errors) with exponential backoff (`_get_with_retry`), which does help genuine short blips.
+2. If the search call still fails, surfaces an accurate, actionable message instead of a bare `504 Gateway Time-out` — explicitly stating this is a Jikan↔MAL outage for this title, not a search or app problem, and suggesting the user try again later or search the title on myanimelist.net directly first (which sometimes "warms" Jikan's cache for the next lookup).
+
+**Workaround — switch the Auto-Fill method:** Since Jikan's cache-miss path is the actual point of failure, switching to a different data source sidesteps it entirely. Go to **Settings > System and Logging > MyAnimeList Auto-Fill** and change "Auto-Fill Method" to:
+- **Direct Website Scraping** — scrapes myanimelist.net directly (`mal_scrape_client.py`), no API key needed, gets full data including characters/staff. Slower (2-3 sequential page loads) and slightly more fragile to MAL markup changes, but bypasses Jikan entirely — confirmed working against titles that 504 on Jikan.
+- **Official MyAnimeList API** — hits `api.myanimelist.net` directly (`mal_api_client.py`), needs a free client ID from https://myanimelist.net/apiconfig (set `MAL_CLIENT_ID` or `backend/config/api_keys.yaml` → `myanimelist.client_id`). No characters/staff data (not exposed by this API), but fast and reliable for core metadata.
+
+Dispatched through `backend/src/web/clients/mal_dispatcher.py`; the chosen method persists via `AppSettings.mal_fetch_method()` (`QSettings`, key `preferences/mal_fetch_method`).
 
 ---
 

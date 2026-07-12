@@ -8,6 +8,70 @@ _STATUS_MAP = {
     "Not yet aired": "Plan to Watch",
 }
 
+# Jikan sits behind Cloudflare and occasionally answers with a transient
+# gateway error (429 rate-limited, 502/503/504 upstream hiccups) that
+# succeeds on a bare retry a few seconds later. Retried with exponential
+# backoff instead of surfacing immediately as a hard failure.
+_RETRY_STATUS_CODES = {429, 502, 503, 504}
+_MAX_RETRIES = 3
+_BACKOFF_BASE_SECONDS = 1.5
+
+
+def _get_with_retry(url: str, **kwargs) -> requests.Response:
+    """requests.get() that retries transient gateway errors with backoff.
+
+    Raises requests.RequestException (or lets a final bad status pass
+    through via raise_for_status() at the call site) if all attempts fail.
+    """
+    last_exc: requests.RequestException | None = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            resp = requests.get(url, **kwargs)
+        except requests.RequestException as exc:
+            last_exc = exc
+        else:
+            if resp.status_code not in _RETRY_STATUS_CODES:
+                return resp
+            last_exc = None
+        if attempt < _MAX_RETRIES:
+            time.sleep(_BACKOFF_BASE_SECONDS * (2**attempt))
+    if last_exc is not None:
+        raise last_exc
+    return resp
+
+
+def _describe_upstream_failure(title: str, resp: requests.Response) -> str:
+    """Build a user-facing message for a non-OK response from the search call.
+
+    Jikan (api.jikan.moe) is a caching proxy in front of MyAnimeList, not MAL
+    itself. A cache hit (e.g. a popular title someone already searched
+    recently) returns instantly; a cache miss makes Jikan scrape MAL live,
+    and *that* leg is what actually fails here -- MAL itself is reachable
+    (confirmed independently of this app), Jikan's server just couldn't
+    reach it for this specific, likely-uncached query. Retrying immediately
+    does not help since this is an upstream outage, not a rate limit -- so
+    say that plainly instead of showing a bare "504 Gateway Time-out".
+    """
+    try:
+        body = resp.json()
+    except Exception:
+        body = {}
+    upstream_message = body.get("message") if isinstance(body, dict) else None
+
+    if resp.status_code == 504 or (
+        upstream_message and "myanimelist" in upstream_message.lower()
+    ):
+        return (
+            f"MyAnimeList lookup for '{title}' failed: Jikan (the MAL proxy this "
+            f"app queries) could not reach MyAnimeList for this title "
+            f"(HTTP {resp.status_code}). This is an outage/degradation on "
+            f"Jikan's side, not a problem with your search -- it tends to "
+            f"affect titles nobody has searched on Jikan recently. Try again "
+            f"in a few minutes, or search MyAnimeList directly to \"warm\" "
+            f"Jikan's cache for this title first."
+        )
+    return f"Network error: {resp.status_code} {resp.reason} for '{title}'."
+
 
 def _normalize_name(name: str) -> str:
     """Convert 'Last, First' (Jikan format) → 'First Last' for entity matching."""
@@ -26,7 +90,7 @@ def _jikan_get(url: str, **params) -> dict | None:
     """
     time.sleep(0.4)  # respect ≈3 req/s public rate limit
     try:
-        resp = requests.get(url, params=params, timeout=10)
+        resp = _get_with_retry(url, params=params, timeout=10)
     except requests.RequestException:
         return None
     if not resp.ok:  # 4xx / 5xx — common for 18+ content on /characters
@@ -37,7 +101,7 @@ def _jikan_get(url: str, **params) -> dict | None:
         return None
 
 
-def fetch_mal_anime_data(title: str) -> dict:
+def fetch_mal_anime_data(title: str) -> dict:  # noqa: C901
     """Query Jikan v4 for the top anime matching *title*.
 
     Returns a dict with metadata fields plus entity lists for auto-association:
@@ -47,12 +111,13 @@ def fetch_mal_anime_data(title: str) -> dict:
     On failure returns {"error": "<message>"}.
     """
     try:
-        resp = requests.get(
+        resp = _get_with_retry(
             "https://api.jikan.moe/v4/anime",
             params={"q": title, "limit": 1},
             timeout=10,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            return {"error": _describe_upstream_failure(title, resp)}
         results = resp.json().get("data", [])
         if not results:
             return {"error": f"No results found for '{title}' on MyAnimeList."}

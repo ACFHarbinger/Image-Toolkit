@@ -14,6 +14,7 @@ from backend.src.constants import (
     SECRETS_DIR,
     THUMBNAIL_CACHE_DIR,
 )
+from backend.src.web.clients.mal_dispatcher import MAL_FETCH_METHODS
 from PySide6.QtCore import QByteArray, Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
@@ -115,6 +116,7 @@ class SettingsWindow(QWidget):
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_recursive_scan = _p.get("recursive_scan", True)
+        self.pref_mal_fetch_method = AppSettings.mal_fetch_method()
         seen_dirs = set()
         self.pref_favourite_directories = [
             x for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
@@ -743,6 +745,35 @@ class SettingsWindow(QWidget):
         )
 
         # ---------------------------------------------------------------------
+        # --- MyAnimeList Auto-Fill Section ---
+        # ---------------------------------------------------------------------
+        mal_groupbox = QGroupBox("MyAnimeList Auto-Fill")
+        mal_groupbox.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
+        mal_layout = QFormLayout(mal_groupbox)
+        mal_layout.setContentsMargins(10, 10, 10, 10)
+
+        self.mal_fetch_method_combo = QComboBox()
+        for _key, _label in MAL_FETCH_METHODS:
+            self.mal_fetch_method_combo.addItem(_label, _key)
+        _current_mal_index = self.mal_fetch_method_combo.findData(
+            self.pref_mal_fetch_method
+        )
+        self.mal_fetch_method_combo.setCurrentIndex(max(_current_mal_index, 0))
+        self.mal_fetch_method_combo.setToolTip(
+            "How 'Auto-Fill from MAL' in the Listings tab fetches anime data.\n"
+            "Jikan API: default, richest data, but a third-party MAL proxy that\n"
+            "  can fail (504) independently of MAL itself for uncached titles.\n"
+            "Official MyAnimeList API: hits MAL directly, needs a free client ID\n"
+            "  (backend/config/api_keys.yaml [myanimelist] or MAL_CLIENT_ID),\n"
+            "  no character/staff data available.\n"
+            "Direct Website Scraping: scrapes myanimelist.net directly, no key\n"
+            "  needed, full data, but slower (2-3 page loads) and more fragile."
+        )
+        mal_layout.addRow("Auto-Fill Method:", self.mal_fetch_method_combo)
+
+        # ---------------------------------------------------------------------
         # --- Slideshow Defaults Section ---
         # ---------------------------------------------------------------------
         slideshow_groupbox = QGroupBox("Slideshow Defaults")
@@ -1133,6 +1164,7 @@ class SettingsWindow(QWidget):
         # Tab 5: System and Logging
         scroll_system, layout_system = create_tab_scroll_area()
         layout_system.addWidget(perf_groupbox)
+        layout_system.addWidget(mal_groupbox)
         layout_system.addWidget(logging_groupbox)
         layout_system.addWidget(reset_groupbox)
         layout_system.addStretch(1)
@@ -1356,6 +1388,7 @@ class SettingsWindow(QWidget):
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_recursive_scan = _p.get("recursive_scan", True)
+        self.pref_mal_fetch_method = AppSettings.mal_fetch_method()
         seen_dirs = set()
         self.pref_favourite_directories = [
             x for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
@@ -1415,6 +1448,10 @@ class SettingsWindow(QWidget):
         self.found_cache_spinbox.setValue(self.pref_found_cache)
         self.selected_cache_spinbox.setValue(self.pref_selected_cache)
         self.initial_cache_spinbox.setValue(self.pref_initial_cache)
+
+        # Repopulate MyAnimeList Auto-Fill
+        _mal_index = self.mal_fetch_method_combo.findData(self.pref_mal_fetch_method)
+        self.mal_fetch_method_combo.setCurrentIndex(max(_mal_index, 0))
 
         # Repopulate Slideshow Defaults
         self.slideshow_default_min_spinbox.setValue(self.pref_slideshow_min)
@@ -2145,6 +2182,9 @@ class SettingsWindow(QWidget):
                 # Also save to QSettings
                 AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
                 AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"]) # pyrefly: ignore [bad-argument-type]
+                AppSettings.set_mal_fetch_method(
+                    self.mal_fetch_method_combo.currentData()
+                )
                 if self.main_window_ref:
                     self.main_window_ref.cached_creds = user_data
                     if selected_theme:
@@ -2197,6 +2237,10 @@ class SettingsWindow(QWidget):
         self.found_cache_spinbox.setValue(300)
         self.selected_cache_spinbox.setValue(200)
         self.initial_cache_spinbox.setValue(300)
+
+        # Reset MyAnimeList Auto-Fill
+        _default_mal_index = self.mal_fetch_method_combo.findData("jikan")
+        self.mal_fetch_method_combo.setCurrentIndex(max(_default_mal_index, 0))
 
         # Reset Slideshow Defaults
         self.slideshow_default_min_spinbox.setValue(5)

@@ -430,3 +430,50 @@ class TestSettingsWindowFavouriteDirectories:
         # Clean up
         AppSettings.set_favourite_directories([])
 
+
+class TestSettingsWindowMalFetchMethod:
+    def test_mal_fetch_method_combo_exists_and_defaults_to_jikan(self, q_app):
+        window = SettingsWindow()
+        assert window.mal_fetch_method_combo is not None
+        assert window.mal_fetch_method_combo.currentData() == "jikan"
+
+    def test_mal_fetch_method_combo_has_all_three_methods(self, q_app):
+        from backend.src.web.clients.mal_dispatcher import MAL_FETCH_METHODS
+
+        window = SettingsWindow()
+        combo = window.mal_fetch_method_combo
+        keys = {combo.itemData(i) for i in range(combo.count())}
+        assert keys == {key for key, _label in MAL_FETCH_METHODS}
+
+    def test_mal_fetch_method_reset(self, q_app):
+        window = SettingsWindow()
+        idx = window.mal_fetch_method_combo.findData("scrape")
+        window.mal_fetch_method_combo.setCurrentIndex(idx)
+        window.reset_settings()
+        assert window.mal_fetch_method_combo.currentData() == "jikan"
+
+    def test_mal_fetch_method_save_and_load(self, q_app):
+        from unittest.mock import MagicMock
+
+        from gui.src.windows.settings.app_settings import AppSettings
+
+        window = SettingsWindow()
+        idx = window.mal_fetch_method_combo.findData("scrape")
+        window.mal_fetch_method_combo.setCurrentIndex(idx)
+
+        window.vault_manager = MagicMock()
+        window.vault_manager.load_account_credentials.return_value = {
+            "theme": "dark",
+            "active_tab_configs": {},
+            "system_preference_profiles": {},
+            "preferences": {},
+        }
+
+        with patch.object(QMessageBox, "information"):
+            window._update_settings_logic()
+
+        assert AppSettings.mal_fetch_method() == "scrape"
+
+        # Reset setting to default
+        AppSettings.set_mal_fetch_method("jikan")
+

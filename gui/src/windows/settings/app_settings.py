@@ -102,6 +102,18 @@ class AppSettings:
         """Store the list of favourite directories."""
         cls._q().setValue("preferences/favourite_directories", dirs)
 
+    @classmethod
+    def mal_fetch_method(cls) -> str:
+        """Which client "Auto-Fill from MAL" uses: 'jikan' | 'official_api' | 'scrape'.
+
+        See backend/src/web/clients/mal_dispatcher.py for what each means.
+        """
+        return str(cls._q().value("preferences/mal_fetch_method", "jikan"))
+
+    @classmethod
+    def set_mal_fetch_method(cls, method: str) -> None:
+        cls._q().setValue("preferences/mal_fetch_method", method)
+
     # ── Session namespace ─────────────────────────────────────────────────────
 
     @classmethod

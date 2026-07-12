@@ -29,8 +29,13 @@ class EngineBlocked(RuntimeError):
     """Raised when an engine returns a hard block (403/CAPTCHA challenge)."""
 
 
-def resolve_api_key(engine: str, env_var: str, explicit: Optional[str] = None) -> Optional[str]:
-    """Resolve an API key: explicit arg → env var → api_keys.yaml[engine].api_key.
+def resolve_api_key(
+    engine: str, env_var: str, explicit: Optional[str] = None, field: str = "api_key"
+) -> Optional[str]:
+    """Resolve a credential: explicit arg → env var → api_keys.yaml[engine][field].
+
+    *field* defaults to "api_key" but can be e.g. "client_id" for engines
+    (Reddit, MyAnimeList) whose credential isn't a single opaque key.
 
     Returns None when nothing is configured (engines that can run keyless, like
     SauceNao's public tier or IQDB, treat None as "anonymous").
@@ -49,7 +54,7 @@ def resolve_api_key(engine: str, env_var: str, explicit: Optional[str] = None) -
             with open(config_path, encoding="utf-8") as fh:
                 cfg = yaml.safe_load(fh) or {}
             section = cfg.get(engine, {}) or {}
-            key = str(section.get("api_key", "")).strip()
+            key = str(section.get(field, "")).strip()
             if key:
                 return key
         except Exception as exc:

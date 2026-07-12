@@ -4,6 +4,13 @@
 
 ---
 
+## S209 — 2026-07-12 (MAL Auto-Fill resilience + selectable fetch methods; Associated Entities/Content UI fix)
+
+- **MAL Auto-Fill 504 root-caused**: "Auto-Fill from MAL" 504 errors were traced (via direct `curl` testing that bypassed the app entirely) to Jikan's own cache-miss path to MyAnimeList failing intermittently/persistently — not a bug in this codebase. `jikan_client.py` now retries transient gateway errors (429/502/503/504, connection errors) with exponential backoff, and surfaces an accurate, actionable error message (distinguishing a genuine Jikan↔MAL outage from a generic network failure) instead of a bare `504 Gateway Time-out`.
+- **Three selectable MAL Auto-Fill methods** (`backend/src/web/clients/`): kept `jikan_client.py` as the default (richest data, but dependent on Jikan's proxy health); added `mal_api_client.py` (official MAL API v2, needs a free client ID, no characters/staff data) and `mal_scrape_client.py` (direct myanimelist.net scraping via `requests`/`beautifulsoup4`, no key needed, full data including characters/Japanese-VA/staff). `mal_dispatcher.py` picks between them. New "MyAnimeList Auto-Fill" group in Settings → System and Logging lets the user switch method (persisted via `AppSettings.mal_fetch_method()`); `MalSyncWorker` reads it automatically. `resolve_api_key()` (`search_engines/common.py`) extended with a `field` param for non-`api_key`-shaped credentials (MAL's `client_id`). 21 new tests (`test_jikan_client.py`, `test_mal_api_client.py`, `test_mal_scrape_client.py`, `test_mal_dispatcher.py`, 4 new settings-window tests).
+- **GUI**: "Associated Entities" (Content Listings) and "Associated Content"/"Associated Entities" (Entity Listings) detail-panel fields converted from a plain `QLabel`/single-line `QLineEdit` to a read-only `QTextEdit` fixed at ~2 lines tall (56px) — previously the second line of wrapped names was visually clipped with no way to see more. `QTextEdit`'s built-in scrollbar (shown as-needed) now lets the user scroll through longer associated-entity/content lists instead of the text being cut off.
+- **Docs**: `docs/TROUBLESHOOTING.md` gained an "External API Failures (Jikan / MyAnimeList Auto-Fill)" section documenting the 504 root cause and the new Settings-based workaround.
+
 ## S200 — 2026-07-08 (ASP great trim — pipeline reduced to its benchmarked core)
 
 **Tests**: animation suite 632 passing, 14 skipped (was 2,230 collected; ~1,550 ritual/dead-feature tests removed)
