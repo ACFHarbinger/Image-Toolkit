@@ -269,4 +269,4 @@ Dependencies: CG-1 captioning unblocks CG-2 training quality; CG-1 upscaler shar
 
 ## Document History
 
-*Created 2026-06-03. Research basis: **[`reports/Image_Generation_Research.md`](../../reports/Image_Generation_Research.md)** (merges all 5 prior generation reports). Scope: local anime image generation, character fine-tuning, and video/GIF generation on RTX 3090 Ti (24 GB) and RTX 4080 (16/12 GB).*
+*Created 2026-06-03. Research basis: **[`research/Image_Generation_Research.md`](../../research/Image_Generation_Research.md)** (merges all 5 prior generation reports). Scope: local anime image generation, character fine-tuning, and video/GIF generation on RTX 3090 Ti (24 GB) and RTX 4080 (16/12 GB).*

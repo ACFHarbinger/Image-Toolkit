@@ -3,7 +3,7 @@
 *This document describes the Anime Stitch Pipeline as it exists after the S200 "great
 trim" (commits `43aa60c`…, 2026-07-08). It replaces the pre-trim state document now
 archived at `archive/agent/cache/asp_state_of_the_pipeline.md`. Read that archive and
-`reports/ASP_Critical_Evaluation_2026-07-08.md` for the full history of what was
+`research/ASP_Critical_Evaluation_2026-07-08.md` for the full history of what was
 removed and why.*
 
 ---

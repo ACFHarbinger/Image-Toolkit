@@ -38,8 +38,8 @@ Read `docs/ARCHITECTURE.md` — it has complete Mermaid diagrams for both the si
 ### Research context
 
 Read the consolidated research reference before proposing algorithmic changes:
-- `reports/Image_Stitching_Research.md` — the complete, single-source stitching reference (merges all 14 prior reports). Covers geometric foundations, Perfect-vs-Scan-Stitch audit, feature matching, optical flow, spatially-varying warps, the foreground-assembly paradigm (§8), photometric correction, segmentation, seam-finding, blending, background reconstruction, the 14-stage pipeline spec, evaluation, and failure/fallback taxonomy.
-- For generation work: `reports/Image_Generation_Research.md`.
+- `research/Image_Stitching_Research.md` — the complete, single-source stitching reference (merges all 14 prior reports). Covers geometric foundations, Perfect-vs-Scan-Stitch audit, feature matching, optical flow, spatially-varying warps, the foreground-assembly paradigm (§8), photometric correction, segmentation, seam-finding, blending, background reconstruction, the 14-stage pipeline spec, evaluation, and failure/fallback taxonomy.
+- For generation work: `research/Image_Generation_Research.md`.
 
 ### Overmix reference implementation
 
@@ -187,7 +187,7 @@ Issue 10 (Multi-modal HITL) is **implemented in S81–S96**. Issue 9 (Video inge
 
 **S81 Known limitation resolved (S83):** Live SAM-2 state is preserved across the HITL checkpoint boundary via `_compute_fg_masks_sam2_stateful()`. The predictor is passed through the checkpoint 1.5 data dict and `_refine_cb` in `stitch_tab.py` now calls `_refine_masks_with_clicks` with the live predictor when SAM-2 is active (`ASP_USE_SAM2=1`).
 
-See `reports/ASP_High_Value_Issues_Report.md` Issues 9 & 10 and `reports/Upgrading Anime Stitch Pipeline.md` for the full spec.
+See `research/ASP_High_Value_Issues_Report.md` Issues 9 & 10 and `research/Upgrading Anime Stitch Pipeline.md` for the full spec.
 
 ---
 

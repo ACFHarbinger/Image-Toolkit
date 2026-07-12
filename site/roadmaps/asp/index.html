@@ -356,7 +356,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reports/analytics/" class="md-tabs__link">
+        <a href="../../research/analytics/" class="md-tabs__link">
           
   
   
@@ -4688,7 +4688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/analytics/" class="md-nav__link">
+      <a href="../../research/analytics/" class="md-nav__link">
         
   
   
@@ -4716,7 +4716,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/asp_research/" class="md-nav__link">
+      <a href="../../research/asp_research/" class="md-nav__link">
         
   
   
@@ -4744,7 +4744,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/image_generation/" class="md-nav__link">
+      <a href="../../research/image_generation/" class="md-nav__link">
         
   
   
@@ -4772,7 +4772,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/image_stitching/" class="md-nav__link">
+      <a href="../../research/image_stitching/" class="md-nav__link">
         
   
   
@@ -7606,7 +7606,7 @@
 2. Multi-frame canvas coverage check before compositing (fall back to SCANS if median coverage &lt; 2 frames/row) — ✅ DONE (Stage 10.5, <code>_compute_row_coverage()</code>, <code>ASP_COV_MIN_MULTI_PCT=0.30</code>)
 3. Replace sharpness metric with seam coherence metric (row-mean luminance variance) — ✅ DONE
 4. Seam validation gate after composite (if adjacent strips differ &gt;15 lum units, reject and use SCANS) — ✅ DONE (render gate)</p>
-<p><strong>Deeper root cause (established 2026-06-03, see <code>reports/Image_Stitching_Research.md</code> §8):</strong> Items 1–4 are <em>symptom mitigations</em>. The true gap is that the pipeline has <strong>no mechanism to register the deforming foreground across frames.</strong> The character animates while the camera pans, so body parts land in two different poses on either side of every strip seam. Fixing this requires the foreground-assembly stage in §0.1 below — that is the actual solution; everything else raises the floor without raising the ceiling.</p>
+<p><strong>Deeper root cause (established 2026-06-03, see <code>research/Image_Stitching_Research.md</code> §8):</strong> Items 1–4 are <em>symptom mitigations</em>. The true gap is that the pipeline has <strong>no mechanism to register the deforming foreground across frames.</strong> The character animates while the camera pans, so body parts land in two different poses on either side of every strip seam. Fixing this requires the foreground-assembly stage in §0.1 below — that is the actual solution; everything else raises the floor without raising the ceiling.</p>
 <hr />
 <h2 id="01-foreground-pose-registration--the-core-fix-priority-0">0.1 Foreground Pose Registration — The Core Fix [Priority 0]<a class="headerlink" href="#01-foreground-pose-registration--the-core-fix-priority-0" title="Permanent link">&para;</a></h2>
 <p><strong>Pain point:</strong> Even ASP's best cases (test09) show torn/doubled character edges at strip seams. The translation-only camera model aligns the <em>background</em> perfectly but cannot represent the <em>non-rigid articulated motion</em> of the character animating between the frames being stitched. This is the dominant artifact and the reason ASP loses to simple-stitch on ground-truth SSIM (0.669 vs 0.695).</p>
@@ -8122,7 +8122,7 @@ Let user specify target height (e.g., "1280px" or "2× source height") before ru
 <p><strong>Gap:</strong> HybridStitch's <code>RenderPanel</code> doesn't support BiRefNet-aware fg compositing or ARAP-registered warps. For full fidelity, the handoff would need to bring the fg-registered frames (post-Stage 8.5) rather than the raw frames, so the Hybrid panel sees "already pose-aligned" inputs and just handles final blending. This is feasible since <code>fg_register.py</code>'s warped outputs are already written to <code>stage_dir/</code> as PNG intermediates.</p>
 <hr />
 <h2 id="30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report">3.0 ML-Driven Pipeline Modernisation [Research Phase — from ML Research Report]<a class="headerlink" href="#30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report" title="Permanent link">&para;</a></h2>
-<p><em>Source: <a href="../../reports/asp_research/"><code>reports/ASP_Comprehensive_Research_Report.md</code></a> — consolidated 2026-06-07. Each subsection maps a specific finding from the research plan to the current pipeline stage it targets, the files it touches, and the expected quality delta. Phase priority framework in the consolidated plan: Phase 1 (pose-consistent frame selection, GNC-TLS BA, median background + JPEG-aware refinement, SAM-2 masking), Phase 2 (AnimeInterp SGM + LinkTo-Anime SEA-RAFT, OBJ-GSP seam barrier, full Sýkora 2009 ARAP, ProPainter), Phase 3 (ToonCrafter quality-gated, StabStitch++ trajectory smoothing).</em></p>
+<p><em>Source: <a href="../../research/asp_research/"><code>research/ASP_Comprehensive_Research_Report.md</code></a> — consolidated 2026-06-07. Each subsection maps a specific finding from the research plan to the current pipeline stage it targets, the files it touches, and the expected quality delta. Phase priority framework in the consolidated plan: Phase 1 (pose-consistent frame selection, GNC-TLS BA, median background + JPEG-aware refinement, SAM-2 masking), Phase 2 (AnimeInterp SGM + LinkTo-Anime SEA-RAFT, OBJ-GSP seam barrier, full Sýkora 2009 ARAP, ProPainter), Phase 3 (ToonCrafter quality-gated, StabStitch++ trajectory smoothing).</em></p>
 <p>The report's central thesis: cel animation breaks every assumption that drives classical CV pipelines (gradient-based flow, RANSAC on whole-frame features, pixel-level quality metrics). The next generation of improvements requires either (a) anime-specific classical methods that bypass those assumptions entirely, or (b) deep/generative models whose priors capture the latent structure of hand-drawn character motion. The sections below are ordered by expected impact-to-effort ratio and dependency on existing infrastructure.</p>
 <hr />
 <h3 id="31-animeinterp-sgm-segment-guided-matching-for-flat-region-correspondence-research--highest-aperture-problem-impact">3.1 AnimeInterp SGM: Segment-Guided Matching for Flat-Region Correspondence [Research — Highest Aperture-Problem Impact]<a class="headerlink" href="#31-animeinterp-sgm-segment-guided-matching-for-flat-region-correspondence-research--highest-aperture-problem-impact" title="Permanent link">&para;</a></h3>
@@ -8903,7 +8903,7 @@ Use the Frame Selection Review Dialog (§2.1), Canvas Layout Inspector (§2.3), 
 <hr />
 <h2 id="phase-2--next-generation-upgrade-direct-video-ingestion--multi-modal-hitl">Phase 2 — Next Generation Upgrade: Direct Video Ingestion &amp; Multi-Modal HITL<a class="headerlink" href="#phase-2--next-generation-upgrade-direct-video-ingestion--multi-modal-hitl" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p>Research basis: <code>reports/ASP_Comprehensive_Research_Report.md</code> (consolidated research document). The notes here are the roadmap summary.</p>
+<p>Research basis: <code>research/ASP_Comprehensive_Research_Report.md</code> (consolidated research document). The notes here are the roadmap summary.</p>
 </blockquote>
 <h3 id="sprint-5-video-ingestion-foundation">Sprint 5 — Video Ingestion Foundation<a class="headerlink" href="#sprint-5-video-ingestion-foundation" title="Permanent link">&para;</a></h3>
 <p><strong>9A — <code>VideoIngestionStream</code> (PyAV direct decoder)</strong> [~3d, No prerequisite]</p>
@@ -10104,7 +10104,7 @@ Use the Frame Selection Review Dialog (§2.1), Canvas Layout Inspector (§2.3), 
 <em>GT verdicts (S4 baseline): asp_better=7 (12.7%), simple_better=26 (47.3%), comparable=22 (40.0%). Best: test17=0.887, test84=0.821. S5 key: test08 now asp_better (0.809 vs simple 0.805).</em><br />
 <em>Root cause: Animated video scenes vs. static-scroll design assumption. Phase correlation measures whole-frame displacement including character animation.</em><br />
 <em>Previous baseline (22 tests, 2026-05-31): 22/22 metric success, avg sharpness 33.14.</em></p>
-<p><em>Research basis (consolidated): <a href="../../reports/asp_research/"><code>reports/ASP_Comprehensive_Research_Report.md</code></a> — full synthesis of ML survey, practitioner lessons (Overmix, Hugin, ICE), HITL architecture, structured research plan, and technical survey. Covers failure taxonomy (A/B/C1/C2), Phase &frac12;/3 priority roadmap, module specs (frame selection, SAM-2, SGM/SEA-RAFT, ARAP, GNC-BA, background separation, stitching, seam routing, ProPainter, NR-IQA), synergy maps, HITL DAG breakpoints, dataset registry (LinkTo-Anime, ATD-12K, AnimeRun, etc.), and S6–S32 implementation status. Also see <a href="../../reports/image_stitching/"><code>reports/Image_Stitching_Research.md</code></a> for foreground-assembly paradigm and 13-stage spec.</em></p>
+<p><em>Research basis (consolidated): <a href="../../research/asp_research/"><code>research/ASP_Comprehensive_Research_Report.md</code></a> — full synthesis of ML survey, practitioner lessons (Overmix, Hugin, ICE), HITL architecture, structured research plan, and technical survey. Covers failure taxonomy (A/B/C1/C2), Phase &frac12;/3 priority roadmap, module specs (frame selection, SAM-2, SGM/SEA-RAFT, ARAP, GNC-BA, background separation, stitching, seam routing, ProPainter, NR-IQA), synergy maps, HITL DAG breakpoints, dataset registry (LinkTo-Anime, ATD-12K, AnimeRun, etc.), and S6–S32 implementation status. Also see <a href="../../research/image_stitching/"><code>research/Image_Stitching_Research.md</code></a> for foreground-assembly paradigm and 13-stage spec.</em></p>
 
 
 

@@ -159,7 +159,7 @@ Each section lists the pain point, all viable implementation options with trade-
 3. Replace sharpness metric with seam coherence metric (row-mean luminance variance) — ✅ DONE
 4. Seam validation gate after composite (if adjacent strips differ >15 lum units, reject and use SCANS) — ✅ DONE (render gate)
 
-**Deeper root cause (established 2026-06-03, see `reports/Image_Stitching_Research.md` §8):** Items 1–4 are *symptom mitigations*. The true gap is that the pipeline has **no mechanism to register the deforming foreground across frames.** The character animates while the camera pans, so body parts land in two different poses on either side of every strip seam. Fixing this requires the foreground-assembly stage in §0.1 below — that is the actual solution; everything else raises the floor without raising the ceiling.
+**Deeper root cause (established 2026-06-03, see `research/Image_Stitching_Research.md` §8):** Items 1–4 are *symptom mitigations*. The true gap is that the pipeline has **no mechanism to register the deforming foreground across frames.** The character animates while the camera pans, so body parts land in two different poses on either side of every strip seam. Fixing this requires the foreground-assembly stage in §0.1 below — that is the actual solution; everything else raises the floor without raising the ceiling.
 
 ---
 
@@ -888,7 +888,7 @@ When the full ASP pipeline run produces an output the user is unsatisfied with, 
 
 ## 3.0 ML-Driven Pipeline Modernisation [Research Phase — from ML Research Report] {: #30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report }
 
-*Source: [`reports/ASP_Comprehensive_Research_Report.md`](../../reports/ASP_Comprehensive_Research_Report.md) — consolidated 2026-06-07. Each subsection maps a specific finding from the research plan to the current pipeline stage it targets, the files it touches, and the expected quality delta. Phase priority framework in the consolidated plan: Phase 1 (pose-consistent frame selection, GNC-TLS BA, median background + JPEG-aware refinement, SAM-2 masking), Phase 2 (AnimeInterp SGM + LinkTo-Anime SEA-RAFT, OBJ-GSP seam barrier, full Sýkora 2009 ARAP, ProPainter), Phase 3 (ToonCrafter quality-gated, StabStitch++ trajectory smoothing).*
+*Source: [`research/ASP_Comprehensive_Research_Report.md`](../../research/ASP_Comprehensive_Research_Report.md) — consolidated 2026-06-07. Each subsection maps a specific finding from the research plan to the current pipeline stage it targets, the files it touches, and the expected quality delta. Phase priority framework in the consolidated plan: Phase 1 (pose-consistent frame selection, GNC-TLS BA, median background + JPEG-aware refinement, SAM-2 masking), Phase 2 (AnimeInterp SGM + LinkTo-Anime SEA-RAFT, OBJ-GSP seam barrier, full Sýkora 2009 ARAP, ProPainter), Phase 3 (ToonCrafter quality-gated, StabStitch++ trajectory smoothing).*
 
 The report's central thesis: cel animation breaks every assumption that drives classical CV pipelines (gradient-based flow, RANSAC on whole-frame features, pixel-level quality metrics). The next generation of improvements requires either (a) anime-specific classical methods that bypass those assumptions entirely, or (b) deep/generative models whose priors capture the latent structure of hand-drawn character motion. The sections below are ordered by expected impact-to-effort ratio and dependency on existing infrastructure.
 
@@ -2052,7 +2052,7 @@ Use the Frame Selection Review Dialog (§2.1), Canvas Layout Inspector (§2.3), 
 
 ## Phase 2 — Next Generation Upgrade: Direct Video Ingestion & Multi-Modal HITL {: #phase-2--next-generation-upgrade-direct-video-ingestion--multi-modal-hitl }
 
-> Research basis: `reports/ASP_Comprehensive_Research_Report.md` (consolidated research document). The notes here are the roadmap summary.
+> Research basis: `research/ASP_Comprehensive_Research_Report.md` (consolidated research document). The notes here are the roadmap summary.
 
 ### Sprint 5 — Video Ingestion Foundation
 
@@ -3593,4 +3593,4 @@ GraphCut default-ON (S161) reduces seam_visibility in well-textured areas, but a
 *Root cause: Animated video scenes vs. static-scroll design assumption. Phase correlation measures whole-frame displacement including character animation.*  
 *Previous baseline (22 tests, 2026-05-31): 22/22 metric success, avg sharpness 33.14.*
 
-*Research basis (consolidated): [`reports/ASP_Comprehensive_Research_Report.md`](../../reports/ASP_Comprehensive_Research_Report.md) — full synthesis of ML survey, practitioner lessons (Overmix, Hugin, ICE), HITL architecture, structured research plan, and technical survey. Covers failure taxonomy (A/B/C1/C2), Phase 1/2/3 priority roadmap, module specs (frame selection, SAM-2, SGM/SEA-RAFT, ARAP, GNC-BA, background separation, stitching, seam routing, ProPainter, NR-IQA), synergy maps, HITL DAG breakpoints, dataset registry (LinkTo-Anime, ATD-12K, AnimeRun, etc.), and S6–S32 implementation status. Also see [`reports/Image_Stitching_Research.md`](../../reports/Image_Stitching_Research.md) for foreground-assembly paradigm and 13-stage spec.*
+*Research basis (consolidated): [`research/ASP_Comprehensive_Research_Report.md`](../../research/ASP_Comprehensive_Research_Report.md) — full synthesis of ML survey, practitioner lessons (Overmix, Hugin, ICE), HITL architecture, structured research plan, and technical survey. Covers failure taxonomy (A/B/C1/C2), Phase 1/2/3 priority roadmap, module specs (frame selection, SAM-2, SGM/SEA-RAFT, ARAP, GNC-BA, background separation, stitching, seam routing, ProPainter, NR-IQA), synergy maps, HITL DAG breakpoints, dataset registry (LinkTo-Anime, ATD-12K, AnimeRun, etc.), and S6–S32 implementation status. Also see [`research/Image_Stitching_Research.md`](../../research/Image_Stitching_Research.md) for foreground-assembly paradigm and 13-stage spec.*

@@ -11,7 +11,7 @@ frames perfectly, but the character is *animating* between the frames being
 stitched (300–800 ms apart), so its body parts land in two different poses on
 either side of every strip seam → the torn / doubled edges visible in test09.
 
-Approach (see reports/ASP_Foreground_Assembly_Research.md §5)
+Approach (see research/ASP_Foreground_Assembly_Research.md §5)
 ------------------------------------------------------------
 Both frames are first warped into the same canvas coordinate system by the
 existing affines, so the *background* is already aligned.  Any optical flow

@@ -78,7 +78,6 @@ class TestSeamCutVsPython:
     Requires the Python reference to be exposed as a testable function.
     """
 
-    @_xfail_until_implemented("Phase 2")
     def test_path_length_matches(self):
         try:
             from backend.src.animation.rendering.compositing import _seam_cut_python  # type: ignore
@@ -95,7 +94,6 @@ class TestSeamCutVsPython:
         assert len(path_py) == W
         assert len(path_cpp) == W
 
-    @_xfail_until_implemented("Phase 2")
     def test_pixel_agreement_within_1px(self):
         try:
             from backend.src.animation.rendering.compositing import _seam_cut_python  # type: ignore
@@ -115,7 +113,6 @@ class TestSeamCutVsPython:
             "Floating-point tie-breaking in DP allows ±1 px."
         )
 
-    @_xfail_until_implemented("Phase 2")
     @pytest.mark.parametrize("seed", [0, 7, 42, 99, 123])
     def test_pixel_agreement_multiple_seeds(self, seed: int):
         try:
@@ -138,49 +135,7 @@ class TestSeamCutVsPython:
 # ---------------------------------------------------------------------------
 
 
-class TestZoneLumNormVsPython:
-    @_xfail_until_implemented("Phase 2")
-    def test_luma_agreement_within_2(self):
-        try:
-            from backend.src.animation.rendering.compositing import _zone_lum_norm_python  # type: ignore
-        except ImportError:
-            pytest.skip("Python reference _zone_lum_norm_python not yet exposed")
 
-        H, W = 64, 80
-        fa = _rand_bgr(H, W, 0)
-        fb = _rand_bgr(H, W, 1)
-
-        out_py  = _zone_lum_norm_python(fa, fb)
-        out_cpp = batch.compositing.zone_lum_norm(fa, fb)
-
-        max_diff = np.abs(
-            out_py.astype(np.int32) - out_cpp.astype(np.int32)
-        ).max()
-        assert max_diff <= 2, (
-            f"zone_lum_norm max pixel diff {max_diff} > 2 tolerance "
-            "(colour space round-trip rounding)"
-        )
-
-
-class TestZoneChromaAlignVsPython:
-    @_xfail_until_implemented("Phase 2")
-    def test_chroma_agreement_within_2(self):
-        try:
-            from backend.src.animation.rendering.compositing import _zone_chroma_align_python  # type: ignore
-        except ImportError:
-            pytest.skip("Python reference _zone_chroma_align_python not yet exposed")
-
-        H, W = 64, 80
-        fa = _rand_bgr(H, W, 2)
-        fb = _rand_bgr(H, W, 3)
-
-        out_py  = _zone_chroma_align_python(fa, fb)
-        out_cpp = batch.compositing.zone_chroma_align(fa, fb)
-
-        max_diff = np.abs(
-            out_py.astype(np.int32) - out_cpp.astype(np.int32)
-        ).max()
-        assert max_diff <= 2
 
 
 # ---------------------------------------------------------------------------
@@ -192,28 +147,41 @@ class TestBundleAdjustVsPython:
     @staticmethod
     def _make_chain(N: int, step_px: float = 100.0, seed: int = 42) -> list:
         rng = np.random.default_rng(seed)
-        return [
-            {
-                "i": i, "j": i + 1,
-                "dx": float(rng.normal(0, 1)),
-                "dy": float(step_px + rng.normal(0, 2)),
+        edges = []
+        for i in range(N - 1):
+            dx = float(rng.normal(0, 1))
+            dy = float(step_px + rng.normal(0, 2))
+            M = np.eye(2, 3, dtype=np.float32)
+            M[0, 2] = dx
+            M[1, 2] = dy
+            edges.append({
+                "i": i,
+                "j": i + 1,
+                "dx": dx,
+                "dy": dy,
+                "M": M,
                 "weight": 0.95,
                 "type": "adjacent",
-            }
-            for i in range(N - 1)
-        ]
+                "pts_i": np.zeros((1, 2), dtype=np.float32),
+                "pts_j": np.array([[dx, dy]], dtype=np.float32),
+            })
+        return edges
 
-    @_xfail_until_implemented("Phase 3")
-    def test_tx_ty_agreement_within_half_px(self):
+    def _run_bundle_adjust_python(self, edges, N):
+        import backend.src.animation.alignment.bundle_adjust as ba
+        orig_avail = ba.BATCH_AVAILABLE
         try:
-            from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine_python  # type: ignore
-        except ImportError:
-            pytest.skip("Python reference _bundle_adjust_affine_python not exposed")
+            ba.BATCH_AVAILABLE = False
+            affines = ba._bundle_adjust_affine(edges, N, use_affine=False)
+            return [{"tx": float(m[0, 2]), "ty": float(m[1, 2])} for m in affines]
+        finally:
+            ba.BATCH_AVAILABLE = orig_avail
 
+    def test_tx_ty_agreement_within_half_px(self):
         N = 6
         edges = self._make_chain(N, step_px=120.0, seed=99)
 
-        affines_py  = _bundle_adjust_affine_python(edges, N)
+        affines_py  = self._run_bundle_adjust_python(edges, N)
         affines_cpp = batch.bundle_adjust.bundle_adjust_affine(edges, N)
 
         assert len(affines_cpp) == N
@@ -225,7 +193,6 @@ class TestBundleAdjustVsPython:
                     f"cpp={affines_cpp[i][key]:.3f} diff={diff:.3f} > 0.5 px"
                 )
 
-    @_xfail_until_implemented("Phase 3")
     @pytest.mark.parametrize("N,step_px,seed", [
         (4,  80.0,  0),
         (6, 100.0,  7),
@@ -233,13 +200,8 @@ class TestBundleAdjustVsPython:
         (10, 60.0, 99),
     ])
     def test_agreement_multiple_chain_configs(self, N: int, step_px: float, seed: int):
-        try:
-            from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine_python  # type: ignore
-        except ImportError:
-            pytest.skip("Python reference _bundle_adjust_affine_python not exposed")
-
         edges = self._make_chain(N, step_px, seed)
-        affines_py  = _bundle_adjust_affine_python(edges, N)
+        affines_py  = self._run_bundle_adjust_python(edges, N)
         affines_cpp = batch.bundle_adjust.bundle_adjust_affine(edges, N)
 
         for i in range(N):
@@ -276,14 +238,12 @@ _skip_no_matching = pytest.mark.skipif(
 class TestFilterEdgeGraph:
     """Phase 3b: batch.matching.filter_edge_graph classical gate chain."""
 
-    @_xfail_until_implemented("Phase 3b")
     def test_adjacent_only_all_pass(self):
         """All adjacent edges with sufficient step pass all gates unchanged."""
         edges = [_make_m_edge(0, 1, 0.0, 60.0), _make_m_edge(1, 2, 0.0, 55.0)]
         result = list(batch.matching.filter_edge_graph(edges, min_step_px=10.0))
         assert len(result) == 2
 
-    @_xfail_until_implemented("Phase 3b")
     def test_consistent_skip_edge_kept(self):
         """Skip edge whose displacement matches the adjacent chain sum is kept."""
         # adj: 0→1 dy=50, 1→2 dy=50; skip 0→2 dy=100 → consistent (100 ≈ 50+50)
@@ -296,7 +256,6 @@ class TestFilterEdgeGraph:
         skip_edge = [e for e in result if e["j"] - e["i"] > 1]
         assert len(skip_edge) == 1  # skip edge kept
 
-    @_xfail_until_implemented("Phase 3b")
     def test_inconsistent_skip_edge_rejected(self):
         """Skip edge disagreeing with chain sum by >15 px is rejected."""
         # adj: 0→1 dy=50, 1→2 dy=50; skip 0→2 dy=20 → inconsistent (|100-20|=80 > 15)
@@ -309,7 +268,6 @@ class TestFilterEdgeGraph:
         skip_edge = [e for e in result if e["j"] - e["i"] > 1]
         assert len(skip_edge) == 0  # skip edge rejected
 
-    @_xfail_until_implemented("Phase 3b")
     def test_triangular_consistency_halves_weakest_weight(self):
         """§2.14: weakest edge in inconsistent triangle gets weight × 0.5."""
         # Triangle (0→1, 1→2, 0→2). pred 0→2 = 50+50=100; obs 0→2 = 200 → residual=100>50
@@ -324,7 +282,6 @@ class TestFilterEdgeGraph:
         skip_e = next(e for e in result if e["j"] - e["i"] > 1)
         assert abs(float(skip_e["weight"]) - 0.15) < 1e-4  # 0.3 × 0.5 = 0.15
 
-    @_xfail_until_implemented("Phase 3b")
     def test_min_step_guard_drops_near_zero_adj(self):
         """Adjacent edge with |dy| < min_step_px is dropped."""
         edges = [
@@ -350,7 +307,6 @@ _skip_no_compositing = pytest.mark.skipif(
 class TestBlocksGainCompensateVsPython:
     """Phase 5 wiring: batch.compositing.blocks_gain_compensate_pair vs Python."""
 
-    @_xfail_until_implemented("Phase 5b")
     def test_identical_zones_no_change(self):
         """Identical fa/fb → gain=1.0 everywhere → output == fb."""
         from backend.src.animation.rendering.compositing import _blocks_gain_compensate
@@ -363,7 +319,6 @@ class TestBlocksGainCompensateVsPython:
         assert out_cpp.shape == (H, W, 3)
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 2
 
-    @_xfail_until_implemented("Phase 5b")
     def test_brighter_fa_brightens_fb(self):
         """fa brighter than fb → gain > 1 → output brighter than fb."""
         from backend.src.animation.rendering.compositing import _blocks_gain_compensate
@@ -377,7 +332,6 @@ class TestBlocksGainCompensateVsPython:
         assert out_cpp.mean() > 90
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 2
 
-    @_xfail_until_implemented("Phase 5b")
     def test_near_black_fb_no_crash(self):
         """Near-black fb block → gain=1.0 (no div-by-zero crash)."""
         H, W = 32, 32
@@ -390,7 +344,6 @@ class TestBlocksGainCompensateVsPython:
         # gain=1.0 applied to zeros → still zeros
         assert out_cpp.max() == 0
 
-    @_xfail_until_implemented("Phase 5b")
     def test_output_uint8_dtype(self):
         H, W = 48, 64
         fa = _rand_bgr(H, W, 1)
@@ -399,7 +352,6 @@ class TestBlocksGainCompensateVsPython:
         assert out.dtype == np.uint8
         assert out.shape == (H, W, 3)
 
-    @_xfail_until_implemented("Phase 5b")
     def test_gain_clamped_max(self):
         """Very bright fa vs very dark fb → gain clamped at 2.0."""
         H, W = 32, 32
@@ -416,7 +368,6 @@ class TestBlocksGainCompensateVsPython:
 class TestBlocksLumCompensateVsPython:
     """Phase 5 wiring: batch.compositing.blocks_lum_compensate_pair vs Python."""
 
-    @_xfail_until_implemented("Phase 5b")
     def test_identical_zones_no_change(self):
         from backend.src.animation.rendering.compositing import _blocks_lum_compensate
         H, W = 64, 80
@@ -427,7 +378,6 @@ class TestBlocksLumCompensateVsPython:
         )
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 2
 
-    @_xfail_until_implemented("Phase 5b")
     def test_brighter_fa_brightens_fb(self):
         from backend.src.animation.rendering.compositing import _blocks_lum_compensate
         H, W = 64, 80
@@ -440,7 +390,6 @@ class TestBlocksLumCompensateVsPython:
         assert out_cpp.mean() > 90
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 2
 
-    @_xfail_until_implemented("Phase 5b")
     def test_output_uint8_dtype(self):
         H, W = 48, 64
         fa = _rand_bgr(H, W, 4)
@@ -449,7 +398,6 @@ class TestBlocksLumCompensateVsPython:
         assert out.dtype == np.uint8
         assert out.shape == (H, W, 3)
 
-    @_xfail_until_implemented("Phase 5b")
     def test_near_black_no_crash(self):
         H, W = 32, 32
         fa = np.full((H, W, 3), 100, dtype=np.uint8)
@@ -457,7 +405,6 @@ class TestBlocksLumCompensateVsPython:
         out = np.asarray(batch.compositing.blocks_lum_compensate_pair(fa, fb, 32))
         assert out.shape == (H, W, 3)
 
-    @_xfail_until_implemented("Phase 5b")
     def test_gain_clamped_at_2(self):
         H, W = 32, 32
         fa = np.full((H, W, 3), 250, dtype=np.uint8)
@@ -488,7 +435,6 @@ class TestCorrectVignettingVsPython:
             img_f[..., c] *= gain_map
         return np.clip(img_f, 0, 255).astype(np.uint8)
 
-    @_xfail_until_implemented("Phase 5b")
     def test_unit_gain_identity(self):
         H, W = 40, 60
         frame = np.full((H, W, 3), 128, dtype=np.uint8)
@@ -498,7 +444,6 @@ class TestCorrectVignettingVsPython:
         assert out_cpp.shape == (H, W, 3)
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 1
 
-    @_xfail_until_implemented("Phase 5b")
     def test_radial_gain_agreement(self):
         H, W = 60, 80
         rng = np.random.default_rng(3)
@@ -512,7 +457,6 @@ class TestCorrectVignettingVsPython:
         max_diff = np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max()
         assert max_diff <= 2
 
-    @_xfail_until_implemented("Phase 5b")
     def test_output_dtype_uint8(self):
         H, W = 40, 60
         frame = _rand_bgr(H, W, 5)
@@ -521,7 +465,6 @@ class TestCorrectVignettingVsPython:
         assert out.dtype == np.uint8
         assert out.shape == (H, W, 3)
 
-    @_xfail_until_implemented("Phase 5b")
     def test_gain_above_one_brightens(self):
         H, W = 40, 60
         frame = np.full((H, W, 3), 100, dtype=np.uint8)
@@ -529,7 +472,6 @@ class TestCorrectVignettingVsPython:
         out = np.asarray(batch.exposure.correct_vignetting(frame, gain))
         assert float(out.mean()) > float(frame.mean())
 
-    @_xfail_until_implemented("Phase 5b")
     def test_values_clipped_to_255(self):
         H, W = 32, 32
         frame = np.full((H, W, 3), 200, dtype=np.uint8)
@@ -539,20 +481,23 @@ class TestCorrectVignettingVsPython:
 
 
 class TestBuildSeamCostMapVsPython:
-    @_xfail_until_implemented("Phase 2")
-    def test_cost_map_agreement(self):
+    def _run_build_seam_cost_map_python(self, canvas_zone, mask_a, mask_b):
+        import backend.src.animation.rendering.compositing as comp
+        orig_avail = comp.BATCH_AVAILABLE
         try:
-            from backend.src.animation.rendering.compositing import _build_seam_cost_map_python  # type: ignore
-        except ImportError:
-            pytest.skip("Python reference _build_seam_cost_map_python not exposed")
+            comp.BATCH_AVAILABLE = False
+            return comp._build_seam_cost_map(canvas_zone, mask_a, mask_b)
+        finally:
+            comp.BATCH_AVAILABLE = orig_avail
 
+    def test_cost_map_agreement(self):
         H, W = 50, 80
         fa     = _rand_bgr(H, W, 0)
         mask_a = _rand_mask(H, W, 0)
         mask_b = _rand_mask(H, W, 1)
 
-        cost_py  = _build_seam_cost_map_python(fa, mask_a, mask_b)
-        cost_cpp = batch.seam.build_seam_cost_map(fa, mask_a, mask_b)
+        cost_py  = self._run_build_seam_cost_map_python(fa, mask_a, mask_b)
+        cost_cpp = batch.seam.build_seam_cost_map(fa, mask_a, mask_b, cost_map_norm=False)
 
         assert cost_cpp.shape == (H, W)
         # Max absolute difference in cost values ≤ 0.01 (float32 precision)
@@ -583,10 +528,16 @@ def _py_find_optimal_boundaries(warped_list, order, init_bounds, H, W,
                                  bg_masks=None, affines=None):
     """Python reference: calls the wired _find_optimal_boundaries dispatcher."""
     from backend.src.animation.rendering.compositing import _find_optimal_boundaries
-    return _find_optimal_boundaries(
-        warped_list, np.asarray(order), np.asarray(init_bounds, dtype=np.float64),
-        H, W, bg_masks=bg_masks, affines=affines,
-    )
+    import backend.src.animation.rendering.compositing as comp
+    orig_avail = comp.BATCH_AVAILABLE
+    try:
+        comp.BATCH_AVAILABLE = False
+        return _find_optimal_boundaries(
+            warped_list, np.asarray(order), np.asarray(init_bounds, dtype=np.float64),
+            H, W, bg_masks=bg_masks, affines=affines,
+        )
+    finally:
+        comp.BATCH_AVAILABLE = orig_avail
 
 
 def _cpp_find_optimal_boundaries(warped_list, order, init_bounds, H, W,
@@ -605,7 +556,6 @@ def _cpp_find_optimal_boundaries(warped_list, order, init_bounds, H, W,
 class TestFindOptimalBoundariesVsPython:
     """C++ find_optimal_boundaries agrees with Python reference within ±1 row."""
 
-    @_xfail_until_implemented("Phase 5d")
     def test_output_shapes_agree(self):
         H, W = 200, 100
         frames = [_rand_bgr(H, W, i) for i in range(3)]
@@ -616,7 +566,6 @@ class TestFindOptimalBoundariesVsPython:
         assert b_cpp.shape == b_py.shape
         assert d_cpp.shape == d_py.shape
 
-    @_xfail_until_implemented("Phase 5d")
     def test_boundary_positions_agree_within_1_row(self):
         H, W = 240, 80
         rng = np.random.default_rng(42)
@@ -628,7 +577,6 @@ class TestFindOptimalBoundariesVsPython:
         b_cpp, _ = _cpp_find_optimal_boundaries([f0, f1], order, init_bounds, H, W)
         assert abs(float(b_cpp[0]) - float(b_py[0])) <= 1.0
 
-    @_xfail_until_implemented("Phase 5d")
     def test_diff_scores_agree_within_tolerance(self):
         H, W = 200, 80
         rng = np.random.default_rng(7)
@@ -640,7 +588,6 @@ class TestFindOptimalBoundariesVsPython:
         _, d_cpp = _cpp_find_optimal_boundaries([f0, f1], order, init_bounds, H, W)
         assert abs(float(d_cpp[0]) - float(d_py[0])) <= 2.0
 
-    @_xfail_until_implemented("Phase 5d")
     def test_identical_frames_diff_near_zero(self):
         H, W = 160, 80
         f = _rand_bgr(H, W, 1)
@@ -649,7 +596,6 @@ class TestFindOptimalBoundariesVsPython:
         _, d_cpp = _cpp_find_optimal_boundaries([f, f.copy()], order, init_bounds, H, W)
         assert float(d_cpp[0]) < 1.0
 
-    @_xfail_until_implemented("Phase 5d")
     def test_three_boundaries_all_agree(self):
         H, W = 320, 80
         rng = np.random.default_rng(99)

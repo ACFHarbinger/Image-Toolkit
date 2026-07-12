@@ -11,11 +11,11 @@ paths_to_scan = [
     root / "CLAUDE.md",
     root / "GEMINI.md"
 ]
-for folder in ["moon", "reports"]:
+for folder in ["moon", "research"]:
     paths_to_scan.extend(root.glob(f"{folder}/**/*.md"))
 
 for f in root.glob("docs/**/*.md"):
-    if any(p in f.parts for p in ["roadmaps", "reports", "api"]) or f.name.lower() == "readme.md":
+    if any(p in f.parts for p in ["roadmaps", "research", "api"]) or f.name.lower() == "readme.md":
         continue
     paths_to_scan.append(f)
 

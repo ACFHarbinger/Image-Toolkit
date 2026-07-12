@@ -640,9 +640,15 @@ def _build_seam_cost_map(
         edge = cv2.morphologyEx(
             fg, cv2.MORPH_GRADIENT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         )
-        dilated = cv2.dilate(edge, kernel)
         cost = np.maximum(cost, (dilated > 0).astype(np.float32) * 0.5)
 
+    # Tier 1.5 — fg-heavy columns: cost=1.5 (§1.126 FG_MAJORITY_FLOOR)
+    zone_fg_frac = (cost >= 1.0).mean()
+    if zone_fg_frac > 0.60:
+        col_fg_frac = (cost >= 1.0).mean(axis=0)
+        heavy = col_fg_frac > 0.80
+        if heavy.any() and not heavy.all():
+            cost[:, heavy] = np.maximum(cost[:, heavy], 1.5)
 
     # §3.15A SemanticStitch column barrier (S33) + §1.23 hard barrier upgrade (S67).
     # When a background corridor exists (some but not all columns are fg-dominated),

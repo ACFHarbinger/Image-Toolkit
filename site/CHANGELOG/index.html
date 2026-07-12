@@ -13,7 +13,7 @@
       
       
       
-        <link rel="prev" href="../reports/image_stitching/">
+        <link rel="prev" href="../research/image_stitching/">
       
       
       
@@ -352,13 +352,13 @@
     
     
       <li class="md-tabs__item">
-        <a href="../reports/analytics/" class="md-tabs__link">
+        <a href="../research/analytics/" class="md-tabs__link">
           
   
   
     
   
-  Reports
+  research
 
         </a>
       </li>
@@ -2019,7 +2019,7 @@
   <span class="md-ellipsis">
     
   
-    Reports
+    research
   
 
     
@@ -2035,7 +2035,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Reports
+    research
   
 
           </label>
@@ -2048,7 +2048,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/analytics/" class="md-nav__link">
+      <a href="../research/analytics/" class="md-nav__link">
         
   
   
@@ -2076,7 +2076,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/asp_research/" class="md-nav__link">
+      <a href="../research/asp_research/" class="md-nav__link">
         
   
   
@@ -2104,7 +2104,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/image_generation/" class="md-nav__link">
+      <a href="../research/image_generation/" class="md-nav__link">
         
   
   
@@ -2132,7 +2132,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/image_stitching/" class="md-nav__link">
+      <a href="../research/image_stitching/" class="md-nav__link">
         
   
   
@@ -11294,10 +11294,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#consolidated-research-reports" class="md-nav__link">
+  <a href="#consolidated-research-research" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Consolidated research reports
+        Consolidated research research
       
     </span>
   </a>
@@ -20676,10 +20676,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#consolidated-research-reports" class="md-nav__link">
+  <a href="#consolidated-research-research" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Consolidated research reports
+        Consolidated research research
       
     </span>
   </a>
@@ -23202,14 +23202,14 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 <p><strong><code>mkdocs.yml</code> (<code>§6.10A</code>)</strong>
 - MkDocs Material theme with dark/light toggle, sticky nav tabs, code copy, mermaid superfences, MathJax.
 - <code>mkdocstrings[python]</code> with Google-style handler: filters private members, shows source, separate signature.
-- Full navigation tree: Getting Started → Reference (Python API stubs + Rust note) → Operations → Roadmaps → Reports → Changelog.</p>
+- Full navigation tree: Getting Started → Reference (Python API stubs + Rust note) → Operations → Roadmaps → research → Changelog.</p>
 <p><strong><code>docs/index.md</code> + <code>docs/hooks.py</code> (<code>§6.11A</code>)</strong>
 - Portal home page with project-level Mermaid architecture graph (Frontend → Backend → Data layers), key entry points table, and stack version table.
-- <code>hooks.py</code>: MkDocs pre-build hook that symlinks <code>moon/roadmaps/*.md</code>, <code>moon/CHANGELOG.md</code>, <code>moon/ROADMAP.md</code>, and <code>reports/*.md</code> into the <code>docs/</code> tree without moving the source files.
+- <code>hooks.py</code>: MkDocs pre-build hook that symlinks <code>moon/roadmaps/*.md</code>, <code>moon/CHANGELOG.md</code>, <code>moon/ROADMAP.md</code>, and <code>research/*.md</code> into the <code>docs/</code> tree without moving the source files.
 - Stub API pages created for <code>docs/api/python/{animation,core,models}.md</code> and <code>docs/api/rust/math.md</code>.</p>
 <p><strong><code>.github/workflows/docs.yml</code> (<code>§6.12A</code>)</strong>
 - 5-job pipeline: <code>docs-python</code> (MkDocs build <code>--strict</code>), <code>docs-rust</code> (<code>cargo test --doc</code> + <code>cargo doc --no-deps -D warnings</code>), <code>docs-links</code> (lychee), <code>docs-typescript</code> (TypeDoc advisory), <code>deploy</code> (GitHub Pages on main).
-- Path filters: only fires on changes to <code>docs/</code>, <code>moon/roadmaps/</code>, <code>reports/</code>, Python/Rust/TS source, or <code>mkdocs.yml</code>.
+- Path filters: only fires on changes to <code>docs/</code>, <code>moon/roadmaps/</code>, <code>research/</code>, Python/Rust/TS source, or <code>mkdocs.yml</code>.
 - Concurrency group: cancels in-progress run on new push to the same branch.</p>
 <p><strong><code>.pre-commit-config.yaml</code> (<code>§6.13A + §6.13D</code>)</strong>
 - Hooks: pre-commit-hooks (trailing whitespace, EOF fixer, YAML/TOML/JSON check, large file guard), ruff (lint + format), pydoclint (Google-style, scoped to <code>backend/src/animation/</code>), mypy (strict modules only), lychee (Markdown link check, external caches, skips rate-limited hosts), cargo-fmt, cargo-doc-test (scoped to <code>base/src/math/</code>), tsc (type check <code>frontend/src/math/</code>).</p>
@@ -23248,7 +23248,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 <tbody>
 <tr>
 <td><code>frontend/src-tauri/src/benchmark_commands.rs</code></td>
-<td>Tauri command <code>load_benchmark_reports</code> — walks results dir, parses ASP + General JSON schemas into <code>BenchmarkReport</code> discriminated union (<code>kind: "Asp" \| "General"</code>), sorted by mtime</td>
+<td>Tauri command <code>load_benchmark_research</code> — walks results dir, parses ASP + General JSON schemas into <code>BenchmarkReport</code> discriminated union (<code>kind: "Asp" \| "General"</code>), sorted by mtime</td>
 </tr>
 <tr>
 <td><code>frontend/src/math/benchmark.ts</code></td>
@@ -24410,7 +24410,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 <tbody>
 <tr>
 <td><strong>§1.76 <code>_seam_max_col_luma_step</code>/<code>_check_seam_max_col_gate</code></strong> (<code>compositing.py</code>)</td>
-<td>Per-column worst-case luma step gate. For each inter-strip seam boundary, computes per-column mean luma in a <code>band_px=8</code>-row window above and below (with <code>guard=2</code> excluded rows adjacent to the boundary) and returns the maximum absolute column difference. Unlike §1.24 which averages across the full strip width, §1.76 reports the single worst column — catching localised hot-spots (character outline or shadow edge crossing the seam at one column) that the mean dilutes away. <code>_check_seam_max_col_gate</code> returns worst seam index when any step exceeds <code>thresh</code>. <code>_SEAM_MAX_COL_GATE</code> flag (default 0.0=off, <code>ASP_SEAM_MAX_COL_GATE=40.0</code>). Stage 11.9 gate wired in <code>pipeline.py</code> after Stage 11.8. <code>ASP_SEAM_MAX_COL_GATE</code> added to <code>_CONFIG_SCHEMA</code>. Exported in <code>__all__</code>.</td>
+<td>Per-column worst-case luma step gate. For each inter-strip seam boundary, computes per-column mean luma in a <code>band_px=8</code>-row window above and below (with <code>guard=2</code> excluded rows adjacent to the boundary) and returns the maximum absolute column difference. Unlike §1.24 which averages across the full strip width, §1.76 research the single worst column — catching localised hot-spots (character outline or shadow edge crossing the seam at one column) that the mean dilutes away. <code>_check_seam_max_col_gate</code> returns worst seam index when any step exceeds <code>thresh</code>. <code>_SEAM_MAX_COL_GATE</code> flag (default 0.0=off, <code>ASP_SEAM_MAX_COL_GATE=40.0</code>). Stage 11.9 gate wired in <code>pipeline.py</code> after Stage 11.8. <code>ASP_SEAM_MAX_COL_GATE</code> added to <code>_CONFIG_SCHEMA</code>. Exported in <code>__all__</code>.</td>
 </tr>
 <tr>
 <td><strong>5 tests</strong> <code>TestSeamMaxColLumaStep</code></td>
@@ -24940,7 +24940,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </tr>
 <tr>
 <td><strong><code>_copy_selection_to_folder()</code> — §2.19C</strong> (both gallery base classes)</td>
-<td><code>shutil.copy2</code> loop to a <code>QFileDialog.getExistingDirectory</code>-chosen destination. Source is <code>selected_files</code> when non-empty, else the full visible list. Skips already-existing destinations (reports skipped count). <code>DontUseNativeDialog</code> on the directory picker. Bound to <code>Ctrl+Shift+C</code> via new <code>gallery.copy_to_folder</code> shortcut in <code>ShortcutRegistry</code>.</td>
+<td><code>shutil.copy2</code> loop to a <code>QFileDialog.getExistingDirectory</code>-chosen destination. Source is <code>selected_files</code> when non-empty, else the full visible list. Skips already-existing destinations (research skipped count). <code>DontUseNativeDialog</code> on the directory picker. Bound to <code>Ctrl+Shift+C</code> via new <code>gallery.copy_to_folder</code> shortcut in <code>ShortcutRegistry</code>.</td>
 </tr>
 <tr>
 <td><strong>"Export Paths…" + "Copy to Folder…" in right-click menu</strong> (<code>abstract_class_two_galleries.py</code>)</td>
@@ -25133,7 +25133,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </tbody>
 </table>
 <h3 id="design-rationale_7">Design rationale<a class="headerlink" href="#design-rationale_7" title="Permanent link">&para;</a></h3>
-<p>§1.25 (smoothing) and §1.26 (boundary clamp) reduce the <em>visual</em> impact of an unstable path, but do not prevent the blend from straddling two incompatible frame regions. When the DP reports no stable low-cost path (std &gt; 20 rows), the zone contains content that fundamentally cannot be blended cleanly — typically a foreground character that moved so much between frames that the "best" seam cuts through it at different heights for every column. Escalating to single-pose in this case avoids a zigzag ghost and lets §1.15 soft-edge handle the residual step.</p>
+<p>§1.25 (smoothing) and §1.26 (boundary clamp) reduce the <em>visual</em> impact of an unstable path, but do not prevent the blend from straddling two incompatible frame regions. When the DP research no stable low-cost path (std &gt; 20 rows), the zone contains content that fundamentally cannot be blended cleanly — typically a foreground character that moved so much between frames that the "best" seam cuts through it at different heights for every column. Escalating to single-pose in this case avoids a zigzag ghost and lets §1.15 soft-edge handle the residual step.</p>
 <hr />
 <h2 id="asp-session-71-127-background-coverage-gate-for-normalisation-2026-06-10">ASP Session 71 — §1.27 Background Coverage Gate for Normalisation (2026-06-10)<a class="headerlink" href="#asp-session-71-127-background-coverage-gate-for-normalisation-2026-06-10" title="Permanent link">&para;</a></h2>
 <h3 id="shipped_55">Shipped<a class="headerlink" href="#shipped_55" title="Permanent link">&para;</a></h3>
@@ -27476,7 +27476,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </tr>
 <tr>
 <td><strong>Normalization block updated</strong> (<code>compositing.py</code>)</td>
-<td><code>_composite_foreground</code> calls <code>_coherence_skip_mask()</code> for per-frame skip flags and <code>_adaptive_gain_clamp()</code> for each frame's gain. Print log now reports per-pair skip count instead of binary global skip/proceed.</td>
+<td><code>_composite_foreground</code> calls <code>_coherence_skip_mask()</code> for per-frame skip flags and <code>_adaptive_gain_clamp()</code> for each frame's gain. Print log now research per-pair skip count instead of binary global skip/proceed.</td>
 </tr>
 <tr>
 <td><strong>11 unit tests</strong> (<code>test_compositing.py</code>)</td>
@@ -27581,7 +27581,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 <tbody>
 <tr>
 <td><strong><code>_seam_visibility_score(output_img)</code></strong> (<code>bench_anime_stitch.py</code>)</td>
-<td>No-reference quality metric measuring the worst-case adjacent-row luminance jump in the final panorama. Computes per-row mean luminance for content rows (lum &gt; 5, ≥10% fill), then reports the maximum absolute difference between consecutive row means. Detects hard single-pose seam cuts (score 12–50+) that <code>_seam_coherence</code> misses (which measures global drift, not local discontinuities). Works for all 96 tests with no GT required.</td>
+<td>No-reference quality metric measuring the worst-case adjacent-row luminance jump in the final panorama. Computes per-row mean luminance for content rows (lum &gt; 5, ≥10% fill), then research the maximum absolute difference between consecutive row means. Detects hard single-pose seam cuts (score 12–50+) that <code>_seam_coherence</code> misses (which measures global drift, not local discontinuities). Works for all 96 tests with no GT required.</td>
 </tr>
 <tr>
 <td><strong>Wired into <code>_compute_all_metrics</code></strong></td>
@@ -28034,8 +28034,8 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </table>
 <hr />
 <h2 id="research-consolidation-roadmap-restructure-2026-06-03">Research Consolidation &amp; Roadmap Restructure (2026-06-03)<a class="headerlink" href="#research-consolidation-roadmap-restructure-2026-06-03" title="Permanent link">&para;</a></h2>
-<h3 id="consolidated-research-reports">Consolidated research reports<a class="headerlink" href="#consolidated-research-reports" title="Permanent link">&para;</a></h3>
-<p>The 14 image-stitching reports and 5 image/video-generation reports were merged into two comprehensive references and the <strong>19 source reports were deleted</strong> (their entire content is captured in the consolidations). Both new documents cover the <strong>whole field</strong> with deep anime-focused sections, sized to fully replace the originals.</p>
+<h3 id="consolidated-research-research">Consolidated research research<a class="headerlink" href="#consolidated-research-research" title="Permanent link">&para;</a></h3>
+<p>The 14 image-stitching research and 5 image/video-generation research were merged into two comprehensive references and the <strong>19 source research were deleted</strong> (their entire content is captured in the consolidations). Both new documents cover the <strong>whole field</strong> with deep anime-focused sections, sized to fully replace the originals.</p>
 <table>
 <thead>
 <tr>
@@ -28045,12 +28045,12 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </thead>
 <tbody>
 <tr>
-<td><strong><code>reports/Image_Stitching_Research.md</code></strong></td>
-<td>Replaces all 14 stitching reports. 22 sections: geometric foundations &amp; DoF; Perfect-Stitch-vs-Scan-Stitch mathematical audit (pushbroom/X-slits, APAP rank-deficiency proof); feature matching (SIFT/AKAZE/MSER → SuperPoint/SuperGlue/LightGlue/ALIKED → LoFTR/EfficientLoFTR/RoMa/JamMa/EDM); registration &amp; sub-pixel (RANSAC/MAGSAC, translation-only BA, ECC, phase correlation); optical flow (RAFT/SEA-RAFT/AnimeInterp SGM+RFR); spatially-varying warps (APAP/Moving-DLT, TPS/MLS/CPW, LSD line preservation, SEAGULL); <strong>foreground assembly</strong> (motion decomposition <code>F_fg=T_camera+A_animation</code>, Sýkora ARAP push/regularise, symmetric midpoint warp, two-channel selection, Eden single-pose fallback, HDR/VSR analogy); photometric (Harding broadcast-dimming reversal, BaSiC flat-fielding, Brown–Lowe gain, region-stratified Reinhard, palette harmonisation); segmentation (BiRefNet/ToonOut 99.5%/SAM-2/trapped-ball); seam-finding (graph-cut MRF, Agarwala, DSeam, semantic/SAM); blending (multi-band, Poisson/Modified-Poisson+MTOR, DSFN soft-seam); background reconstruction (temporal median, ProPainter/RAFT, latent-diffusion outpainting, VidPanos); unified frameworks (UDIS++/NIS/SRStitcher); SR (Real-ESRGAN anime_6B/APISR); video (StabStitch/++, Unwrap Mosaics); shot detection (OmniShotCut); the 14-stage pipeline spec; evaluation metrics; failure/fallback taxonomy; ASP implementation status.</td>
+<td><strong><code>research/Image_Stitching_Research.md</code></strong></td>
+<td>Replaces all 14 stitching research. 22 sections: geometric foundations &amp; DoF; Perfect-Stitch-vs-Scan-Stitch mathematical audit (pushbroom/X-slits, APAP rank-deficiency proof); feature matching (SIFT/AKAZE/MSER → SuperPoint/SuperGlue/LightGlue/ALIKED → LoFTR/EfficientLoFTR/RoMa/JamMa/EDM); registration &amp; sub-pixel (RANSAC/MAGSAC, translation-only BA, ECC, phase correlation); optical flow (RAFT/SEA-RAFT/AnimeInterp SGM+RFR); spatially-varying warps (APAP/Moving-DLT, TPS/MLS/CPW, LSD line preservation, SEAGULL); <strong>foreground assembly</strong> (motion decomposition <code>F_fg=T_camera+A_animation</code>, Sýkora ARAP push/regularise, symmetric midpoint warp, two-channel selection, Eden single-pose fallback, HDR/VSR analogy); photometric (Harding broadcast-dimming reversal, BaSiC flat-fielding, Brown–Lowe gain, region-stratified Reinhard, palette harmonisation); segmentation (BiRefNet/ToonOut 99.5%/SAM-2/trapped-ball); seam-finding (graph-cut MRF, Agarwala, DSeam, semantic/SAM); blending (multi-band, Poisson/Modified-Poisson+MTOR, DSFN soft-seam); background reconstruction (temporal median, ProPainter/RAFT, latent-diffusion outpainting, VidPanos); unified frameworks (UDIS++/NIS/SRStitcher); SR (Real-ESRGAN anime_6B/APISR); video (StabStitch/++, Unwrap Mosaics); shot detection (OmniShotCut); the 14-stage pipeline spec; evaluation metrics; failure/fallback taxonomy; ASP implementation status.</td>
 </tr>
 <tr>
-<td><strong><code>reports/Image_Generation_Research.md</code></strong></td>
-<td>Replaces all 5 generation reports. 16 sections: diffusion math (ε/v/x0-prediction, Rectified Flow Matching + Reflow, progressive distillation); architecture lineages (SD1.5, SDXL dual-encoder, Animagine XL 4.0, Illustrious XL 2.0 token-dilution, NoobAI v-pred + RF conversions, Pony score-tag Clever-Hans, FLUX MM-DiT/T5XXL/Chroma/Kaleidoscope, SD3.5) with comparison table; conditioning &amp; prompting (Danbooru/score/natural-language, Florence-2 vs WD14); fine-tuning (LoRA dim/alpha, LyCORIS LoCon/LoHa/LoKr, DreamBooth, full-FT, kohya_ss settings, optimisers); the 4K-video→character-LoRA pipeline; inference (ComfyUI/Forge/A1111, samplers, fp16-fix VAE, ControlNet, IP-Adapter); upscaling (Real-ESRGAN anime/APISR/SUPIR); video (AnimateDiff 5D-tensor architecture + motion-module table + anime beta_schedule=linear fix, AnimeInterp, ToonCrafter Toon-Rectification/Dual-Reference-3D-Decoder/Sparse-Sketch, ToonComposer DiT/SLRA, Wan2.1/SVD, prompt-travel/context-sliding); hardware deployment (uv, TensorRT static compilation, FP8/NF4/GGUF quantisation tables for 3090 Ti / 4080 / 4080-mobile); Image-Toolkit implementation status; settings cheat-sheet.</td>
+<td><strong><code>research/Image_Generation_Research.md</code></strong></td>
+<td>Replaces all 5 generation research. 16 sections: diffusion math (ε/v/x0-prediction, Rectified Flow Matching + Reflow, progressive distillation); architecture lineages (SD1.5, SDXL dual-encoder, Animagine XL 4.0, Illustrious XL 2.0 token-dilution, NoobAI v-pred + RF conversions, Pony score-tag Clever-Hans, FLUX MM-DiT/T5XXL/Chroma/Kaleidoscope, SD3.5) with comparison table; conditioning &amp; prompting (Danbooru/score/natural-language, Florence-2 vs WD14); fine-tuning (LoRA dim/alpha, LyCORIS LoCon/LoHa/LoKr, DreamBooth, full-FT, kohya_ss settings, optimisers); the 4K-video→character-LoRA pipeline; inference (ComfyUI/Forge/A1111, samplers, fp16-fix VAE, ControlNet, IP-Adapter); upscaling (Real-ESRGAN anime/APISR/SUPIR); video (AnimateDiff 5D-tensor architecture + motion-module table + anime beta_schedule=linear fix, AnimeInterp, ToonCrafter Toon-Rectification/Dual-Reference-3D-Decoder/Sparse-Sketch, ToonComposer DiT/SLRA, Wan2.1/SVD, prompt-travel/context-sliding); hardware deployment (uv, TensorRT static compilation, FP8/NF4/GGUF quantisation tables for 3090 Ti / 4080 / 4080-mobile); Image-Toolkit implementation status; settings cheat-sheet.</td>
 </tr>
 </tbody>
 </table>
@@ -28073,7 +28073,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </tr>
 <tr>
 <td><strong>Master roadmap update</strong></td>
-<td><code>moon/ROADMAP.md</code> adds the two consolidated reports and the Content Generation section-roadmap to its index; new <strong>Phase 0 (ASP Foreground Assembly, items 0.1–0.8)</strong> and <strong>Phase CG (Content Generation, items CG.1–CG.10)</strong> added with effort estimates and links.</td>
+<td><code>moon/ROADMAP.md</code> adds the two consolidated research and the Content Generation section-roadmap to its index; new <strong>Phase 0 (ASP Foreground Assembly, items 0.1–0.8)</strong> and <strong>Phase CG (Content Generation, items CG.1–CG.10)</strong> added with effort estimates and links.</td>
 </tr>
 </tbody>
 </table>
@@ -28215,7 +28215,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </tr>
 <tr>
 <td>CLI dispatcher — model</td>
-<td><code>dispatch_model()</code> was a single-line stub. Now implements the <code>generate</code> sub-command: instantiates <code>SD3Wrapper</code>, calls <code>wrapper.generate(prompt, output_path)</code>, and reports the output path.</td>
+<td><code>dispatch_model()</code> was a single-line stub. Now implements the <code>generate</code> sub-command: instantiates <code>SD3Wrapper</code>, calls <code>wrapper.generate(prompt, output_path)</code>, and research the output path.</td>
 </tr>
 <tr>
 <td>CLI <code>--recursive</code> flag</td>
@@ -28284,7 +28284,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </tr>
 <tr>
 <td>G1.10 OS dark mode follow</td>
-<td><code>MainWindow.__init__</code> now reads <code>QGuiApplication.styleHints().colorScheme()</code> when the vault stores no explicit theme preference. Falls back to <code>"dark"</code> when the OS reports <code>Unknown</code>. Connects <code>colorSchemeChanged</code> signal to auto-switch themes when the user toggles dark/light mode in the OS while the app is running (only takes effect when no vault override is set).</td>
+<td><code>MainWindow.__init__</code> now reads <code>QGuiApplication.styleHints().colorScheme()</code> when the vault stores no explicit theme preference. Falls back to <code>"dark"</code> when the OS research <code>Unknown</code>. Connects <code>colorSchemeChanged</code> signal to auto-switch themes when the user toggles dark/light mode in the OS while the app is running (only takes effect when no vault override is set).</td>
 </tr>
 <tr>
 <td>G1.11 Ctrl+scroll thumbnail zoom</td>
