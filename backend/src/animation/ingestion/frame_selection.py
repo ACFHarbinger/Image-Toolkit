@@ -61,6 +61,11 @@ import numpy as np
 
 try:
     import base as _batch
+    if (
+        getattr(_batch, "__file__", None) is None
+        or not hasattr(_batch, "frame_selection")
+    ):
+        raise ImportError("compiled base.frame_selection extension not available")
     _BATCH_FSEL = True
 except ImportError:
     _batch = None  # type: ignore[assignment]

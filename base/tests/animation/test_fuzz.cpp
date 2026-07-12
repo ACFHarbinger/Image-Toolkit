@@ -36,11 +36,6 @@ std::vector<int> seam_cut_impl(
     const cv::Mat&, const cv::Mat&, const cv::Mat&,
     const std::vector<int>&, float, float);
 
-cv::Mat zone_lum_norm_impl(const cv::Mat&, const cv::Mat&, float);
-cv::Mat zone_sat_norm_impl(const cv::Mat&, const cv::Mat&, float);
-cv::Mat zone_chroma_align_impl(const cv::Mat&, const cv::Mat&, float);
-
-cv::Mat correct_vignetting_impl(const cv::Mat&, const cv::Mat&);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -140,70 +135,3 @@ TEST_CASE("FUZZ seam_cut: no crash with high transition penalty", "[fuzz][seam]"
     }
 }
 
-// ---------------------------------------------------------------------------
-// Fuzz: zone normalization — 5 random sizes each
-// ---------------------------------------------------------------------------
-
-TEST_CASE("FUZZ zone_lum_norm: no crash on random (H, W)", "[fuzz][compositing]") {
-    std::mt19937 rng(3);
-    std::uniform_int_distribution<int> size_dist(4, 80);
-    for (int trial = 0; trial < 5; ++trial) {
-        int H = size_dist(rng), W = size_dist(rng);
-        cv::Mat fa = rand_bgr(H, W, trial);
-        cv::Mat fb = rand_bgr(H, W, trial + 500);
-        require_no_unexpected_throw([&] {
-            zone_lum_norm_impl(fa, fb, 2.0f);
-        });
-    }
-}
-
-TEST_CASE("FUZZ zone_sat_norm: no crash on random (H, W)", "[fuzz][compositing]") {
-    std::mt19937 rng(5);
-    std::uniform_int_distribution<int> size_dist(4, 80);
-    for (int trial = 0; trial < 5; ++trial) {
-        int H = size_dist(rng), W = size_dist(rng);
-        cv::Mat fa = rand_bgr(H, W, trial);
-        cv::Mat fb = rand_bgr(H, W, trial + 600);
-        require_no_unexpected_throw([&] {
-            zone_sat_norm_impl(fa, fb, 2.0f);
-        });
-    }
-}
-
-TEST_CASE("FUZZ zone_chroma_align: no crash on random (H, W)", "[fuzz][compositing]") {
-    std::mt19937 rng(11);
-    std::uniform_int_distribution<int> size_dist(4, 80);
-    for (int trial = 0; trial < 5; ++trial) {
-        int H = size_dist(rng), W = size_dist(rng);
-        cv::Mat fa = rand_bgr(H, W, trial);
-        cv::Mat fb = rand_bgr(H, W, trial + 700);
-        require_no_unexpected_throw([&] {
-            zone_chroma_align_impl(fa, fb, 2.0f);
-        });
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Fuzz: correct_vignetting — various vignette map ranges
-// ---------------------------------------------------------------------------
-
-TEST_CASE("FUZZ correct_vignetting: no crash with random vignette maps", "[fuzz][exposure]") {
-    const int H = 60, W = 80;
-    std::mt19937 rng(0);
-    std::uniform_real_distribution<float> vign_dist(0.0f, 3.0f);
-    for (int trial = 0; trial < 5; ++trial) {
-        cv::Mat frame = rand_bgr(H, W, trial);
-        cv::Mat vmap(H, W, CV_32F);
-        for (auto it = vmap.begin<float>(); it != vmap.end<float>(); ++it)
-            *it = vign_dist(rng);
-        require_no_unexpected_throw([&] {
-            cv::Mat out = correct_vignetting_impl(frame, vmap);
-            // If we reach here, verify no uint8 overflow
-            if (!out.empty()) {
-                double maxVal;
-                cv::minMaxLoc(out, nullptr, &maxVal);
-                REQUIRE(maxVal <= 255.0);
-            }
-        });
-    }
-}

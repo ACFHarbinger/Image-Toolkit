@@ -104,13 +104,11 @@ except ImportError:
     Image = None  # type: ignore[assignment]
 
 try:
-    try:
-        import base as _batch
-    except ImportError:
-        from backend.src.animation import base as _batch
-
-    if getattr(_batch, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
+    import base as _batch
+    if getattr(_batch, "__file__", None) is None or not (
+        hasattr(_batch, "frame_selection") or hasattr(_batch, "matching")
+    ):
+        raise ImportError("compiled base ASP extension not available")
     _HAS_BATCH: bool = True
 except ImportError:
     _batch = None  # type: ignore[assignment]

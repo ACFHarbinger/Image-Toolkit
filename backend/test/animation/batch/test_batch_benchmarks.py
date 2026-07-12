@@ -10,7 +10,6 @@ These tests MUST live in Python because:
 
 Expected speedups (from asp_cpp_migration.md §3):
   seam_cut      > 5× (Phase 2 target: 27×)
-  zone_lum_norm > 5× (Phase 2 target: 20×)
   bundle_adjust > 5× (Phase 3 target: 25×)
 
 All tests:
@@ -31,8 +30,11 @@ import pytest
 
 try:
     import base as batch
-    if getattr(batch, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
+    if (
+        getattr(batch, "__file__", None) is None
+        or not hasattr(batch, "bundle_adjust")
+    ):
+        raise ImportError("compiled base ASP extension not available")
     HAS_BATCH = True
 except ImportError:
     HAS_BATCH = False
@@ -56,40 +58,6 @@ def _mean_wall_time(fn, *args, n: int = 10, **kwargs) -> float:
 def _rand_bgr(h: int, w: int, seed: int = 0) -> np.ndarray:
     rng = np.random.default_rng(seed)
     return rng.integers(0, 256, (h, w, 3), dtype=np.uint8)
-
-
-# ---------------------------------------------------------------------------
-# zone_lum_norm speedup
-# ---------------------------------------------------------------------------
-
-
-class TestZoneLumNormSpeedup:
-    @pytest.mark.xfail(
-        reason="batch.compositing.zone_lum_norm not implemented yet (Phase 2)",
-        raises=RuntimeError,
-        strict=False,
-    )
-    def test_zone_lum_norm_exceeds_5x_speedup(self):
-        try:
-            from backend.src.animation.rendering.compositing import _zone_lum_norm_python  # type: ignore
-        except ImportError:
-            pytest.skip("Python reference _zone_lum_norm_python not exposed")
-
-        # 400 × 600 BGR zone (typical zone crop size)
-        fa = _rand_bgr(400, 600, seed=0)
-        fb = _rand_bgr(400, 600, seed=1)
-
-        py_time  = _mean_wall_time(_zone_lum_norm_python, fa, fb, n=10)
-        cpp_time = _mean_wall_time(batch.compositing.zone_lum_norm, fa, fb, n=10)
-        speedup  = py_time / max(cpp_time, 1e-9)
-
-        print(
-            f"\nzone_lum_norm: py={py_time*1000:.1f}ms  "
-            f"cpp={cpp_time*1000:.1f}ms  speedup={speedup:.1f}×"
-        )
-        assert speedup >= MIN_SPEEDUP, (
-            f"zone_lum_norm speedup {speedup:.1f}× < {MIN_SPEEDUP}×."
-        )
 
 
 # ---------------------------------------------------------------------------

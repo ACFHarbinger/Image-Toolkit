@@ -420,6 +420,11 @@ class TestLSDCollinearity:
 
 try:
     import base as _batch_fgreg_test  # noqa: F401
+    if (
+        getattr(_batch_fgreg_test, "__file__", None) is None
+        or not hasattr(_batch_fgreg_test, "fg_register")
+    ):
+        raise ImportError("compiled base.fg_register extension not available")
     _HAS_BATCH_FGREG = True
 except ImportError:
     _HAS_BATCH_FGREG = False

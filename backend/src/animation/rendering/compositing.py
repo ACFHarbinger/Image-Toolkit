@@ -27,13 +27,12 @@ from backend.src.animation.alignment.fg_register import register_foreground_at_s
 from backend.src.animation.core.stateless import _laplacian_blend
 
 try:
-    try:
-        import base as batch
-    except ImportError:
-        from backend.src.animation import base as batch
-
-    if getattr(batch, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
+    import base as batch
+    if (
+        getattr(batch, "__file__", None) is None
+        or not hasattr(batch, "compositing")
+    ):
+        raise ImportError("compiled base.compositing extension not available")
     BATCH_AVAILABLE = True
 except ImportError:
     batch = None

@@ -17,16 +17,14 @@ from scipy.optimize import least_squares
 from backend.src.animation.core.stateless import _luma
 
 try:
-    try:
-        import base as _batch_photo
-    except ImportError:
-        from backend.src.animation import base as _batch_photo
-
-    if getattr(_batch_photo, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
-    _BATCH_PHOTO = hasattr(_batch_photo, "exposure") and hasattr(
-        _batch_photo.exposure, "correct_vignetting"
+    import base as _batch_photo
+    _BATCH_PHOTO = (
+        getattr(_batch_photo, "__file__", None) is not None
+        and hasattr(_batch_photo, "exposure")
+        and hasattr(_batch_photo.exposure, "correct_vignetting")
     )
+    if not _BATCH_PHOTO:
+        raise ImportError("compiled base.exposure extension not available")
 except ImportError:
     _batch_photo = None  # type: ignore[assignment]
     _BATCH_PHOTO = False

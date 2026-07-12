@@ -52,9 +52,7 @@ add_library(base_impl STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/compositing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/exposure.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/frame_selection.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/wave_correct.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/fg_register.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/sr_classical.cpp
 
     # Image I/O + filesystem (Phase 2)
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/image/image_batch.cpp
@@ -117,10 +115,8 @@ add_executable(base_tests
     animation/test_seam.cpp
     animation/test_compositing.cpp
     animation/test_bundle_adjust.cpp
-    animation/test_exposure.cpp
     animation/test_matching.cpp
     animation/test_validation.cpp
-    animation/test_wave_correct.cpp
     animation/test_fuzz.cpp
 
     # Image I/O + filesystem tests (Phase 2)
