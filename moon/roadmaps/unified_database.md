@@ -162,7 +162,9 @@ class Database {                       // py: base.database.Database
 
 **CRUD language split (perf-guided, answer #9):** connection/transaction/KDF/vector/FTS machinery in C++; *SQL text and domain logic* in the Python DAL (DB.3). Row-shuffling CRUD is I/O-bound — Python building parameterized statements over the C++ `query/execute` primitives measures identically to native CRUD at this scale, and keeps iteration fast. If a specific path proves hot (bulk scan upserts), promote just that path to a dedicated C++ method.
 
-## DB.3 Python DAL (`backend/src/database/unified/`)
+## ✅ DB.3 Python DAL (`backend/src/database/unified/`)
+
+*Shipped 2026-07-12 (S210): `session.py` (login-time singleton + `ensure_schema` with FTS5 fallback flag), `media_repo`/`entity_repo` (legacy entry-dict dialect round-trips — CSV genres/tags ↔ `media_tags`, `episode_list`/`credit_list` ↔ tables, associations ↔ M2M), `image_repo` (PgvectorImageDatabase-parity names, FK groups, bulk `paths_in_db`), `tag_repo` (typed vocabulary + `merge_tags`), `search_repo` (structured image search parity, FTS5-with-LIKE-fallback text search, `advanced_media_search` SQL builder, `semantic_image_search` knn+prefilter), `maintenance.py` (legacy-shape statistics, reset gated on a verified backup manifest). 14 tests in `backend/test/database/test_unified_repos.py`.*
 
 Repository layer that both tab families consume; no GUI file touches SQL directly.
 
