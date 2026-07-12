@@ -356,13 +356,13 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reports/analytics/" class="md-tabs__link">
+        <a href="../../research/analytics/" class="md-tabs__link">
           
   
   
     
   
-  Reports
+  Research
 
         </a>
       </li>
@@ -2842,6 +2842,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#233-extractor-tab-playback-engine--libmpv-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.33 Extractor Tab Playback Engine — libmpv Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.33 Extractor Tab Playback Engine — libmpv Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#effort--impact-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3044,7 +3072,7 @@
   <span class="md-ellipsis">
     
   
-    Reports
+    Research
   
 
     
@@ -3060,7 +3088,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Reports
+    Research
   
 
           </label>
@@ -3073,7 +3101,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/analytics/" class="md-nav__link">
+      <a href="../../research/analytics/" class="md-nav__link">
         
   
   
@@ -3101,7 +3129,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/asp_research/" class="md-nav__link">
+      <a href="../../research/asp_research/" class="md-nav__link">
         
   
   
@@ -3129,7 +3157,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/image_generation/" class="md-nav__link">
+      <a href="../../research/image_generation/" class="md-nav__link">
         
   
   
@@ -3157,7 +3185,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/image_stitching/" class="md-nav__link">
+      <a href="../../research/image_stitching/" class="md-nav__link">
         
   
   
@@ -4179,6 +4207,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#233-extractor-tab-playback-engine--libmpv-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.33 Extractor Tab Playback Engine — libmpv Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.33 Extractor Tab Playback Engine — libmpv Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#effort--impact-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4268,6 +4324,7 @@
 <li><a href="#230-accent-color-and-ui-density-customization">2.30 Accent Color and UI Density Customization</a></li>
 <li><a href="#231-custom-qss-user-theme-override">2.31 Custom QSS User Theme Override</a></li>
 <li><a href="#232-window-layout-and-state-profiles">2.32 Window Layout and State Profiles</a></li>
+<li><a href="#233-extractor-tab-playback-engine--libmpv-integration">2.33 Extractor Tab Playback Engine — libmpv Integration</a></li>
 <li><a href="#effort--impact-matrix">Effort × Impact Matrix</a></li>
 <li><a href="#anchor-index">Anchor Index</a></li>
 </ul>
@@ -5179,6 +5236,24 @@ Each tab class saves and restores its own internal splitter + scroll position in
 - Cons: Does not capture main window size or multi-tab interactions.</p>
 <p><strong>Recommendation:</strong> A immediately (matches §2.20A and is essentially the same code path). B as the full profiles upgrade once A validates the save/restore pattern.</p>
 <hr />
+<h2 id="233-extractor-tab-playback-engine--libmpv-integration">2.33 Extractor Tab Playback Engine — libmpv Integration<a class="headerlink" href="#233-extractor-tab-playback-engine--libmpv-integration" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> The Extractor tab's internal player is built on <code>QMediaPlayer</code>/<code>QGraphicsVideoItem</code>. Repeated attempts (2026-07) to make the main player itself track the playhead in real time during a drag — subprocess-per-frame extraction, a background dense-keyframe H.264 "scrub proxy," and finally a persistent in-process PyAV decoder feeding an overlay pixmap — all ran into some combination of latency, image quality, or <code>QMediaPlayer</code>/<code>QVideoSink</code> surface-swap timing bugs (aspect-ratio corruption on release, a stale-frame "flash" between the pre-drag and post-drag frame, and a final regression that only manifested under real interactive dragging, never in scripted reproductions). The conclusion: the class of bug repeatedly hit is inherent to driving <code>QMediaPlayer</code>'s own video surface at drag speed, not something a better preview-fetching algorithm alone fixes.</p>
+<p>The chosen near-term fix (§4.14, tracked in <code>new_features.md</code>) is a YouTube-style storyboard/sprite-sheet scrub preview shown in a small floating widget above the slider, which never touches the main player's surface during the drag at all — see that section for the accepted design. This section instead tracks the complementary, larger initiative: giving the <em>main player itself</em> fast, high-quality seeking, by swapping its engine to <code>libmpv</code> — the same engine Haruna (the reference UX for this feature) is built on.</p>
+<h3 id="options_31">Options<a class="headerlink" href="#options_31" title="Permanent link">&para;</a></h3>
+<p><strong>A — Embed via <code>python-mpv</code> + native window ID (<code>wid</code>)</strong>
+<code>python-mpv</code> is a ctypes wrapper around <code>libmpv</code>. Hand it the native window handle of a Qt widget (<code>int(widget.winId())</code>) and let mpv render into it directly, replacing <code>QMediaPlayer</code>/<code>QGraphicsVideoItem</code> as the Extractor tab's internal engine. mpv owns seeking, its own demuxer cache, and hr-seek/keyframe-seek tuning — this is literally Haruna's own approach, not an approximation of it.
+- Pros: Highest ceiling — inherits 15+ years of tuned scrub-seek behavior for free. No custom decode/overlay code to maintain going forward.
+- Cons: New native dependency (<code>libmpv</code>/<code>libmpv2</code>). Per this project's own history (three prior SIGSEGVs from JPype/JVM colliding with lazily-loaded native GPU/media libs — GTK file dialog, QWebEngineView/Chromium, QMediaPlayer FFmpeg VA-API — see <code>jvm_native_lib_conflicts</code> in project memory), a fourth native lib coexisting with the JVM needs a deliberate isolated smoke test before wiring it into the main app. Window embedding (<code>wid</code>) is straightforward on X11 but meaningfully more fragile on Wayland (frequently requires falling back through XWayland) — worth confirming the target session type first. This is a genuine engine swap, not a small patch: audio routing, playback-speed control, and the existing AV1/VP9 H.264-proxy workaround (<code>transcoded_playback.py</code>) would all need to be re-plumbed through mpv's own APIs (mpv can decode AV1/VP9 natively via ffmpeg, likely obsoleting that proxy entirely) or bridged.</p>
+<p><strong>B — mpv render API into a <code>QOpenGLWidget</code></strong>
+Instead of native window embedding, use mpv's render API to draw into an OpenGL context Qt owns (<code>QOpenGLWidget</code>), pulling frames via a render callback instead of handing mpv a raw window handle.
+- Pros: Avoids the X11/Wayland window-embedding fragility of Option A entirely — works identically on both since Qt owns the surface. More natural fit for compositing mpv's output with Qt-drawn overlays (e.g. the storyboard preview widget, HUD elements) in the same widget.
+- Cons: More integration code than <code>wid</code> embedding (explicit OpenGL context sharing, render callback wiring). Requires <code>PyOpenGL</code> or equivalent alongside <code>python-mpv</code>.</p>
+<p><strong>C — Status quo (<code>QMediaPlayer</code>) + debounced seeks only</strong>
+Keep <code>QMediaPlayer</code> as the engine; rely on the storyboard preview (§4.14) for the live-drag visual, and only ever call <code>QMediaPlayer.setPosition()</code> when the drag pauses or releases (not on every tick), reusing the existing <code>videoSink().videoFrameChanged</code>-gated safe-reveal logic.
+- Pros: Zero new dependencies, zero engine-swap risk. Already-fixed bugs (aspect ratio, release flash) stay fixed because the code paths that caused them aren't exercised at drag speed anymore.
+- Cons: The main player's seek latency (observed ~100-300ms per real seek) is still whatever <code>QMediaPlayer</code> gives you on pause/release — noticeably slower to "settle" than mpv's own seeking, just no longer perceptible as continuous stutter since it doesn't fire on every tick.</p>
+<p><strong>Recommendation:</strong> Ship C now (it's the low-risk baseline the storyboard work already assumes). Pursue A as a follow-up spike behind a feature flag, with an isolated smoke test for JVM/libmpv coexistence before any wider integration; fall back to B if <code>wid</code> embedding proves unreliable on the team's actual desktop session (Wayland).</p>
+<hr />
 <h2 id="effort--impact-matrix">Effort × Impact Matrix<a class="headerlink" href="#effort--impact-matrix" title="Permanent link">&para;</a></h2>
 <p><em>Effort</em> — <strong>Low</strong>: &lt; 1 day · <strong>Medium</strong>: 1 day – 1 week · <strong>High</strong>: 1 – 2 weeks · <strong>Very High</strong>: 2+ weeks
 <em>Impact</em> — <strong>Low</strong>: aesthetic polish · <strong>Medium</strong>: discoverable QoL · <strong>High</strong>: significant workflow improvement for most users · <strong>Very High</strong>: fundamental UX upgrade</p>
@@ -5218,7 +5293,7 @@ Each tab class saves and restores its own internal splitter + scroll position in
 <td><strong>Very High (2w+)</strong></td>
 <td>—</td>
 <td>§2.4E drag-and-drop reorder</td>
-<td>—</td>
+<td>§2.33A libmpv engine swap (spike, gated on JVM coexistence smoke test)</td>
 <td>§4.12C named workspaces (superset of §2.29+§2.30+§2.32)</td>
 </tr>
 </tbody>
@@ -5361,11 +5436,15 @@ Each tab class saves and restores its own internal splitter + scroll position in
 <td>2.32 Window Layout and State Profiles</td>
 <td><a href="#232-window-layout-and-state-profiles">#232-window-layout-and-state-profiles</a></td>
 </tr>
+<tr>
+<td>2.33 Extractor Tab Playback Engine — libmpv</td>
+<td><a href="#233-extractor-tab-playback-engine--libmpv-integration">#233-extractor-tab-playback-engine--libmpv-integration</a></td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h2 id="document-history">Document History<a class="headerlink" href="#document-history" title="Permanent link">&para;</a></h2>
-<p><em>Last updated: 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.</em></p>
+<p><em>Last updated: 2026-07-11 — §2.33 Extractor Tab Playback Engine (libmpv integration) added; near-term scrub-preview UX handled separately via <code>new_features.md</code> §4.14 (storyboard sprite sheet). Previous update 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.</em></p>
 
 
 

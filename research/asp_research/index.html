@@ -13,6 +13,10 @@
       
       
       
+        <link rel="prev" href="../analytics/">
+      
+      
+        <link rel="next" href="../image_generation/">
       
       
         
@@ -23,7 +27,7 @@
     
     
       
-        <title>Anime Stitch Pipeline: A Comprehensive Research Report - Image-Toolkit Documentation</title>
+        <title>ASP Comprehensive Research - Image-Toolkit Documentation</title>
       
     
     
@@ -112,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Anime Stitch Pipeline: A Comprehensive Research Report
+              ASP Comprehensive Research
             
           </span>
         </div>
@@ -346,11 +350,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../research/analytics/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../analytics/" class="md-tabs__link">
           
   
   
@@ -1977,8 +1983,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -1994,21 +2002,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
             
   
   
@@ -2026,7 +2035,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2044,7 +2053,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../research/analytics/" class="md-nav__link">
+      <a href="../analytics/" class="md-nav__link">
         
   
   
@@ -2069,10 +2078,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../research/asp_research/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2088,6 +2124,1284 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#from-sequential-frame-extraction-to-multimodal-panoramic-stitching-with-human-in-the-loop-supervision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Sequential Frame Extraction to Multimodal Panoramic Stitching with Human-in-the-Loop Supervision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Executive Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-scope-and-domain-framing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Scope and Domain Framing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Scope and Domain Framing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-the-anime-stitching-problem-defined" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 The Anime Stitching Problem Defined
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-photography-vs-anime-a-domain-contrast" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Photography vs. Anime: A Domain Contrast
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#221-2d-video-game-screenshots-a-third-domain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2.1 2D Video Game Screenshots: A Third Domain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-why-this-document-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Why This Document Exists
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-stage-0-video-ingestion-and-frame-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Stage 0 — Video Ingestion and Frame Extraction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Stage 0 — Video Ingestion and Frame Extraction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-ffmpeg-the-standard-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 FFmpeg: The Standard Baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-python-video-reader-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Python Video Reader Benchmarks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-hybrid-memory-mapped-ingestion-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Hybrid Memory-Mapped Ingestion Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-hybrid-4k1080p-ingestion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Hybrid 4K/1080p Ingestion
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-geometric-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Geometric Foundations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Geometric Foundations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-classical-panoramic-stitching-homographies-and-the-dlt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Classical Panoramic Stitching: Homographies and the DLT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-why-homographies-fail-catastrophically-on-anime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Why Homographies Fail Catastrophically on Anime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-translation-only-pushbroom-geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Translation-Only Pushbroom Geometry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-phase-correlation-and-the-fourier-shift-theorem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Phase Correlation and the Fourier Shift Theorem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-transformation-model-decision-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Transformation Model Decision Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-the-13-stage-asp-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The 13-Stage ASP Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-failure-mode-taxonomy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Failure Mode Taxonomy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Failure Mode Taxonomy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-category-a-render-quality-gate-406-of-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Category A — Render Quality Gate (40.6% of corpus)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-category-b-bundle-adjustment-outlier-dominance-135-of-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Category B — Bundle Adjustment Outlier Dominance (13.5% of corpus)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-category-c1-seam-cutting-character" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Category C1 — Seam Cutting Character
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-category-c2-ssim-ceiling-structural" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Category C2 — SSIM Ceiling (structural)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-category-d-aperture-problem-in-foreground-registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 Category D — Aperture Problem in Foreground Registration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-frame-selection-the-primary-bottleneck" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Frame Selection: The Primary Bottleneck
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Frame Selection: The Primary Bottleneck">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-why-frame-selection-is-the-most-important-stage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Why Frame Selection Is the Most Important Stage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-overmix-the-practitioner-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Overmix: The Practitioner Baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-background-subtracted-phase-correlation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Background-Subtracted Phase Correlation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#74-dinov2-siglip-submodular-frame-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.4 DINOv2 + SigLIP Submodular Frame Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#75-pose-consistent-dp-frame-selector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.5 Pose-Consistent DP Frame Selector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-foreground-segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Foreground Segmentation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Foreground Segmentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-current-approach-birefnet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Current Approach: BiRefNet
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-sam-2-video-consistent-segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 SAM-2: Video-Consistent Segmentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-grounded-sam-2-natural-language-segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Grounded SAM-2: Natural Language Segmentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#84-click-based-refinement-focalclick-paradigm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.4 Click-Based Refinement (FocalClick Paradigm)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-feature-matching-and-bundle-adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Feature Matching and Bundle Adjustment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Feature Matching and Bundle Adjustment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-multi-matcher-ensemble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Multi-Matcher Ensemble
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-bundle-adjustment-gnc-and-gnc-tls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 Bundle Adjustment: GNC and GNC-TLS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-pre-bundle-static-edge-rejection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Pre-Bundle Static Edge Rejection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-sub-pixel-refinement-and-the-aperture-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Sub-Pixel Refinement and the Aperture Problem
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Sub-Pixel Refinement and the Aperture Problem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-ecc-maximization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 ECC Maximization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-the-aperture-problem-and-segment-guided-flow-sgm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 The Aperture Problem and Segment-Guided Flow (SGM)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#103-linkto-anime-sea-raft-fine-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.3 LinkTo-Anime SEA-RAFT Fine-tuning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#104-sain-sketch-aware-interpolation-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.4 SAIN — Sketch-Aware Interpolation Network
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#105-arap-foreground-registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.5 ARAP Foreground Registration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-canvas-construction-seam-routing-and-blending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Canvas Construction, Seam Routing, and Blending
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Canvas Construction, Seam Routing, and Blending">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-canvas-construction-stabstitch-bidirectional-midplane" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 Canvas Construction: StabStitch++ Bidirectional Midplane
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-seam-routing-from-dp-to-semantic-hard-barriers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 Seam Routing: From DP to Semantic Hard Barriers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#113-blending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.3 Blending
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-background-completion-and-generative-compositing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Background Completion and Generative Compositing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="12. Background Completion and Generative Compositing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#121-propainter-deterministic-background-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.1 ProPainter — Deterministic Background Completion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#122-tooncrafter-generative-midpoint-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.2 ToonCrafter — Generative Midpoint Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#123-omnimattezero-training-free-layer-decomposition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.3 OmnimatteZero — Training-Free Layer Decomposition
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-quality-assessment-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Quality Assessment Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="13. Quality Assessment Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#131-reference-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.1 Reference Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#132-no-reference-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.2 No-Reference Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#133-mllm-based-quality-scoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.3 MLLM-Based Quality Scoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-empirical-lessons-from-hobbyists-and-practitioners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Empirical Lessons from Hobbyists and Practitioners
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="14. Empirical Lessons from Hobbyists and Practitioners">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#141-ffmpeg-workflows-and-their-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.1 FFmpeg Workflows and Their Limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#142-hugin-and-panorama-stitching-software" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.2 Hugin and Panorama Stitching Software
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#143-microsoft-ice-image-composite-editor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.3 Microsoft ICE (Image Composite Editor)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#144-overmix-the-domain-specific-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.4 Overmix: The Domain-Specific Baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#145-why-all-general-purpose-tools-fail-on-anime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.5 Why All General-Purpose Tools Fail on Anime
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-multi-modal-pipeline-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Multi-Modal Pipeline Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="15. Multi-Modal Pipeline Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#151-video-ingestion-as-native-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15.1 Video Ingestion as Native Input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#152-hybrid-4k1080p-pipeline-9c-session-119" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15.2 Hybrid 4K/1080p Pipeline (§9C, Session 119)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#153-the-academic-6-stage-generative-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15.3 The Academic 6-Stage Generative Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#154-generative-view-stitching-gvs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15.4 Generative View Stitching (GVS)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16-human-in-the-loop-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Human-in-the-Loop Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="16. Human-in-the-Loop Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#161-philosophical-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.1 Philosophical Foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#162-hitl-checkpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.2 HITL Checkpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#163-natural-language-seam-routing-phase-a3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.3 Natural Language Seam Routing (Phase A3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#164-benchmark-json-import-110e-session-119" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.4 Benchmark JSON Import (§1.10E, Session 119)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#17-data-serialization-and-dataset-harvesting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. Data Serialization and Dataset Harvesting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="17. Data Serialization and Dataset Harvesting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#171-strategic-value-of-hitl-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.1 Strategic Value of HITL Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#172-coco-json-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.2 COCO JSON Schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#173-label-studio-multi-modal-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.3 Label Studio Multi-Modal Export
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#18-progressive-automation-via-fine-tuning-and-rlhf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18. Progressive Automation via Fine-Tuning and RLHF
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="18. Progressive Automation via Fine-Tuning and RLHF">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#181-sam-2-anime-domain-fine-tuning-phase-c1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18.1 SAM-2 Anime Domain Fine-Tuning (Phase C1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#182-pose-contrastive-fine-tuning-phase-c2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18.2 Pose Contrastive Fine-Tuning (Phase C2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#183-rlhf-reward-model-phase-c3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18.3 RLHF Reward Model (Phase C3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#19-generative-models-for-anime-domain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19. Generative Models for Anime Domain
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="19. Generative Models for Anime Domain">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#191-diffusion-model-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19.1 Diffusion Model Foundations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#192-sdxl-anime-fine-tunes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19.2 SDXL Anime Fine-Tunes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#193-flux-and-mm-dit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19.3 FLUX and MM-DiT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#194-animatediff-for-temporal-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19.4 AnimateDiff for Temporal Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#195-asp-relevant-generative-capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19.5 ASP-Relevant Generative Capabilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#20-implementation-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20. Implementation Roadmap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="20. Implementation Roadmap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#201-phase-1-highest-impact-lowest-complexity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20.1 Phase 1 — Highest Impact, Lowest Complexity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#202-phase-2-medium-complexity-large-impact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20.2 Phase 2 — Medium Complexity, Large Impact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#203-phase-3-high-complexity-fallback-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20.3 Phase 3 — High Complexity, Fallback-Only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#204-phase-4-multi-modal-hitl-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20.4 Phase 4 — Multi-Modal HITL Extension
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#205-phase-5-progressive-automation-data-gated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20.5 Phase 5 — Progressive Automation (Data-Gated)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#206-phase-6-generative-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20.6 Phase 6 — Generative Extension
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#207-dependency-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20.7 Dependency Map
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#21-decision-thresholds-and-anti-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        21. Decision Thresholds and Anti-Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="21. Decision Thresholds and Anti-Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#211-decision-thresholds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        21.1 Decision Thresholds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#212-do-not-adopt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        21.2 Do Not Adopt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#213-known-caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        21.3 Known Caveats
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#22-reference-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        22. Reference Datasets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-a-algorithmic-synergy-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix A — Algorithmic Synergy Map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-b-implementation-status-session-119-2026-06-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix B — Implementation Status (Session 119, 2026-06-15)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2100,7 +3414,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../research/image_generation/" class="md-nav__link">
+      <a href="../image_generation/" class="md-nav__link">
         
   
   
@@ -2128,7 +3442,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../research/image_stitching/" class="md-nav__link">
+      <a href="../image_stitching/" class="md-nav__link">
         
   
   

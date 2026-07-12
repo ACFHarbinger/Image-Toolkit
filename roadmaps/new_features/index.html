@@ -356,13 +356,13 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reports/analytics/" class="md-tabs__link">
+        <a href="../../research/analytics/" class="md-tabs__link">
           
   
   
     
   
-  Reports
+  Research
 
         </a>
       </li>
@@ -2271,6 +2271,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#414-extractor-tab-storyboard-scrub-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.14 Extractor Tab Storyboard Scrub Preview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.14 Extractor Tab Storyboard Scrub Preview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#effort--impact-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2501,7 +2529,7 @@
   <span class="md-ellipsis">
     
   
-    Reports
+    Research
   
 
     
@@ -2517,7 +2545,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Reports
+    Research
   
 
           </label>
@@ -2530,7 +2558,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/analytics/" class="md-nav__link">
+      <a href="../../research/analytics/" class="md-nav__link">
         
   
   
@@ -2558,7 +2586,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/asp_research/" class="md-nav__link">
+      <a href="../../research/asp_research/" class="md-nav__link">
         
   
   
@@ -2586,7 +2614,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/image_generation/" class="md-nav__link">
+      <a href="../../research/image_generation/" class="md-nav__link">
         
   
   
@@ -2614,7 +2642,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/image_stitching/" class="md-nav__link">
+      <a href="../../research/image_stitching/" class="md-nav__link">
         
   
   
@@ -3093,6 +3121,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#414-extractor-tab-storyboard-scrub-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.14 Extractor Tab Storyboard Scrub Preview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.14 Extractor Tab Storyboard Scrub Preview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#effort--impact-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3163,6 +3219,7 @@
 <li><a href="#411-asp-quality-feedback-interface-rlhf">4.11 ASP Quality Feedback Interface (RLHF)</a></li>
 <li><a href="#412-appearance-profiles">4.12 Appearance Profiles</a></li>
 <li><a href="#413-shortcut-macros-and-custom-actions">4.13 Shortcut Macros and Custom Actions</a></li>
+<li><a href="#414-extractor-tab-storyboard-scrub-preview">4.14 Extractor Tab Storyboard Scrub Preview</a></li>
 <li><a href="#effort--impact-matrix">Effort × Impact Matrix</a></li>
 <li><a href="#anchor-index">Anchor Index</a></li>
 </ul>
@@ -3549,6 +3606,18 @@ Instead of executable macros, provide named "workflow templates" that pre-fill a
 - Cons: Does not automate multi-step operation sequences.</p>
 <p><strong>Recommendation:</strong> C first (workflow templates are essentially the existing Tab Default Configuration system extended to cross-tab context). A as the scripted macro layer once §2.16 (command palette + registry) is established. Skip B unless explicitly requested.</p>
 <hr />
+<h2 id="414-extractor-tab-storyboard-scrub-preview">4.14 Extractor Tab Storyboard Scrub Preview<a class="headerlink" href="#414-extractor-tab-storyboard-scrub-preview" title="Permanent link">&para;</a></h2>
+<p><strong>Pain point:</strong> Dragging the playhead across the Extractor tab's progress bar needs to show frames updating live, matching Haruna/YouTube-style scrubbing. Several attempts (2026-07) to make this fast by decoding real frames on demand — a per-frame <code>ffmpeg</code> subprocess, a background dense-keyframe proxy, and finally a persistent in-process PyAV decoder — kept hitting a mix of latency and <code>QMediaPlayer</code> surface-swap bugs (see <code>gui_ux.md</code> §2.33 for the follow-up libmpv item tracking a proper fix for the <em>main player's</em> seek speed). The realization: none of that is actually how large-scale video platforms solve this. YouTube's scrub preview isn't a live decode at all — it's a pre-generated storyboard (a sprite sheet of small thumbnails at fixed intervals, built once when the video is processed), so dragging the scrubber is just cropping an already-in-memory image, with zero per-tick decode cost.</p>
+<h3 id="options_13">Options<a class="headerlink" href="#options_13" title="Permanent link">&para;</a></h3>
+<p><strong>A — Pre-generated sprite-sheet storyboard + floating preview widget [Chosen]</strong>
+On video load, build a storyboard image in the background (one <code>ffmpeg</code> call: <code>fps=1/N,scale=W:-1,tile=RxC</code>), cached alongside the existing scrub proxy. A small floating widget positioned above the slider at the cursor's x-position looks up <code>position_ms → tile index</code> and crops the pixmap — no decode, no subprocess, no thread involved in the interactive path. The main player's video surface is left completely alone during the drag; it commits to the real frame only when dragging pauses (not just on release), reusing the existing <code>videoSink().videoFrameChanged</code>-gated safe-reveal logic so it fires rarely instead of on every tick.
+- Pros: Interactive-path cost is array-slicing, not decoding — smoothness stops being a function of decode speed at all. Structurally cannot reproduce the <code>QMediaPlayer</code> surface-swap bugs hit in every prior attempt, since it never touches that code path during the drag. Matches the proven, battle-tested approach every major video platform actually uses.
+- Cons: Preview granularity is fixed at generation time (e.g. one tile per 2s) — not frame-accurate, same trade-off YouTube itself makes. One more background-cached asset per video (same pattern as the scrub proxy, same cache directory conventions).</p>
+<p><strong>B — Live-decoded low-res preview (superseded)</strong>
+The prior approach: decode an actual frame near the cursor position on every drag tick, at low resolution to keep it cheap. Covered at length by the three implementation attempts referenced above.
+- Cons: Every variant tried (subprocess-per-frame, proxy-backed subprocess, persistent PyAV decoder) either couldn't sustain real-time cadence under real interactive dragging or reintroduced <code>QMediaPlayer</code> surface coupling bugs. Not pursued further.</p>
+<p><strong>Recommendation:</strong> A. Implemented 2026-07.</p>
+<hr />
 <h2 id="effort--impact-matrix">Effort × Impact Matrix<a class="headerlink" href="#effort--impact-matrix" title="Permanent link">&para;</a></h2>
 <p><em>Effort</em> — <strong>Low</strong>: &lt; 1 day · <strong>Medium</strong>: 1 day – 1 week · <strong>High</strong>: 1 – 2 weeks · <strong>Very High</strong>: 2+ weeks or external dependency
 <em>Impact</em> — <strong>Low</strong>: niche · <strong>Medium</strong>: measurable user QoL · <strong>High</strong>: major capability unlock · <strong>Very High</strong>: differentiating feature</p>
@@ -3566,7 +3635,7 @@ Instead of executable macros, provide named "workflow templates" that pre-fill a
 <tr>
 <td><strong>Low (&lt;1d)</strong></td>
 <td>§4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates</td>
-<td>§4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode</td>
+<td>§4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode · §4.14A storyboard scrub preview [Quick Win]</td>
 <td>§4.1C CLI batch stitch · §4.7A slideshow config</td>
 <td>—</td>
 </tr>
@@ -3655,11 +3724,15 @@ Instead of executable macros, provide named "workflow templates" that pre-fill a
 <td>4.13 Shortcut Macros and Custom Actions</td>
 <td><a href="#413-shortcut-macros-and-custom-actions">#413-shortcut-macros-and-custom-actions</a></td>
 </tr>
+<tr>
+<td>4.14 Extractor Tab Storyboard Scrub Preview</td>
+<td><a href="#414-extractor-tab-storyboard-scrub-preview">#414-extractor-tab-storyboard-scrub-preview</a></td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h2 id="document-history">Document History<a class="headerlink" href="#document-history" title="Permanent link">&para;</a></h2>
-<p><em>Last updated: 2026-05-31.</em></p>
+<p><em>Last updated: 2026-07-11 — §4.14 Extractor Tab Storyboard Scrub Preview added (Option A implemented; supersedes the three live-decode scrub-preview attempts, see <code>gui_ux.md</code> §2.33 for the related libmpv follow-up).</em></p>
 
 
 
