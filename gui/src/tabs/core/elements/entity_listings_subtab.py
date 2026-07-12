@@ -1,4 +1,4 @@
-import json
+import contextlib
 import logging
 import os
 import shutil
@@ -8,14 +8,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import backend.src.constants as udef
-import base
-from backend.src.constants import IMAGE_TOOLKIT_DIR
+from backend.src.database.unified.entity_repo import EntityRepo
+from backend.src.database.unified.media_repo import MediaRepo
 from gui.src.constants.listings import (
     CARD_SIZE,
     ENTITY_ROLES,
     ENTITY_TYPES,
     LISTING_IMAGES_DIR,
 )
+from gui.src.helpers.core.library_session import get_library_db
 from gui.src.helpers.web.sync_backup_worker import _SyncBackupWorker
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.common.listings_common import (
@@ -225,135 +226,77 @@ class EntityListingsSubTab(QWidget):
     def _load_data(self):
         self._entities = []
 
-        if (
-            self.vault_manager
-            and hasattr(self.vault_manager, "raw_password")
-            and self.vault_manager.raw_password
-        ):
-            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-            password = self.vault_manager.raw_password
-            salt = self.vault_manager.account_name
-            try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                for row in rows:
-                    id_, category, title, metadata_json, date_added = row
-                    if category == "Entity":
-                        try:
-                            entity = json.loads(metadata_json)
-                        except Exception:
-                            entity = {}
-                        entity["id"] = id_
-                        entity["name"] = title
-                        entity["date_added"] = date_added
-                        self._entities.append(entity)
-            except Exception as e:
-                logging.exception("[EntityListingsSubTab] Failed to load from secure DB")
-                QMessageBox.critical(
-                    self,
-                    "Secure Database Unavailable",
-                    "Could not load entities from the encrypted database:\n"
-                    f"{e}\n\n"
-                    "Your existing entities may not be visible, and anything "
-                    "added or changed in this session will NOT be saved until "
-                    "this is fixed. Check the app log for details.",
-                )
-
-    def _db_ctx(self):
-        """Return (db_path, password, salt) when the vault is unlocked, else None."""
-        if (
-            self.vault_manager
-            and hasattr(self.vault_manager, "raw_password")
-            and self.vault_manager.raw_password
-        ):
-            return (
-                str(IMAGE_TOOLKIT_DIR / "listings_secure.db"),
-                self.vault_manager.raw_password,
-                self.vault_manager.account_name,
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            return
+        try:
+            self._entities = EntityRepo(db).list_entities()
+        except Exception as e:
+            logging.exception("[EntityListingsSubTab] Failed to load from library DB")
+            QMessageBox.critical(
+                self,
+                "Library Database Unavailable",
+                "Could not load entities from the unified library database:\n"
+                f"{e}\n\n"
+                "Your existing entities may not be visible, and anything "
+                "added or changed in this session will NOT be saved until "
+                "this is fixed. Check the app log for details.",
             )
-        return None
+
+    def _entity_repo(self) -> Optional[EntityRepo]:
+        """Return an EntityRepo on the session DB, or None when the vault is locked."""
+        db = get_library_db(self.vault_manager, parent=self)
+        return EntityRepo(db) if db is not None else None
 
     def _upsert_entity(self, entity: Dict[str, Any]) -> bool:
-        """Persist a single entity with one upsert (one key derivation).
-
-        Avoids the delete-and-reinsert-everything pattern that ran the Argon2id
-        KDF ~2N times per save and froze the UI on large libraries.
+        """Persist a single entity in one transaction — the entity row, its
+        credits, and both association directions commit (or roll back)
+        together via :meth:`EntityRepo.save_entity`.
 
         Returns ``True`` on success. Callers MUST check this — silently
         swallowing the error here previously meant a newly added entity could
         look saved while never actually reaching disk, only to vanish the
         next time the app was launched."""
-        ctx = self._db_ctx()
-        if not ctx:
+        repo = self._entity_repo()
+        if repo is None:
             QMessageBox.warning(
                 self,
                 "Not Saved",
                 "The vault is locked (no active password), so this entity was "
-                "NOT written to the secure database. It will be lost when you "
-                "close the app.",
+                "NOT written to the library database. It will be lost when "
+                "you close the app.",
             )
             return False
-        db_path, password, salt = ctx
         try:
-            base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                db_path,
-                password,
-                salt,
-                entity.get("id"),
-                "Entity",
-                entity.get("name", ""),
-                json.dumps(dict(entity), ensure_ascii=False),
-                entity.get("date_added", ""),
-                [],
-            )
+            repo.save_entity(entity)
             return True
         except Exception as e:
             logging.exception("[EntityListingsSubTab] Failed to upsert entity")
             QMessageBox.critical(
                 self,
                 "Save Failed",
-                f"Failed to save '{entity.get('name', '')}' to the secure "
+                f"Failed to save '{entity.get('name', '')}' to the library "
                 f"database:\n{e}\n\n"
                 "This entity was NOT persisted and will be lost on restart.",
             )
             return False
 
     def _delete_entity_row(self, entity_id: str) -> bool:
-        """Delete a single entity row (one key derivation)."""
-        ctx = self._db_ctx()
-        if not ctx:
+        """Delete a single entity row; credits and association rows cascade."""
+        repo = self._entity_repo()
+        if repo is None:
             return False
-        db_path, password, salt = ctx
         try:
-            base.delete_listing_secure(db_path, password, salt, entity_id) # pyrefly: ignore [missing-attribute]
+            repo.delete_entity(entity_id)
             return True
         except Exception as e:
             logging.exception("[EntityListingsSubTab] Failed to delete entity")
             QMessageBox.critical(
                 self,
                 "Delete Failed",
-                f"Failed to delete entity from the secure database:\n{e}",
+                f"Failed to delete entity from the library database:\n{e}",
             )
             return False
-
-    def _save_data(self):
-        """Full rewrite of all entity rows. Kept for bulk callers; prefer the
-        targeted :meth:`_upsert_entity` / :meth:`_delete_entity_row` on hot paths."""
-        ctx = self._db_ctx()
-        if not ctx:
-            return
-        db_path, password, salt = ctx
-        try:
-            rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-            for row in rows:
-                id_, category, _, _, _ = row
-                if category == "Entity":
-                    base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
-            for entity in self._entities:
-                self._upsert_entity(entity)
-        except Exception:
-            logging.exception(
-                "[EntityListingsSubTab] Failed to save entities to secure DB"
-            )
 
     # ------------------------------------------------------------------
     # Gallery
@@ -372,22 +315,13 @@ class EntityListingsSubTab(QWidget):
         if self._search_query:
             q = self._search_query.lower()
             content_titles_map: Dict[str, str] = {}
-            if (
-                self.vault_manager
-                and hasattr(self.vault_manager, "raw_password")
-                and self.vault_manager.raw_password
-            ):
-                db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-                password = self.vault_manager.raw_password
-                salt = self.vault_manager.account_name
-                try:
-                    rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                    for row in rows:
-                        id_, category, title, metadata_json, date_added = row
-                        if category != "Entity":
-                            content_titles_map[id_] = title.lower()
-                except Exception:
-                    pass
+            db = get_library_db(self.vault_manager, parent=self)
+            if db is not None:
+                with contextlib.suppress(Exception):
+                    content_titles_map = {
+                        media_id: (title or "").lower()
+                        for media_id, title in MediaRepo(db).list_ids_and_titles()
+                    }
 
             filtered_ents = []
             for e in result:
@@ -594,267 +528,26 @@ class EntityListingsSubTab(QWidget):
             self._entities[idx] = entity
         else:
             self._entities.insert(0, entity)
-        self._upsert_entity(entity)
-        if self._sync_listings_for_entity(entity):
-            self.listings_changed.emit()
-        self._sync_entities_for_entity(entity)
+        # save_entity writes the entity, its credits, its media links and its
+        # peer links in one transaction; the content side reads the same
+        # media_entity table, so the old sync loops are gone. Peer entities'
+        # in-memory dicts may now be stale — reload from the store.
+        if self._upsert_entity(entity):
+            self._load_data()
+        self.listings_changed.emit()
         self._rebuild_gallery()
         self._detail.load_entity(entity)
 
     @Slot(str)
     def _on_entity_deleted(self, entity_id: str):
         self._entities = [e for e in self._entities if e["id"] != entity_id]
+        # FK cascades remove this entity's credits and association rows
+        # (media_entity + entity_entity, both directions).
         self._delete_entity_row(entity_id)
-        if self._remove_entity_from_listings(entity_id):
-            self.listings_changed.emit()
-        self._remove_entity_from_entities(entity_id)
+        self.listings_changed.emit()
+        self._load_data()
         self._rebuild_gallery()
         self._detail.clear_for_new()
-
-    def _sync_listings_for_entity(self, entity: Dict[str, Any]) -> bool:
-        """Keep listings in sync in secure DB: each associated content entry gains this entity's
-        ID in its associated_entities list; removed entries lose it."""
-        entity_id = entity.get("id")
-        if not entity_id:
-            return False
-        new_assoc = set(entity.get("associated_content", []))
-        if (
-            self.vault_manager
-            and hasattr(self.vault_manager, "raw_password")
-            and self.vault_manager.raw_password
-        ):
-            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-            password = self.vault_manager.raw_password
-            salt = self.vault_manager.account_name
-            try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                listings = []
-                for row in rows:
-                    id_, category, title, metadata_json, date_added = row
-                    if category != "Entity":
-                        try:
-                            entry = json.loads(metadata_json)
-                        except Exception:
-                            entry = {}
-                        entry["id"] = id_
-                        entry["type"] = category
-                        entry["title"] = title
-                        entry["date_added"] = date_added
-                        listings.append(entry)
-
-                changed_entries = []
-                for listing in listings:
-                    lid = listing.get("id")
-                    if not lid:
-                        continue
-                    current = set(listing.get("associated_entities", []))
-                    if lid in new_assoc and entity_id not in current:
-                        current.add(entity_id)
-                        listing["associated_entities"] = list(current)
-                        changed_entries.append(listing)
-                    elif lid not in new_assoc and entity_id in current:
-                        current.discard(entity_id)
-                        listing["associated_entities"] = list(current)
-                        changed_entries.append(listing)
-
-                # Upsert only the listings whose associations changed — rewriting
-                # every listing here re-ran the Argon2id KDF per row.
-                for entry in changed_entries:
-                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                        db_path,
-                        password,
-                        salt,
-                        entry["id"],
-                        entry.get("type", "Anime"),
-                        entry.get("title", ""),
-                        json.dumps(dict(entry), ensure_ascii=False),
-                        entry.get("date_added", ""),
-                        [],
-                    )
-                return bool(changed_entries)
-            except Exception as e:
-                print(
-                    f"[EntityListingsSubTab] Failed to sync listings in secure DB: {e}"
-                )
-        return False
-
-    def _sync_entities_for_entity(self, entity: Dict[str, Any]) -> bool:
-        """Keep peer entities in sync: each associated entity gains this entity's ID
-        in its associated_entities list; removed peers lose it."""
-        entity_id = entity.get("id")
-        if not entity_id:
-            return False
-        new_assoc = set(entity.get("associated_entities", []))
-
-        ctx = self._db_ctx()
-        if not ctx:
-            return False
-        db_path, password, salt = ctx
-        try:
-            rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-            peers: List[Dict[str, Any]] = []
-            for row in rows:
-                id_, category, title, metadata_json, date_added = row
-                if category == "Entity" and id_ != entity_id:
-                    try:
-                        peer = json.loads(metadata_json)
-                    except Exception:
-                        peer = {}
-                    peer["id"] = id_
-                    peer["name"] = title
-                    peer["date_added"] = date_added
-                    peers.append(peer)
-
-            changed_peers: List[Dict[str, Any]] = []
-            for peer in peers:
-                pid = peer.get("id")
-                if not pid:
-                    continue
-                raw = peer.get("associated_entities", [])
-                current = set(raw) if isinstance(raw, list) else set()
-                if pid in new_assoc and entity_id not in current:
-                    current.add(entity_id)
-                    peer["associated_entities"] = list(current)
-                    changed_peers.append(peer)
-                elif pid not in new_assoc and entity_id in current:
-                    current.discard(entity_id)
-                    peer["associated_entities"] = list(current)
-                    changed_peers.append(peer)
-
-            for peer in changed_peers:
-                base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                    db_path,
-                    password,
-                    salt,
-                    peer["id"],
-                    "Entity",
-                    peer.get("name", ""),
-                    json.dumps(dict(peer), ensure_ascii=False),
-                    peer.get("date_added", ""),
-                    [],
-                )
-                idx = next(
-                    (i for i, e in enumerate(self._entities) if e["id"] == peer["id"]),
-                    None,
-                )
-                if idx is not None:
-                    self._entities[idx] = peer
-
-            return bool(changed_peers)
-        except Exception as e:
-            print(
-                f"[EntityListingsSubTab] Failed to sync peer entities in secure DB: {e}"
-            )
-        return False
-
-    def _remove_entity_from_listings(self, entity_id: str) -> bool:
-        """Remove a deleted entity's ID from all content entries' associated_entities in secure DB."""
-        if (
-            self.vault_manager
-            and hasattr(self.vault_manager, "raw_password")
-            and self.vault_manager.raw_password
-        ):
-            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-            password = self.vault_manager.raw_password
-            salt = self.vault_manager.account_name
-            try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                listings = []
-                for row in rows:
-                    id_, category, title, metadata_json, date_added = row
-                    if category != "Entity":
-                        try:
-                            entry = json.loads(metadata_json)
-                        except Exception:
-                            entry = {}
-                        entry["id"] = id_
-                        entry["type"] = category
-                        entry["title"] = title
-                        entry["date_added"] = date_added
-                        listings.append(entry)
-
-                changed_entries = []
-                for listing in listings:
-                    current = set(listing.get("associated_entities", []))
-                    if entity_id in current:
-                        current.discard(entity_id)
-                        listing["associated_entities"] = list(current)
-                        changed_entries.append(listing)
-
-                for entry in changed_entries:
-                    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                        db_path,
-                        password,
-                        salt,
-                        entry["id"],
-                        entry.get("type", "Anime"),
-                        entry.get("title", ""),
-                        json.dumps(dict(entry), ensure_ascii=False),
-                        entry.get("date_added", ""),
-                        [],
-                    )
-                return bool(changed_entries)
-            except Exception as e:
-                print(
-                    f"[EntityListingsSubTab] Failed to clean up listings in secure DB: {e}"
-                )
-        return False
-
-    def _remove_entity_from_entities(self, entity_id: str) -> bool:
-        """Remove a deleted entity's ID from all peer entities' associated_entities."""
-        ctx = self._db_ctx()
-        if not ctx:
-            return False
-        db_path, password, salt = ctx
-        try:
-            rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-            peers: List[Dict[str, Any]] = []
-            for row in rows:
-                id_, category, title, metadata_json, date_added = row
-                if category == "Entity" and id_ != entity_id:
-                    try:
-                        peer = json.loads(metadata_json)
-                    except Exception:
-                        peer = {}
-                    peer["id"] = id_
-                    peer["name"] = title
-                    peer["date_added"] = date_added
-                    peers.append(peer)
-
-            changed_peers: List[Dict[str, Any]] = []
-            for peer in peers:
-                raw = peer.get("associated_entities", [])
-                current = set(raw) if isinstance(raw, list) else set()
-                if entity_id in current:
-                    current.discard(entity_id)
-                    peer["associated_entities"] = list(current)
-                    changed_peers.append(peer)
-
-            for peer in changed_peers:
-                base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                    db_path,
-                    password,
-                    salt,
-                    peer["id"],
-                    "Entity",
-                    peer.get("name", ""),
-                    json.dumps(dict(peer), ensure_ascii=False),
-                    peer.get("date_added", ""),
-                    [],
-                )
-                idx = next(
-                    (i for i, e in enumerate(self._entities) if e["id"] == peer["id"]),
-                    None,
-                )
-                if idx is not None:
-                    self._entities[idx] = peer
-
-            return bool(changed_peers)
-        except Exception as e:
-            print(
-                f"[EntityListingsSubTab] Failed to clean up peer entities in secure DB: {e}"
-            )
-        return False
 
     def _on_external_reload(self) -> None:
         """Called when another subtab modifies entities.json; refreshes in-memory data."""
@@ -898,7 +591,14 @@ class EntityListingsSubTab(QWidget):
             )
             return
 
-        db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            QMessageBox.warning(
+                self,
+                "Library Unavailable",
+                "The unified library database could not be opened; cannot sync.",
+            )
+            return
 
         # Create progress dialog
         self.progress_dialog = QProgressDialog(
@@ -923,7 +623,7 @@ class EntityListingsSubTab(QWidget):
                 "vault_manager": self.vault_manager,
                 "enc_file_path": enc_file_path,
                 "local_entries": self._entities,
-                "db_path": db_path,
+                "db": db,
             },
         )
         self._sync_worker.progress.connect(self._on_sync_progress)

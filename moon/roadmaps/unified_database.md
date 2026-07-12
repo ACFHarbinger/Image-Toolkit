@@ -208,7 +208,9 @@ backend/migrations/            # module names can't start with digits — the
 - **004_verify**: source-vs-target row counts per table, spot-check field equality on a random sample, `PRAGMA foreign_key_check`, orphaned-association report. Runner exits non-zero and points at the backups if anything mismatches.
 - Runner invoked from a first-launch dialog ("Library upgrade required — a full backup will be created first") and from the CLI (`python -m backend.migrations.runner`).
 
-## DB.5 Listings Subtabs on the Unified Store
+## 🔄 DB.5 Listings Subtabs on the Unified Store
+
+*Mostly shipped 2026-07-12 (S210): both subtabs + both detail panels ported to `MediaRepo`/`EntityRepo` via `gui/src/helpers/core/library_session.py` (session opened lazily on first use; first-launch migration prompt with backup gate + threaded progress dialog when the library is empty and legacy data exists). All four association-sync loops, both `_save_data` full-rewrites, and the `listings_common` save helpers + `fetch_entity_name_map` are deleted (~600 LOC); `_SyncBackupWorker.run_sync` now upserts through the repos on the session handle (no delete-all/reinsert window); entity-name search map uses `list_ids_and_titles()` instead of fetch-all. **Deferred to a follow-up:** moving gallery filter/sort + advanced search from in-memory Python onto `search_repo` SQL/FTS (the SQL builders exist and are tested; the subtabs still filter their loaded lists).*
 
 Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to the DAL. UI appearance unchanged; internals simplified:
 
@@ -273,7 +275,7 @@ Incremental (answer #10 — implementer's choice); the app ships after every pha
 |-------|----------|------------------------------|--------|
 | ✅ P0 | DB.1 schema spec + DB.4 `000_backup_all` | Unchanged app + backup tool | done (S210) |
 | ✅ P1 | DB.2 `base.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | done (S210) |
-| P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | ~1w |
+| 🔄 P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | mostly done (S210); SQL-side filtering deferred |
 | P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | ~1.5w |
 | P4 | DB.7 semantic search & CBIR | Text→image + find-similar live; rec engine unified | ~1.5w |
 | P5 | DB.8 cross-domain features | Links, shared tags, auto-listings | ~1w |

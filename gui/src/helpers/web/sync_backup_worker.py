@@ -1,11 +1,19 @@
-"""Background worker for synchronising / backing-up encrypted listing files."""
+"""Background worker for synchronising / backing-up encrypted listing files.
+
+Sync target is the unified library database (Phase DB, DB.5): a session
+``base.database.Database`` handle is passed in ``params["db"]`` — its
+internal mutex makes cross-thread use from this QThread safe — and rows are
+merged through the legacy-dict repos instead of the old delete-all/reinsert
+against ``listings_secure.db`` (the pattern behind the data-loss incident).
+"""
 
 import json
 import zipfile
 from pathlib import Path
 
 import backend.src.constants as udef
-import base
+from backend.src.database.unified.entity_repo import EntityRepo
+from backend.src.database.unified.media_repo import MediaRepo
 from gui.src.constants.listings import LISTING_IMAGES_DIR
 from PySide6.QtCore import QThread, Signal
 
@@ -83,45 +91,19 @@ class _SyncBackupWorker(QThread):
 
         merged_entries = list(merged_dict.values())
 
-        # 3. Save merged entries locally (updates DB)
+        # 3. Save merged entries into the unified library (upsert by id —
+        #    no delete-then-reinsert window).
         self.progress.emit(30, "Preparing database synchronization...")
-        db_path = self.params["db_path"]
-        password = vault_manager.raw_password
-        salt = vault_manager.account_name
-
-        # Delete old rows
-        rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-        total_rows = len(rows)
-        for i, row in enumerate(rows):
-            id_, category, _, _, _ = row
-            if self.category == "Content" and category != "Entity" or self.category == "Entity" and category == "Entity":
-                base.delete_listing_secure(db_path, password, salt, id_) # pyrefly: ignore [missing-attribute]
-            percent = 30 + int(10 * (i + 1) / (total_rows if total_rows > 0 else 1))
-            self.progress.emit(
-                percent, f"Cleaning secure database ({i + 1}/{total_rows})..."
-            )
+        db = self.params["db"]
+        repo = MediaRepo(db) if self.category == "Content" else EntityRepo(db)
 
         total_inserts = len(merged_entries)
         for i, entry in enumerate(merged_entries):
-            eid = entry.get("id")
             if self.category == "Content":
-                ecat = entry.get("type", "Anime")
-                etitle = entry.get("title", "")
-                edate = entry.get("date_added", "")
-                meta = dict(entry)
-                base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                    db_path, password, salt, eid, ecat, etitle,
-                    json.dumps(meta, ensure_ascii=False), edate, [],
-                )
-            else:  # Entity
-                ename = entry.get("name", "")
-                edate = entry.get("date_added", "")
-                meta = dict(entry)
-                base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-                    db_path, password, salt, eid, "Entity", ename,
-                    json.dumps(meta, ensure_ascii=False), edate, [],
-                )
-            percent = 40 + int(40 * (i + 1) / (total_inserts if total_inserts > 0 else 1))
+                repo.save_media(dict(entry))
+            else:
+                repo.save_entity(dict(entry))
+            percent = 30 + int(50 * (i + 1) / (total_inserts if total_inserts > 0 else 1))
             self.progress.emit(
                 percent, f"Writing entries to database ({i + 1}/{total_inserts})..."
             )

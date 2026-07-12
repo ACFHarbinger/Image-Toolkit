@@ -1,24 +1,21 @@
-import json
 import platform
 import re
 import shutil
 import subprocess
 import zipfile
-from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import backend.src.constants as udef
-import base
 import cv2
+from gui.src.components.dialogs.frame_selection_dialog import (
+    extract_video_frame_via_ffmpeg,
+)
 from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtWidgets import QLabel
 
-from gui.src.components.dialogs.frame_selection_dialog import (
-    extract_video_frame_via_ffmpeg,
-)
 from .....constants.listings import (
     ENTITIES_FILE,  # noqa: F401
     LISTING_IMAGES_DIR,
@@ -26,62 +23,10 @@ from .....constants.listings import (
     VIDEO_IMPORT_EXTS,
 )
 
-
-def save_content_entry_to_db(
-    db_path: str, password: str, salt: str, entry: Dict[str, Any]
-):
-    meta = entry.copy()
-    meta.pop("id", None)
-    meta.pop("type", None)
-    meta.pop("title", None)
-    meta.pop("date_added", None)
-
-    # Generate default embedding based on title
-    embedding = [0.0] * 1024
-    title = entry.get("title", "")
-    for i, byte in enumerate(title.encode("utf-8", errors="ignore")):
-        if i < 1024:
-            embedding[i] = byte / 255.0
-
-    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-        db_path,
-        password,
-        salt,
-        entry["id"],
-        entry.get("type", "Other"),
-        entry.get("title", ""),
-        json.dumps(meta, ensure_ascii=False),
-        entry.get("date_added", str(date.today())),
-        embedding,
-    )
-
-
-def save_entity_entry_to_db(
-    db_path: str, password: str, salt: str, entity: Dict[str, Any]
-):
-    meta = entity.copy()
-    meta.pop("id", None)
-    meta.pop("name", None)
-    meta.pop("date_added", None)
-
-    # Generate default embedding based on name
-    embedding = [0.0] * 1024
-    name = entity.get("name", "")
-    for i, byte in enumerate(name.encode("utf-8", errors="ignore")):
-        if i < 1024:
-            embedding[i] = byte / 255.0
-
-    base.insert_listing_secure( # pyrefly: ignore [missing-attribute]
-        db_path,
-        password,
-        salt,
-        entity["id"],
-        "Entity",
-        entity.get("name", ""),
-        json.dumps(meta, ensure_ascii=False),
-        entity.get("date_added", str(date.today())),
-        embedding,
-    )
+# NOTE (Phase DB, DB.5): save_content_entry_to_db / save_entity_entry_to_db /
+# fetch_entity_name_map were removed — persistence goes through
+# backend.src.database.unified (MediaRepo.save_media / EntityRepo.save_entity
+# / EntityRepo.name_map) on the session-keyed library database.
 
 
 def _backup_referenced_images(prefix: str, data_list: List[Dict[str, Any]]):
@@ -371,20 +316,6 @@ def resolve_entity_id_for_mal_name(
             return eid
 
     return None
-
-
-def fetch_entity_name_map(db_path: str, password: str, salt: str) -> Dict[str, str]:
-    """Return ``{entity_id: display_name}`` from the secure listings database."""
-    name_map: Dict[str, str] = {}
-    try:
-        rows = base.fetch_all_listings_secure(db_path, password, salt)  # pyrefly: ignore [missing-attribute]
-        for row in rows:
-            id_, category, title, _, _ = row
-            if category == "Entity":
-                name_map[str(id_)] = title
-    except Exception as e:
-        print(f"Failed to load entity names: {e}")
-    return name_map
 
 
 # -------------------------------------------------------------------
