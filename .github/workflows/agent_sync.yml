@@ -45,5 +45,5 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
-          GITHUB_PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
           GITHUB_PROJECT_OWNER: ${{ github.repository_owner }}

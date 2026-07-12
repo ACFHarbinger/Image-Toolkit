@@ -382,7 +382,10 @@ def main() -> int:
     owner, repo = owner_repo.split("/", 1)
     commit_sha = _env("GITHUB_SHA")
     project_owner = os.environ.get("GITHUB_PROJECT_OWNER", owner)
-    project_number = int(_env("PROJECT_NUMBER"))
+    project_number_str = os.environ.get("PROJECT_NUMBER") or os.environ.get("GITHUB_PROJECT_NUMBER")
+    if not project_number_str:
+        raise RuntimeError("Missing required environment variable: PROJECT_NUMBER or GITHUB_PROJECT_NUMBER")
+    project_number = int(project_number_str)
 
     diff, commit_message = get_diff_and_message(commit_sha)
     if not diff.strip():
