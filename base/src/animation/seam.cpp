@@ -168,12 +168,12 @@ cv::Mat build_seam_cost_map_impl(const cv::Mat& fa_zone, const cv::Mat& bg_mask_
         
         bool any_heavy = false, all_heavy = true;
         for (int x = 0; x < W; x++) {
-            if (col_fg_frac.at<float>(0, x) > 0.80f) any_heavy = true;
+            if (col_fg_frac.at<float>(0, x) > 0.8001f) any_heavy = true;
             else all_heavy = false;
         }
         if (any_heavy && !all_heavy) {
             for (int x = 0; x < W; x++) {
-                if (col_fg_frac.at<float>(0, x) > 0.80f) {
+                if (col_fg_frac.at<float>(0, x) > 0.8001f) {
                     for (int y = 0; y < H; y++) {
                         cost.at<float>(y, x) = std::max(cost.at<float>(y, x), FG_MAJORITY_FLOOR);
                     }
