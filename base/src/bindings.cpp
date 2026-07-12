@@ -36,6 +36,7 @@ void register_fg_register(py::module_& m);
 void register_image(py::module_& m);      // Phase 2: image I/O + filesystem
 void register_video(py::module_& m);      // Phase 3: video thumbnails
 void register_secret(py::module_& m);     // Phase 4: secure vector database
+void register_database(py::module_& m);   // Phase DB: unified library database
 void register_web(py::module_& m);        // Phase 5+9: HTTP + board crawlers + cloud sync
 
 // ---------------------------------------------------------------------------
@@ -136,6 +137,9 @@ PYBIND11_MODULE(base, m) {
         "Parallel video thumbnail extraction via OpenCV VideoCapture.");
     auto m_vault     = m.def_submodule("secret",
         "Encrypted vector database: Argon2id KDF, SQLCipher, cosine search, Arrow export.");
+    auto m_database  = m.def_submodule("database",
+        "Unified Library Database: session-keyed SQLCipher engine (Phase DB). "
+        "Argon2id once per Database instance; generic SQL primitives + knn.");
     auto m_http      = m.def_submodule("web",
         "HTTP request sequencing with JSON config and progress callbacks.");
 
@@ -171,6 +175,7 @@ PYBIND11_MODULE(base, m) {
     register_image(m_images);
     register_video(m_video);
     register_secret(m_vault);
+    register_database(m_database);
     register_web(m_http);
 
     // Phase 8: core
