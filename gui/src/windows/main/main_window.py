@@ -884,7 +884,6 @@ class MainWindow(QWidget):
         recovery_data = {}
         if username:
             for recovery_dir in (
-                "/home/pkhunter/.image-toolkit/recovery",
                 os.path.expanduser("~/.image-toolkit/recovery"),
             ):
                 enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
@@ -1118,7 +1117,6 @@ class MainWindow(QWidget):
 
                 # Save session recovery data to the encrypted file
                 for recovery_dir in (
-                    "/home/pkhunter/.image-toolkit/recovery",
                     os.path.expanduser("~/.image-toolkit/recovery"),
                 ):
                     try:
@@ -1142,7 +1140,6 @@ class MainWindow(QWidget):
                 creds["session_recovery_data"] = {}
                 # Delete recovery file if recovery level is set to None
                 for recovery_dir in (
-                    "/home/pkhunter/.image-toolkit/recovery",
                     os.path.expanduser("~/.image-toolkit/recovery"),
                 ):
                     enc_file_path = os.path.join(

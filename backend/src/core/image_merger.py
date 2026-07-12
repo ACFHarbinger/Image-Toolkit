@@ -846,7 +846,7 @@ class ImageMerger:
         if os.path.exists(config_path):
             try:
                 with open(config_path, "r") as f:
-                    cfg = yaml.safe_load(f)
+                    cfg = yaml.safe_load(os.path.expandvars(f.read()))
                     if cfg:
                         params.update(cfg)
             except Exception as e:

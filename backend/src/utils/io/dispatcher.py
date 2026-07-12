@@ -65,7 +65,7 @@ def dispatch_core(args):
         defaults = {}
         if os.path.exists(config_path):
             with open(config_path, "r") as f:
-                defaults = yaml.safe_load(f)
+                defaults = yaml.safe_load(os.path.expandvars(f.read())) or {}
 
         inputs = args.get("input") or [defaults.get("input_dir")]
         output = args.get("output") or defaults.get(

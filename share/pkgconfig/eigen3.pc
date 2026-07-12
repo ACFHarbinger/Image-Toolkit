@@ -1,5 +1,6 @@
-prefix=/home/pkhunter/Repositories/Image-Toolkit
+prefix=${pcfiledir}/../..
 exec_prefix=${prefix}
+includedir=${prefix}/include/eigen3
 
 Name: Eigen3
 Description: A C++ template library for linear algebra: vectors, matrices, and related algorithms
