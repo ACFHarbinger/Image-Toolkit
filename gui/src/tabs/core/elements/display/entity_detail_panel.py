@@ -89,9 +89,12 @@ class _EntityDetailPanel(BaseDetailPanel):
         self.f_year.setSpecialValueText("Unknown")
 
         # Associated Content (linked content entry IDs)
-        self.f_assoc_content_display = QLineEdit()
+        # QTextEdit (not QLineEdit) so the field can wrap to 2 lines and
+        # scroll instead of clipping once the list grows.
+        self.f_assoc_content_display = QTextEdit()
         self.f_assoc_content_display.setReadOnly(True)
         self.f_assoc_content_display.setPlaceholderText("None selected")
+        self.f_assoc_content_display.setFixedHeight(56)  # ~2 lines of wrapped text
         self.btn_select_content = QPushButton("🎬 Select Content")
         self.btn_select_content.clicked.connect(self._select_associated_content)
         assoc_content_row = QHBoxLayout()
@@ -99,9 +102,10 @@ class _EntityDetailPanel(BaseDetailPanel):
         assoc_content_row.addWidget(self.btn_select_content)
 
         # Associated Entities (linked entity IDs)
-        self.f_assoc_entity_display = QLineEdit()
+        self.f_assoc_entity_display = QTextEdit()
         self.f_assoc_entity_display.setReadOnly(True)
         self.f_assoc_entity_display.setPlaceholderText("None selected")
+        self.f_assoc_entity_display.setFixedHeight(56)  # ~2 lines of wrapped text
         self.btn_select_entities = QPushButton("👥 Select Entities")
         self.btn_select_entities.clicked.connect(self._select_associated_entities)
         assoc_entity_row = QHBoxLayout()
@@ -318,8 +322,8 @@ class _EntityDetailPanel(BaseDetailPanel):
             or not hasattr(self.vault_manager, "raw_password")
             or not self.vault_manager.raw_password
         ):
-            self.f_assoc_content_display.setText("None selected")
-            self.f_assoc_entity_display.setText("None selected")
+            self.f_assoc_content_display.setPlainText("")
+            self.f_assoc_entity_display.setPlainText("")
             return
 
         password = self.vault_manager.raw_password
@@ -338,16 +342,18 @@ class _EntityDetailPanel(BaseDetailPanel):
                     title_map[id_] = title
 
             content_names = [title_map.get(i, i) for i in self.assoc_content_ids]
-            self.f_assoc_content_display.setText(", ".join(content_names))
+            self.f_assoc_content_display.setPlainText(", ".join(content_names))
 
             entity_names = [name_map.get(i, i) for i in self.assoc_entity_ids]
-            self.f_assoc_entity_display.setText(", ".join(entity_names))
+            self.f_assoc_entity_display.setPlainText(", ".join(entity_names))
         except Exception as e:
             print(f"Failed to refresh assoc displays: {e}")
-            self.f_assoc_content_display.setText(
+            self.f_assoc_content_display.setPlainText(
                 f"{len(self.assoc_content_ids)} linked"
             )
-            self.f_assoc_entity_display.setText(f"{len(self.assoc_entity_ids)} linked")
+            self.f_assoc_entity_display.setPlainText(
+                f"{len(self.assoc_entity_ids)} linked"
+            )
 
     def _select_associated_content(self) -> None:
         entries = []

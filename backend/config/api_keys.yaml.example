@@ -18,3 +18,11 @@ bing:
 reddit:
   client_id: ""
   client_secret: ""
+
+# Official MyAnimeList API v2 client ID, used only when the "Auto-Fill from
+# MAL" method is set to "Official MAL API" in Settings > System and Logging.
+# Free to obtain at https://myanimelist.net/apiconfig -- create an app, no
+# OAuth/user login needed for the read-only public endpoints this app uses.
+#   or MAL_CLIENT_ID
+myanimelist:
+  client_id: ""

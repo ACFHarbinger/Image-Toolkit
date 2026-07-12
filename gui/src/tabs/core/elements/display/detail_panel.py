@@ -149,11 +149,12 @@ class _DetailPanel(BaseDetailPanel):
 
         # Associated Entities selection row
         self.assoc_entities_ids = []
-        self.f_assoc_entities_display = QLabel("None selected")
-        self.f_assoc_entities_display.setWordWrap(True)
-        self.f_assoc_entities_display.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
+        # QTextEdit (not QLabel) so the field can scroll instead of clipping
+        # once the associated-entity list grows past its fixed height.
+        self.f_assoc_entities_display = QTextEdit()
+        self.f_assoc_entities_display.setReadOnly(True)
+        self.f_assoc_entities_display.setPlaceholderText("None selected")
+        self.f_assoc_entities_display.setFixedHeight(56)  # ~2 lines of wrapped text
         self.f_assoc_entities_display.setStyleSheet(
             "background:#23272a; border:1px solid #4f545c; border-radius:4px;"
             "padding:4px 6px; color:white;"
@@ -300,7 +301,7 @@ class _DetailPanel(BaseDetailPanel):
         """Resolve associated entity IDs to names using a fresh DB lookup."""
         del _all_entities  # kept for callers; display always reads live data
         if not self.assoc_entities_ids:
-            self.f_assoc_entities_display.setText("None selected")
+            self.f_assoc_entities_display.setPlainText("")
             self.f_assoc_entities_display.setToolTip("")
             return
 
@@ -319,7 +320,7 @@ class _DetailPanel(BaseDetailPanel):
 
         names = [name_map.get(ent_id, ent_id) for ent_id in self.assoc_entities_ids]
         display_text = ", ".join(names)
-        self.f_assoc_entities_display.setText(display_text or "None selected")
+        self.f_assoc_entities_display.setPlainText(display_text)
         self.f_assoc_entities_display.setToolTip(display_text)
 
     def load_entry(  # noqa: C901
@@ -374,7 +375,7 @@ class _DetailPanel(BaseDetailPanel):
         self.f_genres.clear()
         self.f_tags.clear()
         self.assoc_entities_ids = []
-        self.f_assoc_entities_display.setText("None selected")
+        self.f_assoc_entities_display.clear()
         self.f_assoc_entities_display.setToolTip("")
         self.f_local_file.clear()
         self.f_web_link.clear()
