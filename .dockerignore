@@ -1,0 +1,63 @@
+# Keep the Docker build context small and reproducible. The build only needs
+# the Python backend, the C++ base/ sources, and the dependency manifests.
+
+# VCS / CI
+.git
+.github
+.gitignore
+
+# Python caches / envs
+.venv
+**/__pycache__
+*.py[cod]
+.mypy_cache
+.ruff_cache
+.pytest_cache
+*.egg-info
+.import_linter_cache
+
+# Build outputs (the image rebuilds the C++ extension itself)
+build/
+site/
+target/
+dist/
+*.so
+base.cpython-*.so
+
+# Rust / Cargo
+Cargo.lock
+.cargo
+
+# JS / frontend / mobile (not part of the backend image)
+node_modules
+frontend
+android
+extension
+gradle
+.gradle
+
+# Heavy / irrelevant to the backend image
+docs
+notebooks
+research
+archive
+assets/secrets
+data
+dump
+tmp
+.cache
+.idea
+.vscode
+.gemini
+.claude
+
+# Pixi / conda envs
+.pixi
+env
+
+# Docker: keep docker/ in the context — the image ENTRYPOINT runs
+# /app/docker/entrypoint.sh — but drop the compose file (not needed in-image).
+docker/docker-compose.yml
+
+# Local env files (pass via compose environment instead)
+.env
