@@ -184,7 +184,9 @@ backend/src/database/unified/
 - All mutations transactional; save-of-a-listing (entry + associations + tags) is **one** transaction instead of today's N upserts × N KDFs.
 - Unit tests per repo module (these are plain SQLite-level tests — safe to run, no GUI, no JVM).
 
-## DB.4 Backups & Migration Scripts (`backend/migrations/`)
+## ✅ DB.4 Backups & Migration Scripts (`backend/migrations/`)
+
+*Shipped 2026-07-12 (S210): all five steps + runner. 000 `backup_all.py` (see progress note below); 001 `create_library_db.py` (DDL + version stamp, idempotent); 002 `migrate_listings.py` (reads via `base.secret.fetch_all_listings_secure` — its last consumer; two-pass rows-then-links so ordering can't drop associations; asymmetric legacy association data healed by M2M union; dangling ids logged AND parked in `extra._dangling_*`); 003 `migrate_pgvector.py` (injectable data provider — psycopg2 confined to the default provider; FK resolution for the denormalized text columns; original dates + pHashes preserved; graceful skip when unreachable, re-runnable); 004 `verify_migration.py` (full id↔title sweep vs legacy listings, pgvector counts + sampled paths, `integrity_check` + `foreign_key_check`, parked-dangling report); `runner.py` (resumable state file at `~/.image-toolkit/.phase_db_migration_state.json`, backup manifest re-verified by hash on EVERY run, verification failure aborts non-zero pointing at the backups, `--skip-postgres`/`--force`). 13 tests in `backend/test/database/test_migrations.py` incl. end-to-end runner, resume, tampered-backup refusal, verification-failure abort.*
 
 Non-negotiable order (answer #8): **backup first, migrate second, verify third.** New directory:
 
@@ -269,8 +271,8 @@ Incremental (answer #10 — implementer's choice); the app ships after every pha
 
 | Phase | Contents | Ships with app in what state | Effort |
 |-------|----------|------------------------------|--------|
-| P0 | DB.1 schema spec + DB.4 `000_backup_all` | Unchanged app + backup tool | ~3d |
-| P1 | DB.2 `base.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | ~1.5w |
+| ✅ P0 | DB.1 schema spec + DB.4 `000_backup_all` | Unchanged app + backup tool | done (S210) |
+| ✅ P1 | DB.2 `base.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | done (S210) |
 | P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | ~1w |
 | P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | ~1.5w |
 | P4 | DB.7 semantic search & CBIR | Text→image + find-similar live; rec engine unified | ~1.5w |
