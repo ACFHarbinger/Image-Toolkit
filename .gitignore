@@ -463,3 +463,6 @@ mcp.json
 
 # Reverse-search engine credentials (keep the .example, ignore the real file)
 backend/config/api_keys.yaml
+
+# Phase DB pre-migration backups (contain an unencrypted pg_dump of the image index)
+assets/migrations/pre_unified/

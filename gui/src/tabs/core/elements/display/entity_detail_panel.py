@@ -1,14 +1,14 @@
-import json
 import uuid
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-import base
-from backend.src.constants import IMAGE_TOOLKIT_DIR
+from backend.src.database.unified.entity_repo import EntityRepo
+from backend.src.database.unified.media_repo import MediaRepo
 from gui.src.constants.listings import (
     ENTITY_ROLES,
     ENTITY_TYPES,
 )
+from gui.src.helpers.core.library_session import get_library_db
 from gui.src.helpers.image import apply_thumbnail_to_label
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.dialog import (
@@ -316,30 +316,15 @@ class _EntityDetailPanel(BaseDetailPanel):
         }
 
     def _refresh_assoc_displays(self) -> None:
-        db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-        if (
-            not self.vault_manager
-            or not hasattr(self.vault_manager, "raw_password")
-            or not self.vault_manager.raw_password
-        ):
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
             self.f_assoc_content_display.setPlainText("")
             self.f_assoc_entity_display.setPlainText("")
             return
 
-        password = self.vault_manager.raw_password
-        salt = self.vault_manager.account_name
-
         try:
-            rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-
-            title_map = {}
-            name_map = {}
-            for row in rows:
-                id_, category, title, _, _ = row
-                if category == "Entity":
-                    name_map[id_] = title
-                else:
-                    title_map[id_] = title
+            title_map = dict(MediaRepo(db).list_ids_and_titles())
+            name_map = EntityRepo(db).name_map()
 
             content_names = [title_map.get(i, i) for i in self.assoc_content_ids]
             self.f_assoc_content_display.setPlainText(", ".join(content_names))
@@ -357,28 +342,10 @@ class _EntityDetailPanel(BaseDetailPanel):
 
     def _select_associated_content(self) -> None:
         entries = []
-        if (
-            self.vault_manager
-            and hasattr(self.vault_manager, "raw_password")
-            and self.vault_manager.raw_password
-        ):
-            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-            password = self.vault_manager.raw_password
-            salt = self.vault_manager.account_name
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is not None:
             try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                for row in rows:
-                    id_, category, title, metadata_json, date_added = row
-                    if category != "Entity":
-                        try:
-                            entry = json.loads(metadata_json)
-                        except Exception:
-                            entry = {}
-                        entry["id"] = id_
-                        entry["type"] = category
-                        entry["title"] = title
-                        entry["date_added"] = date_added
-                        entries.append(entry)
+                entries = MediaRepo(db).list_media()
             except Exception as e:
                 print(f"Failed to load content for association: {e}")
 
@@ -397,27 +364,10 @@ class _EntityDetailPanel(BaseDetailPanel):
 
     def _select_associated_entities(self) -> None:
         entities = []
-        if (
-            self.vault_manager
-            and hasattr(self.vault_manager, "raw_password")
-            and self.vault_manager.raw_password
-        ):
-            db_path = str(IMAGE_TOOLKIT_DIR / "listings_secure.db")
-            password = self.vault_manager.raw_password
-            salt = self.vault_manager.account_name
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is not None:
             try:
-                rows = base.fetch_all_listings_secure(db_path, password, salt) # pyrefly: ignore [missing-attribute]
-                for row in rows:
-                    id_, category, title, metadata_json, date_added = row
-                    if category == "Entity":
-                        try:
-                            entity = json.loads(metadata_json)
-                        except Exception:
-                            entity = {}
-                        entity["id"] = id_
-                        entity["name"] = title
-                        entity["date_added"] = date_added
-                        entities.append(entity)
+                entities = EntityRepo(db).list_entities()
             except Exception as e:
                 print(f"Failed to load entities for association: {e}")
 
