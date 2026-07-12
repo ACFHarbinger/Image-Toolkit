@@ -882,9 +882,20 @@ class ExtractorTab(AbstractClassSingleGallery):
         return self._media_player
 
     def cancel_loading(self):
-        """Stops all active media players, timers, and background workers."""
+        """Stops all active media players, timers, and background workers.
+
+        Deliberately does NOT stop the storyboard scrub-preview builder: the
+        base class's refresh_gallery_view() (and therefore every search/sort/
+        pagination change and every post-extraction gallery reload, e.g.
+        extract_single_frame()'s start_loading_gallery(append=True) call)
+        calls this method purely to cancel in-flight gallery thumbnail
+        workers -- it has nothing to do with the video player. Stopping the
+        storyboard here silently broke the drag-preview popup after every
+        snapshot/extraction until the user switched videos or restarted.
+        Storyboard teardown is handled explicitly by load_media() (on actual
+        video switch) and closeEvent() (on tab close) instead.
+        """
         super().cancel_loading()
-        self._stop_storyboard()
 
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
@@ -903,6 +914,7 @@ class ExtractorTab(AbstractClassSingleGallery):
     def closeEvent(self, event):
         """Cleanup processes on close."""
         self.cancel_loading()
+        self._stop_storyboard()
         super().closeEvent(event)
 
     def _load_existing_output_images(self):

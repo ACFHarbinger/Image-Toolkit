@@ -113,3 +113,33 @@ class TestExtractorTabDragPreview:
             mock_hide.assert_called_once()
         mock_player.setPosition.assert_called_once_with(60_000)
         assert tab._slider_scrubbing is False # pyrefly: ignore [unnecessary-comparison]
+
+    def test_cancel_loading_does_not_wipe_the_storyboard(self, q_app, tmp_path):
+        """cancel_loading() is called incidentally by the gallery base class's
+        refresh_gallery_view() -- which fires on every search/sort/pagination
+        change AND every post-extraction start_loading_gallery(append=True)
+        call (snapshot, range/gif/video extraction). None of those are a real
+        video switch, so the storyboard scrub-preview data must survive --
+        previously cancel_loading() unconditionally called _stop_storyboard(),
+        silently breaking the drag-preview popup after every snapshot until
+        the user switched videos or restarted the app."""
+        from gui.src.helpers.video.storyboard import StoryboardMeta
+
+        tab, _, _ = self._make_tab(tmp_path)
+        mock_page = MagicMock()
+        tab._storyboard_pages = [mock_page]
+        tab._storyboard_meta = StoryboardMeta(
+            interval_ms=2000,
+            tile_width=160,
+            tile_height=90,
+            cols=5,
+            tiles_per_page=25,
+            count=25,
+            duration_ms=120_000,
+            pages=["page_0000.jpg"],
+        )
+
+        tab.cancel_loading()
+
+        assert tab._storyboard_pages == [mock_page]
+        assert tab._storyboard_meta is not None
