@@ -66,7 +66,7 @@ def _load_pg_env() -> Dict[str, str]:
             continue
         key, _, value = line.partition("=")
         if key.strip().startswith("DB_"):
-            env[key.strip()] = value.strip()
+            env[key.strip()] = value.strip().strip("'\"")
     return env
 
 

@@ -412,6 +412,39 @@ class SettingsWindow(QWidget):
         # Then add the new full-width, side-by-side buttons layout
         defaults_layout.addLayout(full_width_buttons_layout)
 
+        # Export/Import config as JSON file
+        transfer_buttons_layout = QHBoxLayout()
+        transfer_buttons_layout.setContentsMargins(0, 0, 0, 5)
+        transfer_buttons_layout.setSpacing(10)
+
+        self.btn_export_config = QPushButton("Export Config to JSON 📤")
+        self.btn_export_config.setToolTip(
+            "Save the currently selected/edited configuration to a .json file"
+        )
+        self.btn_export_config.setStyleSheet(
+            "background-color: #7b1fa2; color: white; font-weight: bold;"
+        )
+        self.btn_export_config.clicked.connect(self._export_selected_tab_config)
+        self.btn_export_config.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        transfer_buttons_layout.addWidget(self.btn_export_config)
+
+        self.btn_import_config = QPushButton("Import Config from JSON 📥")
+        self.btn_import_config.setToolTip(
+            "Load a configuration from a .json file and save it for its tab"
+        )
+        self.btn_import_config.setStyleSheet(
+            "background-color: #2c3e50; color: white; font-weight: bold;"
+        )
+        self.btn_import_config.clicked.connect(self._import_tab_config_from_json)
+        self.btn_import_config.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        transfer_buttons_layout.addWidget(self.btn_import_config)
+
+        defaults_layout.addLayout(transfer_buttons_layout)
+
         # 3. Create/Edit Configuration
         create_config_group = QGroupBox("Create/Edit Configuration")
         create_config_layout = QFormLayout(create_config_group)
@@ -1900,6 +1933,163 @@ class SettingsWindow(QWidget):
             QMessageBox.critical(
                 self, "Error", f"An unexpected error occurred during save: {e}"
             )
+
+    def _export_selected_tab_config(self):
+        """Exports the configuration currently in the editor to a .json file.
+
+        The file wraps the config with its tab class and name so importing on
+        another machine can route it back to the right tab automatically.
+        """
+        tab_display_name = self.tab_select_combo.currentText()
+        if not tab_display_name:
+            QMessageBox.warning(self, "Export Error", "Please select a Tab first.")
+            return
+
+        config_name = (
+            self.config_name_input.text().strip()
+            or self.config_select_combo.currentText().strip()
+            or "unnamed"
+        )
+        json_text = self.default_config_editor.toPlainText().strip()
+        if not json_text:
+            QMessageBox.warning(
+                self, "Export Error", "There is no configuration JSON to export."
+            )
+            return
+        try:
+            config = json.loads(json_text)
+            if not isinstance(config, dict):
+                raise ValueError("Configuration must be a JSON object.")
+        except (json.JSONDecodeError, ValueError) as e:
+            QMessageBox.critical(
+                self, "Export Error", f"The editor does not contain valid JSON:\n{e}"
+            )
+            return
+
+        instance = self._get_tab_instance_by_display_name(tab_display_name)
+        tab_class_name = type(instance).__name__ if instance else tab_display_name
+
+        safe_name = "".join(
+            c if c.isalnum() or c in "-_" else "_" for c in config_name
+        )
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Tab Configuration",
+            str(Path.home() / f"{tab_class_name}_{safe_name}.json"),
+            "JSON (*.json)",
+        )
+        if not file_path:
+            return
+        if not file_path.lower().endswith(".json"):
+            file_path += ".json"
+
+        payload = {
+            "image_toolkit_tab_config": 1,
+            "tab_class": tab_class_name,
+            "tab_display_name": tab_display_name,
+            "config_name": config_name,
+            "config": config,
+        }
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=4, ensure_ascii=False)
+            QMessageBox.information(
+                self,
+                "Export Success",
+                f"Configuration '{config_name}' for {tab_display_name} exported to:\n{file_path}",
+            )
+        except OSError as e:
+            QMessageBox.critical(
+                self, "Export Failed", f"Failed to write the file:\n{e}"
+            )
+
+    def _import_tab_config_from_json(self):
+        """Imports a configuration from a .json file and saves it to the vault.
+
+        Accepts both the wrapped export format (which carries its own tab
+        class and config name) and a plain config object (routed to the
+        currently selected tab, named after the file).
+        """
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Import Tab Configuration", str(Path.home()), "JSON (*.json)"
+        )
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("The file must contain a JSON object.")
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            QMessageBox.critical(
+                self, "Import Error", f"Failed to read or parse the JSON file:\n{e}"
+            )
+            return
+
+        if "image_toolkit_tab_config" in data:
+            # Wrapped export format — self-describing.
+            tab_class_name = str(data.get("tab_class", "")).strip()
+            config_name = str(data.get("config_name", "")).strip() or Path(file_path).stem
+            config = data.get("config")
+            if not tab_class_name or not isinstance(config, dict):
+                QMessageBox.critical(
+                    self,
+                    "Import Error",
+                    "The file is missing its 'tab_class' or 'config' fields.",
+                )
+                return
+            if tab_class_name not in self._get_all_tab_names_uncategorized():
+                QMessageBox.critical(
+                    self,
+                    "Import Error",
+                    f"The file targets unknown tab class '{tab_class_name}'.",
+                )
+                return
+        else:
+            # Plain config object — route to the currently selected tab.
+            tab_display_name = self.tab_select_combo.currentText()
+            if not tab_display_name:
+                QMessageBox.warning(
+                    self,
+                    "Import Error",
+                    "This file is a plain configuration object. Select the "
+                    "target Tab first, then import again.",
+                )
+                return
+            instance = self._get_tab_instance_by_display_name(tab_display_name)
+            tab_class_name = type(instance).__name__ if instance else ""
+            config_name = Path(file_path).stem
+            config = data
+
+        # Confirm overwrite of an existing config with the same name.
+        existing = self.tab_defaults_config.get(tab_class_name, {})
+        if config_name in existing:
+            reply = QMessageBox.question(
+                self,
+                "Overwrite Config?",
+                f"A configuration named '{config_name}' already exists for "
+                f"{tab_class_name}. Overwrite it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        self.tab_defaults_config.setdefault(tab_class_name, {})[config_name] = config
+        if not self._save_tab_defaults_to_vault():
+            return
+
+        QMessageBox.information(
+            self,
+            "Import Success",
+            f"Configuration '{config_name}' imported for {tab_class_name}.",
+        )
+        # If the imported tab is the one on screen, refresh and select it.
+        current_display = self.tab_select_combo.currentText()
+        current_instance = self._get_tab_instance_by_display_name(current_display)
+        if current_instance and type(current_instance).__name__ == tab_class_name:
+            self._refresh_config_dropdown(current_display)
+            self.config_select_combo.setCurrentText(config_name)
 
     def _capture_and_save_current_config(self):
         """

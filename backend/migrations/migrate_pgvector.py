@@ -44,7 +44,7 @@ def _load_pg_env() -> Dict[str, str]:
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
                 if key.strip().startswith("DB_"):
-                    env[key.strip()] = value.strip()
+                    env[key.strip()] = value.strip().strip("'\"")
     # Environment variables override the file.
     for key in ("DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT"):
         if os.environ.get(key):
