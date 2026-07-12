@@ -16,9 +16,9 @@ duplicated strips, or misordered content.
 51 true composites + 46 guarded fallbacks; 87 s/test. The composite-quality wall is
 frame-selection pose gaps (documented since June and still true). Authoritative
 state: `.agent/cache/asp_state_of_the_pipeline.md` + `asp_benchmark_2026-07.md`;
-strategy rationale: `reports/ASP_Critical_Evaluation_2026-07-08.md` (§9); research
-base: `reports/Image_Stitching_Research.md` (the consolidated field reference) and
-`reports/ASP_Comprehensive_Research_Report.md` (algorithm specs, decision
+strategy rationale: `research/ASP_Critical_Evaluation_2026-07-08.md` (§9); research
+base: `research/Image_Stitching_Research.md` (the consolidated field reference) and
+`research/ASP_Comprehensive_Research_Report.md` (algorithm specs, decision
 thresholds, datasets) — see §R below for the distilled results this plan builds on.
 
 ---
@@ -41,7 +41,7 @@ thresholds, datasets) — see §R below for the distilled results this plan buil
 
 ## §R — Research Base (already established; do not re-survey)
 
-The two research reports in `reports/` were written against this exact problem and
+The two research reports in `research/` were written against this exact problem and
 remain valid. Their load-bearing results, so future sessions build on them instead
 of re-searching:
 
@@ -146,7 +146,7 @@ columns; Overmix column present for all 97; a three-way summary table in the rep
 ## Phase 1 — Targeted Information Gathering *(parallel with Phase 0)*
 
 ### 1.1 Literature sweep — updates since the reports, not a re-survey  `[2–3 days reading]`
-`reports/Image_Stitching_Research.md` (consolidated 2026-06) already covers the
+`research/Image_Stitching_Research.md` (consolidated 2026-06) already covers the
 field through mid-2026; search only for what postdates or fills its gaps, and
 append findings to that report so it stays the single reference:
 - **Animation-phase clustering:** the reports cover hold detection (FD-Means,

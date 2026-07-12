@@ -181,7 +181,7 @@ This roadmap outlines the development of a suite of interactive, highly optimize
 
 Leveraging a Rust backend for time-efficient data parsing/aggregation and a TypeScript frontend for visually stunning, GPU-accelerated dashboards, these tools will expose the hidden geometries, failure modes, and execution topologies of the system.
 
-See [`reports/Analytics and Codebase Visualization Research.md`](../../reports/Analytics%20and%20Codebase%20Visualization%20Research.md) for the full technical research underpinning every item on this roadmap.
+See [`research/Analytics and Codebase Visualization Research.md`](../../research/Analytics%20and%20Codebase%20Visualization%20Research.md) for the full technical research underpinning every item on this roadmap.
 
 ---
 

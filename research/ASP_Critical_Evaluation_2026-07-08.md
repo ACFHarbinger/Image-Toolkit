@@ -2,7 +2,7 @@
 
 *2026-07-08. An independent, evidence-based assessment of the ASP's two-month evolution (2026-04-30 → 2026-07-08), its current state, where it stagnates, and what to do next.*
 
-*Sources: all six `.agent/cache/` analysis documents; `reports/ASP_Comprehensive_Research_Report.md` and `reports/Image_Stitching_Research.md`; `moon/roadmaps/asp.md` (3,596 lines); the full `backend/src/animation/` (30,640 lines, 49 files) and `base/src/animation/` (5,753 lines C++) codebases; git history from `771ac756` (2026-04-30) through HEAD (307 commits); the full 97-test benchmark JSON (`anime_stitch_20260623_234305.json`, S160 code) and `dump/output/benchmark_report.md`; and a direct visual audit of ASP vs. simple-stitch vs. ground-truth outputs for 16 representative tests, including per-stage intermediates.*
+*Sources: all six `.agent/cache/` analysis documents; `research/ASP_Comprehensive_Research_Report.md` and `research/Image_Stitching_Research.md`; `moon/roadmaps/asp.md` (3,596 lines); the full `backend/src/animation/` (30,640 lines, 49 files) and `base/src/animation/` (5,753 lines C++) codebases; git history from `771ac756` (2026-04-30) through HEAD (307 commits); the full 97-test benchmark JSON (`anime_stitch_20260623_234305.json`, S160 code) and `dump/output/benchmark_report.md`; and a direct visual audit of ASP vs. simple-stitch vs. ground-truth outputs for 16 representative tests, including per-stage intermediates.*
 
 ---
 

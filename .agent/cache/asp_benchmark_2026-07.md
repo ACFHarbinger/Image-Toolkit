@@ -87,6 +87,6 @@ that job with 3 mechanisms instead of ~50.
    (aligned −0.025) and its root cause (pose gaps at selection time) remain.
 3. GraphCut-as-wired is not the fix; if revisited it needs GC-boundary
    photometric correction + wider feathering, benchmarked before defaulting.
-4. Next steps stay as in `reports/ASP_Critical_Evaluation_2026-07-08.md` §9:
+4. Next steps stay as in `research/ASP_Critical_Evaluation_2026-07-08.md` §9:
    human coherence ratings, then animation-phase grouping at ingestion
    (`ASP_HOLD_AVERAGE=1` A/B is the cheapest first experiment).

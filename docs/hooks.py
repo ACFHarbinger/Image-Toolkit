@@ -1,7 +1,7 @@
-"""MkDocs hooks — symlink moon/ and reports/ content into docs/ at build time.
+"""MkDocs hooks — symlink moon/ and research/ content into docs/ at build time.
 
 Called by the `hooks:` key in mkdocs.yml. Creates the docs/roadmaps/,
-docs/reports/, and stub API pages that the nav references.
+docs/research/, and stub API pages that the nav references.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def on_pre_build(config: dict) -> None:
         "Multi-modal_Anime_Panorama_Stitching.md",
     ]
     for r in merged_reports:
-        SOURCE_TO_DEST[ROOT / "reports" / r] = DOCS / "reports" / "asp_research.md"
+        SOURCE_TO_DEST[ROOT / "research" / r] = DOCS / "research" / "asp_research.md"
 
     # Pre-populate exact redirects for READMEs
     SOURCE_TO_DEST[ROOT / "README.md"] = DOCS / "readme.md"
@@ -55,8 +55,8 @@ def on_pre_build(config: dict) -> None:
     _sync_dir(ROOT, DOCS, only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(ROOT / "frontend", DOCS / "api" / "typescript", only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(
-        ROOT / "reports",
-        DOCS / "reports",
+        ROOT / "research",
+        DOCS / "research",
         rename={
             "Analytics and Codebase Visualization Research.md": "analytics.md",
             "ASP_Comprehensive_Research_Report.md": "asp_research.md",

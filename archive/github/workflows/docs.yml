@@ -8,7 +8,7 @@ on:
       - 'moon/roadmaps/**'
       - 'moon/CHANGELOG.md'
       - 'moon/ROADMAP.md'
-      - 'reports/**'
+      - 'research/**'
       - 'backend/src/**/*.py'
       - 'base/src/math/**/*.rs'
       - 'frontend/src/math/**/*.ts'

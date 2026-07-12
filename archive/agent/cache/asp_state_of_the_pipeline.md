@@ -1671,7 +1671,7 @@ For test57 (irregular scroll speed), smoothing the affine trajectory before canv
 
 ## §5 Phase 2: Next-Generation Architecture (2026-06-13)
 
-*Research basis: `reports/Upgrading Anime Stitch Pipeline.md` — covers direct video ingestion, multi-modal HITL, data serialization, and downstream fine-tuning. Full implementation spec in `reports/ASP_High_Value_Issues_Report.md` Issues 9 & 10.*
+*Research basis: `research/Upgrading Anime Stitch Pipeline.md` — covers direct video ingestion, multi-modal HITL, data serialization, and downstream fine-tuning. Full implementation spec in `research/ASP_High_Value_Issues_Report.md` Issues 9 & 10.*
 
 ### 5.1 Direct Video Ingestion & Multi-Modal Hybrid Pipeline (Issue 9)
 

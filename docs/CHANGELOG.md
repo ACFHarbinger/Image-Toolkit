@@ -30,14 +30,14 @@ Implements P0, P1, and most of P2 of [moon/roadmaps/unified_database.md](../moon
 
 **Tests**: animation suite 632 passing, 14 skipped (was 2,230 collected; ~1,550 ritual/dead-feature tests removed)
 
-Driven by `reports/ASP_Critical_Evaluation_2026-07-08.md`: two months (~200 sessions) of
+Driven by `research/ASP_Critical_Evaluation_2026-07-08.md`: two months (~200 sessions) of
 feature/gate accretion produced no measured corpus-level improvement, and most shipped
 work was default-OFF or never benchmarked. This session removes everything not on the
 verified core path so future changes can be measured one at a time.
 
 - **Docs**: all six `.agent/cache/` ASP analyses archived to `archive/agent/cache/`;
   `moon/roadmaps/asp.md` (3,596 lines) and its `docs/roadmaps/` mirror deleted;
-  critical evaluation report added to `reports/`.
+  critical evaluation report added to `research/`.
 - **Python** (`backend/src/animation/`, 30,640 → ~12,700 lines): deleted `mfsr/`,
   `rlhf/`, HITL presets/grounding/MLLM scorer/param search, AnimeInterp + CamFlow flow
   engines, ToonCrafter `anim_fill`, SRStitcher, Real-ESRGAN wrapper, ProPainter
@@ -2623,16 +2623,16 @@ Added `[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/
 **`mkdocs.yml` (`§6.10A`)**
 - MkDocs Material theme with dark/light toggle, sticky nav tabs, code copy, mermaid superfences, MathJax.
 - `mkdocstrings[python]` with Google-style handler: filters private members, shows source, separate signature.
-- Full navigation tree: Getting Started → Reference (Python API stubs + Rust note) → Operations → Roadmaps → Reports → Changelog.
+- Full navigation tree: Getting Started → Reference (Python API stubs + Rust note) → Operations → Roadmaps → Research → Changelog.
 
 **`docs/index.md` + `docs/hooks.py` (`§6.11A`)**
 - Portal home page with project-level Mermaid architecture graph (Frontend → Backend → Data layers), key entry points table, and stack version table.
-- `hooks.py`: MkDocs pre-build hook that symlinks `moon/roadmaps/*.md`, `moon/CHANGELOG.md`, `moon/ROADMAP.md`, and `reports/*.md` into the `docs/` tree without moving the source files.
+- `hooks.py`: MkDocs pre-build hook that symlinks `moon/roadmaps/*.md`, `moon/CHANGELOG.md`, `moon/ROADMAP.md`, and `research/*.md` into the `docs/` tree without moving the source files.
 - Stub API pages created for `docs/api/python/{animation,core,models}.md` and `docs/api/rust/math.md`.
 
 **`.github/workflows/docs.yml` (`§6.12A`)**
 - 5-job pipeline: `docs-python` (MkDocs build `--strict`), `docs-rust` (`cargo test --doc` + `cargo doc --no-deps -D warnings`), `docs-links` (lychee), `docs-typescript` (TypeDoc advisory), `deploy` (GitHub Pages on main).
-- Path filters: only fires on changes to `docs/`, `moon/roadmaps/`, `reports/`, Python/Rust/TS source, or `mkdocs.yml`.
+- Path filters: only fires on changes to `docs/`, `moon/roadmaps/`, `research/`, Python/Rust/TS source, or `mkdocs.yml`.
 - Concurrency group: cancels in-progress run on new push to the same branch.
 
 **`.pre-commit-config.yaml` (`§6.13A + §6.13D`)**
@@ -5291,8 +5291,8 @@ The 14 image-stitching reports and 5 image/video-generation reports were merged 
 
 | Item | Summary |
 |------|---------|
-| **`reports/Image_Stitching_Research.md`** | Replaces all 14 stitching reports. 22 sections: geometric foundations & DoF; Perfect-Stitch-vs-Scan-Stitch mathematical audit (pushbroom/X-slits, APAP rank-deficiency proof); feature matching (SIFT/AKAZE/MSER → SuperPoint/SuperGlue/LightGlue/ALIKED → LoFTR/EfficientLoFTR/RoMa/JamMa/EDM); registration & sub-pixel (RANSAC/MAGSAC, translation-only BA, ECC, phase correlation); optical flow (RAFT/SEA-RAFT/AnimeInterp SGM+RFR); spatially-varying warps (APAP/Moving-DLT, TPS/MLS/CPW, LSD line preservation, SEAGULL); **foreground assembly** (motion decomposition `F_fg=T_camera+A_animation`, Sýkora ARAP push/regularise, symmetric midpoint warp, two-channel selection, Eden single-pose fallback, HDR/VSR analogy); photometric (Harding broadcast-dimming reversal, BaSiC flat-fielding, Brown–Lowe gain, region-stratified Reinhard, palette harmonisation); segmentation (BiRefNet/ToonOut 99.5%/SAM-2/trapped-ball); seam-finding (graph-cut MRF, Agarwala, DSeam, semantic/SAM); blending (multi-band, Poisson/Modified-Poisson+MTOR, DSFN soft-seam); background reconstruction (temporal median, ProPainter/RAFT, latent-diffusion outpainting, VidPanos); unified frameworks (UDIS++/NIS/SRStitcher); SR (Real-ESRGAN anime_6B/APISR); video (StabStitch/++, Unwrap Mosaics); shot detection (OmniShotCut); the 14-stage pipeline spec; evaluation metrics; failure/fallback taxonomy; ASP implementation status. |
-| **`reports/Image_Generation_Research.md`** | Replaces all 5 generation reports. 16 sections: diffusion math (ε/v/x0-prediction, Rectified Flow Matching + Reflow, progressive distillation); architecture lineages (SD1.5, SDXL dual-encoder, Animagine XL 4.0, Illustrious XL 2.0 token-dilution, NoobAI v-pred + RF conversions, Pony score-tag Clever-Hans, FLUX MM-DiT/T5XXL/Chroma/Kaleidoscope, SD3.5) with comparison table; conditioning & prompting (Danbooru/score/natural-language, Florence-2 vs WD14); fine-tuning (LoRA dim/alpha, LyCORIS LoCon/LoHa/LoKr, DreamBooth, full-FT, kohya_ss settings, optimisers); the 4K-video→character-LoRA pipeline; inference (ComfyUI/Forge/A1111, samplers, fp16-fix VAE, ControlNet, IP-Adapter); upscaling (Real-ESRGAN anime/APISR/SUPIR); video (AnimateDiff 5D-tensor architecture + motion-module table + anime beta_schedule=linear fix, AnimeInterp, ToonCrafter Toon-Rectification/Dual-Reference-3D-Decoder/Sparse-Sketch, ToonComposer DiT/SLRA, Wan2.1/SVD, prompt-travel/context-sliding); hardware deployment (uv, TensorRT static compilation, FP8/NF4/GGUF quantisation tables for 3090 Ti / 4080 / 4080-mobile); Image-Toolkit implementation status; settings cheat-sheet. |
+| **`research/Image_Stitching_Research.md`** | Replaces all 14 stitching reports. 22 sections: geometric foundations & DoF; Perfect-Stitch-vs-Scan-Stitch mathematical audit (pushbroom/X-slits, APAP rank-deficiency proof); feature matching (SIFT/AKAZE/MSER → SuperPoint/SuperGlue/LightGlue/ALIKED → LoFTR/EfficientLoFTR/RoMa/JamMa/EDM); registration & sub-pixel (RANSAC/MAGSAC, translation-only BA, ECC, phase correlation); optical flow (RAFT/SEA-RAFT/AnimeInterp SGM+RFR); spatially-varying warps (APAP/Moving-DLT, TPS/MLS/CPW, LSD line preservation, SEAGULL); **foreground assembly** (motion decomposition `F_fg=T_camera+A_animation`, Sýkora ARAP push/regularise, symmetric midpoint warp, two-channel selection, Eden single-pose fallback, HDR/VSR analogy); photometric (Harding broadcast-dimming reversal, BaSiC flat-fielding, Brown–Lowe gain, region-stratified Reinhard, palette harmonisation); segmentation (BiRefNet/ToonOut 99.5%/SAM-2/trapped-ball); seam-finding (graph-cut MRF, Agarwala, DSeam, semantic/SAM); blending (multi-band, Poisson/Modified-Poisson+MTOR, DSFN soft-seam); background reconstruction (temporal median, ProPainter/RAFT, latent-diffusion outpainting, VidPanos); unified frameworks (UDIS++/NIS/SRStitcher); SR (Real-ESRGAN anime_6B/APISR); video (StabStitch/++, Unwrap Mosaics); shot detection (OmniShotCut); the 14-stage pipeline spec; evaluation metrics; failure/fallback taxonomy; ASP implementation status. |
+| **`research/Image_Generation_Research.md`** | Replaces all 5 generation reports. 16 sections: diffusion math (ε/v/x0-prediction, Rectified Flow Matching + Reflow, progressive distillation); architecture lineages (SD1.5, SDXL dual-encoder, Animagine XL 4.0, Illustrious XL 2.0 token-dilution, NoobAI v-pred + RF conversions, Pony score-tag Clever-Hans, FLUX MM-DiT/T5XXL/Chroma/Kaleidoscope, SD3.5) with comparison table; conditioning & prompting (Danbooru/score/natural-language, Florence-2 vs WD14); fine-tuning (LoRA dim/alpha, LyCORIS LoCon/LoHa/LoKr, DreamBooth, full-FT, kohya_ss settings, optimisers); the 4K-video→character-LoRA pipeline; inference (ComfyUI/Forge/A1111, samplers, fp16-fix VAE, ControlNet, IP-Adapter); upscaling (Real-ESRGAN anime/APISR/SUPIR); video (AnimateDiff 5D-tensor architecture + motion-module table + anime beta_schedule=linear fix, AnimeInterp, ToonCrafter Toon-Rectification/Dual-Reference-3D-Decoder/Sparse-Sketch, ToonComposer DiT/SLRA, Wan2.1/SVD, prompt-travel/context-sliding); hardware deployment (uv, TensorRT static compilation, FP8/NF4/GGUF quantisation tables for 3090 Ti / 4080 / 4080-mobile); Image-Toolkit implementation status; settings cheat-sheet. |
 
 ### Roadmap restructure
 

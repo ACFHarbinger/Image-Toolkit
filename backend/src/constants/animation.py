@@ -50,7 +50,7 @@ FLOW_MAX_DRIFT = 80.0
 FLOW_PATCH_SIZE = 512
 
 # Foreground pose registration (Stage 8.5 — flow-guided fg re-posing)
-# See reports/ASP_Foreground_Assembly_Research.md §5.
+# See research/ASP_Foreground_Assembly_Research.md §5.
 FG_REG_TAPER_PX = 220  # half-width (px) over which the seam warp tapers to zero
 FG_REG_MAX_RESIDUAL = (
     90.0  # max per-pixel animation residual (px) to warp; above → no-warp

@@ -168,13 +168,13 @@ nav:
       - Content Generation: roadmaps/content_generation.md
       - Analytics & Interpretability: roadmaps/analytics_and_interpretability.md
       - Documentation: roadmaps/documentation.md
-  - Reports:
-      - Analytics & Codebase Visualisation: reports/analytics.md
-      - ASP Comprehensive Research: reports/asp_research.md
-      - Image Generation Research: reports/image_generation.md
-      - Image Stitching Research: reports/image_stitching.md
+  - Research:
+      - Analytics & Codebase Visualisation: research/analytics.md
+      - ASP Comprehensive Research: research/asp_research.md
+      - Image Generation Research: research/image_generation.md
+      - Image Stitching Research: research/image_stitching.md
   - Changelog: CHANGELOG.md
 
-# Hooks — symlink moon/ and reports/ content into docs/ at build time
+# Hooks — symlink moon/ and research/ content into docs/ at build time
 hooks:
   - hooks.py

@@ -356,13 +356,13 @@
     
     
       <li class="md-tabs__item">
-        <a href="../reports/analytics/" class="md-tabs__link">
+        <a href="../research/analytics/" class="md-tabs__link">
           
   
   
     
   
-  Reports
+  research
 
         </a>
       </li>
@@ -2614,7 +2614,7 @@
   <span class="md-ellipsis">
     
   
-    Reports
+    research
   
 
     
@@ -2630,7 +2630,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Reports
+    research
   
 
           </label>
@@ -2643,7 +2643,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/analytics/" class="md-nav__link">
+      <a href="../research/analytics/" class="md-nav__link">
         
   
   
@@ -2671,7 +2671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/asp_research/" class="md-nav__link">
+      <a href="../research/asp_research/" class="md-nav__link">
         
   
   
@@ -2699,7 +2699,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/image_generation/" class="md-nav__link">
+      <a href="../research/image_generation/" class="md-nav__link">
         
   
   
@@ -2727,7 +2727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/image_stitching/" class="md-nav__link">
+      <a href="../research/image_stitching/" class="md-nav__link">
         
   
   
@@ -3727,14 +3727,14 @@ Python ML pipeline and Recommendation Engine. Criterion benchmarks live in
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">harness</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">[dev-dependencies]</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">criterion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;html_reports&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">criterion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;html_research&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p><strong>Run</strong>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">cd</span><span class="w"> </span>base
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>cargo<span class="w"> </span>bench<span class="w">                            </span><span class="c1"># all benchmarks</span>
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>cargo<span class="w"> </span>bench<span class="w"> </span>--<span class="w"> </span>cosine<span class="w">                  </span><span class="c1"># filter by name</span>
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>cargo<span class="w"> </span>bench<span class="w"> </span>--bench<span class="w"> </span>math_bench<span class="w">         </span><span class="c1"># specific bench file</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="c1"># Reports: base/target/criterion/*/report/index.html</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="c1"># research: base/target/criterion/*/report/index.html</span>
 </span></code></pre></div>
 <p><strong>Baselines</strong> (to be established once benchmarks are added — see CI §6.12 guidance below):</p>
 <table>
@@ -4332,7 +4332,7 @@ with the workspace root set to <code>data/output/</code>, or use the absolute pa
 </span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cargo bench --bench bench_&lt;name&gt; -- --output-format bencher | tee output.txt</span>
 </span></code></pre></div>
 <ol>
-<li>Optionally store the criterion HTML reports as a workflow artifact:</li>
+<li>Optionally store the criterion HTML research as a workflow artifact:</li>
 </ol>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/upload-artifact@v4</span>
 </span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>

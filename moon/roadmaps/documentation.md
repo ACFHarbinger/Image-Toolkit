@@ -478,14 +478,14 @@ docs/
     kotlin/            ← dokkaGfm output
   notebooks/           ← Jupyter notebooks (myst-nb)
   roadmaps/            ← symlinks or copies of moon/roadmaps/*.md
-  reports/             ← reports/*.md
+  research/            ← research/*.md
   troubleshooting.md
   benchmarks.md
   changelog.md
 ```
 - `mkdocs.yml` at the project root with `docs_dir: docs`.
 - Pros: Everything in one place. CI just runs `mkdocs build`.
-- Cons: Some files (roadmaps, reports) currently live under `moon/` and `reports/` — symlinks or a `hooks:` script in `mkdocs.yml` keeps them in sync without moving them.
+- Cons: Some files (roadmaps, reports) currently live under `moon/` and `research/` — symlinks or a `hooks:` script in `mkdocs.yml` keeps them in sync without moving them.
 
 **B — Separate `docs-site/` directory, independent of `docs/`**
 Keep the existing `docs/` for raw Markdown files and create `docs-site/` as the MkDocs project that copies/transforms them.
@@ -497,7 +497,7 @@ Use the GitHub repository wiki for all documentation.
 - Pros: Zero setup.
 - Cons: Not version-controlled with the code. No CI integration. No search. Not recommended for a complex polyglot project.
 
-**Recommendation:** A. Using `mkdocs.yml` hooks to softlink `moon/roadmaps/*.md` and `reports/*.md` into `docs/` avoids moving files while keeping the portal coherent.
+**Recommendation:** A. Using `mkdocs.yml` hooks to softlink `moon/roadmaps/*.md` and `research/*.md` into `docs/` avoids moving files while keeping the portal coherent.
 
 ---
 
