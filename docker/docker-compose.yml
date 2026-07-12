@@ -1,0 +1,85 @@
+# Image-Toolkit backend stack: Django/Gunicorn web + Celery worker,
+# PostgreSQL (pgvector) and Redis.
+#
+# Usage (from the repo root):
+#   docker compose -f docker/docker-compose.yml up --build
+#
+# Build context is the repository root so the Dockerfile can COPY the whole
+# backend tree and build the C++ base extension.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${DB_NAME:-image_toolkit}
+      POSTGRES_USER: ${DB_USER:-toolkit_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me_123}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-toolkit_user} -d ${DB_NAME:-image_toolkit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-image_toolkit}
+      DB_USER: ${DB_USER:-toolkit_user}
+      DB_PASSWORD: ${DB_PASSWORD:-change_me_123}
+      DATABASE_URL: postgresql://${DB_USER:-toolkit_user}:${DB_PASSWORD:-change_me_123}@db:5432/${DB_NAME:-image_toolkit}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      RUN_MIGRATIONS: "1"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: ["celery", "-A", "api", "worker", "--loglevel=info"]
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-image_toolkit}
+      DB_USER: ${DB_USER:-toolkit_user}
+      DB_PASSWORD: ${DB_PASSWORD:-change_me_123}
+      DATABASE_URL: postgresql://${DB_USER:-toolkit_user}:${DB_PASSWORD:-change_me_123}@db:5432/${DB_NAME:-image_toolkit}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
