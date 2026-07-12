@@ -16,7 +16,7 @@
         <link rel="prev" href="../analytics_and_interpretability/">
       
       
-        <link rel="next" href="../../reports/analytics/">
+        <link rel="next" href="../../research/analytics/">
       
       
         
@@ -356,13 +356,13 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reports/analytics/" class="md-tabs__link">
+        <a href="../../research/analytics/" class="md-tabs__link">
           
   
   
     
   
-  Reports
+  Research
 
         </a>
       </li>
@@ -2601,7 +2601,7 @@
   <span class="md-ellipsis">
     
   
-    Reports
+    Research
   
 
     
@@ -2617,7 +2617,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Reports
+    Research
   
 
           </label>
@@ -2630,7 +2630,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/analytics/" class="md-nav__link">
+      <a href="../../research/analytics/" class="md-nav__link">
         
   
   
@@ -2658,7 +2658,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/asp_research/" class="md-nav__link">
+      <a href="../../research/asp_research/" class="md-nav__link">
         
   
   
@@ -2686,7 +2686,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/image_generation/" class="md-nav__link">
+      <a href="../../research/image_generation/" class="md-nav__link">
         
   
   
@@ -2714,7 +2714,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reports/image_stitching/" class="md-nav__link">
+      <a href="../../research/image_stitching/" class="md-nav__link">
         
   
   
@@ -3596,10 +3596,10 @@ Embed a Mermaid module graph directly in README.md rather than a separate file.
 <p><strong>Recommendation:</strong> A. The current split between CLAUDE.md (machine) and docs/ARCHITECTURE.md (human) is the right model; it just needs to be made explicit. Prioritise the Mermaid module dependency graph (§6.14) as the first concrete output.</p>
 <hr />
 <h2 id="67-changelogmd-dependency_policymd-and-documentation_standardsmd">✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md<a class="headerlink" href="#67-changelogmd-dependency_policymd-and-documentation_standardsmd" title="Permanent link">&para;</a></h2>
-<p><strong>Pain point:</strong> <code>moon/CHANGELOG.md</code> exists but is not yet structured with the <a href="https://keepachangelog.com/">Keep a Changelog</a> format. <code>DEPENDENCY_POLICY.md</code> and <code>DOCUMENTATION_STANDARDS.md</code> do not exist.</p>
+<p><strong>Pain point:</strong> <code>docs/CHANGELOG.md</code> exists but is not yet structured with the <a href="https://keepachangelog.com/">Keep a Changelog</a> format. <code>DEPENDENCY_POLICY.md</code> and <code>DOCUMENTATION_STANDARDS.md</code> do not exist. (This file previously also existed as a separately-maintained <code>moon/CHANGELOG.md</code> copy; the two were merged back into one file on 2026-07-11 — see the note at the top of <code>docs/CHANGELOG.md</code>.)</p>
 <h3 id="options_6">Options<a class="headerlink" href="#options_6" title="Permanent link">&para;</a></h3>
 <p><strong>A — Keep a Changelog format for CHANGELOG.md [Quick Win]</strong>
-Restructure <code>moon/CHANGELOG.md</code> to use sections <code>[Unreleased]</code>, <code>[x.y.z] — YYYY-MM-DD</code>, with subsections <code>Added</code>, <code>Changed</code>, <code>Fixed</code>, <code>Removed</code>. Link version numbers to GitHub diff URLs.
+Restructure <code>docs/CHANGELOG.md</code> to use sections <code>[Unreleased]</code>, <code>[x.y.z] — YYYY-MM-DD</code>, with subsections <code>Added</code>, <code>Changed</code>, <code>Fixed</code>, <code>Removed</code>. Link version numbers to GitHub diff URLs.
 - Effort: &lt; 1 hour to reformat; ongoing discipline to maintain.
 - Pros: Machine-parseable for automated release notes. Standard format recognised by GitHub release automation.
 - Reference: <a href="https://keepachangelog.com/">keepachangelog.com</a></p>
@@ -3723,14 +3723,14 @@ Restructure <code>docs/</code> as the MkDocs source root:
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    kotlin/            ← dokkaGfm output
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  notebooks/           ← Jupyter notebooks (myst-nb)
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  roadmaps/            ← symlinks or copies of moon/roadmaps/*.md
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  reports/             ← reports/*.md
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  research/            ← research/*.md
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  troubleshooting.md
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  benchmarks.md
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  changelog.md
 </span></code></pre></div>
 - <code>mkdocs.yml</code> at the project root with <code>docs_dir: docs</code>.
 - Pros: Everything in one place. CI just runs <code>mkdocs build</code>.
-- Cons: Some files (roadmaps, reports) currently live under <code>moon/</code> and <code>reports/</code> — symlinks or a <code>hooks:</code> script in <code>mkdocs.yml</code> keeps them in sync without moving them.</p>
+- Cons: Some files (roadmaps, reports) currently live under <code>moon/</code> and <code>research/</code> — symlinks or a <code>hooks:</code> script in <code>mkdocs.yml</code> keeps them in sync without moving them.</p>
 <p><strong>B — Separate <code>docs-site/</code> directory, independent of <code>docs/</code></strong>
 Keep the existing <code>docs/</code> for raw Markdown files and create <code>docs-site/</code> as the MkDocs project that copies/transforms them.
 - Pros: Less disruption to existing structure.
@@ -3739,7 +3739,7 @@ Keep the existing <code>docs/</code> for raw Markdown files and create <code>doc
 Use the GitHub repository wiki for all documentation.
 - Pros: Zero setup.
 - Cons: Not version-controlled with the code. No CI integration. No search. Not recommended for a complex polyglot project.</p>
-<p><strong>Recommendation:</strong> A. Using <code>mkdocs.yml</code> hooks to softlink <code>moon/roadmaps/*.md</code> and <code>reports/*.md</code> into <code>docs/</code> avoids moving files while keeping the portal coherent.</p>
+<p><strong>Recommendation:</strong> A. Using <code>mkdocs.yml</code> hooks to softlink <code>moon/roadmaps/*.md</code> and <code>research/*.md</code> into <code>docs/</code> avoids moving files while keeping the portal coherent.</p>
 <hr />
 <h2 id="domain-d--implementation-best-practices--automation">Domain D — Implementation Best Practices &amp; Automation<a class="headerlink" href="#domain-d--implementation-best-practices--automation" title="Permanent link">&para;</a></h2>
 <blockquote>

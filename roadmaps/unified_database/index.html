@@ -1,0 +1,2887 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Unified documentation portal for Image-Toolkit — image database, ASP pipeline, analytics dashboard, and cross-platform interfaces.">
+      
+      
+        <meta name="author" content="ACFPeacekeeper">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Unified Database Roadmap — Merging the Listings Subtabs and the Database Tabs - Image-Toolkit Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#unified-database-roadmap-merging-the-listings-subtabs-and-the-database-tabs" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-header__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Image-Toolkit Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Unified Database Roadmap — Merging the Listings Subtabs and the Database Tabs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../readme/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/rest-api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../notebooks/benchmark_analysis/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Notebooks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../BENCHMARKS/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ROADMAP/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Roadmaps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../research/analytics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Research
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Image-Toolkit Documentation" class="md-nav__button md-logo" aria-label="Image-Toolkit Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Image-Toolkit Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ACFPeacekeeper/Image-Toolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../structurizr/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C4 Architecture Model
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C4 Architecture Model
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STRUCTURIZR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rest-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/python/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rust API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/rust/math/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Math Backbone
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TypeScript API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/typescript/readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/kotlin/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kotlin API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Kotlin API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Reference (Sphinx)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Reference (Sphinx)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sphinx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Notebooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/benchmark_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/asp_pipeline_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notebooks/clip_embedding_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLIP Embedding Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPENDENCY_POLICY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCUMENTATION_STANDARDS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmaps
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmaps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../new_features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui_ux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI / UX
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../analytics_and_interpretability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Interpretability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../research/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics & Codebase Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../research/asp_research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ASP Comprehensive Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../research/image_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Generation Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../research/image_stitching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image Stitching Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current State
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db1-unified-schema-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ DB.1 Unified Schema Design
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db2-basedatabase-the-native-storage-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ DB.2 base.database — the Native Storage Engine
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db3-python-dal-backendsrcdatabaseunified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ DB.3 Python DAL (backend/src/database/unified/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db4-backups-migration-scripts-backendmigrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ DB.4 Backups &amp; Migration Scripts (backend/migrations/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db5-listings-subtabs-on-the-unified-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔄 DB.5 Listings Subtabs on the Unified Store
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db6-image-tabs-on-the-unified-store-postgres-retirement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DB.6 Image Tabs on the Unified Store (Postgres Retirement)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db7-semantic-search-cbir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DB.7 Semantic Search &amp; CBIR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db8-cross-domain-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DB.8 Cross-Domain Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db9-data-browser-tab-raw-tables-er-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DB.9 Data Browser Tab (Raw Tables + ER View)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#db10-backup-pipeline-retarget-final-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DB.10 Backup Pipeline Retarget &amp; Final Cleanup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phasing-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phasing &amp; Dependency Graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risk-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Risk Register
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort-impact-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effort × Impact Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="unified-database-roadmap-merging-the-listings-subtabs-and-the-database-tabs">Unified Database Roadmap — Merging the Listings Subtabs and the Database Tabs<a class="headerlink" href="#unified-database-roadmap-merging-the-listings-subtabs-and-the-database-tabs" title="Permanent link">&para;</a></h1>
+<p><em>Created: 2026-07-11. Merges the two storage/UI stacks — the SQLCipher listings store (<code>base.secret</code> → <code>~/.image-toolkit/listings_secure.db</code>, Content/Entity Listings subtabs) and the PostgreSQL + pgvector image index (<code>backend/src/database/image_database.py</code>, Configuration/Search/Metadata tabs) — into a single encrypted, serverless, relational store with real semantic search. PostgreSQL is <strong>dropped entirely</strong>.</em></p>
+<p><strong>Decisions locked in (owner Q&amp;A, 2026-07-11):</strong></p>
+<ol>
+<li>Nothing outside the GUI uses the Postgres DB → the Postgres dependency is removed completely.</li>
+<li>Everything is encrypted at rest — whole-database SQLCipher encryption (groups, tags, listings, file paths, all of it). Simplest implementation wins; no plaintext sidecar DBs.</li>
+<li>Scale target: tens of thousands of image rows, thousands of listings → SQLite territory with headroom (design for ~1M rows).</li>
+<li>Real semantic/CBIR image search is required. pHash dedup alone is explicitly insufficient (it stays, but only as the dedup primitive).</li>
+<li>All cross-domain features wanted: media↔image-group links, entity↔image links, unified tag vocabulary, auto-created listings from scans.</li>
+<li>Argon2id key derivation happens <strong>once at login</strong>; a keyed connection is held for the session.</li>
+<li>UI: a unified Library tab category, <strong>plus</strong> new raw-database browser tab(s) showing field values and table associations ER-diagram-style (crow's-foot, à la the SQL Server sample diagram provided).</li>
+<li>Mandatory pre-migration backups; all migration scripts live in <code>backend/migrations/</code>.</li>
+<li><strong><code>base.secret</code> is Vault-only and must not be touched.</strong> New native code goes in a new <strong><code>base.database</code></strong> C++ module. CRUD language (C++ vs Python) chosen for performance — see <a href="#db2-basedatabase--the-native-storage-engine">DB.2</a>.</li>
+<li>Phasing: incremental (chosen here) — the app stays shippable after every phase.</li>
+</ol>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#current-state">Current State</a></li>
+<li><a href="#db1-unified-schema-design">DB.1 Unified Schema Design</a></li>
+<li><a href="#db2-basedatabase--the-native-storage-engine">DB.2 base.database — the Native Storage Engine</a></li>
+<li><a href="#db3-python-dal-backendsrcdatabaseunified">DB.3 Python DAL (<code>backend/src/database/unified/</code>)</a></li>
+<li><a href="#db4-backups--migration-scripts-backendmigrations">DB.4 Backups &amp; Migration Scripts (<code>backend/migrations/</code>)</a></li>
+<li><a href="#db5-listings-subtabs-on-the-unified-store">DB.5 Listings Subtabs on the Unified Store</a></li>
+<li><a href="#db6-image-tabs-on-the-unified-store-postgres-retirement">DB.6 Image Tabs on the Unified Store (Postgres Retirement)</a></li>
+<li><a href="#db7-semantic-search--cbir">DB.7 Semantic Search &amp; CBIR</a></li>
+<li><a href="#db8-cross-domain-features">DB.8 Cross-Domain Features</a></li>
+<li><a href="#db9-data-browser-tab-raw-tables--er-view">DB.9 Data Browser Tab (Raw Tables + ER View)</a></li>
+<li><a href="#db10-backup-pipeline-retarget--final-cleanup">DB.10 Backup Pipeline Retarget &amp; Final Cleanup</a></li>
+<li><a href="#phasing--dependency-graph">Phasing &amp; Dependency Graph</a></li>
+<li><a href="#risk-register">Risk Register</a></li>
+<li><a href="#effort--impact-matrix">Effort × Impact Matrix</a></li>
+</ul>
+<hr />
+<h2 id="current-state">Current State<a class="headerlink" href="#current-state" title="Permanent link">&para;</a></h2>
+<p>Two disjoint stacks that never talk to each other:</p>
+<p><strong>Listings side</strong> (<code>gui/src/tabs/core/elements/{content,entity}_listings_subtab.py</code>):
+- SQLCipher SQLite at <code>~/.image-toolkit/listings_secure.db</code> via <code>base.secret</code> (<code>base/src/secret/vault_db.cpp</code>).
+- One document-store table <code>listings(id, category, title, metadata JSON, date_added, embedding BLOB, dim)</code>; entities are rows with <code>category='Entity'</code>; episodes, credits, associations, genres/tags all live inside the JSON blob.
+- Argon2id KDF runs <strong>inside every API call</strong> (<code>open_db()</code>); associations are kept bidirectionally consistent by Python fetch-all/diff/re-upsert loops; all filtering/sorting happens in Python over full-table loads.
+- The <code>embedding</code> column and <code>hybrid_search_secure()</code> are dead weight (GUI writes empty or byte-of-title placeholder vectors). Recommendations bypass the DB entirely via <code>Recommendation-Engine/</code> (BGE-M3 hybrid, plain SQLite <code>rec_engine.db</code>).
+- Encrypted JSON backups (<code>assets/secrets/*.json.enc</code> via JVM <code>SecureJsonVault</code>) + multi-part image ZIPs in <code>assets/migrations/</code>.</p>
+<p><strong>Image DB side</strong> (<code>gui/src/tabs/database/{database,search,scan_metadata}_tab.py</code>):
+- PostgreSQL + pgvector via psycopg2 (<code>backend/src/database/image_database.py</code>, SQL in <code>sql/*.sql</code>; pooled variant <code>pooled_image_database.py</code>; <code>phash_deduplicator.py</code>).
+- Relational, plaintext: <code>images</code> (with denormalized <code>group_name</code>/<code>subgroup_name</code> text columns <em>and</em> separate <code>groups</code>/<code>subgroups</code> tables), typed <code>tags</code>, <code>image_tags</code> M2M, <code>embedding vector(128)</code> + HNSW index, <code>phash BIGINT</code>.
+- The <code>embedding</code> column is always <code>NULL</code> on GUI paths (dead weight #2). Requires a running Postgres server with the pgvector extension. <code>DatabaseTab</code> is the connection hub holding <code>self.db</code> + refs consumed by Search/Scan/Merge/Similarity/Wallpaper tabs and <code>ImagePreviewWindow</code>.
+- Known defects to fix in transit: upsert loop runs <code>QPixmap(path)</code> + queries on the GUI thread; backend <code>_connect()</code> failure calls <code>exit(1)</code>; DB password persisted via <code>collect()</code>.</p>
+<hr />
+<h2 id="db1-unified-schema-design">✅ DB.1 Unified Schema Design<a class="headerlink" href="#db1-unified-schema-design" title="Permanent link">&para;</a></h2>
+<p><em>Shipped 2026-07-12 (S210): DDL at <code>backend/src/database/unified/schema.sql</code> + <code>schema_fts.sql</code> (FTS5 layer, applied with graceful fallback); spec + ER diagram + legacy field mapping at <code>docs/database/unified_schema.md</code>.</em></p>
+<p>One SQLCipher database: <code>~/.image-toolkit/library.db</code>. Whole-DB encryption (answer #2) — no per-column crypto, no plaintext sidecars. Normalized relational schema replacing both the JSON blob and the pgvector schema.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─ Media / entity domain ────────────────────────────────────────────┐
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>media_items    (id TEXT PK, title, type, status, personal_rating,
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                community_rating, year, episodes_total, current_episode,
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                creator, review, web_link, local_file, image_path,
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                date_added, date_watched, extra JSON)
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>episodes       (id TEXT PK, media_item_id FK→media_items ON DELETE CASCADE,
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                number, title, date_watched, rating, review,
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                image_path, local_file, web_link)
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>entities       (id TEXT PK, name, first_name, last_name, type, role,
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                rating, year, notes, image_path, date_added, extra JSON)
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>credits        (id TEXT PK, entity_id FK→entities CASCADE,
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                title, role, year, rating, review, image_path, web_link)
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>media_entity   (media_item_id FK, entity_id FK, PK(media_item_id, entity_id))
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>entity_entity  (entity_a FK, entity_b FK, PK(entity_a, entity_b),
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>                CHECK(entity_a &lt; entity_b))          -- undirected peer link
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>┌─ Image domain ─────────────────────────────────────────────────────┐
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>groups         (id INTEGER PK, name UNIQUE)
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>subgroups      (id INTEGER PK, name, group_id FK→groups CASCADE,
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>                UNIQUE(name, group_id))
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>images         (id INTEGER PK, file_path UNIQUE, filename, file_size,
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>                width, height, phash INTEGER,
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                group_id FK→groups SET NULL,          -- normalized: FK, not text
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                subgroup_id FK→subgroups SET NULL,
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>                date_added, date_modified)
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>┌─ Shared vocabulary ────────────────────────────────────────────────┐
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>tags           (id INTEGER PK, name UNIQUE, type)     -- Artist/Series/Character/
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>image_tags     (image_id FK, tag_id FK, PK pair)      -- General/Meta/Genre
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>media_tags     (media_item_id FK, tag_id FK, PK pair) -- replaces CSV genres/tags
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>┌─ Cross-domain links (DB.8) ────────────────────────────────────────┐
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>media_groups   (media_item_id FK, group_id FK, PK pair)
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>entity_images  (entity_id FK, image_id FK, PK pair)
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>┌─ Search infrastructure (DB.7) ─────────────────────────────────────┐
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>embeddings     (owner_type TEXT, owner_id TEXT, model TEXT,
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>                dim INTEGER, vector BLOB,
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>                PK(owner_type, owner_id, model))
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>media_fts      FTS5(title, review, creator, content=media_items)
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>entity_fts     FTS5(name, notes, content=entities)
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>image_fts      FTS5(filename, file_path, content=images)
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>schema_meta    (key TEXT PK, value TEXT)              -- schema_version, etc.
+</span></code></pre></div>
+<p>Design notes:</p>
+<ul>
+<li><strong>IDs.</strong> Listings keep their existing TEXT UUIDs (<code>uuid4</code>, <code>ent-xxxxxxxx</code>) so migration is identity-preserving; image rows keep INTEGER PKs.</li>
+<li><strong><code>extra</code> JSON columns</strong> on <code>media_items</code>/<code>entities</code> absorb any legacy metadata key the normalized columns don't cover, so migration is lossless even for fields added ad hoc over time (e.g. MAL payload leftovers). New code must not write new semantics into <code>extra</code> — it is a compatibility shim.</li>
+<li><strong>CSV genres/tags become <code>media_tags</code> rows</strong> with <code>tags.type='Genre'</code>/<code>'Tag'</code>. Advanced search's include/exclude logic becomes SQL EXISTS/NOT EXISTS instead of Python set math.</li>
+<li><strong>Associations become M2M tables</strong> — the entire class of Python "fetch all rows, diff sets, re-upsert" consistency loops in both subtabs (<code>_sync_entities_for_entry</code>, <code>_sync_listings_for_entity</code>, <code>_remove_*</code> — ~500 LOC) collapses into <code>INSERT OR IGNORE</code>/<code>DELETE</code> statements inside one transaction, with FK cascades handling deletes.</li>
+<li><strong><code>group_name</code>/<code>subgroup_name</code> denormalization is dropped</strong>; views can expose the joined text form for UI compatibility during porting.</li>
+<li><strong>Indexes:</strong> FKs, <code>images(phash) WHERE phash IS NOT NULL</code>, <code>images(group_id)</code>, <code>tags(name)</code>, plus the FTS5 tables (external-content mode, kept in sync by triggers).</li>
+</ul>
+<p>Deliverable: <code>docs/database/unified_schema.md</code> with the full DDL + an ER diagram (also consumed by DB.9's ER view), reviewed before any code.</p>
+<h2 id="db2-basedatabase-the-native-storage-engine">✅ DB.2 base.database — the Native Storage Engine<a class="headerlink" href="#db2-basedatabase-the-native-storage-engine" title="Permanent link">&para;</a></h2>
+<p><em>Shipped 2026-07-12 (S210): <code>base/src/database/database.cpp</code> + <code>include/database/database.hpp</code>, registered as <code>base.database.Database</code> in <code>bindings.cpp</code>. Session-keyed handle (Argon2id once, GIL released during KDF), wrong-key detection, WAL + FK + busy_timeout pragmas, query/execute/executemany (atomic) + explicit transactions, apply_ddl/schema_version/has_fts5/vacuum/reindex/integrity_check/statistics, upsert_embedding + brute-force cosine <code>knn</code> with <code>prefilter_sql</code> (HNSW upgrade deferred to DB.7), context-manager protocol, stub class when built without SQLCipher. 14 tests in <code>backend/test/database/test_base_database.py</code> incl. encrypted-at-rest, KDF-once timing, 4-thread concurrency, FTS5-functional. FTS5 confirmed available in the linked SQLCipher.</em></p>
+<p>New C++ module <code>base/src/database/</code> registered as <code>base.database</code> (pybind11, same extension binary). <strong><code>base.secret</code> remains untouched</strong> (answer #9).</p>
+<p><strong>Why C++ rather than Python <code>sqlcipher3</code>:</strong> the <code>base</code> extension already links SQLCipher + libsodium + argon2 (used by <code>base.secret</code>); a Python SQLCipher package would load a <em>second</em> libsqlcipher into a process that also hosts the JPype JVM — exactly the lazily-loaded-native-library conflict class that has caused three SIGSEGVs in this app already. Reusing the already-linked library in a new C++ module sidesteps that entirely, and keeps the vector-search hot path native.</p>
+<p>API surface (bound class, not free functions — this is what enables the session key):</p>
+<div class="language-cpp highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Database</span><span class="w"> </span><span class="p">{</span><span class="w">                       </span><span class="c1">// py: base.database.Database</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="c1">// opens (creating if absent) library.db; runs Argon2id ONCE here</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">Database</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">db_path</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">password</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">salt</span><span class="p">);</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="nf">close</span><span class="p">();</span><span class="w">                      </span><span class="c1">// + context-manager __enter__/__exit__</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="c1">// migrations &amp; health</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="kt">int</span><span class="w">  </span><span class="nf">schema_version</span><span class="p">();</span><span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="nf">apply_ddl</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">sql</span><span class="p">);</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="nf">vacuum</span><span class="p">();</span><span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="nf">reindex</span><span class="p">();</span><span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="nf">integrity_check</span><span class="p">();</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="n">py</span><span class="o">::</span><span class="n">dict</span><span class="w"> </span><span class="nf">statistics</span><span class="p">();</span><span class="w">             </span><span class="c1">// counts, file sizes, last-modified</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="c1">// generic parameterized SQL (the DAL builds on these; DAL owns SQL text)</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="n">py</span><span class="o">::</span><span class="n">list</span><span class="w"> </span><span class="nf">query</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">sql</span><span class="p">,</span><span class="w"> </span><span class="n">py</span><span class="o">::</span><span class="n">tuple</span><span class="w"> </span><span class="n">params</span><span class="p">);</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="kt">int</span><span class="w">      </span><span class="nf">execute</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">sql</span><span class="p">,</span><span class="w"> </span><span class="n">py</span><span class="o">::</span><span class="n">tuple</span><span class="w"> </span><span class="n">params</span><span class="p">);</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="kt">void</span><span class="w">     </span><span class="nf">executemany</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">sql</span><span class="p">,</span><span class="w"> </span><span class="n">py</span><span class="o">::</span><span class="n">list</span><span class="w"> </span><span class="n">rows</span><span class="p">);</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="kt">void</span><span class="w">     </span><span class="nf">begin</span><span class="p">();</span><span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="nf">commit</span><span class="p">();</span><span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="nf">rollback</span><span class="p">();</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="c1">// vector search hot path (DB.7)</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="kt">void</span><span class="w">     </span><span class="nf">upsert_embedding</span><span class="p">(</span><span class="n">owner_type</span><span class="p">,</span><span class="w"> </span><span class="n">owner_id</span><span class="p">,</span><span class="w"> </span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">py</span><span class="o">::</span><span class="n">array_t</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="n">py</span><span class="o">::</span><span class="n">list</span><span class="w"> </span><span class="n">knn</span><span class="p">(</span><span class="n">owner_type</span><span class="p">,</span><span class="w"> </span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">py</span><span class="o">::</span><span class="n">array_t</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="w"> </span><span class="n">query</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">top_k</span><span class="p">,</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">                 </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">sql_prefilter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">);</span><span class="w">   </span><span class="c1">// HNSW w/ brute-force fallback</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="kt">void</span><span class="w">     </span><span class="nf">rebuild_vector_index</span><span class="p">(</span><span class="n">owner_type</span><span class="p">,</span><span class="w"> </span><span class="n">model</span><span class="p">);</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="p">};</span>
+</span></code></pre></div>
+<ul>
+<li>The keyed <code>sqlite3*</code> handle lives for the object's lifetime → <strong>one KDF per session</strong> (answer #6), vs one per call today. The GUI owns a single <code>Database</code> instance created at login (post-vault-unlock, same <code>raw_password</code>/<code>account_name</code> inputs <code>base.secret</code> uses today) and threads it through a small accessor in <code>backend/src/database/unified/session.py</code>.</li>
+<li>WAL mode + <code>busy_timeout</code>; a coarse internal mutex serializes access from Qt worker threads (QRunnable workers already funnel DB work through few threads; contention at this scale is negligible).</li>
+<li>HNSW index built in-memory at first use from the <code>embeddings</code> table and persisted to an encrypted sidecar blob table (<code>vector_index(model, owner_type, data BLOB)</code>); reuses the hnswlib vendoring already present for <code>base.similarity</code>/<code>base.recon</code>.</li>
+<li>FTS5 must be enabled in the SQLCipher build flags (<code>-DSQLITE_ENABLE_FTS5</code>) — verify at CMake configure time; build-env notes in the pixi/RPATH memory apply.</li>
+<li>Tests: pure-C++-free pytest suite <code>backend/test/database/test_base_database.py</code> (tmpdir DBs, wrong-password behavior, concurrent-worker smoke test, KDF-once timing assertion).</li>
+</ul>
+<p><strong>CRUD language split (perf-guided, answer #9):</strong> connection/transaction/KDF/vector/FTS machinery in C++; <em>SQL text and domain logic</em> in the Python DAL (DB.3). Row-shuffling CRUD is I/O-bound — Python building parameterized statements over the C++ <code>query/execute</code> primitives measures identically to native CRUD at this scale, and keeps iteration fast. If a specific path proves hot (bulk scan upserts), promote just that path to a dedicated C++ method.</p>
+<h2 id="db3-python-dal-backendsrcdatabaseunified">✅ DB.3 Python DAL (<code>backend/src/database/unified/</code>)<a class="headerlink" href="#db3-python-dal-backendsrcdatabaseunified" title="Permanent link">&para;</a></h2>
+<p><em>Shipped 2026-07-12 (S210): <code>session.py</code> (login-time singleton + <code>ensure_schema</code> with FTS5 fallback flag), <code>media_repo</code>/<code>entity_repo</code> (legacy entry-dict dialect round-trips — CSV genres/tags ↔ <code>media_tags</code>, <code>episode_list</code>/<code>credit_list</code> ↔ tables, associations ↔ M2M), <code>image_repo</code> (PgvectorImageDatabase-parity names, FK groups, bulk <code>paths_in_db</code>), <code>tag_repo</code> (typed vocabulary + <code>merge_tags</code>), <code>search_repo</code> (structured image search parity, FTS5-with-LIKE-fallback text search, <code>advanced_media_search</code> SQL builder, <code>semantic_image_search</code> knn+prefilter), <code>maintenance.py</code> (legacy-shape statistics, reset gated on a verified backup manifest). 14 tests in <code>backend/test/database/test_unified_repos.py</code>.</em></p>
+<p>Repository layer that both tab families consume; no GUI file touches SQL directly.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>backend/src/database/unified/
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    session.py        # login-time Database construction, singleton accessor
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    media_repo.py     # media_items + episodes + media_entity + media_tags
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    entity_repo.py    # entities + credits + entity_entity + entity_images
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    image_repo.py     # images + groups/subgroups + image_tags + phash queries
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    tag_repo.py       # unified tag vocabulary (typed), rename/merge ops
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    search_repo.py    # FTS5 queries, advanced-search SQL builder, knn wrappers
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    maintenance.py    # vacuum/reindex/integrity/statistics/reset(dev-gated)
+</span></code></pre></div>
+<ul>
+<li>Mirrors <code>PgvectorImageDatabase</code>'s method names where practical (<code>add_image</code>, <code>search_images</code>, <code>get_all_tags_with_types</code>, <code>get_subgroups_for_group</code>, …) so DB.6's tab port is mostly an import swap.</li>
+<li>Replaces the listings side's dict-blob contract with typed dicts/dataclasses; a thin compatibility function reconstructs the legacy entry-dict shape for the detail panels until DB.5 finishes.</li>
+<li>All mutations transactional; save-of-a-listing (entry + associations + tags) is <strong>one</strong> transaction instead of today's N upserts × N KDFs.</li>
+<li>Unit tests per repo module (these are plain SQLite-level tests — safe to run, no GUI, no JVM).</li>
+</ul>
+<h2 id="db4-backups-migration-scripts-backendmigrations">✅ DB.4 Backups &amp; Migration Scripts (<code>backend/migrations/</code>)<a class="headerlink" href="#db4-backups-migration-scripts-backendmigrations" title="Permanent link">&para;</a></h2>
+<p><em>Shipped 2026-07-12 (S210): all five steps + runner. 000 <code>backup_all.py</code> (see progress note below); 001 <code>create_library_db.py</code> (DDL + version stamp, idempotent); 002 <code>migrate_listings.py</code> (reads via <code>base.secret.fetch_all_listings_secure</code> — its last consumer; two-pass rows-then-links so ordering can't drop associations; asymmetric legacy association data healed by M2M union; dangling ids logged AND parked in <code>extra._dangling_*</code>); 003 <code>migrate_pgvector.py</code> (injectable data provider — psycopg2 confined to the default provider; FK resolution for the denormalized text columns; original dates + pHashes preserved; graceful skip when unreachable, re-runnable); 004 <code>verify_migration.py</code> (full id↔title sweep vs legacy listings, pgvector counts + sampled paths, <code>integrity_check</code> + <code>foreign_key_check</code>, parked-dangling report); <code>runner.py</code> (resumable state file at <code>~/.image-toolkit/.phase_db_migration_state.json</code>, backup manifest re-verified by hash on EVERY run, verification failure aborts non-zero pointing at the backups, <code>--skip-postgres</code>/<code>--force</code>). 13 tests in <code>backend/test/database/test_migrations.py</code> incl. end-to-end runner, resume, tampered-backup refusal, verification-failure abort.</em></p>
+<p>Non-negotiable order (answer #8): <strong>backup first, migrate second, verify third.</strong> New directory:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>backend/migrations/            # module names can&#39;t start with digits — the
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    backup_all.py              #   runner maps step numbers to modules
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    create_library_db.py       # 001: DDL from DB.1 via base.database, stamps schema_version
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    migrate_listings.py        # 002: listings_secure.db → library.db
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    migrate_pgvector.py        # 003: PostgreSQL → library.db (skippable if server absent)
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    verify_migration.py        # 004: row-count + checksum + referential-integrity report
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    runner.py                  # orchestrates 000→004, idempotent, resumable
+</span></code></pre></div>
+<p><em>Progress: ✅ 000 <code>backup_all.py</code> shipped 2026-07-12 (S210) — timestamped dirs under <code>assets/migrations/pre_unified/</code>, SHA-256 manifest, <code>verify_manifest()</code> re-hash check, staleness warnings on <code>.enc</code> copies, pg_dump with graceful skip; 4 tests in <code>backend/test/database/test_backup_all.py</code>.</em></p>
+<ul>
+<li><strong>000_backup_all</strong>: (a) file-copy <code>listings_secure.db</code> → <code>assets/migrations/pre_unified/listings_secure.db.bak</code>; (b) trigger the existing encrypted JSON backup path (equivalent of both "Update Backup" buttons) so <code>listings.json.enc</code>/<code>entities.json.enc</code> are current; &copy; <code>pg_dump --format=custom</code> of the image DB → <code>assets/migrations/pre_unified/imagedb.dump</code> (graceful skip + loud warning if Postgres is unreachable); (d) manifest with SHA-256 of every artifact.</li>
+<li><strong>002_migrate_listings</strong>: reads via <code>base.fetch_all_listings_secure</code> (last use of that API); explodes each JSON blob into <code>media_items</code>/<code>episodes</code>/<code>entities</code>/<code>credits</code>; splits CSV genres/tags into <code>tags</code>+<code>media_tags</code>; converts <code>associated_*</code> lists into M2M rows (dangling IDs logged, not dropped — parked in <code>extra</code>); unknown keys → <code>extra</code>.</li>
+<li><strong>003_migrate_pgvector</strong>: streams <code>images</code>/<code>groups</code>/<code>subgroups</code>/<code>tags</code>/<code>image_tags</code> via psycopg2 (the only surviving use of it, inside the script); resolves text <code>group_name</code>/<code>subgroup_name</code> → FKs; carries <code>phash</code> over; <code>embedding</code> column is ignored (it's NULL everywhere).</li>
+<li><strong>004_verify</strong>: source-vs-target row counts per table, spot-check field equality on a random sample, <code>PRAGMA foreign_key_check</code>, orphaned-association report. Runner exits non-zero and points at the backups if anything mismatches.</li>
+<li>Runner invoked from a first-launch dialog ("Library upgrade required — a full backup will be created first") and from the CLI (<code>python -m backend.migrations.runner</code>).</li>
+</ul>
+<h2 id="db5-listings-subtabs-on-the-unified-store">🔄 DB.5 Listings Subtabs on the Unified Store<a class="headerlink" href="#db5-listings-subtabs-on-the-unified-store" title="Permanent link">&para;</a></h2>
+<p><em>Mostly shipped 2026-07-12 (S210): both subtabs + both detail panels ported to <code>MediaRepo</code>/<code>EntityRepo</code> via <code>gui/src/helpers/core/library_session.py</code> (session opened lazily on first use; first-launch migration prompt with backup gate + threaded progress dialog when the library is empty and legacy data exists). All four association-sync loops, both <code>_save_data</code> full-rewrites, and the <code>listings_common</code> save helpers + <code>fetch_entity_name_map</code> are deleted (~600 LOC); <code>_SyncBackupWorker.run_sync</code> now upserts through the repos on the session handle (no delete-all/reinsert window); entity-name search map uses <code>list_ids_and_titles()</code> instead of fetch-all. <strong>Deferred to a follow-up:</strong> moving gallery filter/sort + advanced search from in-memory Python onto <code>search_repo</code> SQL/FTS (the SQL builders exist and are tested; the subtabs still filter their loaded lists).</em></p>
+<p>Port <code>ContentListingsSubTab</code> / <code>EntityListingsSubTab</code> + detail panels/dialogs to the DAL. UI appearance unchanged; internals simplified:</p>
+<ul>
+<li><code>_load_data</code> → repo list calls (already-joined, typed rows). <code>_upsert_entry</code>/<code>_upsert_entity</code> → single-transaction repo saves. Delete → FK cascades.</li>
+<li>The four association-sync methods and both <code>_save_data</code> full-rewrites are <strong>deleted</strong>, along with the cross-subtab <code>_on_external_reload</code> fetch-all churn (subtabs re-query only affected rows; the existing changed signals stay as the notification bus).</li>
+<li>Search/filter/sort move to <code>search_repo</code> (FTS5 + SQL) — fixes the O(N·M) entity-name search and enables searching without loading the world.</li>
+<li>Advanced search dialog criteria compile to SQL via <code>search_repo.build_advanced_query()</code> (include/exclude entities/tags/genres, AND/OR).</li>
+<li>MAL fetch, directory import, thumbnail generation, recommendation dialog are untouched consumers — they just save through the new repos. <code>RecommendationWorker</code> keeps <code>rec_engine.db</code> for now (unified in DB.7).</li>
+<li>The encrypted <code>.enc</code> backup buttons keep working against a JSON export produced from the repos (format-compatible with today's files so old backups remain restorable).</li>
+</ul>
+<h2 id="db6-image-tabs-on-the-unified-store-postgres-retirement">DB.6 Image Tabs on the Unified Store (Postgres Retirement)<a class="headerlink" href="#db6-image-tabs-on-the-unified-store-postgres-retirement" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>SearchTab / ScanMetadataTab / ImagePreviewWindow / Wallpaper system-display</strong>: swap <code>db_tab_ref.db</code> (Postgres) for <code>image_repo</code>/<code>search_repo</code>. <code>SearchWorker</code> and the scan workers keep their threading shape. Fix in transit: <code>perform_upsert_operation</code>'s per-image <code>QPixmap</code> + queries move into a QRunnable worker (batch transaction, progress signal) — no more GUI-thread freezes on big batches.</li>
+<li><strong>DatabaseTab ("Configuration") → "Library Maintenance" panel</strong>: connection form/connect/disconnect deleted (the store opens at login). Survivors: statistics banner, vacuum/reindex/integrity, group/subgroup/tag CRUD + inline rename + bulk JSON tag import + auto-populate-from-directory — all on <code>tag_repo</code>/<code>image_repo</code>/<code>maintenance</code>. Reset stays double-confirmed and now also forces a <code>000_backup_all</code>-style export first.</li>
+<li><strong>Tab layout (answer #7)</strong>: the "Database Management" category becomes <strong>"Library"</strong>: <code>Content Listings · Entity Listings · Image Search · Scan &amp; Tag · Maintenance · Data Browser (DB.9)</code>. The Listings entry is removed from "System Tools". (Main-window constraint from project memory: tabs stay plain QWidget subclasses; no heavy compute in constructors.)</li>
+<li><strong>Retirement</strong>: <code>backend/src/database/image_database.py</code>, <code>pooled_image_database.py</code>, <code>sql/*.sql</code> move to <code>archive/</code>; <code>psycopg2</code>/<code>psycopg_pool</code>/pgvector removed from requirements (psycopg2 stays importable only for <code>003_migrate_pgvector</code>, guarded); <code>env/vars.env</code> DB_* keys deprecated; <code>phash_deduplicator</code> re-pointed at <code>image_repo</code>.</li>
+<li>The saved-config format (<code>collect</code>/<code>set_config</code>) drops connection credentials — fixes the stored-password wart.</li>
+</ul>
+<h2 id="db7-semantic-search-cbir">DB.7 Semantic Search &amp; CBIR<a class="headerlink" href="#db7-semantic-search-cbir" title="Permanent link">&para;</a></h2>
+<p>Real semantic image search (answer #4), shared engine across both domains:</p>
+<ul>
+<li><strong>Image embeddings</strong>: MetaCLIP image encoder (already integrated for the Inference tab) as the default <code>model='metaclip'</code>; embedding worker (QThreadPool, GPU-optional, batched) fills <code>embeddings(owner_type='image')</code> during Scan &amp; Tag upserts and via a backfill action in Maintenance ("Embed N unembedded images").</li>
+<li><strong>Text→image search</strong>: MetaCLIP text encoder → <code>knn('image', 'metaclip', vec, k, sql_prefilter=…)</code>, with the SQL prefilter compiled from the existing Search tab filters (group/tags/format) so vector search composes with structured search. New "Semantic" mode toggle + natural-language box in the Search tab; "Find similar" context-menu action on every image card (query by image embedding).</li>
+<li><strong>pHash</strong> remains the dedup primitive only (Similarity tab, extension use-case) — explicitly not the search engine.</li>
+<li><strong>Listings semantic search</strong>: BGE-M3 embeddings for <code>media_items</code>/<code>entities</code> stored under <code>model='bge-m3'</code>; <code>Recommendation-Engine</code>'s store gains a <code>LibraryBackend</code> so <code>rec_engine.db</code> is absorbed and the dead placeholder-embedding code in <code>listings_common.py</code> (<code>save_*_entry_to_db</code> byte-of-title vectors) is deleted.</li>
+<li><strong>Index</strong>: hnswlib per (owner_type, model) inside <code>base.database</code> (DB.2), persisted encrypted; brute-force fallback below ~5k vectors (cheaper than index maintenance). Cosine metric everywhere.</li>
+<li>Acceptance: text query over 50k images returns top-50 in &lt;150 ms warm; find-similar returns visually coherent neighbors on the owner's real library.</li>
+</ul>
+<h2 id="db8-cross-domain-features">DB.8 Cross-Domain Features<a class="headerlink" href="#db8-cross-domain-features" title="Permanent link">&para;</a></h2>
+<p>The payoff for a single store (answer #5 — "EVERYTHING"):</p>
+<ul>
+<li><strong>DB.8a Media ↔ image groups</strong>: <code>media_groups</code> M2M; detail panel gains a "Linked Image Groups" chip row (picker over <code>groups</code>); a "View images" button jumps to Image Search pre-filtered to that group. Auto-suggest links by title↔group-name fuzzy match (reuse the MAL name-matching normalizer).</li>
+<li><strong>DB.8b Entity ↔ images</strong>: <code>entity_images</code> M2M; entity detail panel gets a linked-images gallery strip; Entity Recon tab gets a "link matches to library entity" action writing <code>entity_images</code> (bridges <code>base.recon</code> IdentityIndex hits into the library).</li>
+<li><strong>DB.8c Unified tag vocabulary</strong>: listings' free-CSV tags/genres and the image DB's typed tags are the same <code>tags</code> table post-migration; Maintenance gains a tag-merge tool (case/underscore duplicates produced by the CSV split); tag chips in listings autocomplete from the shared vocabulary; clicking a tag anywhere offers "search images / search listings with this tag".</li>
+<li><strong>DB.8d Auto-create listings from scans</strong>: the video-directory import already parses series/episodes; extend Scan &amp; Tag so an image/video scan can propose <code>media_items</code> (one per detected series/group) with <code>media_groups</code> links pre-filled — one review dialog, then a single transaction.</li>
+</ul>
+<h2 id="db9-data-browser-tab-raw-tables-er-view">DB.9 Data Browser Tab (Raw Tables + ER View)<a class="headerlink" href="#db9-data-browser-tab-raw-tables-er-view" title="Permanent link">&para;</a></h2>
+<p>New tab in the Library category (answer #7, per the provided ER-diagram reference):</p>
+<ul>
+<li><strong>Schema/ER view</strong>: QGraphicsScene rendering each table as a titled column-list card (PK starred, FK annotated) with crow's-foot relationship edges — same visual grammar as the reference image. Layout auto-generated from <code>PRAGMA table_info</code>/<code>foreign_key_list</code> (so it never drifts from the real schema), domain-clustered (media / images / shared / search) like the Sales/Production grouping in the reference. Pan/zoom; clicking a table opens it in the grid. The wallpaper graph-view infrastructure (<code>elements/graph/</code>) is the starting point for scene/zoom plumbing.</li>
+<li><strong>Table grid view</strong>: table picker → paginated read-only <code>QTableView</code> over <code>Database.query</code> showing <strong>raw field values</strong> (file-path strings, FK integers, dates — no thumbnails). FK cells are hyperlinks that navigate to the referenced row; a reverse-references side panel lists incoming rows ("this group is referenced by 214 images, 3 media_items"). Column sort + per-column filter + <code>WHERE</code> box (read-only: statements are wrapped in <code>SELECT</code>, mutations rejected).</li>
+<li><strong>Edit mode (v2, gated)</strong>: opt-in cell editing for scalar columns with FK validation — deferred until the read-only browser has soaked.</li>
+<li>Export current view as CSV/JSON.</li>
+</ul>
+<h2 id="db10-backup-pipeline-retarget-final-cleanup">DB.10 Backup Pipeline Retarget &amp; Final Cleanup<a class="headerlink" href="#db10-backup-pipeline-retarget-final-cleanup" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>_SyncBackupWorker</code> re-pointed at the unified store: "Update Backup" exports repos → the same <code>listings.json.enc</code>/<code>entities.json.enc</code> format (old backups remain restorable via the migration importer); a new full-library encrypted dump (<code>library.json.enc</code> or SQLCipher <code>VACUUM INTO</code> copy) added for the image domain; image ZIP parts unchanged.</li>
+<li>Delete dead code: <code>base.secret</code> <strong>stays as-is</strong> for the Vault, but the listings-specific callers (<code>insert_listing_secure</code> et al. call sites, <code>listings_common.save_*_entry_to_db</code>, sync-worker delete-all/reinsert path) are removed; <code>hybrid_search_secure</code> becomes unused by the GUI (left in place — it's Vault-module territory, not ours to prune).</li>
+<li>Docs: <code>docs/database/unified_schema.md</code> finalized; AGENTS/CLAUDE notes updated (new login-time DB handle, no Postgres); <code>docs/CHANGELOG.md</code> entries per phase.</li>
+<li>Tests green: <code>backend/test/database/</code> (new engine + repos + migration round-trip on synthetic fixtures) — no GUI tests, no full-suite runs (per project testing rules).</li>
+</ul>
+<hr />
+<h2 id="phasing-dependency-graph">Phasing &amp; Dependency Graph<a class="headerlink" href="#phasing-dependency-graph" title="Permanent link">&para;</a></h2>
+<p>Incremental (answer #10 — implementer's choice); the app ships after every phase.</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Contents</th>
+<th>Ships with app in what state</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>✅ P0</td>
+<td>DB.1 schema spec + DB.4 <code>000_backup_all</code></td>
+<td>Unchanged app + backup tool</td>
+<td>done (S210)</td>
+</tr>
+<tr>
+<td>✅ P1</td>
+<td>DB.2 <code>base.database</code> + DB.3 DAL + DB.4 migrations 001–004</td>
+<td>Unchanged UI; <code>library.db</code> created &amp; populated; old stores read-only fallbacks</td>
+<td>done (S210)</td>
+</tr>
+<tr>
+<td>🔄 P2</td>
+<td>DB.5 listings port</td>
+<td>Listings run on unified store; image tabs still on Postgres</td>
+<td>mostly done (S210); SQL-side filtering deferred</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>DB.6 image-tab port + Postgres retirement + Library category</td>
+<td>Postgres gone; unified Library UI</td>
+<td>~1.5w</td>
+</tr>
+<tr>
+<td>P4</td>
+<td>DB.7 semantic search &amp; CBIR</td>
+<td>Text→image + find-similar live; rec engine unified</td>
+<td>~1.5w</td>
+</tr>
+<tr>
+<td>P5</td>
+<td>DB.8 cross-domain features</td>
+<td>Links, shared tags, auto-listings</td>
+<td>~1w</td>
+</tr>
+<tr>
+<td>P6</td>
+<td>DB.9 data browser + DB.10 cleanup/backups/docs</td>
+<td>End state</td>
+<td>~1w</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>flowchart LR
+    classDef infra    fill:#0891b2,color:#fff
+    classDef migration fill:#4338ca,color:#fff
+    classDef refactor fill:#0f766e,color:#fff
+    classDef feature  fill:#2563eb,color:#fff
+    classDef planned  stroke:#64748b,stroke-width:2px
+
+    db1["DB.1 Schema"]:::infra:::planned
+    db2["DB.2 base.database"]:::infra:::planned
+    db3["DB.3 Python DAL"]:::infra:::planned
+    db4["DB.4 Backups +\nMigrations"]:::migration:::planned
+    db5["DB.5 Listings port"]:::refactor:::planned
+    db6["DB.6 Image tabs port\n(drop Postgres)"]:::refactor:::planned
+    db7["DB.7 Semantic\nsearch / CBIR"]:::feature:::planned
+    db8["DB.8 Cross-domain\nfeatures"]:::feature:::planned
+    db9["DB.9 Data Browser"]:::feature:::planned
+    db10["DB.10 Backup retarget\n+ cleanup"]:::refactor:::planned
+
+    db1 ==&gt; db2 ==&gt; db3 ==&gt; db4
+    db4 ==&gt; db5 --&gt; db6
+    db3 --&gt; db7
+    db6 --&gt; db7
+    db6 ==&gt; db8
+    db7 --&gt; db8
+    db3 --&gt; db9
+    db6 --&gt; db10
+    db8 --&gt; db10</code></pre>
+<h2 id="risk-register">Risk Register<a class="headerlink" href="#risk-register" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Data loss during migration</strong> (there is precedent: the listings delete-then-reinsert incident)</td>
+<td><code>000_backup_all</code> is a hard gate; runner is idempotent/resumable; <code>004_verify</code> blocks cutover; old stores kept read-only until P6; <code>.enc</code> restore path preserved</td>
+</tr>
+<tr>
+<td>Second libsqlcipher / JVM native-lib SIGSEGV class</td>
+<td>No Python SQLCipher package — <code>base.database</code> reuses the already-linked SQLCipher inside the <code>base</code> extension (see JVM/native-lib conflict memory)</td>
+</tr>
+<tr>
+<td>FTS5 missing from SQLCipher build</td>
+<td>CMake configure-time check; pixi build-env notes (PKG_CONFIG_PATH / system-OpenSSL / RPATH ordering) apply to the new module</td>
+</tr>
+<tr>
+<td>Keyed handle + Qt worker threads</td>
+<td>WAL + internal mutex in DB.2; repos never share statements across threads; smoke test in <code>test_base_database.py</code></td>
+</tr>
+<tr>
+<td>Postgres unreachable at migration time</td>
+<td>003 is skippable with a loud warning + re-runnable later; nothing else depends on it</td>
+</tr>
+<tr>
+<td>Session key in memory</td>
+<td>Same exposure as today (<code>vault_manager.raw_password</code> already lives in-process); key is zeroized on <code>close()</code></td>
+</tr>
+<tr>
+<td>Perf regressions vs Postgres at 10k–100k rows</td>
+<td>Indexed SQLite + FTS5 comfortably beats the current <code>ILIKE %…%</code> + Python-side filtering at this scale; measure in P3 with a 100k synthetic fixture before retiring Postgres</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effort-impact-matrix">Effort × Impact Matrix<a class="headerlink" href="#effort-impact-matrix" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Effort</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DB.2 + DB.3 (engine + DAL)</td>
+<td>High</td>
+<td>Critical — everything sits on it; kills KDF-per-call and both dead embedding columns</td>
+</tr>
+<tr>
+<td>DB.4 migrations</td>
+<td>Medium</td>
+<td>Critical — the no-data-loss gate</td>
+</tr>
+<tr>
+<td>DB.5 listings port</td>
+<td>Medium</td>
+<td>High — deletes ~500 LOC of association loops, adds real search</td>
+</tr>
+<tr>
+<td>DB.6 image port</td>
+<td>Medium</td>
+<td>High — removes the Postgres server dependency entirely</td>
+</tr>
+<tr>
+<td>DB.7 CBIR</td>
+<td>Medium-High</td>
+<td>High — the first <em>real</em> semantic search in the app</td>
+</tr>
+<tr>
+<td>DB.8 cross-domain</td>
+<td>Medium</td>
+<td>High — the actual point of merging</td>
+</tr>
+<tr>
+<td>DB.9 data browser</td>
+<td>Medium</td>
+<td>Medium — inspection/debugging + requested ER view</td>
+</tr>
+<tr>
+<td>DB.10 cleanup</td>
+<td>Low</td>
+<td>Medium — dependency diet, docs, backup continuity</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ACFPeacekeeper/Image-Toolkit" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

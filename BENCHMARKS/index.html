@@ -356,13 +356,13 @@
     
     
       <li class="md-tabs__item">
-        <a href="../reports/analytics/" class="md-tabs__link">
+        <a href="../research/analytics/" class="md-tabs__link">
           
   
   
     
   
-  Reports
+  Research
 
         </a>
       </li>
@@ -2614,7 +2614,7 @@
   <span class="md-ellipsis">
     
   
-    Reports
+    Research
   
 
     
@@ -2630,7 +2630,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Reports
+    Research
   
 
           </label>
@@ -2643,7 +2643,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/analytics/" class="md-nav__link">
+      <a href="../research/analytics/" class="md-nav__link">
         
   
   
@@ -2671,7 +2671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/asp_research/" class="md-nav__link">
+      <a href="../research/asp_research/" class="md-nav__link">
         
   
   
@@ -2699,7 +2699,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/image_generation/" class="md-nav__link">
+      <a href="../research/image_generation/" class="md-nav__link">
         
   
   
@@ -2727,7 +2727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reports/image_stitching/" class="md-nav__link">
+      <a href="../research/image_stitching/" class="md-nav__link">
         
   
   
@@ -3748,11 +3748,11 @@ the Python ML pipeline and Recommendation Engine. Catch2 benchmarks live in
 <hr />
 <h2 id="anime-stitch-pipeline-benchmark">Anime Stitch Pipeline Benchmark<a class="headerlink" href="#anime-stitch-pipeline-benchmark" title="Permanent link">&para;</a></h2>
 <p>The anime stitch benchmark runs both the <strong>Anime Stitch Pipeline (ASP)</strong> and the
-<strong>OpenCV SCANS Simple Stitch</strong> on every <code>data/asp_testX/</code> dataset, computes CV
+<strong>OpenCV SCANS Simple Stitch</strong> on every <code>dump/asp_testX/</code> dataset, computes CV
 metrics for each output, saves intermediate visualisations, and generates a
 structured Markdown report for human review and LLM-assisted iteration.</p>
 <h3 id="asp-benchmark-corpus">ASP Benchmark Corpus<a class="headerlink" href="#asp-benchmark-corpus" title="Permanent link">&para;</a></h3>
-<p><strong>Corpus size</strong>: 97 test datasets (<code>data/asp_test1/</code> – <code>data/asp_test97/</code>).
+<p><strong>Corpus size</strong>: 97 test datasets (<code>dump/asp_test01/</code> – <code>dump/asp_test97/</code>).
 Each contains 4–20 source frames captured from scroll-through anime content.
 The safe test runner (no GPU, uses pre-computed fixtures) is:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pytest<span class="w"> </span>backend/test/animation/<span class="w"> </span>--skip-gpu<span class="w"> </span>-q
@@ -3816,17 +3816,17 @@ The safe test runner (no GPU, uses pre-computed fixtures) is:</p>
 <td>higher better</td>
 </tr>
 <tr>
-<td><code>ghosting_score</code> (proxy gate)</td>
-<td>&lt; 15</td>
-<td>&lt; 10</td>
-<td>GhostGate at <code>max(40, 2× sim_ghost)</code></td>
-<td>lower better</td>
+<td><code>edge_energy_score</code> (sharpness proxy; NOT ghosting)</td>
+<td>—</td>
+<td>—</td>
+<td>diagnostic only</td>
+<td>—</td>
 </tr>
 <tr>
-<td><code>ghosting_siqe</code> (FFT autocorr)</td>
+<td><code>ghosting_siqe</code> (FFT autocorr, true ghost metric)</td>
 <td>&lt; 20</td>
 <td>—</td>
-<td>flag &gt; 30</td>
+<td>GhostGate at <code>max(40, 2× sim)</code>; flag &gt; 30</td>
 <td>lower better</td>
 </tr>
 <tr>
@@ -3869,7 +3869,7 @@ taxonomy bar charts, and a styled per-test table.</p>
 back to CPU otherwise.</p>
 <h3 id="running-the-benchmark">Running the Benchmark<a class="headerlink" href="#running-the-benchmark" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># From the repository root, with the venv active:</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>python<span class="w"> </span>backend/benchmark/bench_anime_stitch.py
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>python<span class="w"> </span>-m<span class="w"> </span>backend.benchmark.bench_anime_stitch<span class="w">   </span><span class="c1"># or: just asp-benchmark</span>
 </span></code></pre></div>
 <p>The script processes every <code>data/asp_test*</code> directory in natural sort order.
 Each dataset takes roughly 1–5 minutes depending on GPU availability and the
@@ -4283,7 +4283,7 @@ plots but the report will reference missing image files.</p>
 from that directory. In VS Code, use the built-in Markdown preview (<code>Ctrl+Shift+V</code>)
 with the workspace root set to <code>data/output/</code>, or use the absolute path override:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Re-generate with absolute paths (edit generate_report() if needed)</span>
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="nv">REPORT_ABS_PATHS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>backend/benchmark/bench_anime_stitch.py
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="nv">REPORT_ABS_PATHS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>backend.benchmark.bench_anime_stitch<span class="w">   </span><span class="c1"># or: just asp-benchmark</span>
 </span></code></pre></div>
 <h2 id="registering-a-new-benchmark-with-ci">Registering a New Benchmark with CI<a class="headerlink" href="#registering-a-new-benchmark-with-ci" title="Permanent link">&para;</a></h2>
 <h3 id="python-benchmark">Python benchmark<a class="headerlink" href="#python-benchmark" title="Permanent link">&para;</a></h3>
