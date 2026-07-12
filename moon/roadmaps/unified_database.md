@@ -119,7 +119,9 @@ Design notes:
 
 Deliverable: `docs/database/unified_schema.md` with the full DDL + an ER diagram (also consumed by DB.9's ER view), reviewed before any code.
 
-## DB.2 base.database — the Native Storage Engine
+## ✅ DB.2 base.database — the Native Storage Engine
+
+*Shipped 2026-07-12 (S210): `base/src/database/database.cpp` + `include/database/database.hpp`, registered as `base.database.Database` in `bindings.cpp`. Session-keyed handle (Argon2id once, GIL released during KDF), wrong-key detection, WAL + FK + busy_timeout pragmas, query/execute/executemany (atomic) + explicit transactions, apply_ddl/schema_version/has_fts5/vacuum/reindex/integrity_check/statistics, upsert_embedding + brute-force cosine `knn` with `prefilter_sql` (HNSW upgrade deferred to DB.7), context-manager protocol, stub class when built without SQLCipher. 14 tests in `backend/test/database/test_base_database.py` incl. encrypted-at-rest, KDF-once timing, 4-thread concurrency, FTS5-functional. FTS5 confirmed available in the linked SQLCipher.*
 
 New C++ module `base/src/database/` registered as `base.database` (pybind11, same extension binary). **`base.secret` remains untouched** (answer #9).
 

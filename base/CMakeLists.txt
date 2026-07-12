@@ -145,6 +145,9 @@ pybind11_add_module(base
     src/secret/locked_secret.cpp
     src/secret/vault_db.cpp
 
+    # Unified Library Database engine (Phase DB)
+    src/database/database.cpp
+
     # HTTP + board crawlers + cloud sync (Phase 5 + 9)
     # clients/: single-concept HTTP files
     src/web/clients/web_requests.cpp
