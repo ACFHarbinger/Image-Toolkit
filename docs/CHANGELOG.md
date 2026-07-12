@@ -4,6 +4,14 @@
 
 ---
 
+## S210 — 2026-07-12 (Phase DB kickoff — unified database roadmap, schema v1, backup gate)
+
+Implements P0 of [moon/roadmaps/unified_database.md](../moon/roadmaps/unified_database.md) (merging the Listings subtabs' SQLCipher store and the Database tabs' PostgreSQL+pgvector index into one encrypted `~/.image-toolkit/library.db`; Postgres to be dropped entirely).
+
+- **Roadmap**: new `moon/roadmaps/unified_database.md` (DB.1–DB.10, phasing P0–P6, risk register) + Phase DB table in `moon/ROADMAP.md`, parameterized by owner Q&A (encrypt everything, session-keyed Argon2id, new `base.database` C++ module — `base.secret` untouched, real CBIR, unified Library tab category + raw Data Browser tab).
+- **DB.1 Schema v1**: `backend/src/database/unified/schema.sql` (media_items/episodes/entities/credits + M2M associations, FK'd images/groups/subgroups, unified typed tags, cross-domain `media_groups`/`entity_images`, polymorphic `embeddings` + `vector_index`) and `schema_fts.sql` (external-content FTS5 + sync triggers, runtime-optional). Spec, ER diagram, and legacy→v1 field mapping in `docs/database/unified_schema.md`.
+- **DB.4 backup gate (step 000)**: `backend/migrations/backup_all.py` — timestamped backup dirs under `assets/migrations/pre_unified/` with SHA-256 manifest; copies `listings_secure.db` + both `.enc` exports (staleness warnings), `pg_dump --format=custom` with graceful skip when Postgres is unreachable; refuses to write an empty backup; `verify_manifest()` re-hash check for the runner's gate. 4 tests (`backend/test/database/test_backup_all.py`).
+
 ## S209 — 2026-07-12 (MAL Auto-Fill resilience + selectable fetch methods; Associated Entities/Content UI fix)
 
 - **MAL Auto-Fill 504 root-caused**: "Auto-Fill from MAL" 504 errors were traced (via direct `curl` testing that bypassed the app entirely) to Jikan's own cache-miss path to MyAnimeList failing intermittently/persistently — not a bug in this codebase. `jikan_client.py` now retries transient gateway errors (429/502/503/504, connection errors) with exponential backoff, and surfaces an accurate, actionable error message (distinguishing a genuine Jikan↔MAL outage from a generic network failure) instead of a bare `504 Gateway Time-out`.

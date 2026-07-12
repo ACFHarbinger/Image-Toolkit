@@ -55,7 +55,9 @@ Two disjoint stacks that never talk to each other:
 
 ---
 
-## DB.1 Unified Schema Design
+## ✅ DB.1 Unified Schema Design
+
+*Shipped 2026-07-12 (S210): DDL at `backend/src/database/unified/schema.sql` + `schema_fts.sql` (FTS5 layer, applied with graceful fallback); spec + ER diagram + legacy field mapping at `docs/database/unified_schema.md`.*
 
 One SQLCipher database: `~/.image-toolkit/library.db`. Whole-DB encryption (answer #2) — no per-column crypto, no plaintext sidecars. Normalized relational schema replacing both the JSON blob and the pgvector schema.
 
@@ -183,14 +185,16 @@ backend/src/database/unified/
 Non-negotiable order (answer #8): **backup first, migrate second, verify third.** New directory:
 
 ```
-backend/migrations/
-    000_backup_all.py          # MUST run before anything else; refuses to be skipped
-    001_create_library_db.py   # DDL from DB.1 via base.database, stamps schema_version
-    002_migrate_listings.py    # listings_secure.db → library.db
-    003_migrate_pgvector.py    # PostgreSQL → library.db (skippable if server absent)
-    004_verify_migration.py    # row-count + checksum + referential-integrity report
+backend/migrations/            # module names can't start with digits — the
+    backup_all.py              #   runner maps step numbers to modules
+    create_library_db.py       # 001: DDL from DB.1 via base.database, stamps schema_version
+    migrate_listings.py        # 002: listings_secure.db → library.db
+    migrate_pgvector.py        # 003: PostgreSQL → library.db (skippable if server absent)
+    verify_migration.py        # 004: row-count + checksum + referential-integrity report
     runner.py                  # orchestrates 000→004, idempotent, resumable
 ```
+
+*Progress: ✅ 000 `backup_all.py` shipped 2026-07-12 (S210) — timestamped dirs under `assets/migrations/pre_unified/`, SHA-256 manifest, `verify_manifest()` re-hash check, staleness warnings on `.enc` copies, pg_dump with graceful skip; 4 tests in `backend/test/database/test_backup_all.py`.*
 
 - **000_backup_all**: (a) file-copy `listings_secure.db` → `assets/migrations/pre_unified/listings_secure.db.bak`; (b) trigger the existing encrypted JSON backup path (equivalent of both "Update Backup" buttons) so `listings.json.enc`/`entities.json.enc` are current; (c) `pg_dump --format=custom` of the image DB → `assets/migrations/pre_unified/imagedb.dump` (graceful skip + loud warning if Postgres is unreachable); (d) manifest with SHA-256 of every artifact.
 - **002_migrate_listings**: reads via `base.fetch_all_listings_secure` (last use of that API); explodes each JSON blob into `media_items`/`episodes`/`entities`/`credits`; splits CSV genres/tags into `tags`+`media_tags`; converts `associated_*` lists into M2M rows (dangling IDs logged, not dropped — parked in `extra`); unknown keys → `extra`.
