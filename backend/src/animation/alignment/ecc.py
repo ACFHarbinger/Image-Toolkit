@@ -18,16 +18,14 @@ from backend.src.constants import (
 )
 
 try:
-    try:
-        import base as _batch_ecc
-    except ImportError:
-        from backend.src.animation import base as _batch_ecc
-
-    if getattr(_batch_ecc, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
-    _BATCH_ECC = hasattr(_batch_ecc, "fg_register") and hasattr(
-        _batch_ecc.fg_register, "ecc_refine"
+    import base as _batch_ecc
+    _BATCH_ECC = (
+        getattr(_batch_ecc, "__file__", None) is not None
+        and hasattr(_batch_ecc, "fg_register")
+        and hasattr(_batch_ecc.fg_register, "ecc_refine")
     )
+    if not _BATCH_ECC:
+        raise ImportError("compiled base.fg_register.ecc_refine extension not available")
 except ImportError:
     _batch_ecc = None  # type: ignore[assignment]
     _BATCH_ECC = False

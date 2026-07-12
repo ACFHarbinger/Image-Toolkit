@@ -24,13 +24,12 @@ from scipy.optimize import least_squares
 from backend.src.constants import DY_ABS_THRESH, DY_RATIO_THRESH, GNC_C_PX, GNC_MU_ANNEAL
 
 try:
-    try:
-        import base as batch
-    except ImportError:
-        from backend.src.animation import base as batch
-
-    if getattr(batch, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
+    import base as batch
+    if (
+        getattr(batch, "__file__", None) is None
+        or not hasattr(batch, "bundle_adjust")
+    ):
+        raise ImportError("compiled base.bundle_adjust extension not available")
     BATCH_AVAILABLE = True
 except ImportError:
     batch = None

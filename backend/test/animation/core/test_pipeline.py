@@ -695,11 +695,7 @@ def _make_spread_edge(i: int, j: int, ty: float, tx: float = 0.0) -> dict:
 # ===========================================================================
 
 
-def _make_affine_wave_correct(tx: float, ty: float) -> np.ndarray:
-    M = np.eye(2, 3, dtype=np.float32)
-    M[0, 2] = tx
-    M[1, 2] = ty
-    return M
+
 
 
 

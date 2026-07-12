@@ -18,13 +18,12 @@ from backend.src.errors import CanvasError
 logger = logging.getLogger(__name__)
 
 try:
-    try:
-        import base as batch
-    except ImportError:
-        from backend.src.animation import base as batch
-
-    if getattr(batch, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
+    import base as batch
+    if (
+        getattr(batch, "__file__", None) is None
+        or not hasattr(batch, "canvas")
+    ):
+        raise ImportError("compiled base.canvas extension not available")
     _BATCH_CANVAS = True
 except ImportError:
     batch = None

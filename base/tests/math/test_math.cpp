@@ -295,7 +295,7 @@ TEST_CASE("tsne_affinities: output is symmetric", "[math][dim_reduce]") {
     auto data = bm::Matrix::from_rows({
         {1.0, 0.0}, {0.0, 1.0}, {-1.0, 0.0}, {0.0, -1.0}, {0.0, 0.0}
     });
-    auto P = bm::tsne_affinities(data, 2.0);
+    auto P = bm::tsne_affinities(data, 1.0);
     CHECK(P.rows() == 5);
     CHECK(P.cols() == 5);
     for (int i = 0; i < 5; ++i)

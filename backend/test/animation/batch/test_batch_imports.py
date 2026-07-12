@@ -15,12 +15,12 @@ All tests are skipped automatically when ``batch`` has not been built.
 import pytest
 
 try:
-    try:
-        import base as batch
-    except ImportError:
-        from backend.src.animation import base as batch
-    if getattr(batch, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
+    import base as batch
+    if (
+        getattr(batch, "__file__", None) is None
+        or not hasattr(batch, "bundle_adjust")
+    ):
+        raise ImportError("compiled base ASP extension not available")
     HAS_BATCH = True
 except ImportError:
     HAS_BATCH = False

@@ -151,8 +151,8 @@ It may work for some titles and not others, and can persist across many manual r
 
 **Root cause:** This is **not a bug in this codebase** — confirmed by bypassing `jikan_client.py` entirely and hitting the Jikan API directly with `curl`. `api.jikan.moe` is a caching proxy in front of MyAnimeList, not MAL itself: a title someone has searched recently is served instantly from cache, but a cache miss makes Jikan scrape MAL live, and *that* leg is what fails. Direct evidence gathered during investigation:
 - `GET https://api.jikan.moe/v4/anime/1` (cached, by ID) → `200 OK`
-- `GET https://api.jikan.moe/v4/anime?q=<uncached title>` → `504`, `{"message": "Jikan failed to connect to MyAnimeList. MyAnimeList may be down/unavailable or refuses to connect"}`, persisting across 6+ retries over 20+ seconds regardless of query params
-- `GET https://myanimelist.net/anime.php?q=<same title>` (MAL directly, bypassing Jikan) → `200 OK`, title found fine
+- `GET` request to `api.jikan.moe/v4/anime?q=<uncached title>` → `504`, `{"message": "Jikan failed to connect to MyAnimeList. MyAnimeList may be down/unavailable or refuses to connect"}`, persisting across 6+ retries over 20+ seconds regardless of query params
+- `GET` request to `myanimelist.net/anime.php?q=<same title>` (MAL directly, bypassing Jikan) → `200 OK`, title found fine
 
 So MAL itself is reachable and has the title; Jikan's own scraper currently can't reach MAL for this specific (likely rarely-searched) query. Even mainstream titles 504'd if not already hot in Jikan's cache — this is a known, recurring pattern in Jikan's own issue tracker (e.g. `jikan-me/jikan#357`, `#381`), not something client-side retries can paper over.
 

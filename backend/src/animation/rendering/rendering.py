@@ -27,13 +27,12 @@ from backend.src.constants import (
 logger = logging.getLogger(__name__)
 
 try:
-    try:
-        import base as _batch_render
-    except ImportError:
-        from backend.src.animation import base as _batch_render
-
-    if getattr(_batch_render, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
+    import base as _batch_render
+    if (
+        getattr(_batch_render, "__file__", None) is None
+        or not hasattr(_batch_render, "canvas")
+    ):
+        raise ImportError("compiled base.canvas extension not available")
     _BATCH_RENDER = True
 except ImportError:
     _batch_render = None  # type: ignore[assignment]

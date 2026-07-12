@@ -86,11 +86,6 @@ cv::Mat build_seam_cost_map_impl(
     const std::vector<int>& pinned_rows,
     bool  try_gpu = false);
 
-std::vector<std::vector<int>> seam_batch_impl(
-    const std::vector<ZonePair>& zone_pairs,
-    float edge_weight,
-    float transition_penalty);
-
 // ---------------------------------------------------------------------------
 // seam_cut tests
 // ---------------------------------------------------------------------------
@@ -171,31 +166,6 @@ TEST_CASE("build_seam_cost_map all-background gives near-zero cost", "[seam]") {
     cv::minMaxLoc(cost, &mn, &mx);
     CHECK(mx < 0.5);
 }
-
-// ---------------------------------------------------------------------------
-// seam_batch tests
-// ---------------------------------------------------------------------------
-
-TEST_CASE("seam_batch returns N paths for N zone pairs", "[seam]") {
-    const int N = 5, H = 30, W = 50;
-    std::vector<ZonePair> pairs;
-    for (int k = 0; k < N; ++k)
-        pairs.push_back({random_bgr(H, W, k), random_bgr(H, W, k + 100), cv::Mat{}});
-    auto paths = seam_batch_impl(pairs, 1.0f, 0.0f);
-    REQUIRE(static_cast<int>(paths.size()) == N);
-    for (auto& p : paths) REQUIRE(static_cast<int>(p.size()) == W);
-}
-
-TEST_CASE("seam_batch rows are within zone height", "[seam]") {
-    const int N = 3, H = 20, W = 30;
-    std::vector<ZonePair> pairs;
-    for (int k = 0; k < N; ++k)
-        pairs.push_back({random_bgr(H, W, k), random_bgr(H, W, k + 50), cv::Mat{}});
-    auto paths = seam_batch_impl(pairs, 1.0f, 0.0f);
-    for (auto& p : paths)
-        for (int row : p) { CHECK(row >= 0); CHECK(row < H); }
-}
-
 // ---------------------------------------------------------------------------
 // GraphCutSeamFinder tests (Phase 4 — native OpenCV API, no pybind11 needed)
 // ---------------------------------------------------------------------------
