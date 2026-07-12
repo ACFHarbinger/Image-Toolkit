@@ -26,7 +26,7 @@ import cv2
 import numpy as np
 import torch
 
-sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
+sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 import contextlib
@@ -3386,7 +3386,7 @@ Examples:
     )
     parser.add_argument(
         "--data-dir",
-        default="/home/pkhunter/Repositories/Image-Toolkit/dump",
+        default=os.path.expanduser("~/Repositories/Image-Toolkit/dump"),
         metavar="DIR",
         help="Root data directory containing asp_testXX subdirectories",
     )

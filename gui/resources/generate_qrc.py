@@ -28,6 +28,7 @@ After registration images are accessible as Qt resource paths:
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -43,8 +44,14 @@ TARGETS: list[tuple[str, str, str]] = [
 ]
 
 
-def build_qrc(dir_path: pathlib.Path, prefix: str) -> str:
-    """Return a pretty-printed QRC XML string for all images in *dir_path*."""
+def build_qrc(dir_path: pathlib.Path, prefix: str, out_dir: pathlib.Path) -> str:
+    """Return a pretty-printed QRC XML string for all images in *dir_path*.
+
+    File paths in the generated XML are expressed as paths *relative to out_dir*
+    (the directory where the .qrc file will be written).  This makes the file
+    portable: the same committed .qrc works on any machine, regardless of the
+    absolute home-directory path.
+    """
     files = sorted(
         p for p in dir_path.iterdir()
         if p.is_file() and p.suffix.lower() in IMAGE_EXTS
@@ -54,7 +61,11 @@ def build_qrc(dir_path: pathlib.Path, prefix: str) -> str:
     qr   = ET.SubElement(root, "qresource", prefix=prefix)
     for f in files:
         el = ET.SubElement(qr, "file", alias=f.name)
-        el.text = str(f)
+        # Compute the path relative to the directory that will contain the .qrc
+        # file so the XML contains no absolute/username-specific paths.
+        el.text = pathlib.Path(
+            os.path.relpath(f.resolve(), start=out_dir.resolve())
+        ).as_posix()
 
     raw  = ET.tostring(root, encoding="unicode")
     dom  = minidom.parseString(raw)
@@ -76,6 +87,7 @@ def main(argv: list[str] | None = None) -> None:
                         help="Output directory for .qrc files")
     args = parser.parse_args(argv)
 
+    args.out_dir = args.out_dir.resolve()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     for subdir, prefix, filename in TARGETS:
@@ -84,7 +96,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"WARNING: {src} does not exist — skipping {filename}", file=sys.stderr)
             continue
 
-        xml = build_qrc(src, prefix)
+        xml = build_qrc(src, prefix, args.out_dir)
         out = args.out_dir / filename
         out.write_text(xml)
 

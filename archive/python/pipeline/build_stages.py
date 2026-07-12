@@ -13,7 +13,7 @@ import gc
 import cv2
 import numpy as np
 
-sys.path.insert(0, "/home/pkhunter/Repositories/Image-Toolkit")
+sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 import torch
@@ -31,7 +31,7 @@ from backend.src.animation.alignment.ecc import _ecc_refine
 from backend.src.animation.rendering.rendering import _render_median
 from PIL import Image
 
-DIR = "/home/pkhunter/Downloads/data/new"
+DIR = os.path.expanduser("~/Downloads/data/new")
 STAGE_DIR = f"{DIR}/panorama_stages"
 os.makedirs(STAGE_DIR, exist_ok=True)
 

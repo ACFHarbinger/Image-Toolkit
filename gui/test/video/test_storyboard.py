@@ -12,8 +12,8 @@ from gui.src.helpers.video.storyboard import (
 
 pytestmark = pytest.mark.gui
 
-HEVC_SAMPLE = (
-    "/home/pkhunter/Downloads/data/Videos/"
+HEVC_SAMPLE = os.path.expanduser(
+    "~/Downloads/data/Videos/"
     "Midareuchi - 02 [1080p-HEVC][hstream.moe][v2].mkv"
 )
 

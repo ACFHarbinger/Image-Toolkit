@@ -2862,7 +2862,6 @@ class SettingsWindow(QWidget):
                 username = getattr(self.vault_manager, "account_name", None)
                 if username:
                     for recovery_dir in (
-                        "/home/pkhunter/.image-toolkit/recovery",
                         os.path.expanduser("~/.image-toolkit/recovery"),
                     ):
                         enc_file_path = os.path.join(

@@ -46,7 +46,7 @@ class MockVaultManager:
 
 
 def cleanup_recovery_files():
-    for recovery_dir in ("/home/pkhunter/.image-toolkit/recovery", os.path.expanduser("~/.image-toolkit/recovery")):
+    for recovery_dir in (os.path.expanduser("~/.image-toolkit/recovery")):
         enc_file = os.path.join(recovery_dir, "recovery_test_user.enc")
         if os.path.exists(enc_file):
             with contextlib.suppress(Exception):
