@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS credits (
     role       TEXT NOT NULL DEFAULT '',
     year       INTEGER,
     rating     REAL NOT NULL DEFAULT 0,
-    review     TEXT NOT NULL DEFAULT '',
+    notes      TEXT NOT NULL DEFAULT '',
     image_path TEXT NOT NULL DEFAULT '',
     web_link   TEXT NOT NULL DEFAULT ''
 );

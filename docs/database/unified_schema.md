@@ -89,7 +89,7 @@ erDiagram
         TEXT role
         INTEGER year
         REAL rating
-        TEXT review
+        TEXT notes
         TEXT image_path
         TEXT web_link
     }
