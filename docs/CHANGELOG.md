@@ -4,6 +4,15 @@
 
 ---
 
+## S211 — 2026-07-13 (Phase DB P3 — image tabs on the unified store, Postgres retired from the GUI)
+
+Real-data migration completed and verified during S210's first launch (248 media + 249 entities + 1,301 images/10 groups/67 subgroups/17 tags/402 image-tag links); this session moves the image tabs onto the migrated store.
+
+- **DB.6 `UnifiedImageDatabase` facade** (`backend/src/database/unified/facade.py`): reproduces the `PgvectorImageDatabase` method surface (search_images incl. tolerated legacy `query_vector` kwarg, add/update/delete_image, group/subgroup/tag CRUD + renames, get_statistics banner keys, maintenance ops, backup-gated `reset_database`) over the DAL — SearchTab, ScanMetadataTab, `SearchWorker`, `ImagePreviewWindow`, and the wallpaper system display keep their `db_tab_ref.db` call sites byte-identical. 12 parity tests exercising the tabs' exact call shapes (`test_unified_facade.py`).
+- **DatabaseTab → Library Maintenance**: PostgreSQL connection form, psycopg2, and dotenv usage deleted; the encrypted store auto-opens from the vault session at tab construction (an "Open Library" button covers a locked-vault start); duplicate renames detected via SQLite "UNIQUE" errors; `collect()`/`set_config()` no longer read or write connection credentials (the stored `db_password` wart is gone — legacy configs are accepted and ignored). Statistics banner handles the unified store's ISO-text dates.
+- **Tab layout**: "Database Management" category replaced by **"Library"** — `Listings · Image Search · Scan & Tag · Maintenance` — with Listings moved out of System Tools (settings fallback category list updated). `backend.src.database`'s package import made lazy so only migration 003 can pull psycopg2.
+- Deferred to P3b (flagged in the roadmap): physically archiving `image_database.py`/`pooled_image_database.py`/`sql/` and dropping psycopg2 from requirements (`phash_deduplicator` + pooled tests still reference them); moving Scan & Tag's per-image upsert loop off the GUI thread.
+
 ## S210 — 2026-07-12 (Phase DB P0+P1 — unified database roadmap, schema v1, engine, DAL, migrations)
 
 Implements P0, P1, and most of P2 of [moon/roadmaps/unified_database.md](../moon/roadmaps/unified_database.md) (merging the Listings subtabs' SQLCipher store and the Database tabs' PostgreSQL+pgvector index into one encrypted `~/.image-toolkit/library.db`; Postgres to be dropped entirely). 41 new tests in `backend/test/database/`.

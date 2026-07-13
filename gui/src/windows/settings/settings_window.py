@@ -701,7 +701,7 @@ class SettingsWindow(QWidget):
 
         category_names = list(self._get_tab_mapping().keys()) or [
             "System Tools",
-            "Database Management",
+            "Library",
             "Web Integration",
             "Deep Learning",
             "Image Stitching",
