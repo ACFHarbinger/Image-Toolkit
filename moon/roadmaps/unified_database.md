@@ -221,7 +221,9 @@ Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to
 - MAL fetch, directory import, thumbnail generation, recommendation dialog are untouched consumers — they just save through the new repos. `RecommendationWorker` keeps `rec_engine.db` for now (unified in DB.7).
 - The encrypted `.enc` backup buttons keep working against a JSON export produced from the repos (format-compatible with today's files so old backups remain restorable).
 
-## DB.6 Image Tabs on the Unified Store (Postgres Retirement)
+## 🔄 DB.6 Image Tabs on the Unified Store (Postgres Retirement)
+
+*Mostly shipped 2026-07-13 (S211): new `UnifiedImageDatabase` facade (`backend/src/database/unified/facade.py`) reproduces the exact `PgvectorImageDatabase` method surface over the DAL, so SearchTab/ScanMetadataTab/`SearchWorker`/`ImagePreviewWindow`/wallpaper-display port with **zero call-site changes** — they keep using `db_tab_ref.db`. `DatabaseTab` rewritten: PostgreSQL connection form/psycopg2/dotenv deleted; the store auto-opens from the vault session at construction ("Open Library" button remains for a locked-vault start); duplicate-rename handling matches on SQLite's "UNIQUE" error; `collect()` no longer emits credentials (fixes the stored-password wart; legacy configs with credentials are ignored). Tab layout: "Database Management" replaced by a **"Library"** category — `Listings · Image Search · Scan & Tag · Maintenance` (Listings moved out of System Tools; Data Browser joins in DB.9). `backend.src.database` package import made lazy so nothing outside migration 003 pulls psycopg2. 12 facade-parity tests (`test_unified_facade.py`) exercising the tabs' exact call shapes. **Deferred (P3b):** physically archiving `image_database.py`/`pooled_image_database.py`/`sql/` + dropping psycopg2/psycopg_pool from requirements (`phash_deduplicator` + pooled tests still reference them), and moving Scan & Tag's per-image upsert loop off the GUI thread.*
 
 - **SearchTab / ScanMetadataTab / ImagePreviewWindow / Wallpaper system-display**: swap `db_tab_ref.db` (Postgres) for `image_repo`/`search_repo`. `SearchWorker` and the scan workers keep their threading shape. Fix in transit: `perform_upsert_operation`'s per-image `QPixmap` + queries move into a QRunnable worker (batch transaction, progress signal) — no more GUI-thread freezes on big batches.
 - **DatabaseTab ("Configuration") → "Library Maintenance" panel**: connection form/connect/disconnect deleted (the store opens at login). Survivors: statistics banner, vacuum/reindex/integrity, group/subgroup/tag CRUD + inline rename + bulk JSON tag import + auto-populate-from-directory — all on `tag_repo`/`image_repo`/`maintenance`. Reset stays double-confirmed and now also forces a `000_backup_all`-style export first.
@@ -276,7 +278,7 @@ Incremental (answer #10 — implementer's choice); the app ships after every pha
 | ✅ P0 | DB.1 schema spec + DB.4 `000_backup_all` | Unchanged app + backup tool | done (S210) |
 | ✅ P1 | DB.2 `base.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | done (S210) |
 | 🔄 P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | mostly done (S210); SQL-side filtering deferred |
-| P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | ~1.5w |
+| 🔄 P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | mostly done (S211); archival + scan-worker deferred |
 | P4 | DB.7 semantic search & CBIR | Text→image + find-similar live; rec engine unified | ~1.5w |
 | P5 | DB.8 cross-domain features | Links, shared tags, auto-listings | ~1w |
 | P6 | DB.9 data browser + DB.10 cleanup/backups/docs | End state | ~1w |

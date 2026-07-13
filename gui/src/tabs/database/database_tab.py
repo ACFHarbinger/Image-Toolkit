@@ -3,10 +3,9 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import psycopg2  # pyrefly: ignore [untyped-import]
 from backend.src.constants import LOCAL_SOURCE_PATH
-from backend.src.database import PgvectorImageDatabase as ImageDatabase
-from dotenv import load_dotenv
+from backend.src.database.unified.facade import UnifiedImageDatabase as ImageDatabase
+from gui.src.helpers.core.library_session import get_library_db
 from PySide6.QtCore import Property, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -36,11 +35,14 @@ from ...styles import apply_shadow_effect
 
 class DatabaseTab(QWidget):
     """
-    Manages PostgreSQL connection, statistics display, and tag/group population.
+    Library maintenance: statistics display and tag/group population on the
+    unified library database (Phase DB, DB.6 — the PostgreSQL connection is
+    gone; the store opens with the vault session).
     """
 
-    def __init__(self, env_path="env/vars.env"):
+    def __init__(self, vault_manager=None):
         super().__init__()
+        self.vault_manager = vault_manager
         self.db: Optional[ImageDatabase] = None
         self._stats_text = "Not Connected"
 
@@ -56,47 +58,21 @@ class DatabaseTab(QWidget):
 
         main_layout = QVBoxLayout(self)
 
-        # --- PostgreSQL Connection Section ---
-        conn_group = QGroupBox("PostgreSQL Connection Details")
-        conn_form_layout = QFormLayout()
-
-        load_dotenv(dotenv_path=env_path)
-        self.db_host = QLineEdit(os.getenv("DB_HOST"))
-        self.db_port = QLineEdit(os.getenv("DB_PORT"))
-        self.db_user = QLineEdit(os.getenv("DB_USER"))
-        self.db_password = QLineEdit(os.getenv("DB_PASSWORD"))
-        self.db_password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.db_name = QLineEdit(
-            os.getenv("DB_NAME"),
-        )
-
-        conn_form_layout.addRow("Host:", self.db_host)
-        conn_form_layout.addRow("Port:", self.db_port)
-        conn_form_layout.addRow("User:", self.db_user)
-        conn_form_layout.addRow("Password:", self.db_password)
-        conn_form_layout.addRow("Database Name:", self.db_name)
-
+        # --- Library Store Section (SQLCipher session, opened at login) ---
+        conn_group = QGroupBox("Unified Library (encrypted, opens with the vault)")
         conn_layout = QVBoxLayout(conn_group)
-        conn_layout.addLayout(conn_form_layout)
 
         self.button_conn_layout = QHBoxLayout()
-        self.btn_connect = QPushButton("Connect to PostgreSQL")
+        self.btn_connect = QPushButton("🔓 Open Library")
+        self.btn_connect.setToolTip(
+            "Open the unified library database (requires an unlocked vault). "
+            "Normally this happens automatically at login."
+        )
         apply_shadow_effect(
             self.btn_connect, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
         self.btn_connect.clicked.connect(self.connect_database)
         self.button_conn_layout.addWidget(self.btn_connect)
-
-        self.btn_disconnect = QPushButton("Disconnect from PostgreSQL")
-        self.btn_disconnect.setStyleSheet(
-            "background-color: #f39c12; color: white; padding: 10px;"
-        )
-        apply_shadow_effect(
-            self.btn_disconnect, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
-        self.btn_disconnect.clicked.connect(self.disconnect_database)
-        self.btn_disconnect.hide()
-        self.button_conn_layout.addWidget(self.btn_disconnect)
 
         self.btn_reset_db = QPushButton("⚠️ Reset Database (Drop All Data)")
         self.btn_reset_db.setStyleSheet(
@@ -515,32 +491,29 @@ class DatabaseTab(QWidget):
 
         self.update_button_states(connected=False)
 
+        # Open automatically when the vault is already unlocked (it is, at
+        # normal startup — the session was created at login/first use).
+        if self.vault_manager is not None:
+            self.connect_database(silent=True)
+
     # --- Connection and Statistics Methods ---
 
-    def connect_database(self):
+    def connect_database(self, silent: bool = False):
+        """Open the unified library store (Argon2id runs once per session)."""
         try:
-            db_host = self.db_host.text().strip()
-            db_port = self.db_port.text().strip()
-            db_user = self.db_user.text().strip()
-            db_password = self.db_password.text()
-            db_name = self.db_name.text().strip()
-            if not all([db_host, db_port, db_user, db_name]):
-                QMessageBox.warning(
-                    self, "Error", "All connection fields are required."
-                )
+            session_db = get_library_db(self.vault_manager, parent=self)
+            if session_db is None:
+                if not silent:
+                    QMessageBox.warning(
+                        self,
+                        "Vault Locked",
+                        "The unified library requires an unlocked vault. "
+                        "Log in first, then press 'Open Library'.",
+                    )
+                self.update_button_states(connected=False)
                 return
 
-            if self.db:
-                self.db.close()
-
-            self.db = ImageDatabase(
-                db_name=db_name,
-                db_user=db_user,
-                db_password=db_password,
-                db_host=db_host,
-                db_port=db_port,
-                embed_dim=128,
-            )
+            self.db = ImageDatabase(session_db)
             self.update_statistics()
             self.update_button_states(connected=True)
             self._refresh_all_group_combos()
@@ -552,54 +525,18 @@ class DatabaseTab(QWidget):
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes()
 
-            QMessageBox.information(
-                self, "Success", f"Connected to PostgreSQL DB: {db_name}"
-            )
+            if not silent:
+                QMessageBox.information(
+                    self, "Success", "Unified library opened."
+                )
         except Exception as e:
             QMessageBox.critical(
-                self, "Error", f"Failed to connect to database:\n{str(e)}"
+                self, "Error", f"Failed to open the library database:\n{str(e)}"
             )
             self.update_button_states(connected=False)
-            self.stats_label.setText("Connection Failed")
+            self.stats_label.setText("Library Unavailable")
             self.stats_label.setStyleSheet(
                 "padding: 10px; background-color: #e74c3c; color: white; border-radius: 5px; font-weight: bold;"
-            )
-
-    def disconnect_database(self):
-        if not self.db:
-            return
-        try:
-            self.db.close()
-            self.db = None
-            self.update_button_states(connected=False)
-
-            self.stats_label.setText("Not connected to database")
-            self.stats_label.setStyleSheet(
-                "padding: 10px; background-color: #e74c3c; color: white; border-radius: 5px; font-weight: bold;"
-            )
-
-            self.tags_table.setRowCount(0)
-            self.groups_table.setRowCount(0)
-            self.subgroups_table.setRowCount(0)
-
-            self.new_subgroup_parent_combo.clear()
-            self.existing_subgroups_filter_combo.clear()
-
-            if self.search_tab_ref:
-                if hasattr(self.search_tab_ref, "group_combo"):
-                    self.search_tab_ref.group_combo.clear()
-                if hasattr(self.search_tab_ref, "subgroup_combo"):
-                    self.search_tab_ref.subgroup_combo.clear()
-
-            if self.scan_tab_ref:
-                self.scan_tab_ref._setup_tag_checkboxes()
-
-            QMessageBox.information(
-                self, "Disconnected", "Successfully disconnected from the database."
-            )
-        except Exception as e:
-            QMessageBox.critical(
-                self, "Error", f"Error during disconnection:\n{str(e)}"
             )
 
     def reset_database(self):
@@ -677,9 +614,12 @@ class DatabaseTab(QWidget):
                 size_str = f"{total_bytes / 1024**3:.2f} GB"
 
             last_sync = stats.get("last_sync_date")
-            last_sync_str = (
-                last_sync.strftime("%Y-%m-%d %H:%M:%S") if last_sync else "Never"
-            )
+            if last_sync is None:
+                last_sync_str = "Never"
+            elif isinstance(last_sync, str):
+                last_sync_str = last_sync  # unified store keeps ISO text dates
+            else:
+                last_sync_str = last_sync.strftime("%Y-%m-%d %H:%M:%S")
 
             stats_text = (
                 f"📊 Database Statistics:\n"
@@ -757,16 +697,9 @@ class DatabaseTab(QWidget):
 
     def update_button_states(self, connected: bool):
         self.btn_connect.setVisible(not connected)
-        self.btn_disconnect.setVisible(connected)
         self.btn_reset_db.setVisible(connected)
         self.btn_vacuum.setVisible(connected)
         self.btn_reindex.setVisible(connected)
-
-        self.db_host.setEnabled(not connected)
-        self.db_port.setEnabled(not connected)
-        self.db_user.setEnabled(not connected)
-        self.db_password.setEnabled(not connected)
-        self.db_name.setEnabled(not connected)
 
         self.populate_group.setEnabled(connected)
         self.btn_auto_populate.setEnabled(connected)
@@ -1176,13 +1109,15 @@ class DatabaseTab(QWidget):
             self.refresh_groups_list()
             self.refresh_subgroups_list()
             self.update_statistics()
-        except psycopg2.errors.UniqueViolation:
-            QMessageBox.warning(
-                self, "Error", f"A group named '{new_name}' already exists."
-            )
-            item.setText(old_name)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to rename group:\n{str(e)}")
+            if "UNIQUE" in str(e):
+                QMessageBox.warning(
+                    self, "Error", f"A group named '{new_name}' already exists."
+                )
+            else:
+                QMessageBox.critical(
+                    self, "Error", f"Failed to rename group:\n{str(e)}"
+                )
             item.setText(old_name)
 
     def handle_subgroup_edited(self, item: QTableWidgetItem):
@@ -1209,15 +1144,17 @@ class DatabaseTab(QWidget):
             self.db.rename_subgroup(old_name, new_name, parent_group)
             self.refresh_subgroup_autocomplete()
             self.update_statistics()
-        except psycopg2.errors.UniqueViolation:
-            QMessageBox.warning(
-                self,
-                "Error",
-                f"A subgroup named '{new_name}' already exists in this group.",
-            )
-            item.setText(old_name)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to rename subgroup:\n{str(e)}")
+            if "UNIQUE" in str(e):
+                QMessageBox.warning(
+                    self,
+                    "Error",
+                    f"A subgroup named '{new_name}' already exists in this group.",
+                )
+            else:
+                QMessageBox.critical(
+                    self, "Error", f"Failed to rename subgroup:\n{str(e)}"
+                )
             item.setText(old_name)
 
     def handle_tag_edited(self, item: QTableWidgetItem):
@@ -1244,13 +1181,15 @@ class DatabaseTab(QWidget):
                 self.update_statistics()
                 if self.scan_tab_ref:
                     self.scan_tab_ref._setup_tag_checkboxes()
-            except psycopg2.errors.UniqueViolation:
-                QMessageBox.warning(
-                    self, "Error", f"A tag named '{new_name}' already exists."
-                )
-                item.setText(old_name)
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to rename tag:\n{str(e)}")
+                if "UNIQUE" in str(e):
+                    QMessageBox.warning(
+                        self, "Error", f"A tag named '{new_name}' already exists."
+                    )
+                else:
+                    QMessageBox.critical(
+                        self, "Error", f"Failed to rename tag:\n{str(e)}"
+                    )
                 item.setText(old_name)
         elif col == 1:
             tag_name = self.tags_table.item(row, 0).text() # pyrefly: ignore [missing-attribute]
@@ -1323,37 +1262,19 @@ class DatabaseTab(QWidget):
             self.tags_table.editItem(item)
 
     def collect(self) -> dict:
-        out = {
-            "db_host": self.db_host.text().strip() or None,
-            "db_port": self.db_port.text().strip() or None,
-            "db_user": self.db_user.text().strip() or None,
-            "db_password": self.db_password.text()
-            or None,  # Included password for saving
-            "db_name": self.db_name.text().strip() or None,
-        }
-        return out
+        # The unified library needs no connection settings (and the old
+        # format's stored db_password was a security wart — deliberately
+        # not emitted anymore).
+        return {"auto_open": self.db is not None}
 
     def get_default_config(self) -> dict:
-        return {
-            "db_host": "localhost",
-            "db_port": "5432",
-            "db_user": "postgres",
-            "db_name": "imagedb",
-            "db_password": "",
-        }
+        return {"auto_open": True}
 
     def set_config(self, config: dict):
         try:
-            self.db_host.setText(config.get("db_host", "localhost"))
-            self.db_port.setText(config.get("db_port", "5432"))
-            self.db_user.setText(config.get("db_user", "postgres"))
-            self.db_name.setText(config.get("db_name", "imagedb"))
-
-            # Restore password if present
-            if "db_password" in config:
-                self.db_password.setText(config.get("db_password", ""))
-
-            self.connect_database()
+            # Legacy configs carried Postgres credentials — ignored now.
+            if config.get("auto_open", True) and self.db is None:
+                self.connect_database(silent=True)
         except Exception as e:
             print(f"Error applying DatabaseTab config: {e}")
             QMessageBox.warning(

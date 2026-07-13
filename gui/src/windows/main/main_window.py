@@ -209,7 +209,7 @@ class MainWindow(QWidget):
         vbox.addWidget(header_widget)
 
         # --- Tab Initialization ---
-        self.database_tab = DatabaseTab()
+        self.database_tab = DatabaseTab(vault_manager)
         self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
         self.scan_metadata_tab = ScanMetadataTab(self.database_tab) # pyrefly: ignore [bad-instantiation]
         self.convert_tab = ConvertTab(dropdown=dropdown)
@@ -244,12 +244,14 @@ class MainWindow(QWidget):
                 "Similarity": self.delete_tab,
                 "Extractor": self.extractor_tab,
                 "Wallpaper": self.wallpaper_tab,
-                "Listings": self.listings_tab,
             },
-            "Database Management": {
-                "Configuration": self.database_tab,
-                "Search": self.search_tab,
-                "Metadata": self.scan_metadata_tab,
+            # Phase DB (DB.6): one category for everything on the unified
+            # library store — listings, image search/tagging, maintenance.
+            "Library": {
+                "Listings": self.listings_tab,
+                "Image Search": self.search_tab,
+                "Scan & Tag": self.scan_metadata_tab,
+                "Maintenance": self.database_tab,
             },
             "Web Integration": {
                 "Crawler": self.crawler_tab,
