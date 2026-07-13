@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from ._util import (
     dumps_extra,
+    intify,
     join_csv,
     loads_extra,
     split_csv,
@@ -154,7 +155,7 @@ class MediaRepo:
         entry: Dict[str, Any] = loads_extra(data.pop("extra"))
         reverse = {col: key for key, col in _COLUMN_KEYS.items()}
         for col, value in data.items():
-            entry[reverse[col]] = value
+            entry[reverse[col]] = intify(value)
 
         entry["genres"] = join_csv(self._typed_tags(media_id, "Genre"))
         entry["tags"] = join_csv(self._typed_tags(media_id, "Tag"))
@@ -166,7 +167,7 @@ class MediaRepo:
             )
         ]
         entry["episode_list"] = [
-            dict(zip(("id",) + _EPISODE_FIELDS, ep_row))
+            dict(zip(("id",) + _EPISODE_FIELDS, map(intify, ep_row)))
             for ep_row in self._db.query(
                 f"SELECT id, {', '.join(_EPISODE_FIELDS)} FROM episodes "
                 "WHERE media_item_id = ? "

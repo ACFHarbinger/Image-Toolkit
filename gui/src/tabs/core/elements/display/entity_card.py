@@ -88,8 +88,12 @@ class _EntityCard(BaseCard):
             )
             layout.addWidget(info_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # Rating stars
-        rating = entity.get("rating", 0)
+        # Rating stars — REAL DB columns can surface float ratings; clamp to 0-10 int.
+        try:
+            rating = int(round(float(entity.get("rating") or 0)))
+        except (TypeError, ValueError):
+            rating = 0
+        rating = max(0, min(10, rating))
         if rating:
             stars = "★" * rating + "☆" * (10 - rating)
             r_lbl = QLabel(stars[:10])

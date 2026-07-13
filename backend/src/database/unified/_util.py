@@ -73,3 +73,15 @@ def sql_string_literal(value: str) -> str:
 def normalized_pair(a: str, b: str) -> Tuple[str, str]:
     """Order an undirected entity pair for the entity_entity (a<b) CHECK."""
     return (a, b) if a < b else (b, a)
+
+
+def intify(value: Any) -> Any:
+    """Collapse integral floats back to int.
+
+    REAL columns make SQLite return 9.0 where the legacy JSON blobs stored 9;
+    UI code does things like ``"★" * rating`` and breaks on floats. Genuinely
+    fractional values (community_rating 8.8) pass through unchanged.
+    """
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value

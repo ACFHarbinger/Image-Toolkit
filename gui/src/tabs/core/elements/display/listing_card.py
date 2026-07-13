@@ -77,7 +77,14 @@ class _ListingCard(BaseCard):
         layout.addWidget(prog_lbl)
 
         # Personal rating stars (supports old "rating" key for backwards compat)
-        personal_rating = entry.get("personal_rating", entry.get("rating", 0))
+        # REAL DB columns can surface float ratings — clamp to a 0-10 int.
+        try:
+            personal_rating = int(round(float(
+                entry.get("personal_rating") or entry.get("rating") or 0
+            )))
+        except (TypeError, ValueError):
+            personal_rating = 0
+        personal_rating = max(0, min(10, personal_rating))
         community_rating = entry.get("community_rating", 0.0)
         if personal_rating:
             stars = "★" * personal_rating + "☆" * (10 - personal_rating)
