@@ -137,6 +137,24 @@ def test_media_round_trip(db):
     assert repo.count() == 1
 
 
+def test_integral_ratings_round_trip_as_ints(db):
+    """REAL columns must not leak floats back for integral legacy values —
+    the card widgets do '"★" * rating' (S210 startup crash regression)."""
+    media = MediaRepo(db)
+    media.save_media(dict(LEGACY_ENTRY))
+    out = media.get_media("m-1")
+    assert out["personal_rating"] == 9 and isinstance(out["personal_rating"], int)
+    assert isinstance(out["episode_list"][0]["rating"], int)
+    # Genuinely fractional values stay floats.
+    assert out["community_rating"] == 8.8 and isinstance(out["community_rating"], float)
+
+    entities = EntityRepo(db)
+    entities.save_entity(dict(LEGACY_ENTITY))
+    ent = entities.get_entity("ent-abc12345")
+    assert ent["rating"] == 10 and isinstance(ent["rating"], int)
+    assert isinstance(ent["credit_list"][0]["rating"], int)
+
+
 def test_entity_round_trip_and_associations(db):
     media = MediaRepo(db)
     entities = EntityRepo(db)

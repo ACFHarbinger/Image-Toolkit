@@ -13,7 +13,7 @@ import uuid
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-from ._util import dumps_extra, loads_extra, normalized_pair, transaction
+from ._util import dumps_extra, intify, loads_extra, normalized_pair, transaction
 
 _COLUMN_KEYS = {
     "id": "id",
@@ -139,10 +139,10 @@ class EntityRepo:
         entity: Dict[str, Any] = loads_extra(data.pop("extra"))
         reverse = {col: key for key, col in _COLUMN_KEYS.items()}
         for col, value in data.items():
-            entity[reverse[col]] = value
+            entity[reverse[col]] = intify(value)
 
         entity["credit_list"] = [
-            dict(zip(("id",) + _CREDIT_FIELDS, credit_row))
+            dict(zip(("id",) + _CREDIT_FIELDS, map(intify, credit_row)))
             for credit_row in self._db.query(
                 f"SELECT id, {', '.join(_CREDIT_FIELDS)} FROM credits "
                 "WHERE entity_id = ? ORDER BY year IS NULL, year, title",
