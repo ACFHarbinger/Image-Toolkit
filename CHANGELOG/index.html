@@ -2227,6 +2227,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s211-2026-07-13-phase-db-p3-image-tabs-on-the-unified-store-postgres-retired-from-the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S211 — 2026-07-13 (Phase DB P3 — image tabs on the unified store, Postgres retired from the GUI)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s210-2026-07-12-phase-db-p0p1-unified-database-roadmap-schema-v1-engine-dal-migrations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11807,6 +11818,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s211-2026-07-13-phase-db-p3-image-tabs-on-the-unified-store-postgres-retired-from-the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S211 — 2026-07-13 (Phase DB P3 — image tabs on the unified store, Postgres retired from the GUI)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s210-2026-07-12-phase-db-p0p1-unified-database-roadmap-schema-v1-engine-dal-migrations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -21375,9 +21397,18 @@
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
 <hr />
+<h2 id="s211-2026-07-13-phase-db-p3-image-tabs-on-the-unified-store-postgres-retired-from-the-gui">S211 — 2026-07-13 (Phase DB P3 — image tabs on the unified store, Postgres retired from the GUI)<a class="headerlink" href="#s211-2026-07-13-phase-db-p3-image-tabs-on-the-unified-store-postgres-retired-from-the-gui" title="Permanent link">&para;</a></h2>
+<p>Real-data migration completed and verified during S210's first launch (248 media + 249 entities + 1,301 images/10 groups/67 subgroups/17 tags/402 image-tag links); this session moves the image tabs onto the migrated store.</p>
+<ul>
+<li><strong>DB.6 <code>UnifiedImageDatabase</code> facade</strong> (<code>backend/src/database/unified/facade.py</code>): reproduces the <code>PgvectorImageDatabase</code> method surface (search_images incl. tolerated legacy <code>query_vector</code> kwarg, add/update/delete_image, group/subgroup/tag CRUD + renames, get_statistics banner keys, maintenance ops, backup-gated <code>reset_database</code>) over the DAL — SearchTab, ScanMetadataTab, <code>SearchWorker</code>, <code>ImagePreviewWindow</code>, and the wallpaper system display keep their <code>db_tab_ref.db</code> call sites byte-identical. 12 parity tests exercising the tabs' exact call shapes (<code>test_unified_facade.py</code>).</li>
+<li><strong>DatabaseTab → Library Maintenance</strong>: PostgreSQL connection form, psycopg2, and dotenv usage deleted; the encrypted store auto-opens from the vault session at tab construction (an "Open Library" button covers a locked-vault start); duplicate renames detected via SQLite "UNIQUE" errors; <code>collect()</code>/<code>set_config()</code> no longer read or write connection credentials (the stored <code>db_password</code> wart is gone — legacy configs are accepted and ignored). Statistics banner handles the unified store's ISO-text dates.</li>
+<li><strong>Tab layout</strong>: "Database Management" category replaced by <strong>"Library"</strong> — <code>Listings · Image Search · Scan &amp; Tag · Maintenance</code> — with Listings moved out of System Tools (settings fallback category list updated). <code>backend.src.database</code>'s package import made lazy so only migration 003 can pull psycopg2.</li>
+<li>Deferred to P3b (flagged in the roadmap): physically archiving <code>image_database.py</code>/<code>pooled_image_database.py</code>/<code>sql/</code> and dropping psycopg2 from requirements (<code>phash_deduplicator</code> + pooled tests still reference them); moving Scan &amp; Tag's per-image upsert loop off the GUI thread.</li>
+</ul>
 <h2 id="s210-2026-07-12-phase-db-p0p1-unified-database-roadmap-schema-v1-engine-dal-migrations">S210 — 2026-07-12 (Phase DB P0+P1 — unified database roadmap, schema v1, engine, DAL, migrations)<a class="headerlink" href="#s210-2026-07-12-phase-db-p0p1-unified-database-roadmap-schema-v1-engine-dal-migrations" title="Permanent link">&para;</a></h2>
 <p>Implements P0, P1, and most of P2 of <a href="../roadmaps/unified_database/">moon/roadmaps/unified_database.md</a> (merging the Listings subtabs' SQLCipher store and the Database tabs' PostgreSQL+pgvector index into one encrypted <code>~/.image-toolkit/library.db</code>; Postgres to be dropped entirely). 41 new tests in <code>backend/test/database/</code>.</p>
 <ul>
+<li><strong>DB.5 post-migration crash fixed (float ratings)</strong>: first real-data launch crashed in <code>_ListingCard</code> (<code>"★" * 9.0</code>) — REAL columns return <code>9.0</code> where the legacy JSON blobs stored <code>9</code>. <code>_util.intify()</code> now collapses integral floats back to ints in <code>media_repo</code>/<code>entity_repo</code> assembly (episodes/credits included; fractional values like <code>community_rating 8.8</code> pass through), and both card widgets clamp ratings to a 0–10 int defensively. Regression test added. Real migration verified during the same launch: 248 media + 249 entities + 1,301 images / 10 groups / 67 subgroups / 17 tags / 402 image-tag links, verification passed.</li>
 <li>
 <p><strong>DB.5 Listings subtabs ported to the unified store (P2)</strong>: new <code>gui/src/helpers/core/library_session.py</code> — lazily opens the session DB on first use (Argon2id once), and when the library is empty while legacy <code>listings_secure.db</code> has data, offers the first-launch migration (full runner incl. backup gate) behind a modal progress dialog running the runner in a worker thread. <code>ContentListingsSubTab</code>/<code>EntityListingsSubTab</code> + both detail panels now load/save through <code>MediaRepo</code>/<code>EntityRepo</code>; every save is one transaction (entry + episodes/credits + tag links + associations). Deleted: all four association-sync loops, both <code>_save_data</code> full-rewrite paths, <code>listings_common.save_content_entry_to_db</code>/<code>save_entity_entry_to_db</code> (the byte-of-title placeholder embeddings) and <code>fetch_entity_name_map</code> (~600 LOC total) — both subtabs read the same <code>media_entity</code> table so cross-sync reduces to the existing changed signals triggering a re-query. <code>_SyncBackupWorker.run_sync</code> re-pointed at the session handle with upsert-by-id semantics (the legacy delete-all-then-reinsert window — the data-loss incident pattern — is gone); <code>run_backup</code> (<code>.enc</code> + image ZIPs) unchanged. Entity search resolves content titles via <code>list_ids_and_titles()</code> instead of decrypt-everything. Deferred: moving gallery filtering/sorting + advanced search onto <code>search_repo</code> SQL/FTS (builders exist and are tested; subtabs still filter in memory).</p>
 </li>
