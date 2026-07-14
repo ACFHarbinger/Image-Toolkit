@@ -227,6 +227,20 @@ target_link_libraries(base PRIVATE
     OpenMP::OpenMP_CXX
 )
 
+# Always ensure base has a RUNPATH pointing to the pixi environment library directory,
+# so that dynamic dependencies like OpenCV can be resolved at runtime.
+# pixi lib dir must precede /usr/lib in the RPATH: old-style RPATH resolves
+# transitively, and pixi's libssl needs pixi's libcrypto (not the system one).
+# An explicit -rpath link option lands before CMake's auto-generated entries.
+# --enable-new-dtags forces RUNPATH (not legacy RPATH) generation: an
+# old-style RPATH on this MODULE-type target gets appended to the dynamic
+# linker's *global* search path for the whole process, hijacking unrelated
+# libraries loaded later by PySide6/Qt. Verify with `readelf -d base.so`
+# — must say RUNPATH, never RPATH.
+target_link_options(base PRIVATE
+    "-Wl,-rpath,${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib"
+    "-Wl,--enable-new-dtags")
+target_link_directories(base PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib)
 
 if(CUDA_FOUND)
     target_compile_definitions(base PRIVATE HAVE_CUDA=1)
@@ -236,18 +250,7 @@ endif()
 if(SQLCIPHER_FOUND AND SODIUM_FOUND)
     target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS} /usr/include /usr/include/sqlcipher)
     target_link_libraries(base PRIVATE sqlcipher sodium argon2)
-    # pixi lib dir must precede /usr/lib in the RPATH: old-style RPATH resolves
-    # transitively, and pixi's libssl needs pixi's libcrypto (not the system one).
-    # An explicit -rpath link option lands before CMake's auto-generated entries.
-    # --enable-new-dtags forces RUNPATH (not legacy RPATH) generation: an
-    # old-style RPATH on this MODULE-type target gets appended to the dynamic
-    # linker's *global* search path for the whole process, hijacking unrelated
-    # libraries loaded later by PySide6/Qt. Verify with `readelf -d base.so`
-    # — must say RUNPATH, never RPATH.
-    target_link_options(base PRIVATE
-        "-Wl,-rpath,${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib"
-        "-Wl,--enable-new-dtags")
-    target_link_directories(base PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib /usr/lib/x86_64-linux-gnu)
+    target_link_directories(base PRIVATE /usr/lib/x86_64-linux-gnu)
 endif()
 
 if(OpenSSL_FOUND OR OPENSSL_FOUND)
@@ -257,6 +260,9 @@ endif()
 # ---------------------------------------------------------------------------
 # Install alongside base.so in the Python root directory
 # ---------------------------------------------------------------------------
+set_target_properties(base PROPERTIES
+    INSTALL_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib"
+)
 install(TARGETS base DESTINATION .)
 
 # ---------------------------------------------------------------------------
