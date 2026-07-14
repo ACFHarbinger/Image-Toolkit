@@ -250,7 +250,7 @@ class MainWindow(QWidget):
             "Library": {
                 "Listings": self.listings_tab,
                 "Image Search": self.search_tab,
-                "Scan & Tag": self.scan_metadata_tab,
+                "Scan and Tag": self.scan_metadata_tab,
                 "Maintenance": self.database_tab,
             },
             "Web Integration": {
