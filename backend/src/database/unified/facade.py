@@ -1,6 +1,6 @@
 """PgvectorImageDatabase-compatible facade over the unified DAL (DB.6).
 
-The image tabs (Search / Scan & Tag / preview window / wallpaper display)
+The image tabs (Search / Scan and Tag / preview window / wallpaper display)
 were written against ``PgvectorImageDatabase``'s method surface via
 ``db_tab_ref.db``. This facade reproduces that exact surface on top of the
 session-keyed library store, so those tabs port without touching their call
