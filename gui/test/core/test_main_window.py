@@ -46,11 +46,11 @@ class MockVaultManager:
 
 
 def cleanup_recovery_files():
-    for recovery_dir in (os.path.expanduser("~/.image-toolkit/recovery")):
-        enc_file = os.path.join(recovery_dir, "recovery_test_user.enc")
-        if os.path.exists(enc_file):
-            with contextlib.suppress(Exception):
-                os.remove(enc_file)
+    recovery_dir = os.path.expanduser("~/.image-toolkit/recovery")
+    enc_file = os.path.join(recovery_dir, "recovery_test_user.enc")
+    if os.path.exists(enc_file):
+        with contextlib.suppress(Exception):
+            os.remove(enc_file)
 
 
 class TestMainWindowSessionRecovery:
@@ -73,8 +73,8 @@ class TestMainWindowSessionRecovery:
                 "session_recovery_level": "All Tabs"
             },
             "session_recovery_data": {
-                "active_category": "Database Management",
-                "active_tab": "Search Images",
+                "active_category": "Library",
+                "active_tab": "Image Search",
                 "tab_configs": {
                     "SearchTab": {"dummy_key": "dummy_value"}
                 }
@@ -89,10 +89,10 @@ class TestMainWindowSessionRecovery:
             QApplication.processEvents()
 
             # Check if active category is selected
-            assert window.command_combo.currentText() == "Database Management"
+            assert window.command_combo.currentText() == "Library"
             # Check if correct tab is active in the QTabWidget
             active_tab_index = window.tabs.currentIndex()
-            assert window.tabs.tabText(active_tab_index) == "Search Images"
+            assert window.tabs.tabText(active_tab_index) == "Image Search"
             # Check if set_config was called with the dummy config
             mock_set_config.assert_called_with({"dummy_key": "dummy_value"})
 
@@ -139,8 +139,8 @@ class TestMainWindowSessionRecovery:
                 "session_recovery_level": "Current Tab"
             },
             "session_recovery_data": {
-                "active_category": "Database Management",
-                "active_tab": "Search Images",
+                "active_category": "Library",
+                "active_tab": "Image Search",
                 "tab_configs": {
                     "SearchTab": {"search_key": "val1"},
                     "ConvertTab": {"convert_key": "val2"}
@@ -167,8 +167,8 @@ class TestMainWindowSessionRecovery:
                 "session_recovery_level": "None"
             },
             "session_recovery_data": {
-                "active_category": "Database Management",
-                "active_tab": "Search Images",
+                "active_category": "Library",
+                "active_tab": "Image Search",
                 "tab_configs": {
                     "SearchTab": {"search_key": "val1"}
                 }

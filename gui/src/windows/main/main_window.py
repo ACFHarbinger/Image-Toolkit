@@ -4,6 +4,8 @@ import inspect
 import json
 import os
 import sys
+from pathlib import Path
+from typing import Any
 
 from backend.src.constants import LOCAL_SOURCE_PATH
 from backend.src.core.vault_manager import VaultManager
@@ -86,6 +88,7 @@ class MainWindow(QWidget):
             ConvertTab,
             DatabaseTab,
             DriveSyncTab,
+            EntityReconTab,
             ExtractorTab,
             ImageCrawlTab,
             ListingsTab,
@@ -93,7 +96,6 @@ class MainWindow(QWidget):
             MetaCLIPInferenceTab,
             R3GANEvaluateTab,
             ReverseImageSearchTab,
-            EntityReconTab,
             ScanMetadataTab,
             SearchTab,
             SimilarityTab,
@@ -475,7 +477,10 @@ class MainWindow(QWidget):
 
         restore_last_dir = prefs.get("restore_last_dir", True)
 
-        default_dir = LOCAL_SOURCE_PATH
+        default_dir = prefs.get("default_open_dir", "").strip() or LOCAL_SOURCE_PATH
+        if default_dir and "Downloads/data" in default_dir:
+            default_dir = default_dir.replace("Downloads/data", "Downloads/Data")
+
         for cat_tabs in self.all_tabs.values():
             for tab in cat_tabs.values():
                 # Thumbnail and page size (§2.16A)
@@ -494,14 +499,33 @@ class MainWindow(QWidget):
                 if hasattr(tab, "_initial_pixmap_cache"):
                     tab._initial_pixmap_cache = LRUImageCache(maxsize=initial_cache) # pyrefly: ignore [missing-attribute]
 
-                # Reset directory to default if restore is disabled
-                if not restore_last_dir:
-                    for obj in (tab, getattr(tab, "format_tab", None)):
-                        if obj is not None:
-                            if hasattr(obj, "last_browsed_scan_dir"):
-                                obj.last_browsed_scan_dir = default_dir # pyrefly: ignore [missing-attribute]
-                            if hasattr(obj, "last_browsed_dir"):
-                                obj.last_browsed_dir = default_dir # pyrefly: ignore [missing-attribute]
+                # Update directory configuration for the tab
+                for obj in (tab, getattr(tab, "format_tab", None)):
+                    if obj is not None:
+                        obj_any: Any = obj
+                        if hasattr(obj_any, "last_browsed_scan_dir"):
+                            if hasattr(obj_any, "_load_last_dir"):
+                                obj_any.last_browsed_scan_dir = obj_any._load_last_dir(default_dir, main_win=self)
+                            elif not restore_last_dir or getattr(obj_any, "last_browsed_scan_dir", "") == LOCAL_SOURCE_PATH or not getattr(obj_any, "last_browsed_scan_dir", ""):
+                                obj_any.last_browsed_scan_dir = default_dir
+                            if obj_any.last_browsed_scan_dir and "Downloads/data" in obj_any.last_browsed_scan_dir:
+                                obj_any.last_browsed_scan_dir = obj_any.last_browsed_scan_dir.replace("Downloads/data", "Downloads/Data")
+                        if hasattr(obj_any, "last_browsed_dir"):
+                            if hasattr(obj_any, "_load_last_dir"):
+                                obj_any.last_browsed_dir = obj_any._load_last_dir(default_dir, main_win=self)
+                            elif not restore_last_dir or getattr(obj_any, "last_browsed_dir", "") == LOCAL_SOURCE_PATH or not getattr(obj_any, "last_browsed_dir", ""):
+                                obj_any.last_browsed_dir = default_dir
+                            if obj_any.last_browsed_dir and "Downloads/data" in obj_any.last_browsed_dir:
+                                obj_any.last_browsed_dir = obj_any.last_browsed_dir.replace("Downloads/data", "Downloads/Data")
+
+                # ExtractorTab specific directory update
+                if type(tab).__name__ == "ExtractorTab":
+                    tab_any: Any = tab
+                    tab_any.extraction_dir = Path(default_dir) / "Frames"
+                    tab_any.extraction_dir.mkdir(parents=True, exist_ok=True)
+                    tab_any.last_browsed_extraction_dir = tab_any._load_last_extraction_dir(str(tab_any.extraction_dir))
+                    if tab_any.last_browsed_extraction_dir and "Downloads/data" in tab_any.last_browsed_extraction_dir:
+                        tab_any.last_browsed_extraction_dir = tab_any.last_browsed_extraction_dir.replace("Downloads/data", "Downloads/Data")
 
                 # Apply Extractor seek interval
                 if hasattr(tab, "wheel_seek_ms"):

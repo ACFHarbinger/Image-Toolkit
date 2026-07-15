@@ -194,8 +194,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         from gui.src.windows.settings.app_settings import AppSettings
         return AppSettings.session(self.__class__.__name__, "recent_dirs", []) or []
 
-    def _save_last_dir(self, path: str) -> None:
-        main_win = self.window()
+    def _save_last_dir(self, path: str, main_win = None) -> None:
+        if path and "Downloads/data" in path:
+            path = path.replace("Downloads/data", "Downloads/Data")
+        if not main_win:
+            main_win = self.window()
         if not main_win:
             for widget in QApplication.topLevelWidgets():
                 if hasattr(widget, "cached_creds"):
@@ -208,8 +211,9 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         from gui.src.windows.settings.app_settings import AppSettings
         AppSettings.set_session(self.__class__.__name__, "last_dir", path)
 
-    def _load_last_dir(self, default: str = "") -> str:
-        main_win = self.window()
+    def _load_last_dir(self, default: str = "", main_win = None) -> str:
+        if not main_win:
+            main_win = self.window()
         if not main_win:
             for widget in QApplication.topLevelWidgets():
                 if hasattr(widget, "cached_creds"):
@@ -217,10 +221,22 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
                     break
         if main_win and hasattr(main_win, "cached_creds"):
             prefs = main_win.cached_creds.get("preferences", {})
+            default_dir = prefs.get("default_open_dir", "").strip()
+            if default_dir:
+                default = default_dir
             if not prefs.get("restore_last_dir", True):
+                # Auto-correct any lowercase Downloads/data path to Downloads/Data
+                if default and "Downloads/data" in default:
+                    default = default.replace("Downloads/data", "Downloads/Data")
                 return default
+        # Auto-correct any lowercase Downloads/data path to Downloads/Data
+        if default and "Downloads/data" in default:
+            default = default.replace("Downloads/data", "Downloads/Data")
         from gui.src.windows.settings.app_settings import AppSettings
-        return AppSettings.session(self.__class__.__name__, "last_dir", default)
+        val = AppSettings.session(self.__class__.__name__, "last_dir", default)
+        if val and "Downloads/data" in val:
+            val = val.replace("Downloads/data", "Downloads/Data")
+        return val
 
     # =========================================================================
     # Status bar helper (GUI/UX §2.10C)

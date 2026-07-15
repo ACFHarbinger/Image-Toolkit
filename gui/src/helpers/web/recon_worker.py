@@ -39,9 +39,13 @@ class IndexBuildWorker(QThread):
 
     def run(self):
         try:
+            def progress_callback(stage: str, d: int, t: int) -> None:
+                self.status.emit(stage)
+                self.progress.emit(d, t)
+
             indexer = DatasetIndexer(
                 self.config,
-                progress_cb=lambda stage, d, t: (self.status.emit(stage), self.progress.emit(d, t)),
+                progress_cb=progress_callback,
                 cancel_cb=self._cancelled,
             )
             indexer.build()

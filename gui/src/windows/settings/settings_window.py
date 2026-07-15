@@ -10,6 +10,7 @@ from backend.src.constants import (
     DAEMON_CONFIG_PATH,
     IMAGE_TOOLKIT_DIR,
     LOCAL_SECRETS_DIR,
+    LOCAL_SOURCE_PATH,
     ROOT_DIR,
     SECRETS_DIR,
     THUMBNAIL_CACHE_DIR,
@@ -99,6 +100,7 @@ class SettingsWindow(QWidget):
         self.pref_selected_cache = _p.get("selected_cache_maxsize", 200)
         self.pref_initial_cache = _p.get("initial_cache_maxsize", 300)
         self.pref_restore_last_dir = _p.get("restore_last_dir", True)
+        self.pref_default_open_dir = _p.get("default_open_dir", "")
         self.pref_recent_dirs_count = _p.get("recent_dirs_count", 10)
         self.pref_startup_category = _p.get("startup_category", "System Tools")
         self.pref_slideshow_min = _p.get("slideshow_interval_min", 5)
@@ -729,6 +731,18 @@ class SettingsWindow(QWidget):
         )
         session_layout.addRow("Session Recovery Level:", self.session_recovery_combo)
 
+        # Default browse directory
+        default_dir_row = QHBoxLayout()
+        self.default_dir_input = QLineEdit()
+        self.default_dir_input.setText(self.pref_default_open_dir)
+        self.default_dir_input.setPlaceholderText("Select/paste default directory path...")
+        self.btn_browse_default_dir = QPushButton("Browse")
+        self.btn_browse_default_dir.setFixedWidth(80)
+        self.btn_browse_default_dir.clicked.connect(self._browse_default_open_dir)
+        default_dir_row.addWidget(self.default_dir_input, 1)
+        default_dir_row.addWidget(self.btn_browse_default_dir)
+        session_layout.addRow("Default Browse Directory:", default_dir_row)
+
         # ---------------------------------------------------------------------
         # --- Performance and Cache Section ---
         # ---------------------------------------------------------------------
@@ -776,6 +790,11 @@ class SettingsWindow(QWidget):
         perf_layout.addRow(
             "Wallpaper Gallery LRU Cache Size:", self.initial_cache_spinbox
         )
+
+        self.clear_storyboard_cache_btn = QPushButton("Clear Storyboard Cache")
+        self.clear_storyboard_cache_btn.setToolTip("Deletes the storyboard cache directory and all its contents.")
+        self.clear_storyboard_cache_btn.clicked.connect(self._clear_storyboard_cache)
+        perf_layout.addRow("", self.clear_storyboard_cache_btn)
 
         # ---------------------------------------------------------------------
         # --- MyAnimeList Auto-Fill Section ---
@@ -2349,6 +2368,7 @@ class SettingsWindow(QWidget):
                 "selected_cache_maxsize": self.selected_cache_spinbox.value(),
                 "initial_cache_maxsize": self.initial_cache_spinbox.value(),
                 "restore_last_dir": self.restore_last_dir_check.isChecked(),
+                "default_open_dir": self.default_dir_input.text().strip().replace("Downloads/data", "Downloads/Data"),
                 "recent_dirs_count": 10,
                 "startup_category": self.startup_category_combo.currentText(),
                 "slideshow_interval_min": self.slideshow_default_min_spinbox.value(),
@@ -2455,6 +2475,43 @@ class SettingsWindow(QWidget):
         self.font_scale_spinbox.setValue(100)
         self.ui_density_combo.setCurrentText("Comfortable")
         self.fav_list_widget.clear()
+        self.default_dir_input.clear()
+
+    def _browse_default_open_dir(self):
+        current_dir = self.default_dir_input.text().strip()
+        if not current_dir or not os.path.exists(current_dir):
+            current_dir = LOCAL_SOURCE_PATH
+        d = QFileDialog.getExistingDirectory(
+            self, "Select Default Browse Directory", current_dir
+        )
+        if d:
+            self.default_dir_input.setText(d)
+
+    def _clear_storyboard_cache(self):
+        storyboard_dir = IMAGE_TOOLKIT_DIR / "storyboard-cache"
+        if not storyboard_dir.exists():
+            QMessageBox.information(
+                self, "Storyboard Cache", "Storyboard cache is already empty or does not exist."
+            )
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Clear Storyboard Cache",
+            "Are you sure you want to delete the storyboard cache directory and all its contents?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                shutil.rmtree(storyboard_dir)
+                QMessageBox.information(
+                    self, "Storyboard Cache", "Storyboard cache cleared successfully."
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Error", f"Failed to clear storyboard cache:\n{e}"
+                )
 
     # ------------------------------------------------------------------
     # --- Keyboard Shortcuts Helpers (GUI/UX §2.29) -------------------
