@@ -44,7 +44,7 @@ def _sync_images_from_backup(prefix: str) -> int:
 
 class _SyncBackupWorker(QThread):
     progress = Signal(int, str)  # (percent, text)
-    finished = Signal(bool, str, object)  # (success, message, result_data)
+    sig_finished = Signal(bool, str, object)  # (success, message, result_data)
 
     def __init__(self, task_type: str, category: str, params: dict):
         super().__init__()
@@ -59,7 +59,7 @@ class _SyncBackupWorker(QThread):
             elif self.task_type == "backup":
                 self.run_backup()
         except Exception as e:
-            self.finished.emit(False, str(e), None)
+            self.sig_finished.emit(False, str(e), None)
 
     def run_sync(self):
         # 1. Load and decrypt remote entries
@@ -114,7 +114,7 @@ class _SyncBackupWorker(QThread):
         synced_imgs = _sync_images_from_backup(prefix)
 
         self.progress.emit(100, "Done!")
-        self.finished.emit(True, "Sync complete", (merged_entries, synced_imgs))
+        self.sig_finished.emit(True, "Sync complete", (merged_entries, synced_imgs))
 
     def run_backup(self):
         self.progress.emit(5, "Encrypting and saving entries...")
@@ -150,7 +150,7 @@ class _SyncBackupWorker(QThread):
 
         if not files_to_backup:
             self.progress.emit(100, "Done!")
-            self.finished.emit(True, "Backup complete", 0)
+            self.sig_finished.emit(True, "Backup complete", 0)
             return
 
         migrations_dir = Path(udef.ROOT_DIR) / "assets" / "migrations"
@@ -182,4 +182,4 @@ class _SyncBackupWorker(QThread):
             zf.close()
 
         self.progress.emit(100, "Done!")
-        self.finished.emit(True, "Backup complete", len(files_to_backup))
+        self.sig_finished.emit(True, "Backup complete", len(files_to_backup))

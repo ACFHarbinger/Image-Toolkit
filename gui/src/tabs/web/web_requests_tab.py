@@ -318,7 +318,7 @@ class WebRequestsTab(QWidget):
             self.worker.status.connect(self.log_window.append_log)
             self.worker.status.connect(self.status_label.setText)  # Show last status
             self.worker.error.connect(self.log_window.append_log)
-            self.worker.finished.connect(self.on_requests_done)
+            self.worker.sig_finished.connect(self.on_requests_done)
 
             self.worker.start()
         except ImportError:

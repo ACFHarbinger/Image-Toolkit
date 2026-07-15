@@ -540,7 +540,7 @@ class SamplerSubTab(AbstractClassTwoGalleries):
             return
 
         self.worker = SamplerWorker(config)
-        self.worker.finished.connect(self._on_done)
+        self.worker.sig_finished.connect(self._on_done)
         self.worker.error.connect(self._on_error)
         self.worker.progress_update.connect(self._on_progress)
 

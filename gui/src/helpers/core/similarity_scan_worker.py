@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class SimilarityScanWorker(QThread):
     # NOTE: these custom signals intentionally shadow QThread's built-in
     # ``finished``/``started`` — callers must use these, not QThread.finished.
-    finished = Signal(object)        # SimilarityReport
+    sig_finished = Signal(object)        # SimilarityReport
     error = Signal(str)
     status = Signal(str)
     progress = Signal(int, int)      # done, total (0,0 = indeterminate)
@@ -53,7 +53,7 @@ class SimilarityScanWorker(QThread):
             if self.isInterruptionRequested():
                 self.cancelled.emit()
             else:
-                self.finished.emit(report)
+                self.sig_finished.emit(report)
         except ScanCancelled:
             self.cancelled.emit()
         except Exception as e:  # surface everything — worker thread has no UI

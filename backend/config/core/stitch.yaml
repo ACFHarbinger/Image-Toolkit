@@ -1,6 +1,6 @@
 # Input/Output paths
-input_dir: "${HOME}/Downloads/data/new/"
-output_path: "${HOME}/Downloads/data/new/stitched_panorama.png"
+input_dir: "${HOME}/Downloads/Data/new/"
+output_path: "${HOME}/Downloads/Data/new/stitched_panorama.png"
 
 # Core algorithm controls
 motion_model: "translation" # Options: "affine" (4-DOF partial), "translation"

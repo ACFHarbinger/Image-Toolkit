@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class IndexBuildWorker(QThread):
     """Builds the local identity HNSW index from a dataset root."""
 
-    finished = Signal(object, dict)   # DatasetIndexer, stats
+    sig_finished = Signal(object, dict)  # DatasetIndexer, stats
     error = Signal(str)
     status = Signal(str)
     progress = Signal(int, int)
@@ -41,12 +41,11 @@ class IndexBuildWorker(QThread):
         try:
             indexer = DatasetIndexer(
                 self.config,
-                progress_cb=lambda stage, d, t: (
-                    self.status.emit(stage), self.progress.emit(d, t)),
+                progress_cb=lambda stage, d, t: (self.status.emit(stage), self.progress.emit(d, t)),
                 cancel_cb=self._cancelled,
             )
             indexer.build()
-            self.finished.emit(indexer, indexer.stats)
+            self.sig_finished.emit(indexer, indexer.stats)
         except Exception as e:
             logger.exception("Index build failed")
             self.error.emit(str(e))
@@ -55,7 +54,7 @@ class IndexBuildWorker(QThread):
 class ResolveWorker(QThread):
     """Segments (optional), embeds and resolves a subject cutout."""
 
-    finished = Signal(object)   # IdentityResolution
+    sig_finished = Signal(object)  # IdentityResolution
     error = Signal(str)
     status = Signal(str)
 
@@ -69,7 +68,7 @@ class ResolveWorker(QThread):
         try:
             self.status.emit("Resolving identity...")
             res = self.engine.resolve(self.cutout_rgb, self.cutout_png)
-            self.finished.emit(res)
+            self.sig_finished.emit(res)
         except Exception as e:
             logger.exception("Resolve failed")
             self.error.emit(str(e))
@@ -78,7 +77,7 @@ class ResolveWorker(QThread):
 class BatchSuggestWorker(QThread):
     """Runs identity resolution over a dropped batch of images."""
 
-    finished = Signal(list)     # list[dict]
+    sig_finished = Signal(list)  # list[dict]
     error = Signal(str)
     status = Signal(str)
 
@@ -91,7 +90,7 @@ class BatchSuggestWorker(QThread):
         try:
             self.status.emit(f"Analyzing {len(self.paths)} images...")
             suggestions = self.engine.suggest_batch(self.paths)
-            self.finished.emit(suggestions)
+            self.sig_finished.emit(suggestions)
         except Exception as e:
             logger.exception("Batch suggest failed")
             self.error.emit(str(e))

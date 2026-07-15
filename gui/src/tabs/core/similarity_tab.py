@@ -652,7 +652,7 @@ class SimilarityTab(AbstractClassTwoGalleries):
         self._sim_worker = SimilarityScanWorker(self._sim_config)
         self._sim_worker.status.connect(self._on_sim_status)
         self._sim_worker.progress.connect(self.scan_progress)
-        self._sim_worker.finished.connect(self._on_sim_scan_finished)
+        self._sim_worker.sig_finished.connect(self._on_sim_scan_finished)
         self._sim_worker.error.connect(self._on_sim_scan_error)
         self._sim_worker.cancelled.connect(self._on_sim_scan_cancelled)
         self._sim_worker.start()
@@ -1001,7 +1001,7 @@ class SimilarityTab(AbstractClassTwoGalleries):
         self.worker = DeletionWorker(config)
         self.worker.confirm_signal.connect(self.handle_confirmation_request)
         self.worker.progress.connect(self.update_progress)
-        self.worker.finished.connect(self.on_deletion_done)
+        self.worker.sig_finished.connect(self.on_deletion_done)
         self.worker.error.connect(self.on_deletion_error)
         self.worker.start()
 
