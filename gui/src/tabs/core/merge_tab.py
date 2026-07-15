@@ -573,10 +573,9 @@ class MergeTab(AbstractClassSingleGallery):
         if thread:
             try:
                 if worker:
-                    worker.finished.disconnect()
+                    worker.sig_finished.disconnect()
                     worker.error.disconnect()
                     worker.progress.disconnect()
-                thread.started.disconnect()
                 thread.finished.disconnect()
             except Exception:
                 pass
@@ -688,15 +687,11 @@ class MergeTab(AbstractClassSingleGallery):
         loop.exec()
 
         worker = ImageScannerWorker(directory)
-        thread = QThread(self)
         self.current_scan_worker = worker
-        self.current_scan_thread = thread
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run_scan)
+        self.current_scan_thread = worker
         worker.scan_finished.connect(self.on_scan_finished)
-        worker.scan_finished.connect(thread.quit)
-        thread.finished.connect(self.cleanup_scan_thread_ref)
-        thread.start()
+        worker.finished.connect(self.cleanup_scan_thread_ref)
+        worker.start()
 
     @Slot()
     def cleanup_scan_thread_ref(self):
@@ -857,23 +852,17 @@ class MergeTab(AbstractClassSingleGallery):
             cv2.ocl.finish()
 
         worker = MergeWorker(merge_config)
-        thread = QThread(self)
-
         self.current_merge_worker = worker
-        self.current_merge_thread = thread
-        worker.moveToThread(thread)
+        self.current_merge_thread = worker
 
-        thread.started.connect(worker.run)
         worker.progress.connect(
             lambda c, t: self.status_label.setText(f"Merging {c}/{t}")
         )
 
         with contextlib.suppress(Exception):
-            worker.finished.disconnect()
+            worker.sig_finished.disconnect()
 
-        worker.finished.connect(thread.quit)
         worker.error.connect(self.on_merge_error)
-        worker.error.connect(thread.quit)
 
         def invoke_cleanup(path):
             # pyrefly: ignore [no-matching-overload]
@@ -884,9 +873,9 @@ class MergeTab(AbstractClassSingleGallery):
                 Q_ARG(str, path),
             )
 
-        worker.finished.connect(invoke_cleanup)
-        thread.finished.connect(thread.deleteLater)
-        thread.start()
+        worker.sig_finished.connect(invoke_cleanup)
+        worker.finished.connect(worker.deleteLater)
+        worker.start()
 
     @Slot(str)
     def _cleanup_merge_worker_and_show_dialog(self, result_path: str):

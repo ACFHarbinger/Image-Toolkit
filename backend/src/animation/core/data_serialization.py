@@ -294,7 +294,7 @@ class LabelStudioExporter:
 
         exp = LabelStudioExporter()
         exp.add_task(
-            frame_path="data/asp_test07/frame000.jpg",
+            frame_path="Data/asp_test07/frame000.jpg",
             temporal_id=0,
             model_mask=initial_sam2_mask,
             human_mask=accepted_mask,
@@ -392,7 +392,7 @@ class LabelStudioExporter:
         self._tasks.append({
             "id": task_id,
             "data": {
-                "image": f"/data/local-files/?d={frame_path}",
+                "image": f"/Data/local-files/?d={frame_path}",
                 "temporal_id": temporal_id,
                 "text_prompt": text_prompt,
             },

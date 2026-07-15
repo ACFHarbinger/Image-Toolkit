@@ -3,7 +3,7 @@
 Anime Stitch Pipeline Benchmark
 ================================
 Runs both the Anime Stitch Pipeline (ASP) and OpenCV SCANS Simple Stitch on
-every asp_testX dataset in data/, then generates a comprehensive markdown
+every asp_testX dataset in Data/, then generates a comprehensive markdown
 report with side-by-side comparisons, CV metrics, intermediate-output
 analysis (2-D and 3-D visualizations), and structured feedback blocks for
 human review and LLM-assisted iteration.

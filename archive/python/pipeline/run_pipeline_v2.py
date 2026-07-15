@@ -21,8 +21,8 @@ from backend.src.animation.rendering.compositing import _composite_foreground
 sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
-STAGE_DIR = os.path.expanduser("~/Downloads/data/new/output/panorama_stages")
-OUT_PATH = os.path.expanduser("~/Downloads/data/new/output/panorama_v2.png")
+STAGE_DIR = os.path.expanduser("~/Downloads/Data/New/output/panorama_stages")
+OUT_PATH = os.path.expanduser("~/Downloads/Data/New/output/panorama_v2.png")
 
 # ── Load stage03 (BaSiC-corrected) frames ────────────────────────────────────
 print("Loading stage03 BaSiC-corrected frames...")

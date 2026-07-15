@@ -96,7 +96,7 @@ def _render_overlay(
 # ── refinement worker ─────────────────────────────────────────────────────────
 
 
-class _RefinementWorker(QObject):
+class _RefinementWorker(QThread):
     """
     Runs mask refinement (Grounded SAM-2 or click re-propagation) off the main thread.
     """
@@ -407,13 +407,11 @@ class MaskReviewDialog(QDialog):
         self._launch_refinement(fn)
 
     def _launch_refinement(self, fn):
-        self._refine_thread = QThread()
         self._refine_worker = _RefinementWorker(fn)
-        self._refine_worker.moveToThread(self._refine_thread)
-        self._refine_thread.started.connect(self._refine_worker.run)
+        self._refine_thread = self._refine_worker
         self._refine_worker.sig_done.connect(self._on_refinement_done)
         self._refine_worker.sig_error.connect(self._on_refinement_error)
-        self._refine_thread.start()
+        self._refine_worker.start()
 
     def _on_refinement_done(self, new_masks: list):
         self._refine_thread.quit() # pyrefly: ignore [missing-attribute]

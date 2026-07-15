@@ -31,7 +31,7 @@ from backend.src.animation.alignment.ecc import _ecc_refine
 from backend.src.animation.rendering.rendering import _render_median
 from PIL import Image
 
-DIR = os.path.expanduser("~/Downloads/data/new")
+DIR = os.path.expanduser("~/Downloads/Data/New")
 STAGE_DIR = f"{DIR}/panorama_stages"
 os.makedirs(STAGE_DIR, exist_ok=True)
 

@@ -277,10 +277,8 @@ class StitchTabBackend(QObject):
             output_path=out,
             pipeline_config=pipeline_config,
         )
-        self._thread = QThread()
-        self._worker.moveToThread(self._thread)
+        self._thread = self._worker
 
-        self._thread.started.connect(self._worker.run)
         self._worker.sig_stage.connect(self._on_stage)
         self._worker.sig_log.connect(self._on_log)
         self._worker.sig_finished.connect(self._on_finished)
@@ -292,7 +290,7 @@ class StitchTabBackend(QObject):
         self._log_output = ""
         self.logOutputChanged.emit()
 
-        self._thread.start()
+        self._worker.start()
 
     @Slot()
     def cancel_stitch_qml(self) -> None:

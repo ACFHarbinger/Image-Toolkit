@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QThread, Signal
 
 from .stitch_worker import (
     _TOTAL_STAGES,
@@ -11,7 +11,7 @@ from .stitch_worker import (
 )
 
 
-class GraphStitchWorker(QObject):
+class GraphStitchWorker(QThread):
     """
     Executes a DAG of stitch operations in topological order.
 

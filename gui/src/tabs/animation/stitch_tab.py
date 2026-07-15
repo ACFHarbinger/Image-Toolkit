@@ -2718,15 +2718,12 @@ class StitchTab(QWidget):
             conf_thresh=self._conf_thresh_spin.value(),
             use_birefnet=self._cb_birefnet.isChecked(),
         )
-        self._match_thread = QThread(self)
-        self._match_worker.moveToThread(self._match_thread)
-        self._match_thread.started.connect(self._match_worker.run)
+        self._match_thread = self._match_worker
         self._match_worker.sig_finished.connect(self._on_matches_ready)
         self._match_worker.sig_error.connect(self._on_match_error)
-        self._match_worker.sig_finished.connect(self._match_thread.quit)
-        self._match_worker.sig_error.connect(self._match_thread.quit)
-        self._match_thread.finished.connect(lambda: self._btn_compute.setEnabled(True))
-        self._match_thread.start()
+        self._match_worker.finished.connect(lambda: self._btn_compute.setEnabled(True))
+        self._match_worker.finished.connect(self._match_worker.deleteLater)
+        self._match_worker.start()
 
     @Slot(object, object, object)
     def _on_matches_ready(self, pts1, pts2, conf):
@@ -2758,15 +2755,12 @@ class StitchTab(QWidget):
         self._log_append(f"[BiRefNet] Masking frame {row}…")
 
         self._mask_worker = MaskPreviewWorker(self._frame_paths[row])
-        self._mask_thread = QThread(self)
-        self._mask_worker.moveToThread(self._mask_thread)
-        self._mask_thread.started.connect(self._mask_worker.run)
+        self._mask_thread = self._mask_worker
         self._mask_worker.sig_finished.connect(self._on_mask_ready)
         self._mask_worker.sig_error.connect(self._on_mask_error)
-        self._mask_worker.sig_finished.connect(self._mask_thread.quit)
-        self._mask_worker.sig_error.connect(self._mask_thread.quit)
-        self._mask_thread.finished.connect(lambda: self._btn_show_mask.setEnabled(True))
-        self._mask_thread.start()
+        self._mask_worker.finished.connect(lambda: self._btn_show_mask.setEnabled(True))
+        self._mask_worker.finished.connect(self._mask_worker.deleteLater)
+        self._mask_worker.start()
 
     @Slot(object)
     def _on_mask_ready(self, mask):
@@ -2941,16 +2935,13 @@ class StitchTab(QWidget):
         self._last_stages_dir = self._stitch_worker._intermediate_dir
         self._btn_inspect_edges.setEnabled(False)
         self._btn_inspect_canvas.setEnabled(False)
-        self._stitch_thread = QThread(self)
-        self._stitch_worker.moveToThread(self._stitch_thread)
-        self._stitch_thread.started.connect(self._stitch_worker.run)
+        self._stitch_thread = self._stitch_worker
         self._stitch_worker.sig_stage.connect(self._on_stage)
         self._stitch_worker.sig_log.connect(self._log_append)
         self._stitch_worker.sig_finished.connect(self._on_stitch_finished)
         self._stitch_worker.sig_error.connect(self._on_stitch_error)
-        self._stitch_worker.sig_finished.connect(self._stitch_thread.quit)
-        self._stitch_worker.sig_error.connect(self._stitch_thread.quit)
-        self._stitch_thread.finished.connect(self._on_stitch_thread_done)
+        self._stitch_worker.finished.connect(self._on_stitch_thread_done)
+        self._stitch_worker.finished.connect(self._stitch_worker.deleteLater)
         if _hitl:
             if _use_video:
                 self._stitch_worker.sig_review_video.connect(self._on_hitl_review_video)
@@ -2967,11 +2958,13 @@ class StitchTab(QWidget):
             )
             self._stitch_worker.sig_review_render.connect(self._on_hitl_review_render)
             self._stitch_worker.sig_review_output.connect(self._on_hitl_review_output)
-        self._stitch_thread.start()
+        self._stitch_worker.start()
 
     def _cancel_stitch(self):
         if self._stitch_worker:
             self._stitch_worker.cancel()
+            self._stitch_worker.quit()
+            self._stitch_worker.wait()
             self._btn_cancel.setEnabled(False)
         self._stitch_worker = None
         self._stitch_thread = None
@@ -3487,22 +3480,19 @@ class StitchTab(QWidget):
         }
 
         self._graph_worker = GraphStitchWorker(plan, cfg)
-        self._graph_thread = QThread(self)
-        self._graph_worker.moveToThread(self._graph_thread)
-        self._graph_thread.started.connect(self._graph_worker.run)
+        self._graph_thread = self._graph_worker
         self._graph_worker.sig_step.connect(self._graph_on_step)
         self._graph_worker.sig_stage.connect(self._graph_on_stage)
         self._graph_worker.sig_log.connect(self._graph_log_append)
         self._graph_worker.sig_finished.connect(self._graph_on_finished)
         self._graph_worker.sig_error.connect(self._graph_on_error)
-        self._graph_worker.sig_finished.connect(self._graph_thread.quit)
-        self._graph_worker.sig_error.connect(self._graph_thread.quit)
-        self._graph_thread.finished.connect(self._graph_on_thread_done)
+        self._graph_worker.finished.connect(self._graph_on_thread_done)
+        self._graph_worker.finished.connect(self._graph_worker.deleteLater)
 
         self._gph_btn_run.setEnabled(False)
         self._gph_btn_cancel.setEnabled(True)
         self._gph_log.clear()
-        self._graph_thread.start()
+        self._graph_worker.start()
 
     def _graph_cancel(self):
         if self._graph_worker:
@@ -3621,14 +3611,11 @@ class StitchTab(QWidget):
         self._adj_worker = AdjustWorker(
             self._adj_img_path, self._adj_collect_params(), max_size=900
         )
-        self._adj_thread = QThread(self)
-        self._adj_worker.moveToThread(self._adj_thread)
-        self._adj_thread.started.connect(self._adj_worker.run)
+        self._adj_thread = self._adj_worker
         self._adj_worker.sig_finished.connect(self._on_adj_preview_ready)
         self._adj_worker.sig_error.connect(self._on_adj_error)
-        self._adj_worker.sig_finished.connect(self._adj_thread.quit)
-        self._adj_worker.sig_error.connect(self._adj_thread.quit)
-        self._adj_thread.start()
+        self._adj_worker.finished.connect(self._adj_worker.deleteLater)
+        self._adj_worker.start()
 
     @Slot(object)
     def _on_adj_preview_ready(self, qi: QImage):
@@ -3713,8 +3700,6 @@ class StitchTab(QWidget):
         worker = AdjustWorker(
             self._adj_img_path, self._adj_collect_params(), max_size=None
         )
-        thread = QThread(self)
-        worker.moveToThread(thread)
 
         def _on_done(qi: QImage):
             qi.save(p)
@@ -3723,12 +3708,10 @@ class StitchTab(QWidget):
         def _on_err(msg: str):
             self._adj_status_label.setText(f"Save error: {msg}")
 
-        thread.started.connect(worker.run)
         worker.sig_finished.connect(_on_done)
         worker.sig_error.connect(_on_err)
-        worker.sig_finished.connect(thread.quit)
-        worker.sig_error.connect(thread.quit)
-        thread.start()
+        worker.finished.connect(worker.deleteLater)
+        worker.start()
 
     def _adj_export_to_temp(self) -> Optional[str]:
         """Save the adjusted result to a temp file and return its path."""
@@ -3877,15 +3860,12 @@ class StitchTab(QWidget):
             gap=p_cv["gap"],
             preview=True,
         )
-        self._cv_thread = QThread(self)
-        self._cv_worker.moveToThread(self._cv_thread)
-        self._cv_thread.started.connect(self._cv_worker.run)
+        self._cv_thread = self._cv_worker
         self._cv_worker.sig_finished.connect(self._on_cv_preview_ready)
         self._cv_worker.sig_error.connect(self._on_cv_error)
-        self._cv_worker.sig_finished.connect(self._cv_thread.quit)
-        self._cv_worker.sig_error.connect(self._cv_thread.quit)
-        self._cv_thread.finished.connect(self._on_cv_thread_done)
-        self._cv_thread.start()
+        self._cv_worker.finished.connect(self._on_cv_thread_done)
+        self._cv_worker.finished.connect(self._cv_worker.deleteLater)
+        self._cv_worker.start()
 
     @Slot(object)
     def _on_cv_preview_ready(self, qi: QImage):
@@ -3947,8 +3927,6 @@ class StitchTab(QWidget):
             gap=p_cv["gap"],
             preview=False,
         )
-        thread = QThread(self)
-        worker.moveToThread(thread)
 
         def _on_done(qi: QImage):
             qi.save(p)
@@ -3964,12 +3942,10 @@ class StitchTab(QWidget):
             self._btn_cv_preview.setEnabled(True)
             self._btn_cv_export.setEnabled(True)
 
-        thread.started.connect(worker.run)
         worker.sig_finished.connect(_on_done)
         worker.sig_error.connect(_on_err)
-        worker.sig_finished.connect(thread.quit)
-        worker.sig_error.connect(thread.quit)
-        thread.start()
+        worker.finished.connect(worker.deleteLater)
+        worker.start()
 
     # ======================================================================
     # Settings persistence

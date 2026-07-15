@@ -5,7 +5,7 @@ from typing import Optional
 import cv2
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QImage
 
 
@@ -174,7 +174,7 @@ def _apply_adjustments(pil_img, params: dict):  # noqa: C901
     return img
 
 
-class AdjustWorker(QObject):
+class AdjustWorker(QThread):
     sig_finished = Signal(object)  # QImage
     sig_error = Signal(str)
 
