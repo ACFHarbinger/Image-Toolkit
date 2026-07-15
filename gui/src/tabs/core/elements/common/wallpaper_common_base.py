@@ -1138,19 +1138,16 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             self.vid_scanner_worker = None
 
         self.img_scanner_worker = ImageScannerWorker(directory)
-        self.img_scanner_thread = QThread()
-        self.img_scanner_worker.moveToThread(self.img_scanner_thread)
+        self.img_scanner_thread = self.img_scanner_worker
 
-        self.img_scanner_thread.started.connect(self.img_scanner_worker.run_scan)
         self.img_scanner_worker.scan_finished.connect(self._on_image_scan_finished)
         self.img_scanner_worker.scan_error.connect(self.handle_scan_error)
 
-        self.img_scanner_worker.scan_finished.connect(self.img_scanner_thread.quit)
-        self.img_scanner_thread.finished.connect(self.img_scanner_thread.deleteLater)
-        self.img_scanner_thread.finished.connect(
+        self.img_scanner_worker.finished.connect(self.img_scanner_worker.deleteLater)
+        self.img_scanner_worker.finished.connect(
             lambda: setattr(self, "img_scanner_thread", None)
         )
-        self.img_scanner_thread.start()
+        self.img_scanner_worker.start()
 
     @Slot(list)
     def _on_image_scan_finished(self, image_paths: list):

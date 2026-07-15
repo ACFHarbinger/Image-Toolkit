@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import cv2
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QThread, Signal
 
 
-class MaskPreviewWorker(QObject):
+class MaskPreviewWorker(QThread):
     sig_finished = Signal(object)  # np.ndarray (H,W) uint8
     sig_error = Signal(str)
 

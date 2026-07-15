@@ -5,12 +5,12 @@ from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import FSETool, ImageMerger
 from gui.src.helpers.core.config_types import MergeConfig
 from PIL import Image as PILImage
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QThread, Signal
 
 
-class MergeWorker(QObject):
+class MergeWorker(QThread):
     progress = Signal(int, int)  # (current, total)
-    finished = Signal(str)  # output path
+    sig_finished = Signal(str)  # output path
     error = Signal(str)
     cancelled = Signal()
 
@@ -103,7 +103,7 @@ class MergeWorker(QObject):
                 )
 
             self.progress.emit(len(image_files), len(image_files))
-            self.finished.emit(output_path)
+            self.sig_finished.emit(output_path)
 
         except Exception as e:
             self.error.emit(f"Merge failed: {str(e)}")
@@ -145,7 +145,7 @@ class MergeWorker(QObject):
 
             os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
             result.save(output_path, "PNG")
-            self.finished.emit(output_path)
+            self.sig_finished.emit(output_path)
 
         except Exception as e:
             self.error.emit(f"Canvas merge failed: {str(e)}")

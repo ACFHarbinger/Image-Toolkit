@@ -42,7 +42,7 @@ from backend.src.animation.ingestion.video_ingestion import ingest_video
 from backend.src.animation.rendering.compositing import _compute_initial_boundaries
 from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 from PIL import Image as _Image
-from PySide6.QtCore import QMutex, QObject, QWaitCondition, Signal
+from PySide6.QtCore import QMutex, QObject, QThread, QWaitCondition, Signal
 
 # ---------------------------------------------------------------------------
 # _ProgressPipeline — AnimeStitchPipeline subclass with progress callbacks
@@ -817,7 +817,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
 # ---------------------------------------------------------------------------
 
 
-class StitchWorker(QObject):
+class StitchWorker(QThread):
     sig_stage = Signal(int, int, str)  # (current_stage, total_stages, label)
     sig_log = Signal(str)
     sig_finished = Signal(str)  # output_path

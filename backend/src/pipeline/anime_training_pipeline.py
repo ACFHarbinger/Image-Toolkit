@@ -79,8 +79,8 @@ def _run_extraction(cfg: DictConfig) -> list[Path]:
     """Stage 1: extract frames from video sources."""
     # relocated: from backend.src.models.data.video_frame_extractor import VideoFrameExtractor
 
-    video_dir = Path(_resolve(cfg, "data.video_dir", "data/videos"))
-    frames_dir = Path(_resolve(cfg, "data.frames_dir", "data/frames"))
+    video_dir = Path(_resolve(cfg, "data.video_dir", "Data/Videos"))
+    frames_dir = Path(_resolve(cfg, "data.frames_dir", "Data/Frames"))
     extr_cfg = cfg.get("data", {}).get("extraction", {})
 
     extractor = VideoFrameExtractor(
@@ -383,7 +383,7 @@ def main(cfg: DictConfig) -> None:
     if bool(_resolve(cfg, "pipeline.run_extraction", False)):
         image_paths = _run_extraction(cfg)
     else:
-        data_dir = Path(str(_resolve(cfg, "data.images_dir", "data/images")))
+        data_dir = Path(str(_resolve(cfg, "data.images_dir", "Data/Images")))
         image_paths = sorted(
             p
             for p in data_dir.rglob("*")

@@ -941,19 +941,15 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             loop.exec()
 
             self.scan_worker = ImageScannerWorker(directory)
-            self.scan_thread = QThread()
-            self.scan_worker.moveToThread(self.scan_thread)
+            self.scan_thread = self.scan_worker
 
-            self.scan_thread.started.connect(self.scan_worker.run_scan)
             self.scan_worker.scan_finished.connect(self.process_scan_results)
             self.scan_worker.scan_error.connect(self.handle_scan_error)
 
-            self.scan_worker.scan_finished.connect(self.scan_thread.quit)
-            self.scan_worker.scan_finished.connect(self.scan_worker.deleteLater)
-            self.scan_thread.finished.connect(self.on_scan_thread_finished)
-            self.scan_thread.finished.connect(self.scan_thread.deleteLater)
+            self.scan_worker.finished.connect(self.on_scan_thread_finished)
+            self.scan_worker.finished.connect(self.scan_worker.deleteLater)
 
-            self.scan_thread.start()
+            self.scan_worker.start()
             return
 
         # If performing a refresh (toggling view_new_only), re-apply filters to existing list

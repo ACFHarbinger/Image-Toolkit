@@ -2,13 +2,13 @@ import os
 from typing import List, Optional, Tuple, Union
 
 from backend.src.constants import HAS_NATIVE_IMAGING, SUPPORTED_IMG_FORMATS
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QThread, Signal, Slot
 
 if HAS_NATIVE_IMAGING:
     import base
 
 
-class ImageScannerWorker(QObject):
+class ImageScannerWorker(QThread):
     """
     Worker to perform file system scanning on a separate thread.
     Optimized using os.scandir for faster directory traversal and
@@ -53,9 +53,7 @@ class ImageScannerWorker(QObject):
         try:
             with os.scandir(path) as it:
                 for entry in it:
-                    if self._is_cancelled or (
-                        self.thread() and self.thread().isInterruptionRequested()
-                    ):
+                    if self._is_cancelled or self.isInterruptionRequested():
                         return found_images
 
                     # Skip hidden files/directories
@@ -81,9 +79,7 @@ class ImageScannerWorker(QObject):
             # os.scandir is faster than os.walk as it uses cached DirEntry objects
             with os.scandir(path) as it:
                 for entry in it:
-                    if self._is_cancelled or (
-                        self.thread() and self.thread().isInterruptionRequested()
-                    ):
+                    if self._is_cancelled or self.isInterruptionRequested():
                         return found_images
 
                     # Skip hidden directories/files (starts with dot)
@@ -142,3 +138,6 @@ class ImageScannerWorker(QObject):
 
         except Exception as e:
             self.scan_error.emit(f"Critical error during scan: {e}")
+
+    def run(self):
+        self.run_scan()

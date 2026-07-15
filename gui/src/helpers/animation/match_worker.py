@@ -4,10 +4,10 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QThread, Signal
 
 
-class MatchWorker(QObject):
+class MatchWorker(QThread):
     sig_finished = Signal(object, object, object)  # pts1 (K,2), pts2 (K,2), conf (K,)
     sig_error = Signal(str)
 

@@ -15,14 +15,14 @@ def _clustered(n_people=4, per=5, dim=32, seed=0):
         for j in range(per):
             vecs.append((c + 0.02 * rng.normal(size=dim)).astype(np.float32))
             labels.append(name)
-            paths.append(f"/data/{name}/img{j}.jpg")
+            paths.append(f"/Data/{name}/img{j}.jpg")
     return np.stack(vecs), labels, paths, centers
 
 
 class TestIdentityIndex:
     def test_add_and_size(self):
         idx = recon.IdentityIndex(dim=16)
-        idx.add(np.ones(16, np.float32).tolist(), "A_B", "/data/A_B/1.jpg")
+        idx.add(np.ones(16, np.float32).tolist(), "A_B", "/Data/A_B/1.jpg")
         assert idx.size == 1
         assert idx.labels() == ["A_B"]
 
