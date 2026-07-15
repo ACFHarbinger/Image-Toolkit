@@ -627,7 +627,7 @@ class EntityListingsSubTab(QWidget):
             },
         )
         self._sync_worker.progress.connect(self._on_sync_progress)
-        self._sync_worker.finished.connect(self._on_sync_finished)
+        self._sync_worker.sig_finished.connect(self._on_sync_finished)
         self._sync_worker.start()
 
     def _on_sync_progress(self, percent, text):
@@ -701,7 +701,7 @@ class EntityListingsSubTab(QWidget):
             },
         )
         self._backup_worker.progress.connect(self._on_backup_progress)
-        self._backup_worker.finished.connect(self._on_backup_finished)
+        self._backup_worker.sig_finished.connect(self._on_backup_finished)
         self._backup_worker.start()
 
     def _on_backup_progress(self, percent, text):

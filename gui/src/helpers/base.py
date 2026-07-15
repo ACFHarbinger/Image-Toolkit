@@ -8,7 +8,7 @@ Classes
 BaseQThreadWorker
     Base for heavy ``QThread`` workers (``ConversionWorker``,
     ``DeletionWorker``, ``StitchWorker``, …).  Provides:
-      - ``finished``, ``error``, ``progress`` signals.
+      - ``sig_finished``, ``error``, ``progress`` signals.
       - ``cancel()`` / ``stop()`` — sets ``self._cancelled = True``.
       - ``run()`` — wraps ``_execute()`` in a try/except so unhandled
         exceptions always route to ``error`` rather than crashing silently.
@@ -29,7 +29,7 @@ Usage
 ``QThread`` subclass::
 
     class MyWorker(BaseQThreadWorker):
-        finished = Signal(str)   # narrow type
+        sig_finished = Signal(str)   # narrow type
 
         def __init__(self, path: str) -> None:
             super().__init__()
@@ -37,7 +37,7 @@ Usage
 
         def _execute(self) -> None:
             result = do_work(self._path)
-            self.finished.emit(result)
+            self.sig_finished.emit(result)
 
 ``QRunnable`` subclass::
 
@@ -80,7 +80,7 @@ class BaseQThreadWorker(QThread):
         Emitted with 0–100 completion percentage.
     """
 
-    finished = Signal(object)
+    sig_finished = Signal(object)
     error = Signal(str)
     progress = Signal(int)
 
@@ -122,6 +122,7 @@ class BaseQThreadWorker(QThread):
                 ModelLoadError,
                 PipelineError,
             )
+
             if isinstance(exc, (AlignmentFailedError, CanvasError)):
                 logger.warning("%s: %s", type(exc).__name__, exc)
             elif isinstance(exc, (PipelineError, ModelLoadError, ConfigError)):

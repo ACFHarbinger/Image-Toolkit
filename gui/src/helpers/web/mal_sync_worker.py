@@ -4,7 +4,7 @@ from PySide6.QtCore import QThread, Signal
 
 
 class MalSyncWorker(QThread):
-    finished = Signal(dict)
+    sig_finished = Signal(dict)
     error = Signal(str)
 
     def __init__(self, title: str, method: str | None = None):
@@ -17,4 +17,4 @@ class MalSyncWorker(QThread):
         if "error" in result:
             self.error.emit(result["error"])
         else:
-            self.finished.emit(result)
+            self.sig_finished.emit(result)

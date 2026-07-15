@@ -79,7 +79,7 @@ class _ClickableImageLabel(QLabel):
     """Displays the source image and reports clicks in *original* image
     coordinates (accounting for the letterboxed scale)."""
 
-    clicked = Signal(int, int)   # x, y in original-image pixels
+    clicked = Signal(int, int)  # x, y in original-image pixels
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -102,9 +102,7 @@ class _ClickableImageLabel(QLabel):
         if pixmap.isNull():
             return
         area = self.size()
-        scaled = pixmap.scaled(
-            area, Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
+        scaled = pixmap.scaled(area, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
         self._scaled_w, self._scaled_h = scaled.width(), scaled.height()
         self._off_x = max(0, (area.width() - self._scaled_w) // 2)
         self._off_y = max(0, (area.height() - self._scaled_h) // 2)
@@ -132,7 +130,7 @@ class EntityReconTab(QWidget):
         self._report: Optional[ProvenanceReport] = None
 
         self._source_path = ""
-        self._source_rgb = None       # np.ndarray (RGB)
+        self._source_rgb = None  # np.ndarray (RGB)
         self._cur_alpha = None
         self._cur_bbox = None
         self._batch_rows: List[dict] = []
@@ -157,8 +155,7 @@ class EntityReconTab(QWidget):
 
         ds_row = QHBoxLayout()
         self.dataset_edit = QLineEdit()
-        self.dataset_edit.setPlaceholderText(
-            "Dataset root — /Dataset/FirstName_LastName/image.jpg ...")
+        self.dataset_edit.setPlaceholderText("Dataset root — /Dataset/FirstName_LastName/image.jpg ...")
         ds_row.addWidget(self.dataset_edit)
         btn_ds = QPushButton("Browse...")
         btn_ds.clicked.connect(self._browse_dataset)
@@ -184,9 +181,9 @@ class EntityReconTab(QWidget):
         self.scope_combo.setToolTip(
             "Local only — resolve against the local identity index, fully offline.\n"
             "Web only — reverse-image web discovery only (skips the local index).\n"
-            "Local + Web — try the local index first, fall back to web on no match.")
-        self.scope_combo.setCurrentIndex(
-            self.scope_combo.findData(getattr(self._config, "search_scope", SCOPE_LOCAL)))
+            "Local + Web — try the local index first, fall back to web on no match."
+        )
+        self.scope_combo.setCurrentIndex(self.scope_combo.findData(getattr(self._config, "search_scope", SCOPE_LOCAL)))
         self.scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         opts_row.addWidget(QLabel("Search scope:"))
         opts_row.addWidget(self.scope_combo)
@@ -224,8 +221,7 @@ class EntityReconTab(QWidget):
         apply_shadow_effect(self.btn_resolve, "#000000", 8, 0, 3)
         src_btns.addWidget(self.btn_resolve)
         left_v.addLayout(src_btns)
-        self.hint_label = QLabel("Click a subject in the image to segment it, "
-                                 "or Resolve the whole frame.")
+        self.hint_label = QLabel("Click a subject in the image to segment it, or Resolve the whole frame.")
         self.hint_label.setWordWrap(True)
         self.hint_label.setStyleSheet("color: #99aab5; font-size: 11px;")
         left_v.addWidget(self.hint_label)
@@ -291,8 +287,7 @@ class EntityReconTab(QWidget):
         target_row = QHBoxLayout()
         target_row.addWidget(QLabel("Target directory:"))
         self.target_edit = QLineEdit()
-        self.target_edit.setPlaceholderText(
-            "Where identity folders are created (defaults to the dataset root)")
+        self.target_edit.setPlaceholderText("Where identity folders are created (defaults to the dataset root)")
         target_row.addWidget(self.target_edit, 1)
         btn_target = QPushButton("Browse...")
         btn_target.clicked.connect(self._browse_target)
@@ -377,8 +372,7 @@ class EntityReconTab(QWidget):
 
     def _browse_target(self):
         start = self.target_edit.text() if os.path.isdir(self.target_edit.text()) else ""
-        d = QFileDialog.getExistingDirectory(
-            self, "Select Target Directory", start, _DIALOG_OPTS)
+        d = QFileDialog.getExistingDirectory(self, "Select Target Directory", start, _DIALOG_OPTS)
         if d:
             self.target_edit.setText(d)
 
@@ -399,9 +393,7 @@ class EntityReconTab(QWidget):
         self._indexer = indexer
         self._engine = ReconEngine(self._config, indexer=indexer)
         self._set_busy(False)
-        self._set_status(
-            f"Index ready: {stats.get('indexed', 0)} images, "
-            f"{stats.get('labels', 0)} identities.")
+        self._set_status(f"Index ready: {stats.get('indexed', 0)} images, {stats.get('labels', 0)} identities.")
 
     # ------------------------------------------------------------------
     # Source image + segmentation
@@ -409,8 +401,7 @@ class EntityReconTab(QWidget):
 
     def _browse_source(self):
         start = os.path.dirname(self._source_path) if self._source_path else ""
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Source Image", start, _IMAGE_FILTER, options=_DIALOG_OPTS)
+        path, _ = QFileDialog.getOpenFileName(self, "Select Source Image", start, _IMAGE_FILTER, options=_DIALOG_OPTS)
         if path:
             self._load_source(path)
 
@@ -451,14 +442,13 @@ class EntityReconTab(QWidget):
     def _show_overlay(self, alpha):
         import numpy as np
 
-        overlay = self._source_rgb.copy() # pyrefly: ignore [missing-attribute]
+        overlay = self._source_rgb.copy()  # pyrefly: ignore [missing-attribute]
         mask = alpha > 0
         tint = np.zeros_like(overlay)
         tint[mask] = (88, 101, 242)
         overlay[mask] = (0.55 * overlay[mask] + 0.45 * tint[mask]).astype(np.uint8)
         h, w = overlay.shape[:2]
-        pix = QPixmap.fromImage(
-            QImage(overlay.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy())
+        pix = QPixmap.fromImage(QImage(overlay.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy())
         self.image_label.set_source_pixmap(pix, w, h)
 
     # ------------------------------------------------------------------
@@ -470,8 +460,7 @@ class EntityReconTab(QWidget):
             self._set_status("Load an image first.")
             return
         if self._engine is None:
-            QMessageBox.information(self, "No Index",
-                                    "Build the identity index first.")
+            QMessageBox.information(self, "No Index", "Build the identity index first.")
             return
         from backend.src.web.recon import segmenter
 
@@ -480,6 +469,7 @@ class EntityReconTab(QWidget):
         else:
             # whole-frame fallback: opaque alpha
             import numpy as np
+
             full = np.full(self._source_rgb.shape[:2], 255, dtype=np.uint8)
             cutout = segmenter.alpha_cutout(self._source_rgb, full)
         cutout_rgb = cutout[:, :, :3]
@@ -521,9 +511,7 @@ class EntityReconTab(QWidget):
                     parent.addChild(child)
                 self.prov_tree.addTopLevelItem(parent)
         self.prov_tree.expandAll()
-        self._set_status(
-            f"Identity: {res.name or 'Unknown'} "
-            f"({res.confidence * 100:.0f}%) via {res.method or '—'}")
+        self._set_status(f"Identity: {res.name or 'Unknown'} ({res.confidence * 100:.0f}%) via {res.method or '—'}")
 
     def _on_prov_activated(self, item: QTreeWidgetItem, _col: int):
         data = item.data(0, Qt.ItemDataRole.UserRole)
@@ -559,8 +547,8 @@ class EntityReconTab(QWidget):
             return
         ext = "csv" if fmt == "csv" else "json"
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export Provenance", f"provenance.{ext}",
-            f"{ext.upper()} (*.{ext})", options=_DIALOG_OPTS)
+            self, "Export Provenance", f"provenance.{ext}", f"{ext.upper()} (*.{ext})", options=_DIALOG_OPTS
+        )
         if not path:
             return
         try:
@@ -577,8 +565,7 @@ class EntityReconTab(QWidget):
         if self._engine is None:
             QMessageBox.information(self, "No Index", "Build the identity index first.")
             return
-        paths, _ = QFileDialog.getOpenFileNames(
-            self, "Select Images", "", _IMAGE_FILTER, options=_DIALOG_OPTS)
+        paths, _ = QFileDialog.getOpenFileNames(self, "Select Images", "", _IMAGE_FILTER, options=_DIALOG_OPTS)
         paths = [p for p in paths if os.path.isfile(p)]
         if not paths:
             return
@@ -660,8 +647,8 @@ class EntityReconTab(QWidget):
         # QThread + moveToThread spins a glib socket-notifier event dispatcher in
         # the worker thread which SIGSEGVs under the live JVM.
         worker.status.connect(self._set_status)
-        worker.finished.connect(on_finished)
-        worker.finished.connect(lambda *_: self._reap_worker(worker))
+        worker.sig_finished.connect(on_finished)
+        worker.sig_finished.connect(lambda *_: self._reap_worker(worker))
         worker.error.connect(self._on_worker_error)
         worker.error.connect(lambda *_: self._reap_worker(worker))
         self._threads.append(worker)

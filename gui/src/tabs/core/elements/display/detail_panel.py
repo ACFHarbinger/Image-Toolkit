@@ -63,9 +63,7 @@ class _DetailPanel(BaseDetailPanel):
         # Image preview setup from BaseDetailPanel
         self.img_preview.setFixedSize(160, 160)
         self.img_preview.setText("No Image")
-        self.img_preview.setStyleSheet(
-            "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
-        )
+        self.img_preview.setStyleSheet("border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;")
 
         img_row = QHBoxLayout()
         img_row.addWidget(self.img_preview)
@@ -80,17 +78,13 @@ class _DetailPanel(BaseDetailPanel):
         img_btns_layout.addWidget(browse_btn)
 
         self.btn_gen_thumb = QPushButton("⚡ Gen Thumbnail")
-        self.btn_gen_thumb.setToolTip(
-            "Extract thumbnail/cover from the associated Local File"
-        )
+        self.btn_gen_thumb.setToolTip("Extract thumbnail/cover from the associated Local File")
         self.btn_gen_thumb.clicked.connect(self._generate_thumbnail)
         self.btn_gen_thumb.setFixedWidth(140)
         img_btns_layout.addWidget(self.btn_gen_thumb)
 
         self.btn_mal = QPushButton("Auto-Fill from MAL")
-        self.btn_mal.setToolTip(
-            "Fetch metadata from MyAnimeList via Jikan API (Anime only)"
-        )
+        self.btn_mal.setToolTip("Fetch metadata from MyAnimeList via Jikan API (Anime only)")
         self.btn_mal.setFixedWidth(140)
         self.btn_mal.setStyleSheet(
             "QPushButton { background-color:#1565c0; color:white; font-weight:bold;"
@@ -115,9 +109,7 @@ class _DetailPanel(BaseDetailPanel):
         self.f_type = QComboBox()
         self.f_type.addItems(ENTRY_TYPES)
         self.btn_mal.setEnabled(self.f_type.currentText() == "Anime")
-        self.f_type.currentTextChanged.connect(
-            lambda text: self.btn_mal.setEnabled(text == "Anime")
-        )
+        self.f_type.currentTextChanged.connect(lambda text: self.btn_mal.setEnabled(text == "Anime"))
         self.f_status = QComboBox()
         self.f_status.addItems(ENTRY_STATUS)
         self.f_personal_rating = QSpinBox()
@@ -136,9 +128,7 @@ class _DetailPanel(BaseDetailPanel):
         self.f_episodes.setRange(1, 99999)
         self.f_current_episode = QSpinBox()
         self.f_current_episode.setRange(0, 99999)
-        self.f_episodes.valueChanged.connect(
-            lambda val: self.f_current_episode.setRange(0, max(0, val))
-        )
+        self.f_episodes.valueChanged.connect(lambda val: self.f_current_episode.setRange(0, max(0, val)))
         self.f_genres = QLineEdit()
         self.f_genres.setPlaceholderText("e.g. Action, Drama")
 
@@ -154,8 +144,7 @@ class _DetailPanel(BaseDetailPanel):
         self.f_assoc_entities_display.setPlaceholderText("None selected")
         self.f_assoc_entities_display.setFixedHeight(56)  # ~2 lines of wrapped text
         self.f_assoc_entities_display.setStyleSheet(
-            "background:#23272a; border:1px solid #4f545c; border-radius:4px;"
-            "padding:4px 6px; color:white;"
+            "background:#23272a; border:1px solid #4f545c; border-radius:4px;padding:4px 6px; color:white;"
         )
 
         self.btn_select_entities = QPushButton("🔗 Select Entities")
@@ -189,9 +178,7 @@ class _DetailPanel(BaseDetailPanel):
 
         # Summary
         self.f_summary = QTextEdit()
-        self.f_summary.setPlaceholderText(
-            "Synopsis / Summary (auto-filled from web, or write your own)…"
-        )
+        self.f_summary.setPlaceholderText("Synopsis / Summary (auto-filled from web, or write your own)…")
         self.f_summary.setFixedHeight(75)
 
         # Personal review / notes
@@ -252,7 +239,7 @@ class _DetailPanel(BaseDetailPanel):
         layout.addStretch()
 
     def _browse_image(self):
-        self._image_path = self._browse_image_helper(self._entry_id) # pyrefly: ignore [bad-argument-type]
+        self._image_path = self._browse_image_helper(self._entry_id)  # pyrefly: ignore [bad-argument-type]
 
     def _select_associated_entities(self):
         all_entities = []
@@ -271,9 +258,7 @@ class _DetailPanel(BaseDetailPanel):
             )
             return
 
-        dlg = _AssociatedEntitiesDialog(
-            all_entities, self.assoc_entities_ids, parent=self
-        )
+        dlg = _AssociatedEntitiesDialog(all_entities, self.assoc_entities_ids, parent=self)
         if dlg.exec():
             self.assoc_entities_ids = dlg.get_selected_ids()
             self._update_assoc_entities_display()
@@ -310,7 +295,7 @@ class _DetailPanel(BaseDetailPanel):
         self.f_type.setCurrentText(entry.get("type", "Anime"))
         self.f_status.setCurrentText(entry.get("status", "Plan to Watch"))
         self.f_personal_rating.setValue(
-            entry.get("personal_rating", entry.get("rating", 0)) # pyrefly: ignore [bad-argument-type]
+            entry.get("personal_rating", entry.get("rating", 0))  # pyrefly: ignore [bad-argument-type]
         )
         self.f_community_rating.setValue(float(entry.get("community_rating", 0.0)))
         self.f_year.setValue(entry.get("year", 0))
@@ -318,9 +303,7 @@ class _DetailPanel(BaseDetailPanel):
         self.f_current_episode.setValue(entry.get("current_episode", 0))
         self.f_genres.setText(entry.get("genres", ""))
         self.f_tags.setText(entry.get("tags", ""))
-        self.assoc_entities_ids = normalize_id_list(
-            entry.get("associated_entities", [])
-        )
+        self.assoc_entities_ids = normalize_id_list(entry.get("associated_entities", []))
 
         self.f_local_file.setText(entry.get("local_file", ""))
         self.f_web_link.setText(entry.get("web_link", ""))
@@ -359,9 +342,7 @@ class _DetailPanel(BaseDetailPanel):
         self.f_review.clear()
         self.img_preview.clear()
         self.img_preview.setText("No Image")
-        self.img_preview.setStyleSheet(
-            "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
-        )
+        self.img_preview.setStyleSheet("border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;")
         self._refresh_episode_list()
         self.del_btn.setVisible(False)
         self.episode_group.setVisible(False)
@@ -379,15 +360,11 @@ class _DetailPanel(BaseDetailPanel):
     def _open_local_file(self):
         path = self.f_local_file.text().strip()
         if not path:
-            QMessageBox.warning(
-                self, "No File", "Please select or enter a local file path first."
-            )
+            QMessageBox.warning(self, "No File", "Please select or enter a local file path first.")
             return
         p = Path(path)
         if not p.exists():
-            QMessageBox.warning(
-                self, "File Not Found", f"The file at '{path}' does not exist."
-            )
+            QMessageBox.warning(self, "File Not Found", f"The file at '{path}' does not exist.")
             return
         open_file_location(path)
 
@@ -428,9 +405,7 @@ class _DetailPanel(BaseDetailPanel):
                 self._image_path = str(dest_p.absolute())
                 invalidate_thumbnail_cache(self._image_path)
                 self._refresh_image()
-                QMessageBox.information(
-                    self, "Success", "Image set as thumbnail successfully!"
-                )
+                QMessageBox.information(self, "Success", "Image set as thumbnail successfully!")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to set image: {e}")
             return
@@ -448,9 +423,7 @@ class _DetailPanel(BaseDetailPanel):
                         "Successfully saved selected representative thumbnail!",
                     )
                 else:
-                    QMessageBox.critical(
-                        self, "Error", "Failed to save selected thumbnail image."
-                    )
+                    QMessageBox.critical(self, "Error", "Failed to save selected thumbnail image.")
             return
 
         QMessageBox.warning(
@@ -463,14 +436,12 @@ class _DetailPanel(BaseDetailPanel):
     def _on_fetch_mal_clicked(self):
         title = self.f_title.text().strip()
         if not title:
-            QMessageBox.warning(
-                self, "No Title", "Please enter a title before fetching from MAL."
-            )
+            QMessageBox.warning(self, "No Title", "Please enter a title before fetching from MAL.")
             return
         self.btn_mal.setText("Fetching...")
         self.btn_mal.setEnabled(False)
         self._mal_worker = MalSyncWorker(title)
-        self._mal_worker.finished.connect(self._on_mal_finished)
+        self._mal_worker.sig_finished.connect(self._on_mal_finished)
         self._mal_worker.error.connect(self._on_mal_error)
         self._mal_worker.start()
 
@@ -515,11 +486,7 @@ class _DetailPanel(BaseDetailPanel):
         if not name_map:
             return
 
-        name_index: dict[str, str] = {
-            name.strip().lower(): entity_id
-            for entity_id, name in name_map.items()
-            if name
-        }
+        name_index: dict[str, str] = {name.strip().lower(): entity_id for entity_id, name in name_map.items() if name}
         current_ids: set[str] = set(self.assoc_entities_ids)
         added_count = 0
 
@@ -564,15 +531,13 @@ class _DetailPanel(BaseDetailPanel):
         while self.ep_list_layout.count():
             item = self.ep_list_layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
+                item.widget().deleteLater()  # pyrefly: ignore [missing-attribute]
 
         sorted_eps = sorted(self._episode_data, key=lambda x: x.get("number", 0))
 
         for ep in sorted_eps:
             row = QFrame()
-            row.setStyleSheet(
-                "QFrame{background:#23272a; border-radius:4px; padding:2px;}"
-            )
+            row.setStyleSheet("QFrame{background:#23272a; border-radius:4px; padding:2px;}")
             rl = QHBoxLayout(row)
             rl.setContentsMargins(6, 4, 6, 4)
 
@@ -591,9 +556,7 @@ class _DetailPanel(BaseDetailPanel):
                 40,
                 worker_size=80,
                 placeholder_text="No Img",
-                placeholder_style=(
-                    "background:#1a1c1e; border-radius:3px; color:#555; font-size:8px;"
-                ),
+                placeholder_style=("background:#1a1c1e; border-radius:3px; color:#555; font-size:8px;"),
             )
             rl.addWidget(t_lbl)
             info = QLabel(f"<b>#{num}</b> {title}")
@@ -613,9 +576,7 @@ class _DetailPanel(BaseDetailPanel):
                 file_btn.setStyleSheet(
                     "background-color:#16a085; color:white; font-size:10px; font-weight:bold; border-radius:3px;"
                 )
-                file_btn.clicked.connect(
-                    lambda _, path=local_file: open_file_location(path)
-                )
+                file_btn.clicked.connect(lambda _, path=local_file: open_file_location(path))
                 rl.addWidget(file_btn)
 
             if web_link:

@@ -30,7 +30,7 @@ def _get_pil_filter(name: str):
 class SamplerWorker(QThread):
     """Resample images, GIFs, and videos to new dimensions or a scale factor."""
 
-    finished = Signal(int, str)
+    sig_finished = Signal(int, str)
     error = Signal(str)
     progress_update = Signal(int)
 
@@ -100,14 +100,14 @@ class SamplerWorker(QThread):
                     self.progress_update.emit(int((i + 1) / total * 100))
 
             if self._is_cancelled:
-                self.finished.emit(done, "**Resampling Cancelled**")
+                self.sig_finished.emit(done, "**Resampling Cancelled**")
             elif failures:
                 msg = f"Processed {done}/{total} files. {len(failures)} error(s)."
                 if failures:
                     msg += "\n\nFirst error: " + failures[0]
-                self.finished.emit(done, msg)
+                self.sig_finished.emit(done, msg)
             else:
-                self.finished.emit(done, f"Resampled {done} file(s) successfully!")
+                self.sig_finished.emit(done, f"Resampled {done} file(s) successfully!")
 
         except Exception as exc:
             self.progress_update.emit(0)

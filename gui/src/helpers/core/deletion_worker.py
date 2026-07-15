@@ -10,7 +10,7 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 class DeletionWorker(QThread):
     progress = Signal(int, int)  # (deleted, total)
-    finished = Signal(int, str)  # (count, message)
+    sig_finished = Signal(int, str)  # (count, message)
     error = Signal(str)
 
     confirm_signal = Signal(str, int)
@@ -62,7 +62,7 @@ class DeletionWorker(QThread):
                     self.mutex.unlock()
 
                     if not self.confirmation_response:
-                        self.finished.emit(0, "Directory deletion cancelled by user.")
+                        self.sig_finished.emit(0, "Directory deletion cancelled by user.")
                         return
 
                 self.progress.emit(0, 1)
@@ -71,12 +71,12 @@ class DeletionWorker(QThread):
                 if self.config.get("send_to_trash", True):
                     try:
                         send2trash(target_path)
-                        self.finished.emit(1, f"Successfully sent directory to trash: {target_path}")
+                        self.sig_finished.emit(1, f"Successfully sent directory to trash: {target_path}")
                     except Exception as e:
                         self.error.emit(f"Failed to send directory to trash {target_path}: {e}")
                 else:
                     if FileDeleter.delete_path(target_path):
-                        self.finished.emit(
+                        self.sig_finished.emit(
                             1,
                             f"Successfully deleted directory and its contents: {target_path}",
                         )
@@ -107,7 +107,7 @@ class DeletionWorker(QThread):
 
             total = len(files_to_delete)
             if total == 0:
-                self.finished.emit(
+                self.sig_finished.emit(
                     0, "No files found matching the selected extensions."
                 )
                 return
@@ -122,7 +122,7 @@ class DeletionWorker(QThread):
                 self.mutex.unlock()
 
                 if not self.confirmation_response:
-                    self.finished.emit(0, "Deletion cancelled by user.")
+                    self.sig_finished.emit(0, "Deletion cancelled by user.")
                     return
 
             deleted = 0
@@ -142,7 +142,7 @@ class DeletionWorker(QThread):
 
                 self.progress.emit(deleted, total)
 
-            self.finished.emit(deleted, f"Deleted {deleted} file(s).")
+            self.sig_finished.emit(deleted, f"Deleted {deleted} file(s).")
 
         except Exception as e:
             self.error.emit(str(e))

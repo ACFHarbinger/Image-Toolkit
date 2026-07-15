@@ -750,7 +750,7 @@ class ContentListingsSubTab(QWidget):
             top_k=50,
             parent=self,
         )
-        worker.finished.connect(self._on_recommendation_results)
+        worker.sig_finished.connect(self._on_recommendation_results)
         worker.error.connect(
             lambda e: QMessageBox.warning(self, "Recommendation Error", e)
         )
@@ -828,7 +828,7 @@ class ContentListingsSubTab(QWidget):
             },
         )
         self._sync_worker.progress.connect(self._on_sync_progress)
-        self._sync_worker.finished.connect(self._on_sync_finished)
+        self._sync_worker.sig_finished.connect(self._on_sync_finished)
         self._sync_worker.start()
 
     def _on_sync_progress(self, percent, text):
@@ -902,7 +902,7 @@ class ContentListingsSubTab(QWidget):
             },
         )
         self._backup_worker.progress.connect(self._on_backup_progress)
-        self._backup_worker.finished.connect(self._on_backup_finished)
+        self._backup_worker.sig_finished.connect(self._on_backup_finished)
         self._backup_worker.start()
 
     def _on_backup_progress(self, percent, text):

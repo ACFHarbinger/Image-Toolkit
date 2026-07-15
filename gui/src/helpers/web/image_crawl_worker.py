@@ -12,7 +12,7 @@ from PySide6.QtCore import QThread, Signal
 class ImageCrawlWorker(QThread):
     progress = Signal(int, int)  # (current, total)
     status = Signal(str)  # status message
-    finished = Signal(int, str)  # (count, message)
+    sig_finished = Signal(int, str)  # (count, message)
     error = Signal(str)  # error message
     image_downloaded = Signal(str)  # saved file path
 
@@ -61,7 +61,7 @@ class ImageCrawlWorker(QThread):
             if final_count is None:
                 final_count = downloaded
 
-            self.finished.emit(
+            self.sig_finished.emit(
                 final_count, f"Crawl finished. Downloaded **{final_count}** image(s)!"
             )
 

@@ -731,7 +731,7 @@ class ImageCrawlTab(QWidget):
         self.worker.status.connect(self.log_window.append_log)
         self.worker.error.connect(self.log_window.append_log)
         self.worker.image_downloaded.connect(self.downloaded_files.append)
-        self.worker.finished.connect(self.on_crawl_done)
+        self.worker.sig_finished.connect(self.on_crawl_done)
         self.worker.start()
 
     @Slot()

@@ -52,7 +52,7 @@ class RecommendationWorker(QThread):
     top_k        : Maximum number of results to return (default 50).
     """
 
-    finished = Signal(list)    # List[Tuple[str, float]]
+    sig_finished = Signal(list)    # List[Tuple[str, float]]
     error = Signal(str)
     status = Signal(str)
     progress = Signal(int, int)  # current, total
@@ -283,7 +283,7 @@ class RecommendationWorker(QThread):
             results = [(r.item.id, r.recommendation_value) for r in ranked]
             self.status.emit(f"Done — {len(results)} recommendation(s) found.")
             self.progress.emit(1, 1)
-            self.finished.emit(results)
+            self.sig_finished.emit(results)
 
         except Exception as exc:
             logger.exception("[RecommendationWorker] %s", exc)

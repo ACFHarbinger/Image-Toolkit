@@ -4,7 +4,7 @@ from PySide6.QtCore import QThread, Signal
 
 class WebRequestsWorker(QThread):
     status = Signal(str)  # status message
-    finished = Signal(str)  # (message)
+    sig_finished = Signal(str)  # (message)
     error = Signal(str)  # error message
 
     def __init__(self, config: dict):
@@ -19,7 +19,7 @@ class WebRequestsWorker(QThread):
             # Connect signals from logic to worker's signals
             self.logic.on_status.connect(self.status.emit)
             self.logic.on_error.connect(self.error.emit)
-            self.logic.on_finished.connect(self.finished.emit)
+            self.logic.on_finished.connect(self.sig_finished.emit)
 
             self.status.emit("Starting requests...")
 
@@ -28,7 +28,7 @@ class WebRequestsWorker(QThread):
 
         except Exception as e:
             self.error.emit(f"Critical Worker Error: {e}")
-            self.finished.emit(f"Error: {e}")
+            self.sig_finished.emit(f"Error: {e}")
 
     def stop(self):
         """
