@@ -57,10 +57,13 @@ bool set_wallpaper_gnome(const std::string& uri, const std::string& mode) {
     int r1 = run_cmd(
         "gsettings set org.gnome.desktop.background picture-uri " +
         shell_quote(uri));
+    int r1_dark = run_cmd(
+        "gsettings set org.gnome.desktop.background picture-uri-dark " +
+        shell_quote(uri));
     int r2 = run_cmd(
         "gsettings set org.gnome.desktop.background picture-options " +
         shell_quote(mode));
-    return (r1 == 0 && r2 == 0);
+    return (r1 == 0 && r1_dark == 0 && r2 == 0);
 }
 
 std::string evaluate_kde_script(const std::string& qdbus_bin,

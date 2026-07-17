@@ -104,7 +104,7 @@ class TestDeletionWorker:
             worker = DeletionWorker(config)
 
             finished_signals = []
-            worker.finished.connect(lambda c, m: finished_signals.append((c, m)))
+            worker.sig_finished.connect(lambda c, m: finished_signals.append((c, m)))
 
             mock_deleter.delete_path.return_value = True
 
@@ -131,7 +131,7 @@ class TestDeletionWorker:
             worker = DeletionWorker(config)
 
             finished_signals = []
-            worker.finished.connect(lambda c, m: finished_signals.append((c, m)))
+            worker.sig_finished.connect(lambda c, m: finished_signals.append((c, m)))
 
             mock_deleter.delete_path.return_value = True
 

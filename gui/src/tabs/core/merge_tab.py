@@ -9,6 +9,7 @@ from backend.src.constants import SUPPORTED_IMG_FORMATS
 from gui.src.components.containers.merge_canvas import MergeCanvas
 from PySide6.QtCore import (
     Q_ARG,
+    QEvent,
     QEventLoop,
     QMetaObject,
     QPoint,
@@ -71,6 +72,7 @@ class MergeTab(AbstractClassSingleGallery):
         self.current_merge_worker: MergeWorker | None = None
         self.temp_file_path: Optional[str] = None
         self._zombie_threads: list[QThread] = []
+        self._threads_to_cleanup: set[QThread] = set()
         self.pending_save_path: Optional[str] = None
         self._last_merged_pixmap: Optional[QPixmap] = None
         self._syncing_spinboxes = False
@@ -80,9 +82,11 @@ class MergeTab(AbstractClassSingleGallery):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        page_scroll = QScrollArea()
-        page_scroll.setWidgetResizable(True)
-        page_scroll.setStyleSheet("QScrollArea { border: none; }")
+        self.page_scroll = QScrollArea()
+        self.page_scroll.setWidgetResizable(True)
+        self.page_scroll.setStyleSheet("QScrollArea { border: none; }")
+        self.page_scroll.installEventFilter(self)
+        self.page_scroll.viewport().installEventFilter(self)
 
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
@@ -315,21 +319,21 @@ class MergeTab(AbstractClassSingleGallery):
         content_layout.addWidget(self.search_input)
 
         self.gallery_scroll_area = MarqueeScrollArea()
-        self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setStyleSheet(
+        self.gallery_scroll_area.setWidgetResizable(True) # pyrefly: ignore [missing-attribute]
+        self.gallery_scroll_area.setStyleSheet( # pyrefly: ignore [missing-attribute]
             "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
         )
-        self.gallery_scroll_area.setMinimumHeight(600)
+        self.gallery_scroll_area.setMinimumHeight(600) # pyrefly: ignore [missing-attribute]
 
         gallery_inner = QWidget()
         gallery_inner.setStyleSheet("background-color: #2c2f33;")
         self.gallery_layout = QGridLayout(gallery_inner)
-        self.gallery_layout.setAlignment(
+        self.gallery_layout.setAlignment( # pyrefly: ignore [missing-attribute]
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
         )
-        self.gallery_scroll_area.setWidget(gallery_inner)
+        self.gallery_scroll_area.setWidget(gallery_inner) # pyrefly: ignore [missing-attribute]
 
-        content_layout.addWidget(self.gallery_scroll_area, 1)
+        content_layout.addWidget(self.gallery_scroll_area, 1) # pyrefly: ignore [bad-argument-type]
         content_layout.addWidget(
             self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
         )
@@ -427,8 +431,8 @@ class MergeTab(AbstractClassSingleGallery):
         )
         content_layout.addWidget(self.status_label)
 
-        page_scroll.setWidget(content_widget)
-        main_layout.addWidget(page_scroll)
+        self.page_scroll.setWidget(content_widget)
+        main_layout.addWidget(self.page_scroll)
 
         # --- Wire up canvas-size spinboxes ---
         self.canvas_w_spin.valueChanged.connect(self._on_canvas_size_changed)
@@ -564,42 +568,37 @@ class MergeTab(AbstractClassSingleGallery):
 
     # ─── Cancel Merge ───────────────────────────────────────────────────────────
 
+    def cleanup_merge_worker(self):
+        worker = self.current_merge_worker
+        self.current_merge_worker = None
+        self.current_merge_thread = None
+        if worker is not None:
+            try:
+                worker.sig_finished.disconnect()
+                worker.error.disconnect()
+                worker.progress.disconnect()
+            except Exception:
+                pass
+            worker.cancel()
+            worker.requestInterruption()
+            worker.quit()
+            self._track_and_cleanup_thread(worker)
+
     @Slot()
     def cancel_merge(self):
         self.status_label.setText("Cancelling…")
-        thread = self.current_merge_thread
         worker = self.current_merge_worker
-
-        if thread:
-            try:
-                if worker:
-                    worker.sig_finished.disconnect()
-                    worker.error.disconnect()
-                    worker.progress.disconnect()
-                thread.finished.disconnect()
-            except Exception:
-                pass
-
-            thread.requestInterruption()
-            thread.quit()
-
-            if thread.isRunning():
-                self._zombie_threads.append(thread)
-                thread.finished.connect(self._cleanup_zombie_thread)
-            else:
-                thread.deleteLater()
-
+        if worker:
+            worker.cancel()
+            worker.requestInterruption()
+        self.cleanup_merge_worker()
         self.cleanup_temp_file()
         self.status_label.setText("Merge cancelled.")
         self.reset_ui_state()
 
     @Slot()
     def _cleanup_zombie_thread(self):
-        thread = self.sender()
-        if thread:
-            if thread in self._zombie_threads:
-                self._zombie_threads.remove(thread) # pyrefly: ignore [bad-argument-type]
-            thread.deleteLater()
+        pass
 
     # ─── Direction / mode visibility ────────────────────────────────────────────
 
@@ -676,9 +675,14 @@ class MergeTab(AbstractClassSingleGallery):
 
     def populate_scan_gallery(self, directory: str):
         self.scanned_dir = directory
-        if self.current_scan_thread and self.current_scan_thread.isRunning():
-            self.current_scan_thread.quit()
-            self.current_scan_thread.wait(2000)
+        if self.current_scan_worker:
+            with contextlib.suppress(Exception):
+                self.current_scan_worker.stop()
+                self.current_scan_worker.requestInterruption()
+                self.current_scan_worker.quit()
+                self._track_and_cleanup_thread(self.current_scan_worker)
+            self.current_scan_worker = None
+            self.current_scan_thread = None
 
         self.cancel_loading()
 
@@ -695,8 +699,27 @@ class MergeTab(AbstractClassSingleGallery):
 
     @Slot()
     def cleanup_scan_thread_ref(self):
-        self.current_scan_thread = None
-        self.current_scan_worker = None
+        sender = self.sender()
+        if sender:
+            sender.deleteLater()
+        if self.current_scan_thread == sender:
+            self.current_scan_thread = None
+        if self.current_scan_worker == sender:
+            self.current_scan_worker = None
+
+    def _track_and_cleanup_thread(self, thread):
+        if not thread:
+            return
+        if thread.isFinished():
+            thread.deleteLater()
+            return
+        self._threads_to_cleanup.add(thread)
+        with contextlib.suppress(Exception):
+            thread.finished.disconnect(self.cleanup_scan_thread_ref)
+        def clean_up_func(t=thread):
+            self._threads_to_cleanup.discard(t)
+            t.deleteLater()
+        thread.finished.connect(clean_up_func)
 
     @Slot(list)
     def on_scan_finished(self, paths):
@@ -859,9 +882,6 @@ class MergeTab(AbstractClassSingleGallery):
             lambda c, t: self.status_label.setText(f"Merging {c}/{t}")
         )
 
-        with contextlib.suppress(Exception):
-            worker.sig_finished.disconnect()
-
         worker.error.connect(self.on_merge_error)
 
         def invoke_cleanup(path):
@@ -874,15 +894,16 @@ class MergeTab(AbstractClassSingleGallery):
             )
 
         worker.sig_finished.connect(invoke_cleanup)
-        worker.finished.connect(worker.deleteLater)
         worker.start()
 
     @Slot(str)
     def _cleanup_merge_worker_and_show_dialog(self, result_path: str):
+        self.cleanup_merge_worker()
         self.reset_ui_state()
         self.show_preview_and_confirm(result_path)
 
     def on_merge_error(self, msg: str):
+        self.cleanup_merge_worker()
         self.cleanup_temp_file()
         self.on_selection_changed()
         self.reset_ui_state()
@@ -1181,10 +1202,20 @@ class MergeTab(AbstractClassSingleGallery):
         if self.current_scan_worker:
             with contextlib.suppress(Exception):
                 self.current_scan_worker.stop()
+                self.current_scan_worker.requestInterruption()
+                self.current_scan_worker.quit()
+                self._track_and_cleanup_thread(self.current_scan_worker)
+            self.current_scan_worker = None
+            self.current_scan_thread = None
 
-        if self.current_merge_worker and self.current_merge_thread:
-            self.current_merge_thread.requestInterruption()
-            self.current_merge_thread.quit()
+        if self.current_merge_worker:
+            with contextlib.suppress(Exception):
+                self.current_merge_worker.cancel()
+                self.current_merge_worker.requestInterruption()
+                self.current_merge_worker.quit()
+                self._track_and_cleanup_thread(self.current_merge_worker)
+            self.current_merge_worker = None
+            self.current_merge_thread = None
 
         for win in list(self.open_preview_windows):
             with contextlib.suppress(Exception):
@@ -1227,3 +1258,13 @@ class MergeTab(AbstractClassSingleGallery):
     def set_selected_files_qml(self, paths):
         self.selected_files = list(paths)
         self.on_selection_changed()
+
+    def eventFilter(self, watched, event):
+        if (
+            (watched == getattr(self, "page_scroll", None) or
+             (hasattr(self, "page_scroll") and watched == self.page_scroll.viewport()))
+            and event.type() == QEvent.Type.Wheel
+            and bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        ):
+            return True
+        return super().eventFilter(watched, event)

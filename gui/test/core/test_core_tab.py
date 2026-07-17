@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, mock_open, patch
 import cv2
 import pytest
 from gui.src.tabs.core.convert_tab import ConvertTab
-from gui.src.tabs.core.similarity_tab import SimilarityTab
 from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.tabs.core.merge_tab import MergeTab
+from gui.src.tabs.core.similarity_tab import SimilarityTab
 from gui.src.tabs.core.wallpaper_tab import WallpaperTab
 from PySide6.QtWidgets import QDialog, QWidget
 
@@ -246,6 +246,43 @@ class TestMergeTab:
         tab = MergeTab()
         assert isinstance(tab, QWidget)
 
+    def test_event_filter_blocks_ctrl_wheel(self, q_app):
+        from PySide6.QtCore import QPoint, QPointF, Qt
+        from PySide6.QtGui import QWheelEvent
+
+        tab = MergeTab()
+        # Simulated Ctrl + Wheel event
+        ctrl_wheel_event = QWheelEvent(
+            QPointF(100, 100),
+            QPointF(100, 100),
+            QPoint(0, 0),
+            QPoint(0, 120),
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.ControlModifier,
+            Qt.ScrollPhase.NoScrollPhase,
+            False
+        )
+
+        # eventFilter should return True to block scrolling
+        blocked = tab.eventFilter(tab.page_scroll, ctrl_wheel_event)
+        assert blocked is True
+
+        # Simulated standard Wheel event (No modifiers)
+        standard_wheel_event = QWheelEvent(
+            QPointF(100, 100),
+            QPointF(100, 100),
+            QPoint(0, 0),
+            QPoint(0, 120),
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+            Qt.ScrollPhase.NoScrollPhase,
+            False
+        )
+
+        # eventFilter should return False to allow normal scrolling
+        blocked_standard = tab.eventFilter(tab.page_scroll, standard_wheel_event)
+        assert blocked_standard is False
+
 
 # --- ExtractorTab Tests ---
 
@@ -272,7 +309,7 @@ class TestExtractorTab:
             mock_player_cls.return_value = mock_player
 
             tab = ExtractorTab()
-            tab.media_player = mock_player
+            tab.media_player = mock_player # pyrefly: ignore [read-only]
 
             # Call cancel_loading, which is triggered during gallery refreshes
             tab.cancel_loading()

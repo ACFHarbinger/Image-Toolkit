@@ -1586,6 +1586,9 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         if self._inapp_active_monitor_id is not None:
             self._stop_inapp_slideshow()
 
+        if hasattr(self, "_status_timer") and self._status_timer.isActive():
+            self._status_timer.stop()
+
         if self._preview_tmp_dir and os.path.isdir(self._preview_tmp_dir):
             shutil.rmtree(self._preview_tmp_dir, ignore_errors=True)
         super().closeEvent(event)

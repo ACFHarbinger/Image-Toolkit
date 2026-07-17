@@ -89,9 +89,12 @@ static void set_wallpaper(const std::string& path, const std::string& mode) {
     std::string uri = "file://" + path;
     std::string cmd_uri =
         "gsettings set org.gnome.desktop.background picture-uri '" + uri + "'";
+    std::string cmd_uri_dark =
+        "gsettings set org.gnome.desktop.background picture-uri-dark '" + uri + "'";
     std::string cmd_mode =
         "gsettings set org.gnome.desktop.background picture-options '" + mode + "'";
     std::system(cmd_uri.c_str());
+    std::system(cmd_uri_dark.c_str());
     std::system(cmd_mode.c_str());
 }
 
