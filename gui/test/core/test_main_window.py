@@ -73,7 +73,7 @@ class TestMainWindowSessionRecovery:
                 "session_recovery_level": "All Tabs"
             },
             "session_recovery_data": {
-                "active_category": "Library",
+                "active_category": "Library Database",
                 "active_tab": "Image Search",
                 "tab_configs": {
                     "SearchTab": {"dummy_key": "dummy_value"}
@@ -89,7 +89,7 @@ class TestMainWindowSessionRecovery:
             QApplication.processEvents()
 
             # Check if active category is selected
-            assert window.command_combo.currentText() == "Library"
+            assert window.command_combo.currentText() == "Library Database"
             # Check if correct tab is active in the QTabWidget
             active_tab_index = window.tabs.currentIndex()
             assert window.tabs.tabText(active_tab_index) == "Image Search"
@@ -139,7 +139,7 @@ class TestMainWindowSessionRecovery:
                 "session_recovery_level": "Current Tab"
             },
             "session_recovery_data": {
-                "active_category": "Library",
+                "active_category": "Library Database",
                 "active_tab": "Image Search",
                 "tab_configs": {
                     "SearchTab": {"search_key": "val1"},
@@ -167,7 +167,7 @@ class TestMainWindowSessionRecovery:
                 "session_recovery_level": "None"
             },
             "session_recovery_data": {
-                "active_category": "Library",
+                "active_category": "Library Database",
                 "active_tab": "Image Search",
                 "tab_configs": {
                     "SearchTab": {"search_key": "val1"}

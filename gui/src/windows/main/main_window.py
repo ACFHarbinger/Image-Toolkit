@@ -249,7 +249,7 @@ class MainWindow(QWidget):
             },
             # Phase DB (DB.6): one category for everything on the unified
             # library store — listings, image search/tagging, maintenance.
-            "Library": {
+            "Library Database": {
                 "Listings": self.listings_tab,
                 "Image Search": self.search_tab,
                 "Scan and Tag": self.scan_metadata_tab,
