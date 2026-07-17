@@ -4,7 +4,19 @@
 
 ---
 
-## S212 — 2026-07-17 (Extractor tab Video/Image subtabs — multi-frame image splitter)
+## S212 — 2026-07-17 (Extractor tab Video/Image subtabs — multi-frame image splitter; GUI tab tutorials)
+
+**Part 2 — GUI tab tutorials (`docs/tutorials/`):** five new tutorial pages + an index, one per tab category, documenting every tab's purpose, workflow, and parameters (written against the current widget code, not from memory):
+
+- `system_tools.md` — Convert (Format aspect-ratio modes, Codec targets/CRF/Speed, Sampler algorithms), Merge (all 8 modes with a Merge-Canvas deep-dive: tiles, X/Y/W/H spinboxes, Join snapping), Similarity scan methods, Extractor (Video extraction-settings rows; Image frame-layout + boundary-preview canvas), Wallpaper (all 5 background types + per-DE style lists; Monitor Display graph canvas, node properties incl. edge priority/repeat, end-of-graph behaviors).
+- `library_database.md` — Listings (Gen Thumbnail, MAL Auto-Fill methods, tags/entities/episodes, Advanced Search AND/OR + include/exclude, Recommend engine; Entity Type-vs-Role, associations; Import Dir wizard, Sync/Update Backup semantics), Image Search (combining DB criteria with filename/format filters; Refresh Tags), Scan and Tag (Show Only New/In DB; exact upsert field semantics), Maintenance (library buttons, auto-populate, groups/subgroups/tags, bulk-import JSON shapes).
+- `web_integration.md` — Crawler (types, String-to-Replace pagination, all 17 actions, dedup/selection modes), Requests (request list + response actions), Cloud Sync (4 providers and their credential files, auto-generated token), Reverse Search (3 engines, Lens modes), Entity Recon (identity index, ArcFace-vs-CLIP embeddings, Source/Identity/Provenance panes, batch builder).
+- `deep_learning.md` — every setting of each Training architecture (LoRA, R3GAN, Basic GAN) and Generation architecture (+ SD3.5 with ControlNet), Evaluation reference-dataset organization + what FID/KID/Precision-Recall/IS each capture, the Inference tab explained in full (Meta CLIP zero-shot classification), ComfyUI intro + server-tab controls.
+- `image_stitching.md` — all eight ASP panels in detail: Stitch (pipeline stages, renderers, motion model, HITL sessions, stage dumps), Graph, Adjust, Canvas, Statistics (metric tables + stitch-score formula), Sequence Builder (fitness/sharpness/pan thresholds), Hybrid Stitch (control-point solve modes, seam painter, mesh warp, render), Animation Clusters.
+- MkDocs nav gained a top-level **Tutorials** section; documentation roadmap history updated (moon + docs mirror).
+- **GUI**: Image subtab zoom-bar "Fit"/"1:1" buttons widened (48→72 px) so their labels are never clipped.
+
+**Part 1 — Extractor tab Video/Image subtabs (earlier today):**
 
 Extractor tab restructured into **Video / Image subtabs** (same `QTabWidget` pattern as Convert/Wallpaper); roadmap §4.15 in [new_features.md](../moon/roadmaps/new_features.md) added (implemented same day, `docs/roadmaps` mirror re-synced — it had drifted, missing §4.14).
 
