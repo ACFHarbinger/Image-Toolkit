@@ -18,6 +18,8 @@
 - [4.11 ASP Quality Feedback Interface (RLHF)](#411-asp-quality-feedback-interface-rlhf)
 - [4.12 Appearance Profiles](#412-appearance-profiles)
 - [4.13 Shortcut Macros and Custom Actions](#413-shortcut-macros-and-custom-actions)
+- [4.14 Extractor Tab Storyboard Scrub Preview](#414-extractor-tab-storyboard-scrub-preview)
+- [4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -534,6 +536,43 @@ Instead of executable macros, provide named "workflow templates" that pre-fill a
 
 ---
 
+## 4.14 Extractor Tab Storyboard Scrub Preview
+
+**Pain point:** Dragging the playhead across the Extractor tab's progress bar needs to show frames updating live, matching Haruna/YouTube-style scrubbing. Several attempts (2026-07) to make this fast by decoding real frames on demand — a per-frame `ffmpeg` subprocess, a background dense-keyframe proxy, and finally a persistent in-process PyAV decoder — kept hitting a mix of latency and `QMediaPlayer` surface-swap bugs (see `gui_ux.md` §2.33 for the follow-up libmpv item tracking a proper fix for the *main player's* seek speed). The realization: none of that is actually how large-scale video platforms solve this. YouTube's scrub preview isn't a live decode at all — it's a pre-generated storyboard (a sprite sheet of small thumbnails at fixed intervals, built once when the video is processed), so dragging the scrubber is just cropping an already-in-memory image, with zero per-tick decode cost.
+
+### Options
+
+**A — Pre-generated sprite-sheet storyboard + floating preview widget [Chosen]**
+On video load, build a storyboard image in the background (one `ffmpeg` call: `fps=1/N,scale=W:-1,tile=RxC`), cached alongside the existing scrub proxy. A small floating widget positioned above the slider at the cursor's x-position looks up `position_ms → tile index` and crops the pixmap — no decode, no subprocess, no thread involved in the interactive path. The main player's video surface is left completely alone during the drag; it commits to the real frame only when dragging pauses (not just on release), reusing the existing `videoSink().videoFrameChanged`-gated safe-reveal logic so it fires rarely instead of on every tick.
+- Pros: Interactive-path cost is array-slicing, not decoding — smoothness stops being a function of decode speed at all. Structurally cannot reproduce the `QMediaPlayer` surface-swap bugs hit in every prior attempt, since it never touches that code path during the drag. Matches the proven, battle-tested approach every major video platform actually uses.
+- Cons: Preview granularity is fixed at generation time (e.g. one tile per 2s) — not frame-accurate, same trade-off YouTube itself makes. One more background-cached asset per video (same pattern as the scrub proxy, same cache directory conventions).
+
+**B — Live-decoded low-res preview (superseded)**
+The prior approach: decode an actual frame near the cursor position on every drag tick, at low resolution to keep it cheap. Covered at length by the three implementation attempts referenced above.
+- Cons: Every variant tried (subprocess-per-frame, proxy-backed subprocess, persistent PyAV decoder) either couldn't sustain real-time cadence under real interactive dragging or reintroduced `QMediaPlayer` surface coupling bugs. Not pursued further.
+
+**Recommendation:** A. Implemented 2026-07.
+
+---
+
+## 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter
+
+**Pain point:** The Extractor tab only handled videos/GIFs, but multi-frame *images* are common in the corpus — sprite sheets, webtoon strips, and contact-sheet style grids where one file contains many frames stacked vertically, horizontally, or in a grid. Splitting those meant leaving the app for an external slicer, and external tools give no fast way to verify that the assumed frame size actually lands on the real frame boundaries (an off-by-a-few-pixels frame height accumulates across a long strip).
+
+**Implemented 2026-07-17:** The Extractor tab was restructured into **Video / Image subtabs** (same `QTabWidget` pattern as the Convert and Wallpaper tabs). The Video subtab is the pre-existing extractor unchanged (`VideoExtractorSubTab`, still in `extractor_tab.py` so test patch targets survive); the outer `ExtractorTab` wrapper transparently delegates attribute access to it so the main window's duck-typed settings hooks and class-name-keyed session recovery are untouched.
+
+The new Image subtab (`gui/src/tabs/core/elements/image_extractor_subtab.py`):
+
+- **Parameters** — arrangement (Vertical / Horizontal / Grid), per-frame size (one dimension for strips — the other spans the image; both for grids), X/Y offset, inter-frame spacing, and an "include partial last frame" toggle.
+- **Boundary preview** — every cut rectangle is drawn over the image with cosmetic (zoom-invariant 1-px) alternating cyan/magenta outlines; regions the current parameters leave uncovered render as dashed amber, so a wrong frame size is visible at overview zoom before zooming in.
+- **Deep-zoom canvas** (`FrameSliceCanvas`) — 0.01×–80× range, cursor-anchored wheel zoom (aggressive 1.3×/notch to cross the range quickly), drag panning, Fit/1:1/±buttons, and double-click toggling between fit-to-view and 1:1 at the clicked point — the intended loop is: overview → double-click a boundary → verify at pixel scale (nearest-neighbor rendering ≥1:1) → double-click back out → next boundary.
+- **Extraction** — frame rects are cut via `QImage.copy` in a `QRunnable` worker (progress-reported, cancellable via `cancel_loading()`) and saved as `{stem}_fNNN.png` into a configurable output directory (default `Frames/`). File dialogs pass `DontUseNativeDialog` per the JVM/GTK SIGSEGV rule.
+- **Session recovery** — the Image subtab's parameters ride inside the ExtractorTab config under the `image_extractor` key.
+
+**Possible follow-ups:** per-boundary draggable adjustment handles on the canvas; auto-detection of frame pitch via edge/periodicity analysis; feeding cut frames straight into the GIF-assembly path the Video subtab already has.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -541,7 +580,7 @@ Instead of executable macros, provide named "workflow templates" that pre-fill a
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | §4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates | §4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode | §4.1C CLI batch stitch · §4.7A slideshow config | — |
+| **Low (<1d)** | §4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates | §4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode · §4.14A storyboard scrub preview [Quick Win] | §4.1C CLI batch stitch · §4.7A slideshow config | — |
 | **Medium (1d–1w)** | — | §4.5A KDE per-monitor wallpaper · §4.5D HydraPaper GNOME · §4.6A cross-dir phash dedup · §4.8A stitch→ComfyUI button · §4.10B trigger operations via REST · §4.12A appearance profiles | §4.4A WD14 auto-tagger · §4.6C LSH near-dedup · §4.8C drag-drop to ComfyUI · §4.8E workflow template library · §4.13A macro playback | §4.3A CLIP semantic search |
 | **High (1–2w)** | — | §4.1A GUI batch mode | §4.10C WebSocket job status · §4.11B side-by-side preference labelling · §4.11D per-seam annotation | §4.3C dual-column CLIP + Siamese search |
 | **Very High (2w+)** | — | — | §4.1B PostgreSQL job queue | §4.3B AnimeCLIP fine-tune |
@@ -565,9 +604,11 @@ Instead of executable macros, provide named "workflow templates" that pre-fill a
 | 4.11 RLHF Quality Feedback | [#411-asp-quality-feedback-interface-rlhf](#411-asp-quality-feedback-interface-rlhf) |
 | 4.12 Appearance Profiles | [#412-appearance-profiles](#412-appearance-profiles) |
 | 4.13 Shortcut Macros and Custom Actions | [#413-shortcut-macros-and-custom-actions](#413-shortcut-macros-and-custom-actions) |
+| 4.14 Extractor Tab Storyboard Scrub Preview | [#414-extractor-tab-storyboard-scrub-preview](#414-extractor-tab-storyboard-scrub-preview) |
+| 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter | [#415-extractor-tab-image-sub-tab--multi-frame-image-splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-05-31.*
+*Last updated: 2026-07-17 — §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*

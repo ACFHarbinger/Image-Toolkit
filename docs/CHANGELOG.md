@@ -4,6 +4,15 @@
 
 ---
 
+## S212 — 2026-07-17 (Extractor tab Video/Image subtabs — multi-frame image splitter)
+
+Extractor tab restructured into **Video / Image subtabs** (same `QTabWidget` pattern as Convert/Wallpaper); roadmap §4.15 in [new_features.md](../moon/roadmaps/new_features.md) added (implemented same day, `docs/roadmaps` mirror re-synced — it had drifted, missing §4.14).
+
+- **Video subtab**: the pre-existing video extractor, class renamed `ExtractorTab` → `VideoExtractorSubTab` in place (`extractor_tab.py`), so the GUI tests' `patch("gui.src.tabs.core.extractor_tab.QMediaPlayer")`-style targets are unchanged. The new outer `ExtractorTab(QWidget)` wrapper transparently delegates attribute reads/writes to it (`__getattr__`/`__setattr__` forwarding), keeping the main window's duck-typed settings hooks (`extraction_dir`, `wheel_seek_ms`, `recent_extractions_limit`, `time_display_format`, `_initial_pixmap_cache`, …), the `type(tab).__name__ == "ExtractorTab"` branches, and class-name-keyed session recovery working with zero call-site changes; QML slots (`browse_source_qml`, `extract_single_frame_qml`, `extract_range_qml`) and both QML signals are re-declared as real meta-object members and forwarded.
+- **Image subtab** (`gui/src/tabs/core/elements/image_extractor_subtab.py`, new): splits a single multi-frame image (vertical/horizontal strip or grid sheet) into individual frames. Arrangement + per-frame size (one dimension for strips, both for grids) + X/Y offset + spacing + optional partial-last-frame; every cut boundary drawn with cosmetic 1-px alternating cyan/magenta outlines (uncovered remainder dashed amber) over a deep-zoom canvas (`FrameSliceCanvas`: 0.01×–80×, cursor-anchored wheel zoom, drag pan, double-click fit↔1:1 toggle, nearest-neighbor rendering at ≥1:1 for pixel-accurate boundary checks). Cutting runs in a cancellable `QRunnable` (`QImage.copy` → `{stem}_fNNN.png`); file dialogs pass `DontUseNativeDialog` (JVM/GTK SIGSEGV rule); subtab config rides in the ExtractorTab session-recovery dict under `image_extractor`.
+- Verified via an offscreen smoke script: wrapper delegation (read/write/locals), `collect`/`set_config` round-trip, frame-rect geometry for all three arrangements incl. partial-frame handling, end-to-end cut worker output, and canvas zoom helpers.
+- Also committed separately: pre-staged "Library" → "Library Database" tab-category rename found in the index.
+
 ## S211 — 2026-07-13 (Phase DB P3 — image tabs on the unified store, Postgres retired from the GUI)
 
 Real-data migration completed and verified during S210's first launch (248 media + 249 entities + 1,301 images/10 groups/67 subgroups/17 tags/402 image-tag links); this session moves the image tabs onto the migrated store.
