@@ -349,7 +349,12 @@ class ImageExtractorSubTab(QWidget):
         self.btn_1to1.setToolTip("100% — one image pixel per screen pixel")
         self.btn_zoom_in = QPushButton("＋")
         self.btn_zoom_out = QPushButton("－")
-        for b in (self.btn_fit, self.btn_1to1, self.btn_zoom_in, self.btn_zoom_out):
+        # "Fit"/"1:1" need more room than the glyph-only +/- buttons so
+        # their text is never elided.
+        for b in (self.btn_fit, self.btn_1to1):
+            b.setFixedWidth(72)
+            zoom_bar.addWidget(b)
+        for b in (self.btn_zoom_in, self.btn_zoom_out):
             b.setFixedWidth(48)
             zoom_bar.addWidget(b)
         zoom_hint = QLabel(
