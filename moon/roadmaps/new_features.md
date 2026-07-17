@@ -19,6 +19,7 @@
 - [4.12 Appearance Profiles](#412-appearance-profiles)
 - [4.13 Shortcut Macros and Custom Actions](#413-shortcut-macros-and-custom-actions)
 - [4.14 Extractor Tab Storyboard Scrub Preview](#414-extractor-tab-storyboard-scrub-preview)
+- [4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -554,6 +555,24 @@ The prior approach: decode an actual frame near the cursor position on every dra
 
 ---
 
+## 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter
+
+**Pain point:** The Extractor tab only handled videos/GIFs, but multi-frame *images* are common in the corpus — sprite sheets, webtoon strips, and contact-sheet style grids where one file contains many frames stacked vertically, horizontally, or in a grid. Splitting those meant leaving the app for an external slicer, and external tools give no fast way to verify that the assumed frame size actually lands on the real frame boundaries (an off-by-a-few-pixels frame height accumulates across a long strip).
+
+**Implemented 2026-07-17:** The Extractor tab was restructured into **Video / Image subtabs** (same `QTabWidget` pattern as the Convert and Wallpaper tabs). The Video subtab is the pre-existing extractor unchanged (`VideoExtractorSubTab`, still in `extractor_tab.py` so test patch targets survive); the outer `ExtractorTab` wrapper transparently delegates attribute access to it so the main window's duck-typed settings hooks and class-name-keyed session recovery are untouched.
+
+The new Image subtab (`gui/src/tabs/core/elements/image_extractor_subtab.py`):
+
+- **Parameters** — arrangement (Vertical / Horizontal / Grid), per-frame size (one dimension for strips — the other spans the image; both for grids), X/Y offset, inter-frame spacing, and an "include partial last frame" toggle.
+- **Boundary preview** — every cut rectangle is drawn over the image with cosmetic (zoom-invariant 1-px) alternating cyan/magenta outlines; regions the current parameters leave uncovered render as dashed amber, so a wrong frame size is visible at overview zoom before zooming in.
+- **Deep-zoom canvas** (`FrameSliceCanvas`) — 0.01×–80× range, cursor-anchored wheel zoom (aggressive 1.3×/notch to cross the range quickly), drag panning, Fit/1:1/±buttons, and double-click toggling between fit-to-view and 1:1 at the clicked point — the intended loop is: overview → double-click a boundary → verify at pixel scale (nearest-neighbor rendering ≥1:1) → double-click back out → next boundary.
+- **Extraction** — frame rects are cut via `QImage.copy` in a `QRunnable` worker (progress-reported, cancellable via `cancel_loading()`) and saved as `{stem}_fNNN.png` into a configurable output directory (default `Frames/`). File dialogs pass `DontUseNativeDialog` per the JVM/GTK SIGSEGV rule.
+- **Session recovery** — the Image subtab's parameters ride inside the ExtractorTab config under the `image_extractor` key.
+
+**Possible follow-ups:** per-boundary draggable adjustment handles on the canvas; auto-detection of frame pitch via edge/periodicity analysis; feeding cut frames straight into the GIF-assembly path the Video subtab already has.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -586,9 +605,10 @@ The prior approach: decode an actual frame near the cursor position on every dra
 | 4.12 Appearance Profiles | [#412-appearance-profiles](#412-appearance-profiles) |
 | 4.13 Shortcut Macros and Custom Actions | [#413-shortcut-macros-and-custom-actions](#413-shortcut-macros-and-custom-actions) |
 | 4.14 Extractor Tab Storyboard Scrub Preview | [#414-extractor-tab-storyboard-scrub-preview](#414-extractor-tab-storyboard-scrub-preview) |
+| 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter | [#415-extractor-tab-image-sub-tab--multi-frame-image-splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-07-11 — §4.14 Extractor Tab Storyboard Scrub Preview added (Option A implemented; supersedes the three live-decode scrub-preview attempts, see `gui_ux.md` §2.33 for the related libmpv follow-up).*
+*Last updated: 2026-07-17 — §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
