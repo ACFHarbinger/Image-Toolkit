@@ -136,6 +136,13 @@ nav:
           - Overview: STRUCTURIZR.md
           - Exporting & Rendering: structurizr/README.md
       - Troubleshooting: TROUBLESHOOTING.md
+  - Tutorials:
+      - Overview: tutorials/index.md
+      - System Tools: tutorials/system_tools.md
+      - Library Database: tutorials/library_database.md
+      - Web Integration: tutorials/web_integration.md
+      - Deep Learning: tutorials/deep_learning.md
+      - Image Stitching: tutorials/image_stitching.md
   - Reference:
       - REST API: api/rest-api.md
       - Python API:
