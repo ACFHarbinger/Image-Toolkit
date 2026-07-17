@@ -12,7 +12,7 @@ from ...core.image_merger import ImageMerger
 from ...database.image_database import PgvectorImageDatabase
 from ...models.wrappers.sd3_wrapper import SD3Wrapper
 from ...web.crawlers.image_crawler import ImageCrawler
-from ..display.slideshow_daemon import start_daemon as launch_slideshow
+from ..display.slideshow_daemon import run as launch_slideshow
 
 
 def dispatch_core(args):

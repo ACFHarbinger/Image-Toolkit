@@ -882,7 +882,44 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             else:
                 widget.clear()
 
-    def closeEvent(self, event):
+    def closeEvent(self, event):  # noqa: C901
+        # Stop slideshow and countdown timers
+        if hasattr(self, "slideshow_timer") and self.slideshow_timer:
+            try:
+                self.slideshow_timer.stop()
+                self.slideshow_timer.deleteLater()
+            except Exception:
+                pass
+            self.slideshow_timer = None
+
+        if hasattr(self, "countdown_timer") and self.countdown_timer:
+            try:
+                self.countdown_timer.stop()
+                self.countdown_timer.deleteLater()
+            except Exception:
+                pass
+            self.countdown_timer = None
+
+        if hasattr(self, "_pagination_debounce_timer") and self._pagination_debounce_timer:
+            try:
+                self._pagination_debounce_timer.stop()
+                self._pagination_debounce_timer.deleteLater()
+            except Exception:
+                pass
+            self._pagination_debounce_timer = None  # pyrefly: ignore [bad-assignment]
+
+        # Clean up image scanner thread
+        if hasattr(self, "img_scanner_thread") and self.img_scanner_thread is not None:
+            try:
+                if self.img_scanner_thread.isRunning():
+                    self.img_scanner_thread.requestInterruption()
+                    self.img_scanner_thread.quit()
+                    self.img_scanner_thread.wait()
+                self.img_scanner_thread.deleteLater()
+            except Exception:
+                pass
+            self.img_scanner_thread = None
+
         for win in list(self.open_queue_windows):
             try:
                 if sip.isValid(win):

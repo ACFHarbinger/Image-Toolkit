@@ -356,9 +356,21 @@ class VaultManager:
     def shutdown(self):
         """Shuts down the JVM if it's running."""
         if jpype.isJVMStarted(): # pyrefly: ignore [missing-attribute]
-            print("Shutting down JVM...", file=sys.stderr)
-            jpype.shutdownJVM() # pyrefly: ignore [missing-attribute]
-            print("JVM shut down.", file=sys.stderr)
+            has_qt = False
+            try:
+                from PySide6.QtCore import QCoreApplication
+                if QCoreApplication.instance() is not None:
+                    has_qt = True
+            except ImportError:
+                pass
+
+            if has_qt:
+                print("Skipping manual JVM shutdown due to active Qt Application to avoid segfault.", file=sys.stderr)
+            else:
+                print("Shutting down JVM...", file=sys.stderr)
+                jpype.shutdownJVM() # pyrefly: ignore [missing-attribute]
+                print("JVM shut down.", file=sys.stderr)
+
 
     def __enter__(self):
         return self

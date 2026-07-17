@@ -535,11 +535,18 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                         creationflags=creationflags,
                     )
                 else:
+                    # Inherit the full environment so the subprocess gets
+                    # DBUS_SESSION_BUS_ADDRESS, DISPLAY, XAUTHORITY, etc.
+                    # Without these, gsettings calls inside the detached
+                    # session cannot reach the user's session bus and fail
+                    # silently, causing wallpapers never to change.
+                    daemon_env = os.environ.copy()
                     subprocess.Popen(
                         [sys.executable, script_path],
                         start_new_session=True,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
+                        env=daemon_env,
                     )
                 self.btn_daemon_toggle.setText("Stop Background Daemon")
                 self.btn_daemon_toggle.setStyleSheet(
@@ -812,7 +819,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.slideshow_timer.stop()
-        if self.countdown_timer and self.countdown_timer.isActive() and not self._is_daemon_running_config():
+        if self.countdown_timer and self.countdown_timer.isActive():
             self.countdown_timer.stop()
 
         for win in list(self.open_queue_windows):

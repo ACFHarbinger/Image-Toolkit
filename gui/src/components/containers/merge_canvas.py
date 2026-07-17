@@ -3,7 +3,16 @@ from typing import Any, Dict, List, Optional
 
 from gui.src.components.elements.merge_canvas_item import MergeCanvasItem
 from PySide6.QtCore import QPointF, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QBrush, QColor, QImageReader, QPainter, QPen, QPixmap
+from PySide6.QtGui import (
+    QAction,
+    QBrush,
+    QColor,
+    QImageReader,
+    QPainter,
+    QPen,
+    QPixmap,
+    QWheelEvent,
+)
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QMenu
 
 
@@ -29,7 +38,7 @@ class MergeCanvas(QGraphicsView):
         )
         self._bg.setZValue(-1)
 
-        self.setSceneRect(-50, -50, canvas_w + 100, canvas_h + 100)
+        self.setSceneRect(-1000000, -1000000, 2000000, 2000000)
         self.setRenderHints(
             QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform
         )
@@ -37,6 +46,10 @@ class MergeCanvas(QGraphicsView):
         self.setStyleSheet(
             "QGraphicsView { border: 1px solid #4f545c; background-color: #1a1c1e; border-radius: 8px; }"
         )
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self._items: Dict[str, MergeCanvasItem] = {}
         self._scene.selectionChanged.connect(self._on_scene_selection_changed)
@@ -45,14 +58,18 @@ class MergeCanvas(QGraphicsView):
 
     def showEvent(self, event):
         super().showEvent(event)
-        QTimer.singleShot(0, self._fit_canvas)
+        if not getattr(self, "_initial_fit_done", False) and self.width() > 10 and self.height() > 10:
+            self._initial_fit_done = True
+            QTimer.singleShot(0, self._fit_canvas)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._fit_canvas()
+        if not getattr(self, "_initial_fit_done", False) and self.width() > 10 and self.height() > 10:
+            self._initial_fit_done = True
+            self._fit_canvas()
 
     def _fit_canvas(self):
-        self.fitInView(self._bg, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        self.fitInView(self._bg, Qt.AspectRatioMode.KeepAspectRatio)
 
     # ── Public API ──────────────────────────────────────────────────────────────
 
@@ -122,7 +139,7 @@ class MergeCanvas(QGraphicsView):
         self._canvas_w = w
         self._canvas_h = h
         self._bg.setRect(0, 0, w, h)
-        self.setSceneRect(-50, -50, w + 100, h + 100)
+        self.setSceneRect(-1000000, -1000000, 2000000, 2000000)
         self._fit_canvas()
 
     def get_selected_item(self) -> Optional[MergeCanvasItem]:
@@ -135,7 +152,11 @@ class MergeCanvas(QGraphicsView):
         scene_pos = self.mapToScene(event.pos())
         anchor = self._get_canvas_item_at(scene_pos)
         if anchor is None:
-            super().contextMenuEvent(event)
+            menu = QMenu(self)
+            fit_action = QAction("Fit Canvas", self)
+            fit_action.triggered.connect(self._fit_canvas)
+            menu.addAction(fit_action)
+            menu.exec(event.globalPos())
             return
 
         others = [it for it in self._items.values() if it is not anchor]
@@ -295,3 +316,24 @@ class MergeCanvas(QGraphicsView):
             event.accept()
         else:
             super().mouseReleaseEvent(event)
+
+    def wheelEvent(self, event: QWheelEvent):
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            factor = 1.15 if event.angleDelta().y() > 0 else 1.0 / 1.15
+            current_scale = self.transform().m11()
+            new_scale = current_scale * factor
+            # Allow zooming in/out extremely far (essentially indefinitely)
+            if 0.000001 <= new_scale <= 1000.0:
+                self.scale(factor, factor)
+            event.accept()
+        else:
+            # Handle scroll wheel internally to scroll canvas content instead of outer page
+            v_bar = self.verticalScrollBar()
+            h_bar = self.horizontalScrollBar()
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                delta = event.angleDelta().y() or event.angleDelta().x()
+                h_bar.setValue(h_bar.value() - delta)
+            else:
+                delta = event.angleDelta().y()
+                v_bar.setValue(v_bar.value() - delta)
+            event.accept()

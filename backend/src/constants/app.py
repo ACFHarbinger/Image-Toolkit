@@ -37,9 +37,16 @@ WALLPAPER_STYLES = {
         "None": "none",
         "Wallpaper": "wallpaper",
         "Centered": "centered",
-        "Scalled": "scalled",
+        "Scaled": "scaled",
         "Stretched": "stretched",
         "Zoom": "zoom",
         "Spanned": "spanned",
+        # Aliases for labels coming from other DE style lists or legacy config
+        "Fill": "zoom",
+        "Scaled, Keep Proportions": "scaled",
+        "Scaled and Cropped (Zoom)": "zoom",
+        "Scaled and Cropped": "zoom",
+        "Stretch": "stretched",
+        "Tiled": "wallpaper",
     },
 }
