@@ -296,7 +296,7 @@ class _ThumbnailFilePicker(QDialog):
         # Navigation bar
         nav = QHBoxLayout()
         btn_up = QPushButton("↑ Up")
-        btn_up.setFixedWidth(60)
+        btn_up.setFixedWidth(80)
         btn_up.clicked.connect(self._go_up)
         self._addr_bar = QLineEdit()
         self._addr_bar.returnPressed.connect(

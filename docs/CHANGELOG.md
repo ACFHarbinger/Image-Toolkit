@@ -9,6 +9,7 @@
 **Part 3 — Image Stitching UI Refinement & ComfyUI Prompt Node Enhancements:**
 - **HITL Section Refactoring**: Reorganized the Stitch subtab of the Image Stitching category. Moved the Human-in-the-loop (HITL) review checkbox and the Load + Browse buttons for session recovery into a dedicated "HITL" group box, positioned clearly between the Output section and the run controls.
 - **Adjust Tab Button Enlargement**: Increased the height and width of all command and tool buttons in the Adjust tab to ensure that text labels are fully readable and no longer clipped.
+- **Add Source Frames Window "Up" Button**: Increased the fixed width of the "↑ Up" button in the custom thumbnail file picker (Add Source Frames window) from 60px to 80px, preventing the letter 'p' from being cut off/clipped.
 - **Statistics Tab Options Alignment**: Restructured the Statistics tab layout. Moved the K neighbors option to its own row above the "Compute Statistics" button, set a fixed narrow width for the spin box, and aligned the label and input box to the left with a tiny gap.
 - **Hybrid Stitch Tab Sidebar Upgrades**: Increased the height of all QPushButtons in the Sequence and Working Pair sidebars of the Hybrid Stitch tab to 36px to ensure all text labels are highly readable.
 - **ComfyUI Prompt Node Styling**: Enhanced the styling and layout of the text prompt widgets in the ComfyUI Generate tab for deep learning workflows.
