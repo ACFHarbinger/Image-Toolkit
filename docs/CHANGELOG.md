@@ -6,6 +6,13 @@
 
 ## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs, bulk settings CLI)
 
+**Part 3 — Image Stitching UI Refinement & ComfyUI Prompt Node Enhancements:**
+- **HITL Section Refactoring**: Reorganized the Stitch subtab of the Image Stitching category. Moved the Human-in-the-loop (HITL) review checkbox and the Load + Browse buttons for session recovery into a dedicated "HITL" group box, positioned clearly between the Output section and the run controls.
+- **Adjust Tab Button Enlargement**: Increased the height and width of all command and tool buttons in the Adjust tab to ensure that text labels are fully readable and no longer clipped.
+- **Statistics Tab Options Alignment**: Restructured the Statistics tab layout. Moved the K neighbors option to its own row above the "Compute Statistics" button, set a fixed narrow width for the spin box, and aligned the label and input box to the left with a tiny gap.
+- **Hybrid Stitch Tab Sidebar Upgrades**: Increased the height of all QPushButtons in the Sequence and Working Pair sidebars of the Hybrid Stitch tab to 36px to ensure all text labels are highly readable.
+- **ComfyUI Prompt Node Styling**: Enhanced the styling and layout of the text prompt widgets in the ComfyUI Generate tab for deep learning workflows.
+
 **Part 2 — Metadata Editor Optional Tag Filter, Delete Fixes, & Bulk Settings CLI (later today):**
 - **Remove from Database Option**: Added a right-click context menu option "🔌 Remove from Database" in the Scan and Tag tab's gallery, permitting users to remove image metadata from the database without deleting the physical file on disk.
 - **Metadata Editor Optional Tag Filter**: Added a "Filter by Type" toggle checkbox in the `FilteredTagList` widget for both the Batch / Overview and individual image tabs in the Edit Metadata window. When unchecked (default), it hides the type checkboxes and displays all tags unfiltered; when checked, it reveals the type checkboxes and dynamically filters tags by their checked status.
