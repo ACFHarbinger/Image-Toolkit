@@ -289,10 +289,40 @@ def get_main_parser():
     add_gui_args(subparsers.add_parser("gui", help="Launch GUI"))
     add_stitch_args(subparsers.add_parser(
         "stitch",
-        help="Stitch frames into a panorama (single or batch mode). "
+        help="Stitch frames into a panorama (single or batch mode). \n"
              "Example: python main.py stitch --batch-dir ./sequences/ --resume",
     ))
     subparsers.add_parser("slideshow", help="Start slideshow daemon")
+
+    # update-settings subcommand
+    update_settings = subparsers.add_parser(
+        "update-settings",
+        help="Bulk update settings fields/paths using a template/pattern without GUI"
+    )
+    update_settings.add_argument(
+        "--search",
+        required=True,
+        help="The substring or pattern to search for (e.g., 'data')"
+    )
+    update_settings.add_argument(
+        "--replace",
+        required=True,
+        help="The replacement string (e.g., 'Data')"
+    )
+    update_settings.add_argument(
+        "--regex",
+        action="store_true",
+        help="Interpret search as a regular expression"
+    )
+    update_settings.add_argument(
+        "--password",
+        help="Master password for secure vault. If omitted, you will be prompted."
+    )
+    update_settings.add_argument(
+        "--account",
+        default="a",
+        help="Vault account name (default: 'a')"
+    )
 
     return parser
 

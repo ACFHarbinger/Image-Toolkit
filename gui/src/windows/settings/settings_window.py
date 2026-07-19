@@ -1228,6 +1228,66 @@ class SettingsWindow(QWidget):
         layout_kb.addStretch(1)
         self.tab_widget.addTab(scroll_kb, "⌨️ Shortcuts")
 
+        # Tab 7: Bulk Pattern Update
+        scroll_bulk, layout_bulk = create_tab_scroll_area()
+
+        bulk_groupbox = QGroupBox("Bulk Find and Replace / Pattern Update")
+        bulk_layout = QFormLayout(bulk_groupbox)
+        bulk_layout.setContentsMargins(15, 15, 15, 15)
+        bulk_layout.setSpacing(12)
+
+        bulk_desc = QLabel(
+            "Bulk update any config fields/settings paths, tab configurations, "
+            "or startup preference profiles matching a pattern or substring."
+        )
+        bulk_desc.setStyleSheet("color: #aaa; font-size: 11px;")
+        bulk_desc.setWordWrap(True)
+        bulk_layout.addRow(bulk_desc)
+
+        self.bulk_search_input = QLineEdit()
+        self.bulk_search_input.setPlaceholderText("e.g. data")
+        self.bulk_search_input.setToolTip("Enter the substring or pattern to match")
+        bulk_layout.addRow("Find / Pattern:", self.bulk_search_input)
+
+        self.bulk_replace_input = QLineEdit()
+        self.bulk_replace_input.setPlaceholderText("e.g. Data")
+        self.bulk_replace_input.setToolTip("Enter the replacement string")
+        bulk_layout.addRow("Replace With:", self.bulk_replace_input)
+
+        self.bulk_regex_check = QCheckBox("Use Regular Expressions")
+        self.bulk_regex_check.setToolTip("Interpret the find pattern as a regular expression")
+        bulk_layout.addRow("", self.bulk_regex_check)
+
+        # Targets
+        target_label = QLabel("<b>Targets:</b>")
+        bulk_layout.addRow(target_label)
+
+        self.bulk_target_vault = QCheckBox("Secure Vault (Preferences, Tab default configurations, Startup profiles)")
+        self.bulk_target_vault.setChecked(True)
+        bulk_layout.addRow("", self.bulk_target_vault)
+
+        self.bulk_target_qsettings = QCheckBox("QSettings (Last/Recent directories, Splitters, Window settings)")
+        self.bulk_target_qsettings.setChecked(True)
+        bulk_layout.addRow("", self.bulk_target_qsettings)
+
+        # Actions
+        btn_layout = QHBoxLayout()
+        self.btn_bulk_preview = QPushButton("Preview Changes")
+        self.btn_bulk_preview.clicked.connect(self._preview_bulk_update)
+        self.btn_bulk_preview.setStyleSheet("background-color: #34495e; color: white; font-weight: bold;")
+
+        self.btn_bulk_apply = QPushButton("Apply Bulk Update")
+        self.btn_bulk_apply.clicked.connect(self._apply_bulk_update)
+        self.btn_bulk_apply.setStyleSheet("background-color: #e74c3c; color: white; font-weight: bold;")
+
+        btn_layout.addWidget(self.btn_bulk_preview)
+        btn_layout.addWidget(self.btn_bulk_apply)
+        bulk_layout.addRow("", btn_layout)
+
+        layout_bulk.addWidget(bulk_groupbox)
+        layout_bulk.addStretch(1)
+        self.tab_widget.addTab(scroll_bulk, "🔄 Bulk Update")
+
         main_layout.addWidget(self.tab_widget)
 
         # --- Action Buttons at the bottom (Full Width) ---
@@ -1397,7 +1457,7 @@ class SettingsWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Update Error", f"Failed to update profile: {e}")
 
-    def reload_settings(self):
+    def reload_settings(self, show_msg=True):
         """Reloads settings from the vault and re-populates the form fields, allowing newly created tab configurations to appear."""
         if self.vault_manager:
             try:
@@ -1544,9 +1604,10 @@ class SettingsWindow(QWidget):
         # Refresh credentials list on reload
         self._refresh_credentials_list()
 
-        QMessageBox.information(
-            self, "Settings Reloaded", "Settings reloaded from the vault successfully."
-        )
+        if show_msg:
+            QMessageBox.information(
+                self, "Settings Reloaded", "Settings reloaded from the vault successfully."
+            )
 
     def _apply_appearance_from_profile(self, profile_data: dict) -> None:
         """§4.13 — Push appearance keys from a profile dict into the UI widgets."""
@@ -3362,3 +3423,173 @@ class SettingsWindow(QWidget):
             self.fav_path_input.clear()
         else:
             QMessageBox.information(self, "Already Exists", "This directory is already in your favourites.")
+
+    def _preview_bulk_update(self):
+        import re
+        search = self.bulk_search_input.text()
+        replace = self.bulk_replace_input.text()
+        use_regex = self.bulk_regex_check.isChecked()
+
+        if not search:
+            QMessageBox.warning(self, "Warning", "Please enter a search pattern.")
+            return
+
+        changes = []
+
+        # Helper function to dry run replacement
+        def dry_run_replace(val, path_str=""):
+            if isinstance(val, str):
+                if use_regex:
+                    try:
+                        new_val, count = re.subn(search, replace, val)
+                    except Exception:
+                        new_val = val.replace(search, replace)
+                        count = val.count(search)
+                else:
+                    new_val = val.replace(search, replace)
+                    count = val.count(search)
+                if count > 0:
+                    changes.append(f"[{path_str}] '{val}' ➡️ '{new_val}'")
+            elif isinstance(val, dict):
+                for k, v in val.items():
+                    dry_run_replace(v, f"{path_str}/{k}" if path_str else k)
+            elif isinstance(val, list):
+                for idx, item in enumerate(val):
+                    dry_run_replace(item, f"{path_str}[{idx}]")
+
+        # 1. Preview Vault Data
+        if self.bulk_target_vault.isChecked() and self.vault_manager:
+            try:
+                creds = self.vault_manager.load_account_credentials()
+                dry_run_replace(creds, "Vault")
+            except Exception as e:
+                changes.append(f"Error reading vault: {e}")
+
+        # 2. Preview QSettings
+        if self.bulk_target_qsettings.isChecked():
+            for key in AppSettings.all_keys():
+                val = AppSettings.get(key)
+                if isinstance(val, (str, list, dict)):
+                    dry_run_replace(val, f"QSettings/{key}")
+
+        if not changes:
+            QMessageBox.information(self, "Preview", "No matching fields/values found to update.")
+            return
+
+        # Display preview in a Dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Bulk Update Preview")
+        dialog.setMinimumSize(600, 400)
+        layout = QVBoxLayout(dialog)
+
+        info_label = QLabel(f"The following {len(changes)} change(s) would be made:")
+        info_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(info_label)
+
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setPlainText("\n".join(changes))
+        layout.addWidget(text_edit)
+
+        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        btn_box.accepted.connect(dialog.accept)
+        layout.addWidget(btn_box)
+
+        dialog.exec()
+
+    def _apply_bulk_update(self):
+        import re
+        search = self.bulk_search_input.text()
+        replace = self.bulk_replace_input.text()
+        use_regex = self.bulk_regex_check.isChecked()
+
+        if not search:
+            QMessageBox.warning(self, "Warning", "Please enter a search pattern.")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Confirm Bulk Update",
+            f"Are you sure you want to perform the bulk find & replace for pattern '{search}' with '{replace}'?\n\nThis will modify the settings and configurations.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        vault_count = 0
+        qsettings_count = 0
+
+        # Helper function to perform replacement recursively
+        def recursive_replace(val):
+            local_count = 0
+            if isinstance(val, str):
+                if use_regex:
+                    try:
+                        new_val, count = re.subn(search, replace, val)
+                        return new_val, count
+                    except Exception:
+                        new_val = val.replace(search, replace)
+                        count = val.count(search)
+                        return new_val, count
+                else:
+                    new_val = val.replace(search, replace)
+                    count = val.count(search)
+                    return new_val, count
+            elif isinstance(val, dict):
+                new_dict = {}
+                for k, v in val.items():
+                    new_v, count = recursive_replace(v)
+                    new_dict[k] = new_v
+                    local_count += count
+                return new_dict, local_count
+            elif isinstance(val, list):
+                new_list = []
+                for item in val:
+                    new_item, count = recursive_replace(item)
+                    new_list.append(new_item)
+                    local_count += count
+                return new_list, local_count
+            return val, 0
+
+        # 1. Update Vault
+        if self.bulk_target_vault.isChecked() and self.vault_manager:
+            try:
+                creds = self.vault_manager.load_account_credentials()
+                updated_creds, vault_count = recursive_replace(creds)
+                if vault_count > 0:
+                    if not self._save_vault_data(updated_creds):
+                        QMessageBox.critical(self, "Error", "Failed to save updated data back to secure vault.")
+                        return
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to update secure vault: {e}")
+                return
+
+        # 2. Update QSettings
+        if self.bulk_target_qsettings.isChecked():
+            try:
+                for key in AppSettings.all_keys():
+                    val = AppSettings.get(key)
+                    if isinstance(val, (str, list, dict)):
+                        new_val, count = recursive_replace(val)
+                        if count > 0:
+                            AppSettings.set(key, new_val)
+                            qsettings_count += count
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to update QSettings: {e}")
+                return
+
+        total_updates = vault_count + qsettings_count
+        if total_updates > 0:
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Bulk update completed successfully!\n\n"
+                f"- Secure Vault fields updated: {vault_count}\n"
+                f"- QSettings fields updated: {qsettings_count}\n\n"
+                f"Settings window will now reload to display changes.",
+            )
+            # Trigger a reload in the UI to refresh loaded configs/values!
+            self.reload_settings(show_msg=False)
+        else:
+            QMessageBox.information(self, "Information", "No matching fields/values were found to update.")

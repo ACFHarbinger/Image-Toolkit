@@ -323,6 +323,125 @@ def dispatch_stitch(args: dict) -> None:  # noqa: C901
             print(f"✅ Panorama saved to: {output}")
 
 
+def dispatch_update_settings(args):
+    import re
+    import getpass
+    import json
+    import hashlib
+    from PySide6.QtCore import QSettings
+    from backend.src.core.vault_manager import VaultManager
+    import backend.src.constants as udef
+    from gui.src.windows.settings.app_settings import AppSettings
+
+    search = args.get("search")
+    replace = args.get("replace")
+    use_regex = args.get("regex", False)
+    account = args.get("account", "a")
+    password = args.get("password")
+
+    if not search:
+        print("❌ Error: --search pattern is required.", file=sys.stderr)
+        return
+
+    # Update cryptographic paths for the specified account
+    udef.update_cryptographic_values(account)
+
+    if not password:
+        password = getpass.getpass(prompt=f"Enter Master Password for account '{account}': ")
+
+    print(f"🔒 Initializing secure vault for account '{account}'...")
+    try:
+        vault_manager = VaultManager()
+        vault_manager.load_keystore(udef.KEYSTORE_FILE, password)
+        vault_manager.get_secret_key(udef.KEY_ALIAS, password)
+        vault_manager.init_vault(udef.VAULT_FILE)
+        stored_data = vault_manager.load_account_credentials()
+    except Exception as e:
+        print(f"❌ Failed to load secure vault: {e}", file=sys.stderr)
+        return
+
+    # Verify password hash
+    stored_hash = stored_data.get("hashed_password")
+    stored_salt = stored_data.get("salt")
+    pepper = vault_manager.PEPPER
+    password_combined = (password + stored_salt + pepper).encode("utf-8")
+    verification_hash = hashlib.sha256(password_combined).hexdigest()
+    if verification_hash != stored_hash:
+        print("❌ Error: Invalid password.", file=sys.stderr)
+        return
+
+    print("✅ Vault unlocked successfully.")
+
+    # Helper function to perform replacement recursively
+    def recursive_replace(val):
+        local_count = 0
+        if isinstance(val, str):
+            if use_regex:
+                try:
+                    new_val, count = re.subn(search, replace, val)
+                    return new_val, count
+                except Exception:
+                    new_val = val.replace(search, replace)
+                    count = val.count(search)
+                    return new_val, count
+            else:
+                new_val = val.replace(search, replace)
+                count = val.count(search)
+                return new_val, count
+        elif isinstance(val, dict):
+            new_dict = {}
+            for k, v in val.items():
+                new_v, count = recursive_replace(v)
+                new_dict[k] = new_v
+                local_count += count
+            return new_dict, local_count
+        elif isinstance(val, list):
+            new_list = []
+            for item in val:
+                new_item, count = recursive_replace(item)
+                new_list.append(new_item)
+                local_count += count
+            return new_list, local_count
+        return val, 0
+
+    # 1. Update Vault
+    updated_data, vault_count = recursive_replace(stored_data)
+    if vault_count > 0:
+        try:
+            vault_manager.save_data(json.dumps(updated_data))
+            print(f"✅ Updated {vault_count} values/fields in the Secure Vault.")
+        except Exception as e:
+            print(f"❌ Failed to save updated vault data: {e}", file=sys.stderr)
+            return
+    else:
+        print("ℹ️ No matching fields found in Secure Vault.")
+
+    # 2. Update QSettings
+    qsettings_count = 0
+    try:
+        for key in AppSettings.all_keys():
+            val = AppSettings.get(key)
+            if isinstance(val, (str, list, dict)):
+                new_val, count = recursive_replace(val)
+                if count > 0:
+                    AppSettings.set(key, new_val)
+                    qsettings_count += count
+        if qsettings_count > 0:
+            print(f"✅ Updated {qsettings_count} values/fields in QSettings.")
+        else:
+            print("ℹ️ No matching fields found in QSettings.")
+    except Exception as e:
+        print(f"❌ Failed to update QSettings: {e}", file=sys.stderr)
+        return
+
+    try:
+        vault_manager.shutdown()
+    except Exception:
+        pass
+
+    print("🎉 Settings bulk pattern update completed successfully!")
+
+
 def dispatch_command(command, args):
     if command == "core":
         dispatch_core(args)
@@ -336,5 +455,7 @@ def dispatch_command(command, args):
         dispatch_model(args)
     elif command == "slideshow":
         launch_slideshow()
+    elif command == "update-settings":
+        dispatch_update_settings(args)
     else:
         print(f"Unknown command: {command}", file=sys.stderr)
