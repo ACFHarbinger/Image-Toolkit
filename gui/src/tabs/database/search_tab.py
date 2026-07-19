@@ -9,7 +9,6 @@ from backend.src.constants import SUPPORTED_IMG_FORMATS
 from PySide6.QtCore import QPoint, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QAction, QColor, QCursor, QPixmap
 from PySide6.QtWidgets import (
-    QComboBox,
     QFormLayout,
     QGridLayout,
     QGroupBox,
@@ -52,6 +51,8 @@ class SearchTab(AbstractClassTwoGalleries):
 
         # Search specific worker
         self.current_search_worker: Optional[SearchWorker] = None
+        # Tag cache (populated on DB connect)
+        self._all_tags_cache: List[Dict] = []
 
         # --- UI SETUP ---
         layout = QVBoxLayout(self)
@@ -61,15 +62,68 @@ class SearchTab(AbstractClassTwoGalleries):
         form_layout = QFormLayout(search_group)
         form_layout.setContentsMargins(10, 20, 10, 10)
 
-        self.group_combo = QComboBox()
-        self.group_combo.setEditable(True)
-        self.group_combo.setPlaceholderText("e.g., Summer Trip (Optional)")
-        form_layout.addRow("Group name:", self.group_combo)
+        # Refresh button for groups/subgroups
+        self.btn_refresh_groups = QPushButton("Refresh Groups")
+        self.btn_refresh_groups.setFixedWidth(140)
+        apply_shadow_effect(
+            self.btn_refresh_groups, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        self.btn_refresh_groups.clicked.connect(self._refresh_groups_from_db)
 
-        self.subgroup_combo = QComboBox()
-        self.subgroup_combo.setEditable(True)
-        self.subgroup_combo.setPlaceholderText("e.g., Beach Photos (Optional)")
-        form_layout.addRow("Subgroup name:", self.subgroup_combo)
+        # --- Groups (checkable list) ---
+        self.groups_list_widget = QListWidget()
+        self.groups_list_widget.setMinimumHeight(200)
+        self.groups_list_widget.setStyleSheet(
+            "QListWidget::item { padding: 4px; } "
+            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+        )
+        self.groups_list_widget.itemChanged.connect(self._on_group_selection_changed)
+
+        # --- Subgroups (checkable list, filtered by selected groups) ---
+        self.subgroups_list_widget = QListWidget()
+        self.subgroups_list_widget.setMinimumHeight(200)
+        self.subgroups_list_widget.setStyleSheet(
+            "QListWidget::item { padding: 4px; } "
+            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+        )
+        # Internal store: list of (group_name, subgroup_name)
+        self._all_subgroups_detailed: List[tuple] = []
+
+        # Containers for side-by-side Groups/Subgroups layout
+        groups_container = QWidget()
+        groups_layout = QHBoxLayout(groups_container)
+        groups_layout.setContentsMargins(0, 0, 0, 0)
+        groups_layout.setSpacing(15)
+
+        # Groups Column
+        groups_col = QWidget()
+        groups_col_layout = QVBoxLayout(groups_col)
+        groups_col_layout.setContentsMargins(0, 0, 0, 0)
+        
+        groups_header_layout = QHBoxLayout()
+        groups_label = QLabel("Groups:")
+        groups_label.setStyleSheet("font-weight: bold;")
+        groups_header_layout.addWidget(groups_label)
+        groups_header_layout.addStretch()
+        groups_header_layout.addWidget(self.btn_refresh_groups)
+        
+        groups_col_layout.addLayout(groups_header_layout)
+        groups_col_layout.addWidget(self.groups_list_widget)
+
+        # Subgroups Column
+        subgroups_col = QWidget()
+        subgroups_col_layout = QVBoxLayout(subgroups_col)
+        subgroups_col_layout.setContentsMargins(0, 0, 0, 0)
+        
+        subgroups_label = QLabel("Subgroups:")
+        subgroups_label.setStyleSheet("font-weight: bold;")
+        subgroups_col_layout.addWidget(subgroups_label)
+        subgroups_col_layout.addWidget(self.subgroups_list_widget)
+
+        groups_layout.addWidget(groups_col)
+        groups_layout.addWidget(subgroups_col)
+
+        form_layout.addRow(groups_container)
 
         self.filename_edit = QLineEdit()
         self.filename_edit.setPlaceholderText("e.g., *.png, img_001, etc (Optional)")
@@ -132,14 +186,7 @@ class SearchTab(AbstractClassTwoGalleries):
             self.input_formats_edit.setPlaceholderText("e.g. jpg png gif (optional)")
             form_layout.addRow("Input formats:", self.input_formats_edit)
 
-        # --- Tags (List Widget) ---
-        self.tags_list_widget = QListWidget()
-        self.tags_list_widget.setMinimumHeight(200)
-        self.tags_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 5px; } "
-            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
-        )
-
+        # --- Tag Type Filter (checkable; all start checked) ---
         # --- Refresh Tags Button ---
         self.btn_refresh_tags = QPushButton("Refresh Tags")
         self.btn_refresh_tags.setFixedWidth(120)
@@ -148,9 +195,58 @@ class SearchTab(AbstractClassTwoGalleries):
         )
         self.btn_refresh_tags.clicked.connect(self._setup_tag_checkboxes)
 
-        # Add button row before the tags list
-        form_layout.addRow("", self.btn_refresh_tags)
-        form_layout.addRow("Tags:", self.tags_list_widget)
+        # --- Tag Type Filter (checkable; all start checked) ---
+        self.tag_types_list_widget = QListWidget()
+        self.tag_types_list_widget.setMinimumHeight(200)
+        self.tag_types_list_widget.setStyleSheet(
+            "QListWidget::item { padding: 4px; } "
+            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+        )
+        self.tag_types_list_widget.itemChanged.connect(self._on_tag_type_changed)
+
+        # --- Tags (List Widget) ---
+        self.tags_list_widget = QListWidget()
+        self.tags_list_widget.setMinimumHeight(200)
+        self.tags_list_widget.setStyleSheet(
+            "QListWidget::item { padding: 5px; } "
+            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+        )
+
+        # Containers for side-by-side Tag Types/Tags layout
+        tags_container = QWidget()
+        tags_layout = QHBoxLayout(tags_container)
+        tags_layout.setContentsMargins(0, 0, 0, 0)
+        tags_layout.setSpacing(15)
+
+        # Tag Types Column
+        tag_types_col = QWidget()
+        tag_types_col_layout = QVBoxLayout(tag_types_col)
+        tag_types_col_layout.setContentsMargins(0, 0, 0, 0)
+        
+        tag_types_header_layout = QHBoxLayout()
+        tag_types_label = QLabel("Tag Types:")
+        tag_types_label.setStyleSheet("font-weight: bold;")
+        tag_types_header_layout.addWidget(tag_types_label)
+        tag_types_header_layout.addStretch()
+        tag_types_header_layout.addWidget(self.btn_refresh_tags)
+        
+        tag_types_col_layout.addLayout(tag_types_header_layout)
+        tag_types_col_layout.addWidget(self.tag_types_list_widget)
+
+        # Tags Column
+        tags_col = QWidget()
+        tags_col_layout = QVBoxLayout(tags_col)
+        tags_col_layout.setContentsMargins(0, 0, 0, 0)
+        
+        tags_label = QLabel("Tags:")
+        tags_label.setStyleSheet("font-weight: bold;")
+        tags_col_layout.addWidget(tags_label)
+        tags_col_layout.addWidget(self.tags_list_widget)
+
+        tags_layout.addWidget(tag_types_col)
+        tags_layout.addWidget(tags_col)
+
+        form_layout.addRow(tags_container)
 
         layout.addWidget(search_group)
 
@@ -184,8 +280,6 @@ class SearchTab(AbstractClassTwoGalleries):
         layout.addWidget(self.progress_bar)
 
         # Connect Enter key to search
-        self.group_combo.lineEdit().returnPressed.connect(self.toggle_search) # pyrefly: ignore [missing-attribute]
-        self.subgroup_combo.lineEdit().returnPressed.connect(self.toggle_search) # pyrefly: ignore [missing-attribute]
         self.filename_edit.returnPressed.connect(self.toggle_search)
         if not self.dropdown:
             self.input_formats_edit.returnPressed.connect(self.toggle_search)
@@ -403,8 +497,8 @@ class SearchTab(AbstractClassTwoGalleries):
             return
 
         query_params = {
-            "group_name": self.group_combo.currentText().strip() or None,
-            "subgroup_name": self.subgroup_combo.currentText().strip() or None,
+            "group_names": self.get_selected_groups() or None,
+            "subgroup_names": self.get_selected_subgroups() or None,
             "filename_pattern": self.filename_edit.text().strip() or None,
             "tags": self.get_selected_tags(),
             "input_formats": self.get_selected_formats(),
@@ -464,8 +558,12 @@ class SearchTab(AbstractClassTwoGalleries):
 
     def clear_filters(self):
         """Wrapper for QML to clear search filters."""
-        self.group_combo.setCurrentIndex(-1)
-        self.subgroup_combo.setCurrentIndex(-1)
+        # Uncheck all groups
+        for i in range(self.groups_list_widget.count()):
+            self.groups_list_widget.item(i).setCheckState(Qt.CheckState.Unchecked)
+        # Uncheck all subgroups
+        for i in range(self.subgroups_list_widget.count()):
+            self.subgroups_list_widget.item(i).setCheckState(Qt.CheckState.Unchecked)
         self.filename_edit.clear()
 
         # Uncheck all format buttons
@@ -552,11 +650,25 @@ class SearchTab(AbstractClassTwoGalleries):
             pass
         return []
 
-    @Slot()
-    def _setup_tag_checkboxes(self):
-        self.tags_list_widget.clear()
+    def _get_active_tag_types(self) -> Optional[set]:
+        """Return the set of checked tag type names, or None if list is empty."""
+        if self.tag_types_list_widget.count() == 0:
+            return None
+        active = set()
+        for i in range(self.tag_types_list_widget.count()):
+            item = self.tag_types_list_widget.item(i)
+            if item.checkState() == Qt.CheckState.Checked:
+                active.add(item.data(Qt.ItemDataRole.UserRole))
+        return active
 
-        tags_data = self._get_tags_from_db()
+    @Slot()
+    def _on_tag_type_changed(self):
+        """Rebuild the tags list to only show tags of checked types."""
+        self._populate_tags_for_active_types()
+
+    def _populate_tags_for_active_types(self):
+        """Re-populate the tags list based on which type checkboxes are checked."""
+        active_types = self._get_active_tag_types()
         color_map = {
             "Artist": "#5865f2",
             "Series": "#f1c40f",
@@ -566,20 +678,167 @@ class SearchTab(AbstractClassTwoGalleries):
             "": "#c7c7c7",
             None: "#c7c7c7",
         }
+        # Preserve previously checked tag names
+        previously_checked = {
+            self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.tags_list_widget.count())
+            if self.tags_list_widget.item(i).checkState() == Qt.CheckState.Checked
+        }
 
-        for tag_data in tags_data:
+        self.tags_list_widget.blockSignals(True)
+        self.tags_list_widget.clear()
+
+        all_tags = getattr(self, "_all_tags_cache", [])
+        for tag_data in all_tags:
             tag_name = tag_data["name"]
             tag_type = tag_data["type"] if tag_data["type"] else ""
-
+            # Filter by active types
+            if active_types is not None and tag_type not in active_types:
+                continue
             item = QListWidgetItem(tag_name.replace("_", " ").title())
             item.setData(Qt.ItemDataRole.UserRole, tag_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if tag_name in previously_checked
+                else Qt.CheckState.Unchecked
+            )
             text_color = color_map.get(tag_type, color_map[""])
             item.setForeground(QColor(text_color))
-
             self.tags_list_widget.addItem(item)
+        self.tags_list_widget.blockSignals(False)
+
+    @Slot()
+    def _setup_tag_checkboxes(self):
+        tags_data = self._get_tags_from_db()
+        self._all_tags_cache = tags_data
+
+        # Build / refresh the tag-type filter row
+        known_types = ["Artist", "Series", "Character", "General", "Meta"]
+        seen_types = sorted(
+            {(t["type"] or "") for t in tags_data},
+            key=lambda x: (known_types.index(x) if x in known_types else len(known_types), x),
+        )
+        self.tag_types_list_widget.blockSignals(True)
+        # Keep previously checked types
+        previously_checked_types = {
+            self.tag_types_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.tag_types_list_widget.count())
+            if self.tag_types_list_widget.item(i).checkState() == Qt.CheckState.Checked
+        }
+        self.tag_types_list_widget.clear()
+        type_color_map = {
+            "Artist": "#5865f2",
+            "Series": "#f1c40f",
+            "Character": "#2ecc71",
+            "General": "#e91e63",
+            "Meta": "#9b59b6",
+            "": "#c7c7c7",
+        }
+        for t in seen_types:
+            display = t if t else "(No Type)"
+            item = QListWidgetItem(display)
+            item.setData(Qt.ItemDataRole.UserRole, t)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            # All types start checked; preserve state on refresh
+            is_checked = (not previously_checked_types) or (t in previously_checked_types)
+            item.setCheckState(
+                Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked
+            )
+            item.setForeground(QColor(type_color_map.get(t, "#c7c7c7")))
+            self.tag_types_list_widget.addItem(item)
+        self.tag_types_list_widget.blockSignals(False)
+
+        # Populate tags list filtered by active types
+        self._populate_tags_for_active_types()
+
+    # --- Groups / Subgroups helpers ---
+
+    @Slot()
+    def _refresh_groups_from_db(self):
+        """Load groups and detailed subgroups from the DB and populate both lists."""
+        db = self.db_tab_ref.db
+        if not db:
+            return
+        try:
+            group_list = db.get_all_groups()
+            self.populate_groups_list(group_list)
+            self._all_subgroups_detailed = db.get_all_subgroups_detailed()
+            self._refresh_subgroups_display()
+        except Exception as e:
+            print(f"[SearchTab] Error refreshing groups: {e}")
+
+    def populate_groups_list(self, group_list: List[str]):
+        """Populate groups_list_widget; preserve existing check states by name."""
+        self.groups_list_widget.blockSignals(True)
+        previously_checked = {
+            self.groups_list_widget.item(i).text()
+            for i in range(self.groups_list_widget.count())
+            if self.groups_list_widget.item(i).checkState() == Qt.CheckState.Checked
+        }
+        self.groups_list_widget.clear()
+        for name in group_list:
+            item = QListWidgetItem(name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if name in previously_checked
+                else Qt.CheckState.Unchecked
+            )
+            self.groups_list_widget.addItem(item)
+        self.groups_list_widget.blockSignals(False)
+        self._refresh_subgroups_display()
+
+    def populate_subgroups_detailed(self, detailed: List[tuple]):
+        """Store the full (subgroup, group) list and refresh the display."""
+        self._all_subgroups_detailed = detailed
+        self._refresh_subgroups_display()
+
+    @Slot()
+    def _on_group_selection_changed(self):
+        """When group selection changes, refresh the subgroup list."""
+        self._refresh_subgroups_display()
+
+    def _refresh_subgroups_display(self):
+        """Show only subgroups belonging to any checked group (or all if none checked)."""
+        selected_groups = self.get_selected_groups()
+        # Preserve currently checked subgroup names (raw subgroup_name only)
+        previously_checked = {
+            self.subgroups_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.subgroups_list_widget.count())
+            if self.subgroups_list_widget.item(i).checkState() == Qt.CheckState.Checked
+        }
+        self.subgroups_list_widget.blockSignals(True)
+        self.subgroups_list_widget.clear()
+        for sub_name, grp_name in self._all_subgroups_detailed:
+            if selected_groups and grp_name not in selected_groups:
+                continue
+            label = f"{grp_name}:: {sub_name}"
+            item = QListWidgetItem(label)
+            # Store raw subgroup name as user data for search query
+            item.setData(Qt.ItemDataRole.UserRole, sub_name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if sub_name in previously_checked
+                else Qt.CheckState.Unchecked
+            )
+            self.subgroups_list_widget.addItem(item)
+        self.subgroups_list_widget.blockSignals(False)
+
+    def get_selected_groups(self) -> List[str]:
+        return [
+            self.groups_list_widget.item(i).text()
+            for i in range(self.groups_list_widget.count())
+            if self.groups_list_widget.item(i).checkState() == Qt.CheckState.Checked
+        ]
+
+    def get_selected_subgroups(self) -> List[str]:
+        return [
+            self.subgroups_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.subgroups_list_widget.count())
+            if self.subgroups_list_widget.item(i).checkState() == Qt.CheckState.Checked
+        ]
 
     def update_search_button_state(self, connected: Optional[bool] = None):
         db_connected = self.db_tab_ref.db is not None if connected is None else connected
@@ -593,6 +852,7 @@ class SearchTab(AbstractClassTwoGalleries):
 
         if db_connected and not self._db_was_connected:
             self._setup_tag_checkboxes()
+            self._refresh_groups_from_db()
         self._db_was_connected = db_connected
 
     def get_selected_tags(self) -> List[str]:
@@ -988,8 +1248,8 @@ class SearchTab(AbstractClassTwoGalleries):
 
     def collect(self) -> Dict[str, Any]:
         return {
-            "group_name": self.group_combo.currentText().strip() or None,
-            "subgroup_name": self.subgroup_combo.currentText().strip() or None,
+            "group_names": self.get_selected_groups() or None,
+            "subgroup_names": self.get_selected_subgroups() or None,
             "filename_pattern": self.filename_edit.text().strip() or None,
             "input_formats": self.get_selected_formats() or None,
             "tags": self.get_selected_tags() or None,
@@ -997,8 +1257,8 @@ class SearchTab(AbstractClassTwoGalleries):
 
     def get_default_config(self) -> Dict[str, Any]:
         return {
-            "group_name": "",
-            "subgroup_name": "",
+            "group_names": [],
+            "subgroup_names": [],
             "filename_pattern": "",
             "input_formats": [],
             "tags": [],
@@ -1024,8 +1284,24 @@ class SearchTab(AbstractClassTwoGalleries):
 
     def set_config(self, config: Dict[str, Any]):
         try:
-            self.group_combo.setCurrentText(config.get("group_name", ""))
-            self.subgroup_combo.setCurrentText(config.get("subgroup_name", ""))
+            # Restore group selections
+            selected_groups = set(config.get("group_names", []) or [])
+            for i in range(self.groups_list_widget.count()):
+                item = self.groups_list_widget.item(i)
+                item.setCheckState(
+                    Qt.CheckState.Checked
+                    if item.text() in selected_groups
+                    else Qt.CheckState.Unchecked
+                )
+            # Restore subgroup selections
+            selected_subgroups = set(config.get("subgroup_names", []) or [])
+            for i in range(self.subgroups_list_widget.count()):
+                item = self.subgroups_list_widget.item(i)
+                item.setCheckState(
+                    Qt.CheckState.Checked
+                    if item.data(Qt.ItemDataRole.UserRole) in selected_subgroups
+                    else Qt.CheckState.Unchecked
+                )
             self.filename_edit.setText(config.get("filename_pattern", ""))
             self._setup_tag_checkboxes()
             selected_tags = set(config.get("tags", []))

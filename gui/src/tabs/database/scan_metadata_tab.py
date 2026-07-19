@@ -33,7 +33,7 @@ from ...components import ClickableLabel, MarqueeScrollArea
 from ...helpers import ImageLoaderWorker, ImageScannerWorker
 from ...styles import apply_shadow_effect
 from ...utils.sort_utils import natural_sort_key
-from ...windows import ImagePreviewWindow
+from ...windows import ImagePreviewWindow, MetadataEditorWindow
 
 
 class ScanMetadataTab(AbstractClassTwoGalleries):
@@ -1042,13 +1042,18 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         if db:
             try:
                 if paths_to_load:
-                    with db.conn.cursor() as cur:
-                        cur.execute(
-                            "SELECT file_path FROM images WHERE file_path = ANY(%s)",
-                            (paths_to_load,),
-                        )
-                        rows = cur.fetchall()
-                        paths_in_db_set = {row[0] for row in rows}
+                    if hasattr(db, "paths_in_db"):
+                        paths_in_db_set = db.paths_in_db(paths_to_load)
+                    elif hasattr(db, "_images") and hasattr(db._images, "paths_in_db"):
+                        paths_in_db_set = db._images.paths_in_db(paths_to_load)
+                    else:
+                        with db.conn.cursor() as cur:
+                            cur.execute(
+                                "SELECT file_path FROM images WHERE file_path = ANY(%s)",
+                                (paths_to_load,),
+                            )
+                            rows = cur.fetchall()
+                            paths_in_db_set = {row[0] for row in rows}
             except Exception as e:
                 print(f"Batch DB check error: {e}")
 
@@ -1148,8 +1153,8 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             worker.signals.result.connect(self.on_single_image_loaded)
             self.thread_pool.start(worker)
 
-    @Slot(str, QPixmap)
-    def on_single_image_loaded(self, path: str, pixmap: QPixmap):
+    @Slot(str, object)
+    def on_single_image_loaded(self, path: str, pixmap: Any):
         if self._loading_cancelled:
             return
 
@@ -1159,9 +1164,11 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
             self.loading_paths.remove(path)
 
         # Buffer now stores QImage to reduce memory footprint
-        self._loaded_results_buffer.append(
-            (path, pixmap.toImage() if pixmap and not pixmap.isNull() else pixmap) # pyrefly: ignore [bad-argument-type]
-        )
+        q_img = None
+        if pixmap and not pixmap.isNull():
+            q_img = pixmap if isinstance(pixmap, QImage) else pixmap.toImage()
+
+        self._loaded_results_buffer.append((path, q_img)) # pyrefly: ignore [bad-argument-type]
 
         # --- Update the specific card ---
         if path in self.path_to_wrapper_map:
@@ -1178,9 +1185,11 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                             Qt.AspectRatioMode.KeepAspectRatio,
                             Qt.TransformationMode.FastTransformation,
                         )
-                        inner_label.setPixmap(scaled)
+                        display_pixmap = QPixmap.fromImage(scaled) if isinstance(scaled, QImage) else scaled
+                        inner_label.setPixmap(display_pixmap)
                     else:
-                        inner_label.setPixmap(pixmap)
+                        display_pixmap = QPixmap.fromImage(pixmap) if isinstance(pixmap, QImage) else pixmap
+                        inner_label.setPixmap(display_pixmap)
                 else:
                     inner_label.setText("Error")
                     inner_label.setStyleSheet(
@@ -1265,18 +1274,11 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
     def update_button_states(self, connected: bool):
         selection_count = len(self.selected_image_paths)
 
-        # Logic: Upsert and Delete actions depend on valid selection and DB connection
-        # has_directory = hasattr(self, "scanned_dir") and bool(self.scanned_dir)
-
         if connected and not self._db_was_connected:
             self._setup_tag_checkboxes()
         self._db_was_connected = connected
 
-        if self.metadata_group.isVisible():
-            self.upsert_button.setText(f"Confirm and Upsert {selection_count} Images")
-        else:
-            self.upsert_button.setText(f"Add/Update {selection_count} Selected Images")
-
+        self.upsert_button.setText(f"Add/Update {selection_count} Selected Images")
         self.upsert_button.setEnabled(connected and selection_count > 0)
         self.delete_selected_button.setText(f"Delete {selection_count} Images from DB")
         self.delete_selected_button.setEnabled(connected and selection_count > 0)
@@ -1408,26 +1410,34 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         self.open_preview_windows.append(preview)
 
     def perform_upsert_operation(self):
+        """Open the MetadataEditorWindow for the currently selected images."""
         db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Connect to database first.")
             return
-        if not self.metadata_group.isVisible():
-            self.metadata_group.setVisible(True)
-            self.update_button_states(True)
+        if not self.selected_image_paths:
+            QMessageBox.warning(self, "No Selection", "Select at least one image first.")
             return
+
+        paths = sorted(self.selected_image_paths)
+        dialog = MetadataEditorWindow(paths, db, parent=self)
+        dialog.metadata_confirmed.connect(self._execute_upsert)
+        dialog.show()
+
+    @Slot(list)
+    def _execute_upsert(self, results: list):
+        """Receive per-image metadata dicts from MetadataEditorWindow and write to DB."""
+        db = self.db_tab_ref.db
+        if not db:
+            return
+        success_count = 0
         try:
-            group_name = self.group_combo.currentText().strip() or None
-            subgroup_name = self.subgroup_combo.currentText().strip() or None
-            tags = [
-                self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
-                for i in range(self.tags_list_widget.count())
-                if self.tags_list_widget.item(i).checkState() == Qt.CheckState.Checked
-            ] or None
+            for entry in results:
+                path = entry["path"]
+                group_name = entry.get("group_name")
+                subgroup_name = entry.get("subgroup_name")
+                tags = entry.get("tags")
 
-            success_count = 0
-
-            for path in list(self.selected_image_paths):
                 width, height = None, None
                 try:
                     pixmap = QPixmap(path)
@@ -1463,7 +1473,6 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                         self.scan_thumbnail_layout.removeWidget(widget)
                         widget.deleteLater()
                         del self.path_to_wrapper_map[path]
-                        # Remove from underlying lists
                         if path in self.scan_image_list:
                             self.scan_image_list.remove(path)
                         if path in self.scan_filtered_list:
@@ -1472,18 +1481,15 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
                         widget.setProperty("in_db", True)
                         inner_label = widget.findChild(QLabel)
                         self._update_card_style(
-                            inner_label, is_selected=True, is_in_db=True # pyrefly: ignore [bad-argument-type]
+                            inner_label, is_selected=True, is_in_db=True  # pyrefly: ignore [bad-argument-type]
                         )
 
             if self.view_new_only:
-                # Refresh page to fill gaps
                 self._load_current_scan_page()
 
             QMessageBox.information(
                 self, "Success", f"Upserted {success_count} images."
             )
-            self.metadata_group.setVisible(False)
-
             self.update_button_states(True)
 
         except Exception as e:
