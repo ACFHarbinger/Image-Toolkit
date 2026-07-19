@@ -201,3 +201,57 @@ class TestLoginWindowPreferenceProfile:
 
             # Verify save_data was NOT called because nothing changed
             mock_vault.save_data.assert_not_called()
+
+
+class TestGuestMode:
+    def test_guest_login_empty_username(self, q_app):
+        from unittest.mock import patch
+
+        window = LoginWindow()
+        window.username_input.setText("")
+
+        with patch("gui.src.windows.main.login_window.QMessageBox.warning") as mock_warn:
+            window.attempt_guest_login()
+            mock_warn.assert_called_once()
+            assert not window.is_authenticated
+
+    def test_guest_login_successful(self, q_app):
+        from unittest.mock import MagicMock, patch
+
+        window = LoginWindow()
+        window.username_input.setText("guest_user")
+        window.close = MagicMock()
+
+        mock_listener = MagicMock()
+        window.login_successful.connect(mock_listener)
+
+        with (
+            patch("gui.src.windows.main.login_window.QMessageBox.information") as mock_info,
+        ):
+            window.attempt_guest_login()
+
+            assert window.is_authenticated
+            assert window.vault_manager is not None
+            assert window.vault_manager.is_guest is True
+            assert window.vault_manager.account_name == "guest_user"
+            mock_info.assert_called_once()
+            mock_listener.assert_called_once_with(window.vault_manager)
+            window.close.assert_called_once()
+
+    def test_guest_vault_memory_operations(self):
+        from backend.src.core.vault_manager import VaultManager
+
+        vault = VaultManager.create_guest_vault("volatile_guest")
+        assert vault.is_guest is True
+        creds = vault.load_account_credentials()
+        assert creds["account_name"] == "volatile_guest"
+
+        # Save data in memory
+        new_data = {"account_name": "volatile_guest", "theme": "light", "custom": "value"}
+        import json
+        vault.save_data(json.dumps(new_data))
+
+        loaded = vault.load_account_credentials()
+        assert loaded["custom"] == "value"
+        assert loaded["theme"] == "light"
+

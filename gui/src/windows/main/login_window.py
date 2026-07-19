@@ -92,6 +92,14 @@ class LoginWindow(QWidget):
         self.create_button.clicked.connect(self.create_account)
         button_layout.addWidget(self.create_button)
 
+        self.guest_button = QPushButton("Guest Mode")
+        self.guest_button.setObjectName("GuestButton")
+        self.guest_button.setToolTip(
+            "Log in as guest (no password required; settings are kept in volatile memory only)"
+        )
+        self.guest_button.clicked.connect(self.attempt_guest_login)
+        button_layout.addWidget(self.guest_button)
+
         self.login_button = QPushButton("Login")
         self.login_button.setObjectName("LoginButton")
         self.login_button.clicked.connect(self.attempt_login)
@@ -212,6 +220,32 @@ class LoginWindow(QWidget):
                         print(f"[LoginWindow] Copied template crypto file: {item.name} -> {dest_file}")
         except Exception as e:
             print(f"[LoginWindow] Error copying template cryptography files: {e}")
+
+    def attempt_guest_login(self):
+        """
+        Logs in the user in Guest Mode without requiring a password.
+        Settings saved during execution remain in volatile memory only.
+        """
+        username = self.username_input.text().strip()
+        if not username:
+            QMessageBox.warning(self, "Input Error", "Please enter an account name to log in as Guest.")
+            return
+
+        try:
+            self.vault_manager = VaultManager.create_guest_vault(username)
+            self.is_authenticated = True
+
+            QMessageBox.information(
+                self,
+                "Guest Mode",
+                f"Logged in as Guest '{username}'.\n\nSettings saved during this session will be stored in volatile memory only and will not persist on disk.",
+            )
+            self.login_successful.emit(self.vault_manager)
+            self.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Guest Mode Error", f"Failed to start Guest session: {e}")
+            if self.vault_manager:
+                self.vault_manager.shutdown()
 
     def attempt_login(self):  # noqa: C901
         """Tries to authenticate the user against the stored hash."""

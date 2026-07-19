@@ -126,6 +126,8 @@ class MainWindow(QWidget):
             try:
                 self.cached_creds = self.vault_manager.load_account_credentials()
                 account_name = self.cached_creds.get("account_name", "Authenticated User")
+                if getattr(self.vault_manager, "is_guest", False) is True:
+                    account_name = f"{account_name} (Guest)"
                 initial_theme = self.cached_creds.get("theme", "dark")
             except Exception as e:
                 print(f"Warning: Failed to load account credentials or theme: {e}")
@@ -1036,7 +1038,7 @@ class MainWindow(QWidget):
 
     def _save_session_recovery(self) -> None:  # noqa: C901
         """Saves current active tab and tab configurations for session recovery."""
-        if not self.vault_manager:
+        if not self.vault_manager or getattr(self.vault_manager, "is_guest", False) is True:
             return
 
         try:
@@ -1078,8 +1080,8 @@ class MainWindow(QWidget):
                             if tab_class_name == "ExtractorTab":
                                 avc = cfg.get("active_videos_config", {})  # pyrefly: ignore [missing-attribute]
                                 print(
-                                    f"[SAVE] {tab_class_name}.collect(): active_videos_config has {len(avc)} entries, video_path='{cfg.get('video_path', '')}'"
-                                )  # pyrefly: ignore [missing-attribute]
+                                    f"[SAVE] {tab_class_name}.collect(): active_videos_config has {len(avc)} entries, video_path='{cfg.get('video_path', '')}'" # pyrefly: ignore [missing-attribute]
+                                )
                             tab_configs[tab_class_name] = cfg
                         except Exception as e:
                             print(

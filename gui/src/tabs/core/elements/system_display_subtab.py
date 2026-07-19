@@ -812,7 +812,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 self.vid_scanner_worker.stop()
 
         if (
-            hasattr(self, "_pagination_debounce_timer")
+            getattr(self, "_pagination_debounce_timer", None) is not None
             and self._pagination_debounce_timer.isActive()
         ):
             self._pagination_debounce_timer.stop()

@@ -81,6 +81,8 @@ class SettingsWindow(QWidget):
             try:
                 creds = self.vault_manager.load_account_credentials()
                 self.current_account_name = creds.get("account_name", "N/A")
+                if getattr(self.vault_manager, "is_guest", False) is True:
+                    self.current_account_name = f"{self.current_account_name} (Guest)"
                 self.initial_theme = creds.get("theme", "dark")
                 self.active_tab_configs = creds.get("active_tab_configs", {})
                 self.system_profiles = creds.get("system_preference_profiles", {})
@@ -2190,10 +2192,11 @@ class SettingsWindow(QWidget):
             }
 
             if self._save_vault_data(user_data):
-                # Also save to QSettings
-                AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
-                AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
-                AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
+                # Also save to QSettings (only if not in Guest mode)
+                if getattr(self.vault_manager, "is_guest", False) is not True:
+                    AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
+                    AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
+                    AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
                 if self.main_window_ref:
                     self.main_window_ref.cached_creds = user_data
                     if selected_theme:
