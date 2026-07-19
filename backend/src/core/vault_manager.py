@@ -68,10 +68,38 @@ class VaultManager:
 
             return pepper
 
-    def __init__(self, bc_provider_path: Optional[str] = None):
+    @classmethod
+    def create_guest_vault(cls, username: str) -> "VaultManager":
+        """Factory method to create a VaultManager operating in Guest Mode (volatile memory only)."""
+        instance = cls(is_guest=True)
+        instance.account_name = username  # pyrefly: ignore [missing-attribute]
+        instance.raw_password = ""  # pyrefly: ignore [missing-attribute]
+        instance._in_memory_data = {
+            "account_name": username,
+            "theme": "dark",
+            "preferences": {},
+            "active_tab_configs": {},
+            "system_preference_profiles": {},
+        }
+        return instance
+
+    def __init__(self, bc_provider_path: Optional[str] = None, is_guest: bool = False):
         """
         Initializes the wrapper, starts the JVM, and loads the pepper.
+        If is_guest is True, operates strictly in volatile memory without disk persistence.
         """
+        self.is_guest = is_guest
+        self._lock = threading.RLock()
+        self.api_credentials = {}
+        self._in_memory_data = {}
+
+        if self.is_guest:
+            self.PEPPER = ""
+            self.keystore = None
+            self.secret_key = None
+            self.vault = None
+            return
+
         # --- Load or generate the secret pepper first ---
         self.PEPPER = self._load_or_generate_pepper()
 
@@ -121,12 +149,6 @@ class VaultManager:
         self.keystore = None
         self.secret_key = None
         self.vault = None
-
-        # --- Synchronization Lock to prevent JNI/Shiboken race conditions ---
-        self._lock = threading.RLock()
-
-        # --- THIS DICTIONARY WILL HOLD DECRYPTED API CREDENTIALS ---
-        self.api_credentials = {}
 
     def _to_char_array(self, py_string: str) -> "JArray[JChar]": # pyrefly: ignore [unsupported-operation]
         """Helper to convert a Python string to a Java char[]."""
@@ -232,9 +254,17 @@ class VaultManager:
 
     def save_data(self, json_string: str):
         """
-        Saves a JSON string to the encrypted vault.
+        Saves a JSON string to the encrypted vault (or volatile memory in Guest mode).
         """
         with self._lock:
+            if self.is_guest:
+                try:
+                    self._in_memory_data = json.loads(json_string)
+                    print("Guest vault data saved to volatile memory.", file=sys.stderr)
+                except Exception as e:
+                    print(f"Error updating guest vault data in memory: {e}", file=sys.stderr)
+                return
+
             if self.vault is None:
                 raise ValueError("Vault is not initialized. Call init_vault() first.")
 
@@ -247,9 +277,12 @@ class VaultManager:
 
     def load_data(self) -> str:
         """
-        Loads and decrypts the JSON string from the vault.
+        Loads and decrypts the JSON string from the vault (or volatile memory in Guest mode).
         """
         with self._lock:
+            if self.is_guest:
+                return json.dumps(self._in_memory_data)
+
             if self.vault is None:
                 raise ValueError("Vault is not initialized. Call init_vault() first.")
 
@@ -355,6 +388,8 @@ class VaultManager:
 
     def shutdown(self):
         """Shuts down the JVM if it's running."""
+        if self.is_guest:
+            return
         if jpype.isJVMStarted(): # pyrefly: ignore [missing-attribute]
             has_qt = False
             try:
@@ -385,6 +420,10 @@ class VaultManager:
         account name, resulting hash, and salt to the encrypted vault.
         """
         with self._lock:
+            if self.is_guest:
+                self._in_memory_data["account_name"] = account_name
+                return
+
             # 1. Generate a secure, unique salt (16 bytes)
             salt = os.urandom(16).hex()
 
@@ -413,6 +452,9 @@ class VaultManager:
         :return: A dictionary containing the loaded credentials.
         """
         with self._lock:
+            if self.is_guest:
+                return dict(self._in_memory_data)
+
             decrypted_json_string = (
                 self.load_data()
             )  # Uses the existing loadData() method
@@ -424,8 +466,8 @@ class VaultManager:
                 required_keys = ["account_name", "hashed_password", "salt"]
                 if not all(key in loaded_data for key in required_keys):
                     # Handle empty init case
-                    if loaded_data == {}:
-                        return {}
+                    if loaded_data == {} or self.is_guest:
+                        return loaded_data
                     raise KeyError(
                         f"Decrypted JSON is missing one of the required keys: {required_keys}"
                     )

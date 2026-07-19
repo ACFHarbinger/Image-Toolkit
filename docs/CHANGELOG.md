@@ -13,6 +13,13 @@
 - **`MainWindow.zoom_in()` / `zoom_out()`**: Public helper methods mutate `cached_creds["preferences"]["app_zoom"]` and immediately re-apply the theme so every open window reflects the change without requiring a settings save or restart.
 - **Settings Integration**: `pref_app_zoom` is loaded in `__init__` and `reload_settings`, persisted in `_update_settings_logic` and `_get_current_ui_preferences` (used by profile save/update), and reset to 0 in `reset_settings`. The Settings buttons delegate to `main_window_ref.zoom_in/zoom_out` and stay in sync via `cached_creds`.
 
+**Part 7 — Guest Login Mode:**
+- **"Guest Mode" Login**: Added a "Guest Mode" button to the `LoginWindow` allowing access with only an account name, bypassing password authentication.
+- **Volatile In-Memory Vault**: `VaultManager` supports `is_guest=True` (and `create_guest_vault(username)` factory), intercepting all `save_data`, `load_data`, and `load_account_credentials` calls to keep user state strictly in volatile memory. Keystore, secret key generation, pepper loading, and disk vault writes are completely bypassed.
+- **Volatile Settings & Session Recovery Guard**: `AppSettings` QSettings disk persistence in `SettingsWindow` and `.enc` file generation in `MainWindow._save_session_recovery()` are strictly disabled when operating in Guest mode.
+- **UI Account Labeling**: App title bar and Settings header clearly label active Guest accounts (e.g. `pkhunter (Guest)`).
+- **Unit Test Coverage**: Expanded `gui/test/core/test_login_window.py` with `TestGuestMode` verifying input validation, volatile vault creation, memory-only data updates, signal emission, and non-persistence.
+
 **Part 5 — Login Window Preference Profile Selection:**
 - **Preference Profile Login Selection**: Integrated a profile selection dialog (`QInputDialog`) into `LoginWindow.attempt_login()` following successful authentication when preference profiles exist in the vault.
 - **"Default" & "Previous Profile" Options**:
