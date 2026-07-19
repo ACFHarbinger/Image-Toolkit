@@ -1508,12 +1508,12 @@ class StitchTab(QWidget):
         self._frame_list.currentRowChanged.connect(self._on_frame_selection_changed)
         frames_group_layout.addWidget(self._frame_list)
 
-        self._btn_add = QPushButton("Add…")
+        self._btn_add = QPushButton("Add")
         self._btn_add.setToolTip("Add one or more image files to the stitch queue.")
         self._btn_remove = QPushButton("Remove")
         self._btn_remove.setToolTip("Remove the selected frame.")
-        self._btn_up = QPushButton("↑  Move Up")
-        self._btn_down = QPushButton("↓  Move Down")
+        self._btn_up = QPushButton("↑ Up")
+        self._btn_down = QPushButton("↓ Down")
         btn_grid = QGridLayout()
         btn_grid.setSpacing(4)
         for b in (self._btn_add, self._btn_remove, self._btn_up, self._btn_down):
@@ -1763,6 +1763,12 @@ class StitchTab(QWidget):
         )
         output_layout.addWidget(self._cb_save_intermediate)
 
+        right_layout.addWidget(output_group)
+
+        # HITL group
+        hitl_group = QGroupBox("HITL")
+        hitl_layout = QVBoxLayout(hitl_group)
+
         self._cb_hitl_mode = QCheckBox("Human-in-the-loop review")
         self._cb_hitl_mode.setChecked(False)
         self._cb_hitl_mode.setToolTip(
@@ -1772,17 +1778,17 @@ class StitchTab(QWidget):
             "  Stage 8 — Canvas layout: nudge frame positions\n"
             "  Stage 9 — Render preview: inspect coverage heatmap"
         )
-        output_layout.addWidget(self._cb_hitl_mode)
+        hitl_layout.addWidget(self._cb_hitl_mode)
 
         # S88/S92: Session load/save controls
         _sess_row = QHBoxLayout()
-        self._btn_load_session = QPushButton("Load Session…")
+        self._btn_load_session = QPushButton("Load")
         self._btn_load_session.setToolTip(
             "Load a saved HITL session file to replay all prior override decisions "
             "non-interactively (no dialogs)."
         )
         self._btn_load_session.clicked.connect(self._on_load_session)
-        self._btn_browse_sessions = QPushButton("Browse Sessions…")
+        self._btn_browse_sessions = QPushButton("Browse...")
         self._btn_browse_sessions.setToolTip(
             "Open the HITL Session Browser to inspect, delete, export, "
             "or select a saved session for replay."
@@ -1793,10 +1799,10 @@ class StitchTab(QWidget):
         _sess_row.addWidget(self._btn_load_session)
         _sess_row.addWidget(self._btn_browse_sessions)
         _sess_row.addWidget(self._session_path_label, stretch=1)
-        output_layout.addLayout(_sess_row)
+        hitl_layout.addLayout(_sess_row)
         self._loaded_session_path: Optional[str] = None
 
-        right_layout.addWidget(output_group)
+        right_layout.addWidget(hitl_group)
 
         right_layout.addStretch()
         splitter.addWidget(right_scroll)
@@ -1988,7 +1994,7 @@ class StitchTab(QWidget):
         left_lay.addSpacing(8)
 
         # Selected-node properties
-        props_group = QGroupBox("Selected Op Properties")
+        props_group = QGroupBox("Operation Properties")
         props_form = QVBoxLayout(props_group)
         props_form.setSpacing(4)
 
@@ -2162,6 +2168,7 @@ class StitchTab(QWidget):
         # Action row
         act_bar = QHBoxLayout()
         self._btn_adj_save = QPushButton("Save As…")
+        self._btn_adj_save.setFixedHeight(36)
         self._btn_adj_save.setToolTip("Save the adjusted image at full resolution.")
         self._btn_adj_save.setStyleSheet(
             "background:#1976D2; color:white; font-weight:bold; padding:6px 14px;"
@@ -2171,6 +2178,7 @@ class StitchTab(QWidget):
         apply_shadow_effect(self._btn_adj_save, radius=6, y_offset=2)
 
         self._btn_adj_to_stitch = QPushButton("→ Add to Stitch")
+        self._btn_adj_to_stitch.setFixedHeight(36)
         self._btn_adj_to_stitch.setToolTip(
             "Apply adjustments and add the result to the Stitch queue."
         )
@@ -2182,6 +2190,7 @@ class StitchTab(QWidget):
         apply_shadow_effect(self._btn_adj_to_stitch, radius=6, y_offset=2)
 
         self._btn_adj_to_canvas = QPushButton("→ Add to Canvas")
+        self._btn_adj_to_canvas.setFixedHeight(36)
         self._btn_adj_to_canvas.setToolTip(
             "Apply adjustments and add the result to the Canvas queue."
         )
@@ -2202,7 +2211,7 @@ class StitchTab(QWidget):
         # ── RIGHT: adjustment controls (scrollable) ────────────────────
         right_scroll = QScrollArea()
         right_scroll.setWidgetResizable(True)
-        right_scroll.setFixedWidth(285)
+        right_scroll.setFixedWidth(310)
         right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         right = QWidget()
         right_layout = QVBoxLayout(right)
@@ -2218,7 +2227,7 @@ class StitchTab(QWidget):
         rot_bar = QHBoxLayout()
         for label, angle in [("↺ 90°", -90), ("↻ 90°", 90), ("↕ 180°", 180)]:
             btn = QPushButton(label)
-            btn.setFixedHeight(28)
+            btn.setFixedHeight(36)
             btn.clicked.connect(lambda _, a=angle: self._adj_rotate_by(a))
             apply_shadow_effect(btn, radius=3, y_offset=1)
             rot_bar.addWidget(btn)
@@ -2226,13 +2235,13 @@ class StitchTab(QWidget):
 
         flip_bar = QHBoxLayout()
         btn_flip_h = QPushButton("⟺ Flip H")
-        btn_flip_h.setFixedHeight(28)
+        btn_flip_h.setFixedHeight(36)
         btn_flip_h.setCheckable(True)
         btn_flip_h.setToolTip("Mirror image horizontally.")
         btn_flip_h.clicked.connect(lambda checked: self._adj_set_flip(h=checked))
         apply_shadow_effect(btn_flip_h, radius=3, y_offset=1)
         btn_flip_v = QPushButton("⇕ Flip V")
-        btn_flip_v.setFixedHeight(28)
+        btn_flip_v.setFixedHeight(36)
         btn_flip_v.setCheckable(True)
         btn_flip_v.setToolTip("Flip image vertically.")
         btn_flip_v.clicked.connect(lambda checked: self._adj_set_flip(v=checked))
@@ -2281,7 +2290,7 @@ class StitchTab(QWidget):
         )
         self._adj_tint = self._make_slider(-100, 100, 0, "Tint (mag→green)", wb_form)
         btn_auto_wb = QPushButton("Auto WB (Gray World)")
-        btn_auto_wb.setFixedHeight(26)
+        btn_auto_wb.setFixedHeight(36)
         btn_auto_wb.setToolTip(
             "Apply gray-world white balance: corrects dominant colour casts "
             "(e.g. the yellow tinting that appears when stitching frames with "
@@ -2289,7 +2298,7 @@ class StitchTab(QWidget):
         )
         btn_auto_wb.clicked.connect(self._adj_apply_auto_wb)
         apply_shadow_effect(btn_auto_wb, radius=3, y_offset=1)
-        wb_form.addRow("", btn_auto_wb)
+        wb_form.addRow(btn_auto_wb)
         right_layout.addWidget(wb_group)
 
         # Tone group
@@ -2322,6 +2331,7 @@ class StitchTab(QWidget):
 
         # Reset
         btn_adj_reset = QPushButton("Reset All")
+        btn_adj_reset.setFixedHeight(36)
         btn_adj_reset.setToolTip("Reset all adjustments to defaults.")
         btn_adj_reset.clicked.connect(self._adj_reset)
         apply_shadow_effect(btn_adj_reset, radius=4, y_offset=2)
@@ -2422,7 +2432,7 @@ class StitchTab(QWidget):
 
         cv_btn_grid = QGridLayout()
         cv_btn_grid.setSpacing(4)
-        btn_cv_add = QPushButton("Add…")
+        btn_cv_add = QPushButton("Add")
         btn_cv_add.clicked.connect(self._cv_add_images)
         apply_shadow_effect(btn_cv_add, radius=4, y_offset=2)
         btn_cv_remove = QPushButton("Remove")
@@ -4175,6 +4185,23 @@ class StitchTab(QWidget):
 
         root.addWidget(src_group)
 
+        # ── Options row ───────────────────────────────────────────────
+        opts_row = QHBoxLayout()
+        opts_row.addWidget(QLabel("K neighbors:"))
+        self._stats_knn_spin = QSpinBox()
+        self._stats_knn_spin.setRange(1, 100)
+        self._stats_knn_spin.setValue(20)
+        self._stats_knn_spin.setFixedWidth(60)
+        self._stats_knn_spin.setToolTip(
+            "When a consecutive pair scores below the weak threshold, also compare each "
+            "frame against the K nearest frames ahead/behind it to find better matches.\n"
+            "Higher values catch periodic pose repetitions further apart (e.g. every 20 frames) "
+            "but increase compute time."
+        )
+        opts_row.addWidget(self._stats_knn_spin)
+        opts_row.addStretch()
+        root.addLayout(opts_row)
+
         # ── Run button + progress ─────────────────────────────────────
         run_row = QHBoxLayout()
         self._stats_run_btn = QPushButton("Compute Statistics")
@@ -4183,18 +4210,6 @@ class StitchTab(QWidget):
         )
         self._stats_run_btn.clicked.connect(self._stats_run)
         run_row.addWidget(self._stats_run_btn)
-
-        run_row.addWidget(QLabel("K neighbors:"))
-        self._stats_knn_spin = QSpinBox()
-        self._stats_knn_spin.setRange(1, 100)
-        self._stats_knn_spin.setValue(20)
-        self._stats_knn_spin.setToolTip(
-            "When a consecutive pair scores below the weak threshold, also compare each "
-            "frame against the K nearest frames ahead/behind it to find better matches.\n"
-            "Higher values catch periodic pose repetitions further apart (e.g. every 20 frames) "
-            "but increase compute time."
-        )
-        run_row.addWidget(self._stats_knn_spin)
 
         self._stats_progress = QProgressBar()
         self._stats_progress.setRange(0, 100)
@@ -4206,6 +4221,7 @@ class StitchTab(QWidget):
         self._stats_status = QLabel("")
         self._stats_status.setStyleSheet("color:#aaa; font-style:italic;")
         run_row.addWidget(self._stats_status)
+        run_row.addStretch()
         root.addLayout(run_row)
 
         # ── Per-image table ───────────────────────────────────────────
@@ -5322,7 +5338,7 @@ class StitchTab(QWidget):
         self._seq_anchor_edit.setPlaceholderText("Pick the base/anchor image…")
         self._seq_anchor_edit.setReadOnly(True)
         anchor_row.addWidget(self._seq_anchor_edit, 1)
-        btn_anchor = QPushButton("Browse…")
+        btn_anchor = QPushButton("Open...")
         btn_anchor.clicked.connect(self._seq_browse_anchor)
         anchor_row.addWidget(btn_anchor)
         src_form.addRow("Anchor image:", anchor_row)

@@ -114,7 +114,6 @@ class ComfyUITab(QWidget):
         log_btn_row = QHBoxLayout()
         log_btn_row.addStretch()
         clear_btn = QPushButton("Clear")
-        clear_btn.setFixedWidth(60)
         clear_btn.clicked.connect(lambda: self._log_view.clear())
         log_btn_row.addWidget(clear_btn)
         log_layout.addLayout(log_btn_row)

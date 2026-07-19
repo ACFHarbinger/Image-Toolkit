@@ -110,7 +110,7 @@ class RealHybridStitchPanel(QWidget):
             ("Clear All", self._clear_sequence),
         ]:
             btn = QPushButton(label)
-            btn.setFixedHeight(26)
+            btn.setFixedHeight(36)
             btn.clicked.connect(slot)
             seq_l.addWidget(btn)
 
@@ -128,6 +128,7 @@ class RealHybridStitchPanel(QWidget):
         pair_l.addRow("Frame B:", self._pair_b_combo)
 
         btn_load_pair = QPushButton("Load Pair →")
+        btn_load_pair.setFixedHeight(36)
         btn_load_pair.setStyleSheet(
             "background:#1565C0; color:white; font-weight:bold; padding:4px;"
         )
@@ -136,6 +137,7 @@ class RealHybridStitchPanel(QWidget):
         pair_l.addRow("", btn_load_pair)
 
         btn_accept_h = QPushButton("✔ Accept H")
+        btn_accept_h.setFixedHeight(36)
         btn_accept_h.setToolTip("Accept the current homography and seam for this pair.")
         btn_accept_h.setStyleSheet(
             "background:#2E7D32; color:white; font-weight:bold; padding:4px;"
@@ -147,6 +149,7 @@ class RealHybridStitchPanel(QWidget):
         sl.addWidget(pair_group)
 
         btn_use = QPushButton("✔ Use as Stitch List")
+        btn_use.setFixedHeight(36)
         btn_use.setStyleSheet(
             "background:#388E3C; color:white; font-weight:bold; padding:5px;"
         )
