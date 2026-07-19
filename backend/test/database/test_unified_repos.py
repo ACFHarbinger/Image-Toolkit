@@ -341,6 +341,21 @@ def test_search_images_filters(populated):
     assert [r["filename"] for r in result] == ["c.png"]
     assert result[0]["tags"] == ["night", "sunset"]
 
+    # Test multi-group and multi-subgroup search support
+    assert {r["filename"] for r in search.search_images(group_names=["Trips", "Art"])} == {
+        "a.png", "b.jpg", "c.png"
+    }
+    assert {r["filename"] for r in search.search_images(group_names=["Art"])} == {
+        "c.png"
+    }
+    assert {r["filename"] for r in search.search_images(subgroup_names=["Beach", "City"])} == {
+        "a.png", "b.jpg"
+    }
+    assert {r["filename"] for r in search.search_images(group_names=["Trips"], subgroup_names=["Beach"])} == {
+        "a.png"
+    }
+
+
 
 def test_text_search_media_and_entities(db):
     MediaRepo(db).save_media(

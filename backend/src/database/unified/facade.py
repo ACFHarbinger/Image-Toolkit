@@ -49,6 +49,9 @@ class UnifiedImageDatabase:
     def get_image_by_path(self, file_path: str) -> Optional[Dict[str, Any]]:
         return self._images.get_image_by_path(file_path)
 
+    def paths_in_db(self, paths: List[str]) -> set:
+        return self._images.paths_in_db(paths)
+
     def get_image_tags(self, image_id: int) -> List[str]:
         return self._images.get_image_tags(image_id)
 

@@ -482,6 +482,79 @@ class DatabaseTab(QWidget):
         existing_tags_layout.addWidget(self.tags_table)
         populate_layout.addWidget(existing_tags_group)
 
+        # --- Image Registry section ---
+        image_registry_group = QGroupBox("Image Registry")
+        image_registry_layout = QVBoxLayout(image_registry_group)
+
+        registry_header = QHBoxLayout()
+        registry_info = QLabel(
+            "All image paths currently indexed in the database, with their associated group and subgroup."
+        )
+        registry_info.setStyleSheet("color: #aaa; font-style: italic; font-size: 12px;")
+        registry_info.setWordWrap(True)
+        registry_header.addWidget(registry_info, 1)
+
+        self.btn_refresh_registry = QPushButton("↻ Refresh")
+        apply_shadow_effect(
+            self.btn_refresh_registry, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        self.btn_refresh_registry.clicked.connect(self.refresh_image_registry)
+        registry_header.addWidget(self.btn_refresh_registry)
+        image_registry_layout.addLayout(registry_header)
+
+        # Filter bar
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(QLabel("Filter:"))
+        self.registry_filter_edit = QLineEdit()
+        self.registry_filter_edit.setPlaceholderText(
+            "Type to filter by path, group or subgroup…"
+        )
+        self.registry_filter_edit.textChanged.connect(self._apply_registry_filter)
+        filter_row.addWidget(self.registry_filter_edit, 1)
+        image_registry_layout.addLayout(filter_row)
+
+        # Table
+        self.image_registry_table = QTableWidget()
+        self.image_registry_table.setColumnCount(3)
+        self.image_registry_table.setHorizontalHeaderLabels(
+            ["File Path", "Group", "Subgroup"]
+        )
+        self.image_registry_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch
+        )
+        self.image_registry_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.image_registry_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.image_registry_table.setAlternatingRowColors(True)
+        self.image_registry_table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
+        self.image_registry_table.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+        self.image_registry_table.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers
+        )
+        self.image_registry_table.setStyleSheet(self.groups_table.styleSheet())
+        self.image_registry_table.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        self.image_registry_table.setMinimumHeight(260)
+        self.image_registry_table.setSortingEnabled(True)
+        self.image_registry_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.image_registry_table.customContextMenuRequested.connect(
+            self._show_registry_context_menu
+        )
+
+        image_registry_layout.addWidget(self.image_registry_table)
+        populate_layout.addWidget(image_registry_group)
+
+        # Internal cache for filter support
+        self._registry_rows: list[tuple[str, str, str]] = []  # (path, group, subgroup)
+
         populate_scroll_area = QScrollArea()
         populate_scroll_area.setWidgetResizable(True)
         populate_scroll_area.setWidget(self.populate_group)
@@ -521,6 +594,7 @@ class DatabaseTab(QWidget):
             self.refresh_tags_list()
             self.refresh_groups_list()
             self.refresh_subgroups_list()
+            self.refresh_image_registry()
 
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes()
@@ -589,6 +663,7 @@ class DatabaseTab(QWidget):
             self.refresh_tags_list()
             self.refresh_groups_list()
             self.refresh_subgroups_list()
+            self.refresh_image_registry()
 
             if self.scan_tab_ref:
                 self.scan_tab_ref._setup_tag_checkboxes()
@@ -669,10 +744,8 @@ class DatabaseTab(QWidget):
             self.existing_subgroups_filter_combo.clear()
             self.existing_subgroups_filter_combo.addItems([""] + group_list)
 
-            if self.search_tab_ref and hasattr(self.search_tab_ref, "group_combo"):
-                self.search_tab_ref.group_combo.clear()
-                self.search_tab_ref.group_combo.addItems([""] + group_list)
-                self.search_tab_ref.group_combo.setCurrentIndex(0)
+            if self.search_tab_ref and hasattr(self.search_tab_ref, "groups_list_widget"):
+                self.search_tab_ref.populate_groups_list(group_list)
 
         except Exception as e:
             print(f"Error refreshing group combos: {e}")
@@ -684,16 +757,14 @@ class DatabaseTab(QWidget):
         if not self.db:
             return
         if not self.search_tab_ref or not hasattr(
-            self.search_tab_ref, "subgroup_combo"
+            self.search_tab_ref, "subgroups_list_widget"
         ):
             return
         try:
-            subgroup_list = self.db.get_all_subgroups()
-            self.search_tab_ref.subgroup_combo.clear()
-            self.search_tab_ref.subgroup_combo.addItems([""] + subgroup_list)
-            self.search_tab_ref.subgroup_combo.setCurrentIndex(0)
+            detailed = self.db.get_all_subgroups_detailed()
+            self.search_tab_ref.populate_subgroups_detailed(detailed)
         except Exception as e:
-            print(f"Error refreshing subgroup autocomplete data: {e}")
+            print(f"Error refreshing subgroup list data: {e}")
 
     def update_button_states(self, connected: bool):
         self.btn_connect.setVisible(not connected)
@@ -915,6 +986,7 @@ class DatabaseTab(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to create tags:\n{str(e)}")
 
     def remove_selected_group(self):
+        self.old_edit_value = None
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
@@ -949,6 +1021,7 @@ class DatabaseTab(QWidget):
                 )
 
     def remove_selected_subgroup(self):
+        self.old_edit_value = None
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
@@ -984,6 +1057,7 @@ class DatabaseTab(QWidget):
                 )
 
     def remove_selected_tag(self):
+        self.old_edit_value = None
         if not self.db:
             QMessageBox.warning(self, "Error", "Please connect to a database first")
             return
@@ -1017,6 +1091,8 @@ class DatabaseTab(QWidget):
         if not self.db:
             self.groups_table.setRowCount(0)
             return
+        self.groups_table.blockSignals(True)
+        self.old_edit_value = None
         try:
             groups = self.db.get_all_groups()
             self.groups_table.setRowCount(len(groups))
@@ -1029,11 +1105,15 @@ class DatabaseTab(QWidget):
             QMessageBox.critical(
                 self, "Error", f"Failed to load groups list:\n{str(e)}"
             )
+        finally:
+            self.groups_table.blockSignals(False)
 
     def refresh_subgroups_list(self):
         if not self.db:
             self.subgroups_table.setRowCount(0)
             return
+        self.subgroups_table.blockSignals(True)
+        self.old_edit_value = None
 
         parent_group_filter = self.existing_subgroups_filter_combo.currentText()
 
@@ -1067,11 +1147,15 @@ class DatabaseTab(QWidget):
             QMessageBox.critical(
                 self, "Error", f"Failed to load subgroups list:\n{str(e)}"
             )
+        finally:
+            self.subgroups_table.blockSignals(False)
 
     def refresh_tags_list(self):
         if not self.db:
             self.tags_table.setRowCount(0)
             return
+        self.tags_table.blockSignals(True)
+        self.old_edit_value = None
         try:
             tags = self.db.get_all_tags_with_types()
             self.tags_table.setRowCount(len(tags))
@@ -1083,6 +1167,81 @@ class DatabaseTab(QWidget):
             self.update_statistics()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load tags list:\n{str(e)}")
+        finally:
+            self.tags_table.blockSignals(False)
+
+    def refresh_image_registry(self):
+        """Populate the Image Registry table with all paths from the DB."""
+        if not self.db:
+            self.image_registry_table.setRowCount(0)
+            self._registry_rows = []
+            return
+        try:
+            images = self.db.search_images()
+            self._registry_rows = [
+                (
+                    img.get("file_path", ""),
+                    img.get("group_name") or "",
+                    img.get("subgroup_name") or "",
+                )
+                for img in images
+            ]
+            self.registry_filter_edit.clear()
+            self._populate_registry_table(self._registry_rows)
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"Failed to load image registry:\n{str(e)}"
+            )
+
+    def _populate_registry_table(self, rows: list) -> None:
+        """Fill image_registry_table from a list of (path, group, subgroup) tuples."""
+        self.image_registry_table.setSortingEnabled(False)
+        self.image_registry_table.setRowCount(len(rows))
+        for row, (path, group, subgroup) in enumerate(rows):
+            path_item = QTableWidgetItem(path)
+            path_item.setToolTip(path)
+            self.image_registry_table.setItem(row, 0, path_item)
+            self.image_registry_table.setItem(row, 1, QTableWidgetItem(group))
+            self.image_registry_table.setItem(row, 2, QTableWidgetItem(subgroup))
+        self.image_registry_table.setSortingEnabled(True)
+
+    def _apply_registry_filter(self, text: str) -> None:
+        """Filter the Image Registry table client-side without a DB round-trip."""
+        needle = text.strip().lower()
+        if not needle:
+            self._populate_registry_table(self._registry_rows)
+            return
+        filtered = [
+            (p, g, s)
+            for p, g, s in self._registry_rows
+            if needle in p.lower() or needle in g.lower() or needle in s.lower()
+        ]
+        self._populate_registry_table(filtered)
+
+    def _show_registry_context_menu(self, pos) -> None:
+        """Right-click context menu on the Image Registry table."""
+        index = self.image_registry_table.indexAt(pos)
+        if not index.isValid():
+            return
+        row = index.row()
+        path_item = self.image_registry_table.item(row, 0)
+        if not path_item:
+            return
+        path = path_item.text()
+        menu = QMenu(self)
+        copy_action = menu.addAction("📋 Copy Path")
+        open_action = menu.addAction("📂 Open Containing Folder")
+        chosen = menu.exec(self.image_registry_table.viewport().mapToGlobal(pos))
+        if chosen == copy_action:
+            from PySide6.QtWidgets import QApplication
+            QApplication.clipboard().setText(path)
+        elif chosen == open_action:
+            import subprocess
+            folder = os.path.dirname(path)
+            if os.path.isdir(folder):
+                subprocess.Popen(["xdg-open", folder])
+
+
 
     def store_old_value(self, row, col):
         table = self.sender()

@@ -21,6 +21,23 @@ import warnings
 # original vaapi/JVM crash risk and today's AV1 bug.
 os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "cuda")
 
+# `import base` links the pixi env's OpenCV videoio, whose FFmpeg
+# (libavdevice) drags in the pixi build of libpulse.so.0 as a transitive
+# dependency. Once that copy is in the process, Qt Multimedia's later
+# dlopen("libpulse.so.0") is deduplicated by SONAME onto the pixi build
+# instead of the system one Qt/PipeWire were tested against — the same
+# mismatched-libpulse failure documented for the old base.so RPATH bug
+# ("QSocketNotifier: Socket notifiers cannot be enabled or disabled from
+# another thread" → SIGSEGV in libQt6Core, or a frozen event loop spamming
+# "QSocketNotifier: Invalid socket"). Preloading the system copy first
+# makes every later consumer — pixi FFmpeg included — bind to it instead.
+# Must run before any import that pulls in `base`/cv2/Qt.
+import contextlib
+import ctypes
+
+with contextlib.suppress(OSError):
+    ctypes.CDLL("/usr/lib/x86_64-linux-gnu/libpulse.so.0")
+
 from backend.src.app import launch_app, log_uncaught_exceptions
 from backend.src.utils.io.arg_parser import parse_params
 from backend.src.utils.io.dispatcher import dispatch_command

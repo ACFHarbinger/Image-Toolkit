@@ -4,6 +4,20 @@
 
 ---
 
+## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs)
+
+**Part 2 — Metadata Editor Optional Tag Filter & Delete Fixes (later today):**
+- **Metadata Editor Optional Tag Filter**: Added a "Filter by Type" toggle checkbox in the `FilteredTagList` widget for both the Batch / Overview and individual image tabs in the Edit Metadata window. When unchecked (default), it hides the type checkboxes and displays all tags unfiltered; when checked, it reveals the type checkboxes and dynamically filters tags by their checked status.
+- **Accidental Rename Prevention**: Fixed the double-prompt issue when removing a tag, subgroup, or group from the Library Database by setting `self.old_edit_value = None` at the start of their deletion methods. This prevents accidental inline-rename triggers caused by focus loss or row removal events.
+
+**Part 1 — Library Database upgrades, Metadata Editor, and Maintenance upgrades (earlier today):**
+- **Image Search Tab**: Replaced Group and Subgroup name textboxes with checkable list boxes. Subgroup entries are prefixed with their group name split by double colons (e.g. `Group1::Subgroup1`). The subgroups list updates dynamically based on the selected groups. The lists are positioned side-by-side as pairs (Groups + Subgroups, Tag Types + Tags) with matching heights. Added tag type checkboxes allowing users to optionally filter tags.
+- **Scan & Tag Directory Browser**: Fixed directory browsing crash/error by correcting the import path.
+- **Metadata Editor (Batch / Overview tabs)**: Added an editor launched from the "Add/Update N Selected Images" button. Features a "Batch / Overview" tab for bulk-applying metadata, defining custom image subsets (clusters) with specific overrides, using sequential template patterns (via `{n}` or auto-appending), and bulk tag updates. Displays subsequent per-image tabs showing a thumbnail and pre-filled fields that can be saved back to the database.
+- **Maintenance Tab**: Added a filepaths table at the end of the tab showcasing every filepath stored in the database alongside its associated group and subgroup names.
+
+---
+
 ## S212 — 2026-07-17 (Extractor tab Video/Image subtabs — multi-frame image splitter; GUI tab tutorials)
 
 **Part 2 — GUI tab tutorials (`docs/tutorials/`):** five new tutorial pages + an index, one per tab category, documenting every tab's purpose, workflow, and parameters (written against the current widget code, not from memory):

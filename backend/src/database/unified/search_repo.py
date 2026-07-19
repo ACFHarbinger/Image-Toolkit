@@ -52,6 +52,8 @@ class SearchRepo:
         tags: Optional[Sequence[str]],
         filename_pattern: Optional[str],
         input_formats: Optional[Sequence[str]],
+        group_names: Optional[Sequence[str]] = None,
+        subgroup_names: Optional[Sequence[str]] = None,
     ) -> Tuple[str, list]:
         conditions: List[str] = []
         params: list = []
@@ -63,12 +65,25 @@ class SearchRepo:
                 f"JOIN tags t ON t.id = it.tag_id WHERE t.name IN ({marks}))"
             )
             params.extend(tags)
-        if group_name:
-            conditions.append("g.name LIKE ? COLLATE NOCASE")
-            params.append(_like(group_name))
-        if subgroup_name:
-            conditions.append("s.name LIKE ? COLLATE NOCASE")
-            params.append(_like(subgroup_name))
+
+        # Multi-select group filter (OR logic)
+        effective_groups: List[str] = list(group_names or [])
+        if not effective_groups and group_name:
+            effective_groups = [group_name]
+        if effective_groups:
+            or_clauses = ["g.name = ? COLLATE NOCASE" for _ in effective_groups]
+            conditions.append("(" + " OR ".join(or_clauses) + ")")
+            params.extend(effective_groups)
+
+        # Multi-select subgroup filter (OR logic)
+        effective_subgroups: List[str] = list(subgroup_names or [])
+        if not effective_subgroups and subgroup_name:
+            effective_subgroups = [subgroup_name]
+        if effective_subgroups:
+            or_clauses = ["s.name = ? COLLATE NOCASE" for _ in effective_subgroups]
+            conditions.append("(" + " OR ".join(or_clauses) + ")")
+            params.extend(effective_subgroups)
+
         if filename_pattern:
             conditions.append("i.filename LIKE ? COLLATE NOCASE")
             params.append(_like(filename_pattern))
@@ -90,10 +105,19 @@ class SearchRepo:
         filename_pattern: Optional[str] = None,
         input_formats: Optional[Sequence[str]] = None,
         limit: int = 10000,
+        group_names: Optional[Sequence[str]] = None,
+        subgroup_names: Optional[Sequence[str]] = None,
     ) -> List[Dict[str, Any]]:
-        """Filter search with legacy result shape (dicts incl. tag lists)."""
+        """Filter search with legacy result shape (dicts incl. tag lists).
+
+        Accepts either the legacy single-value ``group_name``/``subgroup_name``
+        kwargs or the new multi-select ``group_names``/``subgroup_names`` lists
+        (OR semantics).  Both can co-exist; the lists take precedence when
+        non-empty.
+        """
         where, params = self._image_filter_sql(
-            group_name, subgroup_name, tags, filename_pattern, input_formats
+            group_name, subgroup_name, tags, filename_pattern, input_formats,
+            group_names=group_names, subgroup_names=subgroup_names,
         )
         rows = self._db.query(
             _IMAGE_SELECT + where + " ORDER BY i.date_added DESC LIMIT ?",
