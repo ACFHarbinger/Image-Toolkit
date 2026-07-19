@@ -3386,7 +3386,7 @@ Examples:
     )
     parser.add_argument(
         "--data-dir",
-        default=os.path.expanduser("~/Repositories/Image-Toolkit/dump"),
+        default=os.path.expanduser("~/Downloads/Data/Dump"),
         metavar="DIR",
         help="Root data directory containing asp_testXX subdirectories",
     )
