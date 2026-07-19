@@ -6,6 +6,13 @@
 
 ## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs, bulk settings CLI)
 
+**Part 4 — Tab tutorials fully illustrated (`docs/tutorials/`):** all five tutorial pages rewritten with live screenshots (114 total), Mermaid diagrams, comparison tables, and tabbed/admonition-based formatting; `system_tools.md`, `web_integration.md`, and `deep_learning.md` were screenshot passes over already-accurate content, while `library_database.md` and `image_stitching.md` also got content updates cross-checked against the actual widget source and recent commits:
+
+- **Sequence Builder Up/Down Buttons (follow-up)**: Relabeled from bare arrows (`"↑"` / `"↓"`) to `"Up ↑"` / `"Down ↓"` and widened further (`60px` → `80px`), on top of the earlier S213 Part 3 width bump — `image_stitching.md` documents the current text.
+- `library_database.md` — documents the new Metadata Editor dialog (Batch/Overview tab, per-image tabs, Clusters with `{n}` sequential patterns, Filter-by-Type tag toggle) opened from Scan and Tag's "Add/Update N Selected Images", the new right-click "Remove from Database" gallery action, Image Search's checkable Group/Subgroup + Tag-Type/Tags side-by-side lists (replacing free-text boxes), and Maintenance's new Image Registry filepaths browser.
+- `image_stitching.md` — documents the Stitch tab's new dedicated "HITL" group box (Human-in-the-loop checkbox + Load/Browse session buttons, moved between Output and the run controls), the Graph tab's output-directory button relabel (`…` → `Browse…`), and the Sequence Builder/Hybrid Stitch/Adjust/Statistics layout passes (wider buttons, repositioned K neighbors row) — all verified against `stitch_tab.py` and the layout-refactor commits rather than inferred from screenshots alone.
+- All screenshot images live under `docs/tutorials/images/<category>/`; full-desktop captures were cropped to remove the host OS taskbar strip (3840×2160 → 3840×2093, scaled proportionally for the resized copies actually committed) so only the app window is shown.
+
 **Part 3 — Image Stitching UI Refinement & ComfyUI Prompt Node Enhancements:**
 - **HITL Section Refactoring**: Reorganized the Stitch subtab of the Image Stitching category. Moved the Human-in-the-loop (HITL) review checkbox and the Load + Browse buttons for session recovery into a dedicated "HITL" group box, positioned clearly between the Output section and the run controls.
 - **Adjust Tab Button Enlargement**: Increased the height and width of all command and tool buttons in the Adjust tab to ensure that text labels are fully readable and no longer clipped.
