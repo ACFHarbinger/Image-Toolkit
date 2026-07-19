@@ -1300,10 +1300,62 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         toggle_action.triggered.connect(lambda: self.toggle_selection(path))
         menu.addAction(toggle_action)
         menu.addSeparator()
+        
+        # Remove from Database option
+        db_connected = self.db_tab_ref.db is not None
+        remove_db_action = QAction("🔌 Remove from Database", self)
+        remove_db_action.setEnabled(db_connected)
+        remove_db_action.triggered.connect(lambda: self.remove_image_from_db(path))
+        menu.addAction(remove_db_action)
+        menu.addSeparator()
+        
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
         menu.addAction(delete_action)
         menu.exec(global_pos)
+
+    def remove_image_from_db(self, path: str):
+        db = self.db_tab_ref.db
+        if not db:
+            return
+        
+        filename = Path(path).name
+        if (
+            QMessageBox.question(
+                self,
+                "Confirm Removal",
+                f"Are you sure you want to remove '{filename}' from the database?\n\nThis will only delete the database metadata; the image file will remain on disk.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            == QMessageBox.StandardButton.Yes
+        ):
+            try:
+                img = db.get_image_by_path(path)
+                if img:
+                    db.delete_image(img["id"])
+                    
+                if path in self.path_to_wrapper_map:
+                    wrapper = self.path_to_wrapper_map[path]
+                    wrapper.setProperty("in_db", False)
+                    inner_label = wrapper.findChild(QLabel)
+                    is_selected = path in self.selected_image_paths
+                    if inner_label:
+                        self._update_card_style(
+                            inner_label, is_selected=is_selected, is_in_db=False
+                        )
+                
+                # Update selected list if path is present there
+                if path in self.selected_image_paths:
+                    self.populate_selected_images_gallery()
+
+                # If view filters (like Show Only In DB) are active, update scan gallery
+                if self.view_in_db_only or self.view_new_only:
+                    self._load_current_scan_page()
+                    
+                QMessageBox.information(self, "Success", f"Removed '{filename}' from the database.")
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to remove image from database: {e}")
 
     def _view_image_properties(self, file_path: str):
         db = self.db_tab_ref.db
