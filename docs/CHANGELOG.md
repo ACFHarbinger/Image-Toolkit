@@ -4,12 +4,13 @@
 
 ---
 
-## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs)
+## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs, bulk settings CLI)
 
-**Part 2 — Metadata Editor Optional Tag Filter & Delete Fixes (later today):**
+**Part 2 — Metadata Editor Optional Tag Filter, Delete Fixes, & Bulk Settings CLI (later today):**
 - **Remove from Database Option**: Added a right-click context menu option "🔌 Remove from Database" in the Scan and Tag tab's gallery, permitting users to remove image metadata from the database without deleting the physical file on disk.
 - **Metadata Editor Optional Tag Filter**: Added a "Filter by Type" toggle checkbox in the `FilteredTagList` widget for both the Batch / Overview and individual image tabs in the Edit Metadata window. When unchecked (default), it hides the type checkboxes and displays all tags unfiltered; when checked, it reveals the type checkboxes and dynamically filters tags by their checked status.
 - **Accidental Rename Prevention**: Fixed the double-prompt issue when removing a tag, subgroup, or group from the Library Database by setting `self.old_edit_value = None` at the start of their deletion methods. This prevents accidental inline-rename triggers caused by focus loss or row removal events.
+- **CLI Bulk Settings Update**: Added a headless CLI command `update-settings` to bulk-update multiple configuration paths or values matching a string/regex pattern (e.g., transforming paths containing "data" to "Data") simultaneously in both the secure credentials vault and local QSettings, accessible via python scripts or shell without starting the GUI.
 
 **Part 1 — Library Database upgrades, Metadata Editor, and Maintenance upgrades (earlier today):**
 - **Image Search Tab**: Replaced Group and Subgroup name textboxes with checkable list boxes. Subgroup entries are prefixed with their group name split by double colons (e.g. `Group1::Subgroup1`). The subgroups list updates dynamically based on the selected groups. The lists are positioned side-by-side as pairs (Groups + Subgroups, Tag Types + Tags) with matching heights. Added tag type checkboxes allowing users to optionally filter tags.

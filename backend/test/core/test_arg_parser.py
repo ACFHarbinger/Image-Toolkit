@@ -128,3 +128,22 @@ class TestConfigsParser:
             assert args["prompt"] == "A futuristic city"
             assert args["output"] == "city.png"
             assert args["model"] == "stable-diffusion"  # Check default
+
+    def test_parse_update_settings(self, mock_sys_argv):
+        """Test update-settings arguments"""
+        test_args = [
+            "update-settings",
+            "--search", "data",
+            "--replace", "Data",
+            "--regex",
+            "--password", "secret",
+            "--account", "test_user"
+        ]
+        with patch.object(sys, "argv", ["prog"] + test_args):
+            cmd, args = parse_params()
+            assert cmd == "update-settings"
+            assert args["search"] == "data"
+            assert args["replace"] == "Data"
+            assert args["regex"] is True
+            assert args["password"] == "secret"
+            assert args["account"] == "test_user"
