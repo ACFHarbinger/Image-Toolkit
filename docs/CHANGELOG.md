@@ -4,7 +4,15 @@
 
 ---
 
-## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs, bulk settings CLI)
+## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs, bulk settings CLI, login preference profiles)
+
+**Part 5 — Login Window Preference Profile Selection:**
+- **Preference Profile Login Selection**: Integrated a profile selection dialog (`QInputDialog`) into `LoginWindow.attempt_login()` following successful authentication when preference profiles exist in the vault.
+- **"Default" & "Previous Profile" Options**:
+  - **"Default"**: Resets system appearance settings (theme: "dark", UI density: "Comfortable", font scale: 100%, default accent colors `#00bcd4`/`#007AFF`) and clears active tab configurations without modifying system-level settings like `session_recovery_level`.
+  - **"Previous Profile"**: Retains existing vault configurations, bypassing active profile application without triggering unnecessary vault updates.
+- **Vault State Optimization**: Evaluates profile diffs to set `save_required` flag, ensuring vault re-encryption occurs only when settings actually change.
+- **Unit Testing Coverage**: Extended `gui/test/core/test_login_window.py` with mock-based unit tests validating dialog choices, Default baseline resets, and Previous Profile immutability.
 
 **Part 4 — Tab tutorials fully illustrated (`docs/tutorials/`):** all five tutorial pages rewritten with live screenshots (114 total), Mermaid diagrams, comparison tables, and tabbed/admonition-based formatting; `system_tools.md`, `web_integration.md`, and `deep_learning.md` were screenshot passes over already-accurate content, while `library_database.md` and `image_stitching.md` also got content updates cross-checked against the actual widget source and recent commits:
 

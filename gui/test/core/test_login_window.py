@@ -7,6 +7,7 @@ from PySide6.QtGui import QKeyEvent
 
 pytestmark = pytest.mark.gui
 
+
 class TestLoginWindowKeyPress:
     def test_escape_key_closes_window(self, q_app):
         # Create instance of LoginWindow
@@ -60,7 +61,7 @@ class TestLoginWindowCryptoAutoLoad:
 
         with (
             patch("gui.src.windows.main.login_window.udef.SECRETS_DIR", template_dir),
-            patch("gui.src.windows.main.login_window.udef.LOCAL_SECRETS_DIR", target_dir)
+            patch("gui.src.windows.main.login_window.udef.LOCAL_SECRETS_DIR", target_dir),
         ):
             window._copy_template_crypto_files()
 
@@ -72,3 +73,131 @@ class TestLoginWindowCryptoAutoLoad:
             assert (target_dir / "pepper.txt").exists()
             assert (target_dir / "pepper.txt").read_text() == "original pepper data"
 
+
+class TestLoginWindowPreferenceProfile:
+    def test_login_dropdown_with_profiles(self, q_app):
+        import hashlib
+        import json
+        from unittest.mock import MagicMock, patch
+
+        # Create instance of LoginWindow
+        window = LoginWindow()
+        window._copy_template_crypto_files = MagicMock()
+        window._get_credentials = MagicMock(return_value=("testuser", "password"))
+        window._load_api_files = MagicMock()
+        window.close = MagicMock()
+
+        # Mock VaultManager
+        mock_vault = MagicMock()
+        mock_vault.PEPPER = "pepper"
+
+        # Calculate correct password hash
+        password_combined = ("password" + "salt" + "pepper").encode("utf-8")
+        correct_hash = hashlib.sha256(password_combined).hexdigest()
+
+        stored_data = {
+            "account_name": "testuser",
+            "hashed_password": correct_hash,
+            "salt": "salt",
+            "system_preference_profiles": {
+                "Work Profile": {
+                    "theme": "light",
+                    "active_tab_configs": {"Convert": "PNG Config"},
+                    "accent_color_dark": "#ff0000",
+                    "accent_color_light": "#00ff00",
+                    "font_scale": 120,
+                    "ui_density": "Compact",
+                }
+            },
+            "theme": "dark",
+            "active_tab_configs": {},
+            "preferences": {"session_recovery_level": "All Tabs"},
+        }
+        mock_vault.load_account_credentials.return_value = stored_data
+        window.vault_manager = mock_vault
+
+        # Patch udef, VaultManager, and QInputDialog.getItem to return "Default"
+        with (
+            patch("gui.src.windows.main.login_window.udef.update_cryptographic_values"),
+            patch("gui.src.windows.main.login_window.VaultManager", return_value=mock_vault),
+            patch("gui.src.windows.main.login_window.QInputDialog.getItem") as mock_get_item,
+            patch("gui.src.windows.main.login_window.QMessageBox.information"),
+        ):
+            # Test selecting "Default"
+            mock_get_item.return_value = ("Default", True)
+            window.attempt_login()
+
+            # Verify QInputDialog was called with correct items
+            mock_get_item.assert_called_once()
+            items_arg = mock_get_item.call_args[0][3]
+            assert "Default" in items_arg
+            assert "Previous Profile" in items_arg
+            assert "Work Profile" in items_arg
+            assert items_arg.index("Default") == 0  # Default index for dialog is 0
+
+            # Verify saved data resets to Default settings
+            mock_vault.save_data.assert_called_once()
+            saved_json = mock_vault.save_data.call_args[0][0]
+            saved_data = json.loads(saved_json)
+            assert saved_data["theme"] == "dark"
+            assert saved_data["active_tab_configs"] == {}
+            assert saved_data["preferences"]["accent_color_dark"] == "#00bcd4"
+            assert saved_data["preferences"]["accent_color_light"] == "#007AFF"
+            assert saved_data["preferences"]["font_scale"] == 100
+            assert saved_data["preferences"]["ui_density"] == "Comfortable"
+            # Crucially: session_recovery_level is NOT impacted
+            assert saved_data["preferences"]["session_recovery_level"] == "All Tabs"
+
+    def test_login_dropdown_select_previous_profile(self, q_app):
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        # Create instance of LoginWindow
+        window = LoginWindow()
+        window._copy_template_crypto_files = MagicMock()
+        window._get_credentials = MagicMock(return_value=("testuser", "password"))
+        window._load_api_files = MagicMock()
+        window.close = MagicMock()
+
+        # Mock VaultManager
+        mock_vault = MagicMock()
+        mock_vault.PEPPER = "pepper"
+
+        # Calculate correct password hash
+        password_combined = ("password" + "salt" + "pepper").encode("utf-8")
+        correct_hash = hashlib.sha256(password_combined).hexdigest()
+
+        stored_data = {
+            "account_name": "testuser",
+            "hashed_password": correct_hash,
+            "salt": "salt",
+            "system_preference_profiles": {
+                "Work Profile": {
+                    "theme": "light",
+                    "active_tab_configs": {"Convert": "PNG Config"},
+                    "accent_color_dark": "#ff0000",
+                    "accent_color_light": "#00ff00",
+                    "font_scale": 120,
+                    "ui_density": "Compact",
+                }
+            },
+            "theme": "dark",
+            "active_tab_configs": {},
+            "preferences": {"session_recovery_level": "All Tabs"},
+        }
+        mock_vault.load_account_credentials.return_value = stored_data
+        window.vault_manager = mock_vault
+
+        # Patch udef, VaultManager, and QInputDialog.getItem to return "Previous Profile"
+        with (
+            patch("gui.src.windows.main.login_window.udef.update_cryptographic_values"),
+            patch("gui.src.windows.main.login_window.VaultManager", return_value=mock_vault),
+            patch("gui.src.windows.main.login_window.QInputDialog.getItem") as mock_get_item,
+            patch("gui.src.windows.main.login_window.QMessageBox.information"),
+        ):
+            # Test selecting "Previous Profile"
+            mock_get_item.return_value = ("Previous Profile", True)
+            window.attempt_login()
+
+            # Verify save_data was NOT called because nothing changed
+            mock_vault.save_data.assert_not_called()

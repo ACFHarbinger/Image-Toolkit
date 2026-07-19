@@ -124,6 +124,10 @@ dev = [
     "pytest>=8.4.2",
     "ruff>=0.14.3",
 ]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.7",
+]
 
 # BUILD CONFIG
 [build-system]

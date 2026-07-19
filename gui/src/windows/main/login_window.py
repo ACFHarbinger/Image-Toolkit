@@ -68,9 +68,7 @@ class LoginWindow(QWidget):
         self.theme_button.setFixedSize(30, 30)
         self.theme_button.setToolTip("Toggle light/dark theme")
         self.theme_button.clicked.connect(self.toggle_theme)
-        header_layout.addWidget(
-            self.theme_button, alignment=Qt.AlignmentFlag.AlignRight
-        )
+        header_layout.addWidget(self.theme_button, alignment=Qt.AlignmentFlag.AlignRight)
 
         main_layout.addLayout(header_layout)
         # --- End Header Layout ---
@@ -78,17 +76,13 @@ class LoginWindow(QWidget):
         # Input fields
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("Account Name (e.g., user_id_123)")
-        self.username_input.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.username_input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         main_layout.addWidget(self.username_input)
 
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("Password")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.password_input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         main_layout.addWidget(self.password_input)
 
         # Button container
@@ -191,9 +185,7 @@ class LoginWindow(QWidget):
         password = self.password_input.text().strip()
 
         if not username or not password:
-            QMessageBox.warning(
-                self, "Input Error", "Please enter both account name and password."
-            )
+            QMessageBox.warning(self, "Input Error", "Please enter both account name and password.")
             return None, None
         return username, password
 
@@ -206,9 +198,7 @@ class LoginWindow(QWidget):
         target_dir = Path(udef.LOCAL_SECRETS_DIR)
 
         if not template_dir.exists():
-            print(
-                f"[LoginWindow] Warning: Template cryptography directory {template_dir} does not exist."
-            )
+            print(f"[LoginWindow] Warning: Template cryptography directory {template_dir} does not exist.")
             return
 
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -219,13 +209,11 @@ class LoginWindow(QWidget):
                     dest_file = target_dir / item.name
                     if not dest_file.exists():
                         shutil.copy2(item, dest_file)
-                        print(
-                            f"[LoginWindow] Copied template crypto file: {item.name} -> {dest_file}"
-                        )
+                        print(f"[LoginWindow] Copied template crypto file: {item.name} -> {dest_file}")
         except Exception as e:
             print(f"[LoginWindow] Error copying template cryptography files: {e}")
 
-    def attempt_login(self):
+    def attempt_login(self):  # noqa: C901
         """Tries to authenticate the user against the stored hash."""
         self._copy_template_crypto_files()
         username, raw_password = self._get_credentials()
@@ -243,19 +231,17 @@ class LoginWindow(QWidget):
             self.vault_manager = VaultManager()
 
             # 3. KeyStore Loading (now uses suffixed udef.KEYSTORE_FILE)
-            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password) # pyrefly: ignore [bad-argument-type]
+            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)  # pyrefly: ignore [bad-argument-type]
 
             # 4. Get the specific AES key
-            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password) # pyrefly: ignore [bad-argument-type]
+            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)  # pyrefly: ignore [bad-argument-type]
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
             # 5. Load stored credentials (hash and salt)
             stored_data = self.vault_manager.load_account_credentials()
 
             if stored_data.get("account_name") != username:
-                QMessageBox.critical(
-                    self, "Login Failed", "Account name does not match stored account."
-                )
+                QMessageBox.critical(self, "Login Failed", "Account name does not match stored account.")
                 return
 
             stored_hash = stored_data.get("hashed_password")
@@ -263,7 +249,7 @@ class LoginWindow(QWidget):
             pepper = self.vault_manager.PEPPER
 
             # 6. Re-hash and verify
-            password_combined = (raw_password + stored_salt + pepper).encode("utf-8") # pyrefly: ignore [unsupported-operation]
+            password_combined = (raw_password + stored_salt + pepper).encode("utf-8")  # pyrefly: ignore [unsupported-operation]
 
             verification_hash = hashlib.sha256(password_combined).hexdigest()
             if verification_hash == stored_hash:
@@ -272,43 +258,80 @@ class LoginWindow(QWidget):
                 save_required = False  # <--- NEW FLAG
 
                 if profiles:
-                    items = ["Keep Current Settings"] + sorted(profiles.keys())
+                    items = ["Default", "Previous Profile"] + sorted(profiles.keys())
                     item, ok = QInputDialog.getItem(
                         self,
                         "Select Preference Profile",
                         "Choose a system preference setup to apply:",
                         items,
-                        0,
+                        0,  # Select "Default" by default
                         False,
                     )
 
-                    if ok and item and item != "Keep Current Settings":
-                        # Apply selected profile to the temporary dictionary
-                        profile_data = profiles[item]
-                        new_theme = profile_data.get("theme", "dark")
-                        new_configs = profile_data.get("active_tab_configs", {})
+                    if ok and item:
+                        if item == "Default":
+                            new_theme = "dark"
+                            new_configs = {}
+                            new_accent_dark = "#00bcd4"
+                            new_accent_light = "#007AFF"
+                            new_font_scale = 100
+                            new_ui_density = "Comfortable"
 
-                        # 1. Check if the theme or active configs are changing
-                        current_theme = stored_data.get("theme", "dark")
-                        current_configs = stored_data.get("active_tab_configs", {})
+                            current_theme = stored_data.get("theme", "dark")
+                            current_configs = stored_data.get("active_tab_configs", {})
 
-                        if new_theme != current_theme or new_configs != current_configs:
-                            # 2. Update the data and set the flag
-                            stored_data["theme"] = new_theme
-                            stored_data["active_tab_configs"] = new_configs
-                            save_required = True  # <--- SET FLAG
-
-                        # §4.13 — Merge appearance keys into preferences if present
-                        _APPEARANCE_KEYS = (
-                            "accent_color_dark", "accent_color_light",
-                            "font_scale", "ui_density",
-                        )
-                        prefs = stored_data.get("preferences", {})
-                        for _key in _APPEARANCE_KEYS:
-                            if _key in profile_data and profile_data[_key] != prefs.get(_key):
-                                prefs[_key] = profile_data[_key]
+                            if new_theme != current_theme or new_configs != current_configs:
+                                stored_data["theme"] = new_theme
+                                stored_data["active_tab_configs"] = new_configs
                                 save_required = True
-                        stored_data["preferences"] = prefs
+
+                            prefs = stored_data.get("preferences")
+                            if not isinstance(prefs, dict):
+                                prefs = {}
+                                stored_data["preferences"] = prefs
+
+                            _APPEARANCE_DEFAULTS = {
+                                "accent_color_dark": new_accent_dark,
+                                "accent_color_light": new_accent_light,
+                                "font_scale": new_font_scale,
+                                "ui_density": new_ui_density,
+                            }
+                            for _key, _val in _APPEARANCE_DEFAULTS.items():
+                                if prefs.get(_key) != _val:
+                                    prefs[_key] = _val
+                                    save_required = True
+                        elif item != "Previous Profile":
+                            # Apply selected profile to the temporary dictionary
+                            profile_data = profiles[item]
+                            new_theme = profile_data.get("theme", "dark")
+                            new_configs = profile_data.get("active_tab_configs", {})
+
+                            # 1. Check if the theme or active configs are changing
+                            current_theme = stored_data.get("theme", "dark")
+                            current_configs = stored_data.get("active_tab_configs", {})
+
+                            if new_theme != current_theme or new_configs != current_configs:
+                                # 2. Update the data and set the flag
+                                stored_data["theme"] = new_theme
+                                stored_data["active_tab_configs"] = new_configs
+                                save_required = True  # <--- SET FLAG
+
+                            # §4.13 — Merge appearance keys into preferences if present
+                            _APPEARANCE_KEYS = (
+                                "accent_color_dark",
+                                "accent_color_light",
+                                "font_scale",
+                                "ui_density",
+                            )
+                            prefs = stored_data.get("preferences")
+                            if not isinstance(prefs, dict):
+                                prefs = {}
+                                stored_data["preferences"] = prefs
+
+                            for _key in _APPEARANCE_KEYS:
+                                if _key in profile_data and profile_data[_key] != prefs.get(_key):
+                                    prefs[_key] = profile_data[_key]
+                                    save_required = True
 
                 # === CRITICAL MODIFICATION: Check flag before saving ===
                 if save_required:
@@ -317,12 +340,10 @@ class LoginWindow(QWidget):
 
                 # -----------------------------------------
 
-                QMessageBox.information(
-                    self, "Success", f"Login successful for {username}."
-                )
+                QMessageBox.information(self, "Success", f"Login successful for {username}.")
                 self.is_authenticated = True
-                self.vault_manager.account_name = username # pyrefly: ignore [missing-attribute]
-                self.vault_manager.raw_password = raw_password # pyrefly: ignore [missing-attribute]
+                self.vault_manager.account_name = username  # pyrefly: ignore [missing-attribute]
+                self.vault_manager.raw_password = raw_password  # pyrefly: ignore [missing-attribute]
 
                 # --- LOAD/DECRYPT API FILES ---
                 self._load_api_files()
@@ -363,9 +384,7 @@ class LoginWindow(QWidget):
         try:
             udef.update_cryptographic_values(username)
         except Exception as e:
-            QMessageBox.critical(
-                self, "Path Error", f"Failed to set account-specific paths: {e}"
-            )
+            QMessageBox.critical(self, "Path Error", f"Failed to set account-specific paths: {e}")
             return
 
         # 2. Check if files *for this specific account* already exist
@@ -384,28 +403,28 @@ class LoginWindow(QWidget):
             self.vault_manager = VaultManager()
 
             # 4. Load the KeyStore (Creates empty KeyStore in memory)
-            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password) # pyrefly: ignore [bad-argument-type]
+            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)  # pyrefly: ignore [bad-argument-type]
 
             # 5. CRITICAL: Ensure Key Entry exists and save KeyStore file
             self.vault_manager.create_key_if_missing(
-                udef.KEY_ALIAS, udef.KEYSTORE_FILE, raw_password # pyrefly: ignore [bad-argument-type]
+                udef.KEY_ALIAS,
+                udef.KEYSTORE_FILE,
+                raw_password,  # pyrefly: ignore [bad-argument-type]
             )
 
             # 6. Retrieve the now-guaranteed secret key
-            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password) # pyrefly: ignore [bad-argument-type]
+            self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)  # pyrefly: ignore [bad-argument-type]
 
             # 7. Initialize the vault
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
             # 8. Save credentials (this handles hashing, salting, and saving)
-            self.vault_manager.save_account_credentials(username, raw_password) # pyrefly: ignore [bad-argument-type]
+            self.vault_manager.save_account_credentials(username, raw_password)  # pyrefly: ignore [bad-argument-type]
 
-            QMessageBox.information(
-                self, "Success", f"Account '{username}' created and saved securely."
-            )
+            QMessageBox.information(self, "Success", f"Account '{username}' created and saved securely.")
             self.is_authenticated = True
-            self.vault_manager.account_name = username # pyrefly: ignore [missing-attribute]
-            self.vault_manager.raw_password = raw_password # pyrefly: ignore [missing-attribute]
+            self.vault_manager.account_name = username  # pyrefly: ignore [missing-attribute]
+            self.vault_manager.raw_password = raw_password  # pyrefly: ignore [missing-attribute]
 
             # --- LOAD/DECRYPT API FILES ---
             self._load_api_files()
@@ -414,9 +433,7 @@ class LoginWindow(QWidget):
             self.close()
 
         except Exception as e:
-            QMessageBox.critical(
-                self, "Creation Error", f"Failed to create account: {e}"
-            )
+            QMessageBox.critical(self, "Creation Error", f"Failed to create account: {e}")
             if self.vault_manager:
                 self.vault_manager.shutdown()
 
@@ -484,9 +501,7 @@ class LoginWindow(QWidget):
 
                         # 5. Store it in the vault_manager's dictionary
                         self.vault_manager.api_credentials[key_name] = api_data
-                        print(
-                            f"Successfully decrypted and loaded credentials for: {key_name}"
-                        )
+                        print(f"Successfully decrypted and loaded credentials for: {key_name}")
 
                     except Exception as e:
                         print(f"Failed to decrypt or parse {filename}: {e}")
