@@ -45,6 +45,9 @@ Batch-converts image files from one *container format* to another (PNG → JPEG,
 
 ![Convert → Format subtab: input path, output format, aspect-ratio controls, empty gallery](images/system_tools/convert_format.png)
 
+!!! success "Multi-core Processing (Faster for Batches)"
+    Checked by default. Converting each file is independent of every other file in the batch — there's no shared state between them — so this checkbox dispatches the conversions across a process pool instead of running them one after another on a single CPU core. Expect wall-clock time to drop roughly in proportion to the number of cores actually used, at the cost of higher peak CPU utilization (and slightly higher peak RAM, since several files decode/encode concurrently instead of one at a time). Leave it on for any batch of more than a handful of files; only turn it off if you need to keep the machine responsive for other work while a very large batch converts in the background.
+
 #### Aspect Ratio
 
 Off by default; enable it with the **Change Aspect Ratio** checkbox to also reshape every converted image to a target aspect ratio. Two controls matter:
@@ -91,11 +94,17 @@ Resamples (rescales) images and videos. Scale either by a **factor** (with 0.25�
 
 ![Convert → Sampler subtab: scale factor, algorithm picker, output settings](images/system_tools/convert_sampler.png)
 
-- **Algorithm** — the resampling filter used for the rescale:
-    - **Lanczos** — highest quality (sharpest, fewest artifacts), slowest. The default choice for quality work, especially downscaling.
-    - **Bicubic** — good quality at moderate speed; a fine general-purpose middle ground.
-    - **Bilinear** — fast with acceptable quality; slight softening.
-    - **Nearest Neighbor** — copies the closest pixel with no interpolation: "pixel-perfect" but aliased. The *only* correct choice for pixel art or when you must not introduce new colors; wrong for photos.
+- **Algorithm** — the resampling filter used for the rescale, each sampling from a progressively larger neighborhood of source pixels to compute each output pixel:
+
+    | Algorithm | Neighborhood | Technical detail | Result |
+    |---|:---:|---|---|
+    | **Nearest Neighbor** | 1 pixel | Copies the single closest source pixel — no interpolation at all. | "Pixel-perfect" but aliased/blocky. The *only* correct choice for pixel art or when you must not introduce new colors; wrong for photos. |
+    | **Bilinear** | 4 pixels (2×2) | Linear interpolation across the two nearest pixels on each axis. | Very fast, but can look soft/blurry — the small sample window can't reconstruct sharp edges well. |
+    | **Bicubic** | 16 pixels (4×4) | Cubic-polynomial interpolation across a wider neighborhood. | An adequate balance of speed and quality: moderately fast, with smoother edges and better sharpness than bilinear. |
+    | **Lanczos** | 36 pixels (6×6) | A windowed-sinc filter — approximates ideal frequency-domain low-pass reconstruction, using more neighboring pixels than either alternative above. | The sharpest results, best at preserving fine texture — at the cost of the most runtime and processing power of the three. Highest quality, especially for downscaling; the default choice for quality work. |
+
+    !!! info "Learn more"
+        [Lanczos resampling on Wikipedia](https://en.wikipedia.org/wiki/Lanczos_resampling) covers the sinc-windowing math behind why a larger neighborhood produces sharper results, and why Lanczos in particular can introduce ringing (overshoot) artifacts near very high-contrast edges that bicubic/bilinear don't.
 
 ---
 

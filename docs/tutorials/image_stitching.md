@@ -31,6 +31,9 @@ The main automatic pipeline. Three-pane layout: frame list (left), match preview
 
 ![Stitch tab: Source Frames, Compute Matches/Show Mask/Reset Anchors, Pipeline Stages, Renderer and Quality, Motion Model and Edge Crop, StitchNet Checkpoint, Output, HITL group box, bottom run bar](images/image_stitching/stitch_main.png)
 
+!!! info "Want the deep dive?"
+    [Typical Workflows → Stitch anime frames into a panorama](workflows.md#workflow-2-stitch-anime-frames-into-a-panorama) walks every control on this tab step-by-step with the technical mechanics behind each one (what LoFTR's Conf. threshold actually gates, why Translation vs. Affine motion models trade off the way they do, what each of the ten possible HITL checkpoints lets you edit), plus paper/documentation links for the algorithms involved.
+
 ### Source Frames (left pane)
 
 - **Add… / Remove / Move Up / Move Down** — build the frame list with a thumbnail file picker; you can also drag rows to reorder. **Order matters**: the list order is the stitching sequence (first = leftmost/topmost).

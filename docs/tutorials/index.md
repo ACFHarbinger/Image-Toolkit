@@ -1,6 +1,6 @@
 # :material-compass: Tab Tutorials
 
-Task-oriented tutorials for every tab in the Image-Toolkit GUI, organized by the categories in the main window's *Select Category* dropdown — plus cross-category workflows and the app-wide Login/Settings windows. Each tutorial explains what a tab is for, how to use it, what its parameters mean, and shows the actual UI — **161 screenshots** across seven pages, plus diagrams and reference tables.
+Task-oriented tutorials for every tab in the Image-Toolkit GUI, organized by the categories in the main window's *Select Category* dropdown — plus cross-category workflows and the app-wide Login/Settings windows. Each tutorial explains what a tab is for, how to use it, what its parameters mean, and shows the actual UI — **179 screenshots** across seven pages, plus diagrams and reference tables.
 
 ```mermaid
 flowchart LR
@@ -46,7 +46,7 @@ flowchart LR
 
     Listings (Content · Entity) · Image Search · Scan and Tag · Maintenance
 
-    *26 screenshots · covers the new Metadata Editor, side-by-side filter lists, and Image Registry*
+    *25 screenshots · covers the new Metadata Editor, side-by-side filter lists, and Image Registry*
 
 -   :material-web:{ .lg .middle } **[Web Integration](web_integration.md)**
 
@@ -76,9 +76,9 @@ flowchart LR
 
     ---
 
-    Complete goal-oriented tasks that cross tab categories — crawl-then-stitch, wallpaper (two ways), cataloguing a folder, dedupe, train-then-generate a LoRA
+    Six complete, click-by-click walkthroughs — multi-site crawling, smart-selection panorama stitching (automated / semi-automated / full HITL), wallpaper (two ways), cataloguing a folder, dedupe, train-then-generate a LoRA — with every parameter's technical mechanics, trade-offs, and links to the underlying papers/docs
 
-    *22 annotated screenshots with numbered step badges and click targets*
+    *41 annotated screenshots with numbered step badges and click targets*
 
 -   :material-cog:{ .lg .middle } **[Settings and Login](settings_and_login.md)**
 
