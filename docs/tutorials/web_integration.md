@@ -26,6 +26,9 @@ Bulk-downloads images from websites into a chosen **Download Dir**.
 ![Crawler tab, General Web Crawler type: Login Configuration, Web Scraper Settings, Actions, Output Configuration](images/web_integration/crawler_general_top.png)
 ![Crawler tab scrolled further: Actions list populated, Output Configuration with optional Screenshot Dir, Selection Mode](images/web_integration/crawler_general_scrolled.png)
 
+!!! info "Want the deep dive?"
+    [Typical Workflows → Download images via a complex multi-site crawl](workflows.md#workflow-1-download-images-via-a-complex-multi-site-crawl) walks the General Web Crawler step-by-step, building a full URL-pagination + multi-Action recipe from scratch, with a worked example and links to the Selenium/CSS-selector references behind it.
+
 ### Crawler Type
 
 ![Crawler Type dropdown: General Web Crawler, Image Board Crawler (Danbooru/Gelbooru/Sankaku Complex API)](images/web_integration/crawler_type_dropdown.png)
