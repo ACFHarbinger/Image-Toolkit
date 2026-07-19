@@ -8,7 +8,7 @@ Layout
   Tab 1…N : one tab per selected image, showing a small thumbnail + individual
              editable fields whose values start pre-filled from the Batch tab.
 
-On "Confirm & Save" the caller receives a list of per-image dicts via the
+On "Confirm and Save" the caller receives a list of per-image dicts via the
 ``metadata_confirmed`` signal so ``ScanMetadataTab`` can do the actual DB
 writes without importing Qt.
 """
@@ -192,9 +192,9 @@ def _checked_tags(lw: FilteredTagList | QListWidget) -> List[str]:
     if hasattr(lw, "checked_tags"):
         return lw.checked_tags()
     return [
-        lw.item(i).data(Qt.ItemDataRole.UserRole)
-        for i in range(lw.count())
-        if lw.item(i).checkState() == Qt.CheckState.Checked
+        lw.item(i).data(Qt.ItemDataRole.UserRole) # pyrefly: ignore [missing-attribute]
+        for i in range(lw.count()) # pyrefly: ignore [missing-attribute]
+        if lw.item(i).checkState() == Qt.CheckState.Checked # pyrefly: ignore [missing-attribute]
     ]
 
 
@@ -203,8 +203,8 @@ def _set_checked_tags(lw: FilteredTagList | QListWidget, tags: List[str]) -> Non
         lw.set_checked_tags(tags)
         return
     tag_set = set(tags)
-    for i in range(lw.count()):
-        item = lw.item(i)
+    for i in range(lw.count()): # pyrefly: ignore [missing-attribute]
+        item = lw.item(i) # pyrefly: ignore [missing-attribute]
         item.setCheckState(
             Qt.CheckState.Checked
             if item.data(Qt.ItemDataRole.UserRole) in tag_set
@@ -679,7 +679,7 @@ class MetadataEditorWindow(QDialog):
         )
         btn_cancel.clicked.connect(self.reject)
 
-        btn_confirm = QPushButton(f"✔ Confirm & Save {len(self._paths)} Image(s)")
+        btn_confirm = QPushButton(f"✔ Confirm and Save {len(self._paths)} Image(s)")
         btn_confirm.setStyleSheet(
             "QPushButton { background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
             "stop:0 #2ecc71,stop:1 #27ae60); color: white; padding: 9px 18px; "

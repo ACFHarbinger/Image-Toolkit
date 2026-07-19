@@ -7,6 +7,7 @@
 ## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs)
 
 **Part 2 — Metadata Editor Optional Tag Filter & Delete Fixes (later today):**
+- **Remove from Database Option**: Added a right-click context menu option "🔌 Remove from Database" in the Scan and Tag tab's gallery, permitting users to remove image metadata from the database without deleting the physical file on disk.
 - **Metadata Editor Optional Tag Filter**: Added a "Filter by Type" toggle checkbox in the `FilteredTagList` widget for both the Batch / Overview and individual image tabs in the Edit Metadata window. When unchecked (default), it hides the type checkboxes and displays all tags unfiltered; when checked, it reveals the type checkboxes and dynamically filters tags by their checked status.
 - **Accidental Rename Prevention**: Fixed the double-prompt issue when removing a tag, subgroup, or group from the Library Database by setting `self.old_edit_value = None` at the start of their deletion methods. This prevents accidental inline-rename triggers caused by focus loss or row removal events.
 
