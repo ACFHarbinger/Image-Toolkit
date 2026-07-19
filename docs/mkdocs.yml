@@ -143,6 +143,8 @@ nav:
       - Web Integration: tutorials/web_integration.md
       - Deep Learning: tutorials/deep_learning.md
       - Image Stitching: tutorials/image_stitching.md
+      - Typical Workflows: tutorials/workflows.md
+      - Settings and Login: tutorials/settings_and_login.md
   - Reference:
       - REST API: api/rest-api.md
       - Python API:

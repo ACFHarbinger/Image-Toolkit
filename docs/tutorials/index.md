@@ -1,6 +1,6 @@
 # :material-compass: Tab Tutorials
 
-Task-oriented tutorials for every tab in the Image-Toolkit GUI, organized by the categories in the main window's *Select Category* dropdown. Each tutorial explains what a tab is for, how to use it, what its parameters mean, and shows the actual UI — **114 screenshots** across the five categories, plus diagrams and reference tables.
+Task-oriented tutorials for every tab in the Image-Toolkit GUI, organized by the categories in the main window's *Select Category* dropdown — plus cross-category workflows and the app-wide Login/Settings windows. Each tutorial explains what a tab is for, how to use it, what its parameters mean, and shows the actual UI — **161 screenshots** across seven pages, plus diagrams and reference tables.
 
 ```mermaid
 flowchart LR
@@ -71,6 +71,22 @@ flowchart LR
     Stitch · Graph · Adjust · Canvas · Statistics · Sequence Builder · Hybrid Stitch · Animation Clusters
 
     *19 screenshots · the full ASP pipeline workflow*
+
+-   :material-map-marker-path:{ .lg .middle } **[Typical Workflows](workflows.md)**
+
+    ---
+
+    Complete goal-oriented tasks that cross tab categories — crawl-then-stitch, wallpaper (two ways), cataloguing a folder, dedupe, train-then-generate a LoRA
+
+    *22 annotated screenshots with numbered step badges and click targets*
+
+-   :material-cog:{ .lg .middle } **[Settings and Login](settings_and_login.md)**
+
+    ---
+
+    The Login Window and every Application Settings tab: Account and Vault · Startup and Profiles · Tab Configs · Display and Media · System and Logging · Shortcuts · Bulk Update
+
+    *25 screenshots · app-wide configuration, not tied to one category*
 
 </div>
 
