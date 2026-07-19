@@ -4,7 +4,14 @@
 
 ---
 
-## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs, bulk settings CLI, login preference profiles)
+## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs, bulk settings CLI, login preference profiles, app-level zoom)
+
+**Part 6 — App-Level Zoom:**
+- **Zoom In / Zoom Out Buttons**: Added "Zoom +" and "Zoom −" buttons in the Appearance section of the Display and Media settings tab. Each click steps the `app_zoom` offset by ±10% (range: −50% to +100%); the current offset is shown live as a label next to the buttons.
+- **Ctrl + Mouse Wheel**: Holding Ctrl while scrolling the mouse wheel in any main-window area zooms in (wheel up) or zooms out (wheel down) globally, without needing to open Settings.
+- **`app_zoom` Preference Key**: A new `app_zoom` integer is stored in the vault preferences dictionary. At theme-apply time, `set_application_theme()` compounds `font_scale + app_zoom` to derive the effective point size (minimum 7 pt), then resets to 10 pt if the sum equals the 100% baseline. This preserves full backwards compatibility when `app_zoom` is absent.
+- **`MainWindow.zoom_in()` / `zoom_out()`**: Public helper methods mutate `cached_creds["preferences"]["app_zoom"]` and immediately re-apply the theme so every open window reflects the change without requiring a settings save or restart.
+- **Settings Integration**: `pref_app_zoom` is loaded in `__init__` and `reload_settings`, persisted in `_update_settings_logic` and `_get_current_ui_preferences` (used by profile save/update), and reset to 0 in `reset_settings`. The Settings buttons delegate to `main_window_ref.zoom_in/zoom_out` and stay in sync via `cached_creds`.
 
 **Part 5 — Login Window Preference Profile Selection:**
 - **Preference Profile Login Selection**: Integrated a profile selection dialog (`QInputDialog`) into `LoginWindow.attempt_login()` following successful authentication when preference profiles exist in the vault.

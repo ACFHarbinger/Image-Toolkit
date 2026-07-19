@@ -68,9 +68,7 @@ class SettingsWindow(QWidget):
         self.setMinimumSize(800, 600)  # Increased height slightly
 
         # Reference to the Vault Manager from MainWindow
-        self.vault_manager = (
-            self.main_window_ref.vault_manager if self.main_window_ref else None
-        )
+        self.vault_manager = self.main_window_ref.vault_manager if self.main_window_ref else None
 
         # Load initial credentials and settings
         self.current_account_name = "N/A"
@@ -117,11 +115,13 @@ class SettingsWindow(QWidget):
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
+        self.pref_app_zoom = _p.get("app_zoom", 0)
         self.pref_recursive_scan = _p.get("recursive_scan", True)
         self.pref_mal_fetch_method = AppSettings.mal_fetch_method()
         seen_dirs = set()
         self.pref_favourite_directories = [
-            x for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
+            x
+            for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
             if not (x in seen_dirs or seen_dirs.add(x))
         ]
 
@@ -149,9 +149,7 @@ class SettingsWindow(QWidget):
         header_layout.setContentsMargins(10, 5, 10, 5)
 
         title_label = QLabel("Application Settings")
-        title_label.setStyleSheet(
-            f"color: {header_label_color}; font-size: 14pt; font-weight: bold;"
-        )
+        title_label.setStyleSheet(f"color: {header_label_color}; font-size: 14pt; font-weight: bold;")
         header_layout.addWidget(title_label)
         header_layout.addStretch(1)
 
@@ -160,9 +158,7 @@ class SettingsWindow(QWidget):
 
         # --- Login Information Section ---
         login_groupbox = QGroupBox("Login/Account Information (Master Password Reset)")
-        login_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        login_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         login_layout = QFormLayout(login_groupbox)
         login_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -179,9 +175,7 @@ class SettingsWindow(QWidget):
 
         # --- Cryptography Vault Sync/Load Section ---
         vault_sync_groupbox = QGroupBox("Cryptography Vault Sync and Load")
-        vault_sync_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        vault_sync_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         vault_sync_layout = QVBoxLayout(vault_sync_groupbox)
         vault_sync_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -198,18 +192,14 @@ class SettingsWindow(QWidget):
         self.btn_sync_vault.setToolTip(
             "Copy active keystore, vault, and pepper files from ~/.image-toolkit/secrets to the repository template directory."
         )
-        self.btn_sync_vault.setStyleSheet(
-            "background-color: #7b1fa2; color: white; font-weight: bold;"
-        )
+        self.btn_sync_vault.setStyleSheet("background-color: #7b1fa2; color: white; font-weight: bold;")
         self.btn_sync_vault.clicked.connect(self._sync_vault_to_assets)
 
         self.btn_load_vault = QPushButton("Load Vault 📥")
         self.btn_load_vault.setToolTip(
             "Overwrite active files in ~/.image-toolkit/secrets with template files from the repository directory."
         )
-        self.btn_load_vault.setStyleSheet(
-            "background-color: #2c3e50; color: white; font-weight: bold;"
-        )
+        self.btn_load_vault.setStyleSheet("background-color: #2c3e50; color: white; font-weight: bold;")
         self.btn_load_vault.clicked.connect(self._load_vault_from_assets)
 
         btn_layout.addWidget(self.btn_sync_vault)
@@ -218,9 +208,7 @@ class SettingsWindow(QWidget):
 
         # --- Preferences Section ---
         prefs_groupbox = QGroupBox("Preferences")
-        prefs_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        prefs_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         prefs_layout = QVBoxLayout(prefs_groupbox)
         prefs_layout.setContentsMargins(10, 10, 10, 10)
         # --- Active Default Configuration Selection ---
@@ -254,9 +242,7 @@ class SettingsWindow(QWidget):
 
                 # Get the class name for vault lookup
                 tab_instance = self._get_tab_instance_by_display_name(display_name)
-                tab_class_name = (
-                    type(tab_instance).__name__ if tab_instance else display_name
-                )
+                tab_class_name = type(tab_instance).__name__ if tab_instance else display_name
 
                 # Populate with available saved configs for this tab class
                 configs_for_tab = self.tab_defaults_config.get(tab_class_name, {})
@@ -280,9 +266,7 @@ class SettingsWindow(QWidget):
         # --- System Preference Profiles Section ---
         # ---------------------------------------------------------------------
         profiles_groupbox = QGroupBox("System Preference Profiles")
-        profiles_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        profiles_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         profiles_layout = QVBoxLayout(profiles_groupbox)
 
         # Row 1: Select Profile to Load, Update, or Delete
@@ -292,31 +276,21 @@ class SettingsWindow(QWidget):
         self._refresh_profile_combo()
 
         self.btn_load_profile = QPushButton("Load Profile")
-        self.btn_load_profile.setToolTip(
-            "Apply the selected profile's settings to the fields above"
-        )
+        self.btn_load_profile.setToolTip("Apply the selected profile's settings to the fields above")
         self.btn_load_profile.clicked.connect(self._load_selected_profile)
 
         self.btn_use_profile = QPushButton("Use Profile")
-        self.btn_use_profile.setToolTip(
-            "Load the selected profile's settings and apply them to the app immediately"
-        )
+        self.btn_use_profile.setToolTip("Load the selected profile's settings and apply them to the app immediately")
         self.btn_use_profile.setStyleSheet("background-color: #27ae60; color: white;")
         self.btn_use_profile.clicked.connect(self._use_selected_profile)
 
         self.btn_update_profile = QPushButton("Update Profile")
-        self.btn_update_profile.setToolTip(
-            "Update the selected profile with the current settings from the UI fields"
-        )
-        self.btn_update_profile.setStyleSheet(
-            "background-color: #2980b9; color: white;"
-        )
+        self.btn_update_profile.setToolTip("Update the selected profile with the current settings from the UI fields")
+        self.btn_update_profile.setStyleSheet("background-color: #2980b9; color: white;")
         self.btn_update_profile.clicked.connect(self._update_selected_profile)
 
         self.btn_delete_profile = QPushButton("Delete Profile")
-        self.btn_delete_profile.setStyleSheet(
-            "background-color: #e74c3c; color: white;"
-        )
+        self.btn_delete_profile.setStyleSheet("background-color: #e74c3c; color: white;")
         self.btn_delete_profile.clicked.connect(self._delete_selected_profile)
 
         profile_select_layout.addWidget(QLabel("Profile:"))
@@ -331,14 +305,10 @@ class SettingsWindow(QWidget):
         # Row 2: Create New Profile
         profile_create_layout = QHBoxLayout()
         self.profile_name_input = QLineEdit()
-        self.profile_name_input.setPlaceholderText(
-            "New Profile Name (e.g., Work Laptop)"
-        )
+        self.profile_name_input.setPlaceholderText("New Profile Name (e.g., Work Laptop)")
 
         self.btn_save_profile = QPushButton("Save Current Settings as Profile")
-        self.btn_save_profile.setToolTip(
-            "Save the current state of Theme and Tab Configs above as a new profile"
-        )
+        self.btn_save_profile.setToolTip("Save the current state of Theme and Tab Configs above as a new profile")
         self.btn_save_profile.setStyleSheet("background-color: #2ecc71; color: white;")
         self.btn_save_profile.clicked.connect(self._save_current_as_profile)
 
@@ -352,9 +322,7 @@ class SettingsWindow(QWidget):
         # --- Tab Default Configuration Section ---
         # ---------------------------------------------------------------------
         defaults_groupbox = QGroupBox("Tab Default Configuration Management")
-        defaults_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding
-        )
+        defaults_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         defaults_layout = QVBoxLayout(defaults_groupbox)
 
         # 1. Tab Selection
@@ -378,25 +346,19 @@ class SettingsWindow(QWidget):
         load_config_layout = QFormLayout()
         self.config_select_combo = QComboBox()
         self.config_select_combo.setPlaceholderText("Load/Edit Existing Config...")
-        self.config_select_combo.currentTextChanged.connect(
-            self._load_selected_tab_config
-        )
+        self.config_select_combo.currentTextChanged.connect(self._load_selected_tab_config)
         load_config_layout.addRow("Load/Edit Config:", self.config_select_combo)
 
         # Load/Delete/SET Buttons (Horizontal and full width)
         full_width_buttons_layout = QHBoxLayout()
-        full_width_buttons_layout.setContentsMargins(
-            0, 5, 0, 5
-        )  # Optional spacing adjustment
+        full_width_buttons_layout.setContentsMargins(0, 5, 0, 5)  # Optional spacing adjustment
         full_width_buttons_layout.setSpacing(10)  # Add spacing between the two buttons
 
         # NEW: Set Selected Config Button
         self.btn_set_config = QPushButton("Set Selected Config")
         self.btn_set_config.clicked.connect(self._set_selected_tab_config)
         # Set policy to expand horizontally
-        self.btn_set_config.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.btn_set_config.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         full_width_buttons_layout.addWidget(self.btn_set_config)
 
         # Existing Delete Button
@@ -404,9 +366,7 @@ class SettingsWindow(QWidget):
         self.btn_delete_config.setStyleSheet("background-color: #e74c3c; color: white;")
         self.btn_delete_config.clicked.connect(self._delete_selected_tab_config)
         # Set policy to expand horizontally
-        self.btn_delete_config.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.btn_delete_config.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         full_width_buttons_layout.addWidget(self.btn_delete_config)
 
         # Add the config selection layout first
@@ -420,29 +380,17 @@ class SettingsWindow(QWidget):
         transfer_buttons_layout.setSpacing(10)
 
         self.btn_export_config = QPushButton("Export Config to JSON 📤")
-        self.btn_export_config.setToolTip(
-            "Save the currently selected/edited configuration to a .json file"
-        )
-        self.btn_export_config.setStyleSheet(
-            "background-color: #7b1fa2; color: white; font-weight: bold;"
-        )
+        self.btn_export_config.setToolTip("Save the currently selected/edited configuration to a .json file")
+        self.btn_export_config.setStyleSheet("background-color: #7b1fa2; color: white; font-weight: bold;")
         self.btn_export_config.clicked.connect(self._export_selected_tab_config)
-        self.btn_export_config.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.btn_export_config.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         transfer_buttons_layout.addWidget(self.btn_export_config)
 
         self.btn_import_config = QPushButton("Import Config from JSON 📥")
-        self.btn_import_config.setToolTip(
-            "Load a configuration from a .json file and save it for its tab"
-        )
-        self.btn_import_config.setStyleSheet(
-            "background-color: #2c3e50; color: white; font-weight: bold;"
-        )
+        self.btn_import_config.setToolTip("Load a configuration from a .json file and save it for its tab")
+        self.btn_import_config.setStyleSheet("background-color: #2c3e50; color: white; font-weight: bold;")
         self.btn_import_config.clicked.connect(self._import_tab_config_from_json)
-        self.btn_import_config.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.btn_import_config.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         transfer_buttons_layout.addWidget(self.btn_import_config)
 
         defaults_layout.addLayout(transfer_buttons_layout)
@@ -452,15 +400,11 @@ class SettingsWindow(QWidget):
         create_config_layout = QFormLayout(create_config_group)
 
         self.config_name_input = QLineEdit()
-        self.config_name_input.setPlaceholderText(
-            "Enter a unique name (e.g., HighResConfig)"
-        )
+        self.config_name_input.setPlaceholderText("Enter a unique name (e.g., HighResConfig)")
         create_config_layout.addRow("Config Name:", self.config_name_input)
 
         self.default_config_editor = QTextEdit()
-        self.default_config_editor.setPlaceholderText(
-            "Select a Tab Class to see its default configuration..."
-        )
+        self.default_config_editor.setPlaceholderText("Select a Tab Class to see its default configuration...")
         self.default_config_editor.setMinimumHeight(200)
         create_config_layout.addRow("Configuration (JSON):", self.default_config_editor)
 
@@ -468,18 +412,12 @@ class SettingsWindow(QWidget):
         save_buttons_layout = QHBoxLayout()
 
         self.btn_create_default = QPushButton("Save Named Configuration")
-        self.btn_create_default.setToolTip(
-            "Save the JSON currently in the editor as a new configuration"
-        )
+        self.btn_create_default.setToolTip("Save the JSON currently in the editor as a new configuration")
         self.btn_create_default.clicked.connect(self._save_current_tab_config)
 
         self.btn_save_current = QPushButton("Save Current Configuration")
-        self.btn_save_current.setToolTip(
-            "Capture current values from the active tab and save them"
-        )
-        self.btn_save_current.setStyleSheet(
-            "background-color: #007AFF; color: white; font-weight: bold;"
-        )
+        self.btn_save_current.setToolTip("Capture current values from the active tab and save them")
+        self.btn_save_current.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold;")
         self.btn_save_current.clicked.connect(self._capture_and_save_current_config)
 
         save_buttons_layout.addWidget(self.btn_create_default)
@@ -493,9 +431,7 @@ class SettingsWindow(QWidget):
         # --- Appearance Section ---
         # ---------------------------------------------------------------------
         appearance_groupbox = QGroupBox("Appearance")
-        appearance_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        appearance_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         appearance_layout = QFormLayout(appearance_groupbox)
         appearance_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -506,12 +442,8 @@ class SettingsWindow(QWidget):
 
         self.dark_theme_radio.setMinimumWidth(180)
         self.light_theme_radio.setMinimumWidth(180)
-        self.dark_theme_radio.setStyleSheet(
-            "QRadioButton { min-width: 180px; padding: 4px; }"
-        )
-        self.light_theme_radio.setStyleSheet(
-            "QRadioButton { min-width: 180px; padding: 4px; }"
-        )
+        self.dark_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
+        self.light_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
 
         # Set the radio button based on the loaded initial theme
         if self.initial_theme == "light":
@@ -528,9 +460,7 @@ class SettingsWindow(QWidget):
         dark_accent_row = QHBoxLayout()
         self.dark_accent_swatch = QPushButton()
         self.dark_accent_swatch.setFixedSize(180, 22)
-        self.dark_accent_swatch.setToolTip(
-            "Click to pick a custom accent colour for the dark theme"
-        )
+        self.dark_accent_swatch.setToolTip("Click to pick a custom accent colour for the dark theme")
         self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
         self.dark_accent_swatch.clicked.connect(lambda: self._pick_accent_color("dark"))
         dark_accent_reset = QPushButton("Reset")
@@ -545,13 +475,9 @@ class SettingsWindow(QWidget):
         light_accent_row = QHBoxLayout()
         self.light_accent_swatch = QPushButton()
         self.light_accent_swatch.setFixedSize(180, 22)
-        self.light_accent_swatch.setToolTip(
-            "Click to pick a custom accent colour for the light theme"
-        )
+        self.light_accent_swatch.setToolTip("Click to pick a custom accent colour for the light theme")
         self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
-        self.light_accent_swatch.clicked.connect(
-            lambda: self._pick_accent_color("light")
-        )
+        self.light_accent_swatch.clicked.connect(lambda: self._pick_accent_color("light"))
         light_accent_reset = QPushButton("Reset")
         light_accent_reset.setFixedWidth(100)
         light_accent_reset.clicked.connect(lambda: self._reset_accent("light"))
@@ -575,30 +501,45 @@ class SettingsWindow(QWidget):
         self.ui_density_combo = QComboBox()
         self.ui_density_combo.addItems(["Compact", "Comfortable", "Spacious"])
         self.ui_density_combo.setCurrentText(self.pref_ui_density)
-        self.ui_density_combo.setToolTip(
-            "Controls button padding and widget spacing throughout the app"
-        )
+        self.ui_density_combo.setToolTip("Controls button padding and widget spacing throughout the app")
         appearance_layout.addRow("UI Density:", self.ui_density_combo)
 
-        # Preview button — applies current accent + density live without saving
+        # Preview button and Zoom buttons row
         preview_row = QHBoxLayout()
         btn_preview_appearance = QPushButton("Preview")
         btn_preview_appearance.setFixedWidth(90)
-        btn_preview_appearance.setToolTip(
-            "Apply the current accent/density settings live (does not save)"
-        )
+        btn_preview_appearance.setToolTip("Apply the current accent/density settings live (does not save)")
         btn_preview_appearance.clicked.connect(self._preview_appearance)
         preview_row.addWidget(btn_preview_appearance)
         preview_row.addStretch()
         appearance_layout.addRow("", preview_row)
 
+        # App Zoom row
+        zoom_row = QHBoxLayout()
+        btn_zoom_out = QPushButton("Zoom −")
+        btn_zoom_out.setFixedWidth(80)
+        btn_zoom_out.setToolTip("Decrease the global app zoom by 10%  (Ctrl + Scroll Down)")
+        btn_zoom_out.clicked.connect(self._zoom_out)
+        btn_zoom_in = QPushButton("Zoom +")
+        btn_zoom_in.setFixedWidth(80)
+        btn_zoom_in.setToolTip("Increase the global app zoom by 10%  (Ctrl + Scroll Up)")
+        btn_zoom_in.clicked.connect(self._zoom_in)
+        self._zoom_label = QLabel(self._zoom_label_text())
+        self._zoom_label.setToolTip(
+            "Current extra zoom offset on top of Font Scale.\nDefault / Reset shortcut: set both buttons to 0."
+        )
+        zoom_row.addWidget(btn_zoom_out)
+        zoom_row.addWidget(btn_zoom_in)
+        zoom_row.addSpacing(8)
+        zoom_row.addWidget(self._zoom_label)
+        zoom_row.addStretch()
+        appearance_layout.addRow("App Zoom:", zoom_row)
+
         # ---------------------------------------------------------------------
         # --- Gallery and Display Section ---
         # ---------------------------------------------------------------------
         gallery_groupbox = QGroupBox("Gallery and Display")
-        gallery_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        gallery_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         gallery_layout = QFormLayout(gallery_groupbox)
         gallery_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -609,46 +550,32 @@ class SettingsWindow(QWidget):
         self.thumbnail_size_spinbox.setToolTip(
             "Default thumbnail pixel size used across all gallery tabs (restart required)"
         )
-        gallery_layout.addRow(
-            "Default Thumbnail Size (px):", self.thumbnail_size_spinbox
-        )
+        gallery_layout.addRow("Default Thumbnail Size (px):", self.thumbnail_size_spinbox)
 
         self.page_size_combo = QComboBox()
         self.page_size_combo.addItems(["50", "100", "150", "200", "300"])
         self.page_size_combo.setCurrentText(str(self.pref_page_size))
-        self.page_size_combo.setToolTip(
-            "Default number of images loaded per gallery page (restart required)"
-        )
+        self.page_size_combo.setToolTip("Default number of images loaded per gallery page (restart required)")
         gallery_layout.addRow("Default Gallery Page Size:", self.page_size_combo)
 
-        self.confirm_deletions_check = QCheckBox(
-            "Require confirmation before deleting files"
-        )
+        self.confirm_deletions_check = QCheckBox("Require confirmation before deleting files")
         self.confirm_deletions_check.setChecked(self.pref_confirm_deletions)
         gallery_layout.addRow(self.confirm_deletions_check)
 
-        self.send_to_trash_check = QCheckBox(
-            "Send deleted files to system trash instead of permanent removal"
-        )
+        self.send_to_trash_check = QCheckBox("Send deleted files to system trash instead of permanent removal")
         self.send_to_trash_check.setChecked(self.pref_send_to_trash)
         gallery_layout.addRow(self.send_to_trash_check)
 
-        self.recursive_scan_check = QCheckBox(
-            "Enable recursive directory scanning"
-        )
+        self.recursive_scan_check = QCheckBox("Enable recursive directory scanning")
         self.recursive_scan_check.setChecked(self.pref_recursive_scan)
-        self.recursive_scan_check.setToolTip(
-            "When enabled, directory searches will walk through all subdirectories"
-        )
+        self.recursive_scan_check.setToolTip("When enabled, directory searches will walk through all subdirectories")
         gallery_layout.addRow(self.recursive_scan_check)
 
         # ---------------------------------------------------------------------
         # --- Media Player and Extractor Section ---
         # ---------------------------------------------------------------------
         media_groupbox = QGroupBox("Media Player and Extractor")
-        media_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        media_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         media_layout = QFormLayout(media_groupbox)
         media_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -665,12 +592,8 @@ class SettingsWindow(QWidget):
         self.recent_extractions_spinbox = QSpinBox()
         self.recent_extractions_spinbox.setRange(1, 100)
         self.recent_extractions_spinbox.setValue(self.pref_recent_extractions_count)
-        self.recent_extractions_spinbox.setToolTip(
-            "Number of most recent extraction configurations/parameters to save"
-        )
-        media_layout.addRow(
-            "Recent Extractions Limit:", self.recent_extractions_spinbox
-        )
+        self.recent_extractions_spinbox.setToolTip("Number of most recent extraction configurations/parameters to save")
+        media_layout.addRow("Recent Extractions Limit:", self.recent_extractions_spinbox)
 
         self.enable_queue_check = QCheckBox("Enable Extraction Queue")
         self.enable_queue_check.setToolTip(
@@ -680,24 +603,18 @@ class SettingsWindow(QWidget):
         media_layout.addRow(self.enable_queue_check)
 
         self.extractor_time_format_combo = QComboBox()
-        self.extractor_time_format_combo.addItems(
-            ["h:m:s", "m:s:ms", "microseconds", "milliseconds"]
-        )
+        self.extractor_time_format_combo.addItems(["h:m:s", "m:s:ms", "microseconds", "milliseconds"])
         self.extractor_time_format_combo.setCurrentText(self.pref_extractor_time_format)
         self.extractor_time_format_combo.setToolTip(
             "Change how the video time in the extractor tab is displayed (e.g. h:m:s, m:s:ms, microseconds)"
         )
-        media_layout.addRow(
-            "Extractor Time Display Format:", self.extractor_time_format_combo
-        )
+        media_layout.addRow("Extractor Time Display Format:", self.extractor_time_format_combo)
 
         # ---------------------------------------------------------------------
         # --- Startup and Session Section ---
         # ---------------------------------------------------------------------
         session_groupbox = QGroupBox("Startup and Session")
-        session_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        session_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         session_layout = QFormLayout(session_groupbox)
         session_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -712,14 +629,10 @@ class SettingsWindow(QWidget):
         self.startup_category_combo.addItems(category_names)
         if self.pref_startup_category in category_names:
             self.startup_category_combo.setCurrentText(self.pref_startup_category)
-        self.startup_category_combo.setToolTip(
-            "Which tab group to show when the app launches"
-        )
+        self.startup_category_combo.setToolTip("Which tab group to show when the app launches")
         session_layout.addRow("Default Startup Category:", self.startup_category_combo)
 
-        self.restore_last_dir_check = QCheckBox(
-            "Restore last browsed directory on startup"
-        )
+        self.restore_last_dir_check = QCheckBox("Restore last browsed directory on startup")
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
         session_layout.addRow(self.restore_last_dir_check)
 
@@ -747,9 +660,7 @@ class SettingsWindow(QWidget):
         # --- Performance and Cache Section ---
         # ---------------------------------------------------------------------
         perf_groupbox = QGroupBox("Performance and Cache")
-        perf_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        perf_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         perf_layout = QFormLayout(perf_groupbox)
         perf_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -764,32 +675,22 @@ class SettingsWindow(QWidget):
         self.found_cache_spinbox.setRange(50, 2000)
         self.found_cache_spinbox.setSingleStep(50)
         self.found_cache_spinbox.setValue(self.pref_found_cache)
-        self.found_cache_spinbox.setToolTip(
-            "Max thumbnails held in the 'found' gallery LRU cache"
-        )
+        self.found_cache_spinbox.setToolTip("Max thumbnails held in the 'found' gallery LRU cache")
         perf_layout.addRow("Found Gallery LRU Cache Size:", self.found_cache_spinbox)
 
         self.selected_cache_spinbox = QSpinBox()
         self.selected_cache_spinbox.setRange(50, 1000)
         self.selected_cache_spinbox.setSingleStep(50)
         self.selected_cache_spinbox.setValue(self.pref_selected_cache)
-        self.selected_cache_spinbox.setToolTip(
-            "Max thumbnails held in the 'selected' gallery LRU cache"
-        )
-        perf_layout.addRow(
-            "Selected Gallery LRU Cache Size:", self.selected_cache_spinbox
-        )
+        self.selected_cache_spinbox.setToolTip("Max thumbnails held in the 'selected' gallery LRU cache")
+        perf_layout.addRow("Selected Gallery LRU Cache Size:", self.selected_cache_spinbox)
 
         self.initial_cache_spinbox = QSpinBox()
         self.initial_cache_spinbox.setRange(50, 2000)
         self.initial_cache_spinbox.setSingleStep(50)
         self.initial_cache_spinbox.setValue(self.pref_initial_cache)
-        self.initial_cache_spinbox.setToolTip(
-            "Max thumbnails held in the wallpaper/single-gallery LRU cache"
-        )
-        perf_layout.addRow(
-            "Wallpaper Gallery LRU Cache Size:", self.initial_cache_spinbox
-        )
+        self.initial_cache_spinbox.setToolTip("Max thumbnails held in the wallpaper/single-gallery LRU cache")
+        perf_layout.addRow("Wallpaper Gallery LRU Cache Size:", self.initial_cache_spinbox)
 
         self.clear_storyboard_cache_btn = QPushButton("Clear Storyboard Cache")
         self.clear_storyboard_cache_btn.setToolTip("Deletes the storyboard cache directory and all its contents.")
@@ -800,18 +701,14 @@ class SettingsWindow(QWidget):
         # --- MyAnimeList Auto-Fill Section ---
         # ---------------------------------------------------------------------
         mal_groupbox = QGroupBox("MyAnimeList Auto-Fill")
-        mal_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        mal_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         mal_layout = QFormLayout(mal_groupbox)
         mal_layout.setContentsMargins(10, 10, 10, 10)
 
         self.mal_fetch_method_combo = QComboBox()
         for _key, _label in MAL_FETCH_METHODS:
             self.mal_fetch_method_combo.addItem(_label, _key)
-        _current_mal_index = self.mal_fetch_method_combo.findData(
-            self.pref_mal_fetch_method
-        )
+        _current_mal_index = self.mal_fetch_method_combo.findData(self.pref_mal_fetch_method)
         self.mal_fetch_method_combo.setCurrentIndex(max(_current_mal_index, 0))
         self.mal_fetch_method_combo.setToolTip(
             "How 'Auto-Fill from MAL' in the Listings tab fetches anime data.\n"
@@ -829,9 +726,7 @@ class SettingsWindow(QWidget):
         # --- Slideshow Defaults Section ---
         # ---------------------------------------------------------------------
         slideshow_groupbox = QGroupBox("Slideshow Defaults")
-        slideshow_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        slideshow_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         slideshow_def_layout = QFormLayout(slideshow_groupbox)
         slideshow_def_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -854,57 +749,39 @@ class SettingsWindow(QWidget):
         slideshow_def_layout.addRow("Default Interval:", interval_widget)
 
         self.slideshow_default_order_combo = QComboBox()
-        self.slideshow_default_order_combo.addItems(
-            ["Sequential", "Reverse Sequential", "Random"]
-        )
+        self.slideshow_default_order_combo.addItems(["Sequential", "Reverse Sequential", "Random"])
         self.slideshow_default_order_combo.setCurrentText(self.pref_slideshow_order)
-        slideshow_def_layout.addRow(
-            "Default Playback Order:", self.slideshow_default_order_combo
-        )
+        slideshow_def_layout.addRow("Default Playback Order:", self.slideshow_default_order_combo)
 
         # ---------------------------------------------------------------------
         # --- Logging Section ---
         # ---------------------------------------------------------------------
         logging_groupbox = QGroupBox("Logging")
-        logging_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        logging_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         logging_layout = QFormLayout(logging_groupbox)
         logging_layout.setContentsMargins(10, 10, 10, 10)
 
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
         self.log_level_combo.setCurrentText(self.pref_log_level)
-        self.log_level_combo.setToolTip(
-            "Minimum severity level to write to the log (DEBUG = most verbose)"
-        )
+        self.log_level_combo.setToolTip("Minimum severity level to write to the log (DEBUG = most verbose)")
         logging_layout.addRow("Log Level:", self.log_level_combo)
 
-        self.file_logging_check = QCheckBox(
-            "Save logs to ~/.image-toolkit/logs/ (rotating, 5 × 1 MB)"
-        )
+        self.file_logging_check = QCheckBox("Save logs to ~/.image-toolkit/logs/ (rotating, 5 × 1 MB)")
         self.file_logging_check.setChecked(self.pref_file_logging)
         logging_layout.addRow(self.file_logging_check)
 
-        log_dir_label = QLabel(
-            f"<small>Log directory: {IMAGE_TOOLKIT_DIR / 'logs'}</small>"
-        )
-        log_dir_label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
+        log_dir_label = QLabel(f"<small>Log directory: {IMAGE_TOOLKIT_DIR / 'logs'}</small>")
+        log_dir_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         logging_layout.addRow(log_dir_label)
 
         log_buttons_layout = QHBoxLayout()
         self.btn_view_logs = QPushButton("View App Logs")
-        self.btn_view_logs.setToolTip(
-            "Open the active application log file in the default system viewer."
-        )
+        self.btn_view_logs.setToolTip("Open the active application log file in the default system viewer.")
         self.btn_view_logs.clicked.connect(self._view_app_logs)
 
         self.btn_view_daemon_logs = QPushButton("View Daemon Logs")
-        self.btn_view_daemon_logs.setToolTip(
-            "Open the slideshow daemon log file in the default system viewer."
-        )
+        self.btn_view_daemon_logs.setToolTip("Open the slideshow daemon log file in the default system viewer.")
         self.btn_view_daemon_logs.clicked.connect(self._view_daemon_logs)
 
         log_buttons_layout.addWidget(self.btn_view_logs)
@@ -915,31 +792,22 @@ class SettingsWindow(QWidget):
         # --- Reset State Section ---
         # ---------------------------------------------------------------------
         reset_groupbox = QGroupBox("Reset State")
-        reset_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
+        reset_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         reset_state_layout = QVBoxLayout(reset_groupbox)
         reset_state_layout.setContentsMargins(10, 10, 10, 10)
         reset_state_layout.setSpacing(8)
 
-        reset_state_layout.addWidget(
-            QLabel("<b>Warning:</b> these actions are immediate and cannot be undone.")
-        )
+        reset_state_layout.addWidget(QLabel("<b>Warning:</b> these actions are immediate and cannot be undone."))
 
         # Row 1: thumbnail cache
         cache_row = QHBoxLayout()
-        cache_info = QLabel(
-            f"<small>Disk thumbnail cache: <code>{THUMBNAIL_CACHE_DIR}</code></small>"
-        )
+        cache_info = QLabel(f"<small>Disk thumbnail cache: <code>{THUMBNAIL_CACHE_DIR}</code></small>")
         cache_info.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.btn_clear_cache = QPushButton("Clear Thumbnail Cache")
         self.btn_clear_cache.setToolTip(
-            "Delete all cached thumbnail files from disk. "
-            "They will be regenerated on next gallery load."
+            "Delete all cached thumbnail files from disk. They will be regenerated on next gallery load."
         )
-        self.btn_clear_cache.setStyleSheet(
-            "background-color: #e67e22; color: white; font-weight: bold;"
-        )
+        self.btn_clear_cache.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold;")
         self.btn_clear_cache.clicked.connect(self._clear_thumbnail_cache)
         cache_row.addWidget(cache_info, 1)
         cache_row.addWidget(self.btn_clear_cache)
@@ -948,17 +816,12 @@ class SettingsWindow(QWidget):
         # Row 2: slideshow daemon reset
         daemon_row = QHBoxLayout()
         daemon_info = QLabel(
-            "<small>Stops the daemon, removes its PID file, "
-            "and deletes the slideshow config JSON file.</small>"
+            "<small>Stops the daemon, removes its PID file, and deletes the slideshow config JSON file.</small>"
         )
         daemon_info.setWordWrap(True)
         self.btn_reset_daemon = QPushButton("Reset Slideshow Daemon")
-        self.btn_reset_daemon.setToolTip(
-            "Delete the daemon PID file and remove the slideshow config JSON file."
-        )
-        self.btn_reset_daemon.setStyleSheet(
-            "background-color: #e67e22; color: white; font-weight: bold;"
-        )
+        self.btn_reset_daemon.setToolTip("Delete the daemon PID file and remove the slideshow config JSON file.")
+        self.btn_reset_daemon.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold;")
         self.btn_reset_daemon.clicked.connect(self._reset_slideshow_daemon)
         daemon_row.addWidget(daemon_info, 1)
         daemon_row.addWidget(self.btn_reset_daemon)
@@ -974,9 +837,7 @@ class SettingsWindow(QWidget):
         self.btn_reset_history.setToolTip(
             "Deletes the .extraction_history.json file on disk and resets the dropdown selection list."
         )
-        self.btn_reset_history.setStyleSheet(
-            "background-color: #e67e22; color: white; font-weight: bold;"
-        )
+        self.btn_reset_history.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold;")
         self.btn_reset_history.clicked.connect(self._reset_extraction_history)
         history_row.addWidget(history_info, 1)
         history_row.addWidget(self.btn_reset_history)
@@ -989,12 +850,8 @@ class SettingsWindow(QWidget):
         )
         logs_info.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.btn_clear_logs = QPushButton("Clear All Logs")
-        self.btn_clear_logs.setToolTip(
-            "Delete all application and daemon log files from disk."
-        )
-        self.btn_clear_logs.setStyleSheet(
-            "background-color: #e67e22; color: white; font-weight: bold;"
-        )
+        self.btn_clear_logs.setToolTip("Delete all application and daemon log files from disk.")
+        self.btn_clear_logs.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold;")
         self.btn_clear_logs.clicked.connect(self._clear_application_logs)
         logs_row.addWidget(logs_info, 1)
         logs_row.addWidget(self.btn_clear_logs)
@@ -1009,12 +866,9 @@ class SettingsWindow(QWidget):
         tab_cfg_info.setWordWrap(True)
         self.btn_clear_tab_configs = QPushButton("Clear Tab Configs and Profiles")
         self.btn_clear_tab_configs.setToolTip(
-            "Wipe tab_configurations, active_tab_configs, and "
-            "system_preference_profiles from the vault."
+            "Wipe tab_configurations, active_tab_configs, and system_preference_profiles from the vault."
         )
-        self.btn_clear_tab_configs.setStyleSheet(
-            "background-color: #c0392b; color: white; font-weight: bold;"
-        )
+        self.btn_clear_tab_configs.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
         self.btn_clear_tab_configs.clicked.connect(self._clear_tab_configs)
         tab_cfg_row.addWidget(tab_cfg_info, 1)
         tab_cfg_row.addWidget(self.btn_clear_tab_configs)
@@ -1022,9 +876,7 @@ class SettingsWindow(QWidget):
 
         # --- Credentials Management Section ---
         credentials_groupbox = QGroupBox("Manage Loaded Credentials")
-        credentials_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
-        )
+        credentials_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         credentials_layout = QVBoxLayout(credentials_groupbox)
         credentials_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -1045,39 +897,23 @@ class SettingsWindow(QWidget):
 
         creds_btn_layout = QHBoxLayout()
         self.btn_export_creds = QPushButton("Export to Backup 📤")
-        self.btn_export_creds.setToolTip(
-            "Export unencrypted versions of loaded credentials to the backup directory."
-        )
-        self.btn_export_creds.setStyleSheet(
-            "background-color: #27ae60; color: white; font-weight: bold;"
-        )
+        self.btn_export_creds.setToolTip("Export unencrypted versions of loaded credentials to the backup directory.")
+        self.btn_export_creds.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;")
         self.btn_export_creds.clicked.connect(self._export_credentials_to_backup)
 
         self.btn_import_cred = QPushButton("Import Credential 📥")
-        self.btn_import_cred.setToolTip(
-            "Select a new JSON credential file to encrypt and load into the vault."
-        )
-        self.btn_import_cred.setStyleSheet(
-            "background-color: #2980b9; color: white; font-weight: bold;"
-        )
+        self.btn_import_cred.setToolTip("Select a new JSON credential file to encrypt and load into the vault.")
+        self.btn_import_cred.setStyleSheet("background-color: #2980b9; color: white; font-weight: bold;")
         self.btn_import_cred.clicked.connect(self._import_credential)
 
         self.btn_edit_cred = QPushButton("Edit Credential ✏️")
-        self.btn_edit_cred.setToolTip(
-            "View and edit the JSON values of the selected credential."
-        )
-        self.btn_edit_cred.setStyleSheet(
-            "background-color: #f39c12; color: white; font-weight: bold;"
-        )
+        self.btn_edit_cred.setToolTip("View and edit the JSON values of the selected credential.")
+        self.btn_edit_cred.setStyleSheet("background-color: #f39c12; color: white; font-weight: bold;")
         self.btn_edit_cred.clicked.connect(self._edit_credential)
 
         self.btn_delete_cred = QPushButton("Delete Credential ❌")
-        self.btn_delete_cred.setToolTip(
-            "Delete the selected credential from the vault and disk."
-        )
-        self.btn_delete_cred.setStyleSheet(
-            "background-color: #c0392b; color: white; font-weight: bold;"
-        )
+        self.btn_delete_cred.setToolTip("Delete the selected credential from the vault and disk.")
+        self.btn_delete_cred.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
         self.btn_delete_cred.clicked.connect(self._delete_credential)
 
         creds_btn_layout.addWidget(self.btn_export_creds)
@@ -1088,9 +924,7 @@ class SettingsWindow(QWidget):
 
         # --- Favourite Directories Section ---
         fav_dir_groupbox = QGroupBox("Favourite Directories")
-        fav_dir_groupbox.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
-        )
+        fav_dir_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         fav_dir_layout = QVBoxLayout(fav_dir_groupbox)
         fav_dir_layout.setContentsMargins(10, 10, 10, 10)
         fav_dir_layout.setSpacing(8)
@@ -1116,16 +950,12 @@ class SettingsWindow(QWidget):
 
         self.btn_add_fav_browse = QPushButton("Browse to Add 📁")
         self.btn_add_fav_browse.setToolTip("Browse the filesystem to select a directory to add to favourites.")
-        self.btn_add_fav_browse.setStyleSheet(
-            "background-color: #2980b9; color: white; font-weight: bold;"
-        )
+        self.btn_add_fav_browse.setStyleSheet("background-color: #2980b9; color: white; font-weight: bold;")
         self.btn_add_fav_browse.clicked.connect(self._browse_add_favourite)
 
         self.btn_remove_fav = QPushButton("Remove Selected ❌")
         self.btn_remove_fav.setToolTip("Remove the selected directory from your favourites list.")
-        self.btn_remove_fav.setStyleSheet(
-            "background-color: #c0392b; color: white; font-weight: bold;"
-        )
+        self.btn_remove_fav.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
         self.btn_remove_fav.clicked.connect(self._remove_selected_favourite)
 
         fav_buttons_layout.addWidget(self.btn_add_fav_browse)
@@ -1139,9 +969,7 @@ class SettingsWindow(QWidget):
         self.fav_path_input.setPlaceholderText("Or paste/type absolute folder path here...")
 
         self.btn_add_fav_path = QPushButton("Add Path ➕")
-        self.btn_add_fav_path.setStyleSheet(
-            "background-color: #27ae60; color: white; font-weight: bold;"
-        )
+        self.btn_add_fav_path.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;")
         self.btn_add_fav_path.clicked.connect(self._add_manual_favourite)
 
         fav_manual_layout.addWidget(self.fav_path_input, 1)
@@ -1170,9 +998,7 @@ class SettingsWindow(QWidget):
         def create_tab_scroll_area():
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
-            scroll.setStyleSheet(
-                "QScrollArea { border: none; background: transparent; }"
-            )
+            scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
             container = QWidget()
             layout = QVBoxLayout(container)
             layout.setContentsMargins(15, 15, 15, 15)
@@ -1292,9 +1118,7 @@ class SettingsWindow(QWidget):
 
         # --- Action Buttons at the bottom (Full Width) ---
         actions_widget = QWidget()
-        actions_widget.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        actions_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         actions_layout = QHBoxLayout(actions_widget)
         actions_layout.setContentsMargins(20, 10, 20, 20)
@@ -1304,39 +1128,27 @@ class SettingsWindow(QWidget):
         self.reset_button = QPushButton("Reset to default")
         self.reset_button.setObjectName("reset_button")
         self.reset_button.clicked.connect(self.reset_settings)
-        self.reset_button.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.reset_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         # 1.5. Reload Button (New) 🆕
         self.reload_button = QPushButton("Reload settings")
         self.reload_button.setObjectName("reload_button")
-        self.reload_button.setStyleSheet(
-            "background-color: #34495e; color: white; font-weight: bold;"
-        )
+        self.reload_button.setStyleSheet("background-color: #34495e; color: white; font-weight: bold;")
         self.reload_button.clicked.connect(self.reload_settings)
-        self.reload_button.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.reload_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         # 2. Refresh Button (New) 🆕
         self.refresh_button = QPushButton("Refresh Application (Relaunch) 🔄")
         self.refresh_button.setObjectName("refresh_button")
-        self.refresh_button.setStyleSheet(
-            "background-color: #f1c40f; color: black; font-weight: bold;"
-        )
+        self.refresh_button.setStyleSheet("background-color: #f1c40f; color: black; font-weight: bold;")
         self.refresh_button.clicked.connect(self._refresh_application)
-        self.refresh_button.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.refresh_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         # 3. Update Button
         self.update_button = QPushButton("Update settings")
         self.update_button.setObjectName("update_button")
         self.update_button.clicked.connect(self.confirm_update_settings)
-        self.update_button.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.update_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.update_button.setDefault(True)
 
         actions_layout.addWidget(self.reset_button)
@@ -1376,15 +1188,14 @@ class SettingsWindow(QWidget):
             "accent_color_light": self.pref_accent_light,
             "font_scale": self.font_scale_spinbox.value(),
             "ui_density": self.ui_density_combo.currentText(),
+            "app_zoom": self.pref_app_zoom,
         }
 
         # §4.12 — bundle current window geometry and splitter states
         if self.main_window_ref:
             try:
                 geom_bytes = self.main_window_ref.saveGeometry()
-                profile_data["layout_geometry"] = base64.b64encode(
-                    bytes(geom_bytes)
-                ).decode("ascii")
+                profile_data["layout_geometry"] = base64.b64encode(bytes(geom_bytes)).decode("ascii")
             except Exception:
                 pass
 
@@ -1414,7 +1225,7 @@ class SettingsWindow(QWidget):
             self.system_profiles[name] = profile_data
 
             # 2. Update vault
-            creds = self.vault_manager.load_account_credentials() # pyrefly: ignore [missing-attribute]
+            creds = self.vault_manager.load_account_credentials()  # pyrefly: ignore [missing-attribute]
             creds["system_preference_profiles"] = self.system_profiles
             if self._save_vault_data(creds):
                 QMessageBox.information(self, "Success", f"Profile '{name}' saved.")
@@ -1448,12 +1259,10 @@ class SettingsWindow(QWidget):
             self.system_profiles[name] = profile_data
 
             # 2. Update vault
-            creds = self.vault_manager.load_account_credentials() # pyrefly: ignore [missing-attribute]
+            creds = self.vault_manager.load_account_credentials()  # pyrefly: ignore [missing-attribute]
             creds["system_preference_profiles"] = self.system_profiles
             if self._save_vault_data(creds):
-                QMessageBox.information(
-                    self, "Success", f"Profile '{name}' updated successfully."
-                )
+                QMessageBox.information(self, "Success", f"Profile '{name}' updated successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Update Error", f"Failed to update profile: {e}")
 
@@ -1468,9 +1277,7 @@ class SettingsWindow(QWidget):
                 self.system_profiles = creds.get("system_preference_profiles", {})
                 self.preferences = creds.get("preferences", {})
             except Exception as e:
-                QMessageBox.critical(
-                    self, "Error", f"Failed to load credentials from vault:\n{e}"
-                )
+                QMessageBox.critical(self, "Error", f"Failed to load credentials from vault:\n{e}")
                 return
 
         # Unpack preference values with defaults
@@ -1500,10 +1307,12 @@ class SettingsWindow(QWidget):
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_recursive_scan = _p.get("recursive_scan", True)
+        self.pref_app_zoom = _p.get("app_zoom", 0)
         self.pref_mal_fetch_method = AppSettings.mal_fetch_method()
         seen_dirs = set()
         self.pref_favourite_directories = [
-            x for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
+            x
+            for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
             if not (x in seen_dirs or seen_dirs.add(x))
         ]
 
@@ -1547,10 +1356,7 @@ class SettingsWindow(QWidget):
         self.recursive_scan_check.setChecked(self.pref_recursive_scan)
 
         # Repopulate Startup and Session
-        items = [
-            self.startup_category_combo.itemText(i)
-            for i in range(self.startup_category_combo.count())
-        ]
+        items = [self.startup_category_combo.itemText(i) for i in range(self.startup_category_combo.count())]
         if self.pref_startup_category in items:
             self.startup_category_combo.setCurrentText(self.pref_startup_category)
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
@@ -1585,6 +1391,7 @@ class SettingsWindow(QWidget):
         self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
         self.font_scale_spinbox.setValue(self.pref_font_scale)
         self.ui_density_combo.setCurrentText(self.pref_ui_density)
+        self._zoom_label.setText(self._zoom_label_text())
 
         # Repopulate Favourite Directories list
         self.fav_list_widget.clear()
@@ -1605,9 +1412,7 @@ class SettingsWindow(QWidget):
         self._refresh_credentials_list()
 
         if show_msg:
-            QMessageBox.information(
-                self, "Settings Reloaded", "Settings reloaded from the vault successfully."
-            )
+            QMessageBox.information(self, "Settings Reloaded", "Settings reloaded from the vault successfully.")
 
     def _apply_appearance_from_profile(self, profile_data: dict) -> None:
         """§4.13 — Push appearance keys from a profile dict into the UI widgets."""
@@ -1737,17 +1542,13 @@ class SettingsWindow(QWidget):
                 del self.system_profiles[name]
 
                 # Update vault
-                creds = self.vault_manager.load_account_credentials() # pyrefly: ignore [missing-attribute]
+                creds = self.vault_manager.load_account_credentials()  # pyrefly: ignore [missing-attribute]
                 creds["system_preference_profiles"] = self.system_profiles
                 if self._save_vault_data(creds):
-                    QMessageBox.information(
-                        self, "Success", f"Profile '{name}' deleted."
-                    )
+                    QMessageBox.information(self, "Success", f"Profile '{name}' deleted.")
                     self._refresh_profile_combo()
             except Exception as e:
-                QMessageBox.critical(
-                    self, "Delete Error", f"Failed to delete profile: {e}"
-                )
+                QMessageBox.critical(self, "Delete Error", f"Failed to delete profile: {e}")
 
     # ---------------------------------------------------------------------
     # --- Configuration Management Methods ---
@@ -1798,9 +1599,7 @@ class SettingsWindow(QWidget):
 
     def _on_tab_group_changed(self, group_name: str):
         with contextlib.suppress(RuntimeError):
-            self.tab_select_combo.currentTextChanged.disconnect(
-                self._refresh_config_dropdown
-            )
+            self.tab_select_combo.currentTextChanged.disconnect(self._refresh_config_dropdown)
 
         self.tab_select_combo.clear()
 
@@ -1828,26 +1627,20 @@ class SettingsWindow(QWidget):
     def _save_vault_data(self, data: dict):
         """Helper function to save the full user data dictionary back to the vault."""
         if not self.vault_manager:
-            QMessageBox.critical(
-                self, "Save Error", "Vault manager is not available to save settings."
-            )
+            QMessageBox.critical(self, "Save Error", "Vault manager is not available to save settings.")
             return False
 
         try:
             self.vault_manager.save_data(json.dumps(data))
             return True
         except Exception as e:
-            QMessageBox.critical(
-                self, "Save Error", f"Failed to save data to vault:\n{e}"
-            )
+            QMessageBox.critical(self, "Save Error", f"Failed to save data to vault:\n{e}")
             return False
 
     def _save_tab_defaults_to_vault(self):
         """Saves the entire current tab configuration state back to the secure vault."""
         if not self.vault_manager:
-            QMessageBox.critical(
-                self, "Save Error", "Vault manager is not available to save settings."
-            )
+            QMessageBox.critical(self, "Save Error", "Vault manager is not available to save settings.")
             return False
 
         try:
@@ -1855,9 +1648,7 @@ class SettingsWindow(QWidget):
             user_data["tab_configurations"] = self.tab_defaults_config
             return self._save_vault_data(user_data)
         except Exception as e:
-            QMessageBox.critical(
-                self, "Save Error", f"Failed to prepare data for saving:\n{e}"
-            )
+            QMessageBox.critical(self, "Save Error", f"Failed to prepare data for saving:\n{e}")
             return False
 
     def _populate_default_config(self, tab_display_name: str):
@@ -1875,14 +1666,10 @@ class SettingsWindow(QWidget):
                 )
             except Exception as e:
                 self.default_config_editor.clear()
-                self.default_config_editor.setPlaceholderText(
-                    f"Error loading default config: {e}"
-                )
+                self.default_config_editor.setPlaceholderText(f"Error loading default config: {e}")
         else:
             self.default_config_editor.clear()
-            self.default_config_editor.setPlaceholderText(
-                "This tab does not have a 'get_default_config' method."
-            )
+            self.default_config_editor.setPlaceholderText("This tab does not have a 'get_default_config' method.")
 
     def _refresh_config_dropdown(self, tab_display_name: str):
         """
@@ -1891,9 +1678,7 @@ class SettingsWindow(QWidget):
         """
 
         with contextlib.suppress(RuntimeError):
-            self.config_select_combo.currentTextChanged.disconnect(
-                self._load_selected_tab_config
-            )
+            self.config_select_combo.currentTextChanged.disconnect(self._load_selected_tab_config)
 
         self.config_select_combo.clear()
         self.current_loaded_config_name = None
@@ -1902,9 +1687,7 @@ class SettingsWindow(QWidget):
             self.config_select_combo.setPlaceholderText("Select a Tab first.")
             self.config_name_input.clear()
             self.default_config_editor.clear()
-            self.default_config_editor.setPlaceholderText(
-                "Select a Tab to see its default configuration..."
-            )
+            self.default_config_editor.setPlaceholderText("Select a Tab to see its default configuration...")
         else:
             # Get class name for config lookup
             instance = self._get_tab_instance_by_display_name(tab_display_name)
@@ -1921,9 +1704,7 @@ class SettingsWindow(QWidget):
             self.config_select_combo.setPlaceholderText("Load/Edit Existing Config...")
 
         # Reconnect the signal
-        self.config_select_combo.currentTextChanged.connect(
-            self._load_selected_tab_config
-        )
+        self.config_select_combo.currentTextChanged.connect(self._load_selected_tab_config)
 
     def _load_selected_tab_config(self, config_name: str):
         """
@@ -1957,9 +1738,7 @@ class SettingsWindow(QWidget):
             self.config_name_input.setText(config_name)
             self.current_loaded_config_name = config_name
         except Exception as e:
-            QMessageBox.critical(
-                self, "Load Error", f"Failed to load config '{config_name}': {e}"
-            )
+            QMessageBox.critical(self, "Load Error", f"Failed to load config '{config_name}': {e}")
             # On error, fall back to default
             self._populate_default_config(tab_display_name)
             self.current_loaded_config_name = None
@@ -1982,9 +1761,7 @@ class SettingsWindow(QWidget):
         tab_class_name = type(instance).__name__ if instance else ""
 
         if not json_text:
-            QMessageBox.warning(
-                self, "Input Error", "Configuration JSON cannot be empty."
-            )
+            QMessageBox.warning(self, "Input Error", "Configuration JSON cannot be empty.")
             return
 
         try:
@@ -2010,9 +1787,7 @@ class SettingsWindow(QWidget):
         except json.JSONDecodeError as e:
             QMessageBox.critical(self, "JSON Error", f"Invalid JSON format:\n{e}")
         except Exception as e:
-            QMessageBox.critical(
-                self, "Error", f"An unexpected error occurred during save: {e}"
-            )
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred during save: {e}")
 
     def _export_selected_tab_config(self):
         """Exports the configuration currently in the editor to a .json file.
@@ -2026,32 +1801,24 @@ class SettingsWindow(QWidget):
             return
 
         config_name = (
-            self.config_name_input.text().strip()
-            or self.config_select_combo.currentText().strip()
-            or "unnamed"
+            self.config_name_input.text().strip() or self.config_select_combo.currentText().strip() or "unnamed"
         )
         json_text = self.default_config_editor.toPlainText().strip()
         if not json_text:
-            QMessageBox.warning(
-                self, "Export Error", "There is no configuration JSON to export."
-            )
+            QMessageBox.warning(self, "Export Error", "There is no configuration JSON to export.")
             return
         try:
             config = json.loads(json_text)
             if not isinstance(config, dict):
                 raise ValueError("Configuration must be a JSON object.")
         except (json.JSONDecodeError, ValueError) as e:
-            QMessageBox.critical(
-                self, "Export Error", f"The editor does not contain valid JSON:\n{e}"
-            )
+            QMessageBox.critical(self, "Export Error", f"The editor does not contain valid JSON:\n{e}")
             return
 
         instance = self._get_tab_instance_by_display_name(tab_display_name)
         tab_class_name = type(instance).__name__ if instance else tab_display_name
 
-        safe_name = "".join(
-            c if c.isalnum() or c in "-_" else "_" for c in config_name
-        )
+        safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in config_name)
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export Tab Configuration",
@@ -2079,9 +1846,7 @@ class SettingsWindow(QWidget):
                 f"Configuration '{config_name}' for {tab_display_name} exported to:\n{file_path}",
             )
         except OSError as e:
-            QMessageBox.critical(
-                self, "Export Failed", f"Failed to write the file:\n{e}"
-            )
+            QMessageBox.critical(self, "Export Failed", f"Failed to write the file:\n{e}")
 
     def _import_tab_config_from_json(self):
         """Imports a configuration from a .json file and saves it to the vault.
@@ -2090,9 +1855,7 @@ class SettingsWindow(QWidget):
         class and config name) and a plain config object (routed to the
         currently selected tab, named after the file).
         """
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Import Tab Configuration", str(Path.home()), "JSON (*.json)"
-        )
+        file_path, _ = QFileDialog.getOpenFileName(self, "Import Tab Configuration", str(Path.home()), "JSON (*.json)")
         if not file_path:
             return
 
@@ -2102,9 +1865,7 @@ class SettingsWindow(QWidget):
             if not isinstance(data, dict):
                 raise ValueError("The file must contain a JSON object.")
         except (OSError, json.JSONDecodeError, ValueError) as e:
-            QMessageBox.critical(
-                self, "Import Error", f"Failed to read or parse the JSON file:\n{e}"
-            )
+            QMessageBox.critical(self, "Import Error", f"Failed to read or parse the JSON file:\n{e}")
             return
 
         if "image_toolkit_tab_config" in data:
@@ -2133,8 +1894,7 @@ class SettingsWindow(QWidget):
                 QMessageBox.warning(
                     self,
                     "Import Error",
-                    "This file is a plain configuration object. Select the "
-                    "target Tab first, then import again.",
+                    "This file is a plain configuration object. Select the target Tab first, then import again.",
                 )
                 return
             instance = self._get_tab_instance_by_display_name(tab_display_name)
@@ -2148,8 +1908,7 @@ class SettingsWindow(QWidget):
             reply = QMessageBox.question(
                 self,
                 "Overwrite Config?",
-                f"A configuration named '{config_name}' already exists for "
-                f"{tab_class_name}. Overwrite it?",
+                f"A configuration named '{config_name}' already exists for {tab_class_name}. Overwrite it?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -2183,9 +1942,7 @@ class SettingsWindow(QWidget):
 
         tab_instance = self._get_tab_instance_by_display_name(tab_display_name)
         if not tab_instance:
-            QMessageBox.warning(
-                self, "Error", "Could not find active tab instance to capture from."
-            )
+            QMessageBox.warning(self, "Error", "Could not find active tab instance to capture from.")
             return
 
         if not hasattr(tab_instance, "collect"):
@@ -2209,9 +1966,7 @@ class SettingsWindow(QWidget):
             self._save_current_tab_config()
 
         except Exception as e:
-            QMessageBox.critical(
-                self, "Capture Error", f"Failed to capture configuration: {e}"
-            )
+            QMessageBox.critical(self, "Capture Error", f"Failed to capture configuration: {e}")
 
     def _delete_selected_tab_config(self):
         """Deletes the currently selected configuration from the in-memory state and the vault."""
@@ -2249,17 +2004,13 @@ class SettingsWindow(QWidget):
                         del self.tab_defaults_config[tab_class_name]
 
                     if self._save_tab_defaults_to_vault():
-                        QMessageBox.information(
-                            self, "Success", f"Configuration '{config_name}' deleted."
-                        )
+                        QMessageBox.information(self, "Success", f"Configuration '{config_name}' deleted.")
                         self.config_name_input.clear()
                         self.default_config_editor.clear()
                         self._refresh_config_dropdown(tab_display_name)
 
             except Exception as e:
-                QMessageBox.critical(
-                    self, "Delete Error", f"Failed to delete configuration: {e}"
-                )
+                QMessageBox.critical(self, "Delete Error", f"Failed to delete configuration: {e}")
 
     def _set_selected_tab_config(self):
         """
@@ -2281,9 +2032,7 @@ class SettingsWindow(QWidget):
         try:
             config_data = json.loads(json_text)
 
-            target_tab_instance = self._get_tab_instance_by_display_name(
-                tab_display_name
-            )
+            target_tab_instance = self._get_tab_instance_by_display_name(tab_display_name)
 
             if not target_tab_instance:
                 QMessageBox.critical(
@@ -2295,14 +2044,10 @@ class SettingsWindow(QWidget):
 
             tab_class_name = type(target_tab_instance).__name__
 
-            if hasattr(target_tab_instance, "set_config") and callable(
-                target_tab_instance.set_config
-            ):
+            if hasattr(target_tab_instance, "set_config") and callable(target_tab_instance.set_config):
                 target_tab_instance.set_config(config_data)
 
-                config_display_name = (
-                    f"'{config_name}'" if config_name else "'(Default)'"
-                )
+                config_display_name = f"'{config_name}'" if config_name else "'(Default)'"
                 QMessageBox.information(
                     self,
                     "Success",
@@ -2343,9 +2088,7 @@ class SettingsWindow(QWidget):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            if self.main_window_ref and hasattr(
-                self.main_window_ref, "restart_application"
-            ):
+            if self.main_window_ref and hasattr(self.main_window_ref, "restart_application"):
                 # Assuming restart_application handles closing the current instance and starting a new one
                 self.main_window_ref.restart_application()
             else:
@@ -2377,17 +2120,13 @@ class SettingsWindow(QWidget):
         selected_theme = "dark" if self.dark_theme_radio.isChecked() else "light"
 
         if not self.vault_manager:
-            QMessageBox.critical(
-                self, "Update Failed", "Vault manager is not available."
-            )
+            QMessageBox.critical(self, "Update Failed", "Vault manager is not available.")
             return
 
         # --- Handle Password Change (Master Reset) ---
         if new_password:
             try:
-                self.vault_manager.update_account_password(
-                    self.current_account_name, new_password
-                )
+                self.vault_manager.update_account_password(self.current_account_name, new_password)
 
                 if self.main_window_ref:
                     self.main_window_ref.update_header()
@@ -2399,9 +2138,7 @@ class SettingsWindow(QWidget):
                 )
 
             except Exception as e:
-                QMessageBox.critical(
-                    self, "Update Failed", f"Failed to update master password:\n{e}"
-                )
+                QMessageBox.critical(self, "Update Failed", f"Failed to update master password:\n{e}")
                 return
 
         # --- Handle Theme Change and Preferences ---
@@ -2446,16 +2183,17 @@ class SettingsWindow(QWidget):
                 "accent_color_light": self.pref_accent_light,
                 "font_scale": self.font_scale_spinbox.value(),
                 "ui_density": self.ui_density_combo.currentText(),
-                "favourite_directories": [self.fav_list_widget.item(i).text() for i in range(self.fav_list_widget.count())],
+                "app_zoom": self.pref_app_zoom,
+                "favourite_directories": [
+                    self.fav_list_widget.item(i).text() for i in range(self.fav_list_widget.count())
+                ],
             }
 
             if self._save_vault_data(user_data):
                 # Also save to QSettings
                 AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
-                AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"]) # pyrefly: ignore [bad-argument-type]
-                AppSettings.set_mal_fetch_method(
-                    self.mal_fetch_method_combo.currentData()
-                )
+                AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
+                AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
                 if self.main_window_ref:
                     self.main_window_ref.cached_creds = user_data
                     if selected_theme:
@@ -2464,14 +2202,10 @@ class SettingsWindow(QWidget):
                         self.main_window_ref._apply_startup_preferences()
                     if hasattr(self.main_window_ref, "_apply_active_tab_configs"):
                         self.main_window_ref._apply_active_tab_configs()
-                    QMessageBox.information(
-                        self, "Success", "Settings updated and saved successfully."
-                    )
+                    QMessageBox.information(self, "Success", "Settings updated and saved successfully.")
 
         except Exception as e:
-            QMessageBox.critical(
-                self, "Update Failed", f"Failed to save preferences to vault:\n{e}"
-            )
+            QMessageBox.critical(self, "Update Failed", f"Failed to save preferences to vault:\n{e}")
             return
 
         self.close()
@@ -2495,10 +2229,7 @@ class SettingsWindow(QWidget):
         self.recursive_scan_check.setChecked(True)
 
         # Reset Startup and Session
-        items = [
-            self.startup_category_combo.itemText(i)
-            for i in range(self.startup_category_combo.count())
-        ]
+        items = [self.startup_category_combo.itemText(i) for i in range(self.startup_category_combo.count())]
         if "System Tools" in items:
             self.startup_category_combo.setCurrentText("System Tools")
         self.restore_last_dir_check.setChecked(True)
@@ -2535,6 +2266,8 @@ class SettingsWindow(QWidget):
         self._update_swatch(self.light_accent_swatch, "#007AFF")
         self.font_scale_spinbox.setValue(100)
         self.ui_density_combo.setCurrentText("Comfortable")
+        self.pref_app_zoom = 0
+        self._zoom_label.setText(self._zoom_label_text())
         self.fav_list_widget.clear()
         self.default_dir_input.clear()
 
@@ -2542,18 +2275,14 @@ class SettingsWindow(QWidget):
         current_dir = self.default_dir_input.text().strip()
         if not current_dir or not os.path.exists(current_dir):
             current_dir = LOCAL_SOURCE_PATH
-        d = QFileDialog.getExistingDirectory(
-            self, "Select Default Browse Directory", current_dir
-        )
+        d = QFileDialog.getExistingDirectory(self, "Select Default Browse Directory", current_dir)
         if d:
             self.default_dir_input.setText(d)
 
     def _clear_storyboard_cache(self):
         storyboard_dir = IMAGE_TOOLKIT_DIR / "storyboard-cache"
         if not storyboard_dir.exists():
-            QMessageBox.information(
-                self, "Storyboard Cache", "Storyboard cache is already empty or does not exist."
-            )
+            QMessageBox.information(self, "Storyboard Cache", "Storyboard cache is already empty or does not exist.")
             return
 
         reply = QMessageBox.question(
@@ -2561,18 +2290,14 @@ class SettingsWindow(QWidget):
             "Clear Storyboard Cache",
             "Are you sure you want to delete the storyboard cache directory and all its contents?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 shutil.rmtree(storyboard_dir)
-                QMessageBox.information(
-                    self, "Storyboard Cache", "Storyboard cache cleared successfully."
-                )
+                QMessageBox.information(self, "Storyboard Cache", "Storyboard cache cleared successfully.")
             except Exception as e:
-                QMessageBox.critical(
-                    self, "Error", f"Failed to clear storyboard cache:\n{e}"
-                )
+                QMessageBox.critical(self, "Error", f"Failed to clear storyboard cache:\n{e}")
 
     # ------------------------------------------------------------------
     # --- Keyboard Shortcuts Helpers (GUI/UX §2.29) -------------------
@@ -2610,15 +2335,9 @@ class SettingsWindow(QWidget):
 
         self._shortcut_table = QTableWidget(len(entries), 3)
         self._shortcut_table.setHorizontalHeaderLabels(["Scope", "Action", "Binding"])
-        self._shortcut_table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.ResizeToContents
-        )
-        self._shortcut_table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.Stretch
-        )
-        self._shortcut_table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeMode.ResizeToContents
-        )
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._shortcut_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self._shortcut_table.verticalHeader().setVisible(False)
         self._shortcut_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._shortcut_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
@@ -2644,9 +2363,7 @@ class SettingsWindow(QWidget):
         # Buttons row
         btn_row = QHBoxLayout()
         btn_save_kb = QPushButton("Save Shortcuts")
-        btn_save_kb.setToolTip(
-            "Write shortcut overrides to ~/.image-toolkit/keybindings.json"
-        )
+        btn_save_kb.setToolTip("Write shortcut overrides to ~/.image-toolkit/keybindings.json")
         btn_save_kb.clicked.connect(self._save_shortcuts)
         btn_reset_kb = QPushButton("Reset All to Defaults")
         btn_reset_kb.setToolTip("Clear all overrides and delete keybindings.json")
@@ -2688,9 +2405,7 @@ class SettingsWindow(QWidget):
                 return
 
         reg.save(overrides)
-        QMessageBox.information(
-            self, "Saved", "Shortcuts saved. Changes take effect on next app launch."
-        )
+        QMessageBox.information(self, "Saved", "Shortcuts saved. Changes take effect on next app launch.")
 
     def _reset_shortcuts(self) -> None:
         reply = QMessageBox.question(
@@ -2753,14 +2468,42 @@ class SettingsWindow(QWidget):
             self.pref_accent_light = default
             self._update_swatch(self.light_accent_swatch, default)
 
+    def _zoom_label_text(self) -> str:
+        """Return a human-readable string for the current app_zoom offset."""
+        z = self.pref_app_zoom
+        sign = "+" if z >= 0 else ""
+        return f"Current: {sign}{z}%"
+
+    def _zoom_in(self) -> None:
+        """Increase pref_app_zoom by 10% (max +100%) and apply live."""
+        if self.pref_app_zoom >= 100:
+            return
+        self.pref_app_zoom += 10
+        self._zoom_label.setText(self._zoom_label_text())
+        if self.main_window_ref and hasattr(self.main_window_ref, "zoom_in"):
+            self.main_window_ref.zoom_in()
+            # Keep pref in sync with what main window actually did
+            mw_prefs = getattr(self.main_window_ref, "cached_creds", {}).get("preferences", {})
+            self.pref_app_zoom = mw_prefs.get("app_zoom", self.pref_app_zoom)
+            self._zoom_label.setText(self._zoom_label_text())
+
+    def _zoom_out(self) -> None:
+        """Decrease pref_app_zoom by 10% (min −50%) and apply live."""
+        if self.pref_app_zoom <= -50:
+            return
+        self.pref_app_zoom -= 10
+        self._zoom_label.setText(self._zoom_label_text())
+        if self.main_window_ref and hasattr(self.main_window_ref, "zoom_out"):
+            self.main_window_ref.zoom_out()
+            mw_prefs = getattr(self.main_window_ref, "cached_creds", {}).get("preferences", {})
+            self.pref_app_zoom = mw_prefs.get("app_zoom", self.pref_app_zoom)
+            self._zoom_label.setText(self._zoom_label_text())
+
     def _preview_appearance(self):
         """Apply current accent/density/font settings live without saving."""
         if not self.main_window_ref:
             return
-        if (
-            not hasattr(self.main_window_ref, "cached_creds")
-            or not self.main_window_ref.cached_creds
-        ):
+        if not hasattr(self.main_window_ref, "cached_creds") or not self.main_window_ref.cached_creds:
             return
         prefs = dict(self.main_window_ref.cached_creds.get("preferences", {}))
         prefs["accent_color_dark"] = self.pref_accent_dark
@@ -2794,14 +2537,10 @@ class SettingsWindow(QWidget):
                 THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
                 deleted_msg = "Thumbnail cache cleared successfully."
             else:
-                deleted_msg = (
-                    "Thumbnail cache directory did not exist — nothing to clear."
-                )
+                deleted_msg = "Thumbnail cache directory did not exist — nothing to clear."
             QMessageBox.information(self, "Cache Cleared", deleted_msg)
         except Exception as e:
-            QMessageBox.critical(
-                self, "Error", f"Failed to clear thumbnail cache:\n{e}"
-            )
+            QMessageBox.critical(self, "Error", f"Failed to clear thumbnail cache:\n{e}")
 
     def _reset_slideshow_daemon(self):
         """Stops the daemon, deletes its PID file, and deletes the config JSON file."""
@@ -2866,9 +2605,7 @@ class SettingsWindow(QWidget):
         try:
             if history_file.exists():
                 history_file.unlink()
-                QMessageBox.information(
-                    self, "Success", "Extraction history file deleted successfully."
-                )
+                QMessageBox.information(self, "Success", "Extraction history file deleted successfully.")
             else:
                 QMessageBox.information(
                     self,
@@ -2880,26 +2617,20 @@ class SettingsWindow(QWidget):
             if self.main_window_ref:
                 for cat_tabs in self.main_window_ref.all_tabs.values():
                     for tab in cat_tabs.values():
-                        if hasattr(tab, "_load_extraction_history") and callable(
-                            tab._load_extraction_history
-                        ):
+                        if hasattr(tab, "_load_extraction_history") and callable(tab._load_extraction_history):
                             tab._load_extraction_history()
                         if hasattr(tab, "_update_recent_extractions_ui") and callable(
                             tab._update_recent_extractions_ui
                         ):
                             tab._update_recent_extractions_ui()
         except Exception as e:
-            QMessageBox.critical(
-                self, "Error", f"Failed to reset extraction history:\n{e}"
-            )
+            QMessageBox.critical(self, "Error", f"Failed to reset extraction history:\n{e}")
 
     def _view_app_logs(self):
         """Opens the application log file in the default system viewer."""
         log_path = IMAGE_TOOLKIT_DIR / "logs" / "image_toolkit.log"
         if not log_path.exists():
-            QMessageBox.information(
-                self, "No Logs", "No application log file found yet."
-            )
+            QMessageBox.information(self, "No Logs", "No application log file found yet.")
             return
 
         try:
@@ -2925,8 +2656,7 @@ class SettingsWindow(QWidget):
         reply = QMessageBox.question(
             self,
             "Confirm Clear Logs",
-            f"Delete all application and daemon log files in:\n{log_dir}?\n\n"
-            "This cannot be undone.",
+            f"Delete all application and daemon log files in:\n{log_dir}?\n\nThis cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -2979,12 +2709,8 @@ class SettingsWindow(QWidget):
             try:
                 username = getattr(self.vault_manager, "account_name", None)
                 if username:
-                    for recovery_dir in (
-                        os.path.expanduser("~/.image-toolkit/recovery"),
-                    ):
-                        enc_file_path = os.path.join(
-                            recovery_dir, f"recovery_{username}.enc"
-                        )
+                    for recovery_dir in (os.path.expanduser("~/.image-toolkit/recovery"),):
+                        enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
                         if os.path.exists(enc_file_path):
                             os.remove(enc_file_path)
             except Exception as e:
@@ -3017,9 +2743,7 @@ class SettingsWindow(QWidget):
         active_dir = Path(LOCAL_SECRETS_DIR)
         template_dir = Path(SECRETS_DIR)
         if not active_dir.exists():
-            QMessageBox.warning(
-                self, "Sync Error", "Active cryptography directory does not exist."
-            )
+            QMessageBox.warning(self, "Sync Error", "Active cryptography directory does not exist.")
             return
 
         template_dir.mkdir(parents=True, exist_ok=True)
@@ -3124,15 +2848,10 @@ class SettingsWindow(QWidget):
     def _export_credentials_to_backup(self):
         """Exports unencrypted versions of loaded credentials to the backup directory."""
         if not self.vault_manager:
-            QMessageBox.warning(
-                self, "Export Failed", "Vault manager is not available."
-            )
+            QMessageBox.warning(self, "Export Failed", "Vault manager is not available.")
             return
 
-        if (
-            not hasattr(self.vault_manager, "api_credentials")
-            or not self.vault_manager.api_credentials
-        ):
+        if not hasattr(self.vault_manager, "api_credentials") or not self.vault_manager.api_credentials:
             QMessageBox.information(
                 self,
                 "Export Credentials",
@@ -3166,16 +2885,12 @@ class SettingsWindow(QWidget):
 
             QMessageBox.information(self, "Export Success", summary_msg)
         except Exception as e:
-            QMessageBox.critical(
-                self, "Export Failed", f"Failed to export credentials: {e}"
-            )
+            QMessageBox.critical(self, "Export Failed", f"Failed to export credentials: {e}")
 
     def _import_credential(self):
         """Selects a new JSON credential file to encrypt and load into the vault."""
         if not self.vault_manager or not self.vault_manager.secret_key:
-            QMessageBox.warning(
-                self, "Import Failed", "Vault manager or security key is not available."
-            )
+            QMessageBox.warning(self, "Import Failed", "Vault manager or security key is not available.")
             return
 
         # 1. Browse for JSON file
@@ -3192,9 +2907,7 @@ class SettingsWindow(QWidget):
             # Validate JSON
             api_data = json.loads(json_content)
         except Exception as e:
-            QMessageBox.critical(
-                self, "Import Error", f"Failed to read or parse JSON file: {e}"
-            )
+            QMessageBox.critical(self, "Import Error", f"Failed to read or parse JSON file: {e}")
             return
 
         # 3. Prompt user for alias/name
@@ -3237,24 +2950,18 @@ class SettingsWindow(QWidget):
                 f"Credential '{alias}' imported and encrypted successfully.",
             )
         except Exception as e:
-            QMessageBox.critical(
-                self, "Import Failed", f"Failed to encrypt and save credential: {e}"
-            )
+            QMessageBox.critical(self, "Import Failed", f"Failed to encrypt and save credential: {e}")
 
     def _edit_credential(self):
         """Opens a dialog to view, edit, and save the selected credential's JSON."""
         selected_items = self.credentials_list.selectedItems()
         if not selected_items:
-            QMessageBox.warning(
-                self, "Edit Error", "Please select a credential from the list first."
-            )
+            QMessageBox.warning(self, "Edit Error", "Please select a credential from the list first.")
             return
 
         alias = selected_items[0].text()
         if not self.vault_manager or alias not in self.vault_manager.api_credentials:
-            QMessageBox.warning(
-                self, "Edit Error", f"Credential '{alias}' not found in memory."
-            )
+            QMessageBox.warning(self, "Edit Error", f"Credential '{alias}' not found in memory.")
             return
 
         # Get current data
@@ -3262,9 +2969,7 @@ class SettingsWindow(QWidget):
         try:
             current_json_str = json.dumps(current_data, indent=4)
         except Exception as e:
-            QMessageBox.critical(
-                self, "Error", f"Failed to serialize credential data: {e}"
-            )
+            QMessageBox.critical(self, "Error", f"Failed to serialize credential data: {e}")
             return
 
         # Create Dialog
@@ -3283,10 +2988,7 @@ class SettingsWindow(QWidget):
         layout.addWidget(editor)
 
         # Buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save
-            | QDialogButtonBox.StandardButton.Cancel
-        )
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         layout.addWidget(button_box)
 
         button_box.accepted.connect(dialog.accept)
@@ -3295,17 +2997,13 @@ class SettingsWindow(QWidget):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_json_str = editor.toPlainText().strip()
             if not new_json_str:
-                QMessageBox.warning(
-                    self, "Validation Error", "Credential JSON cannot be empty."
-                )
+                QMessageBox.warning(self, "Validation Error", "Credential JSON cannot be empty.")
                 return
 
             try:
                 new_data = json.loads(new_json_str)
             except json.JSONDecodeError as e:
-                QMessageBox.critical(
-                    self, "JSON Error", f"Invalid JSON format. Changes not saved.\n{e}"
-                )
+                QMessageBox.critical(self, "JSON Error", f"Invalid JSON format. Changes not saved.\n{e}")
                 return
 
             # Now save it back
@@ -3334,17 +3032,13 @@ class SettingsWindow(QWidget):
                     f"Credential '{alias}' updated and saved successfully.",
                 )
             except Exception as e:
-                QMessageBox.critical(
-                    self, "Save Error", f"Failed to save credential '{alias}': {e}"
-                )
+                QMessageBox.critical(self, "Save Error", f"Failed to save credential '{alias}': {e}")
 
     def _delete_credential(self):
         """Delete the selected credential from the vault and disk."""
         selected_items = self.credentials_list.selectedItems()
         if not selected_items:
-            QMessageBox.warning(
-                self, "Delete Error", "Please select a credential from the list first."
-            )
+            QMessageBox.warning(self, "Delete Error", "Please select a credential from the list first.")
             return
 
         alias = selected_items[0].text()
@@ -3371,19 +3065,15 @@ class SettingsWindow(QWidget):
                 raw_json_path.unlink()
 
             # 2. Remove from session memory
-            if alias in self.vault_manager.api_credentials: # pyrefly: ignore [missing-attribute]
-                del self.vault_manager.api_credentials[alias] # pyrefly: ignore [missing-attribute]
+            if alias in self.vault_manager.api_credentials:  # pyrefly: ignore [missing-attribute]
+                del self.vault_manager.api_credentials[alias]  # pyrefly: ignore [missing-attribute]
 
             # 3. Refresh list
             self._refresh_credentials_list()
 
-            QMessageBox.information(
-                self, "Success", f"Credential '{alias}' deleted successfully."
-            )
+            QMessageBox.information(self, "Success", f"Credential '{alias}' deleted successfully.")
         except Exception as e:
-            QMessageBox.critical(
-                self, "Delete Failed", f"Failed to delete credential: {e}"
-            )
+            QMessageBox.critical(self, "Delete Failed", f"Failed to delete credential: {e}")
 
     def _browse_add_favourite(self):
         """Opens a directory dialog and adds the selected path to the favourites list."""
@@ -3426,6 +3116,7 @@ class SettingsWindow(QWidget):
 
     def _preview_bulk_update(self):
         import re
+
         search = self.bulk_search_input.text()
         replace = self.bulk_replace_input.text()
         use_regex = self.bulk_regex_check.isChecked()
@@ -3499,6 +3190,7 @@ class SettingsWindow(QWidget):
 
     def _apply_bulk_update(self):
         import re
+
         search = self.bulk_search_input.text()
         replace = self.bulk_replace_input.text()
         use_regex = self.bulk_regex_check.isChecked()
@@ -3512,7 +3204,7 @@ class SettingsWindow(QWidget):
             "Confirm Bulk Update",
             f"Are you sure you want to perform the bulk find & replace for pattern '{search}' with '{replace}'?\n\nThis will modify the settings and configurations.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
