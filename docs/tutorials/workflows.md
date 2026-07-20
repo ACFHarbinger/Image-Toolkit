@@ -25,131 +25,7 @@ The category tutorials ([System Tools](system_tools.md), [Library Database](libr
 
 ---
 
-## Workflow 1 — Download images via a complex multi-site crawl
-
-Configure the **General Web Crawler** — not the simpler Image Board API mode — for a multi-page site with URL pagination and a multi-action scraping recipe. This is the workflow for sites that don't expose a public API: you describe *how a human would click through the gallery*, and the crawler replays it.
-
-**Start from:** Main Window → **Select Category: Web Integration** → **Crawler** tab.
-
-```mermaid
-flowchart TD
-    A["1. Crawler Type =\nGeneral Web Crawler"] --> B["2. Target URL +\nURL pagination pattern"]
-    B --> C["3. Browser + headless"]
-    C --> D["4. Build the Actions recipe\n(repeat per action)"]
-    D --> E["5. Review built Actions list"]
-    E --> F["6. Download Dir"]
-    F --> G["7. Selection Mode"]
-    G --> H["8. Start WebDriver Service"]
-    H --> I["9. Run Crawler"]
-
-    style D fill:#7c3aed,stroke:#c4b5fd,color:#f5f3ff
-    style H fill:#b45309,stroke:#fbbf24,color:#fffbeb
-```
-
-### Step 1 — Pick the crawler type
-
-Set **Crawler Type** to **General Web Crawler**. This switches the whole form to the Selenium-driven mode described below; the alternative, **Image Board Crawler**, talks to a board's REST API directly and has none of the URL-pattern/Actions machinery this workflow needs.
-
-![Step 1: Crawler Type dropdown set to General Web Crawler](images/workflows/c01_crawler_type.png)
-
-| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
-|---|---|---|---|
-| **Crawler Type** (dropdown) | General = launches a real Selenium `WebDriver` browser and executes your Actions program against the live DOM. Image Board = plain HTTP `GET` requests against a documented JSON API (Danbooru/Gelbooru/Sankaku), no browser. | Use **General** for arbitrary sites without a public API, JS-rendered galleries, or sites needing a logged-in session. Use **Image Board** instead when your target *is* one of the three supported boards — it's far faster and lighter since no browser process is spawned. | Switching types replaces the entire form below; settings aren't shared between the two modes. |
-
-### Step 2 — Target URL and the pagination pattern
-
-Fill in **Target URL** with the *first* page of the gallery, then set up **String to Replace** + **Replacements** to describe how the URL changes from page to page.
-
-![Step 2: Target URL, String to Replace, and Replacements fields](images/workflows/c02_target_url_pattern.png)
-
-| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
-|---|---|---|---|
-| **Target URL** | The literal first URL the crawler navigates to and runs the Actions program against. | Always required. Point it at the exact page containing the gallery grid, not a homepage. | — |
-| **String to Replace** | An exact substring of **Target URL** (e.g. `page=1`, or a path segment like `/chapter-1/`) that gets swapped out for each subsequent crawl. | Pick the smallest substring that uniquely identifies "which page" — a bare number like `1` can accidentally match other digits in the URL and mangle it. | If the substring doesn't appear in Target URL at all, the "replacement" pages are identical to the first — the crawler will silently re-scrape the same page N times. |
-| **Replacements** | A comma-separated list of values, one per additional page (e.g. `page=2, page=3`). The crawler runs the *whole* page 1 flow once against Target URL unmodified, then once more per replacement with **String to Replace** substituted for each value in turn. | Leave both fields empty to crawl only Target URL — useful for single-page galleries or dry-running your Actions recipe before scaling to many pages. | More replacement values = more full page-visits = proportionally longer runtime; each is independent, so a bad value just yields zero results for that one page rather than aborting the run. |
-
-!!! example "Worked pattern"
-    Target URL `https://example.com/gallery?page=1`, String to Replace `page=1`, Replacements `page=2, page=3` → the crawler visits pages 1, 2, and 3 in turn, running the full Actions recipe against each.
-
-### Step 3 — Browser and headless mode
-
-![Step 3: Browser dropdown and Run in headless mode checkbox](images/workflows/c03_browser_headless.png)
-
-| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
-|---|---|---|---|
-| **Browser** (dropdown: `chrome`, `firefox`, `edge`, `brave`) | Selects which Selenium `WebDriver` binary launches. | Match whichever browser is already installed and, if the site does bot-detection, whichever one you've already used to log in manually (shared fingerprint/cookies where applicable). | Different engines render some sites' JavaScript slightly differently — if Actions fail to find elements on one browser, try another before assuming your recipe is wrong. |
-| **Run in headless mode** (checkbox, gold) | Unchecked: a real, visible browser window opens and every action plays out on screen. Checked: the same browser runs with no window, driven purely over the automation protocol. | Leave **unchecked** the first time you build a new Actions recipe — watching it click through the page is the fastest way to debug a broken selector. Check it once the recipe is proven, for unattended/background runs. | Headless is faster and uses less RAM, but some sites detect and block headless browsers outright, and you lose the ability to solve a CAPTCHA or interactive check manually mid-run. |
-
-!!! warning "Manual intervention point"
-    With headless mode **off**, if the target site shows a CAPTCHA, cookie banner, or age gate, the crawl will stall until you personally interact with the visible browser window to dismiss it — the Actions program has no way to solve these itself.
-
-### Step 4 — Build the Actions recipe
-
-The **Actions** list is a small program, executed once per matched gallery element on every page. Each action is added one at a time: pick the action type from the dropdown, fill its **Parameter** field if it takes one, click **Add** — then repeat for the next action in your recipe. The list runs top-to-bottom.
-
-![Step 4: pick an action, fill Parameter if needed, click Add — repeat per action](images/workflows/c04_actions_add_row.png)
-
-| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
-|---|---|---|---|
-| **Skip First / Skip Last** | Trims that many elements off the start/end of the matched-element list before the Actions program runs on the rest. | Use to drop known non-content tiles — e.g. a page always has 1 ad banner first and a "load more" tile last. | Too high a value silently drops real images; too low leaves junk elements that then fail later actions and get skipped anyway. |
-| **Action type** (dropdown, 15 options) | See the full action reference in the [Web Integration tutorial](web_integration.md#actions-general-crawler) — each maps to one Selenium primitive (`find_element`, `click`, `WebDriverWait`, download-via-`requests`, etc.). | — | — |
-| **Parameter** | Free-text argument some actions need (a CSS selector, a wait duration, an index, matched text). Actions that don't need one (e.g. *Download Image from Element*) ignore this field. | — | A malformed CSS selector or a Δ-seconds value that's too short for the page to load are the two most common recipe bugs. |
-| **Add** | Appends the configured action to the list below. | — | — |
-
-!!! example "A typical high-res gallery recipe, built as 8 separate Add clicks"
-    4a. **Find Parent Link (`<a>`)** — step from the matched thumbnail up to its enclosing link.
-    4b. **Open Link in New Tab** — follow it without losing the gallery page.
-    4c. **Switch to Last Tab** — move the driver's focus to the tab just opened.
-    4d. **Wait for Page Load** — let the full-view page finish rendering.
-    4e. **Find `<img>` Number 1 on Page**, Parameter `1` — target the main image element.
-    4f. **Download Image from Element** — fetch it to Download Dir.
-    4g. **Close Current Tab** — clean up.
-    4h. **Wait for Gallery (Context Reset)** — return focus to the gallery tab and reset the element context for the next thumbnail.
-
-### Step 5 — Review the built Actions list
-
-Before running anything, re-read the accumulated list top-to-bottom — this *is* the program that executes per element, so an ordering mistake here (e.g. downloading before switching tabs) fails silently rather than erroring loudly.
-
-![Step 5: the accumulated Actions list, executed top-to-bottom per matched element](images/workflows/c05_actions_built_list.png)
-
-**Remove Selected** deletes one action; **Clear All** empties the list to start over.
-
-### Step 6 — Set the Download Dir
-
-![Step 6: Download Dir field under Output Configuration](images/workflows/c06_output_download_dir.png)
-
-Every file the Actions program downloads lands here, flat (no per-page subfolders). **Screenshot Dir** (optional, collapsed by default) additionally saves a full-page screenshot per visited URL — useful for debugging a recipe after the fact, not required for a normal crawl.
-
-### Step 7 — Choose a Selection Mode
-
-![Step 7: Selection Mode dropdown](images/workflows/c07_selection_mode.png)
-
-| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
-|---|---|---|---|
-| **Download All (Default)** | No post-processing; every successfully downloaded file is kept. | The site is known to have no duplicate reposts across pages. | Fastest; no review step. |
-| **Manual Selection** | After the crawl finishes, a review dialog shows every downloaded image with checkboxes; unchecked ones are deleted, and **Cancel** discards the whole crawl. | Small crawls (tens of images) where you want final say. | Adds a mandatory manual review step — the crawl doesn't finish until you act on this dialog. |
-| **Automated Selection** | Runs the [Similarity Finder](system_tools.md#similarity) engine over the downloads first (you configure method/threshold in a follow-up dialog), then presents a pruning dialog with likely duplicates pre-unchecked. | Boards where the same image recurs across paginated results (very common). | Adds compute time proportional to the number of downloaded images (perceptual hashing + clustering), plus one manual accept/reject dialog. |
-
-### Step 8 — Start the WebDriver service
-
-![Step 8: Start WebDriver Service button — launches the real browser process](images/workflows/c08_start_webdriver.png)
-
-!!! warning "Manual intervention point"
-    This spawns the actual browser process (visible unless headless is checked) and must complete *before* **Run Crawler** is enabled. If it fails, the most common causes are: the browser binary from Step 3 isn't installed, or a stale driver process from a previous run is still holding the port — check the log line under the button for the specific error.
-
-### Step 9 — Run Crawler
-
-![Step 9: Run Crawler button — executes the configured recipe across every replacement page](images/workflows/c09_run_crawler.png)
-
-This is the terminal action: the crawler visits Target URL, then each **Replacements** page in turn, running the full **Actions** recipe (minus **Skip First**/**Skip Last** elements) on each, subject to **Selection Mode** post-processing. Progress and any per-element errors stream into the log area above the run buttons.
-
-!!! info "Learn more"
-    - The Actions engine is a thin wrapper over [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/) — its docs cover exactly what each primitive (element location, waits, tab switching) does and why timing-related actions (*Wait for Page Load*, *Wait X Seconds*) exist at all: browsers render asynchronously, and a script that reads the DOM before a page finishes loading gets stale/missing elements.
-    - CSS selector syntax (used by *Find Element by CSS Selector*) is documented at [MDN: CSS selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_selectors) — your browser's DevTools "Copy selector" feature on a right-clicked element is the fastest way to get a working one without hand-writing it.
-
----
-
-## Workflow 2 — Stitch anime frames into a panorama
+## Workflow 1 — Stitch anime frames into a panorama
 
 The full Anime Stitch Pipeline (ASP) journey: load frames, optionally let the app pick and order the best ones for you, tune the algorithmic stages, then execute via whichever of three avenues matches how much manual control you want. This is the most parameter-dense workflow in the app — every stage below is independently tunable, and the three execution avenues (fully automated / semi-automated / full HITL) are not mutually exclusive escalation steps but genuinely different amounts of hands-on involvement for different failure modes.
 
@@ -349,6 +225,130 @@ Set **Output path** to where the panorama file is written. Checking **Save inter
     - **ORB** (used by Auto-Order and Sequence Builder's fitness scoring): [OpenCV's ORB tutorial](https://docs.opencv.org/4.x/d1/d89/tutorial_py_orb.html).
     - **Laplacian pyramid blending**: [the classic multi-resolution blending technique on Wikipedia](https://en.wikipedia.org/wiki/Pyramid_%28image_processing%29#Blending) — the reference for why per-frequency-band blend widths avoid the seam-vs-blur trade-off a single flat blend can't escape.
     - **BiRefNet** (foreground masking): [Zheng et al., "Bilateral Reference for High-Resolution Dichotomous Image Segmentation," 2024](https://arxiv.org/abs/2401.03407).
+
+---
+
+## Workflow 2 — Download images via a complex multi-site crawl
+
+Configure the **General Web Crawler** — not the simpler Image Board API mode — for a multi-page site with URL pagination and a multi-action scraping recipe. This is the workflow for sites that don't expose a public API: you describe *how a human would click through the gallery*, and the crawler replays it.
+
+**Start from:** Main Window → **Select Category: Web Integration** → **Crawler** tab.
+
+```mermaid
+flowchart TD
+    A["1. Crawler Type =\nGeneral Web Crawler"] --> B["2. Target URL +\nURL pagination pattern"]
+    B --> C["3. Browser + headless"]
+    C --> D["4. Build the Actions recipe\n(repeat per action)"]
+    D --> E["5. Review built Actions list"]
+    E --> F["6. Download Dir"]
+    F --> G["7. Selection Mode"]
+    G --> H["8. Start WebDriver Service"]
+    H --> I["9. Run Crawler"]
+
+    style D fill:#7c3aed,stroke:#c4b5fd,color:#f5f3ff
+    style H fill:#b45309,stroke:#fbbf24,color:#fffbeb
+```
+
+### Step 1 — Pick the crawler type
+
+Set **Crawler Type** to **General Web Crawler**. This switches the whole form to the Selenium-driven mode described below; the alternative, **Image Board Crawler**, talks to a board's REST API directly and has none of the URL-pattern/Actions machinery this workflow needs.
+
+![Step 1: Crawler Type dropdown set to General Web Crawler](images/workflows/c01_crawler_type.png)
+
+| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
+|---|---|---|---|
+| **Crawler Type** (dropdown) | General = launches a real Selenium `WebDriver` browser and executes your Actions program against the live DOM. Image Board = plain HTTP `GET` requests against a documented JSON API (Danbooru/Gelbooru/Sankaku), no browser. | Use **General** for arbitrary sites without a public API, JS-rendered galleries, or sites needing a logged-in session. Use **Image Board** instead when your target *is* one of the three supported boards — it's far faster and lighter since no browser process is spawned. | Switching types replaces the entire form below; settings aren't shared between the two modes. |
+
+### Step 2 — Target URL and the pagination pattern
+
+Fill in **Target URL** with the *first* page of the gallery, then set up **String to Replace** + **Replacements** to describe how the URL changes from page to page.
+
+![Step 2: Target URL, String to Replace, and Replacements fields](images/workflows/c02_target_url_pattern.png)
+
+| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
+|---|---|---|---|
+| **Target URL** | The literal first URL the crawler navigates to and runs the Actions program against. | Always required. Point it at the exact page containing the gallery grid, not a homepage. | — |
+| **String to Replace** | An exact substring of **Target URL** (e.g. `page=1`, or a path segment like `/chapter-1/`) that gets swapped out for each subsequent crawl. | Pick the smallest substring that uniquely identifies "which page" — a bare number like `1` can accidentally match other digits in the URL and mangle it. | If the substring doesn't appear in Target URL at all, the "replacement" pages are identical to the first — the crawler will silently re-scrape the same page N times. |
+| **Replacements** | A comma-separated list of values, one per additional page (e.g. `page=2, page=3`). The crawler runs the *whole* page 1 flow once against Target URL unmodified, then once more per replacement with **String to Replace** substituted for each value in turn. | Leave both fields empty to crawl only Target URL — useful for single-page galleries or dry-running your Actions recipe before scaling to many pages. | More replacement values = more full page-visits = proportionally longer runtime; each is independent, so a bad value just yields zero results for that one page rather than aborting the run. |
+
+!!! example "Worked pattern"
+    Target URL `https://example.com/gallery?page=1`, String to Replace `page=1`, Replacements `page=2, page=3` → the crawler visits pages 1, 2, and 3 in turn, running the full Actions recipe against each.
+
+### Step 3 — Browser and headless mode
+
+![Step 3: Browser dropdown and Run in headless mode checkbox](images/workflows/c03_browser_headless.png)
+
+| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
+|---|---|---|---|
+| **Browser** (dropdown: `chrome`, `firefox`, `edge`, `brave`) | Selects which Selenium `WebDriver` binary launches. | Match whichever browser is already installed and, if the site does bot-detection, whichever one you've already used to log in manually (shared fingerprint/cookies where applicable). | Different engines render some sites' JavaScript slightly differently — if Actions fail to find elements on one browser, try another before assuming your recipe is wrong. |
+| **Run in headless mode** (checkbox, gold) | Unchecked: a real, visible browser window opens and every action plays out on screen. Checked: the same browser runs with no window, driven purely over the automation protocol. | Leave **unchecked** the first time you build a new Actions recipe — watching it click through the page is the fastest way to debug a broken selector. Check it once the recipe is proven, for unattended/background runs. | Headless is faster and uses less RAM, but some sites detect and block headless browsers outright, and you lose the ability to solve a CAPTCHA or interactive check manually mid-run. |
+
+!!! warning "Manual intervention point"
+    With headless mode **off**, if the target site shows a CAPTCHA, cookie banner, or age gate, the crawl will stall until you personally interact with the visible browser window to dismiss it — the Actions program has no way to solve these itself.
+
+### Step 4 — Build the Actions recipe
+
+The **Actions** list is a small program, executed once per matched gallery element on every page. Each action is added one at a time: pick the action type from the dropdown, fill its **Parameter** field if it takes one, click **Add** — then repeat for the next action in your recipe. The list runs top-to-bottom.
+
+![Step 4: pick an action, fill Parameter if needed, click Add — repeat per action](images/workflows/c04_actions_add_row.png)
+
+| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
+|---|---|---|---|
+| **Skip First / Skip Last** | Trims that many elements off the start/end of the matched-element list before the Actions program runs on the rest. | Use to drop known non-content tiles — e.g. a page always has 1 ad banner first and a "load more" tile last. | Too high a value silently drops real images; too low leaves junk elements that then fail later actions and get skipped anyway. |
+| **Action type** (dropdown, 15 options) | See the full action reference in the [Web Integration tutorial](web_integration.md#actions-general-crawler) — each maps to one Selenium primitive (`find_element`, `click`, `WebDriverWait`, download-via-`requests`, etc.). | — | — |
+| **Parameter** | Free-text argument some actions need (a CSS selector, a wait duration, an index, matched text). Actions that don't need one (e.g. *Download Image from Element*) ignore this field. | — | A malformed CSS selector or a Δ-seconds value that's too short for the page to load are the two most common recipe bugs. |
+| **Add** | Appends the configured action to the list below. | — | — |
+
+!!! example "A typical high-res gallery recipe, built as 8 separate Add clicks"
+    4a. **Find Parent Link (`<a>`)** — step from the matched thumbnail up to its enclosing link.
+    4b. **Open Link in New Tab** — follow it without losing the gallery page.
+    4c. **Switch to Last Tab** — move the driver's focus to the tab just opened.
+    4d. **Wait for Page Load** — let the full-view page finish rendering.
+    4e. **Find `<img>` Number 1 on Page**, Parameter `1` — target the main image element.
+    4f. **Download Image from Element** — fetch it to Download Dir.
+    4g. **Close Current Tab** — clean up.
+    4h. **Wait for Gallery (Context Reset)** — return focus to the gallery tab and reset the element context for the next thumbnail.
+
+### Step 5 — Review the built Actions list
+
+Before running anything, re-read the accumulated list top-to-bottom — this *is* the program that executes per element, so an ordering mistake here (e.g. downloading before switching tabs) fails silently rather than erroring loudly.
+
+![Step 5: the accumulated Actions list, executed top-to-bottom per matched element](images/workflows/c05_actions_built_list.png)
+
+**Remove Selected** deletes one action; **Clear All** empties the list to start over.
+
+### Step 6 — Set the Download Dir
+
+![Step 6: Download Dir field under Output Configuration](images/workflows/c06_output_download_dir.png)
+
+Every file the Actions program downloads lands here, flat (no per-page subfolders). **Screenshot Dir** (optional, collapsed by default) additionally saves a full-page screenshot per visited URL — useful for debugging a recipe after the fact, not required for a normal crawl.
+
+### Step 7 — Choose a Selection Mode
+
+![Step 7: Selection Mode dropdown](images/workflows/c07_selection_mode.png)
+
+| What it is | Technical detail | Choose this when / avoid when | Effect of changing it |
+|---|---|---|---|
+| **Download All (Default)** | No post-processing; every successfully downloaded file is kept. | The site is known to have no duplicate reposts across pages. | Fastest; no review step. |
+| **Manual Selection** | After the crawl finishes, a review dialog shows every downloaded image with checkboxes; unchecked ones are deleted, and **Cancel** discards the whole crawl. | Small crawls (tens of images) where you want final say. | Adds a mandatory manual review step — the crawl doesn't finish until you act on this dialog. |
+| **Automated Selection** | Runs the [Similarity Finder](system_tools.md#similarity) engine over the downloads first (you configure method/threshold in a follow-up dialog), then presents a pruning dialog with likely duplicates pre-unchecked. | Boards where the same image recurs across paginated results (very common). | Adds compute time proportional to the number of downloaded images (perceptual hashing + clustering), plus one manual accept/reject dialog. |
+
+### Step 8 — Start the WebDriver service
+
+![Step 8: Start WebDriver Service button — launches the real browser process](images/workflows/c08_start_webdriver.png)
+
+!!! warning "Manual intervention point"
+    This spawns the actual browser process (visible unless headless is checked) and must complete *before* **Run Crawler** is enabled. If it fails, the most common causes are: the browser binary from Step 3 isn't installed, or a stale driver process from a previous run is still holding the port — check the log line under the button for the specific error.
+
+### Step 9 — Run Crawler
+
+![Step 9: Run Crawler button — executes the configured recipe across every replacement page](images/workflows/c09_run_crawler.png)
+
+This is the terminal action: the crawler visits Target URL, then each **Replacements** page in turn, running the full **Actions** recipe (minus **Skip First**/**Skip Last** elements) on each, subject to **Selection Mode** post-processing. Progress and any per-element errors stream into the log area above the run buttons.
+
+!!! info "Learn more"
+    - The Actions engine is a thin wrapper over [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/) — its docs cover exactly what each primitive (element location, waits, tab switching) does and why timing-related actions (*Wait for Page Load*, *Wait X Seconds*) exist at all: browsers render asynchronously, and a script that reads the DOM before a page finishes loading gets stale/missing elements.
+    - CSS selector syntax (used by *Find Element by CSS Selector*) is documented at [MDN: CSS selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_selectors) — your browser's DevTools "Copy selector" feature on a right-clicked element is the fastest way to get a working one without hand-writing it.
 
 ---
 
