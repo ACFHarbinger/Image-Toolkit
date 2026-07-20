@@ -887,7 +887,9 @@ class MainWindow(QWidget):
 
         username = getattr(self.vault_manager, "account_name", None)
         recovery_data = {}
-        if username:
+        # Guest vaults have no SecureJsonVault / secret_key — skip encrypted recovery entirely.
+        _is_guest = getattr(self.vault_manager, "is_guest", False)
+        if username and not _is_guest:
             for recovery_dir in (os.path.expanduser("~/.image-toolkit/recovery"),):
                 enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
                 if os.path.exists(enc_file_path):

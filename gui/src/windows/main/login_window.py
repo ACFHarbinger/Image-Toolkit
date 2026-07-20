@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import shutil
+import uuid
 from pathlib import Path
 
 import backend.src.constants as udef
@@ -31,34 +32,42 @@ class LoginWindow(QWidget):
     # Signal emitted on successful login or account creation
     login_successful = Signal(VaultManager)
 
+    # ── modes ──────────────────────────────────────────────────────────────────
+    _MODE_NORMAL = "normal"
+    _MODE_GUEST  = "guest"
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Secure Login")
-        self.setFixedSize(450, 300)
+        self.setFixedSize(450, 320)
 
         # Vault Manager and Authentication State
         self.vault_manager = None
         self.is_authenticated = False
 
-        # --- NEW: Theme state ---
+        # Theme state
         self.current_theme = "dark"
+        # Current UI mode
+        self._mode = self._MODE_NORMAL
 
         self.init_ui()
         self.apply_styles()
 
+    # ── UI construction ────────────────────────────────────────────────────────
+
     def init_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(20)
+        main_layout.setContentsMargins(24, 20, 24, 20)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # --- NEW: Header Layout (Title + Theme Button) ---
+        # --- Header Layout (Title + Theme Button) ---
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Title Label
-        title_label = QLabel("Welcome - Secure Toolkit Access")
-        title_label.setObjectName("TitleLabel")
-        header_layout.addWidget(title_label, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.title_label = QLabel("Account Login")
+        self.title_label.setObjectName("TitleLabel")
+        header_layout.addWidget(self.title_label, alignment=Qt.AlignmentFlag.AlignLeft)
 
         header_layout.addStretch(1)
 
@@ -71,45 +80,160 @@ class LoginWindow(QWidget):
         header_layout.addWidget(self.theme_button, alignment=Qt.AlignmentFlag.AlignRight)
 
         main_layout.addLayout(header_layout)
-        # --- End Header Layout ---
 
-        # Input fields
+        # ── Username field (always visible) ────────────────────────────────────
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("Account Name (e.g., user_id_123)")
         self.username_input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         main_layout.addWidget(self.username_input)
 
+        # ── Password field (normal mode only) ──────────────────────────────────
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("Password")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         main_layout.addWidget(self.password_input)
 
-        # Button container
-        button_layout = QHBoxLayout()
+        # ── Guest-mode info label (hidden by default) ───────────────────────────
+        self.guest_info_label = QLabel(
+            "👤  Guest session — settings are kept in volatile memory only."
+        )
+        self.guest_info_label.setObjectName("GuestInfoLabel")
+        self.guest_info_label.setWordWrap(True)
+        self.guest_info_label.setVisible(False)
+        main_layout.addWidget(self.guest_info_label)
 
+        # ── Primary action buttons row ──────────────────────────────────────────
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(10)
+
+        # Normal mode: Create Account
         self.create_button = QPushButton("Create Account")
         self.create_button.clicked.connect(self.create_account)
         button_layout.addWidget(self.create_button)
 
-        self.guest_button = QPushButton("Guest Mode")
-        self.guest_button.setObjectName("GuestButton")
-        self.guest_button.setToolTip(
-            "Log in as guest (no password required; settings are kept in volatile memory only)"
-        )
-        self.guest_button.clicked.connect(self.attempt_guest_login)
-        button_layout.addWidget(self.guest_button)
-
+        # Normal mode: Login  /  Guest mode: Login Anonymously
         self.login_button = QPushButton("Login")
         self.login_button.setObjectName("LoginButton")
-        self.login_button.clicked.connect(self.attempt_login)
-        # Set Login as the default button for the window
+        self.login_button.clicked.connect(self._primary_action)
         self.login_button.setDefault(True)
         button_layout.addWidget(self.login_button)
 
         main_layout.addLayout(button_layout)
 
+        # ── Guest-mode secondary button row (hidden by default) ─────────────────
+        self.guest_action_layout = QHBoxLayout()
+        self.guest_as_button = QPushButton("Login as Guest")
+        self.guest_as_button.setObjectName("LoginButton")
+        self.guest_as_button.clicked.connect(self._guest_with_username)
+        self.guest_as_button.setVisible(False)
+        self.guest_action_layout.addWidget(self.guest_as_button)
+        main_layout.addLayout(self.guest_action_layout)
+
+        # ── Bottom row: Guest-mode toggle (distinct pill button, centered) ───
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setContentsMargins(0, 4, 0, 0)
+        bottom_layout.addStretch(1)
+
+        self.guest_toggle_button = QPushButton("👤  Guest Mode")
+        self.guest_toggle_button.setObjectName("GuestToggleButton")
+        self.guest_toggle_button.setToolTip(
+            "Switch to Guest login mode — no password required; "
+            "settings remain in volatile memory only"
+        )
+        self.guest_toggle_button.clicked.connect(self.toggle_guest_mode)
+        bottom_layout.addWidget(self.guest_toggle_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        bottom_layout.addStretch(1)
+
+        main_layout.addLayout(bottom_layout)
+
         self.setLayout(main_layout)
+
+    # ── Mode switching ──────────────────────────────────────────────────────────
+
+    def toggle_guest_mode(self):
+        """Toggle between normal login mode and guest login mode."""
+        if self._mode == self._MODE_NORMAL:
+            self._enter_guest_mode()
+        else:
+            self._enter_normal_mode()
+
+    def _enter_guest_mode(self):
+        self._mode = self._MODE_GUEST
+
+        # Update title
+        self.title_label.setText("Guest Login")
+
+        # Hide password field; show guest info label
+        self.password_input.setVisible(False)
+        self.guest_info_label.setVisible(True)
+
+        # Reconfigure primary button row to "Login Anonymously"
+        self.create_button.setText("Login Anonymously")
+        self.login_button.setText("Login as Guest")
+
+        # Show guest-as button (redundant alias kept for clarity)
+        # Actually we re-use the existing two primary buttons, so hide the extra row
+        self.guest_as_button.setVisible(False)
+
+        # Update placeholder
+        self.username_input.setPlaceholderText("Username (optional for anonymous login)")
+
+        # Toggle button becomes "🔐  Account Access"
+        self.guest_toggle_button.setText("🔐  Account Access")
+        self.guest_toggle_button.setToolTip("Return to standard account login")
+
+        self.apply_styles()
+
+    def _enter_normal_mode(self):
+        self._mode = self._MODE_NORMAL
+
+        # Restore title
+        self.title_label.setText("Account Login")
+
+        # Restore password field; hide guest info
+        self.password_input.setVisible(True)
+        self.guest_info_label.setVisible(False)
+
+        # Restore primary button labels
+        self.create_button.setText("Create Account")
+        self.login_button.setText("Login")
+
+        # Restore connections
+        # (already correctly bound in init_ui via _primary_action)
+
+        # Restore placeholder
+        self.username_input.setPlaceholderText("Account Name (e.g., user_id_123)")
+
+        # Toggle button reverts
+        self.guest_toggle_button.setText("👤  Guest Mode")
+        self.guest_toggle_button.setToolTip(
+            "Switch to Guest login mode — no password required; "
+            "settings remain in volatile memory only"
+        )
+
+        self.apply_styles()
+
+    # ── Action dispatch ─────────────────────────────────────────────────────────
+
+    def _primary_action(self):
+        """Dispatch the primary button click based on the current mode."""
+        if self._mode == self._MODE_GUEST:
+            # In guest mode the right-hand button is "Login as Guest" (with typed username)
+            self._guest_with_username()
+        else:
+            self.attempt_login()
+
+    def _secondary_action(self):
+        """Dispatch the secondary button click based on the current mode."""
+        if self._mode == self._MODE_GUEST:
+            # In guest mode the left-hand button is "Login Anonymously"
+            self._guest_anonymous()
+        else:
+            self.create_account()
+
+    # ── Theme ───────────────────────────────────────────────────────────────────
 
     def toggle_theme(self):
         """Switches the theme from dark to light and vice-versa."""
@@ -121,27 +245,39 @@ class LoginWindow(QWidget):
 
     def apply_styles(self):
         """Applies styling based on the current self.current_theme."""
+        is_guest_mode = (self._mode == self._MODE_GUEST)
 
         if self.current_theme == "dark":
-            # Dark theme colors
-            bg_color = "#2d2d30"
-            text_color = "#ffffff"
-            title_color = "#00bcd4"
-            input_bg = "#3e3e42"
-            input_border = "#5f646c"
-            btn_bg = "#00bcd4"
-            btn_hover = "#00e5ff"
-            theme_btn_color = title_color
+            bg_color      = "#2d2d30"
+            text_color    = "#ffffff"
+            title_color   = "#00bcd4" if not is_guest_mode else "#ffb300"
+            input_bg      = "#3e3e42"
+            input_border  = "#5f646c"
+            btn_bg        = "#00bcd4"
+            btn_hover     = "#00e5ff"
+            theme_btn_color = "#00bcd4"
+            guest_btn_bg    = "#e65100"
+            guest_btn_hover = "#ff6d00"
+            account_btn_bg    = "#0288d1"
+            account_btn_hover = "#039be5"
+            guest_info_color = "#ffb300"
         else:
-            # Light theme colors
-            bg_color = "#f4f4f4"
-            text_color = "#2d2d30"
-            title_color = "#007AFF"
-            input_bg = "#ffffff"
-            input_border = "#cccccc"
-            btn_bg = "#007AFF"
-            btn_hover = "#0056b3"
-            theme_btn_color = title_color
+            bg_color      = "#f4f4f4"
+            text_color    = "#2d2d30"
+            title_color   = "#007AFF" if not is_guest_mode else "#e65100"
+            input_bg      = "#ffffff"
+            input_border  = "#cccccc"
+            btn_bg        = "#007AFF"
+            btn_hover     = "#0056b3"
+            theme_btn_color = "#007AFF"
+            guest_btn_bg    = "#e65100"
+            guest_btn_hover = "#ff6d00"
+            account_btn_bg    = "#1976d2"
+            account_btn_hover = "#1565c0"
+            guest_info_color = "#e65100"
+
+        guest_toggle_bg    = guest_btn_bg    if self._mode == self._MODE_NORMAL else account_btn_bg
+        guest_toggle_hover = guest_btn_hover if self._mode == self._MODE_NORMAL else account_btn_hover
 
         qss = f"""
             QWidget {{
@@ -153,6 +289,11 @@ class LoginWindow(QWidget):
                 font-size: 16pt;
                 font-weight: bold;
                 color: {title_color};
+            }}
+            #GuestInfoLabel {{
+                color: {guest_info_color};
+                font-size: 10pt;
+                font-style: italic;
             }}
             QLineEdit {{
                 background-color: {input_bg};
@@ -184,8 +325,63 @@ class LoginWindow(QWidget):
             #ThemeButton:hover {{
                 color: {btn_hover};
             }}
+
+            /* Guest Mode Toggle — pill shaped, distinctly coloured */
+            #GuestToggleButton {{
+                background-color: {guest_toggle_bg};
+                border: none;
+                padding: 6px 16px;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 9pt;
+                color: #ffffff;
+                min-width: 120px;
+                max-width: 160px;
+            }}
+            #GuestToggleButton:hover {{
+                background-color: {guest_toggle_hover};
+            }}
         """
         self.setStyleSheet(qss)
+
+    # ── Guest login helpers ─────────────────────────────────────────────────────
+
+    def _guest_anonymous(self):
+        """Log in as a completely anonymous guest with a randomly generated username."""
+        random_username = f"guest_{uuid.uuid4().hex[:8]}"
+        self._do_guest_login(random_username, anonymous=True)
+
+    def _guest_with_username(self):
+        """Log in as a guest using the typed username (or anonymous if field is empty)."""
+        username = self.username_input.text().strip()
+        if not username:
+            # If field is empty fall back to anonymous
+            self._guest_anonymous()
+            return
+        self._do_guest_login(username, anonymous=False)
+
+    def _do_guest_login(self, username: str, *, anonymous: bool):
+        """Core guest-login logic shared by both anonymous and named paths."""
+        try:
+            self.vault_manager = VaultManager.create_guest_vault(username)
+            self.is_authenticated = True
+
+            label = f"anonymous guest ('{username}')" if anonymous else f"guest '{username}'"
+            QMessageBox.information(
+                self,
+                "Guest Mode",
+                f"Logged in as {label}.\n\n"
+                "Settings saved during this session will be stored in volatile memory "
+                "only and will not persist on disk.",
+            )
+            self.login_successful.emit(self.vault_manager)
+            self.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Guest Mode Error", f"Failed to start Guest session: {e}")
+            if self.vault_manager:
+                self.vault_manager.shutdown()
+
+    # ── Normal-mode button handlers ─────────────────────────────────────────────
 
     def _get_credentials(self):
         """Helper to retrieve and validate input fields."""
@@ -221,31 +417,13 @@ class LoginWindow(QWidget):
         except Exception as e:
             print(f"[LoginWindow] Error copying template cryptography files: {e}")
 
+    # Keep old public name for backward compat with any external callers
     def attempt_guest_login(self):
         """
+        Legacy public entry-point: redirect to the guest-with-username path.
         Logs in the user in Guest Mode without requiring a password.
-        Settings saved during execution remain in volatile memory only.
         """
-        username = self.username_input.text().strip()
-        if not username:
-            QMessageBox.warning(self, "Input Error", "Please enter an account name to log in as Guest.")
-            return
-
-        try:
-            self.vault_manager = VaultManager.create_guest_vault(username)
-            self.is_authenticated = True
-
-            QMessageBox.information(
-                self,
-                "Guest Mode",
-                f"Logged in as Guest '{username}'.\n\nSettings saved during this session will be stored in volatile memory only and will not persist on disk.",
-            )
-            self.login_successful.emit(self.vault_manager)
-            self.close()
-        except Exception as e:
-            QMessageBox.critical(self, "Guest Mode Error", f"Failed to start Guest session: {e}")
-            if self.vault_manager:
-                self.vault_manager.shutdown()
+        self._guest_with_username()
 
     def attempt_login(self):  # noqa: C901
         """Tries to authenticate the user against the stored hash."""
@@ -407,6 +585,11 @@ class LoginWindow(QWidget):
         Creates a new account, hashes the password, and saves it to a new
         account-specific vault.
         """
+        # In guest mode the "Create Account" button was replaced by "Login Anonymously"
+        if self._mode == self._MODE_GUEST:
+            self._guest_anonymous()
+            return
+
         self._copy_template_crypto_files()
         username, raw_password = self._get_credentials()
         if not username:

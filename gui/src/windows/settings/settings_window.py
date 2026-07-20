@@ -506,16 +506,6 @@ class SettingsWindow(QWidget):
         self.ui_density_combo.setToolTip("Controls button padding and widget spacing throughout the app")
         appearance_layout.addRow("UI Density:", self.ui_density_combo)
 
-        # Preview button and Zoom buttons row
-        preview_row = QHBoxLayout()
-        btn_preview_appearance = QPushButton("Preview")
-        btn_preview_appearance.setFixedWidth(90)
-        btn_preview_appearance.setToolTip("Apply the current accent/density settings live (does not save)")
-        btn_preview_appearance.clicked.connect(self._preview_appearance)
-        preview_row.addWidget(btn_preview_appearance)
-        preview_row.addStretch()
-        appearance_layout.addRow("", preview_row)
-
         # App Zoom row
         zoom_row = QHBoxLayout()
         btn_zoom_out = QPushButton("Zoom −")
@@ -536,6 +526,16 @@ class SettingsWindow(QWidget):
         zoom_row.addWidget(self._zoom_label)
         zoom_row.addStretch()
         appearance_layout.addRow("App Zoom:", zoom_row)
+
+        # Preview button row
+        preview_row = QHBoxLayout()
+        btn_preview_appearance = QPushButton("Preview")
+        btn_preview_appearance.setFixedWidth(90)
+        btn_preview_appearance.setToolTip("Apply the current accent/density settings live (does not save)")
+        btn_preview_appearance.clicked.connect(self._preview_appearance)
+        preview_row.addWidget(btn_preview_appearance)
+        preview_row.addStretch()
+        appearance_layout.addRow("", preview_row)
 
         # ---------------------------------------------------------------------
         # --- Gallery and Display Section ---
