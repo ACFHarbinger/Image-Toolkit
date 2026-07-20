@@ -99,3 +99,76 @@ class TestFileDialogPatch:
             mock_info.assert_called_once()
 
         AppSettings.set_favourite_directories([])
+
+    def test_event_filter_context_menu_remove_favourite(self, q_app, tmp_path):
+        target_dir = tmp_path / "fav_to_remove"
+        target_dir.mkdir()
+        AppSettings.set_favourite_directories([str(target_dir)])
+
+        dialog = CustomFileDialog()
+        event_filter = FileDialogEventFilter(dialog)
+
+        mock_view = QListView(dialog)
+        model = MyStandardItemModel(str(target_dir), mock_view)
+        mock_view.setModel(model)
+
+        item = QStandardItem("test_item")
+        model.appendRow(item)
+        valid_index = model.indexFromItem(item)
+
+        mock_view.indexAt = lambda pos: valid_index
+
+        event = QContextMenuEvent(
+            QContextMenuEvent.Reason.Mouse,
+            QPoint(10, 10),
+            QPoint(100, 100)
+        )
+
+        with patch("gui.src.windows.settings.file_dialog_patch.QMenu", MyMenu), \
+             patch.object(QMessageBox, "information") as mock_info:
+
+            res = event_filter.eventFilter(mock_view, event)
+            assert res is True
+
+            # Verify the directory was removed from favourites
+            assert str(target_dir) not in AppSettings.favourite_directories()
+            mock_info.assert_called_once()
+
+        AppSettings.set_favourite_directories([])
+
+    def test_thumbnail_file_picker_favourites(self, q_app, tmp_path):
+        from gui.src.tabs.animation.stitch_tab import _ThumbnailFilePicker
+        from PySide6.QtCore import Qt
+
+        fav_dir = tmp_path / "picker_fav"
+        fav_dir.mkdir()
+        AppSettings.set_favourite_directories([str(fav_dir)])
+
+        picker = _ThumbnailFilePicker(start_dir=str(tmp_path))
+
+        # Verify favourite directory is in sidebar
+        sidebar_paths = [
+            picker._sidebar.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(picker._sidebar.count())
+        ]
+        assert str(fav_dir) in sidebar_paths
+
+        # Test context menu remove on sidebar
+        with patch.object(QMessageBox, "information"):
+            # Find item corresponding to fav_dir
+            target_item = None
+            for i in range(picker._sidebar.count()):
+                item = picker._sidebar.item(i)
+                if item.data(Qt.ItemDataRole.UserRole) == str(fav_dir):
+                    target_item = item
+                    break
+            assert target_item is not None
+
+            # Simulate context menu action trigger
+            pos = picker._sidebar.visualItemRect(target_item).center()
+            with patch("gui.src.tabs.animation.stitch_tab.QMenu", MyMenu):
+                picker._on_sidebar_context_menu(pos)
+
+            assert str(fav_dir) not in AppSettings.favourite_directories()
+
+        AppSettings.set_favourite_directories([])

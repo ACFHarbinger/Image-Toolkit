@@ -13,17 +13,19 @@ class FileDialogEventFilter(QObject):
         self.dialog = dialog
 
     def _handle_favorite_action(self, path, favs, is_fav):
+        norm_path = os.path.normpath(path)
         if is_fav:
-            if path in favs:
-                favs.remove(path)
-            AppSettings.set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
+            new_favs = [f for f in favs if os.path.normpath(f) != norm_path]
+            AppSettings.set_favourite_directories(new_favs) # pyrefly: ignore [missing-attribute]
             self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
             QMessageBox.information(self.dialog, "Favourite Removed", f"Removed from favourites:\n{path}")
         else:
-            favs.append(path)
-            AppSettings.set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
-            self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
-            QMessageBox.information(self.dialog, "Favourite Added", f"Added to favourites:\n{path}")
+            norm_favs = [os.path.normpath(f) for f in favs]
+            if norm_path not in norm_favs:
+                favs.append(path)
+                AppSettings.set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
+                self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
+                QMessageBox.information(self.dialog, "Favourite Added", f"Added to favourites:\n{path}")
 
     def _handle_new_folder_action(self, path):
         name, ok = QInputDialog.getText(self.dialog, "New Folder", "Enter folder name:")
@@ -63,18 +65,44 @@ class FileDialogEventFilter(QObject):
             return False
 
         index = watched.indexAt(event.pos())
-        if not index.isValid():
+        path = ""
+
+        if index.isValid():
+            model = watched.model()
+            actual_index = index
+            actual_model = model
+            while isinstance(actual_model, QSortFilterProxyModel):
+                actual_index = actual_model.mapToSource(actual_index)
+                actual_model = actual_model.sourceModel()
+
+            if hasattr(actual_model, "filePath"):
+                path = actual_model.filePath(actual_index)
+
+            if not path:
+                # Try getting QUrl or path string from index data (e.g. for sidebar items)
+                for role in (Qt.ItemDataRole.UserRole, Qt.ItemDataRole.DisplayRole, 32):
+                    val = index.data(role)
+                    if isinstance(val, QUrl):
+                        p = val.toLocalFile()
+                        if p and os.path.exists(p):
+                            path = p
+                            break
+                    elif isinstance(val, str) and val and os.path.exists(val):
+                        path = val
+                        break
+        else:
+            # Right clicked on empty space / background
+            path = self.dialog.directory()
+
+        if not path:
             return False
 
-        model = watched.model()
-
-        actual_index = index
-        actual_model = model
-        while isinstance(actual_model, QSortFilterProxyModel):
-            actual_index = actual_model.mapToSource(actual_index)
-            actual_model = actual_model.sourceModel()
-
-        path = actual_model.filePath(actual_index) if hasattr(actual_model, "filePath") else ""
+        if not os.path.isdir(path):
+            parent_dir = os.path.dirname(path)
+            if os.path.isdir(parent_dir):
+                path = parent_dir
+            else:
+                path = self.dialog.directory()
 
         if not path or not os.path.isdir(path):
             return False
@@ -129,7 +157,9 @@ class FileDialogEventFilter(QObject):
             """)
 
         favs = AppSettings.favourite_directories() # pyrefly: ignore [missing-attribute]
-        is_fav = path in favs
+        norm_path = os.path.normpath(path)
+        norm_favs = [os.path.normpath(f) for f in favs]
+        is_fav = norm_path in norm_favs
         fav_action = QAction("❌ Remove from Favourites", menu) if is_fav else QAction("⭐ Add to Favourites", menu)
 
         menu.addAction(fav_action)
@@ -178,10 +208,11 @@ class CustomFileDialog(QFileDialog):
 
     def _sync_sidebar(self):
         favs = AppSettings.favourite_directories() # pyrefly: ignore [missing-attribute]
+        norm_favs = {os.path.normpath(p) for p in favs}
         system_urls = []
         for url in self._default_sidebar_urls:
             if url.isLocalFile():
-                if url.toLocalFile() not in favs:
+                if os.path.normpath(url.toLocalFile()) not in norm_favs:
                     system_urls.append(url)
             else:
                 system_urls.append(url)

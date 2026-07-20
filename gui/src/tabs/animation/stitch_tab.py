@@ -54,6 +54,7 @@ from PySide6.QtCore import (
     Slot,
 )
 from PySide6.QtGui import (
+    QAction,
     QBrush,
     QColor,
     QFont,
@@ -92,6 +93,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -109,6 +111,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.windows.settings.app_settings import AppSettings
 from ...constants import (
     ANCHOR_RADIUS,
     ANIM_CLUSTER_COLORS,
@@ -323,6 +326,8 @@ class _ThumbnailFilePicker(QDialog):
         self._sidebar.itemClicked.connect(
             lambda item: self._navigate(item.data(Qt.ItemDataRole.UserRole))
         )
+        self._sidebar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._sidebar.customContextMenuRequested.connect(self._on_sidebar_context_menu)
         splitter.addWidget(self._sidebar)
 
         self._grid = QListWidget()
@@ -344,6 +349,8 @@ class _ThumbnailFilePicker(QDialog):
         )
         self._grid.itemDoubleClicked.connect(self._on_double_click)
         self._grid.itemSelectionChanged.connect(self._update_status)
+        self._grid.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._grid.customContextMenuRequested.connect(self._on_grid_context_menu)
         splitter.addWidget(self._grid)
         splitter.setSizes([150, 800])
         splitter.setStretchFactor(1, 1)
@@ -377,6 +384,7 @@ class _ThumbnailFilePicker(QDialog):
         layout.addLayout(bottom)
 
     def _populate_sidebar(self):
+        self._sidebar.clear()
         home = os.path.expanduser("~")
         bookmarks = [
             ("Home", home),
@@ -385,11 +393,129 @@ class _ThumbnailFilePicker(QDialog):
             ("Downloads", os.path.join(home, "Downloads")),
             ("Documents", os.path.join(home, "Documents")),
         ]
+        favs = AppSettings.favourite_directories()
+        norm_std = {os.path.normpath(p) for _, p in bookmarks if p}
+        for fav_path in favs:
+            if fav_path and os.path.isdir(fav_path):
+                norm_fav = os.path.normpath(fav_path)
+                if norm_fav not in norm_std:
+                    label = f"⭐ {os.path.basename(norm_fav) or norm_fav}"
+                    bookmarks.append((label, norm_fav))
+
         for label, path in bookmarks:
             if os.path.isdir(path):
                 item = QListWidgetItem(label)
                 item.setData(Qt.ItemDataRole.UserRole, path)
                 self._sidebar.addItem(item)
+
+    def _apply_menu_style(self, menu: QMenu):
+        is_dark = AppSettings.get("preferences/theme", "dark") == "dark"
+        if is_dark:
+            menu.setStyleSheet("""
+                QMenu {
+                    background-color: #2d2d30;
+                    color: white;
+                    border: 1px solid #3e3e42;
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-size: 12px;
+                }
+                QMenu::item {
+                    padding: 6px 20px;
+                }
+                QMenu::item:selected {
+                    background-color: #00bcd4;
+                    color: black;
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #3e3e42;
+                    margin: 4px 0px;
+                }
+            """)
+        else:
+            menu.setStyleSheet("""
+                QMenu {
+                    background-color: #ffffff;
+                    color: #333;
+                    border: 1px solid #ccc;
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-size: 12px;
+                }
+                QMenu::item {
+                    padding: 6px 20px;
+                }
+                QMenu::item:selected {
+                    background-color: #007AFF;
+                    color: white;
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #ccc;
+                    margin: 4px 0px;
+                }
+            """)
+
+    def _on_sidebar_context_menu(self, pos):
+        item = self._sidebar.itemAt(pos)
+        if not item:
+            return
+        path = item.data(Qt.ItemDataRole.UserRole)
+        if not path or not os.path.isdir(path):
+            return
+
+        favs = AppSettings.favourite_directories()
+        norm_path = os.path.normpath(path)
+        norm_favs = [os.path.normpath(f) for f in favs]
+        is_fav = norm_path in norm_favs
+
+        menu = QMenu(self._sidebar)
+        self._apply_menu_style(menu)
+        fav_act = QAction("❌ Remove from Favourites", menu) if is_fav else QAction("⭐ Add to Favourites", menu)
+        menu.addAction(fav_act)
+
+        act = menu.exec(self._sidebar.mapToGlobal(pos))
+        if act == fav_act:
+            if is_fav:
+                new_favs = [f for f in favs if os.path.normpath(f) != norm_path]
+                AppSettings.set_favourite_directories(new_favs)
+                QMessageBox.information(self, "Favourite Removed", f"Removed from favourites:\n{path}")
+            else:
+                favs.append(path)
+                AppSettings.set_favourite_directories(favs)
+                QMessageBox.information(self, "Favourite Added", f"Added to favourites:\n{path}")
+            self._populate_sidebar()
+
+    def _on_grid_context_menu(self, pos):
+        item = self._grid.itemAt(pos)
+        if item and item.data(Qt.ItemDataRole.UserRole + 1) == "dir":
+            path = item.data(Qt.ItemDataRole.UserRole)
+        else:
+            path = self._current_dir
+
+        if not path or not os.path.isdir(path):
+            return
+
+        favs = AppSettings.favourite_directories()
+        norm_path = os.path.normpath(path)
+        norm_favs = [os.path.normpath(f) for f in favs]
+        is_fav = norm_path in norm_favs
+
+        menu = QMenu(self._grid)
+        self._apply_menu_style(menu)
+        fav_act = QAction("❌ Remove from Favourites", menu) if is_fav else QAction("⭐ Add to Favourites", menu)
+        menu.addAction(fav_act)
+
+        act = menu.exec(self._grid.mapToGlobal(pos))
+        if act == fav_act:
+            if is_fav:
+                new_favs = [f for f in favs if os.path.normpath(f) != norm_path]
+                AppSettings.set_favourite_directories(new_favs)
+                QMessageBox.information(self, "Favourite Removed", f"Removed from favourites:\n{path}")
+            else:
+                favs.append(path)
+                AppSettings.set_favourite_directories(favs)
+                QMessageBox.information(self, "Favourite Added", f"Added to favourites:\n{path}")
+            self._populate_sidebar()
 
     def _navigate(self, path: str):
         path = os.path.normpath(path)
@@ -1458,13 +1584,24 @@ class StitchTab(QWidget):
         frames_group = QGroupBox("Source Frames")
         frames_group_layout = QVBoxLayout(frames_group)
 
-        # Video mode toggle (Issue 9 S84)
+        # Video mode toggle & Frame counter
+        video_row = QHBoxLayout()
+        video_row.setContentsMargins(0, 0, 0, 0)
         self._cb_video_mode = QCheckBox("From Video Source")
         self._cb_video_mode.setToolTip(
             "Extract frames from a video file instead of loading images manually.\n"
             "Requires: pip install av (PyAV)"
         )
-        frames_group_layout.addWidget(self._cb_video_mode)
+        self._lbl_frame_count = QLabel("Frames: 0")
+        self._lbl_frame_count.setStyleSheet(
+            "QLabel { font-weight: bold; color: #00bcd4; }"
+        )
+        self._lbl_frame_count.setToolTip("Total number of loaded source frames.")
+
+        video_row.addWidget(self._cb_video_mode)
+        video_row.addStretch()
+        video_row.addWidget(self._lbl_frame_count)
+        frames_group_layout.addLayout(video_row)
 
         # Video input panel (shown only in video mode)
         self._video_input_widget = QWidget()
@@ -2661,7 +2798,14 @@ class StitchTab(QWidget):
         if idx >= 0:
             self._pair_combo.setCurrentIndex(idx)
 
+    def _update_frame_counter(self):
+        """Update the frame counter label next to the video mode checkbox."""
+        count = len(self._frame_paths) if hasattr(self, "_frame_paths") else 0
+        if hasattr(self, "_lbl_frame_count"):
+            self._lbl_frame_count.setText(f"Frames: {count}")
+
     def _refresh_pair_combo(self):
+        self._update_frame_counter()
         self._pair_combo.blockSignals(True)
         self._pair_combo.clear()
         n = len(self._frame_paths)
@@ -5843,6 +5987,7 @@ class StitchTab(QWidget):
         self._frame_list.clear()
         for p in self._frame_paths:
             self._frame_list.addItem(self._make_frame_item(p))
+        self._refresh_pair_combo()
 
         self._tab_widget.setCurrentIndex(0)  # switch to Stitch tab
         QMessageBox.information(
@@ -5879,6 +6024,7 @@ class StitchTab(QWidget):
         self._frame_list.clear()
         for p in self._frame_paths:
             self._frame_list.addItem(self._make_frame_item(p))
+        self._refresh_pair_combo()
         self._tab_widget.setCurrentIndex(0)
         QMessageBox.information(
             self,
