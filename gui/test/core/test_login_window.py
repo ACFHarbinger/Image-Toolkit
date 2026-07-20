@@ -204,16 +204,50 @@ class TestLoginWindowPreferenceProfile:
 
 
 class TestGuestMode:
-    def test_guest_login_empty_username(self, q_app):
-        from unittest.mock import patch
+    def test_guest_login_empty_username_falls_back_to_anonymous(self, q_app):
+        """Empty username in guest mode should generate an anonymous random username."""
+        from unittest.mock import MagicMock, patch
 
         window = LoginWindow()
         window.username_input.setText("")
+        window.close = MagicMock()
 
-        with patch("gui.src.windows.main.login_window.QMessageBox.warning") as mock_warn:
+        with (
+            patch("gui.src.windows.main.login_window.QMessageBox.information"),
+        ):
             window.attempt_guest_login()
-            mock_warn.assert_called_once()
-            assert not window.is_authenticated
+            # Should have authenticated anonymously — no warning expected
+            assert window.is_authenticated
+            assert window.vault_manager is not None
+            assert window.vault_manager.is_guest is True
+            # Username should have been auto-generated (starts with 'guest_')
+            assert window.vault_manager.account_name.startswith("guest_")
+
+    def test_toggle_guest_mode_ui(self, q_app):
+        """Toggling guest mode switches button labels and field visibility."""
+        window = LoginWindow()
+        # Initial state: normal mode
+        assert window._mode == window._MODE_NORMAL
+        assert window.password_input.isVisible()
+        assert not window.guest_info_label.isVisible()
+
+        # Enter guest mode
+        window.toggle_guest_mode()
+        assert window._mode == window._MODE_GUEST
+        assert not window.password_input.isVisible()
+        assert window.guest_info_label.isVisible()
+        assert window.create_button.text() == "Login Anonymously"
+        assert window.login_button.text() == "Login as Guest"
+        assert "Account Access" in window.guest_toggle_button.text()
+
+        # Return to normal mode
+        window.toggle_guest_mode()
+        assert window._mode == window._MODE_NORMAL
+        assert window.password_input.isVisible()
+        assert not window.guest_info_label.isVisible()
+        assert window.create_button.text() == "Create Account"
+        assert window.login_button.text() == "Login"
+        assert "Guest Mode" in window.guest_toggle_button.text()
 
     def test_guest_login_successful(self, q_app):
         from unittest.mock import MagicMock, patch
