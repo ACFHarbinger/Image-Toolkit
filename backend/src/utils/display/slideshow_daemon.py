@@ -17,6 +17,7 @@ import logging
 import os
 import random
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -30,7 +31,47 @@ if str(_ROOT) not in sys.path:
 
 from screeninfo import Monitor  # noqa: E402
 
+from backend.src.constants import SUPPORTED_VIDEO_FORMATS  # noqa: E402
 from backend.src.core.wallpaper import WallpaperManager  # noqa: E402
+
+_VIDEO_DURATION_CACHE: dict[str, float] = {}
+
+
+def _is_video(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in SUPPORTED_VIDEO_FORMATS
+
+
+def _get_video_duration(path: str) -> float | None:
+    """Return video duration in seconds via ffprobe, falling back to cv2."""
+    if path in _VIDEO_DURATION_CACHE:
+        return _VIDEO_DURATION_CACHE[path]
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=10,
+        )
+        val = result.stdout.strip()
+        if val:
+            dur = float(val)
+            _VIDEO_DURATION_CACHE[path] = dur
+            return dur
+    except Exception:
+        pass
+    try:
+        import cv2  # type: ignore
+
+        cap = cv2.VideoCapture(path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        cap.release()
+        if fps > 0:
+            dur = frames / fps
+            _VIDEO_DURATION_CACHE[path] = dur
+            return dur
+    except Exception:
+        pass
+    return None
 
 # ---------------------------------------------------------------------------
 # Logging – writes to the same log file the GUI "View Logs" button opens
@@ -45,6 +86,31 @@ logging.basicConfig(
 )
 
 DAEMON_CONFIG_PATH = Path.home() / ".image-toolkit" / ".slideshow_config.json"
+PID_PATH = Path.home() / ".image-toolkit" / ".slideshow_daemon.pid"
+
+
+def _atomic_write_json(path: Path, data: dict) -> None:
+    """Write JSON via a temp file + rename so concurrent readers never see a
+    truncated/partial file (plain open(path, "w") is not atomic)."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=4)
+    os.replace(tmp, path)
+
+
+def _other_daemon_alive() -> int | None:
+    """PID of another live slideshow_daemon process, if any. Guards against
+    duplicate daemons racing on the same config file (which can clobber each
+    other's interval/flag settings mid-flight)."""
+    try:
+        pid = int(PID_PATH.read_text().strip())
+        if pid == os.getpid():
+            return None
+        os.kill(pid, 0)
+    except Exception:
+        return None
+    return pid
+
 
 # ---------------------------------------------------------------------------
 # DE detection
@@ -71,6 +137,23 @@ def _find_qdbus() -> str | None:
 # ---------------------------------------------------------------------------
 # Wallpaper setters
 # ---------------------------------------------------------------------------
+
+def _runtime_interval(monitor_state: dict, fallback: int) -> int:
+    """Longest duration among the currently active videos across monitors,
+    so no monitor's video gets cut off early. Falls back to the configured
+    fixed interval when nothing currently showing is a video (or duration
+    can't be determined)."""
+    durations = []
+    for state in monitor_state.values():
+        path = state["paths"][state["index"]]
+        if _is_video(path):
+            dur = _get_video_duration(path)
+            if dur:
+                durations.append(dur)
+    if not durations:
+        return fallback
+    return max(1, round(max(durations)))
+
 
 def _parse_monitors(config: dict) -> list:
     monitors = []
@@ -106,6 +189,19 @@ def run() -> None:  # noqa: C901
         logging.error(f"Config not found: {DAEMON_CONFIG_PATH}")
         return
 
+    existing_pid = _other_daemon_alive()
+    if existing_pid:
+        logging.warning(
+            f"Another slideshow daemon is already running (PID {existing_pid}) "
+            "-- exiting to avoid two processes racing on the same config."
+        )
+        return
+    try:
+        PID_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PID_PATH.write_text(str(os.getpid()))
+    except Exception as exc:
+        logging.warning(f"Could not write PID file: {exc}")
+
     try:
         with open(DAEMON_CONFIG_PATH) as f:
             config = json.load(f)
@@ -121,6 +217,7 @@ def run() -> None:  # noqa: C901
     interval: int = int(config.get("interval_seconds", 30))
     playback_order: str = config.get("playback_order", "Sequential")
     raw_style: str = config.get("style", "Scaled, Keep Proportions")
+    use_video_runtime: bool = bool(config.get("use_video_runtime_interval", False))
 
     monitor_queues: dict = config.get("monitor_queues", {})
 
@@ -146,7 +243,10 @@ def run() -> None:  # noqa: C901
     # Set first wallpaper on each monitor immediately
     monitors = _parse_monitors(config)
     _apply_all(monitor_state, de, qdbus, raw_style, monitors)
-    _update_config_paths(monitor_state, interval)
+    if use_video_runtime:
+        interval = _runtime_interval(monitor_state, interval)
+        logging.info(f"Video-runtime interval: {interval}s")
+    _update_config_paths(monitor_state, interval, use_video_runtime)
 
     elapsed = 0.0
     last_config_mtime = DAEMON_CONFIG_PATH.stat().st_mtime
@@ -181,8 +281,11 @@ def run() -> None:  # noqa: C901
                 new_order = gui_cfg.get("playback_order", playback_order)
                 new_style = gui_cfg.get("style", raw_style)
                 new_queues = gui_cfg.get("monitor_queues", {})
+                use_video_runtime = bool(
+                    gui_cfg.get("use_video_runtime_interval", use_video_runtime)
+                )
 
-                if new_interval != interval:
+                if not use_video_runtime and new_interval != interval:
                     logging.info(f"Interval changed: {interval} → {new_interval}s")
                     interval = new_interval
                     elapsed = 0.0  # reset timer
@@ -211,7 +314,10 @@ def run() -> None:  # noqa: C901
                 elapsed = 0.0
                 _advance_all(monitor_state)
                 _apply_all(monitor_state, de, qdbus, raw_style, monitors)
-                _update_config_paths(monitor_state, interval)
+                if use_video_runtime:
+                    interval = _runtime_interval(monitor_state, interval)
+                    logging.info(f"Video-runtime interval: {interval}s")
+                _update_config_paths(monitor_state, interval, use_video_runtime)
 
     except KeyboardInterrupt:
         logging.info("KeyboardInterrupt received.")
@@ -221,8 +327,12 @@ def run() -> None:  # noqa: C901
                 with open(DAEMON_CONFIG_PATH) as f:
                     final = json.load(f)
                 final["running"] = False
-                with open(DAEMON_CONFIG_PATH, "w") as f:
-                    json.dump(final, f, indent=4)
+                _atomic_write_json(DAEMON_CONFIG_PATH, final)
+        except Exception:
+            pass
+        try:
+            if PID_PATH.exists() and PID_PATH.read_text().strip() == str(os.getpid()):
+                PID_PATH.unlink()
         except Exception:
             pass
         logging.info("Slideshow daemon stopped.")
@@ -253,8 +363,12 @@ def _apply_all(monitor_state: dict, de: str, qdbus: str | None, raw_style: str, 
         logging.error(f"Failed to apply wallpaper: {exc}")
 
 
-def _update_config_paths(monitor_state: dict, interval: int) -> None:
-    """Write current_paths back into the config so the GUI countdown/display updates."""
+def _update_config_paths(monitor_state: dict, interval: int, use_video_runtime: bool) -> None:
+    """Write current_paths + the live interval back into the config so the
+    GUI countdown/display and any config reload stay in sync with what the
+    daemon is actually doing (video-runtime mode recomputes interval every
+    cycle, so the on-disk value must track it, not just the original fixed
+    setting)."""
     try:
         with open(DAEMON_CONFIG_PATH) as f:
             cfg = json.load(f)
@@ -265,8 +379,9 @@ def _update_config_paths(monitor_state: dict, interval: int) -> None:
             current_paths[mid] = state["paths"][state["index"]]
         cfg["current_paths"] = current_paths
         cfg["last_change_timestamp"] = int(time.time())
-        with open(DAEMON_CONFIG_PATH, "w") as f:
-            json.dump(cfg, f, indent=4)
+        cfg["interval_seconds"] = interval
+        cfg["use_video_runtime_interval"] = use_video_runtime
+        _atomic_write_json(DAEMON_CONFIG_PATH, cfg)
     except Exception as exc:
         logging.warning(f"Could not update config paths: {exc}")
 

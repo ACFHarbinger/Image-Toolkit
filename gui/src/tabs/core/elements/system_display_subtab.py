@@ -33,6 +33,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QColorDialog,
     QComboBox,
     QGridLayout,
@@ -57,6 +58,46 @@ from ....helpers import WallpaperWorker
 from ....styles import STYLE_START_ACTION, STYLE_STOP_ACTION, apply_shadow_effect
 from .common.wallpaper_common_base import WallpaperCommonBase
 
+_VIDEO_DURATION_CACHE: Dict[str, float] = {}
+
+
+def _is_video(path: str) -> bool:
+    from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+    return os.path.splitext(path)[1].lower() in SUPPORTED_VIDEO_FORMATS
+
+
+def _get_video_duration(path: str) -> Optional[float]:
+    """Return video duration in seconds via ffprobe, falling back to cv2."""
+    if path in _VIDEO_DURATION_CACHE:
+        return _VIDEO_DURATION_CACHE[path]
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=10,
+        )
+        val = result.stdout.strip()
+        if val:
+            dur = float(val)
+            _VIDEO_DURATION_CACHE[path] = dur
+            return dur
+    except Exception:
+        pass
+    try:
+        import cv2  # type: ignore
+
+        cap = cv2.VideoCapture(path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        cap.release()
+        if fps > 0:
+            dur = frames / fps
+            _VIDEO_DURATION_CACHE[path] = dur
+            return dur
+    except Exception:
+        pass
+    return None
+
 
 class SystemDisplaySubTab(WallpaperCommonBase):
     """System wallpaper management subtab.
@@ -66,7 +107,9 @@ class SystemDisplaySubTab(WallpaperCommonBase):
     """
     interval_min_spinbox: Any
     interval_sec_spinbox: Any
+    chk_video_runtime_interval: Any
     playback_order_combo: Any
+    playback_order_label: Any
     style_combo: Any
     scan_directory_path: Any
     gallery_scroll_area: Any
@@ -176,15 +219,18 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         slideshow_layout.addWidget(self.interval_sec_spinbox)
         slideshow_layout.addWidget(QLabel("sec"))
 
-        slideshow_layout.addStretch(1)
-        slideshow_layout.addWidget(QLabel("Order:"))
-        self.playback_order_combo = QComboBox()
-        self.playback_order_combo.addItems(
-            ["Sequential", "Reverse Sequential", "Random"]
+        self.chk_video_runtime_interval = QCheckBox("Use Video Runtime as Interval")
+        self.chk_video_runtime_interval.setToolTip(
+            "Instead of a fixed interval, wait for each video's own runtime "
+            "before advancing to the next wallpaper. Falls back to the "
+            "fixed interval above for images or when a video's duration "
+            "can't be determined."
         )
-        self.playback_order_combo.setCurrentText("Sequential")
-        self.playback_order_combo.setFixedWidth(120)
-        slideshow_layout.addWidget(self.playback_order_combo)
+        self.chk_video_runtime_interval.setVisible(False)
+        self.chk_video_runtime_interval.toggled.connect(
+            self._on_video_runtime_interval_toggled
+        )
+        slideshow_layout.addWidget(self.chk_video_runtime_interval)
 
         slideshow_layout.addStretch(1)
 
@@ -285,6 +331,16 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.video_style_label.setVisible(False)
         style_layout.addWidget(self.video_style_label)
         style_layout.addWidget(self.video_style_combo)
+
+        self.playback_order_label = QLabel("Order:")
+        style_layout.addWidget(self.playback_order_label)
+        self.playback_order_combo = QComboBox()
+        self.playback_order_combo.addItems(
+            ["Sequential", "Reverse Sequential", "Random"]
+        )
+        self.playback_order_combo.setCurrentText("Sequential")
+        self.playback_order_combo.setFixedWidth(120)
+        style_layout.addWidget(self.playback_order_combo)
 
         style_layout.addStretch(1)
         settings_layout.addWidget(self.style_layout_widget)
@@ -422,6 +478,19 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         except Exception:
             return False
 
+    def _is_background_daemon_process_alive(self) -> bool:
+        """Whether a slideshow_daemon.py process is actually alive (not just
+        the config file's stale 'running' flag from a process that crashed
+        without cleaning up). Used to avoid spawning a second daemon process
+        that would race the first one on the shared config file."""
+        pid_path = Path.home() / ".image-toolkit" / ".slideshow_daemon.pid"
+        try:
+            pid = int(pid_path.read_text().strip())
+            os.kill(pid, 0)
+        except Exception:
+            return False
+        return True
+
     def _sync_daemon_config(self):
         if not self._is_daemon_running_config():
             return
@@ -451,6 +520,10 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "running": True,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
             + self.interval_sec_spinbox.value(),
+            "use_video_runtime_interval": (
+                self.background_type == "Smart Video Slideshow"
+                and self.chk_video_runtime_interval.isChecked()
+            ),
             "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
@@ -500,6 +573,10 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "running": start,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
             + self.interval_sec_spinbox.value(),
+            "use_video_runtime_interval": (
+                self.background_type == "Smart Video Slideshow"
+                and self.chk_video_runtime_interval.isChecked()
+            ),
             "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
@@ -518,6 +595,19 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 json.dump(config, f, indent=4)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save daemon config: {e}")
+            return
+
+        if start and self._is_background_daemon_process_alive():
+            # A daemon process is already alive and watching this same config
+            # file for changes -- it will pick up the new settings (interval,
+            # use_video_runtime_interval, queues, ...) on its own within a
+            # second. Spawning a second process here would race the first on
+            # the same config file and could clobber its settings mid-flight.
+            self.btn_daemon_toggle.setText("Stop Background Daemon")
+            self.btn_daemon_toggle.setStyleSheet(
+                "background-color: #c0392b; color: white; padding: 5px;"
+            )
+            self._start_daemon_countdown_if_active()
             return
 
         if start:
@@ -603,6 +693,12 @@ class SystemDisplaySubTab(WallpaperCommonBase):
     def _update_video_style(self, style_name: str):
         self.video_style = style_name
 
+    @Slot(bool)
+    def _on_video_runtime_interval_toggled(self, checked: bool):
+        self.interval_min_spinbox.setEnabled(not checked)
+        self.interval_sec_spinbox.setEnabled(not checked)
+        self._sync_daemon_config()
+
     @Slot(str)
     def _update_background_type(self, type_name: str):
         self.background_type = type_name
@@ -616,6 +712,13 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.btn_daemon_toggle.setVisible(is_slideshow or is_video_slideshow)
         self.btn_view_logs.setVisible(is_slideshow or is_video_slideshow)
         self.solid_color_widget.setVisible(is_solid_color)
+
+        self.chk_video_runtime_interval.setVisible(is_video_slideshow)
+        if not is_video_slideshow:
+            self.chk_video_runtime_interval.setChecked(False)
+
+        self.playback_order_label.setVisible(is_slideshow or is_video_slideshow)
+        self.playback_order_combo.setVisible(is_slideshow or is_video_slideshow)
 
         if is_video_static or is_video_slideshow:
             self.video_style_combo.show()
@@ -681,6 +784,26 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             else:
                 self.run_wallpaper_worker()
 
+    def _compute_video_runtime_interval_sec(
+        self, monitor_paths: Optional[Dict[str, Optional[str]]] = None
+    ) -> Optional[int]:
+        """Longest duration among the currently displayed videos across
+        monitors, so no monitor's video gets cut off early. Returns None
+        when nothing currently showing is a video, or its duration
+        can't be determined -- callers should fall back to the fixed
+        interval spinboxes in that case."""
+        if monitor_paths is None:
+            monitor_paths = self.monitor_image_paths
+        durations = []
+        for path in monitor_paths.values():
+            if path and _is_video(path):
+                dur = _get_video_duration(path)
+                if dur:
+                    durations.append(dur)
+        if not durations:
+            return None
+        return max(1, round(max(durations)))
+
     @Slot()
     def start_slideshow(self):
         if self._is_daemon_running_config():
@@ -725,13 +848,21 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         interval_minutes = self.interval_min_spinbox.value()
         interval_seconds = self.interval_sec_spinbox.value()
         self.interval_sec = (interval_minutes * 60) + interval_seconds
-        if self.interval_sec <= 0:
+        use_video_runtime = (
+            self.background_type == "Smart Video Slideshow"
+            and self.chk_video_runtime_interval.isChecked()
+        )
+        if not use_video_runtime and self.interval_sec <= 0:
             QMessageBox.critical(
                 self,
                 "Slideshow Error",
                 "Slideshow interval must be greater than 0 seconds.",
             )
             return
+        if use_video_runtime:
+            # Placeholder until the first cycle below determines the actual
+            # video's runtime and corrects the timer.
+            self.interval_sec = max(self.interval_sec, 1)
         interval_ms = self.interval_sec * 1000
         self.time_remaining_sec = self.interval_sec
         self.slideshow_timer = QTimer(self)
@@ -740,11 +871,19 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.countdown_timer = QTimer(self)
         self.countdown_timer.timeout.connect(self.update_countdown)
         self.countdown_timer.start(1000)
-        QMessageBox.information(
-            self,
-            "Slideshow Started",
-            f"Per-monitor slideshow started with {total_images} total items, cycling every {interval_minutes} minutes and {interval_seconds} seconds.",
-        )
+        if use_video_runtime:
+            QMessageBox.information(
+                self,
+                "Slideshow Started",
+                f"Per-monitor slideshow started with {total_images} total items, "
+                "cycling at each video's own runtime.",
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Slideshow Started",
+                f"Per-monitor slideshow started with {total_images} total items, cycling every {interval_minutes} minutes and {interval_seconds} seconds.",
+            )
         self._cycle_slideshow_wallpaper(increment=False)
         self.set_wallpaper_btn.setText("Slideshow Running (Stop)")
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
@@ -974,6 +1113,16 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 if monitor_id in self.monitor_widgets and path:
                     thumb = self._get_or_generate_thumbnail(path)
                     self.monitor_widgets[monitor_id].set_image(path, thumb)
+
+            if (
+                self.background_type == "Smart Video Slideshow"
+                and self.chk_video_runtime_interval.isChecked()
+            ):
+                computed = self._compute_video_runtime_interval_sec(new_monitor_paths)
+                if computed:
+                    self.interval_sec = computed
+                if self.slideshow_timer and self.slideshow_timer.isActive():
+                    self.slideshow_timer.start(self.interval_sec * 1000)
             self.time_remaining_sec = self.interval_sec
         except Exception as e:
             QMessageBox.critical(
@@ -1181,6 +1330,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "slideshow_enabled": (self.background_type == "Slideshow"),
             "interval_minutes": self.interval_min_spinbox.value(),
             "interval_seconds": self.interval_sec_spinbox.value(),
+            "use_video_runtime_interval": self.chk_video_runtime_interval.isChecked(),
             "background_type": self.background_type,
             "solid_color_hex": self.solid_color_hex,
             "playback_order": self.playback_order_combo.currentText(),
@@ -1201,6 +1351,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
             "slideshow_enabled": False,
             "interval_minutes": 5,
             "interval_seconds": 0,
+            "use_video_runtime_interval": False,
             "background_type": "Image",
             "solid_color_hex": "#000000",
             "monitor_order": [],
@@ -1227,6 +1378,10 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                 self.interval_min_spinbox.setValue(config.get("interval_minutes", 5))
             if "interval_seconds" in config:
                 self.interval_sec_spinbox.setValue(config.get("interval_seconds", 0))
+            if "use_video_runtime_interval" in config:
+                self.chk_video_runtime_interval.setChecked(
+                    config.get("use_video_runtime_interval", False)
+                )
             if "solid_color_hex" in config:
                 self.solid_color_hex = config.get("solid_color_hex", "#000000")
                 self.solid_color_preview.setStyleSheet(
