@@ -224,17 +224,22 @@ flag stays default OFF until a full-corpus run confirms neutral-or-better;
 `just asp-benchmark` (or chunked `--skip-done` runs) with the flag on,
 compared against a fresh same-code OFF baseline, finishes this item.
 
-### 2.2 Animation-phase grouping at ingestion  `[1–2 weeks]`
-New Stage 0.5 in `ingestion/frame_selection.py`: cluster the *selected* frames into
-animation phases (start with pairwise dHash/MAD + change-point detection à la
-Overmix's AnimationSeparator — the "on twos/threes" production fact the reports
-document in §8.4; upgrade with 1.1 findings if warranted). Output:
-`phase_ids: List[int]` carried through the pipeline state. Deliverables:
-- Phase-count and phase-span diagnostics in the benchmark JSON per test.
-- A visualization (frames strip colored by phase) in the per-test report.
-- **No behavior change yet** — measurement first: how many phases do our 97 tests
-  actually have, and how well do phase boundaries predict the seams that escalate
-  to single-pose today?
+### 2.2 Animation-phase grouping at ingestion  `[engineering done 2026-07-26, S215;
+full-corpus measurement pending — see 2.1's host-availability note]`
+`detect_animation_phases()` + `phase_spans()` added to `ingestion/frame_selection.py`:
+pairwise dHash Hamming distance between consecutive *selected* frames, phase
+boundary declared where the distance is a robust outlier (median + 2·MAD-sigma) —
+the same primitive as hold detection (§3.4A) one level up. Wired into the
+benchmark only for now (measurement — production `phase_ids` plumbing is 2.3's
+job, once there's a consumer): diagnostics land in the JSON (`"phases":
+{"count", "spans"}`) and a frame-strip-colored-by-phase PNG
+(`animation_phases.png`) in both the per-test plots dir and the markdown report.
+**Confirmed zero behavior change** on the 5-test verify (composite metrics
+byte-identical to the pre-2.2 baseline); phase counts on that subset ranged
+1–3 per test with plausible-looking boundaries (pose changes visibly align with
+phase-color transitions in the strip). Full-97-test phase-count/span survey
+still pending the same host-availability blocker as 2.1 — run alongside 2.1's
+full-corpus validation rather than as a separate pass.
 
 ### 2.3 Phase-consistent compositing  `[2–3 weeks, the centerpiece]`
 Use `phase_ids` in Stage 11: for each seam, if the two frames belong to different

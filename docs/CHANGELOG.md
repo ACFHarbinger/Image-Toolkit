@@ -4,6 +4,16 @@
 
 ---
 
+## S215 — 2026-07-26 (ASP Phase 2.2 — animation-phase clustering diagnostics)
+
+- **`detect_animation_phases()` + `phase_spans()`** added to `backend/src/animation/ingestion/frame_selection.py`: clusters the *selected* frame sequence (post `smart_select_frames`) into animation phases via pairwise dHash Hamming distance between consecutive selected frames, with a robust change-point rule (boundary declared where the distance exceeds median + 2·MAD-scaled-sigma). Same primitive as hold detection (§3.4A) applied one level up — hold detection groups near-identical raw frames into one cel, phase detection groups a run of already-distinct *selected* frames that still share a pose/action.
+- **Measurement-only**: not yet consumed by compositing (that's roadmap Phase 2.3). Wired into `backend/benchmark/bench_anime_stitch.py` only: `phase_count`/`phase_spans_list` threaded through all three `_build_result` call sites into a new `"phases": {"count", "spans"}` JSON block, plus a new `_save_phase_strip_plot()` visualization (`animation_phases.png` — selected-frame thumbnails in a horizontal strip with a colored bar per detected phase) rendered into both the per-test plots dir and the markdown report (new "Animation Phases" section in `_report_single_test_align`).
+- **Verified zero behavior change**: 5-test verify (`asp_test04/08/09/27/57`) produced composite metrics byte-identical to the pre-2.2 baseline. Phase counts on that subset: 1–3 phases per test, with phase-color boundaries in the strip visualization visibly tracking real pose changes (e.g. `asp_test08`: 9 selected frames → 3 phases at frames 0–3/4–6/7–8).
+- Full 97-test phase-count/span survey deferred alongside S214's pending full-corpus `ASP_HOLD_AVERAGE` validation — both blocked on the same host-sleep issue, to be run together.
+- `backend/test/animation/` — 670 passed, 5 GPU-skipped, unaffected.
+
+---
+
 ## S214 — 2026-07-26 (ASP roadmap archival merge; frame-selection benchmark/production consolidation; ASP_HOLD_AVERAGE fixes)
 
 **Part 2 — ASP roadmap: merged missing items from the archived 3,596-line roadmap into `moon/roadmaps/asp.md`:**

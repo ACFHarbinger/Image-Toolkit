@@ -43,7 +43,11 @@ from backend.src.animation.alignment.ecc import _ecc_refine
 from backend.src.animation.alignment.matching import _pairwise_match
 from backend.src.animation.core.pipeline import AnimeStitchPipeline
 from backend.src.animation.core.validation import _validate_affines
-from backend.src.animation.ingestion.frame_selection import smart_select_frames
+from backend.src.animation.ingestion.frame_selection import (
+    detect_animation_phases,
+    phase_spans,
+    smart_select_frames,
+)
 from backend.src.animation.ingestion.masking import _compute_fg_masks
 from backend.src.animation.rendering.compositing import _composite_foreground
 from backend.src.animation.rendering.rendering import _render_median
@@ -666,6 +670,44 @@ def _save_affine_path_plot(
     plt.close(fig)
 
 
+_PHASE_PALETTE = [
+    (78, 205, 196), (107, 107, 255), (102, 209, 255), (160, 214, 6),
+    (178, 138, 17), (111, 71, 239), (76, 59, 7), (150, 96, 131),
+]
+
+
+def _save_phase_strip_plot(
+    frames_paths: List[str],
+    phase_ids: List[int],
+    out_path: str,
+    thumb_h: int = 100,
+) -> None:
+    """§2.2: horizontal strip of selected-frame thumbnails with a colored bar
+    under each tile marking its detected animation phase."""
+    if not frames_paths:
+        return
+    tiles = []
+    for path, pid in zip(frames_paths, phase_ids, strict=False):
+        img = cv2.imread(path)
+        if img is None:
+            continue
+        h, w = img.shape[:2]
+        scale = thumb_h / max(h, 1)
+        tile = cv2.resize(img, (max(1, int(w * scale)), thumb_h))
+        color = _PHASE_PALETTE[pid % len(_PHASE_PALETTE)]
+        bar = np.full((10, tile.shape[1], 3), color, dtype=np.uint8)
+        tiles.append(np.vstack([tile, bar]))
+    if not tiles:
+        return
+    gap = np.full((tiles[0].shape[0], 4, 3), 18, dtype=np.uint8)
+    strip_parts: List[np.ndarray] = []
+    for i, t in enumerate(tiles):
+        if i > 0:
+            strip_parts.append(gap)
+        strip_parts.append(t)
+    cv2.imwrite(out_path, np.hstack(strip_parts))
+
+
 def _save_translation_plot(
     affines: List[np.ndarray],
     out_path: str,
@@ -1060,6 +1102,22 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     for p in frames_paths:
         print(f"  {os.path.basename(p)}")
 
+    # §2.2: animation-phase clustering — measurement-only, no effect on the
+    # composite that follows. Diagnostics feed the benchmark JSON and a
+    # frame-strip visualization; phase_ids are not yet consumed by
+    # compositing (that's Phase 2.3).
+    _phase_ids = detect_animation_phases(frames_paths)
+    _phase_spans = phase_spans(_phase_ids)
+    _phase_count = len(_phase_spans)
+    print(
+        f"  [PhaseDetect] {_phase_count} animation phase(s) across "
+        f"{len(frames_paths)} selected frames "
+        f"(spans={[(p, a, b) for p, a, b in _phase_spans]})"
+    )
+    _save_phase_strip_plot(
+        frames_paths, _phase_ids, os.path.join(plots_dir, "animation_phases.png")
+    )
+
     # ------------------------------------------------------------------
     # STEP 0: Generate simple stitch (always regenerate for consistency)
     # ------------------------------------------------------------------
@@ -1435,6 +1493,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             orig_frame_count=_orig_frame_count,
             smart_select_count=_smart_select_count,
             spatial_dedup_count=N,
+            phase_count=_phase_count,
+            phase_spans_list=_phase_spans,
         )
 
     try:
@@ -1734,6 +1794,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             orig_frame_count=_orig_frame_count,
             smart_select_count=_smart_select_count,
             spatial_dedup_count=N,
+            phase_count=_phase_count,
+            phase_spans_list=_phase_spans,
         )
 
     # ------------------------------------------------------------------
@@ -1816,6 +1878,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         orig_frame_count=_orig_frame_count,
         smart_select_count=_smart_select_count,
         spatial_dedup_count=N,
+        phase_count=_phase_count,
+        phase_spans_list=_phase_spans,
     )
 
 
@@ -1854,6 +1918,8 @@ def _build_result(
     orig_frame_count: int = 0,
     smart_select_count: int = 0,
     spatial_dedup_count: int = 0,
+    phase_count: int = 0,
+    phase_spans_list: Optional[List] = None,
 ) -> Dict:
     asp_metrics = _compute_all_metrics(asp_img, affines) if asp_img is not None else {}
     sim_metrics = _compute_all_metrics(sim_img) if sim_img is not None else {}
@@ -1914,6 +1980,14 @@ def _build_result(
             "count": frame_count,
             "source_h": frame_h,
             "source_w": frame_w,
+        },
+        # --- §2.2 animation-phase diagnostics (measurement-only) ---
+        "phases": {
+            "count": phase_count,
+            "spans": [
+                {"phase": p, "start": a, "end": b}
+                for p, a, b in (phase_spans_list or [])
+            ],
         },
         "canvas": {
             "width": canvas_w,
@@ -2553,6 +2627,17 @@ def _report_single_test_align(r: Dict, lines: List[str]) -> None:
         lines.append(f"canvas: {r['canvas']['width']}×{r['canvas']['height']}\n")
     lines.append("```\n\n")
 
+    phases = r.get("phases") or {}
+    if phases.get("spans"):
+        lines.append("### Animation Phases (§2.2, measurement-only)\n\n")
+        lines.append(f"- Detected **{phases['count']}** phase(s) across "
+                      f"{r['frames']['count']} selected frames.\n")
+        for span in phases["spans"]:
+            lines.append(
+                f"  - Phase {span['phase']}: frames {span['start']}–{span['end']}\n"
+            )
+        lines.append("\n")
+
 
 def _report_single_test_photo(r: Dict, lines: List[str]) -> None:
     gains = r["photometric"]["applied_gains"]
@@ -2588,6 +2673,16 @@ def _report_single_test_visualizations_plots(pd: str, rd: str, lines: List[str])
     gains_path = os.path.join(pd, "gains.png")
     if os.path.exists(gains_path):
         lines.append(_img_row("Per-Frame Luminance Gains", "gains.png"))
+
+    # §2.2 animation-phase strip
+    phases_path = os.path.join(pd, "animation_phases.png")
+    if os.path.exists(phases_path):
+        lines.append(
+            _img_row(
+                "Animation Phases (selected frames, colored by phase)",
+                "animation_phases.png",
+            )
+        )
 
     # 2D canvas and overlap
     cp = os.path.join(pd, "canvas_frame_placement.png")
