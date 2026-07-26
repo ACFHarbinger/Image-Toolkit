@@ -51,6 +51,7 @@ from backend.src.animation.core.validation import (
     _compute_adaptive_rot_scale,
     _validate_affines,
 )
+from backend.src.animation.ingestion.frame_selection import detect_animation_phases
 from backend.src.animation.ingestion.masking import (
     _cleanup_sam2_state,
     _compute_fg_masks,
@@ -961,6 +962,8 @@ class AnimeStitchPipeline:
             raise PipelineError("Need at least 2 valid frames to stitch.")
         logger.info(f"[Stitch] Stage 1 complete: {N} frames loaded.")
 
+        phase_ids: Optional[List[int]] = None
+
         # ── Stage 2: Width normalisation ─────────────────────────────────────
         frames = _normalise_widths(frames)
         H, W = frames[0].shape[:2]
@@ -1260,6 +1263,25 @@ class AnimeStitchPipeline:
                 f"[Stitch]   Spatial dedup complete: {_total_spa_dropped} frames "
                 f"removed, {N} remain."
             )
+
+        # ── §2.2/2.3 animation-phase clustering ──────────────────────────────
+        # Measurement-only unless ASP_PHASE_COMPOSITE=1 (compositing.py reads
+        # that flag itself). Computed here, after both dedup passes above, so
+        # phase_ids indices stay aligned with the final image_paths/frames/
+        # affines Stage 11 actually uses — either dedup pass can drop frames
+        # by index, which would desync a phase_ids list computed earlier.
+        try:
+            phase_ids = detect_animation_phases(image_paths)
+            logger.info(
+                f"[Stitch] {len(set(phase_ids))} animation phase(s) "
+                f"detected across {N} frames."
+            )
+        except Exception as _phase_exc:
+            logger.warning(
+                f"[Stitch] Phase detection failed ({_phase_exc}); "
+                "phase-consistent compositing disabled for this run."
+            )
+            phase_ids = None
 
         edges = self._filter_edges(edges, image_paths, H, W, frames, bg_masks)
 
@@ -1715,6 +1737,7 @@ class AnimeStitchPipeline:
                 frame_keys=tuple(image_paths),
                 seam_path_cache=self._seam_path_cache,
                 exclusion_masks=self.exclusion_masks or None,
+                phase_ids=phase_ids,
             )
             logger.info("[Stitch] Stage 11 complete: foreground composited.")
 

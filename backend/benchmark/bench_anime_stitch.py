@@ -1102,22 +1102,6 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     for p in frames_paths:
         print(f"  {os.path.basename(p)}")
 
-    # §2.2: animation-phase clustering — measurement-only, no effect on the
-    # composite that follows. Diagnostics feed the benchmark JSON and a
-    # frame-strip visualization; phase_ids are not yet consumed by
-    # compositing (that's Phase 2.3).
-    _phase_ids = detect_animation_phases(frames_paths)
-    _phase_spans = phase_spans(_phase_ids)
-    _phase_count = len(_phase_spans)
-    print(
-        f"  [PhaseDetect] {_phase_count} animation phase(s) across "
-        f"{len(frames_paths)} selected frames "
-        f"(spans={[(p, a, b) for p, a, b in _phase_spans]})"
-    )
-    _save_phase_strip_plot(
-        frames_paths, _phase_ids, os.path.join(plots_dir, "animation_phases.png")
-    )
-
     # ------------------------------------------------------------------
     # STEP 0: Generate simple stitch (always regenerate for consistency)
     # ------------------------------------------------------------------
@@ -1299,6 +1283,24 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         print(
             f"  Spatial dedup complete: {_total_spa_dropped} frames removed, {N} remain."
         )
+
+    # §2.2: animation-phase clustering — measurement-only unless
+    # ASP_PHASE_COMPOSITE=1 (compositing.py reads that flag itself). Computed
+    # here, after spatial dedup, so phase_ids indices stay aligned with the
+    # final frames/frames_paths/affines that compositing actually uses —
+    # spatial dedup above can drop frames by index, which would otherwise
+    # desync a phase_ids list computed on the pre-dedup selection.
+    _phase_ids = detect_animation_phases(frames_paths)
+    _phase_spans = phase_spans(_phase_ids)
+    _phase_count = len(_phase_spans)
+    print(
+        f"  [PhaseDetect] {_phase_count} animation phase(s) across "
+        f"{len(frames_paths)} selected frames "
+        f"(spans={[(p, a, b) for p, a, b in _phase_spans]})"
+    )
+    _save_phase_strip_plot(
+        frames_paths, _phase_ids, os.path.join(plots_dir, "animation_phases.png")
+    )
 
     t0 = time.perf_counter()
     pipe = AnimeStitchPipeline(
@@ -1576,7 +1578,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         # re-posing (Stage 8.5) + single-pose fallback.
         t0 = time.perf_counter()
         canvas = _composite_foreground(
-            [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks # pyrefly: ignore [bad-argument-type]
+            [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks, # pyrefly: ignore [bad-argument-type]
+            phase_ids=_phase_ids,
         )
         timings["composite_sec"] = round(time.perf_counter() - t0, 3)
         cv2.imwrite(os.path.join(stage_dir, "stage11_fg_composite.png"), canvas)

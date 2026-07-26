@@ -73,6 +73,16 @@ def _get_seam_pool() -> "_cf.ThreadPoolExecutor":
 # Enabled by default; set ASP_FG_REGISTER=0 to disable for A/B comparison.
 _FG_REGISTER_ENABLED = os.environ.get("ASP_FG_REGISTER", "1") != "0"
 
+# §2.3 — Phase-consistent compositing (roadmap Phase 2.2/2.3, S216). When a
+# seam's two frames belong to different animation phases (per
+# frame_selection.detect_animation_phases), never midpoint-warp them
+# together — that IS the "body part assembled from two poses" failure mode
+# the critical evaluation identifies. Escalate straight to single-pose from
+# the dominant (more-complete) phase instead, promoting the A6 single-pose
+# fallback from a residual-threshold escape hatch to policy at phase
+# boundaries. Default OFF pending A/B measurement.
+_PHASE_COMPOSITE: bool = os.environ.get("ASP_PHASE_COMPOSITE", "0") != "0"
+
 # Phase 4 — cv::detail::GraphCutSeamFinder global multi-image seam.
 # Default OFF (2026-07-09): the first full measurement of this path (5-test
 # verify, post-trim) showed seam_visibility 20–80 vs the pairwise-DP path's
@@ -1328,6 +1338,28 @@ def _optimize_boundaries_and_feathers(
     return boundaries, feathers
 
 
+def _dominant_frame_in_band(
+    by: float,
+    fi_a: int,
+    fi_b: int,
+    fg_a: np.ndarray,
+    fg_b: np.ndarray,
+    feathers: np.ndarray,
+    k: int,
+    H: int,
+) -> int:
+    """Which of the two seam frames carries more foreground in the seam band —
+    used whenever a seam is escalated straight to single-pose (user override,
+    §2.3 phase boundary, or the A6 ghost-prevention threshold)."""
+    _by_int = int(by)
+    _half = min(20, int(feathers[k]))
+    _y0 = max(0, _by_int - _half)
+    _y1 = min(H, _by_int + _half)
+    _fg_a_cnt = int(fg_a[_y0:_y1].sum())
+    _fg_b_cnt = int(fg_b[_y0:_y1].sum())
+    return fi_a if _fg_a_cnt >= _fg_b_cnt else fi_b
+
+
 def _check_preemptive_escalations(
     k: int,
     by: float,
@@ -1342,18 +1374,36 @@ def _check_preemptive_escalations(
     seam_single_pose: dict,
     seam_post_diffs: dict,
     H: int,
+    phase_ids: Optional[List[int]] = None,
 ) -> bool:
     # §2.4A: User seam override — force single-pose for this seam.
     _ov_k = (seam_overrides or {}).get(k, {})
     if _ov_k.get("force_single_pose"):
-        _by_int_sp = int(by)
-        _half_sp = min(20, int(feathers[k]))
-        _y0_sp = max(0, _by_int_sp - _half_sp)
-        _y1_sp = min(H, _by_int_sp + _half_sp)
-        _fg_a_cnt_sp = int(fg_a[_y0_sp:_y1_sp].sum())
-        _fg_b_cnt_sp = int(fg_b[_y0_sp:_y1_sp].sum())
-        seam_single_pose[k] = fi_a if _fg_a_cnt_sp >= _fg_b_cnt_sp else fi_b
+        seam_single_pose[k] = _dominant_frame_in_band(
+            by, fi_a, fi_b, fg_a, fg_b, feathers, k, H
+        )
         seam_post_diffs[k] = 99.0  # sentinel: user-forced single-pose
+        return True
+
+    # §2.3 — Phase-consistent compositing: never midpoint-warp across an
+    # animation-phase boundary. Checked before any registration attempt, not
+    # as a post-hoc residual escalation — this makes the failure mode
+    # structurally impossible for phase-labelled seams, per the roadmap's
+    # coherence-first rationale.
+    if (
+        _PHASE_COMPOSITE
+        and phase_ids is not None
+        and fi_a < len(phase_ids)
+        and fi_b < len(phase_ids)
+        and phase_ids[fi_a] != phase_ids[fi_b]
+    ):
+        dom = _dominant_frame_in_band(by, fi_a, fi_b, fg_a, fg_b, feathers, k, H)
+        seam_single_pose[k] = dom
+        seam_post_diffs[k] = 98.0  # sentinel: phase-boundary single-pose
+        print(
+            f"[Stitch]     Seam B{k} (frames {fi_a}/{fi_b}): phase boundary "
+            f"({phase_ids[fi_a]}→{phase_ids[fi_b]}) → single-pose (frame {dom})"
+        )
         return True
 
     return False
@@ -1436,6 +1486,7 @@ def _register_foreground_poses(
     H: int,
     W: int,
     N: int,
+    phase_ids: Optional[List[int]] = None,
 ) -> tuple:
     seam_single_pose = {}
     seam_post_diffs = {}  # k → post-warp diff score (residual if fallback)
@@ -1458,7 +1509,7 @@ def _register_foreground_poses(
                 fg_b = ~warped_bg[fi_b]
 
                 if _check_preemptive_escalations(
-                    k, by, fi_a, fi_b, fg_a, fg_b, affines, warped_norm, feathers, seam_overrides, seam_single_pose, seam_post_diffs, H
+                    k, by, fi_a, fi_b, fg_a, fg_b, affines, warped_norm, feathers, seam_overrides, seam_single_pose, seam_post_diffs, H, phase_ids
                 ):
                     continue
 
@@ -1491,6 +1542,7 @@ def _composite_foreground(
     paint_mask: Optional[np.ndarray] = None,
     seam_meta_out: Optional[dict] = None,
     seam_overrides: Optional[dict] = None,
+    phase_ids: Optional[List[int]] = None,
 ) -> np.ndarray:
     N = len(frames)
     print("[Stitch]   Laplacian-blend composite (foreground-only deghost)...")
@@ -1532,7 +1584,7 @@ def _composite_foreground(
 
     # Foreground pose registration
     seam_single_pose, seam_post_diffs, seam_synthesized = _register_foreground_poses(
-        warped_norm, warped_bg, order, boundaries, feathers, affines, frames, seam_overrides, ty_range, tx_range, H, W, N
+        warped_norm, warped_bg, order, boundaries, feathers, affines, frames, seam_overrides, ty_range, tx_range, H, W, N, phase_ids
     )
 
     # Adaptive feather refinement and canonical crop synthesis

@@ -67,9 +67,8 @@ frame beats a torn average.* Phase 2 below is this principle promoted to policy.
   (report §21.1) — it is not officially benchmarked on anime.
 - *Pose similarity for selection:* DWPose/ViTPose joint embeddings or fg-only flow
   magnitude — the background-confounded gradient metric is a documented failure.
-- *Flow (alternative):* ConvGRU recurrent flow refinement as a non-transformer
-  alternative to SEA-RAFT/SGM above — never benchmarked against either; only worth
-  a look if both those paths underperform on the LinkTo-Anime fine-tune.
+  ConvGRU is a non-transformer flow-refinement alternative, worth a look only if
+  SEA-RAFT/SGM both underperform.
 - *Photometric:* Brown–Lowe joint gain (the §3.1 blocks solve below is its full
   form); **reverse-dimming** (Harding flash-test dimming is real in broadcast
   sources — `anime-undimmer`); region-stratified Reinhard or trapped-ball palette
@@ -78,10 +77,9 @@ frame beats a torn average.* Phase 2 below is this principle promoted to policy.
   single-pose regions (Eden 2006/Boykov–Jolly — our §4.2 failure was wiring, not
   theory); anime rule: weight seam cost by `(1 − edge_strength)` so seams run
   *along* strong line-art, not across flat fills; **DSeam** for speed if graph-cut
-  returns. Intelligent Scissors (interactive seam routing) is superseded by
-  graph-cut for our use case — not worth building separately. **OBJ-GSP +
-  SemanticStitch** (mesh-based, character-aware seam barrier) is a structurally
-  different formalism from both DP and graph-cut — parked as a Phase-5 stretch
+  returns; Intelligent Scissors is superseded by graph-cut, not worth building
+  separately. **OBJ-GSP + SemanticStitch** (mesh-based, character-aware seam
+  barrier) is a structurally different formalism — parked as a Phase-5 stretch
   candidate, not a Phase-1/3 alternative, since it's a new dependency class.
 - *Blending:* **Modified Poisson Blending + MTOR** fixes the colour-bleeding that
   ruled out plain Poisson on flat cels; multi-band remains the default choice.
@@ -241,16 +239,26 @@ phase-color transitions in the strip). Full-97-test phase-count/span survey
 still pending the same host-availability blocker as 2.1 — run alongside 2.1's
 full-corpus validation rather than as a separate pass.
 
-### 2.3 Phase-consistent compositing  `[2–3 weeks, the centerpiece]`
-Use `phase_ids` in Stage 11: for each seam, if the two frames belong to different
-phases, do not midpoint-warp — take the foreground from the dominant phase
-(single-pose promoted from fallback to *policy*), and blend only background.
-Where one phase covers the whole character extent, assemble fg exclusively from it.
-This makes "a body part assembled from two poses" structurally impossible — the
-coherence guarantee the simple stitch gets for free. ARAP midpoint warp remains for
-*within-phase* seams (small residuals, where it demonstrably works).
-Measure: full corpus + human ratings; success = zero coherence-class losses among
-true composites.
+### 2.3 Phase-consistent compositing  `[engineering done 2026-07-26, S216;
+full-corpus + human ratings pending — see 2.1's host-availability note]`
+`ASP_PHASE_COMPOSITE=1` (default OFF): `_check_preemptive_escalations` in
+`compositing.py` now checks, before any registration attempt, whether a
+seam's two frames belong to different phases; if so it skips midpoint-warp
+entirely and escalates straight to single-pose from the dominant (more-
+complete) phase, via the dominant-frame-in-band logic the user-override path
+already used (extracted into `_dominant_frame_in_band`). ARAP midpoint warp
+untouched for within-phase seams. `phase_ids` computed once per run in
+`AnimeStitchPipeline.run()` (shared by GUI and benchmark — learned from 2.1,
+no separate reimplementation this time), **after** every frame-dropping
+dedup pass so indices stay aligned (an early draft computed it before dedup
+and would have silently desynced — caught before shipping).
+
+5-test verify: neutral-to-slightly-better (verdict distribution unchanged
+`0/3/2`; ASP sharpness up 119.9→120.8, ghosting/SSIM flat). 8 seams across
+the 5 tests hit a phase boundary and correctly escalated; `asp_test04`
+spot-checked visually — coherent, no tearing. Full-corpus + human ratings
+(the actual success criterion) blocked on the same host-sleep issue as
+2.1/2.2 — run all three together once the host can stay up ~2.5h.
 
 ### 2.4 Phase-aware frame selection  `[1 week, after 2.2 metrics]`
 Bias `smart_select_frames` to take camera-step candidates from the *same* phase
