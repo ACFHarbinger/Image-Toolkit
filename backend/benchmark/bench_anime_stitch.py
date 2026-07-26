@@ -3056,11 +3056,33 @@ Examples:
     print()
 
     suite_start = time.perf_counter()
+    _checkpoint_path = os.path.join(
+        os.path.dirname(__file__), "output", "_checkpoint.json"
+    )
     results = []
     for ds in datasets:
-        result = process_dataset(ds)
+        try:
+            result = process_dataset(ds)
+        except Exception as _ds_exc:
+            # A single dataset's uncaught exception (e.g. SCANS fallback
+            # failure inside process_dataset's own fallback path) must not
+            # take the whole multi-hour batch down with it — every already-
+            # accumulated result would be lost with nothing written to JSON.
+            print(f"  [FATAL] {os.path.basename(ds)} crashed: {_ds_exc!r} — skipping.")
+            result = None
         if result is not None:
             results.append(result)
+            # Incremental checkpoint: a multi-hour batch can still be killed
+            # by something outside this process (host sleep, OOM, external
+            # signal) even with the try/except above catching in-process
+            # crashes. Persist progress after every dataset so a killed run
+            # loses at most the in-flight dataset, not the whole batch.
+            try:
+                os.makedirs(os.path.dirname(_checkpoint_path), exist_ok=True)
+                with open(_checkpoint_path, "w") as _cp_fh:
+                    json.dump(results, _cp_fh)
+            except Exception:
+                pass
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()

@@ -201,7 +201,7 @@ Give the ASP the same property via animation-phase awareness, instead of trying 
 warp incompatible poses together. Evaluation §9.2 has the full sketch.*
 
 ### 2.1 `ASP_HOLD_AVERAGE=1` A/B  `[engineering done 2026-07-25/26, S214;
-full-corpus validation pending]`
+measured at full-corpus scale in S217]`
 Overmix-style ECC sub-pixel averaging within hold blocks (§3.12A, never
 measured) needed real engineering before it could even be measured: the
 benchmark (`bench_anime_stitch.py`) carried its own older reimplementation of
@@ -212,18 +212,31 @@ pixels — never reached the final composite) and a hold-detector false
 positive (slow scrolls misread as one giant hold, collapsing selection to
 1–2 frames) by capping skippable hold-block size to plausible on-twos/threes
 (≤8 frames). Both bugs pre-date this session and already affected the GUI
-stitch path (`video_ingestion.py`), not just the benchmark.
+stitch path (`video_ingestion.py`), not just the benchmark. **S217 also
+fixed the benchmark harness itself**: an uncaught `CanvasError` (SCANS
+fallback failing on `asp_test10`) crashed the entire multi-hour batch with
+zero results saved — the main loop now catches per-dataset exceptions and
+checkpoints `results` to `output/_checkpoint.json` after every dataset, so a
+killed run loses at most the in-flight one instead of everything.
 
-5-test verify: neutral-to-slightly-better (verdict distribution unchanged,
-ghosting improved marginally, sharpness/SSIM flat within noise). **Full
-97-test run never completed** — three attempts died when the host slept
-mid-run (host availability, not a pipeline issue). Parked, not abandoned:
-flag stays default OFF until a full-corpus run confirms neutral-or-better;
-`just asp-benchmark` (or chunked `--skip-done` runs) with the flag on,
-compared against a fresh same-code OFF baseline, finishes this item.
+5-test verify: neutral-to-slightly-better. **Full-corpus (S217, 2026-07-26,
+n=96/97 — `asp_test10` fails even its SCANS fallback, a pre-existing edge
+case this run surfaced)**, both this flag and 2.3's `ASP_PHASE_COMPOSITE=1`
+run together (not isolated — host reliability cost too much for two more
+full runs; numbers below are the combined effect, not attributed
+individually) vs the 2026-07-09 baseline (n=97): CV verdict 31 asp_better /
+36 comparable / 27 simple_better / 2 insufficient (was 27/41/29/0); aligned
+GT-SSIM 0.694 vs 0.719 (was 0.693 vs 0.718 — flat, as expected: these are
+seam/frame preprocessing wins, not the pose-gap architecture fix Phase 2.4
+targets); sharpness 93.2 vs 59.8 (ASP +56%); ghosting_siqe 53.8 vs 72.4 (ASP
+−26%); 44/96 guarded fallbacks (was 46/97). Net: more clear wins, fewer
+losses, stronger secondary metrics, flat coherence proxy — real and
+non-regressive, not the breakthrough Phase 2.4 targets. **Both flags stay
+default OFF** regardless — the ground rules require a human visual pass
+before "done," and none has run yet; these numbers justify prioritizing it.
 
 ### 2.2 Animation-phase grouping at ingestion  `[engineering done 2026-07-26, S215;
-full-corpus measurement pending — see 2.1's host-availability note]`
+measured at full-corpus scale in S217 — see 2.1's numbers]`
 `detect_animation_phases()` + `phase_spans()` added to `ingestion/frame_selection.py`:
 pairwise dHash Hamming distance between consecutive *selected* frames, phase
 boundary declared where the distance is a robust outlier (median + 2·MAD-sigma) —
@@ -233,14 +246,14 @@ job, once there's a consumer): diagnostics land in the JSON (`"phases":
 {"count", "spans"}`) and a frame-strip-colored-by-phase PNG
 (`animation_phases.png`) in both the per-test plots dir and the markdown report.
 **Confirmed zero behavior change** on the 5-test verify (composite metrics
-byte-identical to the pre-2.2 baseline); phase counts on that subset ranged
-1–3 per test with plausible-looking boundaries (pose changes visibly align with
-phase-color transitions in the strip). Full-97-test phase-count/span survey
-still pending the same host-availability blocker as 2.1 — run alongside 2.1's
-full-corpus validation rather than as a separate pass.
+byte-identical to the pre-2.2 baseline). Full-corpus phase census (S217,
+n=96): 1–6 phases/test, mean 2.18, 60/96 tests had more than one phase —
+i.e. most tests genuinely have the multi-phase structure 2.3 targets, this
+isn't a rare case.
 
 ### 2.3 Phase-consistent compositing  `[engineering done 2026-07-26, S216;
-full-corpus + human ratings pending — see 2.1's host-availability note]`
+measured at full-corpus scale in S217 — see 2.1's numbers; human ratings
+(the actual success criterion) still pending]`
 `ASP_PHASE_COMPOSITE=1` (default OFF): `_check_preemptive_escalations` in
 `compositing.py` now checks, before any registration attempt, whether a
 seam's two frames belong to different phases; if so it skips midpoint-warp
@@ -253,12 +266,13 @@ no separate reimplementation this time), **after** every frame-dropping
 dedup pass so indices stay aligned (an early draft computed it before dedup
 and would have silently desynced — caught before shipping).
 
-5-test verify: neutral-to-slightly-better (verdict distribution unchanged
-`0/3/2`; ASP sharpness up 119.9→120.8, ghosting/SSIM flat). 8 seams across
-the 5 tests hit a phase boundary and correctly escalated; `asp_test04`
-spot-checked visually — coherent, no tearing. Full-corpus + human ratings
-(the actual success criterion) blocked on the same host-sleep issue as
-2.1/2.2 — run all three together once the host can stay up ~2.5h.
+5-test verify: neutral-to-slightly-better; 8 seams hit a phase boundary and
+correctly escalated; `asp_test04` spot-checked visually — coherent, no
+tearing. Full-corpus (S217, combined with 2.1's flag, n=96): see 2.1's
+numbers for the aggregate delta. Human ratings — the roadmap's actual
+Phase-2.3 success criterion ("zero coherence-class losses among true
+composites" needs eyes on images, not SSIM) — have not run; that's the
+next step before either flag can flip to default-on.
 
 ### 2.4 Phase-aware frame selection  `[1 week, after 2.2 metrics]`
 Bias `smart_select_frames` to take camera-step candidates from the *same* phase
