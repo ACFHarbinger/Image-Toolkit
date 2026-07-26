@@ -4,6 +4,22 @@
 
 ---
 
+## S214 — 2026-07-26 (ASP roadmap archival merge; frame-selection benchmark/production consolidation; ASP_HOLD_AVERAGE fixes)
+
+**Part 2 — ASP roadmap: merged missing items from the archived 3,596-line roadmap into `moon/roadmaps/asp.md`:**
+- Added a new **Parked** section for real, never-benchmarked-or-rejected capability gaps that predate the S200 trim: full 2D canvas geometry for horizontal/diagonal scroll, StabStitch++ multi-axis trajectory smoothing, HITL manual-correction primitives (Fourier-Mellin manual align, arrow-based flow override), and the ASP → HybridStitch handoff.
+- Added SI-FID (reference-free stitched-image metric) as an optional Phase 0.4(d) signal for the ~46 non-GT tests, ConvGRU as an alternative flow candidate in §R, Intelligent Scissors noted as superseded by graph-cut, and OBJ-GSP + SemanticStitch mesh-based seam barrier added to §R and Phase 5 as a third seam-formalism candidate.
+- Everything else in the archived roadmap (the §5.x 104-item CV gate factory, RLHF, MFSR, ToonCrafter, HITL dialog bulk, etc.) was confirmed as a deliberate, already-documented cut from the S200 trim — not re-added.
+
+**Part 1 — `ASP_HOLD_AVERAGE` (§3.12A) engineering, prompted by attempting to A/B it per the new roadmap's Phase 2.1:**
+- **Root cause of "never measured":** `backend/benchmark/bench_anime_stitch.py` carried its own separate, older reimplementation of frame selection (`_smart_select_frames` + helpers) that never called `backend/src/animation/ingestion/frame_selection.py` — the module the GUI's `stitch_worker.py` → `video_ingestion.py` production path actually uses. The 97-test benchmark suite was never exercising the code any `ASP_*` frame-selection flag lived in. **Consolidated**: the benchmark now imports and calls `smart_select_frames()` directly (`min_step_px=50.0` preserved to match prior benchmark defaults); ~460 lines of duplicate selection logic deleted from the benchmark file.
+- **Fixed `_hold_block_average`** (`frame_selection.py`): previously received grayscale `[0,1]` thumbnails but assumed 3-channel BGR frames (`cv2.cvtColor(..., COLOR_BGR2GRAY)` would raise on a 2-D array) and, even when it ran, discarded the computed sub-pixel average — it only ever returned the original middle frame's *path*, so the √N MPEG-noise reduction never reached the final composite. Now loads full-resolution frames from disk, ECC-aligns and stack-averages them, and writes the result to a temp file that downstream stages actually read.
+- **Fixed a hold-detector false positive**: the MAD-based hold detector can misclassify an entire slow-scroll clip as one giant "hold block" (observed on `asp_test09`: 149 frames → 1 block; `asp_test27`: 167 → 1) when per-frame MAD never trips the 0.025 threshold. This silently degenerated `smart_select_frames` to 1-2 selected frames — a bug that predates this session and already affected the production GUI path, not just the benchmark. Fixed by capping which block sizes are eligible for the phase-correlation skip and for hold-averaging to plausible animation-hold sizes (`_MAX_SKIPPABLE_HOLD_SIZE = 8`, matching the documented on-twos/threes production range); oversized false-positive blocks are split back to singletons.
+- Also relocated the hold-averaging call site to run immediately after hold detection (before phase correlation) so every downstream array is sized consistently to the post-averaging frame count, instead of the previous post-correlation call site which silently mismatched array lengths whenever averaging actually compressed the frame count.
+- **Result**: 5-test verify (`asp_test04/08/09/27/57`) neutral-to-slightly-better with the fixes in place (verdict distribution unchanged, ghosting improved marginally, sharpness/SSIM flat within noise). Full 97-test corpus validation could not complete — three attempts were killed by the host machine sleeping/restarting mid-run over multiple hours; this is a host-availability issue, not a pipeline regression. Per the roadmap's ground rules, the flag stays **default OFF** pending full-corpus confirmation (see `moon/roadmaps/asp.md` Phase 2.1 for the exact resume command).
+
+---
+
 ## S213 — 2026-07-19 (Library database upgrades: tag type filters, groups & subgroups side-by-side lists, path display in Maintenance tab, batch metadata editor tabs, bulk settings CLI, login preference profiles, app-level zoom)
 
 **Part 9 — ASP benchmark default data dir + Typical Workflows deep-dive rewrite:**

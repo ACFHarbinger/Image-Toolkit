@@ -67,6 +67,9 @@ frame beats a torn average.* Phase 2 below is this principle promoted to policy.
   (report §21.1) — it is not officially benchmarked on anime.
 - *Pose similarity for selection:* DWPose/ViTPose joint embeddings or fg-only flow
   magnitude — the background-confounded gradient metric is a documented failure.
+- *Flow (alternative):* ConvGRU recurrent flow refinement as a non-transformer
+  alternative to SEA-RAFT/SGM above — never benchmarked against either; only worth
+  a look if both those paths underperform on the LinkTo-Anime fine-tune.
 - *Photometric:* Brown–Lowe joint gain (the §3.1 blocks solve below is its full
   form); **reverse-dimming** (Harding flash-test dimming is real in broadcast
   sources — `anime-undimmer`); region-stratified Reinhard or trapped-ball palette
@@ -75,7 +78,11 @@ frame beats a torn average.* Phase 2 below is this principle promoted to policy.
   single-pose regions (Eden 2006/Boykov–Jolly — our §4.2 failure was wiring, not
   theory); anime rule: weight seam cost by `(1 − edge_strength)` so seams run
   *along* strong line-art, not across flat fills; **DSeam** for speed if graph-cut
-  returns.
+  returns. Intelligent Scissors (interactive seam routing) is superseded by
+  graph-cut for our use case — not worth building separately. **OBJ-GSP +
+  SemanticStitch** (mesh-based, character-aware seam barrier) is a structurally
+  different formalism from both DP and graph-cut — parked as a Phase-5 stretch
+  candidate, not a Phase-1/3 alternative, since it's a new dependency class.
 - *Blending:* **Modified Poisson Blending + MTOR** fixes the colour-bleeding that
   ruled out plain Poisson on flat cels; multi-band remains the default choice.
 - *Datasets:* ATD-12K, AnimeRun, LinkTo-Anime, PaintBucket-Character, Sakuga-42M
@@ -131,6 +138,9 @@ selection: score selection experiments by (a) human rating, (b) aligned-SSIM
 *computed on the overlap of content actually present in both images*, and (c)
 seam-band pose-residual statistics (mean `post_warp_diff` across seams — lower =
 easier compositing). Add (c) to the benchmark JSON now; it is nearly free.
+Optional (d): SI-FID (Stitched-Image Fréchet Distance) as a reference-free
+automated signal for the ~46 non-GT tests where (b) doesn't apply — only worth
+building if (a)+(c) leave those tests hard to rank without a human pass each time.
 
 ### 0.5 Optional second reference: Hugin  `[1 day, optional]`
 `hugin` CLI tools (`pto_gen`/`cpfind`/`autooptimiser`/`nona`/`enblend`) can batch
@@ -192,10 +202,27 @@ fast alternative if quality wins but runtime hurts.)
 Give the ASP the same property via animation-phase awareness, instead of trying to
 warp incompatible poses together. Evaluation §9.2 has the full sketch.*
 
-### 2.1 `ASP_HOLD_AVERAGE=1` A/B  `[½ day — run first, it's already implemented]`
-Overmix-style ECC sub-pixel averaging within hold blocks (§3.12A, S144, never
-measured). 5-test verify, then full corpus if neutral-or-better. Expected: √N noise
-reduction on source frames; helps everything downstream.
+### 2.1 `ASP_HOLD_AVERAGE=1` A/B  `[engineering done 2026-07-25/26, S214;
+full-corpus validation pending]`
+Overmix-style ECC sub-pixel averaging within hold blocks (§3.12A, never
+measured) needed real engineering before it could even be measured: the
+benchmark (`bench_anime_stitch.py`) carried its own older reimplementation of
+frame selection that never called `frame_selection.py`, so the flag was wired
+into code the suite never ran. Consolidated onto one implementation (S214);
+fixed `_hold_block_average` (operated on thumbnails, discarded the averaged
+pixels — never reached the final composite) and a hold-detector false
+positive (slow scrolls misread as one giant hold, collapsing selection to
+1–2 frames) by capping skippable hold-block size to plausible on-twos/threes
+(≤8 frames). Both bugs pre-date this session and already affected the GUI
+stitch path (`video_ingestion.py`), not just the benchmark.
+
+5-test verify: neutral-to-slightly-better (verdict distribution unchanged,
+ghosting improved marginally, sharpness/SSIM flat within noise). **Full
+97-test run never completed** — three attempts died when the host slept
+mid-run (host availability, not a pipeline issue). Parked, not abandoned:
+flag stays default OFF until a full-corpus run confirms neutral-or-better;
+`just asp-benchmark` (or chunked `--skip-done` runs) with the flag on,
+compared against a fresh same-code OFF baseline, finishes this item.
 
 ### 2.2 Animation-phase grouping at ingestion  `[1–2 weeks]`
 New Stage 0.5 in `ingestion/frame_selection.py`: cluster the *selected* frames into
@@ -289,9 +316,33 @@ dimensions wherever a true composite ships.
 
 Only once Phases 0–4 hold: per-phase super-resolution output (Overmix's actual
 specialty — √N sub-pixel averaging), optional Real-ESRGAN anime_6B or APISR finish
-(the two report-vetted anime SR models, §15), GC/multi-band refinements, and
+(the two report-vetted anime SR models, §15), GC/multi-band refinements, OBJ-GSP +
+SemanticStitch mesh-based seam barrier as a third seam candidate (§R), and
 revisiting generative seam synthesis with whatever 1.1 found — each as a measured
 A/B, and any generative step behind the report-mandated LPIPS/CLIP quality gate.
+
+---
+
+## Parked (real gaps, explicitly deferred until the Phase-4 exit gate)
+
+*Carried forward from the archived roadmap — these are engineering/research items
+with unimplemented value that were never benchmarked or rejected, unlike the §5.x
+gate factory. They are out of scope until every one of the 97 tests clears Phase 4,
+but should stay visible rather than silently vanish.*
+
+- **Full 2D canvas geometry for horizontal/diagonal scroll** (Category F/H in the
+  archived taxonomy). Non-vertical scroll only gates to SCANS today; touches
+  canvas/warp/seam code that assumes 1D vertical layout — high blast radius,
+  multi-week, do not start before Phase 4.
+- **StabStitch++ multi-axis trajectory smoothing** — wave correction is linear
+  today (`np.polyfit` deg=1, §4.3); pairs naturally with the 2D-canvas item above,
+  probably not worth doing alone.
+- **HITL manual-correction primitives** (Fourier-Mellin manual align, arrow-based
+  flow override). The evaluation credits Overmix's interactive workflow as good
+  product design (§8); revisit only if Phase 2's automated compositing leaves a
+  test class no automated policy can resolve.
+- **ASP → HybridStitch handoff** — integration into the main app's general stitch
+  tab, once quality no longer needs the benchmark harness to validate every change.
 
 ---
 
