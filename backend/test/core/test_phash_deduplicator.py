@@ -88,7 +88,7 @@ class TestPhashDeduplicator(unittest.TestCase):
         db.update_phash = MagicMock()
         db.find_near_duplicates_by_phash = MagicMock(return_value=[])
         db.get_image_by_path = MagicMock(return_value={"id": 1, "phash": None})
-        db.conn = MagicMock()
+        db.get_all_phashes = MagicMock(return_value=[])
         db.close = MagicMock()
         return db
 
@@ -152,6 +152,35 @@ class TestPhashDeduplicator(unittest.TestCase):
             self.assertIsInstance(ded, PhashDeduplicator)
 
         db.close.assert_called_once()
+
+    def test_find_all_duplicate_groups_uses_get_all_phashes(self):
+        """DB.6 P3b: no more raw psycopg2 cursor — goes through the
+        facade's own get_all_phashes(), unified-store-compatible."""
+        from backend.src.core.phash_deduplicator import PhashDeduplicator
+
+        db = self._make_db()
+        db.get_all_phashes.return_value = [
+            (1, "/a.png", 100),
+            (2, "/b.png", 101),
+            (3, "/c.png", 999),
+        ]
+
+        def _near(phash, threshold=10, limit=20):
+            if phash in (100, 101):
+                return [
+                    {"id": 1, "file_path": "/a.png", "hamming_dist": 0},
+                    {"id": 2, "file_path": "/b.png", "hamming_dist": 1},
+                ]
+            return [{"id": 3, "file_path": "/c.png", "hamming_dist": 0}]
+
+        db.find_near_duplicates_by_phash.side_effect = _near
+        ded = PhashDeduplicator(db=db)
+
+        groups = ded.find_all_duplicate_groups()
+
+        db.get_all_phashes.assert_called_once()
+        self.assertEqual(len(groups), 1)
+        self.assertEqual({d["id"] for d in groups[0]}, {1, 2})
 
 
 if __name__ == "__main__":

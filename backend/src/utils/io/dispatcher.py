@@ -9,7 +9,6 @@ from backend.src.constants import BACKEND_DIR
 from backend.src.core.image_converter import ImageFormatConverter
 
 from ...core.image_merger import ImageMerger
-from ...database.image_database import PgvectorImageDatabase
 from ...models.wrappers.sd3_wrapper import SD3Wrapper
 from ...web.crawlers.image_crawler import ImageCrawler
 from ..display.slideshow_daemon import run as launch_slideshow
@@ -152,8 +151,14 @@ def dispatch_database(args):
         query = args.get("query", "")
         limit = args.get("limit", 50)
         try:
-            # relocated: from ...database.image_database import PgvectorImageDatabase
-            db = PgvectorImageDatabase()
+            # DB.6: the library moved from a standalone PgvectorImageDatabase
+            # (Postgres) to a session-keyed unified store — this CLI command
+            # can only run against an already-open session (e.g. invoked
+            # from within the running app, post vault-unlock).
+            from ...database.unified import session
+            from ...database.unified.facade import UnifiedImageDatabase
+
+            db = UnifiedImageDatabase(session.get_session())
             results = db.search_images(filename_pattern=query, limit=limit)
             if not results:
                 print("No results found.")
@@ -166,6 +171,8 @@ def dispatch_database(args):
                 )
         except ImportError as e:
             print(f"❌ Error: {e}", file=sys.stderr)
+        except RuntimeError as e:
+            print(f"❌ {e}", file=sys.stderr)
         except Exception as e:
             print(f"❌ Database search failed: {e}", file=sys.stderr)
     else:

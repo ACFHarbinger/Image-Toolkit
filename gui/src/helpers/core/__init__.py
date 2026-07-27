@@ -8,6 +8,7 @@ from .recommendation_worker import RecommendationWorker
 from .sampler_worker import SamplerWorker
 from .search_worker import SearchWorker
 from .similarity_scan_worker import SimilarityScanWorker
+from .upsert_worker import UpsertWorker
 from .video_export_worker import ScrollVideoExportWorker
 from .wallpaper_worker import WallpaperWorker
 
@@ -23,5 +24,6 @@ __all__ = [
     "ScrollVideoExportWorker",
     "SearchWorker",
     "SimilarityScanWorker",
+    "UpsertWorker",
     "WallpaperWorker",
 ]

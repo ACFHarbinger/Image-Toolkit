@@ -103,6 +103,35 @@ def test_statistics_banner_keys(populated):
     assert stats["last_sync_date"] is None or isinstance(stats["last_sync_date"], str)
 
 
+def test_transaction_batches_writes(db, tmp_path):
+    """DB.6 P3b: UnifiedImageDatabase.transaction() lets Scan & Tag's
+    upsert batch every write into one commit instead of one per image."""
+    paths = []
+    for name in ("t1.png", "t2.png", "t3.png"):
+        p = tmp_path / name
+        p.write_bytes(b"x")
+        paths.append(str(p))
+
+    with db.transaction():
+        for p in paths:
+            db.add_image(p, embedding=None, group_name="G", subgroup_name=None,
+                         tags=["x"], width=1, height=1)
+
+    assert db.get_statistics()["total_images"] == 3
+    for p in paths:
+        assert db.get_image_by_path(p) is not None
+
+    # a failure mid-transaction must roll back every write in the block
+    with pytest.raises(ValueError):
+        with db.transaction():
+            db.add_image(str(tmp_path / "t4.png"), embedding=None,
+                         group_name="G", subgroup_name=None, tags=[],
+                         width=1, height=1)
+            raise ValueError("boom")
+    assert db.get_image_by_path(str(tmp_path / "t4.png")) is None
+    assert db.get_statistics()["total_images"] == 3
+
+
 def test_maintenance_and_gated_reset(populated, tmp_path, monkeypatch):
     db, _ = populated
     db.maintenance_vacuum(full=False)

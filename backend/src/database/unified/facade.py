@@ -9,8 +9,10 @@ sites — only the DatabaseTab stops owning a Postgres connection.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Tuple
 
+from ._util import transaction
 from .image_repo import ImageRepo
 from .maintenance import Maintenance
 from .search_repo import SearchRepo
@@ -64,6 +66,21 @@ class UnifiedImageDatabase:
 
     def update_phash(self, image_id: int, phash_int: int) -> None:
         self._images.update_phash(image_id, phash_int)
+
+    def find_near_duplicates_by_phash(
+        self, phash_int: int, threshold: int = 5, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        return self._images.find_near_duplicates_by_phash(
+            phash_int, threshold=threshold, limit=limit
+        )
+
+    @contextmanager
+    def transaction(self):
+        """Batch multiple writes into one commit (DB.6 P3b — Scan & Tag's
+        per-image upsert previously issued one implicit commit per image,
+        the dominant cost on large batches)."""
+        with transaction(self._db):
+            yield
 
     # ---- groups / subgroups --------------------------------------------
 
