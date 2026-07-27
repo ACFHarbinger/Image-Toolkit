@@ -16,16 +16,15 @@ from backend.src.constants import CTRL_C_TIMEOUT, ICON_FILE
 # Logging setup (item 1.13) — rotating file handler + coloured console output
 # ---------------------------------------------------------------------------
 
-def _setup_logging(log_level: int = logging.INFO) -> None:
-    """Configure the root logger with a rotating file handler and console output."""
+_LOG_FILE_HANDLER_TAG = "_image_toolkit_rotating_file_handler"
+
+
+def _make_file_handler() -> logging.handlers.RotatingFileHandler:
+    """Build the rotating file handler shared by initial setup and §2.16F reconfiguration."""
     log_dir = Path.home() / ".image-toolkit" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "image_toolkit.log"
 
-    root = logging.getLogger()
-    root.setLevel(logging.DEBUG)  # capture everything; handlers filter by level
-
-    # Rotating file: 5 MB per file, keep last 5 files
     file_handler = logging.handlers.RotatingFileHandler(
         log_file,
         maxBytes=5 * 1024 * 1024,
@@ -33,14 +32,31 @@ def _setup_logging(log_level: int = logging.INFO) -> None:
         encoding="utf-8",
     )
     file_handler.setLevel(logging.DEBUG)
-    file_fmt = logging.Formatter(
+    file_handler.setFormatter(logging.Formatter(
         "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S",
-    )
-    file_handler.setFormatter(file_fmt)
-    root.addHandler(file_handler)
+    ))
+    # Tag so _reconfigure_logging can find/remove this exact handler later,
+    # rather than matching any RotatingFileHandler that might exist.
+    setattr(file_handler, _LOG_FILE_HANDLER_TAG, True)
+    return file_handler
 
-    # Console: INFO and above only
+
+def _setup_logging(log_level: int = logging.INFO) -> None:
+    """Configure the root logger with a rotating file handler and console output.
+
+    Runs before the vault is unlocked (no access to the log_level /
+    file_logging_enabled preferences yet), so this always enables file
+    logging and uses `log_level` only for the console handler — matching
+    the pre-existing --verbose CLI behavior. `_reconfigure_logging` (§2.16F)
+    re-applies the vault's actual preferences once they're available.
+    """
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)  # capture everything; handlers filter by level
+
+    root.addHandler(_make_file_handler())
+
+    # Console: INFO and above only (or DEBUG if --verbose)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
     console_fmt = logging.Formatter("%(levelname)-8s %(name)s: %(message)s")
@@ -51,7 +67,41 @@ def _setup_logging(log_level: int = logging.INFO) -> None:
     logging.getLogger("transformers").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-    logging.info("Logging initialised → %s", log_file)
+    logging.info("Logging initialised")
+
+
+def _reconfigure_logging(log_level_name: str, file_logging_enabled: bool) -> None:
+    """§2.16F: apply the vault's log_level / file_logging_enabled preferences.
+
+    Called from MainWindow._apply_startup_preferences(), once the vault is
+    unlocked — `_setup_logging()` itself can't do this since it runs before
+    login. Previously these two preferences round-tripped through the
+    settings window but were never consumed anywhere (GUI/UX §2.9F).
+    """
+    root = logging.getLogger()
+    level = getattr(logging, str(log_level_name).upper(), logging.INFO)
+
+    for handler in root.handlers:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(
+            handler, logging.handlers.RotatingFileHandler
+        ):
+            handler.setLevel(level)
+
+    has_file_handler = any(
+        getattr(h, _LOG_FILE_HANDLER_TAG, False) for h in root.handlers
+    )
+    if file_logging_enabled and not has_file_handler:
+        root.addHandler(_make_file_handler())
+    elif not file_logging_enabled and has_file_handler:
+        for handler in list(root.handlers):
+            if getattr(handler, _LOG_FILE_HANDLER_TAG, False):
+                root.removeHandler(handler)
+                handler.close()
+
+    logging.info(
+        "Logging reconfigured from preferences: level=%s file_logging=%s",
+        logging.getLevelName(level), file_logging_enabled,
+    )
 
 
 logger = logging.getLogger(__name__)
