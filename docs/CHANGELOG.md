@@ -4,6 +4,17 @@
 
 ---
 
+## S231 — 2026-07-27 (Analytics Phase 12: benchmark coverage expansion — C++ core fixed, GUI thumbnails added, DB rescoped)
+
+Implemented GitHub issue #70 / roadmap `analytics_and_interpretability.md` Phase 12 (12.1, 12.3; 12.4 rescoped, not implemented as originally spec'd).
+
+- **§12.1 (Rust Core Image Processing Benchmarks) — stale premise found and corrected.** The bullet's "Create `bench_rust_image_processing.py`" was wrong twice over: the Rust `base` module was fully retired to C++ well before this phase was written, and the file it asks to create already exists as `backend/benchmark/bench_cpp_image_processing.py`. That file was silently broken — 5 of its 8 benchmarks called non-existent C++ binding names (`cpp_core.convert_image`, `cpp_core.merge_images`, `cpp_core.scan_directory`), each suppressed with a `# pyrefly: ignore [missing-attribute]` comment rather than fixed (flagged, not fixed, by an earlier session this same day under issue #76/Performance 3.6). Fixed all 5 to the real API (`convert_single_image`, `merge_images_vertical`/`_horizontal`, `scan_files_single`), and corrected stale "Rayon" doc references (Rust-only; the real C++ path uses OpenMP). Verified by running the corrected file end-to-end — all 10 benchmarks pass.
+- **§12.3 (GUI Thumbnail Loading Benchmarks) — implemented per spec.** New `backend/benchmark/bench_gui_thumbnails.py`: `base.load_image_batch()` at N={100, 500, 1000}; LRU cache miss-then-fill (exercising eviction at maxsize=300) vs warm-cache hit path; direct QImage-vs-QPixmap memory comparison for 300 cached 180px thumbnails. Runs under `QT_QPA_PLATFORM=offscreen`, no visible window. Verified end-to-end — all 6 benchmarks pass, and the QImage/QPixmap comparison produced a real measured number (26.1MB QImage-only vs 63.3MB with QPixmap copies also alive for the same 300 thumbnails) confirming `LRUImageCache`'s own design rationale, previously only asserted in a docstring.
+- **§12.4 (Database Query Profiling) — rescoped, not implemented as spec'd.** Checked before extending anything: the bullet targets `PgvectorImageDatabase`, the legacy Postgres-backed image database, which per `unified_database.md`'s own DB.6 status is actively being retired (issue #64 covers archiving what's left). Building new pgvector/HNSW benchmark investment against a database half-way out the door isn't a good use of this phase's effort. Documented the better forward-looking target instead: `search_repo.py`'s new `filter_media()`/`filter_entities()` SQL methods (issue #63, shipped this session) have correctness tests but no scale benchmark — that's the item for a future session, not this one.
+- `moon/roadmaps/analytics_and_interpretability.md` Phase 12 section and summary table updated to reflect all three findings.
+
+---
+
 ## S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)
 
 User-authorized scale-up from the established 5-test verify to an 18-test targeted batch, deliberately chosen to span every current fallback class (rather than an arbitrary sample) for Phase 4's "re-examine what remains" instruction. Clean run, no resource-danger triggers — the biggest single scale step-up since the thread-cap host-freeze fix landed.
