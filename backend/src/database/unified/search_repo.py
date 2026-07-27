@@ -2,7 +2,9 @@
 
 Structured image search (PgvectorImageDatabase.search_images parity), FTS5
 text search with LIKE fallback, the advanced-listings-search SQL builder,
-and knn wrappers that compose vector search with the structured filters.
+the default listings gallery filter/sort (``filter_media``/``filter_entities``
+— search box + type/status/role combos + sort combo, all in one query), and
+knn wrappers that compose vector search with the structured filters.
 """
 
 from __future__ import annotations
@@ -28,6 +30,38 @@ _IMAGE_COLUMNS = (
 
 def _like(fragment: str) -> str:
     return f"%{fragment}%"
+
+
+# Sort keys accepted by ``SearchRepo.filter_media`` -> ORDER BY expression.
+# ``local_file`` is intentionally absent: extracting a path's basename needs
+# string-reverse / last-index-of, and core SQLite has no portable builtin for
+# either (no bundled REVERSE()). Callers fall back to a client-side sort by
+# ``Path(local_file).name`` for that one key — but only over the rows SQL
+# already filtered down to, never a full-table scan.
+_MEDIA_SORT_SQL: Dict[str, str] = {
+    "title": "LOWER(m.title)",
+    "type": "LOWER(COALESCE(m.type, ''))",
+    "status": "LOWER(COALESCE(m.status, ''))",
+    "rating": "COALESCE(m.personal_rating, 0)",
+    "episodes": "COALESCE(m.episodes_total, 0)",
+    "current_episode": "COALESCE(m.current_episode, 0)",
+    "date": "COALESCE(m.date_watched, '')",
+    "tags": (
+        "(SELECT GROUP_CONCAT(x.name) FROM (SELECT t.name AS name FROM media_tags mt "
+        "JOIN tags t ON t.id = mt.tag_id WHERE mt.media_item_id = m.id "
+        "AND (t.type IS NULL OR t.type != 'Genre') ORDER BY t.name) x)"
+    ),
+}
+
+# Sort keys accepted by ``SearchRepo.filter_entities`` -> ORDER BY expression.
+_ENTITY_SORT_SQL: Dict[str, str] = {
+    "name": "LOWER(COALESCE(e.name, ''))",
+    "rating": "COALESCE(e.rating, 0)",
+    "type": "LOWER(COALESCE(e.type, ''))",
+    "role": "LOWER(COALESCE(e.role, ''))",
+    "date_added": "COALESCE(e.date_added, '')",
+    "credits_count": "(SELECT COUNT(*) FROM credits c WHERE c.entity_id = e.id)",
+}
 
 
 class SearchRepo:
@@ -209,6 +243,19 @@ class SearchRepo:
         include_genres / exclude_genres      — tag names (type='Genre')
         match_mode                           — 'AND' (all inclusions) or 'OR'
         """
+        conditions, params = self._advanced_media_conditions(criteria)
+        sql = "SELECT m.id FROM media_items m"
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        return [r[0] for r in self._db.query(sql, tuple(params))]
+
+    def _advanced_media_conditions(
+        self, criteria: Dict[str, Any]
+    ) -> Tuple[List[str], list]:
+        """Build the WHERE conditions/params for the Advanced Search criteria
+        dict. Shared by :meth:`advanced_media_search` and :meth:`filter_media`
+        so the default gallery path composes the same SQL instead of
+        reimplementing it."""
         conditions: List[str] = []
         params: list = []
 
@@ -275,9 +322,111 @@ class SearchRepo:
             conditions.append("(" + joiner.join(inclusion_terms) + ")")
             params.extend(inclusion_params)
 
+        return conditions, params
+
+    # ------------------------------------------------------------------
+    # Default listings gallery filter/sort (DB.5 — replaces the Python
+    # search-box + type/status/advanced-criteria + sort-combo scan that used
+    # to run over every loaded row on every keystroke)
+    # ------------------------------------------------------------------
+
+    def filter_media(
+        self,
+        search_query: Optional[str] = None,
+        type_filter: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        advanced_criteria: Optional[Dict[str, Any]] = None,
+        sort_key: str = "title",
+        descending: bool = False,
+    ) -> List[str]:
+        """Media ids for Content Listings' default gallery path: the search
+        box (matches title/creator/tags/genres/associated-entity-names —
+        same fields the old in-memory scan checked), the type/status combos,
+        and (if set) the Advanced Search dialog's criteria — all evaluated in
+        one SQL query instead of a full-list Python scan.
+
+        ``sort_key`` must be a key of ``_MEDIA_SORT_SQL`` (falls back to
+        ``'title'`` otherwise); see that dict's docstring re: ``'local_file'``.
+        """
+        conditions: List[str] = []
+        params: list = []
+
+        if type_filter:
+            conditions.append("m.type = ?")
+            params.append(type_filter)
+        if status_filter:
+            conditions.append("m.status = ?")
+            params.append(status_filter)
+
+        if advanced_criteria:
+            adv_conditions, adv_params = self._advanced_media_conditions(advanced_criteria)
+            conditions.extend(adv_conditions)
+            params.extend(adv_params)
+
+        search_query = (search_query or "").strip()
+        if search_query:
+            like = _like(search_query)
+            conditions.append(
+                "(m.title LIKE ? COLLATE NOCASE OR m.creator LIKE ? COLLATE NOCASE "
+                "OR EXISTS (SELECT 1 FROM media_tags mt JOIN tags t ON t.id = mt.tag_id "
+                "WHERE mt.media_item_id = m.id AND t.name LIKE ? COLLATE NOCASE) "
+                "OR EXISTS (SELECT 1 FROM media_entity me JOIN entities e "
+                "ON e.id = me.entity_id WHERE me.media_item_id = m.id "
+                "AND e.name LIKE ? COLLATE NOCASE))"
+            )
+            params.extend([like, like, like, like])
+
         sql = "SELECT m.id FROM media_items m"
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
+        order_sql = _MEDIA_SORT_SQL.get(sort_key, _MEDIA_SORT_SQL["title"])
+        sql += f" ORDER BY {order_sql} " + ("DESC" if descending else "ASC")
+
+        return [r[0] for r in self._db.query(sql, tuple(params))]
+
+    def filter_entities(
+        self,
+        search_query: Optional[str] = None,
+        type_filter: Optional[str] = None,
+        role_filter: Optional[str] = None,
+        sort_key: str = "name",
+        descending: bool = False,
+    ) -> List[str]:
+        """Entity ids for Entity Listings' default gallery path: the search
+        box (matches name/notes/associated-content-title — same fields the
+        old in-memory scan checked, minus its O(N·M) title-map rebuild) plus
+        the type/role combos, evaluated in one SQL query.
+
+        ``sort_key`` must be a key of ``_ENTITY_SORT_SQL`` (falls back to
+        ``'name'`` otherwise).
+        """
+        conditions: List[str] = []
+        params: list = []
+
+        if type_filter:
+            conditions.append("e.type = ?")
+            params.append(type_filter)
+        if role_filter:
+            conditions.append("e.role = ?")
+            params.append(role_filter)
+
+        search_query = (search_query or "").strip()
+        if search_query:
+            like = _like(search_query)
+            conditions.append(
+                "(e.name LIKE ? COLLATE NOCASE OR e.notes LIKE ? COLLATE NOCASE "
+                "OR EXISTS (SELECT 1 FROM media_entity me JOIN media_items m "
+                "ON m.id = me.media_item_id WHERE me.entity_id = e.id "
+                "AND m.title LIKE ? COLLATE NOCASE))"
+            )
+            params.extend([like, like, like])
+
+        sql = "SELECT e.id FROM entities e"
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        order_sql = _ENTITY_SORT_SQL.get(sort_key, _ENTITY_SORT_SQL["name"])
+        sql += f" ORDER BY {order_sql} " + ("DESC" if descending else "ASC")
+
         return [r[0] for r in self._db.query(sql, tuple(params))]
 
     # ------------------------------------------------------------------

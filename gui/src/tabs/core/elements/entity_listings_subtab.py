@@ -1,4 +1,3 @@
-import contextlib
 import logging
 import os
 import shutil
@@ -9,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import backend.src.constants as udef
 from backend.src.database.unified.entity_repo import EntityRepo
-from backend.src.database.unified.media_repo import MediaRepo
+from backend.src.database.unified.search_repo import SearchRepo
 from gui.src.constants.listings import (
     CARD_SIZE,
     ENTITY_ROLES,
@@ -43,6 +42,16 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+# sort_combo display text -> SearchRepo.filter_entities's sort_key (DB.5).
+_SORT_KEY_MAP = {
+    "Sort by: Name": "name",
+    "Sort by: Rating": "rating",
+    "Sort by: Type": "type",
+    "Sort by: Role": "role",
+    "Sort by: Date Added": "date_added",
+    "Sort by: Credits Count": "credits_count",
+}
 
 
 class EntityListingsSubTab(QWidget):
@@ -248,6 +257,11 @@ class EntityListingsSubTab(QWidget):
         db = get_library_db(self.vault_manager, parent=self)
         return EntityRepo(db) if db is not None else None
 
+    def _search_repo(self) -> Optional[SearchRepo]:
+        """Return a SearchRepo on the session DB, or None when the vault is locked."""
+        db = get_library_db(self.vault_manager, parent=self)
+        return SearchRepo(db) if db is not None else None
+
     def _upsert_entity(self, entity: Dict[str, Any]) -> bool:
         """Persist a single entity in one transaction — the entity row, its
         credits, and both association directions commit (or roll back)
@@ -301,66 +315,48 @@ class EntityListingsSubTab(QWidget):
     # ------------------------------------------------------------------
     # Gallery
     # ------------------------------------------------------------------
-    def _filtered_entities(self) -> List[Dict[str, Any]]:  # noqa: C901
-        result = self._entities
-        if self._filter_type and self._filter_type not in (
-            "All",
-            "All Types",
-            "None",
-            "",
-        ):
-            result = [e for e in result if e.get("type") == self._filter_type]
-        if self._filter_role not in ("All", "All Roles"):
-            result = [e for e in result if e.get("role") == self._filter_role]
-        if self._search_query:
-            q = self._search_query.lower()
-            content_titles_map: Dict[str, str] = {}
-            db = get_library_db(self.vault_manager, parent=self)
-            if db is not None:
-                with contextlib.suppress(Exception):
-                    content_titles_map = {
-                        media_id: (title or "").lower()
-                        for media_id, title in MediaRepo(db).list_ids_and_titles()
-                    }
-
-            filtered_ents = []
-            for e in result:
-                if q in e.get("name", "").lower() or q in e.get("notes", "").lower():
-                    filtered_ents.append(e)
-                    continue
-                # Search associated_content (list of IDs → resolve titles)
-                assoc_c = e.get("associated_content", [])
-                if isinstance(assoc_c, list):
-                    if any(q in content_titles_map.get(cid, "") for cid in assoc_c):
-                        filtered_ents.append(e)
-                        continue
-                else:
-                    if q in str(assoc_c).lower():
-                        filtered_ents.append(e)
-                        continue
-            result = filtered_ents
-
-        # Sorting logic
+    def _filtered_entities(self) -> List[Dict[str, Any]]:
+        # Search box (name/notes/associated-content-title) and type/role
+        # combos are evaluated in one SQL query via SearchRepo.filter_entities
+        # (DB.5) — replaces the old per-keystroke full-table title-map
+        # rebuild (O(N·M): N entities x M media rows) with a single query.
+        type_filter = (
+            self._filter_type
+            if self._filter_type and self._filter_type not in (
+                "All", "All Types", "None", "",
+            )
+            else None
+        )
+        role_filter = (
+            self._filter_role if self._filter_role not in ("All", "All Roles") else None
+        )
         sort_text = self.sort_combo.currentText()
-        is_descending = self.sort_order_combo.currentText() == "Descending"
+        sort_key = _SORT_KEY_MAP.get(sort_text, "name")
+        descending = self.sort_order_combo.currentText() == "Descending"
 
-        def get_sort_key(entity):
-            if "Name" in sort_text:
-                return (entity.get("name") or "").lower()
-            elif "Rating" in sort_text:
-                return entity.get("rating") or 0
-            elif "Type" in sort_text:
-                return (entity.get("type") or "").lower()
-            elif "Role" in sort_text:
-                return (entity.get("role") or "").lower()
-            elif "Date Added" in sort_text:
-                return entity.get("date_added") or ""
-            elif "Credits Count" in sort_text:
-                return len(entity.get("credit_list") or [])
-            return (entity.get("name") or "").lower()
+        repo = self._search_repo()
+        if repo is None:
+            # Vault locked / DB unavailable — nothing better to show than the
+            # last loaded snapshot, unfiltered.
+            return list(self._entities)
 
-        result = sorted(result, key=get_sort_key, reverse=is_descending)
-        return result
+        try:
+            ids = repo.filter_entities(
+                search_query=self._search_query,
+                type_filter=type_filter,
+                role_filter=role_filter,
+                sort_key=sort_key,
+                descending=descending,
+            )
+        except Exception:
+            logging.exception(
+                "[EntityListingsSubTab] SQL filter/sort failed; showing "
+                "unfiltered entities"
+            )
+            return list(self._entities)
+
+        by_id = {e["id"]: e for e in self._entities if "id" in e}
+        return [by_id[i] for i in ids if i in by_id]
 
     def _rebuild_gallery(self):
         # Clear old widgets
