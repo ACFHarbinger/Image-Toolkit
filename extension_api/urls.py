@@ -1,9 +1,10 @@
 from django.urls import path
 
-from .views import DupCheckView, IngestView, PingView
+from .views import DupCheckView, IngestView, PingView, SimilarView
 
 urlpatterns = [
     path("ping/", PingView.as_view(), name="ext_ping"),
     path("dup-check/", DupCheckView.as_view(), name="ext_dup_check"),
     path("ingest/", IngestView.as_view(), name="ext_ingest"),
+    path("similar/", SimilarView.as_view(), name="ext_similar"),
 ]

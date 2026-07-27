@@ -190,21 +190,28 @@ class DirPhashIndex:
 
     # ── Querying ─────────────────────────────────────────────────────────────
 
+    def _scored(self, phash: int) -> List[Dict[str, Any]]:
+        """Every indexed file scored by Hamming distance from *phash* (unsorted)."""
+        cur = self._conn.execute(
+            "SELECT path, phash FROM files WHERE phash IS NOT NULL"
+        )
+        return [
+            {"path": path, "hamming": _hamming64(phash, stored)}
+            for path, stored in cur.fetchall()
+        ]
+
     def query(
         self,
         phash: int,
         threshold: int = DEFAULT_THRESHOLD,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
-        """Return files whose pHash is within *threshold* Hamming bits."""
-        cur = self._conn.execute(
-            "SELECT path, phash FROM files WHERE phash IS NOT NULL"
-        )
-        matches: List[Dict[str, Any]] = []
-        for path, stored in cur.fetchall():
-            dist = _hamming64(phash, stored)
-            if dist <= threshold:
-                matches.append({"path": path, "hamming": dist})
+        """Return files whose pHash is within *threshold* Hamming bits.
+
+        Results are sorted closest-first. See :meth:`query_topk` for a
+        ranked top-K query with no threshold cutoff (§7.8 similarity search).
+        """
+        matches = [m for m in self._scored(phash) if m["hamming"] <= threshold]
         matches.sort(key=lambda m: m["hamming"])
         return matches[:limit]
 
@@ -219,6 +226,28 @@ class DirPhashIndex:
         if phash is None:
             return None
         return self.query(phash, threshold=threshold, limit=limit)
+
+    def query_topk(self, phash: int, k: int = 12) -> List[Dict[str, Any]]:
+        """Return the *k* closest indexed files by Hamming distance.
+
+        Unlike :meth:`query`, there is no threshold cutoff — up to *k*
+        results are always returned (fewer only if the index itself has
+        fewer entries), ranked nearest-first. This backs §7.8 "find similar"
+        (always-ranked top-K) as distinct from §7.6 duplicate detection
+        (thresholded match / no-match).
+        """
+        matches = self._scored(phash)
+        matches.sort(key=lambda m: m["hamming"])
+        return matches[:k]
+
+    def query_topk_bytes(
+        self, data: bytes, k: int = 12
+    ) -> Optional[List[Dict[str, Any]]]:
+        """``query_topk`` from raw image bytes. Returns None if undecodable."""
+        phash = compute_phash_bytes(data)
+        if phash is None:
+            return None
+        return self.query_topk(phash, k=k)
 
     def count(self) -> int:
         """Number of indexed files (including failed-decode placeholders)."""

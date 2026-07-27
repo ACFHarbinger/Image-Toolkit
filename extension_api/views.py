@@ -1,10 +1,15 @@
-"""Browser-extension bridge endpoints (§7.5A / §7.6).
+"""Browser-extension bridge endpoints (§7.5A / §7.6 / §7.8).
 
 Token-authenticated, CORS-enabled endpoints consumed by the WebExtension:
 
 - ``GET  /api/extension/ping``       — version + feature discovery
 - ``POST /api/extension/dup-check``  — perceptual duplicate search of the
   configured directory tree (``DirPhashIndex``)
+- ``POST /api/extension/ingest``     — save an image into the library
+- ``POST /api/extension/similar``    — ranked visual-similarity search
+  (§7.8). Degrades to pHash top-K ranking (``DirPhashIndex.query_topk``)
+  because the Unified DB embedding index (roadmap DB.7) is not populated
+  yet — see the module docstring on ``SimilarView`` below.
 """
 
 from __future__ import annotations
@@ -28,8 +33,8 @@ from .bridge_config import get_token, load_config
 
 logger = logging.getLogger(__name__)
 
-BRIDGE_VERSION = "1.1"
-FEATURES = ["ping", "dup-check", "ingest"]
+BRIDGE_VERSION = "1.2"
+FEATURES = ["ping", "dup-check", "ingest", "similar"]
 
 _MAX_FETCH_BYTES = 64 * 1024 * 1024  # 64 MB
 _FETCH_TIMEOUT_S = 20
@@ -367,6 +372,106 @@ class DupCheckView(CorsAPIView):
                     "scanned": stats["total"],
                     "cold_scan": stats["cold_scan"],
                     "threshold": threshold,
+                }
+            )
+        finally:
+            index.close()
+
+
+class SimilarView(CorsAPIView):
+    """§7.8 — ranked visual-similarity search ("Find similar in my library").
+
+    The roadmap's ideal path embeds the query image (BGE-M3/CLIP) and does
+    a cosine-kNN lookup against the app's embedding index. As of this
+    implementation that index does not exist in a queryable state: the
+    Unified DB roadmap's DB.7 ("Semantic Search & CBIR") — the phase that
+    populates ``embeddings`` with real image vectors and wires up a
+    "find similar" action — has no shipped marker (unlike DB.1-DB.4) and
+    nothing in the codebase calls ``base.database``'s ``knn`` primitive
+    outside its own unit test. The standalone ``Recommendation-Engine``
+    submodule's BGE-M3/SQLite store is a different domain (media
+    listings/entities, not this library's images) and isn't wired to it
+    either.
+
+    Per §7.8's own explicit fallback clause ("degrade to pHash-only §7.6
+    when no embedding index exists"), this view ranks the configured
+    directory tree by perceptual-hash Hamming distance
+    (``DirPhashIndex.query_topk``) instead — same response shape as a
+    future embedding-based implementation would use, so swapping the
+    ranking method later is a body-only change.
+    """
+
+    permission_classes = [BridgeTokenPermission]
+
+    @extend_schema(
+        tags=["Extension Bridge"],
+        summary="Ranked visual-similarity search (pHash top-K; degrades "
+        "from the embedding index described in §7.8 until it exists)",
+        request=inline_serializer(
+            name="ExtensionSimilarRequest",
+            fields={
+                "url": drf_serializers.URLField(required=False),
+                "data_b64": drf_serializers.CharField(required=False),
+                "top_k": drf_serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(description="results / scanned / cold_scan / method"),
+            400: OpenApiResponse(description="bad request or undecodable image"),
+            409: OpenApiResponse(description="dup_root not configured"),
+        },
+    )
+    def post(self, request):  # noqa: ANN001
+        cfg = load_config()
+        dup_root = cfg.get("dup_root") or ""
+        if not dup_root:
+            return Response(
+                {"error": "No duplicate-search directory configured in the app."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        data, _url, err = _resolve_image_payload(request)
+        if err is not None:
+            return err
+
+        try:
+            top_k = int(request.data.get("top_k", 12))
+        except (TypeError, ValueError):
+            top_k = 12
+        top_k = max(1, min(top_k, 100))
+
+        from backend.src.core.dir_phash_index import DirPhashIndex
+
+        index = DirPhashIndex(dup_root, recursive=bool(cfg.get("recursive", True)))
+        try:
+            stats = index.refresh()
+            matches = index.query_topk_bytes(data, k=top_k)
+            if matches is None:
+                return Response(
+                    {"error": "Image could not be decoded."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            results: list[Dict[str, Any]] = []
+            for m in matches:
+                dims = _image_dims(m["path"])
+                results.append(
+                    {
+                        "path": m["path"],
+                        # 64-bit pHash: 0 bits differ → score 1.0, all 64 differ → 0.0.
+                        "score": round(1.0 - (m["hamming"] / 64.0), 4),
+                        "hamming": m["hamming"],
+                        "width": dims[0] if dims else None,
+                        "height": dims[1] if dims else None,
+                        "thumb_b64": _thumb_b64(m["path"]),
+                    }
+                )
+            return Response(
+                {
+                    "results": results,
+                    "scanned": stats["total"],
+                    "cold_scan": stats["cold_scan"],
+                    "method": "phash",
                 }
             )
         finally:

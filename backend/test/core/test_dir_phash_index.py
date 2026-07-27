@@ -114,3 +114,44 @@ class TestDirPhashIndex:
         idx = self._index(root, tmp_path)
         idx.refresh()
         assert idx.query_bytes(b"garbage") is None
+
+    def test_query_topk_ignores_threshold_and_ranks(self, tree, tmp_path):
+        root, a, b = tree
+        idx = self._index(root, tmp_path)
+        idx.refresh()
+        with open(a, "rb") as fh:
+            data = fh.read()
+        # Random-noise images are essentially uncorrelated, so a tight
+        # threshold would normally exclude everything but the exact match —
+        # query_topk should still rank and return every indexed file.
+        results = idx.query_topk(compute_phash_bytes(data), k=10)
+        assert len(results) == 2
+        assert results == sorted(results, key=lambda m: m["hamming"])
+        assert results[0]["path"] == a
+        assert results[0]["hamming"] == 0
+
+    def test_query_topk_respects_k(self, tree, tmp_path):
+        root, a, _b = tree
+        idx = self._index(root, tmp_path)
+        idx.refresh()
+        with open(a, "rb") as fh:
+            data = fh.read()
+        results = idx.query_topk(compute_phash_bytes(data), k=1)
+        assert len(results) == 1
+        assert results[0]["path"] == a
+
+    def test_query_topk_bytes_undecodable_returns_none(self, tree, tmp_path):
+        root, _a, _b = tree
+        idx = self._index(root, tmp_path)
+        idx.refresh()
+        assert idx.query_topk_bytes(b"garbage") is None
+
+    def test_query_topk_bytes_matches_query_topk(self, tree, tmp_path):
+        root, a, _b = tree
+        idx = self._index(root, tmp_path)
+        idx.refresh()
+        with open(a, "rb") as fh:
+            data = fh.read()
+        assert idx.query_topk_bytes(data, k=5) == idx.query_topk(
+            compute_phash_bytes(data), k=5
+        )
