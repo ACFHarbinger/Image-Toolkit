@@ -4,6 +4,19 @@
 
 ---
 
+## S240 — 2026-07-27 (ASP Phase 1.1: literature sweep for issue #21's gap areas)
+
+Implemented GitHub issue #21 / roadmap §1.1 — a targeted web-search sweep of the five specific gap areas the roadmap flagged (not a general re-survey; `research/Image_Stitching_Research.md` already covers the field through mid-2026).
+
+- **Animation-phase clustering**: still genuinely uncovered — only a tangential DBSCAN trajectory-clustering hit for an unrelated (live-action stabilization) purpose was found. Confirms this remains our own diagnostics work to own, not something to adopt from the literature.
+- **LinkTo-Anime (2506.02733) fine-tuned RAFT checkpoint**: public availability is inconclusive from search — treat as unavailable until directly verified against the paper's repo, not as a ready-to-use asset.
+- **Joint seam+exposure optimization**: no strong new 2024-2025 result. JoPano (Dec 2025) is tangential (generative panorama synthesis, not classical stitching, so its joint objective doesn't transfer) but its Seam-SSIM/Seam-Sobel metrics are a usable idea for `bench_anime_stitch.py`'s own metric suite.
+- **Ghost-free fusion**: genuinely new relevant work found — UltraFusion and IFT (both 2024-2025) target exposure-fusion deghosting more directly than the HDR-deghosting ancestry already cited. Worth a closer read before the next foreground-assembly iteration; not yet integrated.
+- **Pose-conditioned generative inbetweening**: ToonCrafter's current successor is LayerInbetween (ACM ToG, July 2026) — reading-only per the roadmap's own gating (no implementation until the Phase-2 core wins), flagged as the module to re-benchmark against if `anim_fill.py` is revisited.
+- No code changes — this is a research-currency update. Findings appended to `research/Image_Stitching_Research.md` §21 as a dated addendum; `moon/roadmaps/asp.md` §1.1 marked done with the summary.
+
+---
+
 ## S231 — 2026-07-27 (ASP Phase 0.4(b): fix aligned-SSIM's overlap windowing)
 
 Implemented GitHub issue #19's remaining (b) sub-item: fix the aligned-SSIM GT-coupling measurement bug's windowing logic.

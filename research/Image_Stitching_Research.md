@@ -362,6 +362,18 @@ Replaces whole-frame phase correlation with the two-channel (camera vs animation
 - **Current GT baseline:** ASP 0.669 vs simple-stitch 0.695 SSIM-vs-GT — the foreground-assembly track (§8) is the path to surpass it.
 - **Roadmap:** `moon/roadmaps/asp.md` Phase 0 (foreground assembly: A1 SEA-RAFT engine, A3 full ARAP+LSD, A5 bg-only median, A6 single-pose fallback, two-channel selection, segment-guided flow).
 
+### Addendum (2026-07-27) — Literature Sweep for Issue #21 Gap Areas
+
+Targeted web search across the four gap areas the issue flagged as needing a fresh look, rather than a general resurvey of the whole field:
+
+- **Animation-phase clustering** (grouping frames by shared background/pose phase before stitching, per `asp.md`'s phase-clustering diagnostics work): still genuinely uncovered in the literature. The only tangential hit is DBSCAN-based trajectory clustering used for a different purpose (motion-path segmentation in live-action video stabilization, not phase-boundary detection in cel animation). No paper addresses the specific problem ASP's own §2.2 diagnostics work had to solve from scratch.
+- **LinkTo-Anime's fine-tuned RAFT checkpoint** (2506.02733, already cited in Appendix A for its dataset): public availability of the actual fine-tuned optical-flow weights (as opposed to the dataset) is inconclusive from search — the paper's project page references code/data release but no direct confirmation of a downloadable checkpoint was found. Treat as unavailable until directly verified against the repo, not as a ready-to-use asset.
+- **Joint seam+exposure optimization** (a single joint objective over seam placement and photometric gain, vs. ASP's current sequential Brown-Lowe-then-seam approach): no strong new 2024-2025 result beyond what's already in §9/§11. The closest hit, **JoPano** (Dec 2025), is tangential — it's a generative panorama-synthesis method (diffusion-based), not classical multi-image stitching, so its joint objective doesn't transfer directly. Its **Seam-SSIM** and **Seam-Sobel** metrics (measuring seam quality independent of the generation method) are a usable idea for `bench_anime_stitch.py`'s own metric suite even though the generation approach itself isn't applicable.
+- **Ghost-free fusion** (deghosting for a moving foreground during background-plate reconstruction, ASP's hardest sub-problem per §8): genuinely new relevant work exists — **UltraFusion** and **IFT** (both 2024-2025) both target exposure-fusion deghosting more directly than the HDR-deghosting literature already cited (DDFNet, Sensors 2022). Worth a closer read before the next foreground-assembly iteration; not yet integrated into ASP.
+- **ToonCrafter's current successor**: **LayerInbetween** (ACM Transactions on Graphics, July 2026) supersedes ToonCrafter (already cited in §13 for `anim_fill.py`'s generative inpainting) — layer-aware anime inbetweening, published after `anim_fill.py` was originally built against ToonCrafter. Not yet evaluated against ASP's actual failure cases; flagged as the module to re-benchmark against if/when `anim_fill.py` is revisited.
+
+None of the above required or received a code change — this is a research-currency update only, keeping Appendix A/B's citation set from going stale on the four areas issue #21 specifically asked about.
+
 ---
 
 ## Appendix A — Research Index (technique → paper)

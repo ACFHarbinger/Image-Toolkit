@@ -260,6 +260,19 @@ append findings to that report so it stays the single reference:
   only; the report's caveat stands (non-deterministic; mandatory quality gate),
   and no implementation happens until the Phase-2 core wins.
 
+**Done 2026-07-27** (issue #21): swept all five gap areas, findings appended to
+`research/Image_Stitching_Research.md` §21 addendum. Summary: animation-phase
+clustering remains genuinely uncovered (no dedicated literature found, confirming
+this is our own diagnostics work to own); LinkTo-Anime's fine-tuned checkpoint
+public availability is inconclusive (treat as unavailable until directly
+verified); joint seam+exposure optimization has no strong new hit — JoPano
+(Dec 2025) is a tangential generative-panorama method, but its Seam-SSIM/
+Seam-Sobel metrics are a usable idea for our own benchmark; ghost-free fusion
+has genuinely new relevant work — UltraFusion and IFT (both 2024-2025), worth a
+closer read before the next foreground-assembly iteration, not yet integrated;
+ToonCrafter's successor is LayerInbetween (ACM ToG, July 2026), reading-only,
+not yet evaluated against ASP's failure cases.
+
 ### 1.2 Overmix deep-dive (hands-on, pairs with 0.3)  `[(b) partially answered
 2026-07-27; (a)/(c) still open — see .agent/cache/overmix_field_notes.md]`
 Specifically answer: (a) how does `AnimationSeparator`'s error-threshold
