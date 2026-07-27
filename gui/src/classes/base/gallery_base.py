@@ -103,6 +103,12 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         self._dir_back_stack: deque = deque(maxlen=20)
         self._dir_forward_stack: deque = deque(maxlen=20)
 
+        # --- Recent-directories MRU limit (GUI/UX §2.9G) ----------------------
+        # Overwritten from the vault-stored "recent_dirs_count" preference by
+        # main_window.py::_apply_startup_preferences(); defaults to 10 for
+        # backward compatibility with existing saved configs.
+        self.recent_dirs_limit: int = 10
+
         # --- Open preview windows list ----------------------------------------
         self.open_preview_windows: List[QWidget] = []
 
@@ -169,9 +175,17 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
     # Recent directories / session persistence (GUI/UX §2.10, §2.5)
     # =========================================================================
 
-    def _add_recent_dir(self, path: str, max_entries: int = 10) -> None:
-        """Push *path* to the front of the per-class MRU directory list."""
+    def _add_recent_dir(self, path: str, max_entries: Optional[int] = None) -> None:
+        """Push *path* to the front of the per-class MRU directory list.
+
+        ``max_entries`` defaults to ``self.recent_dirs_limit`` (populated from
+        the "recent_dirs_count" preference by
+        ``main_window.py::_apply_startup_preferences()``, itself defaulting to
+        10) so callers don't need to plumb the preference through manually.
+        """
         from gui.src.windows.settings.app_settings import AppSettings
+        if max_entries is None:
+            max_entries = getattr(self, "recent_dirs_limit", 10)
         cn = self.__class__.__name__
         dirs: list = AppSettings.session(cn, "recent_dirs", []) or []
         if path in dirs:

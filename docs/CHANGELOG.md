@@ -16,6 +16,20 @@ Implemented GitHub issue #19's remaining (b) sub-item: fix the aligned-SSIM GT-c
 
 ---
 
+## S232 — 2026-07-27 (GUI/UX §2.9G: recent_dirs_count preference wired)
+
+Implemented GitHub issue #49 / roadmap `moon/roadmaps/gui_ux.md` §2.9's item G (the `recent_dirs_count` half of "restore_last_dir and recent_dirs_count — half done"; `restore_last_dir` was already wired).
+
+- **Root cause confirmed**: `settings_window.py::collect()` always saved the literal `"recent_dirs_count": 10` regardless of any UI control, and the only consumer, `gallery_base.py::_add_recent_dir(self, path, max_entries: int = 10)`, hardcoded `max_entries=10` — the preference had no UI control at all and was fully dead.
+- **`gui/src/windows/settings/settings_window.py`**: added `recent_dirs_count_spinbox` (QSpinBox, range 1-50, default 10) to the Startup & Session section, mirroring the existing `recent_extractions_spinbox` pattern. `collect()` now saves `self.recent_dirs_count_spinbox.value()`; `set_config()`/restore-on-open and `reset_settings()` populate/reset it from `pref_recent_dirs_count`.
+- **`gui/src/classes/base/gallery_base.py`**: `AbstractGalleryBase.__init__` gained `self.recent_dirs_limit: int = 10`; `_add_recent_dir(self, path, max_entries: Optional[int] = None)` now defaults to `self.recent_dirs_limit` when the caller doesn't pass an explicit value, instead of a hardcoded `10`. Both current callers (`format_subtab.py`, `codec_subtab.py`) call it without `max_entries`, so they now pick up the real preference automatically.
+- **`gui/src/windows/main/main_window.py::_apply_startup_preferences()`**: reads `prefs.get("recent_dirs_count", 10)` and sets `recent_dirs_limit` on every gallery tab. `ConvertTab` (the tab actually registered in `all_tabs`) is a plain `QWidget` wrapper, not a gallery-base subclass itself, so its nested `format_subtab`/`codec_subtab`/`sampler_subtab` (the real `_add_recent_dir` callers) are reached explicitly too — the existing `getattr(tab, "format_tab", None)` fallback used for `last_browsed_dir` elsewhere in this function does not apply here (dead attribute name, never actually set anywhere).
+- Default (10) preserved for existing saved configs missing the `recent_dirs_count` key — no behavior change for users who haven't touched the new spinbox.
+- **Verified**: `gui/test/core/test_settings_window.py` (27 passed) and `gui/test/core/test_main_window.py` (5 passed), both scoped `--run-gui`/offscreen per this project's GUI-test-freeze guardrail. Plus a manual smoke test instantiating `FormatSubTab`, setting `recent_dirs_limit=3`, pushing 5 dirs through `_add_recent_dir`, and confirming the MRU list trims to exactly 3 (and that explicit `max_entries=` overrides still work); and a settings-window round-trip smoke test confirming `collect()` persists the spinbox's actual value (not `10`) and `reset_settings()` restores `10`.
+- `moon/roadmaps/gui_ux.md` §2.9 item G updated to reflect the fix.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.

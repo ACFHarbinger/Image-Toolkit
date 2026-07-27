@@ -458,6 +458,9 @@ class MainWindow(QWidget):
         recent_extractions_count = int(prefs.get("recent_extractions_count", 10))
         extractor_time_format = prefs.get("extractor_time_format", "m:s:ms")
 
+        # §2.9G — recent (browsed) directories MRU limit
+        recent_dirs_count = int(prefs.get("recent_dirs_count", 10))
+
         restore_last_dir = prefs.get("restore_last_dir", True)
 
         default_dir = prefs.get("default_open_dir", "").strip() or LOCAL_SOURCE_PATH
@@ -481,6 +484,21 @@ class MainWindow(QWidget):
                     tab._selected_pixmap_cache = LRUImageCache(maxsize=selected_cache)  # pyrefly: ignore [missing-attribute]
                 if hasattr(tab, "_initial_pixmap_cache"):
                     tab._initial_pixmap_cache = LRUImageCache(maxsize=initial_cache)  # pyrefly: ignore [missing-attribute]
+
+                # Recent (browsed) directories MRU limit (§2.9G) — every gallery
+                # tab/subtab inherits AbstractGalleryBase.recent_dirs_limit,
+                # consumed by _add_recent_dir() as its default max_entries.
+                # ConvertTab is a plain QWidget wrapper around FormatSubTab /
+                # CodecSubTab / SamplerSubTab, so those nested subtabs (the
+                # actual _add_recent_dir callers) must be reached explicitly.
+                for _rd_obj in (
+                    tab,
+                    getattr(tab, "format_subtab", None),
+                    getattr(tab, "codec_subtab", None),
+                    getattr(tab, "sampler_subtab", None),
+                ):
+                    if _rd_obj is not None and hasattr(_rd_obj, "recent_dirs_limit"):
+                        _rd_obj.recent_dirs_limit = recent_dirs_count  # pyrefly: ignore [missing-attribute]
 
                 # Update directory configuration for the tab
                 for obj in (tab, getattr(tab, "format_tab", None)):
