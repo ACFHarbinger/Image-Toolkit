@@ -4,6 +4,18 @@
 
 ---
 
+## S231 — 2026-07-27 (Analytics 1.4: Dependency Structure Matrix — already implemented, stale roadmap text corrected)
+
+Implemented GitHub issue #71 / `analytics_and_interpretability.md` §1.4 (Dependency Structure Matrix), scoped to only this sub-item — issue #71 covers Phases 1-10, an explicitly long-term exploratory epic; 1.1-1.3, 1.5, and Phases 2-10 remain entirely untouched.
+
+- **Checked before building anything**: 1.4 asks for an N×N dependency matrix flagging architectural violations/cycles, citing proprietary tools (Lattix, IntelliJ DSM plugin). A full, stronger equivalent already exists and is actively enforced in this codebase.
+- **Cyclic-dependency detection**: `backend/src/utils/validation/check_circular_imports.py` — AST-based import graph + iterative Tarjan's SCC, with optional `pyvis` HTML visualization, wired into `just check-circular-imports`/`just module-graph`. Verified end-to-end: 0 cycles across 210 `backend/src` modules, 0 cycles across 236 `gui/src` modules.
+- **Layered-architecture violations**: `import-linter` (`pyproject.toml`, §5.11A/A.17) already declares 3 `forbidden`-type contracts enforcing exactly the "no upward/cross-layer dependency" rule a DSM's above-diagonal marks would flag. Verified: `lint-imports` analyzes 578 files/1147 dependencies, all 3 contracts kept, 0 broken.
+- **No new code shipped** — closing this item as already satisfied, consistent with this session's established discipline of verifying before re-implementing something that exists. The roadmap's ISO 26262 compliance-report claim was also unsupported by anything else in the project and not pursued.
+- `moon/roadmaps/analytics_and_interpretability.md` §1.4 updated with this finding.
+
+---
+
 ## S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
 
 Implemented GitHub issue #48 / roadmap `gui_ux.md` §2.9's item F (labeled `bug` — the same "settings-window control exists, nothing consumes it" shape as issue #49's `recent_dirs_count` fix earlier this session).

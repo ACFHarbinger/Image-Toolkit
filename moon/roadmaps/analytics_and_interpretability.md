@@ -207,10 +207,10 @@ See [`research/Analytics and Codebase Visualization Research.md`](../../research
   * Project via **Multidimensional Scaling (MDS)** into 2D, minimizing a stress function so semantically related modules cluster together physically (e.g., `feature_matching.py` and `bundle_adjust.py`).
   * Render as a topographic map rather than a node-link diagram — modules become landmasses, dependencies become edges on geographic terrain.
 
-* **1.4 Dependency Structure Matrix (DSM):**
-  * Render the N×N dependency matrix where marks below the diagonal represent valid layered dependencies; marks **above** the diagonal instantly flag architectural violations or cyclic dependencies.
-  * Tools: **Lattix** or **IntelliJ IDEA DSM plugin** for automated generation and permutation analysis.
-  * Enables ISO 26262 compliance checks across the Python/Rust multi-language codebase.
+* **1.4 Dependency Structure Matrix (DSM) — DONE, already implemented, 2026-07-27.** Checked before building anything (per this session's established discipline): a full equivalent already exists and is actively enforced, just not via the imagined Lattix/IntelliJ tooling or a literal matrix rendering — a stronger, automated form of the same idea.
+  * **Cyclic-dependency detection** (the matrix's "above-diagonal" violations): `backend/src/utils/validation/check_circular_imports.py` — full AST-based module-import graph builder + iterative Tarjan's SCC algorithm, with an optional interactive `pyvis` HTML visualization. Wired into `just check-circular-imports` and `just module-graph`. Verified working end-to-end this session: 0 cycles across 210 `backend/src` modules and 0 cycles across 236 `gui/src` modules.
+  * **Layered-architecture violations** (the matrix's "valid layered dependencies" half): `import-linter` (`pyproject.toml [tool.importlinter]`, §5.11A/A.17) already declares 3 `forbidden`-type contracts (backend core must not import GUI; `gui.src.utils` must not import other GUI layers; `gui.src.classes` must not import `gui.src.tabs`) and enforces them via `lint-imports`. Verified working this session: 578 files / 1147 dependencies analyzed, all 3 contracts kept, 0 broken.
+  * Not done, out of scope for this item: any ISO 26262 compliance-report generation (no evidence this project targets that certification) — flagged as an unsupported claim in the original text, not something to build speculatively.
 
 * **1.5 Dynamic Execution Tracing:**
   * Overlay dynamic execution paths onto the static graph. Trace a single ASP run from `video_ingestion.py` through `flow_refine.py` to `sr_stitcher.py`, highlighting active nodes in real-time or via a playback slider.
