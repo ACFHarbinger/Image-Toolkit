@@ -3547,10 +3547,28 @@ reloads fresh every dataset with no cache, unlike BiRefNet).</p>
   5-test re-verify is encouraging, not a substitute for either.</li>
 <li><strong>3.2 GraphCut revisit</strong> — moot; 1.3 did not survive its second measurement
   (2026-07-27).</li>
-<li><strong>3.3 Multi-band blend on final boundaries</strong> <code>[3 days]</code> — only if 3.1+3.2 leave
-  visible transitions; reintroduce the deleted C++ <code>multiband_blend</code> at that
-  point, not before. If flat-cel colour bleeding appears at high-contrast seams,
-  the report's answer is <strong>MPB + MTOR</strong> (modified Poisson, §12), not plain Poisson.</li>
+<li><strong>3.3 Multi-band blend on final boundaries — ALREADY DONE, stale roadmap
+  text corrected 2026-07-27.</strong> This bullet's premise ("reintroduce the
+  deleted C++ <code>multiband_blend</code>") is factually wrong: <code>base::laplacian_blend</code>
+  (<code>base/src/animation/compositing.cpp</code>) is a genuine 5-level Laplacian
+  pyramid multi-band blend — not deleted, not a stub, and already the live
+  default (<code>LAPLACIAN_BANDS=5</code>, <code>backend/src/constants/animation.py</code>),
+  called from <code>_laplacian_blend</code> at Stage 11's per-seam blend
+  (<code>compositing.py:2295</code>). It was never removed; this bullet appears to
+  predate that check, or confused it with a different retired component.
+  <strong>This reframes Finding-3's visible test09 banding</strong> (Phase 4 analysis,
+  <code>.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md</code>): since a
+  5-band blend is already active and the banding still shows through, the
+  defect is <strong>not a blending-method gap</strong> — multi-band blending is already
+  the technique in place. It points back toward an upstream photometric
+  (gain/exposure) mismatch as the real remaining lever, consistent with why
+  §3.1's joint gain solve (not a blending change) is what actually moved
+  test09 to a real composite. No code change from this correction — closing
+  this item as already satisfied rather than re-implementing something that
+  exists. (The "MPB + MTOR for colour bleeding" caveat remains relevant
+  research-base context if colour-bleeding specifically — as opposed to
+  luminance banding — is ever observed, but is not itself evidence of a gap
+  to fill.)</li>
 <li><strong>3.4 Cheap photometric candidates from the research base</strong> <code>[done
   2026-07-27 — see .agent/cache/asp_toonout_fix_2026-07-27.md]</code>
   — <strong>ToonOut weights</strong>: the "mirror is gone" blocker was itself stale — a
@@ -3597,17 +3615,37 @@ reloads fresh every dataset with no cache, unlike BiRefNet).</p>
   post-warp-diff is comparably low to test32's yet responds in the
   opposite direction) — <code>mean_post_warp_diff</code> correlates with outcome but
   isn't clean enough on its own to build an automatic per-test dispatch
-  rule from. No code shipped from this round; still needs full-97 data and
-  a real per-test triage pass before this class can be meaningfully
-  "converted" rather than just better-understood.
-- <strong>render-gate class (21):</strong> fg-dominant high-animation scenes where multi-frame
-  assembly may be structurally wrong. For these, a <em>deliberate</em> policy: best
-  single-phase reconstruction (2.3 degenerate case) vs SCANS — pick per-test by
-  measurement. Accepting SCANS permanently for some tests is a valid outcome <strong>if
-  a human confirms SCANS is the best achievable</strong> — the objective is "never worse
-  than the OpenCV stitcher", which a coherent fallback satisfies; but each such
-  test must beat the <em>raw</em> cv2 stitcher (our SCANS-on-preprocessed-frames already
-  tends to, via selection + photometric prep + no crop failures).
+  rule from. <strong>Follow-up checked same day</strong>: tried frame/pair count as a
+  second candidate discriminator (<code>_joint_gain_solve</code> builds its
+  least-squares system over all sufficiently-overlapping pairs, not just
+  adjacent frames, so fewer selected frames means fewer constraining
+  pairs) — test51/test41 (the two regressions) do have the fewest pairs
+  (28, 45), but <strong>test08 breaks the pattern</strong> (36 pairs, second-fewest, yet
+  <em>improved</em>). Two independent cheap heuristics now each checked and each
+  falls short on a real counter-example — not a matter of finding the
+  right one-line rule; closing this specific follow-up, a full per-test
+  measurement pass is what's actually needed. No code shipped from this
+  round; still needs full-97 data and a real per-test triage pass before
+  this class can be meaningfully "converted" rather than just
+  better-understood.
+- <strong>render-gate class (21) — clarified 2026-07-27:</strong> this is the benchmark's
+  own umbrella term (<code>timings["render_gate_fallback"]</code>, set to 1 or 2
+  whenever <em>any</em> post-render quality check fires) covering
+  <code>composite_gate_sc</code>/<code>composite_gate_sb</code>, <code>ghost_gate_siqe</code>, and
+  <code>seam_vis_gate</code> combined — not a separate, unexamined class. The
+  seam_vis_gate re-examination above (Findings 1-5,
+  <code>.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md</code>) already
+  covers a meaningful chunk of this umbrella at 18-test scale, including
+  4 <code>composite_gate_sb</code> and 1 <code>composite_gate_sc</code> case from this batch.
+  The original fg-dominant high-animation-scene concern is still open and
+  still needs the deliberate policy decision below — best single-phase
+  reconstruction (2.3 degenerate case) vs SCANS, picked per-test by
+  measurement. Accepting SCANS permanently for some tests is a valid
+  outcome <strong>if a human confirms SCANS is the best achievable</strong> — the
+  objective is "never worse than the OpenCV stitcher", which a coherent
+  fallback satisfies; but each such test must beat the <em>raw</em> cv2 stitcher
+  (our SCANS-on-preprocessed-frames already tends to, via selection +
+  photometric prep + no crop failures).
 - <strong>alignment_failed (test49): SUPERSEDED, 2026-07-27</strong> — test49 no longer
   fails at alignment. It now reaches the composite stage and fails at
   <code>composite_gate_sb</code> instead (<code>sc=39.3/limit 53.2, sb=47.1/limit 35.0</code>,

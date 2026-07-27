@@ -2535,6 +2535,39 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s247-2026-07-27-asp-phase-33-multi-band-blend-already-implemented-stale-roadmap-text-corrected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S247 — 2026-07-27 (ASP Phase 3.3: multi-band blend already implemented — stale roadmap text corrected)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s246-2026-07-27-asp-phase-4-clarified-render-gate-class-is-the-existing-compositeghostseam-vis-gate-umbrella-not-a-separate-silo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S246 — 2026-07-27 (ASP Phase 4: clarified "render-gate class" is the existing composite/ghost/seam-vis gate umbrella, not a separate silo)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s245-2026-07-27-asp-phase-431-follow-up-framepair-count-also-insufficient-to-predict-gain-solve-outcome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S245 — 2026-07-27 (ASP Phase 4/3.1 follow-up: frame/pair count also insufficient to predict gain-solve outcome)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -12489,6 +12522,39 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s247-2026-07-27-asp-phase-33-multi-band-blend-already-implemented-stale-roadmap-text-corrected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S247 — 2026-07-27 (ASP Phase 3.3: multi-band blend already implemented — stale roadmap text corrected)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s246-2026-07-27-asp-phase-4-clarified-render-gate-class-is-the-existing-compositeghostseam-vis-gate-umbrella-not-a-separate-silo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S246 — 2026-07-27 (ASP Phase 4: clarified "render-gate class" is the existing composite/ghost/seam-vis gate umbrella, not a separate silo)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s245-2026-07-27-asp-phase-431-follow-up-framepair-count-also-insufficient-to-predict-gain-solve-outcome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S245 — 2026-07-27 (ASP Phase 4/3.1 follow-up: frame/pair count also insufficient to predict gain-solve outcome)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -22430,6 +22496,26 @@
 
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
+<hr />
+<h2 id="s247-2026-07-27-asp-phase-33-multi-band-blend-already-implemented-stale-roadmap-text-corrected">S247 — 2026-07-27 (ASP Phase 3.3: multi-band blend already implemented — stale roadmap text corrected)<a class="headerlink" href="#s247-2026-07-27-asp-phase-33-multi-band-blend-already-implemented-stale-roadmap-text-corrected" title="Permanent link">&para;</a></h2>
+<p>Checked §3.3 ("reintroduce the deleted C++ <code>multiband_blend</code>") before implementing anything, since the Phase 4 analysis's test09 finding (visible banding despite passing every gate) matched this bullet's stated precondition ("only if 3.1+3.2 leave visible transitions").</p>
+<ul>
+<li><strong>The premise was wrong</strong>: <code>base::laplacian_blend</code> (<code>base/src/animation/compositing.cpp</code>) is a genuine 5-level Laplacian pyramid multi-band blend — not deleted, not a stub. It's the live default (<code>LAPLACIAN_BANDS=5</code>) called from Stage 11's per-seam blend. It was never removed; the roadmap bullet appears to predate this check or confused it with a different retired component (similar to this session's earlier Dependabot and WD14-wrapper stale-roadmap findings).</li>
+<li><strong>This reframes the test09 banding finding</strong>: since a 5-band blend is already active and the defect still shows through, it's not a blending-method gap — it points back toward an upstream photometric (gain/exposure) mismatch as the real remaining lever, consistent with why <code>ASP_JOINT_GAIN_SOLVE</code> (a photometric fix, not a blending change) already moved test09 to a real composite.</li>
+<li><strong>No code shipped</strong> — closing this item as already satisfied rather than re-implementing something that exists. <code>moon/roadmaps/asp.md</code> §3.3 corrected; posted as an update on GitHub issue #27.</li>
+</ul>
+<hr />
+<h2 id="s246-2026-07-27-asp-phase-4-clarified-render-gate-class-is-the-existing-compositeghostseam-vis-gate-umbrella-not-a-separate-silo">S246 — 2026-07-27 (ASP Phase 4: clarified "render-gate class" is the existing composite/ghost/seam-vis gate umbrella, not a separate silo)<a class="headerlink" href="#s246-2026-07-27-asp-phase-4-clarified-render-gate-class-is-the-existing-compositeghostseam-vis-gate-umbrella-not-a-separate-silo" title="Permanent link">&para;</a></h2>
+<p>Small documentation clarification while continuing Phase 4 work: the roadmap's "render-gate class (21)" bullet uses the benchmark's own umbrella term (<code>timings["render_gate_fallback"]</code>, set whenever any post-render quality check fires), covering <code>composite_gate_sc</code>/<code>composite_gate_sb</code>, <code>ghost_gate_siqe</code>, and <code>seam_vis_gate</code> combined — it was not a separate, unexamined class. The S244 seam_vis_gate re-examination already covers a meaningful chunk of this umbrella at 18-test scale (4 <code>composite_gate_sb</code> + 1 <code>composite_gate_sc</code> case from that batch). The original fg-dominant high-animation-scene policy question this bullet raised remains genuinely open — this is a scoping clarification, not new analysis. <code>moon/roadmaps/asp.md</code> Phase 4 section updated.</p>
+<hr />
+<h2 id="s245-2026-07-27-asp-phase-431-follow-up-framepair-count-also-insufficient-to-predict-gain-solve-outcome">S245 — 2026-07-27 (ASP Phase 4/3.1 follow-up: frame/pair count also insufficient to predict gain-solve outcome)<a class="headerlink" href="#s245-2026-07-27-asp-phase-431-follow-up-framepair-count-also-insufficient-to-predict-gain-solve-outcome" title="Permanent link">&para;</a></h2>
+<p>Closed the dedicated follow-up flagged in S244: why does test51 regress under <code>ASP_JOINT_GAIN_SOLVE</code> despite a <code>mean_post_warp_diff</code> comparable to test32, which improves?</p>
+<ul>
+<li><strong>Checked frame/pair count as a second candidate discriminator</strong>: <code>_joint_gain_solve</code> builds its least-squares system over every pair of frames with sufficient shared background overlap, not just adjacent ones, so fewer selected frames directly means fewer constraining pairs available (test51: 8 frames/28 possible pairs; test32: 17 frames/136 possible pairs) — a plausible structural reason a sparse sequence's gain solution would be more fragile.</li>
+<li><strong>Test08 breaks the pattern</strong>: it has the second-fewest pairs (36, comparable to test51's 28) yet <em>improved</em> under gain solve rather than regressing — the opposite of what a clean "fewer pairs → more fragile → more likely to regress" rule would predict.</li>
+<li><strong>Conclusion</strong>: two independent, plausible cheap heuristics (post-warp-diff, frame/pair count) have now each been checked and each falls short on a real counter-example. This isn't a matter of finding the right one-line discriminator — a full per-test measurement pass (full-97 run, or a dedicated per-test A/B) is what's genuinely needed before <code>ASP_JOINT_GAIN_SOLVE</code> could ever be conditionally dispatched. Closing this follow-up rather than trying a third heuristic on the same small sample, which would risk overfitting an explanation to too little data.</li>
+<li>No code changes. <code>.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md</code> and <code>moon/roadmaps/asp.md</code> Phase 4 section updated with this finding; posted as a follow-up comment on GitHub issue #26.</li>
+</ul>
 <hr />
 <h2 id="s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale">S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)<a class="headerlink" href="#s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale" title="Permanent link">&para;</a></h2>
 <p>User-authorized scale-up from the established 5-test verify to an 18-test targeted batch, deliberately chosen to span every current fallback class (rather than an arbitrary sample) for Phase 4's "re-examine what remains" instruction. Clean run, no resource-danger triggers — the biggest single scale step-up since the thread-cap host-freeze fix landed.</p>
