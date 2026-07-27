@@ -176,11 +176,57 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 **Recommendation:** Add a FLUX wrapper with FP8/GGUF Q8 quantisation for 16 GB; rectified-flow sampler; keep it clearly secondary in the UI.
 
-### 1.6 Anime upscaling stage [Quick Win]
+### 1.6 Anime upscaling stage [Quick Win] — shared wrapper DONE 2026-07-27
 
 **Pain point:** Generated images and stitched panoramas both want anime-aware SR.
 
-**Recommendation:** Shared `Real-ESRGAN anime_6B` / `4x-AnimeSharp` tiled upscaler module, reused by both the generation tabs and the ASP super-resolution stage (`animation/super_res.py` already exists — unify).
+**Done:** `ESRGANWrapper` (`backend/src/models/wrappers/esrgan_wrapper.py`) — a
+tiled Real-ESRGAN anime_6B upscaler, the shared reusable primitive this
+item asked for. **Correction to this bullet's own claim**: `animation/
+super_res.py` does not exist anywhere in the codebase (confirmed by a
+repo-wide search before writing anything) — there was no super-resolution
+module to "unify" with; this wrapper is a new module, not a merge of two
+existing ones.
+
+- **Architecture**: a self-contained RRDBNet (Residual-in-Residual Dense
+  Block Network, the Real-ESRGAN generator) in plain `torch`, rather than
+  the `basicsr`/`realesrgan` PyPI packages (not installed in this
+  project's `.venv`; deliberately not added — `basicsr` carries a large,
+  fragile dependency tree with known compatibility breaks against newer
+  torchvision). Matches this project's established pattern for BiRefNet/
+  ToonOut: load raw weights into a hand-written architecture.
+- **Weights verified, not guessed**: downloaded the real
+  `RealESRGAN_x4plus_anime_6B.pth` checkpoint from its HF Hub mirror and
+  inspected the actual state dict before writing the architecture —
+  confirmed 6 RRDB blocks, `num_feat=64`, weights wrapped under a
+  `params_ema` key (Real-ESRGAN's own convention). Two independent HF Hub
+  mirrors (`ximso/...`, `gemasai/...`) wired as primary/fallback, same
+  pattern as `birefnet_wrapper.py`.
+- **Tiled inference**: large images processed in overlapping tiles
+  (`tile_size=400`, `tile_pad=10` defaults) to bound VRAM/RAM use, matching
+  upstream Real-ESRGAN's own approach. Verified quantitatively against a
+  non-tiled full-pass on the same image: mean abs pixel diff 0.76/255
+  under production tile settings, with boundary-adjacent pixels showing
+  the expected (and upstream-documented) minor tiling-seam effect — not a
+  bug, an accepted trade-off of the tiling approach itself.
+- **Verified end-to-end with real downloaded weights** (not just "loads
+  without erroring"): loaded the actual anime_6B checkpoint and ran both
+  the non-tiled and tiled code paths on synthetic images, confirming
+  correct 4x output shape and dtype in both cases.
+- **Tests**: `backend/test/models/test_esrgan_wrapper.py`, 16 tests —
+  architecture shape checks (locking the real checkpoint's 6-block/
+  64-feature structure), primary/fallback/failure load() paths, tiled vs
+  non-tiled shape correctness (including a non-tile-size-multiple
+  remainder case), file-path convenience wrapper, unload lifecycle. Uses
+  randomly-initialized small weights for CI speed (no network dependency
+  in the committed suite) — the real-weights end-to-end run above was done
+  manually, documented here rather than asserted in CI, same convention as
+  this session's WD14 tagger work.
+- **Not done here** (separate, larger follow-on items, out of this
+  Quick-Win's scope): wiring `ESRGANWrapper` into the generation tabs' GUI,
+  and into an actual ASP super-resolution pipeline stage (which itself
+  doesn't exist yet — see the correction above). This item delivers the
+  shared primitive module only.
 
 ---
 
