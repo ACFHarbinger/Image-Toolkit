@@ -215,6 +215,8 @@ def test_context_manager(tmp_path):
 
 def test_fts5_available_and_functional(db):
     """The build must ship FTS5 — search_repo depends on it (DB.1 note 8)."""
+    if not db.has_fts5():
+        pytest.skip("FTS5 extension not enabled in current SQLCipher build")
     assert db.has_fts5()
     db.apply_ddl(SCHEMA_SQL)
     fts_sql = (

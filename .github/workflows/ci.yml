@@ -137,6 +137,8 @@ jobs:
           uv run cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release
           uv run cmake --build build/base --parallel
           uv run cmake --install build/base --prefix .
+          SITE_PKGS=$(uv run python -c "import site; print(site.getsitepackages()[0])")
+          cp -f base*.so "$SITE_PKGS/" || true
 
       - name: Run pytest
         run: uv run pytest --skip-gpu -m "not slow" -q --tb=short
