@@ -162,6 +162,8 @@ larger-scale run.
 - Full 97-corpus run (roadmap's actual Phase-0 exit gate: "Overmix column
   present for all 97") — this round only covers the 5-test verify subset,
   per this project's established host-freeze-safety scaling discipline.
-- §1.2(a) and (c) above.
-- §0.6 (adding Overmix as a GUI option in the Merge tab) — separate,
-  unstarted item.
+- §1.2(a) and (c) above (only (c) remains open).
+- ~~§0.6 (adding Overmix as a GUI option in the Merge tab)~~ — **done**,
+  confirmed 2026-07-27: `merge_tab.py`'s engine dropdown already has an
+  "Overmix" option (`new_features.md` §4.16 work), wired through
+  `image_merger.py::_merge_images_overmix`. This note was stale.

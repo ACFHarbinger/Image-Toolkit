@@ -461,10 +461,28 @@ reloads fresh every dataset with no cache, unlike BiRefNet).
   5-test re-verify is encouraging, not a substitute for either.
 - **3.2 GraphCut revisit** — moot; 1.3 did not survive its second measurement
   (2026-07-27).
-- **3.3 Multi-band blend on final boundaries** `[3 days]` — only if 3.1+3.2 leave
-  visible transitions; reintroduce the deleted C++ `multiband_blend` at that
-  point, not before. If flat-cel colour bleeding appears at high-contrast seams,
-  the report's answer is **MPB + MTOR** (modified Poisson, §12), not plain Poisson.
+- **3.3 Multi-band blend on final boundaries — ALREADY DONE, stale roadmap
+  text corrected 2026-07-27.** This bullet's premise ("reintroduce the
+  deleted C++ `multiband_blend`") is factually wrong: `base::laplacian_blend`
+  (`base/src/animation/compositing.cpp`) is a genuine 5-level Laplacian
+  pyramid multi-band blend — not deleted, not a stub, and already the live
+  default (`LAPLACIAN_BANDS=5`, `backend/src/constants/animation.py`),
+  called from `_laplacian_blend` at Stage 11's per-seam blend
+  (`compositing.py:2295`). It was never removed; this bullet appears to
+  predate that check, or confused it with a different retired component.
+  **This reframes Finding-3's visible test09 banding** (Phase 4 analysis,
+  `.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md`): since a
+  5-band blend is already active and the banding still shows through, the
+  defect is **not a blending-method gap** — multi-band blending is already
+  the technique in place. It points back toward an upstream photometric
+  (gain/exposure) mismatch as the real remaining lever, consistent with why
+  §3.1's joint gain solve (not a blending change) is what actually moved
+  test09 to a real composite. No code change from this correction — closing
+  this item as already satisfied rather than re-implementing something that
+  exists. (The "MPB + MTOR for colour bleeding" caveat remains relevant
+  research-base context if colour-bleeding specifically — as opposed to
+  luminance banding — is ever observed, but is not itself evidence of a gap
+  to fill.)
 - **3.4 Cheap photometric candidates from the research base** `[done
   2026-07-27 — see .agent/cache/asp_toonout_fix_2026-07-27.md]`
   — **ToonOut weights**: the "mirror is gone" blocker was itself stale — a

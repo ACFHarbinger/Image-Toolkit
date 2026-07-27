@@ -4,6 +4,16 @@
 
 ---
 
+## S247 — 2026-07-27 (ASP Phase 3.3: multi-band blend already implemented — stale roadmap text corrected)
+
+Checked §3.3 ("reintroduce the deleted C++ `multiband_blend`") before implementing anything, since the Phase 4 analysis's test09 finding (visible banding despite passing every gate) matched this bullet's stated precondition ("only if 3.1+3.2 leave visible transitions").
+
+- **The premise was wrong**: `base::laplacian_blend` (`base/src/animation/compositing.cpp`) is a genuine 5-level Laplacian pyramid multi-band blend — not deleted, not a stub. It's the live default (`LAPLACIAN_BANDS=5`) called from Stage 11's per-seam blend. It was never removed; the roadmap bullet appears to predate this check or confused it with a different retired component (similar to this session's earlier Dependabot and WD14-wrapper stale-roadmap findings).
+- **This reframes the test09 banding finding**: since a 5-band blend is already active and the defect still shows through, it's not a blending-method gap — it points back toward an upstream photometric (gain/exposure) mismatch as the real remaining lever, consistent with why `ASP_JOINT_GAIN_SOLVE` (a photometric fix, not a blending change) already moved test09 to a real composite.
+- **No code shipped** — closing this item as already satisfied rather than re-implementing something that exists. `moon/roadmaps/asp.md` §3.3 corrected; posted as an update on GitHub issue #27.
+
+---
+
 ## S246 — 2026-07-27 (ASP Phase 4: clarified "render-gate class" is the existing composite/ghost/seam-vis gate umbrella, not a separate silo)
 
 Small documentation clarification while continuing Phase 4 work: the roadmap's "render-gate class (21)" bullet uses the benchmark's own umbrella term (`timings["render_gate_fallback"]`, set whenever any post-render quality check fires), covering `composite_gate_sc`/`composite_gate_sb`, `ghost_gate_siqe`, and `seam_vis_gate` combined — it was not a separate, unexamined class. The S244 seam_vis_gate re-examination already covers a meaningful chunk of this umbrella at 18-test scale (4 `composite_gate_sb` + 1 `composite_gate_sc` case from that batch). The original fg-dominant high-animation-scene policy question this bullet raised remains genuinely open — this is a scoping clarification, not new analysis. `moon/roadmaps/asp.md` Phase 4 section updated.
