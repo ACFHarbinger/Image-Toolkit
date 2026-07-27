@@ -25,6 +25,19 @@ Implemented GitHub issue #47 ("global hotkey table in settings"). Verified befor
 
 ---
 
+## S254 — 2026-07-27 (New Features 4.1: GUI batch stitching — directory-level, progress list)
+
+Implemented GitHub issue #56 / `new_features.md` §4.1, Option A. Found before building: Options C (CLI batch mode) and E (resume support) were already fully implemented in `dispatcher.py::dispatch_stitch` — the roadmap text hadn't been updated to reflect this, reading as an open TODO for work already done.
+
+- **`BatchStitchWorker`** (`gui/src/helpers/animation/batch_stitch_worker.py`, `QThread`): runs the CLI's exact batch loop, reusing `_collect_image_paths`/`_run_single_stitch` directly from `dispatcher.py` rather than re-implementing "run one sequence" a second time — the CLI and GUI batch paths can't silently diverge, and both read/write the same `.stitch_progress.json`, so a batch interrupted from one entry point resumes correctly from the other. Runs the plain non-HITL pipeline path, matching unattended batch semantics.
+- **`BatchStitchDialog`** (`gui/src/components/dialogs/batch_stitch_dialog.py`): root-directory picker, renderer/suffix/resume options, and the per-item progress list (status icon: queued/running/done/skipped/failed) the roadmap asks for.
+- **Applied this session's own crash-fix lesson proactively**: the dialog's `closeEvent()` uses an unbounded `QThread.wait()` rather than a fixed timeout when cancelling mid-run — the gallery `deleteOrphaned` crash fixed earlier today (issue #81) is the exact same class of bug (a worker's signals connected to widgets a bounded wait can let outlive), so this new dialog was built to avoid it from the start.
+- New "⚏ Batch Stitch…" button in the StitchTab action row.
+- **Tests**: 11 new cases (worker: iteration, resume-skip, progress-JSON format, cancellation, empty dir, too-few-images; dialog: defaults, missing-directory guard, list/bar updates, summary), all passing. Existing `test_stitch_tab.py` suites (29 tests) re-verified unaffected.
+- `moon/roadmaps/new_features.md` §4.1 updated with full status and the stale-roadmap correction for C/E.
+
+---
+
 ## S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
 
 Implemented GitHub issue #48 / roadmap `gui_ux.md` §2.9's item F (labeled `bug` — the same "settings-window control exists, nothing consumes it" shape as issue #49's `recent_dirs_count` fix earlier this session).

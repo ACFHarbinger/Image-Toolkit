@@ -109,9 +109,17 @@ Each section describes a proposed feature, all viable implementation options wit
 
 ---
 
-## 4.1 Batch Stitching
+## 4.1 Batch Stitching — ✅ Options A, C, E implemented (2026-07-27, issue #56)
 
 **Pain point:** Users with large screenshot libraries (e.g., 50+ groups of frames from novel-reading sessions) currently process each group one at a time in the StitchTab.
+
+**Status:** Options C (CLI batch mode) and E (resume support) were already fully implemented in `backend/src/utils/io/dispatcher.py::dispatch_stitch` before this item was picked up — `python main.py stitch --batch-dir /path --resume` scans immediate subdirectories, runs `AnimeStitchPipeline` on each via `_run_single_stitch()`, and persists `.stitch_progress.json` after every sequence. This wasn't reflected in the roadmap text (it read as an open TODO). Option A (the GUI counterpart the roadmap's own recommendation calls for "once C is validated") is now implemented too:
+
+- **`gui/src/helpers/animation/batch_stitch_worker.py::BatchStitchWorker`** (`QThread`): runs the same batch loop as the CLI, reusing `dispatcher.py`'s `_collect_image_paths`/`_run_single_stitch` directly rather than re-implementing "run one sequence" a second time, so the two entry points can never silently diverge. Reads/writes the identical `.stitch_progress.json`, so a batch interrupted from one entry point resumes correctly from the other. Runs the plain (non-HITL) pipeline path — unattended batch runs don't pause for interactive review, unlike the single-sequence StitchTab/`StitchWorker` flow. `cancel()` is checked between items (a single `AnimeStitchPipeline.run()` call isn't interruptible mid-stage, matching this project's existing §2.7B cancellation granularity).
+- **`gui/src/components/dialogs/batch_stitch_dialog.py::BatchStitchDialog`**: root-directory picker (`QFileDialog` with `DontUseNativeDialog`), renderer/output-suffix/resume options, and the progress list the roadmap asks for — one row per subdirectory with a status icon (queued/running/done/skipped/failed), backed by a progress bar. Its `closeEvent()` deliberately uses an *unbounded* `QThread.wait()` rather than a fixed timeout when cancelling mid-run — the gallery crash fixed earlier this same session (`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`) is the exact same class of bug (a worker's signals connected to widgets that a bounded wait can let outlive), so this dialog was built to avoid it from the start rather than needing the same fix applied twice.
+- New "⚏ Batch Stitch…" button in the StitchTab's action row, opening the dialog.
+- **Not implemented**: ETA display (not asked for by Option A's exact text beyond "per-item status"), output preview thumbnails in the progress list, ATA ordering, and Options B (Postgres-backed queue) and D (filesystem watcher) — both explicitly deferred by the roadmap's own recommendation.
+- **Tests**: 11 new cases in `gui/test/dialogs/test_batch_stitch_dialog.py` (worker: subdirectory iteration, resume-skip, progress-JSON format, cancellation, empty directory, too-few-images skip; dialog: construction defaults, missing-directory guard, progress-list/bar updates, batch-finished summary) — all passing, plus the existing `gui/test/animation/test_stitch_tab.py` (27) and `gui/test/core/test_stitch_tab.py` (2) re-verified unaffected (66 total across all stitch/dialog tests).
 
 ### Options
 
