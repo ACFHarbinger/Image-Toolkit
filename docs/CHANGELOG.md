@@ -4,6 +4,20 @@
 
 ---
 
+## S224 — 2026-07-27 (ASP Phase 1.3/3.2: GraphCut seam post-mortem, second measurement — still rejected)
+
+Attempted the fix specified in GitHub issue #22 / roadmap §1.3: the first GraphCut measurement (2026-07-09 trim baseline) found seam_visibility 20-80 vs the DP path's 2-16, attributed to three wiring gaps rather than the underlying theory.
+
+- **Fixed all three identified wiring gaps** in `backend/src/animation/rendering/compositing.py`: rewrote `_feather_gc_boundaries` to use `cv2.distanceTransform`-based signed-distance blending (follows the true 2D shape of a GraphCut boundary, which can meander in any direction) instead of a per-column "last owned row" linear ramp that only approximates a horizontal seam; added local per-boundary blocks-gain correction within each blend band via the existing `_blocks_gain_compensate` helper (addresses "no per-seam photometric correction"); widened `ASP_GC_FEATHER_PX`'s default from 8px to 96px, bringing it onto the same scale as the DP path's typical 100-300px feathers — an order-of-magnitude mismatch that was itself a plausible major contributor to the original measurement.
+- **Not attempted**: the anime edge-cost rule (`cost ∝ 1 − edge_strength`). `cv::detail::GraphCutSeamFinder` uses OpenCV's fixed `COST_COLOR_GRAD` cost internally with no hook for a custom per-pixel weighting at the Python binding level — implementing it means reimplementing the min-cut algorithm in `base/src/animation/seam.cpp`, well beyond a wiring fix.
+- **5-test verify result: still measurably worse than the DP path, and a new, more severe defect surfaced.** Comparing real (gate-checked) composite quality rather than post-fallback metrics: 4 of 5 tests got worse (seam_visibility 28.15→90.0, 39.8→55.1, 11.03→75.6; one test failed a different gate, strip-banding 61.7 vs a limit of 35.0). The one test that passed the composite gate (`asp_test04`) produced a visibly corrupted image — dense, near-periodic horizontal scan-line artifacts across almost the entire canvas — that the Laplacian-variance sharpness metric scored as "great" (3150 vs a normal ~40-150 range), a clear case of a metric disagreeing with a two-second look at the image.
+- **Root cause hypothesis**: seam estimation runs on a heavily downscaled proxy (~0.3× on these canvases) and upscales the ownership masks with nearest-neighbor. On flat, low-texture anime cel content, `COST_COLOR_GRAD` gets little gradient signal, plausibly fragmenting the min-cut into thin alternating ownership bands rather than one clean boundary — nearest-neighbor upscaling preserves the fragmentation, and the wider 96px feather then blends aggressively across many thin bands in succession, producing the observed scan-line pattern. This is architectural, not a wiring bug — no amount of feathering fixes a fragmented input partition.
+- Full write-up in `.agent/cache/asp_graphcut_postmortem_2026-07-27.md` per the roadmap's ground rules (failures get a post-mortem there, not accreted detail in the roadmap itself). `moon/roadmaps/asp.md` §1.3/§3.2 updated to a short pointer.
+- **Disposition**: `ASP_GRAPHCUT_SEAM` stays default OFF (unchanged from before). The improved feathering/gain-correction code is kept — it's strictly flag-gated (confirmed zero change to the default path via a flag-OFF 5-test verify) and is a more correct primitive than the old per-column ramp even though it didn't solve the aggregate problem, so a future attempt at the fragmentation fix wouldn't need to redo this part. Recommend not revisiting GraphCut again without addressing the ownership-fragmentation hypothesis first.
+- `backend/test/animation/` — 670 passed, 5 GPU-skipped, unaffected.
+
+---
+
 ## S223 — 2026-07-27 (Roadmap-wide staleness audit ahead of GitHub issue creation)
 
 Ahead of creating GitHub issues from the project's roadmaps, audited and corrected five files for stale "done"/"not done" claims — verified against the actual codebase, not just cross-referencing other roadmap docs (which are themselves sometimes stale).

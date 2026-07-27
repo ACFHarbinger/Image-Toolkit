@@ -219,17 +219,21 @@ change-point behave on hentai pan shots with 2–4 animation phases? (b) does it
 average-render on *our* bg regions beat our temporal median visually? (c) what does
 its interactive workflow do that our HITL checkpoints don't? Feed answers into 2.1.
 
-### 1.3 GraphCut post-mortem experiment  `[2 days, flag-gated]`
-§4.2 lost its first measurement (sv 20–80 vs DP 2–16) for identifiable reasons:
-hard ownership cut, ±8 px feather, no per-seam photometric correction. The theory
-is not in question — graph-cut with hard t-links is the report-endorsed formalism
-for single-pose seam routing (§R; Eden 2006) — the wiring is. Before abandoning:
-add per-boundary blocks-gain correction + distance-transform feathering (or reuse
-the DP path's Laplacian blend along GC boundaries), apply the anime edge rule
-(cost ∝ 1 − edge_strength so seams follow line-art), behind `ASP_GRAPHCUT_SEAM=1`;
-re-run the 5-test verify. Keep only if it beats the DP path on both sv *and* human
-rating; otherwise write the post-mortem and stop. (DSeam is the report-flagged
-fast alternative if quality wins but runtime hurts.)
+### 1.3 GraphCut post-mortem experiment  `[REJECTED again, 2026-07-27 — see
+.agent/cache/asp_graphcut_postmortem_2026-07-27.md]`
+Fixed the two identified wiring gaps (distance-transform feathering + local
+per-boundary gain correction; widened `ASP_GC_FEATHER_PX` 8→96px to match the
+DP path's scale). 5-test verify: GraphCut's real seam quality got *worse* on
+4/5 tests despite the fix, and the one test that passed the gate produced a
+visibly corrupted image (dense scan-line artifacts a naive sharpness metric
+scored as "great"). Root cause is architectural, not wiring: the low-res
+seam-estimation proxy likely fragments into thin alternating ownership bands
+on flat anime cel content, which feathering can't repair. `ASP_GRAPHCUT_SEAM`
+stays default OFF; do not revisit without addressing the fragmentation
+hypothesis first (see the post-mortem for the two candidate fixes, neither
+attempted). The anime edge-cost rule was also not attempted — OpenCV's
+`GraphCutSeamFinder` exposes no hook for a custom cost function short of
+reimplementing the min-cut algorithm.
 
 ---
 
@@ -349,7 +353,8 @@ reloads fresh every dataset with no cache, unlike BiRefNet).
   drifts over long chains). Bg-pixels-only, luminance-scalar, clamped — the
   report's empirically-derived anime rules. Targets the residual banding
   (composite_gate_sb fires on 19 tests).
-- **3.2 GraphCut revisit** — inherit from 1.3 if it survived.
+- **3.2 GraphCut revisit** — moot; 1.3 did not survive its second measurement
+  (2026-07-27).
 - **3.3 Multi-band blend on final boundaries** `[3 days]` — only if 3.1+3.2 leave
   visible transitions; reintroduce the deleted C++ `multiband_blend` at that
   point, not before. If flat-cel colour bleeding appears at high-contrast seams,

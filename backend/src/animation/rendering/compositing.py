@@ -92,10 +92,14 @@ _PHASE_COMPOSITE: bool = os.environ.get("ASP_PHASE_COMPOSITE", "0") != "0"
 # work on GC-boundary photometric correction, and benchmark before defaulting.
 _GRAPHCUT_SEAM: bool = BATCH_AVAILABLE and os.environ.get("ASP_GRAPHCUT_SEAM", "0") != "0"
 
-# §3.33 — Feather width (px) at GraphCut ownership boundaries.
-# A narrow linear alpha ramp eliminates the 1-pixel luminance step at GC transitions.
-# Set ASP_GC_FEATHER_PX=0 to disable; default 8px matches half the zone-edge guard width.
-_GC_FEATHER_PX: int = int(os.environ.get("ASP_GC_FEATHER_PX", "8"))
+# §3.33 / §1.3 post-mortem (2026-07-27) — Feather width (px) at GraphCut
+# ownership boundaries. The original 8px default was an order of magnitude
+# narrower than the DP path's typical 100-300px feathers (see Feathers logs
+# in any benchmark run) — a likely dominant contributor to GraphCut's first
+# measurement (seam_visibility 20-80 vs the DP path's 2-16). Widened to 96px
+# to bring it onto the same scale; still configurable via ASP_GC_FEATHER_PX.
+# Set ASP_GC_FEATHER_PX=0 to disable feathering entirely.
+_GC_FEATHER_PX: int = int(os.environ.get("ASP_GC_FEATHER_PX", "96"))
 
 # §1.27: Background pixel coverage minimum for normalisation.  The normalisation loop
 # already guards with `len(bg_px) >= 200` before applying gain correction.  This flag
@@ -1057,43 +1061,76 @@ def _feather_gc_boundaries(
     result: np.ndarray,
     ownership_masks: List[np.ndarray],
     warped_frames: List[np.ndarray],
-    feather_px: int = 8,
+    feather_px: int = 96,
 ) -> np.ndarray:
-    """§3.33: Narrow feathered blend at GraphCut ownership transitions.
+    """§3.33 / §1.3 GraphCut post-mortem fix (2026-07-27).
 
-    For each adjacent pair (i, i+1) of ownership masks the per-column boundary
-    row (last row owned by frame i) is found and a ±feather_px linear alpha ramp
-    is blended between the two source frames.  Only pixels where both frames have
-    content (non-black) are blended; all-black pixels are skipped so gap-fill work
-    is not undone.
+    Two changes from the original per-column linear-ramp version, targeting
+    the two identified wiring gaps (the theory — graph-cut with hard t-links
+    — was never in question; see roadmap §1.3):
+
+    1. **Distance-transform feathering** instead of a per-column vertical
+       ramp. A GraphCut boundary can meander in any direction (unlike the
+       DP path's horizontal-strip zones); a per-column "last owned row"
+       ramp only approximates a horizontal seam and produces a visibly
+       wrong blend wherever the cut runs diagonally or doubles back.
+       ``cv2.distanceTransform`` on each ownership mask gives the true
+       Euclidean distance to the boundary in every direction, so the
+       blend follows the actual 2D seam shape.
+    2. **Local per-boundary blocks-gain correction** within the blend
+       band, before blending — the pre-seam global gain equalization
+       (§4.10) corrects frame-to-frame luminance overall, but leaves
+       residual local mismatch at the specific boundary a graph cut
+       chose (which needn't align with where the global correction was
+       most accurate). Reuses the same `_blocks_gain_compensate` the DP
+       path already relies on.
+
+    Only pixels where both frames have content (non-black) are blended;
+    all-black pixels are skipped so gap-fill work is not undone.
     """
     N = len(ownership_masks)
     if N < 2 or feather_px <= 0:
         return result
     out = result.copy()
-    H, W = result.shape[:2]
-    rows = np.arange(H, dtype=np.int32)[:, None]  # (H, 1) broadcast column
     for i in range(N - 1):
-        own_i = (ownership_masks[i] > 127)
-        has_col_i = own_i.any(axis=0)                    # (W,) — columns frame i owns
-        last_row_i = (H - 1) - np.argmax(own_i[::-1], axis=0)  # last owned row per col
-        boundary = np.where(has_col_i, last_row_i, -1)  # (W,) — -1 for unowned cols
+        own_i = (ownership_masks[i] > 127).astype(np.uint8)
+        own_next = (ownership_masks[i + 1] > 127).astype(np.uint8)
+        if not own_i.any() or not own_next.any():
+            continue
 
-        src_i    = warped_frames[i].astype(np.float32)
-        src_next = warped_frames[i + 1].astype(np.float32)
-        content_i    = warped_frames[i].max(axis=2) > 0   # (H, W)
+        content_i = warped_frames[i].max(axis=2) > 0
         content_next = warped_frames[i + 1].max(axis=2) > 0
 
-        b = boundary[None, :]  # (1, W)
-        # alpha=1.0 → fully frame i; alpha=0.0 → fully frame i+1
-        alpha = ((b + feather_px - rows) / (2.0 * feather_px)).clip(0.0, 1.0)
-        in_band = (rows >= (b - feather_px)) & (rows <= (b + feather_px)) & (b >= 0)
-        blend_here = in_band & content_i & content_next
-        if not blend_here.any():
+        # Signed distance to the boundary: positive = deep inside frame i's
+        # territory, negative = deep inside frame i+1's. Near-zero at the cut.
+        dist_i = cv2.distanceTransform(own_i * 255, cv2.DIST_L2, 5)
+        dist_next = cv2.distanceTransform(own_next * 255, cv2.DIST_L2, 5)
+        signed_dist = dist_i - dist_next
+
+        in_band = (np.abs(signed_dist) <= feather_px) & content_i & content_next
+        if not in_band.any():
             continue
+
+        # Local gain correction over the blend band's bounding box, before
+        # blending — corrects fb (frame i+1) to match fa's (frame i) local
+        # photometry right at this boundary.
+        ys, xs = np.where(in_band)
+        y0, y1 = int(ys.min()), int(ys.max()) + 1
+        x0, x1 = int(xs.min()), int(xs.max()) + 1
+        fa_zone = warped_frames[i][y0:y1, x0:x1]
+        fb_zone = warped_frames[i + 1][y0:y1, x0:x1]
+        fb_corrected = _blocks_gain_compensate(fa_zone, fb_zone, block_size=32)
+
+        src_i = warped_frames[i].astype(np.float32)
+        src_next_local = warped_frames[i + 1].astype(np.float32)
+        src_next_local[y0:y1, x0:x1] = fb_corrected.astype(np.float32)
+
+        alpha = np.clip(0.5 + signed_dist / (2.0 * feather_px), 0.0, 1.0)
         alpha3 = alpha[:, :, None]
-        blended = (alpha3 * src_i + (1.0 - alpha3) * src_next).clip(0, 255).astype(np.uint8)
-        out[blend_here] = blended[blend_here]
+        blended = (
+            alpha3 * src_i + (1.0 - alpha3) * src_next_local
+        ).clip(0, 255).astype(np.uint8)
+        out[in_band] = blended[in_band]
     return out
 
 
