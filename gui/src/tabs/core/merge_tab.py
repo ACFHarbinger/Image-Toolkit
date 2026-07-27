@@ -77,6 +77,9 @@ class MergeTab(AbstractClassSingleGallery):
         self.pending_save_path: Optional[str] = None
         self._last_merged_pixmap: Optional[QPixmap] = None
         self._syncing_spinboxes = False
+        # Tracks the Mode combo's previous value so handle_direction_change
+        # can detect canvas<->non-canvas transitions (queue/canvas resync).
+        self._prev_direction = "canvas"
 
         # --- Main Layout: single outer QScrollArea (mirrors convert_tab / wallpaper_tab) ---
         main_layout = QVBoxLayout(self)
@@ -365,8 +368,10 @@ class MergeTab(AbstractClassSingleGallery):
             self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
         )
 
-        # === 5. Merge Canvas ===
-        canvas_header_row = QHBoxLayout()
+        # === 5. Merge Canvas (canvas mode) / Selected Image Queue (every other mode) ===
+        self.canvas_header_widget = QWidget()
+        canvas_header_row = QHBoxLayout(self.canvas_header_widget)
+        canvas_header_row.setContentsMargins(0, 0, 0, 0)
         canvas_lbl = QLabel("Merge Canvas")
         canvas_lbl.setStyleSheet("font-weight: bold; padding: 4px;")
         canvas_header_row.addWidget(canvas_lbl)
@@ -389,16 +394,16 @@ class MergeTab(AbstractClassSingleGallery):
         self.canvas_bg_combo = QComboBox()
         self.canvas_bg_combo.addItems(["Transparent", "White", "Black"])
         canvas_header_row.addWidget(self.canvas_bg_combo)
-        content_layout.addLayout(canvas_header_row)
+        content_layout.addWidget(self.canvas_header_widget)
 
         self.canvas_widget = MergeCanvas(1920, 1080)
         self.canvas_widget.setMinimumHeight(600)
         self.canvas_widget.item_selected.connect(self._on_canvas_item_selected)
         content_layout.addWidget(self.canvas_widget, 1)
 
-        # Per-item controls (x, y, w, h + remove/clear buttons)
-        item_ctrl = QWidget()
-        item_ctrl_layout = QHBoxLayout(item_ctrl)
+        # Per-item controls (x, y, w, h + remove/clear buttons) — canvas mode only.
+        self.item_ctrl_widget = QWidget()
+        item_ctrl_layout = QHBoxLayout(self.item_ctrl_widget)
         item_ctrl_layout.setContentsMargins(0, 2, 0, 2)
         self.spin_list = []
         for attr, label_txt, lo, hi in (
@@ -427,7 +432,30 @@ class MergeTab(AbstractClassSingleGallery):
         self.btn_clear_canvas.clicked.connect(self._clear_canvas)
         item_ctrl_layout.addWidget(self.btn_clear_canvas)
 
-        content_layout.addWidget(item_ctrl)
+        content_layout.addWidget(self.item_ctrl_widget)
+
+        # Read-only ordered thumbnail strip shown instead of the canvas for
+        # every mode except "canvas" — a passive view of the current
+        # selection queue (order = order added), with no drag/resize.
+        self.queue_header_label = QLabel("Selected Images (Merge Order)")
+        self.queue_header_label.setStyleSheet("font-weight: bold; padding: 4px;")
+        content_layout.addWidget(self.queue_header_label)
+        self.queue_gallery_scroll = QScrollArea()
+        self.queue_gallery_scroll.setWidgetResizable(True)
+        self.queue_gallery_scroll.setStyleSheet(
+            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+        )
+        self.queue_gallery_scroll.setMinimumHeight(600)
+        queue_gallery_inner = QWidget()
+        queue_gallery_inner.setStyleSheet("background-color: #2c2f33;")
+        self.queue_gallery_layout = QGridLayout(queue_gallery_inner)
+        self.queue_gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+        self.queue_gallery_scroll.setWidget(queue_gallery_inner)
+        content_layout.addWidget(self.queue_gallery_scroll, 1)
+        self._queue_gallery_cols = 6
+        self._queue_thumb_size = 120
 
         # === 6. Action Buttons ===
         btns_layout = QHBoxLayout()
@@ -489,20 +517,23 @@ class MergeTab(AbstractClassSingleGallery):
 
     @Slot(str)
     def toggle_selection(self, path: str):
-        """Toggle gallery selection and sync the canvas accordingly."""
+        """Toggle gallery selection. In canvas mode, syncs the canvas too;
+        in every other mode, the canvas is left untouched (it's not visible)
+        and only resynced lazily on the next switch into canvas mode."""
+        is_canvas = self.direction.currentText() == "canvas"
         if path in self.selected_files:
             self.selected_files.remove(path)
-            self.canvas_widget.remove_item(path)
+            if is_canvas:
+                self.canvas_widget.remove_item(path)
             is_selected = False
         else:
             self.selected_files.append(path)
-            cached = self._initial_pixmap_cache.get(path)
-            if cached and isinstance(cached, QImage) and not cached.isNull():
-                thumb = QPixmap.fromImage(cached)
-            else:
-                thumb = QPixmap()
-            self.canvas_widget.add_image(path, thumb)
+            if is_canvas:
+                self.canvas_widget.add_image(path, self._thumbnail_for(path))
             is_selected = True
+
+        if not is_canvas:
+            self._refresh_queue_gallery()
 
         widget = self.path_to_card_widget.get(path)
         if widget:
@@ -637,6 +668,13 @@ class MergeTab(AbstractClassSingleGallery):
         is_gif = direction == "gif"
         is_traditional = not (is_canvas or is_complex or is_gif)
 
+        was_canvas = self._prev_direction == "canvas"
+        if was_canvas and not is_canvas:
+            self._leave_canvas_mode()
+        elif not was_canvas and is_canvas:
+            self._enter_canvas_mode()
+        self._prev_direction = direction
+
         self.grid_group.setVisible(is_grid)
         self.lbl_spacing.setVisible(is_traditional and not is_canvas)
         self.spacing.setVisible(is_traditional and not is_canvas)
@@ -648,6 +686,86 @@ class MergeTab(AbstractClassSingleGallery):
         self.lbl_engine.setVisible(is_panorama)
         self.engine_combo.setVisible(is_panorama)
         self._update_engine_visibility()
+
+        # Canvas widget (+ its header/per-item controls) only for "canvas"
+        # mode; every other mode shows the read-only selection-order gallery.
+        self.canvas_header_widget.setVisible(is_canvas)
+        self.canvas_widget.setVisible(is_canvas)
+        self.item_ctrl_widget.setVisible(is_canvas)
+        self.queue_header_label.setVisible(not is_canvas)
+        self.queue_gallery_scroll.setVisible(not is_canvas)
+
+    def _leave_canvas_mode(self):
+        """Resync the selection queue order from the canvas's current
+        insertion order (ascending image index = order added to canvas),
+        then switch the visible widget to the read-only queue gallery."""
+        layout = self.canvas_widget.get_layout()
+        self.selected_files = [entry["path"] for entry in layout]
+        self._refresh_queue_gallery()
+
+    def _enter_canvas_mode(self):
+        """Repopulate the canvas from the current selection queue, in queue
+        order, every item stacked at (0, 0) — canvas drag positions from a
+        previous canvas-mode visit are intentionally discarded so re-entry
+        is always a clean, predictable reflection of the queue order."""
+        self.canvas_widget.clear_canvas()
+        for path in self.selected_files:
+            thumb = self._thumbnail_for(path)
+            item = self.canvas_widget.add_image(path, thumb)
+            item.set_geometry(0, 0, item._w, item._h)
+
+    def _thumbnail_for(self, path: str) -> QPixmap:
+        cached = self._initial_pixmap_cache.get(path)
+        if cached and isinstance(cached, QImage) and not cached.isNull():
+            return QPixmap.fromImage(cached)
+        return QPixmap()
+
+    def _refresh_queue_gallery(self):
+        """Rebuild the read-only ordered thumbnail strip from
+        self.selected_files (the authoritative queue order for every
+        non-canvas mode)."""
+        while self.queue_gallery_layout.count():
+            item = self.queue_gallery_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        size = self._queue_thumb_size
+        cols = self._queue_gallery_cols
+        for idx, path in enumerate(self.selected_files):
+            cell = QWidget()
+            cell_layout = QVBoxLayout(cell)
+            cell_layout.setContentsMargins(2, 2, 2, 2)
+            cell_layout.setSpacing(2)
+
+            thumb_label = QLabel()
+            thumb_label.setFixedSize(size, size)
+            thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            thumb_label.setStyleSheet(
+                "background-color: #3a3d42; border-radius: 4px;"
+            )
+            pix = self._thumbnail_for(path)
+            if pix.isNull() and os.path.isfile(path):
+                pix = QPixmap(path)
+            if not pix.isNull():
+                thumb_label.setPixmap(
+                    pix.scaled(
+                        size,
+                        size,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                )
+            cell_layout.addWidget(thumb_label)
+
+            caption = QLabel(f"{idx + 1}. {os.path.basename(path)}")
+            caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            caption.setStyleSheet("color: #b9bbbe; font-size: 10px;")
+            caption.setWordWrap(True)
+            caption.setFixedWidth(size)
+            cell_layout.addWidget(caption)
+
+            self.queue_gallery_layout.addWidget(cell, idx // cols, idx % cols)
 
     @Slot()
     def _update_engine_visibility(self):
@@ -859,6 +977,8 @@ class MergeTab(AbstractClassSingleGallery):
                         lst.remove(path)
 
                 self.canvas_widget.remove_item(path)
+                if self.direction.currentText() != "canvas":
+                    self._refresh_queue_gallery()
 
                 widget = self.path_to_card_widget.pop(path, None)
                 if widget:
@@ -1052,11 +1172,13 @@ class MergeTab(AbstractClassSingleGallery):
         self.status_label.setText("Ready to merge.")
 
     def _inject_new_image(self, path: str):
-        """Add a newly-saved merged image to the gallery and canvas."""
+        """Add a newly-saved merged image to the gallery and selection queue."""
         self.start_loading_gallery([path], append=True)
-        # Immediately add to canvas selection too
         self.selected_files.append(path)
-        self.canvas_widget.add_image(path, QPixmap(path))
+        if self.direction.currentText() == "canvas":
+            self.canvas_widget.add_image(path, QPixmap(path))
+        else:
+            self._refresh_queue_gallery()
         self.on_selection_changed()
 
     def cleanup_temp_file(self):
@@ -1070,12 +1192,18 @@ class MergeTab(AbstractClassSingleGallery):
     # ─── Collect config ─────────────────────────────────────────────────────────
 
     def collect(self, output_path: str = "") -> Dict[str, Any]:
+        # canvas_layout stays canvas-widget-sourced (only meaningful for the
+        # "canvas" direction, and the widget is always freshly reconciled by
+        # _enter_canvas_mode by the time that direction is active). input_path
+        # is the selection queue order — the same thing while in canvas mode
+        # (kept in lockstep by toggle_selection) and the authoritative order
+        # for every other mode, where the canvas isn't touched/shown at all.
         layout = self.canvas_widget.get_layout()
         direction = self.direction.currentText()
         return {
             "direction": direction,
             "scan_directory": self.scan_directory_path.text().strip(),
-            "input_path": [item["path"] for item in layout],
+            "input_path": list(self.selected_files),
             "canvas_layout": layout,
             "canvas_width": self.canvas_w_spin.value(),
             "canvas_height": self.canvas_h_spin.value(),
@@ -1265,13 +1393,11 @@ class MergeTab(AbstractClassSingleGallery):
         if not valid:
             return
         self.selected_files = list(valid)
-        for path in valid:
-            cached = self._initial_pixmap_cache.get(path)
-            if cached and isinstance(cached, QImage) and not cached.isNull():
-                thumb = QPixmap.fromImage(cached)
-            else:
-                thumb = QPixmap()
-            self.canvas_widget.add_image(path, thumb)
+        if self.direction.currentText() == "canvas":
+            for path in valid:
+                self.canvas_widget.add_image(path, self._thumbnail_for(path))
+        else:
+            self._refresh_queue_gallery()
         self.on_selection_changed()
 
     # ─── Lifecycle ──────────────────────────────────────────────────────────────
@@ -1337,6 +1463,8 @@ class MergeTab(AbstractClassSingleGallery):
     @Slot(list)
     def set_selected_files_qml(self, paths):
         self.selected_files = list(paths)
+        if self.direction.currentText() != "canvas":
+            self._refresh_queue_gallery()
         self.on_selection_changed()
 
     def eventFilter(self, watched, event):
