@@ -6,7 +6,7 @@ from backend.src.constants import (
     HAS_NATIVE_IMAGING,
     SUPPORTED_VIDEO_FORMATS,
 )
-from PySide6.QtCore import QObject, QRunnable, Signal
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QImage
 
 if HAS_NATIVE_IMAGING:
@@ -14,12 +14,6 @@ if HAS_NATIVE_IMAGING:
 
 
 from .video_thumbnailer import VideoThumbnailer, get_video_thumbnail_cache_path
-
-
-class _VideoScanSignals(QObject):
-    thumbnail_ready = Signal(str, QImage)  # path, QImage
-    finished = Signal()
-
 
 
 def process_video_task(args):
@@ -48,18 +42,20 @@ def process_video_task(args):
         return path, None
 
 
-class VideoScannerWorker(QRunnable):
+class VideoScannerWorker(QThread):
     """
     Scans a directory for videos and generates thumbnails.
     Replaces heavy OpenCV decoding with lightweight subprocess calls.
+    Uses QThread for native thread safety and thread-safe signal delivery.
     """
+
+    thumbnail_ready = Signal(str, QImage)  # path, QImage
 
     def __init__(self, directory, target_height=180, crop_square=False, recursive=None):
         super().__init__()
         self.directory = directory
         self.target_height = target_height
         self.crop_square = crop_square
-        self.signals = _VideoScanSignals()
         self.is_cancelled = False
         self.executor = None
         self.thumbnailer = VideoThumbnailer()
@@ -69,18 +65,23 @@ class VideoScannerWorker(QRunnable):
         else:
             self.recursive = recursive
 
+    @property
+    def signals(self):
+        """Backward-compatibility property returning self so worker.signals accesses worker signals directly."""
+        return self
+
     def stop(self):
         """Signals the worker to stop scanning."""
         self.is_cancelled = True
+        self.requestInterruption()
         if self.executor:
             self.executor.shutdown(wait=False, cancel_futures=True)
 
     def run(self):  # noqa: C901
-        if self.is_cancelled:
+        if self.is_cancelled or self.isInterruptionRequested():
             return
 
         if not os.path.isdir(self.directory):
-            self.signals.finished.emit()
             return
 
         try:
@@ -89,7 +90,7 @@ class VideoScannerWorker(QRunnable):
 
             # Use C++ backend for fast scanning if available, else standard os.scandir / os.walk
             if HAS_NATIVE_IMAGING:
-                video_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
+                video_paths = base.scan_files_multi(  # pyrefly: ignore [missing-attribute]
                     [self.directory], list(SUPPORTED_VIDEO_FORMATS), self.recursive
                 )
             else:
@@ -97,7 +98,7 @@ class VideoScannerWorker(QRunnable):
                     if self.recursive:
                         video_paths = []
                         for root, dirs, files in os.walk(self.directory):
-                            if self.is_cancelled:
+                            if self.is_cancelled or self.isInterruptionRequested():
                                 break
                             # Skip hidden directories in-place (starts with dot)
                             dirs[:] = [d for d in dirs if not d.startswith(".")]
@@ -123,17 +124,13 @@ class VideoScannerWorker(QRunnable):
                     pass
 
             if not video_paths:
-                self.signals.finished.emit()
                 return
 
-            if self.is_cancelled:
+            if self.is_cancelled or self.isInterruptionRequested():
                 return
 
             # 2. Process in Parallel
-            # We use ThreadPoolExecutor. Since the actual work happens in external
-            # subprocesses (ffmpeg), Python threads are just waiting for IO.
-            # We limit max_workers to avoid disk thrashing (too many simultaneous seeks).
-            max_workers = min(os.cpu_count(), 8) # pyrefly: ignore [bad-specialization]
+            max_workers = min(os.cpu_count(), 8)  # pyrefly: ignore [bad-specialization]
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=max_workers
             ) as executor:
@@ -149,7 +146,7 @@ class VideoScannerWorker(QRunnable):
                 }
 
                 for future in concurrent.futures.as_completed(futures):
-                    if self.is_cancelled:
+                    if self.is_cancelled or self.isInterruptionRequested():
                         break
 
                     try:
@@ -157,11 +154,12 @@ class VideoScannerWorker(QRunnable):
                         # Emit result regardless of success/failure
                         # Receiver must handle null/invalid images
                         safe_image = image if image else QImage()
-                        self.signals.thumbnail_ready.emit(path, safe_image)
+                        self.thumbnail_ready.emit(path, safe_image)
                     except Exception:
                         pass
 
         except Exception:
             pass
         finally:
-            self.signals.finished.emit()
+            self.finished.emit()
+

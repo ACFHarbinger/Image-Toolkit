@@ -904,7 +904,15 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
             self.active_extraction_worker = None
 
         if self.vid_scanner_worker:
-            self.vid_scanner_worker.stop()
+            try:
+                if self.vid_scanner_worker.isRunning():
+                    self.vid_scanner_worker.requestInterruption()
+                    self.vid_scanner_worker.stop()
+                    self.vid_scanner_worker.quit()
+                    self.vid_scanner_worker.wait(1000)
+                self.vid_scanner_worker.deleteLater()
+            except RuntimeError:
+                pass
             self.vid_scanner_worker = None
 
         # Close sub-windows
@@ -1225,17 +1233,31 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
 
         # 3. Start the intensive thumbnailing worker
         if self.vid_scanner_worker:
-            self.vid_scanner_worker.stop()
+            try:
+                if self.vid_scanner_worker.isRunning():
+                    self.vid_scanner_worker.requestInterruption()
+                    self.vid_scanner_worker.stop()
+                    self.vid_scanner_worker.quit()
+                    self.vid_scanner_worker.wait(1000)
+                self.vid_scanner_worker.deleteLater()
+            except RuntimeError:
+                pass
             self.vid_scanner_worker = None
 
         self.vid_scanner_worker = VideoScannerWorker(path, crop_square=True)
-        self.vid_scanner_worker.signals.thumbnail_ready.connect(
+        self.vid_scanner_worker.thumbnail_ready.connect(
             self.add_source_thumbnail
         )
-        self.vid_scanner_worker.signals.finished.connect(
+        self.vid_scanner_worker.finished.connect(
             lambda: self.scan_progress_complete()
         )
-        QThreadPool.globalInstance().start(self.vid_scanner_worker)
+        self.vid_scanner_worker.finished.connect(
+            self.vid_scanner_worker.deleteLater
+        )
+        self.vid_scanner_worker.finished.connect(
+            lambda: setattr(self, "vid_scanner_worker", None)
+        )
+        self.vid_scanner_worker.start()
 
     def _create_source_placeholder_widget(self, path: str) -> QWidget:
         """Creates a placeholder widget with 'Loading...' state for the source gallery."""
