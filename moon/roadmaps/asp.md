@@ -195,16 +195,6 @@ scan-mode panoramas. Worth one afternoon to script on the 5-test subset; only ro
 out to the full corpus if its outputs are competitive (expected: it struggles on
 anime texture like all SIFT-based tools — confirming that is itself useful data).
 
-### 0.6 Optional new anime panorama stitcher option: Overmix  `[1 hour after 0.3, optional]`
-Add Overmix as a option to the Image Stitcher category and Merge tab. If Overmix
-has already been added to the benchmark in Phase 0.3, this update is trivial and
-it gives end users a solid additional option for high-quality anime panoramas.
-
-### 0.7 Optional new classical panorama stitcher option: Hugin  `[1 hour after 0.5, optional]`
-Add Hugin as a option to the Image Stitcher category and Merge tab. If Hugin
-has already been added to the benchmark in Phase 0.5, this update is trivial and
-it gives end users a solid additional option for high-quality classical panoramas.
-
 **Phase-0 exit gate:** ratings file exists; benchmark emits coherence + pose-residual
 columns; Overmix column present for all 97; a three-way summary table in the report.
 

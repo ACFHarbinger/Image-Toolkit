@@ -583,6 +583,11 @@ The new Image subtab (`gui/src/tabs/core/elements/image_extractor_subtab.py`):
 
 ---
 
+## 4.16 Additional Stitcher Options
+Add Overmix and Hugin as options to the Image Stitcher category and Merge tab. 
+If they have already been added to the benchmark, this update is trivial and
+it gives end users two solid additional options for high-quality panoramas.
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -616,6 +621,7 @@ The new Image subtab (`gui/src/tabs/core/elements/image_extractor_subtab.py`):
 | 4.13 Shortcut Macros and Custom Actions | [#413-shortcut-macros-and-custom-actions](#413-shortcut-macros-and-custom-actions) |
 | 4.14 Extractor Tab Storyboard Scrub Preview | [#414-extractor-tab-storyboard-scrub-preview](#414-extractor-tab-storyboard-scrub-preview) |
 | 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter | [#415-extractor-tab-image-sub-tab--multi-frame-image-splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter) |
+| 4.16 Additional Stitcher Options | [#416-additional-stitcher-options](#416-additional-stitcher-options) |
 
 ---
 
