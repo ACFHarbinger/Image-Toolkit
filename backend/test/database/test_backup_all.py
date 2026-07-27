@@ -11,6 +11,9 @@ from backend.migrations import backup_all
 @pytest.fixture()
 def fake_stores(tmp_path, monkeypatch):
     """Point every source/destination constant at tmp_path."""
+    library = tmp_path / "library.db"
+    library.write_bytes(b"sqlcipher-library-bytes-placeholder")
+
     listings = tmp_path / "listings_secure.db"
     listings.write_bytes(b"sqlcipher-bytes-placeholder")
 
@@ -21,10 +24,10 @@ def fake_stores(tmp_path, monkeypatch):
 
     dest_root = tmp_path / "pre_unified"
 
+    monkeypatch.setattr(backup_all, "LIBRARY_DB", library)
     monkeypatch.setattr(backup_all, "LISTINGS_DB", listings)
     monkeypatch.setattr(backup_all, "SECRETS_DIR", secrets)
     monkeypatch.setattr(backup_all, "PRE_UNIFIED_DIR", dest_root)
-    monkeypatch.setattr(backup_all, "ENV_FILE", tmp_path / "no-vars.env")
     return tmp_path, dest_root
 
 
@@ -34,6 +37,9 @@ def test_backup_copies_all_artifacts(fake_stores):
 
     backup_dir = Path(manifest["backup_dir"])
     assert backup_dir.parent == dest_root
+    assert (backup_dir / "library.db.bak").read_bytes() == (
+        b"sqlcipher-library-bytes-placeholder"
+    )
     assert (backup_dir / "listings_secure.db.bak").read_bytes() == (
         b"sqlcipher-bytes-placeholder"
     )
@@ -42,12 +48,13 @@ def test_backup_copies_all_artifacts(fake_stores):
 
     names = set(manifest["artifacts"])
     assert names == {
+        "library.db.bak",
         "listings_secure.db.bak",
         "listings.json.enc",
         "entities.json.enc",
     }
-    # Postgres skip is a warning, never an error
-    assert any("DB_NAME" in w or "pg_dump" in w for w in manifest["warnings"])
+    # No PostgreSQL artifact/warning any more -- DB.10 retired that path.
+    assert not any("pg_dump" in w or "Postgres" in w for w in manifest["warnings"])
 
     on_disk = json.loads((backup_dir / backup_all.MANIFEST_NAME).read_text())
     assert on_disk["artifacts"] == manifest["artifacts"]
@@ -55,6 +62,7 @@ def test_backup_copies_all_artifacts(fake_stores):
 
 def test_backup_refuses_empty(fake_stores, monkeypatch):
     tmp_path, dest_root = fake_stores
+    monkeypatch.setattr(backup_all, "LIBRARY_DB", tmp_path / "missing-library.db")
     monkeypatch.setattr(backup_all, "LISTINGS_DB", tmp_path / "missing.db")
     monkeypatch.setattr(backup_all, "SECRETS_DIR", tmp_path / "missing-secrets")
     with pytest.raises(RuntimeError, match="no artifacts"):

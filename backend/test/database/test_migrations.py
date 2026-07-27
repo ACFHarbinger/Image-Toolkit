@@ -257,10 +257,10 @@ def runner_env(tmp_path, legacy_db, monkeypatch):
     secrets = tmp_path / "secrets"
     secrets.mkdir()
     (secrets / "listings.json.enc").write_bytes(b"enc")
+    monkeypatch.setattr(backup_all, "LIBRARY_DB", tmp_path / "library.db")
     monkeypatch.setattr(backup_all, "LISTINGS_DB", Path(legacy_db))
     monkeypatch.setattr(backup_all, "SECRETS_DIR", secrets)
     monkeypatch.setattr(backup_all, "PRE_UNIFIED_DIR", tmp_path / "pre_unified")
-    monkeypatch.setattr(backup_all, "ENV_FILE", tmp_path / "no.env")
     # Keep 004's pgvector leg offline-deterministic.
     monkeypatch.setattr(
         migrate_pgvector, "_postgres_provider",
