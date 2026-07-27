@@ -9,9 +9,18 @@
 <a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/ci.yml/badge.svg"></a>
 <a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/docs.yml/badge.svg"></a>
 <a href="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/security.yml"><img alt="Security Audit" src="https://github.com/ACFHarbinger/Image-Toolkit/actions/workflows/security.yml/badge.svg"></a>
+<a href="https://scan.coverity.com/projects/acfharbinger-image-toolkit"><img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/33197/badge.svg"></a>
 <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
 <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
 <a href="https://mypy-lang.org/"><img alt="MyPy" src="https://img.shields.io/badge/MyPy-checked-2f4f4f.svg"></a>
+
+</br>
+
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ACFHarbinger/Image-Toolkit?include_prereleases&logo=github&color=blue"></a>
+<a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/ACFHarbinger/Image-Toolkit?color=blue"></a>
+<a href="https://discord.gg/NvUjBYEkRC"><img alt="Discord" src="https://img.shields.io/badge/Discord-Join_Chat-5865F2?logo=discord&logoColor=white"></a>
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/issues"><img alt="Open Issues" src="https://img.shields.io/github/issues/ACFHarbinger/Image-Toolkit?color=yellow"></a>
+<a href="https://github.com/ACFHarbinger/Image-Toolkit/commits/main"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/ACFHarbinger/Image-Toolkit?color=blueviolet"></a>
 
 </br>
 
