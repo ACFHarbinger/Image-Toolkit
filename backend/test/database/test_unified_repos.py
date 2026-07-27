@@ -399,6 +399,158 @@ def test_advanced_media_search(db):
     assert set(search.advanced_media_search({})) == {"m-1", "m-2", "m-3"}
 
 
+def test_filter_media_search_and_combos(db):
+    """SearchRepo.filter_media — the default gallery path (DB.5 deferred
+    piece): search box + type/status combos + optional Advanced Search
+    criteria, all evaluated in SQL instead of the old Python full-list scan."""
+    entities = EntityRepo(db)
+    entities.save_entity({"id": "e-1", "name": "Yoko Kanno"})
+    media = MediaRepo(db)
+    media.save_media({
+        "id": "m-1", "title": "Cowboy Bebop", "type": "Anime", "status": "Completed",
+        "creator": "Sunrise", "genres": "Sci-Fi", "tags": "space",
+        "associated_entities": ["e-1"],
+    })
+    media.save_media({
+        "id": "m-2", "title": "Trigun", "type": "Anime", "status": "Watching",
+        "creator": "Madhouse", "genres": "Western", "tags": "gunman",
+    })
+    media.save_media({
+        "id": "m-3", "title": "Berserk", "type": "Manga", "status": "Completed",
+        "creator": "Hakusensha", "genres": "Dark Fantasy", "tags": "",
+    })
+    search = SearchRepo(db)
+
+    # No filters -> everything.
+    assert set(search.filter_media()) == {"m-1", "m-2", "m-3"}
+
+    # Search box: title match.
+    assert search.filter_media(search_query="bebop") == ["m-1"]
+    # Search box: creator match.
+    assert search.filter_media(search_query="madhouse") == ["m-2"]
+    # Search box: tag match.
+    assert search.filter_media(search_query="gunman") == ["m-2"]
+    # Search box: genre match (genres are stored as Genre-typed tags).
+    assert search.filter_media(search_query="sci-fi") == ["m-1"]
+    # Search box: associated entity name match.
+    assert search.filter_media(search_query="kanno") == ["m-1"]
+    # Search box: no match.
+    assert search.filter_media(search_query="zzzznope") == []
+
+    # Type combo.
+    assert set(search.filter_media(type_filter="Anime")) == {"m-1", "m-2"}
+    # Status combo.
+    assert set(search.filter_media(status_filter="Completed")) == {"m-1", "m-3"}
+    # Combined type + status.
+    assert search.filter_media(type_filter="Anime", status_filter="Completed") == ["m-1"]
+
+    # Advanced Search criteria composes with the search box / combos.
+    assert search.filter_media(
+        type_filter="Anime",
+        advanced_criteria={"include_tags": ["gunman"]},
+    ) == ["m-2"]
+
+
+def test_filter_media_sort_keys(db):
+    media = MediaRepo(db)
+    media.save_media({
+        "id": "m-1", "title": "Charlie", "type": "B", "status": "Y",
+        "personal_rating": 5, "episodes": 12, "current_episode": 3,
+        "date_watched": "2026-01-01", "tags": "zzz",
+    })
+    media.save_media({
+        "id": "m-2", "title": "Alpha", "type": "A", "status": "X",
+        "personal_rating": 9, "episodes": 26, "current_episode": 26,
+        "date_watched": "2026-03-01", "tags": "aaa",
+    })
+    media.save_media({
+        "id": "m-3", "title": "Bravo", "type": "C", "status": "Z",
+        "personal_rating": 1, "episodes": 1, "current_episode": 0,
+        "date_watched": "2026-02-01", "tags": "mmm",
+    })
+    search = SearchRepo(db)
+
+    assert search.filter_media(sort_key="title") == ["m-2", "m-3", "m-1"]
+    assert search.filter_media(sort_key="title", descending=True) == ["m-1", "m-3", "m-2"]
+    assert search.filter_media(sort_key="type") == ["m-2", "m-1", "m-3"]
+    assert search.filter_media(sort_key="status") == ["m-2", "m-1", "m-3"]
+    assert search.filter_media(sort_key="rating") == ["m-3", "m-1", "m-2"]
+    assert search.filter_media(sort_key="episodes") == ["m-3", "m-1", "m-2"]
+    assert search.filter_media(sort_key="current_episode") == ["m-3", "m-1", "m-2"]
+    assert search.filter_media(sort_key="date") == ["m-1", "m-3", "m-2"]
+    assert search.filter_media(sort_key="tags") == ["m-2", "m-3", "m-1"]
+    # Unknown sort key falls back to title.
+    assert search.filter_media(sort_key="nonsense") == search.filter_media(sort_key="title")
+
+
+def test_filter_entities_search_and_combos(db):
+    """SearchRepo.filter_entities — replaces the old per-keystroke O(N·M)
+    content-title-map rebuild with one SQL query."""
+    entities = EntityRepo(db)
+    media = MediaRepo(db)
+    media.save_media({"id": "m-1", "title": "Cowboy Bebop"})
+    entities.save_entity({
+        "id": "e-1", "name": "Yoko Kanno", "notes": "composer", "type": "Person",
+        "role": "Composer", "associated_content": ["m-1"],
+    })
+    entities.save_entity({
+        "id": "e-2", "name": "Shinichiro Watanabe", "notes": "director",
+        "type": "Person", "role": "Director",
+    })
+    entities.save_entity({
+        "id": "e-3", "name": "Studio Sunrise", "notes": "", "type": "Studio",
+        "role": "Producer",
+    })
+    search = SearchRepo(db)
+
+    assert set(search.filter_entities()) == {"e-1", "e-2", "e-3"}
+    # Search box: name match.
+    assert search.filter_entities(search_query="watanabe") == ["e-2"]
+    # Search box: notes match.
+    assert search.filter_entities(search_query="composer") == ["e-1"]
+    # Search box: associated content title match.
+    assert search.filter_entities(search_query="bebop") == ["e-1"]
+    # Search box: no match.
+    assert search.filter_entities(search_query="zzzznope") == []
+
+    # Type combo.
+    assert set(search.filter_entities(type_filter="Person")) == {"e-1", "e-2"}
+    # Role combo.
+    assert search.filter_entities(role_filter="Producer") == ["e-3"]
+
+
+def test_filter_entities_sort_keys(db):
+    entities = EntityRepo(db)
+    entities.save_entity({
+        "id": "e-1", "name": "Charlie", "rating": 5, "type": "B", "role": "Y",
+        "date_added": "2026-01-01",
+        "credit_list": [{"title": "One"}, {"title": "Two"}],
+    })
+    entities.save_entity({
+        "id": "e-2", "name": "Alpha", "rating": 9, "type": "A", "role": "X",
+        "date_added": "2026-03-01",
+    })
+    entities.save_entity({
+        "id": "e-3", "name": "Bravo", "rating": 1, "type": "C", "role": "Z",
+        "date_added": "2026-02-01",
+        "credit_list": [{"title": "One"}],
+    })
+    search = SearchRepo(db)
+
+    assert search.filter_entities(sort_key="name") == ["e-2", "e-3", "e-1"]
+    assert search.filter_entities(sort_key="name", descending=True) == ["e-1", "e-3", "e-2"]
+    assert search.filter_entities(sort_key="rating") == ["e-3", "e-1", "e-2"]
+    assert search.filter_entities(sort_key="type") == ["e-2", "e-1", "e-3"]
+    assert search.filter_entities(sort_key="role") == ["e-2", "e-1", "e-3"]
+    assert search.filter_entities(sort_key="date_added") == ["e-1", "e-3", "e-2"]
+    assert search.filter_entities(sort_key="credits_count") == ["e-2", "e-3", "e-1"]
+    # Unknown sort key falls back to name.
+    assert (
+        search.filter_entities(sort_key="nonsense")
+        == search.filter_entities(sort_key="name")
+    )
+
+
 def test_semantic_image_search_with_prefilter(populated):
     np = pytest.importorskip("numpy")
     search = SearchRepo(populated)

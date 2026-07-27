@@ -4,6 +4,19 @@
 
 ---
 
+## S231 — 2026-07-27 (Unified DB 5: listings gallery filter/sort pushed onto search_repo SQL/FTS)
+
+Implemented GitHub issue #63 / roadmap §DB.5's deferred piece: move `ContentListingsSubTab`/`EntityListingsSubTab`'s gallery filter/sort from an in-memory Python scan onto `search_repo` SQL.
+
+- **Found the roadmap's "SQL builders exist and are tested" note was stale.** `backend/src/database/unified/search_repo.py` did have a tested `advanced_media_search(criteria)` method with the right AND/OR/include/exclude semantics — but no `build_advanced_query()` (the name the roadmap prose referenced) ever existed, and more importantly **neither subtab ever called into `search_repo` at all**. `_filtered_entries()`/`_filtered_entities()` did the search box, type/status/role combos, sort combo, *and* the Advanced Search dialog's criteria entirely in Python over the fully-loaded list, every keystroke — including an O(N·M) rebuild of an entity-id→lowercased-name map (content side) or a media-id→lowercased-title map (entity side) each time.
+- **`search_repo.py`**: refactored `advanced_media_search`'s condition-building into a shared `_advanced_media_conditions()` helper, then added `filter_media()`/`filter_entities()` — one SQL query each covering the search box (title/creator/tags/genres/associated-entity-or-content-title via `EXISTS` subqueries, `LIKE … COLLATE NOCASE`), type/status/role equality filters, the optional Advanced Search `criteria` dict (reusing the same condition-builder), and a `sort_key`/`descending` pair driving `ORDER BY` (`_MEDIA_SORT_SQL`/`_ENTITY_SORT_SQL` cover title/type/status/rating/episodes/current_episode/date/tags for media and name/rating/type/role/date_added/credits_count for entities — the tags-CSV comparison uses an ordered-subquery-into-`GROUP_CONCAT` trick to reproduce the old CSV-join ordering).
+- **One documented gap, not papered over**: "Sort by: Local Filename" needs a path's basename, which requires string-reverse/last-index-of — core SQLite ships no portable builtin for either. That one sort key still does its final ordering client-side, but only over the rows SQL already filtered down to, never a full-table scan; every other filter and sort criterion is now 100% SQL.
+- **GUI**: both subtabs' `_filtered_entries`/`_filtered_entities` now build the filter/sort args from current UI state, call `SearchRepo.filter_media()`/`filter_entities()`, and map the returned ordered ids onto the already-loaded row dicts (still loaded for card rendering/detail-panel lookups, not for filtering). Deleted the ~90-line in-memory Advanced Search criteria evaluator and the O(N·M) title-map rebuild.
+- **Tests**: 4 new repo-level tests in `backend/test/database/test_unified_repos.py` (`test_filter_media_search_and_combos`, `test_filter_media_sort_keys`, `test_filter_entities_search_and_combos`, `test_filter_entities_sort_keys`). Full `backend/test/database/` suite (minus the unrelated JVM/crypto test file, which needs a build artifact this worktree doesn't have): 81 passed. Syntax-checked both subtabs and `search_repo.py`; no GUI instantiation run (per project convention).
+- `moon/roadmaps/unified_database.md` §DB.5 updated: deferred-item note replaced with what shipped and the stale-roadmap correction.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.

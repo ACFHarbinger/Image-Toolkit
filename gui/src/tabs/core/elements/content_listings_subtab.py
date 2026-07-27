@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import backend.src.constants as udef
 from backend.src.database.unified.entity_repo import EntityRepo
 from backend.src.database.unified.media_repo import MediaRepo
+from backend.src.database.unified.search_repo import SearchRepo
 from gui.src.constants.listings import (
     CARD_SIZE,
     ENTRY_STATUS,
@@ -44,6 +45,19 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
+# sort_combo display text -> SearchRepo.filter_media's sort_key (DB.5).
+_SORT_KEY_MAP = {
+    "Sort by: Title": "title",
+    "Sort by: Rating": "rating",
+    "Sort by: Episodes": "episodes",
+    "Sort by: Current Episode": "current_episode",
+    "Sort by: Date": "date",
+    "Sort by: Type": "type",
+    "Sort by: Status": "status",
+    "Sort by: Local Filename": "local_file",
+    "Sort by: Tags": "tags",
+}
 
 
 class ContentListingsSubTab(QWidget):
@@ -310,6 +324,11 @@ class ContentListingsSubTab(QWidget):
         db = get_library_db(self.vault_manager, parent=self)
         return MediaRepo(db) if db is not None else None
 
+    def _search_repo(self) -> Optional[SearchRepo]:
+        """Return a SearchRepo on the session DB, or None when the vault is locked."""
+        db = get_library_db(self.vault_manager, parent=self)
+        return SearchRepo(db) if db is not None else None
+
     def _upsert_entry(self, entry: Dict[str, Any]) -> bool:
         """Persist a single content entry in one transaction — the entry row,
         its episodes, its genre/tag links, and its entity associations all
@@ -364,7 +383,7 @@ class ContentListingsSubTab(QWidget):
     # ------------------------------------------------------------------
     # Gallery
     # ------------------------------------------------------------------
-    def _filtered_entries(self) -> List[Dict[str, Any]]:  # noqa: C901
+    def _filtered_entries(self) -> List[Dict[str, Any]]:
         # Recommendation mode: show results sorted by descending relevance score
         if getattr(self, "_recommendation_results", None) is not None:
             assert self._recommendation_results is not None
@@ -373,157 +392,60 @@ class ContentListingsSubTab(QWidget):
             result.sort(key=lambda e: rec_map.get(e.get("id", ""), 0.0), reverse=True)
             return result
 
-        result = self._entries
-        if self._filter_type and self._filter_type not in (
-            "All",
-            "All Types",
-            "None",
-            "",
-        ):
-            result = [e for e in result if e.get("type") == self._filter_type]
-        if self._filter_status not in ("All", "All Status"):
-            result = [e for e in result if e.get("status") == self._filter_status]
-
-        # Advanced Search Criteria
-        if (
-            hasattr(self, "_advanced_search_criteria")
-            and self._advanced_search_criteria
-        ):
-            crit = self._advanced_search_criteria
-            inc_ent = set(crit.get("include_entities", []))
-            exc_ent = set(crit.get("exclude_entities", []))
-            inc_tag = {t.lower() for t in crit.get("include_tags", [])}
-            exc_tag = {t.lower() for t in crit.get("exclude_tags", [])}
-            inc_genre = {g.lower() for g in crit.get("include_genres", [])}
-            exc_genre = {g.lower() for g in crit.get("exclude_genres", [])}
-            match_mode = crit.get("match_mode", "AND")
-
-            filtered = []
-            for e in result:
-                # Get fields
-                e_ent = set(e.get("associated_entities", []))
-                e_tags = {
-                    t.strip().lower() for t in e.get("tags", "").split(",") if t.strip()
-                }
-                e_genres = {
-                    g.strip().lower()
-                    for g in e.get("genres", "").split(",")
-                    if g.strip()
-                }
-
-                # Negative filtering (exclusions): if any matches, exclude this entry
-                if exc_ent.intersection(e_ent):
-                    continue
-                if exc_tag.intersection(e_tags):
-                    continue
-                if exc_genre.intersection(e_genres):
-                    continue
-
-                # Positive filtering (inclusions)
-                ent_active = len(inc_ent) > 0
-                tag_active = len(inc_tag) > 0
-                genre_active = len(inc_genre) > 0
-
-                if not ent_active and not tag_active and not genre_active:
-                    # No inclusions requested, so it's a match
-                    filtered.append(e)
-                    continue
-
-                if match_mode == "AND":
-                    # Must match all included criteria in active categories
-                    ent_ok = not ent_active or inc_ent.issubset(e_ent)
-                    tag_ok = not tag_active or inc_tag.issubset(e_tags)
-                    genre_ok = not genre_active or inc_genre.issubset(e_genres)
-
-                    if ent_ok and tag_ok and genre_ok:
-                        filtered.append(e)
-                else:
-                    # OR mode: must match at least one of the active inclusions
-                    ent_match = ent_active and len(inc_ent.intersection(e_ent)) > 0
-                    tag_match = tag_active and len(inc_tag.intersection(e_tags)) > 0
-                    genre_match = (
-                        genre_active and len(inc_genre.intersection(e_genres)) > 0
-                    )
-
-                    if ent_match or tag_match or genre_match:
-                        filtered.append(e)
-
-            result = filtered
-
-        if self._search_query:
-            q = self._search_query.lower()
-            entity_names_map = {
-                ent["id"]: ent["name"].lower()
-                for ent in self._all_entities
-                if "id" in ent and "name" in ent
-            }
-
-            filtered = []
-            for e in result:
-                title = e.get("title", "").lower()
-                genres = e.get("genres", "").lower()
-                tags = e.get("tags", "").lower()
-                creator = e.get("creator", "").lower()
-
-                assoc_match = False
-                for ent_id in e.get("associated_entities", []):
-                    if ent_id in entity_names_map and q in entity_names_map[ent_id]:
-                        assoc_match = True
-                        break
-
-                if (
-                    q in title
-                    or q in genres
-                    or q in tags
-                    or q in creator
-                    or assoc_match
-                ):
-                    filtered.append(e)
-            result = filtered
-
-        # Apply Sort
+        # Search box, type/status combos, and (if active) the Advanced Search
+        # dialog's criteria are all evaluated in one SQL query via
+        # SearchRepo.filter_media (DB.5) — no more full-list Python scan.
+        type_filter = (
+            self._filter_type
+            if self._filter_type and self._filter_type not in (
+                "All", "All Types", "None", "",
+            )
+            else None
+        )
+        status_filter = (
+            self._filter_status
+            if self._filter_status not in ("All", "All Status")
+            else None
+        )
         sort_field = self.sort_combo.currentText()
-        reverse = self.sort_order_combo.currentText() == "Descending"
+        sort_key = _SORT_KEY_MAP.get(sort_field, "title")
+        descending = self.sort_order_combo.currentText() == "Descending"
 
-        if sort_field == "Sort by: Title":
-            result = sorted(
-                result, key=lambda x: x.get("title", "").lower(), reverse=reverse
+        repo = self._search_repo()
+        if repo is None:
+            # Vault locked / DB unavailable — nothing better to show than the
+            # last loaded snapshot, unfiltered.
+            return list(self._entries)
+
+        try:
+            ids = repo.filter_media(
+                search_query=self._search_query,
+                type_filter=type_filter,
+                status_filter=status_filter,
+                advanced_criteria=self._advanced_search_criteria,
+                sort_key=sort_key,
+                descending=descending,
             )
-        elif sort_field == "Sort by: Type":
-            result = sorted(
-                result, key=lambda x: x.get("type", "").lower(), reverse=reverse
+        except Exception:
+            logging.exception(
+                "[ContentListingsSubTab] SQL filter/sort failed; showing "
+                "unfiltered entries"
             )
-        elif sort_field == "Sort by: Status":
-            result = sorted(
-                result, key=lambda x: x.get("status", "").lower(), reverse=reverse
-            )
-        elif sort_field == "Sort by: Rating":
-            result = sorted(
-                result,
-                key=lambda x: x.get("personal_rating", x.get("rating", 0)),
-                reverse=reverse,
-            )
-        elif sort_field == "Sort by: Episodes":
-            result = sorted(result, key=lambda x: x.get("episodes", 0), reverse=reverse)
-        elif sort_field == "Sort by: Current Episode":
-            result = sorted(
-                result, key=lambda x: x.get("current_episode", 0), reverse=reverse
-            )
-        elif sort_field == "Sort by: Date":
-            result = sorted(
-                result, key=lambda x: x.get("date_watched", ""), reverse=reverse
-            )
-        elif sort_field == "Sort by: Local Filename":
-            result = sorted(
-                result,
+            return list(self._entries)
+
+        by_id = {e["id"]: e for e in self._entries if "id" in e}
+        result = [by_id[i] for i in ids if i in by_id]
+
+        if sort_key == "local_file":
+            # Basename-of-path sort isn't expressible in portable SQL (no
+            # bundled REVERSE()); SQL already did the filtering above, so
+            # this is a sort over the already-filtered subset, not a
+            # full-table scan.
+            result.sort(
                 key=lambda x: Path(x.get("local_file", "")).name.lower()
                 if x.get("local_file")
                 else "",
-                reverse=reverse,
-            )
-        elif sort_field == "Sort by: Tags":
-            result = sorted(
-                result, key=lambda x: x.get("tags", "").lower(), reverse=reverse
+                reverse=descending,
             )
 
         return result
