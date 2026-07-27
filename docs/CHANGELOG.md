@@ -105,6 +105,18 @@ Implemented GitHub issue #63 / roadmap §DB.5's deferred piece: move `ContentLis
 
 ---
 
+## S239 — 2026-07-27 (Analytics Phase 11.7/11.8: Frame Selection Telemetry + Fallback Root Cause dashboards)
+
+Implemented GitHub issue #69 / `moon/roadmaps/analytics_and_interpretability.md` §11.7 and §11.8, scoped to the benchmark report's dashboard-rendering half only (the other Phase 11 sub-items are untouched).
+
+- **Verified first that the data-capture half of both sub-items already existed** — no changes under `backend/src/animation/` were needed. `_build_result()` in `backend/benchmark/bench_anime_stitch.py` already emitted a per-dataset `frame_selection: {original_count, smart_select_count, spatial_dedup_count, final_count, frames_dropped_smart, frames_dropped_dedup, selection_mode}` block (§11.7) and a top-level `fallback_reason` string (§11.8), populated at every `_fallback_reason = ...` trigger site in the dataset loop.
+- **Added `_report_frame_selection_telemetry()`**: a new "Frame Selection Telemetry (§11.7)" section, rendered once near the top of the report (alongside Global Summary / Failure Mode Counts, not per-test) — a matplotlib stacked-bar PNG (`frame_selection_telemetry.png`, kept-vs-dropped per stage per dataset, colors from the dataviz skill's validated categorical palette) plus a markdown table (original/smart-select/spatial-dedup/final counts, drop counts, drop %, selection mode). Any dataset dropping >40% of frames at the smart-select stage (the roadmap's own threshold) gets its drop-% bolded and is called out in a summary line linking to its `#asp_testNN` section.
+- **Added `_report_fallback_breakdown()`**: a new "Fallback Root Cause Breakdown (§11.8)" section — classifies every fallback in the run by the `fallback_reason` prefix before the first `:`, showing a total count and a per-gate count table, then which specific datasets hit each gate type (linked to their per-test anchor). Discovered a 6th trigger site (`seam_vis_gate`) not listed in the original §11.8 text — the classifier handles it (and any future gate) dynamically rather than hardcoding exactly the five named gates.
+- **5-test verify** (`--tests asp_test04 asp_test08 asp_test09 asp_test27 asp_test57`): both new sections rendered correctly; all frame-selection counts and gate classifications hand-checked against the run's JSON matched exactly (4/5 fallbacks: 2× `composite_gate_sb`, 2× `seam_vis_gate`; all 5 datasets flagged for >40% smart-select drop, 68.8-93.6%). `pytest backend/test/animation/ --skip-gpu -q`: 580 passed, 95 skipped, 0 failed.
+- `moon/roadmaps/analytics_and_interpretability.md` §11.7/§11.8 marked done.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.

@@ -473,15 +473,15 @@ See [`research/Analytics and Codebase Visualization Research.md`](../../research
 - Emit `stage_memory_rss_mb: {stage_name: rss_mb}` in the benchmark JSON.
 - Dashboard: waterfall chart of memory growth across stages — identify which stage leaks.
 
-### 11.7 Frame Selection Telemetry
-- Capture and emit `frame_selection: {original_count, smart_select_count, spatial_dedup_count, final_count, selection_mode}` in the benchmark JSON.
-- Dashboard: stacked bar showing frames kept vs dropped at each stage of frame reduction.
-- Identify datasets where smart selection drops >40% of frames (indicates extreme frame redundancy or selection bugs).
+### 11.7 Frame Selection Telemetry — DONE (2026-07-27, issue #69)
+- Capture and emit `frame_selection: {original_count, smart_select_count, spatial_dedup_count, final_count, selection_mode}` in the benchmark JSON. — data capture already existed pre-#69 (`_build_result()` in `bench_anime_stitch.py`); no pipeline changes needed.
+- Dashboard: stacked bar showing frames kept vs dropped at each stage of frame reduction. — added: `_report_frame_selection_telemetry()` renders an aggregate "Frame Selection Telemetry" section (once, near the top of the report) with a matplotlib stacked-bar PNG (`frame_selection_telemetry.png`, kept/dropped per stage per dataset) plus a per-dataset markdown table (original/smart-select/spatial-dedup/final counts, drop counts, drop %, selection mode).
+- Identify datasets where smart selection drops >40% of frames (indicates extreme frame redundancy or selection bugs). — added: any dataset over the 40% threshold gets its drop-% bolded in the table and is called out in a summary callout line with links to its `#asp_testNN` section.
 
-### 11.8 Fallback Root Cause Classifier
-- Classify each SCANS fallback by its trigger gate: `alignment_failed`, `composite_gate_sc`, `composite_gate_sb`, `ghost_gate`, `render_exception`.
-- Emit `fallback_reason` in the dataset result JSON.
-- Dashboard: aggregate fallback cause distribution across all datasets — shows which gate is causing the most fallbacks.
+### 11.8 Fallback Root Cause Classifier — DONE (2026-07-27, issue #69)
+- Classify each SCANS fallback by its trigger gate: `alignment_failed`, `composite_gate_sc`, `composite_gate_sb`, `ghost_gate`, `render_exception` (plus `seam_vis_gate`, a 6th trigger site added to the pipeline after this list was written — the classifier discovers it dynamically rather than hardcoding exactly 5 gates). — data capture already existed pre-#69 (`_fallback_reason` assignments throughout the dataset loop, surfaced as `fallback_reason` in `_build_result()`); no pipeline changes needed.
+- Emit `fallback_reason` in the dataset result JSON. — already existed.
+- Dashboard: aggregate fallback cause distribution across all datasets — shows which gate is causing the most fallbacks. — added: `_report_fallback_breakdown()` renders a "Fallback Root Cause Breakdown" section (once, near the top of the report) with a total-fallback count, a per-gate count table (parsed from the `fallback_reason` prefix before the first `:`), and a per-gate list of which datasets hit it, linked to their `#asp_testNN` anchor.
 
 ### 11.9 Cross-Run Regression Dashboard
 - Compare metrics across consecutive benchmark runs using `detectRegressions()` already in `benchmark.ts`.
