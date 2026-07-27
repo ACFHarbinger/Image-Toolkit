@@ -2535,6 +2535,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s243-2026-07-27-asp-phase-12a-animationseparator-investigated-rejected-as-a-phase-detection-alternative" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -12478,6 +12489,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s243-2026-07-27-asp-phase-12a-animationseparator-investigated-rejected-as-a-phase-detection-alternative" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -22408,6 +22430,16 @@
 
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
+<hr />
+<h2 id="s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale">S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)<a class="headerlink" href="#s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale" title="Permanent link">&para;</a></h2>
+<p>User-authorized scale-up from the established 5-test verify to an 18-test targeted batch, deliberately chosen to span every current fallback class (rather than an arbitrary sample) for Phase 4's "re-examine what remains" instruction. Clean run, no resource-danger triggers — the biggest single scale step-up since the thread-cap host-freeze fix landed.</p>
+<ul>
+<li><strong>Classifications shifted substantially since 2026-07-26</strong>: 8 of 13 overlapping tests changed fallback class, driven by this session's accumulated fixes (ToonOut, aligned-SSIM). Net: 3 tests improved to real composites that previously failed outright (test33/35/55); 1 regressed from real to a safe fallback (test37 — consistent with the already-documented ToonOut pattern of trading a flawed real composite for a safe one).</li>
+<li><strong><code>alignment_failed</code> (test49) is resolved, not just this test's specific issue</strong>: it no longer fails at alignment at all — it now reaches the composite stage and fails at <code>composite_gate_sb</code> instead, most likely a side effect of ToonOut's masking fix changing the BiRefNet output feeding bundle adjustment. The roadmap's "diagnose individually" item is superseded.</li>
+<li><strong><code>seam_vis_gate</code> (39% of this sample, the dominant class) is not homogeneous</strong>: cross-referencing <code>seam_visibility</code> against the existing <code>mean_post_warp_diff</code> metric splits it into pose-blend-driven failures (high on both) and photometric-driven ones (high seam_visibility, low post-warp-diff — registration is fine, the defect is banding/exposure). The roadmap's own "mostly pose-blend artifacts" assumption only holds for part of the class.</li>
+<li><strong>Tested whether <code>ASP_JOINT_GAIN_SOLVE</code> rescues the photometric subset</strong> (7-test probe on all <code>seam_vis_gate</code> cases from the batch): 2/7 flip to real composites, 3/7 improve without crossing the gate, but 2/7 regress — including test51, whose post-warp-diff is comparably low to a test that <em>did</em> improve, breaking a clean threshold story. <code>mean_post_warp_diff</code> correlates with outcome but isn't reliable enough to build an automatic dispatch rule from; not pursued further.</li>
+<li><strong>No new code shipped</strong> — this is diagnostic per Phase 4's instruction, not a measured code change. <code>ASP_JOINT_GAIN_SOLVE</code> stays default OFF. Full write-up: <code>.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md</code>. <code>moon/roadmaps/asp.md</code> Phase 4 section updated with all four findings.</li>
+</ul>
 <hr />
 <h2 id="s243-2026-07-27-asp-phase-12a-animationseparator-investigated-rejected-as-a-phase-detection-alternative">S243 — 2026-07-27 (ASP Phase 1.2(a): AnimationSeparator investigated, rejected as a phase-detection alternative)<a class="headerlink" href="#s243-2026-07-27-asp-phase-12a-animationseparator-investigated-rejected-as-a-phase-detection-alternative" title="Permanent link">&para;</a></h2>
 <p>Answered the roadmap's remaining §1.2(a) question: how does Overmix's <code>AnimationSeparator</code> behave on 2-4 phase pan shots?</p>

@@ -3578,8 +3578,28 @@ reloads fresh every dataset with no cache, unlike BiRefNet).</p>
 <hr />
 <h2 id="phase-4-convert-the-fallback-classes">Phase 4 — Convert the Fallback Classes<a class="headerlink" href="#phase-4-convert-the-fallback-classes" title="Permanent link">&para;</a></h2>
 <p>The 46 guarded fallbacks are wins-by-safety, not wins. Reclassify each:
-- <strong>seam_vis_gate class (24):</strong> should shrink substantially via 2.3 (their failed
-  composites are mostly pose-blend artifacts). Re-examine what remains.
+- <strong>seam_vis_gate class (24 as of the pre-trim census; re-examined
+  2026-07-27 on an 18-test targeted sample — see
+  <code>.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md</code>):</strong> <strong>not
+  uniformly "mostly pose-blend artifacts" as originally assumed.</strong>
+  Cross-referencing <code>seam_visibility</code> against the existing
+  <code>mean_post_warp_diff</code> metric splits this class into two different root
+  causes: some are genuinely pose-blend-driven (high on both metrics,
+  e.g. test41: sv=63.8, post_warp_diff=44.7), but several of the <em>worst</em>
+  seam_visibility scores in this sample occur on tests with <em>low</em>
+  post-warp-diff (test08: sv=143.3 but post_warp_diff=15.3; test37: sv=65.6
+  but post_warp_diff=6.7) — meaning registration is fine and the defect is
+  photometric (banding/exposure), not torn or misaligned content. Tested
+  whether <code>ASP_JOINT_GAIN_SOLVE</code> (§3.1, still default OFF) rescues the
+  photometric subset: 2/7 flip to real composites (test09, test32), 3/7
+  improve without crossing the gate (test37/08/57), but 2/7 actually
+  <em>regress</em> under gain solve (test41, and notably <strong>test51</strong>, whose
+  post-warp-diff is comparably low to test32's yet responds in the
+  opposite direction) — <code>mean_post_warp_diff</code> correlates with outcome but
+  isn't clean enough on its own to build an automatic per-test dispatch
+  rule from. No code shipped from this round; still needs full-97 data and
+  a real per-test triage pass before this class can be meaningfully
+  "converted" rather than just better-understood.
 - <strong>render-gate class (21):</strong> fg-dominant high-animation scenes where multi-frame
   assembly may be structurally wrong. For these, a <em>deliberate</em> policy: best
   single-phase reconstruction (2.3 degenerate case) vs SCANS — pick per-test by
@@ -3588,7 +3608,15 @@ reloads fresh every dataset with no cache, unlike BiRefNet).</p>
   than the OpenCV stitcher", which a coherent fallback satisfies; but each such
   test must beat the <em>raw</em> cv2 stitcher (our SCANS-on-preprocessed-frames already
   tends to, via selection + photometric prep + no crop failures).
-- <strong>alignment_failed (test49):</strong> one test; diagnose individually.</p>
+- <strong>alignment_failed (test49): SUPERSEDED, 2026-07-27</strong> — test49 no longer
+  fails at alignment. It now reaches the composite stage and fails at
+  <code>composite_gate_sb</code> instead (<code>sc=39.3/limit 53.2, sb=47.1/limit 35.0</code>,
+  <code>mean_post_warp_diff=20.3</code>), most likely as a side effect of the ToonOut
+  masking fix (S230) changing the BiRefNet output that feeds bundle
+  adjustment and the alignment health check. The corpus's one dedicated
+  <code>alignment_failed</code> case is resolved; test49 now belongs to the
+  <code>composite_gate_sb</code> class discussed above like any other test in it — no
+  further individual diagnosis needed under this heading.</p>
 <p><strong>Phase-4 exit gate = the objective:</strong> for every one of the 97 tests, ASP output
 human-rated ≥ the simple stitch, with <code>asp_better</code> on the coverage/sharpness
 dimensions wherever a true composite ships.</p>
