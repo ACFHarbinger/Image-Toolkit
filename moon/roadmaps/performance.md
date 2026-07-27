@@ -64,7 +64,7 @@ flowchart TD
         P33["§3.3 BiRefNet\nInference Batching ✅"]:::augment:::done
         P34["§3.4 Database Query\nOptimisation (partial)"]:::perf:::active
         P35["§3.5 WebDriver Lifecycle\nManagement ✅"]:::fix:::done
-        P36["§3.6 DynamicImage Move\nSemantics in Rust (unverified)"]:::refactor:::planned
+        P36["§3.6 DynamicImage Move\nSemantics — moot (cv::Mat) ✅"]:::refactor:::done
         P37["§3.7 Python ML Model\nMemory Lifecycle ✅"]:::perf:::done
     end
 
@@ -624,11 +624,19 @@ Replace Selenium with Playwright, which has a built-in context manager and more 
 
 ## 3.6 DynamicImage Move Semantics in Rust
 
-**⚠ Unverified — flagged during 2026-07-27 audit, left as-is.** ROADMAP.md item 1.7 marks this "Done", citing `apply_ar_transform` (`image_converter.rs`) and `fast_resize` (`image_merger.rs`). Neither `.rs` file exists any more — `base/` is now C++ (see §3.1/§3.5 for the same migration), and a grep for `apply_ar_transform`/`fast_resize` across `base/src/core/*.cpp` found no match, so the exact functions named in ROADMAP.md cannot be located to confirm the optimisation carried over. Note also that `cv::Mat` (the C++ image type) already uses reference-counted, shallow-copy semantics by default — unlike Rust's `image::DynamicImage` — so the original clone-cost problem this section describes may not even apply the same way post-migration. Left unresolved rather than guessed; a human should check whether this item's substance survived the C++ port under different function names, or whether it's moot.
+**✅ Resolved 2026-07-27 — MOOT, documented.** Issue #76 investigation. ROADMAP.md item 1.7 cited `apply_ar_transform` (`image_converter.rs`) and `fast_resize` (`image_merger.rs`) as the "Done" evidence for this optimisation; neither `.rs` file exists post the Rust→C++ migration (Phase 8, `base/` is now pybind11 + OpenCV, see §3.1/§3.5). This audit located the successor code and confirmed the *original* clone-cost problem does not exist in the current implementation, for two independent reasons:
 
-**Pain point (original framing):** Several Rust functions clone `DynamicImage` unnecessarily (e.g., `apply_ar_transform`, `fast_resize` no-op path). A 4K RGBA clone is ~32 MB per call.
+1. **Successor functions found and read.** `apply_ar_transform` → `base::core::apply_ar()` in `base/src/core/convert.cpp:80-87`, called from `convert_single_image()` (`convert.cpp:105-139`, registered as `base.core.convert_single_image` / `base.core.convert_image_batch`, called from `backend/src/core/image_converter.py`). `fast_resize`'s no-op-preserving intent → `base::core::merge_images_horizontal/vertical/grid()` in `base/src/core/merger.cpp` (registered as `base.core.merge_images_horizontal/vertical/grid`, called from `backend/src/core/image_merger.py`).
+2. **`cv::Mat` already has the semantics Option A/B were trying to add, for free.** `cv::Mat` is reference-counted with shallow-copy-by-default (copy constructor/assignment/pass-by-value copies only the header + atomically increments a refcount; the pixel buffer is shared until a mutating op needs its own copy). Reading the actual code:
+   - `apply_ar(const cv::Mat& img, ...)` takes the input **by const reference** (`convert.cpp:80`) — no copy on entry.
+   - The no-op path is literally `if (!aspect_ratio) return img;` (`convert.cpp:82`) — this is exactly Option A/B's goal (return the original image untouched when no transform is needed), and it costs a header copy + one atomic increment, not a 32 MB `memcpy`. There's no Rust-style `DynamicImage::clone()` deep-copy equivalent for this to guard against.
+   - The three paths that *do* produce a genuinely new buffer (`crop_center` explicit `.clone()` at `convert.cpp:46`, `pad_image`'s `copyTo` at `convert.cpp:61`, `stretch_image`'s `cv::resize` at `convert.cpp:76`) all do so because the output has different dimensions/content than the input — those copies are semantically required, not accidental.
+   - `merger.cpp`'s `to_bgr(cv::Mat img)` (`merger.cpp:36`) takes by value, but again that's a cheap header copy, not a buffer copy.
+3. **The pybind11 boundary — flagged in the issue as the most likely place a real copy could hide — doesn't even apply to these functions.** `convert_single_image`/`convert_image_batch`/`merge_images_*` all take **file paths** (`std::string`) in and out; they call `cv::imread`/`cv::imwrite` directly in C++ and never marshal pixel buffers across the Python/C++ boundary as `numpy`/`py::array` at all. (Elsewhere in `base/`, e.g. `base/include/common.hpp`'s `mat_from_array`/`mat_from_f32`, input conversion from numpy is already zero-copy — shares the Python buffer directly per the file's own doc comment — and only the necessary *output* conversion (`array_from_mat`/`array_from_f32`) deep-copies, which is unavoidable there since a new owned Python object must be produced. That pattern isn't used by convert/merge at all, but confirms the codebase already does the right thing where this boundary is actually crossed.)
 
-### Options
+**Conclusion:** no accidental clone/copy exists in the current C++ code for the operations these Rust functions used to cover. The pain point this section described (a real owned-buffer deep clone, ~32 MB for 4K RGBA) was specific to `image::DynamicImage`'s ownership model and does not recur under `cv::Mat`'s reference-counted semantics. No code change made — manufacturing a fix here would add complexity (e.g. threading `const cv::Mat&` further, or `std::move`) for zero measurable benefit, since `cv::Mat`'s copy constructor is already O(1). `backend/benchmark/bench_cpp_image_processing.py` (exists, covers `merge_images_*`/`convert_*`) was not re-run to "prove" this, since there is no code change to benchmark — the recommendation is not applicable. **Aside, out of scope for #76:** while reading this benchmark file, noticed `bench_convert_512_webp`/`bench_convert_1080_webp`/`bench_convert_512_jpg` call `cpp_core.convert_image(...)` and `bench_merge_*` call `cpp_core.merge_images(...)`, and `bench_scan_flat`/`bench_scan_recursive` call `cpp_core.scan_directory(...)` — none of these three names are bound anywhere in `base/` (the real names are `convert_single_image`/`convert_image_batch`, `merge_images_horizontal`/`_vertical`/`_grid`, and `scan_files`/`scan_files_single`/`scan_files_multi` per `base/src/core/*.cpp` and `backend/src/utils/base_dispatch.py`). 5 of the file's 8 benchmarks appear to currently raise `AttributeError` rather than measure anything; this is a pre-existing stale-benchmark bug unrelated to move semantics and was left unfixed here (separate concern from #76).
+
+**Superseded options (kept for history — no longer applicable, `cv::Mat` already provides this for free):**
 
 **A — Change signatures to take ownership [Quick Win]**
 `fn apply_ar_transform(img: DynamicImage, ...) -> Result<DynamicImage>`. Return `img` directly in the no-transform branch.
@@ -645,7 +653,7 @@ Wrap images in `Arc<DynamicImage>` at intake. Cloning the `Arc` is cheap; actual
 - Pros: Multiple pipeline stages can hold references to the same image without copying.
 - Cons: `Arc` overhead for single-owner cases. Image crate's mutable operations require `Arc::make_mut()` (triggers clone on contention).
 
-**Recommendation:** A. Call sites can afford the move. B adds complexity; C is overkill for this use case.
+**Recommendation:** No action needed — `cv::Mat`'s built-in reference counting already delivers what Options A/B were proposing, with no API changes required.
 
 ---
 

@@ -4,6 +4,18 @@
 
 ---
 
+## S231 — 2026-07-27 (Performance §3.6: DynamicImage/cv::Mat move-semantics gap — resolved as moot)
+
+Resolved GitHub issue #76 / roadmap §3.6, previously flagged "⚠ Unverified" during the 2026-07-27 audit (ROADMAP.md item 1.7 cited retired Rust files `image_converter.rs`/`image_merger.rs` as evidence).
+
+- **Investigation, no code change.** Located the successor C++ functions: `base::core::apply_ar()` (`base/src/core/convert.cpp:80-87`, backing `base.core.convert_single_image`/`convert_image_batch`, called from `backend/src/core/image_converter.py`) and `merge_images_horizontal/vertical/grid()` (`base/src/core/merger.cpp`, called from `backend/src/core/image_merger.py`).
+- **Determination: moot.** `cv::Mat` is reference-counted with shallow-copy-by-default semantics, unlike Rust's `image::DynamicImage`. `apply_ar()` takes its input by `const cv::Mat&` and its no-op path is literally `return img;` (`convert.cpp:82`) — a header copy + atomic refcount increment, not the ~32 MB deep clone the original Rust pain point described. The paths that do allocate a new buffer (`crop_center`'s explicit `.clone()`, `pad_image`'s `copyTo`, `stretch_image`'s `cv::resize`) do so because the output genuinely differs in content/dimensions from the input — required, not accidental, copies.
+- **Checked the pybind11/numpy boundary too** (the place flagged as most likely to hide a real copy): `convert_single_image`/`convert_image_batch`/`merge_images_*` all take file paths in/out and call `cv::imread`/`cv::imwrite` directly in C++ — no `py::array`/numpy marshaling of pixel buffers occurs for these functions at all. (Elsewhere, `base/include/common.hpp`'s `mat_from_array`/`mat_from_f32` already do zero-copy numpy→`cv::Mat` input conversion; only the necessary owned-output conversion deep-copies.)
+- **Aside (not fixed, out of scope for #76):** while reading `backend/benchmark/bench_cpp_image_processing.py` for a before/after harness, found 5 of its 8 benchmarks call C++ binding names that don't exist (`cpp_core.convert_image`, `cpp_core.merge_images`, `cpp_core.scan_directory` — the real names are `convert_single_image`/`convert_image_batch`, `merge_images_horizontal`/`_vertical`/`_grid`, `scan_files`/`scan_files_single`/`scan_files_multi`), so those benchmarks currently raise `AttributeError` rather than measure anything. Flagged for separate follow-up.
+- `moon/roadmaps/performance.md` §3.6 and `moon/ROADMAP.md` item 1.7 updated to reflect this finding (status, mermaid node) instead of the stale Rust citation.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.
