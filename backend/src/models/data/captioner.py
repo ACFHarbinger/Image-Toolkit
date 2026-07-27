@@ -1,7 +1,7 @@
 """
 backend/src/models/data/captioner.py
 =====================================
-Hybrid anime captioning: WD-EVA02 (booru tags) + Florence-2 (natural language).
+Hybrid anime captioning: WD14 (booru tags) + Florence-2 (natural language).
 
 The HybridCaptioner produces a combined caption:
     "<trigger>, <character_tags>, <always_first_tags>, <general_tags>. <nl_sentence>"
@@ -11,12 +11,39 @@ This format is optimal for:
   - FLUX / MM-DiT: the nl_caption field can be used standalone
   - Pony V6: prepend score tags before using final_caption
 
+``caption_mode`` selects between the two output shapes (content_generation.md
+§1.1): ``"booru"`` (default) produces the tag string above; ``"prose"`` skips
+WD14 entirely and returns a pure Florence-2 sentence (with the trigger token
+still prefixed, if one is configured) — kept for callers that want plain
+natural-language captions rather than booru tags.
+
+WD14 backend
+------------
+Two interchangeable WD14 backends are accepted as ``wd=``:
+
+  - ``WD14Tagger`` (this module) — loads a local ``.onnx`` + ``selected_tags.csv``
+    pair directly, no download step. Used by ``anime_training_pipeline.py``
+    when an explicit local model path is configured.
+  - ``WDTaggerWrapper`` (``backend/src/models/wrappers/wd_tagger_wrapper.py``,
+    §4.4 Auto-Tagger) — the shared tagger wrapper: auto-downloads weights from
+    Hugging Face Hub and is the same class any future tag-review-queue UI
+    would use. This is the recommended default since it needs no local model
+    path and shares improvements with the auto-tagger feature. It reads the
+    image from disk itself, so pass ``image_path=`` to ``HybridCaptioner()``
+    when using it.
+
 Usage
 -----
+    # Local ONNX path (legacy / explicit):
     wd = WD14Tagger(onnx_path="wd-eva02-large-tagger-v3.onnx", tags_csv="selected_tags.csv")
+
+    # Or the shared auto-downloading wrapper (recommended):
+    from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
+    wd = WDTaggerWrapper()
+
     fl = Florence2Captioner()
     captioner = HybridCaptioner(wd=wd, florence=fl, trigger="my_char_xyz")
-    result = captioner(image)
+    result = captioner(image, image_path="image.png")  # image_path needed for WDTaggerWrapper
     # result["final_caption"] → ready to write to .txt file
 """
 
@@ -25,10 +52,12 @@ from __future__ import annotations
 import csv
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 from PIL import Image
+
+from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
 
 log = logging.getLogger(__name__)
 
@@ -172,6 +201,38 @@ class Florence2Captioner:
         )[task]
 
 # ---------------------------------------------------------------------------
+# WD14 backend adapter — normalizes WD14Tagger and WDTaggerWrapper to one shape
+# ---------------------------------------------------------------------------
+def _wd_tag(
+    wd: "Union[WD14Tagger, WDTaggerWrapper]",
+    image: Image.Image,
+    image_path: Optional[Union[str, Path]] = None,
+) -> tuple[list[str], list[str], list[str]]:
+    """
+    Run *wd* and normalize its output to ``(rating, general, character)`` tag lists,
+    regardless of which of the two supported WD14 backends it is.
+
+    ``WD14Tagger`` operates on a PIL Image directly. ``WDTaggerWrapper`` (the
+    shared §4.4 auto-tagger backend) reads the image from disk itself and
+    returns ``[{"tag", "confidence", "category"}, ...]``, so *image_path* must
+    be supplied when *wd* is a ``WDTaggerWrapper``.
+    """
+    if isinstance(wd, WD14Tagger):
+        return wd(image)
+
+    if image_path is None:
+        raise ValueError(
+            "image_path is required when the WD14 backend is a WDTaggerWrapper "
+            "(it reads the file from disk rather than accepting a PIL Image)."
+        )
+    tagged = wd.tag(str(image_path))
+    rating = [t["tag"] for t in tagged if t["category"] == "rating"]
+    character = [t["tag"] for t in tagged if t["category"] == "character"]
+    general = [t["tag"] for t in tagged if t["category"] == "general"]
+    return rating, general, character
+
+
+# ---------------------------------------------------------------------------
 # Hybrid captioner
 # ---------------------------------------------------------------------------
 _DEFAULT_UNDESIRED = frozenset({
@@ -185,7 +246,7 @@ class HybridCaptioner:
 
     Parameters
     ----------
-    wd              : WD14Tagger instance
+    wd              : WD14Tagger or WDTaggerWrapper instance (see module docstring)
     florence        : Florence2Captioner instance (may be None for tag-only mode)
     trigger         : unique activation token prepended to every caption
     always_first    : tags always placed at the front (e.g. '1girl')
@@ -195,6 +256,9 @@ class HybridCaptioner:
                       'illustrious'   → 'masterpiece, best quality, absurdres'
                       'pony'          → 'score_9, score_8_up, score_7_up, source_anime'
                       None / other    → no prefix
+    caption_mode    : 'booru' (default) — WD14 tags (+ optional Florence-2 sentence
+                      appended). 'prose' — pure Florence-2 sentence only, no WD14
+                      tags at all (trigger token is still prefixed, if set).
     """
 
     MODEL_PREFIXES = {
@@ -206,28 +270,59 @@ class HybridCaptioner:
 
     def __init__(
         self,
-        wd: Optional[WD14Tagger],
+        wd: "Optional[Union[WD14Tagger, WDTaggerWrapper]]",
         florence: Optional[Florence2Captioner],
         trigger: Optional[str] = None,
         always_first: tuple[str, ...] = ("1girl",),
         undesired: frozenset[str] = _DEFAULT_UNDESIRED,
         model_prefix: Optional[str] = None,
+        caption_mode: str = "booru",
     ):
+        if caption_mode not in ("booru", "prose"):
+            raise ValueError(
+                f"caption_mode must be 'booru' or 'prose', got {caption_mode!r}"
+            )
         self.wd = wd
         self.fl = florence
         self.trigger = trigger
         self.always_first = always_first
         self.undesired = undesired
         self.prefix = self.MODEL_PREFIXES.get(model_prefix or "", "")
+        self.caption_mode = caption_mode
 
-    def __call__(self, image: Image.Image) -> dict:
+    def __call__(
+        self,
+        image: Image.Image,
+        image_path: Optional[Union[str, Path]] = None,
+    ) -> dict:
         """
         Returns dict with keys:
           wd14_rating, wd14_character, wd14_general,
           tags_ordered, nl_caption, final_caption, pruned_tags
+
+        *image_path* is only required when ``wd`` is a ``WDTaggerWrapper``
+        (it reads the file from disk rather than accepting a PIL Image).
         """
+        if self.caption_mode == "prose":
+            if self.fl is None:
+                raise RuntimeError(
+                    "HybridCaptioner(caption_mode='prose') requires a "
+                    "Florence2Captioner instance (florence=...); none was provided."
+                )
+            nl = self.fl(image)
+            final = f"{self.trigger}, {nl}" if self.trigger else nl
+            return {
+                "wd14_rating": [],
+                "wd14_character": [],
+                "wd14_general": [],
+                "tags_ordered": [],
+                "nl_caption": nl,
+                "final_caption": final,
+                "pruned_tags": [],
+            }
+
         if self.wd is not None:
-            rating, general, character = self.wd(image)
+            rating, general, character = _wd_tag(self.wd, image, image_path)
             general = [t for t in general if t not in self.undesired]
         else:
             rating, general, character = [], [], []

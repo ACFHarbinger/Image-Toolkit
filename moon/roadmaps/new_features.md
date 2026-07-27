@@ -222,6 +222,8 @@ For collections that don't need persistent storage, use FAISS (`faiss-cpu` or `f
 
 **Pain point:** The database supports tags, but tagging is entirely manual. Crawlers fetch Danbooru/Gelbooru tags for downloaded images, but locally-sourced images have no tags.
 
+**Status update (2026-07-27, issue #32):** Option A's backend (`backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper`) was fully built previously but had zero callers anywhere in the codebase (confirmed via repo-wide grep). It now has its first real caller — `backend/src/pipeline/anime_training_pipeline.py`'s captioning stage, via `content_generation.md` §1.1 — as the fallback WD14 backend when no local ONNX path is configured. A category-mapping bug was fixed in the process (WD category `9` is the rating group, not "copyright"). The database-ingest tagging path (this section's actual pain point — tagging locally-sourced images on ingest), the human-review queue (§C), and background Celery ingest (§D) are still not built; only the shared inference backend is now proven to have a working caller.
+
 ### Options
 
 **A — WD-1.4 (WaifuDiffusion Tagger) via ONNX**
