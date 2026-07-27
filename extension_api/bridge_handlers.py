@@ -36,8 +36,8 @@ from .bridge_config import load_config
 
 logger = logging.getLogger(__name__)
 
-BRIDGE_VERSION = "1.2"
-FEATURES = ["ping", "dup-check", "ingest", "similar"]
+BRIDGE_VERSION = "1.3"
+FEATURES = ["ping", "dup-check", "ingest", "similar", "phash-snapshot"]
 
 _MAX_FETCH_BYTES = 64 * 1024 * 1024  # 64 MB
 _FETCH_TIMEOUT_S = 20
@@ -274,9 +274,43 @@ def handle_similar(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         index.close()
 
 
+def handle_phash_snapshot(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+    """§7.16C — compact pHash export for the client-side pre-check.
+
+    Lets the extension compute a local pHash (TypeScript DCT port,
+    ``shared/clientPhash.ts``) and sweep it against a cached snapshot in
+    ``storage.local`` for an instant "probably already have this" hint —
+    without a round trip per candidate image, and without needing the
+    bridge to be reachable at browse/download time (only at snapshot
+    refresh time). The authoritative check remains §7.6 dup-check, which
+    always re-verifies against the live index.
+    """
+    cfg = load_config()
+    dup_root = cfg.get("dup_root") or ""
+    if not dup_root:
+        return 409, {"error": "No duplicate-search directory configured in the app."}
+
+    from backend.src.core.dir_phash_index import DirPhashIndex
+
+    index = DirPhashIndex(dup_root, recursive=bool(cfg.get("recursive", True)))
+    try:
+        stats = index.refresh()
+        hashes = index.export_hashes()
+        return 200, {
+            "hashes": hashes,
+            "count": len(hashes),
+            "scanned": stats["total"],
+            "cold_scan": stats["cold_scan"],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    finally:
+        index.close()
+
+
 HANDLERS = {
     "ping": lambda payload: handle_ping(),
     "dup_check": handle_dup_check,
     "ingest": handle_ingest,
     "similar": handle_similar,
+    "phash_snapshot": lambda payload: handle_phash_snapshot(payload or {}),
 }

@@ -299,3 +299,60 @@ class TestSimilar(BridgeTestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()["results"]), 1)
+
+
+class TestPhashSnapshot(BridgeTestCase):
+    """§7.16C client-side pre-check snapshot export."""
+
+    def _get(self):
+        return self.client.get("/api/extension/phash-snapshot/", **self._auth())
+
+    def test_requires_token(self):
+        resp = self.client.get("/api/extension/phash-snapshot/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_409_when_root_unconfigured(self):
+        from extension_api.bridge_config import save_config
+
+        save_config({"dup_root": ""})
+        resp = self._get()
+        self.assertEqual(resp.status_code, 409)
+
+    def test_empty_library_returns_empty_snapshot(self):
+        resp = self._get()
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["hashes"], [])
+        self.assertEqual(body["count"], 0)
+        self.assertEqual(body["scanned"], 0)
+        self.assertTrue(body["cold_scan"])
+        self.assertIn("generated_at", body)
+
+    def test_exports_distinct_sorted_hex_hashes(self):
+        for i in range(5):
+            (self.images_dir / f"lib{i}.png").write_bytes(_png_bytes(seed=400 + i))
+        # A byte-identical duplicate must not double-count in the snapshot.
+        (self.images_dir / "dup_of_lib0.png").write_bytes(_png_bytes(seed=400))
+
+        resp = self._get()
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["scanned"], 6)
+        # 5 distinct source images -> at most 5 distinct hashes (could be
+        # fewer if two different random seeds happen to collide, which is
+        # possible but never more than the distinct-image count).
+        self.assertLessEqual(body["count"], 5)
+        self.assertEqual(len(body["hashes"]), body["count"])
+        self.assertEqual(body["hashes"], sorted(body["hashes"]))
+        # Every hash is a 16-hex-digit (64-bit) lowercase string.
+        for h in body["hashes"]:
+            self.assertEqual(len(h), 16)
+            self.assertEqual(h, h.lower())
+            int(h, 16)  # raises if not valid hex
+
+    def test_no_paths_leaked_in_snapshot(self):
+        (self.images_dir / "secret_filename.png").write_bytes(_png_bytes(seed=500))
+        resp = self._get()
+        body_text = resp.content.decode()
+        self.assertNotIn("secret_filename", body_text)
+        self.assertNotIn(str(self.images_dir), body_text)

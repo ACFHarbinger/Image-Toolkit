@@ -63,6 +63,19 @@ Implemented GitHub issue #34 / `content_generation.md` §1.3. The "integrate lyc
 
 ---
 
+## S257 — 2026-07-27 (Extension 7.16: client-side pHash pre-check shipped; local-ML reverse search primary path already satisfied)
+
+Implemented GitHub issue #54 / roadmap `extension.md` §7.16 (C and D).
+
+- **C — client-side pHash pre-check, shipped.** `extension/src/shared/clientPhash.ts` is a faithful TypeScript port of the server's exact `imagehash.phash` algorithm (PIL grayscale luma formula, 32×32 resize, separable 2D DCT-II, 8×8 low-freq median threshold) — not a different dHash. New `GET /api/extension/phash-snapshot` (`PhashSnapshotView`, `DirPhashIndex.export_hashes()`) exports a sorted hex hash list (deliberately not a bloom filter — that would only support exact-membership queries, dropping the near-duplicate tolerance perceptual hashing exists for), cached in `storage.local`, refreshed via a new options-page "Refresh snapshot" control.
+- **DCT-II port verified numerically identical to `scipy.fftpack.dct`** (4+ decimal places on a fixed test matrix) — the math is exactly correct. The one remaining honest caveat: canvas's resize isn't guaranteed bit-identical to PIL's Lanczos resize, so client vs. server hashes for the same image may differ by a few bits — compensated with a slightly looser hint threshold (12 vs. the server's 10) and documented as a hint, not an authority; §7.6 dup-check remains the real check.
+- **D — local-ML reverse search: primary path already satisfied.** Checked before building anything: issue #51's already-shipped "Find similar in my library" *is* D's specified "primary path = app bridge similarity search." The optional fully-in-browser ML fallback (quantized MobileCLIP/SigLIP, ~1 week estimate) remains unbuilt — genuinely out of scope here.
+- **Tests**: 56 total passing (18 `DirPhashIndex` incl. 4 new, 38 `extension_api` incl. 5 new). `npm run typecheck` clean for all new/touched files (pre-existing, unrelated errors in `api.ts`/`dupTabs.ts` confirmed present before this change too).
+- **Not wired into turbo/bulk-mode's own capture UI** — ships the underlying capability, not the inline hint badge those features' own remaining scope would consume it from.
+- `moon/roadmaps/extension.md` §7.16 updated with full status for both C and D.
+
+---
+
 ## S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
 
 Implemented GitHub issue #48 / roadmap `gui_ux.md` §2.9's item F (labeled `bug` — the same "settings-window control exists, nothing consumes it" shape as issue #49's `recent_dirs_count` fix earlier this session).
