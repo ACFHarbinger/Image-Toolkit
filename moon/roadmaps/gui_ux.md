@@ -412,31 +412,31 @@ Allow users to choose a custom accent colour (used for selected thumbnails, prog
 
 ### Remaining Work
 
-**A — Wire thumbnail size / page size to gallery base classes at startup**
-`main_window.py` should read `preferences["thumbnail_size"]` and `preferences["page_size"]` after vault load and set `tab.thumbnail_size` / `tab.found_page_size` / `tab.page_size` on each gallery tab instance before displaying them. One loop in `MainWindow.__init__` after all tabs are constructed.
+**Re-verified 2026-07-27** against `gui/src/windows/main/main_window.py` (`_apply_startup_preferences()`) and
+`gui/src/windows/settings/settings_window.py`. A/B/C/E below are confirmed wired (each is tagged
+`§2.16A`/`§2.16B`/`§2.16C`/`§2.16E` directly in `_apply_startup_preferences()`); D was already shipped
+per the note below. **F is still not wired** and **G is only half-wired** — see each entry.
 
-**B — Wire LRU cache sizes to gallery base classes at startup**
-Same loop as A: read `found_cache_maxsize`, `selected_cache_maxsize`, `initial_cache_maxsize` and call `tab._found_pixmap_cache = LRUImageCache(maxsize=...)` etc. The `LRUImageCache` class supports `maxsize` at construction time.
+**A — ✅ Wire thumbnail size / page size to gallery base classes at startup**
+Confirmed shipped: `_apply_startup_preferences()` reads `preferences["thumbnail_size"]` / `["page_size"]` and sets `tab.thumbnail_size` / `tab.found_page_size` / `tab.page_size` on every gallery tab, tagged `§2.16A`.
 
-**C — Wire startup category to MainWindow**
-`MainWindow.__init__` already calls `self.on_command_changed(self.command_combo.currentText())`. Before that, set `self.command_combo.setCurrentText(prefs.get("startup_category", "System Tools"))` after reading preferences from vault.
+**B — ✅ Wire LRU cache sizes to gallery base classes at startup**
+Confirmed shipped: same function reads `found_cache_maxsize`, `selected_cache_maxsize`, `initial_cache_maxsize` and rebuilds `tab._found_pixmap_cache` / `_selected_pixmap_cache` / `_initial_pixmap_cache` as `LRUImageCache(maxsize=...)`, tagged `§2.16B`.
+
+**C — ✅ Wire startup category to MainWindow**
+Confirmed shipped: `_apply_startup_preferences()` sets `self.command_combo.setCurrentText(startup_cat)` from `prefs.get("startup_category", "")`, tagged `§2.16C`.
 
 **D — Wire confirm_deletions to deletion workflows ✅ (2026-06-10)**
 `_confirm_deletions_enabled()` helper reads `preferences["confirm_deletions"]` from vault in both gallery base classes. `_trash_path` in `AbstractClassTwoGalleries` gates on this preference. `ConvertTab`, `DeleteTab`, and `WallpaperTab` standalone deletion paths still use their own dialogs (partial coverage).
 
-**E — Wire slideshow defaults to WallpaperTab**
-After `WallpaperTab` construction in `MainWindow.__init__`, set:
-```python
-self.wallpaper_tab.interval_min_spinbox.setValue(prefs.get("slideshow_interval_min", 5))
-self.wallpaper_tab.interval_sec_spinbox.setValue(prefs.get("slideshow_interval_sec", 0))
-self.wallpaper_tab.playback_order_combo.setCurrentText(prefs.get("slideshow_order", "Sequential"))
-```
+**E — ✅ Wire slideshow defaults to WallpaperTab**
+Confirmed shipped: `_apply_startup_preferences()` sets `wallpaper_tab.interval_min_spinbox` / `interval_sec_spinbox` / `playback_order_combo` from `prefs`, tagged `§2.16E`.
 
-**F — Wire logging settings**
-On app startup (before `MainWindow` init), read `preferences["log_level"]` and `preferences["file_logging_enabled"]` and configure the `logging` module: set the root logger level and add/remove the `RotatingFileHandler`. This should go in `main.py` after vault load.
+**F — ⚠ Wire logging settings — still NOT done**
+`preferences["log_level"]` and `preferences["file_logging_enabled"]` are saved/loaded by `settings_window.py` (round-trip only) but are never consumed anywhere. `backend/src/app.py::_setup_logging()` runs before `QApplication`/vault load and only takes a `log_level: int` parameter driven by a `--verbose` CLI flag (`logging.DEBUG if opts.verbose else logging.INFO`) — it has no path back to the vault preferences, and there is no `RotatingFileHandler` add/remove logic keyed on `file_logging_enabled` anywhere. This is a genuine gap, not wired despite the round-trip existing.
 
-**G — Wire restore_last_dir and recent_dirs_count**
-Requires implementing the session persistence feature (§2.5). The vault settings are already stored; they just need to be consumed.
+**G — ⚠ Wire restore_last_dir and recent_dirs_count — half done**
+`restore_last_dir` **is** consumed (`_apply_startup_preferences()` reads it and gates directory restoration). `recent_dirs_count` is **not** — `settings_window.py` always saves the literal `"recent_dirs_count": 10` (not the value of any UI control), and the only consumer, `gallery_base.py::_add_recent_dir(self, path, max_entries: int = 10)`, hardcodes `max_entries=10` rather than reading the preference. The setting is effectively dead.
 
 ---
 

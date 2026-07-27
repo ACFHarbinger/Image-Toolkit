@@ -456,7 +456,17 @@ Add a WebSocket endpoint (`/ws/jobs/{job_id}/`) that streams stage-level progres
 
 ## 4.11 ASP Quality Feedback Interface (RLHF)
 
-**Pain point:** The `StitchRewardModel` in `bench_anime_stitch.py` (§1.10A, S29) uses random weights until feedback is collected. There is no UI for users to rate stitching outputs so the reward model can learn meaningful preferences. Without rated outputs, the RLHF loop cannot close and the reward model never improves.
+**Status (2026-07-27):** The entire foundation this item was written against — the `StitchRewardModel` /
+`_compute_rlhf_score()` / `_get_reward_model()` reward-model loop in `bench_anime_stitch.py` (formerly §1.10A,
+S29) — was deleted in the 2026-07-09 "S200 great trim" (`refactor(asp): trim benchmark to core metrics; prune
+dead-feature tests` / `refactor(asp): trim Python pipeline to its benchmarked core path`). The HITL
+checkpoints/session-review UI in `stitch_tab.py`/`stitch_worker.py` still exist and still collect a per-run
+"final output quality rating" at checkpoint 5, but nothing currently consumes that rating to train a reward
+model — there is no reward model left to train. This item is **not done**; it would need the RLHF
+foundation rescoped and rebuilt from scratch (a reward model, a training loop, and a reason to have one)
+before any of the UI options below are worth building. The current `asp.md` roadmap has no equivalent item.
+
+**Pain point (original framing, now describing removed infrastructure):** The `StitchRewardModel` in `bench_anime_stitch.py` (§1.10A, S29) uses random weights until feedback is collected. There is no UI for users to rate stitching outputs so the reward model can learn meaningful preferences. Without rated outputs, the RLHF loop cannot close and the reward model never improves.
 
 ### Options
 

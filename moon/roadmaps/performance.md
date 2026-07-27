@@ -58,14 +58,14 @@ flowchart TD
         S315["§3.15 Import Isolation —\nNon-animation Modules"]:::augment:::done
     end
 
-    subgraph PLANNED["⬜ Runtime Performance (§3.1–§3.7)"]
-        P31["§3.1 Rust Streaming\nImage Merger"]:::perf:::planned
-        P32["§3.2 ASP Render Stage\nGPU Acceleration"]:::perf:::planned
-        P33["§3.3 BiRefNet\nInference Batching"]:::augment:::planned
-        P34["§3.4 Database Query\nOptimisation"]:::perf:::planned
-        P35["§3.5 WebDriver Lifecycle\nManagement"]:::fix:::planned
-        P36["§3.6 DynamicImage Move\nSemantics in Rust"]:::refactor:::planned
-        P37["§3.7 Python ML Model\nMemory Lifecycle"]:::perf:::planned
+    subgraph PLANNED["Runtime Performance (§3.1–§3.7) — mostly ✅, see nodes"]
+        P31["§3.1 C++ Streaming\nImage Merger ✅"]:::perf:::done
+        P32["§3.2 ASP Render Stage\nGPU Acceleration ✅"]:::perf:::done
+        P33["§3.3 BiRefNet\nInference Batching ✅"]:::augment:::done
+        P34["§3.4 Database Query\nOptimisation (partial)"]:::perf:::active
+        P35["§3.5 WebDriver Lifecycle\nManagement ✅"]:::fix:::done
+        P36["§3.6 DynamicImage Move\nSemantics in Rust (unverified)"]:::refactor:::planned
+        P37["§3.7 Python ML Model\nMemory Lifecycle ✅"]:::perf:::done
     end
 
     %% Test infrastructure causal chain
@@ -427,9 +427,11 @@ Add `CORE_MODULES` list to `check_import_times.py`; fold into the same measureme
 
 ---
 
-## 3.1 Rust Streaming Image Merger
+## 3.1 C++ Streaming Image Merger {: #31-cpp-streaming-image-merger }
 
-**Pain point:** `base/src/core/image_merger.rs` loads all input images into a `Vec<DynamicImage>` before compositing. Merging 100 × 4K images temporarily consumes 2–4 GB of RAM.
+**✅ Shipped — see ROADMAP.md item 2.12.** Confirmed 2026-07-27: `base/src/core/image_merger.rs` no longer exists — the `base` extension's Rust→C++ migration (see `project_cpp_migration` roadmap, archived) ported this to `base/src/core/merger.cpp`, which retains the two-pass streaming design this section recommends (Option A): a comment at the top of the file reads "Two-pass streaming: Pass 1 reads headers (imread IMREAD_UNCHANGED, drop...)". The pain point and file path below are pre-migration and kept only for historical context on the original problem; the current implementation is C++, not Rust.
+
+**Pain point (original framing, describes the retired Rust implementation):** `base/src/core/image_merger.rs` loads all input images into a `Vec<DynamicImage>` before compositing. Merging 100 × 4K images temporarily consumes 2–4 GB of RAM.
 
 ### Options
 
@@ -466,7 +468,9 @@ Divide the canvas into N×M tiles. Process each tile independently (loading only
 
 ## 3.2 ASP Render Stage GPU Acceleration
 
-**Pain point:** Stage 10 (temporal median render) averages 20.78s, single-threaded NumPy. The 10-frame, 4K canvas case (test19: 33.8s) is the dominant bottleneck.
+**✅ Shipped (Option A) — see ROADMAP.md item 3.11.** Confirmed 2026-07-27: `_gpu_nanmedian()` in `backend/src/animation/rendering/rendering.py`, gated behind `ASP_GPU_MEDIAN=1`, with a numpy fallback when CUDA is unavailable. Options B (Numba), C (Cython), D (multiprocessing), E (Welford's online median) not implemented — moot now that A shipped.
+
+**Pain point (original framing):** Stage 10 (temporal median render) averages 20.78s, single-threaded NumPy. The 10-frame, 4K canvas case (test19: 33.8s) is the dominant bottleneck.
 
 ### Options
 
@@ -502,7 +506,9 @@ Use an online median estimator (e.g., two heaps) that processes one frame at a t
 
 ## 3.3 BiRefNet Inference Batching
 
-**Pain point:** BiRefNet runs once per frame in sequence. For a 14-frame dataset, 14 serial GPU kernel launches underutilise the GPU between calls.
+**✅ Shipped (Option C) — see ROADMAP.md item 3.12.** Confirmed 2026-07-27: `get_mask_batch()` + `_compute_batch_size()` in `backend/src/models/wrappers/birefnet_wrapper.py` — VRAM-sized dynamic batching via `torch.cuda.mem_get_info()`, falls back to batch=1 on CPU/failure. This is Option C (dynamic batching), which subsumes A/B as described.
+
+**Pain point (original framing):** BiRefNet runs once per frame in sequence. For a 14-frame dataset, 14 serial GPU kernel launches underutilise the GPU between calls.
 
 ### Options
 
@@ -533,7 +539,9 @@ Export BiRefNet to TorchScript or ONNX and run via `onnxruntime`. ONNX Runtime a
 
 ## 3.4 Database Query Optimisation
 
-**Pain point:** Several common database operations are suboptimal for large collections (>100k images).
+**Partial — Options A + D shipped, see ROADMAP.md items 4.8 and 2.14.** Confirmed: Option A (psycopg3 connection pool) shipped as `PooledPgvectorDatabase` in `backend/src/database/pooled_image_database.py`; Option D (HNSW index tuning, `m=32, ef_construction=128`, `hnsw.ef_search=80`) shipped per ROADMAP 2.14. Options B (prepared statements), C (partial index), E (materialized view), F (table partitioning) not confirmed — remain open.
+
+**Pain point (original framing):** Several common database operations are suboptimal for large collections (>100k images).
 
 ### Options
 
@@ -576,7 +584,9 @@ Partition the `images` table by year or source crawler. Queries filtered by date
 
 ## 3.5 WebDriver Lifecycle Management
 
-**Pain point:** Selenium WebDriver instances are not guaranteed to be closed on Python exceptions, leaving orphaned browser processes consuming hundreds of MB each.
+**✅ Shipped — see ROADMAP.md item 1.6.** Confirmed 2026-07-27: crawlers now live in `base/src/web/` (C++, not the Rust originally implied by "Option B" below — same post-migration terminology note as §3.1/§3.6); Python wrappers call `base.run_*` and never hold a driver reference, so the orphaned-driver failure mode this section describes is eliminated by the architecture rather than by an explicit context-manager wrapper (Option A).
+
+**Pain point (original framing):** Selenium WebDriver instances are not guaranteed to be closed on Python exceptions, leaving orphaned browser processes consuming hundreds of MB each.
 
 ### Options
 
@@ -614,7 +624,9 @@ Replace Selenium with Playwright, which has a built-in context manager and more 
 
 ## 3.6 DynamicImage Move Semantics in Rust
 
-**Pain point:** Several Rust functions clone `DynamicImage` unnecessarily (e.g., `apply_ar_transform`, `fast_resize` no-op path). A 4K RGBA clone is ~32 MB per call.
+**⚠ Unverified — flagged during 2026-07-27 audit, left as-is.** ROADMAP.md item 1.7 marks this "Done", citing `apply_ar_transform` (`image_converter.rs`) and `fast_resize` (`image_merger.rs`). Neither `.rs` file exists any more — `base/` is now C++ (see §3.1/§3.5 for the same migration), and a grep for `apply_ar_transform`/`fast_resize` across `base/src/core/*.cpp` found no match, so the exact functions named in ROADMAP.md cannot be located to confirm the optimisation carried over. Note also that `cv::Mat` (the C++ image type) already uses reference-counted, shallow-copy semantics by default — unlike Rust's `image::DynamicImage` — so the original clone-cost problem this section describes may not even apply the same way post-migration. Left unresolved rather than guessed; a human should check whether this item's substance survived the C++ port under different function names, or whether it's moot.
+
+**Pain point (original framing):** Several Rust functions clone `DynamicImage` unnecessarily (e.g., `apply_ar_transform`, `fast_resize` no-op path). A 4K RGBA clone is ~32 MB per call.
 
 ### Options
 
@@ -639,7 +651,9 @@ Wrap images in `Arc<DynamicImage>` at intake. Cloning the `Arc` is cheap; actual
 
 ## 3.7 Python ML Model Memory Lifecycle
 
-**Pain point:** Several ML models (BiRefNet, EfficientLoFTR, LightGlue) remain loaded in GPU VRAM after their pipeline stage completes. For pipelines that don't use all models, this wastes VRAM and slows subsequent GPU operations.
+**✅ Shipped (Option A) — see ROADMAP.md item 1.8.** Confirmed: `unload()` added to all model wrappers (BiRefNet, LoFTR, EfficientLoFTR, RoMa, ALIKED+LightGlue, JamMa, BaSiC per ROADMAP 1.8); pipeline calls `unload()` rather than `offload()`. Option B (LRU model cache with VRAM budget) not confirmed — remains open.
+
+**Pain point (original framing):** Several ML models (BiRefNet, EfficientLoFTR, LightGlue) remain loaded in GPU VRAM after their pipeline stage completes. For pipelines that don't use all models, this wastes VRAM and slows subsequent GPU operations.
 
 ### Options
 
@@ -669,9 +683,9 @@ Load models only when first needed; hold via `weakref.ref`. Python GC reclaims w
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | — | §3.4B prepared statements · §3.5A Selenium context manager · §3.6A DynamicImage move ownership · §3.7A explicit model unload · §5.7A uv lock | §3.4D HNSW index tuning · §3.4C partial index on path · ~~**⚠§3.11A session-level ThreadPoolExecutor**~~ ✅ · ~~**⚠§3.13A module-scope gc.collect()**~~ ✅ · ~~**⚠§3.14A lazy heavy imports**~~ ✅ · ~~**⚠§3.12B pytest-forked for model tests**~~ ✅ | — |
-| **Medium (1d–1w)** | §3.9 SI-FID metric | §3.4A psycopg3 async pool · §3.4E materialized view · §3.7B LRU model cache · ~~**⚠§3.12C singleton teardown fixture**~~ ✅ · ~~**⚠§3.12A pytest-xdist full isolation**~~ ✅ | §3.3C dynamic BiRefNet batching · §3.5D Playwright migration | — |
-| **High (1–2w)** | — | §3.4F table partitioning | §3.1A two-pass streaming merger · §3.2A GPU median (PyTorch CUDA) | — |
+| **Low (<1d)** | — | §3.4B prepared statements · ~~§3.5A Selenium context manager~~ ✅ (superseded — see §3.5) · §3.6A DynamicImage move ownership (unverified, see §3.6) · ~~§3.7A explicit model unload~~ ✅ · §5.7A uv lock ✅ | §3.4D HNSW index tuning ✅ · §3.4C partial index on path · ~~**⚠§3.11A session-level ThreadPoolExecutor**~~ ✅ · ~~**⚠§3.13A module-scope gc.collect()**~~ ✅ · ~~**⚠§3.14A lazy heavy imports**~~ ✅ · ~~**⚠§3.12B pytest-forked for model tests**~~ ✅ | — |
+| **Medium (1d–1w)** | §3.9 SI-FID metric | ~~§3.4A psycopg3 async pool~~ ✅ · §3.4E materialized view · §3.7B LRU model cache · ~~**⚠§3.12C singleton teardown fixture**~~ ✅ · ~~**⚠§3.12A pytest-xdist full isolation**~~ ✅ | ~~§3.3C dynamic BiRefNet batching~~ ✅ · §3.5D Playwright migration | — |
+| **High (1–2w)** | — | §3.4F table partitioning | ~~§3.1A two-pass streaming merger~~ ✅ (now C++, see §3.1) · ~~§3.2A GPU median (PyTorch CUDA)~~ ✅ | — |
 | **Very High (2w+)** | — | — | §5.5C Rust AES-256-GCM vault (eliminates JVM + libstdc++ conflicts) | — |
 
 ---
@@ -686,7 +700,7 @@ Load models only when first needed; hold via `weakref.ref`. Python GC reclaims w
 | **✅ 3.13 conftest.py Overhead Reduction** | [#-313-conftestpy-overhead-reduction](#-313-conftestpy-overhead-reduction) |
 | **✅ 3.14 Heavy-Library Import Isolation (animation)** | [#-314-heavy-library-import-isolation](#-314-heavy-library-import-isolation) |
 | **✅ 3.15 Heavy-Library Import Isolation (core)** | [#-315-heavy-library-import-isolation-non-animation-modules](#-315-heavy-library-import-isolation-non-animation-modules) |
-| 3.1 Streaming Image Merger | [#31-rust-streaming-image-merger](#31-rust-streaming-image-merger) |
+| 3.1 Streaming Image Merger | [#31-cpp-streaming-image-merger](#31-cpp-streaming-image-merger) |
 | 3.2 GPU Render Acceleration | [#32-asp-render-stage-gpu-acceleration](#32-asp-render-stage-gpu-acceleration) |
 | 3.3 BiRefNet Batching | [#33-birefnet-inference-batching](#33-birefnet-inference-batching) |
 | 3.4 Database Optimisation | [#34-database-query-optimisation](#34-database-query-optimisation) |
@@ -699,3 +713,5 @@ Load models only when first needed; hold via `weakref.ref`. Python GC reclaims w
 ## Document History
 
 *Last updated: 2026-06-18. §3.10–§3.15 fully ✅. §3.15 non-animation import audit: image_merger.py (6 unconditional model imports → lazy) + vault_manager.py (jpype → try/except) + check_import_times.py extended to 16 modules (all pass 1.5 s threshold). §3.10–§3.14 complete from prior sessions. All Tier 1–5 RAM reduction items are fully implemented (✅). These are the next-generation opportunities.*
+
+*Staleness pass 2026-07-27: §3.1–§3.5 and §3.7 (of the "next-generation opportunities" above) were themselves independently re-verified against the current codebase and found to already be shipped — see the ✅ callouts added to each section and to the Effort × Impact Matrix. §3.6 could not be confirmed either way post-Rust→C++ migration and is flagged unverified rather than marked done. Only §3.4 (partially) and §3.6 remain meaningfully open.*

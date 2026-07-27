@@ -105,7 +105,9 @@ Each section describes an architectural debt or infrastructure gap, all viable i
 
 ## 5.1 ASP Pipeline Unit Test Coverage
 
-**Pain point:** `backend/test/animation/` tests end-to-end ASP runs but has limited unit tests for individual pipeline stages. Regressions in `bundle_adjust.py` or `compositing.py` are hard to catch without running the full benchmark.
+**✅ Shipped — see ROADMAP.md item 3.13.** Confirmed 2026-07-27 via `pytest backend/test/animation/ --collect-only` (675 tests collected; covers `bundle_adjust.py`, `compositing.py`, `frame_selection.py`, `canvas.py`, `pipeline.py`, `matching.py`, `validation.py`, `config.py`, `fg_register.py`). Option A (unit tests per stage) is what shipped; Option C (benchmark diff golden-gate CI) is separately tracked at §5.2/ROADMAP 3.14.
+
+**Pain point (original framing):** `backend/test/animation/` tests end-to-end ASP runs but has limited unit tests for individual pipeline stages. Regressions in `bundle_adjust.py` or `compositing.py` are hard to catch without running the full benchmark.
 
 ### Options
 
@@ -152,7 +154,9 @@ Store the intermediate outputs of each stage (affine matrices, seam masks, gain-
 
 ## 5.2 Benchmark Regression CI
 
-**Pain point:** The benchmark suite in `backend/benchmark/` exists with baseline comparison but is not wired into GitHub Actions for automatic regression detection.
+**✅ Shipped — see ROADMAP.md items 3.14 and 4.3.** Confirmed 2026-07-27: `.github/workflows/benchmark.yml` exists (Option A) and includes a weekly `cron` schedule (Option B, ROADMAP 4.3).
+
+**Pain point (original framing):** The benchmark suite in `backend/benchmark/` exists with baseline comparison but is not wired into GitHub Actions for automatic regression detection.
 
 ### Options
 
@@ -251,7 +255,9 @@ Apply the same registry/interface pattern to compositing strategies (hard-partit
 
 ## 5.4 Logging and Diagnostics
 
-**Pain point:** Pipeline logs to stdout with `print()` statements. Diagnosing failures requires replaying the entire run. No structured log format for automated analysis.
+**Partial — Options A and B shipped, see ROADMAP.md items 1.13 and 2.13.** Confirmed: `backend/src/app.py::_setup_logging()` sets up a `RotatingFileHandler` + console handler (Option A), and a per-run pipeline execution trace JSON is written under `~/.image-toolkit/traces/` (Option B). Options C (GUI log panel — see §2.17 in gui_ux.md, also shipped), D (structlog), E (Sentry), F (OpenTelemetry), G (Rerun.io) remain open/not done.
+
+**Pain point (original framing):** Pipeline logs to stdout with `print()` statements. Diagnosing failures requires replaying the entire run. No structured log format for automated analysis.
 
 ### Options
 
@@ -312,7 +318,9 @@ Integrate **rerun-sdk** as the primary diagnostic logger for CV-heavy stages. Lo
 
 ## 5.5 Gradual Static Type Safety Migration
 
-**Pain point:** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `backend/src/animation/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
+**Partial — see ROADMAP.md items A.1 and A.10.** Confirmed: Option B shipped (`typeCheckingMode = "basic"` in `pyproject.toml`); Options A + C shipped together (`[tool.mypy]` baseline section + `ConversionConfig`/`DeletionConfig`/`MergeConfig`/`StitchConfig` `TypedDict`s wired into their workers). Option D (`ty`/`pyrefly`) and the full-strict end state (ROADMAP 6.10, "all modules under `disallow_untyped_defs = true`") remain open/not done.
+
+**Pain point (original framing):** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `backend/src/animation/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
 
 Informed by: JetBrains 2025 survey (type hint adoption grew from 48% to 71% in Python projects 2022–2025); mypy maintainer guidance on per-module strictness escalation; and the Dropbox engineering blog's account of migrating 4M LOC to mypy over 5 years using per-package ignore files.
 
@@ -418,7 +426,9 @@ Initiate an ASP pipeline run from the phone by selecting a frame group via the R
 
 ## 5.7 Dependency Audit and Pinning
 
-**Pain point:** `requirements.txt` / `pyproject.toml` may have unpinned transitive dependencies. Version drift between environments causes subtle failures.
+**✅ Shipped — see ROADMAP.md items 1.12 and 2.15.** Confirmed: Option A (`uv.lock` committed, CI uses `uv sync --frozen`); Options C + D (`pip-audit` + `cargo audit` in `.github/workflows/security.yml`, weekly). Option B (Dependabot/Renovate) not confirmed/not done.
+
+**Pain point (original framing):** `requirements.txt` / `pyproject.toml` may have unpinned transitive dependencies. Version drift between environments causes subtle failures.
 
 ### Options
 
@@ -448,7 +458,9 @@ Run `cargo audit` in CI to detect CVEs in Rust crate dependencies.
 
 ## 5.8 Model Wrapper Abstraction Layer (`backend/src/models/`)
 
-**Pain point:** Every model wrapper (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `RoMaWrapper`, `BiRefNetWrapper`, `BaSiCWrapper`, etc.) independently reimplements the same lifecycle boilerplate: CUDA device selection in `__init__`, a `torch.cuda.empty_cache()` + `gc.collect()` `unload()` body, a `logger = logging.getLogger(__name__)` line at module level, and a `# --- Relocated Nested Imports ---` comment block. Adding a new model requires copying this scaffolding by hand.
+**✅ Shipped — see ROADMAP.md item 4.2 (A+B+C) and A.3 (D).** Confirmed: `ModelWrapper` class exists at `backend/src/models/core/base.py` (moved from the `backend/src/models/base.py` path this section assumes); `@lazy_load` decorator and `ModelRegistry` also shipped per ROADMAP 4.2; the "Relocated Nested Imports" comment blocks (Option D) were removed per ROADMAP A.3.
+
+**Pain point (original framing):** Every model wrapper (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `RoMaWrapper`, `BiRefNetWrapper`, `BaSiCWrapper`, etc.) independently reimplements the same lifecycle boilerplate: CUDA device selection in `__init__`, a `torch.cuda.empty_cache()` + `gc.collect()` `unload()` body, a `logger = logging.getLogger(__name__)` line at module level, and a `# --- Relocated Nested Imports ---` comment block. Adding a new model requires copying this scaffolding by hand.
 
 ### Options
 
@@ -533,7 +545,9 @@ These comment blocks were added when imports were moved from nested function sco
 
 ## 5.9 Worker Thread Base Class & Lifecycle Standardisation (`gui/src/helpers/`) {: #59-worker-thread-base-class--lifecycle-standardisation-guisrchelpers }
 
-**Pain point:** The worker layer in `gui/src/helpers/` is split between two Qt threading paradigms — `QThread` subclasses (`ConversionWorker`, `DeletionWorker`, `StitchWorker`) and `QRunnable`/`QObject` pairs (`SearchWorker` with `_SearchWorkerSignals`, `MergeWorker`) — with no shared base. Each worker independently declares `finished`, `error`, `progress` signals, a `stop()`/`cancel()` method, and a `run()` body, leading to inconsistent naming (`stop()` vs `cancel()`, `progress` vs `progress_update`) and copy-pasted cancellation idioms.
+**Partial — Options A + B shipped, see ROADMAP.md item A.14.** Confirmed: `BaseQThreadWorker` and `BaseQRunnableWorker` both exist in `gui/src/helpers/base.py`, and `BaseQThreadWorker.run()` implements the three-tier exception routing described under §5.15B below. Options C (progress reported as `(completed, total)` tuple) and D (`WorkerConfig` TypedDict/dataclass) not confirmed as generally adopted — treat as still open.
+
+**Pain point (original framing):** The worker layer in `gui/src/helpers/` is split between two Qt threading paradigms — `QThread` subclasses (`ConversionWorker`, `DeletionWorker`, `StitchWorker`) and `QRunnable`/`QObject` pairs (`SearchWorker` with `_SearchWorkerSignals`, `MergeWorker`) — with no shared base. Each worker independently declares `finished`, `error`, `progress` signals, a `stop()`/`cancel()` method, and a `run()` body, leading to inconsistent naming (`stop()` vs `cancel()`, `progress` vs `progress_update`) and copy-pasted cancellation idioms.
 
 ### Options
 
@@ -617,7 +631,9 @@ Workers receive configuration as `dict[str, Any]`. The same conceptual parameter
 
 ## 5.10 Gallery Base Class Consolidation (`gui/src/classes/`)
 
-**Pain point:** `AbstractClassTwoGalleries` and `AbstractClassSingleGallery` share ~80 lines of identical `__init__` state (`thumbnail_size`, `padding_width`, `approx_item_width`, `_current_cols`, `thread_pool`, `_active_workers`, `_resize_timer`, `_load_thumbnail_size()`) but have no common parent class below `QWidget`. The `MetaAbstractClassGallery` metaclass injection pattern is non-standard — it injects free functions as methods rather than using normal inheritance, making the class hierarchy opaque to IDEs and type checkers.
+**✅ Shipped (A+B+C+D) — see ROADMAP.md items A.16 and A.7.** Confirmed: `AbstractGalleryBase` exists at `gui/src/classes/base/gallery_base.py` (Option A); `gui/src/classes/meta/meta_abstract_class_gallery.py` is now only 19 lines defining `class MetaAbstractClassGallery(ABCMeta, type(QObject))` with no `__new__` injection logic left (Option B — matches ROADMAP A.16's "metaclass 397→18 lines"); the module docstring and `_load_thumbnail_size` extraction (Options C+D) are also in per ROADMAP A.7.
+
+**Pain point (original framing):** `AbstractClassTwoGalleries` and `AbstractClassSingleGallery` share ~80 lines of identical `__init__` state (`thumbnail_size`, `padding_width`, `approx_item_width`, `_current_cols`, `thread_pool`, `_active_workers`, `_resize_timer`, `_load_thumbnail_size()`) but have no common parent class below `QWidget`. The `MetaAbstractClassGallery` metaclass injection pattern is non-standard — it injects free functions as methods rather than using normal inheritance, making the class hierarchy opaque to IDEs and type checkers.
 
 ### Options
 
@@ -650,7 +666,9 @@ Both `AbstractClassSingleGallery` and `AbstractClassTwoGalleries` call `self._lo
 
 ## 5.11 Circular Import Prevention & Module Boundary Documentation {: #511-circular-import-prevention--module-boundary-documentation }
 
-**Pain point:** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.animation import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
+**Partial — Options A, B, D shipped; C explicitly deferred. See ROADMAP.md items A.17, A.8, A.4.** Confirmed: `pyproject.toml` has a `[tool.importlinter]` section with 3 contracts (Option A); `TYPE_CHECKING` guards added for heavy GUI→backend imports (Option B); `__all__` hygiene pass done across 15 `__init__.py` files (Option D). **Option C (pydeps/pipdeptree module graph) is explicitly not done** — ROADMAP A.17 itself notes "pydeps SVG deferred to a dedicated docs PR," so this remains open.
+
+**Pain point (original framing):** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.animation import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
 
 ### Options
 
@@ -776,7 +794,9 @@ Rather than static Mermaid diagrams, generate a live, GPU-rendered force-directe
 
 ## 5.13 Decorator Library for Cross-Cutting Concerns (`backend/src/utils/decorators.py`)
 
-**Pain point:** Several patterns recur identically across many files but are not extracted as reusable utilities: (1) "call `self.load()` if not already loaded" appears in every wrapper method body; (2) "emit `self.error.emit(str(e))` on exception" appears in every worker `run()`; (3) "validate that this path exists before doing anything" appears in every file-operation entry point; (4) "log entry + exit with timing" is not applied anywhere but was requested in §5.4.
+**Partial — Options A, C, E shipped; B not confirmed; D superseded. See ROADMAP.md item A.6.** Confirmed: `log_call()` (Option C) exists at `backend/src/utils/decorators/function_calls.py` (the module became a package rather than a single file, but is still importable via `backend/src/utils/decorators` per Option E); `@lazy_load` (Option A) shipped per ROADMAP 4.2/§5.8. `@require_path` (Option B) not found anywhere in the codebase — still open. `@worker_method` (Option D) is superseded by `BaseQThreadWorker`'s built-in three-tier handler (§5.9/§5.15B, already shipped) — the option text itself says to choose one or the other.
+
+**Pain point (original framing):** Several patterns recur identically across many files but are not extracted as reusable utilities: (1) "call `self.load()` if not already loaded" appears in every wrapper method body; (2) "emit `self.error.emit(str(e))` on exception" appears in every worker `run()`; (3) "validate that this path exists before doing anything" appears in every file-operation entry point; (4) "log entry + exit with timing" is not applied anywhere but was requested in §5.4.
 
 ### Options
 
@@ -846,7 +866,9 @@ All the above decorators live in a single module. Keeps them discoverable and im
 
 ## 5.14 Centralised Settings Facade (`gui/src/utils/settings.py` + `backend/src/animation/config.py`) {: #514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy }
 
-**Pain point:** Application configuration is split across at least three independent mechanisms with no unified access point:
+**Partial — Options A, B, D shipped; C not done. See ROADMAP.md items A.11, A.12, A.5.** Confirmed: an `AppSettings` singleton facade exists (Option A) — now at `gui/src/windows/settings/app_settings.py` rather than the `gui/src/utils/settings.py` path this section assumes; `get_asp(key, default)` exists in `backend/src/animation/core/config.py` (Option B); `SETTINGS_SCHEMA` + `_validate_settings()` in `backend/src/app.py` validate QSettings keys at startup (Option D). Option C (unified `AppConfig` dataclass merging GUI + backend config) not found — still open, as the recommendation itself notes it should wait on §5.11.
+
+**Pain point (original framing):** Application configuration is split across at least three independent mechanisms with no unified access point:
 1. **GUI persistent state** — `QSettings("ImageToolkit", "ImageToolkit")` is called with hardcoded organisation/application strings in 20+ locations across `abstract_class_two_galleries.py`, `abstract_class_single_gallery.py`, `splitter_persistence.py`, `listings_common.py`, `main_window.py`, and `settings_window.py`. Any typo in the string creates a silently-separate settings namespace.
 2. **Backend ASP flags** — 132+ `os.environ.get("ASP_*", default)` calls scattered across `pipeline.py`, `compositing.py`, `frame_selection.py`, etc. The `config.py` module (§1.8A `load_asp_config`) exists but is not universally used — modules still read `os.environ` directly.
 3. **Application-level constants** — `backend/src/constants/` has 8 modules (`app.py`, `paths.py`, `system.py`, etc.) that mix runtime-changeable values with true compile-time constants.
@@ -918,7 +940,9 @@ Define a `SETTINGS_SCHEMA: dict[str, type]` mapping every valid QSettings key to
 
 ## 5.15 Fault Isolation & Error Boundary Protocol {: #515-fault-isolation--error-boundary-protocol }
 
-**Pain point:** Errors propagate differently across the three execution contexts (Qt main thread, `QThread` workers, `QRunnable` tasks) with no uniform contract. Specific failures observed in the codebase:
+**Partial — Options A, B, C shipped; D not confirmed. See ROADMAP.md items A.13 and A.2.** Confirmed: `ImageToolkitError` → `PipelineError`/`AlignmentFailedError`/`CanvasError`/`FallbackExhaustedError`/`ModelLoadError`/`ConfigError` hierarchy exists at `backend/src/errors/exceptions.py` (moved from the `backend/src/exceptions.py` path this section assumes) (Option A); `BaseQThreadWorker.run()` implements the exact three-tier `PipelineError`/`ImageToolkitError`/`Exception` routing described in Option B; the silent `print()`/bare-`except` instances called out here were fixed per ROADMAP A.2 (Option C). Option D (per-stage error context in the trace JSON) not confirmed — treat as still open.
+
+**Pain point (original framing):** Errors propagate differently across the three execution contexts (Qt main thread, `QThread` workers, `QRunnable` tasks) with no uniform contract. Specific failures observed in the codebase:
 - `ConversionWorker._convert_single_file()` uses `print(f"Error creating directory: {e}")` and `print(f"Error removing original file: {e}")` instead of logging, and silently returns `False` — the GUI never shows a per-file error.
 - `DeletionWorker` has a bare `except Exception: pass` in the `send2trash` loop body, swallowing all trash errors silently.
 - `AnimeStitchPipeline` raises bare `RuntimeError` and `ValueError` with no custom exception hierarchy, making it impossible for the GUI to distinguish "expected quality failure" (trigger retry) from "unexpected crash" (show stack trace to user).
@@ -1005,7 +1029,9 @@ This makes the difference between "pipeline succeeded via fallback" and "pipelin
 
 ## 5.16 Contract Testing for ML Model Wrappers (`backend/src/models/`)
 
-**Pain point:** The 827-test suite covers pipeline logic (`bundle_adjust.py`, `compositing.py`, `validation.py`, `frame_selection.py`, etc.) extensively but has **zero tests for the model wrapper layer** (`backend/src/models/`). The wrappers (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `BiRefNetWrapper`, `RoMaWrapper`, `BaSiCWrapper`, `EfficientLoFTRWrapper`, `JamMaWrapper`) are the highest-risk files in the codebase: they wrap third-party PyTorch models whose APIs change across versions, and a silent interface break (wrong tensor shape, changed output key name, removed method) will only surface when the full pipeline is run on real images.
+**Partial — Option A shipped; C not yet, B not done. See ROADMAP.md item A.9.** Confirmed: `backend/test/models/test_wrapper_contracts.py` exists with mock-based interface contract tests (Option A). Option C (a shared `ModelWrapperContractMixin`) is not yet factored out — a comment in the test file itself still describes it as future work ("will..."), so individual per-wrapper contract test classes exist without the shared mixin. Option B (GPU-gated smoke tests with real weights) not found — still open. Note also: the "827-test suite" figure below is stale post-S200-trim; re-verified 2026-07-27 at 675 tests (see ROADMAP.md item 3.13).
+
+**Pain point (original framing):** The 827-test suite covers pipeline logic (`bundle_adjust.py`, `compositing.py`, `validation.py`, `frame_selection.py`, etc.) extensively but has **zero tests for the model wrapper layer** (`backend/src/models/`). The wrappers (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `BiRefNetWrapper`, `RoMaWrapper`, `BaSiCWrapper`, `EfficientLoFTRWrapper`, `JamMaWrapper`) are the highest-risk files in the codebase: they wrap third-party PyTorch models whose APIs change across versions, and a silent interface break (wrong tensor shape, changed output key name, removed method) will only surface when the full pipeline is run on real images.
 
 Informed by: Ploomber's ML testing taxonomy (2024) — "Code tests", "Data tests", "Model tests" are three independent concerns; Google's ML Test Score rubric (2016, Sculley et al.) which assigns points for "testing the model's input and output shapes explicitly"; Made With ML / Anyscale MLOps guide (2024) which separates *behavioral tests* (expected outputs) from *infrastructure tests* (model loads, inputs accepted, outputs shaped correctly).
 
