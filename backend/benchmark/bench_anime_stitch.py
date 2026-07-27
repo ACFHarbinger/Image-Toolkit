@@ -2743,6 +2743,197 @@ def _report_fail_breakdown(results: List[Dict], lines: List[str]) -> None:
     lines.append("\n")
 
 
+# §11.7 — roadmap-defined threshold: flag any dataset whose smart-select
+# stage alone drops more than this fraction of its original frame count
+# (indicates extreme frame redundancy or a selection bug).
+_FRAME_SELECT_DROP_FLAG_PCT = 40.0
+
+
+def _report_frame_selection_telemetry(
+    results: List[Dict], output_dir: str, lines: List[str]
+) -> None:
+    """
+    §11.7 dashboard — Frame Selection Telemetry.
+
+    Shows, per dataset, frames kept vs dropped at each reduction stage
+    (original -> smart-select -> spatial-dedup -> final), aggregated once
+    near the top of the report (not per-test). Flags datasets where smart
+    selection alone drops >40% of frames per the roadmap's own threshold.
+    """
+    lines.append("### Frame Selection Telemetry (§11.7)\n\n")
+
+    rows = []
+    for r in results:
+        fs = r.get("frame_selection") or {}
+        orig = fs.get("original_count", 0) or 0
+        smart = fs.get("smart_select_count", 0) or 0
+        dedup = fs.get("spatial_dedup_count", 0) or 0
+        final = fs.get("final_count", 0) or 0
+        drop_smart = fs.get("frames_dropped_smart", max(0, orig - smart))
+        drop_dedup = fs.get("frames_dropped_dedup", max(0, smart - dedup))
+        smart_drop_pct = (drop_smart / orig * 100.0) if orig else 0.0
+        rows.append(
+            {
+                "name": r["name"],
+                "orig": orig,
+                "smart": smart,
+                "dedup": dedup,
+                "final": final,
+                "drop_smart": drop_smart,
+                "drop_dedup": drop_dedup,
+                "smart_drop_pct": smart_drop_pct,
+                "mode": fs.get("selection_mode", "—"),
+            }
+        )
+
+    # Optional stacked-bar PNG, precedent: per-test gains.png/animation_phases.png.
+    # Categorical order/colors follow the dataviz palette's validated adjacent
+    # ordering (blue/orange/aqua/yellow); the accompanying table below is the
+    # "relief" for the two low-contrast fills (aqua, yellow).
+    chart_rel = None
+    if _MPL_OK and rows:
+        try:
+            chart_path = os.path.join(output_dir, "frame_selection_telemetry.png")
+            names = [row["name"] for row in rows]
+            kept_smart = [row["smart"] for row in rows]
+            dropped_smart = [row["drop_smart"] for row in rows]
+            kept_dedup = [row["dedup"] for row in rows]
+            dropped_dedup = [row["drop_dedup"] for row in rows]
+
+            fig, ax = plt.subplots(figsize=(max(6.0, len(rows) * 0.7), 5))
+            x = np.arange(len(rows))
+            width = 0.35
+            ax.bar(
+                x - width / 2, kept_smart, width,
+                label="kept (smart-select)", color="#2a78d6",
+                edgecolor="white", linewidth=1,
+            )
+            ax.bar(
+                x - width / 2, dropped_smart, width, bottom=kept_smart,
+                label="dropped (smart-select)", color="#eb6834",
+                edgecolor="white", linewidth=1,
+            )
+            ax.bar(
+                x + width / 2, kept_dedup, width,
+                label="kept (spatial-dedup)", color="#1baf7a",
+                edgecolor="white", linewidth=1,
+            )
+            ax.bar(
+                x + width / 2, dropped_dedup, width, bottom=kept_dedup,
+                label="dropped (spatial-dedup)", color="#eda100",
+                edgecolor="white", linewidth=1,
+            )
+            ax.set_xticks(x)
+            ax.set_xticklabels(names, rotation=45, ha="right", fontsize=7)
+            ax.set_ylabel("Frame count")
+            ax.set_title("Frame Selection Telemetry — kept vs dropped per stage")
+            ax.legend(fontsize=7, loc="upper right")
+            plt.tight_layout()
+            fig.savefig(chart_path, dpi=100, bbox_inches="tight")
+            plt.close(fig)
+            chart_rel = os.path.basename(chart_path)
+        except Exception:
+            chart_rel = None
+
+    if chart_rel:
+        lines.append(f"![Frame Selection Telemetry]({chart_rel})\n\n")
+
+    lines.append(
+        "| Test | Original | Smart-Select | Spatial-Dedup | Final | "
+        "Dropped (smart) | Dropped (dedup) | Smart-drop % | Mode |\n"
+    )
+    lines.append(
+        "|------|---------:|-------------:|---------------:|------:|"
+        "-----------------:|------------------:|-------------:|------|\n"
+    )
+    flagged = []
+    for row in rows:
+        pct_str = f"{row['smart_drop_pct']:.1f}%"
+        if row["smart_drop_pct"] > _FRAME_SELECT_DROP_FLAG_PCT:
+            flagged.append(row["name"])
+            pct_str = f"**{pct_str}**"
+        lines.append(
+            f"| [{row['name']}](#{row['name']}) | {row['orig']} | {row['smart']} | "
+            f"{row['dedup']} | {row['final']} | {row['drop_smart']} | "
+            f"{row['drop_dedup']} | {pct_str} | {row['mode']} |\n"
+        )
+    lines.append("\n")
+    if flagged:
+        lines.append(
+            f"> ⚠️ **{len(flagged)} dataset(s) drop more than "
+            f"{_FRAME_SELECT_DROP_FLAG_PCT:.0f}% of frames at the smart-select "
+            "stage** (indicates extreme frame redundancy or a selection bug): "
+            + ", ".join(f"[{n}](#{n})" for n in flagged)
+            + "\n\n"
+        )
+    else:
+        lines.append(
+            f"> No dataset drops more than {_FRAME_SELECT_DROP_FLAG_PCT:.0f}% "
+            "of frames at the smart-select stage.\n\n"
+        )
+
+
+# §11.8 — the exact gate-classification prefixes emitted by the pipeline's
+# `_fallback_reason = ...` assignments (see fallback trigger sites in the
+# main dataset loop above). Listed first, in this order, so the count table
+# always shows all five even when a given run triggers zero of them.
+_KNOWN_FALLBACK_GATES = [
+    "alignment_failed",
+    "composite_gate_sc",
+    "composite_gate_sb",
+    "ghost_gate_siqe",
+    "render_exception",
+]
+
+
+def _report_fallback_breakdown(results: List[Dict], lines: List[str]) -> None:
+    """
+    §11.8 dashboard — Fallback Root Cause Breakdown.
+
+    Classifies every SCANS fallback in the run by its trigger gate (the
+    `fallback_reason` string's prefix before the first ':'), shows an
+    aggregate count table, then lists which specific datasets hit each gate
+    type, linked to their per-test `#asp_testNN` anchor.
+    """
+    lines.append("### Fallback Root Cause Breakdown (§11.8)\n\n")
+
+    by_gate: Dict[str, List[str]] = {}
+    total_fallbacks = 0
+    for r in results:
+        if not r.get("used_fallback"):
+            continue
+        total_fallbacks += 1
+        reason = r.get("fallback_reason") or "unknown"
+        gate = reason.split(":", 1)[0]
+        by_gate.setdefault(gate, []).append(r["name"])
+
+    all_gates = list(_KNOWN_FALLBACK_GATES)
+    for gate in sorted(by_gate):
+        if gate not in all_gates:
+            all_gates.append(gate)
+
+    lines.append(
+        f"Total fallbacks in this run: **{total_fallbacks}** / {len(results)} datasets.\n\n"
+    )
+    lines.append("| Gate | Count |\n|------|------:|\n")
+    for gate in all_gates:
+        lines.append(f"| `{gate}` | {len(by_gate.get(gate, []))} |\n")
+    lines.append("\n")
+
+    if not by_gate:
+        lines.append("_No fallbacks triggered in this run._\n\n")
+        return
+
+    lines.append("**Datasets by gate:**\n\n")
+    for gate in all_gates:
+        names = by_gate.get(gate)
+        if not names:
+            continue
+        links = ", ".join(f"[{n}](#{n})" for n in names)
+        lines.append(f"- `{gate}` ({len(names)}): {links}\n")
+    lines.append("\n")
+
+
 def _report_single_test_outputs(
     r: Dict,
     anime_rel: Optional[str],
@@ -3162,6 +3353,8 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
 
     _report_header_and_summary(results, lines)
     _report_fail_breakdown(results, lines)
+    _report_frame_selection_telemetry(results, output_dir, lines)
+    _report_fallback_breakdown(results, lines)
     _report_per_test_details(results, rd, lines)
 
     # Global feedback section
