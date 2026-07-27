@@ -53,7 +53,7 @@ flowchart TD
 
     subgraph STITCH["🎞 Stitching & Export"]
         S1["§4.1 Batch Stitching\nAutomate ASP across directories"]:::feature:::planned
-        S2["§4.2 Scrolling Video Export\nPanorama → scrolling MP4"]:::feature:::planned
+        S2["§4.2 Scrolling Video Export\nPanorama → scrolling MP4"]:::feature:::done
         S11["§4.11 RLHF Feedback Interface\nQuality rating loop for ASP"]:::feature:::planned
     end
 
@@ -144,9 +144,15 @@ Extend C with a `results.json` that records which groups have been processed. Re
 
 ---
 
-## 4.2 Export Stitched Panorama to Scrolling Video
+## 4.2 Export Stitched Panorama to Scrolling Video — ✅ Option B implemented (2026-07-27, issue #57)
 
 **Pain point:** Stitched manga/visual novel pages are long-form content users may want to share as videos (e.g., on platforms that don't support long images). A scrolling video export is a natural derived product.
+
+**Status:** Option B (FFmpeg pipe, full-resolution/quality) is implemented. C (animated WebP) and E (easing/hold) are not — left as future follow-ons, not blocking.
+
+- `ImageMerger.export_scrolling_video(image_path, output_path, scroll_speed_px_per_frame=10, fps=30, resolution=None, scroll_axis=None, codec="libx264")` in `backend/src/core/image_merger.py`. Auto-detects scroll axis from aspect ratio (tall -> vertical, wide -> horizontal) unless `scroll_axis` is given explicitly. Auto-derives a 16:9-ish viewport (clamped to the source, forced even for `yuv420p`) when `resolution` is `None`. Crops a sliding window across the panorama and pipes raw RGB24 frame bytes to `ffmpeg` via stdin (`-f rawvideo -pix_fmt rgb24 -s {W}x{H} -r {fps} -i pipe:0 -c:v {codec} -pix_fmt yuv420p out.mp4`), reusing the same bare-`ffmpeg`-on-PATH convention as `backend/src/core/video_converter.py`. If the panorama is smaller than one viewport's worth of scroll, it exports a short static clip (`fps` frames, ~1s) rather than raising — documented in the function's docstring.
+- GUI entry point: a new "Export as Video…" action in the Merge tab's post-merge confirm dialog (`MergeTab.show_preview_and_confirm` in `gui/src/tabs/core/merge_tab.py`), alongside the existing Copy/Save/Save-and-Add-to-Canvas/Discard actions. Opens `ScrollVideoExportDialog` (`gui/src/components/dialogs/scroll_video_export_dialog.py`) to collect scroll speed, fps, codec (libx264/libx265/libvpx-vp9), and an optional custom resolution; output path uses `QFileDialog.getSaveFileName` with `DontUseNativeDialog` (project hard rule — native GTK dialog + live JVM SIGSEGV). Export runs off the GUI thread via `ScrollVideoExportWorker` (`gui/src/helpers/core/video_export_worker.py`), a `QThread` mirroring `MergeWorker`'s signal pattern. The action doesn't consume the in-progress merge result — the confirm dialog re-appears afterwards so Save/Copy/Discard still work normally.
+- Verified directly (not via GUI) with real `ffmpeg`/`ffprobe`, no mocking of the encode path: `backend/test/core/test_export_scrolling_video.py` (5 tests — vertical auto-detect, horizontal auto-detect, nothing-to-scroll static clip, explicit resolution/axis override, missing-ffmpeg error path). All passing.
 
 ### Options
 
