@@ -1,6 +1,9 @@
 import contextlib
 import importlib.util as _importlib_util_merger
 import os
+import re
+import shutil
+import subprocess
 import tempfile
 import uuid
 from typing import Dict, List, Optional, Tuple
@@ -12,7 +15,7 @@ from loguru import logger
 from PIL import Image
 from scipy.optimize import least_squares
 
-from backend.src.constants import BACKEND_DIR, AlignMode
+from backend.src.constants import BACKEND_DIR, ROOT_DIR, AlignMode
 
 from . import FSETool
 
@@ -118,67 +121,27 @@ class ImageMerger:
 
     # --- Core Merging Logic
     @staticmethod
-    def _merge_images_panorama(image_paths: List[str], output_path: str) -> Image.Image:
-        """
-        Stitches images into a panorama using OpenCV's default PANORAMA mode.
-        Good for rotating camera shots (perspective transformation).
-        """
-        # Disable OpenCL to prevent memory corruption/malloc errors during stitching
-        cv2.ocl.setUseOpenCL(False)
-
-        cv_images = []
-        for path in image_paths:
-            img = cv2.imread(path)
-            if img is not None:
-                cv_images.append(img)
-            else:
-                print(f"Warning: Could not read image for panorama: {path}")
-
-        if len(cv_images) < 2:
-            raise ValueError("Need at least 2 valid images to create a panorama.")
-
-        # Initialize Stitcher in PANORAMA mode (Mode 0)
-        try:
-            stitcher = cv2.Stitcher_create(mode=0)
-        except AttributeError:
-            # Fallback for older OpenCV versions
-            stitcher = cv2.createStitcher(False)
-
-        # Perform stitching
-        status, pano = stitcher.stitch(cv_images)
-
-        # Force cleanup of any internal highgui/Qt resources before we return
-        with contextlib.suppress(cv2.error):
-            cv2.destroyAllWindows()
-
-        if status != cv2.Stitcher_OK:
-            error_map = {
-                cv2.Stitcher_ERR_NEED_MORE_IMGS: "Need more images",
-                cv2.Stitcher_ERR_HOMOGRAPHY_EST_FAIL: "Homography estimation failed",
-                cv2.Stitcher_ERR_CAMERA_PARAMS_ADJUST_FAIL: "Camera params failed",
-            }
-            err_msg = error_map.get(status, f"Error code {status}")
-            raise RuntimeError(f"Panorama stitching failed: {err_msg}")
-
-        # Convert BGR (OpenCV) to RGB (PIL)
-        pano_rgb = cv2.cvtColor(pano, cv2.COLOR_BGR2RGB)
-        merged_image = Image.fromarray(pano_rgb)
-
-        merged_image.save(output_path)
-        return merged_image
-
-    @staticmethod
-    def _merge_images_scan_stitch(
-        image_paths: List[str], output_path: str
+    def _merge_images_opencv(
+        image_paths: List[str],
+        output_path: str,
+        stitcher_mode: int = 0,
+        registration_resol: float = 0.6,
     ) -> Image.Image:
         """
-        Stitches a large number of images with small differences (flat scans).
-        Uses OpenCV's SCANS mode which optimizes for affine/flat transformations.
+        Stitches images using OpenCV's Stitcher.
+
+        stitcher_mode : 0 = PANORAMA (rotating-camera/perspective transform),
+                         1 = SCANS (affine/flat — small pan shots, near-duplicate
+                         frames; this is what a separate "stitch" mode used to
+                         mean before it was folded into this one engine).
+        registration_resol : keypoint registration resolution; higher values
+                         find more keypoints, which helps on small-overlap or
+                         near-duplicate frames (SCANS mode used 0.8 by default;
+                         now user-facing for both modes).
         """
         # Disable OpenCL to prevent memory corruption/malloc errors during stitching
         cv2.ocl.setUseOpenCL(False)
 
-        # 1. Read images
         cv_images = []
         for path in image_paths:
             img = cv2.imread(path)
@@ -190,19 +153,14 @@ class ImageMerger:
         if len(cv_images) < 2:
             raise ValueError("Need at least 2 valid images to stitch.")
 
-        # 2. Initialize Stitcher in SCANS mode
-        # Mode 1 = SCANS (Optimized for flat/affine stitching)
         try:
-            stitcher = cv2.Stitcher_create(mode=1)
+            stitcher = cv2.Stitcher_create(mode=stitcher_mode)
         except AttributeError:
-            # Fallback: older OpenCV versions might not accept mode arg in create
-            stitcher = cv2.createStitcher(True)  # True often maps to scans/try_use_gpu
+            # Fallback for older OpenCV versions
+            stitcher = cv2.createStitcher(stitcher_mode == 1)
 
-        # 3. Setting Registration Resol (higher value = more keypoints for small diffs)
-        # Default is usually 0.6, increasing helps with small overlaps
-        stitcher.setRegistrationResol(0.8)
+        stitcher.setRegistrationResol(registration_resol)
 
-        # 4. Perform Stitching
         status, pano = stitcher.stitch(cv_images)
 
         # Force cleanup of any internal highgui/Qt resources before we return
@@ -216,14 +174,181 @@ class ImageMerger:
                 cv2.Stitcher_ERR_CAMERA_PARAMS_ADJUST_FAIL: "Camera params failed",
             }
             err_msg = error_map.get(status, f"Error code {status}")
-            raise RuntimeError(f"Scan stitching failed: {err_msg}")
+            raise RuntimeError(f"OpenCV stitching failed: {err_msg}")
 
-        # 5. Convert and Save
+        # Convert BGR (OpenCV) to RGB (PIL)
         pano_rgb = cv2.cvtColor(pano, cv2.COLOR_BGR2RGB)
         merged_image = Image.fromarray(pano_rgb)
 
         merged_image.save(output_path)
         return merged_image
+
+    @staticmethod
+    def _read_pto_canvas_size(pto_path: str) -> Tuple[int, int]:
+        """Parse the ``p`` (panorama) line's ``w``/``h`` fields from a .pto file."""
+        with open(pto_path, "r") as fh:
+            for line in fh:
+                if line.startswith("p "):
+                    w_match = re.search(r"\bw(\d+)", line)
+                    h_match = re.search(r"\bh(\d+)", line)
+                    if w_match and h_match:
+                        return int(w_match.group(1)), int(h_match.group(1))
+        raise RuntimeError(f"could not parse canvas size from {pto_path}")
+
+    @staticmethod
+    def _merge_images_hugin(
+        image_paths: List[str],
+        output_path: str,
+        projection: int = 0,
+        linear_match: bool = True,
+    ) -> Image.Image:
+        """
+        Stitches images using the system Hugin CLI toolchain (GPL/GPL-adjacent
+        external tool via apt hugin-tools/enblend — run as a subprocess chain,
+        never linked): pto_gen -> cpfind -> autooptimiser -> pano_modify ->
+        nona -> enblend. See roadmap moon/roadmaps/asp.md §0.5 and its field
+        notes for why the system packages are used instead of building the
+        vendor/Hugin submodule fork (its CMake only wires up align_image_stack).
+
+        projection   : Hugin's own numbering — 0=Rectilinear, 1=Cylindrical,
+                       2=Equirectangular.
+        linear_match : use cpfind --linearmatch (a scrolling pan/scan
+                       sequence) instead of --multirow (rotating-camera
+                       panorama, Hugin's own default heuristic).
+        """
+        tools = ("pto_gen", "cpfind", "autooptimiser", "pano_modify", "nona", "enblend")
+        missing = [t for t in tools if shutil.which(t) is None]
+        if missing:
+            raise RuntimeError(
+                f"Hugin toolchain not found: {', '.join(missing)} "
+                "(install with: sudo apt-get install hugin-tools enblend enfuse)"
+            )
+        if len(image_paths) < 2:
+            raise ValueError("Need at least 2 images for Hugin stitching.")
+
+        abs_paths = [os.path.abspath(p) for p in image_paths]
+
+        def _run(cmd: List[str], cwd: str) -> None:
+            proc = subprocess.run(
+                cmd, cwd=cwd, capture_output=True, text=True, timeout=300
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"{cmd[0]} failed: {(proc.stderr or proc.stdout).strip()[-500:]}"
+                )
+
+        with tempfile.TemporaryDirectory(prefix="hugin_merge_") as tmp:
+            _run(["pto_gen", "-o", "project.pto", "-p", str(projection), *abs_paths], tmp)
+            cpfind_cmd = ["cpfind", "--linearmatch" if linear_match else "--multirow"]
+            cpfind_cmd += ["-o", "project_cp.pto", "project.pto"]
+            _run(cpfind_cmd, tmp)
+            _run(
+                ["autooptimiser", "-a", "-l", "-s", "-o", "project_opt.pto", "project_cp.pto"],
+                tmp,
+            )
+            _run(
+                [
+                    "pano_modify", "-p", str(projection), "--fov=AUTO", "--canvas=AUTO",
+                    "--crop=AUTOOUTSIDE", "--output-cropped-tiff",
+                    "-o", "project_mod.pto", "project_opt.pto",
+                ],
+                tmp,
+            )
+
+            # §0.5 field-note finding: rectilinear (and cylindrical) FOV
+            # optimization degenerates for long planar-scroll sequences — the
+            # implied FOV needed to cover many frames' worth of pure
+            # translation approaches Hugin's 180° projection singularity,
+            # producing a canvas hundreds of thousands of pixels wide/tall
+            # that then hangs or OOMs nona. Fail fast instead.
+            canvas_w, canvas_h = ImageMerger._read_pto_canvas_size(
+                os.path.join(tmp, "project_mod.pto")
+            )
+            _MAX_CANVAS_DIM = 20000
+            if canvas_w > _MAX_CANVAS_DIM or canvas_h > _MAX_CANVAS_DIM:
+                raise RuntimeError(
+                    f"degenerate canvas size {canvas_w}x{canvas_h} — the pan "
+                    "sequence is too long for Hugin's rectilinear/cylindrical "
+                    "FOV model (approaches the 180° projection singularity)"
+                )
+
+            _run(["nona", "-m", "TIFF_m", "-o", "nona_", "project_mod.pto"], tmp)
+
+            layers = sorted(
+                p for p in os.listdir(tmp) if p.startswith("nona_") and p.endswith(".tif")
+            )
+            if len(layers) < 2:
+                raise RuntimeError(f"nona produced {len(layers)} layer(s), need >=2")
+
+            # enblend's overlap-check safety guard (designed for photography
+            # with partial overlap) always trips on anime pan frames, which
+            # overlap almost entirely by design. overlap-check-threshold=0
+            # disables that specific check; the blend itself is unaffected
+            # (roadmap §0.5 field notes).
+            _run(
+                [
+                    "enblend", "--parameter=overlap-check-threshold=0",
+                    "-o", "result.tif", *layers,
+                ],
+                tmp,
+            )
+
+            merged_image = Image.open(os.path.join(tmp, "result.tif")).convert("RGB")
+            merged_image.save(output_path)
+            return merged_image
+
+    @staticmethod
+    def _merge_images_overmix(
+        image_paths: List[str],
+        output_path: str,
+        aligner: str = "Recursive",
+        render_stat: str = "average",
+    ) -> Image.Image:
+        """
+        Stitches images using Overmix (GPL-3.0 external tool — run as a
+        subprocess, never linked). Requires vendor/Overmix/build/OvermixCli,
+        built via desktop/linux/scripts/setup_overmix.sh. See roadmap
+        moon/roadmaps/asp.md §0.3 and its field notes.
+
+        aligner     : Overmix's own aligner names — Recursive / Average / Linear.
+        render_stat : "average" (Overmix's dedicated average render) or one of
+                      the statistics render's methods: avg / median / min /
+                      max / difference.
+        """
+        overmix_bin = ROOT_DIR / "vendor" / "Overmix" / "build" / "OvermixCli"
+        if not overmix_bin.exists():
+            raise RuntimeError(
+                f"OvermixCli not built at {overmix_bin}; run "
+                "desktop/linux/scripts/setup_overmix.sh"
+            )
+        if len(image_paths) < 2:
+            raise ValueError("Need at least 2 images for Overmix stitching.")
+
+        render_arg = (
+            "average:false:false"
+            if render_stat == "average"
+            else f"statistics:{render_stat}"
+        )
+        # Comparator fixed to Gradient (coarse-to-fine pyramid search) —
+        # roadmap §0.3 field notes found BruteForce far too slow at full
+        # frame resolution to expose as a real option.
+        cmd = [
+            str(overmix_bin),
+            *[os.path.abspath(p) for p in image_paths],
+            "--comparator=Gradient:1/false/0:both:0.75:1:6:1638",
+            f"--align={aligner}",
+            f"--render={render_arg}",
+            f"--save=0:{output_path}",
+        ]
+        env = dict(os.environ)
+        env.setdefault("OMP_NUM_THREADS", "4")
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        proc = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=300)
+        if proc.returncode != 0 or not os.path.exists(output_path):
+            raise RuntimeError(
+                f"Overmix failed: {(proc.stderr or proc.stdout).strip()[-500:]}"
+            )
+        return Image.open(output_path)
 
     @staticmethod
     def _merge_images_sequential(  # noqa: C901
@@ -796,7 +921,7 @@ class ImageMerger:
 
         Fallback chain per edge:
           LoFTR + MAGSAC++ → masked template match → high-pass phase correlation
-          If zero edges found → OpenCV SCANS mode (same as _merge_images_scan_stitch)
+          If zero edges found → OpenCV SCANS mode (same as _merge_images_opencv(stitcher_mode=1))
 
         Parameters
         ----------
@@ -919,10 +1044,18 @@ class ImageMerger:
         spacing: int = 0,
         align_mode: AlignMode = "Default (Top/Center)",
         duration: int = 500,
+        engine: str = "opencv",
+        engine_kwargs: Optional[Dict] = None,
     ) -> Image.Image:
         """
         Merge images based on direction.
-        Options: 'horizontal', 'vertical', 'grid', 'panorama', 'stitch', 'sequential', 'gif'.
+        Options: 'horizontal', 'vertical', 'grid', 'panorama', 'sequential', 'gif'.
+
+        For direction='panorama', `engine` selects the stitching engine:
+        'opencv' (default), 'hugin', 'overmix', or 'asp' (Anime Stitch
+        Pipeline). `engine_kwargs` carries engine-specific settings — see
+        `_merge_images_opencv`/`_merge_images_hugin`/`_merge_images_overmix`/
+        `perfect_stitch` for what each accepts.
         """
         # --- Map AlignMode to simpler C++ strings ---
         # "Default (Top/Center)" -> "top" (horiz), "left" (vert) or "center"?
@@ -961,9 +1094,30 @@ class ImageMerger:
             base.merge_images_grid(image_paths, output_path, rows, cols, spacing)
             return Image.open(output_path)
         elif direction == "panorama":
-            merged_img = self._merge_images_panorama(image_paths, output_path)
-        elif direction == "stitch":
-            merged_img = self._merge_images_scan_stitch(image_paths, output_path)
+            ek = engine_kwargs or {}
+            if engine == "hugin":
+                merged_img = self._merge_images_hugin(
+                    image_paths,
+                    output_path,
+                    projection=ek.get("projection", 0),
+                    linear_match=ek.get("linear_match", True),
+                )
+            elif engine == "overmix":
+                merged_img = self._merge_images_overmix(
+                    image_paths,
+                    output_path,
+                    aligner=ek.get("aligner", "Recursive"),
+                    render_stat=ek.get("render_stat", "average"),
+                )
+            elif engine == "asp":
+                merged_img = self.perfect_stitch(image_paths, output_path, **ek)
+            else:
+                merged_img = self._merge_images_opencv(
+                    image_paths,
+                    output_path,
+                    stitcher_mode=ek.get("stitcher_mode", 0),
+                    registration_resol=ek.get("registration_resol", 0.6),
+                )
         elif direction == "sequential":
             merged_img = self._merge_images_sequential(image_paths, output_path)
         elif direction == "perfect":

@@ -441,8 +441,15 @@ class ImageMergerTest:
         mock_cv2.imread.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
         mock_cv2.cvtColor.return_value = mock_pano
 
-        # Execute
-        result = ImageMerger.merge_images(image_paths, output_path, "stitch")
+        # Execute — SCANS mode is now the OpenCV engine's stitcher_mode=1,
+        # not a separate top-level direction.
+        result = ImageMerger.merge_images(
+            image_paths,
+            output_path,
+            "panorama",
+            engine="opencv",
+            engine_kwargs={"stitcher_mode": 1},
+        )
 
         # Verify
         assert os.path.exists(output_path)

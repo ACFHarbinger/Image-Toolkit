@@ -201,7 +201,7 @@ def _scan_stitch_fallback(
 ) -> Image.Image:
     """
     Fall back to OpenCV SCANS mode when the main pipeline cannot find
-    enough edges.  Mirrors _merge_images_scan_stitch.
+    enough edges.  Mirrors _merge_images_opencv(stitcher_mode=1).
 
     OpenCV's stitcher output usually has staircase-shaped black edges.
     After stitching we crop to the largest fully-covered inner rectangle so

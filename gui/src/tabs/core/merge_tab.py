@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGridLayout,
@@ -153,7 +154,6 @@ class MergeTab(AbstractClassSingleGallery):
                 "vertical",
                 "grid",
                 "panorama",
-                "stitch",
                 "sequential",
                 "gif",
             ]
@@ -204,46 +204,79 @@ class MergeTab(AbstractClassSingleGallery):
         config_layout.addRow(self.grid_group)
         self.grid_group.hide()
 
-        # --- Perfect Stitch (Anime Pan) Settings ---
-        self.perfect_stitch_checkbox = QCheckBox("Perfect Stitch Mode (Digital Art)")
-        self.perfect_stitch_checkbox.setToolTip(
-            "Optimized for digital anime pan shots. Uses template matching and pyramidal blending."
+        # --- Panorama Engine Settings ---
+        self.lbl_engine = QLabel("Engine:")
+        self.engine_combo = QComboBox()
+        self.engine_combo.addItem("OpenCV", "opencv")
+        self.engine_combo.addItem("Hugin Toolchain", "hugin")
+        self.engine_combo.addItem("Overmix", "overmix")
+        self.engine_combo.addItem("Anime Stitch Pipeline", "asp")
+        self.engine_combo.setToolTip(
+            "OpenCV: Stitcher (Panorama/SCANS modes)\n"
+            "Hugin Toolchain: pto_gen/cpfind/autooptimiser/nona/enblend (system hugin-tools)\n"
+            "Overmix: external Overmix CLI (recursive align + average/statistics render)\n"
+            "Anime Stitch Pipeline: BiRefNet + LoFTR + ECC full research pipeline"
         )
-        config_layout.addRow(self.perfect_stitch_checkbox)
+        config_layout.addRow(self.lbl_engine, self.engine_combo)
 
-        self.lbl_edge_crop = QLabel("Edge Crop (px):")
-        self.edge_crop_spinbox = QSpinBox()
-        self.edge_crop_spinbox.setRange(0, 500)
-        self.edge_crop_spinbox.setValue(50)
-        self.edge_crop_spinbox.setToolTip(
-            "Crops left/right edges to neutralize vignettes before stitching."
+        # OpenCV engine options
+        self.opencv_group = QGroupBox("OpenCV Options")
+        opencv_layout = QFormLayout(self.opencv_group)
+        self.opencv_stitcher_mode_combo = QComboBox()
+        self.opencv_stitcher_mode_combo.addItem("0 — Panorama", 0)
+        self.opencv_stitcher_mode_combo.addItem("1 — SCANS", 1)
+        self.opencv_stitcher_mode_combo.setToolTip(
+            "Panorama: rotating-camera/perspective transform.\n"
+            "SCANS: affine/flat — small pan shots, near-duplicate frames."
         )
-        config_layout.addRow(self.lbl_edge_crop, self.edge_crop_spinbox)
-
-        self.lbl_pyramid_levels = QLabel("Pyramid Levels:")
-        self.pyramid_levels_spinbox = QSpinBox()
-        self.pyramid_levels_spinbox.setRange(1, 12)
-        self.pyramid_levels_spinbox.setValue(8)
-        self.pyramid_levels_spinbox.setToolTip(
-            "Width of the linear alpha blend at the overlap seams."
+        opencv_layout.addRow("Stitcher mode:", self.opencv_stitcher_mode_combo)
+        self.opencv_registration_resol_spin = QDoubleSpinBox()
+        self.opencv_registration_resol_spin.setRange(0.1, 1.0)
+        self.opencv_registration_resol_spin.setSingleStep(0.05)
+        self.opencv_registration_resol_spin.setValue(0.6)
+        self.opencv_registration_resol_spin.setToolTip(
+            "Keypoint registration resolution. Higher finds more keypoints — "
+            "helps with small-overlap or near-duplicate frames."
         )
-        config_layout.addRow(self.lbl_pyramid_levels, self.pyramid_levels_spinbox)
+        opencv_layout.addRow("Registration resolution:", self.opencv_registration_resol_spin)
+        config_layout.addRow(self.opencv_group)
 
-        self.ai_options_group = QGroupBox("AI Optimization (Advanced)")
+        # Hugin engine options
+        self.hugin_group = QGroupBox("Hugin Options")
+        hugin_layout = QFormLayout(self.hugin_group)
+        self.hugin_projection_combo = QComboBox()
+        self.hugin_projection_combo.addItem("Rectilinear", 0)
+        self.hugin_projection_combo.addItem("Cylindrical", 1)
+        self.hugin_projection_combo.addItem("Equirectangular", 2)
+        hugin_layout.addRow("Projection:", self.hugin_projection_combo)
+        self.hugin_linear_match_checkbox = QCheckBox("Linear sequence matching")
+        self.hugin_linear_match_checkbox.setChecked(True)
+        self.hugin_linear_match_checkbox.setToolTip(
+            "cpfind --linearmatch — for a scrolling pan/scan sequence. "
+            "Uncheck for a rotating-camera panorama (--multirow)."
+        )
+        hugin_layout.addRow(self.hugin_linear_match_checkbox)
+        config_layout.addRow(self.hugin_group)
+
+        # Overmix engine options
+        self.overmix_group = QGroupBox("Overmix Options")
+        overmix_layout = QFormLayout(self.overmix_group)
+        self.overmix_aligner_combo = QComboBox()
+        self.overmix_aligner_combo.addItems(["Recursive", "Average", "Linear"])
+        overmix_layout.addRow("Aligner:", self.overmix_aligner_combo)
+        self.overmix_render_combo = QComboBox()
+        self.overmix_render_combo.addItems(["average", "median", "min", "max", "difference"])
+        self.overmix_render_combo.setToolTip(
+            "average: Overmix's dedicated average render.\n"
+            "median/min/max/difference: statistics render."
+        )
+        overmix_layout.addRow("Render statistic:", self.overmix_render_combo)
+        config_layout.addRow(self.overmix_group)
+
+        # Anime Stitch Pipeline engine options
+        self.ai_options_group = QGroupBox("Anime Stitch Pipeline Options")
         ai_layout = QVBoxLayout()
 
-        self.use_siamese_checkbox = QCheckBox(
-            "Order-Agnostic Matching (Siamese Network)"
-        )
-        self.use_siamese_checkbox.setChecked(True)
-        self.use_apap_checkbox = QCheckBox("Parallax Absorption (APAP Mesh Warping)")
-        self.use_apap_checkbox.setChecked(True)
-        self.use_lsd_checkbox = QCheckBox(
-            "Structure Preservation (Line Segment Detector)"
-        )
-        self.use_lsd_checkbox.setChecked(True)
-        self.use_gan_checkbox = QCheckBox("Neural Synthesis Refinement (AnimeGAN2)")
-        self.use_gan_checkbox.setChecked(True)
         self.use_birefnet_checkbox = QCheckBox("Character-Aware Seams (BiRefNet)")
         self.use_birefnet_checkbox.setChecked(True)
 
@@ -266,6 +299,22 @@ class MergeTab(AbstractClassSingleGallery):
         self.motion_model_combo.addItem("Translation", "translation")
         self.motion_model_combo.addItem("Affine 4-DOF", "affine")
 
+        self.lbl_edge_crop = QLabel("Edge Crop (px):")
+        self.edge_crop_spinbox = QSpinBox()
+        self.edge_crop_spinbox.setRange(0, 500)
+        self.edge_crop_spinbox.setValue(30)
+        self.edge_crop_spinbox.setToolTip(
+            "Crops left/right edges to neutralize vignettes before stitching."
+        )
+
+        self.lbl_pyramid_levels = QLabel("Pyramid Levels:")
+        self.pyramid_levels_spinbox = QSpinBox()
+        self.pyramid_levels_spinbox.setRange(1, 12)
+        self.pyramid_levels_spinbox.setValue(8)
+        self.pyramid_levels_spinbox.setToolTip(
+            "Number of Laplacian bands used for the multi-band seam blend."
+        )
+
         ai_layout.addWidget(QLabel("Renderer:"))
         ai_layout.addWidget(self.renderer_combo)
         ai_layout.addWidget(QLabel("Motion model:"))
@@ -274,38 +323,16 @@ class MergeTab(AbstractClassSingleGallery):
         ai_layout.addWidget(self.use_loftr_checkbox)
         ai_layout.addWidget(self.use_ecc_checkbox)
         ai_layout.addWidget(self.composite_fg_checkbox)
-        ai_layout.addWidget(self.use_siamese_checkbox)
-        ai_layout.addWidget(self.use_apap_checkbox)
-        ai_layout.addWidget(self.use_lsd_checkbox)
-        ai_layout.addWidget(self.use_gan_checkbox)
         ai_layout.addWidget(self.use_birefnet_checkbox)
-
-        mfsr_group = QGroupBox("MFSR Super-Resolution")
-        mfsr_vbox = QVBoxLayout(mfsr_group)
-        self.mfsr_checkbox = QCheckBox("Enable MFSR post-processing")
-        self.mfsr_checkbox.setChecked(False)
-        mfsr_vbox.addWidget(self.mfsr_checkbox)
-        mfsr_form = QFormLayout()
-        self.mfsr_dct_iter_spin = QSpinBox()
-        self.mfsr_dct_iter_spin.setRange(1, 100)
-        self.mfsr_dct_iter_spin.setValue(20)
-        mfsr_form.addRow("DCT iterations:", self.mfsr_dct_iter_spin)
-        self.mfsr_prior_checkbox = QCheckBox("CNN prior injection")
-        self.mfsr_prior_checkbox.setChecked(True)
-        self.mfsr_diffusion_checkbox = QCheckBox("Diffusion inpainting")
-        self.mfsr_diffusion_checkbox.setChecked(False)
-        mfsr_form.addRow(self.mfsr_prior_checkbox)
-        mfsr_form.addRow(self.mfsr_diffusion_checkbox)
-        mfsr_vbox.addLayout(mfsr_form)
-        ai_layout.addWidget(mfsr_group)
+        ai_form = QFormLayout()
+        ai_form.addRow(self.lbl_edge_crop, self.edge_crop_spinbox)
+        ai_form.addRow(self.lbl_pyramid_levels, self.pyramid_levels_spinbox)
+        ai_layout.addLayout(ai_form)
 
         self.ai_options_group.setLayout(ai_layout)
         config_layout.addRow(self.ai_options_group)
 
-        self.perfect_stitch_checkbox.toggled.connect(
-            self._toggle_perfect_stitch_visibility
-        )
-        self._toggle_perfect_stitch_visibility(False)
+        self.engine_combo.currentIndexChanged.connect(self._update_engine_visibility)
         content_layout.addWidget(config_group)
 
         # === 4. Image Library Gallery ===
@@ -605,7 +632,8 @@ class MergeTab(AbstractClassSingleGallery):
     def handle_direction_change(self, direction: str):
         is_canvas = direction == "canvas"
         is_grid = direction == "grid"
-        is_complex = direction in ("panorama", "stitch", "sequential")
+        is_panorama = direction == "panorama"
+        is_complex = direction in ("panorama", "sequential")
         is_gif = direction == "gif"
         is_traditional = not (is_canvas or is_complex or is_gif)
 
@@ -616,25 +644,23 @@ class MergeTab(AbstractClassSingleGallery):
         self.align_mode.setVisible(is_traditional and not is_canvas)
         self.lbl_duration.setVisible(is_gif)
         self.duration_spin.setVisible(is_gif)
-        self.perfect_stitch_checkbox.setVisible(is_complex)
-        self._toggle_perfect_stitch_visibility(
-            self.perfect_stitch_checkbox.isChecked() and is_complex
-        )
 
-    @Slot(bool)
-    def _toggle_perfect_stitch_visibility(self, checked: bool):
-        visible = checked and self.perfect_stitch_checkbox.isVisible()
-        self.lbl_edge_crop.setVisible(visible)
-        self.edge_crop_spinbox.setVisible(visible)
-        self.lbl_pyramid_levels.setVisible(visible)
-        self.pyramid_levels_spinbox.setVisible(visible)
-        self.ai_options_group.setVisible(visible)
-        if checked and self.perfect_stitch_checkbox.isVisible():
-            self.spacing.setEnabled(False)
-            self.align_mode.setEnabled(False)
-        else:
-            self.spacing.setEnabled(True)
-            self.align_mode.setEnabled(True)
+        self.lbl_engine.setVisible(is_panorama)
+        self.engine_combo.setVisible(is_panorama)
+        self._update_engine_visibility()
+
+    @Slot()
+    def _update_engine_visibility(self):
+        """Show only the settings group for the currently-selected engine,
+        and only while Mode is 'panorama' (the engine choice is meaningless
+        for every other mode)."""
+        is_panorama = self.direction.currentText() == "panorama"
+        engine = self.engine_combo.currentData() if is_panorama else None
+
+        self.opencv_group.setVisible(is_panorama and engine == "opencv")
+        self.hugin_group.setVisible(is_panorama and engine == "hugin")
+        self.overmix_group.setVisible(is_panorama and engine == "overmix")
+        self.ai_options_group.setVisible(is_panorama and engine == "asp")
 
     # ─── Input / Scan ───────────────────────────────────────────────────────────
 
@@ -1066,26 +1092,43 @@ class MergeTab(AbstractClassSingleGallery):
                 else None
             ),
             "duration": self.duration_spin.value(),
-            "perfect_stitch_mode": self.perfect_stitch_checkbox.isChecked(),
-            "edge_crop_px": self.edge_crop_spinbox.value(),
-            "pyramid_levels": self.pyramid_levels_spinbox.value(),
-            "use_siamese": self.use_siamese_checkbox.isChecked(),
-            "use_apap": self.use_apap_checkbox.isChecked(),
-            "use_lsd": self.use_lsd_checkbox.isChecked(),
-            "use_gan": self.use_gan_checkbox.isChecked(),
-            "use_birefnet": self.use_birefnet_checkbox.isChecked(),
-            "use_basic": self.use_basic_checkbox.isChecked(),
-            "use_loftr": self.use_loftr_checkbox.isChecked(),
-            "use_ecc": self.use_ecc_checkbox.isChecked(),
-            "renderer": self.renderer_combo.currentText(),
-            "composite_fg": self.composite_fg_checkbox.isChecked(),
-            "motion_model": self.motion_model_combo.currentData(),
-            "mfsr_mode": self.mfsr_checkbox.isChecked(),
-            "mfsr_n_dct_iter": self.mfsr_dct_iter_spin.value(),
-            "mfsr_use_prior": self.mfsr_prior_checkbox.isChecked(),
-            "mfsr_use_diffusion": self.mfsr_diffusion_checkbox.isChecked(),
+            "engine": self.engine_combo.currentData() if direction == "panorama" else None,
+            "engine_kwargs": (
+                self._collect_engine_kwargs() if direction == "panorama" else None
+            ),
             "selected_files": list(self.selected_files),
         }
+
+    def _collect_engine_kwargs(self) -> Dict[str, Any]:
+        """Gather the settings for whichever panorama engine is selected."""
+        engine = self.engine_combo.currentData()
+        if engine == "hugin":
+            return {
+                "projection": self.hugin_projection_combo.currentData(),
+                "linear_match": self.hugin_linear_match_checkbox.isChecked(),
+            }
+        elif engine == "overmix":
+            return {
+                "aligner": self.overmix_aligner_combo.currentText(),
+                "render_stat": self.overmix_render_combo.currentText(),
+            }
+        elif engine == "asp":
+            return {
+                "renderer": self.renderer_combo.currentText(),
+                "motion_model": self.motion_model_combo.currentData(),
+                "use_basic": self.use_basic_checkbox.isChecked(),
+                "use_loftr": self.use_loftr_checkbox.isChecked(),
+                "use_ecc": self.use_ecc_checkbox.isChecked(),
+                "composite_fg": self.composite_fg_checkbox.isChecked(),
+                "use_birefnet": self.use_birefnet_checkbox.isChecked(),
+                "edge_crop": self.edge_crop_spinbox.value(),
+                "laplacian_bands": self.pyramid_levels_spinbox.value(),
+            }
+        else:  # opencv
+            return {
+                "stitcher_mode": self.opencv_stitcher_mode_combo.currentData(),
+                "registration_resol": self.opencv_registration_resol_spin.value(),
+            }
 
     # ─── Config save/restore ────────────────────────────────────────────────────
 
@@ -1147,28 +1190,65 @@ class MergeTab(AbstractClassSingleGallery):
             if out_fname:
                 self.output_filename_input.setText(out_fname)
 
-            self.perfect_stitch_checkbox.setChecked(
-                config.get("perfect_stitch_mode", False)
-            )
-            self.edge_crop_spinbox.setValue(config.get("edge_crop_px", 50))
-            self.pyramid_levels_spinbox.setValue(config.get("pyramid_levels", 4))
-            self.use_siamese_checkbox.setChecked(config.get("use_siamese", True))
-            self.use_apap_checkbox.setChecked(config.get("use_apap", True))
-            self.use_lsd_checkbox.setChecked(config.get("use_lsd", True))
-            self.use_gan_checkbox.setChecked(config.get("use_gan", True))
-            self.use_birefnet_checkbox.setChecked(config.get("use_birefnet", True))
+            engine = config.get("engine")
+            if engine is None:
+                # Back-compat: old saved sessions used a "Perfect Stitch
+                # Mode" checkbox instead of an engine choice.
+                engine = "asp" if config.get("perfect_stitch_mode") else "opencv"
+            idx = self.engine_combo.findData(engine)
+            if idx >= 0:
+                self.engine_combo.setCurrentIndex(idx)
 
+            ek = config.get("engine_kwargs") or {}
+            self.opencv_stitcher_mode_combo.setCurrentIndex(
+                max(0, self.opencv_stitcher_mode_combo.findData(ek.get("stitcher_mode", 0)))
+            )
+            self.opencv_registration_resol_spin.setValue(ek.get("registration_resol", 0.6))
+
+            self.hugin_projection_combo.setCurrentIndex(
+                max(0, self.hugin_projection_combo.findData(ek.get("projection", 0)))
+            )
+            self.hugin_linear_match_checkbox.setChecked(ek.get("linear_match", True))
+
+            idx = self.overmix_aligner_combo.findText(ek.get("aligner", "Recursive"))
+            if idx >= 0:
+                self.overmix_aligner_combo.setCurrentIndex(idx)
+            idx = self.overmix_render_combo.findText(ek.get("render_stat", "average"))
+            if idx >= 0:
+                self.overmix_render_combo.setCurrentIndex(idx)
+
+            self.edge_crop_spinbox.setValue(
+                ek.get("edge_crop", config.get("edge_crop_px", 30))
+            )
+            self.pyramid_levels_spinbox.setValue(
+                ek.get("laplacian_bands", config.get("pyramid_levels", 8))
+            )
+            self.use_birefnet_checkbox.setChecked(
+                ek.get("use_birefnet", config.get("use_birefnet", True))
+            )
+            self.use_basic_checkbox.setChecked(
+                ek.get("use_basic", config.get("use_basic", True))
+            )
+            self.use_loftr_checkbox.setChecked(
+                ek.get("use_loftr", config.get("use_loftr", True))
+            )
+            self.use_ecc_checkbox.setChecked(
+                ek.get("use_ecc", config.get("use_ecc", True))
+            )
+            self.composite_fg_checkbox.setChecked(
+                ek.get("composite_fg", config.get("composite_fg", True))
+            )
+            renderer = ek.get("renderer", config.get("renderer", "blend"))
+            idx = self.renderer_combo.findText(renderer)
+            if idx >= 0:
+                self.renderer_combo.setCurrentIndex(idx)
             mm_idx = self.motion_model_combo.findData(
-                config.get("motion_model", "translation")
+                ek.get("motion_model", config.get("motion_model", "translation"))
             )
             if mm_idx >= 0:
                 self.motion_model_combo.setCurrentIndex(mm_idx)
-            self.mfsr_checkbox.setChecked(config.get("mfsr_mode", False))
-            self.mfsr_dct_iter_spin.setValue(config.get("mfsr_n_dct_iter", 20))
-            self.mfsr_prior_checkbox.setChecked(config.get("mfsr_use_prior", True))
-            self.mfsr_diffusion_checkbox.setChecked(
-                config.get("mfsr_use_diffusion", False)
-            )
+
+            self._update_engine_visibility()
 
             print("MergeTab configuration loaded.")
         except Exception as e:

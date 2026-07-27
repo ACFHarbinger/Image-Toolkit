@@ -66,41 +66,18 @@ class MergeWorker(QThread):
 
             self.progress.emit(0, len(image_files))
 
-            perfect_stitch_mode = self.config.get("perfect_stitch_mode", False)
-            edge_crop_px = self.config.get("edge_crop_px", 0)
-            pyramid_levels = self.config.get("pyramid_levels", 4)
-
-            if perfect_stitch_mode:
-                ImageMerger.perfect_stitch(
-                    image_paths=image_files,
-                    output_path=output_path,
-                    edge_crop=edge_crop_px,
-                    pyramid_levels=pyramid_levels,
-                    use_siamese=self.config.get("use_siamese", True),
-                    use_apap=self.config.get("use_apap", True),
-                    use_lsd=self.config.get("use_lsd", True),
-                    use_gan=self.config.get("use_gan", True),
-                    use_birefnet=self.config.get("use_birefnet", True),
-                    use_basic=self.config.get("use_basic", True),
-                    use_loftr=self.config.get("use_loftr", True),
-                    use_ecc=self.config.get("use_ecc", True),
-                    renderer=self.config.get("renderer", "blend"),
-                    composite_fg=self.config.get("composite_fg", True),
-                    motion_model=self.config.get("motion_model", "translation"),
-                    mfsr_mode=self.config.get("mfsr_mode", False),
-                    mfsr_n_dct_iter=self.config.get("mfsr_n_dct_iter", 20),
-                    mfsr_use_prior=self.config.get("mfsr_use_prior", True),
-                    mfsr_use_diffusion=self.config.get("mfsr_use_diffusion", False),
-                )
-            else:
-                ImageMerger.merge_images(
-                    image_paths=image_files,
-                    output_path=output_path,
-                    direction=direction,
-                    grid_size=grid_size,
-                    align_mode=align_mode,
-                    spacing=spacing,
-                )
+            # "panorama" mode carries an engine choice (opencv/hugin/overmix/
+            # asp); every other direction ignores engine/engine_kwargs.
+            ImageMerger.merge_images(
+                image_paths=image_files,
+                output_path=output_path,
+                direction=direction,
+                grid_size=grid_size,
+                align_mode=align_mode,
+                spacing=spacing,
+                engine=self.config.get("engine") or "opencv",
+                engine_kwargs=self.config.get("engine_kwargs"),
+            )
 
             self.progress.emit(len(image_files), len(image_files))
             self.sig_finished.emit(output_path)

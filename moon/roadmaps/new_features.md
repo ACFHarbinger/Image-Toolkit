@@ -584,9 +584,67 @@ The new Image subtab (`gui/src/tabs/core/elements/image_extractor_subtab.py`):
 ---
 
 ## 4.16 Additional Stitcher Options
-Add Overmix and Hugin as options to the Image Stitcher category and Merge tab. 
-If they have already been added to the benchmark, this update is trivial and
-it gives end users two solid additional options for high-quality panoramas.
+
+**Pain point:** The Merge tab's "panorama" mode only ever drove OpenCV's
+`Stitcher`, and a separate "stitch" mode existed solely to run the same
+`Stitcher` in SCANS mode (mode 1) instead of PANORAMA mode (mode 0) — two
+top-level Modes for what is really one engine with one parameter. Getting a
+genuinely different stitching *algorithm* (not just a different `Stitcher`
+mode) meant checking "Perfect Stitch Mode", a single boolean that routed to
+the Anime Stitch Pipeline (ASP) with no way to reach Overmix or Hugin — both
+already built and benchmarked as reference comparators in `moon/roadmaps/asp.md`
+§0.3/§0.5 — from the GUI at all. A boolean checkbox also doesn't scale: adding
+a third or fourth engine would mean more checkboxes fighting for the same
+mutually-exclusive slot.
+
+**Implemented 2026-07-27:** replaced the checkbox with an **Engine** dropdown, shown
+only when Mode is "panorama", with four options — each revealing only its
+own relevant settings:
+
+- **OpenCV** (the previous panorama/stitch split, now one engine):
+  - *Stitcher mode*: `0 — Panorama` or `1 — SCANS` (this *is* the old "stitch"
+    Mode — folded in here since it was never a different algorithm, just a
+    different `cv2.Stitcher` mode + registration resolution).
+  - *Registration resolution*: the same `setRegistrationResol()` knob SCANS
+    mode already used internally, now user-facing for both modes.
+- **Hugin Toolchain** (external tool, `pto_gen`→`cpfind`→`autooptimiser`→
+  `pano_modify`→`nona`→`enblend`, via system `hugin-tools`/`enblend` packages —
+  see §0.5's field notes for why system packages rather than the vendored
+  fork):
+  - *Projection*: Rectilinear / Cylindrical / Equirectangular.
+  - *Linear sequence matching*: on by default — uses `cpfind --linearmatch`
+    (frames are a scrolling pan, not a rotating-camera panorama) instead of
+    the multi-row heuristic.
+- **Overmix** (external tool, GPL-3.0, `vendor/Overmix/build/OvermixCli` — see
+  §0.3's field notes):
+  - *Aligner*: Recursive / Average / Linear.
+  - *Render statistic*: average / median / min / max / difference. Comparator
+    is fixed to `Gradient` internally — the field notes found `BruteForce`
+    too slow to expose as a real option (didn't finish a 6-frame test in
+    90s at full frame resolution).
+- **Anime Stitch Pipeline**: the pre-existing AI options panel, reused as-is
+  except for two cleanups found while auditing it for this change — neither
+  is wired to anything in `AnimeStitchPipeline.__init__` (verified by grep):
+  the "Order-Agnostic Matching / Parallax Absorption / Structure Preservation /
+  Neural Synthesis Refinement" checkboxes (`use_siamese`/`use_apap`/`use_lsd`/
+  `use_gan` — dead parameters `perfect_stitch()`'s own docstring already
+  flagged as ignored) and the entire "MFSR Super-Resolution" group (no `mfsr_*`
+  reference exists anywhere in `backend/src/animation/`). Both removed rather
+  than left as non-functional UI. Kept: renderer, motion model, BiRefNet/BaSiC/
+  LoFTR/ECC toggles, composite-foreground toggle, edge crop, and pyramid
+  (Laplacian band) levels — all genuinely consumed by the pipeline.
+
+Backend: `backend/src/core/image_merger.py` gained `_merge_images_hugin` and
+`_merge_images_overmix` (subprocess wrappers, matching the benchmark scripts'
+settings) alongside the existing `_merge_images_opencv` (now parameterized by
+stitcher mode + registration resolution instead of two near-duplicate
+functions). `merge_images()`'s `direction="panorama"` branch takes an
+`engine` kwarg; `direction="stitch"` no longer exists.
+
+**Possible follow-ups:** exposing Hugin's `cpclean` outlier-removal pass and
+Overmix's `AnimationSeparator` phase-aware alignment as opt-in toggles once
+either proves worth the extra control; a "compare all four engines" batch
+button that runs every engine on the current canvas selection side by side.
 
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 

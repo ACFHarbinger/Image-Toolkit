@@ -1183,6 +1183,15 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     if overmix_img is not None:
         print(f"  [Overmix] Comparator output found for {dataset_name}: {overmix_img.shape}")
 
+    # §0.5 — Hugin reference comparator (external tool via system
+    # hugin-tools/enblend, generated ahead of time by
+    # backend/benchmark/run_hugin.py, not invoked from here). Picked up if
+    # present; a reference column only, never a gate/verdict input.
+    _hugin_path = os.path.join(dataset_dir, "output", "hugin_stitch.png")
+    hugin_img = cv2.imread(_hugin_path) if os.path.exists(_hugin_path) else None
+    if hugin_img is not None:
+        print(f"  [Hugin] Comparator output found for {dataset_name}: {hugin_img.shape}")
+
     # Clean old outputs
     if os.path.exists(out_path):
         os.remove(out_path)
@@ -1627,6 +1636,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             phase_spans_list=_phase_spans,
             overmix_img=overmix_img,
             overmix_path=(_overmix_path if overmix_img is not None else None),
+            hugin_img=hugin_img,
+            hugin_path=(_hugin_path if hugin_img is not None else None),
         )
 
     try:
@@ -1948,6 +1959,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             mean_post_warp_diff=_mean_post_warp_diff,
             overmix_img=overmix_img,
             overmix_path=(_overmix_path if overmix_img is not None else None),
+            hugin_img=hugin_img,
+            hugin_path=(_hugin_path if hugin_img is not None else None),
         )
 
     # ------------------------------------------------------------------
@@ -2036,6 +2049,8 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         mean_post_warp_diff=_mean_post_warp_diff,
         overmix_img=overmix_img,
         overmix_path=(_overmix_path if overmix_img is not None else None),
+        hugin_img=hugin_img,
+        hugin_path=(_hugin_path if hugin_img is not None else None),
     )
 
 
@@ -2079,12 +2094,15 @@ def _build_result(
     mean_post_warp_diff: Optional[float] = None,
     overmix_img: Optional[np.ndarray] = None,
     overmix_path: Optional[str] = None,
+    hugin_img: Optional[np.ndarray] = None,
+    hugin_path: Optional[str] = None,
 ) -> Dict:
     asp_metrics = _compute_all_metrics(asp_img, affines) if asp_img is not None else {}
     sim_metrics = _compute_all_metrics(sim_img) if sim_img is not None else {}
-    # §0.3 — Overmix is a reference comparator column, not a gate: it never
-    # participates in the asp-vs-simple verdict logic below.
+    # §0.3/§0.5 — Overmix and Hugin are reference comparator columns, not
+    # gates: neither participates in the asp-vs-simple verdict logic below.
     overmix_metrics = _compute_all_metrics(overmix_img) if overmix_img is not None else {}
+    hugin_metrics = _compute_all_metrics(hugin_img) if hugin_img is not None else {}
 
     ssim_val = float("nan")
     psnr_val = float("nan")
@@ -2234,6 +2252,11 @@ def _build_result(
         # via backend/benchmark/run_overmix.py — never a gate/verdict input) ---
         "metrics_overmix": overmix_metrics,
         "overmix_path": overmix_path,
+        # --- §0.5 Hugin reference comparator (external tool via system
+        # hugin-tools/enblend, run via backend/benchmark/run_hugin.py —
+        # never a gate/verdict input) ---
+        "metrics_hugin": hugin_metrics,
+        "hugin_path": hugin_path,
         "comparison": {
             "ssim": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
             "psnr_db": round(psnr_val, 2) if not math.isnan(psnr_val) else None,
@@ -2669,17 +2692,19 @@ def _report_header_and_summary(results: List[Dict], lines: List[str]) -> None:
     # Global summary table
     lines.append(_GLOBAL_SUMMARY_HEADER)
     lines.append(
-        "| Test | SC ASP | SC Sim | SC OM | GT SSIM ASP | GT SSIM Sim | Align SSIM ASP | Align SSIM Sim | Verdict | Src | FB |\n"
+        "| Test | SC ASP | SC Sim | SC OM | SC HG | GT SSIM ASP | GT SSIM Sim | Align SSIM ASP | Align SSIM Sim | Verdict | Src | FB |\n"
     )
     lines.append(
-        "|------|-------:|-------:|------:|------------:|------------:|---------------:|---------------:|---------|-----|----|\n"
+        "|------|-------:|-------:|------:|------:|------------:|------------:|---------------:|---------------:|---------|-----|----|\n"
     )
     for r in results:
         am, sm = r["metrics_asp"], r["metrics_simple"]
         om = r.get("metrics_overmix") or {}
+        hg = r.get("metrics_hugin") or {}
         sc_a = f"{am.get('seam_coherence', 0):.1f}" if am else "—"
         sc_s = f"{sm.get('seam_coherence', 0):.1f}" if sm else "—"
         sc_om = f"{om.get('seam_coherence', 0):.1f}" if om else "—"
+        sc_hg = f"{hg.get('seam_coherence', 0):.1f}" if hg else "—"
         gt = r.get("ground_truth", {})
         gt_ssim_a = gt.get("metrics_asp", {}).get("ssim_vs_gt")
         gt_ssim_s = gt.get("metrics_simple", {}).get("ssim_vs_gt")
@@ -2695,7 +2720,7 @@ def _report_header_and_summary(results: List[Dict], lines: List[str]) -> None:
         vsrc = r["comparison"].get("verdict_source", "cv")[:2].upper()
         fallback = "✓" if r["used_fallback"] else ""
         lines.append(
-            f"| [{r['name']}](#{r['name']}) | {sc_a} | {sc_s} | {sc_om} | {gt_ssim_a_s} | {gt_ssim_s_s} | "
+            f"| [{r['name']}](#{r['name']}) | {sc_a} | {sc_s} | {sc_om} | {sc_hg} | {gt_ssim_a_s} | {gt_ssim_s_s} | "
             f"{align_ssim_a_s} | {align_ssim_s_s} | {verdict} | {vsrc} | {fallback} |\n"
         )
     lines.append("\n")
@@ -2723,11 +2748,12 @@ def _report_single_test_outputs(
     anime_rel: Optional[str],
     simple_rel: Optional[str],
     overmix_rel: Optional[str],
+    hugin_rel: Optional[str],
     lines: List[str],
 ) -> None:
     lines.append("### Final Outputs\n\n")
-    lines.append("| Anime Stitch Pipeline | OpenCV Simple Stitch | Overmix (reference) |\n")
-    lines.append("|:---------------------:|:--------------------:|:--------------------:|\n")
+    lines.append("| Anime Stitch Pipeline | OpenCV Simple Stitch | Overmix (reference) | Hugin (reference) |\n")
+    lines.append("|:---------------------:|:--------------------:|:--------------------:|:--------------------:|\n")
     asp_cell = (
         f"![ASP]({anime_rel})"
         if os.path.exists(r["anime_path"])
@@ -2744,15 +2770,26 @@ def _report_single_test_outputs(
         if overmix_rel and overmix_path and os.path.exists(overmix_path)
         else "_not generated_"
     )
-    lines.append(f"| {asp_cell} | {simple_cell} | {overmix_cell} |\n\n")
+    hugin_path = r.get("hugin_path")
+    hugin_cell = (
+        f"![Hugin]({hugin_rel})"
+        if hugin_rel and hugin_path and os.path.exists(hugin_path)
+        else "_not generated_"
+    )
+    lines.append(f"| {asp_cell} | {simple_cell} | {overmix_cell} | {hugin_cell} |\n\n")
 
 
 def _report_single_test_cv_metrics(
-    r: Dict, am: Optional[Dict], sm: Optional[Dict], om: Optional[Dict], lines: List[str]
+    r: Dict,
+    am: Optional[Dict],
+    sm: Optional[Dict],
+    om: Optional[Dict],
+    hg: Optional[Dict],
+    lines: List[str],
 ) -> None:
     lines.append("### CV Metrics\n\n")
-    lines.append("| Metric | ASP | Simple | Overmix | Notes |\n")
-    lines.append("|--------|-----|--------|---------|-------|\n")
+    lines.append("| Metric | ASP | Simple | Overmix | Hugin | Notes |\n")
+    lines.append("|--------|-----|--------|---------|-------|-------|\n")
     metric_defs = [
         ("sharpness", "Laplacian variance — higher = sharper edges"),
         ("coverage", "Fraction of non-black pixels — lower = heavy crop"),
@@ -2778,7 +2815,8 @@ def _report_single_test_cv_metrics(
         a_val = f"{am.get(key, '—')}" if am else "—"
         s_val = f"{sm.get(key, '—')}" if sm else "—"
         om_val = f"{om.get(key, '—')}" if om else "—"
-        lines.append(f"| `{key}` | {a_val} | {s_val} | {om_val} | {note} |\n")
+        hg_val = f"{hg.get(key, '—')}" if hg else "—"
+        lines.append(f"| `{key}` | {a_val} | {s_val} | {om_val} | {hg_val} | {note} |\n")
     ssim_v = (
         f"{r['comparison']['ssim']:.3f}"
         if r["comparison"]["ssim"] is not None
@@ -2790,15 +2828,16 @@ def _report_single_test_cv_metrics(
         else "—"
     )
     lines.append(
-        f"| `ssim (asp vs simple)` | {ssim_v} | — | — | Structural similarity between the two outputs |\n"
+        f"| `ssim (asp vs simple)` | {ssim_v} | — | — | — | Structural similarity between the two outputs |\n"
     )
     lines.append(
-        f"| `psnr (asp vs simple)` | {psnr_v} | — | — | Peak SNR between the two outputs |\n"
+        f"| `psnr (asp vs simple)` | {psnr_v} | — | — | — | Peak SNR between the two outputs |\n"
     )
     lines.append(
         f"| `seam_coherence` | {am.get('seam_coherence', '—') if am else '—'} | "
         f"{sm.get('seam_coherence', '—') if sm else '—'} | "
         f"{om.get('seam_coherence', '—') if om else '—'} | "
+        f"{hg.get('seam_coherence', '—') if hg else '—'} | "
         f"Row-mean lum std — lower = less color banding (≤18 good, 18–28 moderate, >28 severe) |\n"
     )
     lines.append("\n")
@@ -3092,11 +3131,18 @@ def _report_per_test_details(results: List[Dict], rd: str, lines: List[str]) -> 
             if overmix_path and os.path.exists(overmix_path)
             else None
         )
+        hg = r.get("metrics_hugin") or {}
+        hugin_path = r.get("hugin_path")
+        hugin_rel = (
+            _rel_path(hugin_path, rd)
+            if hugin_path and os.path.exists(hugin_path)
+            else None
+        )
 
         lines.append(f"---\n\n## {name}\n\n")
 
-        _report_single_test_outputs(r, anime_rel, simple_rel, overmix_rel, lines)
-        _report_single_test_cv_metrics(r, am, sm, om, lines)
+        _report_single_test_outputs(r, anime_rel, simple_rel, overmix_rel, hugin_rel, lines)
+        _report_single_test_cv_metrics(r, am, sm, om, hg, lines)
         _report_single_test_gt(r, lines)
         _report_single_test_align(r, lines)
         _report_single_test_photo(r, lines)
@@ -3132,6 +3178,7 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
                 "asp_metrics": r["metrics_asp"],
                 "sim_metrics": r["metrics_simple"],
                 "overmix_metrics": r.get("metrics_overmix"),
+                "hugin_metrics": r.get("metrics_hugin"),
                 "ssim": r["comparison"]["ssim"],
                 "psnr": r["comparison"]["psnr_db"],
                 "affine_health": r["affine_health"],

@@ -4,7 +4,7 @@
     \brief Image canvas merger tab.
 
     MergeTab lets users add images to a selection gallery, configure a merge
-    mode (horizontal, vertical, grid, panorama, stitch, sequential, or GIF),
+    mode (horizontal, vertical, grid, panorama, sequential, or GIF),
     and adjust parameters such as spacing, animation duration, and alignment
     before starting the merge.  A live preview area shows the expected output.
 
@@ -49,7 +49,7 @@ Item {
                         ComboBox {
                             id: directionCombo
                             Layout.fillWidth: true
-                            model: ["horizontal", "vertical", "grid", "panorama", "stitch", "sequential", "gif"]
+                            model: ["horizontal", "vertical", "grid", "panorama", "sequential", "gif"]
                         }
                     }
                 GroupBox {

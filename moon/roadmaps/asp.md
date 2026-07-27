@@ -189,14 +189,36 @@ aligned-SSIM windowing logic. Optional (d): SI-FID as a reference-free signal
 for non-GT tests — still unbuilt, only worth it if (a)+(c) leave those tests
 hard to rank.
 
-### 0.5 Optional second reference: Hugin  `[1 day, optional]`
-`hugin` CLI tools (`pto_gen`/`cpfind`/`autooptimiser`/`nona`/`enblend`) can batch
-scan-mode panoramas. Worth one afternoon to script on the 5-test subset; only roll
-out to the full corpus if its outputs are competitive (expected: it struggles on
-anime texture like all SIFT-based tools — confirming that is itself useful data).
+### 0.5 Optional second reference: Hugin  `[5-test verify done 2026-07-27 —
+see .agent/cache/hugin_field_notes.md; full 97-corpus run still open]`
+- **Done**: system `hugin-tools`/`enblend`/`enfuse` (apt) as the CLI
+  toolchain — `vendor/Hugin` (the ACFHarbinger fork submodule) turned out
+  not to build these tools at all (its CMake only wires up
+  `align_image_stack`; `cpfind`'s subdirectory is commented out), so the
+  system packages are used instead; the submodule stays for potential
+  future GUI/build work. `backend/benchmark/run_hugin.py` runs
+  `pto_gen -> cpfind -> autooptimiser -> pano_modify -> nona -> enblend`
+  on each dataset's smart-selected frames (`output/hugin_stitch.png`) and,
+  with `--full`, the full raw set. `metrics_hugin`/`hugin_path` wired into
+  `bench_anime_stitch.py`/the report exactly like Overmix (§0.3) — the
+  report's tables are now four-way (ASP/Simple/Overmix/Hugin).
+- **5-test verify result**: only 1/5 (the 9-frame test) succeeded; the
+  other 4 (22-26 frames) failed with a degenerate ~470,000px canvas.
+  Root cause: Hugin's rectilinear/cylindrical projection models a rotating
+  camera, and our planar-scroll content pushes the fitted FOV toward the
+  180° projection singularity once enough frames accumulate — not a
+  wiring bug, confirmed via three rejected fix attempts (cylindrical
+  projection, dropping `autooptimiser -s`, a fixed bounded FOV) in the
+  field notes. Added a fast-fail canvas-size guard (>20,000px aborts
+  immediately) so this degenerates into a clear, fast error instead of a
+  5-minute `nona` timeout or an opaque `std::bad_alloc`.
+- **Practical implication**: Hugin's usable comparator coverage on this
+  corpus is inherently partial (roughly <15-20 frame sequences only) —
+  expect the same pattern at full-97 scale, not something to keep chasing.
 
 **Phase-0 exit gate:** ratings file exists; benchmark emits coherence + pose-residual
-columns; Overmix column present for all 97; a three-way summary table in the report.
+columns; Overmix and Hugin columns present for all 97; a four-way summary table in
+the report.
 
 ---
 
