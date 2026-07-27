@@ -278,14 +278,16 @@ success criterion ("zero coherence-class losses among true
 composites" needs eyes on images, not SSIM) — have not run; that's the
 next step before either flag can flip to default-on.
 
-### 2.4 Phase-aware frame selection  `[1 week, after 2.2 metrics]`
-Bias `smart_select_frames` to take camera-step candidates from the *same* phase
-when possible (the on-twos/threes exploitation that failed in S3/S8 for
-measurement reasons — now unblocked by 0.4). Phase membership from 2.2 *is* the
-pose-similarity metric the reports called for (§R: background-agnostic, unlike the
-failed gradient metric; cheaper than DWPose/ViTPose embeddings, which remain the
-upgrade path if phase granularity proves too coarse). Success metric: mean seam
-`post_warp_diff` drops; human ratings don't regress.
+### 2.4 Phase-aware frame selection  `[REJECTED, 2026-07-27 — see
+.agent/cache/asp_phase_aware_select_postmortem_2026-07-27.md]`
+Implemented and 5-test verified: `ASP_PHASE_AWARE_SELECT` (default OFF) adds
+a Pass-2 tie-break penalty against camera-step candidates that would cross
+into a different candidate-level animation phase than the previous anchor.
+Mean seam `post_warp_diff` did not drop (8.90→8.99 across the 5 tests, flat
+to slightly worse) and one test (`asp_test57`) flipped from a safe SCANS
+fallback to a real ASP attempt with visible seam/registration corruption —
+a real regression, not a metric artifact. Flag stays OFF; do not re-enable
+without a different mechanism (see post-mortem).
 
 ### 2.5 Background quality: Overmix-style averaging  `[REJECTED again,
 2026-07-27 — see .agent/cache/asp_bg_average_postmortem_2026-07-27.md]`

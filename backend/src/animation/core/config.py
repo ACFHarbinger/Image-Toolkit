@@ -62,6 +62,8 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_OTSU_BG_CORR": (int, 0, 1, "Per-pair Otsu bg mask for phase correlation"),
     "ASP_TWO_CHANNEL_SELECT": (int, 0, 1, "BiRefNet two-channel camera/animation selection (experimental)"),
     "ASP_POSE_WINDOW_PX": (int, 0, None, "DINOv2 pose-consistent selection window (0=off, experimental)"),
+    "ASP_PHASE_AWARE_SELECT": (int, 0, 1, "§2.4 Pass-2 bias toward same-phase candidates (default OFF pending A/B)"),
+    "ASP_PHASE_CROSS_PENALTY": (float, 0.0, 1.0, "§2.4 tie-break penalty applied to a cross-phase Pass-2 candidate"),
     # ── Video ingestion ─────────────────────────────────────────────────
     "ASP_VIDEO_MAX_FRAMES": (int, 1, None, "Max frames decoded from a video input"),
     "ASP_VIDEO_PROXY_SCALE": (float, 0.05, 1.0, "Proxy decode scale for the selection pass"),
@@ -269,6 +271,7 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_HIGH_HOLD_RESPONSE", "ASP_HOLD_AVERAGE", "ASP_BLUR_REJECT_THRESH",
         "ASP_CONTRAST_THRESH", "ASP_NEAR_DUP_LUMA", "ASP_TEMPORAL_VAR_THRESH",
         "ASP_OTSU_BG_CORR", "ASP_TWO_CHANNEL_SELECT", "ASP_POSE_WINDOW_PX",
+        "ASP_PHASE_AWARE_SELECT", "ASP_PHASE_CROSS_PENALTY",
     ],
     "video": [
         "ASP_VIDEO_MAX_FRAMES", "ASP_VIDEO_PROXY_SCALE",

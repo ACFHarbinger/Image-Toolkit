@@ -192,6 +192,22 @@ except ValueError:
 # Default OFF.  Enable with ASP_HOLD_AVERAGE=1.
 _HOLD_AVERAGE: bool = os.environ.get("ASP_HOLD_AVERAGE", "0") != "0"
 
+# §2.4: phase-aware frame selection. Pass 2 already penalises candidates that
+# stay within the *same hold block* as the previous anchor (identical pose,
+# zero ARAP benefit). This is the coarser, opposite-direction bias: penalise
+# candidates that would jump to a *different animation phase* (a new pose/
+# action loop, à la Overmix's AnimationSeparator) when a same-phase candidate
+# is available, since cross-phase pairs are harder to align/composite than
+# within-phase ones (§2.3 already refuses to midpoint-warp across a phase
+# boundary at composite time — this reduces how often selection forces that
+# case in the first place). Default OFF pending A/B; enable with
+# ASP_PHASE_AWARE_SELECT=1.
+_PHASE_AWARE_SELECT: bool = os.environ.get("ASP_PHASE_AWARE_SELECT", "0") != "0"
+try:
+    _PHASE_CROSS_PENALTY = float(os.environ.get("ASP_PHASE_CROSS_PENALTY", "0.05"))
+except ValueError:
+    _PHASE_CROSS_PENALTY = 0.05
+
 # Real animation holds are 2-6 frames (on twos/threes, occasionally slower).
 # A "hold block" this large is a false positive from the MAD/dHash detector —
 # e.g. a slow scroll whose per-frame MAD never trips the threshold — and must
@@ -1482,6 +1498,22 @@ def smart_select_frames(  # noqa: C901
     _MIN_ADV_FRAC = 0.50
     _MAX_ADV_FRAC = 2.50
 
+    # §2.4: candidate-level phase clustering, computed on this pass's own
+    # thumbs/frames_paths (post pre-filters, post optional hold-averaging) so
+    # indices line up with `candidates`/`s_prev` below. This is a proxy for
+    # the real §2.2 phase_ids (which run later, on the final selected set) —
+    # good enough for a same-vs-different-phase tie-break signal at
+    # selection time.
+    _cand_phase_ids: Optional[List[int]] = None
+    if _PHASE_AWARE_SELECT and pw > 0 and len(selected_v1) > 2:
+        _cand_hashes = [_compute_dhash(t) for t in thumbs]
+        _cand_phase_ids = _phase_ids_from_hashes(_cand_hashes)
+        if verbose:
+            print(
+                f"  [PhaseSelect] {len(set(_cand_phase_ids))} candidate "
+                f"phase(s) across {len(thumbs)} pre-selection frames."
+            )
+
     # Try to compute DINOv2 features when Pass 2 is active.
     _dino_feats: Optional[np.ndarray] = None
     if pw > 0 and len(selected_v1) > 2:
@@ -1541,6 +1573,16 @@ def smart_select_frames(  # noqa: C901
                 + (
                     _SAME_HOLD_PENALTY
                     if _HOLD_THRESHOLD > 0 and hold_ids[c] == hold_ids[s_prev]
+                    else 0.0
+                )
+                # §2.4: opposite-direction bias — penalise a candidate that
+                # would cross into a different animation phase than s_prev
+                # when a same-phase candidate is available, since cross-phase
+                # pairs are harder to align/composite than within-phase ones.
+                + (
+                    _PHASE_CROSS_PENALTY
+                    if _cand_phase_ids is not None
+                    and _cand_phase_ids[c] != _cand_phase_ids[s_prev]
                     else 0.0
                 )
                 for s, c in zip(scores, candidates, strict=False)
@@ -1641,6 +1683,21 @@ def detect_animation_phases(
 
     thumbs = _load_thumbs_parallel(frames_paths)
     hashes = [_compute_dhash(t) for t in thumbs]
+    return _phase_ids_from_hashes(hashes, z_thresh=z_thresh)
+
+
+def _phase_ids_from_hashes(
+    hashes: List[np.ndarray], z_thresh: float = 2.0
+) -> List[int]:
+    """Core §2.2 change-point clustering, factored out so callers that already
+    have dHashes in hand (e.g. Pass 2 of ``smart_select_frames``, §2.4) don't
+    pay for a redundant thumbnail reload. See ``detect_animation_phases`` for
+    the algorithm description.
+    """
+    N = len(hashes)
+    if N <= 2:
+        return list(range(N))
+
     dists = [int(np.sum(hashes[i] != hashes[i - 1])) for i in range(1, N)]
 
     med = float(np.median(dists))
@@ -1681,6 +1738,7 @@ __all__ = [
     "smart_select_frames",
     "detect_animation_phases",
     "phase_spans",
+    "_phase_ids_from_hashes",
     "_detect_hold_blocks",
     "_detect_hold_blocks_dhash",
     "_compute_dhash",

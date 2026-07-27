@@ -4,6 +4,19 @@
 
 ---
 
+## S226 — 2026-07-27 (ASP Phase 2.4: phase-aware frame selection — implemented, measured, rejected)
+
+Implemented the fix specified in GitHub issue #23 / roadmap §2.4: bias `smart_select_frames`'s Pass 2 toward camera-step candidates from the same candidate-level animation phase as the previous anchor, the coarser opposite-direction analogue of the existing same-hold-block tie-break penalty.
+
+- **Implemented** in `backend/src/animation/ingestion/frame_selection.py`: factored the §2.2 change-point clustering math out of `detect_animation_phases` into a reusable `_phase_ids_from_hashes()`; added `ASP_PHASE_AWARE_SELECT` (default OFF) and `ASP_PHASE_CROSS_PENALTY` (default 0.05), computing candidate-level phase IDs on Pass 2's own candidate pool and penalizing cross-phase tie-break candidates. Registered both in `config.py`'s schema/TOML dump. 670 animation tests green.
+- **Measurement pitfall caught before any conclusion was drawn**: the first 5-test comparison showed zero difference across all metrics — traced to Pass 2 itself being gated behind `ASP_POSE_WINDOW_PX`, which defaults to 0 (disabled), so the new code never executed. Re-ran with `ASP_POSE_WINDOW_PX=80` set in both arms to isolate phase-awareness as the only variable; confirmed via log diff that real, different selection decisions occurred.
+- **5-test verify result: mean seam post_warp_diff did not drop** (8.90→8.99 across the 5 tests, flat to slightly worse) — failing the roadmap's own stated success criterion. One test (`asp_test57`) flipped from a safe SCANS fallback to a real ASP attempt; viewing it shows clear vertical strip/seam discontinuities and misregistration, a worse result than the fallback it displaced, despite a much-improved ghosting_siqe number — another case of a metric disagreeing with a direct look at the image. A second test (`asp_test08`) showed a favorable verdict shift but both its OFF and ON composites were already visibly broken by pre-existing, unrelated seam artifacts — not a meaningful win.
+- **Root cause**: the tie-break penalty is a purely local, per-slot signal — it has no visibility into whether nudging one slot changes whether the render/composite gate later decides a full attempt is safe, only whether the immediate neighbor-pose similarity looks better. That's an insufficient signal to predict the fallback/attempt-quality effect seen on `asp_test57`.
+- Full write-up in `.agent/cache/asp_phase_aware_select_postmortem_2026-07-27.md`. `moon/roadmaps/asp.md` §2.4 updated to a short pointer.
+- **Disposition**: `ASP_PHASE_AWARE_SELECT` stays default OFF; since it's nested inside the already-default-OFF Pass 2, this has zero effect on the default pipeline regardless. The `_phase_ids_from_hashes` refactor and tie-break wiring are kept (harmless, flag-gated). Recommend not re-attempting as a local per-slot penalty — a future attempt needs visibility into the eventual composite/gate outcome, not just neighbor similarity.
+
+---
+
 ## S225 — 2026-07-27 (ASP Phase 2.5: background-averaging post-mortem, second measurement — still rejected)
 
 Attempted the fix specified in GitHub issue #24 / roadmap §2.5: the first measurement (S220) found visible strip-banding and attributed it to an abrupt switch between pure median (count==2) and pure mean (count≥3) at the geographic boundary where confirmed-background sample count changes.
