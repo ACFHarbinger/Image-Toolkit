@@ -4,6 +4,18 @@
 
 ---
 
+## S241 — 2026-07-27 (ASP Phase 3.1 follow-up: dense-band-scan composite gate — REJECTED, zero measured value)
+
+Implemented the §3.1 joint-gain-solve postmortem's recommended follow-up: a finer-grained local check for the composite quality gate, to close a documented false-negative where the gate's aggregate `sb` (strip-banding) statistic passes on test04 despite a visible local defect — flagged independently twice, once in the joint-gain-solve postmortem and once in the ToonOut masking-fix postmortem.
+
+- **Built**: `_dense_band_scan_score()` (`backend/benchmark/bench_anime_stitch.py`) — a full sliding-window scan across the entire canvas, closing a real sampling gap in the existing `_strip_banding_score` (which only samples a band around each frame's own affine canvas-entry row, structurally blind to defects strictly inside a frame's own extent). Wired into the existing composite gate (not a new gate name, respecting the ≤10-gate budget) with the same adaptive floor/SCANS-ratio pattern as `sc`/`sb`.
+- **Measured (5-test verify, both `ASP_JOINT_GAIN_SOLVE` OFF and ON)**: the new metric never crossed its calibrated floor (45) on any of the 10 data points — max observed 20.9. **Zero measured effect on any fallback/real verdict.**
+- **Bigger finding**: test04's original regression **no longer reproduces** against the current codebase. The joint-gain-solve postmortem was measured *before* the ToonOut masking fix (S230) landed; re-measuring now shows ToonOut's masking-accuracy improvement already changed test04's pixel composition enough that the *pre-existing* `sb` check alone correctly gates it (`sb=40.4>35`) without any new metric — the gap this follow-up was built to close appears to already be closed by an unrelated, earlier fix.
+- **Reverted** per the roadmap's own anti-goal ("no new quality gates... without... a full-corpus run... zero measured value") — implement, measure, revert on a null result, same discipline as GraphCut/phase-aware-select/bg-average. Full write-up: `.agent/cache/asp_dense_band_scan_gate_2026-07-27.md`.
+- `moon/roadmaps/asp.md` §3.1 updated with this follow-up's outcome; flags `ASP_JOINT_GAIN_SOLVE`'s own disposition as needing a fresh re-measurement against the current ToonOut-inclusive baseline in a future session (out of scope here — this follow-up was gate-design only).
+
+---
+
 ## S240 — 2026-07-27 (ASP Phase 1.1: literature sweep for issue #21's gap areas)
 
 Implemented GitHub issue #21 / roadmap §1.1 — a targeted web-search sweep of the five specific gap areas the roadmap flagged (not a general re-survey; `research/Image_Stitching_Research.md` already covers the field through mid-2026).
@@ -375,7 +387,7 @@ User-authorized monitored diagnostic runs of `bench_anime_stitch.py`, continuing
 - **"Guest Mode" Login**: Added a "Guest Mode" button to the `LoginWindow` allowing access with only an account name, bypassing password authentication.
 - **Volatile In-Memory Vault**: `VaultManager` supports `is_guest=True` (and `create_guest_vault(username)` factory), intercepting all `save_data`, `load_data`, and `load_account_credentials` calls to keep user state strictly in volatile memory. Keystore, secret key generation, pepper loading, and disk vault writes are completely bypassed.
 - **Volatile Settings & Session Recovery Guard**: `AppSettings` QSettings disk persistence in `SettingsWindow` and `.enc` file generation in `MainWindow._save_session_recovery()` are strictly disabled when operating in Guest mode.
-- **UI Account Labeling**: App title bar and Settings header clearly label active Guest accounts (e.g. `pkhunter (Guest)`).
+- **UI Account Labeling**: App title bar and Settings header clearly label active Guest accounts (e.g. `guest_username (Guest)`).
 - **Unit Test Coverage**: Expanded `gui/test/core/test_login_window.py` with `TestGuestMode` verifying input validation, volatile vault creation, memory-only data updates, signal emission, and non-persistence.
 
 **Part 5 — Login Window Preference Profile Selection:**

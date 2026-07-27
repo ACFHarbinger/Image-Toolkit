@@ -420,6 +420,23 @@ reloads fresh every dataset with no cache, unlike BiRefNet).
   statistic didn't). The approach works; the gate needs a matching
   finer-grained local check before this can default-on — not attempted here
   to keep this one measurement to one change.
+  **Follow-up REJECTED, 2026-07-27** (see
+  `.agent/cache/asp_dense_band_scan_gate_2026-07-27.md`): built the
+  recommended finer-grained local check (`_dense_band_scan_score`, a full
+  sliding-window scan vs `_strip_banding_score`'s frame-boundary-anchored
+  sampling), wired into the composite gate. 5-test verify across both
+  conditions (default OFF, `ASP_JOINT_GAIN_SOLVE=1`): the new metric never
+  crossed its calibrated floor on any test — zero measured effect on any
+  verdict. Bigger finding: **test04's original regression no longer
+  reproduces** against the current codebase — the ToonOut masking fix
+  (S230, landed after this postmortem was written) already changed test04's
+  pixel composition enough that the *pre-existing* `sb` check alone now
+  correctly gates it (`sb=40.4>35`) without any new metric. Reverted per
+  the anti-goal against unproven new gates; the architectural sampling gap
+  is real but currently unexercised by any known failing case, so it's
+  parked. `ASP_JOINT_GAIN_SOLVE`'s own disposition should be re-measured
+  fresh in a future session against the current ToonOut-inclusive baseline
+  rather than inherited from this now-partially-stale postmortem.
 - **3.2 GraphCut revisit** — moot; 1.3 did not survive its second measurement
   (2026-07-27).
 - **3.3 Multi-band blend on final boundaries** `[3 days]` — only if 3.1+3.2 leave
