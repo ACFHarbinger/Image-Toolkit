@@ -2215,15 +2215,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#41-batch-stitching" class="md-nav__link">
+  <a href="#41-batch-stitching-options-a-c-e-implemented-2026-07-27-issue-56" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4.1 Batch Stitching
+        4.1 Batch Stitching — ✅ Options A, C, E implemented (2026-07-27, issue #56)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="4.1 Batch Stitching">
+    <nav class="md-nav" aria-label="4.1 Batch Stitching — ✅ Options A, C, E implemented (2026-07-27, issue #56)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3087,15 +3087,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#41-batch-stitching" class="md-nav__link">
+  <a href="#41-batch-stitching-options-a-c-e-implemented-2026-07-27-issue-56" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4.1 Batch Stitching
+        4.1 Batch Stitching — ✅ Options A, C, E implemented (2026-07-27, issue #56)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="4.1 Batch Stitching">
+    <nav class="md-nav" aria-label="4.1 Batch Stitching — ✅ Options A, C, E implemented (2026-07-27, issue #56)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3653,8 +3653,16 @@
 <h2 id="how-to-use-this-document">How to Use This Document<a class="headerlink" href="#how-to-use-this-document" title="Permanent link">&para;</a></h2>
 <p>Each section describes a proposed feature, all viable implementation options with trade-offs, and a recommendation. Items tagged <strong>[Quick Win]</strong> take under a day. Items tagged <strong>[Research]</strong> require prototyping.</p>
 <hr />
-<h2 id="41-batch-stitching">4.1 Batch Stitching<a class="headerlink" href="#41-batch-stitching" title="Permanent link">&para;</a></h2>
+<h2 id="41-batch-stitching-options-a-c-e-implemented-2026-07-27-issue-56">4.1 Batch Stitching — ✅ Options A, C, E implemented (2026-07-27, issue #56)<a class="headerlink" href="#41-batch-stitching-options-a-c-e-implemented-2026-07-27-issue-56" title="Permanent link">&para;</a></h2>
 <p><strong>Pain point:</strong> Users with large screenshot libraries (e.g., 50+ groups of frames from novel-reading sessions) currently process each group one at a time in the StitchTab.</p>
+<p><strong>Status:</strong> Options C (CLI batch mode) and E (resume support) were already fully implemented in <code>backend/src/utils/io/dispatcher.py::dispatch_stitch</code> before this item was picked up — <code>python main.py stitch --batch-dir /path --resume</code> scans immediate subdirectories, runs <code>AnimeStitchPipeline</code> on each via <code>_run_single_stitch()</code>, and persists <code>.stitch_progress.json</code> after every sequence. This wasn't reflected in the roadmap text (it read as an open TODO). Option A (the GUI counterpart the roadmap's own recommendation calls for "once C is validated") is now implemented too:</p>
+<ul>
+<li><strong><code>gui/src/helpers/animation/batch_stitch_worker.py::BatchStitchWorker</code></strong> (<code>QThread</code>): runs the same batch loop as the CLI, reusing <code>dispatcher.py</code>'s <code>_collect_image_paths</code>/<code>_run_single_stitch</code> directly rather than re-implementing "run one sequence" a second time, so the two entry points can never silently diverge. Reads/writes the identical <code>.stitch_progress.json</code>, so a batch interrupted from one entry point resumes correctly from the other. Runs the plain (non-HITL) pipeline path — unattended batch runs don't pause for interactive review, unlike the single-sequence StitchTab/<code>StitchWorker</code> flow. <code>cancel()</code> is checked between items (a single <code>AnimeStitchPipeline.run()</code> call isn't interruptible mid-stage, matching this project's existing §2.7B cancellation granularity).</li>
+<li><strong><code>gui/src/components/dialogs/batch_stitch_dialog.py::BatchStitchDialog</code></strong>: root-directory picker (<code>QFileDialog</code> with <code>DontUseNativeDialog</code>), renderer/output-suffix/resume options, and the progress list the roadmap asks for — one row per subdirectory with a status icon (queued/running/done/skipped/failed), backed by a progress bar. Its <code>closeEvent()</code> deliberately uses an <em>unbounded</em> <code>QThread.wait()</code> rather than a fixed timeout when cancelling mid-run — the gallery crash fixed earlier this same session (<code>.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md</code>) is the exact same class of bug (a worker's signals connected to widgets that a bounded wait can let outlive), so this dialog was built to avoid it from the start rather than needing the same fix applied twice.</li>
+<li>New "⚏ Batch Stitch…" button in the StitchTab's action row, opening the dialog.</li>
+<li><strong>Not implemented</strong>: ETA display (not asked for by Option A's exact text beyond "per-item status"), output preview thumbnails in the progress list, ATA ordering, and Options B (Postgres-backed queue) and D (filesystem watcher) — both explicitly deferred by the roadmap's own recommendation.</li>
+<li><strong>Tests</strong>: 11 new cases in <code>gui/test/dialogs/test_batch_stitch_dialog.py</code> (worker: subdirectory iteration, resume-skip, progress-JSON format, cancellation, empty directory, too-few-images skip; dialog: construction defaults, missing-directory guard, progress-list/bar updates, batch-finished summary) — all passing, plus the existing <code>gui/test/animation/test_stitch_tab.py</code> (27) and <code>gui/test/core/test_stitch_tab.py</code> (2) re-verified unaffected (66 total across all stitch/dialog tests).</li>
+</ul>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
 <p><strong>A — Directory-level batch mode (GUI)</strong>
 Scan a root directory for subdirectories matching a naming pattern (e.g., <code>scene_*/</code>). Run the ASP pipeline on each, save outputs to a <code>stitched/</code> subfolder. Show a batch progress list in the StitchTab with per-item status, ETA, and output preview.
@@ -3740,7 +3748,13 @@ For collections that don't need persistent storage, use FAISS (<code>faiss-cpu</
 <hr />
 <h2 id="44-auto-tagger-integration">4.4 Auto-Tagger Integration<a class="headerlink" href="#44-auto-tagger-integration" title="Permanent link">&para;</a></h2>
 <p><strong>Pain point:</strong> The database supports tags, but tagging is entirely manual. Crawlers fetch Danbooru/Gelbooru tags for downloaded images, but locally-sourced images have no tags.</p>
-<p><strong>Status update (2026-07-27, issue #32):</strong> Option A's backend (<code>backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper</code>) was fully built previously but had zero callers anywhere in the codebase (confirmed via repo-wide grep). It now has its first real caller — <code>backend/src/pipeline/anime_training_pipeline.py</code>'s captioning stage, via <code>content_generation.md</code> §1.1 — as the fallback WD14 backend when no local ONNX path is configured. A category-mapping bug was fixed in the process (WD category <code>9</code> is the rating group, not "copyright"). The database-ingest tagging path (this section's actual pain point — tagging locally-sourced images on ingest), the human-review queue (§C), and background Celery ingest (§D) are still not built; only the shared inference backend is now proven to have a working caller.</p>
+<p><strong>Status update (2026-07-27, issue #32):</strong> Option A's backend (<code>backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper</code>) was fully built previously but had zero callers anywhere in the codebase (confirmed via repo-wide grep). It now has its first real caller — <code>backend/src/pipeline/anime_training_pipeline.py</code>'s captioning stage, via <code>content_generation.md</code> §1.1 — as the fallback WD14 backend when no local ONNX path is configured. A category-mapping bug was fixed in the process (WD category <code>9</code> is the rating group, not "copyright"). The database-ingest tagging path (this section's actual pain point — tagging locally-sourced images on ingest) and background Celery ingest (§D) are still not built.</p>
+<p><strong>Status update (2026-07-27, issue #58 — §C shipped):</strong> Built the human-in-the-loop review queue for the LoRA training dataset-prep flow specifically (not the database-ingest path, which is a separate, still-open item). Verified before building: <code>WDTaggerWrapper.tag_with_review()</code> (§E's confidence-threshold split) already existed with a full implementation and test coverage, but — like <code>WDTaggerWrapper</code> itself before issue #32 — had zero callers anywhere in the codebase. This is now its first real caller.
+- <strong><code>gui/src/helpers/models/tag_review_worker.py::TagReviewWorker</code></strong>: a <code>QThread</code> that runs <code>tag_with_review()</code> over a dataset folder's untagged images (skips any image whose <code>.txt</code> caption sidecar already exists, matching the training pipeline's own skip logic) and emits <code>(auto_tags, review_tags)</code> per image, tagged with which zone each came from.
+- <strong><code>gui/src/components/dialogs/tag_review_dialog.py::TagReviewDialog</code></strong>: pages through each untagged image one at a time — thumbnail, a checkbox per predicted tag (auto-confidence tags pre-checked, borderline review-zone tags unchecked by default — the human's job is mainly to promote a few review-zone tags, not re-tag from scratch), a free-text "add a custom tag" field, and Prev/Next navigation that syncs in-progress edits so they aren't lost when paging. "Save All" writes each image's checked tags as a <code>.txt</code> caption sidecar — the exact same format <code>HybridCaptioner.write_caption_file</code> produces, so reviewed captions are indistinguishable from auto-generated ones to the training pipeline.
+- <strong>Not backed by PostgreSQL</strong>, as this option's original text specified: the project has since moved away from Postgres entirely (<code>unified_database.md</code>), and the review happens synchronously within one GUI session against a dataset folder already on disk — a <code>.txt</code>-sidecar-per-image queue matches the existing training-pipeline convention with zero new schema, rather than introducing a retired dependency for a single-session workflow. A DB-backed, cross-session queue remains a valid future extension if the database-ingest tagging path (this section's still-open pain point) is ever built.
+- <strong>Wired into <code>gui/src/tabs/models/delta/lora_train_tab.py</code></strong>: a new "Review Tags..." button next to "Inspect .safetensors...", scoped to the tab's already-selected dataset folder.
+- <strong>Tests</strong>: <code>gui/test/dialogs/test_tag_review_dialog.py</code> (6 cases — result bookkeeping, checkbox-toggle promotion of review-zone tags, custom-tag addition, caption-file writing with only checked tags, trigger-token prepending, navigation-preserves-edits) and <code>gui/test/helpers/test_tag_review_worker.py</code> (4 cases — skip-already-tagged, auto/review split with correct checked-by-default flags, unavailable-tagger error path, progress signal accuracy). All 10 passing.</p>
 <h3 id="options_3">Options<a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h3>
 <p><strong>A — WD-1.4 (WaifuDiffusion Tagger) via ONNX</strong>
 Run the ONNX model locally on each image during database ingest. Generates booru-style tags at ~50–100ms/image on CPU, faster on GPU.
@@ -3753,8 +3767,8 @@ Run the ONNX model locally on each image during database ingest. Generates booru
 Use zero-shot classification against the full Danbooru tag vocabulary (50k+ tags) with CLIP. No separate tagger model needed if CLIP (§4.3A) is already present.
 - Pros: No additional model if CLIP is installed.
 - Cons: Much lower accuracy than WD-1.4 for domain-specific tags. Slow for large tag vocabularies.</p>
-<p><strong>C — Human-in-the-loop tagging queue</strong>
-Show untagged images in a review queue. Present top-N auto-tag suggestions (from A or B) as checkboxes. User confirms or corrects. Persistent queue backed by PostgreSQL.
+<p><strong>C — Human-in-the-loop tagging queue</strong> <code>[shipped 2026-07-27, issue #58, LoRA-training-flow scope — see status update above]</code>
+Show untagged images in a review queue. Present top-N auto-tag suggestions (from A or B) as checkboxes. User confirms or corrects. <del>Persistent queue backed by PostgreSQL</del> — shipped as <code>.txt</code>-sidecar-per-image instead, per the status update above (Postgres has been retired project-wide).
 - Pros: Quality control — don't fully automate without review. Generates high-quality labelled data for future fine-tuning.
 - Cons: Requires building a new UI component (tag review queue tab or panel).</p>
 <p><strong>D — Batch background ingest tagger</strong>

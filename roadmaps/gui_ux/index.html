@@ -2302,12 +2302,12 @@
   <a href="#23-keyboard-navigation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)
+        2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes; §B satisfied via §2.29, corrected 2026-07-27 — see below)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)">
+    <nav class="md-nav" aria-label="2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes; §B satisfied via §2.29, corrected 2026-07-27 — see below)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3667,12 +3667,12 @@
   <a href="#23-keyboard-navigation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)
+        2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes; §B satisfied via §2.29, corrected 2026-07-27 — see below)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)">
+    <nav class="md-nav" aria-label="2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes; §B satisfied via §2.29, corrected 2026-07-27 — see below)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -4766,17 +4766,19 @@ Extend A/B so each tab remembers its own thumbnail size independently (e.g., con
 - Cons: More <code>QSettings</code> keys to manage.</p>
 <p><strong>Recommendation:</strong> B is the most intuitive (no UI chrome). Combine with A for explicit control. D as a follow-on once A is stable.</p>
 <hr />
-<h2 id="23-keyboard-navigation">2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes)<a class="headerlink" href="#23-keyboard-navigation" title="Permanent link">&para;</a></h2>
+<h2 id="23-keyboard-navigation">2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes; §B satisfied via §2.29, corrected 2026-07-27 — see below)<a class="headerlink" href="#23-keyboard-navigation" title="Permanent link">&para;</a></h2>
 <p><strong>Pain point:</strong> Common operations require mouse interaction. Power users expect keyboard shortcuts for gallery navigation, preview, and operations.</p>
 <h3 id="options_2">Options<a class="headerlink" href="#options_2" title="Permanent link">&para;</a></h3>
 <p><strong>A — Arrow key gallery navigation</strong>
 Left/right/up/down select the adjacent thumbnail. Enter opens the full-size preview. Delete triggers the deletion workflow.
 - Pros: Baseline expectation for any image browser. Minimal code (install <code>QShortcut</code> on the gallery widget).
 - Cons: Requires focus management — shortcuts only fire when gallery has focus.</p>
-<p><strong>B — Global hotkey table in settings</strong>
+<p><strong>B — Global hotkey table in settings</strong> ✅ <strong>Satisfied via §2.29, verified 2026-07-27 (GitHub issue #47).</strong>
 Let users configure custom bindings for any tab action. Store in <code>~/.config/image-toolkit/keybindings.json</code>. Use Qt's <code>QShortcut</code> with <code>Qt.ApplicationShortcut</code> context.
 - Pros: Power-user friendly. Accommodates diverse workflows.
-- Cons: Significant UI investment for the settings panel. Conflict detection between shortcuts.</p>
+- Cons: Significant UI investment for the settings panel. Conflict detection between shortcuts.
+- <strong>Verified before building anything new</strong>: this option's own architecture — a central registry, a settings-window table with <code>QKeySequenceEdit</code> per row, JSON persistence, reset-to-default — is exactly what §2.29 ("Configurable Keyboard Shortcuts") already built and shipped: <code>gui/src/utils/shortcut_manager.py</code>'s <code>SHORTCUT_REGISTRY</code>/<code>ShortcutRegistry</code> (load/save/reset/<code>get_key_sequence</code>/<code>matches</code>, persisted to <code>~/.image-toolkit/keybindings.json</code> — same file, <code>.image-toolkit</code> not <code>.config/image-toolkit</code>, a harmless path difference from this bullet's original text) and <code>SettingsWindow</code>'s "Keyboard Shortcuts" tab (<code>settings_window.py</code>, Tab 6). Confirmed genuinely wired at runtime, not just a settings stub: both <code>AbstractClassTwoGalleries</code> and <code>AbstractClassSingleGallery</code>'s <code>keyPressEvent</code> handlers call <code>reg.matches(event, "...")</code> against the live registry. This section's own status line simply never got updated to point at §2.29's completion — no new code needed.
+- <strong>Honest scope note</strong>: the registry currently covers 24 actions across two scopes (<code>Gallery</code>, <code>Preview</code>) — genuinely "global" in <em>mechanism</em> (any future shortcut can register into it and gets settings-UI configurability for free), but not yet <em>coverage</em> of every tab's actions (e.g. ASP stitch tab, convert/merge-specific operations beyond gallery basics have no registry entries yet). Expanding registry coverage to more tabs is a legitimate, separate follow-on — not a gap in what this option asked for.</p>
 <p><strong>C — Operation hotkeys (non-configurable)</strong>
 Fixed shortcuts for common operations: <code>Ctrl+D</code> duplicate scan, <code>Ctrl+E</code> export, <code>Ctrl+W</code> close preview, <code>Space</code> toggle selection. Discoverable via tooltips.
 - Pros: Fast to implement. Covers 80% of use cases.

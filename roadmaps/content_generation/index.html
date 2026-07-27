@@ -2344,10 +2344,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#13-lycoris-variants-locon-loha-lokr-research" class="md-nav__link">
+  <a href="#13-lycoris-variants-locon-loha-lokr-gui-exposure-done-2026-07-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1.3 LyCORIS variants (LoCon / LoHa / LoKr) [Research]
+        1.3 LyCORIS variants (LoCon / LoHa / LoKr) — GUI exposure DONE 2026-07-27
       
     </span>
   </a>
@@ -2895,10 +2895,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#13-lycoris-variants-locon-loha-lokr-research" class="md-nav__link">
+  <a href="#13-lycoris-variants-locon-loha-lokr-gui-exposure-done-2026-07-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1.3 LyCORIS variants (LoCon / LoHa / LoKr) [Research]
+        1.3 LyCORIS variants (LoCon / LoHa / LoKr) — GUI exposure DONE 2026-07-27
       
     </span>
   </a>
@@ -3256,9 +3256,54 @@
 <h3 id="12-v-prediction-zero-terminal-snr-support-research">1.2 v-Prediction / zero-terminal-SNR support [Research]<a class="headerlink" href="#12-v-prediction-zero-terminal-snr-support-research" title="Permanent link">&para;</a></h3>
 <p><strong>Pain point:</strong> NoobAI-vpred and Illustrious-vpred bases use v-prediction + zero-terminal-SNR, which fixes brightness/contrast bias and improves anime's flat saturated palettes and dark scenes. <code>LoRATuner</code> must match the base's objective (eps vs v-pred) or output degrades.</p>
 <p><strong>Recommendation:</strong> Detect the base's prediction type and switch the training/sampling objective accordingly. Add v-pred + ztSNR to <code>LoRATuner</code> and the SD3/SDXL samplers.</p>
-<h3 id="13-lycoris-variants-locon-loha-lokr-research">1.3 LyCORIS variants (LoCon / LoHa / LoKr) [Research]<a class="headerlink" href="#13-lycoris-variants-locon-loha-lokr-research" title="Permanent link">&para;</a></h3>
+<h3 id="13-lycoris-variants-locon-loha-lokr-gui-exposure-done-2026-07-27">1.3 LyCORIS variants (LoCon / LoHa / LoKr) — GUI exposure DONE 2026-07-27<a class="headerlink" href="#13-lycoris-variants-locon-loha-lokr-gui-exposure-done-2026-07-27" title="Permanent link">&para;</a></h3>
 <p><strong>Pain point:</strong> Standard LoRA captures the character but not the conv-layer style; LoCon (<code>dim 16 / conv 8</code>) is preferred for style-bound characters, LoHa/LoKr for tiny datasets.</p>
-<p><strong>Recommendation:</strong> Integrate the <code>lycoris</code> library into <code>LoRATuner</code> as selectable algorithms; expose in the LoRA train tab.</p>
+<p><strong>Done:</strong> the "integrate the lycoris library into LoRATuner" half of this
+bullet's recommendation was <strong>already fully implemented</strong> before this
+session touched it — <code>LoRATunerV2</code> (<code>backend/src/models/tuning/
+lo_ra_tuner_v2.py</code>) already dispatches <code>cfg.method == "lycoris"</code> to
+<code>lycoris.kohya.create_network()</code> with <code>lora</code>/<code>locon</code>/<code>loha</code>/<code>lokr</code>/<code>dylora</code>
+algorithms, and a <code>lycoris_locon.yaml</code> Hydra preset already existed under
+<code>backend/config/training/</code>. <strong>The actual gap was "expose in the LoRA train
+tab"</strong> — the GUI's <code>LoRATrainTab</code> only ever instantiated the <em>legacy</em>
+<code>LoRATuner</code> (V1, no LyCORIS support at all; V2 is documented in its own
+module docstring as the "adds LyCORIS support" successor) and never called
+into <code>LoRATunerV2</code> or the Hydra pipeline in any way.</p>
+<ul>
+<li><strong>Added two missing presets</strong>: <code>lycoris_loha.yaml</code> and <code>lycoris_lokr.yaml</code>
+  (only <code>lycoris_locon.yaml</code> existed), each with algorithm-appropriate
+  dims/epochs per this bullet's own "LoHa/LoKr for tiny datasets" framing
+  (smaller nominal rank, more epochs to compensate for fewer trainable
+  parameters on small datasets).</li>
+<li><strong>Found and fixed a pre-existing, unrelated bug that blocked this
+  entirely</strong>: <code>anime_training_pipeline.py</code> (the orchestrator <code>LoRATunerV2</code>
+  needs — dataset bucketing, tuner construction, training loop) had two
+  broken imports left over from a prior code reorganization
+  (<code>backend.src.models.full_finetune</code> and <code>backend.src.models.
+  lora_diffusion</code>, neither of which exist anymore — the real paths are
+  under <code>backend.src.models.tuning.*</code>). This meant <code>python -m
+  backend.dispatcher command=train</code> has been completely broken for <em>any</em>
+  training run, LyCORIS or standard, since that reorganization — nobody
+  had noticed because nothing actually invoked this pipeline. Fixed both
+  imports; verified via a real Hydra <code>--cfg job</code> dry-run composition for
+  all four training presets (<code>lora_4080</code>, <code>lycoris_locon/loha/lokr</code>).</li>
+<li><strong>GUI</strong>: new "Training Engine" dropdown in <code>LoRATrainTab</code>
+  (<code>gui/src/tabs/models/delta/lora_train_tab.py</code>) — "Standard (LoRA)"
+  keeps the existing legacy <code>LoRATuner</code> path completely unchanged (zero
+  risk to current behavior); the three LyCORIS options launch <code>python -m
+  backend.dispatcher command=train training=lycoris_&lt;algo&gt; model.model_id=
+  ... data.images_dir=... data.trigger_word=... output_dir=...</code> as a
+  subprocess (reusing the existing, now-fixed pipeline end-to-end rather
+  than re-implementing dataset/tuner construction inline), streaming
+  output to the status label and supporting Cancel via <code>proc.terminate()</code>.</li>
+<li><strong>Tests</strong>: 10 new cases in <code>gui/test/models/test_lora_train_tab_lycoris.py</code>
+  covering the engine dropdown defaults, the standard path staying on the
+  legacy tuner, correct Hydra CLI command construction for all three
+  algorithms, and success/error/cancel signal handling — all passing.
+  <code>--cfg job</code> dry-run composition verified separately (real Hydra, not
+  mocked) since the actual training run itself needs GPU/VRAM not
+  available in this environment.</li>
+</ul>
 <h3 id="14-controlnet-ip-adapter-in-generation-tabs">1.4 ControlNet + IP-Adapter in generation tabs<a class="headerlink" href="#14-controlnet-ip-adapter-in-generation-tabs" title="Permanent link">&para;</a></h3>
 <p><strong>Pain point:</strong> Pose/composition control (ControlNet OpenPose/depth/lineart) and character/style reference (IP-Adapter) are the two highest-leverage controllability features, currently TODO in <code>sd3_wrapper</code> and absent from the SDXL gen path.</p>
 <p><strong>Options.</strong> <strong>A</strong> Route control through ComfyUI workflows (the gen tab already launches ComfyUI) — fastest, most flexible. <strong>B</strong> Native diffusers ControlNet/IP-Adapter pipelines in the wrappers — tighter GUI integration, more code.</p>

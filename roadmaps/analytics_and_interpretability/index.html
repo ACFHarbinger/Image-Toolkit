@@ -3706,12 +3706,12 @@
 <p>Render as a topographic map rather than a node-link diagram — modules become landmasses, dependencies become edges on geographic terrain.</p>
 </li>
 <li>
-<p><strong>1.4 Dependency Structure Matrix (DSM):</strong></p>
+<p><strong>1.4 Dependency Structure Matrix (DSM) — DONE, already implemented, 2026-07-27.</strong> Checked before building anything (per this session's established discipline): a full equivalent already exists and is actively enforced, just not via the imagined Lattix/IntelliJ tooling or a literal matrix rendering — a stronger, automated form of the same idea.</p>
 </li>
-<li>Render the N×N dependency matrix where marks below the diagonal represent valid layered dependencies; marks <strong>above</strong> the diagonal instantly flag architectural violations or cyclic dependencies.</li>
-<li>Tools: <strong>Lattix</strong> or <strong>IntelliJ IDEA DSM plugin</strong> for automated generation and permutation analysis.</li>
+<li><strong>Cyclic-dependency detection</strong> (the matrix's "above-diagonal" violations): <code>backend/src/utils/validation/check_circular_imports.py</code> — full AST-based module-import graph builder + iterative Tarjan's SCC algorithm, with an optional interactive <code>pyvis</code> HTML visualization. Wired into <code>just check-circular-imports</code> and <code>just module-graph</code>. Verified working end-to-end this session: 0 cycles across 210 <code>backend/src</code> modules and 0 cycles across 236 <code>gui/src</code> modules.</li>
+<li><strong>Layered-architecture violations</strong> (the matrix's "valid layered dependencies" half): <code>import-linter</code> (<code>pyproject.toml [tool.importlinter]</code>, §5.11A/A.17) already declares 3 <code>forbidden</code>-type contracts (backend core must not import GUI; <code>gui.src.utils</code> must not import other GUI layers; <code>gui.src.classes</code> must not import <code>gui.src.tabs</code>) and enforces them via <code>lint-imports</code>. Verified working this session: 578 files / 1147 dependencies analyzed, all 3 contracts kept, 0 broken.</li>
 <li>
-<p>Enables ISO 26262 compliance checks across the Python/Rust multi-language codebase.</p>
+<p>Not done, out of scope for this item: any ISO 26262 compliance-report generation (no evidence this project targets that certification) — flagged as an unsupported claim in the original text, not something to build speculatively.</p>
 </li>
 <li>
 <p><strong>1.5 Dynamic Execution Tracing:</strong></p>
