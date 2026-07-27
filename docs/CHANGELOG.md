@@ -43,6 +43,20 @@ Closed the dedicated follow-up flagged in S244: why does test51 regress under `A
 
 ---
 
+## S248 — 2026-07-27 (Content Gen 1.6: shared anime upscaler module — ESRGANWrapper, Real-ESRGAN anime_6B)
+
+Implemented GitHub issue #37 / roadmap `content_generation.md` §1.6 (Quick Win). Verified before implementing: the roadmap's claim that `animation/super_res.py` "already exists" is stale — no super-resolution module exists anywhere in the codebase (confirmed via repo-wide search); this is a new module, not a unification of two existing ones.
+
+- **`ESRGANWrapper`** (`backend/src/models/wrappers/esrgan_wrapper.py`): a tiled Real-ESRGAN anime_6B upscaler. Self-contained RRDBNet architecture in plain `torch` rather than the `basicsr`/`realesrgan` PyPI packages (not installed, deliberately not added — large fragile dependency tree, known torchvision compatibility breaks), matching the established BiRefNet/ToonOut pattern of loading raw weights into a hand-written architecture.
+- **Weights verified, not guessed**: downloaded the real `RealESRGAN_x4plus_anime_6B.pth` checkpoint from its HF Hub mirror and inspected the actual state dict before writing any architecture code — confirmed 6 RRDB blocks, `num_feat=64`, weights wrapped under a `params_ema` key. Two independent HF Hub mirrors wired as primary/fallback.
+- **Tiled inference** for VRAM/RAM safety on large images, verified quantitatively against a non-tiled full pass (mean abs pixel diff 0.76/255 under production tile settings — expected minor boundary effect, not a bug).
+- **Verified end-to-end with real downloaded weights**: loaded the actual checkpoint and ran both tiled and non-tiled code paths on synthetic images, confirming correct 4x output shape/dtype.
+- **Tests**: `backend/test/models/test_esrgan_wrapper.py`, 16 passing — architecture shape checks, load() primary/fallback/failure paths, tiled vs non-tiled correctness (including a remainder-tile edge case), file-path convenience wrapper, unload lifecycle. Uses small randomly-initialized weights for CI speed (no network dependency in the committed suite); the real-weights run above was verified manually.
+- **Not done here**: wiring into the generation tabs' GUI or an ASP super-resolution pipeline stage (which doesn't exist yet) — separate, larger follow-on items outside this Quick Win's scope.
+- `moon/roadmaps/content_generation.md` §1.6 updated with the stale-roadmap correction and full status.
+
+---
+
 ## S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)
 
 User-authorized scale-up from the established 5-test verify to an 18-test targeted batch, deliberately chosen to span every current fallback class (rather than an arbitrary sample) for Phase 4's "re-examine what remains" instruction. Clean run, no resource-danger triggers — the biggest single scale step-up since the thread-cap host-freeze fix landed.
