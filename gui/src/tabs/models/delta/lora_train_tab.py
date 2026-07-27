@@ -1,6 +1,8 @@
+import subprocess
+import sys
 import threading
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from backend.src.constants import LOCAL_SOURCE_PATH, ROOT_DIR
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
 from PySide6.QtCore import Signal, Slot
@@ -20,6 +22,20 @@ from PySide6.QtWidgets import (
 
 from ....classes.base.base_generative_tab import BaseGenerativeTab
 
+# Content Gen §1.3: LyCORIS variants (LoCon/LoHa/LoKr), each a Hydra config
+# preset under backend/config/training/. "standard" keeps the existing
+# LoRATuner (legacy) path byte-for-byte unchanged; the three LyCORIS
+# entries route through the already-built LoRATunerV2 pipeline
+# (backend/src/pipeline/anime_training_pipeline.py) via the project's own
+# Hydra CLI dispatcher, rather than re-implementing dataset/tuner
+# construction inline here.
+_TRAINING_ENGINES = [
+    ("Standard (LoRA)", "standard"),
+    ("LyCORIS: LoCon (style-bound characters)", "locon"),
+    ("LyCORIS: LoHa (small datasets)", "loha"),
+    ("LyCORIS: LoKr (tiny datasets / storage-constrained)", "lokr"),
+]
+
 
 class LoRATrainTab(BaseGenerativeTab):
     # --- Define Signals for Thread-Safe Communication ---
@@ -29,6 +45,7 @@ class LoRATrainTab(BaseGenerativeTab):
     def __init__(self):
         super().__init__()
         self.last_browsed_scan_dir = LOCAL_SOURCE_PATH
+        self._lycoris_process: subprocess.Popen | None = None
         self.init_ui()
         self.update_status_signal.connect(self.handle_status_update)
         self.training_finished_signal.connect(self.handle_training_finished)
@@ -78,6 +95,18 @@ class LoRATrainTab(BaseGenerativeTab):
         self.add_param_widget(
             layout, "Output Name:", QLineEdit("my_model"), "output_name"
         )
+
+        # --- Training Engine (Content Gen §1.3: LyCORIS variants) ---
+        self.engine_combo = QComboBox()
+        for name, engine_id in _TRAINING_ENGINES:
+            self.engine_combo.addItem(name, engine_id)
+        self.engine_combo.setToolTip(
+            "Standard uses this project's original LoRA trainer, unchanged.\n"
+            "LyCORIS options route through the LoRATunerV2 pipeline (Hydra\n"
+            "presets under backend/config/training/) for LoCon/LoHa/LoKr\n"
+            "adaptation instead of plain LoRA — see content_generation.md §1.3."
+        )
+        self.add_param_widget(layout, "Training Engine:", self.engine_combo, "engine")
 
         # --- Dynamic Configs ---
         self.lora_group = QWidget()
@@ -149,11 +178,14 @@ class LoRATrainTab(BaseGenerativeTab):
         self.cancel_btn.setEnabled(False)
 
     def cancel_training(self):
-        model_id = self.model_selector.currentData()
-        if model_id == "animegan_v2":
-            GanWrapper.cancel_process()
+        if self._lycoris_process is not None:
+            self._lycoris_process.terminate()
         else:
-            LoRATuner.cancel_process()
+            model_id = self.model_selector.currentData()
+            if model_id == "animegan_v2":
+                GanWrapper.cancel_process()
+            else:
+                LoRATuner.cancel_process()
         self.cancel_btn.setEnabled(False)
         self.train_btn.setEnabled(True)
         self.handle_status_update("Cancellation requested...")
@@ -224,11 +256,16 @@ class LoRATrainTab(BaseGenerativeTab):
             "rank": self.rank_box.value(),
             "prompt": self.prompt_edit.text(),
             "output_name": params.get("output_name", "output_lora"),
+            "engine": self.engine_combo.currentData(),
         }
         thread = threading.Thread(target=self.run_training, kwargs=config, daemon=True)
         thread.start()
 
-    def run_training(self, params, data_dir, model_id, rank, prompt, output_name):
+    def run_training(self, params, data_dir, model_id, rank, prompt, output_name, engine="standard"):
+        if engine != "standard" and model_id != "animegan_v2":
+            self._run_lycoris_training(data_dir, model_id, prompt, output_name, engine)
+            return
+
         gan = None
         try:
             if model_id == "animegan_v2":
@@ -271,6 +308,68 @@ class LoRATrainTab(BaseGenerativeTab):
         finally:
             if gan is not None:
                 gan.unload()
+
+    def _run_lycoris_training(
+        self, data_dir: str, model_id: str, prompt: str, output_name: str, engine: str
+    ) -> None:
+        """Content Gen §1.3: LyCORIS (LoCon/LoHa/LoKr) training.
+
+        Routes through the already-built LoRATunerV2 pipeline
+        (backend/src/pipeline/anime_training_pipeline.py) via this
+        project's own Hydra CLI dispatcher, rather than re-implementing
+        dataset/tuner construction here — that pipeline already handles
+        aspect-ratio bucketing, caption building, and LyCORIS dispatch
+        (LoRATunerV2 already supports 'locon'/'loha'/'lokr'/'dylora' via
+        `cfg.method == "lycoris"`; only GUI exposure was missing).
+        """
+        self.update_status_signal.emit(
+            f"Launching LyCORIS ({engine}) training via anime_training_pipeline..."
+        )
+        cmd = [
+            sys.executable,
+            "-m",
+            "backend.dispatcher",
+            "command=train",
+            f"training=lycoris_{engine}",
+            f"model.model_id={model_id}",
+            f"data.images_dir={data_dir}",
+            f"data.trigger_word={prompt}",
+            f"output_dir={output_name}",
+        ]
+        try:
+            self._lycoris_process = subprocess.Popen(
+                cmd,
+                cwd=str(ROOT_DIR),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            assert self._lycoris_process.stdout is not None
+            for line in self._lycoris_process.stdout:
+                line = line.rstrip()
+                if line:
+                    self.update_status_signal.emit(line[-200:])
+            returncode = self._lycoris_process.wait()
+
+            if returncode == 0:
+                self.training_finished_signal.emit(
+                    "success", "LyCORIS training finished and weights saved."
+                )
+            elif returncode < 0:
+                # Negative = killed by signal (terminate()/Cancel button).
+                self.training_finished_signal.emit(
+                    "cancel", "Training process was stopped by the user."
+                )
+            else:
+                self.training_finished_signal.emit(
+                    "error", f"Training process exited with code {returncode}."
+                )
+        except Exception as e:
+            self.update_status_signal.emit(f"Error: {str(e)}")
+            self.training_finished_signal.emit("error", str(e))
+        finally:
+            self._lycoris_process = None
 
     def _inspect_safetensors(self) -> None:
         path, _ = QFileDialog.getOpenFileName(

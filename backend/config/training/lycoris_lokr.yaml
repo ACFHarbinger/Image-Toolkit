@@ -1,0 +1,54 @@
+# config/training/lycoris_lokr.yaml
+# LyCORIS LoKr (Kronecker product) — most parameter-efficient variant.
+# Decomposes the weight update as a Kronecker product of two much smaller
+# factor matrices, giving the fewest trainable parameters of the three
+# LyCORIS algorithms here for a comparable effective rank — the strongest
+# choice when the dataset is extremely small or storage/VRAM is the binding
+# constraint, at some cost in fine detail versus LoHa/LoCon.
+# Best for: very tiny datasets (<10 images), style-only LoRAs, storage-constrained use.
+
+# @package training
+stage: lora
+method: lycoris
+lycoris_algo: lokr       # LoKr = Kronecker-product low-rank adaptation
+
+# LoKr's Kronecker factorization reaches a useful effective rank at much
+# smaller nominal dims than LoCon/LoHa — kept smallest of the three presets.
+rank: 4                  # linear dim (factor size)
+alpha: 2
+lycoris_conv_dim: 2      # conv dim
+lycoris_conv_alpha: 1
+
+use_dora: false
+use_rslora: false
+
+# Text encoder training
+train_text_encoder_one: false
+train_text_encoder_two: false
+te_lr_scale: 0.5
+
+# Batch and memory (profile for 3090 Ti; reduce batch to 1 for 4080)
+resolution: 1024
+train_batch_size: 2
+gradient_accumulation_steps: 1
+gradient_checkpointing: false
+mixed_precision: bf16
+
+# Fewer trainable parameters converge slower in absolute step count on a
+# tiny dataset — more epochs than LoHa to compensate.
+max_train_epochs: 25
+max_train_steps: null
+
+noise_offset: 0.0
+shuffle_tags: true
+keep_tokens: 1
+caption_dropout_rate: 0.05
+
+use_ema: false
+save_every_n_epochs: 1
+
+xformers: true
+cache_latents: true
+cache_latents_to_disk: true
+cache_text_encoder_outputs: true
+full_bf16: true
