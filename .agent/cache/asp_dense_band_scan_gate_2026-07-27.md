@@ -79,3 +79,33 @@ by an unrelated, earlier fix**, not by anything built in this session.
   inherited from the pre-ToonOut postmortem — flagged as a candidate for a
   future session's one-change/one-benchmark re-verification, not decided
   here (out of scope for this follow-up, which was gate-design only).
+
+## Addendum (2026-07-27, same day) — re-verified against the current baseline
+
+Re-ran the same 5-test set with `ASP_JOINT_GAIN_SOLVE=1` against the current
+(ToonOut-inclusive) codebase to check the flagged re-verification. Result is
+cleaner than the original postmortem: **test04 now safely reverts to SCANS**
+(previously the regression case) via the pre-existing `sb` check;
+**test08/test57 are SCANS under both ON and OFF** (unaffected either way,
+since ToonOut's own fix already moved them to fallback regardless of gain
+solve); **test09 flips SCANS→real** (a coverage win, matching the original
+assessment) and **test27 stays real→real** (modest improvement, also
+matching). Zero regressions on this 5-test sample — a meaningfully better
+picture than the original mixed verdict.
+
+**However**, spot-checking test09's actual output image directly shows
+visible horizontal banding/streaking artifacts still present *despite*
+passing every automated gate (composite, ghost, seam-vis) — the same
+"gates pass, real defect remains" pattern this whole investigation started
+from, just not severe enough to trip any current threshold. This is exactly
+why the roadmap's ground rule #2 requires human coherence rating, not
+automated metrics alone, before any default flip — confirmed again here,
+not refuted by the cleaner gate-level result above.
+
+**Disposition unchanged: `ASP_JOINT_GAIN_SOLVE` stays default OFF.** The
+5-test re-verify is encouraging (no regressions, one coverage win) but per
+ground rule #1 a full-97 run is required before any default flip regardless,
+and per ground rule #2 the Phase 0.1 human rating pass — still open — is the
+actual gating requirement, not something to substitute with ad hoc image
+inspection of individual tests. `moon/roadmaps/asp.md` §3.1 updated to
+reflect the cleaner re-verify result while keeping the flag OFF.

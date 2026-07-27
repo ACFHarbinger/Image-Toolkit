@@ -437,6 +437,17 @@ reloads fresh every dataset with no cache, unlike BiRefNet).
   parked. `ASP_JOINT_GAIN_SOLVE`'s own disposition should be re-measured
   fresh in a future session against the current ToonOut-inclusive baseline
   rather than inherited from this now-partially-stale postmortem.
+  **Re-verified same day**: 5-test re-run against the current baseline is
+  cleaner than the original — test04 now safely reverts to SCANS instead of
+  shipping the defect, test08/57 unaffected (already SCANS via ToonOut
+  either way), test09 still flips SCANS→real (coverage win), test27 still
+  real→real (modest win). Zero regressions on this sample. **But** a direct
+  look at test09's output still shows visible banding despite passing every
+  gate — the same "gates pass, defect remains" pattern, just below current
+  thresholds. **Stays default OFF**: ground rule #1 requires a full-97 run
+  before any default flip regardless, and ground rule #2's actual gating
+  requirement (Phase 0.1's human coherence rating pass) is still open — this
+  5-test re-verify is encouraging, not a substitute for either.
 - **3.2 GraphCut revisit** — moot; 1.3 did not survive its second measurement
   (2026-07-27).
 - **3.3 Multi-band blend on final boundaries** `[3 days]` — only if 3.1+3.2 leave

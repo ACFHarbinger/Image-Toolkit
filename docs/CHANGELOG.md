@@ -4,6 +4,17 @@
 
 ---
 
+## S242 — 2026-07-27 (ASP Phase 3.1: `ASP_JOINT_GAIN_SOLVE` re-verified against the current ToonOut-inclusive baseline)
+
+Followed up on the S241 finding (test04's original regression no longer reproduces) by re-running the 5-test verify for `ASP_JOINT_GAIN_SOLVE` itself, not just the gate follow-up.
+
+- **Cleaner result than the original postmortem**: test04 now safely reverts to a SCANS fallback (via the pre-existing `sb` check) instead of shipping the previously-documented defect; test08/test57 are unaffected either way (already SCANS via the ToonOut fix regardless of gain solve); test09 still flips SCANS→real (coverage win); test27 still stays real→real (modest improvement). **Zero regressions** on this 5-test sample — a meaningfully better picture than the original mixed verdict.
+- **Caution, not a clean bill of health**: a direct look at test09's rendered output still shows visible banding/streaking artifacts despite passing every automated gate (composite, ghost, seam-vis) — the same "gates pass, defect remains" pattern this whole investigation started from, just under current thresholds rather than over them. Confirms the project's own ground rule #2 (no automated metric currently measures structural coherence) rather than refuting it.
+- **Disposition: stays default OFF.** Ground rule #1 requires a full-97-corpus run before any default flip regardless of a clean 5-test sample; ground rule #2's actual gating requirement — the Phase 0.1 human coherence rating pass — is still open and is not something to substitute with ad hoc image inspection of individual tests (that's explicitly a human task per the roadmap's own §0.1).
+- `.agent/cache/asp_dense_band_scan_gate_2026-07-27.md` and `moon/roadmaps/asp.md` §3.1 updated with this re-verification; posted as a follow-up comment on GitHub issue #26.
+
+---
+
 ## S241 — 2026-07-27 (ASP Phase 3.1 follow-up: dense-band-scan composite gate — REJECTED, zero measured value)
 
 Implemented the §3.1 joint-gain-solve postmortem's recommended follow-up: a finer-grained local check for the composite quality gate, to close a documented false-negative where the gate's aggregate `sb` (strip-banding) statistic passes on test04 despite a visible local defect — flagged independently twice, once in the joint-gain-solve postmortem and once in the ToonOut masking-fix postmortem.
