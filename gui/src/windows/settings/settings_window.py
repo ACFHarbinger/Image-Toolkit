@@ -638,6 +638,14 @@ class SettingsWindow(QWidget):
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
         session_layout.addRow(self.restore_last_dir_check)
 
+        self.recent_dirs_count_spinbox = QSpinBox()
+        self.recent_dirs_count_spinbox.setRange(1, 50)
+        self.recent_dirs_count_spinbox.setValue(self.pref_recent_dirs_count)
+        self.recent_dirs_count_spinbox.setToolTip(
+            "Number of most recently browsed directories to remember per gallery tab"
+        )
+        session_layout.addRow("Recent Directories Limit:", self.recent_dirs_count_spinbox)
+
         self.session_recovery_combo = QComboBox()
         self.session_recovery_combo.addItems(["None", "Current Tab", "All Tabs"])
         self.session_recovery_combo.setCurrentText(self.pref_session_recovery)
@@ -1362,6 +1370,7 @@ class SettingsWindow(QWidget):
         if self.pref_startup_category in items:
             self.startup_category_combo.setCurrentText(self.pref_startup_category)
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
+        self.recent_dirs_count_spinbox.setValue(self.pref_recent_dirs_count)
         self.session_recovery_combo.setCurrentText(self.pref_session_recovery)
 
         # Repopulate Performance and Cache
@@ -2169,7 +2178,7 @@ class SettingsWindow(QWidget):
                 "initial_cache_maxsize": self.initial_cache_spinbox.value(),
                 "restore_last_dir": self.restore_last_dir_check.isChecked(),
                 "default_open_dir": self.default_dir_input.text().strip().replace("Downloads/data", "Downloads/Data"),
-                "recent_dirs_count": 10,
+                "recent_dirs_count": self.recent_dirs_count_spinbox.value(),
                 "startup_category": self.startup_category_combo.currentText(),
                 "slideshow_interval_min": self.slideshow_default_min_spinbox.value(),
                 "slideshow_interval_sec": self.slideshow_default_sec_spinbox.value(),
@@ -2236,6 +2245,7 @@ class SettingsWindow(QWidget):
         if "System Tools" in items:
             self.startup_category_combo.setCurrentText("System Tools")
         self.restore_last_dir_check.setChecked(True)
+        self.recent_dirs_count_spinbox.setValue(10)
         self.session_recovery_combo.setCurrentText("None")
 
         # Reset Performance and Cache
