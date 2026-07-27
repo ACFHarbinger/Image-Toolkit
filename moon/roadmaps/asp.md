@@ -168,8 +168,8 @@ still open]`
   asks for — the 5-test verify is this project's established safe scaling
   increment, not a substitute for it.
 
-### 0.4 Kill the GT-coupling measurement bug  `[(c) done and verified 2026-07-27,
-S218/S220; (a)/(b) still open]`
+### 0.4 Kill the GT-coupling measurement bug  `[(b)+(c) done 2026-07-27; (a)
+still open, blocked on the Phase 0.1 human rating pass; (d) still optional]`
 Every past frame-selection improvement was vetoed by GT-SSIM because the GT
 panoramas were assembled from specific frame timings. Fix the measurement, not the
 selection: score selection experiments by (a) human rating, (b) aligned-SSIM
@@ -183,11 +183,26 @@ measured warp residual), and surfaces it as `"mean_post_warp_diff"` in the JSON
 and a report line. **Verified (S220)**: values are stable and near-identical
 between an `ASP_BG_AVERAGE` A/B (11.71→11.69, 13.51→13.35, 2.91→2.91, etc.) —
 correctly orthogonal to a flag that only touches background rendering, not
-foreground seam registration. (a) and (b) remain open — (a) needs the Phase
-0.1 rating tool built first; (b) needs someone to actually change the
-aligned-SSIM windowing logic. Optional (d): SI-FID as a reference-free signal
-for non-GT tests — still unbuilt, only worth it if (a)+(c) leave those tests
-hard to rank.
+foreground seam registration.
+**(b) implemented (S231)**: `_compute_aligned_ssim` previously averaged SSIM
+over the *entire* GT-dimension canvas after ECC alignment, including the
+`warpAffine`'s `BORDER_REPLICATE` padding (wherever alignment shifted content
+off an edge) and any genuinely non-overlapping frame coverage — both measure
+framing/coverage differences the metric wasn't meant to capture, not pose or
+sharpness quality. Now builds a real-content validity mask for both images
+(warped with `BORDER_CONSTANT`/zero-fill, never replicate, so padding never
+counts as "real"), intersects them, and averages the `ssim(..., full=True)`
+per-pixel map only over that overlap (falling back to the old whole-canvas
+mean when the overlap is too small — <500px — to trust a windowed mean).
+Verified on the 5-test set directly from already-rendered outputs (no pipeline
+rerun needed — this only changes benchmark-side metric computation): values
+shift by small, principled amounts (test04 +0.025, others <0.003) and no
+GT-based verdict flips on this sample — a stabilizing correction, not a
+destabilizing one.
+(a) remains open — needs the Phase 0.1 rating tool's actual rating pass (a
+human task) before anything can be calibrated against it. Optional (d):
+SI-FID as a reference-free signal for non-GT tests — still unbuilt, only
+worth it if (a)+(c) leave those tests hard to rank.
 
 ### 0.5 Optional second reference: Hugin  `[5-test verify done 2026-07-27 —
 see .agent/cache/hugin_field_notes.md; full 97-corpus run still open]`

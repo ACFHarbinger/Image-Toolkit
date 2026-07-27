@@ -605,6 +605,16 @@ def _compute_aligned_ssim(output_img: np.ndarray, gt_img: np.ndarray) -> float:
     gaussFiltSize=5 pre-smooths ECC input for robustness on noisy/low-texture crops.
     GT dimensions are used as the canonical reference space. Falls back to
     non-aligned SSIM if ECC diverges (e.g. featureless input).
+
+    §0.4(b): the SSIM mean is restricted to pixels that are real content in
+    *both* images — the naive whole-canvas mean previously included the
+    warpAffine's border-replicated padding (wherever the ECC alignment
+    shifted content off one edge) and any genuinely non-overlapping frame
+    coverage, both of which measure framing/coverage differences rather than
+    the pose/sharpness quality this metric exists to isolate. A test whose
+    ASP output is more tightly cropped than its GT (a coverage difference,
+    already scored elsewhere) no longer gets an extra unrelated SSIM penalty
+    from comparing against replicated-edge filler.
     """
     if not _SSIM_OK:
         return float("nan")
@@ -615,8 +625,18 @@ def _compute_aligned_ssim(output_img: np.ndarray, gt_img: np.ndarray) -> float:
     gray_gt = cv2.cvtColor(gt_img, cv2.COLOR_BGR2GRAY)
     gray_out = cv2.cvtColor(resized_out, cv2.COLOR_BGR2GRAY)
 
+    # Real-content masks in the pre-warp/pre-alignment frame — anything a
+    # cropped or letterboxed source leaves black on either side.
+    valid_out = resized_out.max(axis=2) > 10
+    valid_gt = gt_img.max(axis=2) > 10
+
     warp_matrix = np.eye(2, 3, dtype=np.float32)
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 200, 1e-4)
+
+    def _overlap_mean(ssim_map: np.ndarray, valid: np.ndarray, fallback: float) -> float:
+        if valid.sum() < 500:  # too little real overlap to trust a windowed mean
+            return fallback
+        return float(ssim_map[valid].mean())
 
     try:
         # pyrefly: ignore [no-matching-overload]
@@ -636,12 +656,26 @@ def _compute_aligned_ssim(output_img: np.ndarray, gt_img: np.ndarray) -> float:
             flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_REPLICATE,
         )
+        # Warp the validity mask with the *same* transform but zero-fill
+        # borders (not replicate) — replicated padding must never count as
+        # "real" content regardless of how the image itself was padded.
+        aligned_valid = cv2.warpAffine(
+            valid_out.astype(np.uint8) * 255,
+            warp_matrix,
+            (w, h),
+            flags=cv2.INTER_NEAREST,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0,
+        ) > 127
+        overlap = aligned_valid & valid_gt
+
         gray_aligned = cv2.cvtColor(aligned_out, cv2.COLOR_BGR2GRAY)
-        score, _ = ssim(gray_aligned, gray_gt, full=True, data_range=255)
-        return float(score)
+        score, ssim_map = ssim(gray_aligned, gray_gt, full=True, data_range=255)
+        return _overlap_mean(ssim_map, overlap, float(score))
     except Exception:
-        score, _ = ssim(gray_out, gray_gt, full=True, data_range=255)
-        return float(score)
+        overlap = valid_out & valid_gt
+        score, ssim_map = ssim(gray_out, gray_gt, full=True, data_range=255)
+        return _overlap_mean(ssim_map, overlap, float(score))
 
 
 def _compute_gt_metrics(

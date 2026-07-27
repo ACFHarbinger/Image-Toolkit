@@ -4,6 +4,18 @@
 
 ---
 
+## S231 — 2026-07-27 (ASP Phase 0.4(b): fix aligned-SSIM's overlap windowing)
+
+Implemented GitHub issue #19's remaining (b) sub-item: fix the aligned-SSIM GT-coupling measurement bug's windowing logic.
+
+- **Bug**: `_compute_aligned_ssim` (`backend/benchmark/bench_anime_stitch.py`) averaged SSIM over the entire GT-dimension canvas after ECC alignment — including the `warpAffine`'s `BORDER_REPLICATE` padding (wherever the alignment shifted content off an edge) and any genuinely non-overlapping frame coverage between the ASP output and GT. Both of those measure framing/coverage differences, not the pose/sharpness quality the metric exists to isolate — exactly the class of unfair penalty the roadmap's §0.4 was created to eliminate.
+- **Fix**: build a real-content validity mask for both the aligned output and the GT (warped with zero-fill `BORDER_CONSTANT`, never replicate, so padding never counts as real content), intersect them, and average `ssim(..., full=True)`'s per-pixel map only over that overlap region. Falls back to the old whole-canvas mean when the overlap is too small (<500px) to trust a windowed average.
+- **Verified** directly from already-rendered benchmark outputs (no pipeline rerun needed — this only changes benchmark-side metric computation, not the ASP pipeline itself) on the 5-test set: values shift by small, principled amounts (test04 +0.025, the rest <0.003) and no GT-based verdict flips on this sample — a stabilizing correction consistent with the already-verified §0.4(c) `mean_post_warp_diff` fix, not a destabilizing one.
+- (a) (calibrating metrics against real human ratings) remains blocked on the Phase 0.1 rating pass itself (a human task, not something to implement). (d) (SI-FID) remains optional/unbuilt.
+- `moon/roadmaps/asp.md` §0.4 updated.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.
