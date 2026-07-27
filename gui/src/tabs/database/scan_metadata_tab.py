@@ -30,7 +30,7 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ...classes import AbstractClassTwoGalleries
 from ...components import ClickableLabel, MarqueeScrollArea
-from ...helpers import ImageLoaderWorker, ImageScannerWorker
+from ...helpers import ImageLoaderWorker, ImageScannerWorker, UpsertWorker
 from ...styles import apply_shadow_effect
 from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow, MetadataEditorWindow
@@ -81,6 +81,7 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
         # Threading references
         self.scan_thread = None
         self.scan_worker = None
+        self.current_upsert_worker: Optional[UpsertWorker] = None
 
         # ThreadPool for image loading
         self.thread_pool = QThreadPool()
@@ -1478,63 +1479,99 @@ class ScanMetadataTab(AbstractClassTwoGalleries):
 
     @Slot(list)
     def _execute_upsert(self, results: list):
-        """Receive per-image metadata dicts from MetadataEditorWindow and write to DB."""
+        """Receive per-image metadata dicts from MetadataEditorWindow and hand
+        them to a background UpsertWorker (DB.6 P3b). Only image decode
+        (width/height) runs off the GUI thread; the actual DB writes are
+        applied on the main thread in one batched transaction once the
+        worker finishes, in ``_on_upsert_prepared`` below."""
+        db = self.db_tab_ref.db
+        if not db or not results:
+            return
+        if self.current_upsert_worker is not None:
+            return  # an upsert is already running
+
+        self.upsert_button.setEnabled(False)
+        self._upsert_button_label = self.upsert_button.text()
+
+        worker = UpsertWorker(results)
+        self.current_upsert_worker = worker
+        worker.progress.connect(self._on_upsert_progress)
+        worker.sig_finished.connect(self._on_upsert_prepared)
+        worker.error.connect(self._on_upsert_error)
+        worker.finished.connect(self._cleanup_upsert_worker)
+        worker.start()
+
+    def _cleanup_upsert_worker(self):
+        worker = self.current_upsert_worker
+        self.current_upsert_worker = None
+        if worker is not None:
+            worker.deleteLater()
+        self.upsert_button.setEnabled(True)
+        if hasattr(self, "_upsert_button_label"):
+            self.upsert_button.setText(self._upsert_button_label)
+
+    @Slot(int, int)
+    def _on_upsert_progress(self, current: int, total: int):
+        self.upsert_button.setText(f"Upserting {current}/{total}...")
+
+    @Slot(str)
+    def _on_upsert_error(self, message: str):
+        QMessageBox.critical(self, "Error", message)
+
+    @Slot(list)
+    def _on_upsert_prepared(self, prepared: list):
+        """Apply all prepared entries in one transaction (main thread —
+        DB writes are not done on the worker thread)."""
         db = self.db_tab_ref.db
         if not db:
             return
         success_count = 0
         try:
-            for entry in results:
-                path = entry["path"]
-                group_name = entry.get("group_name")
-                subgroup_name = entry.get("subgroup_name")
-                tags = entry.get("tags")
+            with db.transaction():
+                for entry in prepared:
+                    path = entry["path"]
+                    group_name = entry.get("group_name")
+                    subgroup_name = entry.get("subgroup_name")
+                    tags = entry.get("tags")
+                    width = entry.get("width")
+                    height = entry.get("height")
 
-                width, height = None, None
-                try:
-                    pixmap = QPixmap(path)
-                    if not pixmap.isNull():
-                        width = pixmap.width()
-                        height = pixmap.height()
-                except Exception:
-                    pass
-
-                existing = db.get_image_by_path(path)
-                if existing:
-                    db.update_image(
-                        existing["id"],
-                        group_name=group_name,
-                        subgroup_name=subgroup_name,
-                        tags=tags,
-                    )
-                else:
-                    db.add_image(
-                        path,
-                        embedding=None,
-                        group_name=group_name,
-                        subgroup_name=subgroup_name,
-                        tags=tags,
-                        width=width,
-                        height=height,
-                    )
-                success_count += 1
-
-                if path in self.path_to_wrapper_map:
-                    widget = self.path_to_wrapper_map[path]
-                    if self.view_new_only:
-                        self.scan_thumbnail_layout.removeWidget(widget)
-                        widget.deleteLater()
-                        del self.path_to_wrapper_map[path]
-                        if path in self.scan_image_list:
-                            self.scan_image_list.remove(path)
-                        if path in self.scan_filtered_list:
-                            self.scan_filtered_list.remove(path)
-                    else:
-                        widget.setProperty("in_db", True)
-                        inner_label = widget.findChild(QLabel)
-                        self._update_card_style(
-                            inner_label, is_selected=True, is_in_db=True  # pyrefly: ignore [bad-argument-type]
+                    existing = db.get_image_by_path(path)
+                    if existing:
+                        db.update_image(
+                            existing["id"],
+                            group_name=group_name,
+                            subgroup_name=subgroup_name,
+                            tags=tags,
                         )
+                    else:
+                        db.add_image(
+                            path,
+                            embedding=None,
+                            group_name=group_name,
+                            subgroup_name=subgroup_name,
+                            tags=tags,
+                            width=width,
+                            height=height,
+                        )
+                    success_count += 1
+
+                    if path in self.path_to_wrapper_map:
+                        widget = self.path_to_wrapper_map[path]
+                        if self.view_new_only:
+                            self.scan_thumbnail_layout.removeWidget(widget)
+                            widget.deleteLater()
+                            del self.path_to_wrapper_map[path]
+                            if path in self.scan_image_list:
+                                self.scan_image_list.remove(path)
+                            if path in self.scan_filtered_list:
+                                self.scan_filtered_list.remove(path)
+                        else:
+                            widget.setProperty("in_db", True)
+                            inner_label = widget.findChild(QLabel)
+                            self._update_card_style(
+                                inner_label, is_selected=True, is_in_db=True  # pyrefly: ignore [bad-argument-type]
+                            )
 
             if self.view_new_only:
                 self._load_current_scan_page()

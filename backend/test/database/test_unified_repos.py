@@ -265,6 +265,33 @@ def test_image_add_update_and_groups(db, tmp_path):
     assert repo.get_image_by_path(str(img)) is None
 
 
+def test_find_near_duplicates_by_phash(db, tmp_path):
+    """DB.6 P3b: PgvectorImageDatabase parity for phash_deduplicator —
+    real Hamming-distance sweep over the unified store, not mocked."""
+    repo = ImageRepo(db)
+    ids = {}
+    for name, phash in (
+        ("a.png", 0b0000),  # reference
+        ("b.png", 0b0001),  # hamming 1 from a
+        ("c.png", 0b0011),  # hamming 2 from a
+        ("d.png", 0b1111),  # hamming 4 from a — far
+    ):
+        p = tmp_path / name
+        p.write_bytes(b"x")
+        ids[name] = repo.add_image(str(p), tags=[])
+        repo.update_phash(ids[name], phash)
+
+    near = repo.find_near_duplicates_by_phash(0b0000, threshold=2, limit=10)
+    found = {r["id"]: r["hamming_dist"] for r in near}
+    assert found == {ids["a.png"]: 0, ids["b.png"]: 1, ids["c.png"]: 2}
+    assert ids["d.png"] not in found
+    # sorted by ascending distance
+    assert [r["id"] for r in near] == [ids["a.png"], ids["b.png"], ids["c.png"]]
+
+    # limit is honored
+    assert len(repo.find_near_duplicates_by_phash(0, threshold=10, limit=1)) == 1
+
+
 # ---------------------------------------------------------------------------
 # tag repo
 # ---------------------------------------------------------------------------

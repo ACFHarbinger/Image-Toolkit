@@ -2,8 +2,12 @@
 
 Provides :func:`compute_phash` (image path → signed 64-bit int) and
 :class:`PhashDeduplicator`, a high-level wrapper that indexes phashes into
-``PgvectorImageDatabase`` and queries for near-duplicate candidates across all
-directories.
+the unified library store (``UnifiedImageDatabase`` / DB.6) and queries for
+near-duplicate candidates across all directories.
+
+Re-pointed at the unified store 2026-07-27 (DB.6 P3b) — this previously
+wrapped the retired ``PgvectorImageDatabase`` (Postgres), which required a
+running Postgres server and is no longer how the app stores its library.
 
 Usage
 -----
@@ -17,6 +21,11 @@ Usage
         dupes = ded.find_duplicates_for("/mnt/images/collection_a/img_001.png", threshold=10)
         for d in dupes:
             print(d["file_path"], "hamming =", d["hamming_dist"])
+
+Requires an already-open unified library session (the app opens one at
+login via ``session.open_session()``); pass an explicit ``db`` (any object
+exposing ``UnifiedImageDatabase``'s method surface — a fake/mock is fine
+for tests) to use outside of a running app.
 """
 
 from __future__ import annotations
@@ -65,14 +74,14 @@ def compute_phash(path: str) -> Optional[int]:
 
 
 class PhashDeduplicator:
-    """High-level API for cross-directory phash deduplication backed by PostgreSQL.
-
-    Wraps :class:`~backend.src.database.image_database.PgvectorImageDatabase`
-    and adds convenience methods for batch indexing and near-duplicate queries.
+    """High-level API for cross-directory phash deduplication over the
+    unified library store (``UnifiedImageDatabase`` / DB.6).
 
     Parameters
     ----------
-    db : ``PgvectorImageDatabase`` instance, or ``None`` to construct a default one.
+    db : ``UnifiedImageDatabase``-compatible instance, or ``None`` to wrap
+         the app's already-open unified session (raises if none is open —
+         call ``session.open_session()`` after vault unlock first).
     threshold : default Hamming-distance threshold for near-duplicate queries.
     """
 
@@ -82,8 +91,9 @@ class PhashDeduplicator:
         threshold: int = DEFAULT_PHASH_THRESHOLD,
     ) -> None:
         if db is None:
-            from backend.src.database.image_database import PgvectorImageDatabase
-            db = PgvectorImageDatabase()
+            from backend.src.database.unified import session
+            from backend.src.database.unified.facade import UnifiedImageDatabase
+            db = UnifiedImageDatabase(session.get_session())
         self._db = db
         self.threshold = threshold
 
@@ -201,16 +211,13 @@ class PhashDeduplicator:
         visited_ids: set = set()
         groups: List[List[Dict[str, Any]]] = []
 
-        # Fetch all images that have a phash
-        with self._db.conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, file_path, filename, group_name, subgroup_name, phash "
-                "FROM images WHERE phash IS NOT NULL ORDER BY id ASC"
-            )
-            all_rows = cur.fetchall()
+        # Fetch all images that have a phash, via the facade's own accessor
+        # (previously a raw psycopg2 cursor — the unified store has no such
+        # DB-API cursor, and file_path/filename/group_name/subgroup_name
+        # were unpacked here but never actually used below).
+        all_rows = self._db.get_all_phashes()
 
-        for row in all_rows:
-            img_id, file_path, filename, group_name, subgroup_name, phash = row
+        for img_id, _file_path, phash in sorted(all_rows, key=lambda r: r[0]):
             if img_id in visited_ids:
                 continue
             near = self._db.find_near_duplicates_by_phash(

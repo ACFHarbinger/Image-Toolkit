@@ -4,6 +4,20 @@
 
 ---
 
+## S231 — 2026-07-27 (Unified DB 6 P3b: archive legacy Postgres code + move Scan & Tag upsert off GUI thread)
+
+Implemented GitHub issue #64 / roadmap `unified_database.md` DB.6's deferred P3b items.
+
+- **Found the roadmap's own dependency accounting was incomplete before archiving anything**: beyond `phash_deduplicator` and the pooled tests (the only two dependents the roadmap named), `backend/src/utils/io/dispatcher.py`'s CLI `db search` command and an entire `backend/benchmark/bench_database.py` "PostgreSQL query performance" benchmark script also imported `PgvectorImageDatabase` directly. Fixed both first (re-pointed / archived) before moving anything else, so nothing broke mid-migration.
+- **Archived to `archive/python/database/`** (`git mv`, history preserved): `image_database.py`, `pooled_image_database.py`, `sql/` (7 files), the now-orphaned `sql_loader.py` (zero callers once its SQL files moved), `psycopg_migration.py` (a standalone legacy migration CLI with zero callers anywhere), `bench_database.py`, and the two legacy test files. `backend/src/database/__init__.py`'s lazy `PgvectorImageDatabase` re-export removed — migration 003 has its own separate, already-guarded `psycopg2` import that never went through this path.
+- **`phash_deduplicator.py` re-pointed** at the unified store (`session.get_session()` → `UnifiedImageDatabase`). Added the one method the DAL didn't have yet — `ImageRepo.find_near_duplicates_by_phash()` (Hamming-distance sweep over `get_all_phashes()`) — exposed on the facade too. Replaced a raw `psycopg2` cursor query in `find_all_duplicate_groups()` with the facade's own accessor.
+- **`psycopg2-binary`/`psycopg[pool]`** moved from hard dependencies to a new `legacy-postgres` optional group in `pyproject.toml` (only needed for migration 003 against a pre-DB.6 library); `uv.lock` regenerated.
+- **Scan & Tag's per-image upsert moved off the GUI thread**: new `UpsertWorker(QThread)` (`gui/src/helpers/core/upsert_worker.py` — subclasses `QThread` and overrides `run()`, not `QObject.moveToThread()`, per this project's JPype-JVM/Qt-event-loop SIGSEGV precedent) decodes each image's dimensions via `QImage` (thread-safe; never `QPixmap`) in the background. DB writes stay on the main thread but are now wrapped in one transaction (new `UnifiedImageDatabase.transaction()`) instead of one implicit commit per image — the actual dominant cost on large batches, not the decode itself.
+- **Tests**: 3 new (`transaction()` commit/rollback; `find_near_duplicates_by_phash` against a real SQLCipher-backed repo, not mocked; the cursor-SQL replacement), 1 updated mock shape. 109 passing across `backend/test/database/` + `backend/test/core/` (excluding the pre-existing, unrelated JVM/crypto build-artifact gap this worktree lacks).
+- `moon/roadmaps/unified_database.md` DB.6 updated with full detail.
+
+---
+
 ## S247 — 2026-07-27 (ASP Phase 3.3: multi-band blend already implemented — stale roadmap text corrected)
 
 Checked §3.3 ("reintroduce the deleted C++ `multiband_blend`") before implementing anything, since the Phase 4 analysis's test09 finding (visible banding despite passing every gate) matched this bullet's stated precondition ("only if 3.1+3.2 leave visible transitions").

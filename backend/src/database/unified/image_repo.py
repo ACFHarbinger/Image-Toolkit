@@ -287,6 +287,32 @@ class ImageRepo:
             (),
         )
 
+    def find_near_duplicates_by_phash(
+        self, phash_int: int, threshold: int = 5, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """PgvectorImageDatabase parity (DB.6 P3b — phash_deduplicator).
+
+        Hamming-distance sweep over ``get_all_phashes()``, same primitive
+        ``DirPhashIndex._scored()`` uses (see core/dir_phash_index.py) —
+        there is no native SQLite popcount/bit-distance operator, so this
+        stays a Python-side scan. Fine at this project's per-user library
+        scale; revisit only if a real perf complaint surfaces.
+        """
+        rows = self.get_all_phashes()
+        scored = []
+        for img_id, file_path, phash in rows:
+            dist = bin(int(phash) ^ int(phash_int)).count("1")
+            if dist <= threshold:
+                scored.append((dist, img_id, file_path, phash))
+        scored.sort(key=lambda t: t[0])
+        out = []
+        for dist, img_id, file_path, phash in scored[:limit]:
+            row = self.get_image_by_id(img_id)
+            if row is not None:
+                row["hamming_dist"] = dist
+                out.append(row)
+        return out
+
     # ------------------------------------------------------------------
 
     def _assemble(self, row: tuple) -> Dict[str, Any]:
