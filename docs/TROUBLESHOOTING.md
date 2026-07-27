@@ -119,11 +119,23 @@ directory right after an image directory) or navigating gallery pages
 before the previous thumbnail batch finishes loading. Seen in the Extractor
 and Wallpaper tabs; any tab built on `AbstractClassTwoGalleries` or
 `AbstractClassSingleGallery` (Convert, Delete, Merge, Wallpaper, Extractor)
-can hit it. Crash log shows:
+can hit it. Two different crash-log signatures have been observed for this
+same underlying race (the exact frame depends on timing — whether the
+delivery is caught cleanly inside Qt's own bookkeeping, or lands on already-
+corrupted/reused memory further along):
 ```
 SIGSEGV (0xb) ... si_code: 1 (SEGV_MAPERR), si_addr: 0x0000000000000001
 C  [libQt6Core.so.6+0x1e73ae]  QObjectPrivate::ConnectionData::deleteOrphaned(...)
 ```
+```
+SIGSEGV (0xb) ... si_code: 2 (SEGV_ACCERR), si_addr matches RIP
+Current thread: JavaThread "main"   [_thread_in_native, ...]
+C  0x... (no resolved symbol)
+```
+The second form's "JavaThread main" label is JPype's embedded JVM (started
+for `VaultManager`) reporting a crash on the thread that called
+`startJVM()` — which is the same OS thread running the Qt event loop, not a
+Java-code crash.
 
 This is a different underlying bug from root cause #1 above (both involve a
 `QRunnable` worker's `signals` `QObject`, but this one is a genuine Qt
@@ -150,15 +162,35 @@ drain after clearing it, mirroring the fix already used in
 ```python
 if hasattr(self, "thread_pool"):
     self.thread_pool.clear()
-    self.thread_pool.waitForDone(500)  # let in-flight workers finish
-                                        # before widgets get torn down
+    self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)  # -1: wait until
+                                                             # actually idle
 ```
+
+**Important — don't use a fixed millisecond timeout here.** The first
+version of this fix used `waitForDone(500)`, which seemed to work but
+crashed again after repeated directory switches, with a different signature
+(`SEGV_ACCERR` on the main thread, no resolved symbol — the same underlying
+race, just caught at a different point). Root cause: `waitForDone(msecs)`
+returns after either all tasks finish *or* the timeout elapses, whichever
+comes first — `VideoLoaderWorker` shells out to `ffmpegthumbnailer`/`ffmpeg`
+subprocesses with their own 15s timeouts and up to three fallback attempts
+chained (~45s worst case on a slow/corrupt video file), so any fixed bound
+shorter than that reintroduces the exact same race, just needs a slower
+worker and a few repeated attempts to hit it. Use `-1` (Qt's own sentinel
+for "block until the pool is actually idle") instead of guessing a number —
+workers are still asked to cooperatively cancel first (`.stop()`), so this
+returns quickly in the overwhelming majority of cases; the tradeoff is a
+rare, bounded-by-subprocess-timeout pause instead of a crash.
 
 If you add a new gallery/tab with its own thumbnail-loading workers, make
 sure any teardown path (directory switch, page change, tab close) routes
 through `cancel_loading()` rather than clearing widgets directly — that's
-what makes this wait apply automatically. Full diagnosis:
-`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
+what makes this wait apply automatically. And if any new worker type does
+its own slow blocking I/O (subprocess calls, network requests), make sure
+its `_is_cancelled` flag is actually checked *during* that blocking call
+(e.g. polling a subprocess with a timeout loop), not just before/after it —
+otherwise cancellation can't make the wait return quickly, only correctly.
+Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---
 

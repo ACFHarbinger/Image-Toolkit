@@ -34,6 +34,24 @@ from ..utils.lru_image_cache import LRUImageCache
 from ..utils.sort_utils import natural_sort_key
 from .base.gallery_base import AbstractGalleryBase
 
+# How long cancel_loading() will block waiting for already-dispatched pool
+# workers to actually finish before tearing down gallery widgets. Any FIXED
+# bound here is unsafe: VideoLoaderWorker's fallback chain (ffmpegthumbnailer,
+# then ffmpeg seeking to 5s, then ffmpeg seeking to 0s -- video_thumbnailer.py)
+# can stack up to three independent 15s subprocess timeouts (~45s worst case)
+# on a single corrupt/hanging video file. A 500ms bound was tried first and
+# proved insufficient in practice (hs_err_pid116664.log: the exact same
+# use-after-free race this wait exists to close, just needing a slower worker
+# to hit the now-wider window) -- picking a *longer* fixed bound would only
+# repeat that mistake with smaller odds, not eliminate it. -1 (Qt's own
+# sentinel) waits until the pool is actually idle, which is the only way to
+# guarantee no worker is still running when the caller proceeds to tear down
+# gallery widgets. Workers are still asked to cooperatively cancel first
+# (`.stop()`), so this is expected to return quickly in the overwhelming
+# majority of cases; the tradeoff is a rare, bounded-by-subprocess-timeout UI
+# pause instead of a crash.
+_WORKER_DRAIN_TIMEOUT_MS = -1
+
 
 class AbstractClassSingleGallery(AbstractGalleryBase):
     """Abstract base class for a single gallery panel.
@@ -1126,7 +1144,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             # observed via hs_err_pid79171.log switching from an image to a
             # video directory scan). Matches the same wait already used in
             # AbstractClassTwoGalleries.closeEvent() for the tab-close path.
-            self.thread_pool.waitForDone(500)
+            self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
 
         # CRITICAL FIX: Clear loading paths so interrupted loads don't block future attempts
         self._loading_paths.clear()

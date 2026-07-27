@@ -136,3 +136,69 @@ Files changed:
   tab-close case. A live reproduction attempt (browse a large image
   directory, immediately switch to a video directory before thumbnails
   finish loading, repeat) would be the natural human-side confirmation step.
+
+## Addendum (same day) — crash recurred, the 500ms bound was the bug
+
+The user confirmed the crash still happened after the fix above shipped —
+no longer on the *first* image↔video switch, but after several repeated
+back-and-forth switches. New crash log: `hs_err_pid116664.log`, a different
+signature:
+
+```
+SIGSEGV (0xb) ..., si_code: 2 (SEGV_ACCERR), si_addr matches RIP
+Current thread (...): JavaThread "main"   [_thread_in_native, ...]
+C  0x00005a94b51c0f70          <- no resolved symbol
+```
+
+Unlike the first crash (a clean, symbol-resolved frame inside
+`libQt6Core.so.6`'s `deleteOrphaned`), this one has **no resolved symbol**
+and the instruction bytes at the fault address decode as floating-point-like
+data, not code — the CPU jumped into non-code memory (`SEGV_ACCERR`, not
+`SEGV_MAPERR`: the page is mapped, just not executable at that offset — e.g.
+heap memory reused for something else). Crucially, **the crashing thread is
+the main thread** — JPype attaches the thread that calls `startJVM()` as the
+JVM's own "main" JavaThread, and that's the same OS thread running the Qt
+event loop.
+
+This is still the same underlying bug, not a new one: a worker's
+`.emit()` on a pool thread only *posts* a queued-connection event; the
+actual slot delivery happens later, when the *main* thread's event loop
+processes that event. If the connection's target has already been
+corrupted/freed by delivery time, the crash naturally happens on the main
+thread, at delivery time — consistent with everything observed here,
+just a different snapshot of the same missing-synchronization race
+depending on exactly what memory got reused in between.
+
+**The actual bug in the first fix**: `self.thread_pool.waitForDone(500)` is
+a *bounded* wait — `QThreadPool::waitForDone(msecs)` returns after either
+all tasks finish OR `msecs` elapses, whichever comes first. `VideoLoaderWorker`
+(`gui/src/helpers/video/video_loader_worker.py`) shells out to
+`ffmpegthumbnailer`/`ffmpeg` subprocesses
+(`gui/src/helpers/video/video_thumbnailer.py`), each with its own **15-second**
+subprocess timeout, and the worker tries up to three of these in sequence on
+failure (ffmpegthumbnailer → ffmpeg@5s → ffmpeg@0s) — up to ~45s worst case
+on a single slow/corrupt video file. A 500ms bound times out long before any
+of that finishes, so the wait returns while the video worker is *still
+running*, and the caller proceeds to tear down gallery widgets anyway —
+reintroducing the *exact* race the wait was meant to close, just requiring a
+slower worker (video, not image) and enough repeated attempts to hit the
+timing window. This matches the user's report precisely: harder to hit, not
+impossible.
+
+**Corrected fix**: changed the bound from `500` to `-1` (Qt's own sentinel
+for "wait until the pool is actually idle, no timeout") in both base
+classes, replacing the previous fixed-timeout constant. Picking a *longer*
+fixed number (e.g. 20s) would only have repeated the same mistake with lower
+odds — the real worst case (~45s, or worse on a truly hanging subprocess)
+can't be bounded reliably in advance. Workers are still asked to
+cooperatively cancel first (`.stop()`), so in practice this returns quickly;
+the accepted tradeoff is a rare, subprocess-timeout-bounded UI pause instead
+of a crash, which is the correct trade for a crash-prevention fix.
+
+Files re-changed: same two base classes, `_WORKER_DRAIN_TIMEOUT_MS` constant
+added (`= -1`) and used at all three call sites (both `cancel_loading()`s
+plus `AbstractClassTwoGalleries.closeEvent()`, which had the same 500ms bug
+independently).
+
+**Still not independently verified against a live reproduction** — same
+caveat as before, now with a stronger, less guessable fix.
