@@ -10,7 +10,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1 — builder: system toolchain + Python deps + C++ base extension
 # ---------------------------------------------------------------------------
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1
@@ -48,7 +48,7 @@ RUN cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release \
 # ---------------------------------------------------------------------------
 # Stage 2 — runtime: slim image with the venv, the built extension, and source
 # ---------------------------------------------------------------------------
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PATH="/opt/venv/bin:${PATH}" \
