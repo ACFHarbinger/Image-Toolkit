@@ -4,6 +4,19 @@
 
 ---
 
+## S231 — 2026-07-27 (Unified DB 10: backup pipeline retarget + final legacy cleanup)
+
+Implemented GitHub issue #68 / roadmap `unified_database.md` DB.10, building on issue #64's Postgres archival earlier this session.
+
+- **Checked before touching anything**: `_SyncBackupWorker` (`gui/src/helpers/web/sync_backup_worker.py`) was already fully re-pointed at the unified `MediaRepo`/`EntityRepo` store, and `listings_common.py`'s `save_*_entry_to_db`/`fetch_entity_name_map` were already removed — both DB.10 bullets the roadmap listed as still-needed work were in fact already done by an earlier DB.5/DB.6 pass. Didn't re-do either.
+- **Found one genuinely dead test file**: `entity_listings_subtab.py`'s `_sync_entities_for_entity` (the last production caller of `base.insert_listing_secure`) had already been removed too, but `gui/test/core/test_entity_listings_associations.py` testing it was never deleted — confirmed all 3 of its tests fail outright (broken attribute path). Archived to `archive/python/gui_test/` rather than leaving broken tests active. `base_dispatch.py`'s `insert_listing_secure` lambda and `backend/migrations/sync_listing_associations.py`'s legitimate one-time-migration use of it both stay.
+- **Retargeted the `000_backup_all` pre-migration gate** (`backend/migrations/backup_all.py`): removed the `pg_dump`/`_dump_postgres` PostgreSQL dump entirely (DB.6 already ported the image tabs off Postgres, so it was backing up a database the app no longer uses) and added a `library.db.bak` byte copy of the unified SQLCipher store, using the same copy pattern as the existing `listings_secure.db.bak` artifact (kept, for restoring pre-DB.5 backups). Updated `test_backup_all.py` and `test_migrations.py`'s `runner_env` fixture to match (removed the now-nonexistent `ENV_FILE` monkeypatch).
+- **Not done**: a `VACUUM INTO`-based live-consistent snapshot (an option the roadmap mentioned) — used a plain byte copy instead, matching existing precedent; docs (`docs/database/unified_schema.md`, AGENTS/CLAUDE notes) weren't touched, flagged for a follow-up pass rather than assumed current.
+- **Tests**: `test_backup_all.py` 4/4 passing; `test_migrations.py` 6/13 passing, the other 7 failing on a pre-existing, unrelated `base.database` build-artifact gap this worktree lacks (confirmed identical with these changes reverted).
+- `moon/roadmaps/unified_database.md` DB.10 marked done with full detail.
+
+---
+
 ## S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
 
 Implemented GitHub issue #48 / roadmap `gui_ux.md` §2.9's item F (labeled `bug` — the same "settings-window control exists, nothing consumes it" shape as issue #49's `recent_dirs_count` fix earlier this session).
