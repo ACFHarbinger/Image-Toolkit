@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-*Last updated: 2026-07-11. Absorbed the full content of `docs/TROUBLESHOOT.md` (the older, SIGSEGV-only guide) and that file has been deleted — this is now the single troubleshooting doc. Covers PySide6/Qt crashes, Qt Multimedia video playback failures, ASP pipeline errors, C++/pybind11 build failures, Hydra CLI issues, mobile build failures, and database problems.*
+*Last updated: 2026-07-27. Absorbed the full content of `docs/TROUBLESHOOT.md` (the older, SIGSEGV-only guide) and that file has been deleted — this is now the single troubleshooting doc. Covers PySide6/Qt crashes, Qt Multimedia video playback failures, ASP pipeline errors, C++/pybind11 build failures, Hydra CLI issues, mobile build failures, and database problems.*
 
 ---
 
@@ -109,6 +109,56 @@ Fix: Explicitly call `setParent(None)` on the child widget *before* deleting/rep
 **Symptom:** Fatal crash when switching to any tab that contains a `QWebEngineView` for the first time.
 
 **Cause:** Same as root cause #3 above. See the fix there.
+
+---
+
+### `QObjectPrivate::ConnectionData::deleteOrphaned` crash switching directories or paging a gallery
+
+**Symptom:** Fatal crash browsing/scanning a new directory (e.g. a video
+directory right after an image directory) or navigating gallery pages
+before the previous thumbnail batch finishes loading. Seen in the Extractor
+and Wallpaper tabs; any tab built on `AbstractClassTwoGalleries` or
+`AbstractClassSingleGallery` (Convert, Delete, Merge, Wallpaper, Extractor)
+can hit it. Crash log shows:
+```
+SIGSEGV (0xb) ... si_code: 1 (SEGV_MAPERR), si_addr: 0x0000000000000001
+C  [libQt6Core.so.6+0x1e73ae]  QObjectPrivate::ConnectionData::deleteOrphaned(...)
+```
+
+This is a different underlying bug from root cause #1 above (both involve a
+`QRunnable` worker's `signals` `QObject`, but this one is a genuine Qt
+connection-list race, not a premature-deletion-before-emit issue) — related
+family, distinct root cause.
+
+**Cause:** `cancel_loading()` (called on every directory switch, tab
+switch, and page navigation via `clear_galleries()`/
+`clear_gallery_widgets()`) only *best-effort* stops in-flight `QRunnable`
+thumbnail workers — it sets a Python cancellation flag (checked at a few
+points inside `run()`) and dequeues not-yet-started tasks, but does nothing
+for a worker **already executing** on a pool thread. The caller then
+immediately tears down the gallery's thumbnail widgets
+(`deleteLater()` in a loop). A leftover worker from the previous scan can
+still be mid-`run()`, delivering a queued cross-thread signal to a gallery
+slot at the exact moment its connections/widgets are being destroyed,
+corrupting Qt's connection bookkeeping.
+
+**Fix:** `cancel_loading()` in both `AbstractClassTwoGalleries` and
+`AbstractClassSingleGallery` now waits for the thread pool to actually
+drain after clearing it, mirroring the fix already used in
+`AbstractClassTwoGalleries.closeEvent()` for the tab-close case:
+
+```python
+if hasattr(self, "thread_pool"):
+    self.thread_pool.clear()
+    self.thread_pool.waitForDone(500)  # let in-flight workers finish
+                                        # before widgets get torn down
+```
+
+If you add a new gallery/tab with its own thumbnail-loading workers, make
+sure any teardown path (directory switch, page change, tab close) routes
+through `cancel_loading()` rather than clearing widgets directly — that's
+what makes this wait apply automatically. Full diagnosis:
+`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---
 
