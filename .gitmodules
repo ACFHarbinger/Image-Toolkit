@@ -22,12 +22,12 @@
 [submodule "submodules/Recommendation-Engine"]
 	path = submodules/Recommendation-Engine
 	url = https://github.com/ACFHarbinger/Recommendation-Engine.git
-[submodule "vendor/Overmix"]
-	path = vendor/Overmix
-	url = https://github.com/spillerrec/Overmix.git
 [submodule "vendor/Hugin"]
 	path = vendor/Hugin
 	url = https://github.com/ACFHarbinger/Hugin.git
 [submodule "vendor/OpenCV"]
 	path = vendor/OpenCV
 	url = https://github.com/ACFHarbinger/OpenCV.git
+[submodule "vendor/Overmix"]
+	path = vendor/Overmix
+	url = https://github.com/ACFHarbinger/Overmix.git

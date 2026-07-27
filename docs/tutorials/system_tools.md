@@ -118,7 +118,7 @@ flowchart TD
     Mode -->|canvas| Canvas[Free-form layout editor]
     Mode -->|horizontal / vertical| Strip[Concatenate in a row/column]
     Mode -->|grid| Grid[Rows × Cols contact sheet]
-    Mode -->|panorama / stitch| Pano[Content-aware stitching]
+    Mode -->|panorama| Pano[Content-aware stitching]
     Mode -->|sequential| Seq[Merge in selection order]
     Mode -->|gif| Gif[Animated GIF]
     Canvas & Strip & Grid & Pano & Seq & Gif --> Run([Run Merge]) --> Out([Output image / GIF])
@@ -143,6 +143,16 @@ Placing images from the gallery drops them onto the canvas as movable, resizable
 - **Join (snapping)** — right-click a tile to open the *Join* menu: **Join Top / Bottom / Left / Right** each list the other tiles; choosing one snaps that tile flush against the clicked tile's side with a 0-px gap. This is the quick way to build exact strips or mosaics without pixel-nudging.
 - Right-clicking empty canvas offers **Fit Canvas** (re-fit the view); **Remove Selected** and **Clear Canvas** manage placed tiles.
 
+### Selected Images Queue (non-canvas modes)
+
+The interactive canvas above is only shown while Mode is **canvas**. Every other mode replaces it with a read-only, numbered **Selected Images (Merge Order)** thumbnail strip — it shows the current selection in queue order (the order images were added), not a spatial layout.
+
+![Merge tab, Mode = sequential: empty Image Library gallery with the Selected Images (Merge Order) panel below](images/system_tools/merge_queue_gallery_empty.png)
+
+![Selected Images (Merge Order) panel and Run Merge button, scrolled into view](images/system_tools/merge_queue_gallery_scrolled.png)
+
+Switching **to** canvas mode places every queued image stacked at canvas position **(0, 0)**, in queue order; switching **away** from canvas re-derives the queue from the canvas tiles' own insertion order. Ordering round-trips consistently no matter how many times you switch back and forth between canvas and any other mode.
+
 ### Merge Mode
 
 Click through each mode below to see its own settings panel:
@@ -161,11 +171,30 @@ Click through each mode below to see its own settings panel:
 
     ![Merge Settings, Mode = grid, with Rows/Cols spinboxes](images/system_tools/merge_mode_grid.png)
 
-=== "panorama / stitch"
-    Content-aware stitching for overlapping shots. **Perfect Stitch Mode (Digital Art)** enables the anime-pan pipeline (template matching + pyramidal blending) with **Edge Crop** (neutralizes vignettes before matching) and **Pyramid Levels** (seam blend width), plus the *AI Optimization* toggles (Siamese order-agnostic matching, APAP parallax mesh, LSD structure preservation, AnimeGAN2 refinement, BiRefNet character-aware seams, BaSiC luma correction, LoFTR dense matching, ECC sub-pixel alignment) and a **renderer** choice — `blend` (multi-band, robust), `median` (temporal denoise, sharpest), `first` (no blending, fastest).
+=== "panorama"
+    Content-aware stitching for overlapping shots. An **Engine** dropdown picks the stitching backend; each engine reveals its own settings group below it.
 
-    ![Merge Settings, Mode = panorama, with Perfect Stitch Mode checkbox](images/system_tools/merge_mode_panorama.png)
-    ![Merge Settings, Mode = stitch](images/system_tools/merge_mode_stitch.png)
+    **OpenCV** — `cv2.Stitcher`. **Stitcher mode** `0 — Panorama` (rotating-camera/perspective shots) or `1 — SCANS` (flat/affine, near-duplicate-frame pans — this is what the old standalone "stitch" mode used to mean, now folded into this one engine's mode choice); **Registration resolution** — higher finds more keypoints, helps small-overlap or near-duplicate frames.
+
+    ![Merge Settings, Mode = panorama, Engine = OpenCV, with Stitcher mode and Registration resolution](images/system_tools/merge_panorama_opencv.png)
+    ![Stitcher mode dropdown: 0 — Panorama / 1 — SCANS](images/system_tools/merge_panorama_opencv_stitcher_mode_dropdown.png)
+
+    **Hugin Toolchain** — the external Hugin CLI chain (`pto_gen`/`cpfind`/`autooptimiser`/`nona`/`enblend`). **Projection** — `Rectilinear`, `Cylindrical`, or `Equirectangular`; **Linear sequence matching** (checked by default) treats the input as a scrolling pan rather than a rotating-camera panorama.
+
+    ![Merge Settings, Mode = panorama, Engine = Hugin Toolchain, with Projection and Linear sequence matching](images/system_tools/merge_panorama_hugin.png)
+    ![Projection dropdown: Rectilinear / Cylindrical / Equirectangular](images/system_tools/merge_panorama_hugin_projection_dropdown.png)
+
+    **Overmix** — the external Overmix tool. **Aligner** — `Recursive`, `Average`, or `Linear`; **Render statistic** — `average`, `median`, `min`, `max`, or `difference`.
+
+    ![Merge Settings, Mode = panorama, Engine = Overmix, with Aligner and Render statistic](images/system_tools/merge_panorama_overmix.png)
+    ![Aligner dropdown: Recursive / Average / Linear](images/system_tools/merge_panorama_overmix_aligner_dropdown.png)
+    ![Render statistic dropdown: average / median / min / max / difference](images/system_tools/merge_panorama_overmix_render_dropdown.png)
+
+    **Anime Stitch Pipeline** — the full research-backed pipeline (BiRefNet masking, LoFTR matching, ECC sub-pixel alignment, foreground compositing). **Renderer** — `blend` (multi-band, robust), `median` (temporal denoise, sharpest), `first` (no blending, fastest); **Motion model** — `Translation` or `Affine 4-DOF`; toggles for **Use BaSiC** (luma correction), **Use LoFTR** (dense matching), **Use ECC** (sub-pixel align), **Composite Foreground**, and **Character-Aware Seams (BiRefNet)**; **Edge Crop (px)** neutralizes vignettes before matching, **Pyramid Levels** sets the seam blend width.
+
+    ![Merge Settings, Mode = panorama, Engine = Anime Stitch Pipeline, with Renderer, Motion model, all five toggles, Edge Crop, and Pyramid Levels](images/system_tools/merge_panorama_asp.png)
+    ![Renderer dropdown: blend / median / first](images/system_tools/merge_panorama_asp_renderer_dropdown.png)
+    ![Motion model dropdown: Translation / Affine 4-DOF](images/system_tools/merge_panorama_asp_motion_model_dropdown.png)
 
     !!! tip "Need the full stitching toolkit?"
         This is the quick path. For frame ordering, statistics, manual hybrid stitching, and animation-phase clustering, see the dedicated [Image Stitching](image_stitching.md) category.
@@ -180,7 +209,7 @@ Click through each mode below to see its own settings panel:
 
     ![Merge Settings, Mode = gif, with Duration (ms/frame) field](images/system_tools/merge_mode_gif.png)
 
-![Merge Mode dropdown open, showing all eight available modes](images/system_tools/merge_mode_dropdown.png)
+![Merge Mode dropdown open, showing all seven available modes](images/system_tools/merge_mode_dropdown.png)
 
 When you run the merge, the composite is rendered at the configured canvas size (or mode-specific layout) with each tile at its exact position and scale.
 
