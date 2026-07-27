@@ -4,6 +4,20 @@
 
 ---
 
+## S231 — 2026-07-27 (Content Gen 1.1: anime-native captioning — WD14 auto-tagger wired in, category bug fixed)
+
+Implemented GitHub issue #32 / roadmap `content_generation.md` §1.1 (Quick Win). Verified before implementing: `backend/src/models/data/captioner.py` already had a full `HybridCaptioner` (WD14 booru tags + trigger token + optional Florence-2 sentence + per-base-model quality prefix) wired into `anime_training_pipeline.py`'s captioning stage — the roadmap text was stale, describing this as unimplemented. The actual gap: its WD14 backend was an inline, duplicate `WD14Tagger` class rather than the shared `backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper` built for `new_features.md` §4.4 (Auto-Tagger), which had zero callers anywhere in the codebase (confirmed by repo-wide grep).
+
+- **Wired `WDTaggerWrapper` in as the primary/fallback WD14 backend**: added a `_wd_tag()` adapter in `captioner.py` so `HybridCaptioner.wd` accepts either the legacy local-path `WD14Tagger` or `WDTaggerWrapper`; `anime_training_pipeline.py::_run_captioning` now uses `WD14Tagger` only when an explicit `data.captioning.wd14_onnx` file exists locally, otherwise falls back to `WDTaggerWrapper`, which auto-downloads `SmilingWolf/wd-v1-4-convnext-tagger-v2` from Hugging Face Hub. Confirmed via the HF API that this repo is live and its filenames (`model.onnx`, `selected_tags.csv`) match exactly what the wrapper requests.
+- **Real bug found and fixed while wiring it in**: `WDTaggerWrapper._CATEGORY_NAMES` mapped WD category `9` to `"copyright"`. Downloaded the real `selected_tags.csv` and confirmed category `9` is actually the 4-way **rating** group (`general`/`sensitive`/`questionable`/`explicit`, only 4 rows) — there is no copyright category in this CSV at all. Fixed the mapping and the docstring; updated the one test (`test_wd_tagger_wrapper.py::test_categories_mapped_correctly`) that encoded the wrong assumption.
+- **Trigger token (§1.1 option C)**: confirmed `data.trigger_word` (Hydra config) is already the training pipeline's existing "which character" identifier — same field `LoRADatasetV2`/`BucketSample` use — so no new input mechanism was added, per the issue's guidance to reuse what already exists.
+- **Additive prose mode**: added `HybridCaptioner(caption_mode="booru"|"prose")` (default `"booru"`, fully backward compatible) so pure Florence-2 prose captioning is reachable as an explicit mode rather than only via omitting `wd`.
+- **Florence-2 augmentation (§1.1 option B)**: already implemented (booru tags + `". <sentence>"` appended) — no new work needed, confirmed by reading the existing code before touching anything.
+- **Not verified end-to-end**: `onnxruntime` is not installed in this project's `.venv` (only `huggingface_hub` is) — no real ONNX inference was run. All new logic (backend adapter, both caption modes, trigger prepending, threshold default) is covered by a new `backend/test/models/test_captioner.py` (14 tests) using mocked ONNX sessions, same approach as the existing `test_wd_tagger_wrapper.py`; both files pass (38 tests total). Installing `onnxruntime` and running one real image through `WDTaggerWrapper.tag()` is the remaining step to fully close this out.
+- `moon/roadmaps/content_generation.md` §1.1 and `moon/roadmaps/new_features.md` §4.4 updated with status.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.

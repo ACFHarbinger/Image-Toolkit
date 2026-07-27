@@ -59,6 +59,7 @@ from backend.src.models.lora_diffusion import (
 )
 from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
 from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
 from backend.src.pipeline.data_selection import cluster_duplicates
 
 log = logging.getLogger(__name__)
@@ -150,30 +151,43 @@ def _run_qa_pass(image_paths: list[Path], cfg: DictConfig) -> list[Path]:
 
 
 def _run_captioning(image_paths: list[Path], cfg: DictConfig):
-    """Stage 3: write .txt caption sidecars using WD14 + optional Florence-2."""
+    """Stage 3: write .txt caption sidecars using WD14 + optional Florence-2.
+
+    WD14 backend selection (content_generation.md §1.1 / new_features.md §4.4):
+    if ``data.captioning.wd14_onnx`` points at an existing local ONNX file, use
+    the legacy local-path ``WD14Tagger``. Otherwise fall back to the shared
+    ``WDTaggerWrapper`` (auto-tagger backend), which auto-downloads weights
+    from Hugging Face Hub on first use — no local model path required.
+    """
     cap_cfg = cfg.get("data", {}).get("captioning", {})
     onnx_path = cap_cfg.get("wd14_onnx", None)
     tags_csv = cap_cfg.get("wd14_tags_csv", None)
     use_florence = bool(cap_cfg.get("use_florence2", False))
     trigger = str(cfg.get("data", {}).get("trigger_word", ""))
     model_prefix = str(cfg.get("model", {}).get("caption_prefix", "illustrious"))
+    caption_mode = str(cap_cfg.get("caption_mode", "booru"))
+    general_thresh = float(cap_cfg.get("general_thresh", 0.35))
 
-    if onnx_path is None or not Path(onnx_path).exists():
-        log.warning("WD14 ONNX model not found — skipping captioning stage")
+    if onnx_path is not None and Path(onnx_path).exists():
+        wd = WD14Tagger(
+            onnx_path=onnx_path,
+            tags_csv=tags_csv,
+            general_thresh=general_thresh,
+            character_thresh=float(cap_cfg.get("character_thresh", 0.85)),
+        )
+    elif WDTaggerWrapper.is_available():
+        wd = WDTaggerWrapper(
+            model_repo=cap_cfg.get("wd14_model_repo", None),
+            threshold=general_thresh,
+        )
+    else:
+        log.warning(
+            "No local WD14 ONNX model configured (data.captioning.wd14_onnx) "
+            "and WDTaggerWrapper is unavailable (missing onnxruntime / "
+            "huggingface_hub) — skipping captioning stage"
+        )
         return
 
-    # relocated: from backend.src.models.data.captioner import (
-        # relocated: WD14Tagger,
-        # relocated: Florence2Captioner,
-        # relocated: HybridCaptioner,
-    # relocated: )
-
-    wd = WD14Tagger(
-        onnx_path=onnx_path,
-        tags_csv=tags_csv,
-        general_thresh=float(cap_cfg.get("general_thresh", 0.35)),
-        character_thresh=float(cap_cfg.get("character_thresh", 0.85)),
-    )
     fl = (
         Florence2Captioner(
             repo=cap_cfg.get("florence_repo", "microsoft/Florence-2-large-ft")
@@ -182,7 +196,11 @@ def _run_captioning(image_paths: list[Path], cfg: DictConfig):
         else None
     )
     captioner = HybridCaptioner(
-        wd=wd, florence=fl, trigger=trigger or None, model_prefix=model_prefix
+        wd=wd,
+        florence=fl,
+        trigger=trigger or None,
+        model_prefix=model_prefix,
+        caption_mode=caption_mode,
     )
 
     # relocated: from PIL import Image
@@ -193,7 +211,7 @@ def _run_captioning(image_paths: list[Path], cfg: DictConfig):
             continue
         try:
             with Image.open(p) as im:
-                result = captioner(im)
+                result = captioner(im, image_path=p)
             captioner.write_caption_file(p, result)
         except Exception as exc:
             log.debug("Captioning failed for %s: %s", p, exc)

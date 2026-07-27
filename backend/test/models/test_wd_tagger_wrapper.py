@@ -41,7 +41,7 @@ def sample_csv(tmp_path):
         {"name": "1girl", "category": "0"},
         {"name": "blue_eyes", "category": "0"},
         {"name": "hatsune_miku", "category": "4"},
-        {"name": "vocaloid", "category": "9"},
+        {"name": "explicit", "category": "9"},
         {"name": "solo", "category": "0"},
     ])
     return csv_path
@@ -74,7 +74,7 @@ class TestLoadLabels:
         labels = _load_labels(str(sample_csv))
         assert labels[0]["category"] == "general"
         assert labels[2]["category"] == "character"
-        assert labels[3]["category"] == "copyright"
+        assert labels[3]["category"] == "rating"
 
     def test_category_id_preserved(self, sample_csv):
         labels = _load_labels(str(sample_csv))

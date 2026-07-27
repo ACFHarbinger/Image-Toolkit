@@ -54,11 +54,14 @@ logger = logging.getLogger(__name__)
 _DEFAULT_REPO = "SmilingWolf/wd-v1-4-convnext-tagger-v2"
 _DEFAULT_CACHE = Path.home() / ".image-toolkit" / "models" / "wd_tagger"
 
-# Tag categories as used in the WD label CSV
+# Tag categories as used in the WD label CSV (verified against the real
+# selected_tags.csv shipped with SmilingWolf/wd-v1-4-convnext-tagger-v2:
+# category 9 is the 4-way rating group — general/sensitive/questionable/explicit —
+# not "copyright"; this repo's CSVs carry no separate copyright category).
 _CATEGORY_NAMES: Dict[int, str] = {
     0: "general",
     4: "character",
-    9: "copyright",
+    9: "rating",
 }
 
 # Minimum confidence applied when no threshold is given by the caller
@@ -207,7 +210,7 @@ class WDTaggerWrapper(ModelWrapper):
         -------
         list of dict
             Each dict has keys ``"tag"``, ``"confidence"`` (float 0–1), and
-            ``"category"`` (``"general"``, ``"character"``, or ``"copyright"``).
+            ``"category"`` (``"general"``, ``"character"``, or ``"rating"``).
             Sorted by confidence descending.
         """
         thresh = threshold if threshold is not None else self.threshold

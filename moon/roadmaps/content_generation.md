@@ -45,7 +45,7 @@ flowchart TD
 
     subgraph IMG["§1 Image Generation"]
         direction TB
-        S11["§1.1 Anime Captioning — WD14 + Florence-2 [Quick Win]"]:::feature:::planned
+        S11["§1.1 Anime Captioning — WD14 + Florence-2 [Quick Win]"]:::feature:::done
         S12["§1.2 v-Prediction / zero-terminal-SNR [Research]"]:::research:::planned
         S13["§1.3 LyCORIS — LoCon / LoHa / LoKr [Research]"]:::research:::planned
         S14["§1.4 ControlNet + IP-Adapter — ComfyUI workflows"]:::integration:::planned
@@ -138,15 +138,17 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 ## 1. Image Generation
 
-### 1.1 Anime-native captioning (WD14 + Florence-2) [Quick Win]
+### 1.1 Anime-native captioning (WD14 + Florence-2) [Quick Win] — done (2026-07-27, issue #32)
 
-**Current:** `captioner.py` exists but captioning quality drives LoRA fidelity.
+**Current:** `captioner.py` already had a full `HybridCaptioner` (WD14 booru tags + optional Florence-2 sentence + trigger token + per-base-model quality prefix) wired into `anime_training_pipeline.py`'s captioning stage — this predates issue #32 and the roadmap text above was stale (it described this as unimplemented). What issue #32 actually found and fixed:
 
-**Pain point:** Anime LoRAs need booru-tag captions (the base models' native vocabulary), not generic VLM prose. WD14/WD-v3 taggers produce booru tags; Florence-2 adds natural-language context.
+- **A (WD14 primary, confidence-thresholded):** already implemented via an inline `WD14Tagger` class in `captioner.py` (general_thresh=0.35 default, matches WD14 convention) — but it duplicated, rather than reused, the shared `backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper` from `new_features.md` §4.4 (Auto-Tagger), which was itself fully built but never called from anywhere (dormant). Fixed: added a `_wd_tag()` adapter in `captioner.py` so `HybridCaptioner.wd` now accepts either backend, and wired `WDTaggerWrapper` in as the pipeline's fallback default (`anime_training_pipeline.py::_run_captioning` now uses the legacy local-path `WD14Tagger` only if an explicit `data.captioning.wd14_onnx` file exists, otherwise falls back to `WDTaggerWrapper`, which auto-downloads `SmilingWolf/wd-v1-4-convnext-tagger-v2` from Hugging Face Hub — repo existence and exact filenames [`model.onnx`, `selected_tags.csv`] verified reachable). This is the "implement once, use in both tagging and training" sharing the original recommendation called for. Also found and fixed a real bug while wiring this in: `WDTaggerWrapper`'s `_CATEGORY_NAMES` mapped WD category `9` to `"copyright"`; the real `selected_tags.csv` uses category `9` for the 4-way **rating** group (general/sensitive/questionable/explicit), not copyright — fixed, with a test update.
+- **C (trigger token per character):** already wired via `data.trigger_word` in the Hydra training config — the same field `LoRADatasetV2`/`BucketSample` use to identify "the character" being trained, confirmed as the natural existing mechanism (no new input added).
+- **B (Florence-2 augmentation):** already implemented as a plain natural-language sentence appended after the booru tags (`"<tags>. <sentence>"`) when `florence` is supplied and `use_florence2=true` — no new work needed here.
+- **Additive prose mode:** added `HybridCaptioner(caption_mode="booru"|"prose")` (default `"booru"`, fully backward compatible) so pure VLM-prose captioning stays available as an explicit option per the issue's requirement, rather than only reachable by omitting `wd`.
+- **Not verified end-to-end:** `onnxruntime` is not installed in the project's `.venv` (only `huggingface_hub` is), so no real ONNX inference was run against the downloaded model in this session — the HF repo/filenames were confirmed reachable via the HF API, and all logic was verified with mocked ONNX sessions in `backend/test/models/test_captioner.py` (new) and `backend/test/models/test_wd_tagger_wrapper.py` (updated for the category fix). Installing `onnxruntime` and running a real image through `WDTaggerWrapper.tag()` is the remaining step to fully close this out.
 
-**Options.** **A** WD14 ONNX tagger as primary, confidence-thresholded (reuses the §3.6 auto-tagger from `new_features.md`). **B** Florence-2 for caption augmentation. **C** trigger-token + curated-tag schema per character.
-
-**Recommendation:** A+C now (booru tags + trigger token), B as augmentation. Shared with the Auto-Tagger feature — implement once, use in both tagging and training.
+**Recommendation (original):** A+C now (booru tags + trigger token), B as augmentation. Shared with the Auto-Tagger feature — implement once, use in both tagging and training. **Status:** A+B+C all in place; see above for what changed and what's still unverified.
 
 ### 1.2 v-Prediction / zero-terminal-SNR support [Research]
 
