@@ -4,6 +4,18 @@
 
 ---
 
+## S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)
+
+User-authorized scale-up from the established 5-test verify to an 18-test targeted batch, deliberately chosen to span every current fallback class (rather than an arbitrary sample) for Phase 4's "re-examine what remains" instruction. Clean run, no resource-danger triggers — the biggest single scale step-up since the thread-cap host-freeze fix landed.
+
+- **Classifications shifted substantially since 2026-07-26**: 8 of 13 overlapping tests changed fallback class, driven by this session's accumulated fixes (ToonOut, aligned-SSIM). Net: 3 tests improved to real composites that previously failed outright (test33/35/55); 1 regressed from real to a safe fallback (test37 — consistent with the already-documented ToonOut pattern of trading a flawed real composite for a safe one).
+- **`alignment_failed` (test49) is resolved, not just this test's specific issue**: it no longer fails at alignment at all — it now reaches the composite stage and fails at `composite_gate_sb` instead, most likely a side effect of ToonOut's masking fix changing the BiRefNet output feeding bundle adjustment. The roadmap's "diagnose individually" item is superseded.
+- **`seam_vis_gate` (39% of this sample, the dominant class) is not homogeneous**: cross-referencing `seam_visibility` against the existing `mean_post_warp_diff` metric splits it into pose-blend-driven failures (high on both) and photometric-driven ones (high seam_visibility, low post-warp-diff — registration is fine, the defect is banding/exposure). The roadmap's own "mostly pose-blend artifacts" assumption only holds for part of the class.
+- **Tested whether `ASP_JOINT_GAIN_SOLVE` rescues the photometric subset** (7-test probe on all `seam_vis_gate` cases from the batch): 2/7 flip to real composites, 3/7 improve without crossing the gate, but 2/7 regress — including test51, whose post-warp-diff is comparably low to a test that *did* improve, breaking a clean threshold story. `mean_post_warp_diff` correlates with outcome but isn't reliable enough to build an automatic dispatch rule from; not pursued further.
+- **No new code shipped** — this is diagnostic per Phase 4's instruction, not a measured code change. `ASP_JOINT_GAIN_SOLVE` stays default OFF. Full write-up: `.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md`. `moon/roadmaps/asp.md` Phase 4 section updated with all four findings.
+
+---
+
 ## S243 — 2026-07-27 (ASP Phase 1.2(a): AnimationSeparator investigated, rejected as a phase-detection alternative)
 
 Answered the roadmap's remaining §1.2(a) question: how does Overmix's `AnimationSeparator` behave on 2-4 phase pan shots?

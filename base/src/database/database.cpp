@@ -298,9 +298,12 @@ public:
         while (sqlite3_step(s.stmt) == SQLITE_ROW) {
             const char* opt = reinterpret_cast<const char*>(
                 sqlite3_column_text(s.stmt, 0));
-            if (opt && std::strstr(opt, "ENABLE_FTS5") != nullptr)
+            if (opt && std::strstr(opt, "FTS5") != nullptr)
                 return true;
         }
+        Stmt mod(db_, "SELECT count(*) FROM pragma_module_list WHERE name='fts5';");
+        if (sqlite3_step(mod.stmt) == SQLITE_ROW && sqlite3_column_int(mod.stmt, 0) > 0)
+            return true;
         return false;
     }
 

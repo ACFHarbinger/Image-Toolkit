@@ -215,7 +215,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         root.setSpacing(6)
 
         # Monitor selector
-        sel_box = self.create_monitor_layout_section("Select Monitor")
+        sel_box = self.create_monitor_layout_section("Select Monitor (Drag to Reorder)")
         root.addWidget(sel_box)
 
         # Placeholder shown when no monitors are detected

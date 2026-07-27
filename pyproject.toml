@@ -213,6 +213,7 @@ markers = [
     "gpu: test loads ML model weights into VRAM (DINOv2, RLHF, etc.)",
     "gc_heavy: test allocates large objects; triggers gc.collect() on completion",
     "slow: test takes more than 10 s (excluded from fast CI runs)",
+    "forked: run test in isolated subprocess",
 ]
 # §3.12A — pytest-xdist parallel execution (opt-in).
 # Serial run (default):   pytest backend/test/animation/
