@@ -4,6 +4,22 @@
 
 ---
 
+## S219 — 2026-07-27 (ASP benchmark host-freeze diagnosis — thread-count fix, still unresolved)
+
+User-authorized monitored diagnostic runs of `bench_anime_stitch.py`, continuing the S218 investigation.
+
+- Added `_log_resource(tag)` per-stage checkpoints inside `process_dataset` itself (dataset_start, before/after BiRefNet, before/after LoFTR, before/after `_render_median`, after composite, dataset_end) — a single dataset's log now shows which stage is elevated, not just which dataset in a batch.
+- Added an external bash watchdog (`watchdog.sh`, scratchpad-only, not committed) that polls system RAM/VRAM independently of the benchmark process every 3s and force-kills it if either crosses a critical line (92%/95%) — a second line of defense in case the in-process guardrail never regains control (e.g. a hang inside one long native call).
+- **1-dataset monitored run: completely healthy.** RSS 0.86→4.4GB, system RAM 16.6→19.1%, VRAM peaked at 16.1% during BiRefNet load then settled to ~7%. No leak signature at all for a single dataset — matches the pattern from the previous session where small batches were usually fine.
+- **5-dataset run froze the host again, hard restart required — despite both the in-process guardrail and the external watchdog.** This is a significant negative result: automated safety nets are not sufficient by themselves, meaning either the freeze is a kernel/GPU-driver-level hang that no userspace kill can stop once triggered, or it happens faster than a 3-second poll can catch. Diagnostic logs from this run were lost (the crash triggers a full host reboot, wiping `/tmp`).
+- **New lead from the user**: they independently observed the benchmark spawning many concurrent processes/threads in `htop`, and suspected multi-core parallelism was compounding the leak. Code audit confirmed: nothing in the codebase ever capped OpenMP/BLAS/OpenCV/PyTorch thread pools — each independently defaults to one thread per logical CPU core, so numpy's BLAS threading, OpenCV's `parallel_for_`, PyTorch's intraop pool, and the C++ `base` extension's own `#pragma omp parallel for` (`canvas.cpp`) all stack uncoordinated on a high-core-count machine.
+- **Fix applied**: `OMP_NUM_THREADS` / `OPENBLAS_NUM_THREADS` / `MKL_NUM_THREADS` / `NUMEXPR_NUM_THREADS` set to 4 (`ASP_BENCH_THREAD_CAP` env override) *before* numpy/cv2/torch are imported in `bench_anime_stitch.py` — these must be set before the native libraries load to take effect — plus explicit `cv2.setNumThreads(4)` and `torch.set_num_threads(4)` calls. This doesn't prove a leak by itself but bounds peak concurrent resource usage regardless of the deeper cause, and directly matches what the user observed. Not yet re-tested against a multi-dataset run.
+- Reviewed `base/src/animation/canvas.cpp` (the default C++ path for every dataset's warp/render) for the double-free lead observed in S217/S218: `as_mat()` does a proper `.clone()` (fully-owned deep copy, not a zero-copy view that could outlive its source), and `array_from_mat()`'s deep-copy contract is documented and followed. No obvious buffer-lifetime bug in this file. **Not yet audited**: `frame_selection.cpp`, `fg_register.cpp`, `compositing.cpp`, `seam.cpp`, `exposure.cpp` — all also loaded via the same `base` extension and active by default.
+- `backend/test/animation/` — 670 passed, 5 GPU-skipped, unaffected by the thread-cap change.
+- **Status: still unresolved.** The thread cap is a real, safe improvement but not confirmed as *the* fix. Next monitored attempt should re-test with the thread cap in place, starting small again given the automated safety nets already failed once this session.
+
+---
+
 ## S218 — 2026-07-27 (ASP Phase 0.4 pose-residual stats, Phase 2.5 background averaging; benchmark host-freeze safety guardrail — CRITICAL, benchmarking paused)
 
 **Part 3 — critical: benchmark runs have frozen the user's host, requiring a hard restart.** On a 128GB RAM / 24GB VRAM machine, meaning uncontrolled resource growth, not underpowered hardware — distinct from the already-fixed `pytest backend/test/` freeze (RC1-RC5, 2026-06-18). Root cause not yet found; a `double free or corruption (!prev)` glibc abort was also observed once, suggesting the native `base` C++ extension (warp/render/ECC/hold-detection, active by default on every dataset) may be involved, not just gradual Python/CUDA growth.

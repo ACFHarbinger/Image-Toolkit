@@ -9,13 +9,29 @@ analysis (2-D and 3-D visualizations), and structured feedback blocks for
 human review and LLM-assisted iteration.
 """
 
+import os
+
+# §2.6 (2026-07-27): repeated benchmark runs have frozen the host hard enough
+# to force a restart, and the user independently observed the benchmark
+# spawning many concurrent processes/threads in htop. Nothing in this backend
+# ever capped OpenMP/BLAS/OpenCV/PyTorch thread pools, so each library
+# independently defaults to spawning one thread per logical CPU core — on a
+# high-core-count machine, several such uncoordinated pools (BLAS for numpy,
+# OpenCV's parallel_for_, PyTorch's intraop pool) stack multiplicatively.
+# This doesn't explain a leak by itself, but bounds peak concurrent resource
+# usage regardless of what the deeper cause turns out to be, and makes any
+# per-thread cost far less severe. These MUST be set before numpy/cv2/torch
+# are imported — they read these env vars once at native library load time.
+_THREAD_CAP = os.environ.get("ASP_BENCH_THREAD_CAP", "4")
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, _THREAD_CAP)
+
 import datetime
 import gc
 import glob
 import json
 import logging
 import math
-import os
 import platform
 import shutil
 import sys
@@ -26,6 +42,9 @@ import cv2
 import numpy as np
 import psutil
 import torch
+
+cv2.setNumThreads(int(_THREAD_CAP))
+torch.set_num_threads(int(_THREAD_CAP))
 
 sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
@@ -157,6 +176,26 @@ def _resource_danger(snap: Dict) -> Optional[str]:
             f"(abort >= {_VRAM_ABORT_PCT:.0f}%)"
         )
     return None
+
+
+# §2.6 diagnostic instrumentation (2026-07-27): per-stage checkpoints inside
+# process_dataset itself, not just per-dataset in the outer loop, so a single
+# dataset already reveals which *stage* — not just which dataset — leaves
+# memory elevated. Prints one compact line per call; cheap enough to leave in
+# permanently (a few syscalls), and each call also runs gc.collect() +
+# torch.cuda.empty_cache() first so the reading reflects what's genuinely
+# unreachable/uncached, not just "not yet collected".
+def _log_resource(tag: str) -> Dict:
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    snap = _resource_snapshot()
+    print(
+        f"    [Res/{tag}] RSS={snap['rss_gb']}GB  sys_ram={snap['sys_ram_used_pct']}%  "
+        f"vram_alloc={snap['vram_allocated_gb']}GB  vram_reserved={snap['vram_reserved_gb']}GB  "
+        f"vram_used={snap['vram_used_pct']}%"
+    )
+    return snap
 
 
 # ============================================================================
@@ -1088,6 +1127,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     timings: Dict[str, float] = {}
 
     print(f"\n{'=' * 60}\nProcessing dataset: {dataset_dir}\n{'=' * 60}")
+    _log_resource("dataset_start")
 
     dataset_name = os.path.basename(dataset_dir)
     stage_dir = os.path.join(dataset_dir, "output", "panorama_stages")
@@ -1184,6 +1224,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     # ------------------------------------------------------------------
     t0 = time.perf_counter()
     birefnet_ok = False
+    _log_resource("before_birefnet")
     try:
         from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
@@ -1200,6 +1241,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         print(f"  BiRefNet failed ({e}), using None masks")
         bg_masks = [None] * N
     timings["birefnet_sec"] = round(time.perf_counter() - t0, 3)
+    _log_resource("after_birefnet_offload")
 
     for i, m in enumerate(bg_masks):
         img = m if m is not None else np.ones((H, W), dtype=np.uint8) * 255
@@ -1262,6 +1304,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     # ------------------------------------------------------------------
     t0 = time.perf_counter()
     loftr_ok = False
+    _log_resource("before_loftr")
     try:
         from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
@@ -1279,6 +1322,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         gc.collect()
         torch.cuda.empty_cache()
     timings["matching_sec"] = round(time.perf_counter() - t0, 3)
+    _log_resource("after_loftr_offload")
 
     # Collect edge metadata before filtering
     raw_edge_count = len(edges)
@@ -1619,10 +1663,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         # STEP 8-10: Render → quality gate → composite → crop
         # ------------------------------------------------------------------
         t0 = time.perf_counter()
+        _log_resource("before_render_median")
         canvas, valid_mask, _, _ = _render_median(
             frames, affines, bg_masks, canvas_h, canvas_w # pyrefly: ignore [bad-argument-type]
         )
         timings["render_sec"] = round(time.perf_counter() - t0, 3)
+        _log_resource("after_render_median")
         cv2.imwrite(os.path.join(stage_dir, "stage09_temporal_render.png"), canvas)
 
         # Run the full foreground-assembly composite (Stage 11) — this applies
@@ -1635,6 +1681,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             phase_ids=_phase_ids, seam_meta_out=_seam_meta,
         )
         timings["composite_sec"] = round(time.perf_counter() - t0, 3)
+        _log_resource("after_composite")
 
         # §0.4 — seam-band pose-residual stats: lower mean post_warp_diff
         # across seams means the frame selection handed compositing an
@@ -1916,6 +1963,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
 
     timings["visualisations_sec"] = round(time.perf_counter() - t0, 3)
     timings["total_sec"] = round(time.perf_counter() - t_total_start, 3)
+    _log_resource("dataset_end")
 
     return _build_result(
         dataset_name,
