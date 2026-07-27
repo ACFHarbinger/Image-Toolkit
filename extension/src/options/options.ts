@@ -5,7 +5,7 @@ import { api, storageGet } from "../shared/api";
 import { loadSettings, saveSettings } from "../shared/settings";
 import { scanAndHighlight, clearHighlights } from "../shared/dupTabs";
 import { ping, BridgeError } from "../shared/bridge";
-import type { LastDupCheck } from "../background";
+import type { LastDupCheck, LastSimilar } from "../background";
 import type { DupTabSet } from "../shared/messages";
 
 const $ = <T extends HTMLElement>(id: string): T =>
@@ -198,6 +198,54 @@ async function testConnection(): Promise<void> {
   }
 }
 
+// --- Shared thumbnail-result row rendering (§7.6 / §7.8) ---
+
+/** Common shape of a ranked/matched library result with an optional thumb. */
+interface ThumbResultItem {
+  path: string;
+  thumb_b64: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+/**
+ * Render one row per result: thumbnail + click-to-copy label. Shared by the
+ * duplicate-check (§7.6) and find-similar (§7.8) result panels — `labelFor`
+ * supplies the per-feature score/distance prefix.
+ */
+function renderThumbResults<T extends ThumbResultItem>(
+  container: HTMLElement,
+  items: T[],
+  labelFor: (item: T) => string,
+): void {
+  for (const m of items) {
+    const row = document.createElement("div");
+    row.className = "dup-tab-row";
+    if (m.thumb_b64) {
+      const img = document.createElement("img");
+      img.src = `data:image/jpeg;base64,${m.thumb_b64}`;
+      img.style.width = "48px";
+      img.style.height = "48px";
+      img.style.objectFit = "cover";
+      img.style.borderRadius = "3px";
+      row.appendChild(img);
+    }
+    const label = document.createElement("span");
+    label.className = "dup-tab-title";
+    label.textContent = labelFor(m);
+    label.title = "Copy path";
+    label.addEventListener("click", () => {
+      void navigator.clipboard.writeText(m.path);
+    });
+    row.appendChild(label);
+    container.appendChild(row);
+  }
+}
+
+function dimsSuffix(m: ThumbResultItem): string {
+  return m.width ? ` (${m.width}×${m.height})` : "";
+}
+
 // --- Last duplicate-check result (§7.6) ---
 
 async function renderLastDupCheck(): Promise<void> {
@@ -224,29 +272,45 @@ async function renderLastDupCheck(): Promise<void> {
       : `${when} — ${result.matches.length} match(es) in ${result.scanned} files:`;
   container.appendChild(header);
 
-  for (const m of result.matches) {
-    const row = document.createElement("div");
-    row.className = "dup-tab-row";
-    if (m.thumb_b64) {
-      const img = document.createElement("img");
-      img.src = `data:image/jpeg;base64,${m.thumb_b64}`;
-      img.style.width = "48px";
-      img.style.height = "48px";
-      img.style.objectFit = "cover";
-      img.style.borderRadius = "3px";
-      row.appendChild(img);
-    }
-    const label = document.createElement("span");
-    label.className = "dup-tab-title";
-    const dims = m.width ? ` (${m.width}×${m.height})` : "";
-    label.textContent = `[d=${m.hamming}] ${m.path}${dims}`;
-    label.title = "Copy path";
-    label.addEventListener("click", () => {
-      void navigator.clipboard.writeText(m.path);
-    });
-    row.appendChild(label);
-    container.appendChild(row);
+  renderThumbResults(
+    container,
+    result.matches,
+    (m) => `[d=${m.hamming}] ${m.path}${dimsSuffix(m)}`,
+  );
+}
+
+// --- Last find-similar result (§7.8) ---
+
+async function renderLastSimilar(): Promise<void> {
+  const container = $<HTMLDivElement>("similar-results");
+  const { lastSimilar } = await storageGet<{ lastSimilar: LastSimilar }>(
+    "lastSimilar",
+  );
+  if (!lastSimilar) return;
+  container.replaceChildren();
+
+  const header = document.createElement("div");
+  header.style.marginBottom = "6px";
+  const when = new Date(lastSimilar.when).toLocaleString();
+  if (lastSimilar.error) {
+    header.textContent = `${when} — failed: ${lastSimilar.error}`;
+    container.appendChild(header);
+    return;
   }
+  const result = lastSimilar.result;
+  if (!result) return;
+  header.textContent =
+    result.results.length === 0
+      ? `${when} — no results (${result.scanned} files checked)`
+      : `${when} — top ${result.results.length} of ${result.scanned} files ` +
+        `(ranked by ${result.method}):`;
+  container.appendChild(header);
+
+  renderThumbResults(
+    container,
+    result.results,
+    (m) => `[score=${m.score.toFixed(2)}] ${m.path}${dimsSuffix(m)}`,
+  );
 }
 
 // --- Page capture (§7.9) ---
@@ -283,6 +347,7 @@ async function sendToActiveTab(action: CaptureAction): Promise<void> {
 document.addEventListener("DOMContentLoaded", () => {
   void restoreOptions();
   void renderLastDupCheck();
+  void renderLastSimilar();
   $<HTMLButtonElement>("download-all").addEventListener("click", () => {
     void sendToActiveTab("download_all_media");
   });

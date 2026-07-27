@@ -209,3 +209,93 @@ class TestIngest(BridgeTestCase):
         save_config({"dup_root": "", "ingest_dir": ""})
         resp = self._post({"data_b64": base64.b64encode(_png_bytes()).decode()})
         self.assertEqual(resp.status_code, 409)
+
+
+class TestSimilar(BridgeTestCase):
+    """§7.8 ranked visual-similarity search (pHash-degraded path)."""
+
+    def _post(self, payload):
+        return self.client.post(
+            "/api/extension/similar/",
+            payload,
+            content_type="application/json",
+            **self._auth(),
+        )
+
+    def test_requires_token(self):
+        resp = self.client.post(
+            "/api/extension/similar/", {}, content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_409_when_root_unconfigured(self):
+        from extension_api.bridge_config import save_config
+
+        save_config({"dup_root": ""})
+        resp = self._post({"data_b64": base64.b64encode(_png_bytes()).decode()})
+        self.assertEqual(resp.status_code, 409)
+
+    def test_400_without_url_or_data(self):
+        resp = self._post({})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_400_on_undecodable_image(self):
+        resp = self._post({"data_b64": base64.b64encode(b"not an image").decode()})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_ranked_results_sorted_and_scored(self):
+        query = _png_bytes(seed=100)
+        (self.images_dir / "exact.png").write_bytes(query)
+        (self.images_dir / "other1.png").write_bytes(_png_bytes(seed=101))
+        (self.images_dir / "other2.png").write_bytes(_png_bytes(seed=102))
+
+        resp = self._post({"data_b64": base64.b64encode(query).decode()})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["method"], "phash")
+        self.assertEqual(body["scanned"], 3)
+        self.assertEqual(len(body["results"]), 3)
+
+        # Sorted nearest-first: hamming ascending == score descending.
+        hammings = [r["hamming"] for r in body["results"]]
+        self.assertEqual(hammings, sorted(hammings))
+        scores = [r["score"] for r in body["results"]]
+        self.assertEqual(scores, sorted(scores, reverse=True))
+
+        best = body["results"][0]
+        self.assertTrue(best["path"].endswith("exact.png"))
+        self.assertEqual(best["hamming"], 0)
+        self.assertEqual(best["score"], 1.0)
+        self.assertIsNotNone(best["thumb_b64"])
+        self.assertEqual(best["width"], 64)
+
+    def test_top_k_limits_result_count(self):
+        query = _png_bytes(seed=200)
+        for i in range(5):
+            (self.images_dir / f"lib{i}.png").write_bytes(_png_bytes(seed=200 + i))
+
+        resp = self._post(
+            {"data_b64": base64.b64encode(query).decode(), "top_k": 2}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()["results"]), 2)
+
+    def test_top_k_defaults_to_twelve(self):
+        for i in range(20):
+            (self.images_dir / f"lib{i}.png").write_bytes(_png_bytes(seed=300 + i))
+
+        resp = self._post(
+            {"data_b64": base64.b64encode(_png_bytes(seed=300)).decode()}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()["results"]), 12)
+
+    def test_returns_results_even_beyond_dup_check_threshold(self):
+        # Unlike dup-check, /similar/ never returns an empty list just
+        # because nothing is a close match — it always ranks what exists.
+        (self.images_dir / "unrelated.png").write_bytes(_png_bytes(seed=999))
+        resp = self._post(
+            {"data_b64": base64.b64encode(_png_bytes(seed=1)).decode()}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()["results"]), 1)

@@ -1,5 +1,5 @@
 /**
- * Client for the Image Toolkit desktop-app bridge (§7.5A / §7.6).
+ * Client for the Image Toolkit desktop-app bridge (§7.5A / §7.6 / §7.8).
  *
  * Talks to the token-authenticated localhost Django endpoints under
  * `/api/extension/`. All functions throw `BridgeError` on transport or
@@ -81,6 +81,46 @@ export function dupCheck(imageUrl: string): Promise<DupCheckResult> {
   return bridgeFetch<DupCheckResult>("/dup-check/", {
     method: "POST",
     body: JSON.stringify({ url: imageUrl }),
+  });
+}
+
+export interface SimilarMatch {
+  path: string;
+  /** 1.0 = identical, 0.0 = maximally different (64-bit pHash Hamming distance, normalized). */
+  score: number;
+  hamming: number;
+  width: number | null;
+  height: number | null;
+  thumb_b64: string | null;
+}
+
+export interface SimilarResult {
+  results: SimilarMatch[];
+  scanned: number;
+  cold_scan: boolean;
+  /**
+   * Ranking method actually used. Currently always `"phash"` — the app's
+   * embedding index (BGE-M3/CLIP, §7.8's ideal path) isn't populated yet,
+   * so this degrades to perceptual-hash ranking per the roadmap's explicit
+   * fallback clause. A future embedding-based server response keeps this
+   * same shape (e.g. `method: "embedding"`).
+   */
+  method: string;
+}
+
+/**
+ * Ranked visual-similarity search against the app's library (§7.8).
+ * "Find similar in my library" — returns up to `topK` results ranked
+ * closest-first, unlike `dupCheck` which only returns matches within a
+ * duplicate threshold.
+ */
+export function findSimilar(
+  imageUrl: string,
+  topK = 12,
+): Promise<SimilarResult> {
+  return bridgeFetch<SimilarResult>("/similar/", {
+    method: "POST",
+    body: JSON.stringify({ url: imageUrl, top_k: topK }),
   });
 }
 

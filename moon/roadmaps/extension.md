@@ -193,11 +193,13 @@ extension/
 
 **Pain point:** "Do I have images *like* this?" — near-duplicates with different crops/resolutions and stylistically similar images are invisible to pHash.
 
-**Approach (selected):**
-- Context-menu **"Find similar in my library"** → `POST /api/extension/similar` `{url | data_b64, top_k=12}`.
-- App embeds the query image (BGE-M3 visual / CLIP per §5.1 semantic-search infrastructure) and queries Qdrant/pgvector; returns ranked `{path, score, thumb_b64}`.
-- Results rendered in an extension popup grid (reuses §7.6 result UI); clicking a result can open the app's gallery at that image (deep-link handled app-side).
-- Depends on the app's embedding index covering the library (piggybacks on §5.1 OpenCLIP semantic search work; degrade to pHash-only §7.6 when no embedding index exists).
+**Status: ✅ Shipped, pHash-degraded path (2026-07-27, issue #51).** Context-menu **"Find similar in my library"** → `POST /api/extension/similar/` `{url|data_b64, top_k=12}` → `SimilarView` (`extension_api/views.py`) ranks the configured directory tree by perceptual-hash Hamming distance (`DirPhashIndex.query_topk`/`query_topk_bytes`, `backend/src/core/dir_phash_index.py`) and returns ranked `{path, score, hamming, width, height, thumb_b64}` (`score` = `1 - hamming/64`). Results render in the extension options popup (`similar-results` panel, `extension/src/options/options.ts`), reusing the §7.6 duplicate-check row renderer (`renderThumbResults`, generalized to take both features' item shapes + a `labelFor` callback) rather than a new grid. `bridge.ts::findSimilar()` is the client; `background.ts::runSimilar()` wires the context-menu action and stores `lastSimilar` for the popup.
+
+**Why pHash and not the embedding path described below:** verified before implementing that the Unified DB roadmap's [DB.7 Semantic Search & CBIR](unified_database.md#db7-semantic-search--cbir) — the phase that would populate `embeddings` with real MetaCLIP/BGE-M3 vectors and add a "find similar" action app-side — carries no shipped marker (unlike DB.1–DB.4) and is still listed `:::planned` in that roadmap's dependency graph. The C++ `base.database` cosine-`knn` primitive exists and is unit-tested, but nothing outside its own test calls it — no embedding worker fills the `embeddings` table for any real image. The standalone `Recommendation-Engine` submodule's BGE-M3/SQLite store is a different domain (media listings/entities) and isn't wired to the image library either. Per this section's own explicit fallback clause, the pHash-only degraded path was implemented instead — not a shortfall, the sanctioned outcome when the embedding index isn't ready. The response shape (`path, score, thumb_b64`, plus `method` discriminator) is designed so a future embedding-based `SimilarView` body swap doesn't require client changes.
+
+**Original approach (kept for when §DB.7 ships):**
+- App embeds the query image (BGE-M3 visual / CLIP per §5.1 semantic-search infrastructure) and queries the Unified DB embedding index; returns ranked `{path, score, thumb_b64}` with `method: "embedding"`.
+- Clicking a result can open the app's gallery at that image (deep-link handled app-side) — not yet implemented on either path.
 
 **Effort:** ~4d (after §7.6; embedding index availability gates quality) · **Impact:** High
 

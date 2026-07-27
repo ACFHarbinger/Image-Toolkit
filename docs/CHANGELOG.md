@@ -4,6 +4,18 @@
 
 ---
 
+## S231 — 2026-07-27 (Extension §7.8: visual similarity search from the browser, pHash-degraded path)
+
+Implemented GitHub issue #51 / roadmap §7.8.
+
+- **Verified the embedding index isn't there before building anything.** §7.8's spec assumes an app-side BGE-M3/CLIP embedding index (Qdrant/pgvector). Checked the Unified DB roadmap's [DB.7 Semantic Search & CBIR](../moon/roadmaps/unified_database.md#db7-semantic-search--cbir): unlike DB.1–DB.4 it carries no shipped marker and is still `:::planned` in that doc's dependency graph. The C++ `base.database` module does have a working, unit-tested cosine-`knn` primitive (`base/src/database/database.cpp`) and an `embeddings` table (`backend/src/database/unified/schema.sql`), but nothing outside `test_base_database.py` ever calls it — no embedding worker populates it for any real image, and no app-side "find similar" action exists. The standalone `Recommendation-Engine` submodule's BGE-M3/SQLite store is a different domain (media listings/entities) and isn't wired to the image library either. Per §7.8's own explicit fallback clause ("degrade to pHash-only §7.6 when no embedding index exists"), implemented the pHash-degraded path — the roadmap-sanctioned outcome, not a shortfall.
+- **Backend**: `SimilarView` (`extension_api/views.py`) + `POST /api/extension/similar/` (`extension_api/urls.py`), same `BridgeTokenPermission`/CORS handling as `DupCheckView`/`IngestView`. Accepts `{url|data_b64, top_k=12}` (clamped 1-100), returns `{results: [{path, score, hamming, width, height, thumb_b64}], scanned, cold_scan, method: "phash"}` — `score = 1 - hamming/64`. Extended `DirPhashIndex` (`backend/src/core/dir_phash_index.py`) with `query_topk`/`query_topk_bytes`: its existing `query`/`query_bytes` only return threshold-filtered matches (dup-check's binary duplicate/not-duplicate use case), so a ranking-only, always-returns-up-to-k method was added for the always-ranked top-K use case, sharing the same underlying `_scored()` Hamming-distance sweep.
+- **Extension**: new context-menu item **"Find similar in my library"** (`background.ts`, alongside the existing dup-check/ingest menu items); `bridge.ts::findSimilar()` client function; results render in the options popup's new "Find Similar" panel (`options.html`/`options.ts`), reusing the §7.6 duplicate-check row renderer — generalized into a shared `renderThumbResults()` helper parameterized by a `labelFor` callback rather than building a second grid from scratch.
+- **Tests**: 5 new cases in `backend/test/core/test_dir_phash_index.py` (top-K ranking ignores threshold, respects `k`, bytes variant, undecodable) — 14/14 passing. 9 new cases in `extension_api/tests.py::TestSimilar` (auth, 409/400 paths, ranked ordering + score math, `top_k` clamping/default, always-returns-results-even-when-far behavior distinguishing it from dup-check) — 23/23 `extension_api` tests passing. Extension side: `npm run typecheck` (`tsc --noEmit`) clean after `npm install`.
+- `moon/roadmaps/extension.md` §7.8 marked shipped (pHash-degraded), with the original embedding-path approach kept documented for when DB.7 ships — same response shape (`method` discriminator) so swapping the ranking method later needs no client change.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.

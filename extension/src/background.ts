@@ -11,8 +11,10 @@ import { buildFilename, resolveFolder } from "./shared/naming";
 import {
   dupCheck,
   ingest,
+  findSimilar,
   BridgeError,
   type DupCheckResult,
+  type SimilarResult,
 } from "./shared/bridge";
 import { parseImageMetadata } from "./shared/imageMeta";
 import type { ExtensionMessage } from "./shared/messages";
@@ -20,6 +22,7 @@ import type { ExtensionMessage } from "./shared/messages";
 const MENU_ID = "save-to-custom-folder";
 const DUP_CHECK_MENU_ID = "dup-check";
 const INGEST_MENU_ID = "send-to-app";
+const SIMILAR_MENU_ID = "find-similar";
 const INSPECT_MENU_ID = "inspect-metadata";
 const FRAME_MENU_ID = "capture-frame";
 const BURST_MENU_ID = "capture-frame-burst";
@@ -51,6 +54,11 @@ function createContextMenu(): void {
     api.contextMenus.create({
       id: INGEST_MENU_ID,
       title: "Send to Image Toolkit",
+      contexts: ["image"],
+    });
+    api.contextMenus.create({
+      id: SIMILAR_MENU_ID,
+      title: "Find similar in my library",
       contexts: ["image"],
     });
     api.contextMenus.create({
@@ -181,6 +189,43 @@ async function runDupCheck(imageUrl: string): Promise<void> {
   await api.storage.local.set({ lastDupCheck: entry });
 }
 
+/** Stored under `lastSimilar` for the popup to render (§7.8). */
+export interface LastSimilar {
+  when: string;
+  imageUrl: string;
+  result?: SimilarResult;
+  error?: string;
+}
+
+/** Run a ranked visual-similarity search and surface the outcome (§7.8). */
+async function runSimilar(imageUrl: string): Promise<void> {
+  const entry: LastSimilar = {
+    when: new Date().toISOString(),
+    imageUrl,
+  };
+  try {
+    const result = await findSimilar(imageUrl);
+    entry.result = result;
+    if (result.results.length === 0) {
+      notify(
+        "No similar images found",
+        `Your library appears empty (${result.scanned} files checked).`,
+      );
+    } else {
+      const best = result.results[0];
+      notify(
+        `${result.results.length} similar image(s) found`,
+        `Closest: ${best.path} (score ${best.score.toFixed(2)}). ` +
+          "Open the extension popup for details.",
+      );
+    }
+  } catch (err) {
+    entry.error = err instanceof BridgeError ? err.message : String(err);
+    notify("Similarity search failed", entry.error);
+  }
+  await api.storage.local.set({ lastSimilar: entry });
+}
+
 /** Ingest an image into the app's library and surface the outcome (§7.7). */
 async function runIngest(
   imageUrl: string,
@@ -257,6 +302,10 @@ api.contextMenus.onClicked.addListener((info, tab) => {
   }
   if (menuId === INGEST_MENU_ID) {
     void runIngest(info.srcUrl, info.pageUrl, tab?.title);
+    return;
+  }
+  if (menuId === SIMILAR_MENU_ID) {
+    void runSimilar(info.srcUrl);
     return;
   }
   if (menuId === INSPECT_MENU_ID) {
