@@ -64,13 +64,24 @@ _ADAPTIVE_RENDER_GAIN: bool = os.environ.get("ASP_ADAPTIVE_RENDER_GAIN", "0") !=
 
 # §2.5 — Overmix-style background sub-pixel averaging.
 # When ON (and A5 fg-exclusion is active, so samples are confirmed-background),
-# canvas pixels where >=3 frames agree on background use a straight mean
+# canvas pixels where >=3 frames agree on background lean toward a mean
 # instead of the median: MPEG DCT block noise cancels out by sqrt(N) for a
 # mean, which the median (picking one sample, or interpolating between two
-# for even counts) doesn't provide. Median remains the choice for count==2,
-# where there's no averaging benefit and a misclassified fg sample would
-# ghost the plate. Default OFF. Enable: ASP_BG_AVERAGE=1.
+# for even counts) doesn't provide. Median remains the sole choice for
+# count==2, where there's no averaging benefit and a misclassified fg sample
+# would ghost the plate. Default OFF. Enable: ASP_BG_AVERAGE=1.
+#
+# 2026-07-27 fix (measured harmful, S221/#24): the original version switched
+# abruptly at the count==2/count==3 boundary. Canvas "sample count" varies
+# geographically with frame-overlap geometry (higher near the middle of a
+# frame stack, lower near entry/exit edges), so count==2 and count>=3 zones
+# form contiguous geographic bands — an abrupt statistic switch at that
+# boundary produced visible strip-banding (median and mean can differ
+# meaningfully with residual misalignment/warp noise). Now blends mean and
+# median proportionally across count in [2, _BG_AVERAGE_FULL_AT], so there is
+# no discontinuity at the count boundary itself.
 _BG_AVERAGE: bool = os.environ.get("ASP_BG_AVERAGE", "0") != "0"
+_BG_AVERAGE_FULL_AT: int = int(os.environ.get("ASP_BG_AVERAGE_FULL_AT", "5"))
 
 # §1.87 — Masked-Median Background Plate.
 # When enabled, changes the A5 fg-exclusion fallback for pixels where every frame
@@ -781,18 +792,28 @@ def _render_median(  # noqa: C901
                     warnings.simplefilter("ignore", category=RuntimeWarning)
                     med = _gpu_nanmedian(s_gt1_f)
 
-                    # §2.5 — Overmix-style background averaging: where >=3
-                    # frames agree a pixel is confirmed-background (only
-                    # meaningful under A5 fg-exclusion — otherwise samples
-                    # aren't confirmed-bg and averaging risks ghosting a
-                    # differing animation pose into the plate), replace the
-                    # median with the mean for the sqrt(N) noise reduction.
+                    # §2.5 — Overmix-style background averaging (fixed
+                    # 2026-07-27, #24): where confirmed-background samples
+                    # accumulate (only meaningful under A5 fg-exclusion —
+                    # otherwise samples aren't confirmed-bg and averaging
+                    # risks ghosting a differing animation pose into the
+                    # plate), blend toward the mean for the sqrt(N) noise
+                    # reduction it gives over the median. count==2 stays
+                    # pure median (no averaging benefit there); the blend
+                    # weight ramps linearly from 0 at count==2 to 1 at
+                    # count>=_BG_AVERAGE_FULL_AT, so there is no value
+                    # discontinuity at the count boundary itself — count
+                    # varies geographically with frame-overlap geometry, so
+                    # an abrupt switch previously produced visible strip
+                    # banding along those geographic contours.
                     if _BG_AVERAGE and _exclude_fg:
-                        count_gt1 = count[m_gt1]
-                        use_mean = count_gt1 >= 3
-                        if use_mean.any():
+                        count_gt1 = count[m_gt1].astype(np.float32)
+                        full_at = max(3, _BG_AVERAGE_FULL_AT)
+                        blend_w = np.clip((count_gt1 - 2.0) / (full_at - 2.0), 0.0, 1.0)
+                        if (blend_w > 0.0).any():
                             mean_ = np.nanmean(s_gt1_f, axis=0)
-                            med[use_mean] = mean_[use_mean]
+                            w = blend_w[:, None]
+                            med = (1.0 - w) * med + w * mean_
 
             canvas_strip.reshape(-1, 3)[m_gt1.flatten()] = np.clip(med, 0, 255).astype(
                 np.uint8

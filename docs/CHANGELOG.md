@@ -4,6 +4,18 @@
 
 ---
 
+## S225 — 2026-07-27 (ASP Phase 2.5: background-averaging post-mortem, second measurement — still rejected)
+
+Attempted the fix specified in GitHub issue #24 / roadmap §2.5: the first measurement (S220) found visible strip-banding and attributed it to an abrupt switch between pure median (count==2) and pure mean (count≥3) at the geographic boundary where confirmed-background sample count changes.
+
+- **Fixed the identified abruptness** in `backend/src/animation/rendering/rendering.py`: `_render_median`'s Case-2 block now ramps the mean/median blend weight linearly from 0 at count==2 to 1 at count==`ASP_BG_AVERAGE_FULL_AT` (new env var, default 5, registered in `backend/src/animation/core/config.py`), instead of switching abruptly at count==3. `backend/test/animation/` — 670 passed, 5 GPU-skipped, unaffected.
+- **5-test verify result: banding persists despite the fix.** Isolated by running `asp_test04` alone with the flag OFF (clean, coherent composite) vs ON (same region shows a patchwork of solid-color ~30px blocks with jarring transitions). Direct visual comparison at matching canvas coordinates showed the affected region corresponds to fine block-structured overlay content present in the source frames for this clip; the median picks one frame's block pattern cleanly, while the mean blends multiple frames' block patterns whose grids don't align after warp registration, producing a multi-colored patchwork.
+- **Root cause is different from the S220 hypothesis**: it isn't about the abruptness of the mean/median transition — even a partial (~30-40%) blend weight is enough to visibly corrupt this content, because averaging misaligned block-structured overlays isn't the same problem as averaging photometric sensor noise. Smoothing the transition curve does nothing to address whether blending is safe at a given location.
+- Full write-up in `.agent/cache/asp_bg_average_postmortem_2026-07-27.md` per the roadmap's ground rules. `moon/roadmaps/asp.md` §2.5 updated to a short pointer.
+- **Disposition**: `ASP_BG_AVERAGE` stays default OFF (unchanged). The smoothing fix is kept — strictly flag-gated, harmless to the default path, and a more principled primitive than the old abrupt switch even though it didn't solve the aggregate problem. Recommend not revisiting without a way to detect/exclude fine block-structured overlay regions from mean blending, rather than further tuning the blend curve.
+
+---
+
 ## S224 — 2026-07-27 (ASP Phase 1.3/3.2: GraphCut seam post-mortem, second measurement — still rejected)
 
 Attempted the fix specified in GitHub issue #22 / roadmap §1.3: the first GraphCut measurement (2026-07-09 trim baseline) found seam_visibility 20-80 vs the DP path's 2-16, attributed to three wiring gaps rather than the underlying theory.

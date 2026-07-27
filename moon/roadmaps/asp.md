@@ -287,27 +287,18 @@ failed gradient metric; cheaper than DWPose/ViTPose embeddings, which remain the
 upgrade path if phase granularity proves too coarse). Success metric: mean seam
 `post_warp_diff` drops; human ratings don't regress.
 
-### 2.5 Background quality: Overmix-style averaging  `[MEASURED HARMFUL,
-2026-07-27, S220 — keep default OFF, do not re-enable without a real fix]`
-`ASP_BG_AVERAGE=1` (default OFF) in `rendering.py`: where ≥3 frames agree a
-canvas pixel is confirmed-background, the per-pixel temporal median is
-replaced with the mean for √N noise reduction. **5-test verify result**:
-sharpness/ghosting metrics improved substantially (sharpness_asp 119.9→148.4,
-ghosting_siqe 49.6→39.2) and one previously-fallback test (`asp_test04`)
-started producing a true composite instead of falling back to SCANS — but
-**visually inspecting that composite shows clear horizontal strip-banding
-artifacts** (luminance/hue jumps between strips, especially visible on the
-right side of the frame). This is exactly the "never trust a metric without
-looking at the image" case the ground rules warn about — the improved
-sharpness/ghosting numbers came from a *worse*, more visibly broken
-composite, not a better one. Likely cause: the abrupt switch between mean
-(count≥3) and median (count==2) creates a visible discontinuity exactly at
-the count boundary between adjacent canvas strips, and/or averaging across
-frames with residual exposure differences the median was implicitly masking
-by picking one sample. **Not worth pursuing further without addressing the
-strip-boundary discontinuity directly** (e.g. blend mean/median smoothly
-across the transition zone, or a per-strip gain-matched mean) — flag stays
-OFF; this item should not be re-attempted as-is.
+### 2.5 Background quality: Overmix-style averaging  `[REJECTED again,
+2026-07-27 — see .agent/cache/asp_bg_average_postmortem_2026-07-27.md]`
+`ASP_BG_AVERAGE=1` (default OFF) in `rendering.py` blends the per-pixel
+temporal median toward the mean as confirmed-background sample count grows.
+First measurement (S220) attributed the visible strip-banding to an abrupt
+mean/median switch at the count boundary; this session fixed that (smooth
+blend weight, `ASP_BG_AVERAGE_FULL_AT`) and re-measured. The banding
+persists — root cause is unrelated to the switch's abruptness: some source
+frames carry fine block-structured overlay content whose block boundaries
+don't survive warp-then-average across misaligned frames, regardless of
+blend weight. Flag stays OFF; do not re-attempt without addressing frame
+content alignment for such overlays specifically, not the blend curve.
 
 **Phase-2 exit gate:** on the 55-GT subset, ASP human coherence ≥ simple on every
 test; aligned-SSIM gap ≤ 0. (Coverage wins like test96 should start flipping
