@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-07-27 (Architecture §5.7B: Dependabot config audit and completion)
+
+Implemented GitHub issue #75 / roadmap §5.7 Option B (Dependabot).
+
+- **Correction to the roadmap's own framing**: `.github/dependabot.yml` was not actually missing — it has existed since commit `d97c5c77` (later expanded in `00592833`) and had already produced real, merged bump PRs (#5, #6, #10, #16) for `pip`, `cargo`, `gradle` (root/`app/android`/`cryptography`), and `npm`. The roadmap text calling Option B "not confirmed/not done" was stale; this issue audited the live config against the repo's actual current ecosystems rather than assuming from the roadmap text.
+- **Fixed**: Python ecosystem changed from `"pip"` to `"uv"` — no `requirements.txt` exists at repo root, the live manifest is `pyproject.toml` + `uv.lock` (`uv sync --frozen` in CI and `docker/Dockerfile`), and Dependabot's dedicated `uv` ecosystem (distinct from `pip`) is required to resolve against `uv.lock` correctly.
+- **Added**: `github-actions` (directory `/`, always safe/low-noise); `npm` for `/extension` (the browser extension has its own `package-lock.json` and is not part of the root npm workspace, which only lists `frontend`); `swift` for `/app/ios` (confirmed live SwiftUI app, DocC-documented, CI-wired); `docker` + `docker-compose` for `/docker` (confirmed live Django/Celery/Postgres/Redis backend stack, added 2026-07-13).
+- **Kept**: `cargo` at `/` (root workspace's only member is `frontend/src-tauri`, the Tauri shell — the Rust `base` crate was fully retired to `archive/rust/` post the Rust→C++ migration and is correctly never scanned); `gradle` × 3 (root, `/app/android`, `/cryptography` — all confirmed live per §5.6 Mobile App Feature Parity Backlog, despite `app/android` being temporarily excluded from `settings.gradle.kts`'s `include(":app")` since commit `140b4242`); `npm` at `/` (root workspace covering `frontend/`).
+- **Excluded**: `archive/rust/Cargo.toml` (retired crate, never scanned); C++/CMake/vcpkg/Conan deps in `base/` (no native Dependabot ecosystem exists for these). Checked `security.yml`'s `cargo-audit` job per the task's own caution about it possibly being stale — it isn't; its own comment already confirms it scans only `frontend/src-tauri`, the one live crate. No change made there.
+- All 11 entries: `schedule.interval: weekly`, `open-pull-requests-limit: 10`, updates grouped per-ecosystem into a single PR (`groups: <name>: patterns: ["*"]`), consistent with the pre-existing entries' style. YAML validated against GitHub's documented schema. `moon/roadmaps/architecture.md` §5.7 updated with full ecosystem list and rationale.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.
