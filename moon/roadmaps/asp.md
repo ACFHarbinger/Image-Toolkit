@@ -513,9 +513,19 @@ The 46 guarded fallbacks are wins-by-safety, not wins. Reclassify each:
   post-warp-diff is comparably low to test32's yet responds in the
   opposite direction) — `mean_post_warp_diff` correlates with outcome but
   isn't clean enough on its own to build an automatic per-test dispatch
-  rule from. No code shipped from this round; still needs full-97 data and
-  a real per-test triage pass before this class can be meaningfully
-  "converted" rather than just better-understood.
+  rule from. **Follow-up checked same day**: tried frame/pair count as a
+  second candidate discriminator (`_joint_gain_solve` builds its
+  least-squares system over all sufficiently-overlapping pairs, not just
+  adjacent frames, so fewer selected frames means fewer constraining
+  pairs) — test51/test41 (the two regressions) do have the fewest pairs
+  (28, 45), but **test08 breaks the pattern** (36 pairs, second-fewest, yet
+  *improved*). Two independent cheap heuristics now each checked and each
+  falls short on a real counter-example — not a matter of finding the
+  right one-line rule; closing this specific follow-up, a full per-test
+  measurement pass is what's actually needed. No code shipped from this
+  round; still needs full-97 data and a real per-test triage pass before
+  this class can be meaningfully "converted" rather than just
+  better-understood.
 - **render-gate class (21):** fg-dominant high-animation scenes where multi-frame
   assembly may be structurally wrong. For these, a *deliberate* policy: best
   single-phase reconstruction (2.3 degenerate case) vs SCANS — pick per-test by

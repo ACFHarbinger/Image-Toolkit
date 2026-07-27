@@ -4,6 +4,17 @@
 
 ---
 
+## S245 — 2026-07-27 (ASP Phase 4/3.1 follow-up: frame/pair count also insufficient to predict gain-solve outcome)
+
+Closed the dedicated follow-up flagged in S244: why does test51 regress under `ASP_JOINT_GAIN_SOLVE` despite a `mean_post_warp_diff` comparable to test32, which improves?
+
+- **Checked frame/pair count as a second candidate discriminator**: `_joint_gain_solve` builds its least-squares system over every pair of frames with sufficient shared background overlap, not just adjacent ones, so fewer selected frames directly means fewer constraining pairs available (test51: 8 frames/28 possible pairs; test32: 17 frames/136 possible pairs) — a plausible structural reason a sparse sequence's gain solution would be more fragile.
+- **Test08 breaks the pattern**: it has the second-fewest pairs (36, comparable to test51's 28) yet *improved* under gain solve rather than regressing — the opposite of what a clean "fewer pairs → more fragile → more likely to regress" rule would predict.
+- **Conclusion**: two independent, plausible cheap heuristics (post-warp-diff, frame/pair count) have now each been checked and each falls short on a real counter-example. This isn't a matter of finding the right one-line discriminator — a full per-test measurement pass (full-97 run, or a dedicated per-test A/B) is what's genuinely needed before `ASP_JOINT_GAIN_SOLVE` could ever be conditionally dispatched. Closing this follow-up rather than trying a third heuristic on the same small sample, which would risk overfitting an explanation to too little data.
+- No code changes. `.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md` and `moon/roadmaps/asp.md` Phase 4 section updated with this finding; posted as a follow-up comment on GitHub issue #26.
+
+---
+
 ## S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)
 
 User-authorized scale-up from the established 5-test verify to an 18-test targeted batch, deliberately chosen to span every current fallback class (rather than an arbitrary sample) for Phase 4's "re-examine what remains" instruction. Clean run, no resource-danger triggers — the biggest single scale step-up since the thread-cap host-freeze fix landed.

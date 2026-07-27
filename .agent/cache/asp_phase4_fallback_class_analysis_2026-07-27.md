@@ -113,6 +113,42 @@ each other, rather than a clean function of pose-residual alone) —
 dispatch rule from**. Tried and explicitly not pursued further, rather than
 shipping a heuristic the data doesn't actually support.
 
+## Finding 5 — the flagged test51 follow-up: checked a second discriminator (frame/pair count), also insufficient
+
+The dedicated follow-up flagged above: does frame count (and hence the
+number of overlapping pairs `_joint_gain_solve` has to build its
+least-squares system from) explain why test51 regresses while test32
+improves, despite similar `mean_post_warp_diff`? `_joint_gain_solve` builds
+its system over **all** pairs with sufficient shared background overlap
+(not just adjacent frames), so fewer selected frames means fewer possible
+constraining pairs — a plausible structural reason a sparse sequence's gain
+solution would be more fragile:
+
+| test | final frames | max possible pairs | gain-solve outcome |
+|------|---------------:|---------------------:|----------------------|
+| test51 | 8  | 28  | **regressed** |
+| test41 | 10 | 45  | **regressed** |
+| test08 | 9  | 36  | improved (didn't cross gate) |
+| test32 | 17 | 136 | **flip — win** |
+| test09 | 21 | 210 | **flip — win** |
+| test37 | 26 | 325 | improved (didn't cross gate) |
+| test57 | 26 | 325 | improved (didn't cross gate) |
+
+The two regressions (test51, test41) do have the lowest pair counts, which
+is suggestive — but **test08 breaks the pattern**: it has the second-fewest
+pairs (36) yet *improved* rather than regressing, the opposite of what a
+clean "fewer pairs = more fragile = more likely to regress" rule would
+predict. **Conclusion: frame/pair count, like `mean_post_warp_diff`, is
+correlated but not reliable enough on its own to predict
+`ASP_JOINT_GAIN_SOLVE`'s effect direction.** Two independent, plausible
+cheap heuristics have now each been checked and each falls short on a real
+counter-example — this isn't a matter of finding the right one-line
+discriminator; a full per-test measurement (full-97 run, or a dedicated
+per-test A/B pass) is genuinely required before `ASP_JOINT_GAIN_SOLVE` can
+be conditionally dispatched with any confidence. Closing this follow-up
+here rather than trying a third heuristic on the same 7-test sample, which
+risks overfitting an explanation to too little data.
+
 ## Disposition
 
 - **No new code shipped from this analysis** — this is diagnostic, per the
