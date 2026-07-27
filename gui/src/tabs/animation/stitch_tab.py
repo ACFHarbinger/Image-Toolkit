@@ -140,6 +140,7 @@ from ...helpers.animation import (
     StitchWorker,
 )
 from ...helpers.animation.adjust_worker import _apply_adjustments
+from ...components import BatchStitchDialog
 from ...styles import apply_shadow_effect
 from ...windows.settings.splitter_persistence import persist_splitter
 from .dialog import (
@@ -2002,12 +2003,23 @@ class StitchTab(QWidget):
         apply_shadow_effect(self._btn_inspect_canvas, radius=4, y_offset=2)
         self._btn_inspect_canvas.clicked.connect(self._inspect_canvas)
 
+        self._btn_batch_stitch = QPushButton("⚏ Batch Stitch…")
+        self._btn_batch_stitch.setToolTip(
+            "Stitch every subdirectory of a chosen root directory (roadmap "
+            "§4.1 Option A) -- each subdirectory is treated as one frame "
+            "group. Shares the same .stitch_progress.json resume format as "
+            "the CLI's `stitch --batch-dir` mode."
+        )
+        apply_shadow_effect(self._btn_batch_stitch, radius=4, y_offset=2)
+        self._btn_batch_stitch.clicked.connect(self._open_batch_stitch_dialog)
+
         self._btn_stitch.clicked.connect(self._start_stitch)
         self._btn_cancel.clicked.connect(self._cancel_stitch)
         action_row.addWidget(self._btn_stitch)
         action_row.addWidget(self._btn_cancel)
         action_row.addWidget(self._btn_inspect_edges)
         action_row.addWidget(self._btn_inspect_canvas)
+        action_row.addWidget(self._btn_batch_stitch)
         action_row.addStretch()
         bottom_layout.addLayout(action_row)
 
@@ -3497,6 +3509,15 @@ class StitchTab(QWidget):
             QMessageBox.critical(self, "Load Error", str(exc))
             return
         dlg = CanvasLayoutInspectorDialog(canvas_data=data, parent=self)
+        dlg.exec()
+
+    def _open_batch_stitch_dialog(self):
+        """Roadmap §4.1 Option A: stitch every subdirectory of a chosen root
+        directory, showing per-item progress. Modeless-in-spirit but run as
+        a modal dialog (exec()) since its own worker thread and widgets are
+        self-contained -- doesn't share state with the single-run
+        StitchWorker/node-graph flow above."""
+        dlg = BatchStitchDialog(parent=self)
         dlg.exec()
 
     def _log_append(self, msg: str):
