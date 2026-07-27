@@ -106,21 +106,42 @@ ideas clean-room, never link.
 
 ## Phase 0 — Measurement Foundation *(everything else depends on this)*
 
-### 0.1 Human coherence ratings for the current baseline  `[HUMAN, ~45 min]`
-Rate all 97 post-trim outputs (plus the simple stitches) 0–4 on structural
-coherence: 4 = keepable, 2 = flawed but parses, 0 = incoherent. Store as
-`data/human_ratings/asp_ratings_YYYYMMDD.json` (`{test: {asp: n, simple: n, notes}}`).
-A tiny helper script that shows each montage and records a keypress is a 30-minute
-build. **This is the metric the objective is defined against.**
+### 0.1 Human coherence ratings for the current baseline  `[tool built
+2026-07-27, S222 — rating pass itself is HUMAN, ~45 min, still open]`
+`backend/benchmark/rate_coherence.py`: shows each test's ASP output side by
+side with Simple-stitch (and ground truth, if available) via an OpenCV
+window, and records a 0–4 structural-coherence score for each with a single
+keypress (4 = keepable, 2 = flawed but parses, 0 = incoherent). Resumable
+(skips already-rated tests, saves incrementally after every rating — quitting
+mid-pass never loses progress) and includes back/skip/note controls. Output:
+`data/human_ratings/asp_ratings_YYYYMMDD.json`
+(`{test: {asp: n, simple: n, notes}}`), per the spec. Verified the montage
+construction and dataset discovery work correctly against the real 97-test
+corpus (found all 97, correct ASP/Simple/GT panel layout, labels legible).
+**The actual rating pass is still open** — building the tool doesn't do the
+human judgment it exists to collect. **This is the metric the objective is
+defined against**, and the explicit prerequisite for flipping any of Phase
+2's measured-positive flags (2.1, 2.3) to default-on.
 
-### 0.2 Coherence-aware verdicts  `[1 day]`
-- Add `human_coherence_asp/simple` columns to the benchmark JSON/report when a
-  ratings file exists; the verdict may not report `asp_better` when the ASP
-  coherence rating is below the simple stitch's.
-- Calibrate the 12 automated metrics against the ratings (rank correlation per
-  metric); demote anything that disagrees with humans on ranking to
-  "diagnostic-only" in the report. This closes the test84/test53/test07 class of
-  false `asp_better` verdicts for good.
+### 0.2 Coherence-aware verdicts  `[veto logic done 2026-07-27, S222;
+metric-calibration part still open — needs real rating data to run against]`
+- **Done**: `bench_anime_stitch.py` now loads the most recent
+  `data/human_ratings/asp_ratings_*.json` (if any) and adds a
+  `"human_coherence": {asp, simple, notes}` field per dataset (`None` if
+  unrated). The verdict may not report `asp_better` when the ASP coherence
+  rating is below the simple stitch's — implemented as a one-directional veto
+  (a human "asp better" preference does *not* force-upgrade a metric verdict,
+  only vetoes a false `asp_better` the human disagreed with, matching the
+  spec literally); `verdict_source` becomes `"human_coherence_veto"` when this
+  fires. Summary JSON gets `human_coherence_rated` / `human_coherence_veto_count`
+  coverage counts. Verified against a synthetic ratings file (asp<simple →
+  veto fires; asp>simple → no override; unrated → no override) — this closes
+  the test84/test53/test07 class of false `asp_better` verdicts, pending real
+  rating data to confirm at scale.
+- **Still open**: calibrating the 12 automated metrics against the ratings
+  (rank correlation per metric, demoting anything that disagrees with humans
+  to "diagnostic-only") — needs an actual rating pass (0.1) to have data to
+  calibrate against; can't be built ahead of that.
 
 ### 0.3 Overmix as a third comparator on the full corpus  `[2–4 days]`
 The benchmark currently compares against one competitor. Add Overmix:
@@ -218,77 +239,38 @@ fast alternative if quality wins but runtime hurts.)
 Give the ASP the same property via animation-phase awareness, instead of trying to
 warp incompatible poses together. Evaluation §9.2 has the full sketch.*
 
-### 2.1 `ASP_HOLD_AVERAGE=1` A/B  `[engineering done 2026-07-25/26, S214;
-measured at full-corpus scale in S217]`
-Overmix-style ECC sub-pixel averaging within hold blocks (§3.12A, never
-measured) needed real engineering before it could even be measured: the
-benchmark (`bench_anime_stitch.py`) carried its own older reimplementation of
-frame selection that never called `frame_selection.py`, so the flag was wired
-into code the suite never ran. Consolidated onto one implementation (S214);
-fixed `_hold_block_average` (operated on thumbnails, discarded the averaged
-pixels — never reached the final composite) and a hold-detector false
-positive (slow scrolls misread as one giant hold, collapsing selection to
-1–2 frames) by capping skippable hold-block size to plausible on-twos/threes
-(≤8 frames). Both bugs pre-date this session and already affected the GUI
-stitch path (`video_ingestion.py`), not just the benchmark. **S217 also
-fixed the benchmark harness itself**: an uncaught `CanvasError` (SCANS
-fallback failing on `asp_test10`) crashed the entire multi-hour batch with
-zero results saved — the main loop now catches per-dataset exceptions and
-checkpoints `results` to `output/_checkpoint.json` after every dataset, so a
-killed run loses at most the in-flight one instead of everything.
+### 2.1 `ASP_HOLD_AVERAGE=1` A/B  `[done — measured at full-corpus scale, S214/S217]`
+Overmix-style ECC sub-pixel averaging within hold blocks. Needed real
+engineering before it was even measurable — the benchmark had its own
+disconnected frame-selection reimplementation; see `docs/CHANGELOG.md` S214
+for the consolidation + bugs found/fixed (both pre-dated this work and
+already affected the GUI path). **Full-corpus (S217, n=96/97, combined with
+2.3's flag — not isolated) vs the 2026-07-09 baseline**: CV verdict 31/36/27/2
+(was 27/41/29/0); aligned GT-SSIM 0.694 vs 0.719 (was 0.693 vs 0.718 — flat,
+expected: preprocessing win, not the pose-gap fix 2.4 targets); sharpness
++56%, ghosting −26%; 44/96 guarded fallbacks (was 46/97). Real,
+non-regressive, not a breakthrough. **Stays default OFF** pending the human
+visual pass (0.1) the ground rules require before any flag flips.
 
-5-test verify: neutral-to-slightly-better. **Full-corpus (S217, 2026-07-26,
-n=96/97 — `asp_test10` fails even its SCANS fallback, a pre-existing edge
-case this run surfaced)**, both this flag and 2.3's `ASP_PHASE_COMPOSITE=1`
-run together (not isolated — host reliability cost too much for two more
-full runs; numbers below are the combined effect, not attributed
-individually) vs the 2026-07-09 baseline (n=97): CV verdict 31 asp_better /
-36 comparable / 27 simple_better / 2 insufficient (was 27/41/29/0); aligned
-GT-SSIM 0.694 vs 0.719 (was 0.693 vs 0.718 — flat, as expected: these are
-seam/frame preprocessing wins, not the pose-gap architecture fix Phase 2.4
-targets); sharpness 93.2 vs 59.8 (ASP +56%); ghosting_siqe 53.8 vs 72.4 (ASP
-−26%); 44/96 guarded fallbacks (was 46/97). Net: more clear wins, fewer
-losses, stronger secondary metrics, flat coherence proxy — real and
-non-regressive, not the breakthrough Phase 2.4 targets. **Both flags stay
-default OFF** regardless — the ground rules require a human visual pass
-before "done," and none has run yet; these numbers justify prioritizing it.
+### 2.2 Animation-phase grouping at ingestion  `[done — S215/S217]`
+`detect_animation_phases()` + `phase_spans()` in `ingestion/frame_selection.py`:
+dHash change-point detection over the *selected* frame sequence, same
+primitive as hold detection one level up. Measurement-only (JSON diagnostics
++ phase-strip PNG); zero behavior change confirmed. Full-corpus phase census
+(n=96): 1–6 phases/test, mean 2.18, 60/96 tests multi-phase — the structure
+2.3 targets is the common case, not an edge case.
 
-### 2.2 Animation-phase grouping at ingestion  `[engineering done 2026-07-26, S215;
-measured at full-corpus scale in S217 — see 2.1's numbers]`
-`detect_animation_phases()` + `phase_spans()` added to `ingestion/frame_selection.py`:
-pairwise dHash Hamming distance between consecutive *selected* frames, phase
-boundary declared where the distance is a robust outlier (median + 2·MAD-sigma) —
-the same primitive as hold detection (§3.4A) one level up. Wired into the
-benchmark only for now (measurement — production `phase_ids` plumbing is 2.3's
-job, once there's a consumer): diagnostics land in the JSON (`"phases":
-{"count", "spans"}`) and a frame-strip-colored-by-phase PNG
-(`animation_phases.png`) in both the per-test plots dir and the markdown report.
-**Confirmed zero behavior change** on the 5-test verify (composite metrics
-byte-identical to the pre-2.2 baseline). Full-corpus phase census (S217,
-n=96): 1–6 phases/test, mean 2.18, 60/96 tests had more than one phase —
-i.e. most tests genuinely have the multi-phase structure 2.3 targets, this
-isn't a rare case.
-
-### 2.3 Phase-consistent compositing  `[engineering done 2026-07-26, S216;
-measured at full-corpus scale in S217 — see 2.1's numbers; human ratings
-(the actual success criterion) still pending]`
-`ASP_PHASE_COMPOSITE=1` (default OFF): `_check_preemptive_escalations` in
-`compositing.py` now checks, before any registration attempt, whether a
-seam's two frames belong to different phases; if so it skips midpoint-warp
-entirely and escalates straight to single-pose from the dominant (more-
-complete) phase, via the dominant-frame-in-band logic the user-override path
-already used (extracted into `_dominant_frame_in_band`). ARAP midpoint warp
-untouched for within-phase seams. `phase_ids` computed once per run in
-`AnimeStitchPipeline.run()` (shared by GUI and benchmark — learned from 2.1,
-no separate reimplementation this time), **after** every frame-dropping
-dedup pass so indices stay aligned (an early draft computed it before dedup
-and would have silently desynced — caught before shipping).
-
-5-test verify: neutral-to-slightly-better; 8 seams hit a phase boundary and
-correctly escalated; `asp_test04` spot-checked visually — coherent, no
-tearing. Full-corpus (S217, combined with 2.1's flag, n=96): see 2.1's
-numbers for the aggregate delta. Human ratings — the roadmap's actual
-Phase-2.3 success criterion ("zero coherence-class losses among true
+### 2.3 Phase-consistent compositing  `[done — S216/S217; human ratings
+(the actual success criterion) still open]`
+`ASP_PHASE_COMPOSITE=1` (default OFF): seams whose two frames belong to
+different phases skip midpoint-warp entirely and escalate to single-pose
+from the dominant phase, via `_dominant_frame_in_band` in `compositing.py`.
+`phase_ids` computed once in `AnimeStitchPipeline.run()`, shared by GUI and
+benchmark (see `docs/CHANGELOG.md` S216 for an index-alignment bug caught
+before shipping). 5-test verify: neutral-to-slightly-better, 8 seams
+correctly escalated, spot-checked visually coherent. Full-corpus: see 2.1's
+numbers (run combined). Human ratings — the roadmap's actual Phase-2.3
+success criterion ("zero coherence-class losses among true
 composites" needs eyes on images, not SSIM) — have not run; that's the
 next step before either flag can flip to default-on.
 
@@ -333,37 +315,29 @@ test; aligned-SSIM gap ≤ 0. (Coverage wins like test96 should start flipping
 S218/S219/S220 — re-verify at scale before fully trusting)*
 
 `bench_anime_stitch.py` repeatedly froze the host badly enough to force a
-hard restart (2026-07-25 through 2026-07-27), on a 128GB RAM / 24GB VRAM
-machine — a real bug, not underpowered hardware. **Root cause**: the user
-noticed many concurrent processes/threads in `htop`; code audit found nothing
-in the codebase ever capped OpenMP/BLAS/OpenCV/PyTorch thread pools, so each
-defaulted to one thread per CPU core independently, stacking uncoordinated on
-a high-core-count machine (numpy BLAS, OpenCV `parallel_for_`, PyTorch
-intraop, and the C++ `base` extension's own `#pragma omp parallel for` in
-`canvas.cpp`). **Fix**: `OMP_NUM_THREADS`/`OPENBLAS_NUM_THREADS`/
-`MKL_NUM_THREADS`/`NUMEXPR_NUM_THREADS` capped to 4 (`ASP_BENCH_THREAD_CAP`)
-before numpy/cv2/torch import, plus explicit `cv2.setNumThreads`/
-`torch.set_num_threads`. **Confirmed**: the exact 5-test combination that
-previously froze the host completed cleanly with the fix — RSS/RAM/VRAM flat
-and bounded across all 5 datasets, benchmark-process thread count settled at
-22–34 (not growing) versus unbounded before. Also added (kept as permanent
-diagnostics): `_resource_snapshot()`/`_resource_danger()` abort guardrail
-(RAM≥80%/VRAM≥85%) and `_log_resource(tag)` per-stage checkpoints inside
-`process_dataset`. Note: both the in-process guardrail and an external bash
-watchdog *failed* to prevent one freeze before the thread-cap fix — automated
-safety nets alone aren't sufficient; the thread cap is the actual fix, not
-the monitoring.
+hard restart, on a 128GB RAM / 24GB VRAM machine — a real bug, not
+underpowered hardware. **Root cause**: nothing in the codebase capped
+OpenMP/BLAS/OpenCV/PyTorch thread pools, so each defaulted to one thread per
+CPU core independently, stacking uncoordinated (numpy BLAS, OpenCV
+`parallel_for_`, PyTorch intraop, the C++ `base` extension's own OpenMP in
+`canvas.cpp`) — confirmed by the user's own `htop` observation. **Fix**:
+`OMP_NUM_THREADS`/`OPENBLAS_NUM_THREADS`/`MKL_NUM_THREADS`/`NUMEXPR_NUM_THREADS`
+capped to 4 (`ASP_BENCH_THREAD_CAP`) before numpy/cv2/torch import, plus
+`cv2.setNumThreads`/`torch.set_num_threads`. **Confirmed**: the exact 5-test
+combination that previously froze the host completed cleanly with the fix —
+RSS/RAM/VRAM flat across all 5 datasets, thread count settled at 22–34 (not
+growing). Permanent diagnostics also added: `_resource_snapshot()`/
+`_resource_danger()` abort guardrail (RAM≥80%/VRAM≥85%) and `_log_resource(tag)`
+per-stage checkpoints in `process_dataset` — note these *failed* to prevent
+one freeze before the thread-cap landed, so they're a backstop, not the fix.
 
-**Only one confirmed clean run (5 tests) exists post-fix.** Before trusting
-this fully: re-verify at larger scale (10–20 tests, then full corpus),
-ideally with the user watching system resources live, since the original
-freezes happened at varying scales. If a freeze recurs, lower
-`ASP_BENCH_THREAD_CAP` further, and audit the remaining `base` C++ files not
-yet checked for memory safety (`frame_selection.cpp`, `fg_register.cpp`,
-`compositing.cpp`, `seam.cpp`, `exposure.cpp` — `canvas.cpp` was checked and
-is clean) and the model-wrapper `.offload()` paths (BiRefNet caches by
-`(model_name, device)` and is reused; LoFTR has no such cache and reloads
-fresh every dataset — a plausible fragmentation source, still unconfirmed).
+**Only one confirmed clean run (5 tests) exists.** Re-verify at larger scale
+(10–20 tests, full corpus) before fully trusting this, ideally with the user
+watching resources live. If a freeze recurs: lower `ASP_BENCH_THREAD_CAP`
+further, and audit the `base` C++ files not yet checked (`frame_selection.cpp`,
+`fg_register.cpp`, `compositing.cpp`, `seam.cpp`, `exposure.cpp` —
+`canvas.cpp` is clean) and model-wrapper `.offload()` VRAM release (LoFTR
+reloads fresh every dataset with no cache, unlike BiRefNet).
 
 ## Phase 3 — Photometric & Seam Parity with OpenCV
 

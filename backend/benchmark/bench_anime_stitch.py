@@ -671,6 +671,30 @@ def _compute_gt_metrics(
     }
 
 
+_HUMAN_RATINGS_CACHE: Optional[Dict] = None
+
+
+def _load_human_ratings() -> Dict:
+    """§0.1/0.2: load the most recent human coherence ratings file (from
+    ``rate_coherence.py``), if any exist. Cached per-process — ratings don't
+    change mid-run. Schema: {test_name: {"asp": 0-4, "simple": 0-4, "notes": str}}.
+    """
+    global _HUMAN_RATINGS_CACHE
+    if _HUMAN_RATINGS_CACHE is not None:
+        return _HUMAN_RATINGS_CACHE
+    ratings_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "data", "human_ratings",
+    )
+    files = sorted(glob.glob(os.path.join(ratings_dir, "asp_ratings_*.json")))
+    if not files:
+        _HUMAN_RATINGS_CACHE = {}
+        return _HUMAN_RATINGS_CACHE
+    with open(files[-1]) as fh:
+        _HUMAN_RATINGS_CACHE = json.load(fh)
+    return _HUMAN_RATINGS_CACHE
+
+
 def _gt_verdict(
     asp_gt: Dict,
     sim_gt: Dict,
@@ -2059,6 +2083,29 @@ def _build_result(
     gt_ver = _gt_verdict(gt_metrics_asp, gt_metrics_sim)
     has_gt = gt_img is not None
 
+    # §0.2 — human-coherence-aware verdict: no automated metric measures
+    # structural coherence, so when a rating exists, it may veto a false
+    # "asp_better" that a metric-only read would otherwise report (the
+    # test84/test53/test07 class of failure the critical evaluation names).
+    # One-directional by design (matches the roadmap spec literally) — a
+    # human "asp better" preference does not force-upgrade a metric verdict,
+    # only a metric "asp_better" that the human disagreed with gets vetoed.
+    human_ratings = _load_human_ratings()
+    human_coherence = human_ratings.get(dataset_name)
+    verdict = gt_ver if gt_ver is not None else _auto_verdict(asp_metrics, sim_metrics)
+    verdict_source = "ground_truth" if gt_ver is not None else "cv_metrics"
+    if human_coherence is not None:
+        h_asp = human_coherence.get("asp")
+        h_sim = human_coherence.get("simple")
+        if (
+            h_asp is not None
+            and h_sim is not None
+            and h_asp < h_sim
+            and verdict == "asp_better"
+        ):
+            verdict = "simple_better"
+            verdict_source = "human_coherence_veto"
+
     # Affine translation summary for JSON
     affine_translations = [
         {
@@ -2167,11 +2214,10 @@ def _build_result(
         "comparison": {
             "ssim": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
             "psnr_db": round(psnr_val, 2) if not math.isnan(psnr_val) else None,
-            # GT-based verdict when available (most reliable); CV-based otherwise
-            "verdict": gt_ver
-            if gt_ver is not None
-            else _auto_verdict(asp_metrics, sim_metrics),
-            "verdict_source": "ground_truth" if gt_ver is not None else "cv_metrics",
+            # GT-based verdict when available (most reliable); CV-based
+            # otherwise; §0.2 human-coherence veto applied on top of either.
+            "verdict": verdict,
+            "verdict_source": verdict_source,
         },
         # --- ground truth comparison ---
         "ground_truth": {
@@ -2180,6 +2226,9 @@ def _build_result(
             "metrics_simple": gt_metrics_sim,
             "verdict": gt_ver,
         },
+        # --- §0.1/0.2 human coherence ratings (None if this dataset hasn't
+        # been rated — see backend/benchmark/rate_coherence.py) ---
+        "human_coherence": human_coherence,
         # --- status ---
         "used_fallback": used_fallback,
         "fallback_reason": fallback_reason,
@@ -2372,6 +2421,16 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
             )
             if any(r.get("ground_truth", {}).get("available") for r in results)
             else None,
+            # §0.1/0.2 — human coherence rating coverage for this run
+            "human_coherence_rated": sum(
+                1 for r in results if r.get("human_coherence") is not None
+            ),
+            "human_coherence_veto_count": sum(
+                1
+                for r in results
+                if r.get("comparison", {}).get("verdict_source")
+                == "human_coherence_veto"
+            ),
         },
         "datasets": results,
         "performance_insights": {

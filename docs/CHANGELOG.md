@@ -4,6 +4,17 @@
 
 ---
 
+## S222 — 2026-07-27 (ASP Phase 0.1 human-rating tool + Phase 0.2 coherence veto logic; roadmap trim)
+
+- **New `backend/benchmark/rate_coherence.py`** (Phase 0.1's "tiny helper script"): shows each test's ASP output side by side with the Simple-stitch output (plus ground truth, when available) in an OpenCV window, and records a 0–4 structural-coherence score for each with a single keypress. Resumable — loads the most recent `data/human_ratings/asp_ratings_*.json`, skips already-rated datasets, saves incrementally after every rating so quitting mid-pass never loses progress. Controls: `0-4` rate, `s` skip, `b` back, `n` add a note (terminal prompt), `q` quit-and-save.
+- Verified the montage construction and dataset discovery against the real 97-test corpus: correctly discovers all 97 `*_anime_stitch.png` outputs, builds a correctly-labeled ASP | Simple | Ground-Truth panel layout. The montage immediately makes visible defects obvious — spot-checking `asp_test04` in it made the S221 strip-banding regression even more apparent than the raw image alone.
+- **The actual rating pass itself is still open** — this session built the tool, not the 97-test human judgment it exists to collect.
+- **Phase 0.2 coherence-aware verdict logic implemented in `bench_anime_stitch.py`**: `_load_human_ratings()` loads the latest ratings file once per process (cached); `_build_result` now adds a `"human_coherence": {asp, simple, notes}` field per dataset (`None` if unrated) and applies a one-directional veto — a metric-derived `asp_better` verdict is downgraded to `simple_better` when the human rated ASP below Simple (`verdict_source` becomes `"human_coherence_veto"`); a human `asp_better` preference does *not* force-upgrade a metric verdict, matching the roadmap spec literally. Summary JSON gains `human_coherence_rated` / `human_coherence_veto_count` coverage counts. Verified with a synthetic ratings file covering all three cases (veto fires, no override when human agrees, no override when unrated) — the metric-calibration half of Phase 0.2 (rank-correlating the 12 automated metrics against ratings) still needs real rating data to run against, which doesn't exist yet.
+- **Roadmap consolidation**: condensed the Phase 2.1/2.2/2.3/2.6 sections, which had accreted detailed per-session narrative across S214–S220, down to summary-plus-changelog-pointer form — the ground rules say shipped-item detail belongs in `docs/CHANGELOG.md`, not the roadmap; this had drifted.
+- `backend/test/animation/` — 670 passed, 5 GPU-skipped, unaffected.
+
+---
+
 ## S221 — 2026-07-27 (ASP Phase 0.4 verified; Phase 2.5 measured harmful — visible strip banding)
 
 With the benchmark now safe to run at 5-test scale (S220), finally benchmarked the two features from S218 that were implemented but never A/B'd due to the freeze pause.
