@@ -4,6 +4,18 @@
 
 ---
 
+## S243 — 2026-07-27 (ASP Phase 1.2(a): AnimationSeparator investigated, rejected as a phase-detection alternative)
+
+Answered the roadmap's remaining §1.2(a) question: how does Overmix's `AnimationSeparator` behave on 2-4 phase pan shots?
+
+- **Read the source before running anything** (`vendor/Overmix/src/aligners/AnimationSeparator.cpp`): its threshold search is an Otsu-style bimodal split over sorted pairwise consecutive-frame errors, and its grouping pass greedily walks a backlog, assigning each frame to the current group only if its error against the *last-accepted frame in that group* is below threshold. This is built to de-interleave a cyclically-repeating animation loop (e.g. separating a walk-cycle's distinct cels into buckets) — a structurally different problem from ASP's own §2.2 phase-boundary detection on a monotonically-drifting scroll sequence.
+- **Rebuilt `OvermixCli`** (no persisted build artifact existed at session start — `desktop/linux/scripts/setup_overmix.sh` rebuilds it in ~4 min). Found `AnimationSeparator` needs a comparator configured first (`--comparator=...` before `--align=AnimationSeparator`), otherwise it errors with "No comparator!".
+- **Ran on two tests** where ASP's own `detect_animation_phases()` already finds coherent phase structure: test27 (21 frames, ASP: 3 phases sized 8/2/11) and test09 (22 frames, ASP: 3 phases sized 4/7/11). AnimationSeparator produced 12 groups (mostly size 1-3) and 16 groups (13 of them singletons) respectively — nothing resembling ASP's coherent phase spans on either test.
+- **Conclusion: not adopted.** This isn't a threshold-tuning gap — it's the expected behavior of an algorithm designed for cyclic/repeating content applied to monotonic drift. ASP's own dHash+robust-MAD change-point detector remains the correct tool for this input structure.
+- `.agent/cache/overmix_field_notes.md` and `moon/roadmaps/asp.md` §1.2 updated with the full write-up and conclusion.
+
+---
+
 ## S242 — 2026-07-27 (ASP Phase 3.1: `ASP_JOINT_GAIN_SOLVE` re-verified against the current ToonOut-inclusive baseline)
 
 Followed up on the S241 finding (test04's original regression no longer reproduces) by re-running the 5-test verify for `ASP_JOINT_GAIN_SOLVE` itself, not just the gate follow-up.

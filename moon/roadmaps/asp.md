@@ -273,17 +273,28 @@ closer read before the next foreground-assembly iteration, not yet integrated;
 ToonCrafter's successor is LayerInbetween (ACM ToG, July 2026), reading-only,
 not yet evaluated against ASP's failure cases.
 
-### 1.2 Overmix deep-dive (hands-on, pairs with 0.3)  `[(b) partially answered
-2026-07-27; (a)/(c) still open — see .agent/cache/overmix_field_notes.md]`
+### 1.2 Overmix deep-dive (hands-on, pairs with 0.3)  `[(a) answered
+2026-07-27 — REJECTED as a phase-detection alternative; (b) partially
+answered 2026-07-27; (c) still open — see .agent/cache/overmix_field_notes.md]`
 Specifically answer: (a) how does `AnimationSeparator`'s error-threshold
 change-point behave on hentai pan shots with 2–4 animation phases? (b) does its
 average-render on *our* bg regions beat our temporal median visually? (c) what does
 its interactive workflow do that our HITL checkpoints don't? Feed answers into 2.1.
+**(a) answered — mismatched, not adopted**: read the source first —
+`AnimationSeparator` is a greedy backlog-based de-interleaver built for
+*cyclically-repeating* animation loops (separating a walk-cycle's distinct
+cels into buckets), not scene-level phase-boundary detection on a
+monotonically-drifting scroll. Ran it on two tests where ASP's own
+`detect_animation_phases()` finds 3 coherent phases each (test27: 8/2/11
+frames; test09: 4/7/11 frames): AnimationSeparator fragmented them into 12
+and 16 groups respectively (mostly singletons) — structurally different
+behavior, not a threshold-tuning gap. **Not adopted** as a phase-detection
+alternative or cross-check for §2.2; ASP's own dHash+robust-MAD detector is
+the right tool for this input structure.
 **(b) partial**: on the 5-test verify's 3 clean composites, average-render
 backgrounds looked sharp and coherent, no clear win or loss vs ASP's median at
 a whole-canvas glance — a rigorous background-only crop comparison wasn't done.
-(a) and (c) not yet explored (AnimationSeparator is CLI-reachable but untested;
-(c) needs the GUI, out of CLI-automation scope).
+(c) not yet explored (needs the GUI, out of CLI-automation scope).
 
 ### 1.3 GraphCut post-mortem experiment  `[REJECTED again, 2026-07-27 — see
 .agent/cache/asp_graphcut_postmortem_2026-07-27.md]`

@@ -111,11 +111,48 @@ larger-scale run.
   comparison (isolating bg regions and comparing blur/ghosting directly,
   as the question asks) was not done this round — worth a dedicated,
   narrower follow-up rather than inferring it from whole-canvas looks.
-- **(a) how does AnimationSeparator behave on 2-4 phase pan shots?** Not
-  explored this round — `AnimationSeparator` is reachable via
-  `--align=AnimationSeparator` (present in `AlignParser.cpp` despite being
-  undocumented in the CLI's own `--help=align` text) but wasn't tested.
-  Still open.
+- **(a) how does AnimationSeparator behave on 2-4 phase pan shots?**
+  **Answered, 2026-07-27 — architecturally mismatched to our use case, not
+  worth adopting.** Read the source
+  (`vendor/Overmix/src/aligners/AnimationSeparator.cpp`) before running
+  anything: its `findThreshold()` sorts all pairwise consecutive-frame
+  errors and picks the cutoff that maximizes how often the *original,
+  temporally-ordered* error sequence crosses above/below it (an Otsu-style
+  bimodal split), then `align()` greedily walks a backlog, assigning each
+  frame to the current group only if its error *against the last frame
+  already accepted into that group* is below the threshold, starting a new
+  group each time the backlog can't be extended further. This is designed
+  to **de-interleave a cyclically-repeating animation loop** (where a
+  non-adjacent frame can be more similar to an earlier one than its
+  immediate temporal neighbor is — think separating a 3-cel walk-cycle GIF
+  back into cel-A/cel-B/cel-C buckets), not to detect scene-level phase
+  *boundaries* in a monotonically drifting scroll sequence — a
+  fundamentally different problem from ASP's own `detect_animation_phases()`
+  (§2.2: dHash Hamming distance + robust-MAD change-point on a monotonic
+  sequence).
+  - **Built OvermixCli** (`vendor/Overmix/build/OvermixCli` — no persisted
+    build artifact existed at session start; `setup_overmix.sh` rebuilds it,
+    ~4 min). `AnimationSeparator` needs a comparator configured first
+    (`ImageContainer::getComparator - No comparator!` otherwise) — same
+    `Gradient:1/false/0:both:0.75:1:6:1638` comparator as the rest of this
+    file, passed *before* `--align=AnimationSeparator` on the command line.
+  - **test27** (21 smart-selected frames, ASP's own change-point detects 3
+    phases sized 8/2/11): AnimationSeparator produced **12 groups**
+    (`2,5,2,3,1,1,2,1,1,1,1,1` frames each) — nothing resembling ASP's 3
+    coherent phase spans.
+  - **test09** (22 smart-selected frames, ASP detects 3 phases sized
+    4/7/11): AnimationSeparator produced **16 groups**, 13 of them
+    singletons (`1×13, 2, 5, 2`) — even more fragmented.
+  - **Conclusion**: on both tests, AnimationSeparator fragments a
+    monotonically-panning sequence into many small (mostly size-1) groups
+    rather than recovering large, temporally-contiguous phase runs. This is
+    not a parameter-tuning issue — it's the expected behavior of an
+    algorithm built for a structurally different input (cyclic/repeating
+    content) applied to a structurally different one (monotonic drift).
+    **Do not adopt AnimationSeparator as a phase-detection alternative or
+    cross-check for §2.2** — ASP's own dHash+robust-MAD change-point
+    detector is already the right tool for this specific input structure
+    and is correctly the one in production use.
 - **(c) what does its interactive workflow do that our HITL checkpoints
   don't?** Not explored — this needs the GUI (`Overmix`, not `OvermixCli`)
   and hands-on use, out of scope for CLI-only automation. Still open.
