@@ -150,7 +150,7 @@ flowchart TD
 | **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Tauri commands, SVG charts, 7-page dashboard, `App.tsx` wired |
 | Phase 1–10 feature implementation | ⬜ Not started | Backbone provides all mathematical primitives |
 | **ASP Benchmark Analytics (Phase 11)** | ⬜ Not started | Per-seam diagnostics, alignment drift, photometric, edge quality, GT, regression |
-| **Benchmark Coverage Expansion (Phase 12)** | ⬜ Not started | Rust core, ASP stage isolation, GUI thumbnails, DB scale, memory lifecycle |
+| **Benchmark Coverage Expansion (Phase 12)** | 🔄 Partial (2026-07-27) | 12.1/12.3 shipped; 12.2/12.5-12.8 still open; 12.4 rescoped (see §12.4) |
 
 ### Rust backbone — `base/src/math/`
 
@@ -516,13 +516,24 @@ See [`research/Analytics and Codebase Visualization Research.md`](../../research
 | Web crawlers (Selenium) | ❌ None | Crawl throughput and timeout rate not measured |
 | Mobile (Kotlin/Swift) | ❌ None | Android/iOS render and network performance untouched |
 
-### 12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY)
-- Create `backend/benchmark/bench_rust_image_processing.py` targeting:
-  - `base.convert_image` with various format pairs (PNG→WebP, JPEG→PNG, WebP→JPEG)
-  - `base.load_image_batch` with N={1, 10, 50} images at 180px thumbnail scale
-  - `base.scan_directory` on directories of N={100, 1000, 10000} files
-  - `base.merge_images` (vertical stack) with N={2, 5, 10} 1080p images
-- Emit as a General-suite JSON compatible with `load_benchmark_reports`.
+### 12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY) — **DONE, 2026-07-27**
+**Stale premise found and corrected before implementing**: this bullet's
+"Create `backend/benchmark/bench_rust_image_processing.py`" is wrong on two
+counts — the Rust `base` module was fully retired to C++ well before this
+phase was written (see `project_cpp_migration` history), and the file it
+asks to create already exists as `backend/benchmark/bench_cpp_image_processing.py`.
+That file was silently broken: 5 of its 8 benchmarks called C++ binding
+names that don't exist (`cpp_core.convert_image`, `cpp_core.merge_images`,
+`cpp_core.scan_directory`), each suppressed with a `# pyrefly: ignore
+[missing-attribute]` comment rather than fixed — meaning static analysis
+already knew about the gap and nobody acted on it (flagged, not fixed, by
+an earlier session this same day; see issue #76/Performance 3.6). Fixed all
+5 to the real API (`convert_single_image`, `merge_images_vertical`/
+`_horizontal`, `scan_files_single`), also correcting stale "Rayon" doc
+references (Rust-only, the real C++ path uses OpenMP). **Verified**: ran
+the full corrected file end-to-end — all 10 benchmarks pass (all ✓, no
+exceptions), confirming this is a genuine fix, not just a name swap that
+happens to parse.
 
 ### 12.2 ASP Stage Isolation Benchmarks (HIGH PRIORITY)
 - Create `backend/benchmark/bench_asp_stages.py` benchmarking each ASP stage independently:
@@ -532,19 +543,44 @@ See [`research/Analytics and Codebase Visualization Research.md`](../../research
   - `_ecc_refine(frames, affines, bg_masks)` at different ECC iterations
 - Goal: quantify the compute cost of each §-coded feature to guide future optimizations.
 
-### 12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY)
-- Create `backend/benchmark/bench_gui_thumbnails.py`:
-  - Time and memory for loading N={100, 500, 1000} images via `base.load_image_batch()`
-  - Compare LRU cache hit vs miss path
-  - Measure QImage vs QPixmap size in memory for 180px thumbnails
-- Catch LRU eviction thrashing and unbounded memory growth early.
+### 12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY) — **DONE, 2026-07-27**
+Created `backend/benchmark/bench_gui_thumbnails.py` exactly per spec:
+time/memory for `base.load_image_batch()` at N={100, 500, 1000}; LRU
+cache miss-then-fill (1000 images through a maxsize=300
+`LRUImageCache`, exercising eviction) vs a warm-cache hit path (100
+images, repeated lookups, no decode); a direct QImage-vs-QPixmap memory
+comparison for 300 cached 180px thumbnails. Runs under
+`QT_QPA_PLATFORM=offscreen` (no visible window, per this project's GUI
+benchmark convention) — a real `QGuiApplication` instance is still
+needed for `QPixmap` construction, kept alive process-wide via a module
+global. **Verified**: ran end-to-end, all 6 benchmarks pass. The
+QImage/QPixmap comparison produced a genuinely useful number, not just
+a smoke-test pass: 300 thumbnails cost 26.1MB as QImage alone, +37.2MB
+more once QPixmap copies are also created (63.3MB total) — a direct,
+measured confirmation of `LRUImageCache`'s own design rationale
+(storing QImage, not QPixmap, to avoid the platform backing-store
+copy), not previously measured, only asserted in a docstring.
 
-### 12.4 Database Query Profiling at Scale (MEDIUM)
-- Extend `bench_database.py`:
-  - `pgvector` ANN similarity search at 10k, 100k, 1M vectors
-  - Bulk insert with and without pgvector index
-  - Tag/group tree traversal at depth 3, 5, 10
-  - `HNSW` vs `IVFFlat` index type comparison
+### 12.4 Database Query Profiling at Scale (MEDIUM) — **rescoped, 2026-07-27**
+**Checked before extending anything**: this bullet's premise
+(`pgvector` ANN search, `HNSW` vs `IVFFlat`) targets
+`backend/src/database/image_database.py::PgvectorImageDatabase`, the
+legacy Postgres-backed image database. Per
+`unified_database.md`'s own DB.6 status ("Postgres retirement... mostly
+done (S211)") and the still-open archival item (issue #64, "archive
+legacy Postgres code"), this is an actively-retiring system — building
+new benchmark investment against it (Bulk insert, HNSW/IVFFlat
+comparison work that Postgres-side code is slated to be deleted) would
+not be a good use of this phase's effort. **Not implemented as
+originally scoped.** The forward-looking equivalent already exists and
+is a better target for a future session: `search_repo.py`'s new
+`filter_media()`/`filter_entities()` SQL methods (shipped this session,
+issue #63/`unified_database.md` §DB.5) already have correctness tests
+in `backend/test/database/test_unified_repos.py` but no *scale*
+benchmark (10k/100k-row FTS/filter query latency) — that's the item to
+build once someone picks this back up, not a pgvector ANN benchmark for
+a database half-way out the door. No code shipped for this sub-item;
+this note is the deliverable.
 
 ### 12.5 App Lifecycle Memory Profiling (MEDIUM)
 - Instrument `main.py` to emit PSUtil RSS snapshots at: JVM start, Qt init, first tab render, after gallery load (100/500/1000 images).

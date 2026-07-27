@@ -1,7 +1,7 @@
 """Benchmark suite for C++ core image processing operations (via base module).
 
 Covers the hot paths most likely to be bottlenecks for large library workflows:
-- load_image_batch (Rayon parallel decode)
+- load_image_batch (OpenMP parallel decode)
 - image conversion (format re-encode)
 - scan_directory (recursive FS enumeration)
 - merge_images (horizontal/vertical stacking)
@@ -82,37 +82,37 @@ runner = BenchmarkManager("C++ Image Processing")
 @runner.benchmark("load_batch_512px_8images", iterations=5, warmup=1)
 @measure_memory
 def bench_load_batch_512_8() -> None:
-    """Parallel decode of 8 × 512px PNGs via Rayon."""
+    """Parallel decode of 8 × 512px PNGs via OpenMP."""
     if not _CPP_AVAILABLE or not _PATHS_512_8:
         return
-    cpp_core.load_image_batch(_PATHS_512_8) # pyrefly: ignore [missing-attribute]
+    cpp_core.load_image_batch(_PATHS_512_8)
 
 
 @runner.benchmark("load_batch_512px_32images", iterations=3, warmup=1)
 @measure_memory
 def bench_load_batch_512_32() -> None:
-    """Parallel decode of 32 × 512px PNGs via Rayon."""
+    """Parallel decode of 32 × 512px PNGs via OpenMP."""
     if not _CPP_AVAILABLE or not _PATHS_512_32:
         return
-    cpp_core.load_image_batch(_PATHS_512_32) # pyrefly: ignore [missing-attribute]
+    cpp_core.load_image_batch(_PATHS_512_32)
 
 
 @runner.benchmark("load_batch_1080p_8images", iterations=3, warmup=1)
 @measure_memory
 def bench_load_batch_1080_8() -> None:
-    """Parallel decode of 8 × 1080p PNGs via Rayon."""
+    """Parallel decode of 8 × 1080p PNGs via OpenMP."""
     if not _CPP_AVAILABLE or not _PATHS_1080_8:
         return
-    cpp_core.load_image_batch(_PATHS_1080_8) # pyrefly: ignore [missing-attribute]
+    cpp_core.load_image_batch(_PATHS_1080_8)
 
 
 @runner.benchmark("scan_directory_flat_200files", iterations=10, warmup=2)
 @measure_memory
 def bench_scan_flat() -> None:
-    """Recursive FS scan over 200 files in a flat directory."""
+    """Non-recursive FS scan over a flat directory of PNGs."""
     if not _CPP_AVAILABLE or _TMP_DIR is None:
         return
-    cpp_core.scan_directory(str(Path(_TMP_DIR.name) / "512_32"), recursive=False) # pyrefly: ignore [missing-attribute]
+    cpp_core.scan_files_single(str(Path(_TMP_DIR.name) / "512_32"), [".png"], recursive=False)
 
 
 @runner.benchmark("scan_directory_recursive_multi_subdir", iterations=10, warmup=2)
@@ -121,7 +121,7 @@ def bench_scan_recursive() -> None:
     """Recursive FS scan over all benchmark fixture subdirectories."""
     if not _CPP_AVAILABLE or _TMP_DIR is None:
         return
-    cpp_core.scan_directory(_TMP_DIR.name, recursive=True) # pyrefly: ignore [missing-attribute]
+    cpp_core.scan_files_single(_TMP_DIR.name, [".png"], recursive=True)
 
 
 @runner.benchmark("convert_8x512px_to_webp", iterations=3, warmup=1)
@@ -131,7 +131,8 @@ def bench_convert_512_webp() -> None:
     if not _CPP_AVAILABLE or not _PATHS_512_8 or _OUT_DIR is None:
         return
     for p in _PATHS_512_8:
-        cpp_core.convert_image(p, str(_OUT_DIR), output_format="webp") # pyrefly: ignore [missing-attribute]
+        out_path = str(_OUT_DIR / (Path(p).stem + ".webp"))
+        cpp_core.convert_single_image(p, out_path, "webp")
 
 
 @runner.benchmark("convert_8x1080p_to_webp", iterations=3, warmup=1)
@@ -141,7 +142,8 @@ def bench_convert_1080_webp() -> None:
     if not _CPP_AVAILABLE or not _PATHS_1080_8 or _OUT_DIR is None:
         return
     for p in _PATHS_1080_8:
-        cpp_core.convert_image(p, str(_OUT_DIR), output_format="webp") # pyrefly: ignore [missing-attribute]
+        out_path = str(_OUT_DIR / (Path(p).stem + ".webp"))
+        cpp_core.convert_single_image(p, out_path, "webp")
 
 
 @runner.benchmark("convert_8x512px_to_jpg", iterations=3, warmup=1)
@@ -151,25 +153,28 @@ def bench_convert_512_jpg() -> None:
     if not _CPP_AVAILABLE or not _PATHS_512_8 or _OUT_DIR is None:
         return
     for p in _PATHS_512_8:
-        cpp_core.convert_image(p, str(_OUT_DIR), output_format="jpg") # pyrefly: ignore [missing-attribute]
+        out_path = str(_OUT_DIR / (Path(p).stem + ".jpg"))
+        cpp_core.convert_single_image(p, out_path, "jpg")
 
 
 @runner.benchmark("merge_images_vertical_8x512px", iterations=5, warmup=1)
 @measure_memory
 def bench_merge_vertical_512() -> None:
     """Vertical stack of 8 × 512px images via C++."""
-    if not _CPP_AVAILABLE or not _PATHS_512_8:
+    if not _CPP_AVAILABLE or not _PATHS_512_8 or _OUT_DIR is None:
         return
-    cpp_core.merge_images(_PATHS_512_8, direction="vertical") # pyrefly: ignore [missing-attribute]
+    out_path = str(_OUT_DIR / "merged_vertical_512.png")
+    cpp_core.merge_images_vertical(_PATHS_512_8, out_path)
 
 
 @runner.benchmark("merge_images_horizontal_8x1080p", iterations=3, warmup=1)
 @measure_memory
 def bench_merge_horizontal_1080() -> None:
     """Horizontal stack of 8 × 1080p images via C++."""
-    if not _CPP_AVAILABLE or not _PATHS_1080_8:
+    if not _CPP_AVAILABLE or not _PATHS_1080_8 or _OUT_DIR is None:
         return
-    cpp_core.merge_images(_PATHS_1080_8, direction="horizontal") # pyrefly: ignore [missing-attribute]
+    out_path = str(_OUT_DIR / "merged_horizontal_1080.png")
+    cpp_core.merge_images_horizontal(_PATHS_1080_8, out_path)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
