@@ -121,6 +121,15 @@
 
     <hr>
 
+    <h3>Local pHash Pre-Check</h3>
+    <div class="note">Caches a snapshot of your library's perceptual hashes so turbo/bulk downloads can get an instant "probably already have this" hint without a round trip — even when the bridge is momentarily down. This is a hint only; the authoritative check is still "Check if already downloaded" above.</div>
+    <div class="row">
+        <button id="refresh-snapshot" class="secondary">Refresh snapshot</button>
+        <span id="snapshot-status" style="margin-left: 8px;">not cached yet</span>
+    </div>
+
+    <hr>
+
     <h3>Duplicate Tabs</h3>
     <div class="row" style="margin-top: 8px;">
         <button id="scan-dups">Scan tabs for duplicates</button>

@@ -15,8 +15,8 @@ manifests get installed.
 Wire protocol (Chrome/Firefox native messaging spec): each message, both
 directions, is a 4-byte **native-byte-order** unsigned length prefix
 followed by that many bytes of UTF-8-encoded JSON. Request bodies:
-``{"action": "ping"|"dup_check"|"ingest"|"similar", "payload": {...}}``
-(``payload`` omitted/ignored for ``ping``). Responses:
+``{"action": "ping"|"dup_check"|"ingest"|"similar"|"phash_snapshot", "payload": {...}}``
+(``payload`` omitted/ignored for ``ping``/``phash_snapshot``). Responses:
 ``{"ok": bool, "status": int, "body": {...}}`` — ``status`` mirrors the
 HTTP status code ``bridge_handlers`` would have returned for the same
 request over §7.5A, so client code can share result-handling logic across

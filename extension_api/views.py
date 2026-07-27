@@ -10,6 +10,10 @@ Token-authenticated, CORS-enabled endpoints consumed by the WebExtension:
   (§7.8). Degrades to pHash top-K ranking (``DirPhashIndex.query_topk``)
   because the Unified DB embedding index (roadmap DB.7) is not populated
   yet — see the module docstring on ``SimilarView`` below.
+- ``GET  /api/extension/phash-snapshot`` — exports the configured
+  directory's distinct pHash set (§7.16C) for client-side caching, so the
+  extension can do an offline, no-round-trip approximate pre-check before
+  falling back to the authoritative ``dup-check`` call.
 
 The actual business logic lives in ``bridge_handlers.py`` (transport-
 agnostic, shared with the §7.5B native-messaging host in ``native_host.py``)
@@ -208,4 +212,31 @@ class SimilarView(CorsAPIView):
     )
     def post(self, request):  # noqa: ANN001
         _status, body = bridge_handlers.handle_similar(request.data)
+        return Response(body, status=_status)
+
+
+class PhashSnapshotView(CorsAPIView):
+    """§7.16C — compact pHash export for the client-side pre-check.
+
+    A GET (no image payload) that returns every distinct pHash currently
+    indexed for the configured directory tree, so the extension can cache
+    it in ``storage.local`` and do an offline, no-round-trip Hamming-distance
+    sweep before deciding whether an image is "probably already in the
+    library" — useful for turbo/bulk downloads and for when the bridge is
+    momentarily unreachable at browse time. The authoritative check remains
+    §7.6 dup-check (``DupCheckView``), which always re-verifies live.
+    """
+
+    permission_classes = [BridgeTokenPermission]
+
+    @extend_schema(
+        tags=["Extension Bridge"],
+        summary="Export the configured directory's pHash set for client-side caching",
+        responses={
+            200: OpenApiResponse(description="hashes / count / scanned / cold_scan"),
+            409: OpenApiResponse(description="dup_root not configured"),
+        },
+    )
+    def get(self, request):  # noqa: ANN001
+        _status, body = bridge_handlers.handle_phash_snapshot({})
         return Response(body, status=_status)

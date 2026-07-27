@@ -130,9 +130,10 @@ async function bridgeCall<T>(
   if (settings.bridgeTransport === "native") {
     return bridgeNative<T>(action, payload);
   }
+  const isGet = action === "ping" || action === "phash_snapshot";
   return bridgeFetch<T>(httpPath, {
-    method: action === "ping" ? "GET" : "POST",
-    ...(action === "ping" ? {} : { body: JSON.stringify(payload) }),
+    method: isGet ? "GET" : "POST",
+    ...(isGet ? {} : { body: JSON.stringify(payload) }),
   });
 }
 
@@ -207,4 +208,30 @@ export function ingest(
     source_page_url: pageUrl,
     page_title: pageTitle,
   });
+}
+
+export interface PhashSnapshotResult {
+  /** Sorted, deduplicated 16-hex-digit (64-bit) pHashes. No file paths —
+   * the snapshot is cached client-side, so only the minimum needed for an
+   * approximate Hamming-distance sweep leaves the app. */
+  hashes: string[];
+  count: number;
+  scanned: number;
+  cold_scan: boolean;
+  generated_at: string;
+}
+
+/**
+ * §7.16C — fetch the app's current pHash set for client-side caching.
+ * Pairs with `clientPhash.ts`'s local snapshot store: call this
+ * periodically (or on demand) to refresh `storage.local`, then use
+ * `snapshotBestMatch()` for instant, no-round-trip "probably already have
+ * this" hints. The authoritative check remains `dupCheck()`.
+ */
+export function getPhashSnapshot(): Promise<PhashSnapshotResult> {
+  return bridgeCall<PhashSnapshotResult>(
+    "phash_snapshot",
+    "/phash-snapshot/",
+    {},
+  );
 }

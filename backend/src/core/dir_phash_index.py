@@ -253,6 +253,26 @@ class DirPhashIndex:
         """Number of indexed files (including failed-decode placeholders)."""
         return self._conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
 
+    def export_hashes(self) -> List[str]:
+        """§7.16C — sorted, deduplicated hex pHashes for the client-side
+        pre-check snapshot (``GET /api/extension/phash-snapshot``).
+
+        Paths are deliberately not included: the snapshot leaves the app and
+        is cached in the browser's ``storage.local``, so only the minimum
+        needed for an approximate client-side Hamming-distance sweep (the
+        hash values themselves) is exported, not the library's file layout.
+        A sorted list (not a bloom filter) is used because the whole point
+        of a perceptual hash is *approximate* matching (Hamming distance
+        under a threshold) — a bloom filter only answers exact-membership
+        queries, which would silently drop the near-duplicate tolerance
+        this feature exists to provide.
+        """
+        cur = self._conn.execute(
+            "SELECT DISTINCT phash FROM files WHERE phash IS NOT NULL"
+        )
+        hashes = sorted(f"{(row[0] & _U64):016x}" for row in cur.fetchall())
+        return hashes
+
     def close(self) -> None:
         self._conn.close()
 

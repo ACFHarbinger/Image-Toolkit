@@ -155,3 +155,48 @@ class TestDirPhashIndex:
         assert idx.query_topk_bytes(data, k=5) == idx.query_topk(
             compute_phash_bytes(data), k=5
         )
+
+    def test_export_hashes_sorted_hex_no_duplicates(self, tree, tmp_path):
+        root, a, b = tree
+        idx = self._index(root, tmp_path)
+        idx.refresh()
+        with open(a, "rb") as fh:
+            phash_a = compute_phash_bytes(fh.read())
+        with open(b, "rb") as fh:
+            phash_b = compute_phash_bytes(fh.read())
+
+        exported = idx.export_hashes()
+        assert exported == sorted(exported)
+        assert len(exported) == len(set(exported))  # no duplicates
+        assert set(exported) == {f"{phash_a:016x}", f"{phash_b:016x}"}
+        for h in exported:
+            assert len(h) == 16
+            int(h, 16)
+
+    def test_export_hashes_empty_index(self, tmp_path):
+        empty_root = tmp_path / "empty"
+        empty_root.mkdir()
+        idx = self._index(empty_root, tmp_path)
+        idx.refresh()
+        assert idx.export_hashes() == []
+
+    def test_export_hashes_deduplicates_identical_images(self, tmp_path):
+        root = tmp_path / "dupes"
+        root.mkdir()
+        _write_image(root / "one.png", seed=42)
+        _write_image(root / "two.png", seed=42)  # byte-identical content
+        idx = self._index(root, tmp_path)
+        idx.refresh()
+        exported = idx.export_hashes()
+        assert len(exported) == 1  # DISTINCT collapses the two identical hashes
+
+    def test_export_hashes_skips_failed_decodes(self, tree, tmp_path):
+        root, _a, _b = tree
+        # An image-extensioned file with undecodable content gets a NULL
+        # phash row (kept, per refresh()'s own comment, to avoid re-trying
+        # every scan) -- it must not appear in the export.
+        (root / "corrupt.png").write_bytes(b"not actually a png")
+        idx = self._index(root, tmp_path)
+        idx.refresh()
+        assert None not in idx.export_hashes()
+        assert idx.count() > len(idx.export_hashes())  # corrupt.png counted, not exported

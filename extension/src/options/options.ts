@@ -5,6 +5,10 @@ import { api, storageGet } from "../shared/api";
 import { loadSettings, saveSettings } from "../shared/settings";
 import { scanAndHighlight, clearHighlights } from "../shared/dupTabs";
 import { ping, BridgeError } from "../shared/bridge";
+import {
+  getCachedPhashSnapshot,
+  refreshPhashSnapshot,
+} from "../shared/clientPhash";
 import type { LastDupCheck, LastSimilar } from "../background";
 import type { DupTabSet } from "../shared/messages";
 
@@ -327,6 +331,33 @@ async function renderLastSimilar(): Promise<void> {
   );
 }
 
+// --- Local pHash pre-check (§7.16C) ---
+
+function formatSnapshotStatus(
+  cache: Awaited<ReturnType<typeof getCachedPhashSnapshot>>,
+): string {
+  if (!cache) return "not cached yet";
+  const when = new Date(cache.cachedAt).toLocaleString();
+  return `${cache.hashes.length} hashes cached ${when}`;
+}
+
+async function renderSnapshotStatus(): Promise<void> {
+  const statusEl = $<HTMLSpanElement>("snapshot-status");
+  statusEl.textContent = formatSnapshotStatus(await getCachedPhashSnapshot());
+}
+
+async function refreshSnapshot(): Promise<void> {
+  const statusEl = $<HTMLSpanElement>("snapshot-status");
+  statusEl.textContent = "refreshing…";
+  try {
+    const cache = await refreshPhashSnapshot();
+    statusEl.textContent = formatSnapshotStatus(cache);
+  } catch (err) {
+    statusEl.textContent =
+      err instanceof BridgeError ? `failed: ${err.message}` : `failed: ${String(err)}`;
+  }
+}
+
 // --- Page capture (§7.9) ---
 
 type CaptureAction = "download_all_media" | "start_selection_overlay";
@@ -362,6 +393,10 @@ document.addEventListener("DOMContentLoaded", () => {
   void restoreOptions();
   void renderLastDupCheck();
   void renderLastSimilar();
+  void renderSnapshotStatus();
+  $<HTMLButtonElement>("refresh-snapshot").addEventListener("click", () => {
+    void refreshSnapshot();
+  });
   $<HTMLButtonElement>("download-all").addEventListener("click", () => {
     void sendToActiveTab("download_all_media");
   });
