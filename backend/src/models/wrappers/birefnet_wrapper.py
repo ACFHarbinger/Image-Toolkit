@@ -2,7 +2,9 @@
 BiRefNetWrapper — Anime Character Foreground Segmentation
 =========================================================
 Wraps local vendor/BiRefNet (Zheng Peng, 2024) and the anime-fine-tuned
-ToonOut variant (MatteoKartoon/BiRefNet, arXiv 2509.06839, Sep 2025).
+ToonOut variant (joelseytre/toonout on HuggingFace, arXiv 2509.06839, Sep
+2025 — the GitHub org is MatteoKartoon/BiRefNet, but the HF model weights
+were uploaded under the contributor's own joelseytre/toonout namespace).
 
 Key improvements over the previous version:
   - ``get_soft_mask`` returns a float32 [0,1] soft mask (not thresholded),
@@ -16,6 +18,14 @@ Key improvements over the previous version:
     GPU synchronisation, reducing overhead on CUDA devices.
   - Model name constant ``TOONOUT_MODEL`` points to the anime-fine-tuned weights;
     fall back to the generic BiRefNet weights if ToonOut is unavailable.
+
+§3.4 fix (2026-07-27): ``TOONOUT_MODEL``/``BIREFNET_MODEL`` were swapped
+relative to their names, and the intended fallback repo ID
+(``MatteoKartoon/BiRefNet``) was never a real HuggingFace model repo (that's
+the GitHub org, not an HF namespace — returns 401/invalid on the Hub API).
+ToonOut had never actually been loaded by this wrapper; every run silently
+used plain generic BiRefNet. Fixed to the real HF repo (``joelseytre/toonout``,
+MIT-licensed, verified live) with the correct fallback direction.
 """
 
 import gc
@@ -37,8 +47,8 @@ logger = logging.getLogger(__name__)
 torch.backends.cudnn.benchmark = False
 
 # Preferred model: ToonOut (anime-fine-tuned BiRefNet, 99.5 % anime pixel accuracy)
-TOONOUT_MODEL = "ZhengPeng7/BiRefNet"
-BIREFNET_MODEL = "MatteoKartoon/BiRefNet"
+TOONOUT_MODEL = "joelseytre/toonout"
+BIREFNET_MODEL = "ZhengPeng7/BiRefNet"
 
 _BIREFNET_OK = False
 _BIREFNET_ERR = ""
@@ -141,11 +151,16 @@ class BiRefNetWrapper(ModelWrapper):
                 model.eval()
 
                 # Load weights: prefer the local HF cache, try safetensors first
-                # (ZhengPeng7/BiRefNet ships model.safetensors, not pytorch_model.bin).
+                # (ZhengPeng7/BiRefNet ships model.safetensors; joelseytre/toonout
+                # ships a plain .pth checkpoint instead of the HF-standard names).
                 def _load_weights(repo_id: str):
                     cache = os.path.expanduser("~/.cache/huggingface/hub")
                     last_err: Exception | None = None
-                    for fname in ("model.safetensors", "pytorch_model.bin"):
+                    for fname in (
+                        "model.safetensors",
+                        "pytorch_model.bin",
+                        "birefnet_finetuned_toonout.pth",
+                    ):
                         for local_only in (True, False):
                             try:
                                 ckpt = hf_hub_download(
@@ -159,7 +174,27 @@ class BiRefNetWrapper(ModelWrapper):
                                     from safetensors.torch import load_file
 
                                     return load_file(ckpt)
-                                return torch.load(ckpt, map_location="cpu")
+                                sd = torch.load(ckpt, map_location="cpu")
+                                # Some checkpoints wrap the flat state_dict under a
+                                # "state_dict"/"model" key rather than saving it directly.
+                                if isinstance(sd, dict) and not any(
+                                    isinstance(v, torch.Tensor) for v in sd.values()
+                                ):
+                                    for wrap_key in ("state_dict", "model"):
+                                        if wrap_key in sd:
+                                            sd = sd[wrap_key]
+                                            break
+                                # joelseytre/toonout's checkpoint was saved from a
+                                # torch.compile(DataParallel(model)) wrapper, so every
+                                # key carries a "module._orig_mod." prefix our plain
+                                # BiRefNet instance doesn't have — strip it (and the
+                                # more common lone "module."/"_orig_mod." variants)
+                                # so strict=True load_state_dict actually matches.
+                                for prefix in ("module._orig_mod.", "module.", "_orig_mod."):
+                                    if all(k.startswith(prefix) for k in sd):
+                                        sd = {k[len(prefix):]: v for k, v in sd.items()}
+                                        break
+                                return sd
                             except Exception as e:  # noqa: PERF203
                                 last_err = e
                     raise last_err  # type: ignore[misc]

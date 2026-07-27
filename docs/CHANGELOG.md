@@ -4,6 +4,17 @@
 
 ---
 
+## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
+
+Completed GitHub issue #28 / roadmap §3.4's two sub-items.
+
+- **ToonOut weights — a real, previously-unknown bug, not just a stale-mirror problem.** The roadmap's blocker ("MatteoKartoon HF repo is gone") was itself stale — a live mirror exists (`joelseytre/toonout`, MIT-licensed, verified reachable). But locating it surfaced three layered bugs in `backend/src/models/wrappers/birefnet_wrapper.py`: (1) `TOONOUT_MODEL`/`BIREFNET_MODEL` were swapped relative to their names, and the intended fallback (`MatteoKartoon/BiRefNet`) was never a valid HuggingFace model repo (that's the GitHub org, not an HF namespace) — so the broken fallback was never even reached, meaning ToonOut had **never** actually loaded, ever; every run silently used plain generic BiRefNet. (2) `joelseytre/toonout` ships a plain `.pth` checkpoint under a non-standard filename `_load_weights` didn't try. (3) Even with the correct repo/filename, the checkpoint's keys carry a `module._orig_mod.` prefix (from a `torch.compile(DataParallel(...))` training wrapper) that `load_state_dict(strict=True)` rejected, silently falling back again. Fixed all three layers; verified with a direct before/after mask diff on the same frame (6.7% of pixels differ by >0.1 probability, ToonOut classifies ~81% foreground vs ~75% for generic — a real behavioral change, not just "loads without erroring").
+- **5-test verify**: 3 tests improve or trade a visibly-flawed real composite for a clean SCANS fallback (verdict improves in both fallback cases); 1 unaffected; 1 (test04) exposes the same composite-gate-threshold fragility the §3.1 joint-gain-solve post-mortem already documented — confirming it's a gate-design gap independent of which upstream improvement triggers it, not something specific to this fix. Kept as the new default — this is a bug fix restoring always-intended behavior, not a speculative feature, so no new flag.
+- **Reverse-dimming — checked as the roadmap instructed, not built.** Sampled 3 tests' existing per-frame gain plots for Harding broadcast-dimming's signature (a sudden luminance *drop* on flash/high-contrast frames). Found only smooth monotonic drift or isolated *brightening* spikes — the opposite direction, already handled by the existing coherence-skip gate. This R18/OVA-sourced corpus was never likely subject to Japanese broadcast-safety dimming in the first place.
+- Full write-up in `.agent/cache/asp_toonout_fix_2026-07-27.md`. `moon/roadmaps/asp.md` §3.4 marked done.
+
+---
+
 ## S229 — 2026-07-27 (ASP Phase 3.1: joint canvas-space blocks-gain solve — implemented, mixed result)
 
 Implemented GitHub issue #26 / roadmap §3.1: replace the sequential pairwise gain-equalization chain with the full Brown-Lowe (2007) joint least-squares formulation.

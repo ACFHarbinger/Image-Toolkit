@@ -398,12 +398,29 @@ reloads fresh every dataset with no cache, unlike BiRefNet).
   visible transitions; reintroduce the deleted C++ `multiband_blend` at that
   point, not before. If flat-cel colour bleeding appears at high-contrast seams,
   the report's answer is **MPB + MTOR** (modified Poisson, §12), not plain Poisson.
-- **3.4 Cheap photometric candidates from the research base** `[1–2 days each,
-  A/B'd individually]` — **ToonOut weights** for BiRefNet (pure weights swap, but
-  note the MatteoKartoon HF repo is gone — locate a mirror first); **reverse
-  dimming** for broadcast-dimmed sources (per-frame luminance restore before
-  registration, research §9.1) — check whether any of the 97 tests actually show
-  Harding dimming before building it.
+- **3.4 Cheap photometric candidates from the research base** `[done
+  2026-07-27 — see .agent/cache/asp_toonout_fix_2026-07-27.md]`
+  — **ToonOut weights**: the "mirror is gone" blocker was itself stale — a
+  live mirror exists (`joelseytre/toonout` on HF). Locating it surfaced a
+  real, previously-unknown bug: `TOONOUT_MODEL`/`BIREFNET_MODEL` were
+  swapped, the intended fallback repo ID was never a valid HF model repo,
+  and even fixed, the wrapper's weight-loading didn't handle this repo's
+  filename or its `module._orig_mod.`-prefixed checkpoint — ToonOut had
+  **never** actually been loaded, ever; every run silently used plain
+  generic BiRefNet. Fixed all three layers and verified a real mask-level
+  difference (not just "loads without erroring"). 5-test verify: 3 tests
+  improve or trade a flawed real composite for a clean fallback, 1
+  unaffected, 1 (test04) exposes the same gate-threshold fragility the
+  §3.1 postmortem already documented (any quality improvement nudges it
+  just past the gate without fixing the underlying local defect — a
+  gate-design gap, not specific to this fix). Kept as the new default (bug
+  fix restoring intended behavior, not a speculative feature — no flag).
+  — **Reverse dimming**: checked as instructed before building. Sampled 3
+  tests' gain plots for Harding's signature (a sudden luminance *drop* on
+  risky frames) — found only smooth monotonic drift or isolated
+  *brightening* spikes (opposite direction), already handled by the
+  existing coherence gate. This R18/OVA corpus was never likely subject to
+  Japanese broadcast-safety dimming in the first place. Not built.
 
 ---
 
