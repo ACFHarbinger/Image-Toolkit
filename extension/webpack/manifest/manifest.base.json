@@ -12,7 +12,8 @@
     "downloads",
     "storage",
     "tabs",
-    "notifications"
+    "notifications",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "<all_urls>"

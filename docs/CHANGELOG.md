@@ -68,6 +68,20 @@ Implemented GitHub issue #70 / roadmap `analytics_and_interpretability.md` Phase
 
 ---
 
+## S250 — 2026-07-27 (Extension 7.5 Phase B: native messaging host for the local app bridge)
+
+Implemented GitHub issue #50 / roadmap `extension.md` §7.5 Phase B.
+
+- **Extracted shared, transport-agnostic handler logic** into `extension_api/bridge_handlers.py` (plain `(payload) -> (status, body)` functions, no DRF dependency) so both the existing HTTP views (§7.5A) and the new native-messaging host share one implementation. `views.py` became thin wrappers (auth + CORS + DRF framing only) — verified behavior-preserving: all 23 pre-existing `extension_api` tests pass unmodified.
+- **`extension_api/native_host.py`**: implements the Chrome/Firefox native-messaging wire protocol (4-byte length-prefixed JSON, both directions) and dispatches to the same shared handlers. No bearer token on this transport — the browser's own host-manifest extension-ID allowlist is the security boundary, per the roadmap's original rationale. Doesn't bootstrap Django (the shared handlers have no ORM dependency), so the host starts fast.
+- **`desktop/linux/scripts/install_native_host.sh`**: generates a launcher + per-browser host manifest (Chrome/Chromium/Brave/Edge/Firefox, autodetecting installed browsers), matching the documented install locations including the Brave-reads-Chrome quirk.
+- **Extension side**: `shared/api.ts` gained `sendNativeMessage()`; `shared/bridge.ts`'s exported functions now dispatch across HTTP/native behind one interface via `settings.bridgeTransport`, exactly per the plan ("background code switches transports behind one interface") — callers never branch on transport. New settings fields (`bridgeTransport`, `nativeHostName`), options-page UI, `nativeMessaging` manifest permission.
+- **Tests**: 10 new cases in `extension_api/test_native_host.py` (framing round-trips/truncation, dispatch routing, handler-exception safety) — 33/33 `extension_api` tests passing. `npm run typecheck` clean for all touched files (two pre-existing, unrelated type errors elsewhere in the codebase, not introduced by this change).
+- **Not verified against a real browser** — no browser automation available in this environment; the protocol/dispatch logic is unit-tested against the real shared handlers, but installing a manifest and launching from a loaded extension needs a human check.
+- `moon/roadmaps/extension.md` §7.5 updated: Phase B marked shipped.
+
+---
+
 ## S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)
 
 User-authorized scale-up from the established 5-test verify to an 18-test targeted batch, deliberately chosen to span every current fallback class (rather than an arbitrary sample) for Phase 4's "re-examine what remains" instruction. Clean run, no resource-danger triggers — the biggest single scale step-up since the thread-cap host-freeze fix landed.

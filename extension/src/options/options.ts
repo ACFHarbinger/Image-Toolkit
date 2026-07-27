@@ -69,6 +69,8 @@ async function restoreOptions(): Promise<void> {
   $<HTMLInputElement>("strip-params").checked = settings.dupTabsStripParams;
   $<HTMLInputElement>("bridge-url").value = settings.bridgeUrl;
   $<HTMLInputElement>("bridge-token").value = settings.bridgeToken;
+  $<HTMLSelectElement>("bridge-transport").value = settings.bridgeTransport;
+  $<HTMLInputElement>("native-host-name").value = settings.nativeHostName;
   for (const rule of settings.siteRules) {
     addRuleRow(rule.pattern, rule.folder);
   }
@@ -91,6 +93,12 @@ async function saveOptions(): Promise<void> {
       $<HTMLInputElement>("bridge-url").value.trim().replace(/\/+$/, "") ||
       "http://127.0.0.1:8000/api/extension",
     bridgeToken: $<HTMLInputElement>("bridge-token").value.trim(),
+    bridgeTransport:
+      ($<HTMLSelectElement>("bridge-transport").value as "http" | "native") ||
+      "http",
+    nativeHostName:
+      $<HTMLInputElement>("native-host-name").value.trim() ||
+      "com.imagetoolkit.bridge",
   });
   $<HTMLInputElement>("folder").value = cleanName;
   showStatus("Settings Saved!");
@@ -169,7 +177,7 @@ async function scanDuplicateTabs(): Promise<void> {
   renderDupSets(result.sets, result.grouped);
 }
 
-// --- Bridge connection test (§7.5A) ---
+// --- Bridge connection test (§7.5) ---
 
 async function testConnection(): Promise<void> {
   const dot = $<HTMLSpanElement>("conn-dot");
@@ -182,6 +190,12 @@ async function testConnection(): Promise<void> {
       $<HTMLInputElement>("bridge-url").value.trim().replace(/\/+$/, "") ||
       "http://127.0.0.1:8000/api/extension",
     bridgeToken: $<HTMLInputElement>("bridge-token").value.trim(),
+    bridgeTransport:
+      ($<HTMLSelectElement>("bridge-transport").value as "http" | "native") ||
+      "http",
+    nativeHostName:
+      $<HTMLInputElement>("native-host-name").value.trim() ||
+      "com.imagetoolkit.bridge",
   });
   try {
     const info = await ping();

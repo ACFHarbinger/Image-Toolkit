@@ -85,10 +85,18 @@
     <hr>
 
     <h3>Image Toolkit Connection</h3>
+    <label for="bridge-transport">Transport:</label>
+    <select id="bridge-transport">
+        <option value="http">HTTP bridge (§7.5A — needs a token, works out of the box)</option>
+        <option value="native">Native messaging (§7.5B — no token, needs a one-time install)</option>
+    </select>
     <label for="bridge-url">Bridge URL:</label>
     <input type="text" id="bridge-url" placeholder="http://127.0.0.1:8000/api/extension">
     <label for="bridge-token">Access Token:</label>
     <input type="text" id="bridge-token" placeholder="paste token from the desktop app">
+    <label for="native-host-name">Native host name:</label>
+    <input type="text" id="native-host-name" placeholder="com.imagetoolkit.bridge">
+    <div class="note" style="margin: 4px 0 8px;">Native messaging needs <code>desktop/linux/scripts/install_native_host.sh &lt;this-extension-id&gt;</code> run once per browser before "Test connection" will succeed.</div>
     <div class="row">
         <button id="test-conn" class="secondary">Test connection</button>
         <span style="margin-left: 8px;"><span id="conn-dot" class="conn-dot"></span><span id="conn-status">not tested</span></span>
