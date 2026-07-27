@@ -586,6 +586,18 @@ class MainWindow(QWidget):
             except Exception:
                 pass
 
+        # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
+        # backend.src.app imports from gui.src.windows.main, so a module-level
+        # import here would be circular.
+        try:
+            from backend.src.app import _reconfigure_logging
+            _reconfigure_logging(
+                prefs.get("log_level", "INFO"),
+                bool(prefs.get("file_logging_enabled", False)),
+            )
+        except Exception:
+            pass
+
     def restart_application(self):
         self.close()
         QApplication.instance().quit()  # pyrefly: ignore [missing-attribute]

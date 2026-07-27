@@ -4,6 +4,18 @@
 
 ---
 
+## S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
+
+Implemented GitHub issue #48 / roadmap `gui_ux.md` §2.9's item F (labeled `bug` — the same "settings-window control exists, nothing consumes it" shape as issue #49's `recent_dirs_count` fix earlier this session).
+
+- **Confirmed the gap before fixing**: `preferences["log_level"]`/`["file_logging_enabled"]` round-tripped through `settings_window.py` (save/load only) but were never consumed anywhere. `backend/src/app.py::_setup_logging()` — the only place logging gets configured — runs before `QApplication`/vault unlock and only accepted a `log_level: int` driven by the `--verbose` CLI flag, with no path back to vault preferences and no `RotatingFileHandler` add/remove logic keyed on `file_logging_enabled` at all.
+- **The real constraint**: `_setup_logging()` genuinely can't read vault preferences at the point it runs (before login). Fix applies them later instead: new `_reconfigure_logging(log_level_name, file_logging_enabled)` in `backend/src/app.py`, called from `main_window.py::_apply_startup_preferences()` (tagged `§2.16F`) once the vault is unlocked during the current launch. Sets the console handler's level from the string preference ("DEBUG"/"INFO"/"WARNING"/"ERROR", defaulting to INFO on an unrecognized value) and adds/removes a tagged `RotatingFileHandler` (`_make_file_handler()`/`_LOG_FILE_HANDLER_TAG`, factored out of `_setup_logging()` to share the handler-construction code) based on `file_logging_enabled`.
+- Since `_apply_startup_preferences()` runs during the very launch it's read in (right after login), this preference now takes effect the same session it's changed in, an improvement over the roadmap table's "Restart required" note for these two rows.
+- **Tests**: 6 new cases in `backend/test/core/test_app_logging.py` (handler tagging, console-level application, add/remove/idempotent-enable of the file handler, unknown-level-name fallback), all passing, with a `_clean_root_logger` fixture that saves/restores the real root logger's handlers so the test doesn't leak logging state into other test files.
+- `moon/roadmaps/gui_ux.md` §2.9 item F updated to reflect the fix; the section's "F is still not wired" summary line corrected.
+
+---
+
 ## S247 — 2026-07-27 (ASP Phase 3.3: multi-band blend already implemented — stale roadmap text corrected)
 
 Checked §3.3 ("reintroduce the deleted C++ `multiband_blend`") before implementing anything, since the Phase 4 analysis's test09 finding (visible banding despite passing every gate) matched this bullet's stated precondition ("only if 3.1+3.2 leave visible transitions").
