@@ -156,11 +156,55 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 **Recommendation:** Detect the base's prediction type and switch the training/sampling objective accordingly. Add v-pred + ztSNR to `LoRATuner` and the SD3/SDXL samplers.
 
-### 1.3 LyCORIS variants (LoCon / LoHa / LoKr) [Research]
+### 1.3 LyCORIS variants (LoCon / LoHa / LoKr) — GUI exposure DONE 2026-07-27
 
 **Pain point:** Standard LoRA captures the character but not the conv-layer style; LoCon (`dim 16 / conv 8`) is preferred for style-bound characters, LoHa/LoKr for tiny datasets.
 
-**Recommendation:** Integrate the `lycoris` library into `LoRATuner` as selectable algorithms; expose in the LoRA train tab.
+**Done:** the "integrate the lycoris library into LoRATuner" half of this
+bullet's recommendation was **already fully implemented** before this
+session touched it — `LoRATunerV2` (`backend/src/models/tuning/
+lo_ra_tuner_v2.py`) already dispatches `cfg.method == "lycoris"` to
+`lycoris.kohya.create_network()` with `lora`/`locon`/`loha`/`lokr`/`dylora`
+algorithms, and a `lycoris_locon.yaml` Hydra preset already existed under
+`backend/config/training/`. **The actual gap was "expose in the LoRA train
+tab"** — the GUI's `LoRATrainTab` only ever instantiated the *legacy*
+`LoRATuner` (V1, no LyCORIS support at all; V2 is documented in its own
+module docstring as the "adds LyCORIS support" successor) and never called
+into `LoRATunerV2` or the Hydra pipeline in any way.
+
+- **Added two missing presets**: `lycoris_loha.yaml` and `lycoris_lokr.yaml`
+  (only `lycoris_locon.yaml` existed), each with algorithm-appropriate
+  dims/epochs per this bullet's own "LoHa/LoKr for tiny datasets" framing
+  (smaller nominal rank, more epochs to compensate for fewer trainable
+  parameters on small datasets).
+- **Found and fixed a pre-existing, unrelated bug that blocked this
+  entirely**: `anime_training_pipeline.py` (the orchestrator `LoRATunerV2`
+  needs — dataset bucketing, tuner construction, training loop) had two
+  broken imports left over from a prior code reorganization
+  (`backend.src.models.full_finetune` and `backend.src.models.
+  lora_diffusion`, neither of which exist anymore — the real paths are
+  under `backend.src.models.tuning.*`). This meant `python -m
+  backend.dispatcher command=train` has been completely broken for *any*
+  training run, LyCORIS or standard, since that reorganization — nobody
+  had noticed because nothing actually invoked this pipeline. Fixed both
+  imports; verified via a real Hydra `--cfg job` dry-run composition for
+  all four training presets (`lora_4080`, `lycoris_locon/loha/lokr`).
+- **GUI**: new "Training Engine" dropdown in `LoRATrainTab`
+  (`gui/src/tabs/models/delta/lora_train_tab.py`) — "Standard (LoRA)"
+  keeps the existing legacy `LoRATuner` path completely unchanged (zero
+  risk to current behavior); the three LyCORIS options launch `python -m
+  backend.dispatcher command=train training=lycoris_<algo> model.model_id=
+  ... data.images_dir=... data.trigger_word=... output_dir=...` as a
+  subprocess (reusing the existing, now-fixed pipeline end-to-end rather
+  than re-implementing dataset/tuner construction inline), streaming
+  output to the status label and supporting Cancel via `proc.terminate()`.
+- **Tests**: 10 new cases in `gui/test/models/test_lora_train_tab_lycoris.py`
+  covering the engine dropdown defaults, the standard path staying on the
+  legacy tuner, correct Hydra CLI command construction for all three
+  algorithms, and success/error/cancel signal handling — all passing.
+  `--cfg job` dry-run composition verified separately (real Hydra, not
+  mocked) since the actual training run itself needs GPU/VRAM not
+  available in this environment.
 
 ### 1.4 ControlNet + IP-Adapter in generation tabs
 

@@ -1,0 +1,54 @@
+# config/training/lycoris_loha.yaml
+# LyCORIS LoHa (Hadamard product) — tiny-dataset character LoRA.
+# Two low-rank factors combined via Hadamard product instead of a single
+# low-rank matrix, giving a higher effective rank per parameter than LoCon —
+# converges well on very small datasets (10-20 images) without overfitting
+# as badly as plain LoRA at the same nominal rank.
+# Best for: small/tiny datasets, secondary characters with few reference images.
+
+# @package training
+stage: lora
+method: lycoris
+lycoris_algo: loha       # LoHa = Hadamard-product low-rank adaptation
+
+# Dimensions kept lower than LoCon's — LoHa's effective rank per parameter
+# is higher, so a smaller nominal dim still captures comparable detail on
+# a small dataset without overfitting.
+rank: 8                  # linear dim
+alpha: 4
+lycoris_conv_dim: 4      # conv dim
+lycoris_conv_alpha: 2
+
+use_dora: false
+use_rslora: false
+
+# Text encoder training
+train_text_encoder_one: false
+train_text_encoder_two: false
+te_lr_scale: 0.5
+
+# Batch and memory (profile for 3090 Ti; reduce batch to 1 for 4080)
+resolution: 1024
+train_batch_size: 2
+gradient_accumulation_steps: 1
+gradient_checkpointing: false
+mixed_precision: bf16
+
+# Small datasets need fewer unique images per epoch but tend to want more
+# epochs overall to converge without a rank/alpha large enough to memorize.
+max_train_epochs: 20
+max_train_steps: null
+
+noise_offset: 0.0
+shuffle_tags: true
+keep_tokens: 1
+caption_dropout_rate: 0.05
+
+use_ema: false
+save_every_n_epochs: 1
+
+xformers: true
+cache_latents: true
+cache_latents_to_disk: true
+cache_text_encoder_outputs: true
+full_bf16: true

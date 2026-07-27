@@ -4,6 +4,18 @@
 
 ---
 
+## S231 — 2026-07-27 (Content Gen 1.3: LyCORIS variants (LoCon/LoHa/LoKr) exposed in the LoRA train tab)
+
+Implemented GitHub issue #34 / `content_generation.md` §1.3. The "integrate lycoris into LoRATuner" half of this bullet's recommendation was already fully done — `LoRATunerV2` already supports `locon`/`loha`/`lokr`/`dylora` via `lycoris.kohya.create_network()`. The actual gap: `LoRATrainTab` only ever called the *legacy* `LoRATuner` (V1, no LyCORIS support at all), never `LoRATunerV2` or the Hydra pipeline.
+
+- **Found and fixed a pre-existing, unrelated bug blocking this entirely**: `anime_training_pipeline.py` had two broken imports left over from a prior code reorganization (`backend.src.models.full_finetune`, `backend.src.models.lora_diffusion` — neither exists anymore, real paths are under `backend.src.models.tuning.*`). `python -m backend.dispatcher command=train` has been completely broken for *any* training run since that reorganization; nobody noticed because nothing invoked this pipeline. Fixed both imports.
+- **Added the two missing Hydra presets** (`lycoris_loha.yaml`, `lycoris_lokr.yaml` — only `lycoris_locon.yaml` existed), algorithm-appropriate dims per the roadmap's own "LoHa/LoKr for tiny datasets" framing.
+- **GUI**: new "Training Engine" dropdown in `LoRATrainTab` — "Standard (LoRA)" keeps the existing legacy path unchanged; the three LyCORIS options launch the existing (now-fixed) pipeline via `python -m backend.dispatcher` as a subprocess, streaming output and supporting Cancel via `proc.terminate()`.
+- **Verified**: real Hydra `--cfg job` dry-run composition for all four training presets; 10 new GUI tests (`gui/test/models/test_lora_train_tab_lycoris.py`), all passing.
+- `moon/roadmaps/content_generation.md` §1.3 updated with full status and the stale-import finding.
+
+---
+
 ## S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
 
 Implemented GitHub issue #48 / roadmap `gui_ux.md` §2.9's item F (labeled `bug` — the same "settings-window control exists, nothing consumes it" shape as issue #49's `recent_dirs_count` fix earlier this session).
