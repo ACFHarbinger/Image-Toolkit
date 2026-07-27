@@ -1,10 +1,20 @@
 /**
- * Client for the Image Toolkit desktop-app bridge (§7.5A / §7.6 / §7.8).
+ * Client for the Image Toolkit desktop-app bridge (§7.5 / §7.6 / §7.8).
  *
- * Talks to the token-authenticated localhost Django endpoints under
- * `/api/extension/`. All functions throw `BridgeError` on transport or
- * HTTP-level failures so callers can degrade gracefully.
+ * Two transports, selected by `settings.bridgeTransport`, behind one set of
+ * exported functions — callers never branch on transport:
+ * - **"http"** (§7.5A, default): token-authenticated localhost Django
+ *   endpoints under `/api/extension/`.
+ * - **"native"** (§7.5B): `runtime.sendNativeMessage` to the
+ *   `extension_api/native_host.py` process, installed per-browser via
+ *   `desktop/linux/scripts/install_native_host.sh`. No token — the
+ *   browser's own native-messaging host-manifest allowlist is the security
+ *   boundary instead.
+ *
+ * All functions throw `BridgeError` on transport or request-level failures
+ * so callers can degrade gracefully regardless of which transport is active.
  */
+import { sendNativeMessage } from "./api";
 import { loadSettings } from "./settings";
 
 export class BridgeError extends Error {
@@ -35,6 +45,13 @@ export interface DupCheckResult {
   scanned: number;
   cold_scan: boolean;
   threshold: number;
+}
+
+/** Shape returned by `native_host.py::dispatch` for every action. */
+interface NativeResponse<T> {
+  ok: boolean;
+  status: number;
+  body: T & { error?: string };
 }
 
 async function bridgeFetch<T>(
@@ -71,16 +88,63 @@ async function bridgeFetch<T>(
   return (await resp.json()) as T;
 }
 
-/** Liveness + feature discovery; also validates the pairing token. */
+/**
+ * Send one `{action, payload}` native message and unwrap it into the same
+ * success/`BridgeError` shape `bridgeFetch` produces, so every exported
+ * function below can share one code path per transport branch.
+ */
+async function bridgeNative<T>(
+  action: string,
+  payload: Record<string, unknown> = {},
+): Promise<T> {
+  const settings = await loadSettings();
+  let response: NativeResponse<T>;
+  try {
+    response = await sendNativeMessage<NativeResponse<T>>(
+      settings.nativeHostName,
+      { action, payload },
+    );
+  } catch (err) {
+    throw new BridgeError(
+      `Native messaging host '${settings.nativeHostName}' is not reachable ` +
+        `(${String(err)}) — has it been installed? See ` +
+        "desktop/linux/scripts/install_native_host.sh.",
+    );
+  }
+  if (!response || !response.ok) {
+    throw new BridgeError(
+      response?.body?.error || `Native host error (status ${response?.status})`,
+      response?.status,
+    );
+  }
+  return response.body as T;
+}
+
+/** Dispatches to whichever transport `settings.bridgeTransport` selects. */
+async function bridgeCall<T>(
+  action: string,
+  httpPath: string,
+  payload: Record<string, unknown>,
+): Promise<T> {
+  const settings = await loadSettings();
+  if (settings.bridgeTransport === "native") {
+    return bridgeNative<T>(action, payload);
+  }
+  return bridgeFetch<T>(httpPath, {
+    method: action === "ping" ? "GET" : "POST",
+    ...(action === "ping" ? {} : { body: JSON.stringify(payload) }),
+  });
+}
+
+/** Liveness + feature discovery; also validates the pairing token (http) / manifest (native). */
 export function ping(): Promise<PingResult> {
-  return bridgeFetch<PingResult>("/ping/");
+  return bridgeCall<PingResult>("ping", "/ping/", {});
 }
 
 /** Perceptual duplicate search of the app's configured directory tree. */
 export function dupCheck(imageUrl: string): Promise<DupCheckResult> {
-  return bridgeFetch<DupCheckResult>("/dup-check/", {
-    method: "POST",
-    body: JSON.stringify({ url: imageUrl }),
+  return bridgeCall<DupCheckResult>("dup_check", "/dup-check/", {
+    url: imageUrl,
   });
 }
 
@@ -118,9 +182,9 @@ export function findSimilar(
   imageUrl: string,
   topK = 12,
 ): Promise<SimilarResult> {
-  return bridgeFetch<SimilarResult>("/similar/", {
-    method: "POST",
-    body: JSON.stringify({ url: imageUrl, top_k: topK }),
+  return bridgeCall<SimilarResult>("similar", "/similar/", {
+    url: imageUrl,
+    top_k: topK,
   });
 }
 
@@ -138,12 +202,9 @@ export function ingest(
   pageUrl?: string,
   pageTitle?: string,
 ): Promise<IngestResult> {
-  return bridgeFetch<IngestResult>("/ingest/", {
-    method: "POST",
-    body: JSON.stringify({
-      url: imageUrl,
-      source_page_url: pageUrl,
-      page_title: pageTitle,
-    }),
+  return bridgeCall<IngestResult>("ingest", "/ingest/", {
+    url: imageUrl,
+    source_page_url: pageUrl,
+    page_title: pageTitle,
   });
 }

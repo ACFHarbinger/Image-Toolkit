@@ -42,3 +42,32 @@ export function storageSet(items: Record<string, unknown>): Promise<void> {
     }
   });
 }
+
+/**
+ * Promise wrapper for runtime.sendNativeMessage (§7.5B), uniform across
+ * browsers. Firefox returns a Promise natively; Chromium is callback-based
+ * and reports host-launch failures via `chrome.runtime.lastError` rather
+ * than rejecting, so that path is normalized into a rejection here too.
+ */
+export function sendNativeMessage<T>(
+  hostName: string,
+  message: object,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (IS_FIREFOX) {
+      (api.runtime.sendNativeMessage(hostName, message) as Promise<T>).then(
+        resolve,
+        reject,
+      );
+    } else {
+      api.runtime.sendNativeMessage(hostName, message, (response) => {
+        const err = api.runtime.lastError;
+        if (err) {
+          reject(new Error(err.message ?? "Native messaging host error."));
+        } else {
+          resolve(response as T);
+        }
+      });
+    }
+  });
+}

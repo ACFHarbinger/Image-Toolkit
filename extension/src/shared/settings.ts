@@ -31,6 +31,16 @@ export interface ExtensionSettings {
   bridgeUrl: string;
   /** Bearer token pasted from the desktop app's settings. */
   bridgeToken: string;
+  /**
+   * Bridge transport (§7.5). "http" is §7.5A (default — works out of the
+   * box, needs the pairing token above). "native" is §7.5B (needs
+   * `desktop/linux/scripts/install_native_host.sh` run once per browser;
+   * no token needed, since the browser's own native-messaging host
+   * manifest allowlist is the security boundary).
+   */
+  bridgeTransport: "http" | "native";
+  /** Native messaging host name (§7.5B) — must match the installed manifest. */
+  nativeHostName: string;
 }
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
@@ -42,6 +52,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   saveSidecar: false,
   bridgeUrl: "http://127.0.0.1:8000/api/extension",
   bridgeToken: "",
+  bridgeTransport: "http",
+  nativeHostName: "com.imagetoolkit.bridge",
 };
 
 export async function loadSettings(): Promise<ExtensionSettings> {
