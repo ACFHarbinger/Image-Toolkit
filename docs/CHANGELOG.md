@@ -4,6 +4,17 @@
 
 ---
 
+## S220 — 2026-07-27 (ASP benchmark host-freeze — thread-cap fix confirmed at 5-test scale)
+
+- **Confirmed the S219 thread-count fix resolves the freeze at 5-test scale.** Re-ran the exact `asp_test04/08/09/27/57` combination that froze the host before the fix, with the user actively watching `htop`. Completed cleanly: RSS/system-RAM/VRAM all flat and bounded across all 5 datasets (RSS plateaued ~4.4GB after the first dataset and stayed flat, no monotonic growth); benchmark-process thread count settled at 22 then rose modestly to 26 (brief spikes to 34 during compute bursts) — bounded and stable, not runaway, versus unbounded before the cap.
+- Fixed a bug in the diagnostic watchdog script itself (scratchpad-only, not committed): the process-count check always read 0 due to a broken `pgrep -c` invocation; replaced with `pgrep -f ... | wc -l` plus `ps -o nlwp=` for direct thread-count-per-process visibility, which is what actually surfaced the 22→26→34 pattern above.
+- Updated `moon/roadmaps/asp.md` §2.6 and the ground-rules warning to reflect "likely fixed, re-verify at scale" rather than "unresolved, do not run" — condensed the accreted per-session freeze narrative (S218/S219) into one summary now that there's a confirmed result.
+- Updated the persistent memory (`feedback_benchmark_freezes_host.md`) with the same status: fix confirmed at 5-test scale, not yet validated at larger scale (10-20 tests, full 97-test corpus) — future sessions should treat scale-up cautiously rather than assuming this is fully closed.
+- Two automated safety nets (in-process resource guardrail, external bash watchdog) each failed to prevent one freeze despite being active during earlier attempts — worth remembering that monitoring not the same as fixing, and that the actual fix here was addressing a real root cause (thread pool sizing), not the safety net.
+- Remaining open threads for whoever picks this back up: audit `frame_selection.cpp`/`fg_register.cpp`/`compositing.cpp`/`seam.cpp`/`exposure.cpp` in the C++ `base` extension (only `canvas.cpp` has been checked and is clean), and audit `BiRefNetWrapper`/`LoFTRWrapper` `.offload()` paths for genuine VRAM release across repeated per-dataset load/unload cycles.
+
+---
+
 ## S219 — 2026-07-27 (ASP benchmark host-freeze diagnosis — thread-count fix, still unresolved)
 
 User-authorized monitored diagnostic runs of `bench_anime_stitch.py`, continuing the S218 investigation.

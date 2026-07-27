@@ -37,12 +37,13 @@ thresholds, datasets) — see §R below for the distilled results this plan buil
    accrete here.
 4. **The human owns priorities and quality calls; agents implement and measure.**
 
-**⚠ 2026-07-27: benchmark runs have frozen the host, requiring a hard restart**
-— on a 128GB RAM / 24GB VRAM machine, so this is uncontrolled growth, not
-underpowered hardware. Root cause not yet found (see 2.6 below). **Do not run
-`bench_anime_stitch.py` until this is resolved or the user explicitly
-authorizes a monitored run** — this suspends ground rule 1 (5-test/full-97
-verification) for any new item until the freeze is fixed.
+**⚠ Benchmark host-freeze — likely fixed 2026-07-27, not fully re-verified.**
+`bench_anime_stitch.py` repeatedly froze the host; root cause found (uncapped
+OpenMP/BLAS/OpenCV/PyTorch thread pools) and fixed (capped to 4 threads) —
+see 2.6 below. One clean 5-test run confirms the fix at that scale. **Prefer
+small-to-moderate batches and watch system resources during any run larger
+than previously tested** until a full-corpus run has confirmed it holds at
+scale.
 
 ---
 
@@ -315,77 +316,41 @@ test; aligned-SSIM gap ≤ 0. (Coverage wins like test96 should start flipping
 
 ---
 
-## Phase 2.6 — Benchmark-Harness Host Freeze *(blocks all further A/B work)*
+## Phase 2.6 — Benchmark-Harness Host Freeze *(likely fixed 2026-07-27,
+S218/S219/S220 — re-verify at scale before fully trusting)*
 
-**2026-07-27: `bench_anime_stitch.py` runs have frozen the host badly enough
-to force a hard restart**, and other runs have "sometimes but not always"
-caused freezes or high-resource-usage app crashes — on a 128GB RAM / 24GB
-VRAM machine, so this is a real leak or native memory bug, not underpowered
-hardware. A `CanvasError`-adjacent run also produced a `double free or
-corruption (!prev)` glibc abort once, suggesting the native `base` C++
-extension (used by default for warp/render/ECC/hold-detection across every
-dataset) may be involved, not just gradual Python/CUDA growth — glibc heap
-corruption aborts don't normally come from pure Python/numpy.
+`bench_anime_stitch.py` repeatedly froze the host badly enough to force a
+hard restart (2026-07-25 through 2026-07-27), on a 128GB RAM / 24GB VRAM
+machine — a real bug, not underpowered hardware. **Root cause**: the user
+noticed many concurrent processes/threads in `htop`; code audit found nothing
+in the codebase ever capped OpenMP/BLAS/OpenCV/PyTorch thread pools, so each
+defaulted to one thread per CPU core independently, stacking uncoordinated on
+a high-core-count machine (numpy BLAS, OpenCV `parallel_for_`, PyTorch
+intraop, and the C++ `base` extension's own `#pragma omp parallel for` in
+`canvas.cpp`). **Fix**: `OMP_NUM_THREADS`/`OPENBLAS_NUM_THREADS`/
+`MKL_NUM_THREADS`/`NUMEXPR_NUM_THREADS` capped to 4 (`ASP_BENCH_THREAD_CAP`)
+before numpy/cv2/torch import, plus explicit `cv2.setNumThreads`/
+`torch.set_num_threads`. **Confirmed**: the exact 5-test combination that
+previously froze the host completed cleanly with the fix — RSS/RAM/VRAM flat
+and bounded across all 5 datasets, benchmark-process thread count settled at
+22–34 (not growing) versus unbounded before. Also added (kept as permanent
+diagnostics): `_resource_snapshot()`/`_resource_danger()` abort guardrail
+(RAM≥80%/VRAM≥85%) and `_log_resource(tag)` per-stage checkpoints inside
+`process_dataset`. Note: both the in-process guardrail and an external bash
+watchdog *failed* to prevent one freeze before the thread-cap fix — automated
+safety nets alone aren't sufficient; the thread cap is the actual fix, not
+the monitoring.
 
-**S218 (2026-07-27) — instrumentation + guardrail (no benchmark run needed):**
-- `_resource_snapshot()` / `_resource_danger()` added: logs RSS, system RAM %,
-  and GPU VRAM allocated/reserved/used % after every dataset, with a baseline
-  before the batch starts.
-- **Abort guardrail**: if system RAM ≥ 80% or VRAM ≥ 85% (`ASP_BENCH_RAM_ABORT_PCT`
-  / `ASP_BENCH_VRAM_ABORT_PCT`), the batch stops gracefully and writes out
-  whatever results exist, instead of continuing toward an OS-level hang.
-
-**S219 (2026-07-27) — first monitored diagnostic runs, user authorized:**
-- Added `_log_resource(tag)` per-stage checkpoints *inside* `process_dataset`
-  (dataset_start, before/after_birefnet, before/after_loftr, before/after
-  render_median, after_composite, dataset_end) — a single dataset now reveals
-  which *stage* is elevated, not just which dataset.
-- Added an **external bash watchdog** (independent of the benchmark process)
-  polling system RAM/VRAM every 3s and force-killing the benchmark if either
-  crosses a critical line (92%/95%) — a second line of defense in case the
-  in-process guardrail never gets control back (e.g. a hang inside a single
-  long native call).
-- **1-dataset run: completely healthy.** RSS 0.86→4.4GB, sys RAM 16.6→19.1%,
-  VRAM peaked at 16.1% during BiRefNet load then settled to ~7%. No leak
-  signature at all for a single dataset.
-- **5-dataset run: froze the host again**, hard restart required — **despite**
-  both the in-process guardrail and the external watchdog. This means either
-  (a) the freeze is a kernel/GPU-driver-level hang that no userspace kill can
-  stop once triggered (an unresponsive GPU/compositor doesn't care that a
-  Python process got SIGKILL'd), or (b) it happens faster than a 3-second
-  poll interval can catch. Either way, **automated safety nets are not
-  sufficient protection by themselves** — treat every further live run as
-  genuinely risky regardless of guardrails present.
-- **Concrete new lead**: the user independently observed the benchmark
-  spawning many concurrent processes/threads in `htop` while it ran, and
-  suspected multi-core parallelism was compounding whatever the underlying
-  leak/bug is. Confirmed by code audit: **nothing in the codebase ever capped
-  OpenMP/BLAS/OpenCV/PyTorch thread pools** — each defaults to one thread per
-  logical CPU core independently, so multiple uncoordinated pools (BLAS for
-  numpy, OpenCV's `parallel_for_`, PyTorch's intraop pool, the C++ `base`
-  extension's own `#pragma omp parallel for` in `canvas.cpp`) stack on a
-  high-core-count machine. **Fixed**: `OMP_NUM_THREADS`/`OPENBLAS_NUM_THREADS`/
-  `MKL_NUM_THREADS`/`NUMEXPR_NUM_THREADS` set to 4 (`ASP_BENCH_THREAD_CAP`)
-  before numpy/cv2/torch import (must happen before their native libraries
-  load), plus explicit `cv2.setNumThreads(4)` / `torch.set_num_threads(4)`.
-  This doesn't prove a leak by itself, but bounds peak concurrent resource
-  usage regardless of the deeper cause, and directly matches what the user
-  observed.
-- Reviewed `base/src/animation/canvas.cpp` (the C++ path active by default for
-  every dataset's warp/render) for the double-free lead: `as_mat()` does a
-  proper `.clone()` (fully-owned deep copy, not a zero-copy view outliving its
-  source), and `array_from_mat()`'s deep-copy contract is documented and
-  followed — no obvious buffer-lifetime bug in this file. Not yet audited:
-  `frame_selection.cpp`, `fg_register.cpp`, `compositing.cpp`, `seam.cpp`,
-  `exposure.cpp` (all also loaded via the same `base` extension).
-
-**Not yet done:**
-- A monitored run *with the thread cap in place* to see if it changes the
-  picture (has not been attempted since the fix landed).
-- Model-wrapper `.offload()` audit (BiRefNet caches by `(model_name, device)`
-  at the class level and is reused; LoFTR has no such cache and reloads fresh
-  every dataset — a plausible fragmentation source, still unconfirmed).
-- C++ audit of the remaining `base` extension files listed above.
+**Only one confirmed clean run (5 tests) exists post-fix.** Before trusting
+this fully: re-verify at larger scale (10–20 tests, then full corpus),
+ideally with the user watching system resources live, since the original
+freezes happened at varying scales. If a freeze recurs, lower
+`ASP_BENCH_THREAD_CAP` further, and audit the remaining `base` C++ files not
+yet checked for memory safety (`frame_selection.cpp`, `fg_register.cpp`,
+`compositing.cpp`, `seam.cpp`, `exposure.cpp` — `canvas.cpp` was checked and
+is clean) and the model-wrapper `.offload()` paths (BiRefNet caches by
+`(model_name, device)` and is reused; LoFTR has no such cache and reloads
+fresh every dataset — a plausible fragmentation source, still unconfirmed).
 
 ## Phase 3 — Photometric & Seam Parity with OpenCV
 
