@@ -4,6 +4,20 @@
 
 ---
 
+## S227 — 2026-07-27 (ASP Phase 0.3/1.2: Overmix built and wired as a third comparator)
+
+Implemented GitHub issue #18 / roadmap §0.3-1.2: build Overmix from source and wire it into the benchmark as a reference-only comparator (5-test verify scope; full 97-corpus run still open).
+
+- **Built `OvermixCli`** from the `vendor/Overmix` submodule (GPL-3.0 — external tool, never linked) via new `desktop/linux/scripts/setup_overmix.sh`. Two environment gaps beyond its own CMake checks: (1) the GPU code path unconditionally requires a real `<webgpu/webgpu.h>` + library — this machine's system header is an unrelated dummy stub, and the *current* `wgpu-native` release's API doesn't match what this Overmix revision's code expects, so the script pins `v0.19.4.1` (matches the plain-`const char*`-label API this code was written against); (2) Eigen3 isn't installed system-wide but is already present from the `base` module's pixi env, reused directly. Also fixed a genuine FFmpeg API break (`AVFrame::key_frame`/`display_picture_number`, both removed in newer FFmpeg) — committed directly in the submodule's own local git history (`f90a887`) rather than left as a dangling diff.
+- **`backend/benchmark/run_overmix.py`**: for each dataset, runs Overmix on the *smart-selected* frames (same input ASP gets → `output/overmix_stitch.png`) and, with `--full`, the full raw frame set (`output/overmix_full_stitch.png`) — plus a `overmix_variant.json` settings/timing log. Settled on `Gradient` comparator + `Recursive` aligner + `average` render after `BruteForce` proved far too slow at full frame resolution (didn't finish a 6-frame test in 90s; `Gradient` did the same job in ~1.2s).
+- **Wired into `bench_anime_stitch.py`**: `_build_result` now carries `metrics_overmix`/`overmix_path` (computed via the same `_compute_all_metrics` used for ASP/Simple); the report gained a three-way image table, a three-way CV-metrics table, and an "SC OM" summary column — purely a reference comparator, no change to the asp-vs-simple verdict logic.
+- **5-test verify result**: 3/5 tests (test04/08/09) produced clean, coherent Overmix composites competitive with ASP/Simple; 2/5 (test27/57) showed heavy multi-copy ghosting, traced to `RecursiveAligner`'s lack of any fg/bg split — it fails whenever foreground animation motion dominates over background camera motion, a legitimate corpus finding rather than a wiring bug. One intermittent OpenMP-race-looking failure observed on a full-frame-set run (140 frames), reproduced as non-deterministic (failed twice, then succeeded identically on retry and via a direct manual invocation) — noted as a retryable flakiness in Overmix's own code, not our wiring.
+- Roadmap's own §1.2 questions: (b) partially answered (average-render backgrounds looked competitive with ASP's median on the 3 clean tests, no rigorous crop-level comparison done yet); (a) and (c) still open.
+- Full write-up: `.agent/cache/overmix_field_notes.md`. `moon/roadmaps/asp.md` §0.3 and §1.2 updated with status and pointers.
+- **Still open**: the full 97-corpus run this section's actual exit gate asks for (5-test verify is this project's established safe scaling increment, not a substitute).
+
+---
+
 ## S226 — 2026-07-27 (ASP Phase 2.4: phase-aware frame selection — implemented, measured, rejected)
 
 Implemented the fix specified in GitHub issue #23 / roadmap §2.4: bias `smart_select_frames`'s Pass 2 toward camera-step candidates from the same candidate-level animation phase as the previous anchor, the coarser opposite-direction analogue of the existing same-hold-block tie-break penalty.

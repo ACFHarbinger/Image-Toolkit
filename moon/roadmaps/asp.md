@@ -143,20 +143,30 @@ metric-calibration part still open — needs real rating data to run against]`
   to "diagnostic-only") — needs an actual rating pass (0.1) to have data to
   calibrate against; can't be built ahead of that.
 
-### 0.3 Overmix as a third comparator on the full corpus  `[2–4 days]`
-The benchmark currently compares against one competitor. Add Overmix:
-- Build Overmix from source (github.com/spillerrec/Overmix, GPL-3.0 — run as an
-  external tool, never link). It has a CLI (`OvermixCli`) suitable for scripting.
-- Script `backend/benchmark/run_overmix.py`: for each `dump/asp_testNN`, feed the
-  *smart-selected* frames (same input the ASP gets) and also the *full* frame set
-  (Overmix's maximal-ingestion philosophy wants all frames); save
-  `output/overmix_stitch.png` + a variant log (aligner/renderer settings used).
-- Add `metrics_overmix`, `overmix_path`, and GT columns to `_build_result` and the
-  report; extend the verdict to a three-way comparison table (no change to the
-  asp-vs-simple verdict semantics — Overmix is a reference column, not a gate).
-- **Study output**: a short write-up in `.agent/cache/overmix_field_notes.md` —
-  where Overmix wins/loses on our corpus, how its AnimationSeparator groups our
-  frames, what settings mattered. This directly feeds Phase 2.
+### 0.3 Overmix as a third comparator on the full corpus  `[5-test verify done
+2026-07-27 — see .agent/cache/overmix_field_notes.md; full 97-corpus run
+still open]`
+- **Done**: `OvermixCli` built from source via `desktop/linux/scripts/setup_overmix.sh`
+  (GPL-3.0 — external tool, never linked; needed a pinned `wgpu-native` release
+  and a local FFmpeg-API-compat patch committed in the submodule's own history,
+  see field notes for why). `backend/benchmark/run_overmix.py` feeds each
+  dataset both the *smart-selected* frames (same input ASP gets, saved to
+  `output/overmix_stitch.png`) and, with `--full`, the *full* raw frame set
+  (`output/overmix_full_stitch.png`) — plus `output/overmix_variant.json`
+  (aligner/comparator/render settings, frame counts, timing). `_build_result`
+  and the report now carry `metrics_overmix`/`overmix_path` and a three-way
+  image + CV-metrics table per test, plus an "SC OM" summary column — purely
+  a reference comparator, no change to the asp-vs-simple verdict logic.
+- **5-test verify result**: 3/5 tests (test04/08/09) produced clean, coherent
+  Overmix composites; 2/5 (test27/57) showed heavy multi-copy ghosting —
+  `RecursiveAligner`'s whole-frame translation model has no fg/bg split, so it
+  fails when foreground animation dominates over background camera motion.
+  Full write-up (including the CLI settings that actually worked — `Gradient`
+  comparator, not `BruteForce`, which didn't finish in 90s at full res) in
+  `.agent/cache/overmix_field_notes.md`.
+- **Still open**: the full 97-corpus run this section's exit gate actually
+  asks for — the 5-test verify is this project's established safe scaling
+  increment, not a substitute for it.
 
 ### 0.4 Kill the GT-coupling measurement bug  `[(c) done and verified 2026-07-27,
 S218/S220; (a)/(b) still open]`
@@ -184,6 +194,16 @@ hard to rank.
 scan-mode panoramas. Worth one afternoon to script on the 5-test subset; only roll
 out to the full corpus if its outputs are competitive (expected: it struggles on
 anime texture like all SIFT-based tools — confirming that is itself useful data).
+
+### 0.6 Optional new anime panorama stitcher option: Overmix  `[1 hour after 0.3, optional]`
+Add Overmix as a option to the Image Stitcher category and Merge tab. If Overmix
+has already been added to the benchmark in Phase 0.3, this update is trivial and
+it gives end users a solid additional option for high-quality anime panoramas.
+
+### 0.7 Optional new classical panorama stitcher option: Hugin  `[1 hour after 0.5, optional]`
+Add Hugin as a option to the Image Stitcher category and Merge tab. If Hugin
+has already been added to the benchmark in Phase 0.5, this update is trivial and
+it gives end users a solid additional option for high-quality classical panoramas.
 
 **Phase-0 exit gate:** ratings file exists; benchmark emits coherence + pose-residual
 columns; Overmix column present for all 97; a three-way summary table in the report.
@@ -213,11 +233,17 @@ append findings to that report so it stays the single reference:
   only; the report's caveat stands (non-deterministic; mandatory quality gate),
   and no implementation happens until the Phase-2 core wins.
 
-### 1.2 Overmix deep-dive (hands-on, pairs with 0.3)  `[with 0.3]`
+### 1.2 Overmix deep-dive (hands-on, pairs with 0.3)  `[(b) partially answered
+2026-07-27; (a)/(c) still open — see .agent/cache/overmix_field_notes.md]`
 Specifically answer: (a) how does `AnimationSeparator`'s error-threshold
 change-point behave on hentai pan shots with 2–4 animation phases? (b) does its
 average-render on *our* bg regions beat our temporal median visually? (c) what does
 its interactive workflow do that our HITL checkpoints don't? Feed answers into 2.1.
+**(b) partial**: on the 5-test verify's 3 clean composites, average-render
+backgrounds looked sharp and coherent, no clear win or loss vs ASP's median at
+a whole-canvas glance — a rigorous background-only crop comparison wasn't done.
+(a) and (c) not yet explored (AnimationSeparator is CLI-reachable but untested;
+(c) needs the GUI, out of CLI-automation scope).
 
 ### 1.3 GraphCut post-mortem experiment  `[REJECTED again, 2026-07-27 — see
 .agent/cache/asp_graphcut_postmortem_2026-07-27.md]`
