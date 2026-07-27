@@ -526,14 +526,24 @@ The 46 guarded fallbacks are wins-by-safety, not wins. Reclassify each:
   round; still needs full-97 data and a real per-test triage pass before
   this class can be meaningfully "converted" rather than just
   better-understood.
-- **render-gate class (21):** fg-dominant high-animation scenes where multi-frame
-  assembly may be structurally wrong. For these, a *deliberate* policy: best
-  single-phase reconstruction (2.3 degenerate case) vs SCANS — pick per-test by
-  measurement. Accepting SCANS permanently for some tests is a valid outcome **if
-  a human confirms SCANS is the best achievable** — the objective is "never worse
-  than the OpenCV stitcher", which a coherent fallback satisfies; but each such
-  test must beat the *raw* cv2 stitcher (our SCANS-on-preprocessed-frames already
-  tends to, via selection + photometric prep + no crop failures).
+- **render-gate class (21) — clarified 2026-07-27:** this is the benchmark's
+  own umbrella term (`timings["render_gate_fallback"]`, set to 1 or 2
+  whenever *any* post-render quality check fires) covering
+  `composite_gate_sc`/`composite_gate_sb`, `ghost_gate_siqe`, and
+  `seam_vis_gate` combined — not a separate, unexamined class. The
+  seam_vis_gate re-examination above (Findings 1-5,
+  `.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md`) already
+  covers a meaningful chunk of this umbrella at 18-test scale, including
+  4 `composite_gate_sb` and 1 `composite_gate_sc` case from this batch.
+  The original fg-dominant high-animation-scene concern is still open and
+  still needs the deliberate policy decision below — best single-phase
+  reconstruction (2.3 degenerate case) vs SCANS, picked per-test by
+  measurement. Accepting SCANS permanently for some tests is a valid
+  outcome **if a human confirms SCANS is the best achievable** — the
+  objective is "never worse than the OpenCV stitcher", which a coherent
+  fallback satisfies; but each such test must beat the *raw* cv2 stitcher
+  (our SCANS-on-preprocessed-frames already tends to, via selection +
+  photometric prep + no crop failures).
 - **alignment_failed (test49): SUPERSEDED, 2026-07-27** — test49 no longer
   fails at alignment. It now reaches the composite stage and fails at
   `composite_gate_sb` instead (`sc=39.3/limit 53.2, sb=47.1/limit 35.0`,

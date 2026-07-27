@@ -4,6 +4,12 @@
 
 ---
 
+## S246 — 2026-07-27 (ASP Phase 4: clarified "render-gate class" is the existing composite/ghost/seam-vis gate umbrella, not a separate silo)
+
+Small documentation clarification while continuing Phase 4 work: the roadmap's "render-gate class (21)" bullet uses the benchmark's own umbrella term (`timings["render_gate_fallback"]`, set whenever any post-render quality check fires), covering `composite_gate_sc`/`composite_gate_sb`, `ghost_gate_siqe`, and `seam_vis_gate` combined — it was not a separate, unexamined class. The S244 seam_vis_gate re-examination already covers a meaningful chunk of this umbrella at 18-test scale (4 `composite_gate_sb` + 1 `composite_gate_sc` case from that batch). The original fg-dominant high-animation-scene policy question this bullet raised remains genuinely open — this is a scoping clarification, not new analysis. `moon/roadmaps/asp.md` Phase 4 section updated.
+
+---
+
 ## S245 — 2026-07-27 (ASP Phase 4/3.1 follow-up: frame/pair count also insufficient to predict gain-solve outcome)
 
 Closed the dedicated follow-up flagged in S244: why does test51 regress under `ASP_JOINT_GAIN_SOLVE` despite a `mean_post_warp_diff` comparable to test32, which improves?
