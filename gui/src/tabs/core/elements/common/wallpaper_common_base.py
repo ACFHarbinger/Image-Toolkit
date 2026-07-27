@@ -920,6 +920,22 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                 pass
             self.img_scanner_thread = None
 
+        # Clean up video scanner worker (was previously left running on tab
+        # close -- see populate_scan_image_gallery()'s comment for why an
+        # unwaited scanner thread is unsafe once the widgets it might still
+        # emit to are gone)
+        if hasattr(self, "vid_scanner_worker") and self.vid_scanner_worker is not None:
+            try:
+                if self.vid_scanner_worker.isRunning():
+                    self.vid_scanner_worker.requestInterruption()
+                    self.vid_scanner_worker.stop()
+                    self.vid_scanner_worker.quit()
+                    self.vid_scanner_worker.wait()
+                self.vid_scanner_worker.deleteLater()
+            except Exception:
+                pass
+            self.vid_scanner_worker = None
+
         for win in list(self.open_queue_windows):
             try:
                 if sip.isValid(win):
@@ -1132,6 +1148,42 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         if emit_signal:
             self.directory_scanned.emit(directory)
 
+        # Stop and fully drain any previous scan's scanner threads BEFORE
+        # touching gallery widgets or starting a new load. These are bespoke
+        # QThread subclasses (ImageScannerWorker/VideoScannerWorker), not
+        # QRunnable tasks tracked by cancel_loading()'s thread_pool -- that
+        # fix (issue #81) does not cover them. Previously this stop-and-wait
+        # ran AFTER clear_gallery_widgets()/start_loading_gallery() below,
+        # leaving an old scanner thread free to deliver a queued
+        # thumbnail_ready signal referencing widgets that were mid-deletion
+        # or already replaced for the new directory -- the same
+        # use-after-free crash class documented in
+        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md. The old
+        # vid_scanner_worker.wait(1000) bound was also insufficient on its
+        # own: VideoScannerWorker's internal ThreadPoolExecutor can take up
+        # to its subprocess-timeout chain to finish in-flight video
+        # thumbnails, so any fixed bound can time out while it's still
+        # running.
+        if self.img_scanner_thread is not None:
+            if self.img_scanner_thread.isRunning():
+                self.img_scanner_thread.requestInterruption()
+                self.img_scanner_thread.quit()
+                self.img_scanner_thread.wait()  # unbounded
+            self.img_scanner_thread.deleteLater()
+            self.img_scanner_thread = None
+
+        if self.vid_scanner_worker is not None:
+            try:
+                if self.vid_scanner_worker.isRunning():
+                    self.vid_scanner_worker.requestInterruption()
+                    self.vid_scanner_worker.stop()
+                    self.vid_scanner_worker.quit()
+                    self.vid_scanner_worker.wait()  # unbounded
+                self.vid_scanner_worker.deleteLater()
+            except RuntimeError:
+                pass
+            self.vid_scanner_worker = None
+
         self.clear_gallery_widgets()
         self.path_to_label_map.clear()
         self._initial_pixmap_cache.clear()
@@ -1156,26 +1208,6 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                 )
         except Exception:
             pass
-
-        if self.img_scanner_thread is not None:
-            if self.img_scanner_thread.isRunning():
-                self.img_scanner_thread.requestInterruption()
-                self.img_scanner_thread.quit()
-                self.img_scanner_thread.wait()
-            self.img_scanner_thread.deleteLater()
-            self.img_scanner_thread = None
-
-        if self.vid_scanner_worker is not None:
-            try:
-                if self.vid_scanner_worker.isRunning():
-                    self.vid_scanner_worker.requestInterruption()
-                    self.vid_scanner_worker.stop()
-                    self.vid_scanner_worker.quit()
-                    self.vid_scanner_worker.wait(1000)
-                self.vid_scanner_worker.deleteLater()
-            except RuntimeError:
-                pass
-            self.vid_scanner_worker = None
 
         self.img_scanner_worker = ImageScannerWorker(directory)
         self.img_scanner_thread = self.img_scanner_worker

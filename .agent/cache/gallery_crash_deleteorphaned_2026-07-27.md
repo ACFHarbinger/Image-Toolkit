@@ -202,3 +202,75 @@ independently).
 
 **Still not independently verified against a live reproduction** — same
 caveat as before, now with a stronger, less guessable fix.
+
+## Addendum 2 (2026-07-27→28) — two more, structurally separate instances of the identical pattern
+
+The user reported the crash a third and fourth time even after the
+unbounded-wait fix above (`hs_err_pid131317.log`, then
+`hs_err_pid138049.log` — the latter specifically reported as happening in
+the **Wallpaper tab**, on the very first directory switch right after app
+launch, not requiring repeated back-and-forth). This meant the fix above,
+while correct for what it covered, did not cover the actual code paths these
+crashes came from.
+
+**Root cause: this codebase has (at least) three independent,
+hand-rolled "stop the previous scan" implementations, and the base-class
+fix only touched one of them.** `cancel_loading()` in the two gallery base
+classes only knows about `QRunnable` tasks tracked in `_active_workers`/
+`thread_pool` (`ImageLoaderWorker`, `BatchImageLoaderWorker`,
+`VideoLoaderWorker`). Two other, completely separate code paths use bespoke
+`QThread` subclasses (`ImageScannerWorker`, `VideoScannerWorker`) for
+directory-level scanning, each with its own inline stop/wait logic that
+`cancel_loading()` has no knowledge of and does not wait for:
+
+1. **`ExtractorTab.scan_directory()`** (`gui/src/tabs/core/extractor_tab.py`,
+   the video-scan path) — stopped/waited for the previous `vid_scanner_worker`
+   *after* clearing `source_path_to_widget`/`source_grid` via `deleteLater()`,
+   using a bounded `wait(1000)`. Both the ordering (wait after teardown, not
+   before) and the bound were wrong, independently of the base-class fix.
+2. **`WallpaperCommonBase.populate_scan_image_gallery()`**
+   (`gui/src/tabs/core/elements/common/wallpaper_common_base.py`) — same
+   shape, for *both* `img_scanner_thread` (`ImageScannerWorker`, wait already
+   unbounded but wrongly ordered) and `vid_scanner_worker`
+   (`VideoScannerWorker`, bounded `wait(1000)`, wrongly ordered) — the
+   stop/wait block ran *after* `clear_gallery_widgets()` and after
+   `start_loading_gallery()` had already begun the new directory's load.
+   This is the confirmed source of the Wallpaper-tab crash, including the
+   "first switch after launch" case: the previous session's auto-restored
+   directory's scanner thread was still running when the user immediately
+   browsed a new one.
+3. `WallpaperCommonBase.closeEvent()` didn't stop `vid_scanner_worker` at
+   all (only `img_scanner_thread`) — a related, narrower gap for the
+   tab-close path, fixed alongside the others even though not directly
+   implicated in the reported crashes.
+
+**Fix**: in both `scan_directory()` and `populate_scan_image_gallery()`,
+moved the previous scanner thread's stop-and-wait block to the *start* of
+the method, before any widget teardown or new-load dispatch, and changed
+every bounded `wait(1000)` to an unbounded `wait()` — same reasoning as
+Addendum 1: `VideoScannerWorker`'s internal `ThreadPoolExecutor` can't be
+force-killed mid-subprocess, and `concurrent.futures.ThreadPoolExecutor`'s
+context-manager `__exit__` (which `run()` always passes through before
+`finished` fires) already blocks until truly idle regardless of any earlier
+non-blocking `shutdown()` call — so `.wait()` accurately reflects genuine
+completion, it just needs to not be given a timeout short enough to give up
+before that. `ImageScannerWorker` checks its cancellation flag on every
+scanned filesystem entry (or delegates to a single fast C++ call with no
+subprocess involved), so its already-unbounded wait was never the risky one
+— only its *ordering* needed fixing.
+
+**This may not be exhaustive.** The pattern (bespoke per-tab scanner thread,
+inline stop/wait logic, no shared mechanism) suggests other tabs could have
+the same shape; this pass fixed the three confirmed by an actual crash
+report plus the one directly-adjacent gap in `closeEvent()`, not a
+codebase-wide audit. If another gallery/tab is found to have its own
+scanner-thread stop/wait logic outside `cancel_loading()`, apply the same
+two checks: (a) does the stop/wait happen *before* any widget teardown or
+new load, and (b) is the wait unbounded.
+
+Files changed this round: `gui/src/tabs/core/extractor_tab.py`
+(`scan_directory()`, `cancel_loading()`),
+`gui/src/tabs/core/elements/common/wallpaper_common_base.py`
+(`populate_scan_image_gallery()`, `closeEvent()`).
+
+**Still not independently verified against a live reproduction.**

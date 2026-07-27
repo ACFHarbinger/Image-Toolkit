@@ -909,7 +909,13 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
                     self.vid_scanner_worker.requestInterruption()
                     self.vid_scanner_worker.stop()
                     self.vid_scanner_worker.quit()
-                    self.vid_scanner_worker.wait(1000)
+                    # Unbounded: VideoScannerWorker's internal ThreadPoolExecutor
+                    # can take up to its subprocess-timeout chain to finish
+                    # in-flight video thumbnails; a bounded wait here leaves
+                    # the worker free to keep running (and keep emitting) past
+                    # this method's return, racing whatever teardown the
+                    # caller does next. See scan_directory()'s equivalent fix.
+                    self.vid_scanner_worker.wait()
                 self.vid_scanner_worker.deleteLater()
             except RuntimeError:
                 pass
@@ -1179,6 +1185,32 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
         self.last_browsed_scan_dir = path
         self._save_last_dir(path)
 
+        # Stop and fully drain any previous scan's VideoScannerWorker BEFORE
+        # touching any widgets it might still be about to emit thumbnails
+        # for. This must happen first: VideoScannerWorker.stop() only cancels
+        # not-yet-started internal tasks (concurrent.futures cancel_futures),
+        # any already-running video-thumbnail subprocess call keeps going
+        # regardless, and its thumbnail_ready signal is still connected to
+        # add_source_thumbnail. Previously this check ran AFTER the widget
+        # teardown below (and used a 1000ms-bounded .wait()), which left the
+        # old worker free to deliver a queued signal referencing widgets that
+        # were mid-deletion or already gone -- the same use-after-free crash
+        # class documented in .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md,
+        # in a separate code path the base-class cancel_loading() fix doesn't
+        # cover (VideoScannerWorker is a bespoke QThread, not a QRunnable
+        # tracked by AbstractGalleryBase's thread_pool/_active_workers).
+        if self.vid_scanner_worker:
+            try:
+                if self.vid_scanner_worker.isRunning():
+                    self.vid_scanner_worker.requestInterruption()
+                    self.vid_scanner_worker.stop()
+                    self.vid_scanner_worker.quit()
+                    self.vid_scanner_worker.wait()  # unbounded: see comment above
+                self.vid_scanner_worker.deleteLater()
+            except RuntimeError:
+                pass
+            self.vid_scanner_worker = None
+
         # Clear grid and path tracking
         paths_to_remove = list(self.source_path_to_widget.keys())
         for p in paths_to_remove:
@@ -1231,19 +1263,9 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
                 # Immediately update if we have a cached version
                 self.add_source_thumbnail(v_path, cached_image)
 
-        # 3. Start the intensive thumbnailing worker
-        if self.vid_scanner_worker:
-            try:
-                if self.vid_scanner_worker.isRunning():
-                    self.vid_scanner_worker.requestInterruption()
-                    self.vid_scanner_worker.stop()
-                    self.vid_scanner_worker.quit()
-                    self.vid_scanner_worker.wait(1000)
-                self.vid_scanner_worker.deleteLater()
-            except RuntimeError:
-                pass
-            self.vid_scanner_worker = None
-
+        # 3. Start the intensive thumbnailing worker (previous scanner, if
+        # any, was already stopped and fully drained above, before the
+        # widget teardown -- see the comment there)
         self.vid_scanner_worker = VideoScannerWorker(path, crop_square=True)
         self.vid_scanner_worker.thumbnail_ready.connect(
             self.add_source_thumbnail

@@ -190,6 +190,34 @@ its own slow blocking I/O (subprocess calls, network requests), make sure
 its `_is_cancelled` flag is actually checked *during* that blocking call
 (e.g. polling a subprocess with a timeout loop), not just before/after it —
 otherwise cancellation can't make the wait return quickly, only correctly.
+
+**This bug recurred a third and fourth time from two separate code paths
+that don't go through `cancel_loading()` at all.** `ExtractorTab.scan_directory()`
+(the video-scan path) and `WallpaperCommonBase.populate_scan_image_gallery()`
+each have their own bespoke `QThread` subclasses (`ImageScannerWorker`,
+`VideoScannerWorker`) for directory-level scanning, with their own inline
+stop/wait logic, entirely separate from `cancel_loading()`'s
+`thread_pool`/`_active_workers` machinery. Both had the identical two bugs
+independently: the stop-and-wait ran *after* widgets were already being torn
+down (not before), and `VideoScannerWorker`'s wait used the same insufficient
+bounded timeout. Fixed by moving the stop/wait to the *start* of each method
+and using an unbounded `QThread.wait()` — same reasoning as above:
+`VideoScannerWorker`'s internal `ThreadPoolExecutor` can't be force-killed
+mid-subprocess, and its context-manager `__exit__` already blocks until
+truly idle regardless of any earlier non-blocking `shutdown()` call, so an
+unbounded `.wait()` accurately reflects genuine completion — it just can't
+be given a timeout short enough to give up before that.
+
+**If you're chasing a new instance of this crash class**: grep for
+`deleteLater()` loops or widget-clearing code anywhere in a gallery/tab that
+*doesn't* go through `cancel_loading()`/`clear_galleries()`/
+`clear_gallery_widgets()`, and check whether it stops and waits (unbounded)
+for every worker/thread that could still emit to those widgets — and that
+the wait happens *before* the teardown, not after. This pattern (a bespoke
+per-tab scanner thread with its own inline cleanup) is not guaranteed to be
+fully audited across the whole codebase; only the instances that actually
+produced a crash report have been fixed so far.
+
 Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---
