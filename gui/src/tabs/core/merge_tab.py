@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
@@ -44,11 +45,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PIL import Image as PILImage
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ...classes import AbstractClassSingleGallery
-from ...components import ClickableLabel, MarqueeScrollArea, MergeCanvasItem
-from ...helpers import ImageScannerWorker, MergeWorker
+from ...components import ClickableLabel, MarqueeScrollArea, MergeCanvasItem, ScrollVideoExportDialog
+from ...helpers import ImageScannerWorker, MergeWorker, ScrollVideoExportWorker
 from ...styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from ...windows import ImagePreviewWindow
 
@@ -1091,6 +1093,9 @@ class MergeTab(AbstractClassSingleGallery):
         copy_btn = confirm.addButton(
             "Copy to Clipboard", QMessageBox.ButtonRole.ActionRole
         )
+        export_video_btn = confirm.addButton(
+            "Export as Video…", QMessageBox.ButtonRole.ActionRole
+        )
         save_btn = confirm.addButton(save_text, QMessageBox.ButtonRole.AcceptRole)
         save_add_btn = confirm.addButton(
             "Save and Add to Canvas", QMessageBox.ButtonRole.AcceptRole
@@ -1101,6 +1106,14 @@ class MergeTab(AbstractClassSingleGallery):
         clicked = confirm.clickedButton()
 
         saved_final_path = None
+
+        if clicked == export_video_btn:
+            # Doesn't consume result_path — re-show the same confirm dialog
+            # afterwards so the user can still Save/Copy/Discard the image.
+            self._export_result_as_video(result_path)
+            preview_window.close()
+            self.show_preview_and_confirm(result_path)
+            return
 
         if clicked == copy_btn:
             if self._last_merged_pixmap:
@@ -1170,6 +1183,86 @@ class MergeTab(AbstractClassSingleGallery):
             preview_window.close()
 
         self.status_label.setText("Ready to merge.")
+
+    def _export_result_as_video(self, result_path: str):
+        """
+        Roadmap §4.2 — Export Stitched Panorama to Scrolling Video (Option
+        B: FFmpeg pipe). Triggered from the "Export as Video…" action in the
+        merge-result confirm dialog; does not consume/move result_path so
+        the normal Save/Copy/Discard flow still applies afterwards.
+        """
+        try:
+            with PILImage.open(result_path) as im:
+                img_size = im.size
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not read merged image: {e}")
+            return
+
+        dialog = ScrollVideoExportDialog(img_size, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        params = dialog.get_values()
+
+        start_dir = (
+            self.last_output_dir if self.last_output_dir else self.last_browsed_scan_dir
+        )
+        default_name = os.path.splitext(os.path.basename(result_path))[0] + "_scroll.mp4"
+        start_path = os.path.join(start_dir, default_name) if start_dir else default_name
+
+        # DontUseNativeDialog is mandatory in this app: the native GTK
+        # dialog + the live JVM is a known SIGSEGV (see CLAUDE memory).
+        out_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Scrolling Video",
+            start_path,
+            "MP4 Video (*.mp4)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not out_path:
+            return
+        if not out_path.lower().endswith(".mp4"):
+            out_path += ".mp4"
+
+        self.status_label.setText("Exporting scrolling video…")
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+
+        worker = ScrollVideoExportWorker(
+            result_path,
+            out_path,
+            scroll_speed_px_per_frame=params["scroll_speed_px_per_frame"],
+            fps=params["fps"],
+            resolution=params["resolution"],
+            codec=params["codec"],
+        )
+
+        loop = QEventLoop()
+        outcome: Dict[str, Optional[str]] = {"path": None, "error": None}
+
+        def on_finished(path: str):
+            outcome["path"] = path
+            loop.quit()
+
+        def on_error(msg: str):
+            outcome["error"] = msg
+            loop.quit()
+
+        worker.sig_finished.connect(on_finished)
+        worker.error.connect(on_error)
+        worker.start()
+        loop.exec()
+        worker.wait()
+
+        QApplication.restoreOverrideCursor()
+        self.status_label.setText("Ready to merge.")
+
+        if outcome["error"]:
+            QMessageBox.critical(self, "Export Failed", outcome["error"])
+        else:
+            QMessageBox.information(
+                self,
+                "Export Complete",
+                f"Scrolling video saved to:\n{outcome['path']}",
+            )
 
     def _inject_new_image(self, path: str):
         """Add a newly-saved merged image to the gallery and selection queue."""

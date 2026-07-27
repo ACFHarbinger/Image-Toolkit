@@ -4,6 +4,17 @@
 
 ---
 
+## S231 — 2026-07-27 (New Features §4.2: Export Stitched Panorama to Scrolling Video)
+
+Implemented GitHub issue #57 / `moon/roadmaps/new_features.md` §4.2, Option B (FFmpeg pipe, full-resolution/quality — the roadmap's recommended primary path). Options C (animated WebP) and E (scroll easing/hold) were left unimplemented per the roadmap's own "don't let them block B" guidance.
+
+- **Backend**: `ImageMerger.export_scrolling_video()` in `backend/src/core/image_merger.py`. Loads the panorama, auto-detects scroll axis from aspect ratio (tall -> vertical, wide -> horizontal, overridable), derives a 16:9-ish viewport clamped to the source and forced to even dimensions (`yuv420p` requirement) when no explicit resolution is given, then slides that viewport across the image and pipes raw RGB24 frame bytes to an `ffmpeg` subprocess via stdin — reusing the same bare-`ffmpeg`-on-PATH convention already established in `backend/src/core/video_converter.py`, rather than inventing a new one. Panoramas smaller than one viewport's worth of scroll get a short static clip (`fps` frames, ~1s) instead of an error — a documented judgment call, not a silent gap.
+- **GUI**: new "Export as Video…" action added to the Merge tab's existing post-merge confirm dialog (`MergeTab.show_preview_and_confirm`, `gui/src/tabs/core/merge_tab.py`) — the same dialog that already offers Copy/Save/Save-and-Add-to-Canvas/Discard, so this reuses an established one-off-export pattern rather than adding a new entry point elsewhere. Parameters (scroll speed, fps, codec, optional custom resolution) are collected via a new `ScrollVideoExportDialog` (`gui/src/components/dialogs/scroll_video_export_dialog.py`); the output path uses `QFileDialog.getSaveFileName` with `DontUseNativeDialog` (hard project rule — native GTK dialog + the live JVM is a known SIGSEGV). The export itself runs off the GUI thread via a new `ScrollVideoExportWorker` (`gui/src/helpers/core/video_export_worker.py`, a `QThread` mirroring `MergeWorker`'s signal conventions). Triggering the export doesn't consume the in-progress merge result — the confirm dialog re-appears afterwards so the normal Save/Copy/Discard flow still works.
+- **Verification**: `backend/test/core/test_export_scrolling_video.py` — 5 tests against the real `ffmpeg`/`ffprobe` binaries (no subprocess mocking of the actual encode path): vertical auto-detect, horizontal auto-detect, nothing-to-scroll static clip, explicit resolution/axis override, and the missing-`ffmpeg` error path. All passing. Manually produced a 1080x8000 synthetic test panorama -> 38-frame 1080x608 H.264/yuv420p MP4 at 30fps (1.27s), confirmed via `ffprobe`.
+- `moon/roadmaps/new_features.md` §4.2 marked implemented (Option B); its Mermaid status node flipped `planned` -> `done`.
+
+---
+
 ## S230 — 2026-07-27 (ASP Phase 3.4: ToonOut weights bug fix + reverse-dimming check)
 
 Completed GitHub issue #28 / roadmap §3.4's two sub-items.
