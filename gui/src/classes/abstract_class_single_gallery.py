@@ -1115,6 +1115,18 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
 
         if hasattr(self, "thread_pool"):
             self.thread_pool.clear()
+            # `.stop()`/`.clear()` above are best-effort: a worker already
+            # dispatched to a pool thread ignores both and keeps running.
+            # Callers of cancel_loading() (clear_gallery_widgets(), directory
+            # switches) proceed to deleteLater() the gallery's thumbnail
+            # widgets immediately afterward; without this wait, a still-running
+            # worker's queued cross-thread signal can be delivered concurrently
+            # with that teardown and crash inside Qt's own connection
+            # bookkeeping (QObjectPrivate::ConnectionData::deleteOrphaned,
+            # observed via hs_err_pid79171.log switching from an image to a
+            # video directory scan). Matches the same wait already used in
+            # AbstractClassTwoGalleries.closeEvent() for the tab-close path.
+            self.thread_pool.waitForDone(500)
 
         # CRITICAL FIX: Clear loading paths so interrupted loads don't block future attempts
         self._loading_paths.clear()
