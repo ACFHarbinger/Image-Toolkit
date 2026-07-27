@@ -121,6 +121,14 @@ class LoRATrainTab(BaseGenerativeTab):
         inspect_btn.clicked.connect(self._inspect_safetensors)
         button_layout.addWidget(inspect_btn)
 
+        review_tags_btn = QPushButton("Review Tags...")
+        review_tags_btn.setToolTip(
+            "Run the WD14 auto-tagger over the dataset folder and review/"
+            "correct predicted tags before training (new_features.md §4.4C)"
+        )
+        review_tags_btn.clicked.connect(self._review_tags)
+        button_layout.addWidget(review_tags_btn)
+
         layout.addRow(button_layout)
         self.cancel_btn.setEnabled(False)
         self.status_label = QLabel("Ready")
@@ -276,3 +284,33 @@ class LoRATrainTab(BaseGenerativeTab):
             return
         from gui.src.components.dialogs.safetensors_inspector_dialog import SafetensorsInspectorDialog
         SafetensorsInspectorDialog(path=path, parent=self).exec()
+
+    def _review_tags(self) -> None:
+        from pathlib import Path
+
+        data_dir = self.data_dir_edit.text().strip()
+        if not data_dir or not Path(data_dir).is_dir():
+            QMessageBox.warning(
+                self, "Review Tags", "Select a valid dataset folder first."
+            )
+            return
+
+        exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+        image_paths = sorted(
+            p for p in Path(data_dir).iterdir() if p.suffix.lower() in exts
+        )
+        if not image_paths:
+            QMessageBox.information(
+                self, "Review Tags", "No images found in the dataset folder."
+            )
+            return
+
+        from gui.src.components.dialogs.tag_review_dialog import TagReviewDialog
+
+        # Note: self.prompt_edit holds a full instance-prompt string (e.g.
+        # "1girl, style of my_char"), not a single trigger token like
+        # HybridCaptioner's trigger concept — reusing it here would risk
+        # duplicating content already covered by the WD tags. Leave the
+        # caption trigger unset; the user can add one via the dialog's
+        # "Add tag" field if they want a unique activation token.
+        TagReviewDialog(image_paths, parent=self).exec()
