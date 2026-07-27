@@ -4,6 +4,25 @@
 
 ---
 
+## S218 — 2026-07-27 (ASP Phase 0.4 pose-residual stats, Phase 2.5 background averaging; benchmark host-freeze safety guardrail — CRITICAL, benchmarking paused)
+
+**Part 3 — critical: benchmark runs have frozen the user's host, requiring a hard restart.** On a 128GB RAM / 24GB VRAM machine, meaning uncontrolled resource growth, not underpowered hardware — distinct from the already-fixed `pytest backend/test/` freeze (RC1-RC5, 2026-06-18). Root cause not yet found; a `double free or corruption (!prev)` glibc abort was also observed once, suggesting the native `base` C++ extension (warp/render/ECC/hold-detection, active by default on every dataset) may be involved, not just gradual Python/CUDA growth.
+- Added `_resource_snapshot()` / `_resource_danger()` to `bench_anime_stitch.py`: logs RSS, system RAM %, and GPU VRAM allocated/reserved/used % after every dataset (plus a baseline before the batch starts).
+- Added an **abort guardrail**: the batch loop stops gracefully and writes out whatever results exist if system RAM ≥ 80% or VRAM ≥ 85% (`ASP_BENCH_RAM_ABORT_PCT` / `ASP_BENCH_VRAM_ABORT_PCT`), instead of continuing toward an OS-level hang.
+- **`bench_anime_stitch.py` is not to be run again until the user explicitly authorizes a monitored run** — this pauses the roadmap's "one change → one benchmark" ground rule for all new ASP work until the freeze is understood. See `moon/roadmaps/asp.md` §2.6 for the investigation plan (model-wrapper offload audit, C++ extension buffer-ownership audit).
+- Saved as persistent memory (`feedback_benchmark_freezes_host.md`) so this isn't lost across sessions.
+
+**Part 2 — ASP Phase 2.5, background quality (Overmix-style averaging), engineering only, not yet benchmarked:**
+- `ASP_BG_AVERAGE=1` (default OFF) added to `backend/src/animation/rendering/rendering.py`: in the temporal-median renderer's "count > 1" case, canvas pixels where ≥3 frames agree on confirmed-background (only meaningful under A5 fg-exclusion) now use the mean instead of the median, for the √N MPEG-noise reduction a mean gives that a median doesn't. Count==2 pixels keep the median (no averaging benefit, and a misclassified fg sample there would ghost the plate). Distinct from S214's *source-frame* hold-block averaging — this is a canvas-render-stage change.
+- Registered in `config.py`'s flag schema/dump-sections (45/~50 budget).
+
+**Part 1 — ASP Phase 0.4(c), seam-band pose-residual stats, engineering only, not yet benchmarked:**
+- `_composite_foreground` already collected `seam_post_diffs` internally and exposed it via an optional `seam_meta_out` dict, but no caller ever read it. `bench_anime_stitch.py` now passes `seam_meta_out={}`, computes the mean post-warp diff across seams (excluding the 98/99 sentinel values that mark single-pose escalations rather than a measured residual), and surfaces it as `"mean_post_warp_diff"` in the per-test JSON and a report line — the seam-band difficulty signal Phase 0.4 calls for, at near-zero cost since the data already existed.
+- Threading this through `_build_result`'s three call sites required care: two of the three fallback paths return *before* the Stage 11 composite call runs, so the variable is initialized to `None` early in `process_dataset` and only overwritten after compositing actually executes — an earlier draft of this edit incorrectly attached the value to the pre-composite fallback path via an imprecise `replace_all`, which would have raised `UnboundLocalError`; caught before shipping.
+- `backend/test/animation/` — 670 passed, 5 GPU-skipped, unaffected (no benchmark run needed to verify this, since these are unit tests, not the benchmark harness Part 3 paused).
+
+---
+
 ## S217 — 2026-07-26 (ASP full-corpus benchmark of S214-S216; benchmark-harness crash/checkpoint fixes)
 
 - **Fixed a benchmark-harness reliability bug that was silently costing every prior long run**: `bench_anime_stitch.py`'s main dataset loop had no exception handling around `process_dataset(ds)` — any single dataset raising (e.g. `asp_test10`'s `CanvasError` when its SCANS fallback also fails to stitch just 2 widely-spaced frames) crashed the entire multi-hour batch, discarding every already-processed result with nothing written to disk. The main loop now catches per-dataset exceptions, logs `[FATAL] <test> crashed: ... — skipping`, and continues; a dataset that crashes both its ASP path and its SCANS fallback is recorded as a skip, not a batch-ending failure.

@@ -62,6 +62,16 @@ _FG_EXCLUDE_MEDIAN = os.environ.get("ASP_FG_EXCLUDE_MEDIAN", "1") != "0"
 # Default OFF.  Enable: ASP_ADAPTIVE_RENDER_GAIN=1.
 _ADAPTIVE_RENDER_GAIN: bool = os.environ.get("ASP_ADAPTIVE_RENDER_GAIN", "0") != "0"
 
+# §2.5 — Overmix-style background sub-pixel averaging.
+# When ON (and A5 fg-exclusion is active, so samples are confirmed-background),
+# canvas pixels where >=3 frames agree on background use a straight mean
+# instead of the median: MPEG DCT block noise cancels out by sqrt(N) for a
+# mean, which the median (picking one sample, or interpolating between two
+# for even counts) doesn't provide. Median remains the choice for count==2,
+# where there's no averaging benefit and a misclassified fg sample would
+# ghost the plate. Default OFF. Enable: ASP_BG_AVERAGE=1.
+_BG_AVERAGE: bool = os.environ.get("ASP_BG_AVERAGE", "0") != "0"
+
 # §1.87 — Masked-Median Background Plate.
 # When enabled, changes the A5 fg-exclusion fallback for pixels where every frame
 # has a foreground sample (all_fg): instead of averaging ALL valid samples (which
@@ -770,6 +780,19 @@ def _render_median(  # noqa: C901
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
                     med = _gpu_nanmedian(s_gt1_f)
+
+                    # §2.5 — Overmix-style background averaging: where >=3
+                    # frames agree a pixel is confirmed-background (only
+                    # meaningful under A5 fg-exclusion — otherwise samples
+                    # aren't confirmed-bg and averaging risks ghosting a
+                    # differing animation pose into the plate), replace the
+                    # median with the mean for the sqrt(N) noise reduction.
+                    if _BG_AVERAGE and _exclude_fg:
+                        count_gt1 = count[m_gt1]
+                        use_mean = count_gt1 >= 3
+                        if use_mean.any():
+                            mean_ = np.nanmean(s_gt1_f, axis=0)
+                            med[use_mean] = mean_[use_mean]
 
             canvas_strip.reshape(-1, 3)[m_gt1.flatten()] = np.clip(med, 0, 255).astype(
                 np.uint8

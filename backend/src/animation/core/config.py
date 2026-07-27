@@ -84,6 +84,7 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_FG_MAX_RESIDUAL": (float, 0.0, None, "Max animation residual (px) to warp; above → single-pose"),
     # ── Rendering (Stage 10) ─────────────────────────────────────────────
     "ASP_FG_EXCLUDE_MEDIAN": (int, 0, 1, "Foreground-excluded temporal median (A5)"),
+    "ASP_BG_AVERAGE": (int, 0, 1, "§2.5 Overmix-style mean instead of median for >=3 confirmed-bg samples (default OFF pending A/B)"),
     "ASP_MASKED_MEDIAN": (int, 0, 1, "Leave always-fg pixels black instead of ghost-averaging"),
     "ASP_ADAPTIVE_RENDER_GAIN": (int, 0, 1, "Adaptive gain clamp in sequential render normalisation"),
     "ASP_GAIN_DRIFT_MAX": (float, 0.0, None, "Max cumulative gain fold-change before reset (0=off)"),
@@ -281,7 +282,7 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_FG_REGISTER", "ASP_FLOW_ENGINE", "ASP_ARAP_PUSH", "ASP_FG_MAX_RESIDUAL",
     ],
     "rendering": [
-        "ASP_FG_EXCLUDE_MEDIAN", "ASP_MASKED_MEDIAN", "ASP_ADAPTIVE_RENDER_GAIN",
+        "ASP_FG_EXCLUDE_MEDIAN", "ASP_BG_AVERAGE", "ASP_MASKED_MEDIAN", "ASP_ADAPTIVE_RENDER_GAIN",
         "ASP_GAIN_DRIFT_MAX", "ASP_GPU_MEDIAN", "ASP_COV_MIN_MULTI_PCT",
     ],
     "compositing": [

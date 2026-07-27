@@ -37,6 +37,13 @@ thresholds, datasets) — see §R below for the distilled results this plan buil
    accrete here.
 4. **The human owns priorities and quality calls; agents implement and measure.**
 
+**⚠ 2026-07-27: benchmark runs have frozen the host, requiring a hard restart**
+— on a 128GB RAM / 24GB VRAM machine, so this is uncontrolled growth, not
+underpowered hardware. Root cause not yet found (see 2.6 below). **Do not run
+`bench_anime_stitch.py` until this is resolved or the user explicitly
+authorizes a monitored run** — this suspends ground rule 1 (5-test/full-97
+verification) for any new item until the freeze is fixed.
+
 ---
 
 ## §R — Research Base (already established; do not re-survey)
@@ -129,16 +136,22 @@ The benchmark currently compares against one competitor. Add Overmix:
   where Overmix wins/loses on our corpus, how its AnimationSeparator groups our
   frames, what settings mattered. This directly feeds Phase 2.
 
-### 0.4 Kill the GT-coupling measurement bug  `[1–2 days]`
+### 0.4 Kill the GT-coupling measurement bug  `[(c) done 2026-07-27, S218; (a)/(b)
+still open; NOT YET benchmarked — see the freeze warning above]`
 Every past frame-selection improvement was vetoed by GT-SSIM because the GT
 panoramas were assembled from specific frame timings. Fix the measurement, not the
 selection: score selection experiments by (a) human rating, (b) aligned-SSIM
 *computed on the overlap of content actually present in both images*, and (c)
 seam-band pose-residual statistics (mean `post_warp_diff` across seams — lower =
-easier compositing). Add (c) to the benchmark JSON now; it is nearly free.
-Optional (d): SI-FID (Stitched-Image Fréchet Distance) as a reference-free
-automated signal for the ~46 non-GT tests where (b) doesn't apply — only worth
-building if (a)+(c) leave those tests hard to rank without a human pass each time.
+easier compositing). **(c) implemented**: `_composite_foreground` already
+collected `seam_post_diffs` internally (via `seam_meta_out`) but nothing read
+it; the benchmark now passes `seam_meta_out={}`, computes the mean excluding
+single-pose-escalation sentinels (phase-boundary/user-override, which aren't a
+measured warp residual), and surfaces it as `"mean_post_warp_diff"` in the JSON
+and a report line. (a) and (b) remain open — (a) needs the Phase 0.1 rating
+tool built first; (b) needs someone to actually change the aligned-SSIM
+windowing logic. Optional (d): SI-FID as a reference-free signal for non-GT
+tests — still unbuilt, only worth it if (a)+(c) leave those tests hard to rank.
 
 ### 0.5 Optional second reference: Hugin  `[1 day, optional]`
 `hugin` CLI tools (`pto_gen`/`cpfind`/`autooptimiser`/`nona`/`enblend`) can batch
@@ -283,16 +296,58 @@ failed gradient metric; cheaper than DWPose/ViTPose embeddings, which remain the
 upgrade path if phase granularity proves too coarse). Success metric: mean seam
 `post_warp_diff` drops; human ratings don't regress.
 
-### 2.5 Background quality: Overmix-style averaging  `[3–5 days]`
-Where ≥3 frames agree a canvas pixel is background, replace the temporal median
-with the sub-pixel mean (√N denoise). Pairs with 2.1; measured by sharpness +
-human rating on bg regions.
+### 2.5 Background quality: Overmix-style averaging  `[engineering done
+2026-07-27, S218 — NOT YET benchmarked, see the freeze warning above]`
+`ASP_BG_AVERAGE=1` (default OFF) in `rendering.py`: where ≥3 frames agree a
+canvas pixel is confirmed-background (only meaningful under A5 fg-exclusion —
+otherwise samples aren't confirmed-bg and averaging risks ghosting a differing
+animation pose into the plate), the per-pixel temporal median is replaced with
+the mean for the √N MPEG-noise reduction Overmix gets from its equivalent.
+Median stays the choice for count==2 (no averaging benefit there). Distinct
+from 2.1's *source-frame* hold-block averaging (pre-selection) — this is a
+*canvas-render-stage* change, pairs with it rather than duplicating it.
+5-test verify not yet run — benchmark runs are paused pending the host-freeze
+fix (2.6).
 
 **Phase-2 exit gate:** on the 55-GT subset, ASP human coherence ≥ simple on every
 test; aligned-SSIM gap ≤ 0. (Coverage wins like test96 should start flipping
 `comparable` → `asp_better` once coherence losses stop cancelling them.)
 
 ---
+
+## Phase 2.6 — Benchmark-Harness Host Freeze *(blocks all further A/B work)*
+
+**2026-07-27: `bench_anime_stitch.py` runs have frozen the host badly enough
+to force a hard restart**, and other runs have "sometimes but not always"
+caused freezes or high-resource-usage app crashes — on a 128GB RAM / 24GB
+VRAM machine, so this is a real leak or native memory bug, not underpowered
+hardware. A `CanvasError`-adjacent run also produced a `double free or
+corruption (!prev)` glibc abort once, suggesting the native `base` C++
+extension (used by default for warp/render/ECC/hold-detection across every
+dataset) may be involved, not just gradual Python/CUDA growth — glibc heap
+corruption aborts don't normally come from pure Python/numpy.
+
+**Done so far (S218, no benchmark run required to build this):**
+- `_resource_snapshot()` / `_resource_danger()` added to `bench_anime_stitch.py`:
+  logs RSS, system RAM %, and GPU VRAM allocated/reserved/used % after every
+  dataset in the main loop, with a baseline snapshot before the batch starts.
+- **Abort guardrail**: if system RAM ≥ 80% or VRAM ≥ 85% (`ASP_BENCH_RAM_ABORT_PCT`
+  / `ASP_BENCH_VRAM_ABORT_PCT`), the batch stops gracefully and writes out
+  whatever results exist, instead of continuing toward an OS-level hang.
+
+**Not yet done — needs a cautious, monitored run to actually diagnose:**
+- Confirm whether RSS/VRAM grow monotonically across datasets (leak) or spike
+  sharply on a specific dataset/stage (bug, not leak) — the guardrail above
+  makes a first monitored run safe to attempt, but **do not run it without the
+  user's explicit go-ahead**, per the ground-rules warning.
+- Audit `BiRefNetWrapper`/`LoFTRWrapper`/other model wrappers' `.offload()`
+  paths for whether CUDA memory is actually released (not just moved to CPU
+  logically) across repeated per-dataset load/unload cycles — BiRefNet caches
+  by `(model_name, device)` at the class level (reused, not reloaded); LoFTR
+  has no such cache and reloads fresh every dataset, a plausible fragmentation
+  source over 97 iterations.
+- Audit the C++ `base` extension's buffer ownership in `warp_frames_to_canvas`
+  / `render_median` / hold-detection bindings for the double-free lead.
 
 ## Phase 3 — Photometric & Seam Parity with OpenCV
 

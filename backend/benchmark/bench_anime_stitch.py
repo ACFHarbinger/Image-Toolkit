@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+import psutil
 import torch
 
 sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))
@@ -106,6 +107,56 @@ def _system_info() -> Dict:
         props = torch.cuda.get_device_properties(0)
         info["vram_gb"] = round(props.total_memory / 1024**3, 1)
     return info
+
+
+# ── Resource guardrail (added 2026-07-27) ───────────────────────────────────
+# Benchmark runs have frozen the host badly enough to require a hard restart,
+# on a machine with 128GB RAM / 24GB VRAM — meaning uncontrolled growth, not
+# "the box is slow". Root cause not yet found. Until it is, the batch loop
+# below checks system RAM and GPU VRAM after every dataset and aborts
+# gracefully (writing whatever results already exist) rather than continuing
+# toward the point where the OS itself becomes unresponsive.
+_RAM_ABORT_PCT = float(os.environ.get("ASP_BENCH_RAM_ABORT_PCT", "80"))
+_VRAM_ABORT_PCT = float(os.environ.get("ASP_BENCH_VRAM_ABORT_PCT", "85"))
+
+
+def _resource_snapshot() -> Dict:
+    """RSS/VRAM snapshot for per-dataset instrumentation and the abort guardrail."""
+    proc = psutil.Process(os.getpid())
+    vm = psutil.virtual_memory()
+    snap: Dict = {
+        "rss_gb": round(proc.memory_info().rss / 1024**3, 2),
+        "sys_ram_used_pct": vm.percent,
+        "sys_ram_available_gb": round(vm.available / 1024**3, 2),
+        "vram_allocated_gb": None,
+        "vram_reserved_gb": None,
+        "vram_used_pct": None,
+    }
+    if torch.cuda.is_available():
+        try:
+            free_b, total_b = torch.cuda.mem_get_info()
+            used_b = total_b - free_b
+            snap["vram_allocated_gb"] = round(torch.cuda.memory_allocated() / 1024**3, 2)
+            snap["vram_reserved_gb"] = round(torch.cuda.memory_reserved() / 1024**3, 2)
+            snap["vram_used_pct"] = round(100.0 * used_b / total_b, 1)
+        except Exception:
+            pass
+    return snap
+
+
+def _resource_danger(snap: Dict) -> Optional[str]:
+    """Reason string if the snapshot crosses an abort threshold, else None."""
+    if snap["sys_ram_used_pct"] >= _RAM_ABORT_PCT:
+        return (
+            f"system RAM at {snap['sys_ram_used_pct']:.0f}% "
+            f"(abort >= {_RAM_ABORT_PCT:.0f}%)"
+        )
+    if snap["vram_used_pct"] is not None and snap["vram_used_pct"] >= _VRAM_ABORT_PCT:
+        return (
+            f"GPU VRAM at {snap['vram_used_pct']:.0f}% "
+            f"(abort >= {_VRAM_ABORT_PCT:.0f}%)"
+        )
+    return None
 
 
 # ============================================================================
@@ -1124,6 +1175,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     H, W = frames[0].shape[:2]
     scans_frames = list(frames)  # pre-ML snapshot for SCANS fallback
     _fallback_reason: Optional[str] = None  # set by whichever gate triggers SCANS
+    _mean_post_warp_diff: Optional[float] = None  # §0.4, set after Stage 11 composite
     for i, f in enumerate(frames):
         cv2.imwrite(os.path.join(stage_dir, f"stage02_normalised_frame{i:02d}.png"), f)
 
@@ -1577,11 +1629,24 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         # the bg-only scalar gain correction AND the flow-guided foreground
         # re-posing (Stage 8.5) + single-pose fallback.
         t0 = time.perf_counter()
+        _seam_meta: dict = {}
         canvas = _composite_foreground(
             [], [], canvas, canvas_h, canvas_w, frames, affines, bg_masks, # pyrefly: ignore [bad-argument-type]
-            phase_ids=_phase_ids,
+            phase_ids=_phase_ids, seam_meta_out=_seam_meta,
         )
         timings["composite_sec"] = round(time.perf_counter() - t0, 3)
+
+        # §0.4 — seam-band pose-residual stats: lower mean post_warp_diff
+        # across seams means the frame selection handed compositing an
+        # easier job (less pose gap to bridge). Sentinel values (98/99) mark
+        # single-pose escalations (phase boundary / user override) rather
+        # than a measured warp residual — excluded from the mean so it
+        # reflects genuine re-posing difficulty, not escalation counts.
+        _seam_diffs = _seam_meta.get("seam_post_diffs", {}) or {}
+        _real_diffs = [v for v in _seam_diffs.values() if v < 90.0]
+        _mean_post_warp_diff = (
+            float(np.mean(_real_diffs)) if _real_diffs else None
+        )
         cv2.imwrite(os.path.join(stage_dir, "stage11_fg_composite.png"), canvas)
 
         # ── Composite quality gate (SCANS-comparative) ────────────────────
@@ -1799,6 +1864,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             spatial_dedup_count=N,
             phase_count=_phase_count,
             phase_spans_list=_phase_spans,
+            mean_post_warp_diff=_mean_post_warp_diff,
         )
 
     # ------------------------------------------------------------------
@@ -1883,6 +1949,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         spatial_dedup_count=N,
         phase_count=_phase_count,
         phase_spans_list=_phase_spans,
+        mean_post_warp_diff=_mean_post_warp_diff,
     )
 
 
@@ -1923,6 +1990,7 @@ def _build_result(
     spatial_dedup_count: int = 0,
     phase_count: int = 0,
     phase_spans_list: Optional[List] = None,
+    mean_post_warp_diff: Optional[float] = None,
 ) -> Dict:
     asp_metrics = _compute_all_metrics(asp_img, affines) if asp_img is not None else {}
     sim_metrics = _compute_all_metrics(sim_img) if sim_img is not None else {}
@@ -1992,6 +2060,10 @@ def _build_result(
                 for p, a, b in (phase_spans_list or [])
             ],
         },
+        # --- §0.4 seam-band pose-residual (mean post_warp_diff, excludes
+        # single-pose-escalation sentinels) — lower means an easier
+        # compositing job was handed down from frame selection ---
+        "mean_post_warp_diff": mean_post_warp_diff,
         "canvas": {
             "width": canvas_w,
             "height": canvas_h,
@@ -2641,6 +2713,14 @@ def _report_single_test_align(r: Dict, lines: List[str]) -> None:
             )
         lines.append("\n")
 
+    _mpwd = r.get("mean_post_warp_diff")
+    if _mpwd is not None:
+        lines.append(
+            f"- **§0.4 mean seam post_warp_diff**: {_mpwd:.2f} "
+            "(lower = easier compositing job from frame selection; "
+            "excludes single-pose-escalation sentinels)\n\n"
+        )
+
 
 def _report_single_test_photo(r: Dict, lines: List[str]) -> None:
     gains = r["photometric"]["applied_gains"]
@@ -3059,6 +3139,13 @@ Examples:
     _checkpoint_path = os.path.join(
         os.path.dirname(__file__), "output", "_checkpoint.json"
     )
+    _baseline_snap = _resource_snapshot()
+    print(
+        f"[Resources] Baseline before any dataset: RSS={_baseline_snap['rss_gb']}GB  "
+        f"sys_ram={_baseline_snap['sys_ram_used_pct']}%  "
+        f"vram_used={_baseline_snap['vram_used_pct']}%  "
+        f"(abort thresholds: RAM>={_RAM_ABORT_PCT:.0f}%, VRAM>={_VRAM_ABORT_PCT:.0f}%)"
+    )
     results = []
     for ds in datasets:
         try:
@@ -3086,6 +3173,23 @@ Examples:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+        _snap = _resource_snapshot()
+        print(
+            f"  [Resources] RSS={_snap['rss_gb']}GB (Δ{_snap['rss_gb'] - _baseline_snap['rss_gb']:+.2f}GB)  "
+            f"sys_ram={_snap['sys_ram_used_pct']}%  "
+            f"vram_alloc={_snap['vram_allocated_gb']}GB  "
+            f"vram_reserved={_snap['vram_reserved_gb']}GB  "
+            f"vram_used={_snap['vram_used_pct']}%"
+        )
+        _danger = _resource_danger(_snap)
+        if _danger:
+            print(
+                f"  [ABORT] Resource guardrail tripped: {_danger}. "
+                "Stopping the batch here to protect the host — "
+                f"{len(results)} dataset(s) already completed are still written out below."
+            )
+            break
 
     if results:
         output_dir = os.path.join(base_dir, "output")
