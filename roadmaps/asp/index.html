@@ -2355,10 +2355,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#12-overmix-deep-dive-hands-on-pairs-with-03-b-partially-answered" class="md-nav__link">
+  <a href="#12-overmix-deep-dive-hands-on-pairs-with-03-a-answered" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1.2 Overmix deep-dive (hands-on, pairs with 0.3) `[(b) partially answered
+        1.2 Overmix deep-dive (hands-on, pairs with 0.3) `[(a) answered
       
     </span>
   </a>
@@ -2973,10 +2973,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#12-overmix-deep-dive-hands-on-pairs-with-03-b-partially-answered" class="md-nav__link">
+  <a href="#12-overmix-deep-dive-hands-on-pairs-with-03-a-answered" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1.2 Overmix deep-dive (hands-on, pairs with 0.3) `[(b) partially answered
+        1.2 Overmix deep-dive (hands-on, pairs with 0.3) `[(a) answered
       
     </span>
   </a>
@@ -3385,16 +3385,25 @@ has genuinely new relevant work — UltraFusion and IFT (both 2024-2025), worth 
 closer read before the next foreground-assembly iteration, not yet integrated;
 ToonCrafter's successor is LayerInbetween (ACM ToG, July 2026), reading-only,
 not yet evaluated against ASP's failure cases.</p>
-<h3 id="12-overmix-deep-dive-hands-on-pairs-with-03-b-partially-answered">1.2 Overmix deep-dive (hands-on, pairs with 0.3)  `[(b) partially answered<a class="headerlink" href="#12-overmix-deep-dive-hands-on-pairs-with-03-b-partially-answered" title="Permanent link">&para;</a></h3>
-<p>2026-07-27; (a)/&copy; still open — see .agent/cache/overmix_field_notes.md]<code>Specifically answer: (a) how does</code>AnimationSeparator`'s error-threshold
+<h3 id="12-overmix-deep-dive-hands-on-pairs-with-03-a-answered">1.2 Overmix deep-dive (hands-on, pairs with 0.3)  `[(a) answered<a class="headerlink" href="#12-overmix-deep-dive-hands-on-pairs-with-03-a-answered" title="Permanent link">&para;</a></h3>
+<p>2026-07-27 — REJECTED as a phase-detection alternative; (b) partially
+answered 2026-07-27; &copy; still open — see .agent/cache/overmix_field_notes.md]<code>Specifically answer: (a) how does</code>AnimationSeparator<code>'s error-threshold
 change-point behave on hentai pan shots with 2–4 animation phases? (b) does its
-average-render on <em>our</em> bg regions beat our temporal median visually? &copy; what does
+average-render on *our* bg regions beat our temporal median visually? (c) what does
 its interactive workflow do that our HITL checkpoints don't? Feed answers into 2.1.
+**(a) answered — mismatched, not adopted**: read the source first —</code>AnimationSeparator<code>is a greedy backlog-based de-interleaver built for
+*cyclically-repeating* animation loops (separating a walk-cycle's distinct
+cels into buckets), not scene-level phase-boundary detection on a
+monotonically-drifting scroll. Ran it on two tests where ASP's own</code>detect_animation_phases()` finds 3 coherent phases each (test27: 8/2/11
+frames; test09: 4/7/11 frames): AnimationSeparator fragmented them into 12
+and 16 groups respectively (mostly singletons) — structurally different
+behavior, not a threshold-tuning gap. <strong>Not adopted</strong> as a phase-detection
+alternative or cross-check for §2.2; ASP's own dHash+robust-MAD detector is
+the right tool for this input structure.
 <strong>(b) partial</strong>: on the 5-test verify's 3 clean composites, average-render
 backgrounds looked sharp and coherent, no clear win or loss vs ASP's median at
 a whole-canvas glance — a rigorous background-only crop comparison wasn't done.
-(a) and &copy; not yet explored (AnimationSeparator is CLI-reachable but untested;
-&copy; needs the GUI, out of CLI-automation scope).</p>
+&copy; not yet explored (needs the GUI, out of CLI-automation scope).</p>
 <h3 id="13-graphcut-post-mortem-experiment-rejected-again-2026-07-27-see">1.3 GraphCut post-mortem experiment  `[REJECTED again, 2026-07-27 — see<a class="headerlink" href="#13-graphcut-post-mortem-experiment-rejected-again-2026-07-27-see" title="Permanent link">&para;</a></h3>
 <p>.agent/cache/asp_graphcut_postmortem_2026-07-27.md]<code>Fixed the two identified wiring gaps (distance-transform feathering + local
 per-boundary gain correction; widened</code>ASP_GC_FEATHER_PX<code>8→96px to match the
@@ -3507,7 +3516,35 @@ reloads fresh every dataset with no cache, unlike BiRefNet).</p>
   finer-grained seam_visibility metric catches but the gate's aggregate
   statistic didn't). The approach works; the gate needs a matching
   finer-grained local check before this can default-on — not attempted here
-  to keep this one measurement to one change.</li>
+  to keep this one measurement to one change.
+  <strong>Follow-up REJECTED, 2026-07-27</strong> (see
+  <code>.agent/cache/asp_dense_band_scan_gate_2026-07-27.md</code>): built the
+  recommended finer-grained local check (<code>_dense_band_scan_score</code>, a full
+  sliding-window scan vs <code>_strip_banding_score</code>'s frame-boundary-anchored
+  sampling), wired into the composite gate. 5-test verify across both
+  conditions (default OFF, <code>ASP_JOINT_GAIN_SOLVE=1</code>): the new metric never
+  crossed its calibrated floor on any test — zero measured effect on any
+  verdict. Bigger finding: <strong>test04's original regression no longer
+  reproduces</strong> against the current codebase — the ToonOut masking fix
+  (S230, landed after this postmortem was written) already changed test04's
+  pixel composition enough that the <em>pre-existing</em> <code>sb</code> check alone now
+  correctly gates it (<code>sb=40.4&gt;35</code>) without any new metric. Reverted per
+  the anti-goal against unproven new gates; the architectural sampling gap
+  is real but currently unexercised by any known failing case, so it's
+  parked. <code>ASP_JOINT_GAIN_SOLVE</code>'s own disposition should be re-measured
+  fresh in a future session against the current ToonOut-inclusive baseline
+  rather than inherited from this now-partially-stale postmortem.
+  <strong>Re-verified same day</strong>: 5-test re-run against the current baseline is
+  cleaner than the original — test04 now safely reverts to SCANS instead of
+  shipping the defect, test08/57 unaffected (already SCANS via ToonOut
+  either way), test09 still flips SCANS→real (coverage win), test27 still
+  real→real (modest win). Zero regressions on this sample. <strong>But</strong> a direct
+  look at test09's output still shows visible banding despite passing every
+  gate — the same "gates pass, defect remains" pattern, just below current
+  thresholds. <strong>Stays default OFF</strong>: ground rule #1 requires a full-97 run
+  before any default flip regardless, and ground rule #2's actual gating
+  requirement (Phase 0.1's human coherence rating pass) is still open — this
+  5-test re-verify is encouraging, not a substitute for either.</li>
 <li><strong>3.2 GraphCut revisit</strong> — moot; 1.3 did not survive its second measurement
   (2026-07-27).</li>
 <li><strong>3.3 Multi-band blend on final boundaries</strong> <code>[3 days]</code> — only if 3.1+3.2 leave

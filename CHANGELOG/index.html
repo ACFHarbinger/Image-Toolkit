@@ -2535,6 +2535,39 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s243-2026-07-27-asp-phase-12a-animationseparator-investigated-rejected-as-a-phase-detection-alternative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S243 — 2026-07-27 (ASP Phase 1.2(a): AnimationSeparator investigated, rejected as a phase-detection alternative)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s242-2026-07-27-asp-phase-31-asp_joint_gain_solve-re-verified-against-the-current-toonout-inclusive-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S242 — 2026-07-27 (ASP Phase 3.1: ASP_JOINT_GAIN_SOLVE re-verified against the current ToonOut-inclusive baseline)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s241-2026-07-27-asp-phase-31-follow-up-dense-band-scan-composite-gate-rejected-zero-measured-value" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S241 — 2026-07-27 (ASP Phase 3.1 follow-up: dense-band-scan composite gate — REJECTED, zero measured value)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s240-2026-07-27-asp-phase-11-literature-sweep-for-issue-21s-gap-areas" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -12445,6 +12478,39 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s243-2026-07-27-asp-phase-12a-animationseparator-investigated-rejected-as-a-phase-detection-alternative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S243 — 2026-07-27 (ASP Phase 1.2(a): AnimationSeparator investigated, rejected as a phase-detection alternative)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s242-2026-07-27-asp-phase-31-asp_joint_gain_solve-re-verified-against-the-current-toonout-inclusive-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S242 — 2026-07-27 (ASP Phase 3.1: ASP_JOINT_GAIN_SOLVE re-verified against the current ToonOut-inclusive baseline)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s241-2026-07-27-asp-phase-31-follow-up-dense-band-scan-composite-gate-rejected-zero-measured-value" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S241 — 2026-07-27 (ASP Phase 3.1 follow-up: dense-band-scan composite gate — REJECTED, zero measured value)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s240-2026-07-27-asp-phase-11-literature-sweep-for-issue-21s-gap-areas" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -22343,6 +22409,35 @@
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
 <hr />
+<h2 id="s243-2026-07-27-asp-phase-12a-animationseparator-investigated-rejected-as-a-phase-detection-alternative">S243 — 2026-07-27 (ASP Phase 1.2(a): AnimationSeparator investigated, rejected as a phase-detection alternative)<a class="headerlink" href="#s243-2026-07-27-asp-phase-12a-animationseparator-investigated-rejected-as-a-phase-detection-alternative" title="Permanent link">&para;</a></h2>
+<p>Answered the roadmap's remaining §1.2(a) question: how does Overmix's <code>AnimationSeparator</code> behave on 2-4 phase pan shots?</p>
+<ul>
+<li><strong>Read the source before running anything</strong> (<code>vendor/Overmix/src/aligners/AnimationSeparator.cpp</code>): its threshold search is an Otsu-style bimodal split over sorted pairwise consecutive-frame errors, and its grouping pass greedily walks a backlog, assigning each frame to the current group only if its error against the <em>last-accepted frame in that group</em> is below threshold. This is built to de-interleave a cyclically-repeating animation loop (e.g. separating a walk-cycle's distinct cels into buckets) — a structurally different problem from ASP's own §2.2 phase-boundary detection on a monotonically-drifting scroll sequence.</li>
+<li><strong>Rebuilt <code>OvermixCli</code></strong> (no persisted build artifact existed at session start — <code>desktop/linux/scripts/setup_overmix.sh</code> rebuilds it in ~4 min). Found <code>AnimationSeparator</code> needs a comparator configured first (<code>--comparator=...</code> before <code>--align=AnimationSeparator</code>), otherwise it errors with "No comparator!".</li>
+<li><strong>Ran on two tests</strong> where ASP's own <code>detect_animation_phases()</code> already finds coherent phase structure: test27 (21 frames, ASP: 3 phases sized 8/2/11) and test09 (22 frames, ASP: 3 phases sized 4/7/11). AnimationSeparator produced 12 groups (mostly size 1-3) and 16 groups (13 of them singletons) respectively — nothing resembling ASP's coherent phase spans on either test.</li>
+<li><strong>Conclusion: not adopted.</strong> This isn't a threshold-tuning gap — it's the expected behavior of an algorithm designed for cyclic/repeating content applied to monotonic drift. ASP's own dHash+robust-MAD change-point detector remains the correct tool for this input structure.</li>
+<li><code>.agent/cache/overmix_field_notes.md</code> and <code>moon/roadmaps/asp.md</code> §1.2 updated with the full write-up and conclusion.</li>
+</ul>
+<hr />
+<h2 id="s242-2026-07-27-asp-phase-31-asp_joint_gain_solve-re-verified-against-the-current-toonout-inclusive-baseline">S242 — 2026-07-27 (ASP Phase 3.1: <code>ASP_JOINT_GAIN_SOLVE</code> re-verified against the current ToonOut-inclusive baseline)<a class="headerlink" href="#s242-2026-07-27-asp-phase-31-asp_joint_gain_solve-re-verified-against-the-current-toonout-inclusive-baseline" title="Permanent link">&para;</a></h2>
+<p>Followed up on the S241 finding (test04's original regression no longer reproduces) by re-running the 5-test verify for <code>ASP_JOINT_GAIN_SOLVE</code> itself, not just the gate follow-up.</p>
+<ul>
+<li><strong>Cleaner result than the original postmortem</strong>: test04 now safely reverts to a SCANS fallback (via the pre-existing <code>sb</code> check) instead of shipping the previously-documented defect; test08/test57 are unaffected either way (already SCANS via the ToonOut fix regardless of gain solve); test09 still flips SCANS→real (coverage win); test27 still stays real→real (modest improvement). <strong>Zero regressions</strong> on this 5-test sample — a meaningfully better picture than the original mixed verdict.</li>
+<li><strong>Caution, not a clean bill of health</strong>: a direct look at test09's rendered output still shows visible banding/streaking artifacts despite passing every automated gate (composite, ghost, seam-vis) — the same "gates pass, defect remains" pattern this whole investigation started from, just under current thresholds rather than over them. Confirms the project's own ground rule #2 (no automated metric currently measures structural coherence) rather than refuting it.</li>
+<li><strong>Disposition: stays default OFF.</strong> Ground rule #1 requires a full-97-corpus run before any default flip regardless of a clean 5-test sample; ground rule #2's actual gating requirement — the Phase 0.1 human coherence rating pass — is still open and is not something to substitute with ad hoc image inspection of individual tests (that's explicitly a human task per the roadmap's own §0.1).</li>
+<li><code>.agent/cache/asp_dense_band_scan_gate_2026-07-27.md</code> and <code>moon/roadmaps/asp.md</code> §3.1 updated with this re-verification; posted as a follow-up comment on GitHub issue #26.</li>
+</ul>
+<hr />
+<h2 id="s241-2026-07-27-asp-phase-31-follow-up-dense-band-scan-composite-gate-rejected-zero-measured-value">S241 — 2026-07-27 (ASP Phase 3.1 follow-up: dense-band-scan composite gate — REJECTED, zero measured value)<a class="headerlink" href="#s241-2026-07-27-asp-phase-31-follow-up-dense-band-scan-composite-gate-rejected-zero-measured-value" title="Permanent link">&para;</a></h2>
+<p>Implemented the §3.1 joint-gain-solve postmortem's recommended follow-up: a finer-grained local check for the composite quality gate, to close a documented false-negative where the gate's aggregate <code>sb</code> (strip-banding) statistic passes on test04 despite a visible local defect — flagged independently twice, once in the joint-gain-solve postmortem and once in the ToonOut masking-fix postmortem.</p>
+<ul>
+<li><strong>Built</strong>: <code>_dense_band_scan_score()</code> (<code>backend/benchmark/bench_anime_stitch.py</code>) — a full sliding-window scan across the entire canvas, closing a real sampling gap in the existing <code>_strip_banding_score</code> (which only samples a band around each frame's own affine canvas-entry row, structurally blind to defects strictly inside a frame's own extent). Wired into the existing composite gate (not a new gate name, respecting the ≤10-gate budget) with the same adaptive floor/SCANS-ratio pattern as <code>sc</code>/<code>sb</code>.</li>
+<li><strong>Measured (5-test verify, both <code>ASP_JOINT_GAIN_SOLVE</code> OFF and ON)</strong>: the new metric never crossed its calibrated floor (45) on any of the 10 data points — max observed 20.9. <strong>Zero measured effect on any fallback/real verdict.</strong></li>
+<li><strong>Bigger finding</strong>: test04's original regression <strong>no longer reproduces</strong> against the current codebase. The joint-gain-solve postmortem was measured <em>before</em> the ToonOut masking fix (S230) landed; re-measuring now shows ToonOut's masking-accuracy improvement already changed test04's pixel composition enough that the <em>pre-existing</em> <code>sb</code> check alone correctly gates it (<code>sb=40.4&gt;35</code>) without any new metric — the gap this follow-up was built to close appears to already be closed by an unrelated, earlier fix.</li>
+<li><strong>Reverted</strong> per the roadmap's own anti-goal ("no new quality gates... without... a full-corpus run... zero measured value") — implement, measure, revert on a null result, same discipline as GraphCut/phase-aware-select/bg-average. Full write-up: <code>.agent/cache/asp_dense_band_scan_gate_2026-07-27.md</code>.</li>
+<li><code>moon/roadmaps/asp.md</code> §3.1 updated with this follow-up's outcome; flags <code>ASP_JOINT_GAIN_SOLVE</code>'s own disposition as needing a fresh re-measurement against the current ToonOut-inclusive baseline in a future session (out of scope here — this follow-up was gate-design only).</li>
+</ul>
+<hr />
 <h2 id="s240-2026-07-27-asp-phase-11-literature-sweep-for-issue-21s-gap-areas">S240 — 2026-07-27 (ASP Phase 1.1: literature sweep for issue #21's gap areas)<a class="headerlink" href="#s240-2026-07-27-asp-phase-11-literature-sweep-for-issue-21s-gap-areas" title="Permanent link">&para;</a></h2>
 <p>Implemented GitHub issue #21 / roadmap §1.1 — a targeted web-search sweep of the five specific gap areas the roadmap flagged (not a general re-survey; <code>research/Image_Stitching_Research.md</code> already covers the field through mid-2026).</p>
 <ul>
@@ -22656,7 +22751,7 @@
 - <strong>"Guest Mode" Login</strong>: Added a "Guest Mode" button to the <code>LoginWindow</code> allowing access with only an account name, bypassing password authentication.
 - <strong>Volatile In-Memory Vault</strong>: <code>VaultManager</code> supports <code>is_guest=True</code> (and <code>create_guest_vault(username)</code> factory), intercepting all <code>save_data</code>, <code>load_data</code>, and <code>load_account_credentials</code> calls to keep user state strictly in volatile memory. Keystore, secret key generation, pepper loading, and disk vault writes are completely bypassed.
 - <strong>Volatile Settings &amp; Session Recovery Guard</strong>: <code>AppSettings</code> QSettings disk persistence in <code>SettingsWindow</code> and <code>.enc</code> file generation in <code>MainWindow._save_session_recovery()</code> are strictly disabled when operating in Guest mode.
-- <strong>UI Account Labeling</strong>: App title bar and Settings header clearly label active Guest accounts (e.g. <code>pkhunter (Guest)</code>).
+- <strong>UI Account Labeling</strong>: App title bar and Settings header clearly label active Guest accounts (e.g. <code>guest_username (Guest)</code>).
 - <strong>Unit Test Coverage</strong>: Expanded <code>gui/test/core/test_login_window.py</code> with <code>TestGuestMode</code> verifying input validation, volatile vault creation, memory-only data updates, signal emission, and non-persistence.</p>
 <p><strong>Part 5 — Login Window Preference Profile Selection:</strong>
 - <strong>Preference Profile Login Selection</strong>: Integrated a profile selection dialog (<code>QInputDialog</code>) into <code>LoginWindow.attempt_login()</code> following successful authentication when preference profiles exist in the vault.
