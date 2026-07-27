@@ -4,6 +4,19 @@
 
 ---
 
+## S231 — 2026-07-27 (New Features 4.4C: WD-tagger human-in-the-loop review queue)
+
+Implemented GitHub issue #58 / `new_features.md` §4.4C. Verified before building: `WDTaggerWrapper.tag_with_review()` (§4.4E's confidence-threshold auto/review split) already existed with full implementation and test coverage, but had zero callers anywhere in the codebase — the same pattern found with `WDTaggerWrapper` itself before issue #32. This is now its first real caller.
+
+- **`gui/src/helpers/models/tag_review_worker.py::TagReviewWorker`**: a `QThread` running `tag_with_review()` over a dataset folder's untagged images (skips images that already have a `.txt` caption sidecar, matching the training pipeline's own skip logic), emitting each image's tags split into auto-confidence (pre-checked) and review-zone (unchecked) groups.
+- **`gui/src/components/dialogs/tag_review_dialog.py::TagReviewDialog`**: pages through untagged images one at a time with per-tag checkboxes, a custom-tag add field, and Prev/Next navigation that syncs in-progress edits (fixed a real bug during development: navigation originally rebuilt checkboxes from stale data without syncing first, silently discarding any edits the user made before paging away). "Save All" writes each image's checked tags as a `.txt` caption sidecar in the exact format `HybridCaptioner.write_caption_file` produces.
+- **Not backed by PostgreSQL** as the roadmap's original option text specified — the project has since retired Postgres entirely; a `.txt`-sidecar-per-image queue matches the existing training-pipeline convention with zero new schema for this single-GUI-session workflow.
+- **Wired into `gui/src/tabs/models/delta/lora_train_tab.py`**: new "Review Tags..." button next to the existing "Inspect .safetensors..." button.
+- **Tests**: `gui/test/dialogs/test_tag_review_dialog.py` (6 cases) + `gui/test/helpers/test_tag_review_worker.py` (4 cases), all passing. Worker tests needed a `sys.modules` pre-registration workaround since `gui/test/conftest.py` deliberately stubs `backend.src.models.wrappers` as a bare `MagicMock` (no `__path__`) for GUI-test-collection speed, which breaks `unittest.mock.patch`'s dotted-path resolution through it — documented in the test file itself.
+- `moon/roadmaps/new_features.md` §4.4 updated with this status and the Option C correction.
+
+---
+
 ## S247 — 2026-07-27 (ASP Phase 3.3: multi-band blend already implemented — stale roadmap text corrected)
 
 Checked §3.3 ("reintroduce the deleted C++ `multiband_blend`") before implementing anything, since the Phase 4 analysis's test09 finding (visible banding despite passing every gate) matched this bullet's stated precondition ("only if 3.1+3.2 leave visible transitions").
