@@ -2615,10 +2615,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#121-rust-core-image-processing-benchmarks-high-priority" class="md-nav__link">
+  <a href="#121-rust-core-image-processing-benchmarks-high-priority-done-2026-07-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY)
+        12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY) — DONE, 2026-07-27
       
     </span>
   </a>
@@ -2637,10 +2637,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#123-gui-thumbnail-loading-benchmarks-high-priority" class="md-nav__link">
+  <a href="#123-gui-thumbnail-loading-benchmarks-high-priority-done-2026-07-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY)
+        12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY) — DONE, 2026-07-27
       
     </span>
   </a>
@@ -2648,10 +2648,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#124-database-query-profiling-at-scale-medium" class="md-nav__link">
+  <a href="#124-database-query-profiling-at-scale-medium-rescoped-2026-07-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        12.4 Database Query Profiling at Scale (MEDIUM)
+        12.4 Database Query Profiling at Scale (MEDIUM) — rescoped, 2026-07-27
       
     </span>
   </a>
@@ -3309,10 +3309,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#121-rust-core-image-processing-benchmarks-high-priority" class="md-nav__link">
+  <a href="#121-rust-core-image-processing-benchmarks-high-priority-done-2026-07-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY)
+        12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY) — DONE, 2026-07-27
       
     </span>
   </a>
@@ -3331,10 +3331,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#123-gui-thumbnail-loading-benchmarks-high-priority" class="md-nav__link">
+  <a href="#123-gui-thumbnail-loading-benchmarks-high-priority-done-2026-07-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY)
+        12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY) — DONE, 2026-07-27
       
     </span>
   </a>
@@ -3342,10 +3342,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#124-database-query-profiling-at-scale-medium" class="md-nav__link">
+  <a href="#124-database-query-profiling-at-scale-medium-rescoped-2026-07-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        12.4 Database Query Profiling at Scale (MEDIUM)
+        12.4 Database Query Profiling at Scale (MEDIUM) — rescoped, 2026-07-27
       
     </span>
   </a>
@@ -3593,8 +3593,8 @@
 </tr>
 <tr>
 <td><strong>Benchmark Coverage Expansion (Phase 12)</strong></td>
-<td>⬜ Not started</td>
-<td>Rust core, ASP stage isolation, GUI thumbnails, DB scale, memory lifecycle</td>
+<td>🔄 Partial (2026-07-27)</td>
+<td>12.1/12.3 shipped; 12.2/12.5-12.8 still open; 12.4 rescoped (see §12.4)</td>
 </tr>
 </tbody>
 </table>
@@ -4169,15 +4169,24 @@
 </tr>
 </tbody>
 </table>
-<h3 id="121-rust-core-image-processing-benchmarks-high-priority">12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY)<a class="headerlink" href="#121-rust-core-image-processing-benchmarks-high-priority" title="Permanent link">&para;</a></h3>
-<ul>
-<li>Create <code>backend/benchmark/bench_rust_image_processing.py</code> targeting:</li>
-<li><code>base.convert_image</code> with various format pairs (PNG→WebP, JPEG→PNG, WebP→JPEG)</li>
-<li><code>base.load_image_batch</code> with N={1, 10, 50} images at 180px thumbnail scale</li>
-<li><code>base.scan_directory</code> on directories of N={100, 1000, 10000} files</li>
-<li><code>base.merge_images</code> (vertical stack) with N={2, 5, 10} 1080p images</li>
-<li>Emit as a General-suite JSON compatible with <code>load_benchmark_reports</code>.</li>
-</ul>
+<h3 id="121-rust-core-image-processing-benchmarks-high-priority-done-2026-07-27">12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY) — <strong>DONE, 2026-07-27</strong><a class="headerlink" href="#121-rust-core-image-processing-benchmarks-high-priority-done-2026-07-27" title="Permanent link">&para;</a></h3>
+<p><strong>Stale premise found and corrected before implementing</strong>: this bullet's
+"Create <code>backend/benchmark/bench_rust_image_processing.py</code>" is wrong on two
+counts — the Rust <code>base</code> module was fully retired to C++ well before this
+phase was written (see <code>project_cpp_migration</code> history), and the file it
+asks to create already exists as <code>backend/benchmark/bench_cpp_image_processing.py</code>.
+That file was silently broken: 5 of its 8 benchmarks called C++ binding
+names that don't exist (<code>cpp_core.convert_image</code>, <code>cpp_core.merge_images</code>,
+<code>cpp_core.scan_directory</code>), each suppressed with a <code># pyrefly: ignore
+[missing-attribute]</code> comment rather than fixed — meaning static analysis
+already knew about the gap and nobody acted on it (flagged, not fixed, by
+an earlier session this same day; see issue #76/Performance 3.6). Fixed all
+5 to the real API (<code>convert_single_image</code>, <code>merge_images_vertical</code>/
+<code>_horizontal</code>, <code>scan_files_single</code>), also correcting stale "Rayon" doc
+references (Rust-only, the real C++ path uses OpenMP). <strong>Verified</strong>: ran
+the full corrected file end-to-end — all 10 benchmarks pass (all ✓, no
+exceptions), confirming this is a genuine fix, not just a name swap that
+happens to parse.</p>
 <h3 id="122-asp-stage-isolation-benchmarks-high-priority">12.2 ASP Stage Isolation Benchmarks (HIGH PRIORITY)<a class="headerlink" href="#122-asp-stage-isolation-benchmarks-high-priority" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Create <code>backend/benchmark/bench_asp_stages.py</code> benchmarking each ASP stage independently:</li>
@@ -4187,22 +4196,43 @@
 <li><code>_ecc_refine(frames, affines, bg_masks)</code> at different ECC iterations</li>
 <li>Goal: quantify the compute cost of each §-coded feature to guide future optimizations.</li>
 </ul>
-<h3 id="123-gui-thumbnail-loading-benchmarks-high-priority">12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY)<a class="headerlink" href="#123-gui-thumbnail-loading-benchmarks-high-priority" title="Permanent link">&para;</a></h3>
-<ul>
-<li>Create <code>backend/benchmark/bench_gui_thumbnails.py</code>:</li>
-<li>Time and memory for loading N={100, 500, 1000} images via <code>base.load_image_batch()</code></li>
-<li>Compare LRU cache hit vs miss path</li>
-<li>Measure QImage vs QPixmap size in memory for 180px thumbnails</li>
-<li>Catch LRU eviction thrashing and unbounded memory growth early.</li>
-</ul>
-<h3 id="124-database-query-profiling-at-scale-medium">12.4 Database Query Profiling at Scale (MEDIUM)<a class="headerlink" href="#124-database-query-profiling-at-scale-medium" title="Permanent link">&para;</a></h3>
-<ul>
-<li>Extend <code>bench_database.py</code>:</li>
-<li><code>pgvector</code> ANN similarity search at 10k, 100k, 1M vectors</li>
-<li>Bulk insert with and without pgvector index</li>
-<li>Tag/group tree traversal at depth 3, 5, 10</li>
-<li><code>HNSW</code> vs <code>IVFFlat</code> index type comparison</li>
-</ul>
+<h3 id="123-gui-thumbnail-loading-benchmarks-high-priority-done-2026-07-27">12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY) — <strong>DONE, 2026-07-27</strong><a class="headerlink" href="#123-gui-thumbnail-loading-benchmarks-high-priority-done-2026-07-27" title="Permanent link">&para;</a></h3>
+<p>Created <code>backend/benchmark/bench_gui_thumbnails.py</code> exactly per spec:
+time/memory for <code>base.load_image_batch()</code> at N={100, 500, 1000}; LRU
+cache miss-then-fill (1000 images through a maxsize=300
+<code>LRUImageCache</code>, exercising eviction) vs a warm-cache hit path (100
+images, repeated lookups, no decode); a direct QImage-vs-QPixmap memory
+comparison for 300 cached 180px thumbnails. Runs under
+<code>QT_QPA_PLATFORM=offscreen</code> (no visible window, per this project's GUI
+benchmark convention) — a real <code>QGuiApplication</code> instance is still
+needed for <code>QPixmap</code> construction, kept alive process-wide via a module
+global. <strong>Verified</strong>: ran end-to-end, all 6 benchmarks pass. The
+QImage/QPixmap comparison produced a genuinely useful number, not just
+a smoke-test pass: 300 thumbnails cost 26.1MB as QImage alone, +37.2MB
+more once QPixmap copies are also created (63.3MB total) — a direct,
+measured confirmation of <code>LRUImageCache</code>'s own design rationale
+(storing QImage, not QPixmap, to avoid the platform backing-store
+copy), not previously measured, only asserted in a docstring.</p>
+<h3 id="124-database-query-profiling-at-scale-medium-rescoped-2026-07-27">12.4 Database Query Profiling at Scale (MEDIUM) — <strong>rescoped, 2026-07-27</strong><a class="headerlink" href="#124-database-query-profiling-at-scale-medium-rescoped-2026-07-27" title="Permanent link">&para;</a></h3>
+<p><strong>Checked before extending anything</strong>: this bullet's premise
+(<code>pgvector</code> ANN search, <code>HNSW</code> vs <code>IVFFlat</code>) targets
+<code>backend/src/database/image_database.py::PgvectorImageDatabase</code>, the
+legacy Postgres-backed image database. Per
+<code>unified_database.md</code>'s own DB.6 status ("Postgres retirement... mostly
+done (S211)") and the still-open archival item (issue #64, "archive
+legacy Postgres code"), this is an actively-retiring system — building
+new benchmark investment against it (Bulk insert, HNSW/IVFFlat
+comparison work that Postgres-side code is slated to be deleted) would
+not be a good use of this phase's effort. <strong>Not implemented as
+originally scoped.</strong> The forward-looking equivalent already exists and
+is a better target for a future session: <code>search_repo.py</code>'s new
+<code>filter_media()</code>/<code>filter_entities()</code> SQL methods (shipped this session,
+issue #63/<code>unified_database.md</code> §DB.5) already have correctness tests
+in <code>backend/test/database/test_unified_repos.py</code> but no <em>scale</em>
+benchmark (10k/100k-row FTS/filter query latency) — that's the item to
+build once someone picks this back up, not a pgvector ANN benchmark for
+a database half-way out the door. No code shipped for this sub-item;
+this note is the deliverable.</p>
 <h3 id="125-app-lifecycle-memory-profiling-medium">12.5 App Lifecycle Memory Profiling (MEDIUM)<a class="headerlink" href="#125-app-lifecycle-memory-profiling-medium" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Instrument <code>main.py</code> to emit PSUtil RSS snapshots at: JVM start, Qt init, first tab render, after gallery load (100/500/1000 images).</li>

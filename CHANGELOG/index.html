@@ -2535,6 +2535,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s231-2026-07-27-guiux-29f-log_levelfile_logging_enabled-preferences-wired" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s247-2026-07-27-asp-phase-33-multi-band-blend-already-implemented-stale-roadmap-text-corrected" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2561,6 +2572,39 @@
     <span class="md-ellipsis">
       
         S245 — 2026-07-27 (ASP Phase 4/3.1 follow-up: frame/pair count also insufficient to predict gain-solve outcome)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s248-2026-07-27-content-gen-16-shared-anime-upscaler-module-esrganwrapper-real-esrgan-anime_6b" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S248 — 2026-07-27 (Content Gen 1.6: shared anime upscaler module — ESRGANWrapper, Real-ESRGAN anime_6B)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s249-2026-07-27-analytics-phase-12-benchmark-coverage-expansion-c-core-fixed-gui-thumbnails-added-db-rescoped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S249 — 2026-07-27 (Analytics Phase 12: benchmark coverage expansion — C++ core fixed, GUI thumbnails added, DB rescoped)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s250-2026-07-27-extension-75-phase-b-native-messaging-host-for-the-local-app-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S250 — 2026-07-27 (Extension 7.5 Phase B: native messaging host for the local app bridge)
       
     </span>
   </a>
@@ -12522,6 +12566,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s231-2026-07-27-guiux-29f-log_levelfile_logging_enabled-preferences-wired" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s247-2026-07-27-asp-phase-33-multi-band-blend-already-implemented-stale-roadmap-text-corrected" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -12548,6 +12603,39 @@
     <span class="md-ellipsis">
       
         S245 — 2026-07-27 (ASP Phase 4/3.1 follow-up: frame/pair count also insufficient to predict gain-solve outcome)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s248-2026-07-27-content-gen-16-shared-anime-upscaler-module-esrganwrapper-real-esrgan-anime_6b" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S248 — 2026-07-27 (Content Gen 1.6: shared anime upscaler module — ESRGANWrapper, Real-ESRGAN anime_6B)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s249-2026-07-27-analytics-phase-12-benchmark-coverage-expansion-c-core-fixed-gui-thumbnails-added-db-rescoped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S249 — 2026-07-27 (Analytics Phase 12: benchmark coverage expansion — C++ core fixed, GUI thumbnails added, DB rescoped)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s250-2026-07-27-extension-75-phase-b-native-messaging-host-for-the-local-app-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S250 — 2026-07-27 (Extension 7.5 Phase B: native messaging host for the local app bridge)
       
     </span>
   </a>
@@ -22497,6 +22585,16 @@
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
 <hr />
+<h2 id="s231-2026-07-27-guiux-29f-log_levelfile_logging_enabled-preferences-wired">S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)<a class="headerlink" href="#s231-2026-07-27-guiux-29f-log_levelfile_logging_enabled-preferences-wired" title="Permanent link">&para;</a></h2>
+<p>Implemented GitHub issue #48 / roadmap <code>gui_ux.md</code> §2.9's item F (labeled <code>bug</code> — the same "settings-window control exists, nothing consumes it" shape as issue #49's <code>recent_dirs_count</code> fix earlier this session).</p>
+<ul>
+<li><strong>Confirmed the gap before fixing</strong>: <code>preferences["log_level"]</code>/<code>["file_logging_enabled"]</code> round-tripped through <code>settings_window.py</code> (save/load only) but were never consumed anywhere. <code>backend/src/app.py::_setup_logging()</code> — the only place logging gets configured — runs before <code>QApplication</code>/vault unlock and only accepted a <code>log_level: int</code> driven by the <code>--verbose</code> CLI flag, with no path back to vault preferences and no <code>RotatingFileHandler</code> add/remove logic keyed on <code>file_logging_enabled</code> at all.</li>
+<li><strong>The real constraint</strong>: <code>_setup_logging()</code> genuinely can't read vault preferences at the point it runs (before login). Fix applies them later instead: new <code>_reconfigure_logging(log_level_name, file_logging_enabled)</code> in <code>backend/src/app.py</code>, called from <code>main_window.py::_apply_startup_preferences()</code> (tagged <code>§2.16F</code>) once the vault is unlocked during the current launch. Sets the console handler's level from the string preference ("DEBUG"/"INFO"/"WARNING"/"ERROR", defaulting to INFO on an unrecognized value) and adds/removes a tagged <code>RotatingFileHandler</code> (<code>_make_file_handler()</code>/<code>_LOG_FILE_HANDLER_TAG</code>, factored out of <code>_setup_logging()</code> to share the handler-construction code) based on <code>file_logging_enabled</code>.</li>
+<li>Since <code>_apply_startup_preferences()</code> runs during the very launch it's read in (right after login), this preference now takes effect the same session it's changed in, an improvement over the roadmap table's "Restart required" note for these two rows.</li>
+<li><strong>Tests</strong>: 6 new cases in <code>backend/test/core/test_app_logging.py</code> (handler tagging, console-level application, add/remove/idempotent-enable of the file handler, unknown-level-name fallback), all passing, with a <code>_clean_root_logger</code> fixture that saves/restores the real root logger's handlers so the test doesn't leak logging state into other test files.</li>
+<li><code>moon/roadmaps/gui_ux.md</code> §2.9 item F updated to reflect the fix; the section's "F is still not wired" summary line corrected.</li>
+</ul>
+<hr />
 <h2 id="s247-2026-07-27-asp-phase-33-multi-band-blend-already-implemented-stale-roadmap-text-corrected">S247 — 2026-07-27 (ASP Phase 3.3: multi-band blend already implemented — stale roadmap text corrected)<a class="headerlink" href="#s247-2026-07-27-asp-phase-33-multi-band-blend-already-implemented-stale-roadmap-text-corrected" title="Permanent link">&para;</a></h2>
 <p>Checked §3.3 ("reintroduce the deleted C++ <code>multiband_blend</code>") before implementing anything, since the Phase 4 analysis's test09 finding (visible banding despite passing every gate) matched this bullet's stated precondition ("only if 3.1+3.2 leave visible transitions").</p>
 <ul>
@@ -22515,6 +22613,39 @@
 <li><strong>Test08 breaks the pattern</strong>: it has the second-fewest pairs (36, comparable to test51's 28) yet <em>improved</em> under gain solve rather than regressing — the opposite of what a clean "fewer pairs → more fragile → more likely to regress" rule would predict.</li>
 <li><strong>Conclusion</strong>: two independent, plausible cheap heuristics (post-warp-diff, frame/pair count) have now each been checked and each falls short on a real counter-example. This isn't a matter of finding the right one-line discriminator — a full per-test measurement pass (full-97 run, or a dedicated per-test A/B) is what's genuinely needed before <code>ASP_JOINT_GAIN_SOLVE</code> could ever be conditionally dispatched. Closing this follow-up rather than trying a third heuristic on the same small sample, which would risk overfitting an explanation to too little data.</li>
 <li>No code changes. <code>.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md</code> and <code>moon/roadmaps/asp.md</code> Phase 4 section updated with this finding; posted as a follow-up comment on GitHub issue #26.</li>
+</ul>
+<hr />
+<h2 id="s248-2026-07-27-content-gen-16-shared-anime-upscaler-module-esrganwrapper-real-esrgan-anime_6b">S248 — 2026-07-27 (Content Gen 1.6: shared anime upscaler module — ESRGANWrapper, Real-ESRGAN anime_6B)<a class="headerlink" href="#s248-2026-07-27-content-gen-16-shared-anime-upscaler-module-esrganwrapper-real-esrgan-anime_6b" title="Permanent link">&para;</a></h2>
+<p>Implemented GitHub issue #37 / roadmap <code>content_generation.md</code> §1.6 (Quick Win). Verified before implementing: the roadmap's claim that <code>animation/super_res.py</code> "already exists" is stale — no super-resolution module exists anywhere in the codebase (confirmed via repo-wide search); this is a new module, not a unification of two existing ones.</p>
+<ul>
+<li><strong><code>ESRGANWrapper</code></strong> (<code>backend/src/models/wrappers/esrgan_wrapper.py</code>): a tiled Real-ESRGAN anime_6B upscaler. Self-contained RRDBNet architecture in plain <code>torch</code> rather than the <code>basicsr</code>/<code>realesrgan</code> PyPI packages (not installed, deliberately not added — large fragile dependency tree, known torchvision compatibility breaks), matching the established BiRefNet/ToonOut pattern of loading raw weights into a hand-written architecture.</li>
+<li><strong>Weights verified, not guessed</strong>: downloaded the real <code>RealESRGAN_x4plus_anime_6B.pth</code> checkpoint from its HF Hub mirror and inspected the actual state dict before writing any architecture code — confirmed 6 RRDB blocks, <code>num_feat=64</code>, weights wrapped under a <code>params_ema</code> key. Two independent HF Hub mirrors wired as primary/fallback.</li>
+<li><strong>Tiled inference</strong> for VRAM/RAM safety on large images, verified quantitatively against a non-tiled full pass (mean abs pixel diff 0.76/255 under production tile settings — expected minor boundary effect, not a bug).</li>
+<li><strong>Verified end-to-end with real downloaded weights</strong>: loaded the actual checkpoint and ran both tiled and non-tiled code paths on synthetic images, confirming correct 4x output shape/dtype.</li>
+<li><strong>Tests</strong>: <code>backend/test/models/test_esrgan_wrapper.py</code>, 16 passing — architecture shape checks, load() primary/fallback/failure paths, tiled vs non-tiled correctness (including a remainder-tile edge case), file-path convenience wrapper, unload lifecycle. Uses small randomly-initialized weights for CI speed (no network dependency in the committed suite); the real-weights run above was verified manually.</li>
+<li><strong>Not done here</strong>: wiring into the generation tabs' GUI or an ASP super-resolution pipeline stage (which doesn't exist yet) — separate, larger follow-on items outside this Quick Win's scope.</li>
+<li><code>moon/roadmaps/content_generation.md</code> §1.6 updated with the stale-roadmap correction and full status.</li>
+</ul>
+<hr />
+<h2 id="s249-2026-07-27-analytics-phase-12-benchmark-coverage-expansion-c-core-fixed-gui-thumbnails-added-db-rescoped">S249 — 2026-07-27 (Analytics Phase 12: benchmark coverage expansion — C++ core fixed, GUI thumbnails added, DB rescoped)<a class="headerlink" href="#s249-2026-07-27-analytics-phase-12-benchmark-coverage-expansion-c-core-fixed-gui-thumbnails-added-db-rescoped" title="Permanent link">&para;</a></h2>
+<p>Implemented GitHub issue #70 / roadmap <code>analytics_and_interpretability.md</code> Phase 12 (12.1, 12.3; 12.4 rescoped, not implemented as originally spec'd).</p>
+<ul>
+<li><strong>§12.1 (Rust Core Image Processing Benchmarks) — stale premise found and corrected.</strong> The bullet's "Create <code>bench_rust_image_processing.py</code>" was wrong twice over: the Rust <code>base</code> module was fully retired to C++ well before this phase was written, and the file it asks to create already exists as <code>backend/benchmark/bench_cpp_image_processing.py</code>. That file was silently broken — 5 of its 8 benchmarks called non-existent C++ binding names (<code>cpp_core.convert_image</code>, <code>cpp_core.merge_images</code>, <code>cpp_core.scan_directory</code>), each suppressed with a <code># pyrefly: ignore [missing-attribute]</code> comment rather than fixed (flagged, not fixed, by an earlier session this same day under issue #76/Performance 3.6). Fixed all 5 to the real API (<code>convert_single_image</code>, <code>merge_images_vertical</code>/<code>_horizontal</code>, <code>scan_files_single</code>), and corrected stale "Rayon" doc references (Rust-only; the real C++ path uses OpenMP). Verified by running the corrected file end-to-end — all 10 benchmarks pass.</li>
+<li><strong>§12.3 (GUI Thumbnail Loading Benchmarks) — implemented per spec.</strong> New <code>backend/benchmark/bench_gui_thumbnails.py</code>: <code>base.load_image_batch()</code> at N={100, 500, 1000}; LRU cache miss-then-fill (exercising eviction at maxsize=300) vs warm-cache hit path; direct QImage-vs-QPixmap memory comparison for 300 cached 180px thumbnails. Runs under <code>QT_QPA_PLATFORM=offscreen</code>, no visible window. Verified end-to-end — all 6 benchmarks pass, and the QImage/QPixmap comparison produced a real measured number (26.1MB QImage-only vs 63.3MB with QPixmap copies also alive for the same 300 thumbnails) confirming <code>LRUImageCache</code>'s own design rationale, previously only asserted in a docstring.</li>
+<li><strong>§12.4 (Database Query Profiling) — rescoped, not implemented as spec'd.</strong> Checked before extending anything: the bullet targets <code>PgvectorImageDatabase</code>, the legacy Postgres-backed image database, which per <code>unified_database.md</code>'s own DB.6 status is actively being retired (issue #64 covers archiving what's left). Building new pgvector/HNSW benchmark investment against a database half-way out the door isn't a good use of this phase's effort. Documented the better forward-looking target instead: <code>search_repo.py</code>'s new <code>filter_media()</code>/<code>filter_entities()</code> SQL methods (issue #63, shipped this session) have correctness tests but no scale benchmark — that's the item for a future session, not this one.</li>
+<li><code>moon/roadmaps/analytics_and_interpretability.md</code> Phase 12 section and summary table updated to reflect all three findings.</li>
+</ul>
+<hr />
+<h2 id="s250-2026-07-27-extension-75-phase-b-native-messaging-host-for-the-local-app-bridge">S250 — 2026-07-27 (Extension 7.5 Phase B: native messaging host for the local app bridge)<a class="headerlink" href="#s250-2026-07-27-extension-75-phase-b-native-messaging-host-for-the-local-app-bridge" title="Permanent link">&para;</a></h2>
+<p>Implemented GitHub issue #50 / roadmap <code>extension.md</code> §7.5 Phase B.</p>
+<ul>
+<li><strong>Extracted shared, transport-agnostic handler logic</strong> into <code>extension_api/bridge_handlers.py</code> (plain <code>(payload) -&gt; (status, body)</code> functions, no DRF dependency) so both the existing HTTP views (§7.5A) and the new native-messaging host share one implementation. <code>views.py</code> became thin wrappers (auth + CORS + DRF framing only) — verified behavior-preserving: all 23 pre-existing <code>extension_api</code> tests pass unmodified.</li>
+<li><strong><code>extension_api/native_host.py</code></strong>: implements the Chrome/Firefox native-messaging wire protocol (4-byte length-prefixed JSON, both directions) and dispatches to the same shared handlers. No bearer token on this transport — the browser's own host-manifest extension-ID allowlist is the security boundary, per the roadmap's original rationale. Doesn't bootstrap Django (the shared handlers have no ORM dependency), so the host starts fast.</li>
+<li><strong><code>desktop/linux/scripts/install_native_host.sh</code></strong>: generates a launcher + per-browser host manifest (Chrome/Chromium/Brave/Edge/Firefox, autodetecting installed browsers), matching the documented install locations including the Brave-reads-Chrome quirk.</li>
+<li><strong>Extension side</strong>: <code>shared/api.ts</code> gained <code>sendNativeMessage()</code>; <code>shared/bridge.ts</code>'s exported functions now dispatch across HTTP/native behind one interface via <code>settings.bridgeTransport</code>, exactly per the plan ("background code switches transports behind one interface") — callers never branch on transport. New settings fields (<code>bridgeTransport</code>, <code>nativeHostName</code>), options-page UI, <code>nativeMessaging</code> manifest permission.</li>
+<li><strong>Tests</strong>: 10 new cases in <code>extension_api/test_native_host.py</code> (framing round-trips/truncation, dispatch routing, handler-exception safety) — 33/33 <code>extension_api</code> tests passing. <code>npm run typecheck</code> clean for all touched files (two pre-existing, unrelated type errors elsewhere in the codebase, not introduced by this change).</li>
+<li><strong>Not verified against a real browser</strong> — no browser automation available in this environment; the protocol/dispatch logic is unit-tested against the real shared handlers, but installing a manifest and launching from a loaded extension needs a human check.</li>
+<li><code>moon/roadmaps/extension.md</code> §7.5 updated: Phase B marked shipped.</li>
 </ul>
 <hr />
 <h2 id="s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale">S244 — 2026-07-27 (ASP Phase 4: fallback-class re-examination at 18-test scale)<a class="headerlink" href="#s244-2026-07-27-asp-phase-4-fallback-class-re-examination-at-18-test-scale" title="Permanent link">&para;</a></h2>
