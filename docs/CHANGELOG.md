@@ -4,6 +4,15 @@
 
 ---
 
+## S231 — 2026-07-27 (GUI/UX §2.3B: global hotkey table — already implemented via §2.29, stale cross-reference corrected)
+
+Implemented GitHub issue #47 ("global hotkey table in settings"). Verified before building: §2.3's own option B describes exactly what §2.29 ("Configurable Keyboard Shortcuts") already built and shipped — a central `SHORTCUT_REGISTRY` (`gui/src/utils/shortcut_manager.py`), a "Keyboard Shortcuts" settings tab with `QKeySequenceEdit` per row + reset-to-default, and JSON persistence to `~/.image-toolkit/keybindings.json`. Confirmed genuinely wired at runtime, not a settings stub: both gallery base classes' `keyPressEvent` handlers call `reg.matches(event, ...)` against the live registry.
+
+- **No new code shipped** — §2.3B's status line simply never cross-referenced §2.29's completion. Corrected `moon/roadmaps/gui_ux.md` §2.3 to mark option B satisfied, with an honest scope note: the registry currently covers 24 actions across `Gallery`/`Preview` scopes only — the *mechanism* is genuinely global (any new shortcut gets settings-UI configurability for free by registering into it), but *coverage* of every tab's actions is a legitimate, separate follow-on, not a gap in what this option asked for.
+- `moon/roadmaps/gui_ux.md` §2.3 updated.
+
+---
+
 ## S231 — 2026-07-27 (GUI/UX §2.9F: log_level/file_logging_enabled preferences wired)
 
 Implemented GitHub issue #48 / roadmap `gui_ux.md` §2.9's item F (labeled `bug` — the same "settings-window control exists, nothing consumes it" shape as issue #49's `recent_dirs_count` fix earlier this session).
