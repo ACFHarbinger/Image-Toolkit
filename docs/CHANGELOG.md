@@ -4,6 +4,17 @@
 
 ---
 
+## S221 — 2026-07-27 (ASP Phase 0.4 verified; Phase 2.5 measured harmful — visible strip banding)
+
+With the benchmark now safe to run at 5-test scale (S220), finally benchmarked the two features from S218 that were implemented but never A/B'd due to the freeze pause.
+
+- **Phase 0.4(c) (`mean_post_warp_diff`) verified working correctly**: values are stable and near-identical across an `ASP_BG_AVERAGE` on/off A/B (e.g. 11.71→11.69, 13.51→13.35, 2.91→2.91) — confirms the stat is properly orthogonal to a flag that only touches background rendering, not the foreground seam registration it measures.
+- **Phase 2.5 (`ASP_BG_AVERAGE`) measured harmful — reversing the earlier "engineering done" framing.** The 5-test verify's automated metrics looked like a clean win (sharpness_asp 119.9→148.4, ghosting_siqe 49.6→39.2, and `asp_test04` stopped falling back to SCANS and produced a true composite for the first time) — but **visually inspecting that composite showed clear horizontal strip-banding artifacts** (luminance/hue jumps between strips, especially visible on the right side of the frame). The improved metrics came from a *more visibly broken* composite, not a better one — exactly the "never trust a metric without looking at the image" failure mode the roadmap's ground rules warn about. Likely cause: the abrupt switch between mean (count≥3 background samples) and median (count==2) creates a visible discontinuity right at the strip boundary where sample count changes, and/or averaging across frames with residual exposure differences the median was implicitly hiding by picking one sample per pixel.
+- `ASP_BG_AVERAGE` stays default OFF; `moon/roadmaps/asp.md` §2.5 updated from "engineering done, not yet benchmarked" to "measured harmful, do not re-enable without a real fix" — flagged as needing the strip-boundary discontinuity addressed directly (smooth mean/median blending across the transition, or a per-strip gain-matched mean) before it's worth attempting again.
+- This is a good example of the ground rules working as designed: an automated-metric-only read would have shipped a regression.
+
+---
+
 ## S220 — 2026-07-27 (ASP benchmark host-freeze — thread-cap fix confirmed at 5-test scale)
 
 - **Confirmed the S219 thread-count fix resolves the freeze at 5-test scale.** Re-ran the exact `asp_test04/08/09/27/57` combination that froze the host before the fix, with the user actively watching `htop`. Completed cleanly: RSS/system-RAM/VRAM all flat and bounded across all 5 datasets (RSS plateaued ~4.4GB after the first dataset and stayed flat, no monotonic growth); benchmark-process thread count settled at 22 then rose modestly to 26 (brief spikes to 34 during compute bursts) — bounded and stable, not runaway, versus unbounded before the cap.
