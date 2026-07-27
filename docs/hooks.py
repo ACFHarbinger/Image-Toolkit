@@ -206,7 +206,7 @@ def _ensure_stub_api_pages() -> None:
         ),
         DOCS / "api" / "python" / "core.md": (
             "# Backend Core API\n\n"
-            "::: backend.src.database.image_database\n\n"
+            "::: backend.src.database.unified.facade\n\n"
             "::: backend.src.core.vault_manager\n"
         ),
         DOCS / "api" / "python" / "models.md": (

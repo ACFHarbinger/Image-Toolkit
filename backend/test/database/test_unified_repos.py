@@ -631,7 +631,6 @@ def test_reset_requires_verified_backup(populated, tmp_path, monkeypatch):
     monkeypatch.setattr(backup_all, "LISTINGS_DB", tmp_path / "l.db")
     (tmp_path / "l.db").write_bytes(b"x")
     monkeypatch.setattr(backup_all, "SECRETS_DIR", tmp_path / "nosecrets")
-    monkeypatch.setattr(backup_all, "ENV_FILE", tmp_path / "no.env")
     manifest = backup_all.run_backup(tmp_path / "bk")
     maint.reset_database(
         backup_manifest_path=Path(manifest["backup_dir"]) / "manifest.json"
