@@ -160,6 +160,7 @@ jobs:
             --exclude 'https://www\.npmjs\.com'
             --exclude 'https://www\.intel\.com'
             --exclude 'https://isocpp\.org'
+            --exclude 'https://api\.jikan\.moe'
             '**/*.md'
           fail: true
 

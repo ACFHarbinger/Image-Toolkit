@@ -1,11 +1,12 @@
 name: Agent Backlog Sync
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'moon/ROADMAP.md'
-      - 'docs/CHANGELOG.md'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you running this?"
+        required: false
+        default: "Manual trigger"
 
 # Cancel in-progress runs for the same branch on new push
 concurrency:

@@ -331,7 +331,6 @@ def dispatch_update_settings(args):
     from PySide6.QtCore import QSettings
     from backend.src.core.vault_manager import VaultManager
     import backend.src.constants as udef
-    from gui.src.windows.settings.app_settings import AppSettings
 
     search = args.get("search")
     replace = args.get("replace")
@@ -419,12 +418,13 @@ def dispatch_update_settings(args):
     # 2. Update QSettings
     qsettings_count = 0
     try:
-        for key in AppSettings.all_keys():
-            val = AppSettings.get(key)
+        qsettings = QSettings("ImageToolkit", "ImageToolkit")
+        for key in qsettings.allKeys():
+            val = qsettings.value(key)
             if isinstance(val, (str, list, dict)):
                 new_val, count = recursive_replace(val)
                 if count > 0:
-                    AppSettings.set(key, new_val)
+                    qsettings.setValue(key, new_val)
                     qsettings_count += count
         if qsettings_count > 0:
             print(f"✅ Updated {qsettings_count} values/fields in QSettings.")
