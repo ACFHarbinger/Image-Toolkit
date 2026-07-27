@@ -4,6 +4,18 @@
 
 ---
 
+## S229 — 2026-07-27 (ASP Phase 3.1: joint canvas-space blocks-gain solve — implemented, mixed result)
+
+Implemented GitHub issue #26 / roadmap §3.1: replace the sequential pairwise gain-equalization chain with the full Brown-Lowe (2007) joint least-squares formulation.
+
+- **Implemented** in `backend/src/animation/rendering/compositing.py`: `_joint_gain_solve` builds one linear system over all overlapping frame pairs' bg-only mean luminance (scalar, luminance-weighted, not per-channel/spatial), with a gain-prior term regularizing each frame toward gain=1.0 — the same formulation `cv2::detail::GainCompensator` uses, matching the roadmap's exact spec (bg-pixels-only, luminance-scalar, clamped [0.5, 2.0]). `_apply_joint_gain_solve` applies each frame's solved gain to its own background pixels only. Gated behind `ASP_JOINT_GAIN_SOLVE` (default OFF) plus tunable `ASP_JOINT_GAIN_SIGMA_N`/`ASP_JOINT_GAIN_SIGMA_G`, replacing the call to the existing sequential `_equalize_warped_gains` (§4.10) when enabled. `backend/test/animation/` — 670 passed, 5 GPU-skipped, unaffected (flag OFF by default).
+- **5-test verify result: mixed.** Genuine visible-quality wins on 2/5 tests (test08: clearly reduced banding across the arm/shirt seam; test09: a SCANS fallback flipped to a real composite that's clean *and* shows more content than the fallback did). Roughly neutral on 2/5 (test27/57: pre-existing artifacts unrelated to photometric gain persist at similar severity). One new regression on 1/5 (test04: a composite that previously failed the gate by a hair (`asp_sb=35.8` vs `limit=35.0`) now passes it, but the resulting composite shows a real, visible horizontal banding defect across the character's torso — caught by the `seam_visibility` metric (2.03→32.66) even though sharpness and ghosting both improved).
+- **Root cause of the regression**: the composite gate's `sb` statistic is an aggregate over the whole composite; crossing that threshold doesn't guarantee zero *local* defects, and this specific test's frame pairs apparently have limited background overlap for the joint solver to constrain confidently against each other, so the gain-prior term (which only pulls toward 1.0, not toward matching a specific neighbor) doesn't fully close the gap.
+- **Disposition**: `ASP_JOINT_GAIN_SOLVE` stays default OFF — 2 real wins don't outweigh introducing one new "banded composite where a safe fallback used to be" case, given this project's "never worse than fallback" objective. The implementation is kept (flag-gated, matches spec, demonstrably works on 2/5 tests). Recommended follow-up (not attempted, to keep this measurement to one change): add a finer-grained local check (mirroring `seam_visibility`) to the composite gate itself when this flag is active, so a test like test04 still falls back safely instead of shipping a banded composite that only an aggregate metric approved.
+- Full write-up in `.agent/cache/asp_joint_gain_solve_postmortem_2026-07-27.md` per the roadmap's ground rules. `moon/roadmaps/asp.md` §3.1 updated with the mixed-result status.
+
+---
+
 ## S228 — 2026-07-27 (ASP Phase 0.5: Hugin wired as a fourth comparator; Merge tab gets a 4-engine dropdown)
 
 Implemented GitHub issue #20 / roadmap §0.5 (Hugin reference comparator), plus GitHub-issue-adjacent roadmap draft `new_features.md` §4.16: replace the Merge tab's "Perfect Stitch Mode" checkbox and redundant "stitch" mode with a 4-engine dropdown (OpenCV/Hugin/Overmix/Anime Stitch Pipeline) reusing all three comparators now built for the benchmark.

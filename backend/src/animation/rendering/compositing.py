@@ -139,6 +139,18 @@ _BLOCKS_LUM_COMP: bool = os.environ.get("ASP_BLOCKS_LUM_COMP", "1") != "0"
 # Default ON.  Set ASP_GLOBAL_GAIN_COMP=0 to disable.
 _GLOBAL_GAIN_COMP: bool = os.environ.get("ASP_GLOBAL_GAIN_COMP", "1") != "0"
 
+# §3.1 — Joint canvas-space blocks-gain solve (Brown-Lowe 2007, research §9.3).
+# Alternative to _equalize_warped_gains's sequential pairwise chain, which
+# anchors each frame's correction to its already-corrected predecessor and so
+# drifts over long chains. This solves one linear least-squares system over
+# ALL overlapping frame pairs' bg-only mean luminance simultaneously, with a
+# gain-prior term regularizing each frame toward gain=1.0 — the same
+# formulation cv2's own detail::GainCompensator implements for classical
+# panorama stitching. Default OFF pending A/B against the sequential chain.
+_JOINT_GAIN_SOLVE: bool = os.environ.get("ASP_JOINT_GAIN_SOLVE", "0") != "0"
+_JOINT_GAIN_SIGMA_N: float = float(os.environ.get("ASP_JOINT_GAIN_SIGMA_N", "10.0"))
+_JOINT_GAIN_SIGMA_G: float = float(os.environ.get("ASP_JOINT_GAIN_SIGMA_G", "0.1"))
+
 
 def _has_sufficient_bg(
     bg_sel: np.ndarray,
@@ -1134,6 +1146,114 @@ def _feather_gc_boundaries(
     return out
 
 
+def _joint_gain_solve(
+    warped_frames: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+    sigma_n: float = 10.0,
+    sigma_g: float = 0.1,
+) -> np.ndarray:
+    """§3.1: Brown-Lowe (2007) joint multi-image gain compensation.
+
+    One linear least-squares system over ALL overlapping frame pairs'
+    bg-only mean luminance, with a gain-prior term regularizing each frame's
+    gain toward 1.0 (prevents the degenerate all-shrink/all-grow solutions a
+    plain pairwise-ratio system admits). Minimizes:
+
+        sum_(i,j overlapping) n_ij/sigma_n^2 * (g_i*I_ij - g_j*I_ji)^2
+      + sum_i n_i/sigma_g^2 * (1 - g_i)^2
+
+    where I_ij is frame i's bg-only mean luminance in its overlap with frame
+    j, n_ij the overlap pixel count, and n_i the total overlap-pixel count
+    frame i participates in (matches cv2's own detail::GainCompensator).
+
+    Returns a length-N scalar gain array clamped to [0.5, 2.0]. Frames with
+    no valid overlap get gain=1.0 (untouched).
+    """
+    N = len(warped_frames)
+    if N < 2:
+        return np.ones(N, dtype=np.float64)
+
+    overlaps: List[Tuple[int, int, float, float, int]] = []
+    for i in range(N):
+        if warped_bg[i] is None:
+            continue
+        has_i = warped_frames[i].max(axis=2) > 10
+        for j in range(i + 1, N):
+            if warped_bg[j] is None:
+                continue
+            shared = warped_bg[i] & warped_bg[j]
+            if not shared.any():
+                continue
+            has_j = warped_frames[j].max(axis=2) > 10
+            sel = shared & has_i & has_j
+            n_px = int(sel.sum())
+            if n_px < 200:
+                continue
+            mean_i = float(
+                warped_frames[i][sel].astype(np.float64).dot(LUMINANCE_WEIGHTS).mean()
+            )
+            mean_j = float(
+                warped_frames[j][sel].astype(np.float64).dot(LUMINANCE_WEIGHTS).mean()
+            )
+            if mean_i < 1.0 or mean_j < 1.0:
+                continue
+            overlaps.append((i, j, mean_i, mean_j, n_px))
+
+    if not overlaps:
+        return np.ones(N, dtype=np.float64)
+
+    inv_sigma_n2 = 1.0 / (sigma_n * sigma_n)
+    inv_sigma_g2 = 1.0 / (sigma_g * sigma_g)
+
+    A = np.zeros((N, N), dtype=np.float64)
+    b = np.zeros(N, dtype=np.float64)
+    frame_npx = np.zeros(N, dtype=np.float64)
+
+    for i, j, mean_i, mean_j, n_px in overlaps:
+        A[i, i] += n_px * (mean_i**2) * inv_sigma_n2
+        A[j, j] += n_px * (mean_j**2) * inv_sigma_n2
+        A[i, j] -= n_px * mean_i * mean_j * inv_sigma_n2
+        A[j, i] -= n_px * mean_i * mean_j * inv_sigma_n2
+        frame_npx[i] += n_px
+        frame_npx[j] += n_px
+
+    for i in range(N):
+        w = frame_npx[i] * inv_sigma_g2
+        A[i, i] += w
+        b[i] += w  # prior target g_i = 1.0
+
+    try:
+        gains = np.linalg.solve(A, b)
+    except np.linalg.LinAlgError:
+        gains = np.ones(N, dtype=np.float64)
+
+    return np.clip(gains, 0.5, 2.0)
+
+
+def _apply_joint_gain_solve(
+    warped_frames: List[np.ndarray],
+    warped_bg: List[Optional[np.ndarray]],
+) -> List[np.ndarray]:
+    """Solve §3.1's joint gain system and apply each frame's scalar gain to
+    its own bg-only pixels (matches _normalize_single_frame's convention —
+    foreground/character pixels are never touched by a background exposure
+    correction)."""
+    gains = _joint_gain_solve(
+        warped_frames, warped_bg, sigma_n=_JOINT_GAIN_SIGMA_N, sigma_g=_JOINT_GAIN_SIGMA_G
+    )
+    result = []
+    for i, wf in enumerate(warped_frames):
+        gain = float(gains[i])
+        if warped_bg[i] is None or abs(gain - 1.0) < 1e-6:
+            result.append(wf.copy())
+            continue
+        out = wf.astype(np.float32)
+        bg_sel = warped_bg[i] & (wf.max(axis=2) > 10)
+        out[bg_sel] = np.clip(out[bg_sel] * gain, 0, 255)
+        result.append(out.astype(np.uint8))
+    return result
+
+
 def _equalize_warped_gains(
     warped_frames: List[np.ndarray],
     block_size: int = 32,
@@ -1631,7 +1751,10 @@ def _composite_foreground(
 
     # Equalise inter-frame luminance before seam finding.
     if _GLOBAL_GAIN_COMP and len(warped_norm) >= 2:
-        warped_norm = _equalize_warped_gains(warped_norm, block_size=32)
+        if _JOINT_GAIN_SOLVE:
+            warped_norm = _apply_joint_gain_solve(warped_norm, warped_bg)
+        else:
+            warped_norm = _equalize_warped_gains(warped_norm, block_size=32)
 
     # Try global GraphCut / Canvas-space DP composite
     global_res = _try_global_seam_composite(

@@ -378,12 +378,20 @@ reloads fresh every dataset with no cache, unlike BiRefNet).
 
 *(Only after Phase 2 — these polish composites that must first be coherent.)*
 
-- **3.1 Joint canvas-space blocks-gain solve** `[1 week]` — the full Brown–Lowe
-  2007 formulation (research §9.3): one least-squares system over all frame pairs'
-  overlap blocks with a gain-prior term (current §4.10 is sequential pairwise;
-  drifts over long chains). Bg-pixels-only, luminance-scalar, clamped — the
-  report's empirically-derived anime rules. Targets the residual banding
-  (composite_gate_sb fires on 19 tests).
+- **3.1 Joint canvas-space blocks-gain solve** `[MIXED, 2026-07-27 — see
+  .agent/cache/asp_joint_gain_solve_postmortem_2026-07-27.md; stays default
+  OFF]` — implemented the full Brown–Lowe 2007 formulation as specified
+  (`ASP_JOINT_GAIN_SOLVE`, one least-squares system over all overlapping
+  frame pairs with a bg-only, luminance-scalar, clamped gain-prior term,
+  replacing §4.10's sequential chain). 5-test verify: genuine wins on 2/5
+  (test08/09 — reduced visible banding, one gained a fallback→real
+  composite with more coverage), roughly neutral on 2/5, and one new
+  regression (test04: nudged the aggregate composite-gate score just past
+  its threshold, producing a real composite with a local banding defect the
+  finer-grained seam_visibility metric catches but the gate's aggregate
+  statistic didn't). The approach works; the gate needs a matching
+  finer-grained local check before this can default-on — not attempted here
+  to keep this one measurement to one change.
 - **3.2 GraphCut revisit** — moot; 1.3 did not survive its second measurement
   (2026-07-27).
 - **3.3 Multi-band blend on final boundaries** `[3 days]` — only if 3.1+3.2 leave
