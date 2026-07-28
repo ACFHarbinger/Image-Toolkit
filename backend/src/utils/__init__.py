@@ -1,3 +1,7 @@
-from .decorators import log_call
+"""Shared backend utility modules: `data/` (safetensors metadata) and
+`display/` (slideshow daemons), both used internally across the app.
 
-__all__ = ["log_call"]
+Standalone CLI tools invoked only by justfiles/scripts live outside this
+package as direct children of `backend/`: `backend/validation/`,
+`backend/docs/`, `backend/scripts/`, `backend/migrations/`.
+"""

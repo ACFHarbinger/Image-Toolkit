@@ -55,8 +55,8 @@ val_cov_sort := "coverage"
 val_cov_limit := "40"
 val_graph_html := "module_graph.html"
 val_graph_depth := "10"
-val_dep_file := "backend/src/utils/decorators.py"
-val_dep_name := "log_call"
+val_dep_file := "backend/controllers/backend_dispatch.py"
+val_dep_name := "dispatch_command"
 
 commit_msg := ""
 

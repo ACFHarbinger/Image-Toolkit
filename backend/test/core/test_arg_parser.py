@@ -2,7 +2,7 @@ import sys
 from unittest.mock import patch
 
 import pytest
-from src.utils.io.arg_parser import parse_params
+from controllers.cli.arg_parser import parse_params
 
 
 class TestConfigsParser:

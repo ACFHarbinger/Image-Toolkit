@@ -823,6 +823,8 @@ def log_call(level=logging.DEBUG):
 ```
 Applied selectively to pipeline stages and model `load()`/`unload()` calls. Provides timing data compatible with §5.4B's JSON trace format without instrumenting every function body.
 
+**Status update (2026-07-28):** built (A.6, `backend/src/utils/decorators/function_calls.py`), but never actually applied to any function anywhere in the codebase — a repo-wide grep for `log_call` found zero call sites besides its own definition. Removed as dead code during the controllers/utils restructuring pass. Options A/B/D above remain unimplemented proposals.
+
 **D — `@worker_method` — standardised exception-to-signal routing**
 For QThread workers that always want exceptions routed to `self.error.emit(str(e))`:
 ```python

@@ -1,7 +1,7 @@
 """Top-level CLI command router and command-group implementations.
 
 `main.py` parses argv into `(command, opts)` via
-:mod:`backend.src.utils.io.arg_parser` and hands both to
+:mod:`backend.controllers.cli.arg_parser` and hands both to
 :func:`dispatch_command`, which routes to one of the `dispatch_*` functions
 below — one per command group (`core`, `web`, `database`, `model`, `stitch`,
 `update-settings`). Kept in a single module rather than one file per group:

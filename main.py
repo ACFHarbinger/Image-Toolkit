@@ -2,6 +2,17 @@ import os
 import sys
 import warnings
 
+# TEMP DEBUG INSTRUMENTATION (browse/scan-directory crash investigation) —
+# allow any process to ptrace-attach post-hoc, so gdb can attach *after* the
+# expensive JVM startup instead of tracing the whole process from exec()
+# (which was empirically ~20x+ slower and never finished JVM init within 90s
+# in testing). Revert before committing anything else.
+if os.environ.get("IMGTK_DEBUG_ALLOW_PTRACE"):
+    import ctypes
+    _PR_SET_PTRACER = 0x59616d61
+    _PR_SET_PTRACER_ANY = -1
+    ctypes.CDLL("libc.so.6").prctl(_PR_SET_PTRACER, _PR_SET_PTRACER_ANY, 0, 0, 0)
+
 # Qt Multimedia's FFmpeg backend lazily loads VA-API hardware video decode
 # libraries (e.g. iHD_drv_video.so) on first video playback/probe. Loading
 # those native libs alongside JPype's JVM triggers the same libstdc++ RTTI
@@ -39,7 +50,7 @@ with contextlib.suppress(OSError):
     ctypes.CDLL("/usr/lib/x86_64-linux-gnu/libpulse.so.0")
 
 from backend.src.app import launch_app, log_uncaught_exceptions
-from backend.src.utils.io.arg_parser import parse_params
+from backend.controllers.cli.arg_parser import parse_params
 from backend.controllers.backend_dispatch import dispatch_command
 from gui.src.windows.settings.file_dialog_patch import apply_patch
 

@@ -13,7 +13,7 @@ Attributes:
     main: Main entry point.
 
 Example:
-    python -m src.utils.docs.check_docstrings <path1> [path2 ...]
-    python -m src.utils.docs.check_google_style <path1> [path2 ...]
-    python -m src.utils.docs.add_docstrings_batch <path1> [path2 ...]
+    uv run python backend/docs/check_docstrings.py <path1> [path2 ...]
+    uv run python backend/docs/check_google_style.py <path1> [path2 ...]
+    uv run python backend/docs/add_docstrings_batch.py <path1> [path2 ...]
 """

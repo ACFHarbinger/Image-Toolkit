@@ -49,7 +49,7 @@ def find_constants(root_dirs: List[str]) -> List[Dict]:
 
 if __name__ == "__main__":
     script_path = Path(__file__).resolve()
-    project_root = script_path.parents[4]
+    project_root = script_path.parents[2]
 
     dirs_to_check = [
         str(project_root / "backend"),
