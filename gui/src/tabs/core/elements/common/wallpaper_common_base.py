@@ -1230,6 +1230,31 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         if getattr(self, "background_type", None) == "Solid Color":
             return
 
+        # Serialize overlapping switches (issue #81): every fix so far in
+        # this file makes an *individual* overlapping switch safe by
+        # rejecting stale deliveries after the fact, but still lets two
+        # switches' teardown/create cycles run concurrently in the first
+        # place. Rapid, back-to-back calls (the exact repro this whole
+        # investigation is built around) still produce a tight burst of
+        # QObject construction/destruction, and every crash observed keeps
+        # landing inside PySide6/Shiboken's own binding-layer bookkeeping,
+        # not application logic -- consistent with that subsystem having
+        # limited headroom under heavy concurrent churn regardless of how
+        # correct the staleness guards are. Not starting a second switch's
+        # teardown until the first one's full scan pipeline (image scan ->
+        # chained video scan) has actually finished closes the overlap at
+        # its source instead of only making each overlap individually safe.
+        # Only the *latest* pending request is kept -- intermediate
+        # directories a user rapidly clicked past are never actually worth
+        # rendering. A watchdog timer force-clears the busy flag as a
+        # safety net in case some exit path from the scan pipeline doesn't
+        # go through _on_video_scan_finished()/handle_scan_error() (both of
+        # which clear it normally) -- a stuck flag must never permanently
+        # block all future switches.
+        if getattr(self, "_scan_pipeline_busy", False):
+            self._pending_scan_request = (directory, emit_signal)
+            return
+
         if emit_signal:
             import traceback
             print(
@@ -1246,6 +1271,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         # protects a fast-login-then-immediate-browse sequence the same
         # way it protects the auto-restore path -- whichever call reaches
         # here first, during the settle window, simply reschedules itself.
+        # Deliberately checked BEFORE the busy flag below is set: this is a
+        # self-reschedule (not a second, distinct switch request), so it
+        # must not trip the "already busy" path on its own retry.
         _remaining_ms = startup_settle_remaining_ms()
         print(
             f"[thread-lifecycle] panel={id(self):x} tid={threading.get_ident()} "
@@ -1259,6 +1287,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                 lambda: self.populate_scan_image_gallery(directory, emit_signal),
             )
             return
+
+        self._scan_pipeline_busy = True
+        QTimer.singleShot(10_000, self._scan_pipeline_watchdog)
 
         # Stop and drain scanner threads on THIS instance and every linked
         # peer (Wallpaper's System-Display/Monitor-Display panels share a
@@ -1441,6 +1472,29 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         if self.gallery_image_paths:
             self.gallery_image_paths.sort(key=natural_sort_key)
             self.refresh_gallery_view()
+        self._settle_scan_pipeline()
+
+    def _settle_scan_pipeline(self) -> None:
+        """Marks the current directory switch's scan pipeline as finished
+        and, if a newer switch was requested while this one was still in
+        flight, kicks it off now. See populate_scan_image_gallery()'s
+        serialization comment."""
+        self._scan_pipeline_busy = False
+        pending = getattr(self, "_pending_scan_request", None)
+        if pending is not None:
+            self._pending_scan_request = None
+            directory, emit_signal = pending
+            QTimer.singleShot(0, lambda: self.populate_scan_image_gallery(directory, emit_signal))
+
+    def _scan_pipeline_watchdog(self) -> None:
+        """Safety net: force-clears a stuck _scan_pipeline_busy flag. Should
+        never actually fire in practice (_on_video_scan_finished()/
+        handle_scan_error() clear it on every real exit path from the scan
+        pipeline) -- exists so a missed edge case degrades to "an overlap
+        can occur" (the pre-existing, individually-guarded behavior) rather
+        than "every future switch on this instance silently does nothing"."""
+        if getattr(self, "_scan_pipeline_busy", False):
+            self._settle_scan_pipeline()
 
     def _add_video_thumbnail_manual(self, path: str, q_image: QImage, _worker=None):
         # See _on_image_scan_finished's docstring: a stale (superseded)
@@ -1571,6 +1625,11 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self.common_show_placeholder(
             self.gallery_layout, "Browse for a directory.", self.calculate_columns()
         )
+        # An image-scan error means no VideoScannerWorker will ever be
+        # started for this switch (only _on_image_scan_finished() starts
+        # one), so _on_video_scan_finished() will never fire to settle the
+        # pipeline -- this is the pipeline's actual end for this switch.
+        self._settle_scan_pipeline()
 
     def browse_scan_directory(self):
         from PySide6.QtWidgets import QFileDialog

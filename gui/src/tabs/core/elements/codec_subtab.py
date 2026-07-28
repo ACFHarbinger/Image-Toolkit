@@ -5,7 +5,7 @@ import subprocess
 from typing import Optional, Set
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import QPoint, Qt, Slot
+from PySide6.QtCore import QPoint, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -618,6 +618,14 @@ class CodecSubTab(AbstractClassTwoGalleries):
 
     @Slot()
     def scan_directory_visual(self):
+        # Serialize overlapping switches -- see FormatSubTab's
+        # scan_directory_visual() for the full rationale (issue #81).
+        if getattr(self, "_scan_visual_busy", False):
+            self._scan_visual_pending = True
+            return
+        self._scan_visual_busy = True
+        QTimer.singleShot(400, self._settle_scan_visual)
+
         paths = self.collect_paths()
         if not paths:
             QMessageBox.information(self, "No Files", "No matching video files found.")
@@ -629,6 +637,12 @@ class CodecSubTab(AbstractClassTwoGalleries):
             return
 
         self._start_codec_probe_scan(paths)
+
+    def _settle_scan_visual(self) -> None:
+        self._scan_visual_busy = False
+        if getattr(self, "_scan_visual_pending", False):
+            self._scan_visual_pending = False
+            QTimer.singleShot(0, self.scan_directory_visual)
 
     def _start_codec_probe_scan(self, paths: list[str]):
         if self._codec_scan_worker is not None:

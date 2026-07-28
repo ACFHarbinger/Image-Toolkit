@@ -177,24 +177,33 @@ class TestRapidDirectorySwitchRace:
             except RuntimeError:
                 return None
 
-        # The real invariant: exactly one VideoScannerWorker should ever be
-        # created for this sequence -- the one legitimately started once
-        # the FINAL image scan (dir_b) finishes. A stale scan_finished
-        # signal (from any of the three superseded image scans) reaching
-        # _on_image_scan_finished() unconditionally starts a brand-new
-        # VideoScannerWorker for whatever self.scanned_dir happened to be
-        # at that moment -- even if that extra worker later gets stopped
-        # on the *next* switch (delayed cleanup), it still existed and ran
-        # for a window where it could have delivered thumbnail_ready into
-        # gallery widgets mid-teardown. Counting total creations catches
-        # that window even when isRunning() has since gone False.
-        assert len(wallpaper_base.video_registry) == 1, (
-            f"expected exactly one VideoScannerWorker to ever be created "
-            f"across these four rapid switches, found "
-            f"{len(wallpaper_base.video_registry)} -- one or more stale "
-            f"scan_finished signals reached _on_image_scan_finished() and "
-            f"started an extra worker for a directory the user had "
-            f"already navigated away from (see Addendum 9 in "
+        # The real invariant: a VideoScannerWorker should only ever be
+        # created for a directory that actually got its own full scan
+        # pipeline -- never for one of the two *intermediate* switches
+        # (call 2's dir_b, call 3's dir_a) that a user rapidly clicked
+        # past. populate_scan_image_gallery() now serializes overlapping
+        # switches (issue #81): while call 1 (dir_a) is still mid-pipeline,
+        # calls 2-4 are coalesced into a single pending request, which is
+        # overwritten each time and only the *last* one (call 4's dir_b)
+        # actually runs once call 1 settles. So exactly two pipelines run
+        # end to end here -- call 1 (dir_a) and the coalesced final request
+        # (dir_b) -- meaning exactly two VideoScannerWorkers, one per
+        # directory that actually got scanned; never one for dir_b's call 2
+        # or dir_a's call 3, which never started a pipeline of their own at
+        # all. (Before serialization existed, all four calls started their
+        # own pipeline immediately, and only _on_image_scan_finished()'s
+        # stale-sender check retroactively caught the three that should not
+        # have proceeded -- this asserted exactly one worker for that
+        # reason. Serialization now prevents the extra three pipelines from
+        # starting in the first place, which is why the correct count
+        # changed from one to two.)
+        created_dirs = sorted(_safe_directory(w) for w in wallpaper_base.video_registry)
+        assert created_dirs == sorted([str(dir_a), str(dir_b)]), (
+            f"expected exactly one VideoScannerWorker for dir_a (the first, "
+            f"immediately-processed switch) and one for dir_b (the final, "
+            f"coalesced switch), found workers for {created_dirs} -- either "
+            f"an intermediate (coalesced-away) switch started its own "
+            f"pipeline, or serialization let a duplicate through (see "
             f".agent/cache/gallery_crash_deleteorphaned_2026-07-27.md)"
         )
 

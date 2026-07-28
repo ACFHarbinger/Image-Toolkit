@@ -5,7 +5,7 @@ import subprocess
 from typing import Optional, Set
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import QPoint, Qt, Signal, Slot
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -788,6 +788,26 @@ class FormatSubTab(AbstractClassTwoGalleries):
 
     @Slot()
     def scan_directory_visual(self):
+        # Serialize overlapping switches (issue #81, same principle as
+        # WallpaperCommonBase.populate_scan_image_gallery()): rapid,
+        # back-to-back calls (e.g. quick successive directory browses)
+        # would otherwise each start their own clear_galleries()/
+        # start_loading_thumbnails() cycle concurrently, producing the same
+        # class of heavy QObject churn under which this whole investigation's
+        # crash reproduces (PySide6/Shiboken's own binding-layer bookkeeping,
+        # not application logic). Unlike the Wallpaper tab's scan pipeline,
+        # there's no single "fully settled" event to hook here (chunked
+        # thumbnail loads have no one "all done" signal), so this uses a
+        # fixed settle window instead of an event-driven one -- long enough
+        # for a typical scan+dispatch to get well underway. self.input_path
+        # is read fresh when the deferred call actually runs, so only the
+        # *last* requested directory during a rapid burst is ever acted on.
+        if getattr(self, "_scan_visual_busy", False):
+            self._scan_visual_pending = True
+            return
+        self._scan_visual_busy = True
+        QTimer.singleShot(400, self._settle_scan_visual)
+
         paths = self.collect_paths()
         if not paths:
             QMessageBox.information(self, "No Files", "No matching files found.")
@@ -795,6 +815,12 @@ class FormatSubTab(AbstractClassTwoGalleries):
             return
 
         self.start_loading_thumbnails(sorted(paths, key=natural_sort_key))
+
+    def _settle_scan_visual(self) -> None:
+        self._scan_visual_busy = False
+        if getattr(self, "_scan_visual_pending", False):
+            self._scan_visual_pending = False
+            QTimer.singleShot(0, self.scan_directory_visual)
 
     # --- FORMAT BUTTONS ---
     @Slot(str, bool)
