@@ -502,3 +502,41 @@ re-reading the diff rather than needing another crash log — a reminder to
 re-review any startup-sequencing change for this exact "is a window ever
 briefly absent" hazard before shipping it, given `quitOnLastWindowClosed`'s
 default is easy to forget about.
+
+## Addendum 7 (2026-07-28) — a second, independent instance of round 7's bug, in a file round 7 never touched
+
+The user reported the exact same symptom persisting after round 7 —
+identical stdout, cutting off right after credential decryption, no crash
+log. Since round 7's fix was a deterministic (non-race) bug fix, an
+identical *recurrence* after it landed meant either the fix wasn't the
+whole story, or there was a second source of the same underlying problem.
+
+**Found it**: `gui/src/windows/main/login_window.py` has its own,
+independent `self.close()` call immediately after each of its three
+`login_successful.emit(...)` call sites (guest login, existing-account
+unlock, new-account creation) — code round 7 (which only touched
+`backend/src/app.py`) never touched. `login_successful` is a direct
+(same-thread) signal connection, so `app.py`'s connected
+`launch_main_gui()` slot runs *synchronously*, inside the `emit()` call
+itself. Since round 6, that slot doesn't build `MainWindow` immediately —
+it only *schedules* construction 400ms later via `QTimer.singleShot`. Once
+`emit()` returns, control falls straight through to
+`login_window.py`'s own `self.close()`, which runs essentially instantly —
+long before the 400ms deferred `MainWindow` construction — recreating the
+exact same zero-top-level-windows-open state round 7 already fixed once,
+through a second, entirely separate code path.
+
+**Fix**: removed all three `self.close()` calls from `login_window.py`.
+`app.py`'s `_build_and_show_main_window()` already closes the previous
+window itself, correctly, only once `MainWindow` is actually constructed
+and shown — that was always the intended single source of truth for this
+transition; `login_window.py`'s own close calls were redundant even before
+they became actively harmful.
+
+**Lesson for future rounds of this bug class**: when a startup-sequencing
+fix changes a slot connected to a signal via a *direct* connection, audit
+every place that *emits* that signal too, not just the slot itself — a
+direct connection means the emitting code's own subsequent statements run
+before the now-deferred work the slot scheduled, and any of those
+statements that assumed the old (synchronous) slot behavior can silently
+reintroduce the exact bug the slot-side fix just closed.
