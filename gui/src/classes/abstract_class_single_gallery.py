@@ -13,6 +13,7 @@ from backend.src.constants import (
 from PySide6.QtCore import QEvent, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QColor, QImage, QPainter, QPixmap, QResizeEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QGridLayout,
     QInputDialog,
@@ -1145,6 +1146,14 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             # video directory scan). Matches the same wait already used in
             # AbstractClassTwoGalleries.closeEvent() for the tab-close path.
             self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
+            # waitForDone() blocks THIS thread until pool workers finish; it
+            # does not pump this thread's own event loop meanwhile. Any
+            # deleteLater() calls already queued from an earlier, rapid
+            # directory switch are still unprocessed at this point -- flush
+            # them before the caller proceeds to tear down/rebuild widgets
+            # again (see .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
+            # Addendum 8).
+            QApplication.processEvents()
 
         # CRITICAL FIX: Clear loading paths so interrupted loads don't block future attempts
         self._loading_paths.clear()

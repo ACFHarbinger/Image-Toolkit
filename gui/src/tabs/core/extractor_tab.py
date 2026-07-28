@@ -920,6 +920,13 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
             except RuntimeError:
                 pass
             self.vid_scanner_worker = None
+            # wait() blocks this thread for the worker thread to finish; it
+            # does not pump this thread's own event loop meanwhile, so any
+            # deleteLater() calls already queued from an earlier, rapid
+            # directory switch are still unprocessed at this point -- flush
+            # them before proceeding (see
+            # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md Addendum 8).
+            QApplication.processEvents()
 
         # Close sub-windows
         for win in list(self.open_preview_windows):
@@ -1210,6 +1217,13 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
             except RuntimeError:
                 pass
             self.vid_scanner_worker = None
+            # wait() blocks this thread for the worker thread to finish; it
+            # does not pump this thread's own event loop meanwhile, so any
+            # deleteLater() calls already queued from an earlier, rapid
+            # directory switch are still unprocessed at this point -- flush
+            # them before tearing down/rebuilding widgets below (see
+            # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md Addendum 8).
+            QApplication.processEvents()
 
         # Clear grid and path tracking
         paths_to_remove = list(self.source_path_to_widget.keys())

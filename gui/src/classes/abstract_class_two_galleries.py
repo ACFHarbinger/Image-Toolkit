@@ -1523,6 +1523,16 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             # for the tab-close path; this extends the same fix to every
             # other cancel_loading() caller.
             self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
+            # waitForDone() blocks THIS thread until pool workers finish; it
+            # does not pump this thread's own event loop meanwhile. Any
+            # deleteLater() calls already queued from an earlier, rapid
+            # directory switch are still unprocessed at this point --
+            # flush them before the caller proceeds to tear down/rebuild
+            # widgets again, or repeated rapid switches can pile up
+            # multiple generations of pending deferred-deletion events
+            # (see .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
+            # Addendum 8).
+            QApplication.processEvents()
 
     def closeEvent(self, event):
         """Cleanup processes on close."""
@@ -1531,6 +1541,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         self.thread_pool.clear()
         # Ensure signals don't fire to a destroyed object
         self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
+        QApplication.processEvents()  # flush pending deleteLater()s -- see cancel_loading()
         super().closeEvent(event)
 
     def clear_galleries(self, clear_data=True):

@@ -1174,6 +1174,23 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                 pass
             self.vid_scanner_worker = None
 
+        # QThread.wait() above blocks THIS (calling/main) thread until the
+        # OTHER thread finishes -- it does not pump this thread's own event
+        # loop while waiting. Any deleteLater() calls already queued from an
+        # earlier, rapid directory switch (this method's own two calls just
+        # above, on a PREVIOUS invocation, plus clear_gallery_widgets()'s
+        # widget teardown loop) are therefore still sitting unprocessed in
+        # the event queue at this point, no matter how long the wait above
+        # took. If the caller proceeds straight to tearing down/rebuilding
+        # widgets again without this queue ever being flushed, repeated
+        # rapid switches (e.g. restore -> browse video -> browse image ->
+        # browse video again, each "immediately") can pile up multiple
+        # generations of pending deferred-deletion events before any of
+        # them run, risking the same use-after-free crash class this whole
+        # file is already guarding against, just via queue backlog instead
+        # of a still-running thread. Flush it explicitly before returning.
+        QApplication.processEvents()
+
     def populate_scan_image_gallery(self, directory: str, emit_signal: bool = True):
         if getattr(self, "background_type", None) == "Solid Color":
             return
