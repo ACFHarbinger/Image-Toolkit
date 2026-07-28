@@ -40,7 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from backend.src.errors import ConfigError
 
-__all__ = ["load_asp_config", "validate_asp_config", "dump_asp_config", "get_asp"]
+__all__ = ["load_asp_config", "validate_asp_config", "dump_asp_config", "get_asp", "asp_schema"]
 
 # Resolved relative to this file: backend/src/animation/core/ → up 4 → backend/config/
 _DEFAULT_CONFIG_NAME = Path(__file__).resolve().parent.parent.parent.parent / "config" / "asp_config.toml"
@@ -243,6 +243,18 @@ def load_asp_config(
                 os.environ.setdefault(key, str(val))
 
     return flat
+
+
+def asp_schema() -> Dict[str, Tuple]:
+    """Return a copy of the ASP config schema (§1.8B).
+
+    Exposes ``_CONFIG_SCHEMA`` publicly so callers outside this module (e.g.
+    the unified ``AppConfig`` snapshot, §5.14C) can enumerate every known
+    ``ASP_*`` key, its expected type, and its valid range without reaching
+    into a private module attribute. Each value is
+    ``(expected_type, min_val, max_val, description)``.
+    """
+    return dict(_CONFIG_SCHEMA)
 
 
 def get_asp(key: str, default: str = "") -> str:
