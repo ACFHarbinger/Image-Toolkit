@@ -3,11 +3,37 @@ from unittest.mock import MagicMock, patch
 import pytest
 from src.core.wallpaper import WallpaperManager
 
+# §5.17: wallpaper.py was split into a wallpaper/ package by OS (_windows.py,
+# _kde.py, _gnome.py, manager.py), each importing only what it needs. Patches
+# below target the submodule that actually owns each name at call time
+# (e.g. src.core.wallpaper._windows.winreg, not src.core.wallpaper.winreg) --
+# mock.patch resolves names via the module's own globals, not via
+# WallpaperManager's inherited-method lookup, so patching the pre-split
+# top-level path would silently no-op post-split.
+#
+# `base` (the native extension) is imported separately in three submodules
+# (_dbus.py, _gnome.py, manager.py). Tests that only exercise one of those
+# call sites patch that submodule's `base` directly; tests whose code path
+# crosses more than one (e.g. a KDE D-Bus failure falling through to the
+# GNOME base.set_wallpaper_gnome call in manager.py) use the shared
+# `mock_base` fixture below, which patches all three to the same Mock so a
+# single assertion object sees every call regardless of which submodule made it.
+
 
 class TestWallpaperManager:
     @pytest.fixture
+    def mock_base(self):
+        shared = MagicMock()
+        with (
+            patch("src.core.wallpaper._dbus.base", shared),
+            patch("src.core.wallpaper._gnome.base", shared),
+            patch("src.core.wallpaper.manager.base", shared),
+        ):
+            yield shared
+
+    @pytest.fixture
     def mock_subprocess(self):
-        with patch("src.core.wallpaper.subprocess.run") as mock:
+        with patch("src.core.wallpaper._gnome.subprocess.run") as mock:
             yield mock
 
     @pytest.fixture
@@ -22,9 +48,9 @@ class TestWallpaperManager:
 
     # --- Windows Tests ---
 
-    @patch("src.core.wallpaper.platform.system", return_value="Windows")
-    @patch("src.core.wallpaper.winreg", create=True)
-    @patch("src.core.wallpaper.ctypes", create=True)
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Windows")
+    @patch("src.core.wallpaper._windows.winreg", create=True)
+    @patch("src.core.wallpaper._windows.ctypes", create=True)
     def test_apply_wallpaper_windows_solid_color(
         self, mock_ctypes, mock_winreg, mock_platform, mock_monitor
     ):
@@ -46,9 +72,9 @@ class TestWallpaperManager:
         # Check SystemParametersInfoW call
         mock_ctypes.windll.user32.SystemParametersInfoW.assert_called_once()
 
-    @patch("src.core.wallpaper.platform.system", return_value="Windows")
-    @patch("src.core.wallpaper.winreg", create=True)
-    @patch("src.core.wallpaper.ctypes", create=True)
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Windows")
+    @patch("src.core.wallpaper._windows.winreg", create=True)
+    @patch("src.core.wallpaper._windows.ctypes", create=True)
     def test_apply_wallpaper_windows_single_image(
         self, mock_ctypes, mock_winreg, mock_platform, mock_monitor
     ):
@@ -72,11 +98,8 @@ class TestWallpaperManager:
 
     # --- Linux Tests ---
 
-    @patch("src.core.wallpaper.base")
-    @patch("src.core.wallpaper.platform.system", return_value="Linux")
-    def test_apply_wallpaper_linux_kde(
-        self, mock_platform, mock_base, mock_monitor
-    ):
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    def test_apply_wallpaper_linux_kde(self, mock_platform, mock_base, mock_monitor):
         mock_base.evaluate_kde_script.return_value = "0:0:0:0"
 
         WallpaperManager.apply_wallpaper(
@@ -92,9 +115,8 @@ class TestWallpaperManager:
         assert args[0] == "/usr/bin/qdbus"
         assert "org.kde.image" in args[1]
 
-    @patch("src.core.wallpaper.base")
-    @patch("src.core.wallpaper.platform.system", return_value="Linux")
-    @patch("src.core.wallpaper.Image")  # Mock PIL for spanned
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch("src.core.wallpaper._gnome.Image")  # Mock PIL for spanned
     def test_apply_wallpaper_linux_gnome_fallback(
         self, mock_pil, mock_platform, mock_base, mock_monitor
     ):
@@ -113,11 +135,13 @@ class TestWallpaperManager:
         args = mock_base.set_wallpaper_gnome.call_args[0]
         assert "/path/to/img.jpg" in args[0]
 
-    @patch("src.core.wallpaper.base")
-    @patch("src.core.wallpaper.platform.system", return_value="Linux")
-    @patch("src.core.wallpaper.shutil.which", return_value="/usr/bin/plasma-apply-wallpaperimage")
-    @patch("src.core.wallpaper.os.path.exists", return_value=True)
-    @patch("src.core.wallpaper.subprocess.run")
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch(
+        "src.core.wallpaper._kde.shutil.which",
+        return_value="/usr/bin/plasma-apply-wallpaperimage",
+    )
+    @patch("src.core.wallpaper._kde.os.path.exists", return_value=True)
+    @patch("src.core.wallpaper._kde.subprocess.run")
     def test_apply_wallpaper_linux_kde_dbus_failed_plasma_apply_fallback(
         self, mock_run, mock_exists, mock_which, mock_platform, mock_base, mock_monitor
     ):
@@ -139,11 +163,13 @@ class TestWallpaperManager:
         assert "preserveAspectCrop" in cmd
         assert "/path/to/img.jpg" in cmd[-1]
 
-    @patch("src.core.wallpaper.base")
-    @patch("src.core.wallpaper.platform.system", return_value="Linux")
-    @patch("src.core.wallpaper.shutil.which", return_value="/usr/bin/plasma-apply-wallpaperimage")
-    @patch("src.core.wallpaper.os.path.exists", return_value=True)
-    @patch("src.core.wallpaper.subprocess.run")
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch(
+        "src.core.wallpaper._kde.shutil.which",
+        return_value="/usr/bin/plasma-apply-wallpaperimage",
+    )
+    @patch("src.core.wallpaper._kde.os.path.exists", return_value=True)
+    @patch("src.core.wallpaper._kde.subprocess.run")
     @patch.dict("os.environ", {"XDG_CURRENT_DESKTOP": "KDE"})
     def test_apply_wallpaper_linux_kde_env_plasma_apply_fallback(
         self, mock_run, mock_exists, mock_which, mock_platform, mock_base, mock_monitor
@@ -163,9 +189,8 @@ class TestWallpaperManager:
         cmd = mock_run.call_args[0][0]
         assert cmd[0] == "/usr/bin/plasma-apply-wallpaperimage"
 
-    @patch("src.core.wallpaper.base")
-    @patch("src.core.wallpaper.platform.system", return_value="Linux")
-    @patch("src.core.wallpaper.Path.exists", return_value=False)
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch("src.core.wallpaper._kde.Path.exists", return_value=False)
     def test_apply_wallpaper_linux_kde_missing_video_plugin(
         self, mock_exists, mock_platform, mock_base, mock_monitor
     ):
