@@ -1,8 +1,28 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from .edge_data import EdgeData
-from .node_data import NodeData
+
+@dataclass
+class NodeData:
+    """Represents a node in the graph."""
+    node_id: str
+    file_path: str
+    display_mode: str = "fixed"      # "fixed" | "video_runtime"
+    duration_sec: float = 30.0
+    pos_x: float = 0.0
+    pos_y: float = 0.0
+
+
+@dataclass
+class EdgeData:
+    """Represents a directed edge in the graph."""
+    edge_id: int
+    source_id: str
+    target_id: str
+    # Number of times the target node is repeated back-to-back in the
+    # traversal/queue when this edge is taken. Lets a single edge (in
+    # particular a self-edge) stand in for N sequential duplicate edges.
+    repeat_count: int = 1
 
 
 @dataclass

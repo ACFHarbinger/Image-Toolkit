@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .data import NodeData
+from .data_schema import NodeData
 from .node_item import is_video
 
 

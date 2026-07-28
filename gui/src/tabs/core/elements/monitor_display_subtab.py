@@ -55,7 +55,7 @@ from .graph import (
     WallpaperGraphView,
     is_video,
 )
-from .graph.data import GraphData, NodeData
+from .graph.data_schema import GraphData, NodeData
 
 _VIDEO_DURATION_CACHE: Dict[str, float] = {}
 
@@ -736,6 +736,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
         nd = graph.nodes.get(node_id)
         if nd is None:
             return
+        # pyrefly: ignore [bad-argument-type]
         dlg = NodeEditDialog(nd, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             # Update the visual
@@ -771,6 +772,7 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
                 items = self._scene.selectedItems()
                 for item in items:
                     if isinstance(item, NodeItem):
+                        # pyrefly: ignore [bad-argument-type]
                         self._show_node_in_props(item.node_data)
                         return
                 # Nothing or only edge selected → hide props details

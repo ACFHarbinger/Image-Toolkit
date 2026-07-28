@@ -1,5 +1,5 @@
 import pytest
-from gui.src.tabs.core.elements.graph.data import GraphData
+from gui.src.tabs.core.elements.graph.data_schema import GraphData
 from gui.src.tabs.core.elements.graph.wallpaper_graph_scene import WallpaperGraphScene
 from PySide6.QtCore import QPointF, Qt
 

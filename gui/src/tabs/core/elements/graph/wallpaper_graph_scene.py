@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .data import EdgeData, GraphData, NodeData
+from .data_schema import EdgeData, GraphData, NodeData
 from .edge_item import EdgeItem
 from .node_item import NODE_H, NODE_W, NodeItem, is_video
 
@@ -253,6 +253,7 @@ class WallpaperGraphScene(QGraphicsScene):
     # ---- Internal helpers -------------------------------------------------
 
     def _add_node_item(self, nd: NodeData):
+        # pyrefly: ignore [bad-argument-type]
         item = NodeItem(nd)
         self.addItem(item)
         self._node_items[nd.node_id] = item
@@ -262,6 +263,7 @@ class WallpaperGraphScene(QGraphicsScene):
         tgt = self._node_items.get(ed.target_id)
         if src is None or tgt is None:
             return
+        # pyrefly: ignore [bad-argument-type]
         item = EdgeItem(ed, src, tgt)
         self.addItem(item)
         # Key is (source_id, per-source edge_id) to avoid collisions

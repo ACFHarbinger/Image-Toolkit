@@ -7,7 +7,7 @@ from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
 from .....helpers.video.video_thumbnailer import VideoThumbnailer, get_video_thumbnail_cache_path
-from .data import NodeData
+from .data_schema import NodeData
 
 NODE_W = 140
 NODE_H = 115

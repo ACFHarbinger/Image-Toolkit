@@ -4,7 +4,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPainterPathStroker, QPen, QPolygonF
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
-from .data import EdgeData
+from .data_schema import EdgeData
 from .node_item import NODE_H, NODE_W, NodeItem
 
 

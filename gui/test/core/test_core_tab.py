@@ -194,7 +194,7 @@ class TestWallpaperTab:
 
     def test_clear_monitor_graph(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
-        from gui.src.tabs.core.elements.graph.data import GraphData, NodeData
+        from gui.src.tabs.core.elements.graph.data_schema import GraphData, NodeData
         g = GraphData()
         g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
         tab.monitor_display._graphs["0"] = g
@@ -213,7 +213,7 @@ class TestWallpaperTab:
         tab = WallpaperTab(db_tab_ref=MagicMock())
         tab.system_display._monitor_display_ref = tab.monitor_display
 
-        from gui.src.tabs.core.elements.graph.data import GraphData, NodeData
+        from gui.src.tabs.core.elements.graph.data_schema import GraphData, NodeData
         g = GraphData()
         g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
         tab.monitor_display._graphs["0"] = g
