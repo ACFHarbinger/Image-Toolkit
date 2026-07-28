@@ -4590,9 +4590,10 @@ class StitchTab(QWidget):
         worker.signals.error.connect(self._stats_on_error)
         QThreadPool.globalInstance().start(worker)
 
-    @Slot(int)
-    def _stats_on_progress(self, pct: int):
-        self._stats_progress.setValue(pct)
+    @Slot(int, int)
+    def _stats_on_progress(self, completed: int, total: int):
+        self._stats_progress.setMaximum(max(total, 1))
+        self._stats_progress.setValue(completed)
 
     @Slot(list)
     def _stats_on_individual(self, rows: List[dict]):
@@ -5404,9 +5405,10 @@ class StitchTab(QWidget):
         worker.signals.error.connect(self._anim_on_error)
         QThreadPool.globalInstance().start(worker)
 
-    @Slot(int)
-    def _anim_on_progress(self, pct: int):
-        self._anim_progress.setValue(pct)
+    @Slot(int, int)
+    def _anim_on_progress(self, completed: int, total: int):
+        self._anim_progress.setMaximum(max(total, 1))
+        self._anim_progress.setValue(completed)
 
     @Slot(list)
     def _anim_on_finished(self, rows: List[dict]):
@@ -5800,9 +5802,10 @@ class StitchTab(QWidget):
         worker.signals.error.connect(self._seq_on_error)
         QThreadPool.globalInstance().start(worker)
 
-    @Slot(int)
-    def _seq_on_progress(self, pct: int):
-        self._seq_progress.setValue(pct)
+    @Slot(int, int)
+    def _seq_on_progress(self, completed: int, total: int):
+        self._seq_progress.setMaximum(max(total, 1))
+        self._seq_progress.setValue(completed)
 
     @Slot(list)
     def _seq_on_result(self, chain: List[dict]):

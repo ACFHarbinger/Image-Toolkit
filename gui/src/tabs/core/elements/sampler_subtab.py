@@ -558,9 +558,11 @@ class SamplerSubTab(AbstractClassTwoGalleries):
         self.progress_bar.show()
         self.worker.start()
 
-    @Slot(int)
-    def _on_progress(self, pct: int):
-        self.progress_bar.setValue(pct)
+    @Slot(int, int)
+    def _on_progress(self, completed: int, total: int):
+        self.progress_bar.setMaximum(max(total, 1))
+        self.progress_bar.setValue(completed)
+        pct = int(completed / total * 100) if total else 0
         self.status_label.setText(f"Resampling… {pct}% complete") # pyrefly: ignore [missing-attribute]
 
     @Slot(int, str)

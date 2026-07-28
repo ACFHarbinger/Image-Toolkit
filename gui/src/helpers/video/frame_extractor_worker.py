@@ -14,7 +14,7 @@ from ...utils.sort_utils import natural_sort_key
 # --- Worker Signals ---
 class _ExtractorSignals(QObject):
     started = Signal()
-    progress = Signal(int)
+    progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; no natural item count
     finished = Signal(list)  # Returns list of saved paths
     error = Signal(str)
 
@@ -173,7 +173,7 @@ class FrameExtractionWorker(QRunnable):
                 if self._is_cancelled:
                     process.terminate()
                     return
-                self.signals.progress.emit(50)
+                self.signals.progress.emit(50, 100)
                 time.sleep(0.5)
 
             if process.returncode != 0:
@@ -206,7 +206,7 @@ class FrameExtractionWorker(QRunnable):
                 os.rename(os.path.join(self.output_dir, f), final_path)
                 saved_files.append(final_path)
 
-            self.signals.progress.emit(100)
+            self.signals.progress.emit(100, 100)
             self.signals.finished.emit(saved_files)
 
         except Exception as e:
@@ -279,7 +279,7 @@ class FrameExtractionWorker(QRunnable):
                 if self._is_cancelled:
                     process.terminate()
                     return
-                self.signals.progress.emit(50)
+                self.signals.progress.emit(50, 100)
                 time.sleep(0.5)
 
             if process.returncode != 0:
@@ -317,7 +317,7 @@ class FrameExtractionWorker(QRunnable):
                 os.rename(os.path.join(self.output_dir, f), final_path)
                 saved_files.append(final_path)
 
-            self.signals.progress.emit(100)
+            self.signals.progress.emit(100, 100)
             self.signals.finished.emit(saved_files)
         except Exception as e:
             self.signals.error.emit(str(e))

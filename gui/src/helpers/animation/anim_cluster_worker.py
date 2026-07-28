@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans
 
 
 class _AnimClusterSignals(QObject):
-    progress = Signal(int)
+    progress = Signal(int, int)  # (completed, total) — §5.9 Option C
     finished = Signal(list)
     error = Signal(str)
 
@@ -56,6 +56,8 @@ class AnimClusterWorker(QRunnable):
             self.signals.finished.emit([])
             return
 
+        total_steps = 2 * N
+
         frames: List[np.ndarray] = []
         H = W = 0
         for i, p in enumerate(paths):
@@ -69,7 +71,7 @@ class AnimClusterWorker(QRunnable):
             elif img.shape[:2] != (H, W):
                 img = cv2.resize(img, (W, H), interpolation=cv2.INTER_AREA)
             frames.append(img)
-            self.signals.progress.emit(int((i + 1) / N * 35))
+            self.signals.progress.emit(i + 1, total_steps)
 
         if N < 4:
             rows = [
@@ -98,7 +100,7 @@ class AnimClusterWorker(QRunnable):
             warped = cv2.warpAffine(frame, M_small, (tw, th), flags=cv2.INTER_AREA)
             gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
             small_stack.append(gray)
-            self.signals.progress.emit(35 + int((i + 1) / N * 25))
+            self.signals.progress.emit(N + i + 1, total_steps)
 
         stack_arr = np.stack(small_stack, axis=0)  # (N, th, tw)
 
@@ -140,7 +142,7 @@ class AnimClusterWorker(QRunnable):
         km = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
         labels = km.fit_predict(sig_matrix)
 
-        self.signals.progress.emit(95)
+        self.signals.progress.emit(total_steps, total_steps)
 
         rows = []
         for i, p in enumerate(paths):
@@ -156,5 +158,4 @@ class AnimClusterWorker(QRunnable):
             )
         rows.sort(key=lambda r: (r["cluster"], os.path.basename(r["path"])))
 
-        self.signals.progress.emit(100)
         self.signals.finished.emit(rows)

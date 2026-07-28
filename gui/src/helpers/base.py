@@ -76,13 +76,15 @@ class BaseQThreadWorker(QThread):
         re-declare this with a narrower type.
     error : Signal(str)
         Emitted when an unhandled exception escapes ``_execute()``.
-    progress : Signal(int)
-        Emitted with 0–100 completion percentage.
+    progress : Signal(int, int)
+        Emitted as ``(completed, total)`` (see §5.9 Option C,
+        ``moon/roadmaps/architecture.md``). Connecting slots should call
+        ``progress_bar.setMaximum(total)`` then ``.setValue(completed)``.
     """
 
     sig_finished = Signal(object)
     error = Signal(str)
-    progress = Signal(int)
+    progress = Signal(int, int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -144,7 +146,7 @@ class _WorkerSignals(QObject):
 
     finished = Signal(object)
     error = Signal(str)
-    progress = Signal(int)
+    progress = Signal(int, int)  # (completed, total) — see §5.9 Option C
     cancelled = Signal()
 
 

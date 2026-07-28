@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, QRunnable, Signal
 class _StatsSignals(QObject):
     individual_done = Signal(list)  # List[dict] — one dict per image
     pairwise_done = Signal(list)  # List[dict] — one dict per pair
-    progress = Signal(int)  # 0-100
+    progress = Signal(int, int)  # (completed, total) — §5.9 Option C
     error = Signal(str)
 
 
@@ -55,29 +55,7 @@ class StatsWorker(QRunnable):
 
         individual: List[dict] = []
         knn = self._knn_window
-        _n_pw_est = n * (n - 1) // 2 if n <= 12 else n - 1 + (n - 1) * min(knn - 1, n - 2)
-        total_steps = n + max(_n_pw_est, 1)
         bgr_cache: Dict[str, np.ndarray] = {}
-
-        for done, path in enumerate(paths, start=1):
-            if self._cancelled:
-                return
-            row = self._image_stats(path)
-            individual.append(row)
-            bgr = cv2.imread(path)
-            if bgr is not None:
-                h, w = bgr.shape[:2]
-                scale = min(1.0, 512 / max(h, w, 1))
-                if scale < 1.0:
-                    bgr = cv2.resize(
-                        bgr,
-                        (int(w * scale), int(h * scale)),
-                        interpolation=cv2.INTER_AREA,
-                    )
-            bgr_cache[path] = bgr # pyrefly: ignore [unsupported-operation]
-            self.signals.progress.emit(int(done / total_steps * 100))
-
-        self.signals.individual_done.emit(individual)
 
         if n <= 12:
             pairs = [(i, j, True) for i in range(n) for j in range(i + 1, n)]
@@ -95,8 +73,29 @@ class StatsWorker(QRunnable):
                         pairs.append((i, j, False))
                         seen.add((i, j))
 
+        total_steps = n + len(pairs)
+
+        for done, path in enumerate(paths, start=1):
+            if self._cancelled:
+                return
+            row = self._image_stats(path)
+            individual.append(row)
+            bgr = cv2.imread(path)
+            if bgr is not None:
+                h, w = bgr.shape[:2]
+                scale = min(1.0, 512 / max(h, w, 1))
+                if scale < 1.0:
+                    bgr = cv2.resize(
+                        bgr,
+                        (int(w * scale), int(h * scale)),
+                        interpolation=cv2.INTER_AREA,
+                    )
+            bgr_cache[path] = bgr # pyrefly: ignore [unsupported-operation]
+            self.signals.progress.emit(done, total_steps)
+
+        self.signals.individual_done.emit(individual)
+
         pairwise: List[dict] = []
-        total_steps_pw = max(len(pairs), 1)
 
         orb = cv2.ORB_create(nfeatures=500) # pyrefly: ignore [missing-attribute]
         for done_pw, (i, j, is_consec) in enumerate(pairs, start=1):
@@ -108,11 +107,10 @@ class StatsWorker(QRunnable):
             row = self._pair_stats(pa, pb, a, b, i, j, orb)
             row["consecutive"] = is_consec
             pairwise.append(row)
-            pct = int((n + done_pw / total_steps_pw * (n - 1)) / total_steps * 100)
-            self.signals.progress.emit(min(pct, 99))
+            self.signals.progress.emit(n + done_pw, total_steps)
 
         self.signals.pairwise_done.emit(pairwise)
-        self.signals.progress.emit(100)
+        self.signals.progress.emit(total_steps, total_steps)
 
     @staticmethod
     def _image_stats(path: str) -> dict:

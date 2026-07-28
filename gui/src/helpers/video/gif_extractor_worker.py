@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, QRunnable, Signal
 
 
 class _GifWorkerSignals(QObject):
-    progress = Signal(int)
+    progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; no natural item count
     finished = Signal(str)
     error = Signal(str)
 
@@ -123,7 +123,7 @@ class GifCreationWorker(QRunnable):
 
                 print(f"FFmpeg CMD: {cmd}")
 
-                self.signals.progress.emit(0)
+                self.signals.progress.emit(0, 100)
 
                 process = subprocess.Popen(
                     cmd,
@@ -146,7 +146,7 @@ class GifCreationWorker(QRunnable):
                         f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}" # pyrefly: ignore [missing-attribute]
                     )
 
-                self.signals.progress.emit(100)
+                self.signals.progress.emit(100, 100)
                 self.signals.finished.emit(self.output_path)
 
             except Exception as e:
@@ -155,7 +155,7 @@ class GifCreationWorker(QRunnable):
 
         try:
             from moviepy.editor import concatenate_videoclips
-            self.signals.progress.emit(10)
+            self.signals.progress.emit(10, 100)
 
             base_clip = VideoFileClip(self.video_path).subclip(t_start, t_end)
             keep_regions = self._get_keep_regions(t_start, t_end)
@@ -176,12 +176,12 @@ class GifCreationWorker(QRunnable):
             if self.speed != 1.0:
                 clip = clip.speedx(self.speed) # pyrefly: ignore [missing-attribute]
 
-            self.signals.progress.emit(30)
+            self.signals.progress.emit(30, 100)
             clip.write_gif(
                 self.output_path, fps=self.fps, logger=None
             )  # logger=None to avoid stdout clutter
 
-            self.signals.progress.emit(100)
+            self.signals.progress.emit(100, 100)
             self.signals.finished.emit(self.output_path)
 
         except ImportError:

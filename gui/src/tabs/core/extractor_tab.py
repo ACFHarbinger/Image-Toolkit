@@ -1046,9 +1046,10 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
         meta_path = storyboard_meta_path_for(self.video_path) # pyrefly: ignore [bad-argument-type]
         self._on_storyboard_ready(str(meta_path))
 
-    @Slot(int)
-    def _on_storyboard_progress(self, percent: int):
-        self.storyboard_progress_bar.setValue(percent)
+    @Slot(int, int)
+    def _on_storyboard_progress(self, elapsed_ms: int, duration_ms: int):
+        self.storyboard_progress_bar.setMaximum(max(duration_ms, 1))
+        self.storyboard_progress_bar.setValue(elapsed_ms)
 
     @Slot(str)
     def _on_storyboard_ready(self, meta_path: str):
@@ -3988,15 +3989,18 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
         self.active_queue_worker = QueueExecutionWorker(
             self.extraction_queue, parallel=is_parallel
         )
-        self.active_queue_worker.signals.progress.connect(
-            self.extraction_progress_bar.setValue
-        )
+        self.active_queue_worker.signals.progress.connect(self._on_queue_progress)
         self.active_queue_worker.signals.finished.connect(
             self._on_queue_processing_finished
         )
         self.active_queue_worker.signals.error.connect(self._on_queue_processing_error)
 
         QThreadPool.globalInstance().start(self.active_queue_worker)
+
+    @Slot(int, int)
+    def _on_queue_progress(self, completed: int, total: int):
+        self.extraction_progress_bar.setMaximum(max(total, 1))
+        self.extraction_progress_bar.setValue(completed)
 
     def _on_queue_processing_finished(self, results):
         self.active_queue_worker = None

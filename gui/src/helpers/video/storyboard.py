@@ -158,7 +158,7 @@ class StoryboardBuilder(QThread):
 
     finished_ok = Signal(str)  # meta_path
     failed = Signal(str)
-    progress_changed = Signal(int)  # percent, 0-100
+    progress_changed = Signal(int, int)  # (elapsed_ms, duration_ms) — §5.9 Option C
 
     def __init__(self, video_path: str, duration_ms: int, parent=None):
         super().__init__(parent)
@@ -213,7 +213,7 @@ class StoryboardBuilder(QThread):
                     stderr=subprocess.DEVNULL,
                     text=True,
                 )
-                self.progress_changed.emit(0)
+                self.progress_changed.emit(0, self.duration_ms)
                 assert self._process.stdout is not None
                 for line in self._process.stdout:
                     if self._cancelled:
@@ -221,8 +221,8 @@ class StoryboardBuilder(QThread):
                     match = _OUT_TIME_RE.search(line)
                     if match and self.duration_ms > 0:
                         out_time_ms = int(match.group(1)) // 1000
-                        percent = max(0, min(100, int(out_time_ms * 100 / self.duration_ms)))
-                        self.progress_changed.emit(percent)
+                        elapsed_ms = max(0, min(self.duration_ms, out_time_ms))
+                        self.progress_changed.emit(elapsed_ms, self.duration_ms)
                 self._process.wait()
             except OSError as exc:
                 self.failed.emit(str(exc))

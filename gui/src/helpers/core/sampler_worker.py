@@ -3,9 +3,10 @@ import os
 import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from gui.src.helpers.core.config_types import SamplerConfig
 from PySide6.QtCore import QThread, Signal
 
 _PILLOW_FILTERS = {
@@ -32,9 +33,9 @@ class SamplerWorker(QThread):
 
     sig_finished = Signal(int, str)
     error = Signal(str)
-    progress_update = Signal(int)
+    progress_update = Signal(int, int)  # (completed, total) — §5.9 Option C
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Union[SamplerConfig, Dict[str, Any]]):
         super().__init__()
         self.config = config
         self._is_cancelled = False
@@ -67,7 +68,7 @@ class SamplerWorker(QThread):
             failures: List[str] = []
             use_multicore = self.config.get("use_multicore", True)
 
-            self.progress_update.emit(0)
+            self.progress_update.emit(0, total)
 
             if use_multicore and total > 1:
                 max_w = min(os.cpu_count() or 1, 8)
@@ -85,7 +86,7 @@ class SamplerWorker(QThread):
                             done += 1
                     except Exception as exc:
                         failures.append(str(exc))
-                    self.progress_update.emit(int((completed_idx + 1) / total * 100))
+                    self.progress_update.emit(completed_idx + 1, total)
                 self._executor.shutdown(wait=True)
                 self._executor = None
             else:
@@ -97,7 +98,7 @@ class SamplerWorker(QThread):
                             done += 1
                     except Exception as exc:
                         failures.append(str(exc))
-                    self.progress_update.emit(int((i + 1) / total * 100))
+                    self.progress_update.emit(i + 1, total)
 
             if self._is_cancelled:
                 self.sig_finished.emit(done, "**Resampling Cancelled**")
@@ -110,7 +111,7 @@ class SamplerWorker(QThread):
                 self.sig_finished.emit(done, f"Resampled {done} file(s) successfully!")
 
         except Exception as exc:
-            self.progress_update.emit(0)
+            self.progress_update.emit(0, 0)
             self.error.emit(str(exc))
         finally:
             if self._executor:

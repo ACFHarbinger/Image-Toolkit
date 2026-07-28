@@ -89,9 +89,64 @@ class StitchConfig(TypedDict, total=False):
     mfsr_use_diffusion: bool
 
 
+class SamplerConfig(TypedDict, total=False):
+    """Configuration dict for :class:`SamplerWorker`."""
+
+    files_to_process: List[str]
+    use_multicore: bool
+    scale_mode: str
+    scale_factor: float
+    target_width: Optional[int]
+    target_height: Optional[int]
+    preserve_aspect_ratio: bool
+    algorithm: str
+    output_format: Optional[str]
+    output_path: Optional[str]
+    output_filename_prefix: Optional[str]
+    delete_original: bool
+
+
+class CodecConversionConfig(TypedDict, total=False):
+    """Configuration dict for :class:`CodecConversionWorker`."""
+
+    files_to_convert: List[str]
+    use_multicore: bool
+    video_codec: Optional[str]
+    audio_codec: Optional[str]
+    crf: int
+    speed: int
+    output_path: str
+    output_filename_prefix: str
+    delete_original: bool
+
+
+class ExtractionConfig(TypedDict, total=False):
+    """Configuration dict for a single queued item consumed by
+    ``run_extraction_in_process`` / :class:`QueueExecutionWorker`
+    (``gui/src/helpers/core/queue_execution_worker.py``)."""
+
+    type: str  # "range" | "single" | "gif" | "video"
+    video_path: str
+    start_ms: int
+    end_ms: int
+    output_dir: str
+    target_resolution: Optional[tuple]
+    cuts_ms: List[tuple]
+    frame_interval: int
+    smart_extract: bool
+    smart_method: str
+    fps: float
+    mute_audio: bool
+    use_ffmpeg: bool
+    speed: float
+
+
 __all__ = [
     "ConversionConfig",
     "DeletionConfig",
     "MergeConfig",
     "StitchConfig",
+    "SamplerConfig",
+    "CodecConversionConfig",
+    "ExtractionConfig",
 ]

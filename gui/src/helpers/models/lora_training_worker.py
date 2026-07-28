@@ -9,7 +9,7 @@ class LoRATrainingWorker(QThread):
     """
 
     log_signal = Signal(str)
-    progress_signal = Signal(int)
+    progress_signal = Signal(int, int)  # (completed, total) — §5.9 Option C; currently unemitted
     finished_signal = Signal()
     error_signal = Signal(str)
 

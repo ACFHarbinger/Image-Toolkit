@@ -3,10 +3,11 @@ import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from backend.src.core import VideoFormatConverter
 from backend.src.core.video_probe import probe_codecs
+from gui.src.helpers.core.config_types import CodecConversionConfig
 from PySide6.QtCore import QThread, Signal
 
 logger = logging.getLogger(__name__)
@@ -26,11 +27,11 @@ class CodecConversionWorker(QThread):
     already match every requested target codec are skipped without an
     unnecessary re-encode."""
 
-    progress_signal = Signal(int)  # 0-100
+    progress_signal = Signal(int, int)  # (completed, total) — §5.9 Option C
     finished_signal = Signal(int, str)  # (converted_count, message)
     error_signal = Signal(str)
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Union[CodecConversionConfig, Dict[str, Any]]):
         super().__init__()
         self.config = config
         self._is_cancelled = False
@@ -63,7 +64,7 @@ class CodecConversionWorker(QThread):
 
             total_files = len(files_to_convert)
             converted_count = 0
-            self.progress_signal.emit(0)
+            self.progress_signal.emit(0, total_files)
 
             use_multicore = self.config.get("use_multicore", False)
             failures: List[str] = []
@@ -91,7 +92,7 @@ class CodecConversionWorker(QThread):
                     except Exception as e:
                         failures.append(str(e))
 
-                    self.progress_signal.emit(int(((idx + 1) / total_files) * 100))
+                    self.progress_signal.emit(idx + 1, total_files)
 
                 self._executor.shutdown(wait=True)
                 self._executor = None
@@ -105,7 +106,7 @@ class CodecConversionWorker(QThread):
                     except Exception as e:
                         failures.append(str(e))
 
-                    self.progress_signal.emit(int(((idx + 1) / total_files) * 100))
+                    self.progress_signal.emit(idx + 1, total_files)
 
             if self._is_cancelled:
                 self.finished_signal.emit(converted_count, "**Conversion Cancelled**")
@@ -123,7 +124,7 @@ class CodecConversionWorker(QThread):
                 self.finished_signal.emit(converted_count, msg)
 
         except Exception as e:
-            self.progress_signal.emit(0)
+            self.progress_signal.emit(0, 0)
             self.error_signal.emit(str(e))
         finally:
             if self._executor:
