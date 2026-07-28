@@ -274,3 +274,65 @@ Files changed this round: `gui/src/tabs/core/extractor_tab.py`
 (`populate_scan_image_gallery()`, `closeEvent()`).
 
 **Still not independently verified against a live reproduction.**
+
+## Addendum 3 (2026-07-28) — cross-panel race, same repro, after round 3's fix already landed
+
+A fifth crash report (`hs_err_pid155258.log`) with the **exact same repro**
+as Addendum 2's Wallpaper case (app restarted with a directory restored
+from the previous session, then immediately browsed a new video directory)
+— but this time it happened *after* round 3's fix to
+`populate_scan_image_gallery()`'s ordering was already committed. Crash
+frame: `libQt6Core.so.6+0x1e74d5`, only ~0x127 bytes past the *original*
+crash's `deleteOrphaned` offset (`+0x1e73ae`) — almost certainly the same
+function, confirming the underlying race was still reachable through a
+different path than the one already fixed.
+
+**Root cause: the Wallpaper tab has two linked gallery instances
+(`system_display`/`monitor_display`, `wallpaper_tab.py`) that share mutable
+state and can be mid-teardown simultaneously.** `wallpaper_tab.py`
+explicitly aliases `monitor_display._initial_pixmap_cache =
+system_display._initial_pixmap_cache` (the same dict object, not a copy),
+and wires each panel's `directory_scanned` signal to call the *other*
+panel's `populate_scan_image_gallery(directory, emit_signal=False)`. Tracing
+the actual startup sequence: `SystemDisplaySubTab.set_config()` (called
+while restoring the previous session's saved directory) calls
+`populate_scan_image_gallery(old_dir)`, which — via `directory_scanned` —
+synchronously, recursively calls `monitor_display.populate_scan_image_gallery(old_dir, ...)`
+too. Both panels end up with their own actively-running
+`img_scanner_thread`/`vid_scanner_worker` for the old directory.
+
+Round 3's fix made `populate_scan_image_gallery()` correctly stop-and-wait
+for **its own** previous scanner threads before touching **its own**
+widgets — sufficient for a single instance, but each panel only guarded its
+own state. When the user then browses a *new* directory (13 seconds later,
+per the crash log), whichever panel receives the click calls
+`populate_scan_image_gallery(new_dir)`, which emits `directory_scanned`
+*before* fully settling — and while that fix does stop this panel's own
+threads first, the **peer** panel's own still-running threads (from the
+startup restore, on the other side of the shared cache/signal link) were
+never accounted for by this instance's guard at all. The peer's old
+scanner thread remained free to write into the shared
+`_initial_pixmap_cache` (or emit to widgets) while this instance concurrently
+cleared/rebuilt that same shared dict and its own widget tree.
+
+**Fix**: extracted the stop-and-drain logic into `_stop_scanner_threads()`,
+and call it — at the very start of `populate_scan_image_gallery()`, before
+even the `directory_scanned.emit()` that triggers the peer's own nested
+call — on **both `self` and every entry in `self.linked_tabs`**. This
+guarantees neither panel has a live scanner thread before either panel
+touches the shared cache or either panel's widgets, regardless of which
+panel's browse action started the chain, and regardless of the recursive
+call ordering through the `directory_scanned` signal. Redundant calls (the
+peer's own nested `populate_scan_image_gallery` re-invoking the now-already-
+stopped threads' guard) are cheap no-ops.
+
+File changed: `gui/src/tabs/core/elements/common/wallpaper_common_base.py`
+only, this round — `ExtractorTab` has no equivalent linked-instance/shared-
+cache structure, so its round-3 fix should not have the same gap, but
+hasn't been independently re-audited for other forms of this same
+cross-instance pattern.
+
+**Still not independently verified against a live reproduction** — this is
+now the fourth iteration of this fix; if it recurs again, the shared-cache/
+linked-panel architecture itself (not just the stop/wait ordering) may need
+reconsidering rather than another instance-level patch.

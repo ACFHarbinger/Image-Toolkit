@@ -1136,34 +1136,24 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self.path_to_label_map[path] = draggable_label
         return draggable_label
 
-    def populate_scan_image_gallery(self, directory: str, emit_signal: bool = True):
-        if getattr(self, "background_type", None) == "Solid Color":
-            return
+    def _stop_scanner_threads(self) -> None:
+        """Stop and fully drain this instance's scanner threads.
 
-        self.scanned_dir = directory
-        path_edit = getattr(self, "scan_directory_path", None)
-        if path_edit is not None:
-            path_edit.setText(directory)
-
-        if emit_signal:
-            self.directory_scanned.emit(directory)
-
-        # Stop and fully drain any previous scan's scanner threads BEFORE
-        # touching gallery widgets or starting a new load. These are bespoke
-        # QThread subclasses (ImageScannerWorker/VideoScannerWorker), not
-        # QRunnable tasks tracked by cancel_loading()'s thread_pool -- that
-        # fix (issue #81) does not cover them. Previously this stop-and-wait
-        # ran AFTER clear_gallery_widgets()/start_loading_gallery() below,
-        # leaving an old scanner thread free to deliver a queued
-        # thumbnail_ready signal referencing widgets that were mid-deletion
-        # or already replaced for the new directory -- the same
-        # use-after-free crash class documented in
-        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md. The old
-        # vid_scanner_worker.wait(1000) bound was also insufficient on its
-        # own: VideoScannerWorker's internal ThreadPoolExecutor can take up
-        # to its subprocess-timeout chain to finish in-flight video
-        # thumbnails, so any fixed bound can time out while it's still
-        # running.
+        These are bespoke QThread subclasses (ImageScannerWorker/
+        VideoScannerWorker), not QRunnable tasks tracked by
+        cancel_loading()'s thread_pool -- that fix (issue #81) does not
+        cover them. Must be called, on every affected instance, BEFORE any
+        widget teardown or shared-cache mutation: an old scanner thread left
+        running is free to deliver a queued thumbnail_ready signal
+        referencing widgets that are mid-deletion or already replaced --
+        the same use-after-free crash class documented in
+        .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md. Waits are
+        deliberately unbounded: VideoScannerWorker's internal
+        ThreadPoolExecutor can't be force-killed mid-subprocess and its
+        context-manager __exit__ already blocks until truly idle regardless
+        of any earlier non-blocking shutdown() call, so any fixed timeout
+        can return while it's still running.
+        """
         if self.img_scanner_thread is not None:
             if self.img_scanner_thread.isRunning():
                 self.img_scanner_thread.requestInterruption()
@@ -1183,6 +1173,33 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             except RuntimeError:
                 pass
             self.vid_scanner_worker = None
+
+    def populate_scan_image_gallery(self, directory: str, emit_signal: bool = True):
+        if getattr(self, "background_type", None) == "Solid Color":
+            return
+
+        # Stop and drain scanner threads on THIS instance and every linked
+        # peer (Wallpaper's System-Display/Monitor-Display panels share a
+        # mutable _initial_pixmap_cache dict -- see wallpaper_tab.py -- and
+        # populate_scan_image_gallery(emit_signal=True) synchronously calls
+        # into each linked peer's own populate_scan_image_gallery() below,
+        # via directory_scanned). Doing this for every linked instance
+        # up front, before either side clears its cache or tears down
+        # widgets, closes a cross-panel instance of the same
+        # deleteOrphaned/use-after-free race this method already guards
+        # against for its own, single-instance case.
+        self._stop_scanner_threads()
+        for peer in getattr(self, "linked_tabs", []):
+            if hasattr(peer, "_stop_scanner_threads"):
+                peer._stop_scanner_threads()
+
+        self.scanned_dir = directory
+        path_edit = getattr(self, "scan_directory_path", None)
+        if path_edit is not None:
+            path_edit.setText(directory)
+
+        if emit_signal:
+            self.directory_scanned.emit(directory)
 
         self.clear_gallery_widgets()
         self.path_to_label_map.clear()
