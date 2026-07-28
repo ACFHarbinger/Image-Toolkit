@@ -158,19 +158,26 @@ def clear_ml_singletons():
     except Exception:
         pass
     try:
-        import backend.src.animation.alignment.fg_register as _fgr
+        # §5.17: fg_register.py was split into a package -- these singletons
+        # now live in their respective submodules (_flow.py, _vgg.py), not
+        # the fg_register/__init__.py re-export module. Resetting the
+        # attribute on the wrong module object would silently no-op (each
+        # module has its own separate global namespace) and leak VRAM across
+        # the test session, defeating the point of this fixture.
+        import backend.src.animation.alignment.fg_register._flow as _fgr_flow
+        import backend.src.animation.alignment.fg_register._vgg as _fgr_vgg
 
-        if getattr(_fgr, "_SEARAFT_SINGLETON", None) is not None:
-            del _fgr._SEARAFT_SINGLETON
-            _fgr._SEARAFT_SINGLETON = None
-            _fgr._SEARAFT_DEVICE = None
-        if getattr(_fgr, "_VGG19_SINGLETON", None) is not None:
-            del _fgr._VGG19_SINGLETON
-            _fgr._VGG19_SINGLETON = None
-            _fgr._VGG19_DEVICE = None
-        if getattr(_fgr, "_DIS_SINGLETON", None) is not None:
-            del _fgr._DIS_SINGLETON
-            _fgr._DIS_SINGLETON = None
+        if getattr(_fgr_flow, "_SEARAFT_SINGLETON", None) is not None:
+            del _fgr_flow._SEARAFT_SINGLETON
+            _fgr_flow._SEARAFT_SINGLETON = None
+            _fgr_flow._SEARAFT_DEVICE = None
+        if getattr(_fgr_vgg, "_VGG19_SINGLETON", None) is not None:
+            del _fgr_vgg._VGG19_SINGLETON
+            _fgr_vgg._VGG19_SINGLETON = None
+            _fgr_vgg._VGG19_DEVICE = None
+        if getattr(_fgr_flow, "_DIS_SINGLETON", None) is not None:
+            del _fgr_flow._DIS_SINGLETON
+            _fgr_flow._DIS_SINGLETON = None
     except Exception:
         pass
     try:
