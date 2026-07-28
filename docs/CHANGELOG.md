@@ -4,6 +4,35 @@
 
 ---
 
+## S261 — 2026-07-28 (Fix `just asp-benchmark-assess` crash after rating→evaluation rename)
+
+A separate rename pass (`backend/benchmark/managers/rating/` → `backend/benchmark/evaluation/`, entry point moved to `backend/controllers/bench_eval_dispatch.py`) left the tool from S260 non-functional. Fixed the full breakage chain, verified end-to-end against the real 97-test corpus:
+
+- `bench_eval_dispatch.py`: direct-script invocation (`uv run python backend/controllers/bench_eval_dispatch.py`, per `tools/benchmark/justfile`) sets `sys.path[0]` to the file's own directory, not the repo root, so the `backend.*` absolute imports raised `ModuleNotFoundError: No module named 'backend'`. Added a `_bootstrap_repo_root()` walk-up-to-`pyproject.toml` guard before those imports. Also fixed a broken relative import (`from .evaluation...` → absolute `from backend.benchmark.evaluation...`) left over from the entry point's move out of the `backend/benchmark/` package.
+- `evaluation/__init__.py`: still imported the pre-rename `load_ratings`/`save_ratings` names; `other/schema.py` had already been renamed to `load_evaluations`/`save_evaluations`. Updated the import and `__all__`.
+- `ui/main_window.py`: `load_evaluation(out_path)` (singular) typo calling a name that was never defined — masked by the `__init__.py` bug above until that was fixed.
+- `ui/scoring_panel.py`: stale `_SCALE_HINT` reference left over from the constants-extraction refactor; the correct imported name is `SCORE_SCALE_HINT` (from the new `constants/user_interface.py`).
+- Re-verified: `--help`, full `RatingDashboard` construction against the real 97-dataset corpus, and every `logic/` visualization/comparison function (all 8 visualizations + all 7 comparison tools) executed against synthetic images with no errors.
+
+---
+
+## S260 — 2026-07-28 (ASP Phase 0.1 tool rebuild: rating_manager.py → full PySide6 visual-debugging dashboard)
+
+Rebuilt `backend/benchmark/managers/rating_manager.py` from scratch, replacing the plain OpenCV-window rating tool with a PySide6 dashboard for human coherence rating and in-depth visual debugging of stitched frames, per an explicit scoped request (rating/debugging tool only — no ASP pipeline/algorithm code touched).
+
+- **New `backend/benchmark/managers/rating/` subpackage** (16 files, largest 319 lines, all ≤500-line limit), split by role into three sub-packages per a follow-up request:
+  - `ui/` (presentation — QWidget/QGraphicsView/QMainWindow classes): `main_window.py` (`RatingDashboard`, the assembled window), `panel_base.py` (shared QGraphicsView zoom/pan/annotation panel — this repo's own `extractor_tab.py` QGraphicsView idiom as inspiration), `annotations.py` (cross-panel edge overlay + annotation list), `mpl_canvas.py` + `tool_tab_base.py` (shared plotting/tool-tab base classes for DRY), `comparison_widget.py` (swipe/slider compare), `scoring_panel.py`, `viz_tab.py`, `compare_tab.py`.
+  - `logic/` (pure pixel-data computation, no Qt classes): `visualizations_basic.py` + `visualizations_matching.py` (histograms, 2D/3D/spatial scatter, intensity + gradient heatmaps, FFT spectrum, ORB/SIFT feature-match lines, HSV optical flow), `comparison_maps.py` (inverted abs-diff, SSIM heatmap, false-color overlay, alpha blend, checkerboard mosaic, Gaussian-blur+threshold+contour bounding).
+  - `other/` (shared by both, or fits neither cleanly): `schema.py` (BoundingBox/Edge/RatingEntry dataclasses, additive-only JSON schema — still `{test: {asp, simple, notes}}` plus new `bboxes`/`edges` keys `bench_anime_stitch.py`'s `_load_human_ratings()` already ignores safely), `discovery.py` (dataset/asset discovery mirroring `bench_anime_stitch.py`'s on-disk layout, reading its `plots_dir`/`stage_dir`/metrics straight from its own `anime_stitch_*.json`).
+  - Re-verified after the split: every module imports cleanly, and `rating_manager.py`'s `build_dashboard()` still constructs a working `RatingDashboard` against the real 97-test corpus.
+- **Preserved exactly**: the 0-4 structural-coherence scale, resumable/incremental-save behavior (atomic write via `os.replace`), and the CLI (`--data-dir`, `--out`, `--redo`, plus new `--default-view {display,pixel}`).
+- **Found and fixed a latent path bug** in the original tool's default `--out` resolution: it computed `backend/data/human_ratings/` while `bench_anime_stitch.py`'s own `_load_human_ratings()` reads from repo-root `data/human_ratings/` — two different, silently-diverging directories (both existed on disk, both empty). Replaced the fixed-depth `dirname` chain with a `pyproject.toml`-sentinel upward walk (`discovery.repo_root_from`) so ratings this dashboard saves are actually the ones the benchmark script picks up.
+- **Fully implemented**: deep zoom/pan (independent or synchronized across all three panels), Display Mode vs Pixel Value Mode toggle, interactive bbox + cross-image edge annotation with per-item removal, all 8 visualizations and all 7 comparison tools listed above.
+- **Smoke-tested** against the real 97-test corpus at `~/Downloads/Data/Dump`: window construction, dataset asset loading, and every visualization/comparison function exercised under `QT_QPA_PLATFORM=offscreen` — no exceptions, real image shapes/scores returned (e.g. SSIM 0.70, 26 contour-bounded diff regions on test01).
+- `moon/roadmaps/asp.md` §0.1 already referenced the correct `backend/benchmark/managers/rating_manager.py` path — the stale `rate_coherence.py` cross-reference the task description flagged had already been corrected in a prior session; nothing left to update there.
+
+---
+
 ## S259 — 2026-07-28 (ASP Phase 0.3: Overmix full-97-corpus run complete; Phase 4: full-corpus fallback triage tool)
 
 Two ASP roadmap items closed out — GitHub issues #18 (Overmix comparator) and #29 (Phase 4 fallback-class conversion), both reopened this session after being closed with real remaining work still flagged in their own history.

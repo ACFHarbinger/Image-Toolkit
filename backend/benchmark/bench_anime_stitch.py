@@ -708,19 +708,19 @@ def _compute_gt_metrics(
 _HUMAN_RATINGS_CACHE: Optional[Dict] = None
 
 
-def _load_human_ratings() -> Dict:
-    """§0.1/0.2: load the most recent human coherence ratings file (from
-    ``rating_manager.py``), if any exist. Cached per-process — ratings don't
+def _load_human_evaluations() -> Dict:
+    """§0.1/0.2: load the most recent human coherence evaluations file (from
+    ``evaluation_manager.py``), if any exist. Cached per-process — evaluations don't
     change mid-run. Schema: {test_name: {"asp": 0-4, "simple": 0-4, "notes": str}}.
     """
     global _HUMAN_RATINGS_CACHE
     if _HUMAN_RATINGS_CACHE is not None:
         return _HUMAN_RATINGS_CACHE
-    ratings_dir = os.path.join(
+    evaluations_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "data", "human_ratings",
+        "data", "human_evaluations",
     )
-    files = sorted(glob.glob(os.path.join(ratings_dir, "asp_ratings_*.json")))
+    files = sorted(glob.glob(os.path.join(evaluations_dir, "asp_evaluations_*.json")))
     if not files:
         _HUMAN_RATINGS_CACHE = {}
         return _HUMAN_RATINGS_CACHE
@@ -2155,14 +2155,14 @@ def _build_result(
     has_gt = gt_img is not None
 
     # §0.2 — human-coherence-aware verdict: no automated metric measures
-    # structural coherence, so when a rating exists, it may veto a false
+    # structural coherence, so when a evaluation exists, it may veto a false
     # "asp_better" that a metric-only read would otherwise report (the
     # test84/test53/test07 class of failure the critical evaluation names).
     # One-directional by design (matches the roadmap spec literally) — a
     # human "asp better" preference does not force-upgrade a metric verdict,
     # only a metric "asp_better" that the human disagreed with gets vetoed.
-    human_ratings = _load_human_ratings()
-    human_coherence = human_ratings.get(dataset_name)
+    human_evaluations = _load_human_evaluations()
+    human_coherence = human_evaluations.get(dataset_name)
     verdict = gt_ver if gt_ver is not None else _auto_verdict(asp_metrics, sim_metrics)
     verdict_source = "ground_truth" if gt_ver is not None else "cv_metrics"
     if human_coherence is not None:
@@ -2306,8 +2306,8 @@ def _build_result(
             "metrics_simple": gt_metrics_sim,
             "verdict": gt_ver,
         },
-        # --- §0.1/0.2 human coherence ratings (None if this dataset hasn't
-        # been rated — see backend/benchmark/managers/rating_manager.py) ---
+        # --- §0.1/0.2 human coherence evaluations (None if this dataset hasn't
+        # been rated — see backend/controllers/bench_eval_dispatch.py) ---
         "human_coherence": human_coherence,
         # --- status ---
         "used_fallback": used_fallback,
@@ -2501,7 +2501,7 @@ def generate_json_results(results: List[Dict], suite_start_time: float) -> str:
             )
             if any(r.get("ground_truth", {}).get("available") for r in results)
             else None,
-            # §0.1/0.2 — human coherence rating coverage for this run
+            # §0.1/0.2 — human coherence evaluation coverage for this run
             "human_coherence_rated": sum(
                 1 for r in results if r.get("human_coherence") is not None
             ),
@@ -2586,8 +2586,8 @@ _GLOBAL_FEEDBACK_BLOCK = """\
 
 <!-- GLOBAL_FEEDBACK
 status: pending
-overall_asp_rating: null
-overall_simple_rating: null
+overall_asp_evaluation: null
+overall_simple_evaluation: null
 most_common_asp_failure: null
 most_common_simple_failure: null
 priority_fixes:

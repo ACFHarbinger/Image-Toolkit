@@ -74,4 +74,4 @@ asp-benchmark-clean:
 # Rate the quality of the panoramic stitches produced by the ASP during benchmarking
 asp-benchmark-assess:
     @echo "🎨 Rating the panoramic stitches produced by the ASP during benchmarking..."
-    uv run python backend/benchmark/managers/rating_manager.py
+    uv run python backend/controllers/bench_eval_dispatch.py
