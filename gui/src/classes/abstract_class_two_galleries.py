@@ -1095,11 +1095,21 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     ):
         # Cleanup worker ref
         sender = self.sender()
+        stale = False
         if sender:
             for worker in list(self._active_workers):
                 if worker.signals == sender:
+                    # This chunk was already dispatched before a newer
+                    # directory switch bumped _load_generation -- its
+                    # result still arrives here even though it's no longer
+                    # current (see abstract_class_single_gallery.py's
+                    # _on_batch_images_loaded for the full rationale).
+                    if getattr(worker, "load_generation", self._load_generation) != self._load_generation:
+                        stale = True
                     self._active_workers.remove(worker)
                     break
+        if stale:
+            return
         for path, image in results:
             if image and not image.isNull():
                 self._selected_pixmap_cache[path] = image  # store QImage
@@ -1124,6 +1134,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
         weak_widget = weakref.ref(target_widget)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
+        worker.load_generation = self._load_generation
         self._active_workers.add(worker)
         worker.signals.result.connect(
             lambda p, px: self._on_selected_image_loaded(p, px, weak_widget())
@@ -1135,11 +1146,16 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     def _on_selected_image_loaded(self, path: str, image, widget: Optional[QWidget]):
         # Cleanup worker ref
         sender = self.sender()
+        stale = False
         if sender:
             for worker in list(self._active_workers):
                 if worker.signals == sender:
+                    if getattr(worker, "load_generation", self._load_generation) != self._load_generation:
+                        stale = True
                     self._active_workers.remove(worker)
                     break
+        if stale:
+            return
         if widget is None:
             return
         if image and not image.isNull():
@@ -1198,6 +1214,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
         self.found_loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
+        worker.load_generation = self._load_generation
         worker.signals.result.connect(self._on_found_image_loaded)
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
@@ -1206,13 +1223,20 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     def _on_found_image_loaded(self, path: str, image):  # noqa: C901
         # Cleanup worker ref if it is NOT a batch worker
         sender = self.sender()
+        stale = False
         if sender:
             # We need to find the worker that owns this signals object
             for worker in list(self._active_workers):
                 if worker.signals == sender:
+                    if getattr(worker, "load_generation", self._load_generation) != self._load_generation:
+                        stale = True
                     if not isinstance(worker, (BatchImageLoaderWorker, BatchVideoLoaderWorker)):
                         self._active_workers.remove(worker)
                     break
+        if stale:
+            if hasattr(self, "found_loading_paths"):
+                self.found_loading_paths.discard(path)
+            return
 
         if hasattr(self, "found_loading_paths") and path in self.found_loading_paths:
             self.found_loading_paths.remove(path)
@@ -1268,11 +1292,21 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
     def _on_batch_found_loaded(self, results: List[tuple], requested_paths: List[str]):
         # Cleanup worker ref
         sender = self.sender()
+        stale = False
         if sender:
             for worker in list(self._active_workers):
                 if worker.signals == sender:
+                    if getattr(worker, "load_generation", self._load_generation) != self._load_generation:
+                        stale = True
                     self._active_workers.remove(worker)
                     break
+        if stale:
+            for path in requested_paths:
+                if hasattr(self, "found_loading_paths"):
+                    self.found_loading_paths.discard(path)
+                elif path in getattr(self, "_loading_paths", set()):
+                    self._loading_paths.discard(path)
+            return
 
         for path, pixmap in results:
             if (
@@ -1482,6 +1516,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
 
         self.found_loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
+        worker.load_generation = self._load_generation
         worker.signals.result.connect(self._on_found_image_loaded)
 
         self._active_workers.add(worker)
