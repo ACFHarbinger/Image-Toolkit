@@ -540,3 +540,53 @@ direct connection means the emitting code's own subsequent statements run
 before the now-deferred work the slot scheduled, and any of those
 statements that assumed the old (synchronous) slot behavior can silently
 reintroduce the exact bug the slot-side fix just closed.
+
+## Addendum 8 (2026-07-28) — the login bug is confirmed fixed; a queue-backlog gap remained for rapid repeated switches
+
+The user's login-transition repro is now confirmed fixed by round 8: the
+stdout of the next crash report progressed well past login (through
+"Logging reconfigured from preferences" and into `MainWindow` construction)
+before failing — genuinely further than any previous report reached. The
+new crash came from a **more aggressive repro**: restore the previous
+session's directory, browse a new (video) directory immediately, switch
+back to the original (image) directory, then immediately browse the video
+directory again — four rapid, back-to-back scans. Crash frame:
+`libQt6Core.so.6+0x1df7c9`, yet another nearby-but-distinct offset from
+every previous report, on the same `QSocketNotifier` warning immediately
+before it.
+
+**Identified gap**: every fix through round 4 correctly uses `QThread.wait()`
+(unbounded) or `QThreadPool.waitForDone(-1)` to block the calling (main)
+thread until a previous scan's worker(s) actually finish, before letting
+the caller proceed to tear down/rebuild gallery widgets. What none of those
+fixes accounted for: **`.wait()`/`waitForDone()` block the calling thread
+without pumping that thread's own event loop.** Any `deleteLater()` calls
+already queued from an *earlier* switch (this same code's own widget-
+teardown loops, on a previous invocation) are still sitting unprocessed in
+the event queue when the wait returns — no matter how long the wait itself
+took, it does nothing to drain what's already queued. With four rapid
+switches in a row, each one's teardown queues more `deleteLater()` events
+before the previous batch has ever actually been processed, since nothing
+in the chain ever yields back to the event loop. This is a plausible
+mechanism for a use-after-free distinct from (but the same broad family
+as) every previous instance: not a still-running thread racing new
+teardown, but a *backlog* of not-yet-executed deferred deletions
+potentially referencing objects that later teardown steps also touch.
+
+**Fix**: added an explicit `QApplication.processEvents()` call immediately
+after every unbounded `.wait()`/`waitForDone()` in this file,
+`abstract_class_two_galleries.py`, `abstract_class_single_gallery.py`, and
+`extractor_tab.py` (all four call sites fixed across rounds 3-4, plus the
+two `closeEvent()`s) — explicitly flushing the event queue (processing any
+pending `deleteLater()`s and queued signal deliveries) before the caller
+is allowed to proceed to its own teardown/rebuild. `QApplication.processEvents()`
+was already an established idiom elsewhere in `wallpaper_common_base.py`
+before this fix, not a new pattern introduced here.
+
+**Still not independently verified against a live reproduction.** This is
+now the fifth distinct mechanism found in this crash-class investigation
+(deleteOrphaned race → bounded-timeout insufficiency → linked-panel
+state → login zero-window bug → this queue-backlog gap). If the *exact*
+rapid-repeated-switch repro recurs after this fix, the next step is
+direct instrumentation (log queue depth / pending event count immediately
+before each teardown) rather than another mechanism guess.
