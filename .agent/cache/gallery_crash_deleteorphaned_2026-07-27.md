@@ -590,3 +590,110 @@ state → login zero-window bug → this queue-backlog gap). If the *exact*
 rapid-repeated-switch repro recurs after this fix, the next step is
 direct instrumentation (log queue depth / pending event count immediately
 before each teardown) rather than another mechanism guess.
+
+## Addendum 9 (2026-07-28) — round 9's own fix was the trigger; a regression test now guards this
+
+The user reported `hs_err_pid291347.log`, and this time the repro was
+*simpler* than round 8's: just the automatic session-restore of a
+Wallpaper directory on startup, followed by *one* immediate manual browse
+to a different (video) directory. Same `QSocketNotifier` warning, same
+`SIGSEGV` in `libQt6Core.so.6`, at yet another nearby offset
+(`+0x1e74d5`, close to the very first `deleteOrphaned` signature's
+`+0x1e73ae` from the top of this document) — a strong hint this was the
+*original* `deleteOrphaned` class again, not a new one.
+
+The user also asked, reasonably, why this is being diagnosed by reading
+crash logs alone: *"can't you simply create a test that simulates fast
+browsing... and update the codebase until the test passes?"* That's
+exactly what this round did, and it's how the actual bug got found.
+
+**Root cause: round 9's own `QApplication.processEvents()` fix was the
+trigger.** `ImageScannerWorker`/`VideoScannerWorker` are bespoke
+`QThread`s (see the "third and fourth recurrence" section above);
+`_on_image_scan_finished()` (connected to `ImageScannerWorker.scan_finished`,
+a queued cross-thread signal) unconditionally does:
+```python
+if self.scanned_dir:
+    self.vid_scanner_worker = VideoScannerWorker(self.scanned_dir)
+    ...
+    self.vid_scanner_worker.start()
+```
+with **no check that this call is still current**, and **no stop of
+any existing `self.vid_scanner_worker` first**. Round 9's `processEvents()`
+(added at the end of `_stop_scanner_threads()`, right after waiting for
+the *previous* directory's `ImageScannerWorker` to drain) doesn't just
+flush `deleteLater()`s as intended — it also delivers *any other* queued
+event, including that previous worker's own `scan_finished` signal, which
+was posted the instant its `run()` returned (during the `.wait()` just
+above). That delivery happens **reentrantly, mid-`_stop_scanner_threads()`,
+before `populate_scan_image_gallery()` has even updated `self.scanned_dir`
+to the new directory** — so `_on_image_scan_finished()` fires for the
+*old* directory and starts a brand-new `VideoScannerWorker` for it, right
+in the middle of switching away from it. That worker is never stopped by
+the switch in progress (its own stop-before-touch logic already ran
+earlier in this same call), only by whichever *later* switch's
+`_stop_scanner_threads()` happens to notice `self.vid_scanner_worker` is
+non-`None` — one full switch late, or never, if the next
+`_on_image_scan_finished()` (also unguarded) overwrites the reference
+first. Confirmed empirically with a 4-instance reproduction (below):
+exactly one rapid switch already showed the pattern; four made it worse.
+
+**Fix, two parts:**
+1. **Narrow the round-9 flush.** `QApplication.processEvents()` →
+   `QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)` at
+   all six round-9 call sites (`wallpaper_common_base.py`,
+   `abstract_class_two_galleries.py` ×2, `abstract_class_single_gallery.py`,
+   `extractor_tab.py` ×2). This still flushes the `deleteLater()` backlog
+   round 9 was written for, but no longer reentrantly delivers ordinary
+   queued signals (like a stale `scan_finished`) mid-teardown. The two
+   *pre-existing* `processEvents()` calls in `_select_monitor()`/
+   `_select_monitor_peer()` were left alone -- unrelated, established
+   idiom, not part of this crash's call chain.
+2. **Make `_on_image_scan_finished()` reject stale deliveries and never
+   orphan a video worker**, regardless of how the stale signal eventually
+   gets delivered (round 9's reentrancy was only the *most reliable*
+   trigger, not the only one -- the ordinary event loop can deliver a
+   stale `scan_finished` on its own, just less predictably). Two changes
+   in `wallpaper_common_base.py`:
+   - The `ImageScannerWorker.scan_finished` connection now binds the
+     worker instance into the connection itself (a lambda default-arg
+     captured at connect time), and `_on_image_scan_finished()` compares
+     it against `self.img_scanner_worker`/`self.img_scanner_thread` by
+     Python object identity, returning early if they don't match.
+     **This deliberately does not use `QObject.sender()`** -- that was
+     the first fix attempted, and it failed silently: by the time a
+     stale `scan_finished` is actually processed, the sender's C++
+     object has frequently already been destroyed (an earlier
+     `_stop_scanner_threads()` call already `deleteLater()`'d and
+     flushed it), and Qt's `sender()` returns `None` for a destroyed
+     sender -- exactly backwards from what a staleness check needs.
+     Comparing captured Python references by identity needs no access
+     to the (possibly-destroyed) C++ side at all.
+   - `_on_image_scan_finished()` now calls a new `_stop_vid_scanner_worker()`
+     helper (the `vid_scanner_worker` stop/drain block extracted out of
+     `_stop_scanner_threads()`) before constructing a new
+     `VideoScannerWorker`, so even a *legitimate* (non-stale) second scan
+     completion can never leave an earlier video scan running unstopped.
+
+**Regression test**: `gui/test/core/test_wallpaper_scan_race.py`
+reproduces the user's exact four-switch sequence (restore dir A, browse
+dir B immediately, switch back to A, browse B again) against the real
+`WallpaperCommonBase.populate_scan_image_gallery()`/`_on_image_scan_finished()`
+code path, using a real `ImageScannerWorker` subclass with an artificial
+delay (so overlap between successive scans is deterministic, not
+dependent on real filesystem/thread scheduling timing) and a spying
+`VideoScannerWorker` subclass that records every instance ever created.
+It asserts exactly one `VideoScannerWorker` is created across the whole
+sequence (the one legitimate completion), and that any instance not
+belonging to the final directory was actually stopped. **Verified this
+test fails against the pre-fix code** (4 spurious workers created, one
+per switch) **and passes against the fix.** This is the first round of
+this crash class with an automated regression test instead of relying
+solely on the user reproducing a live crash.
+
+**Still true**: the live SIGSEGV itself has not been re-reproduced by the
+user against this fix (SIGSEGV can't be caught in-process, so the test
+above verifies the *logic* race, not the native crash directly) --
+please retry the exact repro when convenient. But this round is on
+firmer ground than any previous one: the mechanism was reproduced,
+fixed, and is now guarded by a test that fails without the fix.

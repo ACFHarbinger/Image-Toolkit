@@ -289,6 +289,46 @@ class's call chain, apply the same rule: a wait alone only proves the
 been processed — pair it with `processEvents()` before touching widgets
 again.
 
+**A sixth recurrence (round 10) turned out to be caused by round 9's own
+fix.** `QApplication.processEvents()` doesn't just flush `deleteLater()`s —
+it delivers *any* queued event, including a stale `ImageScannerWorker.scan_finished`
+signal from the *previous* directory's scan, whose completion was itself
+detected by the `.wait()` immediately before the `processEvents()` call.
+That delivery happens reentrantly, in the middle of
+`_stop_scanner_threads()`, *before* the caller has updated `self.scanned_dir`
+to the new directory — so `_on_image_scan_finished()` runs for the old
+directory and starts a brand-new `VideoScannerWorker` for it, with nothing
+in that same call left to stop it. Fixed two ways: (1) narrowed every
+round-9 flush from `QApplication.processEvents()` to
+`QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)` — same
+`deleteLater()`-draining effect, without reentrantly delivering ordinary
+signals; (2) hardened `_on_image_scan_finished()` (in
+`wallpaper_common_base.py`) to reject a delivery that isn't from the
+*current* image scanner — compared by Python object identity captured in
+the signal connection's own closure, **not** `QObject.sender()` (a stale
+sender's C++ object is frequently already destroyed by the time its
+signal is processed, and `sender()` returns `None` for a destroyed
+sender — the opposite of what a staleness check needs) — and to always
+stop any existing `vid_scanner_worker` before starting a new one, even on
+a legitimate completion.
+
+If you're chasing a new instance of this crash class and considering a
+`processEvents()`-style fix: **prefer the narrowest event type that solves
+your actual gap** (`QCoreApplication.sendPostedEvents(None, <QEvent.Type>)`)
+over a blanket `processEvents()`. A blanket flush can reentrantly run
+*any* connected slot for *any* signal that happens to be queued at that
+moment, including ones that assume they're only ever called from the
+normal event loop, not mid-teardown.
+
+This crash class now has an automated regression test:
+`gui/test/core/test_wallpaper_scan_race.py` reproduces rapid
+image/video directory switching against the real
+`WallpaperCommonBase` scan path and asserts no spurious/orphaned
+`VideoScannerWorker` gets created. Verified to fail against the
+pre-round-10 code and pass against the fix — if you touch
+`populate_scan_image_gallery()`/`_on_image_scan_finished()`/
+`_stop_scanner_threads()` again, run this test first.
+
 Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---
