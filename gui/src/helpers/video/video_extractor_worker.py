@@ -14,7 +14,7 @@ except ImportError:
 
 
 class _VideoWorkerSignals(QObject):
-    progress = Signal(int)
+    progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; no natural item count
     finished = Signal(str)
     error = Signal(str)
 
@@ -170,7 +170,7 @@ class VideoExtractionWorker(QRunnable):
 
                 print(f"FFmpeg Video CMD: {cmd}")
 
-                self.signals.progress.emit(0)
+                self.signals.progress.emit(0, 100)
                 # Run command
                 process = subprocess.Popen(
                     cmd,
@@ -193,7 +193,7 @@ class VideoExtractionWorker(QRunnable):
                         f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}" # pyrefly: ignore [missing-attribute]
                     )
 
-                self.signals.progress.emit(100)
+                self.signals.progress.emit(100, 100)
                 self.signals.finished.emit(self.output_path)
 
             except Exception as e:
@@ -208,7 +208,7 @@ class VideoExtractionWorker(QRunnable):
 
         try:
             from moviepy.editor import concatenate_videoclips
-            self.signals.progress.emit(10)
+            self.signals.progress.emit(10, 100)
 
             base_clip = VideoFileClip(self.video_path)
 
@@ -252,7 +252,7 @@ class VideoExtractionWorker(QRunnable):
             if audio_codec is not None:
                 ffmpeg_params.extend(["-b:a", "128k"])
 
-            self.signals.progress.emit(30)
+            self.signals.progress.emit(30, 100)
             clip.write_videofile(
                 self.output_path,
                 codec="libx264",
@@ -264,7 +264,7 @@ class VideoExtractionWorker(QRunnable):
                 logger=None,
             )
 
-            self.signals.progress.emit(100)
+            self.signals.progress.emit(100, 100)
             self.signals.finished.emit(self.output_path)
 
         except ImportError:

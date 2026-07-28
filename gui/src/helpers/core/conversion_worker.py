@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConversionWorker(QThread):
-    progress_signal = Signal(int)  # Signal for reporting progress (0-100)
+    progress_signal = Signal(int, int)  # (completed, total) — §5.9 Option C
     finished_signal = Signal(int, str)  # (count, message)
     error_signal = Signal(str)
 
@@ -73,7 +73,7 @@ class ConversionWorker(QThread):
 
             total_files = len(files_to_convert)
             converted_count = 0
-            self.progress_signal.emit(0)
+            self.progress_signal.emit(0, total_files)
 
             # Define format sets for quick lookup
             img_formats = set(f.lstrip(".") for f in SUPPORTED_IMG_FORMATS)
@@ -112,9 +112,7 @@ class ConversionWorker(QThread):
                     except Exception as e:
                         failures.append(str(e))
 
-                    # Progress Update (approximate based on completed tasks)
-                    progress = int(((idx + 1) / total_files) * 100)
-                    self.progress_signal.emit(progress)
+                    self.progress_signal.emit(idx + 1, total_files)
 
                 self._executor.shutdown(wait=True)
                 self._executor = None
@@ -132,8 +130,7 @@ class ConversionWorker(QThread):
                     except Exception as e:
                         failures.append(str(e))
 
-                    progress = int(((idx + 1) / total_files) * 100)
-                    self.progress_signal.emit(progress)
+                    self.progress_signal.emit(idx + 1, total_files)
 
             if self._is_cancelled:
                 self.finished_signal.emit(converted_count, "**Conversion Cancelled**")
@@ -150,7 +147,7 @@ class ConversionWorker(QThread):
                 )
 
         except Exception as e:
-            self.progress_signal.emit(0)
+            self.progress_signal.emit(0, 0)
             self.error_signal.emit(str(e))
         finally:
             if self._executor:

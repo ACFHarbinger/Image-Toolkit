@@ -7,7 +7,7 @@ from PySide6.QtCore import QObject, QRunnable, Signal
 
 
 class _SeqBuilderSignals(QObject):
-    progress = Signal(int)  # 0-100
+    progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; weighted 3-phase estimate
     result = Signal(list)  # List[dict]: ordered chain items
     error = Signal(str)
 
@@ -113,7 +113,7 @@ class SequenceBuilderWorker(QRunnable):
                 sharpness[p] = 0.0
                 feats[p] = ([], None)
             cache[p] = bgr
-            self.signals.progress.emit(int((idx + 1) / n * 45))
+            self.signals.progress.emit(int((idx + 1) / n * 45), 100)
 
         anchor_sharp = max(sharpness.get(self._anchor, 1.0), 1.0)
         sharp_thresh = anchor_sharp * self._blur_threshold
@@ -223,7 +223,7 @@ class SequenceBuilderWorker(QRunnable):
             chain.append(nxt)
             used.add(nxt)
             done += 1
-            self.signals.progress.emit(45 + int(done / max(total, 1) * 27))
+            self.signals.progress.emit(45 + int(done / max(total, 1) * 27), 100)
 
         while True:
             if self._cancelled:
@@ -234,7 +234,7 @@ class SequenceBuilderWorker(QRunnable):
             chain.insert(0, prv)
             used.add(prv)
             done += 1
-            self.signals.progress.emit(72 + int(done / max(total, 1) * 27))
+            self.signals.progress.emit(72 + int(done / max(total, 1) * 27), 100)
 
         result: List[dict] = []
         for idx, p in enumerate(chain):
@@ -243,5 +243,5 @@ class SequenceBuilderWorker(QRunnable):
                 {"path": p, "name": os.path.basename(p), "score_to_prev": s_prev}
             )
 
-        self.signals.progress.emit(100)
+        self.signals.progress.emit(100, 100)
         self.signals.result.emit(result)

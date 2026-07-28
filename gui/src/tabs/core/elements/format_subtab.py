@@ -906,9 +906,11 @@ class FormatSubTab(AbstractClassTwoGalleries):
             self.on_conversion_done(0, "**Conversion cancelled**")
             self.worker = None
 
-    @Slot(int)  # Accepts an integer for percentage
-    def update_progress_bar(self, percentage: int):
-        self.convert_progress_bar.setValue(percentage)
+    @Slot(int, int)
+    def update_progress_bar(self, completed: int, total: int):
+        self.convert_progress_bar.setMaximum(max(total, 1))
+        self.convert_progress_bar.setValue(completed)
+        percentage = int(completed / total * 100) if total else 0
         self.status_label.setText(f"Converting... {percentage}% complete") # pyrefly: ignore [missing-attribute]
 
     @Slot(int, str)

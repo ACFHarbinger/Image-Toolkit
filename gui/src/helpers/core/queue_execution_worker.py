@@ -6,14 +6,15 @@ import subprocess
 import time
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import cv2
+from gui.src.helpers.core.config_types import ExtractionConfig
 from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
 from PySide6.QtCore import QObject, QRunnable, Signal
 
 
-def run_extraction_in_process(config: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C901
+def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: C901
     def natural_sort_key(s):
         return [
             int(text) if text.isdigit() else text.lower()
@@ -426,7 +427,7 @@ def run_extraction_in_process(config: Dict[str, Any]) -> Dict[str, Any]:  # noqa
 
 class _QueueWorkerSignals(QObject):
     started = Signal()
-    progress = Signal(int)
+    progress = Signal(int, int)  # (completed, total) — §5.9 Option C
     item_completed = Signal(int, dict)
     finished = Signal(list)
     error = Signal(str)
@@ -452,16 +453,15 @@ class QueueExecutionWorker(QRunnable):
             if num_cores < 1:
                 num_cores = 1
 
-            self.signals.progress.emit(10)
+            completed = 0
+            total = len(self.queue_items)
+            self.signals.progress.emit(0, total)
             try:
                 with Pool(processes=num_cores) as pool:
                     async_results = [
                         pool.apply_async(run_extraction_in_process, (item,))
                         for item in self.queue_items
                     ]
-
-                    completed = 0
-                    total = len(self.queue_items)
 
                     while completed < total:
                         if self._is_cancelled:
@@ -478,8 +478,7 @@ class QueueExecutionWorker(QRunnable):
 
                         if new_completed > completed:
                             completed = new_completed
-                            progress_val = int(10 + (completed / total) * 90)
-                            self.signals.progress.emit(min(99, progress_val))
+                            self.signals.progress.emit(completed, total)
 
                         time.sleep(0.5)
 
@@ -499,10 +498,10 @@ class QueueExecutionWorker(QRunnable):
                     )
                     return
 
-                self.signals.progress.emit(int((i / total) * 100))
+                self.signals.progress.emit(i, total)
                 res = run_extraction_in_process(item)
                 results.append(res)
                 self.signals.item_completed.emit(i, res)
 
-        self.signals.progress.emit(100)
+        self.signals.progress.emit(total, total)
         self.signals.finished.emit(results)
