@@ -218,6 +218,26 @@ per-tab scanner thread with its own inline cleanup) is not guaranteed to be
 fully audited across the whole codebase; only the instances that actually
 produced a crash report have been fixed so far.
 
+**A fourth recurrence came from a *linked-instance* variant of the same
+bug, in the Wallpaper tab specifically.** `WallpaperTab` has two linked
+gallery panels (`system_display`/`monitor_display`) that share a mutable
+`_initial_pixmap_cache` dict (aliased, not copied — see `wallpaper_tab.py`)
+and propagate scans to each other via a `directory_scanned` signal that
+synchronously, recursively calls the *peer's own*
+`populate_scan_image_gallery()`. The round-3 fix made each instance
+correctly stop-and-wait for its **own** previous scanner threads before
+touching its **own** widgets — correct for a single instance, but each
+panel only guarded its own state, leaving the *peer's* still-running
+scanner thread free to touch the shared cache/widgets while this instance
+tore it down. Fixed by extracting the stop-and-drain logic into
+`_stop_scanner_threads()` and calling it — at the very start of
+`populate_scan_image_gallery()`, before even the `directory_scanned.emit()`
+that triggers the peer's nested call — on **both `self` and every entry in
+`self.linked_tabs`**. If you build another feature with linked/mirrored
+gallery instances sharing mutable state, apply the same rule: stop and
+drain *every* linked instance's workers before *any* of them touch shared
+state or widgets, not just the instance that received the user's action.
+
 Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---
