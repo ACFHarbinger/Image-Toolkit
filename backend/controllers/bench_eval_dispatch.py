@@ -36,6 +36,7 @@ window never loses progress.
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import os
 import sys
@@ -62,12 +63,12 @@ def _bootstrap_repo_root() -> str:
 
 _bootstrap_repo_root()
 
-from backend.benchmark.evaluation.other.discovery import repo_root_from
-from backend.benchmark.evaluation.ui.panel_base import DISPLAY_PIXEL, DISPLAY_RAW
+from backend.benchmark.evaluation.other.discovery import repo_root_from  # noqa: E402
+from backend.benchmark.evaluation.ui.panel_base import DISPLAY_PIXEL, DISPLAY_RAW  # noqa: E402
 
 
 def _default_out_path(repo_root: str) -> str:
-    evaluations_dir = os.path.join(repo_root, "data", "human_evaluations")
+    evaluations_dir = os.path.join(repo_root, "data", "benchmarks")
     os.makedirs(evaluations_dir, exist_ok=True)
     today = datetime.datetime.now().strftime("%Y%m%d")
     return os.path.join(evaluations_dir, f"asp_evaluations_{today}.json")
@@ -93,10 +94,31 @@ def build_dashboard(args):
     )
 
 
-def evaluate_benchmark_outputs() -> None:
-    from backend.controllers.cli.bench_eval_args import build_parser
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--data-dir", default=os.path.expanduser("~/Downloads/Data/Dump"),
+        help="Root data directory containing asp_testXX subdirectories and output/",
+    )
+    parser.add_argument(
+        "--out", default=None,
+        help="Ratings JSON path. Defaults to data/human_evaluations/asp_evaluations_<today>.json "
+             "(resumes an existing file for today if present); pass an existing file's "
+             "path explicitly to resume a specific prior session.",
+    )
+    parser.add_argument(
+        "--redo", action="store_true",
+        help="Re-rate datasets that already have a evaluation (default: skip them).",
+    )
+    parser.add_argument(
+        "--default-view", choices=["display", "pixel"], default="display",
+        help="Which display mode the image panels start in (default: display).",
+    )
+    return parser
 
-    args = build_parser(__doc__).parse_args()
+
+def evaluate_benchmark_outputs() -> None:
+    args = _build_arg_parser().parse_args()
 
     from PySide6.QtWidgets import QApplication
 
