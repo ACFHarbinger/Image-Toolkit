@@ -4,6 +4,18 @@
 
 ---
 
+## S258 — 2026-07-28 (ASP: full-97-corpus benchmark checkpoint — host-freeze fix confirmed, Phase 4 breakdown refined)
+
+User-authorized full 97-test run (`anime_stitch_20260728_013215.json`), the first full-corpus run since the 2026-07-09 baseline and since this session's accumulated fixes (ToonOut default-on, aligned-SSIM windowing fix, Hugin/Overmix comparators added, several rejected experiments confirmed staying default-OFF).
+
+- **Phase 2.6 (issue #25) confirmed at full-corpus scale**: 8540.6s total (~2h22m, 83.8s/test avg), zero `_resource_danger()` triggers across the entire run, no host freeze. This closes the "not fully trusted at scale" caveat the thread-cap fix carried since S218-S220 — only 5-test and 18-test partial confirmations existed before this run.
+- **Corpus-level results**: 21 asp_better / 54 comparable / 22 simple_better; 43 true composites + 54 guarded fallbacks; aligned GT-SSIM 0.6656 vs 0.693 (post-§0.4b-fix metric, not directly comparable to the pre-fix 07-09 baseline number); sharpness 91.3 vs 65.0 and ghosting 59.0 vs 76.0 — ASP wins both architecturally-advantaged dimensions the project's objective calls out.
+- **Both real-composite rate and asp_better count dropped vs the 07-09 baseline (51→43, 27→21) — read as a net-honest shift, not a regression**: ToonOut's masking fix and the seam_vis_gate re-examination (S244) both independently found cases where a flawed real composite correctly reclassifies as a safe fallback once measured more accurately, mechanically shrinking both numbers while improving actual shipped quality.
+- **Phase 4 fallback-class breakdown refined with full-corpus numbers**, superseding the 18-test-sample estimate: `seam_vis_gate` 27, `composite_gate_sb` 26, `composite_gate_sc` 1, `ghost_gate_siqe` 0, `alignment_failed` 0 — confirms the 18-test sample's proportions (seam_vis_gate and composite_gate_sb dominant) held at scale, and confirms test49's `alignment_failed` resolution holds corpus-wide, not just for that one test.
+- `moon/roadmaps/asp.md` updated: new "Full-corpus checkpoint" section, Phase 2.6 marked fixed/confirmed, Phase 4 breakdown refined.
+
+---
+
 ## S231 — 2026-07-27 (Analytics 1.4: Dependency Structure Matrix — already implemented, stale roadmap text corrected)
 
 Implemented GitHub issue #71 / `analytics_and_interpretability.md` §1.4 (Dependency Structure Matrix), scoped to only this sub-item — issue #71 covers Phases 1-10, an explicitly long-term exploratory epic; 1.1-1.3, 1.5, and Phases 2-10 remain entirely untouched.

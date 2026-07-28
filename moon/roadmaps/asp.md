@@ -21,6 +21,27 @@ base: `research/Image_Stitching_Research.md` (the consolidated field reference) 
 `research/ASP_Comprehensive_Research_Report.md` (algorithm specs, decision
 thresholds, datasets) — see §R below for the distilled results this plan builds on.
 
+**Full-corpus checkpoint (2026-07-28, `anime_stitch_20260728_013215.json`)
+— first full-97 run since the baseline, after this session's accumulated
+fixes (ToonOut default-on, aligned-SSIM windowing fix §0.4b, Hugin/Overmix
+comparators, several rejected experiments confirmed staying default-OFF):**
+21 asp_better / 54 comparable / 22 simple_better; aligned GT-SSIM (post-fix
+metric, not directly comparable to the pre-fix baseline number above) 0.6656
+vs 0.693; 43 true composites + 54 guarded fallbacks; 83.8 s/test; sharpness
+91.3 vs 65.0 and ghosting 59.0 vs 76.0 (ASP wins both, the architecturally-
+advantaged dimensions the objective calls out). Both real-composite rate
+(43 vs 51) and `asp_better` count (21 vs 27) dropped vs the 07-09 baseline —
+**this reads as a net-honest shift, not a regression**: ToonOut's masking
+fix and the seam_vis_gate re-examination (S244) both independently found
+cases where a *flawed* real composite correctly reclassifies as a *safe*
+fallback once measured more accurately, which mechanically shrinks both
+numbers while improving actual shipped quality. Fallback-class breakdown
+(supersedes the 18-test-sample estimate in Phase 4 below with full-corpus
+numbers): `seam_vis_gate` 27, `composite_gate_sb` 26, `composite_gate_sc` 1,
+`ghost_gate_siqe` 0, `alignment_failed` 0 (confirms test49's resolution
+holds at full scale, not just the earlier 18-test sample). This run also
+serves as Phase 2.6's full-corpus host-freeze-fix confirmation (issue #25).
+
 ---
 
 ## Ground Rules (carried from the critical evaluation — non-negotiable)
@@ -385,8 +406,8 @@ test; aligned-SSIM gap ≤ 0. (Coverage wins like test96 should start flipping
 
 ---
 
-## Phase 2.6 — Benchmark-Harness Host Freeze *(likely fixed 2026-07-27,
-S218/S219/S220 — re-verify at scale before fully trusting)*
+## Phase 2.6 — Benchmark-Harness Host Freeze *(FIXED, confirmed at full-corpus
+scale 2026-07-28 — issue #25 closeable)*
 
 `bench_anime_stitch.py` repeatedly froze the host badly enough to force a
 hard restart, on a 128GB RAM / 24GB VRAM machine — a real bug, not
@@ -405,13 +426,16 @@ growing). Permanent diagnostics also added: `_resource_snapshot()`/
 per-stage checkpoints in `process_dataset` — note these *failed* to prevent
 one freeze before the thread-cap landed, so they're a backstop, not the fix.
 
-**Only one confirmed clean run (5 tests) exists.** Re-verify at larger scale
-(10–20 tests, full corpus) before fully trusting this, ideally with the user
-watching resources live. If a freeze recurs: lower `ASP_BENCH_THREAD_CAP`
-further, and audit the `base` C++ files not yet checked (`frame_selection.cpp`,
-`fg_register.cpp`, `compositing.cpp`, `seam.cpp`, `exposure.cpp` —
-`canvas.cpp` is clean) and model-wrapper `.offload()` VRAM release (LoFTR
-reloads fresh every dataset with no cache, unlike BiRefNet).
+**Confirmed at full-corpus scale, 2026-07-28**: user-authorized full 97-test
+run (`anime_stitch_20260728_013215.json`) completed cleanly end-to-end —
+8540.6s total (~2h22m, 83.8s/test avg), zero `_resource_danger()` triggers
+across the entire run, no host freeze. This supersedes the earlier 5-test
+and 18-test partial confirmations from this session and closes the "not
+fully trusted at scale" caveat this phase carried since S218-S220.
+Escalation path if a freeze ever recurs (lower `ASP_BENCH_THREAD_CAP`
+further; audit `frame_selection.cpp`/`fg_register.cpp`/`compositing.cpp`/
+`seam.cpp`/`exposure.cpp`; check model `.offload()` VRAM release) remains
+documented below as a reference, not because it's still believed needed.
 
 ## Phase 3 — Photometric & Seam Parity with OpenCV
 
@@ -511,8 +535,14 @@ reloads fresh every dataset with no cache, unlike BiRefNet).
 
 ## Phase 4 — Convert the Fallback Classes
 
-The 46 guarded fallbacks are wins-by-safety, not wins. Reclassify each:
-- **seam_vis_gate class (24 as of the pre-trim census; re-examined
+The 54 guarded fallbacks (full-corpus count as of the 2026-07-28 checkpoint,
+`anime_stitch_20260728_013215.json` — supersedes the 46-count pre-trim
+census) are wins-by-safety, not wins. Full-corpus class breakdown:
+`seam_vis_gate` 27, `composite_gate_sb` 26, `composite_gate_sc` 1,
+`ghost_gate_siqe` 0, `alignment_failed` 0 — confirms the 18-test sample's
+proportions held at scale (seam_vis_gate and composite_gate_sb dominant,
+the other three classes negligible-to-zero). Reclassify each:
+- **seam_vis_gate class (27 at full-corpus scale, 2026-07-28; re-examined
   2026-07-27 on an 18-test targeted sample — see
   `.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md`):** **not
   uniformly "mostly pose-blend artifacts" as originally assumed.**
