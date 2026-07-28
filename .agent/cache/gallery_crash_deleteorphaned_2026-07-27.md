@@ -408,3 +408,64 @@ just narrower. If this recurs with the same `QSocketNotifier` signature
 after this fix, the next step would be instrumenting exactly which QThread
 start is racing which Qt Multimedia probe (e.g., temporarily logging
 timestamps around both), rather than guessing at another deferral value.
+
+## Addendum 5 (2026-07-28) — round 5's per-call defer was too narrow; gate the source, not one caller
+
+Round 5's fix recurred a *sixth* time (`hs_err_pid257455.log`), same repro,
+same crash offset (`libQt6Core.so.6+0x1e74d5` — identical to round 4's log).
+Two things narrowed this down:
+
+1. **The user's repro is "browse the new directory *immediately* after
+   startup."** Round 5 only deferred `SystemDisplaySubTab.set_config()`'s
+   *auto-restore* call by 250ms. If the user's own manual browse action
+   fires within that window — plausible, since it doesn't require waiting
+   for anything — it starts the exact same `QThread`s through a completely
+   different call path (`browse_scan_directory()`), entirely unprotected by
+   that defer. A per-call-site defer can never fully close this: it only
+   protects the one caller it wraps, not whatever the user does with their
+   own hands in the meantime.
+2. **`main.py` already has an extensive, pre-existing comment describing
+   this exact failure mode and error string** (lines 24-34): a version/build
+   mismatch between the system `libpulse.so.0` and a pixi-built copy
+   transitively pulled in by `import base`'s OpenCV/FFmpeg dependency,
+   resolved by SONAME-based dynamic-linker deduplication onto whichever
+   copy loads *first* — if the wrong one wins, Qt Multimedia's own later
+   `dlopen("libpulse.so.0")` binds to a build it wasn't tested against.
+   `main.py` already preloads the system copy first as a fix. Verified this
+   preload actually succeeds in isolation (`ctypes.CDLL(...)` returns
+   cleanly, no silently-swallowed `OSError`) — so this specific,
+   already-documented cause is not what's still happening; `QSocketNotifier`
+   is a generic Qt warning with more than one possible trigger, and the
+   *timing* race (round 5's hypothesis: a new `QThread` starting while Qt
+   Multimedia's async device-probe thread is still running) remains the
+   live, unaddressed one.
+
+**Fix: stop trying to defer individual call sites and gate the source
+instead.** `backend/src/app.py::launch_app()` now:
+1. Explicitly primes Qt Multimedia's backend — `QAudioOutput()` — as early
+   as possible, immediately after `QApplication` is constructed and *before*
+   the login window is even shown. This starts the PipeWire probe with the
+   maximum possible head start: the user still has to authenticate (vault
+   unlock, keystore load, credential decryption — several real,
+   sequential, non-trivial operations) before `launch_main_gui()` even
+   fires.
+2. `launch_main_gui()` (the callback that builds and shows `MainWindow`,
+   previously synchronous) now defers the actual `MainWindow(...)`
+   construction with `QTimer.singleShot(400, ...)`.
+
+Since **no tab, and therefore no scanner `QThread`, can exist before
+`MainWindow` is constructed**, this closes the race for every call path at
+once — the auto-restore, the user's own manual browse, and any future
+gallery/tab that starts a `QThread` during its own construction — rather
+than requiring every individual call site to separately remember to defer
+itself. Round 5's narrower defer (`SystemDisplaySubTab.set_config()`,
+250ms) is left in place as harmless defense-in-depth, not removed.
+
+**Not verified against a live reproduction** — same standing caveat, now
+six iterations in. If this exact `QSocketNotifier`/`libQt6Core+0x1e74d5`
+signature recurs *after* this fix, the working theory (an async PipeWire
+probe racing new-thread creation) should be considered falsified, and the
+next step is direct instrumentation (temporarily logging wall-clock
+timestamps around the `QAudioOutput()` prime call, the PipeWire probe's
+own completion if observable, and every scanner-thread `.start()` call) to
+find the real ordering — not another blind deferral-value guess.

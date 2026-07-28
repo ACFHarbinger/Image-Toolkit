@@ -197,6 +197,32 @@ def launch_app(opts):
     interpreter_timer.start(100)
     interpreter_timer.timeout.connect(lambda: None)
 
+    # QSocketNotifier/heap-corruption startup race (issue #81):
+    # ExtractorTab's module-level `from PySide6.QtMultimedia import
+    # QAudioOutput, QMediaPlayer` triggers Qt Multimedia's FFmpeg/PipeWire
+    # backend to start an asynchronous device probe on its own thread the
+    # moment MainWindow constructs that tab. If any other QThread (e.g. the
+    # Wallpaper tab's directory-restore scanner workers, or the same scan
+    # triggered by the user manually browsing a directory within seconds of
+    # launch) starts while that probe is still running, with the JPype JVM
+    # already loaded in-process, the collision reliably raises
+    # "QSocketNotifier: Socket notifiers cannot be enabled or disabled from
+    # another thread" and corrupts the heap (SIGABRT, or a SIGSEGV inside
+    # libQt6Core depending on exactly what gets touched next). Per-call-site
+    # defers (tried first, see gallery_crash_deleteorphaned_2026-07-27.md)
+    # are not robust: they only protect the specific call they wrap, not a
+    # user's own manual action taken before that defer fires. Priming the
+    # backend explicitly, synchronously, here -- before MainWindow (and
+    # therefore any tab, and therefore any scanner QThread) exists at all --
+    # and giving the probe a fixed settle window before MainWindow is even
+    # constructed closes the race at its actual source instead of guessing
+    # at individual call sites.
+    from PySide6.QtMultimedia import QAudioOutput
+
+    # Held as a local for launch_app()'s whole lifetime (which runs until the
+    # app quits) so it's never garbage-collected/torn down mid-session.
+    _startup_audio_prime = QAudioOutput()  # noqa: F841
+
     def launch_main_gui(vault_manager):
         """
         Creates and shows the MainWindow after successful authentication.
@@ -209,14 +235,19 @@ def launch_app(opts):
             # The LoginWindow's closeEvent handles JVM shutdown if needed
             active_window.close()
 
-        # 2. Create the new main window instance
-        active_window = MainWindow(
-            vault_manager=vault_manager,  # Pass the authenticated manager
-            dropdown=not opts.get("no_dropdown", False),
-            app_icon=ICON_FILE,
-            enable_manager=opts.get("enable_manager", False),
-        )
-        active_window.show()
+        # 2. Create the new main window instance (deferred -- see the
+        # QSocketNotifier/heap-corruption comment above _startup_audio_prime)
+        def _build_and_show_main_window():
+            nonlocal active_window
+            active_window = MainWindow(
+                vault_manager=vault_manager,  # Pass the authenticated manager
+                dropdown=not opts.get("no_dropdown", False),
+                app_icon=ICON_FILE,
+                enable_manager=opts.get("enable_manager", False),
+            )
+            active_window.show()
+
+        QTimer.singleShot(400, _build_and_show_main_window)
 
     # Create and show the Login Window
     login_window = LoginWindow()
