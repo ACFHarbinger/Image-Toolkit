@@ -1,5 +1,5 @@
 """
-backend/src/utils/base_dispatch.py
+backend/controllers/base_dispatch.py
 
 Post-Phase-7 compatibility shim.
 

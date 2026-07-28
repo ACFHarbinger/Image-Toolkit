@@ -80,7 +80,7 @@ def test_lycoris_engine_builds_correct_dispatcher_command(tab, engine):
 
     args, kwargs = mock_popen.call_args
     cmd = args[0]
-    assert cmd[:3] == [sys.executable, "-m", "backend.dispatcher"]
+    assert cmd[:3] == [sys.executable, "-m", "backend.controllers.hydra_dispatch"]
     assert "command=train" in cmd
     assert f"training=lycoris_{engine}" in cmd
     assert "model.model_id=OnomaAIResearch/Illustrious-XL-v2.0" in cmd

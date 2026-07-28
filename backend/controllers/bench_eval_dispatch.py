@@ -36,7 +36,6 @@ window never loses progress.
 
 from __future__ import annotations
 
-import argparse
 import datetime
 import os
 import sys
@@ -74,7 +73,7 @@ def _default_out_path(repo_root: str) -> str:
     return os.path.join(evaluations_dir, f"asp_evaluations_{today}.json")
 
 
-def build_dashboard(args: argparse.Namespace):
+def build_dashboard(args):
     """Constructs (but does not show/exec) the RatingDashboard — split out
     so a smoke test can build the window under an offscreen QPA without
     starting an event loop."""
@@ -95,26 +94,9 @@ def build_dashboard(args: argparse.Namespace):
 
 
 def evaluate_benchmark_outputs() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument(
-        "--data-dir", default=os.path.expanduser("~/Downloads/Data/Dump"),
-        help="Root data directory containing asp_testXX subdirectories and output/",
-    )
-    parser.add_argument(
-        "--out", default=None,
-        help="Ratings JSON path. Defaults to data/human_evaluations/asp_evaluations_<today>.json "
-             "(resumes an existing file for today if present); pass an existing file's "
-             "path explicitly to resume a specific prior session.",
-    )
-    parser.add_argument(
-        "--redo", action="store_true",
-        help="Re-rate datasets that already have a evaluation (default: skip them).",
-    )
-    parser.add_argument(
-        "--default-view", choices=["display", "pixel"], default="display",
-        help="Which display mode the image panels start in (default: display).",
-    )
-    args = parser.parse_args()
+    from backend.controllers.cli.bench_eval_args import build_parser
+
+    args = build_parser(__doc__).parse_args()
 
     from PySide6.QtWidgets import QApplication
 

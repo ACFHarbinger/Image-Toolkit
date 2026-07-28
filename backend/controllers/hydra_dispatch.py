@@ -1,5 +1,10 @@
-# --- Relocated Nested Imports ---
-# --------------------------------
+"""Hydra-config CLI entry point for `train`, `embed_metadata`, and `comfyui`.
+
+Invoked as ``python -m backend.controllers.hydra_dispatch command=<name> ...``
+(see tools/model/justfile, tools/repository/justfile) — Hydra override syntax,
+not argparse, so there is no separate `controllers/cli/` module for this file.
+"""
+
 import logging
 import subprocess
 import sys
@@ -13,16 +18,14 @@ from backend.src.utils.data.safetensors_metadata import main as embed_main
 logger = logging.getLogger(__name__)
 
 
-@hydra.main(config_path="config", config_name="base", version_base="1.3")
+@hydra.main(config_path="../config", config_name="base", version_base="1.3")
 def main(cfg: DictConfig) -> None:
     command = cfg.get("command", "train")
 
     if command == "train":
-        # relocated: from backend.src.pipeline.anime_training_pipeline import main as train_main
         train_main(cfg)
 
     elif command == "embed_metadata":
-        # relocated: from backend.src.utils.safetensors_metadata import main as embed_main
         embed_main(cfg)
 
     elif command == "comfyui":

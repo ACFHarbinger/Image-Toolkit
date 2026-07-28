@@ -1,7 +1,7 @@
 import json
 import os
 
-from backend.src.utils.io.dispatcher import _collect_image_paths, _run_single_stitch
+from backend.controllers.stitch_dispatch import _collect_image_paths, _run_single_stitch
 from PySide6.QtCore import QThread, Signal
 
 

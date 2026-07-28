@@ -328,7 +328,7 @@ class LoRATrainTab(BaseGenerativeTab):
         cmd = [
             sys.executable,
             "-m",
-            "backend.dispatcher",
+            "backend.controllers.hydra_dispatch",
             "command=train",
             f"training=lycoris_{engine}",
             f"model.model_id={model_id}",

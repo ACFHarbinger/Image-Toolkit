@@ -40,7 +40,7 @@ with contextlib.suppress(OSError):
 
 from backend.src.app import launch_app, log_uncaught_exceptions
 from backend.src.utils.io.arg_parser import parse_params
-from backend.src.utils.io.dispatcher import dispatch_command
+from backend.controllers.backend_dispatch import dispatch_command
 from gui.src.windows.settings.file_dialog_patch import apply_patch
 
 # Apply the patch to add the favorites side bar to the file dialogs

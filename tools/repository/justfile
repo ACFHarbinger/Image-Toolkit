@@ -8,7 +8,7 @@ set working-directory := '../..'
 # Start ComfyUI headlessly (without the main desktop app)
 comfyui args="":
     @echo "🎨 Starting ComfyUI server..."
-    source .venv/bin/activate && python -m backend.dispatcher command=comfyui {{args}}
+    source .venv/bin/activate && python -m backend.controllers.hydra_dispatch command=comfyui {{args}}
 
 # Stop any running ComfyUI instances
 comfyui-stop:
