@@ -71,7 +71,15 @@ class TestExtractorTabDragPreview:
             pages=["page_0000.jpg"],
         )
 
-        with patch.object(tab, "_ensure_scrub_popup") as mock_ensure:
+        # Patch on tab.video_subtab (the actual owning object), not tab
+        # itself: ExtractorTab.__setattr__ forwards writes for attributes
+        # that only exist on video_subtab, but mock.patch.object() decides
+        # whether to delattr() or restore-the-original on __exit__ based on
+        # whether the attribute was in *tab.__dict__* specifically -- it
+        # never is here, so patching `tab` directly makes teardown call
+        # delattr(tab, "_ensure_scrub_popup"), which fails since the mock
+        # was actually stored on video_subtab, not tab.
+        with patch.object(tab.video_subtab, "_ensure_scrub_popup") as mock_ensure:
             mock_popup = MagicMock()
             mock_ensure.return_value = mock_popup
 
@@ -106,7 +114,9 @@ class TestExtractorTabDragPreview:
         tab, mock_player, _ = self._make_tab(tmp_path)
         tab.slider.setValue(60_000)
 
-        with patch.object(tab, "_hide_scrub_popup") as mock_hide:
+        # See test_drag_tick_restarts_settle_timer_and_updates_popup's
+        # comment for why this patches tab.video_subtab, not tab.
+        with patch.object(tab.video_subtab, "_hide_scrub_popup") as mock_hide:
             tab._slider_scrubbing = True
             tab.set_position_on_release()
 
