@@ -469,3 +469,36 @@ next step is direct instrumentation (temporarily logging wall-clock
 timestamps around the `QAudioOutput()` prime call, the PipeWire probe's
 own completion if observable, and every scanner-thread `.start()` call) to
 find the real ordering — not another blind deferral-value guess.
+
+## Addendum 6 (2026-07-28) — round 6's own fix had a self-inflicted regression
+
+The user reported the app now "crashes immediately after login" — no crash
+log this time (`hs_err_*.log` never generated), stdout cut off mid-way
+through credential decryption, well before the `qt.multimedia.ffmpeg`/
+`QSocketNotifier` lines that every prior round's log showed. This pointed
+away from a native crash and toward round 6's own new code.
+
+**Found it on re-reading the round-6 diff**: `launch_main_gui()` closed the
+`LoginWindow` *immediately*, synchronously, while the new
+`MainWindow(...)` construction was deferred 400ms via
+`QTimer.singleShot`. For that entire 400ms window, **zero top-level
+windows were open**. `QApplication`'s default `quitOnLastWindowClosed`
+(never explicitly set anywhere in this codebase — confirmed by grep, so
+Qt's default `True` applies) means closing the last remaining window
+immediately quits the application — silently, no signal, no crash log,
+exactly matching "crashes immediately after login." The 400ms defer this
+round added to fix the *original* race directly created this *new*,
+different bug.
+
+**Fix**: reordered so `MainWindow` is constructed and shown *first*, inside
+the deferred callback, and `LoginWindow` is only closed *after* that
+succeeds — so at least one top-level window is open at every point in the
+transition, never zero. This is a strictly safer ordering regardless of
+`quitOnLastWindowClosed`'s value, not just a workaround for this specific
+default.
+
+This was caught and fixed in the same turn as the report, entirely from
+re-reading the diff rather than needing another crash log — a reminder to
+re-review any startup-sequencing change for this exact "is a window ever
+briefly absent" hazard before shipping it, given `quitOnLastWindowClosed`'s
+default is easy to forget about.

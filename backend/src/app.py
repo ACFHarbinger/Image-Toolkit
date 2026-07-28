@@ -230,15 +230,17 @@ def launch_app(opts):
         """
         nonlocal active_window
 
-        # 1. Close the login window if it's still around
-        if active_window and isinstance(active_window, LoginWindow):
-            # The LoginWindow's closeEvent handles JVM shutdown if needed
-            active_window.close()
-
-        # 2. Create the new main window instance (deferred -- see the
+        # Create the new main window instance (deferred -- see the
         # QSocketNotifier/heap-corruption comment above _startup_audio_prime)
+        # and only THEN close the login window. Closing LoginWindow first
+        # and constructing MainWindow 400ms later (as an earlier version of
+        # this fix did) leaves a window with zero top-level windows open;
+        # QApplication's default quitOnLastWindowClosed=True then quits the
+        # whole app right there -- silently, with no crash log, matching
+        # exactly the "crashes immediately after login" symptom this caused.
         def _build_and_show_main_window():
             nonlocal active_window
+            previous_window = active_window
             active_window = MainWindow(
                 vault_manager=vault_manager,  # Pass the authenticated manager
                 dropdown=not opts.get("no_dropdown", False),
@@ -246,6 +248,11 @@ def launch_app(opts):
                 enable_manager=opts.get("enable_manager", False),
             )
             active_window.show()
+            if previous_window and isinstance(previous_window, LoginWindow):
+                # The LoginWindow's closeEvent handles JVM shutdown if
+                # needed. Closed only now that MainWindow is already up, so
+                # at least one top-level window is always open.
+                previous_window.close()
 
         QTimer.singleShot(400, _build_and_show_main_window)
 
