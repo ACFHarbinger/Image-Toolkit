@@ -46,6 +46,7 @@ from .....components import (
 from .....helpers import ImageScannerWorker, VideoScannerWorker
 from .....styles import STYLE_START_ACTION
 from .....utils.sort_utils import natural_sort_key
+from .....utils.startup_probe_guard import startup_settle_remaining_ms
 from .....windows import ImagePreviewWindow, SlideshowQueueWindow
 from ..graph.data import GraphData, NodeData
 
@@ -1216,6 +1217,22 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
 
     def populate_scan_image_gallery(self, directory: str, emit_signal: bool = True):
         if getattr(self, "background_type", None) == "Solid Color":
+            return
+
+        # Refuse to start a scanner QThread while Qt Multimedia's startup
+        # device probe may still be in flight (issue #81 root cause #8):
+        # racing it corrupts the heap. This floor is measured from the
+        # probe's actual start time (see startup_probe_guard.py), not from
+        # how long login/MainWindow construction happened to take, so it
+        # protects a fast-login-then-immediate-browse sequence the same
+        # way it protects the auto-restore path -- whichever call reaches
+        # here first, during the settle window, simply reschedules itself.
+        _remaining_ms = startup_settle_remaining_ms()
+        if _remaining_ms > 0:
+            QTimer.singleShot(
+                _remaining_ms,
+                lambda: self.populate_scan_image_gallery(directory, emit_signal),
+            )
             return
 
         # Stop and drain scanner threads on THIS instance and every linked

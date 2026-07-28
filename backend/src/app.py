@@ -5,6 +5,7 @@ import sys
 import threading
 from pathlib import Path
 
+from gui.src.utils.startup_probe_guard import mark_startup_probe_started
 from gui.src.windows.main import LoginWindow, MainWindow
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
@@ -222,6 +223,14 @@ def launch_app(opts):
     # Held as a local for launch_app()'s whole lifetime (which runs until the
     # app quits) so it's never garbage-collected/torn down mid-session.
     _startup_audio_prime = QAudioOutput()  # noqa: F841
+    # Records the probe's actual start time so gui/src/utils/startup_probe_guard.py
+    # can give every scanner-thread call site a real elapsed-time floor to
+    # defer against, rather than relying solely on how long login/vault-
+    # unlock happens to take in a given run (round 11 of the deleteOrphaned/
+    # startup-race investigation found the 400ms MainWindow defer alone
+    # insufficient when login was fast) -- see
+    # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
+    mark_startup_probe_started()
 
     def launch_main_gui(vault_manager):
         """

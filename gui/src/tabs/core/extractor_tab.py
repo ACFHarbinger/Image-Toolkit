@@ -84,6 +84,7 @@ from ...helpers.video.storyboard import (
 )
 from ...helpers.video.video_scan_worker import VideoThumbnailer
 from ...utils.sort_utils import natural_sort_key
+from ...utils.startup_probe_guard import startup_settle_remaining_ms
 from ...windows import ImagePreviewWindow
 from .elements.image_extractor_subtab import ImageExtractorSubTab
 from .labels import _CutLabel, _TagLabel
@@ -1170,6 +1171,15 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
 
     def scan_directory(self, path: str):
         if not os.path.isdir(path):
+            return
+
+        # Refuse to start a scanner QThread while Qt Multimedia's startup
+        # device probe may still be in flight (issue #81 root cause #8) --
+        # see startup_probe_guard.py and
+        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
+        _remaining_ms = startup_settle_remaining_ms()
+        if _remaining_ms > 0:
+            QTimer.singleShot(_remaining_ms, lambda: self.scan_directory(path))
             return
 
         normalized = os.path.normpath(path)

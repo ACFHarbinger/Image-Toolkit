@@ -57,6 +57,7 @@ class ConcreteWallpaperBase(WallpaperCommonBase):
     def _generate_video_thumbnail(self, path):
         return None
 
+    # pyrefly: ignore [bad-override]
     def create_gallery_label(self, path, size):
         return QWidget()
 
@@ -101,6 +102,7 @@ def wallpaper_base(q_app, monkeypatch):
         _make_spying_video_scanner_worker(video_registry),
     )
     base = ConcreteWallpaperBase()
+    # pyrefly: ignore [missing-attribute]
     base.video_registry = video_registry
     yield base
     base._stop_scanner_threads()
