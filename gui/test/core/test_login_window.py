@@ -270,7 +270,14 @@ class TestGuestMode:
             assert window.vault_manager.account_name == "guest_user"
             mock_info.assert_called_once()
             mock_listener.assert_called_once_with(window.vault_manager)
-            window.close.assert_called_once()
+            # Issue #81 (round 8): LoginWindow no longer closes itself right
+            # after emitting login_successful -- app.py's launch_main_gui()
+            # closes it later, only once MainWindow is actually constructed
+            # and shown. Closing synchronously here left a zero-top-level-
+            # windows-open gap that silently quit the whole app via Qt's
+            # default quitOnLastWindowClosed. See login_window.py's comment
+            # at this call site and .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
+            window.close.assert_not_called()
 
     def test_guest_vault_memory_operations(self):
         from backend.src.core.vault_manager import VaultManager

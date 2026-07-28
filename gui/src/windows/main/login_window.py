@@ -374,8 +374,9 @@ class LoginWindow(QWidget):
                 "Settings saved during this session will be stored in volatile memory "
                 "only and will not persist on disk.",
             )
+            # Deliberately not closed here -- see the comment at the other
+            # login_successful.emit() call sites in this file for why.
             self.login_successful.emit(self.vault_manager)
-            self.close()
         except Exception as e:
             QMessageBox.critical(self, "Guest Mode Error", f"Failed to start Guest session: {e}")
             if self.vault_manager:
@@ -560,8 +561,29 @@ class LoginWindow(QWidget):
                 # --- LOAD/DECRYPT API FILES ---
                 self._load_api_files()
 
+                # Deliberately NOT self.close()'d here (issue #81, round 8).
+                # login_successful is a direct (same-thread) connection, so
+                # app.py's connected launch_main_gui() slot runs synchronously
+                # inside this emit() call -- but launch_main_gui() only
+                # *schedules* MainWindow construction 400ms later
+                # (QTimer.singleShot), it doesn't build it immediately (see
+                # that function's own comment for why: constructing
+                # MainWindow synchronously during this fragile startup
+                # window risks the QSocketNotifier/heap-corruption crash
+                # documented in
+                # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
+                # If this window closed itself right here, right after
+                # emit() returns, there would be zero top-level windows open
+                # for that whole 400ms gap -- QApplication's default
+                # quitOnLastWindowClosed=True then silently quits the app,
+                # which is exactly what kept happening even after app.py's
+                # own close-ordering fix (round 7), because THIS close()
+                # call was a second, independent way to hit the same empty-
+                # window-list state that fix never touched.
+                # app.py's launch_main_gui()/_build_and_show_main_window()
+                # closes this window itself, only once MainWindow is
+                # actually up.
                 self.login_successful.emit(self.vault_manager)
-                self.close()
             else:
                 QMessageBox.critical(self, "Login Failed", "Invalid password.")
 
@@ -646,8 +668,10 @@ class LoginWindow(QWidget):
             # --- LOAD/DECRYPT API FILES ---
             self._load_api_files()
 
+            # Deliberately not closed here -- see the comment at the
+            # existing-account login_successful.emit() call site (above,
+            # ~line 564) for why.
             self.login_successful.emit(self.vault_manager)
-            self.close()
 
         except Exception as e:
             QMessageBox.critical(self, "Creation Error", f"Failed to create account: {e}")
