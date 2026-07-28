@@ -114,6 +114,8 @@ Fix that actually closed this (after a narrower per-call-site defer proved insuf
 
 **Why a per-call-site defer isn't enough on its own**: an earlier attempt deferred only the Wallpaper tab's startup auto-restore call (`QTimer.singleShot(250, ...)` on `SystemDisplaySubTab.set_config()`) and still recurred — the user's own manual "browse a new directory" action, taken within that same window, reaches the identical `QThread`-starting code through a completely different call path, entirely unprotected by a defer wrapping only the auto-restore. If you're tempted to fix a new instance of this crash class by wrapping one specific call in `QTimer.singleShot`, consider whether a user action could reach the same underlying thread-starting code some other way — if so, gate construction of whatever owns that code path instead (as done here for `MainWindow`), not the individual call.
 
+**If you defer window/widget construction with `QTimer.singleShot` during a login/splash-to-main-window transition, watch for a zero-windows-open gap.** The fix above initially closed the login window synchronously while deferring `MainWindow` construction by 400ms — for that whole window, no top-level window was open, and `QApplication`'s default `quitOnLastWindowClosed=True` (never overridden anywhere in this codebase) silently quit the entire app right there. No crash log, no signal — just an app that "crashes immediately after login" with nothing in stdout past whatever was mid-flight. Always construct and show the *next* window before closing the *previous* one in any deferred transition, never the reverse.
+
 ---
 
 ### `libpyside6.abi3.so.6.10` crash in `__dynamic_cast` on tab switch
