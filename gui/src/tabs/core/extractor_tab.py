@@ -285,9 +285,17 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
         self.player_inner_layout = QVBoxLayout(self.player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.video_item = QGraphicsVideoItem()
+        # QGraphicsVideoItem() is constructed lazily (see the video_item
+        # property below), not here -- constructing it eagerly for every
+        # tab at app startup is what actually triggers Qt Multimedia's
+        # FFmpeg/PipeWire backend to load (confirmed: QAudioOutput() alone
+        # does NOT print "Using Qt multimedia with FFmpeg version...";
+        # constructing QGraphicsVideoItem() does), during the same fragile
+        # startup window described above for QAudioOutput/audio_output.
+        # See .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
+        # Addendum 14.
+        self._video_item: Optional[QGraphicsVideoItem] = None
         self.graphics_scene = QGraphicsScene(self)
-        self.graphics_scene.addItem(self.video_item)
 
         self.video_view = QGraphicsView(self.graphics_scene)
         self.video_view.setFixedSize(1920, 1080)
@@ -867,6 +875,13 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
         self._update_recent_extractions_ui()
 
     @property
+    def video_item(self) -> QGraphicsVideoItem:
+        if self._video_item is None:
+            self._video_item = QGraphicsVideoItem()
+            self.graphics_scene.addItem(self._video_item)
+        return self._video_item
+
+    @property
     def audio_output(self) -> QAudioOutput:
         if self._audio_output is None:
             self._audio_output = QAudioOutput()
@@ -1179,6 +1194,11 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
         # see startup_probe_guard.py and
         # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
         _remaining_ms = startup_settle_remaining_ms()
+        print(
+            f"[startup-probe-guard] ExtractorTab.scan_directory({path!r}): "
+            f"remaining_ms={_remaining_ms}",
+            flush=True,
+        )
         if _remaining_ms > 0:
             QTimer.singleShot(_remaining_ms, lambda: self.scan_directory(path))
             return
@@ -2060,6 +2080,13 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
         return super().eventFilter(watched, event)
 
     def fit_video_in_view(self):
+        # Don't force video_item's lazy construction (see the property
+        # above) just from a resize event before any video has actually
+        # been loaded -- there's nothing to fit yet, and constructing it
+        # here would reintroduce the exact early-startup Qt Multimedia
+        # trigger this laziness exists to avoid.
+        if self._video_item is None:
+            return
         rect = self.video_view.viewport().rect() # pyrefly: ignore [missing-attribute]
         self.video_item.setSize(rect.size()) # pyrefly: ignore [missing-attribute]
         self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio) # pyrefly: ignore [missing-attribute]

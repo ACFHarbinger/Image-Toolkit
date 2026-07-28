@@ -173,7 +173,7 @@ class RatingDashboard(QMainWindow):
         back_btn.clicked.connect(self._go_back)
         skip_btn = QPushButton("Skip")
         skip_btn.clicked.connect(self._go_skip)
-        next_btn = QPushButton("Save & Next >")
+        next_btn = QPushButton("Save and Next >")
         next_btn.clicked.connect(self._go_next)
         quit_btn = QPushButton("Quit")
         quit_btn.clicked.connect(self.close)

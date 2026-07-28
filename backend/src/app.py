@@ -5,7 +5,6 @@ import sys
 import threading
 from pathlib import Path
 
-from gui.src.utils.startup_probe_guard import mark_startup_probe_started
 from gui.src.windows.main import LoginWindow, MainWindow
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
@@ -198,39 +197,77 @@ def launch_app(opts):
     interpreter_timer.start(100)
     interpreter_timer.timeout.connect(lambda: None)
 
-    # QSocketNotifier/heap-corruption startup race (issue #81):
-    # ExtractorTab's module-level `from PySide6.QtMultimedia import
-    # QAudioOutput, QMediaPlayer` triggers Qt Multimedia's FFmpeg/PipeWire
-    # backend to start an asynchronous device probe on its own thread the
-    # moment MainWindow constructs that tab. If any other QThread (e.g. the
-    # Wallpaper tab's directory-restore scanner workers, or the same scan
-    # triggered by the user manually browsing a directory within seconds of
-    # launch) starts while that probe is still running, with the JPype JVM
-    # already loaded in-process, the collision reliably raises
-    # "QSocketNotifier: Socket notifiers cannot be enabled or disabled from
-    # another thread" and corrupts the heap (SIGABRT, or a SIGSEGV inside
-    # libQt6Core depending on exactly what gets touched next). Per-call-site
-    # defers (tried first, see gallery_crash_deleteorphaned_2026-07-27.md)
-    # are not robust: they only protect the specific call they wrap, not a
-    # user's own manual action taken before that defer fires. Priming the
-    # backend explicitly, synchronously, here -- before MainWindow (and
-    # therefore any tab, and therefore any scanner QThread) exists at all --
-    # and giving the probe a fixed settle window before MainWindow is even
-    # constructed closes the race at its actual source instead of guessing
-    # at individual call sites.
-    from PySide6.QtMultimedia import QAudioOutput
+    # QSocketNotifier/heap-corruption startup race (issue #81). History
+    # (full detail in .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md):
+    # rounds 6-12 all assumed this was a *timing* race against Qt
+    # Multimedia's async PipeWire device probe, and tried an eagerly
+    # constructed `QAudioOutput()` here (to get the probe started as early
+    # as possible) plus progressively longer settle windows before letting
+    # any scanner QThread start. That was disproven by direct instrumentation
+    # in round 12: the settle window was *always* already fully elapsed by
+    # the time any scan could start (login/vault-unlock alone took longer
+    # than the ceiling), and the probe's own completion signal
+    # (QMediaDevices.audioOutputsChanged) never fired even once in a full
+    # session -- yet the crash still happened. It is not a "hasn't
+    # finished probing yet" problem.
+    #
+    # Round 13 found the actual mechanism for the crash this repro reliably
+    # hits: VideoScannerWorker.run() (gui/src/helpers/video/video_scan_worker.py)
+    # spawns a concurrent.futures.ThreadPoolExecutor to generate video
+    # thumbnails in parallel; each worker thread (a plain Python thread, not
+    # a QThread) calls QImage().loadFromData(...) via
+    # VideoThumbnailer.generate() to decode the JPEG bytes ffmpeg/
+    # ffmpegthumbnailer wrote to stdout. The first time any video thumbnail
+    # gets decoded in the process, Qt's JPEG image-format plugin lazily
+    # loads -- off the main thread, with the JPype JVM already loaded
+    # in-process. That's the same "Qt subsystem lazily dlopening a native
+    # lib off the main thread while the JVM is loaded" crash class already
+    # fixed 3 times before for other subsystems (native file dialog/GTK,
+    # QWebEngineView/Chromium, QMediaPlayer FFmpeg VA-API -- see
+    # jvm_native_lib_conflicts in project memory), and explains this crash's
+    # perfect determinism far better than a timing race would: a directory
+    # with video files always hits this path, one without never does.
+    # Priming the JPEG plugin here, synchronously, on the main thread,
+    # before the JVM loads, closed that specific SIGSEGV (confirmed live).
+    #
+    # A live retest after that fix still failed, though differently (an
+    # "Invalid socket ... disabling" spam-hang, then a glibc heap-corruption
+    # abort) -- both are the *other* documented symptoms of this same
+    # `QSocketNotifier` problem class, not a new one. The eagerly
+    # constructed `QAudioOutput()` audio-priming object itself is the
+    # remaining, consistent common factor across every failure mode seen so
+    # far (every one starts with this exact warning, and Qt Multimedia's
+    # PipeWire backend -- triggered only by that object, nothing else in
+    # this repro touches Qt Multimedia at all -- is the only thing in this
+    # app that owns a socket notifier of this kind). Removed entirely for
+    # this repro: ExtractorTab's own QAudioOutput/QMediaPlayer are already
+    # constructed lazily (only when a video is actually previewed, see
+    # extractor_tab.py's `audio_output`/`media_player` properties), so
+    # nothing else in a pure Wallpaper-tab-browsing session touches Qt
+    # Multimedia at all once this is gone. If ExtractorTab's own lazy video-
+    # preview path independently hits this same crash class later, that is
+    # a separate, narrower problem to solve on its own terms -- not a
+    # reason to keep an unconditional startup cost that has not measurably
+    # helped across seven rounds of fixes (see Addendum 13 in
+    # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
 
-    # Held as a local for launch_app()'s whole lifetime (which runs until the
-    # app quits) so it's never garbage-collected/torn down mid-session.
-    _startup_audio_prime = QAudioOutput()  # noqa: F841
-    # Records the probe's actual start time so gui/src/utils/startup_probe_guard.py
-    # can give every scanner-thread call site a real elapsed-time floor to
-    # defer against, rather than relying solely on how long login/vault-
-    # unlock happens to take in a given run (round 11 of the deleteOrphaned/
-    # startup-race investigation found the 400ms MainWindow defer alone
-    # insufficient when login was fast) -- see
-    # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
-    mark_startup_probe_started()
+    from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+    from PySide6.QtGui import QImage as _QImagePrime
+
+    _prime_src = _QImagePrime(2, 2, _QImagePrime.Format.Format_RGB32)
+    _prime_src.fill(0)
+    _prime_bytes = QByteArray()
+    _prime_buf = QBuffer(_prime_bytes)
+    _prime_buf.open(QIODevice.OpenModeFlag.WriteOnly)
+    _prime_encode_ok = _prime_src.save(_prime_buf, "JPG")
+    _prime_buf.close()
+    _prime_decoded = _QImagePrime()
+    _prime_decode_ok = _prime_decoded.loadFromData(_prime_bytes, "JPG")
+    print(
+        f"[startup-probe-guard] JPEG plugin primed on main thread "
+        f"(encode_ok={_prime_encode_ok}, decode_ok={_prime_decode_ok})",
+        flush=True,
+    )
 
     def launch_main_gui(vault_manager):
         """
@@ -238,17 +275,19 @@ def launch_app(opts):
         Replaces the LoginWindow.
         """
         nonlocal active_window
+        print("[startup-probe-guard] login succeeded", flush=True)
 
         # Create the new main window instance (deferred -- see the
-        # QSocketNotifier/heap-corruption comment above _startup_audio_prime)
-        # and only THEN close the login window. Closing LoginWindow first
-        # and constructing MainWindow 400ms later (as an earlier version of
+        # QSocketNotifier/heap-corruption comment above) and only THEN
+        # close the login window. Closing LoginWindow first and
+        # constructing MainWindow 400ms later (as an earlier version of
         # this fix did) leaves a window with zero top-level windows open;
         # QApplication's default quitOnLastWindowClosed=True then quits the
         # whole app right there -- silently, with no crash log, matching
         # exactly the "crashes immediately after login" symptom this caused.
         def _build_and_show_main_window():
             nonlocal active_window
+            print("[startup-probe-guard] MainWindow construction starting", flush=True)
             previous_window = active_window
             active_window = MainWindow(
                 vault_manager=vault_manager,  # Pass the authenticated manager

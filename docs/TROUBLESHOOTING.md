@@ -118,7 +118,9 @@ Fix that actually closed this (after a narrower per-call-site defer proved insuf
 
 **And check every place that `emit()`s the signal driving that deferred construction, not just the slot itself.** This exact bug recurred a second time from a completely different file: `LoginWindow` had its own `self.close()` immediately after `self.login_successful.emit(...)`, at three separate call sites. `login_successful` is a *direct* (same-thread) connection, so the connected slot runs synchronously inside `emit()` — but that slot only *schedules* `MainWindow` construction, it doesn't build it immediately. Once `emit()` returned, `LoginWindow`'s own next line (`self.close()`) ran instantly, long before the deferred construction, recreating the zero-windows-open state through a path the first fix never touched. When you fix a slot to defer its work, audit every `emit()` site for code that assumed the old synchronous behavior — a direct connection means the emitter's own subsequent statements are exactly as much a risk as the slot's.
 
-**The 400ms `MainWindow` defer alone was still not a reliable enough margin.** The exact same crash (identical `libQt6Core.so.6` offset, `+0x1df7c9`) recurred with the simplest possible repro — auto-restore a directory, then one immediate manual browse — well after the `QAudioOutput` priming + 400ms defer above was already in place. The implicit assumption behind that fix was that login/vault-unlock (JVM start, keystore load, vault decrypt) reliably eats far more than 400ms, giving the probe a large real margin by the time `MainWindow` (and therefore any scanner `QThread`) can exist. That assumption fails whenever login happens quickly. Fixed by adding an explicit, elapsed-time-based gate: `gui/src/utils/startup_probe_guard.py` records the probe's real start time (`mark_startup_probe_started()`, called from `app.py` right where the priming `QAudioOutput` is constructed) and exposes `startup_settle_remaining_ms()` — a 1.5s settle window measured from that timestamp, not from window-construction timing. Every scanner-thread call site (`WallpaperCommonBase.populate_scan_image_gallery()`, `VideoExtractorSubTab.scan_directory()`) checks this immediately before starting a thread and, if still within the window, reschedules its *entire own call* via `QTimer.singleShot()` — gating the actual danger point directly, rather than hoping enough time already passed by the time execution gets there. If this recurs a third time with the same offset, either the 1.5s figure (a judgment call, not a measured one) needs to grow further, or replace the fixed window with an actual completion signal from Qt Multimedia (e.g. `QMediaDevices.audioOutputsChanged`).
+**The 400ms `MainWindow` defer alone was still not a reliable enough margin.** The exact same crash (identical `libQt6Core.so.6` offset, `+0x1df7c9`) recurred with the simplest possible repro — auto-restore a directory, then one immediate manual browse — well after the `QAudioOutput` priming + 400ms defer above was already in place. The implicit assumption behind that fix was that login/vault-unlock (JVM start, keystore load, vault decrypt) reliably eats far more than 400ms, giving the probe a large real margin by the time `MainWindow` (and therefore any scanner `QThread`) can exist. That assumption fails whenever login happens quickly. Fixed by adding an explicit, elapsed-time-based gate: `gui/src/utils/startup_probe_guard.py` records the probe's real start time (`mark_startup_probe_started()`, called from `app.py` right where the priming `QAudioOutput` is constructed) and exposes `startup_settle_remaining_ms()` — a 1.5s settle window measured from that timestamp, not from window-construction timing. Every scanner-thread call site (`WallpaperCommonBase.populate_scan_image_gallery()`, `VideoExtractorSubTab.scan_directory()`) checks this immediately before starting a thread and, if still within the window, reschedules its *entire own call* via `QTimer.singleShot()` — gating the actual danger point directly, rather than hoping enough time already passed by the time execution gets there.
+
+**UPDATE — this whole root cause is now believed to be a misdiagnosis for the crash that motivated it.** Removing the `QAudioOutput` priming entirely, and separately making `ExtractorTab`'s `QGraphicsVideoItem()` construction lazy (the other, previously-unnoticed Qt Multimedia trigger — plain `QAudioOutput()` construction does *not* print Qt's `"Using Qt multimedia with FFmpeg..."` banner, but `QGraphicsVideoItem()` does), together eliminated every code path that could trigger Qt Multimedia's backend during a Wallpaper-only session. The crash **still recurred** — same warning text, same general `QSocketNotifier` internal-function crash class — in a run whose stdout contained *no* Qt Multimedia backend banner at all, proving the backend was never loaded. This crash was never a Qt Multimedia timing race; the warning text is apparently generic enough to also come from a completely different mechanism (see the `deleteOrphaned` section below, Addendum 15). The `startup_probe_guard.py` machinery described above is kept (it's harmless, tested, and may still matter for a genuine `ExtractorTab` video-preview-shortly-after-launch scenario), but do not spend further effort tuning it against *this* crash pattern — it was never the lever.
 
 ---
 
@@ -330,6 +332,39 @@ image/video directory switching against the real
 pre-round-10 code and pass against the fix — if you touch
 `populate_scan_image_gallery()`/`_on_image_scan_finished()`/
 `_stop_scanner_threads()` again, run this test first.
+
+**This is now believed to be the actual mechanism behind a crash previously
+misdiagnosed as the Qt Multimedia startup race (root cause #8) above** —
+that theory was directly disproven (see the UPDATE note there): the crash
+recurred with identical symptoms in a run where Qt Multimedia's backend
+was never triggered at all. The real Wallpaper tab always runs **two
+linked `WallpaperCommonBase` instances** (`system_display`/`monitor_display`,
+wired in `wallpaper_tab.py`: mutual `linked_tabs`, a shared/aliased
+`_initial_pixmap_cache` dict, `directory_scanned` cross-connected with
+`emit_signal=False`) — a topology `test_wallpaper_scan_race.py` doesn't
+cover (it only exercises one instance). A second test,
+`gui/test/core/test_wallpaper_linked_panel_scan_race.py`, builds the same
+two-instance topology and drives rapid switching through one panel — it
+currently **passes** against the existing code, meaning this specific
+interaction isn't reproducible by simulating the Python/Qt-signal call
+sequence with a mocked scan delay. That's a real, useful negative result:
+it points at something lower-level (genuine native thread-scheduling
+timing, real subprocess spawning, or a Qt-internal event-dispatcher/
+socket-notifier interaction) that only manifests under real OS thread
+creation, not a logic bug reachable this way.
+
+Fine-grained `[thread-lifecycle]` print instrumentation (tagged with
+`panel={id(self):x}` and `tid={threading.get_ident()}`) was added at
+every `QThread` start/stop/quit/wait/deleteLater transition in
+`wallpaper_common_base.py`, and at `_on_image_scan_finished()`'s
+stale-vs-proceed decision, specifically so the *next* live crash's stdout
+pinpoints exactly which lifecycle operation was in flight — none of the
+diagnosis up to this point could determine that from the coarser prints
+that existed before. If a future crash's last instrumented line still
+doesn't localize the problem, the next escalation is external process
+tracing (`strace -f`, or GDB attached ahead of time), not more Python
+print statements — that would mean the issue is below what this kind of
+tracing can observe.
 
 Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 

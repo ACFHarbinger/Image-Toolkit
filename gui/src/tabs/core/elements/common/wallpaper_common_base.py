@@ -2,6 +2,7 @@ import json
 import os
 import platform
 import subprocess
+import threading
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
@@ -48,7 +49,7 @@ from .....styles import STYLE_START_ACTION
 from .....utils.sort_utils import natural_sort_key
 from .....utils.startup_probe_guard import startup_settle_remaining_ms
 from .....windows import ImagePreviewWindow, SlideshowQueueWindow
-from ..graph.data import GraphData, NodeData
+from ..graph.data_schema import GraphData, NodeData
 
 
 class WallpaperCommonBase(AbstractClassSingleGallery):
@@ -1149,12 +1150,17 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
         """
         if self.vid_scanner_worker is not None:
+            _tag = f"[thread-lifecycle] panel={id(self):x} vid_worker={id(self.vid_scanner_worker):x} tid={threading.get_ident()}"
             try:
                 if self.vid_scanner_worker.isRunning():
+                    print(f"{_tag} requestInterruption+stop+quit", flush=True)
                     self.vid_scanner_worker.requestInterruption()
                     self.vid_scanner_worker.stop()
                     self.vid_scanner_worker.quit()
+                    print(f"{_tag} wait() starting", flush=True)
                     self.vid_scanner_worker.wait()  # unbounded
+                    print(f"{_tag} wait() returned", flush=True)
+                print(f"{_tag} deleteLater()", flush=True)
                 self.vid_scanner_worker.deleteLater()
             except RuntimeError:
                 pass
@@ -1179,10 +1185,15 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         can return while it's still running.
         """
         if self.img_scanner_thread is not None:
+            _tag = f"[thread-lifecycle] panel={id(self):x} img_thread={id(self.img_scanner_thread):x} tid={threading.get_ident()}"
             if self.img_scanner_thread.isRunning():
+                print(f"{_tag} requestInterruption+quit", flush=True)
                 self.img_scanner_thread.requestInterruption()
                 self.img_scanner_thread.quit()
+                print(f"{_tag} wait() starting", flush=True)
                 self.img_scanner_thread.wait()  # unbounded
+                print(f"{_tag} wait() returned", flush=True)
+            print(f"{_tag} deleteLater()", flush=True)
             self.img_scanner_thread.deleteLater()
             self.img_scanner_thread = None
 
@@ -1219,6 +1230,14 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         if getattr(self, "background_type", None) == "Solid Color":
             return
 
+        if emit_signal:
+            import traceback
+            print(
+                f"[thread-lifecycle] CALLER TRACE for populate_scan_image_gallery({directory!r}, emit_signal=True):\n"
+                + "".join(traceback.format_stack(limit=8)),
+                flush=True,
+            )
+
         # Refuse to start a scanner QThread while Qt Multimedia's startup
         # device probe may still be in flight (issue #81 root cause #8):
         # racing it corrupts the heap. This floor is measured from the
@@ -1228,6 +1247,12 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         # way it protects the auto-restore path -- whichever call reaches
         # here first, during the settle window, simply reschedules itself.
         _remaining_ms = startup_settle_remaining_ms()
+        print(
+            f"[thread-lifecycle] panel={id(self):x} tid={threading.get_ident()} "
+            f"populate_scan_image_gallery({directory!r}) emit_signal={emit_signal} "
+            f"remaining_ms={_remaining_ms}",
+            flush=True,
+        )
         if _remaining_ms > 0:
             QTimer.singleShot(
                 _remaining_ms,
@@ -1295,13 +1320,30 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
                 paths, _worker
             )
         )
-        self.img_scanner_worker.scan_error.connect(self.handle_scan_error)
+        # Same stale-delivery guard as scan_finished above: an old scanner's
+        # queued scan_error can still arrive after a newer directory switch
+        # replaced self.img_scanner_worker; handle_scan_error() tears down
+        # gallery widgets unconditionally, which would otherwise do so for
+        # whatever directory is now current, not the one that actually errored.
+        self.img_scanner_worker.scan_error.connect(
+            lambda message, _worker=self.img_scanner_worker: self.handle_scan_error(message, _worker)
+        )
 
         self.img_scanner_worker.finished.connect(self.img_scanner_worker.deleteLater)
         self.img_scanner_worker.finished.connect(
             lambda: setattr(self, "img_scanner_thread", None)
         )
+        print(
+            f"[thread-lifecycle] panel={id(self):x} img_thread={id(self.img_scanner_worker):x} "
+            f"tid={threading.get_ident()} starting ImageScannerWorker for {directory!r}",
+            flush=True,
+        )
         self.img_scanner_worker.start()
+        print(
+            f"[thread-lifecycle] panel={id(self):x} img_thread={id(self.img_scanner_worker):x} "
+            f"start() returned",
+            flush=True,
+        )
 
     def _on_image_scan_finished(self, image_paths: list, _worker=None):
         # scan_finished is delivered via a queued cross-thread connection,
@@ -1329,8 +1371,21 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         # for exactly the stale deliveries it needs to catch. Comparing
         # the captured Python object reference by identity needs no
         # access to the (possibly-destroyed) C++ side at all.
+        _current_id_str = f"{id(self.img_scanner_worker):x}" if self.img_scanner_worker is not None else "none"
+        _worker_id_str = f"{id(_worker):x}" if _worker is not None else "none"
         if _worker is not None and _worker is not self.img_scanner_worker and _worker is not self.img_scanner_thread:
+            print(
+                f"[thread-lifecycle] panel={id(self):x} tid={threading.get_ident()} "
+                f"_on_image_scan_finished: STALE delivery from worker={_worker_id_str}, "
+                f"current={_current_id_str}, ignoring",
+                flush=True,
+            )
             return
+        print(
+            f"[thread-lifecycle] panel={id(self):x} tid={threading.get_ident()} "
+            f"_on_image_scan_finished: proceeding, worker={_worker_id_str}",
+            flush=True,
+        )
 
         existing_paths = set(getattr(self, "master_image_paths", []))
         new_paths = [p for p in image_paths if p not in existing_paths]
@@ -1347,11 +1402,20 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             # scans is exactly the scenario that orphans one.
             self._stop_vid_scanner_worker()
             self.vid_scanner_worker = VideoScannerWorker(self.scanned_dir)
+            # Same stale-delivery guard as img_scanner_worker.scan_finished
+            # above (see _on_image_scan_finished's docstring): thumbnail_ready
+            # fires once per discovered video, via a queued cross-thread
+            # connection, so a superseded scan's already-queued deliveries
+            # can still arrive after a newer directory switch replaced
+            # self.vid_scanner_worker -- bind the emitting worker into the
+            # connection itself rather than relying on QObject.sender().
             self.vid_scanner_worker.thumbnail_ready.connect(
-                self._add_video_thumbnail_manual
+                lambda path, q_image, _worker=self.vid_scanner_worker: self._add_video_thumbnail_manual(
+                    path, q_image, _worker
+                )
             )
             self.vid_scanner_worker.finished.connect(
-                self._on_video_scan_finished
+                lambda _worker=self.vid_scanner_worker: self._on_video_scan_finished(_worker)
             )
             self.vid_scanner_worker.finished.connect(
                 self.vid_scanner_worker.deleteLater
@@ -1359,16 +1423,35 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             self.vid_scanner_worker.finished.connect(
                 lambda: setattr(self, "vid_scanner_worker", None)
             )
+            print(
+                f"[thread-lifecycle] panel={id(self):x} vid_worker={id(self.vid_scanner_worker):x} "
+                f"tid={threading.get_ident()} starting VideoScannerWorker for {self.scanned_dir!r}",
+                flush=True,
+            )
             self.vid_scanner_worker.start()
+            print(
+                f"[thread-lifecycle] panel={id(self):x} vid_worker={id(self.vid_scanner_worker):x} "
+                f"start() returned",
+                flush=True,
+            )
 
-    @Slot()
-    def _on_video_scan_finished(self):
+    def _on_video_scan_finished(self, _worker=None):
+        if _worker is not None and _worker is not self.vid_scanner_worker:
+            return
         if self.gallery_image_paths:
             self.gallery_image_paths.sort(key=natural_sort_key)
             self.refresh_gallery_view()
 
-    @Slot(str, QImage)
-    def _add_video_thumbnail_manual(self, path: str, q_image: QImage):
+    def _add_video_thumbnail_manual(self, path: str, q_image: QImage, _worker=None):
+        # See _on_image_scan_finished's docstring: a stale (superseded)
+        # scan's already-queued thumbnail_ready deliveries can still arrive
+        # after a newer directory switch replaced self.vid_scanner_worker --
+        # touching gallery_image_paths/create_card_widget() for a directory
+        # the user has already navigated away from is exactly the class of
+        # race that crashes inside Qt/PySide's own binding layer (observed:
+        # Shiboken::BindingManager::retrieveWrapper, QObject::property()).
+        if _worker is not None and _worker is not self.vid_scanner_worker:
+            return
         if path in self.gallery_image_paths:
             return
 
@@ -1480,7 +1563,9 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             return
         self.start_loading_gallery(final_paths)
 
-    def handle_scan_error(self, message: str):
+    def handle_scan_error(self, message: str, _worker=None):
+        if _worker is not None and _worker is not self.img_scanner_worker and _worker is not self.img_scanner_thread:
+            return
         self.clear_gallery_widgets()
         QMessageBox.warning(self, "Error Scanning", message)
         self.common_show_placeholder(

@@ -9,47 +9,24 @@ analysis (2-D and 3-D visualizations), and structured feedback blocks for
 human review and LLM-assisted iteration.
 """
 
-import os
-
-# §2.6 (2026-07-27): repeated benchmark runs have frozen the host hard enough
-# to force a restart, and the user independently observed the benchmark
-# spawning many concurrent processes/threads in htop. Nothing in this backend
-# ever capped OpenMP/BLAS/OpenCV/PyTorch thread pools, so each library
-# independently defaults to spawning one thread per logical CPU core — on a
-# high-core-count machine, several such uncoordinated pools (BLAS for numpy,
-# OpenCV's parallel_for_, PyTorch's intraop pool) stack multiplicatively.
-# This doesn't explain a leak by itself, but bounds peak concurrent resource
-# usage regardless of what the deeper cause turns out to be, and makes any
-# per-thread cost far less severe. These MUST be set before numpy/cv2/torch
-# are imported — they read these env vars once at native library load time.
-_THREAD_CAP = os.environ.get("ASP_BENCH_THREAD_CAP", "4")
-for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
-    os.environ.setdefault(_v, _THREAD_CAP)
-
+import contextlib
 import datetime
 import gc
 import glob
 import json
 import logging
 import math
+import os
 import platform
 import shutil
 import sys
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
 import psutil
 import torch
-
-cv2.setNumThreads(int(_THREAD_CAP))
-torch.set_num_threads(int(_THREAD_CAP))
-
-sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))
-os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
-
-import contextlib
 
 from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
 from backend.src.animation.alignment.canvas import (
@@ -71,6 +48,28 @@ from backend.src.animation.ingestion.frame_selection import (
 from backend.src.animation.ingestion.masking import _compute_fg_masks
 from backend.src.animation.rendering.compositing import _composite_foreground
 from backend.src.animation.rendering.rendering import _render_median
+
+# §2.6 (2026-07-27): repeated benchmark runs have frozen the host hard enough
+# to force a restart, and the user independently observed the benchmark
+# spawning many concurrent processes/threads in htop. Nothing in this backend
+# ever capped OpenMP/BLAS/OpenCV/PyTorch thread pools, so each library
+# independently defaults to spawning one thread per logical CPU core — on a
+# high-core-count machine, several such uncoordinated pools (BLAS for numpy,
+# OpenCV's parallel_for_, PyTorch's intraop pool) stack multiplicatively.
+# This doesn't explain a leak by itself, but bounds peak concurrent resource
+# usage regardless of what the deeper cause turns out to be, and makes any
+# per-thread cost far less severe. These MUST be set before numpy/cv2/torch
+# are imported — they read these env vars once at native library load time.
+_THREAD_CAP = os.environ.get("ASP_BENCH_THREAD_CAP", "4")
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, _THREAD_CAP)
+
+cv2.setNumThreads(int(_THREAD_CAP))
+torch.set_num_threads(int(_THREAD_CAP))
+
+sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
+
 
 # ---------------------------------------------------------------------------
 # Lazy-import heavy plotting deps so the benchmark still runs without them
@@ -718,7 +717,7 @@ def _load_human_evaluations() -> Dict:
         return _HUMAN_RATINGS_CACHE
     evaluations_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "data", "human_evaluations",
+        "data", "benchmarks",
     )
     files = sorted(glob.glob(os.path.join(evaluations_dir, "asp_evaluations_*.json")))
     if not files:

@@ -821,12 +821,26 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
     def _on_batch_images_loaded(self, results: List[tuple], requested_paths: List[str]):  # noqa: C901
         # Cleanup worker reference if called from signals
         sender = self.sender()
+        stale = False
         if sender:
             # We need to find the worker that owns this signals object
             for worker in list(self._active_workers):
                 if worker.signals == sender:
+                    # See _on_single_image_loaded's comment: this chunk was
+                    # already dispatched before a newer directory switch
+                    # bumped _load_generation, so its result still arrives
+                    # here even though it's no longer current -- drop it
+                    # rather than touching a (possibly already-destroyed)
+                    # widget from the superseded scan.
+                    if getattr(worker, "load_generation", self._load_generation) != self._load_generation:
+                        stale = True
                     self._active_workers.remove(worker)
                     break
+
+        if stale:
+            for path in requested_paths:
+                self._loading_paths.discard(path)
+            return
 
         # 1. Update Results
         for path, q_image in results:
@@ -886,6 +900,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
     def _trigger_video_load(self, path: str):
         self._loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
+        worker.load_generation = self._load_generation
         worker.signals.result.connect(
             self._on_single_image_loaded
         )  # Reuse same handler
@@ -1040,6 +1055,7 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
     def _trigger_image_load(self, path: str):
         self._loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
+        worker.load_generation = self._load_generation
         worker.signals.result.connect(self._on_single_image_loaded)
 
         self._active_workers.add(worker)
@@ -1050,13 +1066,31 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
         # Cleanup worker ref if it is NOT a BatchImageLoaderWorker
         # BatchImageLoaderWorker is cleaned up in _on_batch_images_loaded
         sender = self.sender()
+        stale = False
         if sender:
             # We need to find the worker that owns this signals object
             for worker in list(self._active_workers):
                 if worker.signals == sender:
+                    # This result was already in flight (chunk dispatched,
+                    # or a single image/video load started) when a newer
+                    # directory switch bumped _load_generation. Only *new*
+                    # chunk dispatch is gated by that bump
+                    # (common_start_chunked_load's start_next()) -- an
+                    # already-running worker's own result still arrives
+                    # here regardless, and path_to_card_widget/the gallery
+                    # layout may already belong to the new directory (or be
+                    # mid-teardown) by the time it does. Drop it instead of
+                    # touching a widget that may no longer be what `path`
+                    # thinks it is, or may already be destroyed.
+                    if getattr(worker, "load_generation", self._load_generation) != self._load_generation:
+                        stale = True
                     if not isinstance(worker, BatchImageLoaderWorker):
                         self._active_workers.remove(worker)
                     break
+
+        if stale:
+            self._loading_paths.discard(path)
+            return
 
         if path in self._loading_paths:
             self._loading_paths.remove(path)
@@ -1166,8 +1200,22 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             self.found_loading_paths.clear()
 
     def clear_gallery_widgets(self):
-        self.cancel_loading()
+        # Clear path_to_card_widget BEFORE cancel_loading()'s DeferredDelete
+        # flush, not after. cancel_loading() flushes deleteLater() calls
+        # queued by an earlier, rapid directory switch -- widgets that switch
+        # actually destroys in C++ right here, during the flush. Any
+        # reentrant signal handler that reads path_to_card_widget during that
+        # same flush (e.g. update_preview_highlight(), a @Slot reachable via
+        # a queued connection) would otherwise see a *not-yet-cleared* dict
+        # still pointing at those same widgets mid-destruction -- a
+        # dangling-reference race that crashes with a real SIGSEGV inside Qt
+        # (e.g. QObject::property()) rather than the RuntimeError Qt raises
+        # for the ordinary already-destroyed case, since the object's memory
+        # can already be freed/reused by the time the stale lookup runs.
+        # Clearing first means any such reentrant lookup sees an empty dict
+        # and safely no-ops instead.
         self.path_to_card_widget.clear()
+        self.cancel_loading()
         self._paginated_paths = []
 
         if not self.gallery_layout:

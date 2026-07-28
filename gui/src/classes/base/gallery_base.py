@@ -528,6 +528,15 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
                 return
             chunk = chunks.popleft()
             worker = worker_factory(chunk)
+            # Tag with the generation active at dispatch time so the result
+            # handler (per_result_slot/batch_slot) can tell a stale delivery
+            # (this chunk's own generation no longer current, e.g. the user
+            # switched directories again while it was in flight) from a
+            # current one, and skip touching any gallery widget for a stale
+            # result -- this chunk's own queued signal isn't cancelled by
+            # bumping _load_generation, only the not-yet-dispatched *next*
+            # chunk is (see the `gen != self._load_generation` check above).
+            worker.load_generation = gen
             if per_result_slot is not None:
                 worker.signals.result.connect(per_result_slot)
             if batch_slot is not None:

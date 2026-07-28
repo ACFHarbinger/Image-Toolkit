@@ -771,3 +771,390 @@ recurs a third time with the *same* `+0x1df7c9` offset, the fixed
 completion signal (e.g. `QMediaDevices.audioOutputsChanged`) instead of
 a bigger guess, or increasing the margin further while investigating why
 `parseSampleFormat` is erroring in the first place.
+
+## Addendum 11 (2026-07-28) — root cause #8 (timing) directly disproven by instrumentation; the real mechanism found
+
+Round 11's instrumentation (`[startup-probe-guard]` print lines) was run
+against the exact same repro and gave direct, unambiguous evidence:
+`remaining_ms=0` at *every single* checkpoint, starting from the very
+first `populate_scan_image_gallery()` call. Login + vault-unlock alone
+already exceeded the 5s ceiling before any scan could start, and the
+`QMediaDevices.audioOutputsChanged`/`audioInputsChanged` confirmation
+signal **never fired once in the entire session**. The crash still
+happened anyway, immediately after the log line for starting the
+second directory's `VideoScannerWorker`. This rules out root cause #8
+(the Qt Multimedia startup-probe timing race) as the mechanism for this
+specific, highly reproducible crash — not by inference this time, but by
+direct measurement. (Root cause #8 may still be real for *other*
+`QSocketNotifier` reports; the guard from rounds 11-12 is left in place
+as a harmless, tested safety net, but it is not what round 12's crash
+needed.)
+
+**The actual mechanism**: comparing the instrumented log's thread-start
+sequence, the Hentai directory's four scanner-thread starts (two panels
+× image+video) all succeeded, but the Videos directory's crashed right
+after its `VideoScannerWorker` started. The directories differ in one
+obvious way: Hentai contains few/no video files, Videos is entirely
+video files. `VideoScannerWorker.run()` (`gui/src/helpers/video/video_scan_worker.py`)
+only spins up a `concurrent.futures.ThreadPoolExecutor` (plain Python
+threads, not `QThread`s) if `video_paths` is non-empty — so Hentai's
+scan effectively did nothing thread-wise, while Videos' scan actually
+dispatched worker tasks. Each task
+(`process_video_task` → `VideoThumbnailer.generate()`, in
+`gui/src/helpers/video/video_thumbnailer.py`) calls
+`QImage().loadFromData(result.stdout)` to decode the JPEG bytes
+`ffmpeg`/`ffmpegthumbnailer` wrote to stdout — **from one of those
+background threads, not the main/GUI thread**. This is the first time
+in the process's lifetime any video thumbnail gets decoded, so Qt's JPEG
+image-format plugin lazily loads right there — off the main thread, with
+the JPype JVM already loaded in-process. This is the exact same crash
+class already fixed three times before for other Qt subsystems (native
+file dialog/GTK, `QWebEngineView`/Chromium, `QMediaPlayer` FFmpeg
+VA-API — see `jvm_native_lib_conflicts` in project memory): *any* Qt
+subsystem lazily `dlopen()`-ing a native lib off the main thread while
+the JVM is loaded risks this. It also explains the crash's **perfect
+determinism** far better than a timing race would: a directory with
+video files always hits this path, a directory without them never does
+— nothing to do with luck or scheduling.
+
+**Fix**: `backend/src/app.py::launch_app()` now also primes the JPEG
+image-format plugin synchronously on the main thread, in the same spot
+and for the same reason as the existing `QAudioOutput()` priming —
+before the JVM has loaded. It encodes a tiny 2×2 `QImage` to JPEG via a
+`QBuffer` and decodes it straight back, forcing both the encode and
+decode plugin paths to load on the main thread. A print line confirms
+both succeeded.
+
+**Not yet independently verified** — this fix has not been committed or
+tested live yet per explicit user instruction (test locally first, no
+more commit-then-hope-they-test cycles). If this closes the crash, the
+`startup_probe_guard` machinery from rounds 11-12 should be considered
+for removal/simplification in a follow-up, since its own instrumentation
+is what disproved its premise for this crash class.
+
+## Addendum 12 (2026-07-28) — JPEG-plugin fix changed the failure mode; the round-12 QMediaDevices listener is the new suspect
+
+The user tested Addendum 11's JPEG-plugin-priming fix against the exact
+same repro. Result: **no more SIGSEGV, no more crash log at all** — the
+`+0x1df7c9` offset that recurred identically four times running is gone.
+Progress. But the process didn't exit cleanly either: instead it produced
+an unbounded, repeating `QSocketNotifier: Invalid socket 58 and type
+'Read', disabling...` spam (hundreds of repetitions, effectively a hang/
+spin rather than a crash) right at the same point in the sequence
+(immediately after the second directory's `VideoScannerWorker` started).
+
+This is the *other* symptom `main.py`'s own preexisting comment already
+attributes to this general `QSocketNotifier` problem class: "...or a
+frozen event loop spamming 'QSocketNotifier: Invalid socket'" — the same
+underlying issue, a different observable failure mode depending on
+exactly what state gets hit.
+
+**Prime suspect: round 12's own `QMediaDevices()` addition.** Round 12
+added a long-lived `QMediaDevices()` instance in `app.py`, connected to
+`audioOutputsChanged`/`audioInputsChanged`, specifically to get positive
+confirmation of the startup probe settling. Round 12's own instrumentation
+(Addendum 11) already showed those signals **never fired once** in a full
+session — meaning this listener contributed nothing useful, but did keep
+a persistent Qt Multimedia device-watch object alive for the entire app
+lifetime, itself a plausible new source of the exact kind of long-lived,
+possibly cross-thread socket-notifier churn ("socket 58" going invalid
+repeateds) now being observed. It's also the single biggest change
+between the round-12 run (clean SIGSEGV) and this round-13 run (hang) —
+the JPEG-plugin fix was the other change, and it's already shown to have
+removed the SIGSEGV specifically, not introduced a hang.
+
+**Action taken**: removed the `QMediaDevices()` listener and its signal
+connections from `app.py` entirely, reverting `startup_probe_guard` to
+elapsed-time-only (the round-11 ceiling), which is simpler and was never
+shown to cause any problem on its own. Kept the JPEG-plugin priming from
+Addendum 11 (the fix that actually removed the SIGSEGV). `mark_startup_probe_settled()`
+remains in `startup_probe_guard.py` (and its tests) for potential future
+use, just no longer wired to anything in `app.py`.
+
+**Not yet independently verified.** This is a hypothesis about *which*
+round-12 change caused the hang, not a confirmed diagnosis — the
+`QMediaDevices()` object was removed because it's the most plausible
+suspect and contributed no measured benefit, not because the hang was
+traced to it directly. If the hang recurs even after removing it, the
+JPEG-plugin fix itself (or something else entirely) needs to be
+re-examined instead.
+
+## Addendum 13 (2026-07-28) — removed QAudioOutput() priming entirely; every failure mode traced back to it
+
+Addendum 12's fix (removing the `QMediaDevices()` listener) was tested
+against the same repro. Result: no more infinite spam this time, but a
+*third* distinct failure mode instead: a single `QSocketNotifier: Invalid
+socket 58` line, then `corrupted size vs. prev_size while consolidating`
+(glibc's `malloc_consolidate()` catching heap corruption) and a SIGABRT.
+
+Stepping back across all seven rounds of this specific sub-investigation
+(rounds 6-13): every single failure mode -- the original SIGSEGV at
+`+0x1df7c9`, the `+0x1e74d5` variant, the infinite invalid-socket spam,
+and now the glibc heap-corruption abort -- starts with the identical
+`QSocketNotifier: Socket notifiers cannot be enabled or disabled from
+another thread` warning. The only thing in this app that ever triggers
+Qt Multimedia's PipeWire backend during a pure Wallpaper-tab-browsing
+session is `_startup_audio_prime = QAudioOutput()` in `app.py`
+(`ExtractorTab`'s own `QAudioOutput`/`QMediaPlayer` are already
+constructed lazily -- confirmed by reading `extractor_tab.py`'s
+`audio_output`/`media_player` properties -- so nothing else touches Qt
+Multimedia at all in this repro). No timing adjustment (400ms → 1.5s →
+5s ceiling), no completion-signal wiring, and no lazy-plugin fix for a
+*different* subsystem (the JPEG plugin, which did close its own specific
+SIGSEGV) has stopped this. The pattern across seven attempts stopped
+looking like "a race that needs more time to settle" and started looking
+like "Qt Multimedia's PipeWire integration is fundamentally unstable
+alongside the JPype JVM on this machine, independent of timing" -- in
+which case no amount of waiting was ever going to fix it, only avoiding
+the trigger entirely (for sessions that don't need it).
+
+**Action taken**: removed `_startup_audio_prime = QAudioOutput()` (and
+the now-pointless `mark_startup_probe_started()` call) from `app.py`
+entirely. This is the single biggest lever left untried: previously
+every round *kept* this object (the whole point of rounds 6-7 was to
+construct it *earlier*), on the theory that priming early was strictly
+better than not priming at all. That theory is what's now in question.
+`startup_probe_guard.py`'s elapsed-time/`remaining_ms` machinery is left
+in place at the scan call sites (harmless, always reports 0 now that
+nothing ever marks the probe started -- effectively inert) rather than
+ripped out under time pressure; worth a cleanup pass once this is
+confirmed fixed.
+
+**This intentionally narrows protection**: if a user opens `ExtractorTab`
+and previews a video with audio within seconds of app startup, the
+*original* crash this priming was meant to prevent (from rounds 6-7)
+could in principle recur, now unprotected. That's a real, accepted
+trade-off, not an oversight -- the user's actual repeated repro never
+involves `ExtractorTab`/audio playback at all, and an unconditional
+startup cost that has not measurably helped across seven rounds isn't
+worth keeping "just in case" for a scenario nobody has actually hit yet.
+If that specific scenario does recur, it needs its own, narrower fix
+(e.g. priming only when `ExtractorTab`'s video-preview path is actually
+about to be used, not unconditionally at app startup).
+
+## Addendum 14 (2026-07-28) — removing QAudioOutput priming helped a lot but didn't close it; the actual remaining trigger is QGraphicsVideoItem in ExtractorTab
+
+Addendum 13's fix (removing `_startup_audio_prime`) was tested. Real,
+measurable progress: the app survived the *entire* previous repro
+(Hentai → Frames/Videos) and went on to survive several more directory
+switches (→ Wallpapers/Anime → Frames/Videos again) before finally
+crashing -- the first time in this whole investigation the app got past
+the very first switch. The crash frame is now also named, not just an
+offset: `QSocketNotifier::type() const+0x8` inside `libQt6Core.so.6` --
+a crash dereferencing a `QSocketNotifier` object that's null or already
+destroyed.
+
+Traced the remaining trigger with an isolated, reproducible test:
+constructing `QAudioOutput()` alone does *not* print Qt's
+`"Using Qt multimedia with FFmpeg version..."` backend-load banner, but
+constructing `QGraphicsVideoItem()` (from `PySide6.QtMultimediaWidgets`)
+does, immediately, on construction -- confirmed with a standalone
+`QApplication` + single `QGraphicsVideoItem()` call. `ExtractorTab.__init__`
+(`extractor_tab.py:288`, before this fix) constructed one unconditionally,
+every session, as part of `MainWindow.__init__` (`main_window.py:220`,
+`self.extractor_tab = ExtractorTab()`) -- meaning Qt Multimedia's backend
+was *still* getting triggered on every session, just later (during
+MainWindow construction, milliseconds before the user can act) and via a
+different object than the one rounds 6-13 had been focused on removing.
+
+**Fix**: made `video_item` lazy in `extractor_tab.py`, mirroring the
+*already-existing* lazy pattern for `audio_output`/`media_player` in the
+same file (which round-6-era work had already made lazy, for the same
+reason, just never noticed this specific object was still eager). Added
+a `video_item` property that constructs `QGraphicsVideoItem()` and adds
+it to the graphics scene only on first access; `media_player`'s own lazy
+construction (which already referenced `self.video_item`) now correctly
+chains into it. Guarded `fit_video_in_view()` (called from resize event
+handling, which fires long before any video is loaded) to no-op if
+`_video_item` hasn't been constructed yet, so a resize event can't itself
+force the construction this fix exists to defer.
+
+**Verified in isolation**: constructing `ExtractorTab()` standalone no
+longer prints the FFmpeg backend banner at all (confirmed via a scripted
+check). This is scoped entirely inside `extractor_tab.py` -- deliberately
+did *not* pursue deferring `ExtractorTab`'s own construction in
+`main_window.py` (a much larger change touching tab-dict structure and
+extensive per-tab config-restoration logic with real regression risk to
+users' saved Extractor preferences) after evaluating that path and
+finding it materially riskier for uncertain additional benefit, given
+`QGraphicsVideoItem` was the actual remaining trigger either way.
+
+Existing test suite (28 gallery/wallpaper/probe-guard tests, 6 app-logging
+tests, 4 non-preexisting-failure extractor-drag-preview tests) all still
+pass.
+
+**Not yet independently verified against a live reproduction** — awaiting
+the user's test, per explicit instruction not to commit until confirmed
+working.
+
+## Addendum 15 (2026-07-28) — Qt Multimedia is definitively ruled out; the real cause is still unknown
+
+The user tested Addendum 14's fix (lazy `video_item`). Result: the crash
+recurred on the very first directory switch (Hentai → Frames/Videos,
+no further switches attempted) — faster/more reliably than the previous
+round, which had survived several switches. Crash frame this time:
+`QSocketNotifier::setEnabled(bool)+0x3c`, another *named* function (not
+just an offset), on the identical warning text.
+
+**Critical new evidence: no `"qt.multimedia.ffmpeg: Using Qt multimedia
+with FFmpeg version..."` banner appears anywhere in this run's stdout.**
+That banner is Qt's own one-time announcement that its FFmpeg/PipeWire
+multimedia backend has loaded — confirmed printed the instant `QAudioOutput()`
+or `QGraphicsVideoItem()` is constructed (see Addendum 11/14's isolated
+tests). Its total absence here proves Qt Multimedia's backend was **never
+triggered at all** in this session: neither `_startup_audio_prime` (removed,
+Addendum 13) nor `QGraphicsVideoItem` (made lazy, Addendum 14) fired. The
+crash happened anyway, with the same warning text, on the same class of
+`QSocketNotifier` internal function. **Root cause #8 (the Qt Multimedia
+startup-probe timing race) is not just insufficiently mitigated — it was
+never the cause of this specific, highly-reproducible crash at all.**
+Every round from 6 through 14 chased a plausible-looking but ultimately
+coincidental correlation: the warning text is generic enough that a
+completely different mechanism produces the identical string.
+
+**Reassessment**: this crash's actual signature — happening deterministically
+on the *first* rapid directory switch, involving `QSocketNotifier`, and
+tied to QThread activity — points back to the `deleteOrphaned`/scanner-QThread-lifecycle
+class documented at the top of this file (rounds 2-10), not to any startup
+timing issue. One real, previously-untested gap: every fix and regression
+test through round 10 (`test_wallpaper_scan_race.py`) exercises a single
+`WallpaperCommonBase` instance. The real Wallpaper tab always has **two
+linked instances** (`system_display`/`monitor_display`, wired in
+`wallpaper_tab.py`: mutual `linked_tabs`, a shared/aliased
+`_initial_pixmap_cache` dict, and `directory_scanned` cross-connected with
+`emit_signal=False`) — a topology no existing test covered.
+
+**Built `gui/test/core/test_wallpaper_linked_panel_scan_race.py`** to close
+that gap: constructs two linked instances exactly matching
+`wallpaper_tab.py`'s wiring, drives rapid switching through one panel
+(mirroring how a real user only interacts with System Display while
+Monitor Display mirrors silently), and asserts neither panel orphans a
+`VideoScannerWorker`. **Result: passes cleanly against the current code**
+— this specific two-panel interaction, simulated at the Python/Qt-signal
+level with an artificial scan delay, does not reproduce an orphaned
+worker or any other detectable bad state. This is a meaningful negative
+result: it suggests the actual crash mechanism operates at a level this
+kind of test can't reach (genuine native thread-scheduling timing, real
+`ffmpeg`/`ffmpegthumbnailer` subprocess spawning, or a Qt-internal
+event-dispatcher/socket-notifier interaction that only manifests under
+real OS thread creation) — not a logic bug reachable by simulating the
+Python-level call sequence with mocked timing.
+
+**Fix this round: fine-grained thread-lifecycle instrumentation**, not a
+new behavioral fix (none is confidently indicated by the evidence so
+far). Added `print(..., flush=True)` at every `QThread` lifecycle
+transition in `wallpaper_common_base.py` — `requestInterruption`/`stop`/
+`quit`, before and after every `wait()`, `deleteLater()`, before and
+after every `start()`, and `_on_image_scan_finished()`'s stale-vs-proceed
+decision — every line tagged with `panel={id(self):x}` (distinguishes
+system_display from monitor_display) and `tid={threading.get_ident()}`
+(distinguishes which OS thread is executing). The goal: the *next* crash
+report's last few lines before the SIGSEGV should show exactly which
+specific lifecycle operation (a `wait()` that never printed "returned", a
+`start()` that never printed "returned", a stale delivery right before
+the crash, etc.) was in flight, which none of rounds 9-14's diagnosis
+could determine from the existing coarser prints.
+
+**Not yet independently verified against a live reproduction** — awaiting
+the user's test with this new instrumentation, per explicit instruction
+not to commit until confirmed working. If the new prints don't land
+*any* new information (e.g. because the crash happens between two prints
+that both show "returned" cleanly), the next step is external process
+tracing (`strace -f`, or GDB attached ahead of time) rather than more
+Python-level print instrumentation, since that would indicate the issue
+is below what Python-level tracing can observe at all.
+
+## Addendum 16 (2026-07-28) — 100% reproducible via `just python` alone; root of the double-switch found; still not fully fixed
+
+**Major methodology breakthrough**: `timeout 30 just python`, run completely
+unattended with zero manual interaction, reproduces this crash reliably
+(hit it in 5 of 9 consecutive runs; the other 4 hit either a clean pass or
+a second, unrelated bug -- see below). This turned a slow, user-in-the-loop
+debugging cycle into a fast, self-service one for this session.
+
+**Traced the exact "second directory" mechanism with a stack-trace dump**
+added to `populate_scan_image_gallery()` (prints `traceback.format_stack()`
+whenever `emit_signal=True`). Two real findings:
+1. `set_config()` is called **only once** per run (confirmed with
+   timestamped instrumentation in `system_display_subtab.py`) -- the
+   "two different saved directories" theory (each panel independently
+   restoring a different config) was wrong. There is only one auto-restore.
+2. The second directory switch traces back to `WallpaperCommonBase.browse_scan_directory()`
+   -- the *manual* browse-button handler -- being reached during these
+   unattended runs. Since this method's `QFileDialog` (patched via
+   `file_dialog_patch.py`, always `DontUseNativeDialog`) returned a valid
+   directory and the call proceeded, *something* triggered/accepted it
+   despite no deliberate input from this session's automation. This is
+   run on the user's real, active KDE Wayland desktop session (confirmed:
+   `plasmashell`/`kwin_wayland` running, not headless) -- most likely a
+   stray focus/input event specific to running many rapid launches in a
+   live desktop, not a bug in `browse_scan_directory()` itself. Whatever
+   the exact cause, the *effect* -- auto-restore one directory, then a
+   rapid switch to a second one -- is exactly the user's own consistently
+   reported manual repro, so this remains a faithful, useful reproduction
+   even without pinning down why the dialog is being accepted automatically
+   in this environment specifically.
+
+**Fixes made this round** (both real hardening, neither confirmed
+sufficient alone):
+1. `system_display_subtab.py`: `set_config()`'s `scan_directory` restore
+   used a fire-and-forget `QTimer.singleShot(250, ...)` with no
+   cancellation of any previously-scheduled one. Replaced with a single,
+   restartable `QTimer` (`self._scan_dir_restore_timer`) plus
+   `self._pending_restore_dir` read at fire-time -- if `set_config()`
+   were ever called twice in quick succession (not confirmed to happen in
+   practice this round, but was the original hypothesis and remains a
+   real latent risk with the old code), only the latest directory would
+   now actually restore, once. Kept as a legitimate correctness fix
+   independent of whether it was *this* run's actual trigger.
+2. `wallpaper_tab.py`: the `directory_scanned` cross-panel connections
+   (`system_display` ↔ `monitor_display`) used the implicit direct/
+   same-thread connection, meaning the peer's `populate_scan_image_gallery()`
+   -- and thus its own 2 new `QThread` starts -- ran synchronously nested
+   inside the emitting panel's own call, before that panel's own worker-
+   starting code even executes. Changed to explicit
+   `Qt.ConnectionType.QueuedConnection` so the peer's scan is deferred to
+   the next event-loop tick instead of packed into the same call stack.
+   **Tested and did not eliminate the crash** (run 6 with this fix in
+   place still crashed, same signature) -- kept anyway since it's a
+   correct, principled change (spacing out 4 QThread starts across 2
+   panels instead of bursting them), but it is not, on its own, the fix
+   this crash needed.
+
+**A second, apparently unrelated bug was also found**: `libQt6Gui.so.6+0x136666`,
+a **null-pointer** SIGSEGV (`si_addr: 0x0000000000000000`) on the **main
+thread** (`tid` == `pid`), reproduced twice with the identical offset,
+happening immediately after `"Logging reconfigured from preferences"` --
+i.e. inside or immediately after `MainWindow._apply_startup_preferences()`
+returns, **before any wallpaper-tab scan code runs at all**. No
+`QSocketNotifier` warning precedes it. Candidates for what runs next in
+`MainWindow.__init__()`: `_setup_tray_icon()` (`QSystemTrayIcon`/`QIcon`
+construction), `QGuiApplication.styleHints().colorSchemeChanged.connect(...)`,
+or `self.restoreGeometry(_geom)`. Not investigated further this round --
+flagging it clearly as a **separate, second crash class** so a future
+round doesn't conflate its evidence with the QSocketNotifier/scan-thread
+class this file otherwise tracks. Two of nine `just python` runs hit this
+instead of the scan-thread crash; one run hung indefinitely at "Logging
+initialised" before any JVM output (killed by timeout, no crash) --
+possibly an unrelated environment hiccup from rapid repeated launches,
+not reproduced again.
+
+**Diagnostic instrumentation added this round, left in place** (verbose,
+should be removed once this crash class is confirmed fixed, not before):
+timestamped `set_config()`/timer prints in `system_display_subtab.py`,
+and a `traceback.format_stack()` dump in `populate_scan_image_gallery()`
+whenever `emit_signal=True`. These were essential to finding the actual
+call sequence above and should stay until a live fix is confirmed.
+
+**Status: still not fixed.** Between rounds 9-16, the crash has been
+reproduced with the *exact* two-linked-panel, rapid-consecutive-directory-switch
+pattern using real (non-mocked) `ImageScannerWorker`/`VideoScannerWorker`
+and a real JVM, and every code-level mitigation tried so far (stale-sender
+guards, DeferredDelete-only flushes, stop-before-create ordering, debounced
+restore timers, queued cross-panel connections) has either not applied to
+the actual trigger or not been sufficient alone. The next step, if
+picked up again, should be external process tracing (`strace -f` or a
+GDB session attached before the crash) rather than another Python-level
+code change guess -- eight-plus rounds of plausible, principled Python-side
+fixes have not closed this, which is itself evidence the remaining
+mechanism is likely below what Python-level reasoning can reach.

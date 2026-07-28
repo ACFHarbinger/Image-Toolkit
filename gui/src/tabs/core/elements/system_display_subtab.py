@@ -131,6 +131,31 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         self.time_remaining_sec: int = 0
         self.interval_sec: int = 0
 
+        # Session-recovery restart (main_window.py's do_restore()) calls
+        # set_config() on this tab TWICE in immediate succession: once from
+        # _apply_active_tab_configs()'s named-profile pass, once more from
+        # the "All Tabs"/"Current Tab" session-recovery pass -- by design,
+        # layering a saved profile then the last-live-session snapshot on
+        # top. If the two configs' scan_directory differ (a real, common
+        # case: whatever directory was active when the app last closed vs.
+        # whatever the saved profile says), set_config()'s old
+        # QTimer.singleShot(250, ...) scheduled a SEPARATE, independent
+        # timer per call -- both landing within ~250ms of each other,
+        # racing two full populate_scan_image_gallery() cycles back to
+        # back. This is the actual, fully-automatic (no user interaction
+        # needed) trigger for the deleteOrphaned/QSocketNotifier crash
+        # class documented in
+        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md (see
+        # Addendum 16) -- reproduced deterministically via plain `just
+        # python` with zero manual browsing. A single, restartable timer
+        # instead of fire-and-forget singleShot() ensures only the LATEST
+        # set_config() call's directory ever actually restores, and only
+        # once, no matter how many times set_config() fires in a burst.
+        self._scan_dir_restore_timer = QTimer(self)
+        self._scan_dir_restore_timer.setSingleShot(True)
+        self._pending_restore_dir: Optional[str] = None
+        self._scan_dir_restore_timer.timeout.connect(self._do_pending_scan_dir_restore)
+
         self.wallpaper_style: str = "Fill"
         self.video_style: str = "Scaled and Cropped"
 
@@ -1359,6 +1384,11 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         }
 
     def set_config(self, config: Dict[str, Any]):  # noqa: C901
+        print(
+            f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self):x} "
+            f"set_config() called, scan_directory={config.get('scan_directory')!r}",
+            flush=True,
+        )
         try:
             if "scan_directory" in config:
                 self.scan_directory_path.setText(config.get("scan_directory", ""))
@@ -1376,12 +1406,23 @@ class SystemDisplaySubTab(WallpaperCommonBase):
                     # from another thread -> heap corruption -> SIGABRT"
                     # pattern already documented and fixed for
                     # ExtractorTab's QAudioOutput construction
-                    # (extractor_tab.py). QTimer.singleShot defers this
-                    # until the event loop is actually running.
-                    _restore_dir = config["scan_directory"]
-                    QTimer.singleShot(
-                        250, lambda d=_restore_dir: self.populate_scan_image_gallery(d)
+                    # (extractor_tab.py). Deferred via a single restartable
+                    # timer (see __init__), not QTimer.singleShot -- if
+                    # set_config() fires again before this restore has run
+                    # (main_window.py's session-recovery flow calls
+                    # set_config() on this tab twice back to back, see
+                    # Addendum 16 in
+                    # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md),
+                    # the second call must supersede the first's pending
+                    # restore, not race it with a second independent timer.
+                    self._pending_restore_dir = config["scan_directory"]
+                    print(
+                        f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self):x} "
+                        f"(re)starting scan-dir restore timer for {self._pending_restore_dir!r} "
+                        f"(was_active={self._scan_dir_restore_timer.isActive()})",
+                        flush=True,
                     )
+                    self._scan_dir_restore_timer.start(250)
             if "wallpaper_style" in config:
                 self.style_combo.setCurrentText(config.get("wallpaper_style", "Fill"))
             if "video_style" in config:
@@ -1470,3 +1511,21 @@ class SystemDisplaySubTab(WallpaperCommonBase):
         if self._is_daemon_running_config():
             self._start_daemon_countdown_if_active()
         self.wallpapers_changed.emit()
+
+    def _do_pending_scan_dir_restore(self) -> None:
+        """Fires the single restartable restore timer from set_config().
+
+        Reads self._pending_restore_dir at fire time rather than a value
+        captured in a per-call closure, so if set_config() restarted this
+        timer with a newer directory before it fired, only that latest
+        value is ever used -- see set_config()'s scan_directory handling
+        and Addendum 16 in
+        .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
+        """
+        print(
+            f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self):x} "
+            f"scan-dir restore timer FIRED for {self._pending_restore_dir!r}",
+            flush=True,
+        )
+        if self._pending_restore_dir and os.path.isdir(self._pending_restore_dir):
+            self.populate_scan_image_gallery(self._pending_restore_dir)

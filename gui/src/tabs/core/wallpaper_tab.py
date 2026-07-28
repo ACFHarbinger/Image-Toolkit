@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
 from .elements.monitor_display_subtab import MonitorDisplaySubTab
@@ -46,11 +47,27 @@ class WallpaperTab(QWidget):
         self._tab_widget.addTab(self.system_display, "System Display(s)")
         self._tab_widget.addTab(self.monitor_display, "Monitor Display")
 
+        # Queued (not the implicit direct/same-thread default): a direct
+        # connection runs the peer's populate_scan_image_gallery() --
+        # which starts its own ImageScannerWorker/VideoScannerWorker
+        # QThreads -- synchronously nested inside the emitting panel's own
+        # call, before that panel's own worker-starting code even runs.
+        # That packs all 4 QThread starts (2 panels x img+vid) into a
+        # single, uninterrupted call stack with no chance for the event
+        # loop to run in between -- suspected trigger for a MAIN-thread
+        # null-pointer SIGSEGV inside libQt6Gui.so.6 reproduced via plain
+        # `just python` startup auto-restore alone, no user interaction
+        # (see Addendum 16 in
+        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
+        # QueuedConnection defers the peer's scan to the next event-loop
+        # iteration instead, spacing the two panels' thread starts apart.
         self.system_display.directory_scanned.connect(
-            lambda directory: self.monitor_display.populate_scan_image_gallery(directory, emit_signal=False)
+            lambda directory: self.monitor_display.populate_scan_image_gallery(directory, emit_signal=False),
+            Qt.ConnectionType.QueuedConnection,
         )
         self.monitor_display.directory_scanned.connect(
-            lambda directory: self.system_display.populate_scan_image_gallery(directory, emit_signal=False)
+            lambda directory: self.system_display.populate_scan_image_gallery(directory, emit_signal=False),
+            Qt.ConnectionType.QueuedConnection,
         )
 
         # System Display -> Monitor Display Settings Sync
