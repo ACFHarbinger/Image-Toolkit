@@ -144,7 +144,10 @@ class TestExportScrollingVideo(unittest.TestCase):
 
         import unittest.mock as mock
 
-        with mock.patch("backend.src.core.image_merger.shutil.which", return_value=None):
+        # §5.17: export_scrolling_video moved to image_merger/_gif_video.py,
+        # which does its own `import shutil` -- patch that submodule, not
+        # the pre-split top-level image_merger path.
+        with mock.patch("backend.src.core.image_merger._gif_video.shutil.which", return_value=None):
             with self.assertRaises(RuntimeError):
                 ImageMerger.export_scrolling_video(img_path, out_path)
 
