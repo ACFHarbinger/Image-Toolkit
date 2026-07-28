@@ -491,9 +491,9 @@ static py::array_t<uint8_t> blocks_lum_compensate_pair(
 // Equivalent to Python _find_optimal_boundaries in compositing.py.
 // ---------------------------------------------------------------------------
 static py::tuple find_optimal_boundaries(
-    const py::list&                                                       warped_frames,    // N_total×(H,W,3) uint8, by frame-idx
-    const py::array_t<int64_t, py::array::c_style | py::array::forcecast>& order_arr,        // (N_ordered,) frame indices
-    const py::array_t<double,  py::array::c_style | py::array::forcecast>& init_bounds,      // (N_ordered-1,) initial boundary y
+    const py::list&                                                  warped_frames,    // N_total×(H,W,3) uint8, by frame-idx
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> order_arr,        // (N_ordered,) frame indices
+    py::array_t<double,  py::array::c_style | py::array::forcecast> init_bounds,      // (N_ordered-1,) initial boundary y
     int H, int W,
     int search_range = 250,
     int search_slab  = 20,
