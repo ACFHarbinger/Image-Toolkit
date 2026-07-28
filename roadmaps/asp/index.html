@@ -2454,10 +2454,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#phase-26-benchmark-harness-host-freeze-likely-fixed-2026-07-27" class="md-nav__link">
+  <a href="#phase-26-benchmark-harness-host-freeze-fixed-confirmed-at-full-corpus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 2.6 — Benchmark-Harness Host Freeze *(likely fixed 2026-07-27,
+        Phase 2.6 — Benchmark-Harness Host Freeze *(FIXED, confirmed at full-corpus
       
     </span>
   </a>
@@ -3072,10 +3072,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#phase-26-benchmark-harness-host-freeze-likely-fixed-2026-07-27" class="md-nav__link">
+  <a href="#phase-26-benchmark-harness-host-freeze-fixed-confirmed-at-full-corpus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phase 2.6 — Benchmark-Harness Host Freeze *(likely fixed 2026-07-27,
+        Phase 2.6 — Benchmark-Harness Host Freeze *(FIXED, confirmed at full-corpus
       
     </span>
   </a>
@@ -3176,6 +3176,26 @@ strategy rationale: <code>research/ASP_Critical_Evaluation_2026-07-08.md</code> 
 base: <code>research/Image_Stitching_Research.md</code> (the consolidated field reference) and
 <code>research/ASP_Comprehensive_Research_Report.md</code> (algorithm specs, decision
 thresholds, datasets) — see §R below for the distilled results this plan builds on.</p>
+<p><strong>Full-corpus checkpoint (2026-07-28, <code>anime_stitch_20260728_013215.json</code>)
+— first full-97 run since the baseline, after this session's accumulated
+fixes (ToonOut default-on, aligned-SSIM windowing fix §0.4b, Hugin/Overmix
+comparators, several rejected experiments confirmed staying default-OFF):</strong>
+21 asp_better / 54 comparable / 22 simple_better; aligned GT-SSIM (post-fix
+metric, not directly comparable to the pre-fix baseline number above) 0.6656
+vs 0.693; 43 true composites + 54 guarded fallbacks; 83.8 s/test; sharpness
+91.3 vs 65.0 and ghosting 59.0 vs 76.0 (ASP wins both, the architecturally-
+advantaged dimensions the objective calls out). Both real-composite rate
+(43 vs 51) and <code>asp_better</code> count (21 vs 27) dropped vs the 07-09 baseline —
+<strong>this reads as a net-honest shift, not a regression</strong>: ToonOut's masking
+fix and the seam_vis_gate re-examination (S244) both independently found
+cases where a <em>flawed</em> real composite correctly reclassifies as a <em>safe</em>
+fallback once measured more accurately, which mechanically shrinks both
+numbers while improving actual shipped quality. Fallback-class breakdown
+(supersedes the 18-test-sample estimate in Phase 4 below with full-corpus
+numbers): <code>seam_vis_gate</code> 27, <code>composite_gate_sb</code> 26, <code>composite_gate_sc</code> 1,
+<code>ghost_gate_siqe</code> 0, <code>alignment_failed</code> 0 (confirms test49's resolution
+holds at full scale, not just the earlier 18-test sample). This run also
+serves as Phase 2.6's full-corpus host-freeze-fix confirmation (issue #25).</p>
 <hr />
 <h2 id="ground-rules-carried-from-the-critical-evaluation-non-negotiable">Ground Rules (carried from the critical evaluation — non-negotiable)<a class="headerlink" href="#ground-rules-carried-from-the-critical-evaluation-non-negotiable" title="Permanent link">&para;</a></h2>
 <ol>
@@ -3475,8 +3495,8 @@ content alignment for such overlays specifically, not the blend curve.</p>
 test; aligned-SSIM gap ≤ 0. (Coverage wins like test96 should start flipping
 <code>comparable</code> → <code>asp_better</code> once coherence losses stop cancelling them.)</p>
 <hr />
-<h2 id="phase-26-benchmark-harness-host-freeze-likely-fixed-2026-07-27">Phase 2.6 — Benchmark-Harness Host Freeze *(likely fixed 2026-07-27,<a class="headerlink" href="#phase-26-benchmark-harness-host-freeze-likely-fixed-2026-07-27" title="Permanent link">&para;</a></h2>
-<p>S218/S219/S220 — re-verify at scale before fully trusting)*</p>
+<h2 id="phase-26-benchmark-harness-host-freeze-fixed-confirmed-at-full-corpus">Phase 2.6 — Benchmark-Harness Host Freeze *(FIXED, confirmed at full-corpus<a class="headerlink" href="#phase-26-benchmark-harness-host-freeze-fixed-confirmed-at-full-corpus" title="Permanent link">&para;</a></h2>
+<p>scale 2026-07-28 — issue #25 closeable)*</p>
 <p><code>bench_anime_stitch.py</code> repeatedly froze the host badly enough to force a
 hard restart, on a 128GB RAM / 24GB VRAM machine — a real bug, not
 underpowered hardware. <strong>Root cause</strong>: nothing in the codebase capped
@@ -3493,13 +3513,16 @@ growing). Permanent diagnostics also added: <code>_resource_snapshot()</code>/
 <code>_resource_danger()</code> abort guardrail (RAM≥80%/VRAM≥85%) and <code>_log_resource(tag)</code>
 per-stage checkpoints in <code>process_dataset</code> — note these <em>failed</em> to prevent
 one freeze before the thread-cap landed, so they're a backstop, not the fix.</p>
-<p><strong>Only one confirmed clean run (5 tests) exists.</strong> Re-verify at larger scale
-(10–20 tests, full corpus) before fully trusting this, ideally with the user
-watching resources live. If a freeze recurs: lower <code>ASP_BENCH_THREAD_CAP</code>
-further, and audit the <code>base</code> C++ files not yet checked (<code>frame_selection.cpp</code>,
-<code>fg_register.cpp</code>, <code>compositing.cpp</code>, <code>seam.cpp</code>, <code>exposure.cpp</code> —
-<code>canvas.cpp</code> is clean) and model-wrapper <code>.offload()</code> VRAM release (LoFTR
-reloads fresh every dataset with no cache, unlike BiRefNet).</p>
+<p><strong>Confirmed at full-corpus scale, 2026-07-28</strong>: user-authorized full 97-test
+run (<code>anime_stitch_20260728_013215.json</code>) completed cleanly end-to-end —
+8540.6s total (~2h22m, 83.8s/test avg), zero <code>_resource_danger()</code> triggers
+across the entire run, no host freeze. This supersedes the earlier 5-test
+and 18-test partial confirmations from this session and closes the "not
+fully trusted at scale" caveat this phase carried since S218-S220.
+Escalation path if a freeze ever recurs (lower <code>ASP_BENCH_THREAD_CAP</code>
+further; audit <code>frame_selection.cpp</code>/<code>fg_register.cpp</code>/<code>compositing.cpp</code>/
+<code>seam.cpp</code>/<code>exposure.cpp</code>; check model <code>.offload()</code> VRAM release) remains
+documented below as a reference, not because it's still believed needed.</p>
 <h2 id="phase-3-photometric-seam-parity-with-opencv">Phase 3 — Photometric &amp; Seam Parity with OpenCV<a class="headerlink" href="#phase-3-photometric-seam-parity-with-opencv" title="Permanent link">&para;</a></h2>
 <p><em>(Only after Phase 2 — these polish composites that must first be coherent.)</em></p>
 <ul>
@@ -3595,8 +3618,14 @@ reloads fresh every dataset with no cache, unlike BiRefNet).</p>
 </ul>
 <hr />
 <h2 id="phase-4-convert-the-fallback-classes">Phase 4 — Convert the Fallback Classes<a class="headerlink" href="#phase-4-convert-the-fallback-classes" title="Permanent link">&para;</a></h2>
-<p>The 46 guarded fallbacks are wins-by-safety, not wins. Reclassify each:
-- <strong>seam_vis_gate class (24 as of the pre-trim census; re-examined
+<p>The 54 guarded fallbacks (full-corpus count as of the 2026-07-28 checkpoint,
+<code>anime_stitch_20260728_013215.json</code> — supersedes the 46-count pre-trim
+census) are wins-by-safety, not wins. Full-corpus class breakdown:
+<code>seam_vis_gate</code> 27, <code>composite_gate_sb</code> 26, <code>composite_gate_sc</code> 1,
+<code>ghost_gate_siqe</code> 0, <code>alignment_failed</code> 0 — confirms the 18-test sample's
+proportions held at scale (seam_vis_gate and composite_gate_sb dominant,
+the other three classes negligible-to-zero). Reclassify each:
+- <strong>seam_vis_gate class (27 at full-corpus scale, 2026-07-28; re-examined
   2026-07-27 on an 18-test targeted sample — see
   <code>.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md</code>):</strong> <strong>not
   uniformly "mostly pose-blend artifacts" as originally assumed.</strong>

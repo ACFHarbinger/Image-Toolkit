@@ -2535,6 +2535,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s258-2026-07-28-asp-full-97-corpus-benchmark-checkpoint-host-freeze-fix-confirmed-phase-4-breakdown-refined" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S258 — 2026-07-28 (ASP: full-97-corpus benchmark checkpoint — host-freeze fix confirmed, Phase 4 breakdown refined)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s231-2026-07-27-analytics-14-dependency-structure-matrix-already-implemented-stale-roadmap-text-corrected" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -12654,6 +12665,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s258-2026-07-28-asp-full-97-corpus-benchmark-checkpoint-host-freeze-fix-confirmed-phase-4-breakdown-refined" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S258 — 2026-07-28 (ASP: full-97-corpus benchmark checkpoint — host-freeze fix confirmed, Phase 4 breakdown refined)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s231-2026-07-27-analytics-14-dependency-structure-matrix-already-implemented-stale-roadmap-text-corrected" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -22760,6 +22782,16 @@
 
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
+<hr />
+<h2 id="s258-2026-07-28-asp-full-97-corpus-benchmark-checkpoint-host-freeze-fix-confirmed-phase-4-breakdown-refined">S258 — 2026-07-28 (ASP: full-97-corpus benchmark checkpoint — host-freeze fix confirmed, Phase 4 breakdown refined)<a class="headerlink" href="#s258-2026-07-28-asp-full-97-corpus-benchmark-checkpoint-host-freeze-fix-confirmed-phase-4-breakdown-refined" title="Permanent link">&para;</a></h2>
+<p>User-authorized full 97-test run (<code>anime_stitch_20260728_013215.json</code>), the first full-corpus run since the 2026-07-09 baseline and since this session's accumulated fixes (ToonOut default-on, aligned-SSIM windowing fix, Hugin/Overmix comparators added, several rejected experiments confirmed staying default-OFF).</p>
+<ul>
+<li><strong>Phase 2.6 (issue #25) confirmed at full-corpus scale</strong>: 8540.6s total (~2h22m, 83.8s/test avg), zero <code>_resource_danger()</code> triggers across the entire run, no host freeze. This closes the "not fully trusted at scale" caveat the thread-cap fix carried since S218-S220 — only 5-test and 18-test partial confirmations existed before this run.</li>
+<li><strong>Corpus-level results</strong>: 21 asp_better / 54 comparable / 22 simple_better; 43 true composites + 54 guarded fallbacks; aligned GT-SSIM 0.6656 vs 0.693 (post-§0.4b-fix metric, not directly comparable to the pre-fix 07-09 baseline number); sharpness 91.3 vs 65.0 and ghosting 59.0 vs 76.0 — ASP wins both architecturally-advantaged dimensions the project's objective calls out.</li>
+<li><strong>Both real-composite rate and asp_better count dropped vs the 07-09 baseline (51→43, 27→21) — read as a net-honest shift, not a regression</strong>: ToonOut's masking fix and the seam_vis_gate re-examination (S244) both independently found cases where a flawed real composite correctly reclassifies as a safe fallback once measured more accurately, mechanically shrinking both numbers while improving actual shipped quality.</li>
+<li><strong>Phase 4 fallback-class breakdown refined with full-corpus numbers</strong>, superseding the 18-test-sample estimate: <code>seam_vis_gate</code> 27, <code>composite_gate_sb</code> 26, <code>composite_gate_sc</code> 1, <code>ghost_gate_siqe</code> 0, <code>alignment_failed</code> 0 — confirms the 18-test sample's proportions (seam_vis_gate and composite_gate_sb dominant) held at scale, and confirms test49's <code>alignment_failed</code> resolution holds corpus-wide, not just for that one test.</li>
+<li><code>moon/roadmaps/asp.md</code> updated: new "Full-corpus checkpoint" section, Phase 2.6 marked fixed/confirmed, Phase 4 breakdown refined.</li>
+</ul>
 <hr />
 <h2 id="s231-2026-07-27-analytics-14-dependency-structure-matrix-already-implemented-stale-roadmap-text-corrected">S231 — 2026-07-27 (Analytics 1.4: Dependency Structure Matrix — already implemented, stale roadmap text corrected)<a class="headerlink" href="#s231-2026-07-27-analytics-14-dependency-structure-matrix-already-implemented-stale-roadmap-text-corrected" title="Permanent link">&para;</a></h2>
 <p>Implemented GitHub issue #71 / <code>analytics_and_interpretability.md</code> §1.4 (Dependency Structure Matrix), scoped to only this sub-item — issue #71 covers Phases 1-10, an explicitly long-term exploratory epic; 1.1-1.3, 1.5, and Phases 2-10 remain entirely untouched.</p>
