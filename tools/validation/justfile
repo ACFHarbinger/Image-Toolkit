@@ -54,9 +54,10 @@ check-type-coverage sort="coverage" limit="40":
     uv run python backend/validation/check_type_coverage.py backend/src \
         --sort {{sort}} --limit {{limit}}
 
-# Generate interactive module-level import graph (opens in browser)
-module-graph html="module_graph.html" depth="10":
-    uv run python backend/validation/visualize_module_graph.py ./backend/src \
+# Generate interactive module-level import graph covering backend/src + gui/src
+# together (so cross-boundary edges/violations are visible), opens in browser
+module-graph html="docs/module_graph.html" depth="10":
+    uv run python backend/validation/visualize_module_graph.py ./backend/src ./gui/src \
         --exclude .venv venv node_modules \
         --html {{html}} --depth {{depth}}
 

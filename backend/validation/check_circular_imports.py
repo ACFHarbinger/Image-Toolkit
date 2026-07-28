@@ -307,7 +307,10 @@ def generate_html(cycles: List[List[str]], graph: Dict[str, Set[str]], output: P
         output: Path to the output HTML file.
     """
     cycle_nodes = {m for cycle in cycles for m in cycle}
-    net = Network(height="800px", width="100%", directed=True, notebook=False)
+    # cdn_resources="in_line": see visualize_module_graph.py's generate_html
+    # for why (avoids pyvis dumping a `lib/` dir at cwd that collides with
+    # this repo's tracked `lib/cmake`).
+    net = Network(height="800px", width="100%", directed=True, notebook=False, cdn_resources="in_line")
     net.set_options(
         '{"physics":{"stabilization":{"iterations":200}},"edges":{"arrows":{"to":{"enabled":true,"scaleFactor":0.5}}}}'
     )

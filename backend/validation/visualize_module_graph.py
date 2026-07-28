@@ -32,7 +32,7 @@ Attributes:
     main: Main function to generate an interactive module-level import graph.
 
 Example:
-    >>> python logic/src/utils/validation/visualize_module_graph.py --root . --output graph.html
+    >>> python backend/validation/visualize_module_graph.py backend/src gui/src --html docs/module_graph.html
 """
 
 import argparse
@@ -60,7 +60,7 @@ except ImportError:
 
 # (module prefix, display label, hex color)
 DEFAULT_LAYERS: List[Tuple[str, str, str]] = [
-    ("logic", "Logic", "#3498db"),
+    ("backend", "Backend", "#3498db"),
     ("gui", "GUI", "#9b59b6"),
     ("test", "Tests", "#27ae60"),
     ("script", "Scripts", "#e67e22"),
@@ -68,8 +68,17 @@ DEFAULT_LAYERS: List[Tuple[str, str, str]] = [
 
 # Pairs (src_layer, tgt_layer) that represent architectural violations
 FORBIDDEN_DIRECTIONS: List[Tuple[str, str]] = [
-    ("Logic", "GUI"),
+    ("Backend", "GUI"),
 ]
+
+# Exact (src_module, tgt_module) pairs that are Backend->GUI by directory
+# layout but are not real layering violations -- e.g. the application's
+# composition root, which necessarily wires both layers together at
+# startup. Kept as an explicit, reviewable allowlist rather than silently
+# excluding a whole module from violation checking.
+ALLOWED_VIOLATIONS: Set[Tuple[str, str]] = {
+    ("backend.src.app", "gui.src.windows.main"),
+}
 
 
 def file_to_module(filepath: Path, root: Path) -> str:
@@ -92,24 +101,33 @@ def file_to_module(filepath: Path, root: Path) -> str:
     return ".".join(parts)
 
 
-def collect_module_map(root: Path, exclude: Set[str]) -> Dict[str, Path]:
+def collect_module_map(scan_dirs: List[Path], name_root: Path, exclude: Set[str]) -> Dict[str, Path]:
     """
     Collect a map of all modules in the codebase.
 
+    Each directory in `scan_dirs` is walked independently (so unrelated trees
+    between them, e.g. everything outside `backend/src`/`gui/src`, are never
+    visited), but module names are computed relative to the single shared
+    `name_root` -- this is what lets an import in one scanned directory
+    (e.g. `gui/src`) resolve to a module defined in another (e.g.
+    `backend/src`), so cross-boundary edges actually show up in the graph.
+
     Args:
-        root (Path): Root directory of the codebase.
+        scan_dirs (List[Path]): Directories to walk for `.py` files.
+        name_root (Path): Common root used to compute dotted module names.
         exclude (Set[str]): Set of directories to exclude.
 
     Returns:
         Dict[str, Path]: Map of module names to file paths.
     """
     module_map: Dict[str, Path] = {}
-    for dirpath, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and d not in exclude]
-        for fname in files:
-            if fname.endswith(".py"):
-                fpath = Path(dirpath) / fname
-                module_map[file_to_module(fpath, root)] = fpath
+    for scan_dir in scan_dirs:
+        for dirpath, dirs, files in os.walk(scan_dir):
+            dirs[:] = [d for d in dirs if d not in SKIP_DIRS and d not in exclude]
+            for fname in files:
+                if fname.endswith(".py"):
+                    fpath = Path(dirpath) / fname
+                    module_map[file_to_module(fpath, name_root)] = fpath
     return module_map
 
 
@@ -141,18 +159,19 @@ def resolve_to_module(raw: str, level: int, current: str, known: Set[str]) -> Op
     return None
 
 
-def build_graph(root: Path, exclude: Set[str]) -> Dict[str, Set[str]]:
+def build_graph(scan_dirs: List[Path], name_root: Path, exclude: Set[str]) -> Dict[str, Set[str]]:
     """
     Build a module graph from the codebase.
 
     Args:
-        root (Path): Root directory of the codebase.
+        scan_dirs (List[Path]): Directories to walk for `.py` files.
+        name_root (Path): Common root used to compute dotted module names.
         exclude (Set[str]): Set of directories to exclude.
 
     Returns:
         Dict[str, Set[str]]: Module graph.
     """
-    module_map = collect_module_map(root, exclude)
+    module_map = collect_module_map(scan_dirs, name_root, exclude)
     known = set(module_map.keys())
     graph: Dict[str, Set[str]] = {m: set() for m in known}
     for module, fpath in module_map.items():
@@ -211,6 +230,8 @@ def find_violations(
     for src, targets in graph.items():
         src_layer, _ = get_layer(src, layers)
         for tgt in targets:
+            if (src, tgt) in ALLOWED_VIOLATIONS:
+                continue
             tgt_layer, _ = get_layer(tgt, layers)
             if (src_layer, tgt_layer) in forbidden:
                 violations.append((src, tgt))
@@ -277,7 +298,11 @@ def generate_html(
     if depth > 0:
         display_graph, _ = condense_to_packages(graph, depth)
 
-    net = Network(height="900px", width="100%", directed=True, notebook=False)
+    # cdn_resources="in_line": embed vis.js assets directly in the HTML file
+    # instead of pyvis's default of copying them to a `lib/` dir relative to
+    # the current working directory (which collided with the unrelated
+    # `lib/cmake` tracked in this repo's root).
+    net = Network(height="900px", width="100%", directed=True, notebook=False, cdn_resources="in_line")
     net.set_options(
         '{"physics":{"barnesHut":{"gravitationalConstant":-5000,"springLength":150}},'
         '"edges":{"arrows":{"to":{"enabled":true,"scaleFactor":0.4}},'
@@ -333,7 +358,17 @@ def generate_html(
 def main() -> None:
     """Visualise the module-level import graph of a Python codebase."""
     parser = argparse.ArgumentParser(description="Visualise the module-level import graph of a Python codebase.")
-    parser.add_argument("directory", help="Root directory to scan")
+    parser.add_argument(
+        "directory",
+        nargs="+",
+        help="Directory/directories to scan (e.g. `backend/src gui/src` to see cross-boundary edges)",
+    )
+    parser.add_argument(
+        "--name-root",
+        default=None,
+        metavar="PATH",
+        help="Common root used to compute dotted module names (default: nearest shared parent of `directory`)",
+    )
     parser.add_argument("--exclude", nargs="+", default=[], help="Directory names to skip")
     parser.add_argument("--html", default="module_graph.html", metavar="PATH", help="Output HTML path")
     parser.add_argument("--no-html", action="store_true", help="Skip HTML generation, print summary only")
@@ -346,14 +381,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    root = Path(args.directory).resolve()
-    if not root.is_dir():
-        print(f"Error: '{root}' is not a directory.")
-        sys.exit(1)
+    scan_dirs = [Path(d).resolve() for d in args.directory]
+    for d in scan_dirs:
+        if not d.is_dir():
+            print(f"Error: '{d}' is not a directory.")
+            sys.exit(1)
+
+    if args.name_root:
+        name_root = Path(args.name_root).resolve()
+    else:
+        name_root = Path(os.path.commonpath([str(d) for d in scan_dirs]))
 
     exclude = set(args.exclude)
-    print(f"{CYAN}Building module graph for '{root}'...{RESET}")
-    graph = build_graph(root, exclude)
+    print(f"{CYAN}Building module graph for {[str(d) for d in scan_dirs]} (names relative to '{name_root}')...{RESET}")
+    graph = build_graph(scan_dirs, name_root, exclude)
     edge_count = sum(len(v) for v in graph.values())
     print(f"  {DIM}{len(graph)} modules, {edge_count} internal import edges.{RESET}\n")
 
