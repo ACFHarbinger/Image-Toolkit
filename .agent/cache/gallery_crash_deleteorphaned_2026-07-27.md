@@ -697,3 +697,77 @@ above verifies the *logic* race, not the native crash directly) --
 please retry the exact repro when convenient. But this round is on
 firmer ground than any previous one: the mechanism was reproduced,
 fixed, and is now guarded by a test that fails without the fix.
+
+## Addendum 10 (2026-07-28) — round 10's fix was correct but for a different bug; this crash was always root cause #8
+
+The user reran the *exact same simplest repro* as round 10
+(`hs_err_pid306373.log`): restore a directory on startup, browse a
+different one immediately. Same `QSocketNotifier` warning, `SIGSEGV`
+inside `libQt6Core.so.6` -- but this time at `+0x1df7c9`, **not** the
+`+0x1e74d5`/`+0x1e73ae` family round 10 fixed. `+0x1df7c9` is the *exact*
+offset from the very first crash log at the start of this whole
+investigative arc (`hs_err_pid282122.log`), which was already reported
+*after* round 8's login fix was in place. In hindsight this should have
+been the first thing checked: round 9 and round 10 both assumed every
+report in this family was the `deleteOrphaned`/gallery-scanner-ordering
+class documented above, because the `QSocketNotifier` warning text is
+identical for both. It isn't. `+0x1df7c9` matches **root cause #8**
+(Qt Multimedia's async PipeWire device probe racing a new `QThread`
+during the fragile startup window) from the top of this document —
+a bug rounds 9 and 10 never touched at all, because their fixes were
+entirely inside `wallpaper_common_base.py`'s scan-completion handling,
+nowhere near `app.py`'s startup sequencing.
+
+**Why root cause #8's existing mitigation wasn't enough.** `app.py::launch_app()`
+primes `QAudioOutput()` immediately after `QApplication` is constructed
+(before the login window even shows) and defers `MainWindow` construction
+by a fixed `QTimer.singleShot(400, ...)`. The implicit assumption was that
+login/vault-unlock (JVM start, keystore load, vault decrypt -- all real,
+sequential work visible in every stdout dump) would reliably eat far more
+than 400ms on its own, making the total margin from "probe started" to
+"first scanner QThread can start" comfortably larger than however long
+the PipeWire probe takes. That assumption doesn't hold for every
+environment/run: if login is fast (a remembered/short auth flow) and the
+user acts immediately once `MainWindow` appears, the *actual* elapsed
+time since the probe started can still be short -- and every one of
+these reports also shows a `parseSampleFormat` parse-error warning from
+PipeWire right at the very top of stdout, before anything else, which is
+at least consistent with the probe having some kind of trouble/retry
+happening that could extend its real duration unpredictably.
+
+**Fix**: `gui/src/utils/startup_probe_guard.py` (new) tracks the probe's
+real start time (`mark_startup_probe_started()`, called from `app.py`
+right where `_startup_audio_prime` is constructed) and exposes
+`startup_settle_remaining_ms()` -- milliseconds still needed, measured
+from that real timestamp, with a `1.5s` settle window (up from the
+effective ~400ms-plus-login-time margin). Every scanner-QThread call site
+now checks this **at the point where it's actually about to start a
+thread**, not by proxy through window-construction timing:
+`WallpaperCommonBase.populate_scan_image_gallery()` and
+`VideoExtractorSubTab.scan_directory()` each check
+`startup_settle_remaining_ms()` first and, if still within the window,
+reschedule their *entire own call* via `QTimer.singleShot()` and return —
+whichever code path reaches the dangerous point first (auto-restore, or
+the user's own manual click) gets the same guaranteed floor, regardless
+of how quickly login happened. This directly addresses the "why a
+per-call-site defer isn't enough on its own" lesson already documented
+for this root cause: the earlier per-call-site attempt deferred the
+*trigger* (a specific call), this one gates the *destination* (every
+place a scanner thread can actually start), the same "gate the source"
+principle `app.py`'s `MainWindow` defer already used, just applied one
+layer closer to the actual danger.
+
+**Test coverage**: `gui/test/core/test_startup_probe_guard.py` covers the
+guard module itself (zero before marking, positive immediately after,
+decays to zero, never negative) and — more importantly — confirms
+`populate_scan_image_gallery()` actually defers a scanner-worker
+construction while the guard reports time remaining, and that the
+deferred retry goes on to construct it once the window passes. This does
+not (and can't) prove the real PipeWire race is closed — the 1.5s figure
+is a judgment call, not a measured value, since this session has no way
+to run against real PipeWire hardware/timing. If this exact repro
+recurs a third time with the *same* `+0x1df7c9` offset, the fixed
+1.5-second margin is insufficient and the next step should be an actual
+completion signal (e.g. `QMediaDevices.audioOutputsChanged`) instead of
+a bigger guess, or increasing the margin further while investigating why
+`parseSampleFormat` is erroring in the first place.
