@@ -144,3 +144,59 @@ jobs:
         run: uv run pytest --skip-gpu -m "not slow" -q --tb=short
         env:
           PYTHONPATH: .
+
+  pytest-slow:
+    name: Python slow integration tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-pytest-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-pytest-${{ runner.os }}-
+
+      - name: Install project dependencies (frozen, skip C++ build)
+        run: uv sync --frozen --group dev --no-install-project
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Install system C++ dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
+
+      - name: Build Cryptography JAR
+        run: ./gradlew :cryptography:shadowJar -Dorg.gradle.java.home="$JAVA_HOME"
+
+      - name: Build and install C++ base extension
+        run: |
+          uv run cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release
+          uv run cmake --build build/base --parallel
+          uv run cmake --install build/base --prefix .
+          SITE_PKGS=$(uv run python -c "import site; print(site.getsitepackages()[0])")
+          cp -f base*.so "$SITE_PKGS/" || true
+
+      - name: Run slow pytest
+        run: uv run pytest --skip-gpu -m "slow" -q --tb=short
+        env:
+          PYTHONPATH: .
+
