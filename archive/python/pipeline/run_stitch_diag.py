@@ -22,9 +22,9 @@ for f in SRC:
 OUTPUT_PATH = os.path.join(OUT_DIR, "panorama_diag29.png")
 
 # ── Monkey-patch pipeline to save stage outputs ──────────────────────────────
-from backend.src.anim import pipeline as _pip_mod
-from backend.src.anim import rendering as _rend_mod
-from backend.src.anim import compositing as _comp_mod
+from backend.src.anim import pipeline as _pip_mod # pyrefly: ignore [missing-import]
+from backend.src.anim import rendering as _rend_mod # pyrefly: ignore [missing-import]
+from backend.src.anim import compositing as _comp_mod # pyrefly: ignore [missing-import]
 
 _orig_render = _rend_mod._render_median
 _orig_composite = _comp_mod._composite_foreground
@@ -96,7 +96,7 @@ _rend_mod._render_median = _diag_render_median
 _comp_mod._composite_foreground = _diag_composite
 
 # ── Run pipeline ──────────────────────────────────────────────────────────────
-from backend.src.anim.pipeline import AnimeStitchPipeline
+from backend.src.anim.pipeline import AnimeStitchPipeline # pyrefly: ignore [missing-import]
 
 pipe = AnimeStitchPipeline(
     use_basic=True,

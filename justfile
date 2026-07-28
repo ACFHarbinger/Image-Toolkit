@@ -212,6 +212,10 @@ asp-benchmark-verify: helper::_print_header
 asp-benchmark-clean: helper::_print_header
     just benchmark::asp-benchmark-clean
 
+# Rate the panoramic stitches produced by the ASP
+asp-benchmark-assess: helper::_print_header
+    just benchmark::asp-benchmark-assess
+
 # --- Database ---
 
 # Setup PostgreSQL database with pgvector extension

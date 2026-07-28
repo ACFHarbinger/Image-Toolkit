@@ -70,3 +70,8 @@ asp-benchmark-clean:
     rm -rf dump/asp_test*/output
     rm -rf dump/output
     @echo "✅ Cleanup complete!"
+
+# Rate the quality of the panoramic stitches produced by the ASP during benchmarking
+asp-benchmark-assess:
+    @echo "🎨 Rating the panoramic stitches produced by the ASP during benchmarking..."
+    uv run python backend/benchmark/managers/rating_manager.py

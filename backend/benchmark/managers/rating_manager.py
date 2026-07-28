@@ -19,7 +19,7 @@ Rating scale (0-4):
     0 = incoherent — torn anatomy, duplicated strips, or misordered content
 
 Usage:
-    python -m backend.benchmark.rate_coherence [--data-dir DIR] [--out PATH] [--redo]
+    python -m backend.benchmark.managers.rating_manager [--data-dir DIR] [--out PATH] [--redo]
 
 Controls (all keyboard, window must have focus):
     0-4   rate the currently-prompted image (ASP first, then Simple)

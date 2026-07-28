@@ -710,7 +710,7 @@ _HUMAN_RATINGS_CACHE: Optional[Dict] = None
 
 def _load_human_ratings() -> Dict:
     """§0.1/0.2: load the most recent human coherence ratings file (from
-    ``rate_coherence.py``), if any exist. Cached per-process — ratings don't
+    ``rating_manager.py``), if any exist. Cached per-process — ratings don't
     change mid-run. Schema: {test_name: {"asp": 0-4, "simple": 0-4, "notes": str}}.
     """
     global _HUMAN_RATINGS_CACHE
@@ -2307,7 +2307,7 @@ def _build_result(
             "verdict": gt_ver,
         },
         # --- §0.1/0.2 human coherence ratings (None if this dataset hasn't
-        # been rated — see backend/benchmark/rate_coherence.py) ---
+        # been rated — see backend/benchmark/managers/rating_manager.py) ---
         "human_coherence": human_coherence,
         # --- status ---
         "used_fallback": used_fallback,

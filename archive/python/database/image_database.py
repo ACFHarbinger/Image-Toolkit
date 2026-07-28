@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import psycopg2
-import psycopg2.extras
+import psycopg2 # pyrefly: ignore [untyped-import]
+import psycopg2.extras # pyrefly: ignore [untyped-import]
 from dotenv import load_dotenv
 
 from .sql_loader import load_sql
@@ -22,11 +22,11 @@ class PgvectorImageDatabase:
     def __init__(
         self,
         embed_dim: int = 128,
-        db_name: str = None,
-        db_user: str = None,
-        db_password: str = None,
-        db_host: str = None,
-        db_port: str = None,
+        db_name: Optional[str] = None,
+        db_user: Optional[str] = None,
+        db_password: Optional[str] = None,
+        db_host: Optional[str] = None,
+        db_port: Optional[str] = None,
         env_path: str = "env/vars.env",
     ):
         """Initialize the PostgreSQL database connection and set up the schema."""
@@ -92,12 +92,14 @@ class PgvectorImageDatabase:
 
     def _get_or_create_group(self, name: str) -> int:
         """Get ID or create a group row."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["upsert_group"], (name,))
             return cur.fetchone()[0]
 
     def _get_or_create_tag(self, name: str) -> int:
         """Get ID or create a tag row."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_tags["upsert_tag_entity"], (name,))
             return cur.fetchone()[0]
@@ -106,6 +108,7 @@ class PgvectorImageDatabase:
         """Adds a new group name to the 'groups' table."""
         if not name or not name.strip():
             raise ValueError("Group name cannot be empty")
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["insert_group"], (name.strip(),))
 
@@ -114,6 +117,7 @@ class PgvectorImageDatabase:
         if not name or not name.strip() or not group_name or not group_name.strip():
             raise ValueError("Subgroup name and Group name cannot be empty")
         group_id = self._get_or_create_group(group_name.strip())
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["upsert_subgroup"], (name.strip(), group_id))
 
@@ -122,11 +126,13 @@ class PgvectorImageDatabase:
         if not name or not name.strip():
             raise ValueError("Tag name cannot be empty")
         type_value = type if type and type.strip() else None
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_tags["upsert_tag"], (name.strip(), type_value))
 
     def delete_group(self, name: str):
         """Deletes a group from the 'groups' table. This will cascade to subgroups."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["delete_group"], (name,))
 
@@ -134,11 +140,13 @@ class PgvectorImageDatabase:
         """Deletes a subgroup from the 'subgroups' table based on its name and parent group name."""
         if not name or not group_name:
             raise ValueError("Subgroup name and Group name cannot be empty")
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["delete_subgroup"], (name, group_name))
 
     def delete_tag(self, name: str):
         """Deletes a tag from the 'tags' table. This will cascade to image_tags."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_tags["delete_tag"], (name,))
 
@@ -148,7 +156,7 @@ class PgvectorImageDatabase:
             raise ValueError("Group names cannot be empty")
         if old_name == new_name:
             return
-
+        assert self.conn is not None
         self.conn.autocommit = False
         try:
             with self.conn.cursor() as cur:
@@ -167,7 +175,7 @@ class PgvectorImageDatabase:
             raise ValueError("Subgroup and Group names cannot be empty")
         if old_name == new_name:
             return
-
+        assert self.conn is not None
         self.conn.autocommit = False
         try:
             with self.conn.cursor() as cur:
@@ -192,18 +200,21 @@ class PgvectorImageDatabase:
             raise ValueError("Tag names cannot be empty")
         if old_name == new_name:
             return
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_tags["rename_tag"], (new_name, old_name))
 
     def update_tag_type(self, name: str, new_type: str):
         """Updates the 'type' of an existing tag."""
         type_value = new_type if new_type and new_type.strip() else None
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_tags["update_tag_type"], (type_value, name))
 
     def get_all_tags_with_types(self, limit: int = 10000) -> List[Dict[str, str]]:
         """Gets a list of all tags and their types. Maximum `limit` tags returned."""
         results = []
+        assert self.conn is not None
         with self.conn.cursor(
             cursor_factory=psycopg2.extras.DictCursor,
             name="get_all_tags_with_types_cur",
@@ -219,6 +230,7 @@ class PgvectorImageDatabase:
 
     def delete_image(self, image_id: int):
         """Delete an image from the database."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_images["delete_image"], (image_id,))
 
@@ -249,7 +261,7 @@ class PgvectorImageDatabase:
             and subgroup_name.strip()
         ):
             self.add_subgroup(subgroup_name, group_name)
-
+        assert self.conn is not None
         try:
             with self.conn.cursor() as cur:
                 cur.execute(
@@ -288,6 +300,7 @@ class PgvectorImageDatabase:
 
     def _fetch_one_image_details(self, image_id: int) -> Optional[Dict[str, Any]]:
         """Helper to fetch a single image's details and tags."""
+        assert self.conn is not None
         with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(_images["get_image_by_id"], (image_id,))
             row = cur.fetchone()
@@ -300,12 +313,14 @@ class PgvectorImageDatabase:
 
     def get_image_tags(self, image_id: int) -> List[str]:
         """Get all tags for an image."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_tags["get_image_tags"], (image_id,))
             return [row[0] for row in cur.fetchall()]
 
     def get_image_by_path(self, file_path: str) -> Optional[Dict[str, Any]]:
         """Get image data by file path."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_images["get_image_id_by_path"], (file_path,))
             row = cur.fetchone()
@@ -322,24 +337,24 @@ class PgvectorImageDatabase:
     ):
         """Update image metadata."""
         date_modified = datetime.now()
-
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             set_clauses = ["date_modified = %s"]
             params = [date_modified]
 
             if group_name is not None:
                 set_clauses.append("group_name = %s")
-                params.append(group_name)
+                params.append(group_name) # pyrefly: ignore [bad-argument-type]
                 if group_name and group_name.strip():
                     self.add_group(group_name)
 
             if subgroup_name is not None:
                 set_clauses.append("subgroup_name = %s")
-                params.append(subgroup_name)
+                params.append(subgroup_name) # pyrefly: ignore [bad-argument-type]
 
             if len(set_clauses) > 1:
                 sql = f"UPDATE images SET {', '.join(set_clauses)} WHERE id = %s"
-                params.append(image_id)
+                params.append(image_id) # pyrefly: ignore [bad-argument-type]
                 cur.execute(sql, tuple(params))
 
             if subgroup_name is not None:
@@ -421,6 +436,7 @@ class PgvectorImageDatabase:
         query += f" LIMIT {limit}"
 
         results = []
+        assert self.conn is not None
         try:
             with self.conn.cursor() as _pre:
                 if query_vector:
@@ -464,36 +480,42 @@ class PgvectorImageDatabase:
 
     def get_all_tags(self, limit: int = 10000) -> List[str]:
         """Get list of all tags in database. Maximum `limit` tags returned."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_tags["get_all_tags"], (limit,))
             return [row[0] for row in cur.fetchall()]
 
     def get_all_groups(self, limit: int = 10000) -> List[str]:
         """Get list of all group names from the dedicated 'groups' table. Maximum `limit` groups returned."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["get_all_groups"], (limit,))
             return [row[0] for row in cur.fetchall()]
 
     def get_all_subgroups(self, limit: int = 10000) -> List[str]:
         """Get list of all *unique* subgroup names from the 'subgroups' table. Maximum `limit` returned."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["get_all_subgroups"], (limit,))
             return [row[0] for row in cur.fetchall()]
 
     def get_subgroups_for_group(self, group_name: str, limit: int = 10000) -> List[str]:
         """Get list of all subgroup names for a specific parent group. Maximum `limit` returned."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["get_subgroups_for_group"], (group_name, limit))
             return [row[0] for row in cur.fetchall()]
 
     def get_all_subgroups_detailed(self, limit: int = 10000) -> List[tuple]:
         """Get list of ALL (subgroup_name, group_name) pairs. Maximum `limit` returned."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_groups["get_all_subgroups_detailed"], (limit,))
             return cur.fetchall()
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get database statistics."""
+        assert self.conn is not None
         stats = {}
         with self.conn.cursor() as cur:
             cur.execute(_stats["count_images"])
@@ -569,6 +591,7 @@ class PgvectorImageDatabase:
 
     def update_phash(self, image_id: int, phash_int: int) -> None:
         """Store a 64-bit perceptual hash (signed BIGINT) for *image_id*."""
+        assert self.conn is not None
         with self.conn.cursor() as cur:
             cur.execute(_images["update_phash"], (phash_int, image_id))
 
@@ -590,6 +613,7 @@ class PgvectorImageDatabase:
                     Typical values: 0 = exact hash match, ≤10 = near-duplicate.
         limit     : maximum number of rows to return.
         """
+        assert self.conn is not None
         with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 _images["find_near_duplicates_phash"],

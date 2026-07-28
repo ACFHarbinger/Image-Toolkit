@@ -25,7 +25,7 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from backend.benchmark.tracker_manager import BenchmarkManager, measure_memory  # noqa: E402
+from backend.benchmark.managers import BenchmarkManager, measure_memory  # noqa: E402
 
 try:
     import base as cpp_core  # type: ignore[import]

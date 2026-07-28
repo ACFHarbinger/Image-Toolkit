@@ -89,7 +89,7 @@ def _build_conninfo(params: Dict[str, Optional[str]]) -> str:
         val = params.get(key)
         if val:
             # Escape spaces/special chars in value
-            escaped = str(val).replace("\\", "\\\\").replace("'", "\\'")
+            escaped = val.replace("\\", "\\\\").replace("'", "\\'")
             parts.append(f"{connkey}={escaped}")
     return " ".join(parts)
 
@@ -167,31 +167,36 @@ class PooledPgvectorDatabase:
 
     def _create_tables(self) -> None:
         with self._conn() as conn:
-            conn.execute(_schema["create_extension"])
+            conn.execute(_schema["create_extension"]) # pyrefly: ignore [no-matching-overload]
+            # pyrefly: ignore [no-matching-overload]
             conn.execute(
                 _schema["create_table_images"].format(
                     embedding_dim=self.embedding_dim
                 )
             )
-            conn.execute(_schema["create_table_groups"])
-            conn.execute(_schema["create_table_subgroups"])
-            conn.execute(_schema["create_table_tags"])
-            conn.execute(_schema["create_table_image_tags"])
-            conn.execute(_schema["create_index_group"])
-            conn.execute(_schema["create_index_subgroup"])
-            conn.execute(_schema["create_index_path"])
-            conn.execute(_schema["create_index_embedding"])
-            conn.execute(_schema["add_phash_column"])
-            conn.execute(_schema["create_index_phash"])
+            conn.execute(_schema["create_table_groups"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["create_table_subgroups"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["create_table_tags"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["create_table_image_tags"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["create_index_group"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["create_index_subgroup"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["create_index_path"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["create_index_embedding"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["add_phash_column"]) # pyrefly: ignore [no-matching-overload]
+            conn.execute(_schema["create_index_phash"]) # pyrefly: ignore [no-matching-overload]
 
     # ── Internal helpers ───────────────────────────────────────────────────────
 
     def _get_or_create_group(self, conn: psycopg.Connection, name: str) -> int:
+        # pyrefly: ignore [bad-argument-type]
         row = conn.execute(_groups["upsert_group"], (name,)).fetchone()
+        # pyrefly: ignore [unsupported-operation,bad-index]
         return row["id"]
 
     def _get_or_create_tag(self, conn: psycopg.Connection, name: str) -> int:
+        # pyrefly: ignore [bad-argument-type]
         row = conn.execute(_tags["upsert_tag_entity"], (name,)).fetchone()
+        # pyrefly: ignore [unsupported-operation,bad-index]
         return row["id"]
 
     # ── Group / subgroup management ────────────────────────────────────────────
@@ -200,6 +205,7 @@ class PooledPgvectorDatabase:
         if not name or not name.strip():
             raise ValueError("Group name cannot be empty")
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_groups["insert_group"], (name.strip(),))
 
     def add_subgroup(self, name: str, group_name: str) -> None:
@@ -207,16 +213,19 @@ class PooledPgvectorDatabase:
             raise ValueError("Subgroup name and Group name cannot be empty")
         with self._conn() as conn:
             group_id = self._get_or_create_group(conn, group_name.strip())
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_groups["upsert_subgroup"], (name.strip(), group_id))
 
     def delete_group(self, name: str) -> None:
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_groups["delete_group"], (name,))
 
     def delete_subgroup(self, name: str, group_name: str) -> None:
         if not name or not group_name:
             raise ValueError("Subgroup name and Group name cannot be empty")
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_groups["delete_subgroup"], (name, group_name))
 
     def rename_group(self, old_name: str, new_name: str) -> None:
@@ -225,7 +234,9 @@ class PooledPgvectorDatabase:
         if old_name == new_name:
             return
         with self._transaction() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_groups["rename_group_in_images"], (new_name, old_name))
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_groups["rename_group_in_groups"], (new_name, old_name))
 
     def rename_subgroup(self, old_name: str, new_name: str, group_name: str) -> None:
@@ -235,35 +246,44 @@ class PooledPgvectorDatabase:
             return
         with self._transaction() as conn:
             conn.execute(
-                _groups["rename_subgroup_in_images"],
+                _groups["rename_subgroup_in_images"], # pyrefly: ignore [bad-argument-type]
                 (new_name, old_name, group_name),
             )
             conn.execute(
-                _groups["rename_subgroup_in_subgroups"],
+                _groups["rename_subgroup_in_subgroups"], # pyrefly: ignore [bad-argument-type]
                 (new_name, old_name, group_name),
             )
 
     def get_all_groups(self, limit: int = 10000) -> List[str]:
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             rows = conn.execute(_groups["get_all_groups"], (limit,)).fetchall()
+        
+        # pyrefly: ignore [bad-index]
         return [r["name"] for r in rows]
 
     def get_all_subgroups(self, limit: int = 10000) -> List[str]:
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             rows = conn.execute(_groups["get_all_subgroups"], (limit,)).fetchall()
+        
+        # pyrefly: ignore [bad-index]
         return [r["name"] for r in rows]
 
     def get_subgroups_for_group(self, group_name: str, limit: int = 10000) -> List[str]:
         with self._conn() as conn:
             rows = conn.execute(
-                _groups["get_subgroups_for_group"], (group_name, limit)
+                _groups["get_subgroups_for_group"], (group_name, limit) # pyrefly: ignore [bad-argument-type]
             ).fetchall()
+        # pyrefly: ignore [bad-index]
         return [r["name"] for r in rows]
 
     def get_all_subgroups_detailed(self, limit: int = 10000) -> List[tuple]:
         # The SQL selects s.name, g.name — both columns named "name".
         # Use tuple_row to avoid dict_row silently discarding one of the duplicates.
+        # pyrefly: ignore [implicit-import]
         with self._conn() as conn, conn.cursor(row_factory=psycopg.rows.tuple_row) as cur:
+            # pyrefly: ignore [bad-argument-type]
             cur.execute(_groups["get_all_subgroups_detailed"], (limit,))
             rows = cur.fetchall()
         return list(rows)
@@ -275,10 +295,12 @@ class PooledPgvectorDatabase:
             raise ValueError("Tag name cannot be empty")
         type_value = type if type and type.strip() else None
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_tags["upsert_tag"], (name.strip(), type_value))
 
     def delete_tag(self, name: str) -> None:
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_tags["delete_tag"], (name,))
 
     def rename_tag(self, old_name: str, new_name: str) -> None:
@@ -287,28 +309,37 @@ class PooledPgvectorDatabase:
         if old_name == new_name:
             return
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_tags["rename_tag"], (new_name, old_name))
 
     def update_tag_type(self, name: str, new_type: str) -> None:
         type_value = new_type if new_type and new_type.strip() else None
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_tags["update_tag_type"], (type_value, name))
 
     def get_all_tags(self, limit: int = 10000) -> List[str]:
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             rows = conn.execute(_tags["get_all_tags"], (limit,)).fetchall()
+        
+        # pyrefly: ignore [bad-index]
         return [r["name"] for r in rows]
 
     def get_all_tags_with_types(self, limit: int = 10000) -> List[Dict[str, str]]:
         with self._conn() as conn:
             rows = conn.execute(
-                _tags["get_all_tags_with_types"], (limit,)
+                _tags["get_all_tags_with_types"], (limit,) # pyrefly: ignore [bad-argument-type]
             ).fetchall()
+        
+        # pyrefly: ignore [bad-index]
         return [{"name": r["name"], "type": r["type"] or ""} for r in rows]
 
     def get_image_tags(self, image_id: int) -> List[str]:
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             rows = conn.execute(_tags["get_image_tags"], (image_id,)).fetchall()
+        # pyrefly: ignore [bad-index]
         return [r["name"] for r in rows]
 
     # ── Image CRUD ─────────────────────────────────────────────────────────────
@@ -333,7 +364,7 @@ class PooledPgvectorDatabase:
 
         with self._conn() as conn:
             row = conn.execute(
-                _images["upsert_image"],
+                _images["upsert_image"], # # pyrefly: ignore [bad-argument-type]
                 (
                     str(path.absolute()),
                     path.name,
@@ -348,12 +379,16 @@ class PooledPgvectorDatabase:
                     now,
                 ),
             ).fetchone()
+            
+            # pyrefly: ignore [bad-index,unsupported-operation]
             image_id: int = row["id"]
 
             if tags is not None:
+                # pyrefly: ignore [bad-argument-type]
                 conn.execute(_images["delete_image_tags"], (image_id,))
                 if tags:
                     tag_ids = [self._get_or_create_tag(conn, t) for t in tags]
+                    # pyrefly: ignore [missing-attribute]
                     conn.executemany(
                         "INSERT INTO image_tags (image_id, tag_id) VALUES (%s, %s)"
                         " ON CONFLICT DO NOTHING",
@@ -364,6 +399,7 @@ class PooledPgvectorDatabase:
 
     def delete_image(self, image_id: int) -> None:
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_images["delete_image"], (image_id,))
 
     def update_image(
@@ -391,15 +427,17 @@ class PooledPgvectorDatabase:
             if len(set_clauses) > 1:
                 sql = f"UPDATE images SET {', '.join(set_clauses)} WHERE id = %s"
                 params.append(image_id)
+                # pyrefly: ignore [bad-argument-type]
                 conn.execute(sql, tuple(params))
 
             if subgroup_name is not None:
                 final_group_name = group_name
                 if final_group_name is None:
                     row = conn.execute(
-                        _images["get_image_group_name"], (image_id,)
+                        _images["get_image_group_name"], (image_id,) # pyrefly: ignore [bad-argument-type]
                     ).fetchone()
                     if row:
+                        # pyrefly: ignore [bad-index]
                         final_group_name = row["group_name"]
                 if (
                     subgroup_name.strip()
@@ -409,32 +447,36 @@ class PooledPgvectorDatabase:
                     self.add_subgroup(subgroup_name, final_group_name)
 
             if tags is not None:
+                # pyrefly: ignore [bad-argument-type]
                 conn.execute(_images["delete_image_tags"], (image_id,))
                 for tag_name in tags:
                     tag_id = self._get_or_create_tag(conn, tag_name)
+                    # pyrefly: ignore [bad-argument-type]
                     conn.execute(_images["insert_image_tag"], (image_id, tag_id))
 
     def _fetch_one_image_details(
         self, conn: psycopg.Connection, image_id: int
     ) -> Optional[Dict[str, Any]]:
+        # pyrefly: ignore [bad-argument-type]
         row = conn.execute(_images["get_image_by_id"], (image_id,)).fetchone()
         if not row:
             return None
         image_data = dict(row)
         image_data.pop("embedding", None)
         image_data["tags"] = [
-            r["name"]
-            for r in conn.execute(_tags["get_image_tags"], (image_id,)).fetchall()
+            r["name"] # pyrefly: ignore [bad-index]
+            for r in conn.execute(_tags["get_image_tags"], (image_id,)).fetchall() # pyrefly: ignore [bad-argument-type]
         ]
         return image_data
 
     def get_image_by_path(self, file_path: str) -> Optional[Dict[str, Any]]:
         with self._conn() as conn:
             row = conn.execute(
-                _images["get_image_id_by_path"], (file_path,)
+                _images["get_image_id_by_path"], (file_path,) # pyrefly: ignore [bad-argument-type]
             ).fetchone()
             if not row:
                 return None
+            # pyrefly: ignore [bad-index]
             return self._fetch_one_image_details(conn, row["id"])
 
     # ── Search ─────────────────────────────────────────────────────────────────
@@ -503,21 +545,25 @@ class PooledPgvectorDatabase:
             if query_vector:
                 conn.execute("SET LOCAL hnsw.ef_search = 80;")
 
+            # pyrefly: ignore [bad-argument-type]
             rows = conn.execute(query, params).fetchmany(limit)
             if not rows:
                 return results
 
+            # pyrefly: ignore [bad-index]
             image_ids = [r["id"] for r in rows]
             tag_rows = conn.execute(
-                _tags["get_tags_for_images_bulk"], (image_ids,)
+                _tags["get_tags_for_images_bulk"], (image_ids,) # pyrefly: ignore [bad-argument-type, bad-index]
             ).fetchall()
             tags_by_id: Dict[int, List[str]] = {}
             for tr in tag_rows:
+                # pyrefly: ignore [bad-index]
                 tags_by_id.setdefault(tr["image_id"], []).append(tr["tag_name"])
 
             for row in rows:
                 image_data = dict(row)
                 image_data.pop("embedding", None)
+                # pyrefly: ignore [bad-index]
                 image_data["tags"] = tags_by_id.get(row["id"], [])
                 results.append(image_data)
 
@@ -528,18 +574,31 @@ class PooledPgvectorDatabase:
     def get_statistics(self) -> Dict[str, Any]:
         # Use tuple_row so aggregate function column names don't matter.
         stats: Dict[str, Any] = {}
+        # pyrefly: ignore [implicit-import]
         with self._conn() as conn, conn.cursor(row_factory=psycopg.rows.tuple_row) as cur:
+            # pyrefly: ignore [no-matching-overload]
             cur.execute(_stats["count_images"])
+            # pyrefly: ignore [unsupported-operation]
             stats["total_images"] = cur.fetchone()[0]
+            # pyrefly: ignore [no-matching-overload]
             cur.execute(_stats["count_tags"])
+            # pyrefly: ignore [unsupported-operation]
             stats["total_tags"] = cur.fetchone()[0]
+            # pyrefly: ignore [no-matching-overload]
             cur.execute(_stats["count_groups"])
+            # pyrefly: ignore [unsupported-operation]
             stats["total_groups"] = cur.fetchone()[0]
+            # pyrefly: ignore [no-matching-overload]
             cur.execute(_stats["count_subgroups"])
+            # pyrefly: ignore [unsupported-operation]
             stats["total_subgroups"] = cur.fetchone()[0]
+            # pyrefly: ignore [no-matching-overload]
             cur.execute(_stats["sum_file_size"])
+            # pyrefly: ignore [unsupported-operation]
             stats["total_file_size"] = cur.fetchone()[0] or 0
+            # pyrefly: ignore [no-matching-overload]
             cur.execute(_stats["max_date_added"])
+            # pyrefly: ignore [unsupported-operation]
             stats["last_sync_date"] = cur.fetchone()[0]
         return stats
 
@@ -549,18 +608,25 @@ class PooledPgvectorDatabase:
         # VACUUM requires autocommit=True — open a fresh raw connection outside pool
         cmd = _maintenance["vacuum_full"] if full else _maintenance["vacuum"]
         with psycopg.connect(self._conninfo, autocommit=True) as conn:
+            # pyrefly: ignore [no-matching-overload]
             conn.execute(cmd)
 
     def maintenance_reindex(self) -> None:
         with psycopg.connect(self._conninfo, autocommit=True) as conn:
+            # pyrefly: ignore [no-matching-overload]
             conn.execute(_maintenance["reindex"])
 
     def reset_database(self) -> None:
         with self._conn() as conn:
+            # pyrefly: ignore [no-matching-overload]
             conn.execute(_maintenance["drop_image_tags"])
+            # pyrefly: ignore [no-matching-overload]
             conn.execute(_maintenance["drop_images"])
+            # pyrefly: ignore [no-matching-overload]
             conn.execute(_maintenance["drop_tags"])
+            # pyrefly: ignore [no-matching-overload]
             conn.execute(_maintenance["drop_groups"])
+            # pyrefly: ignore [no-matching-overload]
             conn.execute(_maintenance["drop_subgroups"])
         self._create_tables()
 
@@ -568,6 +634,7 @@ class PooledPgvectorDatabase:
 
     def update_phash(self, image_id: int, phash_int: int) -> None:
         with self._conn() as conn:
+            # pyrefly: ignore [bad-argument-type]
             conn.execute(_images["update_phash"], (phash_int, image_id))
 
     def find_near_duplicates_by_phash(
@@ -578,18 +645,19 @@ class PooledPgvectorDatabase:
     ) -> List[Dict[str, Any]]:
         with self._conn() as conn:
             rows = conn.execute(
+                # pyrefly: ignore [bad-argument-type]
                 _images["find_near_duplicates_phash"],
                 (phash_int, phash_int, threshold, limit),
             ).fetchall()
         return [
             {
-                "id": r["id"],
-                "file_path": r["file_path"],
-                "filename": r["filename"],
-                "group_name": r["group_name"],
-                "subgroup_name": r["subgroup_name"],
-                "phash": r["phash"],
-                "hamming_dist": r["hamming_dist"],
+                "id": r["id"], # pyrefly: ignore [bad-index]
+                "file_path": r["file_path"], # pyrefly: ignore [bad-index]
+                "filename": r["filename"], # pyrefly: ignore [bad-index]
+                "group_name": r["group_name"], # pyrefly: ignore [bad-index]
+                "subgroup_name": r["subgroup_name"], # pyrefly: ignore [bad-index]
+                "phash": r["phash"], # pyrefly: ignore [bad-index]
+                "hamming_dist": r["hamming_dist"], # pyrefly: ignore [bad-index]
             }
             for r in rows
         ]

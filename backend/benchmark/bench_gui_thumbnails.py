@@ -29,7 +29,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from backend.benchmark.tracker_manager import BenchmarkManager, measure_memory  # noqa: E402
+from backend.benchmark.managers import BenchmarkManager, measure_memory  # noqa: E402
 
 try:
     import base as cpp_core  # type: ignore[import]

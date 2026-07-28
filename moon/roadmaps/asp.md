@@ -129,7 +129,7 @@ ideas clean-room, never link.
 
 ### 0.1 Human coherence ratings for the current baseline  `[tool built
 2026-07-27, S222 — rating pass itself is HUMAN, ~45 min, still open]`
-`backend/benchmark/rate_coherence.py`: shows each test's ASP output side by
+`backend/benchmark/managers/rating_manager.py`: shows each test's ASP output side by
 side with Simple-stitch (and ground truth, if available) via an OpenCV
 window, and records a 0–4 structural-coherence score for each with a single
 keypress (4 = keepable, 2 = flawed but parses, 0 = incoherent). Resumable
