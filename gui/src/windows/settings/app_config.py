@@ -1,6 +1,6 @@
 """
-gui/src/utils/app_config.py
-=============================
+gui/src/windows/settings/app_config.py
+========================================
 §5.14C: unified, read-only snapshot of application configuration.
 
 Merges GUI persistence (``AppSettings``/``QSettings``) and backend ASP
@@ -11,15 +11,19 @@ object. This is additive, not a replacement -- ``AppSettings`` and
 "Show current config" debug screen), not a cached long-lived object, since
 both underlying stores can change at any time.
 
-Deliberately lives under ``gui/src/``, not ``backend/src/``: it imports both
-``AppSettings`` (gui) and the ASP config schema (backend), and GUI -> backend
+Lives alongside ``AppSettings`` under ``gui/src/windows/settings/``, not
+``gui/src/utils/``: ``gui.src.utils`` is the codebase's documented bottom
+utility layer (§5.11A import-linter contract "gui.src.utils must not import
+other GUI layers") and this module imports ``AppSettings`` from
+``gui.src.windows``, which would break that contract from ``utils``. It also
+deliberately lives under ``gui/src/``, not ``backend/src/``: GUI -> backend
 is the allowed dependency direction (see
 ``backend/validation/visualize_module_graph.py``'s layering check) -- the
 reverse would be a genuine architectural violation.
 
 Usage::
 
-    from gui.src.utils.app_config import AppConfig
+    from gui.src.windows.settings.app_config import AppConfig
 
     config = AppConfig.capture()
     print(config)                      # full introspectable dump
