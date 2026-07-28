@@ -2535,6 +2535,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s262-2026-07-28-architecture-517-file-size-limit-epic-filed-59-options-cd-shipped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S262 — 2026-07-28 (Architecture: §5.17 file-size limit epic filed + §5.9 Options C/D shipped)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s261-2026-07-28-fix-just-asp-benchmark-assess-crash-after-ratingevaluation-rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S261 — 2026-07-28 (Fix just asp-benchmark-assess crash after rating→evaluation rename)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s260-2026-07-28-asp-phase-01-tool-rebuild-rating_managerpy-full-pyside6-visual-debugging-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S260 — 2026-07-28 (ASP Phase 0.1 tool rebuild: rating_manager.py → full PySide6 visual-debugging dashboard)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s259-2026-07-28-asp-phase-03-overmix-full-97-corpus-run-complete-phase-4-full-corpus-fallback-triage-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S259 — 2026-07-28 (ASP Phase 0.3: Overmix full-97-corpus run complete; Phase 4: full-corpus fallback triage tool)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s258-2026-07-28-asp-full-97-corpus-benchmark-checkpoint-host-freeze-fix-confirmed-phase-4-breakdown-refined" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -12665,6 +12709,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#s262-2026-07-28-architecture-517-file-size-limit-epic-filed-59-options-cd-shipped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S262 — 2026-07-28 (Architecture: §5.17 file-size limit epic filed + §5.9 Options C/D shipped)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s261-2026-07-28-fix-just-asp-benchmark-assess-crash-after-ratingevaluation-rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S261 — 2026-07-28 (Fix just asp-benchmark-assess crash after rating→evaluation rename)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s260-2026-07-28-asp-phase-01-tool-rebuild-rating_managerpy-full-pyside6-visual-debugging-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S260 — 2026-07-28 (ASP Phase 0.1 tool rebuild: rating_manager.py → full PySide6 visual-debugging dashboard)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s259-2026-07-28-asp-phase-03-overmix-full-97-corpus-run-complete-phase-4-full-corpus-fallback-triage-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        S259 — 2026-07-28 (ASP Phase 0.3: Overmix full-97-corpus run complete; Phase 4: full-corpus fallback triage tool)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#s258-2026-07-28-asp-full-97-corpus-benchmark-checkpoint-host-freeze-fix-confirmed-phase-4-breakdown-refined" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -22783,6 +22871,53 @@
 <h1 id="image-toolkit-changelog">Image Toolkit — Changelog<a class="headerlink" href="#image-toolkit-changelog" title="Permanent link">&para;</a></h1>
 <p><em>Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.</em></p>
 <hr />
+<h2 id="s262-2026-07-28-architecture-517-file-size-limit-epic-filed-59-options-cd-shipped">S262 — 2026-07-28 (Architecture: §5.17 file-size limit epic filed + §5.9 Options C/D shipped)<a class="headerlink" href="#s262-2026-07-28-architecture-517-file-size-limit-epic-filed-59-options-cd-shipped" title="Permanent link">&para;</a></h2>
+<p>Code-quality/architecture pass, independent of the GUI-crash investigation and ASP benchmark work landing elsewhere in this repo. Fresh <code>count_loc.py --sort code</code> audit of <code>gui/src</code> and <code>backend/src</code>, a new roadmap section, three GitHub issues, and a real (not just planned) worker-layer refactor.</p>
+<ul>
+<li><strong><code>moon/roadmaps/architecture.md</code> §5.17 "File Size Limit Enforcement (&lt;500 LoC)" added, marked high priority.</strong> Lists the worst offenders from a fresh count (27 <code>gui/src</code> files, 8 <code>backend/src</code> files over the 500-code-line threshold; <code>stitch_tab.py</code> at 5,032 and <code>extractor_tab.py</code> at 3,268 the worst two), with lettered Options A-E (CI-enforced gate, package-directory splits via mixins, dedup-before-split, auto-generated dashboard, blast-radius triage) and a Recommendation. Added to the Table of Contents, the Mermaid flowchart (<code>s517</code>, <code>:::planned</code>), the Effort×Impact matrix, and the Anchor Index.</li>
+<li><strong>GitHub issues filed</strong>: #118 (epic, <code>high_priority</code>), #116 (<code>gui/src</code> split, <code>module:gui-ux</code>), #117 (<code>backend/src</code> ASP-pipeline split, <code>module:asp</code>). No per-file issues, per the project's own "don't create one issue per file" guidance.</li>
+<li><strong>§5.9 "Worker Thread Base Class &amp; Lifecycle Standardisation" Options C+D shipped</strong> (issue #119, filed and closed same session): every worker previously emitting a 0-100 int-percentage <code>progress</code> signal (<code>base.py</code>'s two base classes, <code>SamplerWorker</code>, <code>CodecConversionWorker</code>, <code>ConversionWorker</code>, <code>QueueExecutionWorker</code>, <code>StatsWorker</code>, <code>AnimClusterWorker</code>, <code>SequenceBuilderWorker</code>, <code>GifCreationWorker</code>, <code>FrameExtractionWorker</code>, <code>VideoExtractionWorker</code>, <code>StoryboardBuilder</code>, <code>LoRATrainingWorker</code>) now emits <code>(completed, total)</code>; workers with a genuine discrete unit report real counts (<code>StatsWorker</code>'s two-phase weighted percentage estimate replaced with an exact <code>n + len(pairs)</code> denominator, fixing a latent weighting bug along the way); workers with no natural unit (ffmpeg/moviepy stage checkpoints, the 3-phase-weighted <code>SequenceBuilderWorker</code>) emit <code>(percent, 100)</code> to keep the tuple contract uniform. ~15 connected slot handlers across <code>gui/src/tabs/</code> updated to <code>setMaximum</code>/<code>setValue</code> instead of binding a raw percentage to <code>setValue</code>. Incidentally fixed a latent bug in <code>extractor_tab.py::extract_range_qml</code>'s progress lambda, which already destructured two arguments against a signal that only emitted one.</li>
+<li><strong>§5.9D <code>WorkerConfig</code> TypedDicts extended</strong>: <code>gui/src/helpers/core/config_types.py</code> gained <code>SamplerConfig</code>, <code>CodecConversionConfig</code>, <code>ExtractionConfig</code>, wired into their workers as <code>Union[XConfig, Dict[str, Any]]</code> (matching the <code>ConversionConfig</code>/<code>DeletionConfig</code>/<code>MergeConfig</code>/<code>StitchConfig</code> pattern already shipped per §5.5C).</li>
+<li><strong>Verification</strong>: <code>ast.parse</code> on every changed file; real <code>import</code> of every changed worker/tab module under live PySide6/Qt (offscreen), including <code>stitch_tab.py</code> and <code>extractor_tab.py</code>; scoped tests <code>gui/test/video/test_storyboard.py</code> (15 passed), <code>gui/test/animation/test_stitch_tab.py</code> + <code>gui/test/core/test_stitch_tab.py</code> (29 passed), <code>gui/test/core/test_extractor_drag_preview.py</code> (2 pre-existing failures confirmed unrelated via <code>git stash</code> — same failures with/without this diff). No full <code>pytest backend/test/</code> or GUI-suite runs, no ASP benchmark run, per this repo's documented host-freeze history.</li>
+<li><strong>Deliberately not attempted this session</strong>: splitting any oversized file. <code>settings_window.py</code> was evaluated as the safest candidate (smallest blast radius) but its <code>__init__</code> alone is ~1,113 of ~3,300 physical lines of widget construction — a mixin-only split of its already-well-delineated method groups would leave the main file still over the limit without also decomposing the constructor, a materially larger and riskier change than the time-boxed budget allowed. <code>stitch_tab.py</code> (5,032 lines) is the single highest-value target but also the riskiest given its centrality to the ASP feature. Both tracked in issues #116/#117 with per-file risk notes for whoever picks this up next.</li>
+</ul>
+<hr />
+<h2 id="s261-2026-07-28-fix-just-asp-benchmark-assess-crash-after-ratingevaluation-rename">S261 — 2026-07-28 (Fix <code>just asp-benchmark-assess</code> crash after rating→evaluation rename)<a class="headerlink" href="#s261-2026-07-28-fix-just-asp-benchmark-assess-crash-after-ratingevaluation-rename" title="Permanent link">&para;</a></h2>
+<p>A separate rename pass (<code>backend/benchmark/managers/rating/</code> → <code>backend/benchmark/evaluation/</code>, entry point moved to <code>backend/controllers/bench_eval_dispatch.py</code>) left the tool from S260 non-functional. Fixed the full breakage chain, verified end-to-end against the real 97-test corpus:</p>
+<ul>
+<li><code>bench_eval_dispatch.py</code>: direct-script invocation (<code>uv run python backend/controllers/bench_eval_dispatch.py</code>, per <code>tools/benchmark/justfile</code>) sets <code>sys.path[0]</code> to the file's own directory, not the repo root, so the <code>backend.*</code> absolute imports raised <code>ModuleNotFoundError: No module named 'backend'</code>. Added a <code>_bootstrap_repo_root()</code> walk-up-to-<code>pyproject.toml</code> guard before those imports. Also fixed a broken relative import (<code>from .evaluation...</code> → absolute <code>from backend.benchmark.evaluation...</code>) left over from the entry point's move out of the <code>backend/benchmark/</code> package.</li>
+<li><code>evaluation/__init__.py</code>: still imported the pre-rename <code>load_ratings</code>/<code>save_ratings</code> names; <code>other/schema.py</code> had already been renamed to <code>load_evaluations</code>/<code>save_evaluations</code>. Updated the import and <code>__all__</code>.</li>
+<li><code>ui/main_window.py</code>: <code>load_evaluation(out_path)</code> (singular) typo calling a name that was never defined — masked by the <code>__init__.py</code> bug above until that was fixed.</li>
+<li><code>ui/scoring_panel.py</code>: stale <code>_SCALE_HINT</code> reference left over from the constants-extraction refactor; the correct imported name is <code>SCORE_SCALE_HINT</code> (from the new <code>constants/user_interface.py</code>).</li>
+<li>Re-verified: <code>--help</code>, full <code>RatingDashboard</code> construction against the real 97-dataset corpus, and every <code>logic/</code> visualization/comparison function (all 8 visualizations + all 7 comparison tools) executed against synthetic images with no errors.</li>
+</ul>
+<hr />
+<h2 id="s260-2026-07-28-asp-phase-01-tool-rebuild-rating_managerpy-full-pyside6-visual-debugging-dashboard">S260 — 2026-07-28 (ASP Phase 0.1 tool rebuild: rating_manager.py → full PySide6 visual-debugging dashboard)<a class="headerlink" href="#s260-2026-07-28-asp-phase-01-tool-rebuild-rating_managerpy-full-pyside6-visual-debugging-dashboard" title="Permanent link">&para;</a></h2>
+<p>Rebuilt <code>backend/benchmark/managers/rating_manager.py</code> from scratch, replacing the plain OpenCV-window rating tool with a PySide6 dashboard for human coherence rating and in-depth visual debugging of stitched frames, per an explicit scoped request (rating/debugging tool only — no ASP pipeline/algorithm code touched).</p>
+<ul>
+<li><strong>New <code>backend/benchmark/managers/rating/</code> subpackage</strong> (16 files, largest 319 lines, all ≤500-line limit), split by role into three sub-packages per a follow-up request:</li>
+<li><code>ui/</code> (presentation — QWidget/QGraphicsView/QMainWindow classes): <code>main_window.py</code> (<code>RatingDashboard</code>, the assembled window), <code>panel_base.py</code> (shared QGraphicsView zoom/pan/annotation panel — this repo's own <code>extractor_tab.py</code> QGraphicsView idiom as inspiration), <code>annotations.py</code> (cross-panel edge overlay + annotation list), <code>mpl_canvas.py</code> + <code>tool_tab_base.py</code> (shared plotting/tool-tab base classes for DRY), <code>comparison_widget.py</code> (swipe/slider compare), <code>scoring_panel.py</code>, <code>viz_tab.py</code>, <code>compare_tab.py</code>.</li>
+<li><code>logic/</code> (pure pixel-data computation, no Qt classes): <code>visualizations_basic.py</code> + <code>visualizations_matching.py</code> (histograms, 2D/3D/spatial scatter, intensity + gradient heatmaps, FFT spectrum, ORB/SIFT feature-match lines, HSV optical flow), <code>comparison_maps.py</code> (inverted abs-diff, SSIM heatmap, false-color overlay, alpha blend, checkerboard mosaic, Gaussian-blur+threshold+contour bounding).</li>
+<li><code>other/</code> (shared by both, or fits neither cleanly): <code>schema.py</code> (BoundingBox/Edge/RatingEntry dataclasses, additive-only JSON schema — still <code>{test: {asp, simple, notes}}</code> plus new <code>bboxes</code>/<code>edges</code> keys <code>bench_anime_stitch.py</code>'s <code>_load_human_ratings()</code> already ignores safely), <code>discovery.py</code> (dataset/asset discovery mirroring <code>bench_anime_stitch.py</code>'s on-disk layout, reading its <code>plots_dir</code>/<code>stage_dir</code>/metrics straight from its own <code>anime_stitch_*.json</code>).</li>
+<li>Re-verified after the split: every module imports cleanly, and <code>rating_manager.py</code>'s <code>build_dashboard()</code> still constructs a working <code>RatingDashboard</code> against the real 97-test corpus.</li>
+<li><strong>Preserved exactly</strong>: the 0-4 structural-coherence scale, resumable/incremental-save behavior (atomic write via <code>os.replace</code>), and the CLI (<code>--data-dir</code>, <code>--out</code>, <code>--redo</code>, plus new <code>--default-view {display,pixel}</code>).</li>
+<li><strong>Found and fixed a latent path bug</strong> in the original tool's default <code>--out</code> resolution: it computed <code>backend/data/human_ratings/</code> while <code>bench_anime_stitch.py</code>'s own <code>_load_human_ratings()</code> reads from repo-root <code>data/human_ratings/</code> — two different, silently-diverging directories (both existed on disk, both empty). Replaced the fixed-depth <code>dirname</code> chain with a <code>pyproject.toml</code>-sentinel upward walk (<code>discovery.repo_root_from</code>) so ratings this dashboard saves are actually the ones the benchmark script picks up.</li>
+<li><strong>Fully implemented</strong>: deep zoom/pan (independent or synchronized across all three panels), Display Mode vs Pixel Value Mode toggle, interactive bbox + cross-image edge annotation with per-item removal, all 8 visualizations and all 7 comparison tools listed above.</li>
+<li><strong>Smoke-tested</strong> against the real 97-test corpus at <code>~/Downloads/Data/Dump</code>: window construction, dataset asset loading, and every visualization/comparison function exercised under <code>QT_QPA_PLATFORM=offscreen</code> — no exceptions, real image shapes/scores returned (e.g. SSIM 0.70, 26 contour-bounded diff regions on test01).</li>
+<li><code>moon/roadmaps/asp.md</code> §0.1 already referenced the correct <code>backend/benchmark/managers/rating_manager.py</code> path — the stale <code>rate_coherence.py</code> cross-reference the task description flagged had already been corrected in a prior session; nothing left to update there.</li>
+</ul>
+<hr />
+<h2 id="s259-2026-07-28-asp-phase-03-overmix-full-97-corpus-run-complete-phase-4-full-corpus-fallback-triage-tool">S259 — 2026-07-28 (ASP Phase 0.3: Overmix full-97-corpus run complete; Phase 4: full-corpus fallback triage tool)<a class="headerlink" href="#s259-2026-07-28-asp-phase-03-overmix-full-97-corpus-run-complete-phase-4-full-corpus-fallback-triage-tool" title="Permanent link">&para;</a></h2>
+<p>Two ASP roadmap items closed out — GitHub issues #18 (Overmix comparator) and #29 (Phase 4 fallback-class conversion), both reopened this session after being closed with real remaining work still flagged in their own history.</p>
+<ul>
+<li><strong>Phase 0.3 (issue #18) — full 97-corpus Overmix run</strong>: <code>python -m backend.benchmark.run_overmix</code> (smart-selected-frames variant) against all 97 datasets. <strong>97/97 succeeded, zero failures/timeouts</strong>, ~5 minutes of actual <code>OvermixCli</code> compute time. Confirms the thread-cap host-freeze fix (issue #25) holds for this comparator tool too, not just <code>bench_anime_stitch.py</code> itself — this is the first full-scale run of a <em>second</em> benchmark entry point since that fix landed. Every dataset now has <code>output/overmix_stitch.png</code> + <code>output/overmix_variant.json</code>. Merging this into <code>bench_anime_stitch.py</code>'s own consolidated four-way report is a separate follow-up (no metrics-only/recompute mode exists yet, so that would otherwise require a full ~2h22m pipeline re-run just to backfill comparator columns) — left explicitly out of scope rather than forcing an expensive re-run.</li>
+<li><strong>Phase 4 (issue #29) — full-corpus fallback triage tool</strong>: new <code>backend/benchmark/triage_fallback_classes.py</code> parses every fallback test's <code>fallback_reason</code> (gate + numeric asp/limit values) out of the existing full-97 <code>bench_anime_stitch.py</code> checkpoint, cross-references <code>mean_post_warp_diff</code> and pair count, and tabulates sorted by margin-over-limit. Deliberately a <strong>triage table for human review, not a new automatic dispatch rule</strong> — two prior candidate heuristics (a post-warp-diff threshold, pair count) each already failed on real counter-examples, and the roadmap's anti-goals rule out shipping a third guess as pipeline behavior. Report: <code>.agent/cache/asp_phase4_fallback_triage_full97_2026-07-28.md</code>.</li>
+<li>Refines the 18-test-sample estimate at full scale: only <strong>1/27</strong> <code>seam_vis_gate</code> tests is clearly pose-blend-leaning (test41) — the class's original "mostly pose-blend artifacts" framing is even more wrong at 97-test scale. 10/27 are clearly photometric-leaning, 15/27 fall in an ambiguous middle no cheap metric resolves. <strong>14/27 (52%) are borderline</strong> (within 10 points of the limit); <code>composite_gate_sb</code> (26 tests) is structurally similar, median margin 9.6, 8/26 within 5 points.</li>
+<li>Reframes the remaining Phase-4 work: not "which heuristic dispatches correctly" (already answered — none reliably do), but "what's the actual photometric defect" behind the photometric-leaning subset's banding/exposure mismatch — next step is a visual diagnosis of the most borderline cases, not further cross-metric correlation attempts.</li>
+<li><strong>Stale memory correction</strong>: the ASP benchmark host-freeze note (previously "not yet root-caused, do not run without authorization") was itself outdated — the fix has been confirmed at full 97-test <code>bench_anime_stitch.py</code> scale since S258 (2026-07-28, issue #25 closed). Updated to reflect that <code>bench_anime_stitch.py</code>/<code>run_overmix.py</code>/<code>run_hugin.py</code> no longer need special caution.</li>
+<li><code>moon/roadmaps/asp.md</code> §0.3 and Phase 4 updated with full findings. No ASP pipeline behavior changed this round — both items are benchmark coverage / measurement tooling, not pipeline algorithm changes, consistent with the anti-goals against new gates/heuristics without a verified payoff.</li>
+</ul>
+<hr />
 <h2 id="s258-2026-07-28-asp-full-97-corpus-benchmark-checkpoint-host-freeze-fix-confirmed-phase-4-breakdown-refined">S258 — 2026-07-28 (ASP: full-97-corpus benchmark checkpoint — host-freeze fix confirmed, Phase 4 breakdown refined)<a class="headerlink" href="#s258-2026-07-28-asp-full-97-corpus-benchmark-checkpoint-host-freeze-fix-confirmed-phase-4-breakdown-refined" title="Permanent link">&para;</a></h2>
 <p>User-authorized full 97-test run (<code>anime_stitch_20260728_013215.json</code>), the first full-corpus run since the 2026-07-09 baseline and since this session's accumulated fixes (ToonOut default-on, aligned-SSIM windowing fix, Hugin/Overmix comparators added, several rejected experiments confirmed staying default-OFF).</p>
 <ul>
@@ -23172,7 +23307,7 @@
 <hr />
 <h2 id="s222-2026-07-27-asp-phase-01-human-rating-tool-phase-02-coherence-veto-logic-roadmap-trim">S222 — 2026-07-27 (ASP Phase 0.1 human-rating tool + Phase 0.2 coherence veto logic; roadmap trim)<a class="headerlink" href="#s222-2026-07-27-asp-phase-01-human-rating-tool-phase-02-coherence-veto-logic-roadmap-trim" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>New <code>backend/benchmark/rate_coherence.py</code></strong> (Phase 0.1's "tiny helper script"): shows each test's ASP output side by side with the Simple-stitch output (plus ground truth, when available) in an OpenCV window, and records a 0–4 structural-coherence score for each with a single keypress. Resumable — loads the most recent <code>data/human_ratings/asp_ratings_*.json</code>, skips already-rated datasets, saves incrementally after every rating so quitting mid-pass never loses progress. Controls: <code>0-4</code> rate, <code>s</code> skip, <code>b</code> back, <code>n</code> add a note (terminal prompt), <code>q</code> quit-and-save.</li>
+<li><strong>New <code>backend/benchmark/managers/rating_manager.py</code></strong> (Phase 0.1's "tiny helper script"): shows each test's ASP output side by side with the Simple-stitch output (plus ground truth, when available) in an OpenCV window, and records a 0–4 structural-coherence score for each with a single keypress. Resumable — loads the most recent <code>data/human_ratings/asp_ratings_*.json</code>, skips already-rated datasets, saves incrementally after every rating so quitting mid-pass never loses progress. Controls: <code>0-4</code> rate, <code>s</code> skip, <code>b</code> back, <code>n</code> add a note (terminal prompt), <code>q</code> quit-and-save.</li>
 <li>Verified the montage construction and dataset discovery against the real 97-test corpus: correctly discovers all 97 <code>*_anime_stitch.png</code> outputs, builds a correctly-labeled ASP | Simple | Ground-Truth panel layout. The montage immediately makes visible defects obvious — spot-checking <code>asp_test04</code> in it made the S221 strip-banding regression even more apparent than the raw image alone.</li>
 <li><strong>The actual rating pass itself is still open</strong> — this session built the tool, not the 97-test human judgment it exists to collect.</li>
 <li><strong>Phase 0.2 coherence-aware verdict logic implemented in <code>bench_anime_stitch.py</code></strong>: <code>_load_human_ratings()</code> loads the latest ratings file once per process (cached); <code>_build_result</code> now adds a <code>"human_coherence": {asp, simple, notes}</code> field per dataset (<code>None</code> if unrated) and applies a one-directional veto — a metric-derived <code>asp_better</code> verdict is downgraded to <code>simple_better</code> when the human rated ASP below Simple (<code>verdict_source</code> becomes <code>"human_coherence_veto"</code>); a human <code>asp_better</code> preference does <em>not</em> force-upgrade a metric verdict, matching the roadmap spec literally. Summary JSON gains <code>human_coherence_rated</code> / <code>human_coherence_veto_count</code> coverage counts. Verified with a synthetic ratings file covering all three cases (veto fires, no override when human agrees, no override when unrated) — the metric-calibration half of Phase 0.2 (rank-correlating the 12 automated metrics against ratings) still needs real rating data to run against, which doesn't exist yet.</li>

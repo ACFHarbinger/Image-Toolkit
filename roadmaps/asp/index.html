@@ -2294,10 +2294,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#03-overmix-as-a-third-comparator-on-the-full-corpus-5-test-verify-done" class="md-nav__link">
+  <a href="#03-overmix-as-a-third-comparator-on-the-full-corpus-done-2026-07-28" class="md-nav__link">
     <span class="md-ellipsis">
       
-        0.3 Overmix as a third comparator on the full corpus `[5-test verify done
+        0.3 Overmix as a third comparator on the full corpus `[DONE 2026-07-28 —
       
     </span>
   </a>
@@ -2912,10 +2912,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#03-overmix-as-a-third-comparator-on-the-full-corpus-5-test-verify-done" class="md-nav__link">
+  <a href="#03-overmix-as-a-third-comparator-on-the-full-corpus-done-2026-07-28" class="md-nav__link">
     <span class="md-ellipsis">
       
-        0.3 Overmix as a third comparator on the full corpus `[5-test verify done
+        0.3 Overmix as a third comparator on the full corpus `[DONE 2026-07-28 —
       
     </span>
   </a>
@@ -3271,7 +3271,7 @@ ideas clean-room, never link.</p>
 <hr />
 <h2 id="phase-0-measurement-foundation-everything-else-depends-on-this">Phase 0 — Measurement Foundation <em>(everything else depends on this)</em><a class="headerlink" href="#phase-0-measurement-foundation-everything-else-depends-on-this" title="Permanent link">&para;</a></h2>
 <h3 id="01-human-coherence-ratings-for-the-current-baseline-tool-built">0.1 Human coherence ratings for the current baseline  `[tool built<a class="headerlink" href="#01-human-coherence-ratings-for-the-current-baseline-tool-built" title="Permanent link">&para;</a></h3>
-<p>2026-07-27, S222 — rating pass itself is HUMAN, ~45 min, still open]<code></code>backend/benchmark/rate_coherence.py<code>: shows each test's ASP output side by
+<p>2026-07-27, S222 — rating pass itself is HUMAN, ~45 min, still open]<code></code>backend/benchmark/managers/rating_manager.py<code>: shows each test's ASP output side by
 side with Simple-stitch (and ground truth, if available) via an OpenCV
 window, and records a 0–4 structural-coherence score for each with a single
 keypress (4 = keepable, 2 = flawed but parses, 0 = incoherent). Resumable
@@ -3298,9 +3298,8 @@ defined against</strong>, and the explicit prerequisite for flipping any of Phas
   (rank correlation per metric, demoting anything that disagrees with humans
   to "diagnostic-only") — needs an actual rating pass (0.1) to have data to
   calibrate against; can't be built ahead of that.</p>
-<h3 id="03-overmix-as-a-third-comparator-on-the-full-corpus-5-test-verify-done">0.3 Overmix as a third comparator on the full corpus  `[5-test verify done<a class="headerlink" href="#03-overmix-as-a-third-comparator-on-the-full-corpus-5-test-verify-done" title="Permanent link">&para;</a></h3>
-<p>2026-07-27 — see .agent/cache/overmix_field_notes.md; full 97-corpus run
-still open]<code>- **Done**:</code>OvermixCli<code>built from source via</code>desktop/linux/scripts/setup_overmix.sh<code>(GPL-3.0 — external tool, never linked; needed a pinned</code>wgpu-native<code>release
+<h3 id="03-overmix-as-a-third-comparator-on-the-full-corpus-done-2026-07-28">0.3 Overmix as a third comparator on the full corpus  `[DONE 2026-07-28 —<a class="headerlink" href="#03-overmix-as-a-third-comparator-on-the-full-corpus-done-2026-07-28" title="Permanent link">&para;</a></h3>
+<p>full 97-corpus smart-variant run complete; see .agent/cache/overmix_field_notes.md]<code>- **Done**:</code>OvermixCli<code>built from source via</code>desktop/linux/scripts/setup_overmix.sh<code>(GPL-3.0 — external tool, never linked; needed a pinned</code>wgpu-native<code>release
   and a local FFmpeg-API-compat patch committed in the submodule's own history,
   see field notes for why).</code>backend/benchmark/run_overmix.py<code>feeds each
   dataset both the *smart-selected* frames (same input ASP gets, saved to</code>output/overmix_stitch.png<code>) and, with</code>--full<code>, the *full* raw frame set
@@ -3310,10 +3309,20 @@ still open]<code>- **Done**:</code>OvermixCli<code>built from source via</code>d
 - **5-test verify result**: 3/5 tests (test04/08/09) produced clean, coherent
   Overmix composites; 2/5 (test27/57) showed heavy multi-copy ghosting —</code>RecursiveAligner<code>'s whole-frame translation model has no fg/bg split, so it
   fails when foreground animation dominates over background camera motion.
-  Full write-up (including the CLI settings that actually worked —</code>Gradient<code>comparator, not</code>BruteForce<code>, which didn't finish in 90s at full res) in</code>.agent/cache/overmix_field_notes.md`.
-- <strong>Still open</strong>: the full 97-corpus run this section's exit gate actually
-  asks for — the 5-test verify is this project's established safe scaling
-  increment, not a substitute for it.</p>
+  Full write-up (including the CLI settings that actually worked —</code>Gradient<code>comparator, not</code>BruteForce<code>, which didn't finish in 90s at full res) in</code>.agent/cache/overmix_field_notes.md<code>.
+- **Full 97-corpus run complete (2026-07-28)**:</code>python -m backend.benchmark.run_overmix<code>(smart-selected-frames variant, no</code>--full<code>— that variant is a separate,
+  heavier artifact this exit gate doesn't require) against all 97 datasets.
+  **97/97 succeeded, zero failures/timeouts**, ~5 minutes of actual</code>OvermixCli<code>compute time (per-test</code>wall_sec<code>summed from each</code>overmix_variant.json<code>) plus Python-side frame-selection overhead for the
+  full run. Confirms the thread-cap fix ([[feedback_benchmark_freezes_host]]/
+  issue #25) holds for this comparator tool too, not just</code>bench_anime_stitch.py<code>itself. Every dataset now has</code>output/overmix_stitch.png<code>+</code>output/overmix_variant.json<code>.
+  **Not yet done**: merging these into a single consolidated four-way
+  summary JSON/report the way</code>bench_anime_stitch.py<code>'s own run does —</code>bench_anime_stitch.py` has no metrics-only/recompute mode, so pulling
+  Overmix's per-test artifacts into the same report as ASP/Simple would
+  currently mean a full ~2h22m pipeline re-run just to backfill comparator
+  columns. Left as a separate, explicitly-scoped follow-up rather than
+  forcing an expensive re-run into this session; the per-test data itself
+  (the actual deliverable this phase's objective needs) already exists for
+  all 97.</p>
 <h3 id="04-kill-the-gt-coupling-measurement-bug-b-done-2026-07-27-a">0.4 Kill the GT-coupling measurement bug  `[(b)+&copy; done 2026-07-27; (a)<a class="headerlink" href="#04-kill-the-gt-coupling-measurement-bug-b-done-2026-07-27-a" title="Permanent link">&para;</a></h3>
 <p>still open, blocked on the Phase 0.1 human rating pass; (d) still optional]<code>Every past frame-selection improvement was vetoed by GT-SSIM because the GT
 panoramas were assembled from specific frame timings. Fix the measurement, not the
@@ -3657,6 +3666,35 @@ the other three classes negligible-to-zero). Reclassify each:
   round; still needs full-97 data and a real per-test triage pass before
   this class can be meaningfully "converted" rather than just
   better-understood.
+  — <strong>Full-97 triage pass built and run, 2026-07-28</strong> (<code>backend/benchmark/triage_fallback_classes.py</code>,
+  new tool — parses every fallback's <code>fallback_reason</code> gate values,
+  cross-references <code>mean_post_warp_diff</code>/pair count, sorts by
+  margin-over-limit; full report:
+  <code>.agent/cache/asp_phase4_fallback_triage_full97_2026-07-28.md</code>).
+  Deliberately a triage table for human review, not a new automatic
+  dispatch rule — both candidate one-line rules above already failed on
+  real counter-examples, and the anti-goals rule out shipping a third
+  guess as pipeline behavior. Full-corpus qualitative split (by the same
+  <code>mean_post_warp_diff</code> bucketing as the 18-test sample, threshold &lt;10 vs
+  ≥30): only <strong>1/27</strong> seam_vis_gate tests is clearly pose-blend-leaning
+  at full scale (test41) — the "mostly pose-blend artifacts" framing this
+  whole section opened with is even more wrong at 97-test scale than the
+  18-test sample suggested. 10/27 are clearly photometric-leaning, 15/27
+  fall in the ambiguous middle this bucketing can't resolve (which is the
+  same "no clean rule" finding, not a new gap). <strong>14/27 (52%) are
+  borderline</strong> — within 10 points of the 35.0 limit — meaning a modest,
+  targeted photometric-quality improvement (not a new gate, an actual fix
+  to whatever's causing the banding/exposure defect in the photometric
+  subset) could plausibly flip a meaningful fraction of this class without
+  needing to solve the "mixed/moderate" cases at all. <code>composite_gate_sb</code>
+  (26 tests) is structurally similar: median margin only 9.6 over its 35.0
+  limit, 8/26 within 5 points. <strong>This is now a "what's the actual
+  photometric defect" investigation, not a "which heuristic dispatches
+  correctly" one</strong> — the next real step is picking 2-3 of the most
+  borderline photometric-leaning tests (e.g. test87 margin=0.4, test10
+  margin=1.3, test71/test69 margin~3.5) and visually diagnosing what
+  specifically is wrong with their seam photometrics, not further
+  cross-metric correlation attempts.
 - <strong>render-gate class (21) — clarified 2026-07-27:</strong> this is the benchmark's
   own umbrella term (<code>timings["render_gate_fallback"]</code>, set to 1 or 2
   whenever <em>any</em> post-render quality check fires) covering

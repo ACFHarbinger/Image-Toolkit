@@ -2607,6 +2607,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#517-file-size-limit-enforcement-500-loc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.17 File Size Limit Enforcement (&lt;500 LoC)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5.17 File Size Limit Enforcement (&lt;500 LoC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#effort--impact-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3569,6 +3597,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#517-file-size-limit-enforcement-500-loc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.17 File Size Limit Enforcement (&lt;500 LoC)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5.17 File Size Limit Enforcement (&lt;500 LoC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#effort--impact-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3642,6 +3698,7 @@
 <li><a href="#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy">§5.14 Centralised Settings Facade</a></li>
 <li><a href="#515-fault-isolation--error-boundary-protocol">§5.15 Fault Isolation &amp; Error Boundary Protocol</a></li>
 <li><a href="#516-contract-testing-for-ml-model-wrappers-backendsrcmodels">§5.16 Contract Testing for ML Model Wrappers</a></li>
+<li><a href="#517-file-size-limit-enforcement-500-loc">§5.17 File Size Limit Enforcement (&lt;500 LoC)</a></li>
 <li><a href="#effort--impact-matrix">Effort × Impact Matrix</a></li>
 <li><a href="#anchor-index">Anchor Index</a></li>
 </ul>
@@ -3692,7 +3749,7 @@
     subgraph GUI ["🖥️ GUI Architecture"]
         direction TB
         s56["§5.6 Mobile Feature\nParity Backlog"]:::feature:::planned
-        s59["§5.9 Worker Thread\nBase Class"]:::refactor:::planned
+        s59["§5.9 Worker Thread\nBase Class"]:::refactor:::done
         s510["§5.10 Gallery Base\nConsolidation"]:::refactor:::planned
     end
 
@@ -3701,6 +3758,7 @@
         s55["§5.5 Gradual\nType Safety"]:::refactor:::planned
         s511["§5.11 Circular Import\nPrevention"]:::fix:::planned
         s512["§5.12 Codebase Docs\n&amp; Diagrams"]:::docs:::planned
+        s517["§5.17 File Size Limit\nEnforcement (&lt;500 LoC)"]:::refactor:::planned
     end
 
     %% Cross-group dependencies
@@ -3709,7 +3767,8 @@
     s59 --&gt; s510
     s514 --&gt; s53
     s511 --- s512
-    s54 --- s515</code></pre>
+    s54 --- s515
+    s59 --- s517</code></pre>
 <p><em>Node fill encodes element type (see legend above). Node border encodes status (thick green = complete, thick amber = in-progress, thin slate = planned). To update when an item ships: change <code>:::planned</code> → <code>:::active</code> → <code>:::done</code> on the node.</em></p>
 <hr />
 <h2 id="how-to-use-this-document">How to Use This Document<a class="headerlink" href="#how-to-use-this-document" title="Permanent link">&para;</a></h2>
@@ -4069,7 +4128,7 @@ These comment blocks were added when imports were moved from nested function sco
 <p><strong>Recommendation:</strong> A + B immediately (they compose cleanly). C as a follow-on once A is in place. D as a standalone cleanup PR with zero functional risk.</p>
 <hr />
 <h2 id="59-worker-thread-base-class--lifecycle-standardisation-guisrchelpers">5.9 Worker Thread Base Class &amp; Lifecycle Standardisation (<code>gui/src/helpers/</code>)<a class="headerlink" href="#59-worker-thread-base-class--lifecycle-standardisation-guisrchelpers" title="Permanent link">&para;</a></h2>
-<p><strong>Partial — Options A + B shipped, see ROADMAP.md item A.14.</strong> Confirmed: <code>BaseQThreadWorker</code> and <code>BaseQRunnableWorker</code> both exist in <code>gui/src/helpers/base.py</code>, and <code>BaseQThreadWorker.run()</code> implements the three-tier exception routing described under §5.15B below. Options C (progress reported as <code>(completed, total)</code> tuple) and D (<code>WorkerConfig</code> TypedDict/dataclass) not confirmed as generally adopted — treat as still open.</p>
+<p><strong>✅ Shipped (A+B+C+D) — updated 2026-07-28.</strong> Confirmed: <code>BaseQThreadWorker</code> and <code>BaseQRunnableWorker</code> both exist in <code>gui/src/helpers/base.py</code>, and <code>BaseQThreadWorker.run()</code> implements the three-tier exception routing described under §5.15B below (Options A+B, ROADMAP.md item A.14). <strong>Options C + D completed this session</strong>: every worker that previously emitted a 0–100 int-percentage <code>progress</code> signal (<code>base.py</code>'s two base classes, <code>SamplerWorker</code>, <code>CodecConversionWorker</code>, <code>ConversionWorker</code>, <code>QueueExecutionWorker</code>, <code>StatsWorker</code>, <code>AnimClusterWorker</code>, <code>SequenceBuilderWorker</code>, <code>GifCreationWorker</code>, <code>FrameExtractionWorker</code>, <code>VideoExtractionWorker</code>, <code>StoryboardBuilder</code>, <code>LoRATrainingWorker</code>) now emits <code>(completed, total)</code>; workers with a genuine discrete unit (files, frames, queue items, ms-of-duration) report real counts — <code>StatsWorker</code> additionally had its two-phase percentage estimate replaced with an exact <code>n + len(pairs)</code> denominator, fixing a latent weighting bug in the old formula. Workers with no natural unit (ffmpeg/moviepy stage checkpoints, the 3-phase-weighted <code>SequenceBuilderWorker</code>) emit <code>(percent, 100)</code> to keep the tuple contract uniform without inventing a fake item count. All ~15 connected slot handlers across <code>gui/src/tabs/</code> updated to unpack <code>(completed, total)</code> and call <code>setMaximum</code>/<code>setValue</code> instead of binding a percentage directly to <code>setValue</code>. <code>gui/src/helpers/core/config_types.py</code> (§5.9D) extended with <code>SamplerConfig</code>, <code>CodecConversionConfig</code>, and <code>ExtractionConfig</code> TypedDicts, wired into their respective workers as <code>Union[XConfig, Dict[str, Any]]</code> — same pattern already shipped for <code>ConversionConfig</code>/<code>DeletionConfig</code>/<code>MergeConfig</code>/<code>StitchConfig</code> per §5.5C.</p>
 <p><strong>Pain point (original framing):</strong> The worker layer in <code>gui/src/helpers/</code> is split between two Qt threading paradigms — <code>QThread</code> subclasses (<code>ConversionWorker</code>, <code>DeletionWorker</code>, <code>StitchWorker</code>) and <code>QRunnable</code>/<code>QObject</code> pairs (<code>SearchWorker</code> with <code>_SearchWorkerSignals</code>, <code>MergeWorker</code>) — with no shared base. Each worker independently declares <code>finished</code>, <code>error</code>, <code>progress</code> signals, a <code>stop()</code>/<code>cancel()</code> method, and a <code>run()</code> body, leading to inconsistent naming (<code>stop()</code> vs <code>cancel()</code>, <code>progress</code> vs <code>progress_update</code>) and copy-pasted cancellation idioms.</p>
 <h3 id="options_8">Options<a class="headerlink" href="#options_8" title="Permanent link">&para;</a></h3>
 <p><strong>A — <code>BaseQThreadWorker</code> abstract class</strong>
@@ -4308,6 +4367,7 @@ Applies to any backend entry point that receives a file path. Replaces the manua
 </span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>    <span class="k">return</span> <span class="n">decorator</span>
 </span></code></pre></div>
 Applied selectively to pipeline stages and model <code>load()</code>/<code>unload()</code> calls. Provides timing data compatible with §5.4B's JSON trace format without instrumenting every function body.</p>
+<p><strong>Status update (2026-07-28):</strong> built (A.6, <code>backend/src/utils/decorators/function_calls.py</code>), but never actually applied to any function anywhere in the codebase — a repo-wide grep for <code>log_call</code> found zero call sites besides its own definition. Removed as dead code during the controllers/utils restructuring pass. Options A/B/D above remain unimplemented proposals.</p>
 <p><strong>D — <code>@worker_method</code> — standardised exception-to-signal routing</strong>
 For QThread workers that always want exceptions routed to <code>self.error.emit(str(e))</code>:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">worker_method</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
@@ -4532,6 +4592,169 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 - Cons: <code>torchtest</code> is unmaintained (last commit 2021). Shape-only tests using plain <code>assert</code> are equally readable.</p>
 <p><strong>Recommendation:</strong> A immediately — contract tests are quick to write and run with no GPU. C once §5.8A is done (the mixin then covers every wrapper for free). B on the weekly GPU runner once C is in place. Skip D (A covers the same ground with stdlib tools).</p>
 <hr />
+<h2 id="517-file-size-limit-enforcement-500-loc">5.17 File Size Limit Enforcement (&lt;500 LoC)<a class="headerlink" href="#517-file-size-limit-enforcement-500-loc" title="Permanent link">&para;</a></h2>
+<p><strong>Priority: High.</strong></p>
+<p><strong>Pain point:</strong> <code>backend/src/utils/validation/count_loc.py</code> (already built, already used ad hoc — see §5.12/§5.11C's companion <code>tree_loc.py</code>) has never been wired into an enforced limit. Two files exceed <strong>5,000 code lines</strong> (<code>gui/src/tabs/animation/stitch_tab.py</code> at 5,032; <code>gui/src/tabs/core/extractor_tab.py</code> at 3,268), and 27 <code>gui/src/</code> files plus 8 <code>backend/src/</code> files exceed the 500-code-line threshold entirely. Large files have compounding costs specific to this codebase: <code>stitch_tab.py</code> mixes HITL checkpoint UI, session replay, and pipeline-trigger logic in one class, making it the single riskiest file to touch for any change (as already flagged informally in <code>moon/roadmaps/asp_sessions_log.md</code>); <code>settings_window.py</code>'s <code>__init__</code> alone is ~1,113 physical lines of widget construction, meaning even IDE "go to definition" and code review degrade badly; and <code>count_loc.py</code>'s own output — run fresh this session — already drifted from the last hand-maintained snapshot within one day of other sessions committing, confirming that a <em>manual</em> audit process cannot keep pace with concurrent work on this codebase and only a CI-enforced gate will hold the line.</p>
+<p><strong>Fresh count (2026-07-28, <code>count_loc.py --sort code</code>, code lines only, excludes comments/docstrings/blank):</strong></p>
+<p><code>gui/src/</code> — worst 20 of 27 files over the limit:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Code LoC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tabs/animation/stitch_tab.py</code></td>
+<td>5,032</td>
+</tr>
+<tr>
+<td><code>tabs/core/extractor_tab.py</code></td>
+<td>3,268</td>
+</tr>
+<tr>
+<td><code>windows/settings/settings_window.py</code></td>
+<td>2,505</td>
+</tr>
+<tr>
+<td><code>tabs/database/database_tab.py</code></td>
+<td>1,314</td>
+</tr>
+<tr>
+<td><code>tabs/core/merge_tab.py</code></td>
+<td>1,299</td>
+</tr>
+<tr>
+<td><code>tabs/core/elements/monitor_display_subtab.py</code></td>
+<td>1,273</td>
+</tr>
+<tr>
+<td><code>tabs/database/scan_metadata_tab.py</code></td>
+<td>1,271</td>
+</tr>
+<tr>
+<td><code>tabs/core/elements/common/wallpaper_common_base.py</code></td>
+<td>1,256</td>
+</tr>
+<tr>
+<td><code>tabs/core/elements/system_display_subtab.py</code></td>
+<td>1,249</td>
+</tr>
+<tr>
+<td><code>classes/abstract_class_two_galleries.py</code></td>
+<td>1,197</td>
+</tr>
+<tr>
+<td><code>tabs/core/similarity_tab.py</code></td>
+<td>1,095</td>
+</tr>
+<tr>
+<td><code>tabs/database/search_tab.py</code></td>
+<td>1,077</td>
+</tr>
+<tr>
+<td><code>windows/main/main_window.py</code></td>
+<td>990</td>
+</tr>
+<tr>
+<td><code>tabs/core/elements/format_subtab.py</code></td>
+<td>940</td>
+</tr>
+<tr>
+<td><code>helpers/animation/stitch_worker.py</code></td>
+<td>936</td>
+</tr>
+<tr>
+<td><code>classes/abstract_class_single_gallery.py</code></td>
+<td>853</td>
+</tr>
+<tr>
+<td><code>tabs/web/image_crawler_tab.py</code></td>
+<td>834</td>
+</tr>
+<tr>
+<td><code>tabs/core/elements/content_listings_subtab.py</code></td>
+<td>774</td>
+</tr>
+<tr>
+<td><code>tabs/core/elements/codec_subtab.py</code></td>
+<td>745</td>
+</tr>
+<tr>
+<td><code>tabs/web/drive_sync_tab.py</code></td>
+<td>615</td>
+</tr>
+</tbody>
+</table>
+<p>(7 more between 500–591: <code>entity_listings_subtab.py</code> 591, <code>cbir_train_tab.py</code> 588, <code>display/detail_panel*.py</code> 578, <code>sampler_subtab.py</code> 564, <code>metadata_editor_window.py</code> 530, <code>entity_recon_tab.py</code> 522, <code>monitor_drop_view.py</code> 515.)</p>
+<p><code>backend/src/</code> — all 8 files over the limit:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Code LoC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>animation/rendering/compositing.py</code></td>
+<td>1,787</td>
+</tr>
+<tr>
+<td><code>animation/core/pipeline.py</code></td>
+<td>1,635</td>
+</tr>
+<tr>
+<td><code>animation/rendering/rendering.py</code></td>
+<td>914</td>
+</tr>
+<tr>
+<td><code>animation/ingestion/frame_selection.py</code></td>
+<td>908</td>
+</tr>
+<tr>
+<td><code>core/image_merger.py</code></td>
+<td>874</td>
+</tr>
+<tr>
+<td><code>animation/alignment/fg_register.py</code></td>
+<td>624</td>
+</tr>
+<tr>
+<td><code>core/wallpaper.py</code></td>
+<td>570</td>
+</tr>
+<tr>
+<td><code>animation/alignment/matching.py</code></td>
+<td>517</td>
+</tr>
+</tbody>
+</table>
+<p>Notes on borderline cases: <code>frame_selection.py</code>'s comment+docstring density (237+377 = 614, nearly 2× its own code) means its <em>total</em> line count looks far worse than its actual maintainability burden — re-check with <code>count_loc.py --sort code</code> (not <code>--sort total</code>) before scheduling a split. <code>animation/alignment/bundle_adjust.py</code> is 431 code lines (500 <em>total</em> including comments/docstrings) — below the code-line threshold this section tracks; excluded from the worst-offenders list above but worth a second look if the threshold is later redefined as total-lines rather than code-lines.</p>
+<h3 id="options_16">Options<a class="headerlink" href="#options_16" title="Permanent link">&para;</a></h3>
+<p><strong>A — CI-enforced LoC gate using the existing <code>count_loc.py</code> [Quick Win, Recommended]</strong>
+Add a <code>--max-code-lines N --fail-over</code> mode to <code>count_loc.py</code> (or a thin wrapper script) that exits non-zero if any file under <code>gui/src/</code> or <code>backend/src/</code> exceeds 500 code lines, and wire it into a new <code>just check-loc</code> target plus a CI job. New files are checked on every PR; the <em>existing</em> 35 offenders are grandfathered via an explicit allow-list (a <code>docs/loc_exceptions.txt</code> of paths, each requiring a comment linking to the tracking issue) so the gate does not block unrelated work immediately.
+- Pros: Stops the bleeding immediately — no new file can quietly cross 500 lines. Reuses a tool that already exists and already has a <code>--sort</code>/<code>--limit</code> CLI. Zero new dependencies.
+- Cons: The allow-list itself needs periodic pruning as files are split, or it silently becomes permanent scaffolding.</p>
+<p><strong>B — Package-directory split with public-API re-export [Recommended, per-file]</strong>
+For each oversized file, convert <code>foo.py</code> into <code>foo/__init__.py</code> (re-exporting the public class so every external <code>from ...foo import Foo</code> keeps working unchanged) plus sibling files split along the file's <em>existing</em> internal structure — comment banners (<code># --- Profile Management Methods ---</code> style, already present in <code>settings_window.py</code>, <code>stitch_tab.py</code>, etc.) or existing method groupings, not an arbitrary line-count cut. Mixins (<code>class _ProfileManagementMixin: ...</code>) composed into the main class via multiple inheritance is the concrete mechanism for classes whose bulk is in instance methods rather than the constructor.
+- Pros: Zero call-site changes for correctly-authored re-exports. Each new file independently verifiable at &lt;500 lines. Matches how <code>gui/src/classes/base/gallery_base.py</code> (§5.10A) was already extracted from the two gallery classes.
+- Cons: Files whose bulk is in a single giant <code>__init__</code> (widget construction) — <code>settings_window.py</code>'s <code>__init__</code> is ~1,113 of its 2,505 lines — don't benefit from a mixin split alone; the constructor itself must be broken into <code>_build_xxx_section()</code> calls first, which is a materially larger and riskier change than moving already-independent methods. Blast-radius must be checked per-file with <code>grep -rn "&lt;ClassName&gt;(\|from .*import &lt;ClassName&gt;"</code> before starting — <code>stitch_tab.py</code> is both the largest file and the most central to the ASP feature, so it carries the highest regression risk of any candidate.</p>
+<p><strong>C — Extract shared cross-cutting logic before splitting, not instead of it</strong>
+Several oversized files are large partly because they duplicate patterns better solved by other sections in this document rather than by a mechanical split: <code>abstract_class_two_galleries.py</code>/<code>abstract_class_single_gallery.py</code> overlap is already tracked by §5.10; repeated <code>QSettings(...)</code> boilerplate across <code>main_window.py</code>/<code>settings_window.py</code> is §5.14; repeated worker-config <code>dict.get()</code> chains in the tab files are §5.9D. Apply the relevant existing section first so the file being split is smaller and cleaner going in, rather than mechanically relocating duplication into more files.
+- Pros: Avoids "splitting the mess into three smaller messes." Directly composes with sections already in this document.
+- Cons: Sequencing cost — a file may need two rounds of cleanup (dedup, then split) instead of one.</p>
+<p><strong>D — Auto-generated LoC dashboard as a docs artifact [Quick Win]</strong>
+Run <code>count_loc.py --sort code</code> in CI on merges to <code>main</code> and commit the table to <code>docs/loc_report.md</code> (or surface it in the §5.12 Mermaid/pdoc docs effort), so the worst-offenders list in this section never goes stale between manual audits — the fresh run performed for this section already found 6 files had drifted (in both directions) from the snapshot gathered less than a day earlier by concurrent sessions.
+- Pros: Removes the manual-re-run step this section itself required. Cheap — the tool already exists and runs in seconds.
+- Cons: Another generated-docs file to keep from rotting if the CI step is ever skipped.</p>
+<p><strong>E — Judgment-call triage before scheduling any split</strong>
+Not every file over 500 lines is equally worth splitting right now. Rank by <em>(size × blast radius × churn frequency)</em>, not size alone: a self-contained 1,300-line file with one importer (e.g. <code>database_tab.py</code>) is a safer, higher-value target than a 900-line file with dozens of call sites. Use <code>grep -rn "from .*import &lt;ClassName&gt;"</code> / <code>grep -rn "&lt;ClassName&gt;("</code> per candidate before committing effort.
+- Pros: Avoids spending the first sprint on the riskiest file just because it is the biggest number.
+- Cons: Requires a person (or agent) to actually do the ranking rather than mechanically working top-down.</p>
+<p><strong>Recommendation:</strong> A immediately — it is the only option that prevents regression while everything else is in progress, and reuses a tool this codebase already has. D as a nearly-free companion to A (same CI job). E before every individual split decided under B. C wherever a section of this document already targets the duplication driving a file's size. Given the size and centrality of <code>stitch_tab.py</code> and the un-decomposed <code>settings_window.py.__init__</code>, both are tracked in the GitHub issue for §5.17 rather than attempted inline in this pass — see the issue for the concrete per-file punch list.</p>
+<hr />
 <h2 id="effort--impact-matrix">Effort × Impact Matrix<a class="headerlink" href="#effort--impact-matrix" title="Permanent link">&para;</a></h2>
 <p><em>Effort</em> — <strong>Low</strong>: &lt; 1 day · <strong>Medium</strong>: 1 day – 1 week · <strong>High</strong>: 1 – 2 weeks · <strong>Very High</strong>: 2+ weeks
 <em>Impact</em> — <strong>Low</strong>: marginal · <strong>Medium</strong>: developer QoL or reliability improvement · <strong>High</strong>: correctness, security, or significant maintainability gain · <strong>Very High</strong>: eliminates a systemic failure mode or enables new capability</p>
@@ -4549,15 +4772,15 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 <tr>
 <td><strong>Low (&lt;1d)</strong></td>
 <td>§5.8D remove relocated-import comments · §5.10C metaclass docstring · §5.10D <code>_load_thumbnail_size</code> extraction · §5.11C module graph · §5.11D <code>__all__</code> hygiene · §5.13C <code>@log_call</code> decorator · §5.14D QSettings key validation · §5.15C eliminate bare <code>except: pass</code></td>
-<td>§5.4A <code>logging</code> module adoption · §5.5B Pyright <code>basic</code> mode · §5.7A <code>uv lock</code> · §5.7C+D pip-audit + cargo-audit · §5.9C progress tuple · §5.9D <code>WorkerConfig</code> typed dicts</td>
-<td>§5.1A per-stage unit tests (most stages) · §5.11B TYPE_CHECKING guards (deferred heavy imports) · §5.16A wrapper contract tests (mock-based)</td>
+<td>§5.4A <code>logging</code> module adoption · §5.5B Pyright <code>basic</code> mode · §5.7A <code>uv lock</code> · §5.7C+D pip-audit + cargo-audit · §5.9C progress tuple · §5.9D <code>WorkerConfig</code> typed dicts · §5.17A CI LoC gate · §5.17D LoC dashboard</td>
+<td>§5.1A per-stage unit tests (most stages) · §5.11B TYPE_CHECKING guards (deferred heavy imports) · §5.16A wrapper contract tests (mock-based) · §5.17E per-file blast-radius triage</td>
 <td>—</td>
 </tr>
 <tr>
 <td><strong>Medium (1d–1w)</strong></td>
 <td>—</td>
 <td>§5.4B pipeline trace JSON · §5.5A mypy baseline + per-module opt-in · §5.5C TypedDict worker configs · §5.6A remote wallpaper API · §5.6B gallery web view · §5.12C tab→worker→backend doc · §5.13A <code>@lazy_load</code> + §5.13E <code>decorators.py</code> module · §5.14A <code>AppSettings</code> GUI facade · §5.14B merge backend <code>os.environ</code> into <code>load_asp_config</code></td>
-<td>§5.2A+B benchmark regression CI · §5.8A <code>ModelWrapper</code> ABC + §5.8B <code>@lazy_load</code> · §5.9A <code>BaseQThreadWorker</code> + §5.9B <code>BaseQRunnableWorker</code> · §5.12A NumPy docstrings · §5.12B Mermaid diagrams · §5.15A custom exception hierarchy · §5.15B error boundary in <code>BaseQThreadWorker</code></td>
+<td>§5.2A+B benchmark regression CI · §5.8A <code>ModelWrapper</code> ABC + §5.8B <code>@lazy_load</code> · §5.9A <code>BaseQThreadWorker</code> + §5.9B <code>BaseQRunnableWorker</code> · §5.12A NumPy docstrings · §5.12B Mermaid diagrams · §5.15A custom exception hierarchy · §5.15B error boundary in <code>BaseQThreadWorker</code> · §5.17B split of a single self-contained file (e.g. <code>settings_window.py</code>'s method-group mixins)</td>
 <td>§5.16C <code>ModelWrapperContractMixin</code> (after §5.8A)</td>
 </tr>
 <tr>
@@ -4565,14 +4788,14 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 <td>—</td>
 <td>§5.3C Protocol-based duck typing</td>
 <td>§5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A <code>AbstractGalleryBase</code> + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON</td>
-<td>§5.16B GPU smoke tests on weekly CI (after §5.2B)</td>
+<td>§5.16B GPU smoke tests on weekly CI (after §5.2B) · §5.17B splitting all 35 offenders across <code>gui/src</code> + <code>backend/src</code></td>
 </tr>
 <tr>
 <td><strong>Very High (2w+)</strong></td>
 <td>—</td>
 <td>—</td>
 <td>§5.1C benchmark golden-gate diff (CI integration) · §5.11A <code>import-linter</code> enforcement · §5.12D Sphinx/pdoc auto-docs · §5.5A full strict mypy coverage (end state)</td>
-<td>—</td>
+<td>§5.17B splitting <code>stitch_tab.py</code> (5,032 lines, highest centrality/risk in the codebase)</td>
 </tr>
 </tbody>
 </table>
@@ -4646,11 +4869,16 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 <td>5.16 Contract Testing for ML Wrappers</td>
 <td><a href="#516-contract-testing-for-ml-model-wrappers-backendsrcmodels">#516-contract-testing-for-ml-model-wrappers-backendsrcmodels</a></td>
 </tr>
+<tr>
+<td>5.17 File Size Limit Enforcement</td>
+<td><a href="#517-file-size-limit-enforcement-500-loc">#517-file-size-limit-enforcement-500-loc</a></td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h2 id="document-history">Document History<a class="headerlink" href="#document-history" title="Permanent link">&para;</a></h2>
 <p><em>Last updated: 2026-06-18. Added §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper abstraction, worker lifecycle standardisation, gallery base class consolidation, circular import prevention, codebase documentation &amp; diagrams, decorator library), and §5.14–§5.16 (centralised settings facade, fault isolation &amp; error boundary protocol, contract testing for ML wrappers). ASP unit tests now at 827 (session 131). ASP benchmark corpus: 97 tests. Phase 2 architecture defined: direct video ingestion (PyAV <code>VideoIngestionStream</code>), multi-modal HITL with Grounded SAM-2. See <code>asp.md</code> for per-session tracking and Phase 2 Sprint specs.</em></p>
+<p><em>Updated 2026-07-28: Added §5.17 (File Size Limit Enforcement, &lt;500 LoC — high priority, 27 <code>gui/src</code> + 8 <code>backend/src</code> offenders identified via a fresh <code>count_loc.py</code> run). §5.9 (Worker Thread Base Class &amp; Lifecycle Standardisation) completed this session — Options C (<code>(completed, total)</code> progress tuples) and D (<code>WorkerConfig</code> TypedDicts) shipped across all remaining int-percentage workers; §5.9 marked ✅ Shipped (A+B+C+D) and its Mermaid node updated to <code>:::done</code>. See GitHub issues tracking §5.17's file-size epic and §5.9's now-closed quick wins for follow-up.</em></p>
 
 
 

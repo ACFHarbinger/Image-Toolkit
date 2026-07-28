@@ -3801,6 +3801,8 @@
 <p><strong>Why a per-call-site defer isn't enough on its own</strong>: an earlier attempt deferred only the Wallpaper tab's startup auto-restore call (<code>QTimer.singleShot(250, ...)</code> on <code>SystemDisplaySubTab.set_config()</code>) and still recurred — the user's own manual "browse a new directory" action, taken within that same window, reaches the identical <code>QThread</code>-starting code through a completely different call path, entirely unprotected by a defer wrapping only the auto-restore. If you're tempted to fix a new instance of this crash class by wrapping one specific call in <code>QTimer.singleShot</code>, consider whether a user action could reach the same underlying thread-starting code some other way — if so, gate construction of whatever owns that code path instead (as done here for <code>MainWindow</code>), not the individual call.</p>
 <p><strong>If you defer window/widget construction with <code>QTimer.singleShot</code> during a login/splash-to-main-window transition, watch for a zero-windows-open gap.</strong> The fix above initially closed the login window synchronously while deferring <code>MainWindow</code> construction by 400ms — for that whole window, no top-level window was open, and <code>QApplication</code>'s default <code>quitOnLastWindowClosed=True</code> (never overridden anywhere in this codebase) silently quit the entire app right there. No crash log, no signal — just an app that "crashes immediately after login" with nothing in stdout past whatever was mid-flight. Always construct and show the <em>next</em> window before closing the <em>previous</em> one in any deferred transition, never the reverse.</p>
 <p><strong>And check every place that <code>emit()</code>s the signal driving that deferred construction, not just the slot itself.</strong> This exact bug recurred a second time from a completely different file: <code>LoginWindow</code> had its own <code>self.close()</code> immediately after <code>self.login_successful.emit(...)</code>, at three separate call sites. <code>login_successful</code> is a <em>direct</em> (same-thread) connection, so the connected slot runs synchronously inside <code>emit()</code> — but that slot only <em>schedules</em> <code>MainWindow</code> construction, it doesn't build it immediately. Once <code>emit()</code> returned, <code>LoginWindow</code>'s own next line (<code>self.close()</code>) ran instantly, long before the deferred construction, recreating the zero-windows-open state through a path the first fix never touched. When you fix a slot to defer its work, audit every <code>emit()</code> site for code that assumed the old synchronous behavior — a direct connection means the emitter's own subsequent statements are exactly as much a risk as the slot's.</p>
+<p><strong>The 400ms <code>MainWindow</code> defer alone was still not a reliable enough margin.</strong> The exact same crash (identical <code>libQt6Core.so.6</code> offset, <code>+0x1df7c9</code>) recurred with the simplest possible repro — auto-restore a directory, then one immediate manual browse — well after the <code>QAudioOutput</code> priming + 400ms defer above was already in place. The implicit assumption behind that fix was that login/vault-unlock (JVM start, keystore load, vault decrypt) reliably eats far more than 400ms, giving the probe a large real margin by the time <code>MainWindow</code> (and therefore any scanner <code>QThread</code>) can exist. That assumption fails whenever login happens quickly. Fixed by adding an explicit, elapsed-time-based gate: <code>gui/src/utils/startup_probe_guard.py</code> records the probe's real start time (<code>mark_startup_probe_started()</code>, called from <code>app.py</code> right where the priming <code>QAudioOutput</code> is constructed) and exposes <code>startup_settle_remaining_ms()</code> — a 1.5s settle window measured from that timestamp, not from window-construction timing. Every scanner-thread call site (<code>WallpaperCommonBase.populate_scan_image_gallery()</code>, <code>VideoExtractorSubTab.scan_directory()</code>) checks this immediately before starting a thread and, if still within the window, reschedules its <em>entire own call</em> via <code>QTimer.singleShot()</code> — gating the actual danger point directly, rather than hoping enough time already passed by the time execution gets there.</p>
+<p><strong>UPDATE — this whole root cause is now believed to be a misdiagnosis for the crash that motivated it.</strong> Removing the <code>QAudioOutput</code> priming entirely, and separately making <code>ExtractorTab</code>'s <code>QGraphicsVideoItem()</code> construction lazy (the other, previously-unnoticed Qt Multimedia trigger — plain <code>QAudioOutput()</code> construction does <em>not</em> print Qt's <code>"Using Qt multimedia with FFmpeg..."</code> banner, but <code>QGraphicsVideoItem()</code> does), together eliminated every code path that could trigger Qt Multimedia's backend during a Wallpaper-only session. The crash <strong>still recurred</strong> — same warning text, same general <code>QSocketNotifier</code> internal-function crash class — in a run whose stdout contained <em>no</em> Qt Multimedia backend banner at all, proving the backend was never loaded. This crash was never a Qt Multimedia timing race; the warning text is apparently generic enough to also come from a completely different mechanism (see the <code>deleteOrphaned</code> section below, Addendum 15). The <code>startup_probe_guard.py</code> machinery described above is kept (it's harmless, tested, and may still matter for a genuine <code>ExtractorTab</code> video-preview-shortly-after-launch scenario), but do not spend further effort tuning it against <em>this</em> crash pattern — it was never the lever.</p>
 <hr />
 <h3 id="libpyside6abi3so610-crash-in-__dynamic_cast-on-tab-switch"><code>libpyside6.abi3.so.6.10</code> crash in <code>__dynamic_cast</code> on tab switch<a class="headerlink" href="#libpyside6abi3so610-crash-in-__dynamic_cast-on-tab-switch" title="Permanent link">&para;</a></h3>
 <p><strong>Symptom:</strong> Fatal crash when switching to any tab that contains a <code>QWebEngineView</code> for the first time.</p>
@@ -3931,6 +3933,94 @@ process's stdout is available, check it for <code>QSocketNotifier: ... another
 thread</code> and <code>free(): invalid pointer</code> before assuming this section's fix
 applies</strong> — those two lines point at root cause #8 instead, which needs a
 startup-deferral fix (<code>QTimer.singleShot</code>), not a worker-stop-ordering one.</p>
+<p><strong>A fifth recurrence (round 9) came from an event-queue backlog on rapid,
+repeated directory switches</strong>, even with every wait above correctly
+unbounded. <code>QThread.wait()</code>/<code>QThreadPool.waitForDone(-1)</code> block the
+<em>calling</em> thread until the worker actually finishes, but they do not pump
+that thread's own event loop while blocked. Any <code>deleteLater()</code> calls
+already queued by an <em>earlier</em> switch's own teardown are therefore still
+sitting unprocessed in the queue when a later wait returns — the wait says
+nothing about whether the queue itself has been drained. With several
+rapid switches in a row (e.g. restore previous session's directory, browse
+a new directory immediately, switch back, then immediately browse again),
+each teardown queues more deferred deletions before the previous batch has
+ever run, since nothing in the chain yields back to the event loop. Fixed
+by adding an explicit <code>QApplication.processEvents()</code> call immediately
+after every unbounded wait in this file's teardown/cancel/close paths,
+flushing the queue before the caller proceeds to tear down or rebuild
+widgets again. If you add a new blocking wait anywhere in this crash
+class's call chain, apply the same rule: a wait alone only proves the
+<em>worker</em> is done, not that previously-queued <em>deletions</em> have actually
+been processed — pair it with <code>processEvents()</code> before touching widgets
+again.</p>
+<p><strong>A sixth recurrence (round 10) turned out to be caused by round 9's own
+fix.</strong> <code>QApplication.processEvents()</code> doesn't just flush <code>deleteLater()</code>s —
+it delivers <em>any</em> queued event, including a stale <code>ImageScannerWorker.scan_finished</code>
+signal from the <em>previous</em> directory's scan, whose completion was itself
+detected by the <code>.wait()</code> immediately before the <code>processEvents()</code> call.
+That delivery happens reentrantly, in the middle of
+<code>_stop_scanner_threads()</code>, <em>before</em> the caller has updated <code>self.scanned_dir</code>
+to the new directory — so <code>_on_image_scan_finished()</code> runs for the old
+directory and starts a brand-new <code>VideoScannerWorker</code> for it, with nothing
+in that same call left to stop it. Fixed two ways: (1) narrowed every
+round-9 flush from <code>QApplication.processEvents()</code> to
+<code>QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)</code> — same
+<code>deleteLater()</code>-draining effect, without reentrantly delivering ordinary
+signals; (2) hardened <code>_on_image_scan_finished()</code> (in
+<code>wallpaper_common_base.py</code>) to reject a delivery that isn't from the
+<em>current</em> image scanner — compared by Python object identity captured in
+the signal connection's own closure, <strong>not</strong> <code>QObject.sender()</code> (a stale
+sender's C++ object is frequently already destroyed by the time its
+signal is processed, and <code>sender()</code> returns <code>None</code> for a destroyed
+sender — the opposite of what a staleness check needs) — and to always
+stop any existing <code>vid_scanner_worker</code> before starting a new one, even on
+a legitimate completion.</p>
+<p>If you're chasing a new instance of this crash class and considering a
+<code>processEvents()</code>-style fix: <strong>prefer the narrowest event type that solves
+your actual gap</strong> (<code>QCoreApplication.sendPostedEvents(None, &lt;QEvent.Type&gt;)</code>)
+over a blanket <code>processEvents()</code>. A blanket flush can reentrantly run
+<em>any</em> connected slot for <em>any</em> signal that happens to be queued at that
+moment, including ones that assume they're only ever called from the
+normal event loop, not mid-teardown.</p>
+<p>This crash class now has an automated regression test:
+<code>gui/test/core/test_wallpaper_scan_race.py</code> reproduces rapid
+image/video directory switching against the real
+<code>WallpaperCommonBase</code> scan path and asserts no spurious/orphaned
+<code>VideoScannerWorker</code> gets created. Verified to fail against the
+pre-round-10 code and pass against the fix — if you touch
+<code>populate_scan_image_gallery()</code>/<code>_on_image_scan_finished()</code>/
+<code>_stop_scanner_threads()</code> again, run this test first.</p>
+<p><strong>This is now believed to be the actual mechanism behind a crash previously
+misdiagnosed as the Qt Multimedia startup race (root cause #8) above</strong> —
+that theory was directly disproven (see the UPDATE note there): the crash
+recurred with identical symptoms in a run where Qt Multimedia's backend
+was never triggered at all. The real Wallpaper tab always runs <strong>two
+linked <code>WallpaperCommonBase</code> instances</strong> (<code>system_display</code>/<code>monitor_display</code>,
+wired in <code>wallpaper_tab.py</code>: mutual <code>linked_tabs</code>, a shared/aliased
+<code>_initial_pixmap_cache</code> dict, <code>directory_scanned</code> cross-connected with
+<code>emit_signal=False</code>) — a topology <code>test_wallpaper_scan_race.py</code> doesn't
+cover (it only exercises one instance). A second test,
+<code>gui/test/core/test_wallpaper_linked_panel_scan_race.py</code>, builds the same
+two-instance topology and drives rapid switching through one panel — it
+currently <strong>passes</strong> against the existing code, meaning this specific
+interaction isn't reproducible by simulating the Python/Qt-signal call
+sequence with a mocked scan delay. That's a real, useful negative result:
+it points at something lower-level (genuine native thread-scheduling
+timing, real subprocess spawning, or a Qt-internal event-dispatcher/
+socket-notifier interaction) that only manifests under real OS thread
+creation, not a logic bug reachable this way.</p>
+<p>Fine-grained <code>[thread-lifecycle]</code> print instrumentation (tagged with
+<code>panel={id(self):x}</code> and <code>tid={threading.get_ident()}</code>) was added at
+every <code>QThread</code> start/stop/quit/wait/deleteLater transition in
+<code>wallpaper_common_base.py</code>, and at <code>_on_image_scan_finished()</code>'s
+stale-vs-proceed decision, specifically so the <em>next</em> live crash's stdout
+pinpoints exactly which lifecycle operation was in flight — none of the
+diagnosis up to this point could determine that from the coarser prints
+that existed before. If a future crash's last instrumented line still
+doesn't localize the problem, the next escalation is external process
+tracing (<code>strace -f</code>, or GDB attached ahead of time), not more Python
+print statements — that would mean the issue is below what this kind of
+tracing can observe.</p>
 <p>Full diagnosis: <code>.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md</code>.</p>
 <hr />
 <h2 id="qt-multimedia-video-playback-decode-failures"><a id="qt-multimedia--video-playback-decode-failures"></a>Qt Multimedia / Video Playback Decode Failures<a class="headerlink" href="#qt-multimedia-video-playback-decode-failures" title="Permanent link">&para;</a></h2>
