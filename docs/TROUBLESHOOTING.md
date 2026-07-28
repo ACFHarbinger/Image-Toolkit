@@ -268,6 +268,27 @@ thread` and `free(): invalid pointer` before assuming this section's fix
 applies** — those two lines point at root cause #8 instead, which needs a
 startup-deferral fix (`QTimer.singleShot`), not a worker-stop-ordering one.
 
+**A fifth recurrence (round 9) came from an event-queue backlog on rapid,
+repeated directory switches**, even with every wait above correctly
+unbounded. `QThread.wait()`/`QThreadPool.waitForDone(-1)` block the
+*calling* thread until the worker actually finishes, but they do not pump
+that thread's own event loop while blocked. Any `deleteLater()` calls
+already queued by an *earlier* switch's own teardown are therefore still
+sitting unprocessed in the queue when a later wait returns — the wait says
+nothing about whether the queue itself has been drained. With several
+rapid switches in a row (e.g. restore previous session's directory, browse
+a new directory immediately, switch back, then immediately browse again),
+each teardown queues more deferred deletions before the previous batch has
+ever run, since nothing in the chain yields back to the event loop. Fixed
+by adding an explicit `QApplication.processEvents()` call immediately
+after every unbounded wait in this file's teardown/cancel/close paths,
+flushing the queue before the caller proceeds to tear down or rebuild
+widgets again. If you add a new blocking wait anywhere in this crash
+class's call chain, apply the same rule: a wait alone only proves the
+*worker* is done, not that previously-queued *deletions* have actually
+been processed — pair it with `processEvents()` before touching widgets
+again.
+
 Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---
