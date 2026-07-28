@@ -503,17 +503,17 @@ static py::tuple find_optimal_boundaries(
     int N        = (int)order_arr.size();
     int n_bounds = (int)init_bounds.size();
 
-    auto r_order = order_arr.unchecked<1>();
-    auto r_init  = init_bounds.unchecked<1>();
+    const int64_t* p_order = order_arr.data();
+    const double* p_init   = init_bounds.data();
 
     std::vector<int64_t> order(N);
     for (int i = 0; i < N; ++i) {
-        order[i] = r_order(i);
+        order[i] = p_order[i];
     }
 
     std::vector<double> init(n_bounds);
     for (int i = 0; i < n_bounds; ++i) {
-        init[i] = r_init(i);
+        init[i] = p_init[i];
     }
 
     // Load frames by frame index

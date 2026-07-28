@@ -599,6 +599,7 @@ class TestFindOptimalBoundariesVsPython:
         _, d_cpp = _cpp_find_optimal_boundaries([f, f.copy()], order, init_bounds, H, W)
         assert float(d_cpp[0]) < 1.0
 
+    @pytest.mark.slow
     def test_three_boundaries_all_agree(self):
         H, W = 320, 80
         rng = np.random.default_rng(99)
