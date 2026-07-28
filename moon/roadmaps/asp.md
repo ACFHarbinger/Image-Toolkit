@@ -164,9 +164,8 @@ metric-calibration part still open — needs real rating data to run against]`
   to "diagnostic-only") — needs an actual rating pass (0.1) to have data to
   calibrate against; can't be built ahead of that.
 
-### 0.3 Overmix as a third comparator on the full corpus  `[5-test verify done
-2026-07-27 — see .agent/cache/overmix_field_notes.md; full 97-corpus run
-still open]`
+### 0.3 Overmix as a third comparator on the full corpus  `[DONE 2026-07-28 —
+full 97-corpus smart-variant run complete; see .agent/cache/overmix_field_notes.md]`
 - **Done**: `OvermixCli` built from source via `desktop/linux/scripts/setup_overmix.sh`
   (GPL-3.0 — external tool, never linked; needed a pinned `wgpu-native` release
   and a local FFmpeg-API-compat patch committed in the submodule's own history,
@@ -185,9 +184,25 @@ still open]`
   Full write-up (including the CLI settings that actually worked — `Gradient`
   comparator, not `BruteForce`, which didn't finish in 90s at full res) in
   `.agent/cache/overmix_field_notes.md`.
-- **Still open**: the full 97-corpus run this section's exit gate actually
-  asks for — the 5-test verify is this project's established safe scaling
-  increment, not a substitute for it.
+- **Full 97-corpus run complete (2026-07-28)**: `python -m backend.benchmark.run_overmix`
+  (smart-selected-frames variant, no `--full` — that variant is a separate,
+  heavier artifact this exit gate doesn't require) against all 97 datasets.
+  **97/97 succeeded, zero failures/timeouts**, ~5 minutes of actual
+  `OvermixCli` compute time (per-test `wall_sec` summed from each
+  `overmix_variant.json`) plus Python-side frame-selection overhead for the
+  full run. Confirms the thread-cap fix ([[feedback_benchmark_freezes_host]]/
+  issue #25) holds for this comparator tool too, not just `bench_anime_stitch.py`
+  itself. Every dataset now has `output/overmix_stitch.png` +
+  `output/overmix_variant.json`.
+  **Not yet done**: merging these into a single consolidated four-way
+  summary JSON/report the way `bench_anime_stitch.py`'s own run does —
+  `bench_anime_stitch.py` has no metrics-only/recompute mode, so pulling
+  Overmix's per-test artifacts into the same report as ASP/Simple would
+  currently mean a full ~2h22m pipeline re-run just to backfill comparator
+  columns. Left as a separate, explicitly-scoped follow-up rather than
+  forcing an expensive re-run into this session; the per-test data itself
+  (the actual deliverable this phase's objective needs) already exists for
+  all 97.
 
 ### 0.4 Kill the GT-coupling measurement bug  `[(b)+(c) done 2026-07-27; (a)
 still open, blocked on the Phase 0.1 human rating pass; (d) still optional]`
@@ -574,6 +589,35 @@ the other three classes negligible-to-zero). Reclassify each:
   round; still needs full-97 data and a real per-test triage pass before
   this class can be meaningfully "converted" rather than just
   better-understood.
+  — **Full-97 triage pass built and run, 2026-07-28** (`backend/benchmark/triage_fallback_classes.py`,
+  new tool — parses every fallback's `fallback_reason` gate values,
+  cross-references `mean_post_warp_diff`/pair count, sorts by
+  margin-over-limit; full report:
+  `.agent/cache/asp_phase4_fallback_triage_full97_2026-07-28.md`).
+  Deliberately a triage table for human review, not a new automatic
+  dispatch rule — both candidate one-line rules above already failed on
+  real counter-examples, and the anti-goals rule out shipping a third
+  guess as pipeline behavior. Full-corpus qualitative split (by the same
+  `mean_post_warp_diff` bucketing as the 18-test sample, threshold <10 vs
+  ≥30): only **1/27** seam_vis_gate tests is clearly pose-blend-leaning
+  at full scale (test41) — the "mostly pose-blend artifacts" framing this
+  whole section opened with is even more wrong at 97-test scale than the
+  18-test sample suggested. 10/27 are clearly photometric-leaning, 15/27
+  fall in the ambiguous middle this bucketing can't resolve (which is the
+  same "no clean rule" finding, not a new gap). **14/27 (52%) are
+  borderline** — within 10 points of the 35.0 limit — meaning a modest,
+  targeted photometric-quality improvement (not a new gate, an actual fix
+  to whatever's causing the banding/exposure defect in the photometric
+  subset) could plausibly flip a meaningful fraction of this class without
+  needing to solve the "mixed/moderate" cases at all. `composite_gate_sb`
+  (26 tests) is structurally similar: median margin only 9.6 over its 35.0
+  limit, 8/26 within 5 points. **This is now a "what's the actual
+  photometric defect" investigation, not a "which heuristic dispatches
+  correctly" one** — the next real step is picking 2-3 of the most
+  borderline photometric-leaning tests (e.g. test87 margin=0.4, test10
+  margin=1.3, test71/test69 margin~3.5) and visually diagnosing what
+  specifically is wrong with their seam photometrics, not further
+  cross-metric correlation attempts.
 - **render-gate class (21) — clarified 2026-07-27:** this is the benchmark's
   own umbrella term (`timings["render_gate_fallback"]`, set to 1 or 2
   whenever *any* post-render quality check fires) covering

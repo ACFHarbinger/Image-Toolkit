@@ -4,6 +4,19 @@
 
 ---
 
+## S259 — 2026-07-28 (ASP Phase 0.3: Overmix full-97-corpus run complete; Phase 4: full-corpus fallback triage tool)
+
+Two ASP roadmap items closed out — GitHub issues #18 (Overmix comparator) and #29 (Phase 4 fallback-class conversion), both reopened this session after being closed with real remaining work still flagged in their own history.
+
+- **Phase 0.3 (issue #18) — full 97-corpus Overmix run**: `python -m backend.benchmark.run_overmix` (smart-selected-frames variant) against all 97 datasets. **97/97 succeeded, zero failures/timeouts**, ~5 minutes of actual `OvermixCli` compute time. Confirms the thread-cap host-freeze fix (issue #25) holds for this comparator tool too, not just `bench_anime_stitch.py` itself — this is the first full-scale run of a *second* benchmark entry point since that fix landed. Every dataset now has `output/overmix_stitch.png` + `output/overmix_variant.json`. Merging this into `bench_anime_stitch.py`'s own consolidated four-way report is a separate follow-up (no metrics-only/recompute mode exists yet, so that would otherwise require a full ~2h22m pipeline re-run just to backfill comparator columns) — left explicitly out of scope rather than forcing an expensive re-run.
+- **Phase 4 (issue #29) — full-corpus fallback triage tool**: new `backend/benchmark/triage_fallback_classes.py` parses every fallback test's `fallback_reason` (gate + numeric asp/limit values) out of the existing full-97 `bench_anime_stitch.py` checkpoint, cross-references `mean_post_warp_diff` and pair count, and tabulates sorted by margin-over-limit. Deliberately a **triage table for human review, not a new automatic dispatch rule** — two prior candidate heuristics (a post-warp-diff threshold, pair count) each already failed on real counter-examples, and the roadmap's anti-goals rule out shipping a third guess as pipeline behavior. Report: `.agent/cache/asp_phase4_fallback_triage_full97_2026-07-28.md`.
+  - Refines the 18-test-sample estimate at full scale: only **1/27** `seam_vis_gate` tests is clearly pose-blend-leaning (test41) — the class's original "mostly pose-blend artifacts" framing is even more wrong at 97-test scale. 10/27 are clearly photometric-leaning, 15/27 fall in an ambiguous middle no cheap metric resolves. **14/27 (52%) are borderline** (within 10 points of the limit); `composite_gate_sb` (26 tests) is structurally similar, median margin 9.6, 8/26 within 5 points.
+  - Reframes the remaining Phase-4 work: not "which heuristic dispatches correctly" (already answered — none reliably do), but "what's the actual photometric defect" behind the photometric-leaning subset's banding/exposure mismatch — next step is a visual diagnosis of the most borderline cases, not further cross-metric correlation attempts.
+- **Stale memory correction**: the ASP benchmark host-freeze note (previously "not yet root-caused, do not run without authorization") was itself outdated — the fix has been confirmed at full 97-test `bench_anime_stitch.py` scale since S258 (2026-07-28, issue #25 closed). Updated to reflect that `bench_anime_stitch.py`/`run_overmix.py`/`run_hugin.py` no longer need special caution.
+- `moon/roadmaps/asp.md` §0.3 and Phase 4 updated with full findings. No ASP pipeline behavior changed this round — both items are benchmark coverage / measurement tooling, not pipeline algorithm changes, consistent with the anti-goals against new gates/heuristics without a verified payoff.
+
+---
+
 ## S258 — 2026-07-28 (ASP: full-97-corpus benchmark checkpoint — host-freeze fix confirmed, Phase 4 breakdown refined)
 
 User-authorized full 97-test run (`anime_stitch_20260728_013215.json`), the first full-corpus run since the 2026-07-09 baseline and since this session's accumulated fixes (ToonOut default-on, aligned-SSIM windowing fix, Hugin/Overmix comparators added, several rejected experiments confirmed staying default-OFF).

@@ -157,11 +157,29 @@ larger-scale run.
   don't?** Not explored — this needs the GUI (`Overmix`, not `OvermixCli`)
   and hands-on use, out of scope for CLI-only automation. Still open.
 
+## Full 97-corpus run (2026-07-28) — DONE
+
+`python -m backend.benchmark.run_overmix` (smart-selected-frames variant,
+no `--full`) against all 97 datasets. **97/97 succeeded, zero failures or
+timeouts**, ~5 minutes of actual `OvermixCli` compute time (summed
+per-test `wall_sec` from each `overmix_variant.json`). Clean run
+throughout — no host-freeze symptoms, confirming the thread-cap fix
+(`ASP_BENCH_THREAD_CAP`, [[feedback_benchmark_freezes_host]]) holds for
+this second benchmark entry point too, not just `bench_anime_stitch.py`
+itself. Every dataset now has `output/overmix_stitch.png` +
+`output/overmix_variant.json`.
+
+Not yet done: merging these into `bench_anime_stitch.py`'s own
+consolidated four-way report — that script has no metrics-only/recompute
+mode, so doing this properly would currently mean a full ~2h22m pipeline
+re-run just to backfill comparator columns onto data that didn't change.
+Left as an explicit, separate follow-up.
+
 ## What's still open
 
-- Full 97-corpus run (roadmap's actual Phase-0 exit gate: "Overmix column
-  present for all 97") — this round only covers the 5-test verify subset,
-  per this project's established host-freeze-safety scaling discipline.
+- Merging the full-97 Overmix data into `bench_anime_stitch.py`'s
+  consolidated report (see above) — needs either a metrics-only recompute
+  mode built first, or accepting a full pipeline re-run.
 - §1.2(a) and (c) above (only (c) remains open).
 - ~~§0.6 (adding Overmix as a GUI option in the Merge tab)~~ — **done**,
   confirmed 2026-07-27: `merge_tab.py`'s engine dropdown already has an
