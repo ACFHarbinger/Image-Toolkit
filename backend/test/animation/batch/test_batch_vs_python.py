@@ -602,10 +602,22 @@ class TestFindOptimalBoundariesVsPython:
     def test_three_boundaries_all_agree(self):
         H, W = 320, 80
         rng = np.random.default_rng(99)
-        frames = [rng.integers(30, 220, (H, W, 3), dtype=np.uint8) for _ in range(4)]
+        base_img = rng.integers(30, 220, (H, W, 3), dtype=np.uint8)
+        f0 = base_img.copy()
+        f1 = base_img.copy()
+        f2 = base_img.copy()
+        f3 = base_img.copy()
+        f0[65:85] = 200
+        f1[65:85] = 200
+        f1[145:165] = 150
+        f2[145:165] = 150
+        f2[225:245] = 100
+        f3[225:245] = 100
+        frames = [f0, f1, f2, f3]
         order = np.array([0, 1, 2, 3])
-        init_bounds = np.array([H//4, H//2, 3*H//4], dtype=float)
+        init_bounds = np.array([H // 4, H // 2, 3 * H // 4], dtype=float)
         b_py,  d_py  = _py_find_optimal_boundaries(frames, order, init_bounds, H, W)
         b_cpp, d_cpp = _cpp_find_optimal_boundaries(frames, order, init_bounds, H, W)
         assert np.all(np.abs(b_cpp - b_py) <= 2.0)
         assert np.all(np.abs(d_cpp - d_py) <= 3.0)
+
