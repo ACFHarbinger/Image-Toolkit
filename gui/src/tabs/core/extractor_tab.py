@@ -926,7 +926,10 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
             # directory switch are still unprocessed at this point -- flush
             # them before proceeding (see
             # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md Addendum 8).
-            QApplication.processEvents()
+            # Narrowed to DeferredDelete only -- see Addendum 9: a full
+            # processEvents() also delivers ordinary queued cross-thread
+            # signals reentrantly, mid-teardown.
+            QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
         # Close sub-windows
         for win in list(self.open_preview_windows):
@@ -1223,7 +1226,10 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
             # directory switch are still unprocessed at this point -- flush
             # them before tearing down/rebuilding widgets below (see
             # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md Addendum 8).
-            QApplication.processEvents()
+            # Narrowed to DeferredDelete only -- see Addendum 9: a full
+            # processEvents() also delivers ordinary queued cross-thread
+            # signals reentrantly, mid-teardown.
+            QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
         # Clear grid and path tracking
         paths_to_remove = list(self.source_path_to_widget.keys())

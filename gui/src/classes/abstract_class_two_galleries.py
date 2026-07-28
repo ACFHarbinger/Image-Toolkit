@@ -1531,8 +1531,10 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
             # widgets again, or repeated rapid switches can pile up
             # multiple generations of pending deferred-deletion events
             # (see .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
-            # Addendum 8).
-            QApplication.processEvents()
+            # Addendum 8). Narrowed to DeferredDelete only -- see Addendum 9:
+            # a full processEvents() also delivers ordinary queued
+            # cross-thread signals reentrantly, mid-teardown.
+            QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
     def closeEvent(self, event):
         """Cleanup processes on close."""
@@ -1541,7 +1543,7 @@ class AbstractClassTwoGalleries(AbstractGalleryBase):
         self.thread_pool.clear()
         # Ensure signals don't fire to a destroyed object
         self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
-        QApplication.processEvents()  # flush pending deleteLater()s -- see cancel_loading()
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)  # flush pending deleteLater()s -- see cancel_loading()
         super().closeEvent(event)
 
     def clear_galleries(self, clear_data=True):

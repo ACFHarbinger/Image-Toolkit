@@ -1152,8 +1152,13 @@ class AbstractClassSingleGallery(AbstractGalleryBase):
             # directory switch are still unprocessed at this point -- flush
             # them before the caller proceeds to tear down/rebuild widgets
             # again (see .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
-            # Addendum 8).
-            QApplication.processEvents()
+            # Addendum 8). Deliberately narrowed to DeferredDelete events only
+            # (not a full processEvents()): a full processEvents() also
+            # delivers ordinary queued cross-thread signals (e.g. a stale
+            # scanner's scan_finished), reentrantly running application code
+            # mid-teardown -- the actual cause of the round-9 recurrence, see
+            # Addendum 9.
+            QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
         # CRITICAL FIX: Clear loading paths so interrupted loads don't block future attempts
         self._loading_paths.clear()

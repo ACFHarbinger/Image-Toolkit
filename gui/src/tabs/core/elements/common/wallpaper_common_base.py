@@ -1136,6 +1136,29 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self.path_to_label_map[path] = draggable_label
         return draggable_label
 
+    def _stop_vid_scanner_worker(self) -> None:
+        """Stop, drain, and clear self.vid_scanner_worker if one exists.
+
+        Extracted so _on_image_scan_finished() can call it too, right
+        before starting a fresh VideoScannerWorker -- otherwise a second
+        image scan finishing while an earlier video scan is still running
+        would overwrite self.vid_scanner_worker with the new instance
+        while the old one keeps running, unstopped and unwaited-for, still
+        connected to _add_video_thumbnail_manual (see Addendum 9 in
+        .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
+        """
+        if self.vid_scanner_worker is not None:
+            try:
+                if self.vid_scanner_worker.isRunning():
+                    self.vid_scanner_worker.requestInterruption()
+                    self.vid_scanner_worker.stop()
+                    self.vid_scanner_worker.quit()
+                    self.vid_scanner_worker.wait()  # unbounded
+                self.vid_scanner_worker.deleteLater()
+            except RuntimeError:
+                pass
+            self.vid_scanner_worker = None
+
     def _stop_scanner_threads(self) -> None:
         """Stop and fully drain this instance's scanner threads.
 
@@ -1162,17 +1185,7 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             self.img_scanner_thread.deleteLater()
             self.img_scanner_thread = None
 
-        if self.vid_scanner_worker is not None:
-            try:
-                if self.vid_scanner_worker.isRunning():
-                    self.vid_scanner_worker.requestInterruption()
-                    self.vid_scanner_worker.stop()
-                    self.vid_scanner_worker.quit()
-                    self.vid_scanner_worker.wait()  # unbounded
-                self.vid_scanner_worker.deleteLater()
-            except RuntimeError:
-                pass
-            self.vid_scanner_worker = None
+        self._stop_vid_scanner_worker()
 
         # QThread.wait() above blocks THIS (calling/main) thread until the
         # OTHER thread finishes -- it does not pump this thread's own event
@@ -1189,7 +1202,17 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         # them run, risking the same use-after-free crash class this whole
         # file is already guarding against, just via queue backlog instead
         # of a still-running thread. Flush it explicitly before returning.
-        QApplication.processEvents()
+        # Deliberately narrowed to DeferredDelete events only (not a full
+        # processEvents()): a full processEvents() also delivers ordinary
+        # queued cross-thread signals -- e.g. a stale scanner's
+        # scan_finished, reentrantly running _on_image_scan_finished() (and
+        # thus starting a brand-new VideoScannerWorker) from inside THIS
+        # method, before the caller has even updated self.scanned_dir to
+        # the new directory. That reentrancy was the actual mechanism
+        # behind the deleteOrphaned crash recurring after the round-9 fix
+        # (see Addendum 9 in
+        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
     def populate_scan_image_gallery(self, directory: str, emit_signal: bool = True):
         if getattr(self, "background_type", None) == "Solid Color":
@@ -1246,7 +1269,15 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         self.img_scanner_worker = ImageScannerWorker(directory)
         self.img_scanner_thread = self.img_scanner_worker
 
-        self.img_scanner_worker.scan_finished.connect(self._on_image_scan_finished)
+        # Bind the worker instance into the connection itself (rather than
+        # relying on QObject.sender() inside the slot) so a stale delivery
+        # can be identified even after the sender's C++ object has already
+        # been destroyed -- see _on_image_scan_finished()'s docstring.
+        self.img_scanner_worker.scan_finished.connect(
+            lambda paths, _worker=self.img_scanner_worker: self._on_image_scan_finished(
+                paths, _worker
+            )
+        )
         self.img_scanner_worker.scan_error.connect(self.handle_scan_error)
 
         self.img_scanner_worker.finished.connect(self.img_scanner_worker.deleteLater)
@@ -1255,8 +1286,35 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
         )
         self.img_scanner_worker.start()
 
-    @Slot(list)
-    def _on_image_scan_finished(self, image_paths: list):
+    def _on_image_scan_finished(self, image_paths: list, _worker=None):
+        # scan_finished is delivered via a queued cross-thread connection,
+        # so it can arrive AFTER a newer populate_scan_image_gallery() call
+        # already replaced self.img_scanner_worker/self.img_scanner_thread
+        # with a fresh scan for a different directory (rapid directory
+        # switching -- e.g. via the QApplication.sendPostedEvents() flush
+        # in _stop_scanner_threads()/_stop_vid_scanner_worker() reentrantly
+        # pumping this queued signal mid-teardown, or simply because the
+        # event loop hadn't gotten to it yet by the time the user switched
+        # again). Acting on a stale result here would touch gallery state
+        # for a directory the user has already navigated away from, and
+        # would start a VideoScannerWorker nothing ever stops or waits for
+        # -- the actual mechanism behind the deleteOrphaned crash class
+        # recurring even after the round-9 fix (see Addendum 9 in
+        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
+        #
+        # _worker identifies the emitting worker via the connection's own
+        # closure (bound in populate_scan_image_gallery()), not via
+        # QObject.sender(): a superseded worker's C++ object may already
+        # be destroyed (deleteLater() already flushed by a later switch's
+        # _stop_scanner_threads()) by the time its queued scan_finished is
+        # actually processed, and sender() returns None for a destroyed
+        # sender -- silently defeating a sender()-based staleness check
+        # for exactly the stale deliveries it needs to catch. Comparing
+        # the captured Python object reference by identity needs no
+        # access to the (possibly-destroyed) C++ side at all.
+        if _worker is not None and _worker is not self.img_scanner_worker and _worker is not self.img_scanner_thread:
+            return
+
         existing_paths = set(getattr(self, "master_image_paths", []))
         new_paths = [p for p in image_paths if p not in existing_paths]
 
@@ -1266,6 +1324,11 @@ class WallpaperCommonBase(AbstractClassSingleGallery):
             self.refresh_gallery_view()
 
         if self.scanned_dir:
+            # Never let a second VideoScannerWorker start while an earlier
+            # one is still running (see _stop_vid_scanner_worker()'s
+            # docstring) -- this slot firing more than once for overlapping
+            # scans is exactly the scenario that orphans one.
+            self._stop_vid_scanner_worker()
             self.vid_scanner_worker = VideoScannerWorker(self.scanned_dir)
             self.vid_scanner_worker.thumbnail_ready.connect(
                 self._add_video_thumbnail_manual
