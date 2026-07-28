@@ -336,3 +336,75 @@ cross-instance pattern.
 now the fourth iteration of this fix; if it recurs again, the shared-cache/
 linked-panel architecture itself (not just the stop/wait ordering) may need
 reconsidering rather than another instance-level patch.
+
+## Addendum 4 (2026-07-28) — the actual root cause: a known, already-documented startup race, not the scanner-thread ordering at all
+
+The user provided the full stdout leading up to `hs_err_pid155258.log` for
+the first time, and it changes the diagnosis substantially. Immediately
+before the crash:
+
+```
+qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1.1 ...
+INFO     root: Logging reconfigured from preferences: ...
+QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+free(): invalid pointer
+error: Recipe `python` was terminated on line 30 by signal 6
+```
+
+`free(): invalid pointer` is glibc's malloc corruption detector catching a
+bad `free()` call and calling `abort()` (SIGABRT, signal 6) — this is
+**heap corruption**, a stronger and more specific signal than any of the
+SIGSEGV frames alone gave. And critically, **the exact `QSocketNotifier`
+message is already a known, documented issue in this codebase** — found by
+grepping for it directly:
+
+- `gui/src/helpers/core/similarity_scan_worker.py` (module docstring):
+  *"a plain `QThread` + `moveToThread` would start the default per-thread
+  event loop (`exec()`), which on Linux/glib creates an event dispatcher
+  with socket notifiers in a secondary thread. With the JPype JVM loaded
+  in-process that collides fatally ('QSocketNotifier: ... from another
+  thread' → SIGSEGV in libQt6Core)."*
+- `gui/src/tabs/core/extractor_tab.py:311-320` (already fixed): *"Constructing
+  QAudioOutput eagerly for every tab at app startup ... triggers the
+  platform audio backend (PipeWire) to probe devices on its own thread;
+  that probe can race Qt's event loop startup and raise 'QSocketNotifier:
+  ...', cascading into heap corruption and a SIGABRT. Deferring
+  construction until a video is actually opened avoids doing this during
+  the fragile startup window."*
+
+**This is the same underlying Qt/PipeWire/JPype startup race documented and
+already fixed once (for `ExtractorTab`'s `QAudioOutput`), triggered here
+through a different path: starting new `QThread`s
+(`img_scanner_thread`/`vid_scanner_worker`, via `SystemDisplaySubTab.set_config()`
+auto-restoring the previous session's directory) *synchronously during
+`MainWindow`/tab construction*, before the Qt event loop has started
+processing events at all.** `ExtractorTab`'s module-level `QtMultimedia`
+import (needed for its own `QMediaPlayer`) triggers Qt's FFmpeg/PipeWire
+backend registration around the same startup moment (`ExtractorTab` and
+`WallpaperTab` are both constructed in `MainWindow.__init__`, close
+together) — if the Wallpaper tab's auto-restore *also* starts new QThreads
+during this exact window, the two race, corrupting the heap. This
+retroactively re-frames rounds 2-4's fixes (the scanner-thread stop/wait
+ordering, and the linked-panel synchronization) as real, worthwhile
+correctness fixes for a genuine race in their own right — but not the
+actual trigger of *this specific* crash log. They likely reduced how often
+this crash class surfaces (fewer overlapping thread-lifecycle events) without
+addressing its root cause.
+
+**Fix**: deferred `SystemDisplaySubTab.set_config()`'s directory-restore
+call — `self.populate_scan_image_gallery(config["scan_directory"])` — with
+`QTimer.singleShot(250, ...)`, so the actual scan (and the `QThread` starts
+it triggers) happens after the event loop is running, not synchronously
+during tab construction. `MonitorDisplaySubTab` needed no separate fix: it
+doesn't restore a directory itself, only receiving it via
+`system_display`'s `directory_scanned` signal, which now only fires once
+the deferred call executes.
+
+**Caveat, stated plainly**: 250ms is a reasonable, precedented deferral
+(matching the common `QTimer.singleShot(0, ...)` Qt idiom for "wait for the
+event loop"), not a guaranteed fix — if PipeWire's own probe genuinely takes
+longer than that in a worse environment, the race window could still be hit,
+just narrower. If this recurs with the same `QSocketNotifier` signature
+after this fix, the next step would be instrumenting exactly which QThread
+start is racing which Qt Multimedia probe (e.g., temporarily logging
+timestamps around both), rather than guessing at another deferral value.
