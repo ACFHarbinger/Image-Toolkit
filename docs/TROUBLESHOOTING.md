@@ -102,6 +102,16 @@ Cause: Calling `deleteLater()` on a container implicitly deletes its children to
 
 Fix: Explicitly call `setParent(None)` on the child widget *before* deleting/replacing the parent layout or container.
 
+**8 — Starting new `QThread`s during the fragile pre-event-loop startup window**
+
+Context: any code that starts a `QThread` (or constructs a `QAudioOutput`/other object that triggers Qt Multimedia's PipeWire backend probe) *synchronously* during `MainWindow`/tab construction — i.e., before `app.exec()` has started processing events. Confirmed twice: `ExtractorTab`'s originally-eager `QAudioOutput` construction, and `SystemDisplaySubTab.set_config()`'s directory-restore call starting `ImageScannerWorker`/`VideoScannerWorker` `QThread`s to auto-restore the previous session's Wallpaper-tab directory.
+
+Symptom: `QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread`, immediately followed by `free(): invalid pointer` (glibc heap corruption) and a SIGABRT — or, depending on exactly where the corrupted memory gets touched next, a SIGSEGV inside `libQt6Core` (see the `deleteOrphaned` crash class below, which was originally misdiagnosed as this instance's root cause before the full startup stdout was available).
+
+Cause: Qt Multimedia's PipeWire backend probes audio devices on its own thread the first time anything triggers it (constructing `QAudioOutput`, or sometimes just the plugin registration from importing `PySide6.QtMultimedia`). On Linux/glib, a `QThread` started around the same moment — before the main event loop is running — races that probe. With the JPype JVM already loaded in-process (started at login for `VaultManager`), this collision reliably corrupts the heap rather than failing safely.
+
+Fix: never start a `QThread` (or construct a `QAudioOutput`/`QMediaPlayer`) synchronously during widget construction if it can be avoided. Defer with `QTimer.singleShot(0, ...)` (for "wait until the event loop starts") or a short delay (`QTimer.singleShot(250, ...)`, used for the Wallpaper-tab startup restore) for anything that must run automatically at startup; for anything gated on user action (opening a video player), just construct it lazily on first real use instead of eagerly in `__init__`.
+
 ---
 
 ### `libpyside6.abi3.so.6.10` crash in `__dynamic_cast` on tab switch
@@ -237,6 +247,20 @@ that triggers the peer's nested call — on **both `self` and every entry in
 gallery instances sharing mutable state, apply the same rule: stop and
 drain *every* linked instance's workers before *any* of them touch shared
 state or widgets, not just the instance that received the user's action.
+
+**Important correction, round 5**: the *specific* crash log that motivated
+rounds 3-4 above turned out, once the full startup stdout was available, to
+actually be an instance of **root cause #8** above (a `QThread` started
+during the fragile pre-event-loop startup window racing Qt Multimedia's
+PipeWire probe) — not this `deleteOrphaned`/scanner-thread-ordering class at
+all. Rounds 2-4's fixes address a real, separate race in their own right
+(and are kept), but likely only reduced how often *that* crash class
+surfaces, without being the actual trigger of the specific log that
+prompted them. **If you're debugging a fresh instance of this crash and the
+process's stdout is available, check it for `QSocketNotifier: ... another
+thread` and `free(): invalid pointer` before assuming this section's fix
+applies** — those two lines point at root cause #8 instead, which needs a
+startup-deferral fix (`QTimer.singleShot`), not a worker-stop-ordering one.
 
 Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
