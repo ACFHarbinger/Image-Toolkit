@@ -18,7 +18,9 @@ pytestmark = pytest.mark.gui
 class TestConvertTab:
     @pytest.fixture
     def mock_worker(self):
-        with patch("gui.src.tabs.core.elements.format_subtab.ConversionWorker") as mock:
+        with patch(
+            "gui.src.tabs.core.elements.format_subtab._conversion_worker.ConversionWorker"
+        ) as mock:
             yield mock
 
     def test_init(self, q_app):
@@ -28,7 +30,9 @@ class TestConvertTab:
 
     def test_start_conversion_no_files(self, q_app, mock_worker):
         # Mock message box to avoid blocking
-        with patch("gui.src.tabs.core.elements.format_subtab.QMessageBox") as mock_mb:
+        with patch(
+            "gui.src.tabs.core.elements.format_subtab._conversion_worker.QMessageBox"
+        ) as mock_mb:
             tab = ConvertTab()
             tab.format_subtab.collect_paths = MagicMock(return_value=[])
 
@@ -38,7 +42,10 @@ class TestConvertTab:
             mock_mb.warning.assert_called()
 
     def test_start_conversion_success(self, q_app, mock_worker):
-        with patch("gui.src.tabs.core.elements.format_subtab.os.path.isdir", return_value=True):
+        with patch(
+            "gui.src.tabs.core.elements.format_subtab._conversion_worker.os.path.isdir",
+            return_value=True,
+        ):
             tab = ConvertTab()
             tab.format_subtab.input_path.setText("/tmp/in")
             tab.format_subtab.collect_paths = MagicMock(return_value=["/tmp/in/a.jpg"])
