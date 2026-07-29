@@ -7,6 +7,13 @@ Issue categories covered:
       (positive-baseline scenarios) and document ghosting detection for bad affines.
 
 All tests run without GPU.
+
+§5.17: rendering.py was split into a rendering/ package. _BATCH_RENDER and
+_batch_render live in rendering/_native.py, referenced by median.py/
+first.py/laplacian.py via module-qualified access (`_native._BATCH_RENDER`,
+not a bare `from ._native import _BATCH_RENDER`) specifically so that
+patching `_native._BATCH_RENDER` here affects every renderer that reads it.
+Patches below target `_rendering_mod._native`, not `_rendering_mod` itself.
 """
 
 from __future__ import annotations
@@ -375,13 +382,22 @@ class TestForegroundExcludedMedian:
         monkeypatch.setenv("ASP_FG_EXCLUDE_MEDIAN", "0")
         import importlib
 
+        # §5.17: _FG_EXCLUDE_MEDIAN is read once at import time by
+        # rendering/median.py (not rendering/__init__.py itself), so
+        # reloading only the package wouldn't re-evaluate it -- reload the
+        # submodule that actually owns it, then the package so its
+        # `from .median import _render_median` re-export picks up the fresh
+        # function object.
         import backend.src.animation.rendering.rendering as r
+        import backend.src.animation.rendering.rendering.median as _median_mod
 
+        importlib.reload(_median_mod)
         importlib.reload(r)
         frames, affines, masks, H, W = self._scene([True, True, True, False])
         canvas, _, _, _ = r._render_median(frames, affines, masks, H, W)
         val = float(canvas[50:70, 105:125].mean())
         assert val > 180, f"expected character ghost ~230, got {val:.0f}"
+        importlib.reload(_median_mod)
         importlib.reload(r)  # restore default
 
     def test_all_foreground_falls_back(self, monkeypatch):
@@ -479,10 +495,10 @@ class TestCheckGainChainDrift:
 
 def _has_batch_render_median():
     """True when batch.canvas.render_median is available."""
-    if not _rendering_mod._BATCH_RENDER:
+    if not _rendering_mod._native._BATCH_RENDER:
         return False
     try:
-        return hasattr(_rendering_mod._batch_render.canvas, "render_median")
+        return hasattr(_rendering_mod._native._batch_render.canvas, "render_median")
     except Exception:
         return False
 
@@ -538,9 +554,9 @@ class TestRenderMedianBatchFastPath:
         """Fast path and Python chunked path produce identical output."""
         frames, affines, bg_masks, H, W = self._inputs_no_fg(n=4, h=60, w=70, dy=50.0)
         # Reference: force Python path by disabling batch
-        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", False)
+        monkeypatch.setattr(_rendering_mod._native, "_BATCH_RENDER", False)
         ref_canvas, ref_mask, _, _ = _render_median(frames, affines, bg_masks, H, W)
-        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", True)
+        monkeypatch.setattr(_rendering_mod._native, "_BATCH_RENDER", True)
         cpp_canvas, cpp_mask, _, _ = _render_median(frames, affines, bg_masks, H, W)
         assert np.array_equal(ref_mask, cpp_mask), "valid_mask mismatch"
         assert np.abs(ref_canvas.astype(int) - cpp_canvas.astype(int)).max() <= 2, (
@@ -568,8 +584,8 @@ class TestRenderMedianBatchFastPath:
 
 def _has_batch_laplacian_warp():
     """True when batch.canvas.warp_frames_to_canvas is available."""
-    return _rendering_mod._BATCH_RENDER and hasattr(
-        getattr(_rendering_mod, "_batch_render", None), "canvas"
+    return _rendering_mod._native._BATCH_RENDER and hasattr(
+        getattr(_rendering_mod._native, "_batch_render", None), "canvas"
     )
 
 
@@ -608,9 +624,9 @@ class TestRenderLaplacianBatchWarp:
     def test_laplacian_matches_python_path(self, monkeypatch):
         """C++ parallel warp and Python sequential warp produce identical output."""
         frames, affines, bg_masks, H, W = self._inputs(n=3, h=60, w=80, dy=50.0)
-        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", False)
+        monkeypatch.setattr(_rendering_mod._native, "_BATCH_RENDER", False)
         ref_canvas, _, _, _ = _render_laplacian(frames, affines, bg_masks, H, W)
-        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", True)
+        monkeypatch.setattr(_rendering_mod._native, "_BATCH_RENDER", True)
         cpp_canvas, _, _, _ = _render_laplacian(frames, affines, bg_masks, H, W)
         assert np.abs(ref_canvas.astype(int) - cpp_canvas.astype(int)).max() <= 2, (
             "laplacian canvas pixel difference > 2 between Python and C++ warp"
@@ -636,8 +652,8 @@ class TestRenderLaplacianBatchWarp:
         class _BrokenBatch:
             canvas = _BrokenCanvas()
 
-        monkeypatch.setattr(_rendering_mod, "_batch_render", _BrokenBatch())
-        monkeypatch.setattr(_rendering_mod, "_BATCH_RENDER", True)
+        monkeypatch.setattr(_rendering_mod._native, "_batch_render", _BrokenBatch())
+        monkeypatch.setattr(_rendering_mod._native, "_BATCH_RENDER", True)
         canvas, valid_mask, _, _ = _render_laplacian(frames, affines, bg_masks, H, W)
         assert canvas.shape == (H, W, 3)
         assert valid_mask.max() == 255
