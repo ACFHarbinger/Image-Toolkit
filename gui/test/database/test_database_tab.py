@@ -94,7 +94,7 @@ class TestScanMetadataTab:
 class TestSearchTab:
     @pytest.fixture
     def mock_worker(self):
-        with patch("gui.src.tabs.database.search_tab.SearchWorker") as mock:
+        with patch("gui.src.tabs.database.search_tab._search_worker.SearchWorker") as mock:
             yield mock
 
     def test_init(self, q_app):
@@ -107,7 +107,9 @@ class TestSearchTab:
         mock_db_tab.db = None
         tab = SearchTab(mock_db_tab)
 
-        with patch("gui.src.tabs.database.search_tab.QMessageBox.warning") as mock_warn:
+        with patch(
+            "gui.src.tabs.database.search_tab._search_worker.QMessageBox.warning"
+        ) as mock_warn:
             tab.perform_search()
             mock_warn.assert_called()
             mock_worker.assert_not_called()
@@ -123,7 +125,9 @@ class TestSearchTab:
 
         # Since perform_search uses QThreadPool.globalInstance().start(worker)
         # we can't easily check if global thread pool started it unless we mock QThreadPool
-        with patch("gui.src.tabs.database.search_tab.QThreadPool") as MockThreadPool:
+        with patch(
+            "gui.src.tabs.database.search_tab._search_worker.QThreadPool"
+        ) as MockThreadPool:
             tab.perform_search()
 
             mock_worker.assert_called()
