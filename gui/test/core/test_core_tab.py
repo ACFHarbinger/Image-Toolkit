@@ -62,7 +62,9 @@ class TestWallpaperTab:
         from screeninfo import Monitor
         mock_monitor = Monitor(name="Display1", x=0, y=0, width=1920, height=1080, is_primary=True)
         with (
-            patch("gui.src.tabs.core.elements.system_display_subtab.WallpaperWorker"),
+            patch(
+                "gui.src.tabs.core.elements.system_display_subtab._wallpaper_worker.WallpaperWorker"
+            ),
             patch(
                 "gui.src.tabs.core.elements.common.wallpaper_common_base._scan_pipeline.ImageScannerWorker"
             ),
