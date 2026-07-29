@@ -67,7 +67,7 @@ flowchart LR
         s57["§5.7 Dependency\nAudit & Pinning"]:::infra:::planned
         s58["§5.8 Model Wrapper\nAbstraction Layer"]:::refactor:::planned
         s513["§5.13 Decorator\nLibrary"]:::infra:::planned
-        s514["§5.14 Centralised\nSettings Facade"]:::refactor:::planned
+        s514["§5.14 Centralised\nSettings Facade"]:::refactor:::done
         s515["§5.15 Fault Isolation\n& Error Boundaries"]:::augment:::planned
     end
 
@@ -81,9 +81,9 @@ flowchart LR
     subgraph Quality ["📐 Code Quality"]
         direction TB
         s55["§5.5 Gradual\nType Safety"]:::refactor:::planned
-        s511["§5.11 Circular Import\nPrevention"]:::fix:::planned
+        s511["§5.11 Circular Import\nPrevention"]:::fix:::done
         s512["§5.12 Codebase Docs\n& Diagrams"]:::docs:::planned
-        s517["§5.17 File Size Limit\nEnforcement (<500 LoC)"]:::refactor:::planned
+        s517["§5.17 File Size Limit\nEnforcement (<500 LoC)"]:::refactor:::active
     end
 
     %% Cross-group dependencies
@@ -678,7 +678,7 @@ Both `AbstractClassSingleGallery` and `AbstractClassTwoGalleries` call `self._lo
 
 ## 5.11 Circular Import Prevention & Module Boundary Documentation {: #511-circular-import-prevention--module-boundary-documentation }
 
-**Partial — Options A, B, D shipped; C explicitly deferred. See ROADMAP.md items A.17, A.8, A.4.** Confirmed: `pyproject.toml` has a `[tool.importlinter]` section with 3 contracts (Option A); `TYPE_CHECKING` guards added for heavy GUI→backend imports (Option B); `__all__` hygiene pass done across 15 `__init__.py` files (Option D). **Option C (pydeps/pipdeptree module graph) is explicitly not done** — ROADMAP A.17 itself notes "pydeps SVG deferred to a dedicated docs PR," so this remains open.
+**✅ Shipped (A+B+C+D). See ROADMAP.md items A.17, A.8, A.4, A.18.** Confirmed: `pyproject.toml` has a `[tool.importlinter]` section with 3 contracts (Option A); `TYPE_CHECKING` guards added for heavy GUI→backend imports (Option B); `__all__` hygiene pass done across 15 `__init__.py` files (Option D). **Option C shipped 2026-07-29**: rather than adding `pydeps` as a new dependency, fixed and wired the codebase's own pre-existing (but broken — its `DEFAULT_LAYERS` prefixes still said `"logic"`, a pre-rename leftover that made it silently detect zero `Backend`-layer modules) `backend/validation/visualize_module_graph.py`. `just validation::module-graph` now scans `backend/src` + `gui/src` together (so cross-boundary edges/violations are visible) and the generated graph is committed at `docs/module_graph.html` (408→475 modules as the epic's file splits landed, 0 unexplained cross-layer violations — 1 allowlisted exception for `backend.src.app`, the Qt composition root).
 
 **Pain point (original framing):** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.animation import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
 
@@ -880,7 +880,7 @@ All the above decorators live in a single module. Keeps them discoverable and im
 
 ## 5.14 Centralised Settings Facade (`gui/src/utils/settings.py` + `backend/src/animation/config.py`) {: #514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy }
 
-**Partial — Options A, B, D shipped; C not done. See ROADMAP.md items A.11, A.12, A.5.** Confirmed: an `AppSettings` singleton facade exists (Option A) — now at `gui/src/windows/settings/app_settings.py` rather than the `gui/src/utils/settings.py` path this section assumes; `get_asp(key, default)` exists in `backend/src/animation/core/config.py` (Option B); `SETTINGS_SCHEMA` + `_validate_settings()` in `backend/src/app.py` validate QSettings keys at startup (Option D). Option C (unified `AppConfig` dataclass merging GUI + backend config) not found — still open, as the recommendation itself notes it should wait on §5.11.
+**✅ Shipped (A+B+C+D). See ROADMAP.md items A.11, A.12, A.5, A.19.** Confirmed: an `AppSettings` singleton facade exists (Option A) — now at `gui/src/windows/settings/app_settings.py` rather than the `gui/src/utils/settings.py` path this section assumes; `get_asp(key, default)` exists in `backend/src/animation/core/config.py` (Option B); `SETTINGS_SCHEMA` + `_validate_settings()` in `backend/src/app.py` validate QSettings keys at startup (Option D). **Option C shipped 2026-07-29**, now that §5.11 landed: `AppConfig` at `gui/src/windows/settings/app_config.py` — a read-only, introspectable snapshot merging every `ASP_*` env-var key (via the backend's own `asp_schema()`) with `AppSettings`'s known static GUI preference keys, plus a `gui_dynamic_keys` listing (names only) for the runtime-created `session/`/`splitters/`/`labels/` QSettings namespaces that have no fixed schema to snapshot as typed fields. Deliberately placed under `gui/src/windows/settings/`, not `gui/src/utils/` (the original sketch's suggested location) — `gui.src.utils` is the codebase's documented bottom import-linter layer, and this module needs to import `AppSettings` from `gui.src.windows`, which would break that layering contract from `utils`. Additive only: `AppSettings` and `get_asp()` remain the source of truth for all existing read/write call sites.
 
 **Pain point (original framing):** Application configuration is split across at least three independent mechanisms with no unified access point:
 1. **GUI persistent state** — `QSettings("ImageToolkit", "ImageToolkit")` is called with hardcoded organisation/application strings in 20+ locations across `abstract_class_two_galleries.py`, `abstract_class_single_gallery.py`, `splitter_persistence.py`, `listings_common.py`, `main_window.py`, and `settings_window.py`. Any typo in the string creates a silently-separate settings namespace.
@@ -1131,7 +1131,7 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 
 ## 5.17 File Size Limit Enforcement (<500 LoC) {: #517-file-size-limit-enforcement-500-loc }
 
-**Priority: High.**
+**Priority: High. Partial — `backend/src/` (issue #117) fully shipped 2026-07-29; `gui/src/` (issue #116, 27 files) still open.** All 8 `backend/src/` files listed below were split using Option B (package-directory, public-API re-export) — `compositing.py` and `pipeline.py`, explicitly the two largest and most benchmark-sensitive files in the codebase, included. Confirmed via `count_loc.py backend/src --sort code`: the largest file anywhere in `backend/src` is now 457 code lines (`animation/core/pipeline/run_stage.py` — see its own module docstring for why it's the one file left close to, rather than comfortably under, the limit: `run()` has no end-to-end regression test, so a full context-object decomposition wasn't attempted). `gui/src/`'s 27 files (including `stitch_tab.py` at 5,032 and `extractor_tab.py` at 3,268, the two largest/riskiest files in the whole codebase) remain untouched — deferred to a follow-up pass per Option E's own triage guidance, given their size and centrality.
 
 **Pain point:** `backend/src/utils/validation/count_loc.py` (already built, already used ad hoc — see §5.12/§5.11C's companion `tree_loc.py`) has never been wired into an enforced limit. Two files exceed **5,000 code lines** (`gui/src/tabs/animation/stitch_tab.py` at 5,032; `gui/src/tabs/core/extractor_tab.py` at 3,268), and 27 `gui/src/` files plus 8 `backend/src/` files exceed the 500-code-line threshold entirely. Large files have compounding costs specific to this codebase: `stitch_tab.py` mixes HITL checkpoint UI, session replay, and pipeline-trigger logic in one class, making it the single riskiest file to touch for any change (as already flagged informally in `moon/roadmaps/asp_sessions_log.md`); `settings_window.py`'s `__init__` alone is ~1,113 physical lines of widget construction, meaning even IDE "go to definition" and code review degrade badly; and `count_loc.py`'s own output — run fresh this session — already drifted from the last hand-maintained snapshot within one day of other sessions committing, confirming that a *manual* audit process cannot keep pace with concurrent work on this codebase and only a CI-enforced gate will hold the line.
 
@@ -1164,25 +1164,29 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 
 (7 more between 500–591: `entity_listings_subtab.py` 591, `cbir_train_tab.py` 588, `display/detail_panel*.py` 578, `sampler_subtab.py` 564, `metadata_editor_window.py` 530, `entity_recon_tab.py` 522, `monitor_drop_view.py` 515.)
 
-`backend/src/` — all 8 files over the limit:
+`backend/src/` — all 8 files **✅ shipped 2026-07-29**, split via Option B (package-directory, public-API re-export). Pre-split code-LoC shown for reference; each is now a package whose largest sibling file is well under 500 code lines (worst case: `animation/core/pipeline/run_stage.py` at 457):
 
-| File | Code LoC |
-|---|---|
-| `animation/rendering/compositing.py` | 1,787 |
-| `animation/core/pipeline.py` | 1,635 |
-| `animation/rendering/rendering.py` | 914 |
-| `animation/ingestion/frame_selection.py` | 908 |
-| `core/image_merger.py` | 874 |
-| `animation/alignment/fg_register.py` | 624 |
-| `core/wallpaper.py` | 570 |
-| `animation/alignment/matching.py` | 517 |
+| File (pre-split) | Code LoC | Now | Commit |
+|---|---|---|---|
+| `animation/rendering/compositing.py` | 1,787 | `animation/rendering/compositing/` (13 files) | `0dfcc564` |
+| `animation/core/pipeline.py` | 1,635 | `animation/core/pipeline/` (17 files) | `2565c8e3` |
+| `animation/rendering/rendering.py` | 914 | `animation/rendering/rendering/` (10 files) | `b79e4a97` |
+| `animation/ingestion/frame_selection.py` | 908 | `animation/ingestion/frame_selection/` (12 files) | `8b2105e3` |
+| `core/image_merger.py` | 874 | `core/image_merger/` (6 files) | `264e286d` |
+| `animation/alignment/fg_register.py` | 624 | `animation/alignment/fg_register/` (7 files) | `a27461ed` |
+| `core/wallpaper.py` | 570 | `core/wallpaper/` (6 files) | `084b5801` |
+| `animation/alignment/matching.py` | 517 | `animation/alignment/matching/` (5 files) | `b6b16a93` |
+
+Every external `from ...pipeline import AnimeStitchPipeline`-style import keeps working unchanged — each package's `__init__.py` re-exports the original public API. Verified per-file via: the file's own test suite, the full `backend/test/animation/ --skip-gpu` suite (670 passed/5 skipped, stable across all 8), `ruff check`, `uv run lint-imports` (all 3 contracts kept), and a regenerated `docs/module_graph.html` (0 unexplained cross-layer violations throughout). Ref: issue #117 (closed by this work).
+
+`gui/src/`'s 27 files (issue #116) — including `stitch_tab.py` (5,032) and `extractor_tab.py` (3,268), the two largest files in the whole codebase — remain untouched; deferred to a follow-up session.
 
 Notes on borderline cases: `frame_selection.py`'s comment+docstring density (237+377 = 614, nearly 2× its own code) means its *total* line count looks far worse than its actual maintainability burden — re-check with `count_loc.py --sort code` (not `--sort total`) before scheduling a split. `animation/alignment/bundle_adjust.py` is 431 code lines (500 *total* including comments/docstrings) — below the code-line threshold this section tracks; excluded from the worst-offenders list above but worth a second look if the threshold is later redefined as total-lines rather than code-lines.
 
 ### Options
 
 **A — CI-enforced LoC gate using the existing `count_loc.py` [Quick Win, Recommended]**
-Add a `--max-code-lines N --fail-over` mode to `count_loc.py` (or a thin wrapper script) that exits non-zero if any file under `gui/src/` or `backend/src/` exceeds 500 code lines, and wire it into a new `just check-loc` target plus a CI job. New files are checked on every PR; the *existing* 35 offenders are grandfathered via an explicit allow-list (a `docs/loc_exceptions.txt` of paths, each requiring a comment linking to the tracking issue) so the gate does not block unrelated work immediately.
+Add a `--max-code-lines N --fail-over` mode to `count_loc.py` (or a thin wrapper script) that exits non-zero if any file under `gui/src/` or `backend/src/` exceeds 500 code lines, and wire it into a new `just check-loc` target plus a CI job. New files are checked on every PR; the *existing* offenders are grandfathered via an explicit allow-list (a `docs/loc_exceptions.txt` of paths, each requiring a comment linking to the tracking issue) so the gate does not block unrelated work immediately — as of 2026-07-29 that allow-list only needs the 27 remaining `gui/src/` files (issue #116); the 8 `backend/src/` offenders (issue #117) shipped and no longer need an entry.
 - Pros: Stops the bleeding immediately — no new file can quietly cross 500 lines. Reuses a tool that already exists and already has a `--sort`/`--limit` CLI. Zero new dependencies.
 - Cons: The allow-list itself needs periodic pruning as files are split, or it silently becomes permanent scaffolding.
 
@@ -1219,7 +1223,7 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 |---|---|---|---|---|
 | **Low (<1d)** | §5.8D remove relocated-import comments · §5.10C metaclass docstring · §5.10D `_load_thumbnail_size` extraction · §5.11C module graph · §5.11D `__all__` hygiene · §5.13C `@log_call` decorator · §5.14D QSettings key validation · §5.15C eliminate bare `except: pass` | §5.4A `logging` module adoption · §5.5B Pyright `basic` mode · §5.7A `uv lock` · §5.7C+D pip-audit + cargo-audit · §5.9C progress tuple · §5.9D `WorkerConfig` typed dicts · §5.17A CI LoC gate · §5.17D LoC dashboard | §5.1A per-stage unit tests (most stages) · §5.11B TYPE_CHECKING guards (deferred heavy imports) · §5.16A wrapper contract tests (mock-based) · §5.17E per-file blast-radius triage | — |
 | **Medium (1d–1w)** | — | §5.4B pipeline trace JSON · §5.5A mypy baseline + per-module opt-in · §5.5C TypedDict worker configs · §5.6A remote wallpaper API · §5.6B gallery web view · §5.12C tab→worker→backend doc · §5.13A `@lazy_load` + §5.13E `decorators.py` module · §5.14A `AppSettings` GUI facade · §5.14B merge backend `os.environ` into `load_asp_config` | §5.2A+B benchmark regression CI · §5.8A `ModelWrapper` ABC + §5.8B `@lazy_load` · §5.9A `BaseQThreadWorker` + §5.9B `BaseQRunnableWorker` · §5.12A NumPy docstrings · §5.12B Mermaid diagrams · §5.15A custom exception hierarchy · §5.15B error boundary in `BaseQThreadWorker` · §5.17B split of a single self-contained file (e.g. `settings_window.py`'s method-group mixins) | §5.16C `ModelWrapperContractMixin` (after §5.8A) |
-| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) · §5.17B splitting all 35 offenders across `gui/src` + `backend/src` |
+| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) · §5.17B splitting the remaining 27 `gui/src` offenders (8 `backend/src` offenders shipped 2026-07-29) |
 | **Very High (2w+)** | — | — | §5.1C benchmark golden-gate diff (CI integration) · §5.11A `import-linter` enforcement · §5.12D Sphinx/pdoc auto-docs · §5.5A full strict mypy coverage (end state) | §5.17B splitting `stitch_tab.py` (5,032 lines, highest centrality/risk in the codebase) |
 
 ---
@@ -1252,3 +1256,5 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 *Last updated: 2026-06-18. Added §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper abstraction, worker lifecycle standardisation, gallery base class consolidation, circular import prevention, codebase documentation & diagrams, decorator library), and §5.14–§5.16 (centralised settings facade, fault isolation & error boundary protocol, contract testing for ML wrappers). ASP unit tests now at 827 (session 131). ASP benchmark corpus: 97 tests. Phase 2 architecture defined: direct video ingestion (PyAV `VideoIngestionStream`), multi-modal HITL with Grounded SAM-2. See `asp.md` for per-session tracking and Phase 2 Sprint specs.*
 
 *Updated 2026-07-28: Added §5.17 (File Size Limit Enforcement, <500 LoC — high priority, 27 `gui/src` + 8 `backend/src` offenders identified via a fresh `count_loc.py` run). §5.9 (Worker Thread Base Class & Lifecycle Standardisation) completed this session — Options C (`(completed, total)` progress tuples) and D (`WorkerConfig` TypedDicts) shipped across all remaining int-percentage workers; §5.9 marked ✅ Shipped (A+B+C+D) and its Mermaid node updated to `:::done`. See GitHub issues tracking §5.17's file-size epic and §5.9's now-closed quick wins for follow-up.*
+
+*Updated 2026-07-29: §5.11 (Option C — module dependency graph) and §5.14 (Option C — unified `AppConfig`) both shipped, closing out their remaining open sub-items; both now marked ✅ Shipped (A+B+C+D). §5.17: all 8 `backend/src/` offenders (issue #117) split via Option B and shipped — `compositing.py` (1,787 LoC) and `pipeline.py` (1,635 LoC), the two largest/most benchmark-sensitive files in the codebase, included; largest file anywhere in `backend/src/` is now 457 code lines. §5.17's `gui/src/` half (issue #116, 27 files) remains open and is deferred to a follow-up session. See GitHub issue #117 (closed by this work), #120 (§5.11C/§5.14C DRY work), and the parent epic #118 (now partially complete) for tracking.*
