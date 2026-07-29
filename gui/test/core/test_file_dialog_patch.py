@@ -166,7 +166,7 @@ class TestFileDialogPatch:
 
             # Simulate context menu action trigger
             pos = picker._sidebar.visualItemRect(target_item).center()
-            with patch("gui.src.tabs.animation.stitch_tab.QMenu", MyMenu):
+            with patch("gui.src.tabs.animation.stitch_tab._thumbnail_file_picker.QMenu", MyMenu):
                 picker._on_sidebar_context_menu(pos)
 
             assert str(fav_dir) not in AppSettings.favourite_directories()

@@ -32,7 +32,7 @@ class TestStitchTabBrowseOutput:
 
         # Mock QFileDialog.getSaveFileName to avoid popping up UI
         with patch(
-            "gui.src.tabs.animation.stitch_tab.QFileDialog.getSaveFileName"
+            "gui.src.tabs.animation.stitch_tab._stitch_execution.QFileDialog.getSaveFileName"
         ) as mock_save_dialog:
             mock_save_dialog.return_value = (
                 "/home/user/downloads/my_panorama.png",
@@ -61,7 +61,7 @@ class TestStitchTabBrowseOutput:
         tab._output_path.setText("my_custom_panorama.png")
 
         with patch(
-            "gui.src.tabs.animation.stitch_tab.QFileDialog.getSaveFileName"
+            "gui.src.tabs.animation.stitch_tab._stitch_execution.QFileDialog.getSaveFileName"
         ) as mock_save_dialog:
             mock_save_dialog.return_value = ("", "")
 
