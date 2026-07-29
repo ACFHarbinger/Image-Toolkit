@@ -1,0 +1,411 @@
+"""Extraction queue management (add/remove/reorder-by-load, sequential vs
+parallel processing) and the "5. Results Gallery Section" build (output
+gallery, queue box, search input, pagination).
+
+Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
+"""
+
+from __future__ import annotations
+
+import copy
+import os
+import time
+from pathlib import Path
+
+from PySide6.QtCore import QPoint, Qt, QThreadPool, Slot
+from PySide6.QtWidgets import (
+    QComboBox,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ....components import ClickableLabel, MarqueeScrollArea
+from ....helpers.core.queue_execution_worker import QueueExecutionWorker
+
+
+class _QueueManagementMixin:
+    """Extraction queue management and the Results Gallery / Queue section."""
+
+    def _build_results_section(self) -> None:
+        """Builds "5. Results Gallery Section" and adds it to self.main_layout."""
+        self.gallery_scroll_area = MarqueeScrollArea()
+        self.gallery_scroll_area.setWidgetResizable(True) # pyrefly: ignore [missing-attribute]
+        self.gallery_scroll_area.setStyleSheet( # pyrefly: ignore [missing-attribute]
+            """
+            QScrollArea {
+                border: 1px solid #4f545c;
+                background-color: #2c2f33;
+                border-radius: 8px;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #2c2f33;
+                width: 12px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #00BCD4;
+                min-height: 20px;
+                border-radius: 6px;
+                margin: 0 2px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+                subcontrol-position: none;
+            }
+            QScrollBar:horizontal {
+                border: none;
+                background: #2c2f33;
+                height: 12px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #00BCD4;
+                min-width: 20px;
+                border-radius: 6px;
+                margin: 2px 0;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px;
+                subcontrol-position: none;
+            }
+        """
+        )
+        self.gallery_scroll_area.setMinimumHeight(600) # pyrefly: ignore [missing-attribute]
+
+        self.gallery_container = QWidget()
+        self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
+
+        self.gallery_layout = QGridLayout(self.gallery_container)
+        self.gallery_layout.setAlignment( # pyrefly: ignore [missing-attribute]
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
+        self.gallery_layout.setSpacing(3) # pyrefly: ignore [missing-attribute]
+        self.gallery_scroll_area.setWidget(self.gallery_container) # pyrefly: ignore [missing-attribute]
+
+        self.gallery_scroll_area.selection_changed.connect( # pyrefly: ignore [missing-attribute]
+            self.handle_marquee_selection
+        )
+
+        # Setup Queue UI Group Box
+        self.queue_group = QGroupBox("Extraction Queue")
+        queue_layout = QVBoxLayout(self.queue_group)
+        queue_layout.setContentsMargins(10, 10, 10, 10)
+
+        self.queue_list = QListWidget()
+        self.queue_list.setMaximumHeight(120)
+        self.queue_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.queue_list.customContextMenuRequested.connect(self.show_queue_context_menu)
+        queue_layout.addWidget(self.queue_list)
+
+        controls_layout = QHBoxLayout()
+        controls_layout.addWidget(QLabel("Execution Mode:"))
+        self.combo_queue_mode = QComboBox()
+        self.combo_queue_mode.addItems(["Sequentially", "Parallel (Multiprocessing)"])
+        controls_layout.addWidget(self.combo_queue_mode)
+
+        self.btn_process_queue = QPushButton("⚙️ Process Queue")
+        self.btn_process_queue.clicked.connect(self.process_queue)
+        self.btn_process_queue.setStyleSheet(
+            "QPushButton { font-weight: bold; background-color: #2ecc71; color: white; padding: 4px 8px; }"
+        )
+        controls_layout.addWidget(self.btn_process_queue)
+
+        self.btn_clear_queue = QPushButton("🗑️ Clear Queue")
+        self.btn_clear_queue.clicked.connect(self.clear_queue)
+        controls_layout.addWidget(self.btn_clear_queue)
+
+        queue_layout.addLayout(controls_layout)
+
+        self.main_layout.addWidget(self.queue_group)
+        self.queue_group.setVisible(self.extraction_queue_enabled)
+
+        # Add shared search input (Lazy Search)
+        self.main_layout.addWidget(self.search_input)
+
+        self.main_layout.addWidget(self.gallery_scroll_area, 1) # pyrefly: ignore [bad-argument-type]
+        self.main_layout.addWidget(
+            self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
+        )
+
+        self.extraction_status_label = QLabel("Ready.")
+        self.extraction_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.extraction_status_label.setStyleSheet(
+            "color: #666; font-style: italic; padding: 8px;"
+        )
+        self.extraction_status_label.hide()
+        self.main_layout.addWidget(self.extraction_status_label)
+
+    @Slot()
+    def clear_queue(self):
+        self.extraction_queue.clear()
+        self._update_queue_ui()
+        self.extraction_status_label.setText("Queue cleared.")
+        self.extraction_status_label.show()
+
+    @Slot(QPoint)
+    def show_queue_context_menu(self, pos: QPoint):
+        item = self.queue_list.itemAt(pos)
+        if not item:
+            return
+        idx = self.queue_list.row(item)
+        if idx < 0 or idx >= len(self.extraction_queue):
+            return
+
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            "QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }"
+        )
+        load_action = menu.addAction("✏️ Load Configurations")
+        remove_action = menu.addAction("❌ Remove")
+
+        action = menu.exec(self.queue_list.mapToGlobal(pos))
+        if action == load_action:
+            self.load_extraction_config(idx)
+        elif action == remove_action:
+            self.remove_queue_item(idx)
+
+    def remove_queue_item(self, idx: int):
+        if 0 <= idx < len(self.extraction_queue):
+            self.extraction_queue.pop(idx)
+            self._update_queue_ui()
+            self.extraction_status_label.setText("Removed item from queue.")
+            self.extraction_status_label.show()
+
+    def load_extraction_config(self, idx: int):  # noqa: C901
+        if idx < 0 or idx >= len(self.extraction_queue):
+            return
+        item = self.extraction_queue[idx]
+        v_path = item.get("video_path")
+        if not v_path or not os.path.exists(v_path):
+            QMessageBox.warning(
+                self, "File Not Found", f"The video file '{v_path}' no longer exists."
+            )
+            return
+
+        # Load video if not already open
+        if self.video_path != v_path:
+            self.load_media(v_path)
+
+        # Set start and end time from config
+        self.start_time_ms = item.get("start_ms", 0)
+        self.end_time_ms = item.get("end_ms", 0)
+        self.btn_set_start.setText(
+            f"Start [{self._format_time(self.start_time_ms)}]"
+            if self.start_time_ms
+            else "Set Start [00:00]"
+        )
+        self.btn_set_end.setText(
+            f"End [{self._format_time(self.end_time_ms)}]"
+            if self.end_time_ms
+            else "Set End [00:00]"
+        )
+
+        # Load cuts
+        self.cuts_ms = copy.deepcopy(item.get("cuts_ms", []))
+        self._update_cuts_label()
+
+        # Load interval/smart extract
+        self.spin_interval.setValue(item.get("frame_interval", 1))
+        self.check_smart_extract.setChecked(item.get("smart_extract", False))
+        if item.get("smart_method"):
+            self.combo_smart_method.setCurrentText(item.get("smart_method"))
+
+        # Target resolution
+        target_res = item.get("target_resolution")
+        if target_res:
+            res_str = f"{target_res[0]}x{target_res[1]}"
+            for i in range(self.combo_extract_size.count()):
+                if self.combo_extract_size.itemText(i) == res_str:
+                    self.combo_extract_size.setCurrentIndex(i)
+                    break
+        else:
+            self.combo_extract_size.setCurrentText("Native")
+
+        # Load engine
+        use_ffmpeg = item.get("use_ffmpeg", True)
+        self.combo_engine.setCurrentText("FFmpeg" if use_ffmpeg else "MoviePy")
+
+        # Load speed
+        speed = item.get("speed", 1.0)
+        if isinstance(speed, float):
+            if speed == 1.0:
+                speed_str = "1x"
+            elif speed == 0.5:
+                speed_str = "0.5x"
+            elif speed == 0.25:
+                speed_str = "0.25x"
+            elif speed == 1.5:
+                speed_str = "1.5x"
+            elif speed == 2.0:
+                speed_str = "2x"
+            elif speed == 4.0:
+                speed_str = "4x"
+            else:
+                speed_str = f"{speed:g}x"
+        else:
+            speed_str = str(speed)
+            if not speed_str.endswith("x"):
+                speed_str += "x"
+        self.combo_speed.setCurrentText(speed_str)
+
+        # Load mute audio
+        self.check_mute_audio.setChecked(item.get("mute_audio", False))
+
+        # Load fps (for gif or others)
+        self.spin_gif_fps.setValue(item.get("fps", 24))
+
+        # Jump to start_ms in media player
+        if self.start_time_ms > 0 and self.media_player:
+            self.media_player.setPosition(self.start_time_ms)
+            self.slider.setValue(self.start_time_ms)
+            self.lbl_current_time.setText(self._format_time(self.start_time_ms)) # pyrefly: ignore [missing-attribute]
+
+        # Update active video config dictionary so switching tabs doesn't lose it
+        config = self.active_videos_config.get(v_path, {})
+        config["start_time_ms"] = self.start_time_ms
+        config["end_time_ms"] = self.end_time_ms
+        config["cuts_ms"] = copy.deepcopy(self.cuts_ms)
+        config["spin_interval"] = item.get("frame_interval", 1)
+        config["check_smart_extract"] = item.get("smart_extract", False)
+        config["combo_smart_method"] = item.get("smart_method", "")
+        config["check_mute_audio"] = item.get("mute_audio", False)
+        config["spin_gif_fps"] = item.get("fps", 24)
+        config["combo_extract_size"] = self.combo_extract_size.currentText()
+        config["media_position"] = self.start_time_ms
+        self.active_videos_config[v_path] = config
+
+        self.extraction_status_label.setText(
+            f"Loaded configurations from queue item #{idx + 1}."
+        )
+        self.extraction_status_label.show()
+
+    def _update_queue_ui(self):
+        self.queue_list.clear()
+        for idx, item in enumerate(self.extraction_queue):
+            v_name = Path(item["video_path"]).name
+            t_type = item["type"].upper()
+            start_fmt = time.strftime("%M:%S", time.gmtime(item["start_ms"] / 1000.0))
+            end_fmt = (
+                time.strftime("%M:%S", time.gmtime(item["end_ms"] / 1000.0))
+                if item["end_ms"] != -1
+                else "End"
+            )
+            self.queue_list.addItem(
+                f"{idx + 1}. [{t_type}] {v_name} ({start_fmt} - {end_fmt})"
+            )
+
+        enabled = len(self.extraction_queue) > 0
+        self.btn_process_queue.setEnabled(enabled)
+        self.btn_clear_queue.setEnabled(enabled)
+
+    def _on_queue_toggle_changed(self):
+        if hasattr(self, "queue_group"):
+            self.queue_group.setVisible(self.extraction_queue_enabled)
+
+    @Slot()
+    def process_queue(self):
+        if not self.extraction_queue:
+            return
+
+        mode = self.combo_queue_mode.currentText()
+        is_parallel = "Parallel" in mode
+
+        self.btn_process_queue.setEnabled(False)
+        self.btn_clear_queue.setEnabled(False)
+        self.combo_queue_mode.setEnabled(False)
+
+        self.extraction_progress_bar.setValue(0)
+        self.extraction_progress_bar.show()
+        self.extraction_status_label.setText(f"Processing queue ({mode})...")
+        self.extraction_status_label.show()
+
+        self.active_queue_worker = QueueExecutionWorker(
+            self.extraction_queue, parallel=is_parallel
+        )
+        self.active_queue_worker.signals.progress.connect(self._on_queue_progress)
+        self.active_queue_worker.signals.finished.connect(
+            self._on_queue_processing_finished
+        )
+        self.active_queue_worker.signals.error.connect(self._on_queue_processing_error)
+
+        QThreadPool.globalInstance().start(self.active_queue_worker)
+
+    @Slot(int, int)
+    def _on_queue_progress(self, completed: int, total: int):
+        self.extraction_progress_bar.setMaximum(max(total, 1))
+        self.extraction_progress_bar.setValue(completed)
+
+    def _on_queue_processing_finished(self, results):
+        self.active_queue_worker = None
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
+
+        self.btn_process_queue.setEnabled(True)
+        self.btn_clear_queue.setEnabled(True)
+        self.combo_queue_mode.setEnabled(True)
+
+        self.extraction_queue.clear()
+        self._update_queue_ui()
+
+        new_paths = []
+        errors = []
+        for res in results:
+            if res.get("status") == "success":
+                if "saved_files" in res:
+                    new_paths.extend(res["saved_files"])
+                elif "output_path" in res:
+                    new_paths.append(res["output_path"])
+            else:
+                errors.append(res.get("message", "Unknown error"))
+
+        if new_paths:
+            self._refresh_extracted_stems_cache()
+            self.start_loading_gallery(new_paths, append=True)
+            self.current_extracted_paths = self.gallery_image_paths[:]
+
+            for path, widget in self.source_path_to_widget.items():
+                label = widget.findChild(ClickableLabel)
+                if label:
+                    self._update_source_label_style(
+                        path, label, path == getattr(self, "video_path", None)
+                    )
+
+        if errors:
+            QMessageBox.warning(
+                self,
+                "Queue Extraction Completed with Errors",
+                "Processed queue items. Errors encountered:\n" + "\n".join(errors),
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Queue execution complete! Processed all items. Extracted {len(new_paths)} items.",
+            )
+
+    def _on_queue_processing_error(self, error_msg):
+        self.active_queue_worker = None
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.hide()
+
+        self.btn_process_queue.setEnabled(True)
+        self.btn_clear_queue.setEnabled(True)
+        self.combo_queue_mode.setEnabled(True)
+
+        if "cancelled" not in error_msg.lower():
+            QMessageBox.warning(self, "Queue Processing Error", error_msg)
+
+
+__all__ = ["_QueueManagementMixin"]

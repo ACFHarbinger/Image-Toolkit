@@ -306,8 +306,8 @@ class TestExtractorTab:
     def test_init(self, q_app):
         # Patch to avoid actual multimedia initialization
         with (
-            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             assert isinstance(tab, QWidget)
@@ -316,9 +316,9 @@ class TestExtractorTab:
         # Patch QMediaPlayer to avoid actual media player initialization and track calls
         with (
             patch(
-                "gui.src.tabs.core.extractor_tab.QMediaPlayer"
+                "gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"
             ) as mock_player_cls,
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             mock_player = MagicMock()
             mock_player_cls.return_value = mock_player
@@ -341,8 +341,8 @@ class TestExtractorTab:
             cv2.CAP_PROP_FRAME_HEIGHT = 4
 
         with (
-            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             mock_vc = MagicMock()
             mock_vc.get.side_effect = lambda prop: {
@@ -377,8 +377,8 @@ class TestExtractorTab:
 
     def test_has_extracted_files_regex(self, q_app):
         with (
-            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             tab._extracted_stems_cache.clear()
@@ -395,10 +395,10 @@ class TestExtractorTab:
         (source_dir / "video.mp4").touch()
 
         with (
-            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
             patch(
-                "gui.src.tabs.core.extractor_tab.QFileDialog.getExistingDirectory",
+                "gui.src.tabs.core.extractor_tab._video_session_history.QFileDialog.getExistingDirectory",
                 return_value=str(output_dir),
             ),
         ):
@@ -419,8 +419,8 @@ class TestExtractorTab:
         (output_dir / "clip.mp4").touch()
 
         with (
-            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             tab.scan_directory(str(source_dir))
@@ -443,8 +443,8 @@ class TestExtractorTab:
         video_path.touch()
 
         with (
-            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             tab.extraction_dir = output_dir
@@ -470,11 +470,11 @@ class TestExtractorTab:
             mock_dlg.fps = 24.0
 
             monkeypatch.setattr(
-                "gui.src.tabs.core.extractor_tab.FrameSelectionDialog",
+                "gui.src.tabs.core.extractor_tab._extraction_execution.FrameSelectionDialog",
                 lambda *args, **kwargs: mock_dlg,
             )
             monkeypatch.setattr(
-                "gui.src.tabs.core.extractor_tab.QMessageBox.critical",
+                "gui.src.tabs.core.extractor_tab._extraction_execution.QMessageBox.critical",
                 lambda *args, **kwargs: None,
             )
             monkeypatch.setattr(tab, "_get_target_size", lambda: None)
@@ -487,8 +487,8 @@ class TestExtractorTab:
 
     def test_set_config_quiet_and_force_load(self, q_app, tmp_path):
         with (
-            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             dummy_video = tmp_path / "dummy_video.mp4"
@@ -503,7 +503,7 @@ class TestExtractorTab:
 
             tab.load_media = MagicMock()
 
-            with patch("gui.src.tabs.core.extractor_tab.QMessageBox") as mock_box:
+            with patch("gui.src.tabs.core.extractor_tab._config_methods.QMessageBox") as mock_box:
                 tab.set_config(config, quiet=True)
                 mock_box.information.assert_not_called()
                 tab.load_media.assert_called_with(str(dummy_video), force=True)

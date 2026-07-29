@@ -29,8 +29,8 @@ class TestExtractorTabDragPreview:
         video_path.write_text("dummy")
 
         with (
-            patch("gui.src.tabs.core.extractor_tab.QMediaPlayer"),
-            patch("gui.src.tabs.core.extractor_tab.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
         mock_player = MagicMock()
