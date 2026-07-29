@@ -102,9 +102,9 @@ def test_settings_window_resets(q_app, tmp_path, monkeypatch):
     # Mock IMAGE_TOOLKIT_DIR to use a temporary directory for this test
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
-    monkeypatch.setattr("gui.src.windows.settings.settings_window.IMAGE_TOOLKIT_DIR", test_dir)
+    monkeypatch.setattr("gui.src.windows.settings.settings_window._reset_state.IMAGE_TOOLKIT_DIR", test_dir)
     monkeypatch.setattr(
-        "gui.src.windows.settings.settings_window.DAEMON_CONFIG_PATH",
+        "gui.src.windows.settings.settings_window._reset_state.DAEMON_CONFIG_PATH",
         test_dir / ".slideshow_config.json",
     )
 

@@ -95,9 +95,9 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
         pass
 
     try:
-        import gui.src.windows.settings.settings_window as settings_window
-        monkeypatch.setattr(settings_window, "DAEMON_CONFIG_PATH", fake_config_path)
-        monkeypatch.setattr(settings_window, "IMAGE_TOOLKIT_DIR", tmp_path)
+        import gui.src.windows.settings.settings_window._reset_state as settings_window_reset_state
+        monkeypatch.setattr(settings_window_reset_state, "DAEMON_CONFIG_PATH", fake_config_path)
+        monkeypatch.setattr(settings_window_reset_state, "IMAGE_TOOLKIT_DIR", tmp_path)
     except Exception:
         pass
 
