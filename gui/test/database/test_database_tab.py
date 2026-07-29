@@ -65,14 +65,18 @@ class TestScanMetadataTab:
         # ScanMetadataTab requires a db_tab_ref
         mock_db_tab = MagicMock()
         # Mock valid local path or os.getcwd for last_browsed_scan_dir
-        with patch("gui.src.tabs.database.scan_metadata_tab.LOCAL_SOURCE_PATH", "/tmp"):
+        with patch(
+            "gui.src.tabs.database.scan_metadata_tab._ui_builder.LOCAL_SOURCE_PATH", "/tmp"
+        ):
             tab = ScanMetadataTab(mock_db_tab)
             assert isinstance(tab, QWidget)
             assert tab.db_tab_ref == mock_db_tab
 
     def test_cancel_loading(self, q_app):
         mock_db_tab = MagicMock()
-        with patch("gui.src.tabs.database.scan_metadata_tab.LOCAL_SOURCE_PATH", "/tmp"):
+        with patch(
+            "gui.src.tabs.database.scan_metadata_tab._ui_builder.LOCAL_SOURCE_PATH", "/tmp"
+        ):
             tab = ScanMetadataTab(mock_db_tab)
             mock_thread = MagicMock()
             mock_thread.isRunning.return_value = True
