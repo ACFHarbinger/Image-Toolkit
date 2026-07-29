@@ -94,10 +94,12 @@ def _make_spying_video_scanner_worker(registry):
 
 @pytest.fixture
 def wallpaper_base(q_app, monkeypatch):
-    monkeypatch.setattr(wallpaper_common_base, "ImageScannerWorker", DelayedImageScannerWorker)
+    monkeypatch.setattr(
+        wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
+    )
     video_registry = []
     monkeypatch.setattr(
-        wallpaper_common_base,
+        wallpaper_common_base._scan_pipeline,
         "VideoScannerWorker",
         _make_spying_video_scanner_worker(video_registry),
     )

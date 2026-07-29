@@ -63,10 +63,14 @@ class TestWallpaperTab:
         mock_monitor = Monitor(name="Display1", x=0, y=0, width=1920, height=1080, is_primary=True)
         with (
             patch("gui.src.tabs.core.elements.system_display_subtab.WallpaperWorker"),
-            patch("gui.src.tabs.core.elements.common.wallpaper_common_base.ImageScannerWorker"),
-            patch("gui.src.tabs.core.elements.common.wallpaper_common_base.VideoScannerWorker"),
             patch(
-                "gui.src.tabs.core.elements.common.wallpaper_common_base.get_monitors",
+                "gui.src.tabs.core.elements.common.wallpaper_common_base._scan_pipeline.ImageScannerWorker"
+            ),
+            patch(
+                "gui.src.tabs.core.elements.common.wallpaper_common_base._scan_pipeline.VideoScannerWorker"
+            ),
+            patch(
+                "gui.src.tabs.core.elements.common.wallpaper_common_base._monitor_layout.get_monitors",
                 return_value=[mock_monitor],
             ),
         ):

@@ -112,10 +112,12 @@ class TestLinkedPanelRapidSwitchRace:
     def test_two_linked_panels_survive_rapid_switching(
         self, q_app, monkeypatch, tmp_path
     ):
-        monkeypatch.setattr(wallpaper_common_base, "ImageScannerWorker", DelayedImageScannerWorker)
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
+        )
         video_registry = []
         monkeypatch.setattr(
-            wallpaper_common_base,
+            wallpaper_common_base._scan_pipeline,
             "VideoScannerWorker",
             _make_spying_video_scanner_worker(video_registry),
         )

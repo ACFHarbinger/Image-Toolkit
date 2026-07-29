@@ -87,8 +87,8 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
         pass
 
     try:
-        import gui.src.tabs.core.elements.common.wallpaper_common_base as common_base
-        monkeypatch.setattr(common_base, "DAEMON_CONFIG_PATH", fake_config_path)
+        import gui.src.tabs.core.elements.common.wallpaper_common_base._widget_ui_lifecycle as common_base_ui_lifecycle
+        monkeypatch.setattr(common_base_ui_lifecycle, "DAEMON_CONFIG_PATH", fake_config_path)
     except Exception:
         pass
 

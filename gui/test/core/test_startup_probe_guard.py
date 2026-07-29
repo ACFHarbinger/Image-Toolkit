@@ -121,7 +121,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
                 pass
 
         monkeypatch.setattr(
-            wallpaper_common_base, "ImageScannerWorker", RecordingImageScannerWorker
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", RecordingImageScannerWorker
         )
 
         from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
@@ -213,7 +213,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
                 pass
 
         monkeypatch.setattr(
-            wallpaper_common_base, "ImageScannerWorker", RecordingImageScannerWorker
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", RecordingImageScannerWorker
         )
 
         from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
