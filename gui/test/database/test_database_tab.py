@@ -15,7 +15,7 @@ pytestmark = pytest.mark.gui
 class TestDatabaseTab:
     @pytest.fixture
     def mock_db_cls(self):
-        with patch("gui.src.tabs.database.database_tab.ImageDatabase") as mock:
+        with patch("gui.src.tabs.database.database_tab.manager.ImageDatabase") as mock:
             yield mock
 
     def test_init(self, q_app):
@@ -40,7 +40,9 @@ class TestDatabaseTab:
         tab.refresh_groups_list = MagicMock()
         tab.refresh_subgroups_list = MagicMock()
 
-        with patch("gui.src.tabs.database.database_tab.QMessageBox.information"):
+        with patch(
+            "gui.src.tabs.database.database_tab._connection_stats.QMessageBox.information"
+        ):
             tab.connect_database()
 
         mock_db_cls.assert_called_once()
@@ -49,7 +51,7 @@ class TestDatabaseTab:
     def test_reset_database_no_connection(self, q_app):
         tab = DatabaseTab()
         with patch(
-            "gui.src.tabs.database.database_tab.QMessageBox.warning"
+            "gui.src.tabs.database.database_tab._connection_stats.QMessageBox.warning"
         ) as mock_warn:
             tab.reset_database()
             mock_warn.assert_called()
