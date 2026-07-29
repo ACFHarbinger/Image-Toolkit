@@ -75,6 +75,53 @@ STEP_OUTLIER_FACTOR = 2.0
 # banding-risk flag from #69's 11.3.
 GAIN_DEVIATION_FLAG = 0.15
 
+# Absolute 0-1 normalizers for the radar view, lifted verbatim from
+# `bench_anime_stitch.py`'s `_compute_cqas` so a radar axis means what the
+# pipeline's own aggregate score means by it. Only the metrics CQAS defines a
+# scale for are included: normalizing the rest would require inventing
+# thresholds, and min-max-across-comparators (the obvious alternative) is
+# actively misleading with two comparators — it pins the winner at 1.0 and the
+# loser at 0.0 on every axis regardless of how close they actually are.
+RADAR_SCALES: Tuple[Tuple[str, str, float, str], ...] = (
+    ("cqas", "CQAS", 1.0, HIGHER_BETTER),
+    ("sharpness", "Sharpness", 100.0, HIGHER_BETTER),
+    ("coverage", "Coverage", 1.0, HIGHER_BETTER),
+    ("ghosting_siqe", "Ghosting", 60.0, LOWER_BETTER),
+    ("seam_visibility", "Seam visibility", 25.0, LOWER_BETTER),
+    ("seam_coherence", "Banding", 50.0, LOWER_BETTER),
+)
+
+
+def radar_value(metric_key: str, value: Optional[float]) -> Optional[float]:
+    """Normalize one metric onto CQAS's own 0-1 quality scale (1 = best)."""
+    for key, _label, reference, direction in RADAR_SCALES:
+        if key != metric_key:
+            continue
+        if value is None:
+            return None
+        ratio = value / reference
+        score = ratio if direction == HIGHER_BETTER else 1.0 - ratio
+        return float(min(1.0, max(0.0, score)))
+    return None
+
+
+def radar_rows(entry: Dict, keys: Optional[Sequence[str]] = None) -> List[MetricRow]:
+    """Radar axes as ``MetricRow``s carrying *normalized* values, so the chart
+    builder stays a pure plot of numbers computed here."""
+    keys = list(keys) if keys is not None else present_comparators(entry)
+    rows = []
+    for metric_key, label, _reference, direction in RADAR_SCALES:
+        values = {
+            key: radar_value(
+                metric_key,
+                _as_float((entry.get(METRICS_BLOCK[key]) or {}).get(metric_key)),
+            )
+            for key in keys
+        }
+        if any(v is not None for v in values.values()):
+            rows.append(MetricRow(metric_key, label, direction, "{:.3f}", values))
+    return rows
+
 
 @dataclasses.dataclass
 class MetricRow:
