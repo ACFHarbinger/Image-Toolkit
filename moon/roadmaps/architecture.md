@@ -1131,38 +1131,50 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 
 ## 5.17 File Size Limit Enforcement (<500 LoC) {: #517-file-size-limit-enforcement-500-loc }
 
-**Priority: High. Partial — `backend/src/` (issue #117) fully shipped 2026-07-29; `gui/src/` (issue #116, 27 files) still open.** All 8 `backend/src/` files listed below were split using Option B (package-directory, public-API re-export) — `compositing.py` and `pipeline.py`, explicitly the two largest and most benchmark-sensitive files in the codebase, included. Confirmed via `count_loc.py backend/src --sort code`: the largest file anywhere in `backend/src` is now 457 code lines (`animation/core/pipeline/run_stage.py` — see its own module docstring for why it's the one file left close to, rather than comfortably under, the limit: `run()` has no end-to-end regression test, so a full context-object decomposition wasn't attempted). `gui/src/`'s 27 files (including `stitch_tab.py` at 5,032 and `extractor_tab.py` at 3,268, the two largest/riskiest files in the whole codebase) remain untouched — deferred to a follow-up pass per Option E's own triage guidance, given their size and centrality.
+**Priority: High. Partial — `backend/src/` (issue #117) fully shipped 2026-07-29; `gui/src/` medium files (issue #121, 24 files) fully shipped 2026-07-29/30; 3 `gui/src/` giants (`stitch_tab.py`, `extractor_tab.py`, `settings_window.py`) still open, tracked separately.** All 8 `backend/src/` files listed below were split using Option B (package-directory, public-API re-export) — `compositing.py` and `pipeline.py`, explicitly the two largest and most benchmark-sensitive files in the codebase, included. Confirmed via `count_loc.py backend/src --sort code`: the largest file anywhere in `backend/src` is now 457 code lines (`animation/core/pipeline/run_stage.py` — see its own module docstring for why it's the one file left close to, rather than comfortably under, the limit: `run()` has no end-to-end regression test, so a full context-object decomposition wasn't attempted). All 24 `gui/src/` files between 515–1,355 code lines were likewise split via Option B (issue #121, superseding the `gui/src` portion of the original issue #116/#118); the 3 giants — `stitch_tab.py` (5,032), `extractor_tab.py` (3,268), and `settings_window.py` (2,505, mostly one `__init__`) — were explicitly scoped *out* of issue #121 per Option E's own triage guidance, given their size and centrality, and remain open for a dedicated follow-up.
 
-**Pain point:** `backend/src/utils/validation/count_loc.py` (already built, already used ad hoc — see §5.12/§5.11C's companion `tree_loc.py`) has never been wired into an enforced limit. Two files exceed **5,000 code lines** (`gui/src/tabs/animation/stitch_tab.py` at 5,032; `gui/src/tabs/core/extractor_tab.py` at 3,268), and 27 `gui/src/` files plus 8 `backend/src/` files exceed the 500-code-line threshold entirely. Large files have compounding costs specific to this codebase: `stitch_tab.py` mixes HITL checkpoint UI, session replay, and pipeline-trigger logic in one class, making it the single riskiest file to touch for any change (as already flagged informally in `moon/roadmaps/asp_sessions_log.md`); `settings_window.py`'s `__init__` alone is ~1,113 physical lines of widget construction, meaning even IDE "go to definition" and code review degrade badly; and `count_loc.py`'s own output — run fresh this session — already drifted from the last hand-maintained snapshot within one day of other sessions committing, confirming that a *manual* audit process cannot keep pace with concurrent work on this codebase and only a CI-enforced gate will hold the line.
+**Pain point:** `backend/src/utils/validation/count_loc.py` (already built, already used ad hoc — see §5.12/§5.11C's companion `tree_loc.py`) has never been wired into an enforced limit. Two files exceed **5,000 code lines** (`gui/src/tabs/animation/stitch_tab.py` at 5,032; `gui/src/tabs/core/extractor_tab.py` at 3,268) and remain unsplit; `windows/settings/settings_window.py` (2,505) is the third giant. All other `gui/src/` (24 files) and `backend/src/` (8 files) offenders identified in the original audit have since been split (issues #121 and #117 respectively). Large files have compounding costs specific to this codebase: `stitch_tab.py` mixes HITL checkpoint UI, session replay, and pipeline-trigger logic in one class, making it the single riskiest file to touch for any change (as already flagged informally in `moon/roadmaps/asp_sessions_log.md`); `settings_window.py`'s `__init__` alone is ~1,113 physical lines of widget construction, meaning even IDE "go to definition" and code review degrade badly; and `count_loc.py`'s own output has repeatedly drifted from hand-maintained snapshots within a day of other sessions committing, confirming that a *manual* audit process cannot keep pace with concurrent work on this codebase and only a CI-enforced gate will hold the line.
 
 **Fresh count (2026-07-28, `count_loc.py --sort code`, code lines only, excludes comments/docstrings/blank):**
 
-`gui/src/` — worst 20 of 27 files over the limit:
+`gui/src/` — 3 giants remain, explicitly deferred (out of scope for issue #121):
 
 | File | Code LoC |
 |---|---|
 | `tabs/animation/stitch_tab.py` | 5,032 |
 | `tabs/core/extractor_tab.py` | 3,268 |
 | `windows/settings/settings_window.py` | 2,505 |
-| `tabs/database/database_tab.py` | 1,314 |
-| `tabs/core/merge_tab.py` | 1,299 |
-| `tabs/core/elements/monitor_display_subtab.py` | 1,273 |
-| `tabs/database/scan_metadata_tab.py` | 1,271 |
-| `tabs/core/elements/common/wallpaper_common_base.py` | 1,256 |
-| `tabs/core/elements/system_display_subtab.py` | 1,249 |
-| `classes/abstract_class_two_galleries.py` | 1,197 |
-| `tabs/core/similarity_tab.py` | 1,095 |
-| `tabs/database/search_tab.py` | 1,077 |
-| `windows/main/main_window.py` | 990 |
-| `tabs/core/elements/format_subtab.py` | 940 |
-| `helpers/animation/stitch_worker.py` | 936 |
-| `classes/abstract_class_single_gallery.py` | 853 |
-| `tabs/web/image_crawler_tab.py` | 834 |
-| `tabs/core/elements/content_listings_subtab.py` | 774 |
-| `tabs/core/elements/codec_subtab.py` | 745 |
-| `tabs/web/drive_sync_tab.py` | 615 |
 
-(7 more between 500–591: `entity_listings_subtab.py` 591, `cbir_train_tab.py` 588, `display/detail_panel*.py` 578, `sampler_subtab.py` 564, `metadata_editor_window.py` 530, `entity_recon_tab.py` 522, `monitor_drop_view.py` 515.)
+`gui/src/` — all 24 medium files (515–1,355 LoC) **✅ shipped 2026-07-29/30** (issue #121), split via Option B (package-directory, public-API re-export). Pre-split code-LoC shown for reference; each is now a package whose largest sibling file is well under 500 code lines:
+
+| File (pre-split) | Code LoC | Commit |
+|---|---|---|
+| `tabs/core/elements/common/wallpaper_common_base.py` | 1,355 | `c793892c` |
+| `tabs/database/database_tab.py` | 1,314 | `414cdfe8` |
+| `tabs/core/merge_tab.py` | 1,299 | `7cbd9563` |
+| `tabs/core/elements/monitor_display_subtab.py` | 1,273 | `8a0624b3` |
+| `tabs/database/scan_metadata_tab.py` | 1,271 | `1bcf4240` |
+| `tabs/core/elements/system_display_subtab.py` | 1,270 | `90965431`+`90241bcf` |
+| `classes/abstract_class_two_galleries.py` | 1,229 | `adf8adf6` |
+| `tabs/core/similarity_tab.py` | 1,095 | `3a9589f9` |
+| `tabs/database/search_tab.py` | 1,077 | `607dfbe9` |
+| `windows/main/main_window.py` | 990 | `21afe5fa` |
+| `tabs/core/elements/format_subtab.py` | 952 | `e62845c5` |
+| `helpers/animation/stitch_worker.py` | 936 | `bce3329e` |
+| `classes/abstract_class_single_gallery.py` | 870 | `592dd957` |
+| `tabs/web/image_crawler_tab.py` | 834 | `44e538eb` |
+| `tabs/core/elements/content_listings_subtab.py` | 774 | `d1d8e283` |
+| `tabs/core/elements/codec_subtab.py` | 757 | `137a91b8` |
+| `tabs/web/drive_sync_tab.py` | 615 | `67032746` |
+| `tabs/core/elements/entity_listings_subtab.py` | 591 | `dd600458` |
+| `tabs/models/delta/cbir_train_tab.py` | 588 | `b31fde83` |
+| `tabs/core/elements/display/detail_panel.py` | 578 | `35610649` |
+| `tabs/core/elements/sampler_subtab.py` | 566 | `40bc6498` |
+| `windows/metadata_editor_window.py` | 530 | `46ce014a` |
+| `tabs/web/entity_recon_tab.py` | 522 | `fc58320d` |
+| `components/views/monitor_drop_view.py` | 515 | `5b87af47` |
+
+One file among the 24 (`helpers/animation/stitch_worker/_progress_pipeline.py`) still exceeds 500 code lines post-split (689) by deliberate choice, not oversight — its `run()` is the crash/behavior-sensitive ASP stage-by-stage HITL pipeline threading a large amount of local state across 13 sequential stages via closures; decomposing it further into sub-methods would require converting that state into instance attributes for a line-count-only benefit, a real behavior-change risk documented in the file's own module docstring. Flagged as a candidate for a future dedicated session, not attempted here.
 
 `backend/src/` — all 8 files **✅ shipped 2026-07-29**, split via Option B (package-directory, public-API re-export). Pre-split code-LoC shown for reference; each is now a package whose largest sibling file is well under 500 code lines (worst case: `animation/core/pipeline/run_stage.py` at 457):
 
@@ -1179,14 +1191,14 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 
 Every external `from ...pipeline import AnimeStitchPipeline`-style import keeps working unchanged — each package's `__init__.py` re-exports the original public API. Verified per-file via: the file's own test suite, the full `backend/test/animation/ --skip-gpu` suite (670 passed/5 skipped, stable across all 8), `ruff check`, `uv run lint-imports` (all 3 contracts kept), and a regenerated `docs/module_graph.html` (0 unexplained cross-layer violations throughout). Ref: issue #117 (closed by this work).
 
-`gui/src/`'s 27 files (issue #116) — including `stitch_tab.py` (5,032) and `extractor_tab.py` (3,268), the two largest files in the whole codebase — remain untouched; deferred to a follow-up session.
+`gui/src/`'s 24 medium files (issue #121) all shipped as above — same verification pattern per file (scoped tests, ruff, lint-imports, live Qt construction), plus a mandatory MRO-shadowing check for every class extending `AbstractClassTwoGalleries`/`AbstractClassSingleGallery`/`WallpaperCommonBase`/`QWidget`/`QLabel` (mixins must precede the base class in the class declaration, or the base class's own same-named methods silently shadow the mixin's override — discovered via a real regression in `merge_tab.py`'s Ctrl+Wheel handler, now documented and applied everywhere in this epic). The 3 giants (`stitch_tab.py`, `extractor_tab.py`, `settings_window.py`) remain untouched — deferred to a follow-up session; tracked issue #121 explicitly excludes them (superseding the `gui/src` portion of the original #116/#118, both closed without that work landing).
 
 Notes on borderline cases: `frame_selection.py`'s comment+docstring density (237+377 = 614, nearly 2× its own code) means its *total* line count looks far worse than its actual maintainability burden — re-check with `count_loc.py --sort code` (not `--sort total`) before scheduling a split. `animation/alignment/bundle_adjust.py` is 431 code lines (500 *total* including comments/docstrings) — below the code-line threshold this section tracks; excluded from the worst-offenders list above but worth a second look if the threshold is later redefined as total-lines rather than code-lines.
 
 ### Options
 
 **A — CI-enforced LoC gate using the existing `count_loc.py` [Quick Win, Recommended]**
-Add a `--max-code-lines N --fail-over` mode to `count_loc.py` (or a thin wrapper script) that exits non-zero if any file under `gui/src/` or `backend/src/` exceeds 500 code lines, and wire it into a new `just check-loc` target plus a CI job. New files are checked on every PR; the *existing* offenders are grandfathered via an explicit allow-list (a `docs/loc_exceptions.txt` of paths, each requiring a comment linking to the tracking issue) so the gate does not block unrelated work immediately — as of 2026-07-29 that allow-list only needs the 27 remaining `gui/src/` files (issue #116); the 8 `backend/src/` offenders (issue #117) shipped and no longer need an entry.
+Add a `--max-code-lines N --fail-over` mode to `count_loc.py` (or a thin wrapper script) that exits non-zero if any file under `gui/src/` or `backend/src/` exceeds 500 code lines, and wire it into a new `just check-loc` target plus a CI job. New files are checked on every PR; the *existing* offenders are grandfathered via an explicit allow-list (a `docs/loc_exceptions.txt` of paths, each requiring a comment linking to the tracking issue) so the gate does not block unrelated work immediately — as of 2026-07-30 that allow-list only needs the 3 remaining `gui/src/` giants (`stitch_tab.py`, `extractor_tab.py`, `settings_window.py`) plus `helpers/animation/stitch_worker/_progress_pipeline.py` (689 code lines, deliberately not split further — see above); the 8 `backend/src/` offenders (issue #117) and 24 `gui/src/` medium files (issue #121) shipped and no longer need an entry.
 - Pros: Stops the bleeding immediately — no new file can quietly cross 500 lines. Reuses a tool that already exists and already has a `--sort`/`--limit` CLI. Zero new dependencies.
 - Cons: The allow-list itself needs periodic pruning as files are split, or it silently becomes permanent scaffolding.
 
@@ -1210,7 +1222,7 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 - Pros: Avoids spending the first sprint on the riskiest file just because it is the biggest number.
 - Cons: Requires a person (or agent) to actually do the ranking rather than mechanically working top-down.
 
-**Recommendation:** A immediately — it is the only option that prevents regression while everything else is in progress, and reuses a tool this codebase already has. D as a nearly-free companion to A (same CI job). E before every individual split decided under B. C wherever a section of this document already targets the duplication driving a file's size. Given the size and centrality of `stitch_tab.py` and the un-decomposed `settings_window.py.__init__`, both are tracked in the GitHub issue for §5.17 rather than attempted inline in this pass — see the issue for the concrete per-file punch list.
+**Recommendation:** A immediately — it is the only option that prevents regression while everything else is in progress, and reuses a tool this codebase already has. D as a nearly-free companion to A (same CI job). E before every individual split decided under B. C wherever a section of this document already targets the duplication driving a file's size. Given the size and centrality of `stitch_tab.py` and the un-decomposed `settings_window.py.__init__`, both — along with `extractor_tab.py` — are tracked in a follow-up GitHub issue rather than attempted as part of issue #121; see that issue for the concrete per-file punch list.
 
 ---
 
@@ -1223,7 +1235,7 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 |---|---|---|---|---|
 | **Low (<1d)** | §5.8D remove relocated-import comments · §5.10C metaclass docstring · §5.10D `_load_thumbnail_size` extraction · §5.11C module graph · §5.11D `__all__` hygiene · §5.13C `@log_call` decorator · §5.14D QSettings key validation · §5.15C eliminate bare `except: pass` | §5.4A `logging` module adoption · §5.5B Pyright `basic` mode · §5.7A `uv lock` · §5.7C+D pip-audit + cargo-audit · §5.9C progress tuple · §5.9D `WorkerConfig` typed dicts · §5.17A CI LoC gate · §5.17D LoC dashboard | §5.1A per-stage unit tests (most stages) · §5.11B TYPE_CHECKING guards (deferred heavy imports) · §5.16A wrapper contract tests (mock-based) · §5.17E per-file blast-radius triage | — |
 | **Medium (1d–1w)** | — | §5.4B pipeline trace JSON · §5.5A mypy baseline + per-module opt-in · §5.5C TypedDict worker configs · §5.6A remote wallpaper API · §5.6B gallery web view · §5.12C tab→worker→backend doc · §5.13A `@lazy_load` + §5.13E `decorators.py` module · §5.14A `AppSettings` GUI facade · §5.14B merge backend `os.environ` into `load_asp_config` | §5.2A+B benchmark regression CI · §5.8A `ModelWrapper` ABC + §5.8B `@lazy_load` · §5.9A `BaseQThreadWorker` + §5.9B `BaseQRunnableWorker` · §5.12A NumPy docstrings · §5.12B Mermaid diagrams · §5.15A custom exception hierarchy · §5.15B error boundary in `BaseQThreadWorker` · §5.17B split of a single self-contained file (e.g. `settings_window.py`'s method-group mixins) | §5.16C `ModelWrapperContractMixin` (after §5.8A) |
-| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) · §5.17B splitting the remaining 27 `gui/src` offenders (8 `backend/src` offenders shipped 2026-07-29) |
+| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) · §5.17B splitting `extractor_tab.py` (3,268 lines) and `settings_window.py` (2,505 lines, un-decomposed `__init__`) (8 `backend/src` offenders shipped 2026-07-29; 24 `gui/src` medium offenders shipped 2026-07-29/30) |
 | **Very High (2w+)** | — | — | §5.1C benchmark golden-gate diff (CI integration) · §5.11A `import-linter` enforcement · §5.12D Sphinx/pdoc auto-docs · §5.5A full strict mypy coverage (end state) | §5.17B splitting `stitch_tab.py` (5,032 lines, highest centrality/risk in the codebase) |
 
 ---
@@ -1258,3 +1270,5 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 *Updated 2026-07-28: Added §5.17 (File Size Limit Enforcement, <500 LoC — high priority, 27 `gui/src` + 8 `backend/src` offenders identified via a fresh `count_loc.py` run). §5.9 (Worker Thread Base Class & Lifecycle Standardisation) completed this session — Options C (`(completed, total)` progress tuples) and D (`WorkerConfig` TypedDicts) shipped across all remaining int-percentage workers; §5.9 marked ✅ Shipped (A+B+C+D) and its Mermaid node updated to `:::done`. See GitHub issues tracking §5.17's file-size epic and §5.9's now-closed quick wins for follow-up.*
 
 *Updated 2026-07-29: §5.11 (Option C — module dependency graph) and §5.14 (Option C — unified `AppConfig`) both shipped, closing out their remaining open sub-items; both now marked ✅ Shipped (A+B+C+D). §5.17: all 8 `backend/src/` offenders (issue #117) split via Option B and shipped — `compositing.py` (1,787 LoC) and `pipeline.py` (1,635 LoC), the two largest/most benchmark-sensitive files in the codebase, included; largest file anywhere in `backend/src/` is now 457 code lines. §5.17's `gui/src/` half (issue #116, 27 files) remains open and is deferred to a follow-up session. See GitHub issue #117 (closed by this work), #120 (§5.11C/§5.14C DRY work), and the parent epic #118 (now partially complete) for tracking.*
+
+*Updated 2026-07-30: §5.17: all 24 `gui/src/` files between 515–1,355 code lines split via Option B and shipped under a fresh issue #121 (filed to supersede the `gui/src` portion of #116/#118, both of which had been closed on GitHub without that work landing). Every split composed per-concern mixins via multiple inheritance, following each file's existing comment-banner/method-group structure; discovered and documented a previously-unknown MRO-shadowing bug in the process (a mixin's override of a method the base class already defines is silently shadowed if the base class is listed before the mixins in the class declaration — fixed by always listing mixins first, verified via a real regression in `merge_tab.py`'s Ctrl+Wheel handler) and applied that ordering to every subsequent split touching `AbstractClassTwoGalleries`, `AbstractClassSingleGallery`, `WallpaperCommonBase`, `QWidget`, or `QLabel`. One file (`helpers/animation/stitch_worker/_progress_pipeline.py`, 689 code lines) was deliberately left over the limit — its `run()` is the crash/behavior-sensitive ASP HITL pipeline, and decomposing it further was judged a real behavior-change risk for no benefit beyond the line count. The 3 remaining giants (`stitch_tab.py` 5,032, `extractor_tab.py` 3,268, `settings_window.py` 2,505) stay explicitly out of scope, tracked for a dedicated follow-up. Verified end-to-end: `uv run lint-imports` (all 3 contracts kept), a regenerated `docs/module_graph.html` (723 modules, 1,131 edges, 0 unexplained cross-layer violations), and per-file scoped test runs (all previously-passing tests green; a handful of pre-existing unrelated failures confirmed via git-stash baseline comparisons). See GitHub issue #121 (tracking this work) and the parent epics #116/#118 (both closed; #121 supersedes their `gui/src` scope).*
