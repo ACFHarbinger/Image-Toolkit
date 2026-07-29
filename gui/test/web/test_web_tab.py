@@ -24,8 +24,8 @@ class TestDriveSyncTab:
     @pytest.fixture
     def mock_workers(self):
         with (
-            patch("gui.src.tabs.web.drive_sync_tab.GoogleDriveSyncWorker") as mock_gd,
-            patch("gui.src.tabs.web.drive_sync_tab.LogWindow") as mock_log,
+            patch("gui.src.tabs.web.drive_sync_tab._remote_map.GoogleDriveSyncWorker") as mock_gd,
+            patch("gui.src.tabs.web.drive_sync_tab.manager.LogWindow") as mock_log,
         ):
             yield mock_gd, mock_log
 
@@ -40,8 +40,8 @@ class TestDriveSyncTab:
 
         # Mock file existence checks/paths
         with (
-            patch("gui.src.tabs.web.drive_sync_tab.os.path.isdir", return_value=True),
-            patch("gui.src.tabs.web.drive_sync_tab.QThreadPool.globalInstance") as mock_pool,
+            patch("gui.src.tabs.web.drive_sync_tab._sync_worker.os.path.isdir", return_value=True),
+            patch("gui.src.tabs.web.drive_sync_tab._remote_map.QThreadPool.globalInstance") as mock_pool,
         ):
             # Ensure "Google Drive (Service Account)" is selected (default)
             tab.view_remote_map()
