@@ -116,8 +116,17 @@ def gallery(q_app, mock_image_loader_worker, monkeypatch):
 
 @pytest.fixture
 def two_galleries(q_app, mock_image_loader_worker, monkeypatch):
+    # ImageLoaderWorker is imported into two submodules of the split package
+    # (single-item priority load in _selected_panel.py, sequential found-
+    # gallery load in _found_gallery_populate.py) -- patch both so this
+    # fixture's guarantee holds regardless of which internal path a test
+    # exercises.
     monkeypatch.setattr(
-        "gui.src.classes.abstract_class_two_galleries.ImageLoaderWorker",
+        "gui.src.classes.abstract_class_two_galleries._selected_panel.ImageLoaderWorker",
+        mock_image_loader_worker,
+    )
+    monkeypatch.setattr(
+        "gui.src.classes.abstract_class_two_galleries._found_gallery_populate.ImageLoaderWorker",
         mock_image_loader_worker,
     )
     return ConcreteTwoGalleries()
