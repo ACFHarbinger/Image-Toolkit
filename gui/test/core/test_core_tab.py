@@ -178,7 +178,9 @@ class TestWallpaperTab:
 
         video_path = "/tmp/dummy_test_video.mp4"
 
-        with patch("gui.src.tabs.core.elements.monitor_display_subtab.subprocess.run") as mock_run:
+        with patch(
+            "gui.src.tabs.core.elements.monitor_display_subtab._traversal.subprocess.run"
+        ) as mock_run:
             mock_run.return_value.stdout = " 12.34 \n"
 
             # First call
