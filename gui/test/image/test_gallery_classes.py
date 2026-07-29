@@ -108,7 +108,7 @@ class DummyGallery(AbstractGalleryBase):
 @pytest.fixture
 def gallery(q_app, mock_image_loader_worker, monkeypatch):
     monkeypatch.setattr(
-        "gui.src.classes.abstract_class_single_gallery.ImageLoaderWorker",
+        "gui.src.classes.abstract_class_single_gallery._loading_pipeline.ImageLoaderWorker",
         mock_image_loader_worker,
     )
     return ConcreteSingleGallery()
