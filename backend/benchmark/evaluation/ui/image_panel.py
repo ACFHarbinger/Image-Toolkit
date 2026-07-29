@@ -474,24 +474,37 @@ class ImagePanel(QGraphicsView):
         painter.restore()
 
     def _draw_pixel_values(self, painter: QPainter, x0: int, y0: int, x1: int, y1: int, scale: float) -> None:
-        # Text is drawn in scene coordinates, so the font has to be scaled down
-        # by the view transform to come out at a fixed on-screen size.
+        """Draw each visible pixel's RGB triple inside its grid cell.
+
+        Labels are drawn in *device* coordinates with the world transform reset,
+        not in scene coordinates with a shrunken font. Sizing a font in scene
+        units means its device size is multiplied by the view scale, and at deep
+        zoom that asks FreeType for enormous glyphs — which fails outright
+        (``render glyph failed err=62``) and takes the process down. Working in
+        device space keeps the font a normal size no matter the zoom.
+        """
+        painter.save()
+        painter.resetTransform()
         font = QFont("monospace")
-        font.setPointSizeF(max(1.0, 3.4 / scale * 8.0))
+        # Three stacked lines have to fit in a cell `scale` device px tall.
+        font.setPixelSize(max(5, min(28, int(scale / 4.5))))
         painter.setFont(font)
         region = self._image_bgr[y0:y1, x0:x1]
         luma = region[..., 0] * 0.114 + region[..., 1] * 0.587 + region[..., 2] * 0.299
         for j in range(y1 - y0):
             for i in range(x1 - x0):
                 b, g, r = (int(v) for v in region[j, i])
+                top_left = self.mapFromScene(QPointF(x0 + i, y0 + j))
+                bottom_right = self.mapFromScene(QPointF(x0 + i + 1, y0 + j + 1))
                 # Flip the label against the cell's own brightness so the text
                 # stays readable over both flat white and flat black cels.
                 painter.setPen(QColor(0, 0, 0) if luma[j, i] > 140 else QColor(255, 255, 255))
                 painter.drawText(
-                    QRectF(x0 + i, y0 + j, 1, 1),
+                    QRectF(top_left, bottom_right),
                     Qt.AlignmentFlag.AlignCenter,
                     f"{r}\n{g}\n{b}",
                 )
+        painter.restore()
 
     def _draw_pin(self, painter: QPainter) -> None:
         x, y = self._pinned
