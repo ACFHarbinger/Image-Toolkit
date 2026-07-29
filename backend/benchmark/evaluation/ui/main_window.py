@@ -510,6 +510,15 @@ class InspectorWindow(QMainWindow):
         self.session.go_to(name)
         self._load_current()
 
+    def open_dataset(self, name: str, record_history: bool = False) -> bool:
+        """Jump straight to a dataset by name — the public entry the CLI's
+        ``--start-at`` and the FiftyOne plugin's handoff use."""
+        if name not in self.session.order:
+            return False
+        self.session.go_to(name, record_history=record_history)
+        self._load_current()
+        return True
+
     def _finish(self, message: str) -> None:
         self.session.save()
         progress = self.session.progress()

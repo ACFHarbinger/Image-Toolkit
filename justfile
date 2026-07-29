@@ -212,9 +212,28 @@ asp-benchmark-verify: helper::_print_header
 asp-benchmark-clean: helper::_print_header
     just benchmark::asp-benchmark-clean
 
-# Rate the panoramic stitches produced by the ASP
-asp-benchmark-assess: helper::_print_header
-    just benchmark::asp-benchmark-assess
+# Rate the panoramic stitches produced by the ASP (PySide6 inspector)
+asp-benchmark-assess *ARGS: helper::_print_header
+    just benchmark::asp-benchmark-assess {{ARGS}}
+
+# Corpus-level triage of the ASP evaluations in FiftyOne (optional extra)
+asp-triage *ARGS: helper::_print_header
+    just benchmark::asp-triage {{ARGS}}
+
+# Build/refresh the FiftyOne triage dataset without opening the App
+asp-triage-ingest *ARGS: helper::_print_header
+    just benchmark::asp-triage-ingest {{ARGS}}
+
+# Round-trip human judgment between the FiftyOne dataset and the evaluations JSON
+asp-triage-sync DIRECTION="pull" *ARGS: helper::_print_header
+    just benchmark::asp-triage-sync {{DIRECTION}} {{ARGS}}
+
+# Start / stop a local MongoDB for FiftyOne (fiftyone-db ships no mongod on some distros)
+asp-triage-db: helper::_print_header
+    just benchmark::asp-triage-db
+
+asp-triage-db-stop: helper::_print_header
+    just benchmark::asp-triage-db-stop
 
 # --- Database ---
 

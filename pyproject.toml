@@ -104,6 +104,17 @@ legacy-postgres = [
     "psycopg2-binary>=2.9.11",
     "psycopg[pool]>=3.2",
 ]
+# Issue #123: the FiftyOne corpus-triage surface of the ASP evaluation tool
+# (backend/benchmark/evaluation/triage/). Dev-only and deliberately not a
+# default dependency — it pulls ~30 packages plus an embedded MongoDB. The
+# PySide6 inspector (`just asp-benchmark-assess`) needs none of it, and
+# `evaluation/triage/preflight.py` reports exactly what's missing if it isn't
+# installed. Note that fiftyone-db ships a prebuilt mongod only for some
+# distros (not Ubuntu 26.04 / glibc 2.43) — see `just asp-triage-db` for the
+# container fallback.
+benchmark-eval = [
+    "fiftyone>=1.19.0,<2",
+]
 
 # (Optional) entry-point so you can run `image-toolkit` from terminal
 [project.scripts]
