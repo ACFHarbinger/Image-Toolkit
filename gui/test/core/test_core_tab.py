@@ -241,7 +241,7 @@ class TestWallpaperTab:
 
 class TestSimilarityTab:
     def test_init(self, q_app):
-        with patch("gui.src.tabs.core.similarity_tab.DeletionWorker"):
+        with patch("gui.src.tabs.core.similarity_tab._deletion.DeletionWorker"):
             tab = SimilarityTab()
             assert isinstance(tab, QWidget)
 
