@@ -15,7 +15,16 @@ AX_BG = "#1a1a2e"
 
 # The inspector's own chrome, derived from the two figure colours above so
 # embedded plots sit flush in the surrounding panels instead of floating in a
-# differently-tinted box.
+# differently-tinted box. This is the DARK theme's palette; kept as the
+# original bare names since most of the codebase (figure_theme.py,
+# image_panel.py, panel_grid.py, matplotlib figure builders, ...) imports
+# these directly as fixed overlay/annotation colours — that's deliberate, not
+# an oversight: a link line or a defect-region outline is drawn *over*
+# photographic/anime content, not over the app's own chrome, so keeping it
+# constant regardless of the light/dark toggle is the right call, the same
+# way most photo tools keep canvas-overlay colours theme-independent. Only
+# the widget-chrome stylesheet itself (theme.py's DARK_STYLESHEET /
+# LIGHT_STYLESHEET) actually switches with the toggle.
 COL_BG = "#0e0e18"
 COL_SURFACE = "#161624"
 COL_SURFACE_HI = "#1f1f33"
@@ -33,6 +42,43 @@ COL_BBOX = "#ffd93d"
 COL_BBOX_ACTIVE = "#ff6b6b"
 COL_POINT = "#6bffb8"
 COL_EDGE = "#00e5ff"
+
+# ---------------------------------------------------------------------------
+# Themes (Settings dialog: dark/light chrome toggle)
+# ---------------------------------------------------------------------------
+THEME_DARK = "dark"
+THEME_LIGHT = "light"
+THEMES = ((THEME_DARK, "Dark"), (THEME_LIGHT, "Light"))
+
+# The light theme's chrome palette — same key set as the dark constants above,
+# bundled here (rather than as a second round of bare module constants) since
+# nothing outside theme.py needs to pick a palette at runtime.
+LIGHT_PALETTE = {
+    "bg": "#eef0f5",
+    "surface": "#ffffff",
+    "surface_hi": "#e3e7f0",
+    "border": "#c7cddb",
+    "text": "#1a1c2b",
+    "text_dim": "#5b6178",
+    "accent": "#0e7490",
+    "accent_dim": "#155e75",
+    "warn": "#b45309",
+    "bad": "#dc2626",
+    "good": "#15803d",
+}
+DARK_PALETTE = {
+    "bg": COL_BG,
+    "surface": COL_SURFACE,
+    "surface_hi": COL_SURFACE_HI,
+    "border": COL_BORDER,
+    "text": COL_TEXT,
+    "text_dim": COL_TEXT_DIM,
+    "accent": COL_ACCENT,
+    "accent_dim": COL_ACCENT_DIM,
+    "warn": COL_WARN,
+    "bad": COL_BAD,
+    "good": COL_GOOD,
+}
 
 # Score colour ramp, 0-4 — used by score buttons and by the per-test summary
 # chips so a bad rating is visible without reading the number.

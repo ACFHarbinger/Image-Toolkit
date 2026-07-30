@@ -29,8 +29,6 @@ from PySide6.QtWidgets import (
 
 from ..constants.schema import COMPARATOR_KEYS, COMPARATOR_TITLES
 from ..constants.user_interface import (
-    COL_ACCENT,
-    COL_BORDER,
     LAYOUT_COLUMN,
     LAYOUT_GRID,
     LAYOUT_ROW,
@@ -38,6 +36,7 @@ from ..constants.user_interface import (
 )
 from ..other.schema import BoundingBox
 from .image_panel import ImagePanel
+from .theme import current_palette
 
 # Manhattan distance (px) a press has to travel before it counts as a
 # reorder-drag rather than a click — matches the small-drag tolerance used
@@ -66,6 +65,7 @@ class _PanelCell(QWidget):
         self._on_reorder = on_reorder
         self._press_pos = None
         self._dragging = False
+        self._focused = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -88,13 +88,22 @@ class _PanelCell(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def set_focused(self, focused: bool) -> None:
-        color = COL_ACCENT if focused else COL_BORDER
+        self._focused = focused
+        palette = current_palette()
+        color = palette["accent"] if focused else palette["border"]
         weight = "600" if focused else "500"
         self.title_label.setStyleSheet(
             f"padding: 3px 6px; border: 1px solid {color}; border-radius: 4px;"
-            f" font-weight: {weight}; color: {'#04141a' if focused else 'inherit'};"
-            f" background: {COL_ACCENT if focused else '#1f1f33'};"
+            f" font-weight: {weight}; color: {palette['bg'] if focused else 'inherit'};"
+            f" background: {palette['accent'] if focused else palette['surface_hi']};"
         )
+
+    def refresh_theme(self) -> None:
+        """Re-derive this cell's inline focus-chip style from the now-current
+        palette. ``set_focused`` builds an inline stylesheet (not cascaded QSS,
+        since the focus colour needs to differ from every other button), so a
+        theme change leaves it stale unless re-applied explicitly."""
+        self.set_focused(self._focused)
 
     def set_info(self, text: str) -> None:
         self.info_label.setText(text)
@@ -352,6 +361,12 @@ class PanelGrid(QWidget):
 
     def focused_panel(self) -> Optional[ImagePanel]:
         return self.panels.get(self._focus_key) if self._focus_key else None
+
+    def refresh_theme(self) -> None:
+        """Re-derive every cell's inline focus-chip style after a theme
+        change (see ``_PanelCell.refresh_theme``)."""
+        for cell in self.cells.values():
+            cell.refresh_theme()
 
     # -- view control --------------------------------------------------------
 

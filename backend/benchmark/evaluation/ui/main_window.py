@@ -45,6 +45,7 @@ from ..constants.user_interface import (
 from ..other import discovery
 from ..other.schema import RatingEntry
 from ..other.session import EvaluationSession
+from ..other.settings import load_settings
 from . import shortcuts
 from .annotation_flow import AnnotationFlowMixin
 from .annotations import AnnotationListWidget, EdgeBuilder, EdgeOverlay
@@ -55,6 +56,7 @@ from .metrics_panel import MetricsPanel
 from .panel_grid import PanelGrid
 from .queue_panel import QueuePanel
 from .scoring_panel import ScoringPanel
+from .settings_flow import SettingsFlowMixin
 from .theme import apply_theme, heading, subtle
 from .toolbar import InspectorToolbar
 from .viz_tab import VisualizationTab
@@ -78,7 +80,7 @@ class _GridHost(QWidget):
         self._overlay.sync_geometry()
 
 
-class InspectorWindow(AnnotationFlowMixin, QMainWindow):
+class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
     def __init__(
         self,
         base_dir: str,
@@ -87,11 +89,18 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
         repo_root: str,
         default_display_mode: str = DISPLAY_RAW,
         results_path: Optional[str] = None,
+        theme: Optional[str] = None,
     ):
         super().__init__()
         self.setWindowTitle("ASP Evaluation Inspector")
         self.resize(1760, 1040)
-        apply_theme(self)
+        # A CLI --theme wins for this run; otherwise fall back to whatever the
+        # Settings dialog last persisted (see settings.py), same override
+        # precedence bench_eval_dispatch.py already uses for --out.
+        self._settings = load_settings()
+        if theme:
+            self._settings.theme = theme
+        apply_theme(self, self._settings.theme)
 
         self.base_dir = base_dir
         self.repo_root = repo_root
@@ -138,8 +147,12 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
         header = QHBoxLayout()
         self.title_label = heading("—")
         self.status_label = subtle("")
+        self.settings_btn = QPushButton("⚙ Settings")
+        self.settings_btn.setToolTip("Default save directory, dark/light theme")
+        self.settings_btn.clicked.connect(self._open_settings)
         header.addWidget(self.title_label)
         header.addWidget(self.status_label, stretch=1)
+        header.addWidget(self.settings_btn)
         outer.addLayout(header)
 
         # Two top-level pages: "Rate" (images + scoring, the per-test workflow)

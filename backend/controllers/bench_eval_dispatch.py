@@ -36,8 +36,8 @@ Usage:
     uv run python backend/controllers/bench_eval_dispatch.py
         [--surface {inspector,triage,ingest,sync}] [--data-dir DIR] [--out PATH]
         [--results PATH] [--redo] [--start-at DATASET]
-        [--default-view {display,pixel}] [--dataset-name NAME] [--port N]
-        [--sync-direction {pull,push}]
+        [--default-view {display,pixel}] [--theme {dark,light}]
+        [--dataset-name NAME] [--port N] [--sync-direction {pull,push}]
 
 Output: {out}/asp_evaluations_<YYYYMMDD>.json. The original schema keys are
 written unchanged — bench_anime_stitch.py's _load_human_evaluations() only ever
@@ -84,10 +84,15 @@ from backend.benchmark.evaluation.constants.user_interface import (  # noqa: E40
     DISPLAY_RAW,
 )
 from backend.benchmark.evaluation.other.discovery import repo_root_from  # noqa: E402
+from backend.benchmark.evaluation.other.settings import load_settings  # noqa: E402
 
 
 def _default_out_path(repo_root: str) -> str:
-    evaluations_dir = os.path.join(repo_root, "data", "benchmarks")
+    # The Settings dialog's persisted directory (issue #123 followup item 9)
+    # wins over the repo's own data/benchmarks/ once the user has set one —
+    # --out still overrides both, same precedence as --theme below.
+    settings = load_settings()
+    evaluations_dir = settings.out_dir or os.path.join(repo_root, "data", "benchmarks")
     os.makedirs(evaluations_dir, exist_ok=True)
     today = datetime.datetime.now().strftime("%Y%m%d")
     return os.path.join(evaluations_dir, f"asp_evaluations_{today}.json")
@@ -113,6 +118,7 @@ def build_dashboard(args):
         repo_root=repo_root,
         default_display_mode=default_view,
         results_path=getattr(args, "results", None),
+        theme=getattr(args, "theme", None),
     )
     start_at = getattr(args, "start_at", None)
     if start_at:

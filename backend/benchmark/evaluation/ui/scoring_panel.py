@@ -43,9 +43,8 @@ from ..constants.schema import (
     SCORE_MAX,
     SCORE_MIN,
 )
-from ..constants.user_interface import COL_TEXT_DIM
 from ..other.schema import RatingEntry
-from .theme import score_chip_style, subtle
+from .theme import current_palette, score_chip_style, subtle
 
 
 class ScoreRow(QWidget):
@@ -64,8 +63,10 @@ class ScoreRow(QWidget):
         name.setMinimumWidth(94)
         if hint:
             name.setToolTip(hint)
-        if dimension != DIM_COHERENCE:
-            name.setStyleSheet(f"color: {COL_TEXT_DIM};")
+        self._name_label = name
+        self._dim_is_optional = dimension != DIM_COHERENCE
+        if self._dim_is_optional:
+            name.setStyleSheet(f"color: {current_palette()['text_dim']};")
         layout.addWidget(name)
         self._group = QButtonGroup(self)
         self._group.setExclusive(False)
@@ -96,6 +97,16 @@ class ScoreRow(QWidget):
 
     def score(self) -> Optional[int]:
         return self._score
+
+    def refresh_theme(self) -> None:
+        """Re-derive this row's inline styles (the score chips' colour ramp
+        and the optional-dimension label dimming) from the now-current
+        palette — both are built by ``score_chip_style()``/direct palette
+        lookups rather than cascaded QSS."""
+        if self._dim_is_optional:
+            self._name_label.setStyleSheet(f"color: {current_palette()['text_dim']};")
+        for value, btn in enumerate(self._buttons):
+            btn.setStyleSheet(score_chip_style(value))
 
 
 class ImageScoreBlock(QGroupBox):
@@ -137,6 +148,10 @@ class ImageScoreBlock(QGroupBox):
             if dim_key == DIM_COHERENCE:
                 continue
             row.setVisible(detailed or row.score() is not None)
+
+    def refresh_theme(self) -> None:
+        for row in self.rows.values():
+            row.refresh_theme()
 
 
 class ScoringPanel(QWidget):
@@ -362,6 +377,12 @@ class ScoringPanel(QWidget):
             btn.setChecked(key in active)
 
     # -- status --------------------------------------------------------------
+
+    def refresh_theme(self) -> None:
+        """Re-derive every score block's inline chip styles after a theme
+        change (see ``ScoreRow.refresh_theme``)."""
+        for block in self.blocks.values():
+            block.refresh_theme()
 
     def missing_required(self) -> List[str]:
         """Which required scores are still blank. Only the ASP and Simple

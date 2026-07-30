@@ -128,8 +128,8 @@ ideas clean-room, never link.
 ## Phase 0 — Measurement Foundation *(everything else depends on this)*
 
 ### 0.1 Human coherence ratings for the current baseline  `[tool rebuilt
-2026-07-29, S266, issue #123 — rating pass itself is HUMAN, ~45 min, still
-open]`
+2026-07-29, S266, issue #123; UI feedback pass 2026-07-30, S267 — rating pass
+itself is HUMAN, ~45 min, still open]`
 **The actual rating pass is still open** — building the tool doesn't do the
 human judgment it exists to collect. **This is the metric the objective is
 defined against**, and the explicit prerequisite for flipping any of Phase
@@ -141,15 +141,18 @@ defined against**, and the explicit prerequisite for flipping any of Phase
 
 - **`just asp-benchmark-assess`** — the PySide6 inspector
   (`backend/benchmark/evaluation/ui/`). N-way comparison of every comparator a
-  test has (ASP / Simple / Overmix / Hugin / GT) in four switchable layouts with
-  zoom **and pan** locked across panels; a working pixel-value probe (per-pixel
-  grid + RGB labels at depth, cross-panel pinning); live comparison maps
-  (difference / SSIM / false-colour / swipe / blend / checkerboard / edge
-  overlay / contour) with real sliders; the per-test benchmark metrics and
-  §11.1–11.5 diagnostics inline; the benchmark's own plots and 100+ stage
-  renders; region/link annotation with a defect class + severity; and a
+  test has (ASP / OpenCV (SCANS) / Overmix / Hugin / GT), reorderable by
+  dragging a panel's title bar, in four switchable layouts with zoom **and
+  pan** locked across panels; a hover pixel-value magnifier (works at any
+  zoom, not just deep in); live comparison maps (difference / SSIM /
+  false-colour / swipe / blend / checkerboard / edge overlay / contour) with
+  real sliders; the per-test benchmark metrics and §11.1–11.5 diagnostics on
+  their own "Analyze" tab; the benchmark's own plots and 100+ stage renders
+  (with a horizontal/vertical filmstrip toggle); region/link annotation
+  (N-way chains, point or region endpoints) with a defect class + severity; a
+  Settings dialog (default save directory, dark/light theme); and a
   keyboard-first scoring form (0-4 scores the focused panel, `A`/`S`/`Tab`
-  focus, `[`/`]`/`=` preference, `Ctrl+1-9` defect tags, `Space` next) sized for
+  focus, `[`/`]`/`=` preference, `Ctrl+0-9` defect tags, `Space` next) sized for
   the ~28 s/test this section budgets.
 - **`just asp-triage`** — the optional FiftyOne surface
   (`backend/benchmark/evaluation/plugin/`, extra `benchmark-eval`). One group per

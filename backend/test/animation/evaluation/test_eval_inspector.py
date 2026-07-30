@@ -655,6 +655,45 @@ def test_order_changed_signal_does_not_fire_on_a_noop_reorder(grid):
 
 
 # ---------------------------------------------------------------------------
+# Theme cascade (issue #123 followup — light/dark Settings toggle)
+#
+# ``set_focused``/``score_chip_style`` build inline (non-cascaded) stylesheets
+# per instance, so a theme switch needs each widget to re-derive its own style
+# from ``current_palette()`` explicitly — these pin that the cascade actually
+# reaches every already-built cell/button rather than leaving it stuck on
+# whatever palette was active at construction time.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def restore_dark_theme(qapp):
+    from backend.benchmark.evaluation.ui.theme import apply_theme
+
+    yield
+    apply_theme(qapp, "dark")  # theme is module-level state; don't leak into other tests
+
+
+def test_grid_refresh_theme_updates_the_focused_chips_inline_style(grid, restore_dark_theme):
+    from backend.benchmark.evaluation.ui.theme import apply_theme, current_palette
+
+    grid.set_focus("asp")
+    apply_theme(grid, "light")
+    grid.refresh_theme()
+    light_accent = current_palette()["accent"]
+    assert light_accent in grid.cells["asp"].title_label.styleSheet()
+
+
+def test_grid_refresh_theme_also_updates_unfocused_cells(grid, restore_dark_theme):
+    from backend.benchmark.evaluation.ui.theme import apply_theme, current_palette
+
+    grid.set_focus("asp")
+    apply_theme(grid, "light")
+    grid.refresh_theme()
+    light_border = current_palette()["border"]
+    assert light_border in grid.cells["simple"].title_label.styleSheet()
+
+
+# ---------------------------------------------------------------------------
 # Scoring panel
 # ---------------------------------------------------------------------------
 
@@ -746,3 +785,25 @@ def test_loading_an_entry_does_not_emit_changes(scoring):
 def test_comparators_are_rebuilt_per_test(scoring):
     scoring.set_comparators(["asp", "simple"])
     assert set(scoring.blocks) == {"asp", "simple"}
+
+
+def test_scoring_panel_refresh_theme_updates_every_chip(scoring, restore_dark_theme):
+    from backend.benchmark.evaluation.ui.theme import apply_theme, current_palette
+
+    apply_theme(scoring, "light")
+    scoring.refresh_theme()
+    light_border = current_palette()["border"]
+    for block in scoring.blocks.values():
+        for row in block.rows.values():
+            for btn in row._buttons:
+                assert light_border in btn.styleSheet()
+
+
+def test_scoring_panel_refresh_theme_updates_optional_dimension_label(scoring, restore_dark_theme):
+    from backend.benchmark.evaluation.ui.theme import apply_theme, current_palette
+
+    apply_theme(scoring, "light")
+    scoring.refresh_theme()
+    light_dim = current_palette()["text_dim"]
+    seams_row = scoring.blocks["asp"].rows["seams"]
+    assert light_dim in seams_row._name_label.styleSheet()

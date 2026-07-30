@@ -20,7 +20,8 @@ def build_parser(doc: str) -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--out", default=None,
-        help="Evaluations JSON path. Defaults to data/benchmarks/asp_evaluations_<today>.json "
+        help="Evaluations JSON path. Defaults to the Settings dialog's persisted save "
+             "directory if one is set, else data/benchmarks/asp_evaluations_<today>.json "
              "(resumes an existing file for today if present); pass an existing file's "
              "path explicitly to resume a specific prior session.",
     )
@@ -44,6 +45,11 @@ def build_parser(doc: str) -> argparse.ArgumentParser:
         "--default-view", choices=["display", "pixel"], default="display",
         help="Which display mode the image panels start in (default: display). "
              "'pixel' overlays the per-pixel grid + RGB values once zoomed in far enough.",
+    )
+    parser.add_argument(
+        "--theme", choices=["dark", "light"], default=None,
+        help="Chrome theme for this run, overriding whatever the Settings dialog last "
+             "persisted (default: use the persisted theme, or dark on first run).",
     )
     parser.add_argument(
         "--dataset-name", default=None,
