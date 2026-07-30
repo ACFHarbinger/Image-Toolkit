@@ -119,7 +119,7 @@ benchmark = [
     "streamlit>=1.54.0",
 ]
 dev = [
-    "black>=25.9.0",
+    "black>=26.5.1",
     "cryptography>=46.0.3",
     "git-filter-repo>=2.47.0",
     "import-linter>=2.0",
