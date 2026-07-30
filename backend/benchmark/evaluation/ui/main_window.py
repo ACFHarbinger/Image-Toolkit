@@ -142,6 +142,30 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
         header.addWidget(self.status_label, stretch=1)
         outer.addLayout(header)
 
+        # Two top-level pages: "Rate" (images + scoring, the per-test workflow)
+        # and "Analyze" (the tool tabs, now a full page instead of sharing
+        # vertical space with the panel grid below it) — freeing up room for
+        # both was the point of splitting them apart.
+        self.top_tabs = QTabWidget()
+        self.top_tabs.addTab(self._build_rate_tab(default_display_mode), "Rate")
+        self.top_tabs.addTab(self._build_analyze_tab(), "Analyze")
+        outer.addWidget(self.top_tabs, stretch=1)
+
+        self.pixel_label = subtle("Pixel: —")
+        self.pixel_label.setProperty("role", "mono")
+        footer = QHBoxLayout()
+        footer.addWidget(self.pixel_label, stretch=1)
+        hints = subtle("   ".join(f"{k}: {v}" for k, v in KEY_HINTS))
+        hints.setStyleSheet(f"color: {COL_TEXT_DIM}; font-size: 11px;")
+        footer.addWidget(hints)
+        outer.addLayout(footer)
+
+    def _build_rate_tab(self, default_display_mode: str) -> QWidget:
+        page = QWidget()
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        page_layout.setSpacing(6)
+
         self.toolbar = InspectorToolbar()
         self.toolbar.modeChanged.connect(self._on_mode_changed)
         self.toolbar.displayModeChanged.connect(self._on_display_mode_changed)
@@ -150,7 +174,7 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
         self.toolbar.lockToggled.connect(lambda locked: self.grid.set_locked(locked))
         self.toolbar.fitRequested.connect(self._fit_all)
         self.toolbar.zoomRequested.connect(lambda step: self.grid.zoom_focused(step))
-        outer.addWidget(self.toolbar)
+        page_layout.addWidget(self.toolbar)
 
         self.grid = PanelGrid()
         self.grid.bboxDrawn.connect(self._on_bbox_drawn)
@@ -165,6 +189,27 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
         self.grid.set_display_mode(default_display_mode)
         self.toolbar.set_display_pixel(default_display_mode == DISPLAY_PIXEL)
 
+        self.queue_panel = QueuePanel()
+        self.queue_panel.datasetSelected.connect(self._on_dataset_selected)
+        side_panel = self._build_side_panel()
+
+        self.body_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.body_splitter.addWidget(self.queue_panel)
+        self.body_splitter.addWidget(grid_host)
+        self.body_splitter.addWidget(side_panel)
+        self.body_splitter.setStretchFactor(0, 0)
+        self.body_splitter.setStretchFactor(1, 4)
+        self.body_splitter.setStretchFactor(2, 0)
+        self.body_splitter.setSizes([230, 1120, 400])
+        # Qt's QSplitter remembers a hidden child's proportion and restores it
+        # on show() — confirmed by testing — so plain setVisible() toggling is
+        # enough, no manual size bookkeeping needed on either side.
+        self.toolbar.queuePanelToggled.connect(self.queue_panel.setVisible)
+        self.toolbar.sidePanelToggled.connect(side_panel.setVisible)
+        page_layout.addWidget(self.body_splitter, stretch=1)
+        return page
+
+    def _build_analyze_tab(self) -> QWidget:
         self.tabs = QTabWidget()
         self.viz_tab = VisualizationTab()
         self.compare_tab = ComparisonTab()
@@ -176,38 +221,7 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
         self.tabs.addTab(self.compare_tab, "Compare")
         self.tabs.addTab(self.viz_tab, "Visualise")
         self.tabs.addTab(self.artifacts_tab, "Artifacts")
-
-        centre = QSplitter(Qt.Orientation.Vertical)
-        centre.addWidget(grid_host)
-        centre.addWidget(self.tabs)
-        centre.setStretchFactor(0, 3)
-        centre.setStretchFactor(1, 2)
-        # Explicit sizes as well as stretch factors: the metrics table's size
-        # hint is tall enough to win the initial split on its own and squeeze
-        # the panorama row down to a filmstrip.
-        centre.setSizes([660, 400])
-
-        self.queue_panel = QueuePanel()
-        self.queue_panel.datasetSelected.connect(self._on_dataset_selected)
-
-        body = QSplitter(Qt.Orientation.Horizontal)
-        body.addWidget(self.queue_panel)
-        body.addWidget(centre)
-        body.addWidget(self._build_side_panel())
-        body.setStretchFactor(0, 0)
-        body.setStretchFactor(1, 4)
-        body.setStretchFactor(2, 0)
-        body.setSizes([230, 1120, 400])
-        outer.addWidget(body, stretch=1)
-
-        self.pixel_label = subtle("Pixel: —")
-        self.pixel_label.setProperty("role", "mono")
-        footer = QHBoxLayout()
-        footer.addWidget(self.pixel_label, stretch=1)
-        hints = subtle("   ".join(f"{k}: {v}" for k, v in KEY_HINTS))
-        hints.setStyleSheet(f"color: {COL_TEXT_DIM}; font-size: 11px;")
-        footer.addWidget(hints)
-        outer.addLayout(footer)
+        return self.tabs
 
     def _build_side_panel(self) -> QWidget:
         host = QWidget()

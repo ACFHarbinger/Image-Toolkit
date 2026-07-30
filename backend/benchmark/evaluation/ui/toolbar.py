@@ -38,6 +38,8 @@ class InspectorToolbar(QWidget):
     lockToggled = Signal(bool)
     fitRequested = Signal()
     zoomRequested = Signal(float)
+    queuePanelToggled = Signal(bool)
+    sidePanelToggled = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -106,6 +108,24 @@ class InspectorToolbar(QWidget):
         self._checks_layout.setSpacing(8)
         layout.addWidget(self._checks_host)
         layout.addStretch(1)
+
+        # Collapsible sidebars: free up horizontal space for the panel grid
+        # itself. Qt's QSplitter remembers a hidden child's proportion and
+        # restores it on show(), so plain setVisible() toggling is enough —
+        # no manual size bookkeeping needed on either side of the toggle.
+        self._queue_toggle = QPushButton("◧ Tests")
+        self._queue_toggle.setCheckable(True)
+        self._queue_toggle.setChecked(True)
+        self._queue_toggle.setToolTip("Show/hide the test queue sidebar")
+        self._queue_toggle.toggled.connect(self.queuePanelToggled.emit)
+        layout.addWidget(self._queue_toggle)
+
+        self._side_toggle = QPushButton("Scoring ◨")
+        self._side_toggle.setCheckable(True)
+        self._side_toggle.setChecked(True)
+        self._side_toggle.setToolTip("Show/hide the scoring sidebar")
+        self._side_toggle.toggled.connect(self.sidePanelToggled.emit)
+        layout.addWidget(self._side_toggle)
 
     def set_comparators(self, available: List[str], visible: List[str]) -> None:
         for check in self._checks.values():
