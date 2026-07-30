@@ -3695,8 +3695,8 @@ a catalogue of what was already tried, not as a plan.</p>
 <tbody>
 <tr>
 <td>4.1</td>
-<td><strong>[Arch] Abstract Matcher base class</strong> — formal interface for all matcher tiers (Option B)</td>
-<td>~1w</td>
+<td><strong>[Arch] ✅ Abstract Matcher base class &amp; MatcherRegistry</strong> — formal <code>Matcher</code> interface + <code>MatcherRegistry</code> plugin system + concrete plugins (<code>TemplateMatcher</code>, <code>PhaseCorrelateMatcher</code>, <code>SegmentGuidedMatcher</code>) shipped in <code>backend/src/animation/alignment/matching/</code> (§5.3B, issue #125)</td>
+<td>Done</td>
 <td><a href="../architecture/#53-plugin-system-for-matchers-and-compositors">architecture.md §5.3</a></td>
 </tr>
 <tr>
@@ -3705,74 +3705,19 @@ a catalogue of what was already tried, not as a plan.</p>
 <td>Done</td>
 <td><a href="../architecture/#58-model-wrapper-abstraction-layer-backendsrcmodels">architecture.md §5.8</a></td>
 </tr>
-<tr>
-<td>4.3</td>
-<td><strong>[Arch] ✅ Weekly scheduled ASP benchmark CI</strong> — <code>benchmark.yml</code> gains <code>schedule: cron: "0 6 * * 1"</code> (every Monday 06:00 UTC); catches dep-induced regressions that don't touch the codebase (e.g. scipy minor bump)</td>
-<td>Done</td>
-<td><a href="../architecture/#52-benchmark-regression-ci">architecture.md §5.2</a></td>
-</tr>
-<tr>
-<td>4.4</td>
-<td><strong>[Arch] ✅ LogWindow upgraded (§2.17D)</strong> — <code>QPlainTextEdit</code>, colour-coded levels, timestamps, Copy All / Save / Clear / Follow. Full collapsible global panel (Option C) remains.</td>
-<td>Partial</td>
-<td><a href="../architecture/#54-logging-and-diagnostics">architecture.md §5.4</a></td>
-</tr>
-<tr>
-<td>4.5</td>
-<td><strong>[Feat] ✅ OpenAPI schema for existing REST endpoints</strong> — <code>drf-spectacular&gt;=0.27.2</code> added; <code>drf_spectacular</code> in <code>INSTALLED_APPS</code>; <code>SPECTACULAR_SETTINGS</code> (title/desc/version); <code>/api/schema/</code> (YAML), <code>/api/docs/</code> (Swagger UI), <code>/api/redoc/</code> (ReDoc) in <code>api/urls.py</code>; all 19 task views annotated with <code>@extend_schema</code> (tags, summary, request, 202/400 responses)</td>
-<td>Done</td>
-<td><a href="../new_features/#410-rest-api-layer-for-remote-control">new_features.md §4.10</a></td>
-</tr>
-<tr>
-<td>4.6</td>
-<td><strong>[Feat] ✅ Cross-directory phash deduplication index</strong> — <code>phash BIGINT</code> column + <code>idx_images_phash</code> index added to PostgreSQL <code>images</code> table via idempotent <code>ALTER TABLE … ADD COLUMN IF NOT EXISTS</code> in <code>schema.sql</code>; <code>update_phash(image_id, phash_int)</code> + <code>find_near_duplicates_by_phash(phash_int, threshold, limit)</code> on <code>PgvectorImageDatabase</code> (Hamming distance via <code>bit_count(phash::bit(64) # query::bit(64))</code>); <code>compute_phash(path)</code> + <code>PhashDeduplicator</code> (index_image/index_directory/find_duplicates_for/find_all_duplicate_groups) in <code>backend/src/core/phash_deduplicator.py</code>; 10 unit tests</td>
-<td>Done</td>
-<td><a href="../new_features/#46-image-deduplication-across-directories">new_features.md §4.6</a></td>
-</tr>
-<tr>
-<td>4.7</td>
-<td><strong>[Feat] ✅ KDE per-monitor wallpaper via D-Bus</strong> — <code>find_qdbus_binary()</code> auto-detects <code>qdbus6</code>/<code>qdbus-qt6</code>/<code>qdbus</code>/<code>qdbus-qt5</code>; <code>evaluate_kde_script_dbus_python()</code> pure-Python D-Bus fallback (bypasses CLI); <code>evaluate_kde_script_with_fallback(qdbus, script)</code> chain (CLI → dbus-python → clear error); all three KDE script call-sites in <code>WallpaperManager</code> migrated; <code>wallpaper_tab.py</code> uses <code>find_qdbus_binary()</code> instead of inline 2-name check; works on Wayland+KDE where <code>DESKTOP_SESSION</code> ≠ <code>plasma</code></td>
-<td>Done</td>
-<td><a href="../new_features/#45-multi-monitor-wallpaper-support">new_features.md §4.5</a></td>
-</tr>
-<tr>
-<td>4.8</td>
-<td><strong>[Perf] ✅ psycopg3 connection pool</strong> — <code>PooledPgvectorDatabase</code> in <code>backend/src/database/pooled_image_database.py</code> uses <code>psycopg_pool.ConnectionPool</code> (psycopg3 sync pool, min=2, max=10). Drop-in replacement for <code>PgvectorImageDatabase</code>: identical public API, each method borrows a thread-safe connection from the pool, returns it automatically. Eliminates single-connection bottleneck where multiple QThread workers raced on <code>self.conn</code>. <code>psycopg[pool]&gt;=3.2</code> added to <code>pyproject.toml</code>. Row access via <code>psycopg.rows.dict_row</code> row_factory; duplicate-column queries (<code>get_all_subgroups_detailed</code>, <code>get_statistics</code>) use per-cursor <code>tuple_row</code> override. <code>VACUUM</code>/<code>REINDEX</code> use a direct <code>autocommit=True</code> connection outside the pool. 22 unit tests using mocked pool/connection, no live DB required.</td>
-<td>Done</td>
-<td><a href="../performance/#34-database-query-optimisation">performance.md §3.4</a></td>
-</tr>
-<tr>
-<td>4.9</td>
-<td><strong>[GUI] QListView + QAbstractItemModel virtual scrolling</strong> — prototype against <code>AbstractClassTwoGalleries</code> (Option A)</td>
-<td>~1w</td>
-<td><a href="../gui_ux/#21-virtual-scroll-gallery">gui_ux.md §2.1</a></td>
-</tr>
-<tr>
-<td>4.10</td>
-<td><strong>[GUI] Global hotkey table in settings</strong> — JSON-backed <code>QShortcut</code> (Option B)</td>
-<td>~1w</td>
-<td><a href="../gui_ux/#23-keyboard-navigation">gui_ux.md §2.3</a></td>
-</tr>
-<tr>
-<td>4.12</td>
-<td><strong>[GUI] ✅ Named layout profiles</strong> — extend "System Preference Profiles" to bundle geometry + splitter state + appearance settings (§2.32B). <code>_get_current_ui_preferences()</code> now snapshots <code>saveGeometry()</code> as base64 + all <code>splitters/*</code> QSettings keys as a <code>layout_splitters</code> dict. New <code>_apply_layout_from_profile()</code> restores geometry to the main window immediately and writes splitter states to QSettings (active on next tab init). Both Load Profile and Use Profile call the helper.</td>
-<td>Done</td>
-<td><a href="../gui_ux/#232-window-layout-and-state-profiles">gui_ux.md §2.32</a></td>
-</tr>
-<tr>
-<td>4.13</td>
-<td><strong>[Feat] ✅ Appearance profiles</strong> — extend vault profiles to include accent colour, font scale, density (Option A). <code>_get_current_ui_preferences()</code> now bundles <code>accent_color_dark/light</code>, <code>font_scale</code>, <code>ui_density</code> alongside <code>theme</code>/<code>active_tab_configs</code>. New <code>_apply_appearance_from_profile()</code> helper updates swatches + spinbox + combo. Load/Use profile both call helper. Login profile selection merges appearance keys into <code>preferences</code>.</td>
-<td>Done</td>
-<td><a href="../new_features/#412-appearance-profiles">new_features.md §4.12</a></td>
-</tr>
-<tr>
-<td>4.11</td>
-<td><strong>[GUI] ✅ Thumbnail slider + per-tab persistent size</strong> — <code>QSlider</code> (64–512 px, step 16) in every pagination bar; <code>_save_thumbnail_size()</code> on slider release and after Ctrl+scroll; <code>_load_thumbnail_size()</code> at <code>__init__</code> time keyed by <code>{ClassName}/thumbnail_size</code>; <code>_sync_thumb_slider()</code> keeps all sliders in sync; both gallery base classes updated</td>
-<td>Done</td>
-<td><a href="../gui_ux/#22-gallery-thumbnail-size-control">gui_ux.md §2.2</a></td>
-</tr>
 </tbody>
 </table>
+<p>| 4.3 | <strong>[Arch] ✅ Weekly scheduled ASP benchmark CI</strong> — <code>benchmark.yml</code> gains <code>schedule: cron: "0 6 * * 1"</code> (every Monday 06:00 UTC); catches dep-induced regressions that don't touch the codebase (e.g. scipy minor bump) | Done | <a href="../architecture/#52-benchmark-regression-ci">architecture.md §5.2</a> |
+| 4.4 | <strong>[Arch] ✅ LogWindow upgraded (§2.17D)</strong> — <code>QPlainTextEdit</code>, colour-coded levels, timestamps, Copy All / Save / Clear / Follow. Full collapsible global panel (Option C) remains. | Partial | <a href="../architecture/#54-logging-and-diagnostics">architecture.md §5.4</a> |
+| 4.5 | <strong>[Feat] ✅ OpenAPI schema for existing REST endpoints</strong> — <code>drf-spectacular&gt;=0.27.2</code> added; <code>drf_spectacular</code> in <code>INSTALLED_APPS</code>; <code>SPECTACULAR_SETTINGS</code> (title/desc/version); <code>/api/schema/</code> (YAML), <code>/api/docs/</code> (Swagger UI), <code>/api/redoc/</code> (ReDoc) in <code>api/urls.py</code>; all 19 task views annotated with <code>@extend_schema</code> (tags, summary, request, 202/400 responses) | Done | <a href="../new_features/#410-rest-api-layer-for-remote-control">new_features.md §4.10</a> |
+| 4.6 | <strong>[Feat] ✅ Cross-directory phash deduplication index</strong> — <code>phash BIGINT</code> column + <code>idx_images_phash</code> index added to PostgreSQL <code>images</code> table via idempotent <code>ALTER TABLE … ADD COLUMN IF NOT EXISTS</code> in <code>schema.sql</code>; <code>update_phash(image_id, phash_int)</code> + <code>find_near_duplicates_by_phash(phash_int, threshold, limit)</code> on <code>PgvectorImageDatabase</code> (Hamming distance via <code>bit_count(phash::bit(64) # query::bit(64))</code>); <code>compute_phash(path)</code> + <code>PhashDeduplicator</code> (index_image/index_directory/find_duplicates_for/find_all_duplicate_groups) in <code>backend/src/core/phash_deduplicator.py</code>; 10 unit tests | Done | <a href="../new_features/#46-image-deduplication-across-directories">new_features.md §4.6</a> |
+| 4.7 | <strong>[Feat] ✅ KDE per-monitor wallpaper via D-Bus</strong> — <code>find_qdbus_binary()</code> auto-detects <code>qdbus6</code>/<code>qdbus-qt6</code>/<code>qdbus</code>/<code>qdbus-qt5</code>; <code>evaluate_kde_script_dbus_python()</code> pure-Python D-Bus fallback (bypasses CLI); <code>evaluate_kde_script_with_fallback(qdbus, script)</code> chain (CLI → dbus-python → clear error); all three KDE script call-sites in <code>WallpaperManager</code> migrated; <code>wallpaper_tab.py</code> uses <code>find_qdbus_binary()</code> instead of inline 2-name check; works on Wayland+KDE where <code>DESKTOP_SESSION</code> ≠ <code>plasma</code> | Done | <a href="../new_features/#45-multi-monitor-wallpaper-support">new_features.md §4.5</a> |
+| 4.8 | <strong>[Perf] ✅ psycopg3 connection pool</strong> — <code>PooledPgvectorDatabase</code> in <code>backend/src/database/pooled_image_database.py</code> uses <code>psycopg_pool.ConnectionPool</code> (psycopg3 sync pool, min=2, max=10). Drop-in replacement for <code>PgvectorImageDatabase</code>: identical public API, each method borrows a thread-safe connection from the pool, returns it automatically. Eliminates single-connection bottleneck where multiple QThread workers raced on <code>self.conn</code>. <code>psycopg[pool]&gt;=3.2</code> added to <code>pyproject.toml</code>. Row access via <code>psycopg.rows.dict_row</code> row_factory; duplicate-column queries (<code>get_all_subgroups_detailed</code>, <code>get_statistics</code>) use per-cursor <code>tuple_row</code> override. <code>VACUUM</code>/<code>REINDEX</code> use a direct <code>autocommit=True</code> connection outside the pool. 22 unit tests using mocked pool/connection, no live DB required. | Done | <a href="../performance/#34-database-query-optimisation">performance.md §3.4</a> |
+| 4.9 | <strong>[GUI] QListView + QAbstractItemModel virtual scrolling</strong> — prototype against <code>AbstractClassTwoGalleries</code> (Option A) | ~1w | <a href="../gui_ux/#21-virtual-scroll-gallery">gui_ux.md §2.1</a> |
+| 4.10 | <strong>[GUI] Global hotkey table in settings</strong> — JSON-backed <code>QShortcut</code> (Option B) | ~1w | <a href="../gui_ux/#23-keyboard-navigation">gui_ux.md §2.3</a> |
+| 4.12 | <strong>[GUI] ✅ Named layout profiles</strong> — extend "System Preference Profiles" to bundle geometry + splitter state + appearance settings (§2.32B). <code>_get_current_ui_preferences()</code> now snapshots <code>saveGeometry()</code> as base64 + all <code>splitters/*</code> QSettings keys as a <code>layout_splitters</code> dict. New <code>_apply_layout_from_profile()</code> restores geometry to the main window immediately and writes splitter states to QSettings (active on next tab init). Both Load Profile and Use Profile call the helper. | Done | <a href="../gui_ux/#232-window-layout-and-state-profiles">gui_ux.md §2.32</a> |
+| 4.13 | <strong>[Feat] ✅ Appearance profiles</strong> — extend vault profiles to include accent colour, font scale, density (Option A). <code>_get_current_ui_preferences()</code> now bundles <code>accent_color_dark/light</code>, <code>font_scale</code>, <code>ui_density</code> alongside <code>theme</code>/<code>active_tab_configs</code>. New <code>_apply_appearance_from_profile()</code> helper updates swatches + spinbox + combo. Load/Use profile both call helper. Login profile selection merges appearance keys into <code>preferences</code>. | Done | <a href="../new_features/#412-appearance-profiles">new_features.md §4.12</a> |
+| 4.11 | <strong>[GUI] ✅ Thumbnail slider + per-tab persistent size</strong> — <code>QSlider</code> (64–512 px, step 16) in every pagination bar; <code>_save_thumbnail_size()</code> on slider release and after Ctrl+scroll; <code>_load_thumbnail_size()</code> at <code>__init__</code> time keyed by <code>{ClassName}/thumbnail_size</code>; <code>_sync_thumb_slider()</code> keeps all sliders in sync; both gallery base classes updated | Done | <a href="../gui_ux/#22-gallery-thumbnail-size-control">gui_ux.md §2.2</a> |</p>
 <hr />
 <h2 id="phase-5-advanced-features-13-weeks-per-item-research-required">Phase 5 — Advanced Features (1–3 Weeks per Item, Research Required)<a class="headerlink" href="#phase-5-advanced-features-13-weeks-per-item-research-required" title="Permanent link">&para;</a></h2>
 <p>Higher-complexity features that depend on Phase 3–4 infrastructure or require experimentation.</p>
@@ -4147,8 +4092,8 @@ a catalogue of what was already tried, not as a plan.</p>
 </tr>
 <tr>
 <td>A.15</td>
-<td><strong>[Arch] NumPy-style docstrings + Mermaid class diagrams</strong> — all public methods in <code>backend/src/models/</code> and <code>backend/src/animation/</code>; hierarchy diagrams in <code>backend/src/models/__init__.py</code> and <code>gui/src/classes/__init__.py</code></td>
-<td>~3d</td>
+<td><strong>[Arch] ✅ Codebase documentation &amp; Mermaid class diagrams</strong> — Mermaid class hierarchy diagrams added to <code>backend/src/models/__init__.py</code> and <code>gui/src/classes/__init__.py</code> + NumPy-style docstrings across model and alignment modules (§5.12, issue #124)</td>
+<td>Done</td>
 <td><a href="../architecture/#512-codebase-documentation--diagrams">architecture.md §5.12</a></td>
 </tr>
 <tr>
@@ -4190,6 +4135,12 @@ a catalogue of what was already tried, not as a plan.</p>
 <tr>
 <td>A.22</td>
 <td><strong>[Arch] ✅ Split the 3 deferred <code>gui/src/</code> giants (2,505–5,035 LoC) into packages</strong> — <code>settings_window.py</code> (11 files; required decomposing its ~1,113-line <code>__init__</code> into <code>_build_*_section()</code> helpers before a mixin split was possible), <code>extractor_tab.py</code> (16 files; crash-history-sensitive lazy <code>QMediaPlayer</code>/<code>QAudioOutput</code>/<code>QGraphicsVideoItem</code> construction and <code>cancel_loading()</code> teardown ordering moved verbatim per <code>.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md</code>), <code>stitch_tab.py</code> (21 files; decomposed along its 8 pre-existing sub-tab features plus ~1,200 lines of standalone node-graph/match-editor/thumbnail-picker classes, with <code>_build_stitch_panel</code>/<code>_stats_build_recommendations</code> kept whole as documented over-limit exceptions) → package directories via Option B; extends the MRO-shadowing fix to <code>AbstractClassSingleGallery</code> and 13-mixin compositions; closes issue #122</td>
+<td>Done</td>
+<td><a href="../architecture/#517-file-size-limit-enforcement-500-loc">architecture.md §5.17</a></td>
+</tr>
+<tr>
+<td>A.23</td>
+<td><strong>[Arch] ✅ CI-enforced LoC gate &amp; auto-generated report</strong> — <code>--max-code-lines 500 --fail-over</code> enforcement mode in <code>count_loc.py</code>, grandfathered exceptions list <code>docs/loc_exceptions.txt</code>, <code>--markdown-out docs/loc_report.md</code>, <code>just check-loc</code> / <code>just loc-report</code> recipes, and unit tests (§5.17 Options A+D, issue #126)</td>
 <td>Done</td>
 <td><a href="../architecture/#517-file-size-limit-enforcement-500-loc">architecture.md §5.17</a></td>
 </tr>

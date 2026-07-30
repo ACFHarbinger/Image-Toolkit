@@ -800,16 +800,27 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyside6-qt-crashes-sigsegv" class="md-nav__link">
+  <a href="#pyside6-qt-crashes-layout-bugs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PySide6 / Qt Crashes (SIGSEGV)
+        PySide6 / Qt Crashes &amp; Layout Bugs
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="PySide6 / Qt Crashes (SIGSEGV)">
+    <nav class="md-nav" aria-label="PySide6 / Qt Crashes &amp; Layout Bugs">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#benchmark-evaluation-inspector-window-geometry-overflow-vertical-image-tiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Evaluation Inspector Window Geometry Overflow &amp; Vertical Image Tiling
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#__dynamic_cast-failure-in-libstdcso6" class="md-nav__link">
@@ -3154,16 +3165,27 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyside6-qt-crashes-sigsegv" class="md-nav__link">
+  <a href="#pyside6-qt-crashes-layout-bugs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PySide6 / Qt Crashes (SIGSEGV)
+        PySide6 / Qt Crashes &amp; Layout Bugs
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="PySide6 / Qt Crashes (SIGSEGV)">
+    <nav class="md-nav" aria-label="PySide6 / Qt Crashes &amp; Layout Bugs">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#benchmark-evaluation-inspector-window-geometry-overflow-vertical-image-tiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Evaluation Inspector Window Geometry Overflow &amp; Vertical Image Tiling
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#__dynamic_cast-failure-in-libstdcso6" class="md-nav__link">
@@ -3733,7 +3755,8 @@
 <hr />
 <h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="#pyside6--qt-crashes-sigsegv">PySide6 / Qt Crashes (SIGSEGV)</a></li>
+<li><a href="#pyside6--qt-crashes-sigsegv">PySide6 / Qt Crashes &amp; Layout Bugs</a></li>
+<li><a href="#benchmark-evaluation-inspector-window-geometry-overflow--vertical-image-tiling">Benchmark Evaluation Inspector Window Geometry Overflow</a></li>
 <li><a href="#qt-multimedia--video-playback-decode-failures">Qt Multimedia / Video Playback Decode Failures</a></li>
 <li><a href="#external-api-failures-jikan--myanimelist-auto-fill">External API Failures (Jikan / MyAnimeList Auto-Fill)</a></li>
 <li><a href="#asp-pipeline-errors">ASP Pipeline Errors</a></li>
@@ -3746,7 +3769,28 @@
 <li><a href="#developer-best-practices">Developer Best Practices</a></li>
 </ul>
 <hr />
-<h2 id="pyside6-qt-crashes-sigsegv"><a id="pyside6--qt-crashes-sigsegv"></a>PySide6 / Qt Crashes (SIGSEGV)<a class="headerlink" href="#pyside6-qt-crashes-sigsegv" title="Permanent link">&para;</a></h2>
+<h2 id="pyside6-qt-crashes-layout-bugs"><a id="pyside6--qt-crashes-sigsegv"></a>PySide6 / Qt Crashes &amp; Layout Bugs<a class="headerlink" href="#pyside6-qt-crashes-layout-bugs" title="Permanent link">&para;</a></h2>
+<h3 id="benchmark-evaluation-inspector-window-geometry-overflow-vertical-image-tiling">Benchmark Evaluation Inspector Window Geometry Overflow &amp; Vertical Image Tiling<a class="headerlink" href="#benchmark-evaluation-inspector-window-geometry-overflow-vertical-image-tiling" title="Permanent link">&para;</a></h3>
+<p><strong>Symptom:</strong> After maximizing, un-maximizing, or moving the Benchmark Evaluation Inspector window, right-hand UI controls (Settings button, Scoring panel toggles, Save button) expand beyond the right monitor/window boundary and get cut off. Additionally, images inside <code>ImagePanel</code> display split or tiled vertically with uncentered viewport scroll offsets.</p>
+<p><strong>Root causes (full set — see also issue #153):</strong></p>
+<ol>
+<li>Default <code>Expanding</code> horizontal size policies on <code>ImagePanel</code>, <code>_PanelCell</code>, <code>PanelGrid</code>, and <code>_GridHost</code> caused graphics view layout updates to propagate up the layout tree during viewport transforms, requesting 2080px+ width from parent <code>QSplitter</code> and <code>centralWidget</code> and forcing <code>QMainWindow</code> to expand past the 1920px screen width.</li>
+<li><code>QTimer.singleShot(0, self._fit_all)</code> calls in <code>_load_current</code>, <code>_on_layout_changed</code>, and <code>_on_visibility_changed</code> were left in place even after <code>_resize_timer</code> was introduced. These bypassed the 150 ms resize debounce, firing <code>_fit_all</code> while the window manager was still animating a maximize/move — causing <code>_compute_fit_scale()</code> to read transitional (mid-animation) viewport sizes and propagate an inflated width request up through the splitter.</li>
+<li><code>ImagePanel.resizeEvent</code> recalculated <code>_fit_scale</code> without re-anchoring <code>centerOn(...)</code>.</li>
+<li>The two internal <code>QStackedWidget</code> instances inside <code>PanelGrid</code> (<code>_host_stack</code> and <code>_stack</code>) retained the default <code>Preferred</code> horizontal size policy. <code>QStackedWidget.sizeHint()</code> returns the <strong>maximum</strong> sizeHint of all contained widgets — which, during a re-layout triggered by a panel add/remove, could reflect the native pixel size of the largest image. Even with <code>PanelGrid</code> itself set to <code>Ignored</code>, <code>QLayout::minimumSize()</code> still queries children's <code>minimumSizeHint()</code>, which <code>QStackedWidget</code> derives from its children's <code>sizeHint()</code> when their own policy is <code>Ignored</code> but the stacked widget's is not.</li>
+<li><code>QGraphicsView.setTransform</code> / <code>centerOn</code> can trigger internal <code>QAbstractScrollArea</code> geometry updates that re-enter the Qt event loop and may re-invoke <code>_fit_all</code> mid-execution, compounding whichever of the above is the immediate trigger.</li>
+<li>The footer key-hint crib sheet (<code>KEY_HINTS</code>, joined into one <code>QLabel</code> in <code>_build_ui</code>) and the header/footer status labels (<code>status_label</code>, <code>pixel_label</code>) used plain <code>QLabel</code>s with word-wrap off and no elision. A <code>QLabel</code> in that configuration reports its full unwrapped text width as its <code>minimumSizeHint</code> — for the joined <code>KEY_HINTS</code> string that's ~1680px — which propagates up through the footer row into <code>QMainWindow</code>'s own minimum size. This is independent of, and was not fixed by, root causes 1-5: it reproduced the exact same symptom (right-hand sidebar controls and footer text clipped at the screen edge) on a real window even with the size-policy and debounce fixes in place, because the window's <em>minimum</em> size itself was the thing exceeding the screen, not a transient viewport-driven expansion.</li>
+</ol>
+<p><strong>Fix (issue #153 / <code>main_window.py</code>, <code>panel_grid.py</code>):</strong></p>
+<ol>
+<li>Set <code>setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)</code> on <code>ImagePanel</code>, and <code>setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)</code> on <code>_PanelCell</code>, <code>PanelGrid</code>, <code>_GridHost</code>, <code>InspectorToolbar</code>, <code>_host_stack</code>, and <code>_stack</code>. Internal image viewport transforms now never force parent layouts or <code>QMainWindow</code> to expand horizontally.</li>
+<li>Replaced all three <code>QTimer.singleShot(0, self._fit_all)</code> calls with <code>self._schedule_fit(0)</code>. <code>_schedule_fit(delay_ms)</code> routes every fit request through the single <code>_resize_timer</code> (<code>setSingleShot(True)</code>) and enforces a "don't shorten a longer active debounce" rule: if the 150 ms resize timer is already counting down, <code>_schedule_fit(0)</code> does nothing — the resize timer fires as originally scheduled, after the window manager has fully settled.</li>
+<li>Updated <code>ImagePanel.resizeEvent</code> to re-center scene coordinates (<code>centerOn(...)</code>) whenever <code>_fit_scale</code> changes.</li>
+<li>Added a <code>_fitting</code> boolean re-entrancy guard in <code>_fit_all</code>. If a <code>QGraphicsView</code> internal geometry propagation re-enters <code>_fit_all</code> while <code>grid.fit_all()</code> is running, the nested call returns immediately without applying a second conflicting transform.</li>
+<li>Added <code>_ElidingLabel</code> (<code>main_window.py</code>) — a <code>QLabel</code> subclass with <code>QSizePolicy.Ignored</code> horizontal policy that elides its text with <code>QFontMetrics.elidedText(..., Qt.ElideRight, self.width())</code> on every <code>resizeEvent</code>, keeping the full untruncated string as the tooltip. <code>status_label</code>, <code>pixel_label</code>, and the footer <code>hints</code> label all use it now, so none of them can force the window wider than the screen regardless of how long their text gets (a long dataset path, a <code>Pinned:</code> multi-comparator pixel readout, or the full <code>KEY_HINTS</code> crib sheet).</li>
+</ol>
+<p><strong>Debug instrumentation (issue #153):</strong> <code>_DBG_INSPECTOR</code> in <code>main_window.py</code> and <code>_DBG_PANEL</code> in <code>image_panel.py</code> gate tagged stdout lines (<code>[DBG-INSPECTOR]</code>, <code>[DBG-PANEL]</code>) covering every resize event, <code>_fit_all</code> invocation (with call-stack origin), splitter sizes before/after fit, per-panel viewport+fit_scale+zoom, and a <code>window exceeds screen width</code> flag. Both are set to <code>False</code> now that the bug is confirmed resolved (46 regression tests in <code>backend/benchmark/evaluation/test/</code>); flip to <code>True</code> if it needs to be diagnosed again.</p>
+<hr />
 <h3 id="__dynamic_cast-failure-in-libstdcso6"><code>__dynamic_cast</code> failure in <code>libstdc++.so.6</code><a class="headerlink" href="#__dynamic_cast-failure-in-libstdcso6" title="Permanent link">&para;</a></h3>
 <p><strong>Symptom:</strong> Application terminates during directory browsing, gallery loading, or startup. Crash log (<code>hs_err_pid*.log</code>) shows:
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>C [libstdc++.so.6+0xc1e25] __dynamic_cast+0x35
