@@ -93,21 +93,49 @@ ideas clean-room, never link.
 
 ## Phase 0 — Measurement Foundation *(everything else depends on this)*
 
-### 0.1 Human coherence ratings for the current baseline  `[HUMAN, ~45 min]`
+### 0.1 Human coherence ratings for the current baseline  `[tool rebuilt
+2026-07-29, S266, issue #123 — the pass itself is HUMAN, ~45 min, still open]`
 Rate all 97 post-trim outputs (plus the simple stitches) 0–4 on structural
-coherence: 4 = keepable, 2 = flawed but parses, 0 = incoherent. Store as
-`data/human_ratings/asp_ratings_YYYYMMDD.json` (`{test: {asp: n, simple: n, notes}}`).
-A tiny helper script that shows each montage and records a keypress is a 30-minute
-build. **This is the metric the objective is defined against.**
+coherence: 4 = keepable, 2 = flawed but parses, 0 = incoherent. Output
+`data/benchmarks/asp_evaluations_YYYYMMDD.json`
+(`{test: {asp: n, simple: n, notes, ...}}`).
+**This is the metric the objective is defined against.**
 
-### 0.2 Coherence-aware verdicts  `[1 day]`
-- Add `human_coherence_asp/simple` columns to the benchmark JSON/report when a
-  ratings file exists; the verdict may not report `asp_better` when the ASP
-  coherence rating is below the simple stitch's.
-- Calibrate the 12 automated metrics against the ratings (rank correlation per
-  metric); demote anything that disagrees with humans on ranking to
-  "diagnostic-only" in the report. This closes the test84/test53/test07 class of
-  false `asp_better` verdicts for good.
+Two surfaces over that one file, entry point
+`backend/controllers/bench_eval_dispatch.py`:
+- **`just asp-benchmark-assess`** — the PySide6 inspector: N-way comparison of
+  every comparator a test has (ASP / Simple / Overmix / Hugin / GT) with zoom
+  **and pan** locked across panels, a pixel-value probe, live comparison maps
+  (difference / SSIM / false-colour / swipe / blend / checkerboard / edge
+  overlay), the per-test metrics and §11.1–11.5 diagnostics inline, the
+  benchmark's own plots and stage renders, region/link annotation with a defect
+  class + severity, and keyboard-first scoring sized for the ~28 s/test this
+  section budgets.
+- **`just asp-triage`** — the optional FiftyOne surface (extra
+  `benchmark-eval`): one group per test, one slice per comparator, every metric
+  and human judgment filterable, defect tags, saved views. FiftyOne's App has no
+  label drawing and no pixel probe, which is exactly why the inspector exists
+  alongside it rather than instead of it.
+
+Schema is additive: the original `asp`/`simple`/`notes`/`bboxes`/`edges` keys are
+written unchanged (`_load_human_evaluations()` reads only `asp`/`simple`), plus
+per-dimension sub-scores, pairwise preference + confidence, an 11-class defect
+taxonomy, and `reviewed`/`skipped` flags.
+
+### 0.2 Coherence-aware verdicts  `[veto logic done 2026-07-27, S222;
+metric calibration still open — needs the 0.1 pass to have data]`
+- **Done**: the benchmark loads the newest evaluations file and adds a
+  `human_coherence` field per dataset; the verdict may not report `asp_better`
+  when the ASP coherence rating is below the simple stitch's (a one-directional
+  veto — `verdict_source` becomes `human_coherence_veto`).
+- **Still open**: calibrate the 12 automated metrics against the ratings (rank
+  correlation per metric); demote anything that disagrees with humans on ranking
+  to "diagnostic-only" in the report. This closes the test84/test53/test07 class
+  of false `asp_better` verdicts for good. The data collection it needs is now
+  in place (per-dimension sub-scores, defect tags, and a derived
+  `human_disagrees_with_metric` field on the triage surface — the veto is
+  one-directional, so disagreements it does not veto were previously invisible),
+  but the pass itself is the prerequisite.
 
 ### 0.3 Overmix as a third comparator on the full corpus  `[2–4 days]`
 The benchmark currently compares against one competitor. Add Overmix:

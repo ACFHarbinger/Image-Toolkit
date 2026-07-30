@@ -38,7 +38,7 @@ sys.path.insert(0, _repo_root)
 
 from backend.benchmark.evaluation.other import discovery, metrics_view as mv  # noqa: E402
 from backend.benchmark.evaluation.other.schema import BoundingBox, RatingEntry  # noqa: E402
-from backend.benchmark.evaluation.triage import sample_fields as sf  # noqa: E402
+from backend.benchmark.evaluation.plugin import sample_fields as sf  # noqa: E402
 
 ENTRY = {
     "name": "asp_test01",

@@ -144,7 +144,7 @@ def _run_inspector(args) -> None:
 
 
 def _run_triage(args, launch_app: bool) -> None:
-    from backend.benchmark.evaluation.triage import ingest, preflight
+    from backend.benchmark.evaluation.plugin import ingest, preflight
 
     check = preflight.check(require_db=True)
     if not check.ok:
@@ -176,7 +176,7 @@ def _run_triage(args, launch_app: bool) -> None:
 
 
 def _run_sync(args) -> None:
-    from backend.benchmark.evaluation.triage import preflight, sync
+    from backend.benchmark.evaluation.plugin import preflight, sync
 
     check = preflight.check(require_db=True)
     if not check.ok:

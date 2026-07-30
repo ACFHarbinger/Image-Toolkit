@@ -149,7 +149,7 @@ flowchart TD
 | **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts`, `tsc --noEmit` clean |
 | **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Tauri commands, SVG charts, 7-page dashboard, `App.tsx` wired |
 | Phase 1–10 feature implementation | ⬜ Not started | Backbone provides all mathematical primitives |
-| **ASP Benchmark Analytics (Phase 11)** | ⬜ Not started | Per-seam diagnostics, alignment drift, photometric, edge quality, GT, regression |
+| **ASP Benchmark Analytics (Phase 11)** | 🔄 Partial (2026-07-29) | 11.1–11.5 (per-test) done in the ASP evaluation tool, issue #123; 11.7/11.8 done in the static report; 11.6/11.9/11.10 (corpus-wide) open |
 | **Benchmark Coverage Expansion (Phase 12)** | 🔄 Partial (2026-07-27) | 12.1/12.3 shipped; 12.2/12.5-12.8 still open; 12.4 rescoped (see §12.4) |
 
 ### Rust backbone — `base/src/math/`
@@ -442,31 +442,74 @@ See [`research/Analytics and Codebase Visualization Research.md`](../../research
 
 **Priority: HIGH — directly supports ASP quality improvement loop.**
 
-### 11.1 Per-Seam Quality Strip Visualizer
+> **Scope split, 2026-07-29 (S266, issue #123).** The *per-test* half of this
+> phase — 11.1–11.5 — is **DONE**, implemented inside the ASP evaluation tool
+> rather than here, because those five charts answer "why did *this* test score
+> badly" while a human is looking at that test, which is precisely the moment
+> the answer is useful. They live in
+> `backend/benchmark/evaluation/logic/diagnostics.py`, render in the inspector's
+> Diagnostics tab (`just asp-benchmark-assess`), and are built from
+> `evaluation/other/metrics_view.py`'s flattened series — no metric is
+> recomputed, so a chart can never disagree with the report or the verdict logic.
+> Per-item notes are inline below.
+>
+> The **corpus-wide** items stay here and remain open: 11.6 (stage memory
+> waterfall — still needs the `stage_memory_rss_mb` emission), 11.9 (cross-run
+> regression dashboard; the evaluation tool has a per-test slice of this via a
+> baseline-run selector, but not the corpus view), and 11.10 (experiment
+> tracker). 11.7 and 11.8 were already done in the static report.
+
+### 11.1 Per-Seam Quality Strip Visualizer — DONE (2026-07-29, issue #123)
+Implemented as `diagnostics.seam_quality_figure`: one bar per inter-strip seam
+boundary per comparator, with the worst seam annotated. **Deviation from the
+spec below, deliberately**: the colour bands use the pipeline's *own* ghost
+thresholds (clean < 30, ghost likely 30–60, ghost confirmed ≥ 60, from
+`_compute_cqas`) rather than the generic ≥0.80 / 0.60–0.80 / <0.60 split this
+item proposed — `ghost_seam_scores` is a 0–100 SIQE scale where lower is
+better, so the proposed bands would have been both inverted and unanchored.
+Renders an explanation rather than an empty axes when a test has no per-seam
+scores, which is the normal case for a SCANS fallback (it has no ASP seams to
+score). Linking the driving seam to the DP seam-path cache key is *not* done —
+the cache key isn't in the results JSON.
+
+### 11.1 (original spec)
 - Render ghost-score, NCC coherence, and Bhattacharyya color-similarity as per-seam bar charts (one bar per seam boundary) instead of only showing the worst-case scalar.
 - Color-code each bar: green (≥0.80), amber (0.60–0.80), red (<0.60) — maps directly to the composite quality thresholds.
 - ASP-specific: highlight the seam that drives `composite_quality` down and link it to the DP seam path cache key.
 
-### 11.2 Alignment Drift Diagnostic Chart
-- Plot per-frame `tx` and `ty` from the `alignment.affines` block as a line chart, overlaid with `dy_steps` / `dx_steps` inter-frame deltas.
-- Flag frames where the step exceeds 2× the median (outlier frames that hurt bundle adjust).
-- Show `dy_cv` / `dx_cv` coefficient of variation — high CV indicates non-uniform scroll speed (common cause of fallbacks).
+### 11.2 Alignment Drift Diagnostic Chart — DONE (2026-07-29, issue #123)
+`diagnostics.alignment_drift_figure`: per-frame `tx`/`ty` as a line chart above a
+bar chart of the `dy_steps`/`dx_steps` inter-frame deltas, with any step past 2×
+the median magnitude flagged in red and both `dy_cv`/`dx_cv` in the title. All
+three spec bullets as written.
 
-### 11.3 Photometric Correction Profile
-- Render per-frame background luminance (`photometric.bg_lums`) and applied gain (`photometric.applied_gains`) as a dual-axis bar+line chart.
-- Flag frames whose gain deviates from 1.0 by >15% — these are the frames most likely to introduce visible colour banding after compositing.
-- Show gain range [min, max] and number of frames corrected vs total.
+### 11.3 Photometric Correction Profile — DONE (2026-07-29, issue #123)
+`diagnostics.photometric_figure`: `bg_lums` as bars against `applied_gains` on a
+twin axis, reference luminance as a guide line, gains deviating from 1.0 by more
+than 15% marked with an ✗, and "N/total frames corrected, gain range [min, max]"
+in the title. All three spec bullets as written.
 
-### 11.4 Edge Quality & Matching Breakdown
-- Pie / donut chart of matching method breakdown from `matching.methods` (LoFTR, phase-correlation, SIFT, etc.).
-- Scatter plot of `edge.weight` vs `edge.n_pts` for all filtered edges — high weight + high n_pts edges are reliable; low weight + few pts edges are noise candidates.
-- Show raw vs filtered edge count and filter efficiency ratio.
-- Flag datasets with fewer than N-1 high-confidence edges (likely cause of bundle-adjust failures).
+### 11.4 Edge Quality & Matching Breakdown — DONE (2026-07-29, issue #123)
+`diagnostics.matching_figure`: donut of `matching.methods` beside a
+`weight`-vs-`n_pts` scatter, points coloured by frame gap (`j − i`) — a failing
+skip-link is a different problem from a failing adjacent pair, which the flat
+scatter in the spec would have hidden — and raw/filtered counts plus the kept-%
+in the title. The last bullet (flagging datasets with fewer than N−1
+high-confidence edges) is **not** done: "high-confidence" has no threshold
+defined anywhere in the pipeline, and inventing one here would put a number in
+the UI that no gate agrees with.
 
-### 11.5 Ground Truth Comparison Panel
-- Table of datasets that have ground truth: `ssim_vs_gt`, `aligned_ssim_vs_gt`, `psnr_vs_gt` for both ASP and simple stitch.
-- Bar chart: ASP aligned-SSIM vs Simple SSIM for each GT dataset.
-- Regression detection: highlight GT-SSIM drops >3% relative to the previous benchmark run.
+### 11.5 Ground Truth Comparison Panel — DONE (2026-07-29, issue #123)
+Two halves, in the place each belongs. The **table** is
+`evaluation/ui/metrics_panel.py`'s ground-truth section (all four GT metrics ×
+ASP/Simple, winner tinted by direction). The **chart** is
+`diagnostics.gt_comparison_figure`: grouped bars normalized per row, since PSNR
+in dB sits an order of magnitude above the SSIM rows and the comparison that
+matters is ASP-vs-Simple *within* a row. **Regression detection** is done via a
+baseline-run selector in the Diagnostics tab: pick any older
+`anime_stitch_*.json` and metrics that moved against their good direction by
+more than 3% are called out — the same 3% margin `_gt_verdict` itself uses to
+avoid noise-driven verdict flips, rather than this item's unqualified ">3%".
 
 ### 11.6 Stage-Level Memory Profiling
 - Track RSS (resident set size) at the start/end of each pipeline stage (BiRefNet, LoFTR, render, composite) using psutil.

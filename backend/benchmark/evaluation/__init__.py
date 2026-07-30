@@ -9,7 +9,11 @@ everything here is an implementation detail it assembles, split by role:
                    spectra, comparison maps, per-test diagnostics charts).
 - ``constants/`` — the evaluation vocabulary and UI/logic tuning constants.
 - ``ui/``        — the PySide6 per-test inspector (presentation only).
-- ``triage/``    — the optional FiftyOne corpus-triage surface.
+- ``plugin/``    — the optional FiftyOne corpus-triage surface. Doubles as the
+                   FiftyOne plugin directory (it holds the ``fiftyone.yml``
+                   manifest and exposes ``register()``), which is why it is named
+                   for what FiftyOne needs it to be rather than for the workflow
+                   it serves.
 
 Two surfaces share one source of truth (``data/benchmarks/asp_evaluations_*.json``):
 the inspector for per-test deep work (N-way locked zoom/pan, pixel probe, live
