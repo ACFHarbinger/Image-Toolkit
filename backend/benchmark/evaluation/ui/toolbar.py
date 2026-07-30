@@ -11,13 +11,16 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QWidget,
 )
 
@@ -106,8 +109,15 @@ class InspectorToolbar(QWidget):
         self._checks_layout = QHBoxLayout(self._checks_host)
         self._checks_layout.setContentsMargins(0, 0, 0, 0)
         self._checks_layout.setSpacing(8)
-        layout.addWidget(self._checks_host)
-        layout.addStretch(1)
+
+        self._checks_scroll = QScrollArea()
+        self._checks_scroll.setWidget(self._checks_host)
+        self._checks_scroll.setWidgetResizable(True)
+        self._checks_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._checks_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._checks_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._checks_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        layout.addWidget(self._checks_scroll, stretch=1)
 
         # Collapsible sidebars: free up horizontal space for the panel grid
         # itself. Qt's QSplitter remembers a hidden child's proportion and
@@ -126,8 +136,10 @@ class InspectorToolbar(QWidget):
         self._side_toggle.setToolTip("Show/hide the scoring sidebar")
         self._side_toggle.toggled.connect(self.sidePanelToggled.emit)
         layout.addWidget(self._side_toggle)
-        from PySide6.QtWidgets import QSizePolicy
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+
+    def minimumSizeHint(self) -> QSize:  # noqa: D102 - Qt override
+        return QSize(400, 32)
 
     def set_comparators(self, available: List[str], visible: List[str]) -> None:
         for check in self._checks.values():
