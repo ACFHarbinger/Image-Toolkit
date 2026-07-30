@@ -222,18 +222,30 @@ class ScoringPanel(QWidget):
         return box
 
     def _build_defects_box(self) -> QGroupBox:
-        box = QGroupBox("Defect tags (1-9 toggles the first nine)")
+        box = QGroupBox("Defect tags (0-9 toggles the ten numbered tags)")
         grid = QGridLayout(box)
         grid.setContentsMargins(8, 4, 8, 6)
         grid.setSpacing(4)
         self._defect_buttons: Dict[str, QPushButton] = {}
-        for index, (key, title, hint) in enumerate(DEFECTS):
-            btn = QPushButton(f"{index + 1}. {title}" if index < 9 else title)
+        # The last entry ("Other") is deliberately unnumbered — it has no
+        # keyboard shortcut (0-9 are all spoken for) and is described in the
+        # notes, so it gets the full row width instead of sharing a slot.
+        numbered = DEFECTS[:-1]
+        other_key, other_title, other_hint = DEFECTS[-1]
+        for index, (key, title, hint) in enumerate(numbered):
+            btn = QPushButton(f"{index}. {title}")
             btn.setCheckable(True)
             btn.setToolTip(hint)
             btn.clicked.connect(lambda _c, k=key: self.toggle_defect(k))
             grid.addWidget(btn, index // 2, index % 2)
             self._defect_buttons[key] = btn
+        other_row = -(-len(numbered) // 2)  # ceiling division: the row after the last pair
+        other_btn = QPushButton(other_title)
+        other_btn.setCheckable(True)
+        other_btn.setToolTip(other_hint)
+        other_btn.clicked.connect(lambda _c, k=other_key: self.toggle_defect(k))
+        grid.addWidget(other_btn, other_row, 0, 1, 2)  # span both columns
+        self._defect_buttons[other_key] = other_btn
         return box
 
     def _build_notes_box(self) -> QGroupBox:

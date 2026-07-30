@@ -44,8 +44,10 @@ def install(window) -> None:
         bind(str(value), lambda v=value: window._score_focused(v))
 
     # Defect tags. Ctrl-prefixed so the bare digits stay free for scoring.
-    for index in range(9):
-        bind(f"Ctrl+{index + 1}", lambda i=index: window._toggle_defect(i))
+    # Ctrl+0 is torn_anatomy through Ctrl+9 geometry_warp — the ten numbered
+    # tags in DEFECTS; "Other" has no shortcut (0-9 are all spoken for).
+    for index in range(10):
+        bind(f"Ctrl+{index}", lambda i=index: window._toggle_defect(i))
 
     # Focus
     bind("A", lambda: window.grid.set_focus(IMAGE_ASP))

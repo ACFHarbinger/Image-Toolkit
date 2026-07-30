@@ -121,8 +121,10 @@ KEY_HINTS = (
     ("[ / ]", "prefer ASP / prefer Simple"),
     ("=", "call it a tie"),
     ("F", "fit all panels"),
-    ("1-9", "toggle defect tag N"),
+    ("Ctrl+0-9", "toggle defect tag N"),
     ("Space", "save and next"),
     ("Backspace", "previous test"),
     ("Ctrl+S", "save now"),
+    ("Enter", "finish a multi-point link"),
+    ("Esc", "cancel the in-progress link"),
 )
