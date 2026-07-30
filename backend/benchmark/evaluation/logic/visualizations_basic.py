@@ -47,26 +47,43 @@ def _subsample_pixels(img: np.ndarray, n: int = _SCATTER_SAMPLE) -> np.ndarray:
     return flat[idx]
 
 
-def color_histogram_figure(img_bgr: np.ndarray) -> Figure:
+def color_channel_figure(img_bgr: np.ndarray) -> Figure:
+    """Per-channel intensity distribution, one line per BGR channel.
+
+    Named for what it actually is rather than "Color Histogram": a histogram
+    implies bars, and a smooth per-value count curve read as broken/wrong at a
+    glance next to the (properly blocky) cumulative plot below. The underlying
+    data — ``cv2.calcHist`` per channel — is unchanged; only the honest name.
+    """
     fig, ax = themed_figure()
     for i, hexcolor in enumerate(("#4ecdc4", "#6bff6b", "#ff6b6b")):  # B, G, R
         hist = cv2.calcHist([img_bgr], [i], None, [256], [0, 256]).flatten()
         ax.plot(hist, color=hexcolor, alpha=0.85, linewidth=1.2)
-    ax.set_title("Color Histogram (BGR channels)")
+    ax.set_title("Colour Channel Distribution (BGR)")
     ax.set_xlabel("Pixel value")
     ax.set_ylabel("Count")
     return fig
 
 
 def cumulative_histogram_figure(img_bgr: np.ndarray) -> Figure:
+    """Cumulative luminance histogram, drawn as a filled step plot.
+
+    A CDF is mathematically smooth, but rendering it as an interpolated line
+    reads as "not actually a histogram" — the fix is the *visual convention*,
+    not the data: a stepped, filled silhouette is what every other histogram
+    tool draws for cumulative counts, so this one should too.
+    """
     fig, ax = themed_figure()
     hist = cv2.calcHist([_gray(img_bgr)], [0], None, [256], [0, 256]).flatten()
     cdf = np.cumsum(hist)
     cdf = cdf / cdf[-1] * 100.0
-    ax.plot(cdf, color="#ffd93d", linewidth=1.6)
+    bins = np.arange(257)  # 256 step edges + the closing right edge
+    ax.fill_between(bins, np.append(cdf, cdf[-1]), step="post", color="#ffd93d", alpha=0.35)
+    ax.step(bins, np.append(cdf, cdf[-1]), where="post", color="#ffd93d", linewidth=1.4)
     ax.set_title("Cumulative Luminance Histogram")
     ax.set_xlabel("Pixel value")
     ax.set_ylabel("Cumulative %")
+    ax.set_xlim(0, 255)
     return fig
 
 

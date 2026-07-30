@@ -30,7 +30,7 @@ class VisualizationTab(ToolTabBase):
         self._pair_b.currentIndexChanged.connect(self.refresh)
         self._add_control_row("Compare to", self._pair_b)
 
-        self._add_tool("Color histogram", lambda: self._single(vb.color_histogram_figure))
+        self._add_tool("Color channels", lambda: self._single(vb.color_channel_figure))
         self._add_tool("Cumulative histogram", lambda: self._single(vb.cumulative_histogram_figure))
         self._add_tool("Row luminance (banding)", lambda: self._single(vb.row_luminance_profile_figure))
         self._add_tool("Intensity heatmap", lambda: self._single(vb.intensity_heatmap_figure))

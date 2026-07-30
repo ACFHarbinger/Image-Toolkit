@@ -4,7 +4,9 @@ the tool reads exactly what that script already writes without recomputing
 anything:
 
 - ``{base_dir}/output/{name}_anime_stitch.png``  — the ASP composite
-- ``{base_dir}/output/{name}_simple_stitch.png`` — the OpenCV SCANS baseline
+- ``{base_dir}/output/{name}_opencv_stitch.png`` — the OpenCV SCANS baseline
+  (``_simple_stitch.png`` before this tool's 2026-07-30 rename; still found as
+  a fallback so a corpus generated under the old name keeps working)
 - ``{base_dir}/{name}/output/overmix_stitch.png`` — the Overmix comparator
   (§0.3; present for all 97 tests as of 2026-07-28)
 - ``{base_dir}/{name}/output/hugin_stitch.png``   — the Hugin comparator
@@ -163,7 +165,8 @@ def load_test_assets(
         ),
         IMAGE_SIMPLE: _first_existing(
             json_paths.get("simple_stitch"),
-            os.path.join(out_dir, f"{name}_simple_stitch.png"),
+            os.path.join(out_dir, f"{name}_opencv_stitch.png"),
+            os.path.join(out_dir, f"{name}_simple_stitch.png"),  # pre-rename corpora
         ),
         IMAGE_OVERMIX: _first_existing(
             entry.get("overmix_path"),

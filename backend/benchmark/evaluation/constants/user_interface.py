@@ -80,6 +80,16 @@ PIXEL_TEXT_ZOOM_THRESHOLD = 26.0
 # screen at a high zoom.
 PIXEL_TEXT_MAX_CELLS = 900
 
+# The hover magnifier is Pixel Value Mode's primary, always-on behaviour: at
+# a test's default fit-to-view zoom (often well under 1x native on a 1700px+
+# panorama), the in-image grid above never engages, which is why toggling the
+# mode used to look like it "did nothing" (issue #123 followup). The magnifier
+# reads directly from the source array, independent of the view's zoom/pan, so
+# it works immediately on hover regardless of how far in the user has zoomed.
+PIXEL_MAGNIFIER_RADIUS = 8  # neighbourhood half-width in source px (17x17 grid)
+PIXEL_MAGNIFIER_CELL = 16  # on-screen px per cell
+PIXEL_MAGNIFIER_MARGIN = 10  # inset from the viewport corner
+
 
 # ---------------------------------------------------------------------------
 # Panel layouts

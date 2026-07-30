@@ -404,13 +404,14 @@ datasets = sorted(glob.glob(os.path.join(base_dir, "asp_test1")))  # pin to test
 data/
 ├── output/                              # Central flat directory
 │   ├── asp_testN_anime_stitch.png       # ASP final panorama
-│   ├── asp_testN_simple_stitch.png      # OpenCV SCANS baseline
+│   ├── asp_testN_opencv_stitch.png      # OpenCV SCANS baseline (named
+│   │                                      "_simple_stitch.png" before 2026-07-30)
 │   └── benchmark_report.md             # ← Full report (generated here)
 │
 └── asp_testN/
     └── output/
         ├── panorama.png                 # Per-dataset ASP output
-        ├── simple_stitch.png            # Per-dataset simple stitch
+        ├── opencv_stitch.png            # Per-dataset OpenCV SCANS stitch
         ├── plots/                       # Per-dataset visualisations
         │   ├── canvas_frame_placement.png
         │   ├── translation_vectors.png
@@ -635,7 +636,7 @@ contain:
 
 ### Troubleshooting
 
-**`simple_stitch.png` is not generated**
+**`opencv_stitch.png` is not generated**
 
 The benchmark always regenerates it at Step 0. If it still fails, check the
 console for `[Simple stitch] FAILED:`. The most common cause is an OpenCV SCANS

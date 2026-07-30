@@ -30,7 +30,7 @@ from typing import Iterable, List, Optional, Tuple
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -48,6 +48,7 @@ from ..constants.user_interface import (
     COL_BBOX,
     COL_BBOX_ACTIVE,
     COL_POINT,
+    DISPLAY_PIXEL,
     DISPLAY_RAW,
     MODE_BBOX,
     MODE_NAVIGATE,
@@ -104,6 +105,12 @@ class ImagePanel(QGraphicsView):
         self._overlay_items: List[QGraphicsRectItem] = []
         self._syncing = False
         self._pinned: Optional[Tuple[int, int]] = None
+        # Raw viewport-space cursor position, tracked whenever Pixel Value Mode
+        # is on so pixel_overlay.py's magnifier can read the hovered pixel
+        # straight from the source array — independent of the current zoom/pan,
+        # which is what makes it work immediately instead of only once already
+        # zoomed in past the in-image grid's threshold.
+        self._hover_view_pos: Optional[QPoint] = None
 
     # -- image loading -------------------------------------------------------
 
@@ -262,6 +269,8 @@ class ImagePanel(QGraphicsView):
 
     def set_display_mode(self, mode: str) -> None:
         self._display_mode = mode
+        if mode != DISPLAY_PIXEL:
+            self._hover_view_pos = None
         self.viewport().update()
 
     def display_mode(self) -> str:
@@ -292,7 +301,11 @@ class ImagePanel(QGraphicsView):
             rect = QRectF(self._rubber_origin, self.mapToScene(event.position().toPoint())).normalized()
             self._rubber_item.setRect(rect)
         else:
-            self._emit_pixel_hover(event.position().toPoint())
+            pos = event.position().toPoint()
+            self._emit_pixel_hover(pos)
+            if self._display_mode == DISPLAY_PIXEL:
+                self._hover_view_pos = pos
+                self.viewport().update()  # redraw the magnifier at the new position
         super().mouseMoveEvent(event)
         if self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag and (
             event.buttons() & Qt.MouseButton.LeftButton
@@ -315,6 +328,9 @@ class ImagePanel(QGraphicsView):
 
     def leaveEvent(self, event) -> None:  # noqa: D102 - Qt override
         self.pixelHovered.emit(-1, -1, None)
+        if self._hover_view_pos is not None:
+            self._hover_view_pos = None
+            self.viewport().update()  # drop the magnifier once the cursor leaves
         super().leaveEvent(event)
 
     # -- annotation ----------------------------------------------------------

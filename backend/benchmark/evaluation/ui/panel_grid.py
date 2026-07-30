@@ -178,6 +178,19 @@ class PanelGrid(QWidget):
             self._grid.takeAt(0)
         while self._stack.count():
             self._stack.removeWidget(self._stack.widget(0))
+        # QGridLayout remembers a stretch factor per column/row index for the
+        # life of the layout object — takeAt() does not clear it. Left alone,
+        # unchecking comparators down to fewer columns leaves the old columns'
+        # stretch=1 in place with nothing in them, so Qt still reserves their
+        # share of width and the visible panels don't reflow to fill the space
+        # (reported: "large chunk empty when several stitcher engines are
+        # unselected", and the same reason unchecking Ground Truth looked like
+        # it did nothing — the freed column stayed reserved as blank space).
+        # COMPARATOR_KEYS is a safe upper bound on columns/rows ever used.
+        max_span = len(COMPARATOR_KEYS)
+        for i in range(max_span):
+            self._grid.setColumnStretch(i, 0)
+            self._grid.setRowStretch(i, 0)
 
     def _relayout(self) -> None:
         self._detach_all()

@@ -22,7 +22,11 @@ IMAGE_GROUND_TRUTH = "ground_truth"
 
 COMPARATORS = (
     (IMAGE_ASP, "ASP"),
-    (IMAGE_SIMPLE, "Simple (SCANS)"),
+    # Display label only — "OpenCV (SCANS)" now that there's more than one
+    # ASP alternative (Overmix, Hugin). The internal key stays "simple": it's
+    # the literal JSON field bench_anime_stitch.py's _load_human_evaluations()
+    # reads, and renaming it would break that contract for no user-visible gain.
+    (IMAGE_SIMPLE, "OpenCV (SCANS)"),
     (IMAGE_OVERMIX, "Overmix"),
     (IMAGE_HUGIN, "Hugin"),
     (IMAGE_GROUND_TRUTH, "Ground Truth"),

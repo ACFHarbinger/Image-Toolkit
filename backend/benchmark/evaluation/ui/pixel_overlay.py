@@ -23,14 +23,23 @@ Two rules that are easy to get wrong here:
 
 from __future__ import annotations
 
+from typing import Optional, Tuple
+
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 
 from ..constants.user_interface import (
+    COL_ACCENT,
+    COL_BORDER,
     COL_POINT,
+    COL_SURFACE_HI,
+    COL_TEXT,
     DISPLAY_PIXEL,
     PIXEL_GRID_ZOOM_THRESHOLD,
+    PIXEL_MAGNIFIER_CELL,
+    PIXEL_MAGNIFIER_MARGIN,
+    PIXEL_MAGNIFIER_RADIUS,
     PIXEL_TEXT_MAX_CELLS,
     PIXEL_TEXT_ZOOM_THRESHOLD,
 )
@@ -40,11 +49,15 @@ _DARK_TEXT_LUMA = 140
 
 
 def draw(panel, painter: QPainter, rect: QRectF) -> None:
-    """Paint the pinned-probe marker and, in Pixel Value Mode, the pixel grid."""
+    """Paint the pinned-probe marker, the always-on hover magnifier, and — once
+    already zoomed in far enough — the full in-image pixel grid too."""
     if panel._pinned is not None:
         draw_pin(panel, painter)
     if panel._display_mode != DISPLAY_PIXEL or panel._image_bgr is None:
         return
+
+    draw_magnifier(panel, painter)
+
     scale = panel.native_scale()
     if scale < PIXEL_GRID_ZOOM_THRESHOLD:
         return
@@ -64,6 +77,85 @@ def draw(panel, painter: QPainter, rect: QRectF) -> None:
     cells = (x1 - x0) * (y1 - y0)
     if scale >= PIXEL_TEXT_ZOOM_THRESHOLD and cells <= PIXEL_TEXT_MAX_CELLS:
         draw_pixel_values(panel, painter, x0, y0, x1, y1, scale)
+    painter.restore()
+
+
+def _hovered_pixel(panel) -> Optional[Tuple[int, int]]:
+    view_pos = getattr(panel, "_hover_view_pos", None)
+    if view_pos is None:
+        return None
+    found = panel.pixel_at(view_pos)
+    if found is None:
+        return None
+    x, y, _bgr = found
+    return x, y
+
+
+def draw_magnifier(panel, painter: QPainter) -> None:
+    """A fixed-size, fixed-position (bottom-right of the viewport) inset
+    showing the actual RGB values around the cursor, read directly from the
+    source array — so it works at any zoom, including the fit-to-view zoom a
+    test opens at, where the in-image grid below is far too fine-grained to
+    draw at all.
+    """
+    hovered = _hovered_pixel(panel)
+    if hovered is None:
+        return
+    hx, hy = hovered
+    h, w = panel._image_bgr.shape[:2]
+    radius = PIXEL_MAGNIFIER_RADIUS
+    x0, y0 = max(0, hx - radius), max(0, hy - radius)
+    x1, y1 = min(w, hx + radius + 1), min(h, hy + radius + 1)
+    cols, rows = x1 - x0, y1 - y0
+    if cols <= 0 or rows <= 0:
+        return
+
+    cell = PIXEL_MAGNIFIER_CELL
+    header_h = cell + 2
+    box_w, box_h = cols * cell, rows * cell + header_h
+    viewport_rect = panel.viewport().rect()
+    origin = QPoint(
+        viewport_rect.width() - box_w - PIXEL_MAGNIFIER_MARGIN,
+        viewport_rect.height() - box_h - PIXEL_MAGNIFIER_MARGIN,
+    )
+
+    painter.save()
+    painter.resetTransform()
+    painter.setPen(QPen(QColor(COL_BORDER), 1))
+    painter.setBrush(QColor(COL_SURFACE_HI))
+    painter.drawRect(QRect(origin, origin + QPoint(box_w, box_h)))
+
+    header_font = QFont("monospace")
+    header_font.setPixelSize(max(9, cell - 3))
+    painter.setFont(header_font)
+    painter.setPen(QColor(COL_TEXT))
+    painter.drawText(
+        QRect(origin.x(), origin.y(), box_w, header_h),
+        Qt.AlignmentFlag.AlignCenter,
+        f"({hx}, {hy})",
+    )
+
+    region = panel._image_bgr[y0:y1, x0:x1]
+    luma = region[..., 0] * 0.114 + region[..., 1] * 0.587 + region[..., 2] * 0.299
+    value_font = QFont("monospace")
+    value_font.setPixelSize(max(6, int(cell / 3.4)))
+    painter.setFont(value_font)
+    grid_top = origin.y() + header_h
+    for j in range(rows):
+        for i in range(cols):
+            b, g, r = (int(v) for v in region[j, i])
+            cell_x, cell_y = origin.x() + i * cell, grid_top + j * cell
+            painter.fillRect(QRect(cell_x, cell_y, cell, cell), QColor(r, g, b))
+            painter.setPen(QColor(0, 0, 0) if luma[j, i] > _DARK_TEXT_LUMA else QColor(255, 255, 255))
+            painter.drawText(
+                QRect(cell_x, cell_y, cell, cell),
+                Qt.AlignmentFlag.AlignCenter,
+                f"{r}\n{g}\n{b}",
+            )
+    # Highlight the exact hovered cell so it's clear which one is under the cursor.
+    painter.setPen(QPen(QColor(COL_ACCENT), 2))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.drawRect(QRect(origin.x() + (hx - x0) * cell, grid_top + (hy - y0) * cell, cell, cell))
     painter.restore()
 
 

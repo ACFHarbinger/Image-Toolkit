@@ -145,7 +145,7 @@ def test_small_rasters_are_left_alone():
 
 
 @pytest.mark.parametrize("builder", [
-    vb.color_histogram_figure,
+    vb.color_channel_figure,
     vb.cumulative_histogram_figure,
     vb.scatter_2d_figure,
     vb.scatter_3d_figure,

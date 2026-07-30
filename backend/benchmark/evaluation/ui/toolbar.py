@@ -59,7 +59,8 @@ class InspectorToolbar(QWidget):
 
         self._display_check = QCheckBox("Pixel values")
         self._display_check.setToolTip(
-            "Overlay a per-pixel grid with numeric RGB values once zoomed in far enough"
+            "Show a hover magnifier with numeric RGB values at any zoom; also overlays "
+            "a per-pixel grid across the visible area once zoomed in far enough"
         )
         self._display_check.toggled.connect(
             lambda checked: self.displayModeChanged.emit(DISPLAY_PIXEL if checked else DISPLAY_RAW)

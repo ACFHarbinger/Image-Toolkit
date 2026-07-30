@@ -283,7 +283,10 @@ def test_frame_selection_funnel_is_ordered():
 # ---------------------------------------------------------------------------
 
 
-def _fake_corpus(tmp_path, name="asp_test01", with_gt=True, with_overmix=True, with_hugin=False):
+def _fake_corpus(
+    tmp_path, name="asp_test01", with_gt=True, with_overmix=True, with_hugin=False,
+    simple_suffix="opencv_stitch",
+):
     import cv2
     import numpy as np
 
@@ -291,7 +294,7 @@ def _fake_corpus(tmp_path, name="asp_test01", with_gt=True, with_overmix=True, w
     out.mkdir(parents=True, exist_ok=True)
     img = np.full((20, 20, 3), 128, dtype=np.uint8)
     cv2.imwrite(str(out / f"{name}_anime_stitch.png"), img)
-    cv2.imwrite(str(out / f"{name}_simple_stitch.png"), img)
+    cv2.imwrite(str(out / f"{name}_{simple_suffix}.png"), img)
     if with_gt:
         gt = tmp_path / "ground_truth"
         gt.mkdir(exist_ok=True)
@@ -329,8 +332,18 @@ def test_legacy_path_properties_still_work(tmp_path):
     base = _fake_corpus(tmp_path)
     assets = discovery.load_test_assets(base, "asp_test01", _repo_root)
     assert assets.asp_path.endswith("_anime_stitch.png")
-    assert assets.simple_path.endswith("_simple_stitch.png")
+    assert assets.simple_path.endswith("_opencv_stitch.png")
     assert assets.gt_path.endswith("asp_test01.png")
+
+
+def test_discovery_falls_back_to_the_pre_rename_filename(tmp_path):
+    """2026-07-30: the OpenCV SCANS output was renamed from
+    "_simple_stitch.png" to "_opencv_stitch.png" (issue #123 followup) so its
+    name doesn't imply it's the only ASP alternative now that Overmix/Hugin
+    exist. A corpus generated before the rename must still be discoverable."""
+    base = _fake_corpus(tmp_path, simple_suffix="simple_stitch")
+    assets = discovery.load_test_assets(base, "asp_test01", _repo_root)
+    assert assets.simple_path.endswith("_simple_stitch.png")
 
 
 def test_stage_renders_group_by_prefix(tmp_path):

@@ -1189,7 +1189,16 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     dataset_name = os.path.basename(dataset_dir)
     stage_dir = os.path.join(dataset_dir, "output", "panorama_stages")
     out_path = os.path.join(dataset_dir, "output", "panorama.png")
-    simple_stitch_path = os.path.join(dataset_dir, "output", "simple_stitch.png")
+    # "opencv_stitch", not "simple_stitch": there's now more than one ASP
+    # alternative (Overmix, Hugin), so the OpenCV SCANS baseline needs a name
+    # that says what it actually is. Only the filename changed — the
+    # simple_stitch_path/central_simple_path *variable* names and every
+    # downstream dict key (metrics_simple, simple_path, etc.) are untouched,
+    # since renaming those has no user-visible benefit and a much larger blast
+    # radius (they're read by discovery.py, the report, and every human_coherence
+    # veto check). evaluation/other/discovery.py falls back to the old
+    # "_simple_stitch.png" name for datasets already generated under it.
+    simple_stitch_path = os.path.join(dataset_dir, "output", "opencv_stitch.png")
     plots_dir = os.path.join(dataset_dir, "output", "plots")
 
     # Central output
@@ -1199,7 +1208,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         central_out_dir, f"{dataset_name}_anime_stitch.png"
     )
     central_simple_path = os.path.join(
-        central_out_dir, f"{dataset_name}_simple_stitch.png"
+        central_out_dir, f"{dataset_name}_opencv_stitch.png"
     )
 
     # Ground truth (if available)
