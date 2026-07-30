@@ -248,6 +248,14 @@ class ImagePanel(QGraphicsView):
         self.set_zoom(self._zoom * step, anchor=self.mapToScene(event.position().toPoint()))
         event.accept()
 
+    def sizeHint(self):  # noqa: D102 - Qt override
+        from PySide6.QtCore import QSize
+        return QSize(400, 300)
+
+    def minimumSizeHint(self):  # noqa: D102 - Qt override
+        from PySide6.QtCore import QSize
+        return QSize(200, 150)
+
     def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
         super().resizeEvent(event)
         if not self.has_image():
@@ -258,6 +266,12 @@ class ImagePanel(QGraphicsView):
         self._fit_scale = self._compute_fit_scale()
         if previous_fit != self._fit_scale:
             self._apply_transform()
+            if abs(self._zoom - 1.0) < 1e-4:
+                self.centerOn(self._pixmap_item.boundingRect().center())
+            else:
+                w, h = self.image_size()
+                cx, cy = self.center_norm()
+                self.centerOn(QPointF(cx * w, cy * h))
 
     # -- modes ---------------------------------------------------------------
 

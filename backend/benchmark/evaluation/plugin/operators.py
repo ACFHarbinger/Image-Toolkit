@@ -245,7 +245,7 @@ class OpenInspector(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="open_inspector",
-            label="Open the ASP evaluation inspector",
+            label="Open the Benchmark evaluation inspector",
             dynamic=True,
         )
 

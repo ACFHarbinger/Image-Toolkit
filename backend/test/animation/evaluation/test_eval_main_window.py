@@ -141,3 +141,23 @@ def test_hiding_two_of_three_children_leaves_the_middle_one_full_width(splitter,
     sizes = widget.sizes()
     assert sizes[0] == 0 and sizes[2] == 0
     assert sizes[1] == sum(sizes)
+
+
+def test_image_panel_size_hints_bounded(qapp):
+    from backend.benchmark.evaluation.ui.image_panel import ImagePanel
+    import numpy as np
+
+    panel = ImagePanel("asp", "ASP")
+    # Even with a huge native image, sizeHint should be bounded (not 4000px)
+    huge_img = np.zeros((3000, 4000, 3), dtype=np.uint8)
+    panel.set_image(huge_img)
+
+    hint = panel.sizeHint()
+    assert hint.width() <= 800
+    assert hint.height() <= 600
+
+    min_hint = panel.minimumSizeHint()
+    assert min_hint.width() <= 300
+    assert min_hint.height() <= 200
+    panel.deleteLater()
+

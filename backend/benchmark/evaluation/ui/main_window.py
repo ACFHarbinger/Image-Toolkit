@@ -92,7 +92,7 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         theme: Optional[str] = None,
     ):
         super().__init__()
-        self.setWindowTitle("ASP Evaluation Inspector")
+        self.setWindowTitle("Benchmark Evaluation Inspector")
         self.resize(1760, 1040)
         # A CLI --theme wins for this run; otherwise fall back to whatever the
         # Settings dialog last persisted (see settings.py), same override
@@ -114,6 +114,9 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
 
         self._build_ui(default_display_mode)
         shortcuts.install(self)
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.timeout.connect(self._fit_all)
         self.queue_panel.set_session(self.session)
         if self.session.current:
             self._load_current()
@@ -213,7 +216,7 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self.body_splitter.setStretchFactor(0, 0)
         self.body_splitter.setStretchFactor(1, 4)
         self.body_splitter.setStretchFactor(2, 0)
-        self.body_splitter.setSizes([230, 1120, 400])
+        self.body_splitter.setSizes([200, 800, 320])
         # Qt's QSplitter remembers a hidden child's proportion and restores it
         # on show() — confirmed by testing — so plain setVisible() toggling is
         # enough, no manual size bookkeeping needed on either side.
@@ -238,7 +241,7 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
 
     def _build_side_panel(self) -> QWidget:
         host = QWidget()
-        host.setMinimumWidth(360)
+        host.setMinimumWidth(300)
         layout = QVBoxLayout(host)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
@@ -466,6 +469,13 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
             f"{message} {progress.rated}/{progress.total} rated. Saved to {self.session.out_path}."
         )
         self.queue_panel.refresh()
+
+    def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
+        super().resizeEvent(event)
+        if hasattr(self, "overlay") and self.overlay is not None:
+            self.overlay.sync_geometry()
+        if hasattr(self, "_resize_timer") and self._resize_timer is not None:
+            self._resize_timer.start(150)
 
     def closeEvent(self, event) -> None:  # noqa: D102 - Qt override
         self._commit()

@@ -6,7 +6,8 @@
 
 ## Table of Contents
 
-- [PySide6 / Qt Crashes (SIGSEGV)](#pyside6--qt-crashes-sigsegv)
+- [PySide6 / Qt Crashes & Layout Bugs](#pyside6--qt-crashes-sigsegv)
+  - [Benchmark Evaluation Inspector Window Geometry Overflow](#benchmark-evaluation-inspector-window-geometry-overflow--vertical-image-tiling)
 - [Qt Multimedia / Video Playback Decode Failures](#qt-multimedia--video-playback-decode-failures)
 - [External API Failures (Jikan / MyAnimeList Auto-Fill)](#external-api-failures-jikan--myanimelist-auto-fill)
 - [ASP Pipeline Errors](#asp-pipeline-errors)
@@ -20,7 +21,23 @@
 
 ---
 
-## <a id="pyside6--qt-crashes-sigsegv"></a>PySide6 / Qt Crashes (SIGSEGV)
+## <a id="pyside6--qt-crashes-sigsegv"></a>PySide6 / Qt Crashes & Layout Bugs
+
+### Benchmark Evaluation Inspector Window Geometry Overflow & Vertical Image Tiling
+
+**Symptom:** After maximizing, un-maximizing, or moving the Benchmark Evaluation Inspector window, right-hand UI controls (Settings button, Scoring panel toggles, Save button) expand beyond the right monitor/window boundary and get cut off. Additionally, images inside `ImagePanel` display split or tiled vertically with uncentered viewport scroll offsets.
+
+**Root cause:**
+1. Un-debounced `QTimer.singleShot(0, self._fit_all)` queued in rapid succession during window manager resize/maximize animations created a re-entrancy loop on graphics view viewports while layout bounds were mid-recalculation.
+2. `ImagePanel.resizeEvent` recalculated `_fit_scale` without invoking `centerOn(...)`, leaving graphics view scene offsets unaligned.
+3. `body_splitter` set hardcoded requested sizes totaling 1750px (`[230, 1120, 400]`), forcing parent `top_tabs` and `centralWidget` layouts to expand beyond smaller display windows.
+
+**Fix:**
+1. Replaced un-debounced `singleShot` calls in window resize handlers with a single 150ms single-shot `_resize_timer`.
+2. Updated `ImagePanel.resizeEvent` to re-center scene coordinates (`centerOn(...)`) whenever `_fit_scale` changes.
+3. Reduced `body_splitter` initial sizes to `[200, 800, 320]` (1320px total) and reduced `side_panel` minimum width to 300px.
+
+---
 
 ### `__dynamic_cast` failure in `libstdc++.so.6`
 

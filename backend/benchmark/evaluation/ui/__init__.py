@@ -1,4 +1,4 @@
-"""PySide6 widgets/windows for the ASP evaluation inspector.
+"""PySide6 widgets/windows for the benchmark evaluation inspector.
 
 Everything here is presentation: QWidget/QGraphicsView/QMainWindow subclasses.
 Pixel-data computation and figure building live in ``evaluation.logic``; data

@@ -11,9 +11,11 @@ Implemented UI tag component enhancements and pipeline error trace diagnostics a
    - Added `TagCompleter` (QCompleter extension supporting multi-tag comma-separated list completion and dynamic vocabulary) in `gui/src/helpers/core/tag_completer.py`.
    - Added unit test suites `gui/test/helpers/test_tag_completer.py` and `gui/test/components/test_tag_chip_widget.py`.
 
-2. **Architecture §5.15 Option D (Pipeline trace failure context, issue #128 — Done)**:
-   - Updated `_ProgressPipeline` in `gui/src/helpers/animation/stitch_worker/_progress_pipeline.py` to record per-stage failure context entries (`stage`, `label`, `exception_type`, `message`, `fallback_used`) into the `failures` list of the execution trace JSON.
-   - Added unit test suite `backend/test/animation/core/test_pipeline_trace.py`.
+3. **GUI §0.1 (Benchmark Inspector window geometry overflow & viewport re-centering, issue #152 — Milestone 1 — Done)**:
+   - Fixed layout overflow and graphics view viewport desynchronization in `InspectorWindow` by introducing a debounced 150ms `_resize_timer`.
+   - Updated `ImagePanel` in `backend/benchmark/evaluation/ui/image_panel.py` with bounded `sizeHint()` (`QSize(400, 300)`) and `minimumSizeHint()` (`QSize(200, 150)`) and viewport re-centering (`centerOn(...)`) in `resizeEvent`.
+   - Updated `body_splitter` requested sizes to `[200, 800, 320]` and `side_panel` minimum width to 300px in `backend/benchmark/evaluation/ui/main_window.py`.
+   - Added troubleshooting documentation in `docs/TROUBLESHOOTING.md`.
 
 ---
 
@@ -39,7 +41,7 @@ Targeted codebase architecture and developer experience improvements across thre
 
 ---
 
-## S267 — 2026-07-30 (ASP evaluation inspector: 12-item UI feedback pass, issue #123 followup)
+## S267 — 2026-07-30 (Benchmark evaluation inspector: 12-item UI feedback pass, issue #123 followup)
 
 First real usage pass over S266's rebuilt inspector surfaced a dozen concrete UI complaints; all addressed in the same package (`backend/benchmark/evaluation/`), no ASP pipeline code touched.
 
