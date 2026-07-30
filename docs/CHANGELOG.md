@@ -2,6 +2,26 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S268 — 2026-07-30 (Architecture items: CI LoC enforcement gate, codebase documentation & diagrams, Matcher plugin architecture — issues #124, #125, #126)
+
+Targeted codebase architecture and developer experience improvements across three roadmap items:
+
+1. **Item A.23 / §5.17 Options A & D (CI-enforced LoC gate & auto-generated report, issue #126)**:
+   - Enhanced `backend/validation/count_loc.py` with `--max-code-lines 500`, `--fail-over`, `--exceptions-file`, and `--markdown-out` options.
+   - Added `docs/loc_exceptions.txt` containing grandfathered file exception paths (such as `gui/src/helpers/animation/stitch_worker/_progress_pipeline.py`).
+   - Added `just check-loc` (CI-enforced gate) and `just loc-report` (Markdown dashboard generator) targets to `Justfile` and `tools/validation/justfile`.
+   - Added unit test suite `backend/test/validation/test_count_loc.py` verifying line analysis, exception loading, report generation, and exit status.
+
+2. **Item A.15 / §5.12 (Codebase documentation & Mermaid class diagrams, issue #124)**:
+   - Added Mermaid class hierarchy diagrams in `backend/src/models/__init__.py` (ModelWrapper & wrappers) and `gui/src/classes/__init__.py` (AbstractGalleryBase & gallery base classes).
+   - Added standard NumPy-style docstrings across model wrapper abstractions and matching modules.
+
+3. **Item 4.1 / §5.3B (Abstract Matcher base class & plugin architecture, issue #125)**:
+   - Formalized `Matcher` abstract base class and `MatcherRegistry` plugin system in `backend/src/animation/alignment/matching/matcher_base.py`.
+   - Created concrete plugins `TemplateMatcher`, `PhaseCorrelateMatcher`, and `SegmentGuidedMatcher` in `backend/src/animation/alignment/matching/_matcher_plugins.py`.
+   - Re-exported all plugin classes and registry in `backend/src/animation/alignment/matching/__init__.py`.
+   - Added unit tests in `backend/test/animation/alignment/test_matcher_plugins.py` verifying matcher instantiation, execution, availability filtering, and priority sorting.
+
 ---
 
 ## S267 — 2026-07-30 (ASP evaluation inspector: 12-item UI feedback pass, issue #123 followup)
