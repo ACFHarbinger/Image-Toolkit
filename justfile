@@ -390,6 +390,14 @@ slideshow: helper::_print_header
 count-loc group_by=val_loc_group: helper::_print_header
     just validation::count-loc '{{group_by}}'
 
+# Enforce maximum lines of code per file
+check-loc max="500" exceptions="docs/loc_exceptions.txt": helper::_print_header
+    just validation::check-loc '{{max}}' '{{exceptions}}'
+
+# Generate Markdown LoC report
+loc-report output="docs/loc_report.md" limit="50": helper::_print_header
+    just validation::loc-report '{{output}}' '{{limit}}'
+
 # Tree view of lines of code and comments
 tree-loc: helper::_print_header
     just validation::tree-loc
