@@ -149,8 +149,8 @@ flowchart TD
 | **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts`, `tsc --noEmit` clean |
 | **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Tauri commands, SVG charts, 7-page dashboard, `App.tsx` wired |
 | Phase 1–10 feature implementation | ⬜ Not started | Backbone provides all mathematical primitives |
-| **ASP Benchmark Analytics (Phase 11)** | 🔄 Partial (2026-07-29) | 11.1–11.5 (per-test) done in the ASP evaluation tool, issue #123; 11.7/11.8 done in the static report; 11.6/11.9/11.10 (corpus-wide) open |
-| **Benchmark Coverage Expansion (Phase 12)** | 🔄 Partial (2026-07-27) | 12.1/12.3 shipped; 12.2/12.5-12.8 still open; 12.4 rescoped (see §12.4) |
+| **ASP Benchmark Analytics (Phase 11)** | ✅ Complete (2026-07-30) | 11.1–11.5 (per-test) done in the ASP evaluation tool, issue #123; 11.6/11.7/11.8/11.9/11.10 (corpus-wide) done in `bench_anime_stitch.py`'s report, issue #69 |
+| **Benchmark Coverage Expansion (Phase 12)** | 🔄 Partial (2026-07-30) | 12.1/12.2/12.3/12.5/12.6/12.7 shipped; 12.4 rescoped (see §12.4); 12.8 rescoped (see §12.8) |
 
 ### Rust backbone — `base/src/math/`
 
@@ -453,11 +453,12 @@ See [`research/Analytics and Codebase Visualization Research.md`](../../research
 > recomputed, so a chart can never disagree with the report or the verdict logic.
 > Per-item notes are inline below.
 >
-> The **corpus-wide** items stay here and remain open: 11.6 (stage memory
-> waterfall — still needs the `stage_memory_rss_mb` emission), 11.9 (cross-run
-> regression dashboard; the evaluation tool has a per-test slice of this via a
-> baseline-run selector, but not the corpus view), and 11.10 (experiment
-> tracker). 11.7 and 11.8 were already done in the static report.
+> The **corpus-wide** items stayed here: 11.6 (stage memory waterfall), 11.9
+> (cross-run regression dashboard — the evaluation tool has a per-test slice
+> of this via a baseline-run selector, but not the corpus view), and 11.10
+> (experiment tracker). 11.7 and 11.8 were already done in the static report;
+> as of 2026-07-30 (issue #69), 11.6/11.9/11.10 are too — see their entries
+> below.
 
 ### 11.1 Per-Seam Quality Strip Visualizer — DONE (2026-07-29, issue #123)
 Implemented as `diagnostics.seam_quality_figure`: one bar per inter-strip seam
@@ -511,10 +512,18 @@ baseline-run selector in the Diagnostics tab: pick any older
 more than 3% are called out — the same 3% margin `_gt_verdict` itself uses to
 avoid noise-driven verdict flips, rather than this item's unqualified ">3%".
 
-### 11.6 Stage-Level Memory Profiling
-- Track RSS (resident set size) at the start/end of each pipeline stage (BiRefNet, LoFTR, render, composite) using psutil.
-- Emit `stage_memory_rss_mb: {stage_name: rss_mb}` in the benchmark JSON.
-- Dashboard: waterfall chart of memory growth across stages — identify which stage leaks.
+### 11.6 Stage-Level Memory Profiling — DONE (2026-07-30, issue #69)
+The RSS tracking already existed as `_log_resource(tag)`'s console-only
+prints (§2.6 instrumentation, added for a host-freeze diagnosis); it wasn't
+attached to the result JSON. `_log_resource` now takes an optional `store`
+dict, `process_dataset` threads a per-dataset `stage_memory_rss_mb: Dict[str,
+float]` accumulator through all 9 of its call sites (`dataset_start` through
+`dataset_end`), and `_build_result` emits it as
+`stage_memory_rss_mb: {stage_name: rss_mb}` in the benchmark JSON — exactly
+the schema this item specced. `_report_stage_memory_waterfall()` renders a
+waterfall PNG (`stage_memory_waterfall.png`) of RSS averaged per stage
+across every dataset in the run, plus a table with the delta from the
+previous stage and a callout naming the single largest-growth stage.
 
 ### 11.7 Frame Selection Telemetry — DONE (2026-07-27, issue #69)
 - Capture and emit `frame_selection: {original_count, smart_select_count, spatial_dedup_count, final_count, selection_mode}` in the benchmark JSON. — data capture already existed pre-#69 (`_build_result()` in `bench_anime_stitch.py`); no pipeline changes needed.
@@ -526,14 +535,30 @@ avoid noise-driven verdict flips, rather than this item's unqualified ">3%".
 - Emit `fallback_reason` in the dataset result JSON. — already existed.
 - Dashboard: aggregate fallback cause distribution across all datasets — shows which gate is causing the most fallbacks. — added: `_report_fallback_breakdown()` renders a "Fallback Root Cause Breakdown" section (once, near the top of the report) with a total-fallback count, a per-gate count table (parsed from the `fallback_reason` prefix before the first `:`), and a per-gate list of which datasets hit it, linked to their `#asp_testNN` anchor.
 
-### 11.9 Cross-Run Regression Dashboard
-- Compare metrics across consecutive benchmark runs using `detectRegressions()` already in `benchmark.ts`.
-- Highlight: composite_quality drops >5%, ghosting_siqe increases >10%, total_time increases >20%.
-- Red/green delta indicators next to each metric card in the overview.
+### 11.9 Cross-Run Regression Dashboard — DONE (2026-07-30, issue #69)
+`detectRegressions()` in `frontend/src/math/benchmark.ts` operates on the
+generic `GeneralBenchmark` schema (`{time.avg_sec, memory.avg_peak_mb}`),
+which doesn't match `bench_anime_stitch.py`'s ASP-specific per-dataset
+fields (`metrics_asp.composite_quality`, `metrics_asp.ghosting_siqe`,
+`time.total_sec`) — calling it directly wasn't an option, so
+`detect_regressions()` (Python) is a same-threshold reimplementation (5%
+quality drop / 10% ghosting increase / 20% time increase, this item's own
+numbers) against those fields instead. `_find_latest_baseline()` picks the
+most recent prior `anime_stitch_*.json` from `backend/benchmark/output/`
+(there's no `--baseline` CLI flag — this auto-discovers it, since
+`generate_report()` always runs before the current run's own JSON is
+written). `_report_regression_dashboard()` renders a 🔴/🟢 per-dataset table
+with the delta % for each of the three metrics.
 
-### 11.10 Comparative Seam Configuration Experiment Tracker
-- Allow tagging each benchmark run with an experiment label (e.g., "S44-seam-cache", "S45-spanning-tree") and storing it in the JSON metadata.
-- Dashboard: side-by-side comparison table of labeled runs showing which configuration changes improved which metrics.
+### 11.10 Comparative Seam Configuration Experiment Tracker — DONE (2026-07-30, issue #69)
+`_build_result()` now stamps every dataset with
+`experiment_label: os.environ.get("ASP_EXPERIMENT_LABEL")` (unset/`None` by
+default) — one label per run rather than per-dataset tagging, since a run is
+the unit an experiment actually varies. `_report_experiment_comparison()`
+groups datasets by label and renders a comparison table (dataset count, mean
+`composite_quality`, mean `total_sec` per label) with a callout naming the
+best-quality and fastest labels; runs with no label set (the common case)
+get a one-line note instead of an empty table.
 
 ---
 
@@ -578,13 +603,24 @@ the full corrected file end-to-end — all 10 benchmarks pass (all ✓, no
 exceptions), confirming this is a genuine fix, not just a name swap that
 happens to parse.
 
-### 12.2 ASP Stage Isolation Benchmarks (HIGH PRIORITY)
-- Create `backend/benchmark/bench_asp_stages.py` benchmarking each ASP stage independently:
-  - `_pairwise_match(frames, bg_masks, loftr_wrapper=None)` vs LoFTR
-  - `_bundle_adjust_affine(edges, N)` with/without spanning-tree filter
-  - `_composite_foreground(...)` with/without Poisson seam blend, with/without seam cache
-  - `_ecc_refine(frames, affines, bg_masks)` at different ECC iterations
-- Goal: quantify the compute cost of each §-coded feature to guide future optimizations.
+### 12.2 ASP Stage Isolation Benchmarks (HIGH PRIORITY) — **DONE, 2026-07-30**
+Created `backend/benchmark/bench_asp_stages.py`, 9 benchmarks on synthetic
+panning frames: `_pairwise_match` classical-chain vs with a real
+`LoFTRWrapper` attached (guarded — skips cleanly if no GPU/weights);
+`_bundle_adjust_affine` with vs without `_spanning_tree_inlier_filter`
+(§1.1B); `_composite_foreground` with a cold vs a pre-warmed
+`seam_path_cache` dict; `_ecc_refine` at `ECC_MAX_ITER` = 20/50/80 via a
+module-attribute monkeypatch (the constant is read fresh from the `ecc`
+module on every call, not captured at import time, so this varies it
+without touching the pipeline). **Stale premise found**: "with/without
+Poisson seam blend" isn't benchmarkable — `_poisson_seam_blend` was removed
+from the active compositing module in the 2026-07-09 "great trim" (S200)
+along with GraphCut (measured worse than the DP seam path by that same
+trim); it survives only in `backend/src/core/image_merger/_legacy_compositing.py`,
+a different (non-ASP) feature. Not implemented; documented in the file's
+own module docstring rather than silently dropped. **Verified**: ran the
+file end-to-end, all 9 benchmarks pass (LoFTR variant included — a real
+GPU+weights were available in the verifying environment).
 
 ### 12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY) — **DONE, 2026-07-27**
 Created `backend/benchmark/bench_gui_thumbnails.py` exactly per spec:
@@ -625,21 +661,94 @@ build once someone picks this back up, not a pgvector ANN benchmark for
 a database half-way out the door. No code shipped for this sub-item;
 this note is the deliverable.
 
-### 12.5 App Lifecycle Memory Profiling (MEDIUM)
-- Instrument `main.py` to emit PSUtil RSS snapshots at: JVM start, Qt init, first tab render, after gallery load (100/500/1000 images).
-- Alert when any phase increases RSS by >200 MB relative to the previous measurement.
+### 12.5 App Lifecycle Memory Profiling (MEDIUM) — **DONE, 2026-07-30**
+New `backend/src/core/lifecycle_memory.py`: a phase-tagged RSS logger
+(`snapshot(phase)`, `history()`, `alerts()`) mirroring the ASP pipeline's own
+`_log_resource()` pattern but for the GUI app's lifecycle. Wired into
+`backend/src/app.py::launch_app` at the three phases that fire on every real
+run without needing synthetic credentials: `qt_init` (right after
+`QApplication(sys.argv)`), `login_window_shown`, and `main_window_shown`
+(which, since `VaultManager`/JVM start happens inside the login flow between
+those two points, captures the cumulative JVM-start + first-window-construct
+cost). Alerts when a phase grows RSS by more than `LIFECYCLE_RSS_ALERT_MB`
+(default 200MB, this item's own number; env-var overridable). The "after
+gallery load (100/500/1000 images)" phase this item also names can't be
+driven from a fixed app.py lifecycle point (it depends on whatever
+tab/directory a user opens first) — instead, `backend/benchmark/bench_app_lifecycle.py`
+covers it in a controlled, repeatable way via the same `base.load_image_batch()`
+path §12.3 already benchmarks for throughput, now wrapped in
+`lifecycle_memory.snapshot()` so the alert logic runs against real RSS
+deltas. **Verified**: both files run end-to-end (unit tests for the alert
+threshold logic in `backend/test/core/test_lifecycle_memory.py`; the
+benchmark script ran live, e.g. observed +16MB/+26MB/+12MB for the
+100/500/1000-image phases on real image batches — under the 200MB
+threshold, so no alert fired, which is itself a useful negative result).
 
-### 12.6 Compositing Component Isolation (MEDIUM)
-- Micro-benchmark individual functions:
-  - `_seam_cut()` (S10 vectorized DP) — 96 seams, various canvas heights
-  - `_soft_seam_weight()` (S17 per-pixel DSFN) — canvas 500px vs 2000px vs 5000px
-  - `_poisson_seam_blend()` (S21) — band widths 10px, 20px, 40px
-  - `_build_seam_cost_map()` (S33 column barrier) — fg fraction 10% vs 50% vs 90%
+### 12.6 Compositing Component Isolation (MEDIUM) — **DONE, 2026-07-30**
+New `backend/benchmark/bench_compositing_components.py`: `_seam_cut()` (S10
+vectorized DP) at the item's own 96-seam count, across three canvas heights
+(100/500/2000px); `_soft_seam_weight()` (S17 per-pixel DSFN) at canvas
+widths 500/2000/5000px; `_build_seam_cost_map()` (S33 column barrier) at
+foreground-mask fractions 10%/50%/90% (an exact controllable split, not a
+noisy random mask). `_poisson_seam_blend()` (S21) isn't benchmarked here for
+the same reason it isn't in §12.2 — removed in the S200 trim, nothing left
+in the active pipeline to measure. **Verified**: ran end-to-end, all 9
+benchmarks pass with real scaling visible (e.g. `_seam_cut` at h=2000 took
+~7x longer than at h=100, consistent with its per-pixel DP cost).
 
-### 12.7 Web Crawler Telemetry (LOW-MEDIUM)
-- Add per-request timing and response-code tracking to Danbooru/Gelbooru/Sankaku crawlers.
-- Emit to General-suite benchmark JSON: pages/sec, images/sec, timeout rate, CAPTCHA hit rate.
+### 12.7 Web Crawler Telemetry (LOW-MEDIUM) — **DONE (scoped down), 2026-07-30**
+**Premise partially stale on inspection**: the actual HTTP requests happen
+inside the compiled `base` C++ extension (`base.run_board_crawler`), which
+only calls back into Python once per successful download (`on_image_saved`)
+and via free-form `on_status` progress strings — there is no per-request
+hook crossing the pybind boundary, so true per-request timing and
+response-code tracking isn't available from Python without new C++-side
+instrumentation (out of scope here). What's built instead, in
+`ImageBoardCrawler` (`backend/src/web/crawlers/image_board_crawler.py`):
+exact whole-crawl `elapsed_sec`/`images_per_sec` (from the real
+`on_image_saved` count), plus best-effort `timeout_count`/`captcha_count`/
+`error_count` derived by substring-matching `on_status` text — coarse (only
+as good as whatever the C++ side happens to emit), documented as such in
+the module docstring rather than presented as real response-code data.
+`backend/benchmark/bench_web_crawlers.py` drives this against the three
+real crawlers and saves a General-suite JSON, gated behind
+`RUN_LIVE_CRAWLER_BENCHMARK=1` (unset by default — this file makes real
+outbound requests to third-party image boards, not something to run
+unattended/in CI). **Verified**: 8 unit tests on the telemetry counters
+(`backend/test/web/test_image_board_crawler.py`) pass with a mocked
+`base.run_board_crawler`; the benchmark script's default (opted-out) path
+ran end-to-end with zero network calls made.
 
-### 12.8 Mobile Performance Baselines (LONG-TERM)
-- Android: Jetpack Compose scroll FPS with N={50, 200, 500} images; Glide vs Coil thumbnail load time.
-- iOS: SwiftUI LazyVGrid frame rate; URLSession download throughput from Image-Toolkit server.
+### 12.8 Mobile Performance Baselines (LONG-TERM) — **rescoped, 2026-07-30**
+**Not implemented — three independent blockers found, all checked before
+writing anything**:
+- **Android FPS/scroll benchmarking** needs `androidx.benchmark.macro`
+  Macrobenchmark instrumented tests running against a real device or
+  emulator; `app/android/build.gradle.kts` has no such dependency
+  configured, and this environment has no `adb`/emulator reachable (`adb
+  devices` fails — command not found). Gradle/Kotlin toolchains ARE present
+  (`gradle`, `kotlinc`), so the Gradle module/dependency setup itself is
+  buildable — there's just nothing to execute it against here.
+- **"Glide vs Coil thumbnail load time"** has no first side to benchmark:
+  neither Glide nor Coil is a dependency anywhere in `app/android/build.gradle.kts`;
+  the one place image loading is mentioned
+  (`ImagePreviewFragment.kt:141`) is a mocked stub with a comment reading
+  "Real app uses Glide/Coil" — aspirational, not implemented. There's no
+  A/B to measure yet.
+- **iOS is unbuildable in this environment at all**: this is a Linux host
+  with no Xcode/macOS toolchain (`xcodebuild`: not found), so no XCTest or
+  Instruments run can happen here regardless of app state. Independently,
+  `app/ios/Package.swift` declares an `ImageToolkitTests` test target and a
+  `Cryptography` target whose directories (`app/ios/ImageToolkitTests/`,
+  `app/ios/Cryptography/`) don't exist on disk — the SwiftPM manifest itself
+  doesn't resolve today, before any benchmark-specific work would even
+  start.
+
+No code shipped for this sub-item; this note is the deliverable (same
+approach as §12.4's rescope). The path back to this, in order: (1) populate
+the missing iOS SwiftPM targets so the package builds at all, on a
+macOS+Xcode host; (2) integrate a real thumbnail loader (Glide or Coil) into
+the Android app before there's anything to A/B; (3) add the
+`androidx.benchmark.macro` Gradle module and run it against a connected
+device/emulator, which this sandboxed Linux CI-style environment doesn't
+have.

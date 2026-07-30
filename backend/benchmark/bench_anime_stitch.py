@@ -21,7 +21,7 @@ import platform
 import shutil
 import sys
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -184,7 +184,7 @@ def _resource_danger(snap: Dict) -> Optional[str]:
 # permanently (a few syscalls), and each call also runs gc.collect() +
 # torch.cuda.empty_cache() first so the reading reflects what's genuinely
 # unreachable/uncached, not just "not yet collected".
-def _log_resource(tag: str) -> Dict:
+def _log_resource(tag: str, store: Optional[Dict[str, float]] = None) -> Dict:
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -194,7 +194,30 @@ def _log_resource(tag: str) -> Dict:
         f"vram_alloc={snap['vram_allocated_gb']}GB  vram_reserved={snap['vram_reserved_gb']}GB  "
         f"vram_used={snap['vram_used_pct']}%"
     )
+    # §11.6 (issue #69): feed the same snapshot this line already prints into
+    # the per-dataset accumulator so the benchmark JSON carries a
+    # stage_memory_rss_mb series, not just a console log — the waterfall
+    # chart in _report_stage_memory_waterfall() reads this.
+    if store is not None:
+        store[tag] = round(snap["rss_gb"] * 1024, 1)
     return snap
+
+
+# Fixed stage order for the waterfall chart — mirrors the call sequence in
+# process_dataset() (dataset_start ... dataset_end). Not every dataset hits
+# every tag (e.g. a SCANS fallback skips before/after_render_median), so the
+# waterfall renderer only plots tags actually present in a given result.
+STAGE_MEMORY_ORDER: Tuple[str, ...] = (
+    "dataset_start",
+    "before_birefnet",
+    "after_birefnet_offload",
+    "before_loftr",
+    "after_loftr_offload",
+    "before_render_median",
+    "after_render_median",
+    "after_composite",
+    "dataset_end",
+)
 
 
 # ============================================================================
@@ -1182,9 +1205,10 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     """
     t_total_start = time.perf_counter()
     timings: Dict[str, float] = {}
+    stage_memory_rss_mb: Dict[str, float] = {}  # §11.6 (issue #69)
 
     print(f"\n{'=' * 60}\nProcessing dataset: {dataset_dir}\n{'=' * 60}")
-    _log_resource("dataset_start")
+    _log_resource("dataset_start", store=stage_memory_rss_mb)
 
     dataset_name = os.path.basename(dataset_dir)
     stage_dir = os.path.join(dataset_dir, "output", "panorama_stages")
@@ -1307,7 +1331,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     # ------------------------------------------------------------------
     t0 = time.perf_counter()
     birefnet_ok = False
-    _log_resource("before_birefnet")
+    _log_resource("before_birefnet", store=stage_memory_rss_mb)
     try:
         from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
@@ -1324,7 +1348,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         print(f"  BiRefNet failed ({e}), using None masks")
         bg_masks = [None] * N
     timings["birefnet_sec"] = round(time.perf_counter() - t0, 3)
-    _log_resource("after_birefnet_offload")
+    _log_resource("after_birefnet_offload", store=stage_memory_rss_mb)
 
     for i, m in enumerate(bg_masks):
         img = m if m is not None else np.ones((H, W), dtype=np.uint8) * 255
@@ -1387,7 +1411,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
     # ------------------------------------------------------------------
     t0 = time.perf_counter()
     loftr_ok = False
-    _log_resource("before_loftr")
+    _log_resource("before_loftr", store=stage_memory_rss_mb)
     try:
         from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
@@ -1405,7 +1429,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         gc.collect()
         torch.cuda.empty_cache()
     timings["matching_sec"] = round(time.perf_counter() - t0, 3)
-    _log_resource("after_loftr_offload")
+    _log_resource("after_loftr_offload", store=stage_memory_rss_mb)
 
     # Collect edge metadata before filtering
     raw_edge_count = len(edges)
@@ -1680,6 +1704,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             overmix_path=(_overmix_path if overmix_img is not None else None),
             hugin_img=hugin_img,
             hugin_path=(_hugin_path if hugin_img is not None else None),
+            stage_memory_rss_mb=stage_memory_rss_mb,
         )
 
     try:
@@ -1750,12 +1775,12 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         # STEP 8-10: Render → quality gate → composite → crop
         # ------------------------------------------------------------------
         t0 = time.perf_counter()
-        _log_resource("before_render_median")
+        _log_resource("before_render_median", store=stage_memory_rss_mb)
         canvas, valid_mask, _, _ = _render_median(
             frames, affines, bg_masks, canvas_h, canvas_w # pyrefly: ignore [bad-argument-type]
         )
         timings["render_sec"] = round(time.perf_counter() - t0, 3)
-        _log_resource("after_render_median")
+        _log_resource("after_render_median", store=stage_memory_rss_mb)
         cv2.imwrite(os.path.join(stage_dir, "stage09_temporal_render.png"), canvas)
 
         # Run the full foreground-assembly composite (Stage 11) — this applies
@@ -1768,7 +1793,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             phase_ids=_phase_ids, seam_meta_out=_seam_meta,
         )
         timings["composite_sec"] = round(time.perf_counter() - t0, 3)
-        _log_resource("after_composite")
+        _log_resource("after_composite", store=stage_memory_rss_mb)
 
         # §0.4 — seam-band pose-residual stats: lower mean post_warp_diff
         # across seams means the frame selection handed compositing an
@@ -2003,6 +2028,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
             overmix_path=(_overmix_path if overmix_img is not None else None),
             hugin_img=hugin_img,
             hugin_path=(_hugin_path if hugin_img is not None else None),
+            stage_memory_rss_mb=stage_memory_rss_mb,
         )
 
     # ------------------------------------------------------------------
@@ -2054,7 +2080,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
 
     timings["visualisations_sec"] = round(time.perf_counter() - t0, 3)
     timings["total_sec"] = round(time.perf_counter() - t_total_start, 3)
-    _log_resource("dataset_end")
+    _log_resource("dataset_end", store=stage_memory_rss_mb)
 
     return _build_result(
         dataset_name,
@@ -2093,6 +2119,7 @@ def process_dataset(dataset_dir: str) -> Optional[Dict]:  # noqa: C901
         overmix_path=(_overmix_path if overmix_img is not None else None),
         hugin_img=hugin_img,
         hugin_path=(_hugin_path if hugin_img is not None else None),
+        stage_memory_rss_mb=stage_memory_rss_mb,
     )
 
 
@@ -2138,6 +2165,7 @@ def _build_result(
     overmix_path: Optional[str] = None,
     hugin_img: Optional[np.ndarray] = None,
     hugin_path: Optional[str] = None,
+    stage_memory_rss_mb: Optional[Dict[str, float]] = None,
 ) -> Dict:
     asp_metrics = _compute_all_metrics(asp_img, affines) if asp_img is not None else {}
     sim_metrics = _compute_all_metrics(sim_img) if sim_img is not None else {}
@@ -2341,6 +2369,14 @@ def _build_result(
             "anime_stitch": anime_path,
             "simple_stitch": simple_path,
         },
+        # --- §11.6 (issue #69) stage-level RSS, keyed by _log_resource() tag,
+        # in the order the pipeline actually visited them ---
+        "stage_memory_rss_mb": stage_memory_rss_mb or {},
+        # --- §11.10 (issue #69) experiment tag for this run, e.g.
+        # "S44-seam-cache" — set ASP_EXPERIMENT_LABEL before running to tag a
+        # batch for the comparison table in _report_experiment_comparison().
+        # Unset by default, so untagged runs don't clutter that section.
+        "experiment_label": os.environ.get("ASP_EXPERIMENT_LABEL") or None,
     }
 
 
@@ -2976,6 +3012,315 @@ def _report_fallback_breakdown(results: List[Dict], lines: List[str]) -> None:
     lines.append("\n")
 
 
+def _report_stage_memory_waterfall(
+    results: List[Dict], output_dir: str, lines: List[str]
+) -> None:
+    """
+    §11.6 dashboard — Stage-Level Memory Profiling.
+
+    Averages each dataset's `stage_memory_rss_mb` (populated by
+    `_log_resource(tag, store=...)` inside `process_dataset`) across every
+    tag in `STAGE_MEMORY_ORDER`, then renders a waterfall: each bar's base
+    sits at the running RSS and its height is the delta from the previous
+    stage, so a stage that leaks stands out as an oversized step rather than
+    just a tall absolute bar (which every later stage would also look like,
+    since RSS only trends up across a run).
+    """
+    lines.append("### Stage-Level Memory Profiling (§11.6)\n\n")
+
+    # Average RSS per tag across datasets that reported it (a SCANS fallback
+    # skips before/after_render_median and after_composite, so not every tag
+    # has full coverage — only average over datasets that actually hit it).
+    per_tag_values: Dict[str, List[float]] = {tag: [] for tag in STAGE_MEMORY_ORDER}
+    for r in results:
+        smem = r.get("stage_memory_rss_mb") or {}
+        for tag, val in smem.items():
+            if tag in per_tag_values and val is not None:
+                per_tag_values[tag].append(val)
+
+    tags_present = [t for t in STAGE_MEMORY_ORDER if per_tag_values[t]]
+    if not tags_present:
+        lines.append(
+            "_No stage_memory_rss_mb data in this run (older results predate "
+            "issue #69's §11.6 instrumentation)._\n\n"
+        )
+        return
+
+    avg_rss = [sum(per_tag_values[t]) / len(per_tag_values[t]) for t in tags_present]
+
+    chart_rel = None
+    if _MPL_OK:
+        try:
+            chart_path = os.path.join(output_dir, "stage_memory_waterfall.png")
+            fig, ax = plt.subplots(figsize=(max(6.0, len(tags_present) * 1.1), 5))
+            deltas = [avg_rss[0]] + [
+                avg_rss[i] - avg_rss[i - 1] for i in range(1, len(avg_rss))
+            ]
+            bottoms = [0.0] + avg_rss[:-1]
+            colors = ["#2a78d6" if d >= 0 else "#eb6834" for d in deltas]
+            ax.bar(
+                range(len(tags_present)), deltas, bottom=bottoms,
+                color=colors, edgecolor="white", linewidth=1,
+            )
+            for i, (b, d) in enumerate(zip(bottoms, deltas)):
+                ax.text(
+                    i, b + d + (3 if d >= 0 else -3), f"{d:+.0f}",
+                    ha="center", va="bottom" if d >= 0 else "top", fontsize=7,
+                )
+            ax.set_xticks(range(len(tags_present)))
+            ax.set_xticklabels(tags_present, rotation=45, ha="right", fontsize=7)
+            ax.set_ylabel("RSS (MB)")
+            ax.set_title(
+                f"Stage-Level Memory Waterfall — averaged across {len(results)} dataset(s)"
+            )
+            plt.tight_layout()
+            fig.savefig(chart_path, dpi=100, bbox_inches="tight")
+            plt.close(fig)
+            chart_rel = os.path.basename(chart_path)
+        except Exception:
+            chart_rel = None
+
+    if chart_rel:
+        lines.append(f"![Stage-Level Memory Waterfall]({chart_rel})\n\n")
+
+    lines.append("| Stage | Avg RSS (MB) | Δ vs previous stage |\n|---|---:|---:|\n")
+    prev = None
+    worst_stage, worst_delta = None, 0.0
+    for tag, rss in zip(tags_present, avg_rss):
+        delta = rss if prev is None else rss - prev
+        if prev is not None and delta > worst_delta:
+            worst_delta, worst_stage = delta, tag
+        lines.append(f"| `{tag}` | {rss:.1f} | {delta:+.1f} |\n")
+        prev = rss
+    lines.append("\n")
+    if worst_stage:
+        lines.append(
+            f"> Largest single-stage growth: **`{worst_stage}`** "
+            f"(+{worst_delta:.1f} MB avg) — the likeliest stage to investigate "
+            "for a leak if overall RSS is trending up across runs.\n\n"
+        )
+
+
+def _find_latest_baseline(results_dir: Optional[str] = None) -> Optional[List[Dict]]:
+    """
+    §11.9 (issue #69) — load the most recent prior `anime_stitch_*.json`
+    run's `datasets` list from `backend/benchmark/output/` (the fixed,
+    script-relative location `generate_json_results()` writes to — not the
+    per-corpus `output_dir` passed to `generate_report()`).
+
+    Called before the current run's own JSON is written (see the
+    generate_report()/generate_json_results() call order in `main()`), so
+    the most recent file found here is always a genuinely prior run, never
+    the one currently being generated. Returns None on a first-ever run
+    (nothing in output/ yet) or if the newest file fails to parse.
+    """
+    if results_dir is None:
+        results_dir = os.path.join(os.path.dirname(__file__), "output")
+    candidates = sorted(glob.glob(os.path.join(results_dir, "anime_stitch_*.json")))
+    if not candidates:
+        return None
+    try:
+        with open(candidates[-1]) as fh:
+            doc = json.load(fh)
+        return doc.get("datasets")
+    except Exception:
+        return None
+
+
+def detect_regressions(
+    current: List[Dict],
+    baseline: List[Dict],
+    quality_drop_thr: float = 0.05,
+    ghosting_increase_thr: float = 0.10,
+    time_increase_thr: float = 0.20,
+) -> List[Dict]:
+    """
+    §11.9 (issue #69) — per-dataset regression detection between two runs.
+
+    Python port of `detectRegressions()` in `frontend/src/math/benchmark.ts`
+    (same 3-metric design, same default thresholds), but keyed by dataset
+    name and reading the ASP-pipeline-specific metric names this benchmark
+    actually emits (`metrics_asp.composite_quality`, `metrics_asp.ghosting_siqe`,
+    `time.total_sec`) rather than the generic `GeneralBenchmark` schema the
+    TS function operates on — the two aren't a drop-in match, so this is a
+    reimplementation of the same threshold logic, not a call-through.
+
+    A dataset only present in one of the two runs is skipped (nothing to
+    diff against). Returns one entry per dataset that regressed on at least
+    one dimension, each with a ``reasons`` list naming which metric(s) did.
+    """
+    baseline_by_name = {r["name"]: r for r in baseline if "name" in r}
+    regressions: List[Dict] = []
+    for r in current:
+        base = baseline_by_name.get(r.get("name"))
+        if base is None:
+            continue
+        reasons: List[str] = []
+        deltas: Dict[str, float] = {}
+
+        cur_q = (r.get("metrics_asp") or {}).get("composite_quality")
+        base_q = (base.get("metrics_asp") or {}).get("composite_quality")
+        if cur_q is not None and base_q:
+            q_delta = (cur_q - base_q) / base_q
+            deltas["composite_quality_pct"] = round(q_delta * 100, 1)
+            if q_delta < -quality_drop_thr:
+                reasons.append("composite_quality")
+
+        cur_g = (r.get("metrics_asp") or {}).get("ghosting_siqe")
+        base_g = (base.get("metrics_asp") or {}).get("ghosting_siqe")
+        if cur_g is not None and base_g:
+            g_delta = (cur_g - base_g) / base_g
+            deltas["ghosting_siqe_pct"] = round(g_delta * 100, 1)
+            if g_delta > ghosting_increase_thr:
+                reasons.append("ghosting_siqe")
+
+        cur_t = (r.get("time") or {}).get("total_sec")
+        base_t = (base.get("time") or {}).get("total_sec")
+        if cur_t is not None and base_t:
+            t_delta = (cur_t - base_t) / base_t
+            deltas["total_sec_pct"] = round(t_delta * 100, 1)
+            if t_delta > time_increase_thr:
+                reasons.append("total_sec")
+
+        if reasons:
+            regressions.append({"name": r["name"], "reasons": reasons, "deltas": deltas})
+    return regressions
+
+
+def _report_regression_dashboard(
+    current: List[Dict], baseline: Optional[List[Dict]], lines: List[str]
+) -> None:
+    """
+    §11.9 dashboard — Cross-Run Regression Dashboard.
+
+    Compares this run against the most recent prior `anime_stitch_*.json`
+    (see `_find_latest_baseline`), flagging composite_quality drops >5%,
+    ghosting_siqe increases >10%, and total_sec increases >20% (the exact
+    thresholds this item's spec names). One row per dataset with a
+    red/green indicator, so a regression is visible without cross-checking
+    the two JSON files by hand.
+    """
+    lines.append("### Cross-Run Regression Dashboard (§11.9)\n\n")
+
+    if baseline is None:
+        lines.append(
+            "_No prior `anime_stitch_*.json` run found in `backend/benchmark/output/` "
+            "— no baseline to compare against (this may be the first run)._\n\n"
+        )
+        return
+
+    regressions_by_name = {r["name"]: r for r in detect_regressions(current, baseline)}
+    baseline_names = {r["name"] for r in baseline if "name" in r}
+
+    lines.append(
+        "| Test | composite_quality Δ | ghosting_siqe Δ | total_sec Δ | Status |\n"
+        "|------|---------------------:|-----------------:|------------:|:------:|\n"
+    )
+    any_row = False
+    for r in current:
+        name = r.get("name")
+        if name not in baseline_names:
+            continue
+        any_row = True
+        reg = regressions_by_name.get(name)
+        deltas = reg["deltas"] if reg else {}
+        reasons = set(reg["reasons"]) if reg else set()
+
+        def _cell(key: str, metric: str) -> str:
+            if key not in deltas:
+                return "—"
+            val = deltas[key]
+            marker = " 🔴" if metric in reasons else ""
+            return f"{val:+.1f}%{marker}"
+
+        status = "🔴 regression" if reasons else "🟢 clean"
+        lines.append(
+            f"| [{name}](#{name}) | {_cell('composite_quality_pct', 'composite_quality')} | "
+            f"{_cell('ghosting_siqe_pct', 'ghosting_siqe')} | "
+            f"{_cell('total_sec_pct', 'total_sec')} | {status} |\n"
+        )
+
+    if not any_row:
+        lines.append(
+            "_No dataset names overlap between this run and the baseline "
+            "— nothing to compare._\n\n"
+        )
+        return
+    lines.append("\n")
+
+    if regressions_by_name:
+        lines.append(
+            f"> 🔴 **{len(regressions_by_name)} dataset(s) regressed**: "
+            + ", ".join(f"[{n}](#{n})" for n in regressions_by_name)
+            + "\n\n"
+        )
+    else:
+        lines.append("> 🟢 No regressions against the baseline run.\n\n")
+
+
+def _report_experiment_comparison(results: List[Dict], lines: List[str]) -> None:
+    """
+    §11.10 dashboard — Comparative Seam-Configuration Experiment Tracker.
+
+    Groups datasets by `experiment_label` (set via the `ASP_EXPERIMENT_LABEL`
+    env var before a run — see `_build_result`) and shows, per label, the
+    mean composite_quality and mean total_sec across the datasets tagged
+    with it — a side-by-side view of which configuration change actually
+    moved which metric, per this item's spec. Untagged runs (the common
+    case — most runs aren't A/B experiments) render a one-line note instead
+    of an empty table.
+    """
+    lines.append("### Comparative Seam-Configuration Experiment Tracker (§11.10)\n\n")
+
+    by_label: Dict[str, List[Dict]] = {}
+    for r in results:
+        label = r.get("experiment_label")
+        if label:
+            by_label.setdefault(label, []).append(r)
+
+    if not by_label:
+        lines.append(
+            "_No experiment label set on any dataset in this run — set "
+            "`ASP_EXPERIMENT_LABEL=<tag>` before running to tag a batch for "
+            "comparison (e.g. `S44-seam-cache`, `S45-spanning-tree`)._\n\n"
+        )
+        return
+
+    lines.append(
+        "| Experiment | Datasets | Avg composite_quality (ASP) | Avg total_sec |\n"
+        "|------------|---------:|-----------------------------:|---------------:|\n"
+    )
+    summary: List[Tuple[str, int, Optional[float], Optional[float]]] = []
+    for label in sorted(by_label):
+        rows = by_label[label]
+        quals = [
+            (r.get("metrics_asp") or {}).get("composite_quality")
+            for r in rows
+            if (r.get("metrics_asp") or {}).get("composite_quality") is not None
+        ]
+        times = [
+            (r.get("time") or {}).get("total_sec")
+            for r in rows
+            if (r.get("time") or {}).get("total_sec") is not None
+        ]
+        avg_q = sum(quals) / len(quals) if quals else None
+        avg_t = sum(times) / len(times) if times else None
+        summary.append((label, len(rows), avg_q, avg_t))
+        q_str = f"{avg_q:.2f}" if avg_q is not None else "—"
+        t_str = f"{avg_t:.1f}" if avg_t is not None else "—"
+        lines.append(f"| `{label}` | {len(rows)} | {q_str} | {t_str} |\n")
+    lines.append("\n")
+
+    valid = [row for row in summary if row[2] is not None and row[3] is not None]
+    if len(valid) >= 2:
+        best_q = max(valid, key=lambda row: row[2])
+        best_t = min(valid, key=lambda row: row[3])
+        lines.append(
+            f"> Best `composite_quality`: **`{best_q[0]}`** ({best_q[2]:.2f}). "
+            f"Fastest: **`{best_t[0]}`** ({best_t[3]:.1f}s).\n\n"
+        )
+
+
 def _report_single_test_outputs(
     r: Dict,
     anime_rel: Optional[str],
@@ -3397,6 +3742,9 @@ def generate_report(results: List[Dict], output_dir: str) -> str:
     _report_fail_breakdown(results, lines)
     _report_frame_selection_telemetry(results, output_dir, lines)
     _report_fallback_breakdown(results, lines)
+    _report_stage_memory_waterfall(results, output_dir, lines)
+    _report_regression_dashboard(results, _find_latest_baseline(), lines)
+    _report_experiment_comparison(results, lines)
     _report_per_test_details(results, rd, lines)
 
     # Global feedback section
