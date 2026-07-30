@@ -127,22 +127,58 @@ ideas clean-room, never link.
 
 ## Phase 0 — Measurement Foundation *(everything else depends on this)*
 
-### 0.1 Human coherence ratings for the current baseline  `[tool built
-2026-07-27, S222 — rating pass itself is HUMAN, ~45 min, still open]`
-`backend/benchmark/managers/rating_manager.py`: shows each test's ASP output side by
-side with Simple-stitch (and ground truth, if available) via an OpenCV
-window, and records a 0–4 structural-coherence score for each with a single
-keypress (4 = keepable, 2 = flawed but parses, 0 = incoherent). Resumable
-(skips already-rated tests, saves incrementally after every rating — quitting
-mid-pass never loses progress) and includes back/skip/note controls. Output:
-`data/human_ratings/asp_ratings_YYYYMMDD.json`
-(`{test: {asp: n, simple: n, notes}}`), per the spec. Verified the montage
-construction and dataset discovery work correctly against the real 97-test
-corpus (found all 97, correct ASP/Simple/GT panel layout, labels legible).
+### 0.1 Human coherence ratings for the current baseline  `[tool rebuilt
+2026-07-29, S266, issue #123; UI feedback pass 2026-07-30, S267 — rating pass
+itself is HUMAN, ~45 min, still open]`
 **The actual rating pass is still open** — building the tool doesn't do the
 human judgment it exists to collect. **This is the metric the objective is
 defined against**, and the explicit prerequisite for flipping any of Phase
 2's measured-positive flags (2.1, 2.3) to default-on.
+
+**Tool: two surfaces over one source of truth**
+(`data/benchmarks/asp_evaluations_YYYYMMDD.json`), entry point
+`backend/controllers/bench_eval_dispatch.py --surface {inspector,triage,ingest,sync}`:
+
+- **`just asp-benchmark-assess`** — the PySide6 inspector
+  (`backend/benchmark/evaluation/ui/`). N-way comparison of every comparator a
+  test has (ASP / OpenCV (SCANS) / Overmix / Hugin / GT), reorderable by
+  dragging a panel's title bar, in four switchable layouts with zoom **and
+  pan** locked across panels; a hover pixel-value magnifier (works at any
+  zoom, not just deep in); live comparison maps (difference / SSIM /
+  false-colour / swipe / blend / checkerboard / edge overlay / contour) with
+  real sliders; the per-test benchmark metrics and §11.1–11.5 diagnostics on
+  their own "Analyze" tab; the benchmark's own plots and 100+ stage renders
+  (with a horizontal/vertical filmstrip toggle); region/link annotation
+  (N-way chains, point or region endpoints) with a defect class + severity; a
+  Settings dialog (default save directory, dark/light theme); and a
+  keyboard-first scoring form (0-4 scores the focused panel, `A`/`S`/`Tab`
+  focus, `[`/`]`/`=` preference, `Ctrl+0-9` defect tags, `Space` next) sized for
+  the ~28 s/test this section budgets.
+- **`just asp-triage`** — the optional FiftyOne surface
+  (`backend/benchmark/evaluation/plugin/`, extra `benchmark-eval`). One group per
+  test, one slice per comparator; every metric and human judgment a filterable
+  field; defect tags; 5 saved views. The surface for corpus-level questions —
+  notably `human_disagrees_with_metric`, which is the raw material §0.2's open
+  calibration item needs. Needs a reachable MongoDB (`just asp-triage-db`);
+  `fiftyone-db` ships no `mongod` for Ubuntu 26.04.
+
+Division of labour is a capability boundary, not taste: FiftyOne's App has no
+label drawing (annotation is delegated to CVAT/Label Studio), its `PlotlyView`
+exposes no relayout event so `drawrect` can't round-trip, and it has no pixel
+probe or live compositing slider — exactly the inspector's half.
+
+**Schema** is additive and backward compatible: `asp`/`simple`/`notes`/`bboxes`/
+`edges` are written exactly as before (`_load_human_evaluations()` only reads
+`asp`/`simple`), plus per-dimension sub-scores (coherence / sharpness / framing
+/ seams / colour), pairwise preference + confidence, an 11-class defect
+taxonomy, per-region defect class + severity, and `reviewed`/`skipped` flags.
+
+The predecessor (S222's OpenCV window, S260's PySide6 dashboard) had 10
+confirmed defects catalogued in issue #123 — Pixel Value Mode was a complete
+no-op, Back-after-Skip was impossible, `--redo` stopped after one test, a
+merely-*visited* test was written with null scores and then excluded from the
+queue forever, and the whole per-test metrics block was loaded and never
+displayed. All fixed, with 198 tests where there were none.
 
 ### 0.2 Coherence-aware verdicts  `[veto logic done 2026-07-27, S222;
 metric-calibration part still open — needs real rating data to run against]`
@@ -163,6 +199,14 @@ metric-calibration part still open — needs real rating data to run against]`
   (rank correlation per metric, demoting anything that disagrees with humans
   to "diagnostic-only") — needs an actual rating pass (0.1) to have data to
   calibrate against; can't be built ahead of that.
+  **Data collection for it is now in place (2026-07-29, S266)**: the rebuilt
+  tool records per-dimension sub-scores, a pairwise preference with confidence,
+  and defect-taxonomy tags per test and per region — so a metric can be
+  correlated against the specific dimension it claims to measure rather than
+  only against a single 0-4 blend. The FiftyOne surface exposes a derived
+  `human_disagrees_with_metric` field, which matters because the veto above is
+  one-directional by design: every disagreement it does *not* veto was
+  previously invisible. None of this substitutes for the pass itself.
 
 ### 0.3 Overmix as a third comparator on the full corpus  `[DONE 2026-07-28 —
 full 97-corpus smart-variant run complete; see .agent/cache/overmix_field_notes.md]`

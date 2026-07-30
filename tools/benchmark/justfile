@@ -72,6 +72,41 @@ asp-benchmark-clean:
     @echo "✅ Cleanup complete!"
 
 # Rate the quality of the panoramic stitches produced by the ASP during benchmarking
-asp-benchmark-assess:
+# (the PySide6 inspector: N-way comparison, pixel probe, live diff maps,
+# per-test diagnostics, region annotation, keyboard-first scoring)
+asp-benchmark-assess *ARGS:
     @echo "🎨 Rating the panoramic stitches produced by the ASP during benchmarking..."
-    uv run python backend/controllers/bench_eval_dispatch.py
+    uv run python backend/controllers/bench_eval_dispatch.py {{ARGS}}
+
+# Corpus-level triage of the same evaluations in FiftyOne: builds a grouped
+# dataset (one group per test, one slice per comparator) and opens the App.
+# Needs the optional extra:  uv pip install -e '.[benchmark-eval]'
+# and a reachable MongoDB — see `just asp-triage-db` if fiftyone-db shipped no
+# mongod for this distro.
+asp-triage *ARGS:
+    @echo "🔎 Building the FiftyOne triage dataset for the ASP benchmark corpus..."
+    uv run python backend/controllers/bench_eval_dispatch.py --surface triage {{ARGS}}
+
+# Build/refresh the FiftyOne dataset without opening the App
+asp-triage-ingest *ARGS:
+    uv run python backend/controllers/bench_eval_dispatch.py --surface ingest {{ARGS}}
+
+# Round-trip human judgment between the FiftyOne dataset and the evaluations
+# JSON. pull: fold App-side defect tags into the JSON (the JSON stays the source
+# of truth). push: refresh the dataset's human fields/tags/regions from the JSON.
+asp-triage-sync DIRECTION="pull" *ARGS:
+    uv run python backend/controllers/bench_eval_dispatch.py --surface sync \
+        --sync-direction {{DIRECTION}} {{ARGS}}
+
+# Start a local MongoDB for FiftyOne. `fiftyone-db` ships a prebuilt mongod only
+# for some distros (notably not Ubuntu 26.04 / glibc 2.43), in which case
+# FiftyOne imports fine and then fails at first dataset access.
+asp-triage-db:
+    @echo "🍃 Starting MongoDB for FiftyOne on :27017..."
+    docker start image-toolkit-fiftyone-db 2>/dev/null \
+        || docker run -d --name image-toolkit-fiftyone-db -p 27017:27017 mongo:7
+    @echo "✅ Now export FIFTYONE_DATABASE_URI=mongodb://localhost:27017"
+
+# Stop that MongoDB container (data is kept in the container's volume)
+asp-triage-db-stop:
+    docker stop image-toolkit-fiftyone-db

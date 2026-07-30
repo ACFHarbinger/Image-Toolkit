@@ -1,6 +1,8 @@
-"""Shared data models and dataset discovery for the evaluation dashboard.
+"""Shared data layer for the evaluation tooling.
 
-Used by both ``evaluation.ui`` and ``evaluation.logic`` (or by neither cleanly):
-the evaluation/annotation schema (``schema.py``) and on-disk dataset/asset
-discovery (``discovery.py``).
+The evaluation/annotation schema (``schema.py``), on-disk dataset/asset
+discovery (``discovery.py``), and benchmark-metric flattening
+(``metrics_view.py``) — the parts both the PySide6 inspector and the FiftyOne
+triage surface read. Nothing here imports Qt or FiftyOne, so either surface can
+be absent without breaking the other.
 """

@@ -212,9 +212,28 @@ asp-benchmark-verify: helper::_print_header
 asp-benchmark-clean: helper::_print_header
     just benchmark::asp-benchmark-clean
 
-# Rate the panoramic stitches produced by the ASP
-asp-benchmark-assess: helper::_print_header
-    just benchmark::asp-benchmark-assess
+# Rate the panoramic stitches produced by the ASP (PySide6 inspector)
+asp-benchmark-assess *ARGS: helper::_print_header
+    just benchmark::asp-benchmark-assess {{ARGS}}
+
+# Corpus-level triage of the ASP evaluations in FiftyOne (optional extra)
+asp-triage *ARGS: helper::_print_header
+    just benchmark::asp-triage {{ARGS}}
+
+# Build/refresh the FiftyOne triage dataset without opening the App
+asp-triage-ingest *ARGS: helper::_print_header
+    just benchmark::asp-triage-ingest {{ARGS}}
+
+# Round-trip human judgment between the FiftyOne dataset and the evaluations JSON
+asp-triage-sync DIRECTION="pull" *ARGS: helper::_print_header
+    just benchmark::asp-triage-sync {{DIRECTION}} {{ARGS}}
+
+# Start / stop a local MongoDB for FiftyOne (fiftyone-db ships no mongod on some distros)
+asp-triage-db: helper::_print_header
+    just benchmark::asp-triage-db
+
+asp-triage-db-stop: helper::_print_header
+    just benchmark::asp-triage-db-stop
 
 # --- Database ---
 
@@ -370,6 +389,14 @@ slideshow: helper::_print_header
 # Count lines of code and comments
 count-loc group_by=val_loc_group: helper::_print_header
     just validation::count-loc '{{group_by}}'
+
+# Enforce maximum lines of code per file
+check-loc max="500" exceptions="docs/loc_exceptions.txt": helper::_print_header
+    just validation::check-loc '{{max}}' '{{exceptions}}'
+
+# Generate Markdown LoC report
+loc-report output="docs/loc_report.md" limit="50": helper::_print_header
+    just validation::loc-report '{{output}}' '{{limit}}'
 
 # Tree view of lines of code and comments
 tree-loc: helper::_print_header

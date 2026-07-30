@@ -1,54 +1,53 @@
-"""Shared dark-theme matplotlib styling + a Qt-embeddable canvas, kept
-visually consistent with ``bench_anime_stitch.py``'s own plot styling
-(``#12121f`` figure background, white text/ticks, inferno/plasma/hot
-colormaps) so the dashboard's live visualizations read as the same tool
-family as its static report plots.
+"""Qt-embeddable matplotlib canvas with a navigation toolbar.
+
+The old ``PlotCanvas`` had no toolbar at all, so a plot could not be panned,
+zoomed or saved — on a 16-frame alignment chart that is tolerable, on a
+per-seam strip with 30 bars it is not. The dark theme itself lives in
+``logic/figure_theme.py`` so figure builders never import Qt.
 """
 
 from __future__ import annotations
 
-from typing import List, Tuple, Union
-
 import matplotlib
 
 matplotlib.use("QtAgg")
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from ..constants.user_interface import FIG_BG, AX_BG
+from ..constants.user_interface import COL_BORDER, COL_SURFACE, COL_TEXT
+from ..logic.figure_theme import style_axis, themed_figure  # re-exported for callers
 
-
-def _style_axis(ax) -> None:
-    ax.set_facecolor(AX_BG)
-    ax.title.set_color("white")
-    ax.xaxis.label.set_color("white")
-    ax.yaxis.label.set_color("white")
-    ax.tick_params(colors="white")
-    for spine in ax.spines.values():
-        spine.set_edgecolor("#444")
-
-
-def themed_figure(
-    figsize: Tuple[float, float] = (6.0, 4.5), n_axes: int = 1, projection: str = None
-) -> Union[Tuple[Figure, object], Tuple[Figure, List]]:
-    fig = Figure(figsize=figsize, dpi=100)
-    fig.patch.set_facecolor(FIG_BG)
-    if n_axes == 1:
-        ax = fig.add_subplot(111, projection=projection)
-        _style_axis(ax)
-        return fig, ax
-    axes = [fig.add_subplot(1, n_axes, i + 1) for i in range(n_axes)]
-    for ax in axes:
-        _style_axis(ax)
-    return fig, axes
+__all__ = ["PlotCanvas", "PlotPane", "themed_figure", "style_axis"]
 
 
 class PlotCanvas(FigureCanvasQTAgg):
-    """Thin wrapper so callers never need to import matplotlib's Qt backend
-    directly — every visualization/comparison module returns a ``Figure``
-    and hands it to this one canvas type."""
+    """Thin wrapper so callers never import matplotlib's Qt backend
+    directly — every figure builder returns a ``Figure`` and hands it here."""
 
     def __init__(self, fig: Figure, parent=None):
         super().__init__(fig)
         if parent is not None:
             self.setParent(parent)
+
+
+class PlotPane(QWidget):
+    """A canvas plus its navigation toolbar, styled to match the surrounding
+    panels instead of matplotlib's default light chrome."""
+
+    def __init__(self, fig: Figure, parent=None):
+        super().__init__(parent)
+        self.canvas = PlotCanvas(fig)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        self.toolbar.setStyleSheet(
+            f"QToolBar {{ background: {COL_SURFACE}; border: none;"
+            f" border-bottom: 1px solid {COL_BORDER}; }}"
+            f"QToolButton {{ background: transparent; color: {COL_TEXT}; padding: 3px; }}"
+            f"QToolButton:hover {{ background: #29294a; border-radius: 3px; }}"
+            f"QLabel {{ color: {COL_TEXT}; }}"
+        )
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.canvas, stretch=1)

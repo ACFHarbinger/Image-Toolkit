@@ -2,6 +2,101 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S269 — 2026-07-30 (UI tag chip components & pipeline trace failure context — issues #127, #128)
+
+Implemented UI tag component enhancements and pipeline error trace diagnostics across two roadmap items:
+
+1. **GUI §2.22 Options A & D (Tag Chip UI & Tag Completer helper, issue #127 — In review)**:
+   - Added `TagChipWidget` (rounded badge with active state and optional close button) and `TagChipGroup` (managed group container) in `gui/src/components/tag_chip_widget.py`.
+   - Added `TagCompleter` (QCompleter extension supporting multi-tag comma-separated list completion and dynamic vocabulary) in `gui/src/helpers/core/tag_completer.py`.
+   - Added unit test suites `gui/test/helpers/test_tag_completer.py` and `gui/test/components/test_tag_chip_widget.py`.
+
+3. **GUI §0.1 (Benchmark Inspector window geometry overflow & viewport re-centering, issue #152 — Milestone 1 — Done)**:
+   - Fixed layout overflow and graphics view viewport desynchronization in `InspectorWindow` by introducing a debounced 150ms `_resize_timer`.
+   - Updated `ImagePanel` in `backend/benchmark/evaluation/ui/image_panel.py` with bounded `sizeHint()` (`QSize(400, 300)`) and `minimumSizeHint()` (`QSize(200, 150)`) and viewport re-centering (`centerOn(...)`) in `resizeEvent`.
+   - Updated `body_splitter` requested sizes to `[200, 800, 320]` and `side_panel` minimum width to 300px in `backend/benchmark/evaluation/ui/main_window.py`.
+   - Added troubleshooting documentation in `docs/TROUBLESHOOTING.md`.
+
+---
+
+## S268 — 2026-07-30 (Architecture items: CI LoC enforcement gate, codebase documentation & diagrams, Matcher plugin architecture — issues #124, #125, #126)
+
+Targeted codebase architecture and developer experience improvements across three roadmap items:
+
+1. **Item A.23 / §5.17 Options A & D (CI-enforced LoC gate & auto-generated report, issue #126)**:
+   - Enhanced `backend/validation/count_loc.py` with `--max-code-lines 500`, `--fail-over`, `--exceptions-file`, and `--markdown-out` options.
+   - Added `docs/loc_exceptions.txt` containing grandfathered file exception paths (such as `gui/src/helpers/animation/stitch_worker/_progress_pipeline.py`).
+   - Added `just check-loc` (CI-enforced gate) and `just loc-report` (Markdown dashboard generator) targets to `Justfile` and `tools/validation/justfile`.
+   - Added unit test suite `backend/test/validation/test_count_loc.py` verifying line analysis, exception loading, report generation, and exit status.
+
+2. **Item A.15 / §5.12 (Codebase documentation & Mermaid class diagrams, issue #124)**:
+   - Added Mermaid class hierarchy diagrams in `backend/src/models/__init__.py` (ModelWrapper & wrappers) and `gui/src/classes/__init__.py` (AbstractGalleryBase & gallery base classes).
+   - Added standard NumPy-style docstrings across model wrapper abstractions and matching modules.
+
+3. **Item 4.1 / §5.3B (Abstract Matcher base class & plugin architecture, issue #125)**:
+   - Formalized `Matcher` abstract base class and `MatcherRegistry` plugin system in `backend/src/animation/alignment/matching/matcher_base.py`.
+   - Created concrete plugins `TemplateMatcher`, `PhaseCorrelateMatcher`, and `SegmentGuidedMatcher` in `backend/src/animation/alignment/matching/_matcher_plugins.py`.
+   - Re-exported all plugin classes and registry in `backend/src/animation/alignment/matching/__init__.py`.
+   - Added unit tests in `backend/test/animation/alignment/test_matcher_plugins.py` verifying matcher instantiation, execution, availability filtering, and priority sorting.
+
+---
+
+## S267 — 2026-07-30 (Benchmark evaluation inspector: 12-item UI feedback pass, issue #123 followup)
+
+First real usage pass over S266's rebuilt inspector surfaced a dozen concrete UI complaints; all addressed in the same package (`backend/benchmark/evaluation/`), no ASP pipeline code touched.
+
+1. **Panel-grid reflow left a blank gap, and unchecking Ground Truth didn't hide it.** Root cause: `QGridLayout` remembers a stretch factor per column/row index for the life of the layout object — `takeAt()` clears the widgets but not the stretch, so unchecking comparators down to fewer columns left the old columns' `stretch=1` reserving width for nothing. `panel_grid.py`'s `_detach_all()` now zeros every column/row stretch up to `len(COMPARATOR_KEYS)` before each relayout.
+2. **"Simple (SCANS)" renamed to "OpenCV (SCANS)"** everywhere — labels, output filenames (`{name}_opencv_stitch.png`, was `_simple_stitch.png`) — now that Overmix and Hugin are also ASP alternatives and "Simple" no longer disambiguates. Internal keys/variable names (`simple`, `metrics_simple`) deliberately unchanged; `discovery.py` tries the new filename first and falls back to the old one so pre-rename corpora still load.
+3. **Pixel Value Mode did nothing until zoomed in 8-26×.** Added a hover magnifier (`pixel_overlay.py::draw_magnifier`) — a fixed-size 17×17-neighbourhood inset in the viewport corner with numeric RGB, independent of zoom/pan, so the mode is useful immediately on hover rather than only past a threshold most tests never reach at their fit-to-view zoom.
+4. **Defect tags renumbered 0-9** (was 1-9, one short of the 10-key row) and the unnumbered "Other" tag now spans the full grid width instead of sitting alone in one column.
+5. **Drag-and-drop panel reordering.** Each panel's title bar is now a drag handle (`_PanelCell.eventFilter`, an 8px Manhattan-distance threshold) — dropping one panel onto another swaps it into that slot, e.g. moving Ground Truth between two stitcher outputs. Implemented as plain mouse-event tracking rather than `QDrag`, since this is a same-window reorder that doesn't need OS drag-and-drop, and `QDrag`'s nested event loop isn't exercisable under the offscreen QPA this package is tested under.
+6. **Link tool extended from a fixed 2-endpoint point to true N-way chains**, each endpoint either a point or a region (drag vs. click, mirroring the existing region-draw gesture). `Edge`/`EdgePoint` schema redesigned (`points: List[EdgePoint]` replacing fixed `a`/`b`) with backward-compatible loading of the old 2-point shape.
+7. **New top-level Rate / Analyze tabs.** The tool-tabs (Metrics/Diagnostics/Compare/Visualise/Artifacts) moved off the per-test screen into their own full-page "Analyze" tab, freeing vertical space on "Rate". The test-index sidebar and the scoring sidebar are now independently collapsible (◧/◨ toggles in the toolbar), via a plain `QSplitter` hide/show rather than manual size bookkeeping — confirmed empirically that Qt remembers a hidden child's proportion and restores it on `show()`.
+8. **Cumulative histogram now draws an actual stepped/filled histogram silhouette** (`ax.fill_between(..., step="post")`) instead of a smooth line over the same CDF data; the plain "Color histogram" plot renamed to "Color channels" since it was never a binned histogram either.
+9. Any UI element showing a sequence of images in one frame (the Artifacts tab's pipeline-stage filmstrip) now has a horizontal/vertical orientation toggle (new `filmstrip.py::FilmstripWidget`).
+10. **Settings dialog** (gear icon, top-right) — default save directory (a repo-independent persisted preference, `~/.config/image-toolkit/asp_eval_settings.json`) and a dark/light theme toggle. `--theme {dark,light}` and a directory browse (`DontUseNativeDialog`, per this app's native-dialog/JVM SIGSEGV history) both override the persisted default; `--out` still overrides the directory setting entirely.
+11. **Light theme.** `theme.py`'s single frozen stylesheet became `_build_stylesheet(palette)` over `DARK_PALETTE`/`LIGHT_PALETTE` dicts. Annotation/overlay colours (accent, defect-region outline, score ramp) stay theme-independent by design — they're drawn over photographic content, not chrome — only the widget chrome switches. The handful of widgets that build their own inline (non-cascaded) stylesheet per instance — score chips, the focused-panel title chip — needed an explicit `refresh_theme()` cascade (`ScoringPanel`/`ImageScoreBlock`/`ScoreRow`, `PanelGrid`/`_PanelCell`) so already-built widgets repaint on a live toggle instead of being stuck on whichever palette existed at construction.
+12. **General visual polish** — group boxes and cards gained a 2px accent-coloured top border and an accent-tinted title, button hover/press states now read against the accent colour instead of a muted variant, progress-bar fill brightened — a deliberately small, targeted set of changes rather than a broader re-skin.
+
+**Testing.** All of the above is covered at the component level in `backend/test/animation/evaluation/` (249 tests, offscreen QPA) — including a confirmed environment-specific finding, not a product bug: constructing a full `InspectorWindow` inside this repo's pytest session (which pre-loads heavy ML libraries via `conftest.py`) segfaults, while the identical window built via the identical code path as a plain script outside pytest works cleanly every time; `test_eval_main_window.py` tests the toolbar/splitter logic directly for that reason, matching every other file in the package.
+
+---
+
+## S266 — 2026-07-29 (ASP Phase 0.1: evaluation UI rebuilt as two surfaces — issue #123)
+
+Total rebuild of the tool the ASP objective is *defined* against ("at least as good as the OpenCV SCANS simple stitch, **as judged by a human**"). The predecessor was not usable for the pass it exists to collect: it had 10 confirmed defects, several of which silently corrupted the queue. Scoped to the evaluation tool — no ASP pipeline or algorithm code was touched.
+
+**The 10 defects, root-caused (full catalogue in issue #123).** Four were reported by the human; the rest were found while reading the module.
+
+1. **Pixel Value Mode was a complete no-op.** `set_display_mode()` stored a string and repainted; nothing ever read it. `PIXEL_GRID_ZOOM_THRESHOLD` was imported and unused, and `pixel_region()` / `pixel_value_grid()` were never called by anything.
+2. **Back-after-Skip was impossible.** `_go_skip()` didn't push onto `_history`, the only thing `_go_back()` pops from — a skipped test was unreachable for the rest of the session.
+3. **FFT Spectrum rendered identically for every image.** Root cause was rendering, not maths: raw `log1p(|F|)` handed to `imshow` on default linear autoscale, where the DC spike owns the whole colour range. Measured on `asp_test01`: ASP mean 8.067 / max 19.755 vs Simple 7.993 / max 20.003 — genuinely different data, visually indistinguishable output. Also a full-res 1704×1703 FFT per click, uncached, with `aspect="auto"` destroying the radial symmetry that is the point of the view.
+4. **`--redo` was dead.** `_advance()` filtered candidates by `name not in self.evaluations`; in redo mode every name is already there, so it stopped after one test.
+5. **Visiting a test marked it rated forever.** `_current_entry()` used `setdefault` and `closeEvent` persisted, so merely opening a test wrote `{"asp": null, "simple": null}`, and the next session's queue excluded anything present in the file. This was live in the data: `asp_evaluations_20260729.json` had exactly this for `asp_test02`.
+6. **Zoom was discontinuous.** `fit_to_view()` set `_zoom = 1.0` while the transform was the fit scale, so the first wheel notch reset the transform and jumped to 1.15× *native* pixels. Sync-zoom mirrored only the scale factor, never the scroll offset, so panned panels drifted apart.
+7. **The entire per-test metrics block was loaded and discarded** — 12 CV metrics × comparator, GT SSIM/PSNR, verdict + source, `fallback_reason`, alignment affines, photometric gains, matching edges, frame-selection telemetry, timings — plus `plots_dir` and `stage_dir` (8 plots + 100+ stage renders per test, all present on disk). `ssim_heatmap()`'s global score was computed and thrown away.
+8. **The Overmix comparator was invisible** despite all 97 tests having `output/overmix_stitch.png` since §0.3.
+9. **Pair visualisations ignored the source selector** — permanently ASP-vs-Simple, so ASP-vs-ground-truth was unreachable.
+10. No keyboard shortcuts (§0.1 budgets ~28 s/test), results hard-scaled to 900×700 with no zoom, no matplotlib nav toolbar, annotation removal re-parsed its own display strings, and **zero tests**.
+
+**Design, decided with the human.** Two surfaces over one source of truth (`data/benchmarks/asp_evaluations_*.json`). The human proposed FiftyOne (Voxel51); verified against the 1.19.0 source, it is an excellent fit for the corpus half (grouped datasets are exactly the N-way model; arbitrary sample fields make the sidebar a query surface) and structurally unable to do the per-test half — its App has **no label drawing** (annotation is delegated to CVAT/Label Studio/Labelbox), `PlotlyView` exposes only `onClick`/`onSelected`/`onDoubleClick` with **no relayout event** so Plotly's `drawrect` can't round-trip, and there is no pixel probe or live compositing slider on the media. So the split is a capability boundary, not a preference.
+
+**PySide6 inspector** (`backend/benchmark/evaluation/ui/`, `just asp-benchmark-assess`) — N-way comparison of every comparator a test has (ASP / Simple / Overmix / Hugin / GT) in four switchable layouts, with zoom **and pan** locked across panels. Locking mirrors the *relative* zoom factor and a normalized viewport centre rather than an absolute pixel scale, because comparators legitimately produce different canvases (1703×1704 vs 1917×2050 vs 2197×2972 vs 1864×2479 on test01) and locking absolute scale would show each a different fraction of its content. Working pixel probe: per-pixel grid above 8× native, RGB labels above 26×, label colour flipped against each cell's own luma, and pinning reports the proportionally-matching pixel in every other panel. Live comparison maps (difference with amplification, SSIM + its score, false-colour, swipe on either axis, blend, checkerboard, edge overlay, contour) on real sliders driving the same parameterised functions a headless export would call. Metrics, diagnostics and artifacts tabs for the data defect 7 was discarding. Keyboard-first scoring: `0-4` scores the focused panel, `A`/`S`/`Tab` focus, `[`/`]`/`=` preference, `Ctrl+1-9` defect tags, `Space` next, `Backspace` back.
+
+**FiftyOne triage surface** (`backend/benchmark/evaluation/plugin/`, `just asp-triage`, optional extra `benchmark-eval`) — one group per test, one slice per comparator; every metric and human judgment a filterable field; defect tags; 5 saved views. Ships `human_disagrees_with_metric`, which matters because the §0.2 coherence veto is one-directional by design, so every disagreement it does *not* veto was previously invisible — that field is the raw material §0.2's still-open calibration item needs.
+
+**Schema** is additive and backward compatible. `asp`/`simple`/`notes`/`bboxes`/`edges` are written exactly as before — `bench_anime_stitch.py:710 _load_human_evaluations()` only ever reads `asp`/`simple` — plus per-dimension sub-scores (coherence / sharpness / framing / seams / colour), pairwise preference + confidence, an 11-class defect taxonomy, per-region defect class + severity, and `reviewed`/`skipped`. Additive keys are only emitted when they carry information, so a plain 0-4 pass produces the same small file the old tool did. `is_rated()` is now a predicate over the scores instead of a dict-membership test, which is the actual fix for defect 5.
+
+**Issue #69 (Analytics Phase 11) scope split.** 11.1–11.5 are done, implemented here rather than in the separate dashboard because they answer "why did *this* test score badly" while you're looking at it. Two deliberate deviations from #69's text, both because the spec's numbers didn't match the pipeline's: 11.1's bands use the pipeline's own ghost thresholds (30/60 from `_compute_cqas`) rather than a generic 0.8/0.6 split on what is a 0–100 lower-is-better scale, and 11.5's regression margin is the same 3% `_gt_verdict` uses to avoid noise-driven flips. Two bullets are explicitly **not** done and say why: linking a seam to the DP cache key (not in the JSON) and flagging "fewer than N−1 high-confidence edges" (no threshold for "high-confidence" exists anywhere in the pipeline, and inventing one would put a number in the UI no gate agrees with). 11.6/11.9/11.10 stay in #69.
+
+**Metric directions were read off `bench_anime_stitch.py`'s definitions, not their names** — several read backwards: `seam_coherence` is the std of per-row mean luminance (a *banding* proxy, lower better despite "coherence"), `edge_energy_score` is a double-Sobel sharpness proxy and explicitly not ghosting, `ghosting_siqe` is 0–100 with lower clean. The metrics table tints the winner by direction, so a wrong direction would have marked the loser as the winner. The metric radar normalizes against `_compute_cqas`'s absolute references rather than min-max across comparators present: min-max pins the winner at 1.0 and the loser at 0.0 on every axis, drawing a dramatic star out of a 0.1% difference. Caught by looking at the rendered chart.
+
+**Two bugs found by the new tests, not by inspection.** (a) The pixel-value overlay segfaulted at deep zoom: labels were sized in *scene* units with a `max(1.0, …)` floor, and the view transform multiplies that by the zoom, so past ~30× native Qt asked FreeType for enormous glyphs — `render glyph failed err=62`, then a hard crash. Labels are now drawn in device coordinates with the world transform reset. (b) FiftyOne defect tags were emitted only for *rated* tests, so tagging an unscored test in the App and pushing back silently dropped the tag.
+
+**Verification** was against the real 97-test corpus throughout, with rendered output inspected rather than exit codes trusted. Inspector: all 30 tools across the three tool tabs render; SSIM 0.7002 matches the benchmark JSON's own `comparison.ssim` of 0.6999 for that pair; pixel mode renders correctly from 1× to 64× on a real 1703×1704 panorama. Triage: 97 groups / 347 samples / 5 slices ingested in ~0.5 s against a real MongoDB, all 5 saved views built, sidebar cohorts correct (54 fallbacks across 3 gate classes; GT tests sortable by aligned SSIM, `asp_test79` worst at 0.5090), a region drawn in the inspector round-trips into a FiftyOne `Detection` with severity and note intact, and the pull/push tag cycle is stable. 198 new tests (from zero) pass in 1.26 s.
+
+**Known gaps, stated rather than hidden.** The Overmix slice carries images for all 97 tests but no metrics, because `metrics_overmix` is empty in the results JSON — §0.3 already records that merging those artifacts into the consolidated report needs a ~2h22m pipeline re-run; the fields populate the moment one happens. `fiftyone-db` ships no prebuilt `mongod` for Ubuntu 26.04 / glibc 2.43, so FiftyOne imports fine and then fails at first dataset access; `preflight.py` detects that exact case and prints the remediation, and `just asp-triage-db` provides the container. **And the pass itself is still open** — building the tool is not the human judgment it exists to collect (issue #17).
+
 ---
 
 ## S265 — 2026-07-29 (Architecture: issue #122 — the 3 deferred `gui/src` giants split under 500 LoC)

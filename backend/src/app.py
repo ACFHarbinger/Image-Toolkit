@@ -11,6 +11,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from backend.src.constants import CTRL_C_TIMEOUT, ICON_FILE
+from backend.src.core import lifecycle_memory
 
 # ---------------------------------------------------------------------------
 # Logging setup (item 1.13) — rotating file handler + coloured console output
@@ -164,6 +165,7 @@ def launch_app(opts):
     sys.excepthook = log_uncaught_exceptions
 
     app = QApplication(sys.argv)
+    lifecycle_memory.snapshot("qt_init")  # §12.5 (issue #70)
     _validate_settings()
     try:
         app_icon = QIcon(ICON_FILE)
@@ -296,6 +298,13 @@ def launch_app(opts):
                 enable_manager=opts.get("enable_manager", False),
             )
             active_window.show()
+            # Captures the cumulative cost of JVM start (VaultManager, inside
+            # the login flow that just completed) + first-tab construction —
+            # the "after gallery load" phase in §12.5's spec happens later,
+            # driven by whatever tab/directory the user opens first, which
+            # isn't a fixed lifecycle point app.py can snapshot generically;
+            # see bench_app_lifecycle.py for the controlled N-image variant.
+            lifecycle_memory.snapshot("main_window_shown")  # §12.5 (issue #70)
             if previous_window and isinstance(previous_window, LoginWindow):
                 # The LoginWindow's closeEvent handles JVM shutdown if
                 # needed. Closed only now that MainWindow is already up, so
@@ -310,6 +319,7 @@ def launch_app(opts):
     login_window.login_successful.connect(launch_main_gui)
     active_window = login_window
     active_window.show()
+    lifecycle_memory.snapshot("login_window_shown")  # §12.5 (issue #70)
     # --- END OF NEW LOGIN FLOW ---
 
     # Start the Qt event loop

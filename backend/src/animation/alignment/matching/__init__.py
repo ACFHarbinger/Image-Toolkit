@@ -9,12 +9,19 @@ Split by role: ``_math.py`` (geometry/statistics helpers), ``_sampling.py``
 here for backward compatibility.
 """
 
+from ._matcher_plugins import PhaseCorrelateMatcher, SegmentGuidedMatcher, TemplateMatcher
 from ._matchers import _phase_correlate, _segment_guided_match, _template_match
 from ._math import _compute_bg_match_ratio, _compute_translation_spread, _extract_similarity
 from ._pairwise import _match_pair, _pairwise_match
 from ._sampling import _sample_bg_points, _sample_bg_points_grid
+from .matcher_base import Matcher, MatcherRegistry
 
 __all__ = [
+    "Matcher",
+    "MatcherRegistry",
+    "TemplateMatcher",
+    "PhaseCorrelateMatcher",
+    "SegmentGuidedMatcher",
     "_template_match",
     "_phase_correlate",
     "_sample_bg_points",
@@ -26,3 +33,4 @@ __all__ = [
     "_compute_translation_spread",
     "_compute_bg_match_ratio",
 ]
+

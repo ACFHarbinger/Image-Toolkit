@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 from matplotlib.figure import Figure
 
-from ..ui.mpl_canvas import themed_figure
+from .figure_theme import themed_figure
 
 
 def feature_match_figure(img_a: np.ndarray, img_b: np.ndarray, method: str = "orb") -> Figure:

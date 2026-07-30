@@ -840,7 +840,7 @@ Add a dropdown (▼ button beside the path input) showing the 10 most recent pat
 
 ---
 
-## 2.22 Tag Chip UI and Compound Tag Search
+## 2.22 Tag Chip UI and Compound Tag Search ✅ Partial (2026-07-30 — §A TagChipWidget + §D TagCompleter shipped, issue #127 — In review) {: #222-tag-chip-ui-and-compound-tag-search }
 
 **Pain point:** The search and scan metadata tabs use `QListWidget` for tag display (implemented to avoid per-QCheckBox memory cost). While this is correct for large tag sets, the visual style is a plain list item — not a modern chip/badge that makes tag relationships scannable at a glance.
 

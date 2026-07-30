@@ -6,7 +6,8 @@
 
 ## Table of Contents
 
-- [PySide6 / Qt Crashes (SIGSEGV)](#pyside6--qt-crashes-sigsegv)
+- [PySide6 / Qt Crashes & Layout Bugs](#pyside6--qt-crashes-sigsegv)
+  - [Benchmark Evaluation Inspector Window Geometry Overflow](#benchmark-evaluation-inspector-window-geometry-overflow--vertical-image-tiling)
 - [Qt Multimedia / Video Playback Decode Failures](#qt-multimedia--video-playback-decode-failures)
 - [External API Failures (Jikan / MyAnimeList Auto-Fill)](#external-api-failures-jikan--myanimelist-auto-fill)
 - [ASP Pipeline Errors](#asp-pipeline-errors)
@@ -20,7 +21,32 @@
 
 ---
 
-## <a id="pyside6--qt-crashes-sigsegv"></a>PySide6 / Qt Crashes (SIGSEGV)
+## <a id="pyside6--qt-crashes-sigsegv"></a>PySide6 / Qt Crashes & Layout Bugs
+
+### Benchmark Evaluation Inspector Window Geometry Overflow & Vertical Image Tiling
+
+**Symptom:** After maximizing, un-maximizing, or moving the Benchmark Evaluation Inspector window, right-hand UI controls (Settings button, Scoring panel toggles, Save button) expand beyond the right monitor/window boundary and get cut off. Additionally, images inside `ImagePanel` display split or tiled vertically with uncentered viewport scroll offsets.
+
+**Root causes (full set — see also issue #153):**
+
+1. Default `Expanding` horizontal size policies on `ImagePanel`, `_PanelCell`, `PanelGrid`, and `_GridHost` caused graphics view layout updates to propagate up the layout tree during viewport transforms, requesting 2080px+ width from parent `QSplitter` and `centralWidget` and forcing `QMainWindow` to expand past the 1920px screen width.
+2. `QTimer.singleShot(0, self._fit_all)` calls in `_load_current`, `_on_layout_changed`, and `_on_visibility_changed` were left in place even after `_resize_timer` was introduced. These bypassed the 150 ms resize debounce, firing `_fit_all` while the window manager was still animating a maximize/move — causing `_compute_fit_scale()` to read transitional (mid-animation) viewport sizes and propagate an inflated width request up through the splitter.
+3. `ImagePanel.resizeEvent` recalculated `_fit_scale` without re-anchoring `centerOn(...)`.
+4. The two internal `QStackedWidget` instances inside `PanelGrid` (`_host_stack` and `_stack`) retained the default `Preferred` horizontal size policy. `QStackedWidget.sizeHint()` returns the **maximum** sizeHint of all contained widgets — which, during a re-layout triggered by a panel add/remove, could reflect the native pixel size of the largest image. Even with `PanelGrid` itself set to `Ignored`, `QLayout::minimumSize()` still queries children's `minimumSizeHint()`, which `QStackedWidget` derives from its children's `sizeHint()` when their own policy is `Ignored` but the stacked widget's is not.
+5. `QGraphicsView.setTransform` / `centerOn` can trigger internal `QAbstractScrollArea` geometry updates that re-enter the Qt event loop and may re-invoke `_fit_all` mid-execution, compounding whichever of the above is the immediate trigger.
+6. The footer key-hint crib sheet (`KEY_HINTS`, joined into one `QLabel` in `_build_ui`) and the header/footer status labels (`status_label`, `pixel_label`) used plain `QLabel`s with word-wrap off and no elision. A `QLabel` in that configuration reports its full unwrapped text width as its `minimumSizeHint` — for the joined `KEY_HINTS` string that's ~1680px — which propagates up through the footer row into `QMainWindow`'s own minimum size. This is independent of, and was not fixed by, root causes 1-5: it reproduced the exact same symptom (right-hand sidebar controls and footer text clipped at the screen edge) on a real window even with the size-policy and debounce fixes in place, because the window's *minimum* size itself was the thing exceeding the screen, not a transient viewport-driven expansion.
+
+**Fix (issue #153 / `main_window.py`, `panel_grid.py`):**
+
+1. Set `setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)` on `ImagePanel`, and `setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)` on `_PanelCell`, `PanelGrid`, `_GridHost`, `InspectorToolbar`, `_host_stack`, and `_stack`. Internal image viewport transforms now never force parent layouts or `QMainWindow` to expand horizontally.
+2. Replaced all three `QTimer.singleShot(0, self._fit_all)` calls with `self._schedule_fit(0)`. `_schedule_fit(delay_ms)` routes every fit request through the single `_resize_timer` (`setSingleShot(True)`) and enforces a "don't shorten a longer active debounce" rule: if the 150 ms resize timer is already counting down, `_schedule_fit(0)` does nothing — the resize timer fires as originally scheduled, after the window manager has fully settled.
+3. Updated `ImagePanel.resizeEvent` to re-center scene coordinates (`centerOn(...)`) whenever `_fit_scale` changes.
+4. Added a `_fitting` boolean re-entrancy guard in `_fit_all`. If a `QGraphicsView` internal geometry propagation re-enters `_fit_all` while `grid.fit_all()` is running, the nested call returns immediately without applying a second conflicting transform.
+5. Added `_ElidingLabel` (`main_window.py`) — a `QLabel` subclass with `QSizePolicy.Ignored` horizontal policy that elides its text with `QFontMetrics.elidedText(..., Qt.ElideRight, self.width())` on every `resizeEvent`, keeping the full untruncated string as the tooltip. `status_label`, `pixel_label`, and the footer `hints` label all use it now, so none of them can force the window wider than the screen regardless of how long their text gets (a long dataset path, a `Pinned:` multi-comparator pixel readout, or the full `KEY_HINTS` crib sheet).
+
+**Debug instrumentation (issue #153):** `_DBG_INSPECTOR` in `main_window.py` and `_DBG_PANEL` in `image_panel.py` gate tagged stdout lines (`[DBG-INSPECTOR]`, `[DBG-PANEL]`) covering every resize event, `_fit_all` invocation (with call-stack origin), splitter sizes before/after fit, per-panel viewport+fit_scale+zoom, and a `window exceeds screen width` flag. Both are set to `False` now that the bug is confirmed resolved (46 regression tests in `backend/benchmark/evaluation/test/`); flip to `True` if it needs to be diagnosed again.
+
+---
 
 ### `__dynamic_cast` failure in `libstdc++.so.6`
 
