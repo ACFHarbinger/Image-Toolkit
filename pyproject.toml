@@ -138,7 +138,7 @@ docs = [
 
 # BUILD CONFIG
 [build-system]
-requires = ["setuptools>=61", "wheel", "cffi"]
+requires = ["setuptools>=83.0.0", "wheel", "cffi"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv]
