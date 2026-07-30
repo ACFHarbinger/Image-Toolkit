@@ -17,11 +17,30 @@ can't reach. The key map lives in ``shortcuts.py`` and the annotation flow in
 
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# Debug instrumentation — set to False to silence all [DBG-INSPECTOR] output.
+# Tracks resize events, _fit_all calls (with call-stack origin), splitter
+# geometry, and individual panel viewport sizes to diagnose the
+# "UI expands beyond boundaries after maximize" bug (issue #153).
+# ---------------------------------------------------------------------------
+import traceback as _traceback
+
+_DBG_INSPECTOR: bool = False
+
+
+def _dbg(*parts) -> None:  # noqa: D103 — internal debug helper
+    if _DBG_INSPECTOR:
+        print("[DBG-INSPECTOR]", *parts, flush=True)
+
+
 from typing import Dict, List, Optional
 
+
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -63,6 +82,40 @@ from .toolbar import InspectorToolbar
 from .viz_tab import VisualizationTab
 
 
+class _ElidingLabel(QLabel):
+    """A QLabel that elides its text instead of forcing a wide minimum size.
+
+    The plain ``QLabel`` used for the footer key-hint crib sheet had
+    ``wordWrap`` off and no elision, so its ``minimumSizeHint`` equalled the
+    full unwrapped text width (~1680px for ``KEY_HINTS``) — that propagated
+    up through the footer row into ``QMainWindow``'s minimum size, forcing
+    the window wider than many screens regardless of the panel-grid/scoring
+    sidebar fixes for issue #153. The full text is still available via the
+    tooltip.
+    """
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(parent)
+        self._full_text = text
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setToolTip(text)
+        self._update_elided_text()
+
+    def setText(self, text: str) -> None:  # noqa: D102 - Qt override
+        self._full_text = text
+        self.setToolTip(text)
+        self._update_elided_text()
+
+    def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
+        super().resizeEvent(event)
+        self._update_elided_text()
+
+    def _update_elided_text(self) -> None:
+        metrics = QFontMetrics(self.font())
+        elided = metrics.elidedText(self._full_text, Qt.TextElideMode.ElideRight, self.width())
+        super().setText(elided)
+
+
 class _GridHost(QWidget):
     """Holds the panel grid with the cross-panel edge overlay stacked on top,
     keeping the overlay's geometry synced on resize."""
@@ -76,9 +129,17 @@ class _GridHost(QWidget):
         layout.addWidget(grid)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         overlay.sync_geometry()
+        _dbg(
+            f"_GridHost.__init__: sizePolicy={self.sizePolicy().horizontalPolicy().name}/"
+            f"{self.sizePolicy().verticalPolicy().name}"
+        )
 
     def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
         super().resizeEvent(event)
+        _dbg(
+            f"_GridHost.resizeEvent: old={event.oldSize().width()}x{event.oldSize().height()}"
+            f" new={self.width()}x{self.height()}"
+        )
         self._overlay.sync_geometry()
 
 
@@ -119,7 +180,16 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
         self._resize_timer.timeout.connect(self._fit_all)
+        self._fitting: bool = False  # re-entrancy guard for _fit_all
         self.queue_panel.set_session(self.session)
+        _dbg("InspectorWindow.__init__: construction complete")
+        _dbg(
+            f"  window size: {self.width()}x{self.height()}"
+            f"  | central widget sizePolicy H={self.centralWidget().sizePolicy().horizontalPolicy().name}"
+            f" V={self.centralWidget().sizePolicy().verticalPolicy().name}"
+        )
+        if hasattr(self, "body_splitter"):
+            _dbg(f"  body_splitter sizes: {self.body_splitter.sizes()}")
         if self.session.current:
             self._load_current()
         else:
@@ -151,7 +221,8 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
 
         header = QHBoxLayout()
         self.title_label = heading("—")
-        self.status_label = subtle("")
+        self.status_label = _ElidingLabel("")
+        self.status_label.setProperty("role", "subtle")
         self.settings_btn = QPushButton("⚙ Settings")
         self.settings_btn.setToolTip("Default save directory, dark/light theme")
         self.settings_btn.clicked.connect(self._open_settings)
@@ -169,13 +240,13 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self.top_tabs.addTab(self._build_analyze_tab(), "Analyze")
         outer.addWidget(self.top_tabs, stretch=1)
 
-        self.pixel_label = subtle("Pixel: —")
+        self.pixel_label = _ElidingLabel("Pixel: —")
         self.pixel_label.setProperty("role", "mono")
         footer = QHBoxLayout()
         footer.addWidget(self.pixel_label, stretch=1)
-        hints = subtle("   ".join(f"{k}: {v}" for k, v in KEY_HINTS))
+        hints = _ElidingLabel("   ".join(f"{k}: {v}" for k, v in KEY_HINTS))
         hints.setStyleSheet(f"color: {COL_TEXT_DIM}; font-size: 11px;")
-        footer.addWidget(hints)
+        footer.addWidget(hints, stretch=3)
         outer.addLayout(footer)
 
     def _build_rate_tab(self, default_display_mode: str) -> QWidget:
@@ -305,8 +376,11 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self._update_header()
         self.back_btn.setEnabled(self.session.can_go_back())
         # Panels have no final geometry until the event loop runs, so fitting
-        # now would use stale viewport sizes.
-        QTimer.singleShot(0, self._fit_all)
+        # now would use stale viewport sizes.  Route through _resize_timer (not
+        # a bare singleShot) so that a concurrent window-manager resize debounce
+        # is never shortened — see issue #153 / TROUBLESHOOTING.md §Geometry Overflow.
+        _dbg("_load_current: scheduling _fit_all via _schedule_fit(0)")
+        self._schedule_fit(0)
 
     def scorable(self) -> List[str]:
         from ..constants.schema import SCORABLE_KEYS
@@ -348,14 +422,85 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
 
     def _on_layout_changed(self, mode: str) -> None:
         self.grid.set_layout_mode(mode)
-        QTimer.singleShot(0, self._fit_all)
+        _dbg(f"_on_layout_changed({mode!r}): scheduling _fit_all via _schedule_fit(0)")
+        self._schedule_fit(0)
 
     def _on_visibility_changed(self, keys: list) -> None:
         self.grid.set_visible(keys)
-        QTimer.singleShot(0, self._fit_all)
+        _dbg(f"_on_visibility_changed({keys}): scheduling _fit_all via _schedule_fit(0)")
+        self._schedule_fit(0)
+
+    def _schedule_fit(self, delay_ms: int = 0) -> None:
+        """Route all _fit_all scheduling through ``_resize_timer``.
+
+        Using a bare ``QTimer.singleShot(0, self._fit_all)`` bypasses the
+        resize debounce and can fire while the window manager is still
+        animating a maximize/move, causing ``fit_to_view`` to measure
+        transitional viewport sizes and propagate an inflated width request
+        up through the splitter (issue #153).
+
+        Rule: if a *longer* debounce is already counting down (e.g. the
+        150 ms from ``resizeEvent``), never shorten it — just let it fire.
+        If the timer is idle or ``delay_ms`` is longer than what's left,
+        restart it at ``delay_ms``.
+        """
+        remaining = self._resize_timer.remainingTime() if self._resize_timer.isActive() else -1
+        if remaining >= 0 and remaining > delay_ms:
+            # A longer debounce is already active — don't shorten it.
+            _dbg(
+                f"_schedule_fit({delay_ms} ms): deferred — resize debounce has {remaining} ms left"
+            )
+            return
+        _dbg(f"_schedule_fit({delay_ms} ms): starting timer")
+        self._resize_timer.start(delay_ms)
 
     def _fit_all(self) -> None:
-        self.grid.fit_all()
+        # Re-entrancy guard: QGraphicsView.setTransform / centerOn can trigger
+        # internal QAbstractScrollArea geometry updates that propagate back into
+        # the Qt event loop and may re-invoke _fit_all while we are still inside
+        # grid.fit_all().  The guard prevents that second call from doing anything.
+        if self._fitting:
+            _dbg("_fit_all: skipped (re-entrant call)")
+            return
+        if _DBG_INSPECTOR:
+            # Capture call origin to identify which timer/path triggered this.
+            stack = _traceback.extract_stack()
+            caller = stack[-2]  # immediate caller of _fit_all
+            _dbg(
+                f"_fit_all: called from {caller.filename.split('/')[-1]}:{caller.lineno} ({caller.name})"
+            )
+            _dbg(
+                f"  window geometry: {self.geometry().width()}x{self.geometry().height()}"
+                f" | frameGeometry: {self.frameGeometry().width()}x{self.frameGeometry().height()}"
+            )
+            if hasattr(self, "body_splitter"):
+                _dbg(f"  body_splitter sizes before fit: {self.body_splitter.sizes()}")
+            # Log visible panel viewport sizes before fitting.
+            if hasattr(self, "grid"):
+                for key in self.grid.visible():
+                    panel = self.grid.panels.get(key)
+                    if panel:
+                        vp = panel.viewport()
+                        sp_h = panel.sizePolicy().horizontalPolicy().name
+                        sp_v = panel.sizePolicy().verticalPolicy().name
+                        _dbg(
+                            f"  panel[{key}]: viewport={vp.width()}x{vp.height()}"
+                            f" | panel={panel.width()}x{panel.height()}"
+                            f" | fit_scale={panel._fit_scale:.4f}"
+                            f" | zoom={panel._zoom:.4f}"
+                            f" | sizePolicy={sp_h}/{sp_v}"
+                        )
+        self._fitting = True
+        try:
+            self.grid.fit_all()
+        finally:
+            self._fitting = False
+        if _DBG_INSPECTOR:
+            if hasattr(self, "body_splitter"):
+                _dbg(f"  body_splitter sizes after fit: {self.body_splitter.sizes()}")
+            _dbg(
+                f"  window geometry after fit: {self.geometry().width()}x{self.geometry().height()}"
+            )
         self.overlay.sync_geometry()
         self.overlay.update()
 
@@ -474,9 +619,31 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
 
     def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
         super().resizeEvent(event)
+        _dbg(
+            f"InspectorWindow.resizeEvent: "
+            f"old={event.oldSize().width()}x{event.oldSize().height()}"
+            f" -> new={event.size().width()}x{event.size().height()}"
+            f" | frame={self.frameGeometry().width()}x{self.frameGeometry().height()}"
+        )
+        if _DBG_INSPECTOR and hasattr(self, "body_splitter"):
+            _dbg(f"  body_splitter sizes at resize: {self.body_splitter.sizes()}")
+        if _DBG_INSPECTOR:
+            # Log the screen geometry to detect if the window has already exceeded it.
+            try:
+                from PySide6.QtGui import QGuiApplication
+                screen = QGuiApplication.primaryScreen()
+                if screen:
+                    sg = screen.geometry()
+                    _dbg(
+                        f"  screen geometry: {sg.width()}x{sg.height()}"
+                        f" | window exceeds screen width: {self.frameGeometry().width() > sg.width()}"
+                    )
+            except Exception as _e:  # noqa: BLE001
+                _dbg(f"  (could not query screen geometry: {_e})")
         if hasattr(self, "overlay") and self.overlay is not None:
             self.overlay.sync_geometry()
         if hasattr(self, "_resize_timer") and self._resize_timer is not None:
+            _dbg("  starting _resize_timer (150 ms debounce -> _fit_all)")
             self._resize_timer.start(150)
 
     def closeEvent(self, event) -> None:  # noqa: D102 - Qt override

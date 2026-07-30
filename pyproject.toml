@@ -226,7 +226,11 @@ check_untyped_defs = true
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*", "*Test"]
 python_functions = ["test_*", "*_test"]
-testpaths = "backend/test"
+testpaths = [
+    "backend/test",
+    "backend/benchmark/evaluation/test",
+]
+
 markers = [
     "gpu: test loads ML model weights into VRAM (DINOv2, RLHF, etc.)",
     "gc_heavy: test allocates large objects; triggers gc.collect() on completion",

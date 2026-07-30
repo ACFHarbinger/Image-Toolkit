@@ -190,10 +190,17 @@ class PanelGrid(QWidget):
         self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setSpacing(6)
         self._stack = QStackedWidget()
+        # Prevent the internal stacked widget from reporting a sizeHint based
+        # on the max of its children (large image panels at native resolution)
+        # — that hint would propagate through the QVBoxLayout inside PanelGrid
+        # even though PanelGrid itself has Ignored horizontal policy, because
+        # QLayout.minimumSize() still honours children's minimumSizeHint.
+        self._stack.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         self._host_stack = QStackedWidget()
+        self._host_stack.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self._host_stack.addWidget(self._grid_host)
         self._host_stack.addWidget(self._stack)
         outer.addWidget(self._host_stack)

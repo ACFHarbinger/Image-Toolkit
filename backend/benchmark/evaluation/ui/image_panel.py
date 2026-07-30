@@ -26,6 +26,17 @@ try to paint a million labels.
 
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# Debug instrumentation — mirrors _DBG_INSPECTOR in main_window.py.
+# Set to False to silence all [DBG-PANEL] output.
+# ---------------------------------------------------------------------------
+_DBG_PANEL: bool = False
+
+
+def _dbg_panel(key: str, *parts) -> None:  # noqa: D103
+    if _DBG_PANEL:
+        print(f"[DBG-PANEL][{key}]", *parts, flush=True)
+
 from typing import Iterable, List, Optional, Tuple
 
 import cv2
@@ -155,11 +166,18 @@ class ImagePanel(QGraphicsView):
     def fit_to_view(self, emit: bool = True) -> None:
         if not self.has_image():
             return
+        prev_fit = self._fit_scale
         self._fit_scale = self._compute_fit_scale()
         self._zoom = 1.0
         self._apply_transform()
         center = self._pixmap_item.boundingRect().center()
         self.centerOn(center)
+        _dbg_panel(
+            self.key,
+            f"fit_to_view: viewport={self.viewport().width()}x{self.viewport().height()}"
+            f" | prev_fit_scale={prev_fit:.4f} -> fit_scale={self._fit_scale:.4f}"
+            f" | scene_center=({center.x():.1f},{center.y():.1f})"
+        )
         if emit:
             self._emit_view_changed()
 
@@ -243,6 +261,15 @@ class ImagePanel(QGraphicsView):
             return
         previous_fit = self._fit_scale
         self._fit_scale = self._compute_fit_scale()
+        _dbg_panel(
+            self.key,
+            f"resizeEvent: old={event.oldSize().width()}x{event.oldSize().height()}"
+            f" -> new={self.width()}x{self.height()}"
+            f" | viewport={self.viewport().width()}x{self.viewport().height()}"
+            f" | fit_scale: {previous_fit:.4f} -> {self._fit_scale:.4f}"
+            f" | zoom={self._zoom:.4f}"
+            f" | sizePolicy={self.sizePolicy().horizontalPolicy().name}/{self.sizePolicy().verticalPolicy().name}"
+        )
         if previous_fit != self._fit_scale:
             self._apply_transform()
             if abs(self._zoom - 1.0) < 1e-4:
