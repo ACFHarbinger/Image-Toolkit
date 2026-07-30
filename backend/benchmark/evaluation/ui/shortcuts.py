@@ -76,3 +76,9 @@ def install(window) -> None:
     bind("Space", window._go_next)
     bind("Backspace", window._go_back)
     bind("Ctrl+S", window._save_now)
+
+    # Multi-point links (Link mode's chain can hold 2 or more endpoints, so
+    # there's no click count that means "done" — these end it explicitly).
+    bind("Return", window._finish_link)
+    bind("Enter", window._finish_link)  # numpad Enter is a distinct QKeySequence
+    bind("Escape", window._cancel_link)

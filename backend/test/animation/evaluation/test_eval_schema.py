@@ -211,14 +211,69 @@ def test_bbox_defect_and_severity_round_trip(tmp_path):
 
 def test_edge_round_trip(tmp_path):
     entry = RatingEntry(edges=[Edge(
-        a=EdgePoint(image="asp", x=0.2, y=0.3),
-        b=EdgePoint(image="simple", x=0.25, y=0.3),
+        points=[
+            EdgePoint(image="asp", x=0.2, y=0.3),
+            EdgePoint(image="simple", x=0.25, y=0.3),
+        ],
         label="shifted right",
     )])
     out = str(tmp_path / "out.json")
     save_evaluations(out, {"t": entry})
     edge = load_evaluations(out)["t"].edges[0]
-    assert (edge.a.image, edge.b.image, edge.label) == ("asp", "simple", "shifted right")
+    assert [p.image for p in edge.points] == ["asp", "simple"]
+    assert edge.label == "shifted right"
+
+
+def test_edge_chain_of_three_or_more_endpoints_round_trips(tmp_path):
+    """The concrete case the followup feedback asked for: a link spanning
+    more than two images (e.g. ASP, Overmix, and ground truth)."""
+    entry = RatingEntry(edges=[Edge(
+        points=[
+            EdgePoint(image="asp", x=0.2, y=0.3),
+            EdgePoint(image="overmix", x=0.22, y=0.31),
+            EdgePoint(image="ground_truth", x=0.19, y=0.29),
+        ],
+        label="same seam, three ways",
+    )])
+    out = str(tmp_path / "out.json")
+    save_evaluations(out, {"t": entry})
+    edge = load_evaluations(out)["t"].edges[0]
+    assert [p.image for p in edge.points] == ["asp", "overmix", "ground_truth"]
+
+
+def test_edge_region_endpoint_round_trips(tmp_path):
+    entry = RatingEntry(edges=[Edge(
+        points=[
+            EdgePoint(image="asp", x=0.1, y=0.1, w=0.2, h=0.15),
+            EdgePoint(image="simple", x=0.12, y=0.1),
+        ],
+        label="torn region vs clean point",
+    )])
+    out = str(tmp_path / "out.json")
+    save_evaluations(out, {"t": entry})
+    edge = load_evaluations(out)["t"].edges[0]
+    assert edge.points[0].is_region is True
+    assert edge.points[1].is_region is False
+
+
+def test_legacy_two_point_edge_shape_still_loads(tmp_path):
+    """Pre-2026-07-30 files store {"a": ..., "b": ...} instead of "points"."""
+    path = str(tmp_path / "legacy_edge.json")
+    with open(path, "w") as fh:
+        json.dump({
+            "t": {
+                "asp": None, "simple": None, "notes": "", "bboxes": [],
+                "edges": [{
+                    "a": {"image": "asp", "x": 0.2, "y": 0.3},
+                    "b": {"image": "simple", "x": 0.25, "y": 0.3},
+                    "label": "shifted right",
+                }],
+            },
+        }, fh)
+    edge = load_evaluations(path)["t"].edges[0]
+    assert [p.image for p in edge.points] == ["asp", "simple"]
+    assert edge.label == "shifted right"
+    assert edge.points[0].is_region is False
 
 
 def test_save_is_atomic_and_leaves_no_temp_file(tmp_path):

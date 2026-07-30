@@ -1,11 +1,13 @@
 """Cross-panel edge annotations, the defect-tagging dialog, and the annotation
 list.
 
-An Edge connects a point in one panel's image to a point in another (e.g. "this
-seam in ASP corresponds to this clean region in ground truth"). Two panels each
-own their own ``QGraphicsScene``, so an edge line can't be a ``QGraphicsItem``
-in either — it's painted on a transparent overlay stacked over the whole panel
-grid, and ``sync_geometry()`` must be called by the container on resize.
+An Edge is a *chain* of 2 or more endpoints across any of the visible panels
+(e.g. "this seam in ASP corresponds to this clean region in Overmix and this
+point in ground truth") — each endpoint independently a point or a region.
+Panels each own their own ``QGraphicsScene``, so an edge line can't be a
+``QGraphicsItem`` in any of them — it's painted on a transparent overlay
+stacked over the whole panel grid, and ``sync_geometry()`` must be called by
+the container on resize.
 
 The annotation list stores its indices in ``Qt.UserRole`` data rather than
 re-parsing its own display strings to recover them, which is what the old
@@ -96,13 +98,14 @@ class DefectDialog(QDialog):
 
 
 class EdgeOverlay(QWidget):
-    """Transparent overlay painting edge lines across panel boundaries."""
+    """Transparent overlay painting edge chains across panel boundaries."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._panels: Dict[str, ImagePanel] = {}
         self._edges: List[Edge] = []
+        self._pending: List[EdgePoint] = []
 
     def register_panel(self, key: str, panel: ImagePanel) -> None:
         self._panels[key] = panel
@@ -120,6 +123,12 @@ class EdgeOverlay(QWidget):
         self._edges = list(edges)
         self.update()
 
+    def set_pending(self, points: List[EdgePoint]) -> None:
+        """The in-progress chain's endpoints so far, drawn dashed and
+        unlabelled — visual feedback for a link that hasn't been finished yet."""
+        self._pending = list(points)
+        self.update()
+
     def _to_overlay_point(self, ep: EdgePoint) -> Optional[QPoint]:
         panel = self._panels.get(ep.image)
         container = self.parentWidget()
@@ -130,52 +139,104 @@ class EdgeOverlay(QWidget):
             return None
         return panel.mapTo(container, view_pt.toPoint())
 
+    def _to_overlay_rect(self, ep: EdgePoint) -> Optional[Tuple[QPoint, QPoint]]:
+        panel = self._panels.get(ep.image)
+        container = self.parentWidget()
+        if panel is None or container is None or not panel.isVisible():
+            return None
+        top_left = panel.scene_point_to_view(ep.x, ep.y)
+        bottom_right = panel.scene_point_to_view(ep.x + ep.w, ep.y + ep.h)
+        if top_left is None or bottom_right is None:
+            return None
+        return panel.mapTo(container, top_left.toPoint()), panel.mapTo(container, bottom_right.toPoint())
+
+    def _draw_chain(self, painter: QPainter, points: List[EdgePoint], label: str) -> None:
+        """One connected chain: a line through consecutive endpoints, a
+        marker (ellipse for a point, rect for a region) at each, and the
+        label once at the middle segment's midpoint."""
+        anchors: List[QPoint] = []
+        for ep in points:
+            if ep.is_region:
+                rect = self._to_overlay_rect(ep)
+                if rect is None:
+                    anchors.append(None)
+                    continue
+                top_left, bottom_right = rect
+                painter.drawRect(top_left.x(), top_left.y(),
+                                  bottom_right.x() - top_left.x(), bottom_right.y() - top_left.y())
+                anchors.append(QPoint((top_left.x() + bottom_right.x()) // 2,
+                                       (top_left.y() + bottom_right.y()) // 2))
+            else:
+                point = self._to_overlay_point(ep)
+                anchors.append(point)
+                if point is not None:
+                    painter.drawEllipse(point, 4, 4)
+        segments = [(anchors[i], anchors[i + 1]) for i in range(len(anchors) - 1)]
+        for a, b in segments:
+            if a is not None and b is not None:
+                painter.drawLine(a, b)
+        if label:
+            valid = [p for p in anchors if p is not None]
+            if valid:
+                mid_index = len(valid) // 2
+                painter.drawText(valid[mid_index], label)
+
     def paintEvent(self, event) -> None:  # noqa: D102 - Qt override
-        if not self._edges:
+        if not self._edges and not self._pending:
             return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QPen(QColor(COL_EDGE), 2, Qt.PenStyle.DashLine))
         painter.setFont(QFont("Sans", 9))
+        painter.setPen(QPen(QColor(COL_EDGE), 2, Qt.PenStyle.DashLine))
         for edge in self._edges:
-            pa, pb = self._to_overlay_point(edge.a), self._to_overlay_point(edge.b)
-            if pa is None or pb is None:
-                continue
-            painter.drawLine(pa, pb)
-            painter.drawEllipse(pa, 4, 4)
-            painter.drawEllipse(pb, 4, 4)
-            if edge.label:
-                mid = QPoint((pa.x() + pb.x()) // 2, (pa.y() + pb.y()) // 2)
-                painter.drawText(mid, edge.label)
+            self._draw_chain(painter, edge.points, edge.label)
+        if len(self._pending) >= 1:
+            painter.setPen(QPen(QColor(COL_EDGE), 2, Qt.PenStyle.DotLine))
+            self._draw_chain(painter, self._pending, "")
         painter.end()
 
 
 class EdgeBuilder:
-    """Holds the first endpoint of an in-progress edge across two
-    ``pointPicked`` signals from (possibly) two different panels."""
+    """Accumulates an open-ended chain of endpoints for an in-progress link,
+    across any number of ``pointPicked``/``regionPicked`` signals from
+    (possibly different) panels, until the caller explicitly finishes or
+    cancels it.
+
+    Deliberately does *not* prompt for a label itself, and does not
+    auto-finish at any particular count — the old two-point version raised a
+    modal dialog from inside ``add_point()`` and closed the link the instant a
+    second point arrived, which put a Qt dependency in the middle of the state
+    machine and made "link 3+ images" impossible to express: there was no way
+    to say "one more point, please" instead of "done."
+    """
 
     def __init__(self):
-        self._first: Optional[EdgePoint] = None
+        self._points: List[EdgePoint] = []
 
-    def pending(self) -> Optional[EdgePoint]:
-        return self._first
+    def pending(self) -> List[EdgePoint]:
+        return list(self._points)
+
+    def count(self) -> int:
+        return len(self._points)
+
+    def can_finish(self) -> bool:
+        return len(self._points) >= 2
 
     def reset(self) -> None:
-        self._first = None
+        self._points = []
 
-    def add_point(self, image_key: str, x: float, y: float) -> Optional[Tuple[EdgePoint, EdgePoint]]:
-        """Returns the endpoint pair once two points exist, else ``None``.
+    def add(self, image_key: str, x: float, y: float, w: float = 0.0, h: float = 0.0) -> None:
+        self._points.append(EdgePoint(image=image_key, x=x, y=y, w=w, h=h))
 
-        Deliberately does *not* prompt for a label itself — the old version
-        raised a modal dialog from inside this call, which put a Qt dependency
-        in the middle of the state machine and made it untestable.
-        """
-        if self._first is None:
-            self._first = EdgePoint(image=image_key, x=x, y=y)
+    def finish(self, label: str) -> Optional[Edge]:
+        """Returns the completed ``Edge`` and clears the pending chain, or
+        ``None`` (and leaves the chain untouched) if fewer than 2 endpoints
+        have been added yet."""
+        if not self.can_finish():
             return None
-        first, second = self._first, EdgePoint(image=image_key, x=x, y=y)
-        self._first = None
-        return first, second
+        edge = Edge(points=self._points, label=label)
+        self._points = []
+        return edge
 
 
 class AnnotationListWidget(QWidget):
@@ -212,9 +273,8 @@ class AnnotationListWidget(QWidget):
             item.setToolTip(f"x={b.x:.3f} y={b.y:.3f} w={b.w:.3f} h={b.h:.3f}")
             self.list_widget.addItem(item)
         for i, e in enumerate(edges):
-            a_title = COMPARATOR_TITLES.get(e.a.image, e.a.image)
-            b_title = COMPARATOR_TITLES.get(e.b.image, e.b.image)
-            item = QListWidgetItem(f"↔ {a_title} ⟷ {b_title} — {e.label or '(no description)'}")
+            chain = " ⟷ ".join(COMPARATOR_TITLES.get(p.image, p.image) for p in e.points)
+            item = QListWidgetItem(f"↔ {chain} — {e.label or '(no description)'}")
             item.setData(Qt.ItemDataRole.UserRole, ("edge", i))
             self.list_widget.addItem(item)
         if not bboxes and not edges:

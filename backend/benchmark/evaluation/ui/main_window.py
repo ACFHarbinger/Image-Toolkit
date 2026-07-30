@@ -155,6 +155,7 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
         self.grid = PanelGrid()
         self.grid.bboxDrawn.connect(self._on_bbox_drawn)
         self.grid.pointPicked.connect(self._on_point_picked)
+        self.grid.regionPicked.connect(self._on_region_picked)
         self.grid.pixelHovered.connect(self._on_pixel_hovered)
         self.grid.pixelPinned.connect(self._on_pixel_pinned)
         self.grid.focusChanged.connect(self._on_focus_changed)
@@ -256,6 +257,7 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
         self.toolbar.set_comparators(self.grid.available(), self.grid.visible())
         self.grid.restore_bboxes(entry.bboxes)
         self.overlay.set_edges(entry.edges)
+        self.overlay.set_pending([])  # an in-progress link never carries across tests
 
         self.scoring_panel.set_comparators([k for k in self.grid.available() if k in self.scorable()])
         self.scoring_panel.load_entry(entry)
@@ -304,8 +306,10 @@ class InspectorWindow(AnnotationFlowMixin, QMainWindow):
 
     def _on_mode_changed(self, mode: str) -> None:
         self.grid.set_mode(mode)
-        if mode != MODE_POINT:
+        if mode != MODE_POINT and self._edge_builder.count() > 0:
             self._edge_builder.reset()
+            self.overlay.set_pending([])
+            self.status_label.setText("Link cancelled (left Link mode).")
 
     def _on_display_mode_changed(self, mode: str) -> None:
         self.grid.set_display_mode(mode)

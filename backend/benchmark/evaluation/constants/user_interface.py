@@ -56,7 +56,7 @@ MODE_PROBE = "probe"
 TOOL_MODES = (
     (MODE_NAVIGATE, "Navigate", "Drag to pan, wheel to zoom"),
     (MODE_BBOX, "Draw region", "Drag a box around a defect, then tag it"),
-    (MODE_POINT, "Link points", "Click a point in two panels to link them"),
+    (MODE_POINT, "Link", "Click a point or drag a region in 2+ panels, then Enter to link them"),
     (MODE_PROBE, "Probe pixels", "Hover to read values; click to pin a readout"),
 )
 

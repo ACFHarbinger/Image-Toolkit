@@ -46,6 +46,7 @@ from backend.benchmark.evaluation.constants.user_interface import (  # noqa: E40
     LAYOUT_ROW,
     LAYOUT_STACK,
     MODE_BBOX,
+    MODE_POINT,
     MODE_PROBE,
     PIXEL_GRID_ZOOM_THRESHOLD,
     ZOOM_MAX,
@@ -237,6 +238,189 @@ def test_bbox_is_emitted_in_normalized_coordinates(panel):
     assert data["y"] == pytest.approx(100 / 400)
     assert data["w"] == pytest.approx(150 / 300)
     assert data["h"] == pytest.approx(200 / 400)
+
+
+# ---------------------------------------------------------------------------
+# Link tool — point-or-region endpoints, followup feedback
+#
+# Driven through the *real* mousePressEvent/mouseMoveEvent/mouseReleaseEvent
+# methods (called directly, not via QApplication.sendEvent): a deeply nested
+# QGraphicsView inside a QMainWindow doesn't reliably receive synthetic
+# sendEvent-posted mouse events under the offscreen QPA (confirmed by testing
+# — the isolated top-level-widget case works, the nested case silently drops
+# the event before it reaches the override), which is exactly why the
+# pre-existing bbox test above already calls _finish_bbox() directly rather
+# than simulating a drag. Calling the event handlers themselves is the
+# reliable middle ground: it exercises the actual click-vs-drag threshold
+# logic, just without depending on Qt's own event-delivery routing.
+# ---------------------------------------------------------------------------
+
+
+def _mouse_event(kind, pos, panel, buttons=None):
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+
+    button = Qt.MouseButton.LeftButton if kind != QMouseEvent.Type.MouseMove else Qt.MouseButton.NoButton
+    if buttons is None:
+        buttons = Qt.MouseButton.LeftButton if kind != QMouseEvent.Type.MouseButtonRelease else Qt.MouseButton.NoButton
+    return QMouseEvent(kind, QPointF(pos), QPointF(panel.mapToGlobal(pos)), button, buttons, Qt.KeyboardModifier.NoModifier)
+
+
+def _click(panel, pos):
+    from PySide6.QtGui import QMouseEvent
+
+    panel.mousePressEvent(_mouse_event(QMouseEvent.Type.MouseButtonPress, pos, panel))
+    panel.mouseReleaseEvent(_mouse_event(QMouseEvent.Type.MouseButtonRelease, pos, panel))
+
+
+def _drag(panel, start, end):
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QMouseEvent
+
+    panel.mousePressEvent(_mouse_event(QMouseEvent.Type.MouseButtonPress, start, panel))
+    panel.mouseMoveEvent(_mouse_event(QMouseEvent.Type.MouseMove, end, panel, buttons=Qt.MouseButton.LeftButton))
+    panel.mouseReleaseEvent(_mouse_event(QMouseEvent.Type.MouseButtonRelease, end, panel))
+
+
+def _viewport_center(panel):
+    return QPoint(panel.viewport().width() // 2, panel.viewport().height() // 2)
+
+
+def test_a_real_click_in_link_mode_emits_a_point(panel):
+    panel.set_mode(MODE_POINT)
+    points, regions = [], []
+    panel.pointPicked.connect(lambda x, y: points.append((x, y)))
+    panel.regionPicked.connect(lambda x, y, w, h: regions.append((x, y, w, h)))
+    _click(panel, _viewport_center(panel))
+    assert len(points) == 1 and regions == []
+
+
+def test_a_real_drag_in_link_mode_emits_a_region(panel):
+    panel.set_mode(MODE_POINT)
+    points, regions = [], []
+    panel.pointPicked.connect(lambda x, y: points.append((x, y)))
+    panel.regionPicked.connect(lambda x, y, w, h: regions.append((x, y, w, h)))
+    center = _viewport_center(panel)
+    _drag(panel, center, center + QPoint(40, 30))
+    assert points == [] and len(regions) == 1
+    x, y, w, h = regions[0]
+    assert w > 0 and h > 0
+
+
+def test_a_tiny_drag_still_counts_as_a_click(panel):
+    """Below the 4px threshold — matches the defect-bbox tool's own floor —
+    a shaky click must not be misread as an accidental region."""
+    panel.set_mode(MODE_POINT)
+    points, regions = [], []
+    panel.pointPicked.connect(lambda x, y: points.append((x, y)))
+    panel.regionPicked.connect(lambda x, y, w, h: regions.append((x, y, w, h)))
+    center = _viewport_center(panel)
+    _drag(panel, center, center + QPoint(1, 1))
+    assert len(points) == 1 and regions == []
+
+
+def test_region_picked_is_normalized(panel):
+    panel.set_mode(MODE_POINT)
+    seen = []
+    panel.regionPicked.connect(lambda x, y, w, h: seen.append((x, y, w, h)))
+    panel._finish_region(_qrectf(30, 100, 150, 200))
+    x, y, w, h = seen[0]
+    assert (x, y, w, h) == pytest.approx((30 / 300, 100 / 400, 150 / 300, 200 / 400))
+
+
+def _qrectf(x, y, w, h):
+    from PySide6.QtCore import QRectF
+
+    return QRectF(x, y, w, h)
+
+
+# ---------------------------------------------------------------------------
+# EdgeBuilder — pure logic, no Qt event dispatch needed
+# ---------------------------------------------------------------------------
+
+
+def test_edge_builder_needs_two_before_it_can_finish():
+    from backend.benchmark.evaluation.ui.annotations import EdgeBuilder
+
+    builder = EdgeBuilder()
+    assert builder.can_finish() is False
+    builder.add("asp", 0.1, 0.2)
+    assert builder.can_finish() is False
+    builder.add("simple", 0.15, 0.2)
+    assert builder.can_finish() is True
+
+
+def test_edge_builder_supports_chains_beyond_two():
+    from backend.benchmark.evaluation.ui.annotations import EdgeBuilder
+
+    builder = EdgeBuilder()
+    for key in ("asp", "simple", "overmix", "ground_truth"):
+        builder.add(key, 0.1, 0.1)
+    assert builder.count() == 4
+    edge = builder.finish("four-way seam")
+    assert [p.image for p in edge.points] == ["asp", "simple", "overmix", "ground_truth"]
+    assert builder.count() == 0  # finishing clears it
+
+
+def test_edge_builder_finish_below_two_returns_none_and_keeps_state():
+    from backend.benchmark.evaluation.ui.annotations import EdgeBuilder
+
+    builder = EdgeBuilder()
+    builder.add("asp", 0.1, 0.1)
+    assert builder.finish("too soon") is None
+    assert builder.count() == 1  # not cleared — nothing was actually finished
+
+
+def test_edge_builder_reset_discards_pending_points():
+    from backend.benchmark.evaluation.ui.annotations import EdgeBuilder
+
+    builder = EdgeBuilder()
+    builder.add("asp", 0.1, 0.1)
+    builder.add("simple", 0.2, 0.2)
+    builder.reset()
+    assert builder.count() == 0
+    assert builder.can_finish() is False
+
+
+def test_edge_builder_mixes_points_and_regions():
+    from backend.benchmark.evaluation.ui.annotations import EdgeBuilder
+
+    builder = EdgeBuilder()
+    builder.add("asp", 0.1, 0.1)  # a point
+    builder.add("simple", 0.2, 0.2, 0.05, 0.05)  # a region
+    edge = builder.finish("mixed")
+    assert edge.points[0].is_region is False
+    assert edge.points[1].is_region is True
+
+
+# ---------------------------------------------------------------------------
+# EdgeOverlay — renders a pending (unfinished) chain without crashing
+# ---------------------------------------------------------------------------
+
+
+def test_overlay_renders_a_pending_chain_across_panels(qapp):
+    from backend.benchmark.evaluation.other.schema import EdgePoint
+    from backend.benchmark.evaluation.ui.annotations import EdgeOverlay
+
+    a = ImagePanel("asp", "ASP")
+    b = ImagePanel("simple", "Simple")
+    a.resize(200, 200)
+    b.resize(200, 200)
+    a.show()
+    b.show()
+    qapp.processEvents()
+    a.set_image(_image())
+    b.set_image(_image(300, 250, 50))
+    overlay = EdgeOverlay()
+    overlay.register_panels({"asp": a, "simple": b})
+    overlay.resize(200, 200)
+    overlay.set_pending([
+        EdgePoint(image="asp", x=0.1, y=0.1),
+        EdgePoint(image="simple", x=0.2, y=0.2, w=0.1, h=0.1),
+    ])
+    overlay.grab()  # must not raise
+    a.close()
+    b.close()
 
 
 def test_restoring_bboxes_after_a_reload_does_not_accumulate(panel):

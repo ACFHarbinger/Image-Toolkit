@@ -142,6 +142,7 @@ class PanelGrid(QWidget):
     focusChanged = Signal(str)
     bboxDrawn = Signal(str, object)
     pointPicked = Signal(str, float, float)
+    regionPicked = Signal(str, float, float, float, float)
     pixelHovered = Signal(str, int, int, object)
     pixelPinned = Signal(str, int, int, object)
 
@@ -168,6 +169,7 @@ class PanelGrid(QWidget):
             panel.viewChanged.connect(lambda z, cx, cy, k=key: self._on_view_changed(k, z, cx, cy))
             panel.bboxDrawn.connect(lambda data, k=key: self.bboxDrawn.emit(k, data))
             panel.pointPicked.connect(lambda x, y, k=key: self.pointPicked.emit(k, x, y))
+            panel.regionPicked.connect(lambda x, y, w, h, k=key: self.regionPicked.emit(k, x, y, w, h))
             panel.pixelHovered.connect(lambda x, y, bgr, k=key: self.pixelHovered.emit(k, x, y, bgr))
             panel.pixelPinned.connect(lambda x, y, bgr, k=key: self.pixelPinned.emit(k, x, y, bgr))
             panel.focusRequested.connect(lambda k=key: self.set_focus(k))

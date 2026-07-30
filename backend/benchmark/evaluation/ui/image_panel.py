@@ -74,6 +74,7 @@ class ImagePanel(QGraphicsView):
     viewChanged = Signal(float, float, float)
     bboxDrawn = Signal(object)  # dict: normalized x/y/w/h (label/defect added by caller)
     pointPicked = Signal(float, float)  # normalized x, y within this panel's image
+    regionPicked = Signal(float, float, float, float)  # normalized x, y, w, h — a link endpoint drawn as a box
     pixelHovered = Signal(int, int, object)  # pixel x, y, BGR tuple (or None off-image)
     pixelPinned = Signal(int, int, object)
     focusRequested = Signal()
@@ -102,6 +103,13 @@ class ImagePanel(QGraphicsView):
         self._display_mode = DISPLAY_RAW
         self._rubber_origin: Optional[QPointF] = None
         self._rubber_item: Optional[QGraphicsRectItem] = None
+        # MODE_POINT's own click-vs-drag rubber band, kept separate from the
+        # MODE_BBOX one above: a defect region and a link endpoint are drawn in
+        # different modes but a user could switch modes with one still pending,
+        # and sharing state between them would let one mode's half-finished
+        # drag leak into the other.
+        self._link_origin: Optional[QPointF] = None
+        self._link_rubber: Optional[QGraphicsRectItem] = None
         self._overlay_items: List[QGraphicsRectItem] = []
         self._syncing = False
         self._pinned: Optional[Tuple[int, int]] = None
@@ -289,7 +297,10 @@ class ImagePanel(QGraphicsView):
                 self._scene.addItem(self._rubber_item)
                 return
             if self._mode == MODE_POINT:
-                self._finish_point(self.mapToScene(event.position().toPoint()))
+                self._link_origin = self.mapToScene(event.position().toPoint())
+                self._link_rubber = QGraphicsRectItem(QRectF(self._link_origin, self._link_origin))
+                self._link_rubber.setPen(QPen(QColor(COL_POINT), 0, Qt.PenStyle.DotLine))
+                self._scene.addItem(self._link_rubber)
                 return
             if self._mode == MODE_PROBE:
                 self._pin_pixel(event.position().toPoint())
@@ -300,6 +311,9 @@ class ImagePanel(QGraphicsView):
         if self._mode == MODE_BBOX and self._rubber_item is not None and self._rubber_origin is not None:
             rect = QRectF(self._rubber_origin, self.mapToScene(event.position().toPoint())).normalized()
             self._rubber_item.setRect(rect)
+        elif self._mode == MODE_POINT and self._link_rubber is not None and self._link_origin is not None:
+            rect = QRectF(self._link_origin, self.mapToScene(event.position().toPoint())).normalized()
+            self._link_rubber.setRect(rect)
         else:
             pos = event.position().toPoint()
             self._emit_pixel_hover(pos)
@@ -323,6 +337,20 @@ class ImagePanel(QGraphicsView):
             # to be a real defect instead.
             if rect.width() >= 4 and rect.height() >= 4:
                 self._finish_bbox(rect)
+            return
+        if self._mode == MODE_POINT and self._link_rubber is not None:
+            rect = self._link_rubber.rect()
+            origin = self._link_origin
+            self._scene.removeItem(self._link_rubber)
+            self._link_rubber = None
+            self._link_origin = None
+            # Below the drag threshold: treat it as a click at the press point,
+            # not the (essentially noise-sized) rectangle a shaky click drags
+            # out — same 4px floor MODE_BBOX uses to call a drag a real region.
+            if rect.width() >= 4 and rect.height() >= 4:
+                self._finish_region(rect)
+            elif origin is not None:
+                self._finish_point(origin)
             return
         super().mouseReleaseEvent(event)
 
@@ -359,6 +387,22 @@ class ImagePanel(QGraphicsView):
         self._scene.addItem(marker)
         self._overlay_items.append(marker)
         self.pointPicked.emit(pt.x() / w, pt.y() / h)
+
+    def _finish_region(self, rect: QRectF) -> None:
+        """A dragged (rather than clicked) link endpoint — a region instead
+        of a point, e.g. "this whole torn area" rather than one pixel of it."""
+        size = self.image_size()
+        if size is None:
+            return
+        w, h = size
+        marker = QGraphicsRectItem(rect)
+        marker.setPen(QPen(QColor(COL_POINT), 0, Qt.PenStyle.DashLine))
+        self._scene.addItem(marker)
+        self._overlay_items.append(marker)
+        self.regionPicked.emit(
+            max(0.0, rect.x() / w), max(0.0, rect.y() / h),
+            min(1.0, rect.width() / w), min(1.0, rect.height() / h),
+        )
 
     def _add_bbox_item(self, rect: QRectF, color: str, label: str = "") -> None:
         item = QGraphicsRectItem(rect)

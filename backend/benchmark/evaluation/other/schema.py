@@ -82,32 +82,47 @@ class BoundingBox:
 
 @dataclasses.dataclass
 class EdgePoint:
+    """One endpoint of a link: a point, or — when ``w``/``h`` are non-zero —
+    a region, drawn as a box with the line meeting its centre. The fields are
+    additive over the original point-only shape (default 0 == a plain point),
+    so a file written before regions existed loads unchanged."""
+
     image: str
     x: float
     y: float
+    w: float = 0.0
+    h: float = 0.0
+
+    @property
+    def is_region(self) -> bool:
+        return self.w > 0.0 and self.h > 0.0
 
 
 @dataclasses.dataclass
 class Edge:
-    """A misalignment/comparison link between a point (or bbox center) in
-    one displayed image and a point in another."""
+    """A misalignment/comparison link across 2 or more images — e.g. "this
+    seam in ASP corresponds to this clean region in Overmix and this point in
+    ground truth." Each endpoint is independently a point or a region.
+    """
 
-    a: EdgePoint
-    b: EdgePoint
+    points: List[EdgePoint]
     label: str = ""
 
     def to_dict(self) -> Dict:
         return {
-            "a": dataclasses.asdict(self.a),
-            "b": dataclasses.asdict(self.b),
+            "points": [dataclasses.asdict(p) for p in self.points],
             "label": self.label,
         }
 
     @staticmethod
     def from_dict(d: Dict) -> "Edge":
-        return Edge(
-            a=EdgePoint(**d["a"]), b=EdgePoint(**d["b"]), label=d.get("label", ""),
-        )
+        if "points" in d:
+            points = [EdgePoint(**p) for p in d["points"]]
+        else:
+            # Pre-2026-07-30 shape: exactly two endpoints, {"a": ..., "b": ...}.
+            # EdgePoint(**d["a"]) works unchanged since w/h default to 0.0.
+            points = [EdgePoint(**d["a"]), EdgePoint(**d["b"])]
+        return Edge(points=points, label=d.get("label", ""))
 
 
 @dataclasses.dataclass
