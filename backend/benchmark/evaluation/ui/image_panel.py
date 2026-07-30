@@ -69,15 +69,6 @@ def bgr_to_qimage(img: np.ndarray) -> QImage:
     return QImage(rgb.data, w, h, rgb.strides[0], QImage.Format.Format_RGB888).copy()
 
 
-import sys
-import time
-
-def _dbg_log(msg: str) -> None:
-    t = time.strftime("%H:%M:%S") + f".{int(time.time() * 1000) % 1000:03d}"
-    sys.stderr.write(f"[DEBUG-INSPECTOR {t}] {msg}\n")
-    sys.stderr.flush()
-
-
 class ImagePanel(QGraphicsView):
     # (zoom factor relative to fit, normalized viewport centre x, y)
     viewChanged = Signal(float, float, float)
@@ -169,10 +160,6 @@ class ImagePanel(QGraphicsView):
         self._apply_transform()
         center = self._pixmap_item.boundingRect().center()
         self.centerOn(center)
-        _dbg_log(
-            f"ImagePanel[{self.key}].fit_to_view: viewport={self.viewport().size().width()}x{self.viewport().size().height()}, "
-            f"fit_scale={self._fit_scale:.4f}, center=({center.x():.1f}, {center.y():.1f})"
-        )
         if emit:
             self._emit_view_changed()
 
@@ -252,17 +239,10 @@ class ImagePanel(QGraphicsView):
 
     def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
         super().resizeEvent(event)
-        old_sz = event.oldSize()
-        new_sz = event.size()
         if not self.has_image():
-            _dbg_log(f"ImagePanel[{self.key}].resizeEvent (no image): {old_sz.width()}x{old_sz.height()} -> {new_sz.width()}x{new_sz.height()}")
             return
         previous_fit = self._fit_scale
         self._fit_scale = self._compute_fit_scale()
-        _dbg_log(
-            f"ImagePanel[{self.key}].resizeEvent: {old_sz.width()}x{old_sz.height()} -> {new_sz.width()}x{new_sz.height()}, "
-            f"viewport={self.viewport().size().width()}x{self.viewport().size().height()}, fit_scale={previous_fit:.4f}->{self._fit_scale:.4f}"
-        )
         if previous_fit != self._fit_scale:
             self._apply_transform()
             if abs(self._zoom - 1.0) < 1e-4:

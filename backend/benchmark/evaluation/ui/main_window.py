@@ -63,15 +63,6 @@ from .toolbar import InspectorToolbar
 from .viz_tab import VisualizationTab
 
 
-import sys
-import time
-
-def _dbg_log(msg: str) -> None:
-    t = time.strftime("%H:%M:%S") + f".{int(time.time() * 1000) % 1000:03d}"
-    sys.stderr.write(f"[DEBUG-INSPECTOR {t}] {msg}\n")
-    sys.stderr.flush()
-
-
 class _GridHost(QWidget):
     """Holds the panel grid with the cross-panel edge overlay stacked on top,
     keeping the overlay's geometry synced on resize."""
@@ -88,9 +79,6 @@ class _GridHost(QWidget):
 
     def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
         super().resizeEvent(event)
-        old_sz = event.oldSize()
-        new_sz = event.size()
-        _dbg_log(f"_GridHost.resizeEvent: {old_sz.width()}x{old_sz.height()} -> {new_sz.width()}x{new_sz.height()}")
         self._overlay.sync_geometry()
 
 
@@ -367,17 +355,9 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         QTimer.singleShot(0, self._fit_all)
 
     def _fit_all(self) -> None:
-        _dbg_log("InspectorWindow._fit_all called")
         self.grid.fit_all()
         self.overlay.sync_geometry()
         self.overlay.update()
-        if hasattr(self, "body_splitter"):
-            _dbg_log(
-                f"InspectorWindow geometry: win={self.geometry().width()}x{self.geometry().height()}, "
-                f"central={self.centralWidget().geometry().width()}x{self.centralWidget().geometry().height()}, "
-                f"splitter={self.body_splitter.geometry().width()}x{self.body_splitter.geometry().height()}, "
-                f"splitter_sizes={self.body_splitter.sizes()}"
-            )
 
     def _on_focus_changed(self, key: str) -> None:
         if key:
@@ -494,9 +474,6 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
 
     def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
         super().resizeEvent(event)
-        old_sz = event.oldSize()
-        new_sz = event.size()
-        _dbg_log(f"InspectorWindow.resizeEvent: {old_sz.width()}x{old_sz.height()} -> {new_sz.width()}x{new_sz.height()}")
         if hasattr(self, "overlay") and self.overlay is not None:
             self.overlay.sync_geometry()
         if hasattr(self, "_resize_timer") and self._resize_timer is not None:

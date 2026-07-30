@@ -16,15 +16,6 @@ from __future__ import annotations
 
 from typing import Callable, Dict, Iterable, List, Optional
 
-import sys
-import time
-
-def _dbg_log(msg: str) -> None:
-    t = time.strftime("%H:%M:%S") + f".{int(time.time() * 1000) % 1000:03d}"
-    sys.stderr.write(f"[DEBUG-INSPECTOR {t}] {msg}\n")
-    sys.stderr.flush()
-
-
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtWidgets import (
@@ -399,7 +390,6 @@ class PanelGrid(QWidget):
                 self.panels[key].apply_external_view(zoom, cx, cy)
 
     def fit_all(self) -> None:
-        _dbg_log(f"PanelGrid.fit_all called for visible={self._visible}")
         for key in self._visible:
             self.panels[key].fit_to_view(emit=False)
 
