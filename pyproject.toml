@@ -77,7 +77,7 @@ dependencies = [
     "torchsde>=0.2.6",
     "torchvision>=0.24.1",
     "tqdm>=4.67.1",
-    "transformers>=4.57.2",
+    "transformers>=5.5.0",
     "webdriver-manager>=4.0.2",
     "chardet<6.0.0",
     "yarl>=1.23.0",
