@@ -43,6 +43,7 @@ from backend.benchmark.evaluation.constants.user_interface import (  # noqa: E40
     DISPLAY_PIXEL,
     DISPLAY_RAW,
     LAYOUT_GRID,
+    LAYOUT_ROW,
     LAYOUT_STACK,
     MODE_BBOX,
     MODE_PROBE,
@@ -345,6 +346,128 @@ def test_fit_all_resets_every_visible_panel(grid):
     grid.panels["asp"].set_zoom(8.0)
     grid.fit_all()
     assert all(grid.panels[k].zoom() == pytest.approx(1.0) for k in grid.visible())
+
+
+# ---------------------------------------------------------------------------
+# Reflow bug — followup feedback: unchecking comparators left a stale blank
+# gap instead of the remaining panels filling the freed width. Root cause was
+# QGridLayout remembering a stretch factor per column index for the life of
+# the layout object; takeAt() removing items doesn't clear it.
+# ---------------------------------------------------------------------------
+
+
+def test_hiding_panels_clears_the_freed_columns_stretch(grid):
+    """Regression test for the "large chunk empty when several stitcher
+    engines are unselected" bug — also why unchecking Ground Truth looked
+    like it did nothing, since the freed column stayed reserved as blank
+    space instead of the remaining panels reflowing into it."""
+    grid.set_layout_mode(LAYOUT_ROW)
+    assert grid.visible() == ["asp", "simple", "overmix", "ground_truth"]
+    for col in range(4):
+        assert grid._grid.columnStretch(col) == 1
+
+    grid.set_visible(["asp", "simple"])
+    assert grid.visible() == ["asp", "simple"]
+    # The two remaining columns keep their stretch; every column beyond them
+    # (previously used by overmix/ground_truth) must be back to zero, or Qt
+    # still reserves their share of width as a blank gap.
+    assert grid._grid.columnStretch(0) == 1
+    assert grid._grid.columnStretch(1) == 1
+    for col in range(2, 4):
+        assert grid._grid.columnStretch(col) == 0
+
+
+def test_ground_truth_checkbox_off_reflows_the_remaining_panels(grid):
+    """The same bug from the user's perspective: hiding Ground Truth must
+    make the other panels visibly take up the freed width, not just remove
+    the widget while leaving a static-sized gap."""
+    grid.resize(1200, 400)
+    grid.set_visible(["asp", "simple", "overmix", "ground_truth"])
+    grid.show()
+    for col in range(4):
+        assert grid._grid.columnStretch(col) == 1
+
+    grid.set_visible(["asp", "simple", "overmix"])
+    assert "ground_truth" not in grid.visible()
+    assert grid.cells["ground_truth"].isVisible() is False
+    for col in range(3):
+        assert grid._grid.columnStretch(col) == 1
+    assert grid._grid.columnStretch(3) == 0
+
+
+# ---------------------------------------------------------------------------
+# Drag-to-reorder panels
+# ---------------------------------------------------------------------------
+
+
+def test_reorder_moves_source_into_targets_slot(grid):
+    grid.reorder("ground_truth", "asp")
+    assert grid.order() == ["ground_truth", "asp", "simple", "overmix", "hugin"]
+    assert grid.visible() == ["ground_truth", "asp", "simple", "overmix"]
+
+
+def test_reorder_lets_ground_truth_sit_between_two_stitchers(grid):
+    """The concrete case requested: GT between two stitcher outputs instead
+    of always trailing on the right."""
+    grid.reorder("ground_truth", "simple")
+    assert grid.order().index("asp") < grid.order().index("ground_truth") < grid.order().index("simple")
+
+
+def test_reorder_is_a_noop_for_identical_keys(grid):
+    before = grid.order()
+    grid.reorder("asp", "asp")
+    assert grid.order() == before
+
+
+@pytest.mark.parametrize("source,target", [("nope", "asp"), ("asp", "nope"), ("nope", "also_nope")])
+def test_reorder_ignores_unknown_keys(grid, source, target):
+    before = grid.order()
+    grid.reorder(source, target)
+    assert grid.order() == before
+
+
+def test_reorder_updates_the_actual_grid_layout_positions(grid):
+    grid.set_layout_mode(LAYOUT_ROW)
+    grid.reorder("ground_truth", "asp")
+    columns = [
+        grid._grid.itemAtPosition(0, c).widget().key
+        for c in range(grid._grid.columnCount())
+        if grid._grid.itemAtPosition(0, c)
+    ]
+    assert columns == ["ground_truth", "asp", "simple", "overmix"]
+
+
+def test_custom_order_persists_across_a_new_tests_images(grid):
+    """Panel order is a session-wide preference, not a per-test fact — it
+    must survive navigating to the next test in the queue."""
+    grid.reorder("ground_truth", "asp")
+    grid.set_images({"asp": _image(), "simple": _image(), "overmix": _image()})
+    assert grid.order()[0] == "ground_truth"
+    assert grid.visible() == ["asp", "simple", "overmix"]  # this test has no GT
+
+
+def test_set_order_replaces_and_appends_missing_keys(grid):
+    grid.set_order(["ground_truth", "simple"])
+    assert grid.order() == ["ground_truth", "simple", "asp", "overmix", "hugin"]
+
+
+def test_set_order_ignores_unknown_keys(grid):
+    grid.set_order(["ground_truth", "not_a_real_key", "asp"])
+    assert grid.order() == ["ground_truth", "asp", "simple", "overmix", "hugin"]
+
+
+def test_order_changed_signal_fires_on_reorder(grid):
+    seen = []
+    grid.orderChanged.connect(seen.append)
+    grid.reorder("ground_truth", "asp")
+    assert seen and seen[0][0] == "ground_truth"
+
+
+def test_order_changed_signal_does_not_fire_on_a_noop_reorder(grid):
+    seen = []
+    grid.orderChanged.connect(seen.append)
+    grid.reorder("asp", "asp")
+    assert seen == []
 
 
 # ---------------------------------------------------------------------------

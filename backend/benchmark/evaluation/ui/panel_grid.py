@@ -14,10 +14,10 @@ mirrors pan, which the old "Synchronized zoom" checkbox never did.
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 import numpy as np
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
@@ -39,20 +39,42 @@ from ..constants.user_interface import (
 from ..other.schema import BoundingBox
 from .image_panel import ImagePanel
 
+# Manhattan distance (px) a press has to travel before it counts as a
+# reorder-drag rather than a click — matches the small-drag tolerance used
+# elsewhere (e.g. the defect-region rubber band).
+_DRAG_THRESHOLD_PX = 8
+
 
 class _PanelCell(QWidget):
     """One titled panel — the title bar doubles as the focus indicator, since
     at a keyboard-driven pace the user needs to see which panel a 0-4 keypress
-    will score without moving the mouse."""
+    will score without moving the mouse.
 
-    def __init__(self, panel: ImagePanel, parent=None):
+    The title bar is also the drag handle for reordering panels: pressing and
+    dragging it onto another panel's cell moves this one into that panel's
+    slot. Implemented as plain mouse-event tracking (an event filter on the
+    title label) rather than Qt's native QDrag, since this is a same-window
+    reorder that doesn't need the OS drag-and-drop subsystem — and QDrag's
+    nested event loop isn't exercisable under the offscreen QPA this package
+    is tested under.
+    """
+
+    def __init__(self, key: str, panel: ImagePanel, on_reorder: Callable[[str, str], None], parent=None):
         super().__init__(parent)
+        self.key = key
         self.panel = panel
+        self._on_reorder = on_reorder
+        self._press_pos = None
+        self._dragging = False
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(3)
         self.title_label = QLabel(panel.title)
         self.title_label.setProperty("role", "panelTitle")
+        self.title_label.setCursor(Qt.CursorShape.OpenHandCursor)
+        self.title_label.setToolTip(f"{panel.title} — drag onto another panel to reorder")
+        self.title_label.installEventFilter(self)
         self.info_label = QLabel("")
         self.info_label.setProperty("role", "subtle")
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -77,6 +99,41 @@ class _PanelCell(QWidget):
     def set_info(self, text: str) -> None:
         self.info_label.setText(text)
 
+    # -- drag-to-reorder -------------------------------------------------------
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 - Qt override
+        if watched is not self.title_label:
+            return super().eventFilter(watched, event)
+        kind = event.type()
+        if kind == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+            self._press_pos = event.position().toPoint()
+            self._dragging = False
+        elif kind == QEvent.Type.MouseMove and self._press_pos is not None:
+            moved = (event.position().toPoint() - self._press_pos).manhattanLength()
+            if moved > _DRAG_THRESHOLD_PX and not self._dragging:
+                self._dragging = True
+                self.title_label.setCursor(Qt.CursorShape.ClosedHandCursor)
+        elif kind == QEvent.Type.MouseButtonRelease:
+            if self._dragging:
+                target = self._cell_under_global_pos(event.globalPosition().toPoint())
+                if target is not None and target is not self:
+                    self._on_reorder(self.key, target.key)
+            self._press_pos = None
+            self._dragging = False
+            self.title_label.setCursor(Qt.CursorShape.OpenHandCursor)
+        return False  # never consume — the title label has nothing else to do with these
+
+    def _cell_under_global_pos(self, global_pos) -> Optional["_PanelCell"]:
+        grid = self.parentWidget()
+        while grid is not None and not isinstance(grid, PanelGrid):
+            grid = grid.parentWidget()
+        if grid is None:
+            return None
+        for cell in grid.cells.values():
+            if cell.isVisible() and cell.rect().contains(cell.mapFromGlobal(global_pos)):
+                return cell
+        return None
+
 
 class PanelGrid(QWidget):
     """Owns one ``ImagePanel`` per comparator key and arranges the visible
@@ -88,12 +145,19 @@ class PanelGrid(QWidget):
     pixelHovered = Signal(str, int, int, object)
     pixelPinned = Signal(str, int, int, object)
 
+    orderChanged = Signal(list)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.panels: Dict[str, ImagePanel] = {}
         self.cells: Dict[str, _PanelCell] = {}
         self._visible: List[str] = []
         self._available: List[str] = []
+        # A user preference, not a per-test fact — persists across the whole
+        # session as the user navigates the 97-test queue, only ever changed
+        # by an explicit drag. Independent of COMPARATOR_KEYS' fixed order so
+        # e.g. Ground Truth can be dragged in between two stitcher outputs.
+        self._order: List[str] = list(COMPARATOR_KEYS)
         self._layout_mode = LAYOUT_ROW
         self._locked = True
         self._focus_key: Optional[str] = None
@@ -108,7 +172,7 @@ class PanelGrid(QWidget):
             panel.pixelPinned.connect(lambda x, y, bgr, k=key: self.pixelPinned.emit(k, x, y, bgr))
             panel.focusRequested.connect(lambda k=key: self.set_focus(k))
             self.panels[key] = panel
-            self.cells[key] = _PanelCell(panel)
+            self.cells[key] = _PanelCell(key, panel, self.reorder)
 
         self._grid_host = QWidget()
         self._grid = QGridLayout(self._grid_host)
@@ -128,14 +192,17 @@ class PanelGrid(QWidget):
     def set_images(self, images: Dict[str, np.ndarray]) -> None:
         """Load a test's comparators. Panels for absent comparators are cleared
         and dropped from the visible set, so a test without ground truth simply
-        shows fewer panels rather than an empty box."""
+        shows fewer panels rather than an empty box. The user's custom panel
+        order (self._order) is a session-wide preference and is untouched
+        here — only which comparators are available changes per test."""
         self._images = images
-        self._available = [key for key in COMPARATOR_KEYS if key in images]
+        available_set = {key for key in COMPARATOR_KEYS if key in images}
+        self._available = [key for key in self._order if key in available_set]
         for key, panel in self.panels.items():
             panel.set_image(images.get(key))
             size = panel.image_size()
             self.cells[key].set_info(f"{size[0]}x{size[1]}" if size else "not available")
-        desired = [key for key in (self._visible or self._available) if key in self._available]
+        desired = [key for key in (self._visible or self._order) if key in available_set]
         self.set_visible(desired or self._available)
         if self._focus_key not in self._visible:
             self.set_focus(self._visible[0] if self._visible else None)
@@ -161,8 +228,38 @@ class PanelGrid(QWidget):
     # -- layout --------------------------------------------------------------
 
     def set_visible(self, keys: Iterable[str]) -> None:
-        self._visible = [k for k in COMPARATOR_KEYS if k in set(keys) and k in self._available]
+        available_set = set(self._available)
+        self._visible = [k for k in self._order if k in set(keys) and k in available_set]
         self._relayout()
+
+    def order(self) -> List[str]:
+        return list(self._order)
+
+    def set_order(self, order: Iterable[str]) -> None:
+        """Replace the whole display order at once (e.g. from a restored
+        session preference). Unknown keys are dropped; any comparator missing
+        from ``order`` keeps its relative position at the end."""
+        given = [k for k in order if k in COMPARATOR_KEYS]
+        missing = [k for k in self._order if k not in given]
+        self._order = given + missing
+        self._available = [k for k in self._order if k in set(self._available)]
+        self._visible = [k for k in self._order if k in set(self._visible)]
+        self._relayout()
+
+    def reorder(self, source_key: str, target_key: str) -> None:
+        """Move ``source_key`` into ``target_key``'s current slot, shifting
+        target and everything after it back by one — the usual "drag item A
+        onto item B" semantics. A no-op for two unknown or identical keys."""
+        if source_key == target_key or source_key not in self._order or target_key not in self._order:
+            return
+        order = [k for k in self._order if k != source_key]
+        order.insert(order.index(target_key), source_key)
+        self._order = order
+        self._available = [k for k in order if k in set(self._available)]
+        visible_set = set(self._visible)
+        self._visible = [k for k in order if k in visible_set]
+        self._relayout()
+        self.orderChanged.emit(list(order))
 
     def set_layout_mode(self, mode: str) -> None:
         self._layout_mode = mode
