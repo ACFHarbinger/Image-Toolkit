@@ -954,7 +954,7 @@ Define a `SETTINGS_SCHEMA: dict[str, type]` mapping every valid QSettings key to
 
 ## 5.15 Fault Isolation & Error Boundary Protocol {: #515-fault-isolation--error-boundary-protocol }
 
-**Partial — Options A, B, C shipped; D not confirmed. See ROADMAP.md items A.13 and A.2.** Confirmed: `ImageToolkitError` → `PipelineError`/`AlignmentFailedError`/`CanvasError`/`FallbackExhaustedError`/`ModelLoadError`/`ConfigError` hierarchy exists at `backend/src/errors/exceptions.py` (moved from the `backend/src/exceptions.py` path this section assumes) (Option A); `BaseQThreadWorker.run()` implements the exact three-tier `PipelineError`/`ImageToolkitError`/`Exception` routing described in Option B; the silent `print()`/bare-`except` instances called out here were fixed per ROADMAP A.2 (Option C). Option D (per-stage error context in the trace JSON) not confirmed — treat as still open.
+**Status: ✅ Shipped (A+B+C+D, 2026-07-30).** Option A (`ImageToolkitError` hierarchy), Option B (`BaseQThreadWorker` three-tier handler), Option C (`print`/`pass` cleanup), and Option D (`failures` list with per-stage exception type, message, and fallback in execution trace JSON, issue #128) are all shipped.
 
 **Pain point (original framing):** Errors propagate differently across the three execution contexts (Qt main thread, `QThread` workers, `QRunnable` tasks) with no uniform contract. Specific failures observed in the codebase:
 - `ConversionWorker._convert_single_file()` uses `print(f"Error creating directory: {e}")` and `print(f"Error removing original file: {e}")` instead of logging, and silently returns `False` — the GUI never shows a per-file error.

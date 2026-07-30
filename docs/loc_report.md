@@ -54,4 +54,4 @@
 | `gui/src/tabs/core/elements/format_subtab/_ui_builder.py` | 308 | 29 | 4 | 341 |
 | `backend/src/core/image_merger/_engines.py` | 307 | 27 | 49 | 383 |
 | `backend/src/animation/rendering/rendering/median.py` | 303 | 76 | 15 | 394 |
-| **TOTALS** | **85466** | **5957** | **8936** | **100359** |
+| **TOTALS** | **85567** | **5953** | **9069** | **100589** |

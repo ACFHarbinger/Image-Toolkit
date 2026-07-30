@@ -2,6 +2,21 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S269 — 2026-07-30 (UI tag chip components & pipeline trace failure context — issues #127, #128)
+
+Implemented UI tag component enhancements and pipeline error trace diagnostics across two roadmap items:
+
+1. **GUI §2.22 Options A & D (Tag Chip UI & Tag Completer helper, issue #127 — In review)**:
+   - Added `TagChipWidget` (rounded badge with active state and optional close button) and `TagChipGroup` (managed group container) in `gui/src/components/tag_chip_widget.py`.
+   - Added `TagCompleter` (QCompleter extension supporting multi-tag comma-separated list completion and dynamic vocabulary) in `gui/src/helpers/core/tag_completer.py`.
+   - Added unit test suites `gui/test/helpers/test_tag_completer.py` and `gui/test/components/test_tag_chip_widget.py`.
+
+2. **Architecture §5.15 Option D (Pipeline trace failure context, issue #128 — Done)**:
+   - Updated `_ProgressPipeline` in `gui/src/helpers/animation/stitch_worker/_progress_pipeline.py` to record per-stage failure context entries (`stage`, `label`, `exception_type`, `message`, `fallback_used`) into the `failures` list of the execution trace JSON.
+   - Added unit test suite `backend/test/animation/core/test_pipeline_trace.py`.
+
+---
+
 ## S268 — 2026-07-30 (Architecture items: CI LoC enforcement gate, codebase documentation & diagrams, Matcher plugin architecture — issues #124, #125, #126)
 
 Targeted codebase architecture and developer experience improvements across three roadmap items:

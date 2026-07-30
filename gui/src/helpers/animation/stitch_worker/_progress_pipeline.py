@@ -183,6 +183,7 @@ class _ProgressPipeline(AnimeStitchPipeline):
             "edges_found": 0,
             "canvas_size": None,
             "fallback_used": False,
+            "failures": [],
             "stage_timings": [],
             "success": False,
             "error": None,
@@ -190,6 +191,17 @@ class _ProgressPipeline(AnimeStitchPipeline):
             "elapsed_seconds": None,
         }
         _stage_t0 = _time.perf_counter()
+
+        def _record_stage_failure(stage_idx: int, stage_label: str, exc: Exception, fallback_used: Optional[str] = None):
+            """Record per-stage error context into the execution trace (§5.15 Option D)."""
+            _trace["failures"].append({
+                "stage": stage_idx,
+                "label": stage_label,
+                "exception_type": type(exc).__name__,
+                "message": str(exc),
+                "fallback_used": fallback_used,
+            })
+
 
         def _write_trace():
             _trace["finished_at"] = _dt.datetime.now().isoformat(timespec="seconds")
