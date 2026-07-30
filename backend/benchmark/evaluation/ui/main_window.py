@@ -9,10 +9,10 @@ persistence semantics.
 existing smoke test keep constructing "the window" by its old name.
 
 Keyboard-first by design — §0.1 budgets ~28 s per test, which a mouse-only form
-can't reach. Shortcuts are owned here rather than by the individual widgets so
-they work regardless of which panel has focus; see ``KEY_HINTS`` in
-``constants/user_interface.py`` for the full map, which is also rendered into the
-window as a hint line.
+can't reach. The key map lives in ``shortcuts.py`` and the annotation flow in
+``annotation_flow.py``, both split out to keep this file within the repo's
+500-LoC budget (§5.17 / issues #121-#122); the user-facing crib sheet is
+``KEY_HINTS`` in ``constants/user_interface.py``, rendered into the window footer.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QMainWindow,
@@ -35,27 +34,20 @@ from PySide6.QtWidgets import (
 from ..constants.schema import (
     COMPARATOR_TITLES,
     DEFECTS,
-    IMAGE_ASP,
-    IMAGE_SIMPLE,
-    PREF_ASP,
-    PREF_SIMPLE,
-    PREF_TIE,
-    SCORE_MAX,
 )
 from ..constants.user_interface import (
     COL_TEXT_DIM,
     DISPLAY_PIXEL,
     DISPLAY_RAW,
     KEY_HINTS,
-    MODE_BBOX,
-    MODE_NAVIGATE,
     MODE_POINT,
-    MODE_PROBE,
 )
 from ..other import discovery
-from ..other.schema import BoundingBox, Edge, RatingEntry
+from ..other.schema import RatingEntry
 from ..other.session import EvaluationSession
-from .annotations import AnnotationListWidget, DefectDialog, EdgeBuilder, EdgeOverlay
+from . import shortcuts
+from .annotation_flow import AnnotationFlowMixin
+from .annotations import AnnotationListWidget, EdgeBuilder, EdgeOverlay
 from .artifacts_tab import ArtifactsTab
 from .compare_tab import ComparisonTab
 from .diagnostics_tab import DiagnosticsTab
@@ -86,7 +78,7 @@ class _GridHost(QWidget):
         self._overlay.sync_geometry()
 
 
-class InspectorWindow(QMainWindow):
+class InspectorWindow(AnnotationFlowMixin, QMainWindow):
     def __init__(
         self,
         base_dir: str,
@@ -112,7 +104,7 @@ class InspectorWindow(QMainWindow):
         self.total_datasets = len(names)
 
         self._build_ui(default_display_mode)
-        self._install_shortcuts()
+        shortcuts.install(self)
         self.queue_panel.set_session(self.session)
         if self.session.current:
             self._load_current()
@@ -247,34 +239,6 @@ class InspectorWindow(QMainWindow):
         layout.addLayout(nav)
         return host
 
-    def _install_shortcuts(self) -> None:
-        def bind(sequence: str, handler) -> None:
-            shortcut = QShortcut(QKeySequence(sequence), self)
-            shortcut.activated.connect(handler)
-
-        for value in range(0, SCORE_MAX + 1):
-            bind(str(value), lambda v=value: self._score_focused(v))
-        for index in range(9):
-            bind(f"Ctrl+{index + 1}", lambda i=index: self._toggle_defect(i))
-        bind("A", lambda: self.grid.set_focus(IMAGE_ASP))
-        bind("S", lambda: self.grid.set_focus(IMAGE_SIMPLE))
-        bind("Tab", lambda: self.grid.cycle_focus(1))
-        bind("Shift+Tab", lambda: self.grid.cycle_focus(-1))
-        bind("[", lambda: self.scoring_panel.set_preference(PREF_ASP))
-        bind("]", lambda: self.scoring_panel.set_preference(PREF_SIMPLE))
-        bind("=", lambda: self.scoring_panel.set_preference(PREF_TIE))
-        bind("F", self._fit_all)
-        bind("P", lambda: self.toolbar.set_display_pixel(
-            self.grid.panels[IMAGE_ASP].display_mode() != DISPLAY_PIXEL
-        ))
-        bind("Space", self._go_next)
-        bind("Backspace", self._go_back)
-        bind("Ctrl+S", self._save_now)
-        bind("N", lambda: self.toolbar.set_mode(MODE_NAVIGATE))
-        bind("B", lambda: self.toolbar.set_mode(MODE_BBOX))
-        bind("L", lambda: self.toolbar.set_mode(MODE_POINT))
-        bind("V", lambda: self.toolbar.set_mode(MODE_PROBE))
-
     # -- dataset loading -----------------------------------------------------
 
     def _load_current(self) -> None:
@@ -335,61 +299,6 @@ class InspectorWindow(QMainWindow):
             f"{progress.skipped} skipped · this test: {state}"
         )
         self.queue_panel.refresh()
-
-    # -- annotation ----------------------------------------------------------
-
-    def _current_entry(self) -> RatingEntry:
-        return self.session.entry()
-
-    def _on_bbox_drawn(self, key: str, data: dict) -> None:
-        dialog = DefectDialog(COMPARATOR_TITLES.get(key, key), self)
-        if dialog.exec() != dialog.DialogCode.Accepted:
-            self.grid.restore_bboxes(self._current_entry().bboxes)  # drop the transient rect
-            return
-        defect, severity, label = dialog.result_values()
-        entry = self._current_entry()
-        entry.bboxes.append(BoundingBox(
-            image=key, x=data["x"], y=data["y"], w=data["w"], h=data["h"],
-            label=label, defect=defect, severity=severity,
-        ))
-        # A region tagged with a defect class implies the test-level tag too —
-        # otherwise the corpus-level defect counts would miss anything the user
-        # only recorded spatially.
-        if defect and defect not in entry.defects:
-            entry.defects = sorted(set(entry.defects) | {defect})
-            self.scoring_panel.load_entry(entry)
-        self.grid.restore_bboxes(entry.bboxes)
-        self.annotation_list.refresh(entry.bboxes, entry.edges)
-        self._commit()
-
-    def _on_point_picked(self, key: str, x: float, y: float) -> None:
-        pair = self._edge_builder.add_point(key, x, y)
-        if pair is None:
-            self.status_label.setText("First point set — click the matching point in another panel.")
-            return
-        first, second = pair
-        from PySide6.QtWidgets import QInputDialog
-
-        label, ok = QInputDialog.getText(
-            self, "Link points", "Describe the relationship between these two points:"
-        )
-        if not ok:
-            return
-        entry = self._current_entry()
-        entry.edges.append(Edge(a=first, b=second, label=label.strip()))
-        self.overlay.set_edges(entry.edges)
-        self.annotation_list.refresh(entry.bboxes, entry.edges)
-        self._commit()
-
-    def _on_remove_annotation(self, kind: str, index: int) -> None:
-        entry = self._current_entry()
-        target = entry.bboxes if kind == "bbox" else entry.edges
-        if 0 <= index < len(target):
-            del target[index]
-        self.grid.restore_bboxes(entry.bboxes)
-        self.overlay.set_edges(entry.edges)
-        self.annotation_list.refresh(entry.bboxes, entry.edges)
-        self._commit()
 
     # -- toolbar / view ------------------------------------------------------
 
