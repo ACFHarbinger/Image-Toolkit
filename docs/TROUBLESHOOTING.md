@@ -28,14 +28,14 @@
 **Symptom:** After maximizing, un-maximizing, or moving the Benchmark Evaluation Inspector window, right-hand UI controls (Settings button, Scoring panel toggles, Save button) expand beyond the right monitor/window boundary and get cut off. Additionally, images inside `ImagePanel` display split or tiled vertically with uncentered viewport scroll offsets.
 
 **Root cause:**
-1. Un-debounced `QTimer.singleShot(0, self._fit_all)` queued in rapid succession during window manager resize/maximize animations created a re-entrancy loop on graphics view viewports while layout bounds were mid-recalculation.
-2. `ImagePanel.resizeEvent` recalculated `_fit_scale` without invoking `centerOn(...)`, leaving graphics view scene offsets unaligned.
-3. `body_splitter` set hardcoded requested sizes totaling 1750px (`[230, 1120, 400]`), forcing parent `top_tabs` and `centralWidget` layouts to expand beyond smaller display windows.
+1. Default `Expanding` horizontal size policies on `ImagePanel`, `_PanelCell`, `PanelGrid`, and `_GridHost` caused graphics view layout updates to propagate up the layout tree during viewport transforms, requesting 2080px+ width from parent `QSplitter` and `centralWidget` and forcing `QMainWindow` to expand past the 1920px screen width.
+2. Un-debounced `QTimer.singleShot(0, self._fit_all)` queued during window manager resize animations created a re-entrancy loop while viewports were mid-recalculation.
+3. `ImagePanel.resizeEvent` recalculated `_fit_scale` without re-anchoring `centerOn(...)`.
 
 **Fix:**
-1. Replaced un-debounced `singleShot` calls in window resize handlers with a single 150ms single-shot `_resize_timer`.
-2. Updated `ImagePanel.resizeEvent` to re-center scene coordinates (`centerOn(...)`) whenever `_fit_scale` changes.
-3. Reduced `body_splitter` initial sizes to `[200, 800, 320]` (1320px total) and reduced `side_panel` minimum width to 300px.
+1. Set `setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)` on `ImagePanel`, and `setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)` on `_PanelCell`, `PanelGrid`, `_GridHost`, and `InspectorToolbar`. Internal image viewport transforms now never force parent layouts or `QMainWindow` to expand horizontally.
+2. Replaced un-debounced `singleShot` calls with a 150ms single-shot `_resize_timer` in `InspectorWindow`.
+3. Updated `ImagePanel.resizeEvent` to re-center scene coordinates (`centerOn(...)`) whenever `_fit_scale` changes.
 
 ---
 

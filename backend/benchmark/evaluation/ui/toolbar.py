@@ -126,6 +126,8 @@ class InspectorToolbar(QWidget):
         self._side_toggle.setToolTip("Show/hide the scoring sidebar")
         self._side_toggle.toggled.connect(self.sidePanelToggled.emit)
         layout.addWidget(self._side_toggle)
+        from PySide6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
 
     def set_comparators(self, available: List[str], visible: List[str]) -> None:
         for check in self._checks.values():

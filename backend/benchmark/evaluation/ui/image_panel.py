@@ -42,7 +42,7 @@ from PySide6.QtGui import (
     QTransform,
     QWheelEvent,
 )
-from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
+from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView, QSizePolicy
 
 from ..constants.user_interface import (
     COL_BBOX,
@@ -69,6 +69,15 @@ def bgr_to_qimage(img: np.ndarray) -> QImage:
     return QImage(rgb.data, w, h, rgb.strides[0], QImage.Format.Format_RGB888).copy()
 
 
+import sys
+import time
+
+def _dbg_log(msg: str) -> None:
+    t = time.strftime("%H:%M:%S") + f".{int(time.time() * 1000) % 1000:03d}"
+    sys.stderr.write(f"[DEBUG-INSPECTOR {t}] {msg}\n")
+    sys.stderr.flush()
+
+
 class ImagePanel(QGraphicsView):
     # (zoom factor relative to fit, normalized viewport centre x, y)
     viewChanged = Signal(float, float, float)
@@ -93,7 +102,8 @@ class ImagePanel(QGraphicsView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setMouseTracking(True)
-        self.setMinimumSize(220, 180)
+        self.setMinimumSize(100, 100)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
         self._pixmap_item: Optional[QGraphicsPixmapItem] = None
         self._image_bgr: Optional[np.ndarray] = None
@@ -103,21 +113,11 @@ class ImagePanel(QGraphicsView):
         self._display_mode = DISPLAY_RAW
         self._rubber_origin: Optional[QPointF] = None
         self._rubber_item: Optional[QGraphicsRectItem] = None
-        # MODE_POINT's own click-vs-drag rubber band, kept separate from the
-        # MODE_BBOX one above: a defect region and a link endpoint are drawn in
-        # different modes but a user could switch modes with one still pending,
-        # and sharing state between them would let one mode's half-finished
-        # drag leak into the other.
         self._link_origin: Optional[QPointF] = None
         self._link_rubber: Optional[QGraphicsRectItem] = None
         self._overlay_items: List[QGraphicsRectItem] = []
         self._syncing = False
         self._pinned: Optional[Tuple[int, int]] = None
-        # Raw viewport-space cursor position, tracked whenever Pixel Value Mode
-        # is on so pixel_overlay.py's magnifier can read the hovered pixel
-        # straight from the source array — independent of the current zoom/pan,
-        # which is what makes it work immediately instead of only once already
-        # zoomed in past the in-image grid's threshold.
         self._hover_view_pos: Optional[QPoint] = None
 
     # -- image loading -------------------------------------------------------
@@ -167,7 +167,12 @@ class ImagePanel(QGraphicsView):
         self._fit_scale = self._compute_fit_scale()
         self._zoom = 1.0
         self._apply_transform()
-        self.centerOn(self._pixmap_item.boundingRect().center())
+        center = self._pixmap_item.boundingRect().center()
+        self.centerOn(center)
+        _dbg_log(
+            f"ImagePanel[{self.key}].fit_to_view: viewport={self.viewport().size().width()}x{self.viewport().size().height()}, "
+            f"fit_scale={self._fit_scale:.4f}, center=({center.x():.1f}, {center.y():.1f})"
+        )
         if emit:
             self._emit_view_changed()
 
@@ -182,17 +187,12 @@ class ImagePanel(QGraphicsView):
     def _apply_transform(self) -> None:
         scale = self.native_scale()
         self.setTransform(QTransform.fromScale(scale, scale))
-        # Below the grid threshold, smooth scaling looks better; above it the
-        # user is inspecting individual pixels and interpolation would be a
-        # lie about the data.
         self.setRenderHint(
             QPainter.RenderHint.SmoothPixmapTransform,
             scale < PIXEL_GRID_ZOOM_THRESHOLD,
         )
 
     def set_zoom(self, factor: float, anchor: Optional[QPointF] = None, emit: bool = True) -> None:
-        """Set magnification relative to the fitted view, keeping ``anchor``
-        (a scene point) pinned under the cursor when given."""
         if not self.has_image():
             return
         factor = max(ZOOM_MIN, min(ZOOM_MAX, factor))
@@ -203,10 +203,6 @@ class ImagePanel(QGraphicsView):
             viewport_pos = self.mapFromScene(anchor)
         self._zoom = factor
         self._apply_transform()
-        # Re-centre so the anchor scene point lands back under the same
-        # viewport position. NoAnchor + explicit maths, rather than
-        # AnchorUnderMouse, because the latter fights programmatic centering
-        # when zoom is being mirrored across panels.
         delta = self.mapToScene(viewport_pos) - anchor
         center = self.mapToScene(self.viewport().rect().center()) - delta
         self.centerOn(center)
@@ -228,8 +224,6 @@ class ImagePanel(QGraphicsView):
         self.viewChanged.emit(self._zoom, cx, cy)
 
     def apply_external_view(self, factor: float, cx: float, cy: float) -> None:
-        """Mirror another panel's view. Guarded so this panel's own resulting
-        change doesn't re-broadcast and loop."""
         if not self.has_image():
             return
         self._syncing = True
@@ -258,12 +252,17 @@ class ImagePanel(QGraphicsView):
 
     def resizeEvent(self, event) -> None:  # noqa: D102 - Qt override
         super().resizeEvent(event)
+        old_sz = event.oldSize()
+        new_sz = event.size()
         if not self.has_image():
+            _dbg_log(f"ImagePanel[{self.key}].resizeEvent (no image): {old_sz.width()}x{old_sz.height()} -> {new_sz.width()}x{new_sz.height()}")
             return
-        # The fitted scale depends on the viewport, so a resize has to
-        # recompute it or the zoom factor silently changes meaning.
         previous_fit = self._fit_scale
         self._fit_scale = self._compute_fit_scale()
+        _dbg_log(
+            f"ImagePanel[{self.key}].resizeEvent: {old_sz.width()}x{old_sz.height()} -> {new_sz.width()}x{new_sz.height()}, "
+            f"viewport={self.viewport().size().width()}x{self.viewport().size().height()}, fit_scale={previous_fit:.4f}->{self._fit_scale:.4f}"
+        )
         if previous_fit != self._fit_scale:
             self._apply_transform()
             if abs(self._zoom - 1.0) < 1e-4:
