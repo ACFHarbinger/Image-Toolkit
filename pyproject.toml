@@ -1,169 +1,18 @@
 [project]
-name = "Image-Toolkit"
+name = "image-toolkit-workspace"
 version = "0.1.0"
-description = "Image database and edit toolkit"
+description = "Root workspace manifest for Image-Toolkit. The actual Python module lives in backend/ (see backend/pyproject.toml). gui/ is source-only (not independently packaged) and shares this workspace's dependency set."
 readme = "README.md"
 requires-python = ">=3.11"
+dependencies = []
 
-# All your runtime deps
-dependencies = [
-    "accelerate>=1.12.0",
-    "aiohttp>=3.14.3",
-    "alembic>=1.18.4",
-    "asyncpraw>=7.7.1", # subreddit pHash sweep (lazy-imported; optional at runtime)
-    "av>=17.0.1",
-    "beautifulsoup4>=4.14.0", # reverse-search HTML parsing (SauceNao/IQDB/Bing/Yandex)
-    "blake3>=1.0.8",
-    "celery>=5.6.0",
-    "cffi>=2.0.0",
-    "comfy-aimdo>=0.3.0",
-    "comfy-kitchen>=0.2.8",
-    "comfyui-embedded-docs>=0.4.4",
-    "comfyui-frontend-package>=1.43.1",
-    "comfyui-workflow-templates>=0.9.66",
-    "comtypes>=1.4.13",
-    "diffusers>=0.38.0",
-    "django>=5.2.15",
-    "django-cors-headers>=4.9.0",
-    "djangorestframework>=3.16.1",
-    "drf-spectacular>=0.27.2",
-    "dropbox>=12.0.2",
-    "einops>=0.8.2",
-    "filelock>=3.20.3",
-    "glfw>=2.10.0",
-    "google>=3.0.0",
-    "google-api-python-client>=2.187.0",
-    "google-auth-oauthlib>=1.2.3",
-    "hydra-core>=1.3.2",
-    "imagehash>=4.3.2",
-    "jpype1>=1.6.0",
-    "kornia>=0.8.2",
-    "loguru>=0.7.3",
-    "pybind11>=2.11",
-    "moviepy>=1.0.3",
-    "msal>=1.34.0",
-    "numpy>=2.3.4",
-    "omegaconf>=2.3.0",
-    "onnxruntime>=1.25.1",
-    "opencv-python-headless>=4.11.0.86",
-    "peft>=0.18.0",
-    "pillow>=12.3.0",
-    "pip>=26.1.2",
-    "psutil>=7.1.3",
-    "send2trash>=1.8.3",
-    "pydantic>=2.13.3",
-    "pydantic-settings>=2.14.2",
-    "pyopengl>=3.1.10",
-    "pyside6>=6.10.0",
-    "python-dotenv>=1.2.2",
-    "redis>=7.1.0",
-    "requests>=2.34.2",
-    "safetensors>=0.7.0",
-    "scenedetect>=0.6.7.1",
-    "scikit-learn>=1.8.0",
-    "scipy>=1.16.3",
-    "screeninfo>=0.8.1",
-    "selenium>=4.38.0",
-    "sentencepiece>=0.2.1",
-    "sentence-transformers>=2.6.0", # CLIP embeddings for Local AI Search (CBIR)
-    "faiss-cpu>=1.7.4", # Vector similarity search for CBIR index
-    "simpleeval>=1.0.7",
-    "spandrel>=0.4.2",
-    "sqlalchemy>=2.0.49",
-    "timm>=1.0.26",
-    "tokenizers>=0.22.1",
-    "torch>=2.9.1",
-    "torchaudio<2.10.0",
-    "torchsde>=0.2.6",
-    "torchvision>=0.24.1",
-    "tqdm>=4.67.1",
-    "transformers>=5.14.1",
-    "webdriver-manager>=4.0.2",
-    "chardet<6.0.0",
-    "yarl>=1.23.0",
-    "albumentations>=2.0.8",
-    "pytorch-lightning>=2.6.1",
-    "FlagEmbedding>=1.3.5",
-    "rembg>=2.0.75",
-    "transparent-background>=1.3.4",
-    "sam-2 @ git+https://github.com/facebookresearch/sam2@2b90b9f5ceec907a1c18123530e92e794ad901a4",
-    "anthropic>=0.116.0",
-    "wandb>=0.28.0",
-]
-
-[project.optional-dependencies]
-ci = [
-    "google-genai>=0.5.0",
-    "requests>=2.34.2",
-]
-# DB.6 P3b: only needed to run backend.migrations.migrate_pgvector, a
-# one-time importer for a pre-DB.6 Postgres-backed library. The unified
-# SQLCipher store (backend/src/database/unified/) has no Postgres
-# dependency at all; this group is not installed by default.
-legacy-postgres = [
-    "psycopg2-binary>=2.9.11",
-    "psycopg[pool]>=3.2",
-]
-# Issue #123: the FiftyOne corpus-triage surface of the ASP evaluation tool
-# (backend/benchmark/evaluation/plugin/). Dev-only and deliberately not a
-# default dependency — it pulls ~30 packages plus an embedded MongoDB. The
-# PySide6 inspector (`just asp-benchmark-assess`) needs none of it, and
-# `evaluation/plugin/preflight.py` reports exactly what's missing if it isn't
-# installed. Note that fiftyone-db ships a prebuilt mongod only for some
-# distros (not Ubuntu 26.04 / glibc 2.43) — see `just asp-triage-db` for the
-# container fallback.
-benchmark-eval = [
-    "fiftyone>=1.19.0,<2",
-]
-
-# (Optional) entry-point so you can run `image-toolkit` from terminal
-[project.scripts]
-# The entry point is now 'app.py' (found in 'backend/src')
-image-toolkit = "app:launch_app"
-
-# Corrected 'dev' dependencies
-[dependency-groups]
-benchmark = [
-    "matplotlib>=3.10.8",
-    "pandas>=2.3.3",
-    "plotly>=6.6.0",
-    "streamlit>=1.54.0",
-]
-dev = [
-    "black>=26.5.1",
-    "cryptography>=48.0.1",
-    "git-filter-repo>=2.47.0",
-    "import-linter>=2.0",
-    "mypy>=1.18.2",
-    "numpy>=2.3.4",
-    "pip-audit>=2.9.0",
-    "pyinstaller>=6.16.0",
-    "pytest>=9.1.1",
-    "pyvis>=0.3.2", # §5.11C module dependency graph HTML (backend/validation/visualize_module_graph.py)
-    "ruff>=0.14.3",
-]
-docs = [
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.7.7",
-]
-
-# BUILD CONFIG
-[build-system]
-requires = ["setuptools>=83.0.0", "wheel", "cffi"]
-build-backend = "setuptools.build_meta"
+[tool.uv.workspace]
+members = ["backend"]
 
 [tool.uv]
+package = false
 # Rebuild the C++ extension if CMakeLists or source files change
 cache-keys = [{ file = "base/CMakeLists.txt" }, { file = "base/src/**/*.cpp" }, { file = "base/include/**/*.hpp" }]
-
-# Tell setuptools EXACTLY what to package
-[tool.setuptools.packages.find]
-# 1. Tell setuptools to look INSIDE 'backend' for packages
-where = ["backend"]
-
-# 2. Include non-code files *inside* the packages
-[tool.setuptools.package-data]
-# "*" = ["*.ui", "*.qrc", "*.png", "*.ico"]
 
 [tool.pyrefly]
 # Core settings
