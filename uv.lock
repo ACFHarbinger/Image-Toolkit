@@ -2964,6 +2964,38 @@ name = "image-toolkit-workspace"
 version = "0.1.0"
 source = { virtual = "." }
 
+[package.dev-dependencies]
+dev = [
+    { name = "black" },
+    { name = "cryptography" },
+    { name = "git-filter-repo" },
+    { name = "import-linter" },
+    { name = "mypy" },
+    { name = "numpy" },
+    { name = "pip-audit" },
+    { name = "pyinstaller" },
+    { name = "pytest" },
+    { name = "pyvis" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "black", specifier = ">=26.5.1" },
+    { name = "cryptography", specifier = ">=48.0.1" },
+    { name = "git-filter-repo", specifier = ">=2.47.0" },
+    { name = "import-linter", specifier = ">=2.0" },
+    { name = "mypy", specifier = ">=1.18.2" },
+    { name = "numpy", specifier = ">=2.3.4" },
+    { name = "pip-audit", specifier = ">=2.9.0" },
+    { name = "pyinstaller", specifier = ">=6.16.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pyvis", specifier = ">=0.3.2" },
+    { name = "ruff", specifier = ">=0.14.3" },
+]
+
 [[package]]
 name = "imagehash"
 version = "4.3.2"
