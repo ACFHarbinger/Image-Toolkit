@@ -9,6 +9,25 @@ dependencies = []
 [tool.uv.workspace]
 members = ["backend", "gui", "submodules/Recommendation-Engine"]
 
+[dependency-groups]
+# CI runs `uv sync --group dev` from the workspace root, so the group must be
+# defined here too (uv resolves --group against the invoked project, not
+# transitively across workspace members). Mirrors backend/pyproject.toml's
+# `dev` group plus gui/pyproject.toml's `dev` group.
+dev = [
+    "black>=26.5.1",
+    "cryptography>=48.0.1",
+    "git-filter-repo>=2.47.0",
+    "import-linter>=2.0",
+    "mypy>=1.18.2",
+    "numpy>=2.3.4",
+    "pip-audit>=2.9.0",
+    "pyinstaller>=6.16.0",
+    "pytest>=9.1.1",
+    "pyvis>=0.3.2",
+    "ruff>=0.14.3",
+]
+
 [tool.uv]
 package = false
 # Rebuild the C++ extension if CMakeLists or source files change
