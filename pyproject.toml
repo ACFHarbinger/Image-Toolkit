@@ -1,13 +1,13 @@
 [project]
 name = "image-toolkit-workspace"
 version = "0.1.0"
-description = "Root workspace manifest for Image-Toolkit. The actual Python module lives in backend/ (see backend/pyproject.toml). gui/ is source-only (not independently packaged) and shares this workspace's dependency set."
+description = "Root workspace manifest for Image-Toolkit. The two Python modules are backend/ (see backend/pyproject.toml) and gui/ (see gui/pyproject.toml)."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["backend"]
+members = ["backend", "gui"]
 
 [tool.uv]
 package = false

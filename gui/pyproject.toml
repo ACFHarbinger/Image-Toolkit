@@ -1,0 +1,39 @@
+[project]
+name = "image-toolkit-gui"
+version = "0.1.0"
+description = "Image database and edit toolkit — PySide6 desktop GUI."
+requires-python = ">=3.11"
+
+# Derived from actual `import`/`from ... import` usage across gui/ (590
+# files, verified via AST walk — not copied wholesale from backend's list).
+# Version constraints match backend/pyproject.toml for consistency where the
+# same package is used by both.
+dependencies = [
+    "pyside6>=6.10.0",
+    "shiboken6>=6.10.0",
+    "opencv-python-headless>=4.11.0.86",
+    "numpy>=2.3.4",
+    "pillow>=12.3.0",
+    "send2trash>=1.8.3",
+    "screeninfo>=0.8.1",
+    "moviepy>=1.0.3",
+    "torch>=2.9.1",
+    "torchvision>=0.24.1",
+    "scipy>=1.16.3",
+    "scikit-learn>=1.8.0",
+    "imagehash>=4.3.2",
+    "comtypes>=1.4.13",
+    "typing-extensions>=4.12",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[build-system]
+requires = ["setuptools>=83.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
