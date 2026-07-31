@@ -435,6 +435,8 @@ backend/benchmark/output/*.json
 
 # Build directories
 /**/Image_Toolkit.egg-info
+/gui/image_toolkit_gui.egg-info
+/backend/image_toolkit_backend.egg-info
 /**/build
 /**/dist
 /**/target
