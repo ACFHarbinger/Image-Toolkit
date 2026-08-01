@@ -7,6 +7,7 @@ composition, no logic beyond widget construction and wiring.
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
@@ -89,7 +90,22 @@ class _UIBuilderMixin(_ERViewMixin):
         self.btn_clear_filter.clicked.connect(self._clear_filter)
         filter_layout.addWidget(self.btn_clear_filter)
 
+        self.edit_mode_checkbox = QCheckBox("🔓 Enable Editing")
+        self.edit_mode_checkbox.setToolTip(
+            "Session-only, off by default. Every cell change requires "
+            "confirmation before it's written. Primary-key and "
+            "foreign-key columns can never be edited here."
+        )
+        self.edit_mode_checkbox.toggled.connect(self._on_edit_mode_toggled)
+        filter_layout.addWidget(self.edit_mode_checkbox)
+
         layout.addLayout(filter_layout)
+
+        # --- Per-column filter row (composes with the WHERE box above) ---
+        column_filter_container = QWidget()
+        self.column_filter_layout = QHBoxLayout(column_filter_container)
+        self.column_filter_layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(column_filter_container)
 
         # --- Grid + reverse-references side panel ---
         self.data_table = QTableWidget()
@@ -101,6 +117,7 @@ class _UIBuilderMixin(_ERViewMixin):
         self.data_table.setSortingEnabled(True)
         self.data_table.cellClicked.connect(self._on_cell_clicked)
         self.data_table.itemSelectionChanged.connect(self._on_row_selection_changed)
+        self.data_table.cellChanged.connect(self._on_cell_changed)
 
         refs_panel = QWidget()
         refs_layout = QVBoxLayout(refs_panel)
@@ -153,8 +170,8 @@ class _UIBuilderMixin(_ERViewMixin):
     def _set_controls_enabled(self, enabled: bool) -> None:
         for widget in (
             self.table_combo, self.where_edit, self.btn_apply_filter,
-            self.btn_clear_filter, self.btn_prev_page, self.btn_next_page,
-            self.btn_export_csv, self.btn_export_json,
+            self.btn_clear_filter, self.edit_mode_checkbox, self.btn_prev_page,
+            self.btn_next_page, self.btn_export_csv, self.btn_export_json,
         ):
             widget.setEnabled(enabled)
 

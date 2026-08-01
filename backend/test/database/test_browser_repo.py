@@ -152,3 +152,63 @@ def test_query_table_rejects_mutation_attempts(db, where_sql):
     repo = BrowserRepo(db)
     with pytest.raises(ValueError, match="WHERE clause rejected"):
         repo.query_table("images", where_sql=where_sql)
+
+
+# ---------------------------------------------------------------------------
+# update_cell (DB.9 gated edit mode)
+# ---------------------------------------------------------------------------
+
+
+def test_update_cell_writes_scalar_value(db, tmp_path):
+    images = ImageRepo(db)
+    repo = BrowserRepo(db)
+    p = tmp_path / "a.png"
+    p.write_bytes(b"x")
+    image_id = images.add_image(str(p), tags=[])
+
+    repo.update_cell("images", "id", image_id, "filename", "renamed.png")
+
+    _, rows = repo.query_table("images", where_sql=f"id = {image_id}")
+    columns, _ = repo.query_table("images")
+    filename_idx = columns.index("filename")
+    assert rows[0][filename_idx] == "renamed.png"
+
+
+def test_update_cell_unknown_table_raises(db):
+    repo = BrowserRepo(db)
+    with pytest.raises(ValueError, match="Unknown table"):
+        repo.update_cell("not_a_real_table", "id", 1, "filename", "x")
+
+
+def test_update_cell_unknown_column_raises(db):
+    repo = BrowserRepo(db)
+    with pytest.raises(ValueError, match="Unknown column"):
+        repo.update_cell("images", "id", 1, "not_a_real_column", "x")
+
+
+def test_update_cell_unknown_pk_column_raises(db):
+    repo = BrowserRepo(db)
+    with pytest.raises(ValueError, match="Unknown primary-key column"):
+        repo.update_cell("images", "not_a_real_pk", 1, "filename", "x")
+
+
+def test_update_cell_rejects_primary_key_edit(db, tmp_path):
+    images = ImageRepo(db)
+    repo = BrowserRepo(db)
+    p = tmp_path / "a.png"
+    p.write_bytes(b"x")
+    image_id = images.add_image(str(p), tags=[])
+
+    with pytest.raises(ValueError, match="primary-key column"):
+        repo.update_cell("images", "id", image_id, "id", 9999)
+
+
+def test_update_cell_rejects_foreign_key_edit(db, tmp_path):
+    images = ImageRepo(db)
+    repo = BrowserRepo(db)
+    p = tmp_path / "a.png"
+    p.write_bytes(b"x")
+    image_id = images.add_image(str(p), group_name="Trips", tags=[])
+
+    with pytest.raises(ValueError, match="foreign-key column"):
+        repo.update_cell("images", "id", image_id, "group_id", 9999)

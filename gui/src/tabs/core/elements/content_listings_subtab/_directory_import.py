@@ -1,7 +1,13 @@
 """Directory-import wizard: scan a video dir and auto-create listings.
 
 Extracted from ``content_listings_subtab.py`` -- pure code motion, no logic
-change.
+change, plus DB.8d (moon/roadmaps/unified_database.md, issue #66): the
+whole batch of newly-created series now commits in a single transaction
+(previously one implicit transaction per ``save_media()`` call, via
+``_upsert_entry()``), and a series whose name exactly matches an existing
+image ``groups`` row gets that ``media_groups`` link pre-filled --
+mirrors ``scan_metadata_tab/_auto_listings.py``'s sibling feature for the
+image-group side.
 """
 
 from __future__ import annotations
@@ -10,6 +16,8 @@ import uuid
 from datetime import date
 from typing import Any, Dict, List
 
+from backend.src.database.unified.media_repo import MediaRepo
+from gui.src.helpers.database.library_session import get_library_db
 from gui.src.tabs.core.elements.dialog.directory_import_dialog import _DirectoryImportDialog
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
@@ -35,10 +43,19 @@ class _DirectoryImportMixin:
             )
             return
 
+        raw_db = get_library_db(self.vault_manager, parent=self)
+        if raw_db is None:
+            QMessageBox.warning(
+                self,
+                "Not Saved",
+                "The vault is locked (no active password), so nothing was "
+                "imported.",
+            )
+            return
+
         scan_result = dlg.get_scan_result()
         meta = dlg.get_metadata()
         today = str(date.today())
-        created = 0
         new_entries: List[Dict[str, Any]] = []
 
         for series_name in selected_series:
@@ -85,26 +102,58 @@ class _DirectoryImportMixin:
                 "episode_list": episode_list,
                 "date_added": today,
             }
-            self._entries.insert(0, entry)
             new_entries.append(entry)
-            created += 1
 
-        if created:
-            for entry in new_entries:
-                self._upsert_entry(entry)
-            self._rebuild_gallery()
-            QMessageBox.information(
-                self,
-                "Import Complete",
-                f"Successfully imported {created} new listing"
-                f"{'s' if created != 1 else ''}.",
-            )
-        else:
+        if not new_entries:
             QMessageBox.information(
                 self,
                 "No New Entries",
                 "All selected series already had listings — nothing was added.",
             )
+            return
+
+        media_repo = MediaRepo(raw_db)
+        # Case-insensitive series-name -> image-group-id map, for the
+        # media_groups auto-link below (DB.8d) -- built once, not once per
+        # series, so a large import doesn't repeat the group scan.
+        group_id_by_name = {}
+        try:
+            for row in raw_db.query(
+                "SELECT id, name FROM groups", ()
+            ):
+                group_id_by_name[row[1].strip().lower()] = row[0]
+        except Exception:
+            group_id_by_name = {}
+
+        created = 0
+        try:
+            raw_db.begin()
+            for entry in new_entries:
+                media_repo.save_media(entry)
+                created += 1
+                group_id = group_id_by_name.get(entry["title"].strip().lower())
+                if group_id is not None:
+                    media_repo.link_group(entry["id"], group_id)
+            raw_db.commit()
+        except Exception as e:
+            raw_db.rollback()
+            QMessageBox.critical(
+                self,
+                "Import Failed",
+                f"Failed to import series to the library database:\n{e}\n\n"
+                "No entries were saved (the whole batch was rolled back).",
+            )
+            return
+
+        for entry in new_entries:
+            self._entries.insert(0, entry)
+        self._rebuild_gallery()
+        QMessageBox.information(
+            self,
+            "Import Complete",
+            f"Successfully imported {created} new listing"
+            f"{'s' if created != 1 else ''}.",
+        )
 
 
 __all__ = ["_DirectoryImportMixin"]

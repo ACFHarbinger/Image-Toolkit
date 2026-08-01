@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S279 — 2026-08-01 (DB.9 complete; DB.8d finished; DB.7 gap precisely documented — issues #65, #66, #67)
+
+Three more parallel work streams, following S276/S277/S278. DB.9 is now fully feature-complete against its original roadmap scope; DB.8 closes out its last open item (DB.8d's video-directory-import half).
+
+**DB.9 (issue #67) — gated edit mode + per-column filters, DB.9 now done**: `BrowserRepo.update_cell()` validates table/column against real schema and refuses PK/FK-column edits outright (a raw FK edit could produce a silent dangling reference). The Data Browser tab gained a session-only "🔓 Enable Editing" toggle (off by default every time the tab opens) with a confirm dialog before every write and a re-query afterward (never trusts the in-memory edit), plus a per-column filter row composing with the existing `WHERE` box. This closes out DB.9's full originally-scoped feature set.
+
+**DB.8d (issue #66) — video-directory-import half finished**: the "one review dialog" UI the roadmap asked for already existed (`_DirectoryImportDialog`), but violated the roadmap's explicit "then a single transaction" requirement — it saved each detected series independently, so a partial failure mid-import could leave the DB and the UI's in-memory state out of sync. Fixed to one transaction for the whole batch, with the `media_groups` pre-fill DB.8d asked for (exact-name-match auto-link to an existing image group). Combined with the image-group half shipped earlier, DB.8d is now fully shipped.
+
+**DB.7 (issue #65) — Recommendation-Engine gap precisely documented, not fixed**: re-investigated as a storage-location question rather than an algorithm-porting one. Confirmed `rec_engine.db` is genuinely plaintext SQLite next to the encrypted `library.db` — a real, specific violation of DB.1's "no plaintext sidecars" decision. Both ways to close it hit already-known blockers (adding a SQLCipher driver to Recommendation-Engine's own dependencies risks the JVM-SIGSEGV crash class documented elsewhere in this project; routing through `base.database` is the algorithm-porting rewrite already correctly ruled too large). No code changed; the finding replaces a vague "too large" deferral with a concrete, actionable one in the roadmap's risk register.
+
+Tests: 15 new (6 backend `update_cell` tests, 9 GUI edit-mode/filter tests) for DB.9; 5 new (`test_directory_import_transaction.py`) for DB.8d. `backend/test/database/` at 88/88; all touched GUI suites green.
+
 ## S278 — 2026-08-01 (DB.8/9 essentially complete: cross-tab navigation, Entity Recon integration, ER schema view — issues #66, #67)
 
 Three more parallel work streams, following S276/S277. Between them, every DB.8 item attempted so far has shipped, and DB.9 now has its full originally-planned feature set except the deliberately-gated edit mode.

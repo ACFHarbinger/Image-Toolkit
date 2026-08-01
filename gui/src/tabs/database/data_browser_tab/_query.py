@@ -66,6 +66,7 @@ class _QueryMixin:
         self.current_table = table_name
         self.current_offset = 0
         self.where_edit.clear()
+        self._clear_column_filters()
         self._refresh_row_count()
         self._run_query()
 
@@ -100,7 +101,7 @@ class _QueryMixin:
     def _run_query(self) -> None:
         if not self.browser_repo or not self.current_table:
             return
-        where_sql = self.where_edit.text().strip() or None
+        where_sql = self._compose_where()
         try:
             columns, rows = self.browser_repo.query_table(
                 self.current_table,
@@ -129,17 +130,27 @@ class _QueryMixin:
         self.btn_next_page.setEnabled(len(rows) == self.PAGE_SIZE)
 
     def _populate_grid(self, columns: list, rows: list) -> None:
-        self.data_table.setSortingEnabled(False)
-        self.data_table.clear()
-        self.data_table.setColumnCount(len(columns))
-        self.data_table.setHorizontalHeaderLabels(columns)
-        self.data_table.setRowCount(len(rows))
-        for row_idx, row in enumerate(rows):
-            for col_idx, value in enumerate(row):
-                item = QTableWidgetItem("" if value is None else str(value))
-                self.data_table.setItem(row_idx, col_idx, item)
-        self.data_table.setSortingEnabled(True)
-        self._style_fk_cells()
+        # Blocked for the whole population: setItem()/clear()/setRowCount()
+        # would otherwise fire cellChanged/itemSelectionChanged as a side
+        # effect of programmatic population, not a real user edit or
+        # selection -- see _edit.py's _on_cell_changed().
+        self.data_table.blockSignals(True)
+        try:
+            self.data_table.setSortingEnabled(False)
+            self.data_table.clear()
+            self.data_table.setColumnCount(len(columns))
+            self.data_table.setHorizontalHeaderLabels(columns)
+            self.data_table.setRowCount(len(rows))
+            for row_idx, row in enumerate(rows):
+                for col_idx, value in enumerate(row):
+                    item = QTableWidgetItem("" if value is None else str(value))
+                    self.data_table.setItem(row_idx, col_idx, item)
+            self.data_table.setSortingEnabled(True)
+            self._style_fk_cells()
+            self._apply_cell_edit_flags()
+            self._rebuild_column_filters(columns)
+        finally:
+            self.data_table.blockSignals(False)
 
 
 __all__ = ["_QueryMixin"]

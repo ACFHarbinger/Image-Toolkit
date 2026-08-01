@@ -6,7 +6,9 @@ from typing import Optional
 
 from PySide6.QtWidgets import QWidget
 
+from ._edit import _EditMixin
 from ._export import _ExportMixin
+from ._filters import _FiltersMixin
 from ._navigation import _NavigationMixin
 from ._query import _QueryMixin
 from ._ui_builder import _UIBuilderMixin
@@ -17,14 +19,16 @@ class DataBrowserTab(
     _UIBuilderMixin,
     _QueryMixin,
     _NavigationMixin,
+    _FiltersMixin,
+    _EditMixin,
     _ExportMixin,
 ):
-    """DB.9: read-only raw-table browser over the unified library store.
+    """DB.9: raw-table browser over the unified library store.
 
-    Scoped down from the roadmap's full spec to the table-grid slice --
-    table picker, paginated raw rows, a WHERE-clause filter, CSV/JSON
-    export. The schema/ER graphics view and gated cell-edit mode are not
-    implemented (see moon/roadmaps/unified_database.md, DB.9).
+    Table picker, paginated raw rows, a WHERE box + per-column filters,
+    FK-cell navigation + reverse-references, a schema/ER view, CSV/JSON
+    export, and a gated, session-only cell-edit mode (see
+    moon/roadmaps/unified_database.md, DB.9).
     """
 
     PAGE_SIZE = 100
@@ -41,6 +45,8 @@ class DataBrowserTab(
         self.current_fks: list = []
         self.fk_columns_by_index: dict = {}
         self.pk_column_index: Optional[int] = None
+        self.column_filter_edits: list = []
+        self.edit_mode_enabled: bool = False
 
         self._build_ui()
 

@@ -1,10 +1,14 @@
 """Raw-table browsing for the Data Browser tab — DB.9.
 
-Read-only access to the unified store's tables, schema, and row grids,
-scoped down from the roadmap's full spec (schema/ER graphics view + gated
-cell-edit mode) to the table-grid slice: table picker, paginated raw rows,
-a WHERE-clause filter, and pagination -- the ER diagram and edit mode are
-explicitly deferred (see moon/roadmaps/unified_database.md).
+Read-only access to the unified store's tables, schema, and row grids --
+table picker, paginated raw rows, a WHERE-clause filter, pagination,
+FK-navigation/reverse-references, and the schema/ER view are all
+implemented on the GUI side (gui/src/tabs/database/data_browser_tab/).
+
+``update_cell()`` is the one write path (DB.9's gated, session-only edit
+mode) -- deliberately narrow: single-cell, single-column, scalar writes
+with real validation, not a general SQL editor. It refuses primary-key
+and foreign-key column edits outright (see its docstring).
 
 Every method that accepts a table name validates it against list_tables()
 first -- an allowlist, never raw interpolation of user input into SQL.
@@ -131,3 +135,48 @@ class BrowserRepo:
 
         rows = self._db.query(sql, (limit, offset))
         return columns, rows
+
+    def update_cell(
+        self, table: str, pk_column: str, pk_value: Any, column: str, new_value: Any
+    ) -> None:
+        """Write a single scalar cell -- DB.9's gated edit mode.
+
+        Validates *table* against list_tables() and both *column* and
+        *pk_column* against that table's real columns (table_columns())
+        before building a fully parameterized UPDATE (only the
+        already-validated identifiers are interpolated; *new_value* and
+        *pk_value* are always bound parameters, never interpolated).
+
+        Refuses to edit:
+        - a primary-key column (repointing a PK is a different, riskier
+          operation than a scalar cell edit -- not supported here);
+        - a foreign-key column (writing a raw FK integer without
+          validating it references an existing row could silently create
+          a dangling reference -- not supported here; use the grid's
+          FK-cell click-to-navigate instead of hand-editing the id).
+        """
+        self._check_table(table)
+        columns_by_name = {c["name"]: c for c in self.table_columns(table)}
+
+        if column not in columns_by_name:
+            raise ValueError(f"Unknown column: {column!r} in table {table!r}")
+        if pk_column not in columns_by_name:
+            raise ValueError(
+                f"Unknown primary-key column: {pk_column!r} in table {table!r}"
+            )
+        if columns_by_name[column]["pk"]:
+            raise ValueError(
+                f"Editing primary-key column {column!r} is not supported."
+            )
+        fk_columns = {fk["column"] for fk in self.table_foreign_keys(table)}
+        if column in fk_columns:
+            raise ValueError(
+                f"Editing foreign-key column {column!r} is not supported -- "
+                "use the grid's FK-cell click-to-navigate instead of "
+                "hand-editing the raw id."
+            )
+
+        self._db.execute(
+            f'UPDATE "{table}" SET "{column}" = ? WHERE "{pk_column}" = ?',
+            (new_value, pk_value),
+        )

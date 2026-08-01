@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from gui.src.tabs.database.data_browser_tab import DataBrowserTab
 from gui.src.tabs.database.data_browser_tab._er_view import _TableCardItem
-from PySide6.QtWidgets import QGraphicsLineItem, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QGraphicsLineItem, QMessageBox, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -328,3 +329,143 @@ class TestDataBrowserTabSchemaView:
 
         cards = [i for i in tab.er_scene.items() if isinstance(i, _TableCardItem)]
         assert len(cards) == 2
+
+
+class TestDataBrowserTabEditMode:
+    """DB.9: gated, session-only cell-edit mode."""
+
+    def _make_tab_on_images(self):
+        tab = DataBrowserTab()
+        tab.browser_repo = MagicMock()
+        tab.current_table = "images"
+        tab.browser_repo.table_foreign_keys.return_value = [
+            {"column": "group_id", "ref_table": "groups", "ref_column": "id"},
+        ]
+        tab.browser_repo.table_columns.return_value = [
+            {"name": "id", "type": "INTEGER", "notnull": True, "pk": True},
+            {"name": "file_path", "type": "TEXT", "notnull": True, "pk": False},
+            {"name": "group_id", "type": "INTEGER", "notnull": False, "pk": False},
+        ]
+        tab.browser_repo.query_table.return_value = (
+            ["id", "file_path", "group_id"],
+            [(1, "/a.png", 7)],
+        )
+        tab._run_query()
+        return tab
+
+    def test_edit_mode_off_by_default_and_cells_not_editable(self, q_app):
+        tab = self._make_tab_on_images()
+        assert tab.edit_mode_enabled is False
+        item = tab.data_table.item(0, 1)  # file_path -- not PK/FK
+        assert not (item.flags() & Qt.ItemFlag.ItemIsEditable)
+
+    def test_enabling_edit_mode_makes_non_pk_fk_cells_editable(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.edit_mode_checkbox.setChecked(True)
+
+        file_path_item = tab.data_table.item(0, 1)
+        assert file_path_item.flags() & Qt.ItemFlag.ItemIsEditable
+
+        pk_item = tab.data_table.item(0, 0)
+        fk_item = tab.data_table.item(0, 2)
+        assert not (pk_item.flags() & Qt.ItemFlag.ItemIsEditable)
+        assert not (fk_item.flags() & Qt.ItemFlag.ItemIsEditable)
+
+    def test_confirmed_edit_calls_update_cell_and_requeries(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.edit_mode_checkbox.setChecked(True)
+
+        with patch(
+            "gui.src.tabs.database.data_browser_tab._edit.QMessageBox.question",
+            return_value=QMessageBox.StandardButton.Yes,
+        ):
+            tab.data_table.item(0, 1).setText("/renamed.png")
+
+        tab.browser_repo.update_cell.assert_called_once_with(
+            "images", "id", "1", "file_path", "/renamed.png",
+        )
+        # _on_cell_changed() re-runs the query to reflect real DB state.
+        assert tab.browser_repo.query_table.call_count == 2
+
+    def test_cancelled_edit_reverts_cell_and_does_not_write(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.edit_mode_checkbox.setChecked(True)
+
+        with patch(
+            "gui.src.tabs.database.data_browser_tab._edit.QMessageBox.question",
+            return_value=QMessageBox.StandardButton.No,
+        ):
+            tab.data_table.item(0, 1).setText("/renamed.png")
+
+        tab.browser_repo.update_cell.assert_not_called()
+        assert tab.data_table.item(0, 1).text() == "/a.png"
+
+    def test_edit_rejected_by_repo_reverts_cell(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.edit_mode_checkbox.setChecked(True)
+        tab.browser_repo.update_cell.side_effect = ValueError("nope")
+
+        with patch(
+            "gui.src.tabs.database.data_browser_tab._edit.QMessageBox.question",
+            return_value=QMessageBox.StandardButton.Yes,
+        ), patch(
+            "gui.src.tabs.database.data_browser_tab._edit.QMessageBox.warning"
+        ) as mock_warn:
+            tab.data_table.item(0, 1).setText("/renamed.png")
+            mock_warn.assert_called()
+
+        assert tab.data_table.item(0, 1).text() == "/a.png"
+
+
+class TestDataBrowserTabColumnFilters:
+    """DB.9: per-column filter row, composed with the main WHERE box."""
+
+    def _make_tab_on_images(self):
+        tab = DataBrowserTab()
+        tab.browser_repo = MagicMock()
+        tab.current_table = "images"
+        tab.browser_repo.table_foreign_keys.return_value = []
+        tab.browser_repo.table_columns.return_value = [
+            {"name": "id", "type": "INTEGER", "notnull": True, "pk": True},
+            {"name": "file_path", "type": "TEXT", "notnull": True, "pk": False},
+        ]
+        tab.browser_repo.query_table.return_value = (
+            ["id", "file_path"], [(1, "/a.png")],
+        )
+        tab._run_query()
+        return tab
+
+    def test_column_filter_row_built_for_current_columns(self, q_app):
+        tab = self._make_tab_on_images()
+        assert len(tab.column_filter_edits) == 2
+        assert tab.column_filter_edits[1].placeholderText() == "file_path"
+
+    def test_column_filter_composes_into_where_clause(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.column_filter_edits[1].setText("a.png")
+
+        tab._apply_filter()
+
+        _, kwargs = tab.browser_repo.query_table.call_args
+        assert kwargs["where_sql"] == "\"file_path\" LIKE '%a.png%'"
+
+    def test_column_filter_composes_with_main_where_box(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.where_edit.setText("id > 0")
+        tab.column_filter_edits[1].setText("a.png")
+
+        tab._apply_filter()
+
+        _, kwargs = tab.browser_repo.query_table.call_args
+        assert kwargs["where_sql"] == "(id > 0) AND \"file_path\" LIKE '%a.png%'"
+
+    def test_table_switch_clears_column_filters(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.column_filter_edits[1].setText("a.png")
+        tab.browser_repo.query_table.return_value = (["id"], [])
+        tab.browser_repo.table_row_count.return_value = 0
+
+        tab._on_table_changed("groups")
+
+        assert len(tab.column_filter_edits) == 1  # rebuilt for the new column set
+        assert tab.column_filter_edits[0].text() == ""
