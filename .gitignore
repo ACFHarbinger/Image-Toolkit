@@ -453,6 +453,9 @@ mcp.json
 # Added by cargo
 /target
 
+# Python cache
+**/__pycache__/*
+
 # ASP C++ Compilation Output
 **/*.so
 /**/eigen3/Eigen/
