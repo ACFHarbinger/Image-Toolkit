@@ -85,6 +85,9 @@ class _LifecycleMixin:
         elif event.key() == Qt.Key.Key_T and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self._open_tab_search()
             event.accept()
+        elif get_registry().matches(event, "general.global_search"):
+            self._open_global_search()
+            event.accept()
         elif get_registry().matches(event, "general.save_tab_config"):
             self._open_save_tab_config_dialog()
             event.accept()

@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S281 — 2026-08-01 (GUI/UX 2.28: global cross-tab search — issue #45)
+
+Closes `moon/roadmaps/gui_ux.md` §2.28 (Option A: in-memory search across loaded tabs, zero new dependencies).
+
+`Ctrl+Shift+F` opens a floating popup (`gui/src/windows/main/_global_search.py`, new `_GlobalSearchMixin`, mirroring the existing Ctrl+T tab-search popup's shape) that filters over every gallery-like tab's already-loaded file paths as-you-type, grouped by tab, jumping to the chosen hit via the same `command_combo` + `_select_tab_by_name` cross-tab-activation pattern the Unified Database roadmap established for its own cross-tab jumps. A new `jump_to_path(path)` primitive — added to both `AbstractClassTwoGalleries` (`_found_gallery_load.py`) and `AbstractClassSingleGallery` (`_geometry_events.py`), neither of which had any "find and isolate a specific image" method before — filters the target tab's own search box down to the file's exact basename, reusing the existing debounced-search/pagination machinery rather than adding new highlight or scroll-to-index logic. `ConvertTab` doesn't expose a path list itself (it composes `format_subtab`/`codec_subtab`/`sampler_subtab`, each a real gallery); `_iter_gallery_tabs()` checks those three nested attributes so Convert's subtabs stay searchable, while `ExtractorTab`'s pre-existing `__getattr__` delegation needed no special-casing. New `general.global_search` entry in the shortcut registry (`Ctrl+Shift+F` default, remappable). Option C (originally specced as Postgres-backed) is moot now that the Unified Database roadmap retired Postgres for the unified SQLCipher store; Options B/D not pursued, per the roadmap's own recommendation.
+
+Tests: `gui/test/core/test_global_search.py` (3, new), `gui/test/image/test_gallery_classes.py` (+4 `jump_to_path` cases). All scoped GUI suites green.
+
 ## S280 — 2026-08-01 (Unified Database roadmap complete: real tag-chip widgets + full Recommendation-Engine encryption absorption — issues #65, #66, #127)
 
 Closes out `moon/roadmaps/unified_database.md` — all ten phases (DB.1–DB.10) now shipped.

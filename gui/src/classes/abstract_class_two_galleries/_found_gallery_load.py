@@ -35,6 +35,19 @@ class _FoundGalleryLoadMixin:
         self.found_current_page = 0
         self.refresh_found_gallery()
 
+    def jump_to_path(self, path: str) -> bool:
+        """§2.28 global search: isolate *path* in the found gallery by
+        filtering the search box down to its exact basename, so it's the
+        only (or first) card visible without any pagination math. Returns
+        False if *path* isn't loaded in this tab at all."""
+        if path not in self.master_found_files:
+            return False
+        self.found_search_input.blockSignals(True)
+        self.found_search_input.setText(os.path.basename(path))
+        self.found_search_input.blockSignals(False)
+        self._perform_found_search()
+        return True
+
     def start_loading_thumbnails(self, paths: list[str]):
         self.cancel_loading()
         self.master_found_files = self._apply_sort(list(paths))

@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from ...constants import NEW_LIMIT_MB
 from ..settings import SettingsWindow
+from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
 from ._lifecycle import _LifecycleMixin
 from ._notify import show_main_status, show_tray_notification
@@ -44,6 +45,7 @@ class MainWindow(
     _ThemeMixin,
     _TrayMixin,
     _TabSearchMixin,
+    _GlobalSearchMixin,
     _ShortcutOverlayMixin,
     _SaveTabConfigMixin,
     _StartupPrefsMixin,

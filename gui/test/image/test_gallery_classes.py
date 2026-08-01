@@ -201,6 +201,18 @@ class TestAbstractClassSingleGallery:
         gallery._trigger_batch_found_load(paths)
         assert len(gallery._active_workers) == 2
 
+    def test_jump_to_path(self, gallery):
+        gallery.master_image_paths = ["apple.jpg", "banana.jpg", "cherry.png"]
+        gallery.gallery_image_paths = list(gallery.master_image_paths)
+
+        assert gallery.jump_to_path("banana.jpg") is True
+        assert gallery.gallery_image_paths == ["banana.jpg"]
+        assert gallery.search_input.text() == "banana.jpg"
+
+    def test_jump_to_path_missing(self, gallery):
+        gallery.master_image_paths = ["apple.jpg"]
+        assert gallery.jump_to_path("nonexistent.jpg") is False
+
 
 class TestAbstractClassTwoGalleries:
     def test_initial_state(self, two_galleries):
@@ -263,6 +275,17 @@ class TestAbstractClassTwoGalleries:
         paths = [f"image_{i}.jpg" for i in range(10)]
         two_galleries._trigger_batch_found_load(paths)
         assert len(two_galleries._active_workers) == 2
+
+    def test_jump_to_path(self, two_galleries):
+        two_galleries.start_loading_thumbnails(["a.jpg", "b.jpg", "c.jpg"])
+
+        assert two_galleries.jump_to_path("b.jpg") is True
+        assert two_galleries.found_files == ["b.jpg"]
+        assert two_galleries.found_search_input.text() == "b.jpg"
+
+    def test_jump_to_path_missing(self, two_galleries):
+        two_galleries.start_loading_thumbnails(["a.jpg"])
+        assert two_galleries.jump_to_path("nonexistent.jpg") is False
 
 
 class TestMetaAbstractClassGallery:

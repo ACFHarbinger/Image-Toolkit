@@ -6,6 +6,8 @@ logic change.
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QWidget
@@ -42,6 +44,17 @@ class _GeometryEventsMixin:
         self.gallery_image_paths = filtered
         self.current_page = 0
         self.refresh_gallery_view()
+
+    def jump_to_path(self, path: str) -> bool:
+        """§2.28 global search: isolate *path* by filtering the search box
+        down to its exact basename. Returns False if not loaded here."""
+        if path not in self.master_image_paths:
+            return False
+        self.search_input.blockSignals(True)
+        self.search_input.setText(os.path.basename(path))
+        self.search_input.blockSignals(False)
+        self._perform_search()
+        return True
 
 
 __all__ = ["_GeometryEventsMixin"]

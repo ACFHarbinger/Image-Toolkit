@@ -90,9 +90,9 @@ flowchart LR
         S215["§2.15 Undo/Redo ✅p"]:::feature:::active
         S216["§2.16 Command Palette ✅p"]:::feature:::active
         S221["§2.21 Dir Nav History ✅p"]:::augment:::active
-        S222["§2.22 Tag Chip UI"]:::feature:::planned
+        S222["§2.22 Tag Chip UI ✅p"]:::feature:::active
         S227["§2.27 Multi-Image Compare"]:::feature:::planned
-        S228["§2.28 Global Search"]:::feature:::planned
+        S228["§2.28 Global Search ✅"]:::feature:::done
         S222 --> S228
         S216 --> S228
     end
@@ -1029,7 +1029,13 @@ Add an optional second `QScrollArea` pane to the existing `ImagePreviewWindow`, 
 
 ---
 
-## 2.28 Global Cross-Tab Search
+## 2.28 Global Cross-Tab Search ✅ (2026-08-01, issue #45) {: #228-global-cross-tab-search }
+
+**Shipped: Option A (in-memory search across loaded tabs).** `Ctrl+Shift+F` opens a floating popup (`gui/src/windows/main/_global_search.py`, `_GlobalSearchMixin`, mirroring `_tab_search.py`'s Ctrl+T popup shape) that filters over every gallery-like tab's `master_found_files`/`master_image_paths` as-you-type, grouped by tab, and jumps to the selected hit via the same `command_combo` + `_select_tab_by_name` cross-tab-activation pattern DB.8 established. A new per-gallery `jump_to_path(path)` (added to both `AbstractClassTwoGalleries`/`_found_gallery_load.py` and `AbstractClassSingleGallery`/`_geometry_events.py` — no such primitive existed before) isolates the target file by filtering the tab's own search box down to its exact basename, reusing the existing debounced-search machinery instead of adding new pagination/highlight logic. `ConvertTab` doesn't itself expose a path list (it composes `format_subtab`/`codec_subtab`/`sampler_subtab`, each a real gallery) — `_iter_gallery_tabs()` checks those three nested attributes one level down so Convert's subtabs are still searchable; `ExtractorTab`'s existing `__getattr__` delegation to `VideoExtractorSubTab` needed no special-casing. New `general.global_search` entry in the shortcut registry (`Ctrl+Shift+F` default, remappable like every other action). Capped at 200 results so a very large library doesn't build an unbounded popup list.
+
+Options B/C/D (per-tab-input broadcast, Postgres-backed, OS `locate`) not pursued — A covers the in-memory case with zero new dependencies, and C's premise (a running PostgreSQL connection) no longer applies now that `unified_database.md` has retired Postgres in favor of the unified SQLCipher store.
+
+Tests: `gui/test/core/test_global_search.py` (3, incl. the Ctrl+Shift+F key-dispatch and ConvertTab-subtab-discovery cases), `gui/test/image/test_gallery_classes.py` (+4 `jump_to_path` cases across both gallery base classes).
 
 **Pain point:** Each gallery tab has its own search input, and there is no unified way to search across all loaded galleries simultaneously. A user who doesn't know which tab contains a specific file must search each tab manually.
 

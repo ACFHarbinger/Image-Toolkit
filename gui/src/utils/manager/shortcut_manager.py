@@ -46,6 +46,12 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "General",
         "default": "Ctrl+S",
     },
+    {
+        "id": "general.global_search",
+        "description": "Search for a file across every loaded gallery tab",
+        "scope": "General",
+        "default": "Ctrl+Shift+F",
+    },
     # Gallery — two-gallery base class
     {
         "id": "gallery.select_all",
