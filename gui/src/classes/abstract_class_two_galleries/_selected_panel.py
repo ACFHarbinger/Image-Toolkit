@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QWidget
+from shiboken6 import Shiboken
 
 from ...components import ClickableLabel
 from ...helpers import BatchImageLoaderWorker, ImageLoaderWorker
@@ -132,6 +133,11 @@ class _SelectedPanelMixin:
     def _on_batch_selected_loaded(
         self, results: List[tuple], widgets: Dict[str, QWidget]
     ):
+        # self may already be a dead QObject by the time this queued
+        # (cross-thread) signal is delivered (e.g. mid-teardown) --
+        # self.sender() on a dead QObject segfaults rather than raising.
+        if not Shiboken.isValid(self):
+            return
         # Cleanup worker ref
         sender = self.sender()
         stale = False
@@ -175,6 +181,9 @@ class _SelectedPanelMixin:
         self.thread_pool.start(worker)
 
     def _on_selected_image_loaded(self, path: str, image, widget: Optional[QWidget]):
+        # See _on_batch_selected_loaded above.
+        if not Shiboken.isValid(self):
+            return
         # Cleanup worker ref
         sender = self.sender()
         stale = False

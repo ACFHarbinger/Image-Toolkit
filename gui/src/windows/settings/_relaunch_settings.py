@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
-from ..app_settings import AppSettings
+from .app_settings import AppSettings
 
 
 class _RelaunchSettingsMixin:

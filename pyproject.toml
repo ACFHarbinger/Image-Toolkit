@@ -40,7 +40,7 @@ ai_assisted = true          # Enables the "agentic" suggestions seen in your Ant
 venvPath = "."              # The directory containing the venv
 venv = ".venv"              # The name of the venv folder
 type_checking_mode = "basic"
-include = ["gui", "logic"]
+include = ["gui", "backend"]
 extraPaths = ["submodules/Recommendation-Engine"]
 
 # Ignore rules (Migration of your pyright/pylance ignores)

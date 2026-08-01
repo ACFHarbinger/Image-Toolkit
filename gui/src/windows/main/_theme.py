@@ -11,7 +11,7 @@ import os
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QWidget
 
-from ....styles import (
+from ...styles import (
     COMPACT_DENSITY_QSS,
     DARK_ACCENT_COLOR,
     LIGHT_ACCENT_COLOR,

@@ -17,6 +17,7 @@ from typing import List
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel
+from shiboken6 import Shiboken
 
 from ...helpers import BatchImageLoaderWorker
 
@@ -42,6 +43,11 @@ class _FoundGalleryLoadMixin:
 
     @Slot(str, object)
     def _on_found_image_loaded(self, path: str, image):  # noqa: C901
+        # self may already be a dead QObject by the time this queued
+        # (cross-thread) signal is delivered (e.g. mid-teardown) --
+        # self.sender() on a dead QObject segfaults rather than raising.
+        if not Shiboken.isValid(self):
+            return
         # Cleanup worker ref if it is NOT a batch worker
         sender = self.sender()
         stale = False
@@ -101,6 +107,9 @@ class _FoundGalleryLoadMixin:
 
     @Slot(list, list)
     def _on_batch_found_loaded(self, results: List[tuple], requested_paths: List[str]):  # noqa: C901
+        # See _on_found_image_loaded above.
+        if not Shiboken.isValid(self):
+            return
         # Cleanup worker ref
         sender = self.sender()
         stale = False

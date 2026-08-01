@@ -28,8 +28,8 @@ class TagCompleter(QCompleter):
         self._tag_set: Set[str] = set(tags or [])
         self._string_model = QStringListModel(sorted(self._tag_set))
         super().__init__(self._string_model, parent)
-        self.setCaseSensitivity(Qt.CaseInsensitive)
-        self.setCompletionMode(QCompleter.PopupCompletion)
+        self.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         if parent is not None:
             self.attach_to_line_edit(parent)
 

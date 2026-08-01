@@ -59,6 +59,12 @@ class ScanMetadataTab(
         self.scan_filtered_list: list[str] = []
 
         self.selected_image_paths: Set[str] = set()
+        # Manual display/drag-reorder order for the Selected gallery, kept
+        # separate from the set above since most of this tab's selection
+        # code (context menu actions, keyboard select-all, marquee) mutates
+        # `selected_image_paths` directly as a plain set. Self-healing: any
+        # member missing from this list is appended in populate_selected_images_gallery.
+        self._selected_order: list[str] = []
         self.open_preview_windows: list[QWidget] = []
 
         # Database view filter state

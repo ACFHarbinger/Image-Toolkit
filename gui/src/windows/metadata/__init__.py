@@ -14,6 +14,6 @@ writes without importing Qt.
 """
 
 from ._filtered_tag_list import FilteredTagList
-from .manager import MetadataEditorWindow
+from .metadata_editor_window import MetadataEditorWindow
 
 __all__ = ["MetadataEditorWindow", "FilteredTagList"]

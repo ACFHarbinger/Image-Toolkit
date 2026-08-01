@@ -128,15 +128,21 @@ def load_metrics(repo_root: str, results_path: Optional[str] = None) -> Dict[str
 
 
 def repo_root_from(file_path: str) -> str:
-    """Walk up from ``file_path`` to the repo root (the directory holding
-    ``pyproject.toml``). Depth-independent on purpose: an earlier version
-    hardcoded a fixed ``dirname`` chain depth that resolved to ``backend/``
-    once this package was nested, silently splitting evaluations across two
-    directories."""
+    """Walk up from ``file_path`` to the repo root (the directory holding the
+    workspace-root ``pyproject.toml``, identified by ``[tool.uv.workspace]``).
+    Depth-independent on purpose: an earlier version hardcoded a fixed
+    ``dirname`` chain depth that resolved to ``backend/`` once this package
+    was nested, silently splitting evaluations across two directories. A
+    plain "any pyproject.toml" check has the same failure mode now that
+    ``backend/`` and ``gui/`` each carry their own workspace-member
+    ``pyproject.toml`` -- only the root one is the actual repo root."""
     d = os.path.dirname(os.path.abspath(file_path))
     while d != os.path.dirname(d):
-        if os.path.exists(os.path.join(d, "pyproject.toml")):
-            return d
+        candidate = os.path.join(d, "pyproject.toml")
+        if os.path.exists(candidate):
+            with open(candidate, encoding="utf-8") as f:
+                if "[tool.uv.workspace]" in f.read():
+                    return d
         d = os.path.dirname(d)
     raise RuntimeError(f"Could not locate repo root (pyproject.toml) above {file_path}")
 

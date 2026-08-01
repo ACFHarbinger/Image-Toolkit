@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QGridLayout, QLabel
 
+from ....classes.mixins import compute_reordered, install_drag_reorder
 from ....utils.sort_utils import natural_sort_key
 
 
@@ -43,9 +44,12 @@ class _SelectionGalleryMixin:
 
         if path in self.selected_image_paths:
             self.selected_image_paths.remove(path)
+            if path in self._selected_order:
+                self._selected_order.remove(path)
             selected = False
         else:
             self.selected_image_paths.add(path)
+            self._selected_order.append(path)
             selected = True
 
         if path in self.path_to_wrapper_map:
@@ -80,8 +84,17 @@ class _SelectionGalleryMixin:
         self.selected_images_widget.setUpdatesEnabled(False)
         self._clear_gallery(self.selected_grid_layout)
 
-        # 1. Sort all selected paths
-        all_selected = sorted(list(self.selected_image_paths), key=natural_sort_key)
+        # 1. Preserve manual/drag order; self-heal against selection changes
+        # made elsewhere in this tab that don't go through toggle_selection
+        # (context menu actions, keyboard select-all, marquee) by dropping
+        # entries no longer selected and appending any newly-selected ones.
+        ordered = [p for p in self._selected_order if p in self.selected_image_paths]
+        missing = sorted(
+            (p for p in self.selected_image_paths if p not in ordered),
+            key=natural_sort_key,
+        )
+        all_selected = ordered + missing
+        self._selected_order = list(all_selected)
 
         # 2. Update Pagination UI info
         self._update_pagination_ui(is_found=False, mode="selected")
@@ -136,6 +149,7 @@ class _SelectionGalleryMixin:
             card.path_clicked.connect(lambda checked, p=path: self.toggle_selection(p))
             card.path_double_clicked.connect(self._view_single_image_preview)
             card.path_right_clicked.connect(self.show_image_context_menu)
+            install_drag_reorder(card, path, self, "reorder_selected")
 
             row = i // columns
             col = i % columns
@@ -145,6 +159,13 @@ class _SelectionGalleryMixin:
 
         self.selected_images_widget.setUpdatesEnabled(True)
         self.selected_images_widget.adjustSize()
+
+    def reorder_selected(self, dragged_path: str, target_path: str) -> None:
+        """Drag-and-drop callback: move ``dragged_path`` to sit before ``target_path``."""
+        self._selected_order = compute_reordered(
+            self._selected_order, dragged_path, target_path
+        )
+        self.populate_selected_images_gallery()
 
 
 __all__ = ["_SelectionGalleryMixin"]

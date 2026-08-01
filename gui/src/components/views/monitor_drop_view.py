@@ -8,12 +8,12 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QLabel, QMenu
 from screeninfo import Monitor
 
-from ._context_menu import _ContextMenuMixin
-from ._drag_drop import _DragDropMixin
-from ._image_display import _ImageDisplayMixin
-from ._monitor_info import _MonitorInfoMixin
-from ._mouse_events import _MouseEventsMixin
-from ._ui_builder import _UIBuilderMixin
+from .display._context_menu import _ContextMenuMixin
+from .display._drag_drop import _DragDropMixin
+from .display._image_display import _ImageDisplayMixin
+from .display._monitor_info import _MonitorInfoMixin
+from .display._mouse_events import _MouseEventsMixin
+from .display._ui_builder import _UIBuilderMixin
 
 
 class MonitorDropView(

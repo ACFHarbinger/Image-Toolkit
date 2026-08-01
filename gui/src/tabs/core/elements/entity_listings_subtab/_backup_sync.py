@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 import backend.src.constants as udef
-from gui.src.helpers.core.library_session import get_library_db
+from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.web.sync_backup_worker import _SyncBackupWorker
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QMessageBox, QProgressDialog

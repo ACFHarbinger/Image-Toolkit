@@ -14,7 +14,7 @@ several user-added custom bindings side by side.
 
 Usage
 -----
-    from gui.src.utils.shortcut_manager import get_registry
+    from gui.src.utils import get_registry
 
     reg = get_registry()
 

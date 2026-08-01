@@ -8,6 +8,7 @@ from backend.src.constants import SUPPORTED_IMG_FORMATS
 from PySide6.QtGui import QImage, QImageReader
 
 _QT_NATIVE_EXTS = {
+    # pyrefly: ignore [missing-attribute]
     fmt.data().decode().lower() for fmt in QImageReader.supportedImageFormats()
 }
 

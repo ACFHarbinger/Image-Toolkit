@@ -13,7 +13,7 @@ from gui.src.windows.settings.app_settings import AppSettings
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea, QSystemTrayIcon
 
-from ....utils.shortcut_manager import get_registry
+from ...utils.manager.shortcut_manager import get_registry
 
 
 class _LifecycleMixin:

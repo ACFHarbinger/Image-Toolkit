@@ -21,7 +21,7 @@ class TestSettingsWindowLogs:
         window = SettingsWindow()
         with (
             patch(
-                "gui.src.windows.settings.settings_window._reset_state.IMAGE_TOOLKIT_DIR",
+                "gui.src.windows.settings._reset_state.IMAGE_TOOLKIT_DIR",
                 Path("/tmp/nonexistent_dir"),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -38,12 +38,12 @@ class TestSettingsWindowLogs:
         log_file.write_text("dummy logs")
 
         with (
-            patch("gui.src.windows.settings.settings_window._reset_state.IMAGE_TOOLKIT_DIR", tmp_path),
+            patch("gui.src.windows.settings._reset_state.IMAGE_TOOLKIT_DIR", tmp_path),
             patch(
-                "gui.src.windows.settings.settings_window._reset_state.QDesktopServices.openUrl"
+                "gui.src.windows.settings._reset_state.QDesktopServices.openUrl"
             ) as mock_open_url,
             patch(
-                "gui.src.windows.settings.settings_window._reset_state.QUrl.fromLocalFile"
+                "gui.src.windows.settings._reset_state.QUrl.fromLocalFile"
             ) as mock_from_local_file,
         ):
             window._view_app_logs()
@@ -54,7 +54,7 @@ class TestSettingsWindowLogs:
         window = SettingsWindow()
         with (
             patch(
-                "gui.src.windows.settings.settings_window._reset_state.IMAGE_TOOLKIT_DIR",
+                "gui.src.windows.settings._reset_state.IMAGE_TOOLKIT_DIR",
                 Path("/tmp/nonexistent_dir"),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -71,12 +71,12 @@ class TestSettingsWindowLogs:
         log_file.write_text("dummy daemon logs")
 
         with (
-            patch("gui.src.windows.settings.settings_window._reset_state.IMAGE_TOOLKIT_DIR", tmp_path),
+            patch("gui.src.windows.settings._reset_state.IMAGE_TOOLKIT_DIR", tmp_path),
             patch(
-                "gui.src.windows.settings.settings_window._reset_state.QDesktopServices.openUrl"
+                "gui.src.windows.settings._reset_state.QDesktopServices.openUrl"
             ) as mock_open_url,
             patch(
-                "gui.src.windows.settings.settings_window._reset_state.QUrl.fromLocalFile"
+                "gui.src.windows.settings._reset_state.QUrl.fromLocalFile"
             ) as mock_from_local_file,
         ):
             window._view_daemon_logs()
@@ -128,8 +128,8 @@ class TestSettingsWindowLogs:
             json.dump({"token": "xyz"}, f)
 
         with (
-            patch("gui.src.windows.settings.settings_window._credentials.ROOT_DIR", mock_root),
-            patch("gui.src.windows.settings.settings_window._credentials.API_DIR", mock_api),
+            patch("gui.src.windows.settings._credentials.ROOT_DIR", mock_root),
+            patch("gui.src.windows.settings._credentials.API_DIR", mock_api),
             patch.object(QMessageBox, "information") as mock_info,
         ):
             window._export_credentials_to_backup()
@@ -177,13 +177,13 @@ class TestSettingsWindowLogs:
         mock_api.mkdir(parents=True, exist_ok=True)
 
         with (
-            patch("gui.src.windows.settings.settings_window._credentials.API_DIR", mock_api),
+            patch("gui.src.windows.settings._credentials.API_DIR", mock_api),
             patch(
-                "gui.src.windows.settings.settings_window._credentials.QFileDialog.getOpenFileName",
+                "gui.src.windows.settings._credentials.QFileDialog.getOpenFileName",
                 return_value=(str(dummy_import_file), "JSON"),
             ),
             patch(
-                "gui.src.windows.settings.settings_window._credentials.QInputDialog.getText",
+                "gui.src.windows.settings._credentials.QInputDialog.getText",
                 return_value=("imported_alias", True),
             ),
             patch.object(QMessageBox, "information") as mock_info,
@@ -227,7 +227,7 @@ class TestSettingsWindowLogs:
         enc_file.touch()
 
         with (
-            patch("gui.src.windows.settings.settings_window._credentials.API_DIR", mock_api),
+            patch("gui.src.windows.settings._credentials.API_DIR", mock_api),
             patch.object(
                 QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes
             ),
@@ -400,7 +400,7 @@ class TestSettingsWindowFavouriteDirectories:
         fav_dir = tmp_path / "browse_fav"
         fav_dir.mkdir()
 
-        with patch("gui.src.windows.settings.settings_window._credentials.QFileDialog.getExistingDirectory", return_value=str(fav_dir)):
+        with patch("gui.src.windows.settings._credentials.QFileDialog.getExistingDirectory", return_value=str(fav_dir)):
             window._browse_add_favourite()
 
         assert window.fav_list_widget.count() == 1

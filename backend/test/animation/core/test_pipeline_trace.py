@@ -1,7 +1,7 @@
 """Unit tests for pipeline trace failure context recording (§5.15 Option D)."""
 
 import datetime
-from gui.src.helpers.animation.stitch_worker._progress_pipeline import _STAGE_LABELS
+from gui.src.helpers.animation._progress_pipeline import _STAGE_LABELS
 
 
 def test_stage_labels_indexing():

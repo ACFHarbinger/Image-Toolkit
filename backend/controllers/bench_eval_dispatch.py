@@ -59,20 +59,25 @@ import sys
 
 
 def _bootstrap_repo_root() -> str:
-    """Walk up from this file to the repo root (the directory holding
-    ``pyproject.toml``) and put it on ``sys.path``. Needed because this
-    module is invoked as a direct script (``uv run python
-    backend/controllers/bench_eval_dispatch.py``, see
-    tools/benchmark/justfile), which sets ``sys.path[0]`` to this file's
+    """Walk up from this file to the repo root (the directory holding the
+    workspace-root ``pyproject.toml``, identified by ``[tool.uv.workspace]``)
+    and put it on ``sys.path``. Needed because this module is invoked as a
+    direct script (``uv run python backend/controllers/bench_eval_dispatch.py``,
+    see tools/benchmark/justfile), which sets ``sys.path[0]`` to this file's
     own directory rather than the repo root -- the ``backend.*`` absolute
     imports below would otherwise fail with
-    ``ModuleNotFoundError: No module named 'backend'``."""
+    ``ModuleNotFoundError: No module named 'backend'``. A plain "any
+    pyproject.toml" check stops one level too early now that ``backend/``
+    has its own workspace-member ``pyproject.toml``."""
     d = os.path.dirname(os.path.abspath(__file__))
     while d != os.path.dirname(d):
-        if os.path.exists(os.path.join(d, "pyproject.toml")):
-            if d not in sys.path:
-                sys.path.insert(0, d)
-            return d
+        candidate = os.path.join(d, "pyproject.toml")
+        if os.path.exists(candidate):
+            with open(candidate, encoding="utf-8") as f:
+                if "[tool.uv.workspace]" in f.read():
+                    if d not in sys.path:
+                        sys.path.insert(0, d)
+                    return d
         d = os.path.dirname(d)
     raise RuntimeError(f"Could not locate repo root (pyproject.toml) above {__file__}")
 

@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from backend.src.database.unified.entity_repo import EntityRepo
 from backend.src.database.unified.search_repo import SearchRepo
-from gui.src.helpers.core.library_session import get_library_db
+from gui.src.helpers.database.library_session import get_library_db
 from PySide6.QtWidgets import QMessageBox
 
 

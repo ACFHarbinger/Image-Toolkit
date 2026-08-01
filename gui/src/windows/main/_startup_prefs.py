@@ -12,7 +12,7 @@ from typing import Any
 
 from backend.src.constants import LOCAL_SOURCE_PATH
 
-from ....utils.lru_image_cache import LRUImageCache
+from ...utils.cache.lru_image_cache import LRUImageCache
 
 
 class _StartupPrefsMixin:

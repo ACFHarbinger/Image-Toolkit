@@ -13,7 +13,8 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-from ....components import MergeCanvasItem
+from ....classes.mixins import compute_reordered, install_drag_reorder
+from ....components import ClickableLabel, MergeCanvasItem
 
 
 class _CanvasControlsMixin:
@@ -140,9 +141,10 @@ class _CanvasControlsMixin:
         return QPixmap()
 
     def _refresh_queue_gallery(self):
-        """Rebuild the read-only ordered thumbnail strip from
-        self.selected_files (the authoritative queue order for every
-        non-canvas mode)."""
+        """Rebuild the ordered thumbnail strip from self.selected_files (the
+        authoritative queue order for every non-canvas mode). Each cell is
+        draggable (manual reorder) and right-clickable (preview/deselect/
+        delete, via the same menu as the Image Library gallery)."""
         while self.queue_gallery_layout.count():
             item = self.queue_gallery_layout.takeAt(0)
             w = item.widget()
@@ -157,9 +159,8 @@ class _CanvasControlsMixin:
             cell_layout.setContentsMargins(2, 2, 2, 2)
             cell_layout.setSpacing(2)
 
-            thumb_label = QLabel()
+            thumb_label = ClickableLabel(path)
             thumb_label.setFixedSize(size, size)
-            thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             thumb_label.setStyleSheet(
                 "background-color: #3a3d42; border-radius: 4px;"
             )
@@ -175,6 +176,8 @@ class _CanvasControlsMixin:
                         Qt.TransformationMode.SmoothTransformation,
                     )
                 )
+            thumb_label.path_double_clicked.connect(self.handle_full_image_preview)
+            thumb_label.path_right_clicked.connect(self.show_image_context_menu)
             cell_layout.addWidget(thumb_label)
 
             caption = QLabel(f"{idx + 1}. {os.path.basename(path)}")
@@ -184,7 +187,19 @@ class _CanvasControlsMixin:
             caption.setFixedWidth(size)
             cell_layout.addWidget(caption)
 
+            install_drag_reorder(cell, path, self, "reorder_queue")
+
             self.queue_gallery_layout.addWidget(cell, idx // cols, idx % cols)
+
+    def reorder_queue(self, dragged_path: str, target_path: str) -> None:
+        """Drag-and-drop callback for the queue gallery. Canvas mode is the
+        authoritative order source there (see _leave_canvas_mode), so this
+        only runs meaningfully while the queue gallery -- not the canvas --
+        is the visible widget, which is the only time the user can drag it."""
+        self.selected_files = compute_reordered(
+            self.selected_files, dragged_path, target_path
+        )
+        self._refresh_queue_gallery()
 
     @Slot()
     def _update_engine_visibility(self):

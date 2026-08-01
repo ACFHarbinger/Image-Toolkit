@@ -8,7 +8,7 @@ from gui.src.constants.listings import (
     ENTITY_ROLES,
     ENTITY_TYPES,
 )
-from gui.src.helpers.core.library_session import get_library_db
+from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.image import apply_thumbnail_to_label
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.dialog import (

@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from backend.src.database.unified.entity_repo import EntityRepo
-from gui.src.helpers.core.library_session import get_library_db
+from gui.src.helpers.database.library_session import get_library_db
 from gui.src.tabs.core.elements.common.listings_common import resolve_entity_id_for_mal_name
 from gui.src.tabs.core.elements.dialog import _AssociatedEntitiesDialog
 from PySide6.QtWidgets import QMessageBox

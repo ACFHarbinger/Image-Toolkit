@@ -124,9 +124,10 @@ class _UIGalleryCanvasMixin:
 
         content_layout.addWidget(self.item_ctrl_widget)
 
-        # Read-only ordered thumbnail strip shown instead of the canvas for
-        # every mode except "canvas" — a passive view of the current
-        # selection queue (order = order added), with no drag/resize.
+        # Ordered thumbnail strip shown instead of the canvas for every mode
+        # except "canvas" -- a draggable/reorderable view of the current
+        # selection queue (order = order added, or manually dragged), with a
+        # right-click menu (preview/deselect/delete) on each thumbnail.
         self.queue_header_label = QLabel("Selected Images (Merge Order)")
         self.queue_header_label.setStyleSheet("font-weight: bold; padding: 4px;")
         content_layout.addWidget(self.queue_header_label)

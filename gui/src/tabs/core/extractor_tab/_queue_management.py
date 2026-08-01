@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QListWidget,
+    QListWidgetItem,
     QMenu,
     QMessageBox,
     QPushButton,
@@ -107,6 +108,8 @@ class _QueueManagementMixin:
         self.queue_list.setMaximumHeight(120)
         self.queue_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.queue_list.customContextMenuRequested.connect(self.show_queue_context_menu)
+        self.queue_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self.queue_list.model().rowsMoved.connect(lambda *_: self._on_queue_reordered())
         queue_layout.addWidget(self.queue_list)
 
         controls_layout = QHBoxLayout()
@@ -302,13 +305,25 @@ class _QueueManagementMixin:
                 if item["end_ms"] != -1
                 else "End"
             )
-            self.queue_list.addItem(
+            list_item = QListWidgetItem(
                 f"{idx + 1}. [{t_type}] {v_name} ({start_fmt} - {end_fmt})"
             )
+            list_item.setData(Qt.ItemDataRole.UserRole, item)
+            self.queue_list.addItem(list_item)
 
         enabled = len(self.extraction_queue) > 0
         self.btn_process_queue.setEnabled(enabled)
         self.btn_clear_queue.setEnabled(enabled)
+
+    def _on_queue_reordered(self) -> None:
+        """Drag-and-drop (InternalMove) callback: resync extraction_queue's
+        processing order from the list widget's new visual order, then
+        re-run _update_queue_ui to refresh the "n." position captions."""
+        self.extraction_queue = [
+            self.queue_list.item(row).data(Qt.ItemDataRole.UserRole)
+            for row in range(self.queue_list.count())
+        ]
+        self._update_queue_ui()
 
     def _on_queue_toggle_changed(self):
         if hasattr(self, "queue_group"):

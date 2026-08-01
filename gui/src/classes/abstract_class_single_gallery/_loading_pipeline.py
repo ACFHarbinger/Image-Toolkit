@@ -15,6 +15,7 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
+from shiboken6 import Shiboken
 
 from ...helpers import BatchImageLoaderWorker, ImageLoaderWorker
 from ...utils.cache.lru_image_cache import LRUImageCache
@@ -26,6 +27,13 @@ class _LoadingPipelineMixin:
 
     @Slot(list, list)
     def _on_batch_images_loaded(self, results: List[tuple], requested_paths: List[str]):  # noqa: C901
+        # This gallery widget's C++ object may already be deleted by the
+        # time a queued (cross-thread) signal is delivered -- e.g. during
+        # test/window teardown, deleteLater() was processed before this
+        # in-flight result arrived. self.sender() on a dead QObject
+        # segfaults rather than raising, so guard first.
+        if not Shiboken.isValid(self):
+            return
         # Cleanup worker reference if called from signals
         sender = self.sender()
         stale = False
@@ -228,6 +236,10 @@ class _LoadingPipelineMixin:
 
     @Slot(str, QImage)
     def _on_single_image_loaded(self, path: str, q_image: QImage):
+        # See _on_batch_images_loaded above: self may already be a dead
+        # QObject by the time this queued signal is delivered.
+        if not Shiboken.isValid(self):
+            return
         # Cleanup worker ref if it is NOT a BatchImageLoaderWorker
         # BatchImageLoaderWorker is cleaned up in _on_batch_images_loaded
         sender = self.sender()

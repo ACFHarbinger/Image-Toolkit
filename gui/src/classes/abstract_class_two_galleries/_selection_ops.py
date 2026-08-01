@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QApplication
 
 from ...utils.sort_utils import natural_sort_key
+from ..mixins import compute_reordered
 
 
 class _SelectionOpsMixin:
@@ -59,8 +60,11 @@ class _SelectionOpsMixin:
             self.selected_files.pop(index)
             selected = False
         except ValueError:
+            # Insertion order, not natural_sort_key -- lets the user
+            # drag-reorder the Selected panel afterward (see
+            # reorder_selected below); a forced sort would fight the user's
+            # manual order on every subsequent toggle.
             self.selected_files.append(path)
-            self.selected_files.sort(key=natural_sort_key)
             selected = True
 
         label = self.path_to_label_map.get(path)
@@ -68,6 +72,14 @@ class _SelectionOpsMixin:
             with contextlib.suppress(RuntimeError):
                 self.update_card_style(label, selected)
 
+        self.refresh_selected_panel()
+        self.on_selection_changed()
+
+    def reorder_selected(self, dragged_path: str, target_path: str) -> None:
+        """Drag-and-drop callback: move ``dragged_path`` to sit before ``target_path``."""
+        self.selected_files = compute_reordered(
+            self.selected_files, dragged_path, target_path
+        )
         self.refresh_selected_panel()
         self.on_selection_changed()
 

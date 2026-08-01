@@ -7,8 +7,8 @@ from .core.duplicate_scan_worker import DuplicateScanWorker as DuplicateScanWork
 from .core.merge_worker import MergeWorker as MergeWorker
 from .core.sampler_worker import SamplerWorker as SamplerWorker
 from .core.similarity_scan_worker import SimilarityScanWorker as SimilarityScanWorker
-from .core.search_worker import SearchWorker as SearchWorker
-from .core.upsert_worker import UpsertWorker as UpsertWorker
+from .database.search_worker import SearchWorker as SearchWorker
+from .database.upsert_worker import UpsertWorker as UpsertWorker
 from .core.video_export_worker import ScrollVideoExportWorker as ScrollVideoExportWorker
 from .core.wallpaper_worker import WallpaperWorker as WallpaperWorker
 from .image.batch_image_loader_worker import (

@@ -1,5 +1,5 @@
 from .drag_preview_window import DragPreviewWindow
-from .metadata_editor_window import MetadataEditorWindow
+from .metadata import MetadataEditorWindow
 from .image_preview_window import ImagePreviewWindow
 from .logging import LogBackend, LogWindow
 from .main import LoginWindow, MainWindow

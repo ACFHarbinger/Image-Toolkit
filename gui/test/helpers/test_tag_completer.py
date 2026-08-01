@@ -2,7 +2,7 @@
 
 import pytest
 from PySide6.QtWidgets import QLineEdit
-from gui.src.helpers.core.tag_completer import TagCompleter
+from gui.src.helpers.database.tag_completer import TagCompleter
 
 
 @pytest.mark.gui

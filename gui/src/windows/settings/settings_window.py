@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..app_settings import AppSettings
+from .app_settings import AppSettings
 from ._appearance import _AppearanceMixin
 from ._credentials import _CredentialsMixin
 from ._misc_sections import _MiscSectionsMixin

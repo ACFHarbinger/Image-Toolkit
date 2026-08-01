@@ -4,7 +4,7 @@ See .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md (Addenda 10-11):
 deferring MainWindow construction by a fixed 400ms wasn't a reliable
 enough margin against Qt Multimedia's async startup device probe, and
 neither was a flat 1.5s elapsed-time floor -- the crash recurred with the
-same offset three times running. gui/src/utils/startup_probe_guard.py now
+same offset three times running. gui/src/utils/guard/startup_probe_guard.py now
 tracks both the probe's real start time (a fallback ceiling) AND positive
 confirmation that it actually finished (QMediaDevices' device-changed
 signals, wired up in app.py), so any scanner-thread call site can defer
@@ -14,7 +14,7 @@ itself precisely instead of guessing a bigger number.
 import time
 
 import pytest
-from gui.src.utils import startup_probe_guard
+from gui.src.utils.guard import startup_probe_guard
 
 pytestmark = pytest.mark.gui
 
@@ -121,6 +121,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
                 pass
 
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline, "ImageScannerWorker", RecordingImageScannerWorker
         )
 
@@ -144,6 +145,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
             def _generate_video_thumbnail(self, path):
                 return None
 
+            # pyrefly: ignore [bad-override]
             def create_gallery_label(self, path, size):
                 return QWidget()
 
@@ -213,6 +215,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
                 pass
 
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline, "ImageScannerWorker", RecordingImageScannerWorker
         )
 
@@ -236,6 +239,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
             def _generate_video_thumbnail(self, path):
                 return None
 
+            # pyrefly: ignore [bad-override]
             def create_gallery_label(self, path, size):
                 return QWidget()
 

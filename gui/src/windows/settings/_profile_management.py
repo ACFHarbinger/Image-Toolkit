@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ..app_settings import AppSettings
+from .app_settings import AppSettings
 
 
 class _ProfileManagementMixin:

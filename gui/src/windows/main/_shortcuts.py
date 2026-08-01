@@ -8,7 +8,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHeaderView, QLineEdit, QTableWidget, QTableWidgetItem, QVBoxLayout
 
-from ....utils.shortcut_manager import get_registry
+from ...utils.manager.shortcut_manager import get_registry
 
 
 class _ShortcutOverlayMixin:

@@ -4,11 +4,8 @@ from .deletion_worker import DeletionWorker
 from .duplicate_scan_worker import DuplicateScanWorker
 from .merge_worker import MergeWorker
 from .queue_execution_worker import QueueExecutionWorker
-from .recommendation_worker import RecommendationWorker
 from .sampler_worker import SamplerWorker
-from .search_worker import SearchWorker
 from .similarity_scan_worker import SimilarityScanWorker
-from .upsert_worker import UpsertWorker
 from .video_export_worker import ScrollVideoExportWorker
 from .wallpaper_worker import WallpaperWorker
 
@@ -19,11 +16,8 @@ __all__ = [
     "DuplicateScanWorker",
     "MergeWorker",
     "QueueExecutionWorker",
-    "RecommendationWorker",
     "SamplerWorker",
     "ScrollVideoExportWorker",
-    "SearchWorker",
     "SimilarityScanWorker",
-    "UpsertWorker",
     "WallpaperWorker",
 ]
