@@ -46,7 +46,7 @@ except ImportError:
     QGuiApplication = QImage = QPixmap = None  # type: ignore[assignment]
     _QT_AVAILABLE = False
 
-from gui.src.utils.lru_image_cache import LRUImageCache  # noqa: E402
+from gui.src.utils.cache.lru_image_cache import LRUImageCache  # noqa: E402
 
 
 # ── Shared test fixtures (created once, reused across benchmarks) ─────────────

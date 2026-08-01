@@ -49,11 +49,11 @@ class WallpaperTab(QWidget):
 
         # Queued (not the implicit direct/same-thread default): a direct
         # connection runs the peer's populate_scan_image_gallery() --
-        # which starts its own ImageScannerWorker/VideoScannerWorker
-        # QThreads -- synchronously nested inside the emitting panel's own
-        # call, before that panel's own worker-starting code even runs.
-        # That packs all 4 QThread starts (2 panels x img+vid) into a
-        # single, uninterrupted call stack with no chance for the event
+        # which starts its own ImageScannerWorker QThread -- synchronously
+        # nested inside the emitting panel's own call, before that panel's
+        # own worker-starting code even runs. That packs both QThread
+        # starts (2 panels x img) into a single, uninterrupted call stack
+        # with no chance for the event
         # loop to run in between -- suspected trigger for a MAIN-thread
         # null-pointer SIGSEGV inside libQt6Gui.so.6 reproduced via plain
         # `just python` startup auto-restore alone, no user interaction

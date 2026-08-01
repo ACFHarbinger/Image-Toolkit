@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from ....components import ClickableLabel
 from ....helpers import GifCreationWorker, VideoExtractionWorker
-from ....helpers.video.video_scan_worker import VideoThumbnailer
+from ....helpers.video.video_thumbnailer import VideoThumbnailer
 
 
 class _ExtractionWorkersMixin:

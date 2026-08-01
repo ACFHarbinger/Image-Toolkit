@@ -2,7 +2,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from gui.src.helpers.video.frame_extractor_worker import FrameExtractionWorker
-from gui.src.helpers.video.video_scan_worker import VideoScannerWorker
 
 # --- FrameExtractionWorker Tests ---
 
@@ -83,61 +82,6 @@ class TestFrameExtractionWorker:
             assert len(errors) == 1
             assert "Could not open" in errors[0]
 
-
-# --- VideoScannerWorker Tests ---
-
-
-class TestVideoScannerWorker:
-    def test_run(self, q_app, tmp_path):
-        # Create a video file
-        d = tmp_path / "videos"
-        d.mkdir()
-        v_file = d / "test.mp4"
-        v_file.touch()
-
-        with patch("gui.src.helpers.video.video_scan_worker.HAS_NATIVE_IMAGING", False):
-            worker = VideoScannerWorker(str(d))
-
-            thumbs = []
-            worker.signals.thumbnail_ready.connect(lambda p, px: thumbs.append(p))
-
-            finished = []
-            worker.signals.finished.connect(lambda: finished.append(True))
-
-            worker.run()
-
-            assert len(finished) == 1
-            assert len(thumbs) == 1
-            assert str(v_file) in thumbs[0]
-
-    def test_run_rust_multiprocessing(self, q_app, tmp_path):
-        # Create dummy videos
-        d = tmp_path / "rust_test_videos"
-        d.mkdir()
-        v1 = d / "v1.mp4"
-        v1.touch()
-        v2 = d / "v2.mp4"
-        v2.touch()
-
-        # We need to force HAS_NATIVE_IMAGING = True in the worker module
-        with (
-            patch("gui.src.helpers.video.video_scan_worker.HAS_NATIVE_IMAGING", True),
-            patch("gui.src.helpers.video.video_scan_worker.base") as mock_base,
-        ):
-            # Mock scan_files_multi to return our files
-            mock_base.scan_files_multi.return_value = [str(v1), str(v2)]
-
-            worker = VideoScannerWorker(str(d))
-
-            thumbs = []
-            worker.signals.thumbnail_ready.connect(lambda p, px: thumbs.append(p))
-
-            finished = []
-            worker.signals.finished.connect(lambda: finished.append(True))
-
-            worker.run()
-
-            assert len(finished) == 1
-            assert len(thumbs) == 2
-            assert str(v1) in thumbs
-            assert str(v2) in thumbs
+# VideoScannerWorker (directory scan + thumbnail generation) was removed
+# entirely 2026-08-01 -- see Addendum 23 in
+# .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.

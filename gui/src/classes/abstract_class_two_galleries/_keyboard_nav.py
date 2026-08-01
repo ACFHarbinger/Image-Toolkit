@@ -14,7 +14,7 @@ class _KeyboardNavMixin:
 
     # --- KEYBOARD SHORTCUTS (GUI/UX §2.29 — registry-driven) ---
     def keyPressEvent(self, event: QEvent):
-        from ...utils.shortcut_manager import get_registry
+        from ...utils.manager.shortcut_manager import get_registry
 
         reg = get_registry()
         key = event.key()  # pyrefly: ignore [missing-attribute]

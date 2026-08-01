@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from gui.src.utils import shortcut_manager
+from gui.src.utils.manager import shortcut_manager
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent, QKeySequence
 

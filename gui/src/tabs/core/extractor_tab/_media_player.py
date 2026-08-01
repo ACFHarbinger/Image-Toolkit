@@ -12,12 +12,11 @@ import contextlib
 from pathlib import Path
 from typing import List, Optional
 
-from PySide6.QtCore import QEvent, QPoint, Qt, Slot
+from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QGraphicsScene,
@@ -312,34 +311,6 @@ class _MediaPlayerMixin:
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
             self.active_extraction_worker = None
-
-        if self.vid_scanner_worker:
-            try:
-                if self.vid_scanner_worker.isRunning():
-                    self.vid_scanner_worker.requestInterruption()
-                    self.vid_scanner_worker.stop()
-                    self.vid_scanner_worker.quit()
-                    # Unbounded: VideoScannerWorker's internal ThreadPoolExecutor
-                    # can take up to its subprocess-timeout chain to finish
-                    # in-flight video thumbnails; a bounded wait here leaves
-                    # the worker free to keep running (and keep emitting) past
-                    # this method's return, racing whatever teardown the
-                    # caller does next. See scan_directory()'s equivalent fix.
-                    self.vid_scanner_worker.wait()
-                self.vid_scanner_worker.deleteLater()
-            except RuntimeError:
-                pass
-            self.vid_scanner_worker = None
-            # wait() blocks this thread for the worker thread to finish; it
-            # does not pump this thread's own event loop meanwhile, so any
-            # deleteLater() calls already queued from an earlier, rapid
-            # directory switch are still unprocessed at this point -- flush
-            # them before proceeding (see
-            # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md Addendum 8).
-            # Narrowed to DeferredDelete only -- see Addendum 9: a full
-            # processEvents() also delivers ordinary queued cross-thread
-            # signals reentrantly, mid-teardown.
-            QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
         # Close sub-windows
         for win in list(self.open_preview_windows):

@@ -517,7 +517,7 @@ class TestSettingsWindowMalFetchMethod:
 class TestSettingsWindowShortcuts:
     @pytest.fixture(autouse=True)
     def _isolated_keybindings(self, tmp_path, monkeypatch):
-        from gui.src.utils import shortcut_manager
+        from gui.src.utils.manager import shortcut_manager
 
         monkeypatch.setattr(shortcut_manager, "_KEYBINDINGS_PATH", tmp_path / "keybindings.json")
         shortcut_manager._registry = None
@@ -525,7 +525,7 @@ class TestSettingsWindowShortcuts:
         shortcut_manager._registry = None
 
     def test_scope_list_has_one_entry_per_scope(self, q_app):
-        from gui.src.utils.shortcut_manager import SHORTCUT_REGISTRY
+        from gui.src.utils.manager.shortcut_manager import SHORTCUT_REGISTRY
 
         window = SettingsWindow()
         expected_scopes = sorted({e["scope"] for e in SHORTCUT_REGISTRY})
@@ -545,14 +545,14 @@ class TestSettingsWindowShortcuts:
             assert window._shortcut_stack.currentIndex() == window._shortcut_scope_pages[scope]
 
     def test_every_action_has_row_widgets(self, q_app):
-        from gui.src.utils.shortcut_manager import SHORTCUT_REGISTRY
+        from gui.src.utils.manager.shortcut_manager import SHORTCUT_REGISTRY
 
         window = SettingsWindow()
         for entry in SHORTCUT_REGISTRY:
             assert entry["id"] in window._shortcut_row_widgets
 
     def test_add_custom_shortcut_pill_and_save(self, q_app):
-        from gui.src.utils.shortcut_manager import get_registry
+        from gui.src.utils.manager.shortcut_manager import get_registry
 
         window = SettingsWindow()
         window._add_custom_shortcut_pill("gallery.select_all", "Meta+A")
@@ -566,7 +566,7 @@ class TestSettingsWindowShortcuts:
         assert reg.is_default_enabled("gallery.select_all") is True
 
     def test_toggle_default_off_and_save(self, q_app):
-        from gui.src.utils.shortcut_manager import get_registry
+        from gui.src.utils.manager.shortcut_manager import get_registry
 
         window = SettingsWindow()
         window._shortcut_row_widgets["gallery.select_all"]["default_check"].setChecked(False)
@@ -598,7 +598,7 @@ class TestSettingsWindowShortcuts:
             window._save_shortcuts()
 
         # User declined to save through the conflict -- registry stays untouched.
-        from gui.src.utils.shortcut_manager import get_registry
+        from gui.src.utils.manager.shortcut_manager import get_registry
         reg = get_registry()
         assert reg.get_custom_keys("gallery.select_all") == []
 

@@ -1,24 +1,30 @@
 """Source-directory browsing/scanning and the source thumbnail gallery.
 
 Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
-``scan_directory()`` guards the crash class documented in
-.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md -- preserve verbatim.
+
+The background-worker-driven thumbnail generation (VideoScannerWorker) was
+removed entirely (2026-08-01) after 22+ rounds of fixes failed to close
+the deleteOrphaned/QObjectPrivate::connect() crash class it kept
+triggering -- see Addendum 23 in
+.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md. Directory
+scanning here is now a plain, synchronous ``os.scandir()`` listing (no
+background QThread, no signal-based thumbnail delivery) -- placeholders
+show the filename only, with no generated thumbnail image, until a
+from-scratch replacement is designed.
 """
 
 from __future__ import annotations
 
 import os
 import re
-import threading
 from pathlib import Path
 from typing import Any
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from backend.src.core import telemetry
-from PySide6.QtCore import QEvent, QPoint, Qt, QTimer, Slot
+from PySide6.QtCore import QPoint, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QFileDialog,
     QGridLayout,
     QGroupBox,
@@ -33,9 +39,8 @@ from PySide6.QtWidgets import (
 
 from ....components import ClickableLabel, MarqueeScrollArea
 from ....constants import MAX_PREVIEW_ITEMS
-from ....helpers import VideoScannerWorker
 from ....utils.sort_utils import natural_sort_key
-from ....utils.startup_probe_guard import startup_settle_remaining_ms
+from ....utils.guard.startup_probe_guard import startup_settle_remaining_ms
 
 
 class _DirectoryScanningMixin:
@@ -140,9 +145,9 @@ class _DirectoryScanningMixin:
         if not os.path.isdir(path):
             return
 
-        # Refuse to start a scanner QThread while Qt Multimedia's startup
-        # device probe may still be in flight (issue #81 root cause #8) --
-        # see startup_probe_guard.py and
+        # Refuse to start while Qt Multimedia's startup device probe may
+        # still be in flight (issue #81 root cause #8) -- see
+        # startup_probe_guard.py and
         # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
         _remaining_ms = startup_settle_remaining_ms()
         print(
@@ -152,8 +157,7 @@ class _DirectoryScanningMixin:
         )
         telemetry.emit(
             "thread-lifecycle", "extractor_scan_directory.enter",
-            panel=id(self), tid=threading.get_ident(), directory=path,
-            remaining_ms=_remaining_ms,
+            panel=id(self), directory=path, remaining_ms=_remaining_ms,
         )
         if _remaining_ms > 0:
             QTimer.singleShot(_remaining_ms, lambda: self.scan_directory(path))
@@ -182,60 +186,6 @@ class _DirectoryScanningMixin:
         self.last_browsed_scan_dir = path
         self._save_last_dir(path)
 
-        # Stop and fully drain any previous scan's VideoScannerWorker BEFORE
-        # touching any widgets it might still be about to emit thumbnails
-        # for. This must happen first: VideoScannerWorker.stop() only cancels
-        # not-yet-started internal tasks (concurrent.futures cancel_futures),
-        # any already-running video-thumbnail subprocess call keeps going
-        # regardless, and its thumbnail_ready signal is still connected to
-        # add_source_thumbnail. Previously this check ran AFTER the widget
-        # teardown below (and used a 1000ms-bounded .wait()), which left the
-        # old worker free to deliver a queued signal referencing widgets that
-        # were mid-deletion or already gone -- the same use-after-free crash
-        # class documented in .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md,
-        # in a separate code path the base-class cancel_loading() fix doesn't
-        # cover (VideoScannerWorker is a bespoke QThread, not a QRunnable
-        # tracked by AbstractGalleryBase's thread_pool/_active_workers).
-        if self.vid_scanner_worker:
-            _panel, _worker_id = id(self), id(self.vid_scanner_worker)
-            # Addendum 22 (.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md):
-            # empty this worker's connection list up front, before any
-            # stop/wait/teardown, so a later concurrent deleteOrphaned()
-            # elsewhere in the app has nothing left to race against for
-            # THIS worker (a telemetry+hs_err-correlated crash showed a
-            # worker's own thread still emitting -- touching its own
-            # connection list -- at the exact moment an unrelated widget
-            # teardown's connection-list cleanup ran on another thread).
-            for _sig_name in ("thumbnail_ready", "finished"):
-                try:
-                    getattr(self.vid_scanner_worker, _sig_name).disconnect()
-                except (RuntimeError, TypeError):
-                    pass
-            telemetry.emit("thread-lifecycle", "extractor_vid_worker.signals_disconnected", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())
-            try:
-                if self.vid_scanner_worker.isRunning():
-                    telemetry.emit("thread-lifecycle", "extractor_vid_worker.stop_requested", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())
-                    self.vid_scanner_worker.requestInterruption()
-                    self.vid_scanner_worker.stop()
-                    self.vid_scanner_worker.quit()
-                    telemetry.emit("thread-lifecycle", "extractor_vid_worker.wait.start", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())
-                    self.vid_scanner_worker.wait()  # unbounded: see comment above
-                    telemetry.emit("thread-lifecycle", "extractor_vid_worker.wait.end", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())
-                self.vid_scanner_worker.deleteLater()
-            except RuntimeError:
-                pass
-            self.vid_scanner_worker = None
-            # wait() blocks this thread for the worker thread to finish; it
-            # does not pump this thread's own event loop meanwhile, so any
-            # deleteLater() calls already queued from an earlier, rapid
-            # directory switch are still unprocessed at this point -- flush
-            # them before tearing down/rebuilding widgets below (see
-            # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md Addendum 8).
-            # Narrowed to DeferredDelete only -- see Addendum 9: a full
-            # processEvents() also delivers ordinary queued cross-thread
-            # signals reentrantly, mid-teardown.
-            QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-
         # Clear grid and path tracking
         paths_to_remove = list(self.source_path_to_widget.keys())
         for p in paths_to_remove:
@@ -250,7 +200,7 @@ class _DirectoryScanningMixin:
         # 0. Refresh extracted stems cache
         self._refresh_extracted_stems_cache()
 
-        # 1. Alphabetical Directory Read (Quickly get names for placeholders)
+        # 1. Plain synchronous directory listing -- no background worker.
         try:
             entries = sorted(os.scandir(path), key=lambda e: natural_sort_key(e.name))
             video_paths = [
@@ -262,15 +212,16 @@ class _DirectoryScanningMixin:
         except Exception:
             video_paths = []
 
-        # 2. Pre-populate grid with "Loading..." items in alphabetical order
-        # Limit to 1000 items to avoid OOM/crash if directory is massive
+        # 2. Populate grid with placeholders in alphabetical order. Limit
+        # to MAX_PREVIEW_ITEMS to avoid OOM/crash if the directory is
+        # massive. Thumbnails are shown only when a disk cache entry
+        # already exists from a prior session (_get_disk_cache_path) --
+        # nothing generates a *new* thumbnail here anymore.
         video_paths_limited = video_paths[:MAX_PREVIEW_ITEMS]
 
         for i, v_path in enumerate(video_paths_limited):
-            # Check in-memory and disk cache
             cached_image = self._initial_pixmap_cache.get(v_path)
             if cached_image is None:
-                # Try disk cache
                 disk_cache = self._get_disk_cache_path(v_path)
                 if os.path.exists(disk_cache):
                     img = QImage(disk_cache)
@@ -285,36 +236,9 @@ class _DirectoryScanningMixin:
             self.source_grid.addWidget(widget, row, col)
 
             if cached_image:
-                # Immediately update if we have a cached version
                 self.add_source_thumbnail(v_path, cached_image)
 
-        # 3. Start the intensive thumbnailing worker (previous scanner, if
-        # any, was already stopped and fully drained above, before the
-        # widget teardown -- see the comment there)
-        self.vid_scanner_worker = VideoScannerWorker(path, crop_square=True)
-        self.vid_scanner_worker.thumbnail_ready.connect(
-            self.add_source_thumbnail
-        )
-        self.vid_scanner_worker.finished.connect(
-            lambda: self.scan_progress_complete()
-        )
-        self.vid_scanner_worker.finished.connect(
-            self.vid_scanner_worker.deleteLater
-        )
-        self.vid_scanner_worker.finished.connect(
-            lambda: setattr(self, "vid_scanner_worker", None)
-        )
-        telemetry.emit(
-            "thread-lifecycle", "extractor_vid_worker.start.begin",
-            panel=id(self), vid_worker=id(self.vid_scanner_worker),
-            tid=threading.get_ident(), directory=path,
-        )
-        self.vid_scanner_worker.start()
-        telemetry.emit(
-            "thread-lifecycle", "extractor_vid_worker.start.returned",
-            panel=id(self), vid_worker=id(self.vid_scanner_worker),
-            tid=threading.get_ident(),
-        )
+        self.scan_progress_complete()
 
     def _create_source_placeholder_widget(self, path: str) -> QWidget:
         """Creates a placeholder widget with 'Loading...' state for the source gallery."""
@@ -364,7 +288,8 @@ class _DirectoryScanningMixin:
 
     @Slot(str, object)
     def add_source_thumbnail(self, path: str, image_or_pixmap: Any):
-        """Updates an existing alphabetical placeholder with the actual generated thumbnail."""
+        """Updates an existing alphabetical placeholder with a thumbnail
+        image (from disk cache only -- see scan_directory()'s docstring)."""
         # 1. Resolve to Pixmap
         if isinstance(image_or_pixmap, QPixmap):
             pixmap = image_or_pixmap
@@ -373,20 +298,12 @@ class _DirectoryScanningMixin:
         else:
             pixmap = QPixmap()
 
-        if pixmap.isNull() and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)) and hasattr(self, "_generate_video_thumbnail"):
-                thumb = self._generate_video_thumbnail(path)
-                if thumb:
-                    pixmap = thumb
-
         # 1.5. Cache to memory if successful
         if not pixmap.isNull() and path not in self._initial_pixmap_cache:
             if isinstance(image_or_pixmap, QImage):
                 self._initial_pixmap_cache[path] = image_or_pixmap
             elif isinstance(image_or_pixmap, QPixmap):
                 self._initial_pixmap_cache[path] = image_or_pixmap.toImage()
-            else:
-                # If we fell back to _generate_video_thumbnail, pixmap is updated
-                self._initial_pixmap_cache[path] = pixmap.toImage()
 
         # 2. Find and update the existing widget
         container = self.source_path_to_widget.get(path)
@@ -398,11 +315,11 @@ class _DirectoryScanningMixin:
             return
 
         if not pixmap.isNull():
-            # NOTE: Scaling/cropping is now handled in the background by VideoScannerWorker(crop_square=True)
             clickable_label.setPixmap(pixmap)
             clickable_label.setText("")  # Remove "Loading..." text
         else:
-            # Fallback if processing totally fails
+            # No thumbnail available (no disk cache entry) -- generation
+            # is no longer performed here, see this module's docstring.
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 clickable_label.setText("VIDEO")
             else:

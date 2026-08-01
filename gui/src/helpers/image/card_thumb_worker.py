@@ -3,7 +3,7 @@
 from typing import List, Optional, Tuple
 
 from gui.src.utils.image_load import load_qimage
-from gui.src.utils.lru_image_cache import LRUImageCache
+from gui.src.utils.cache.lru_image_cache import LRUImageCache
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel
@@ -88,9 +88,17 @@ def _dispatch_thumbnail(path: str, img: QImage) -> None:
     waiters = _THUMB_WAITERS.pop(path, [])
     pix = QPixmap.fromImage(img)
     for label, width, height in waiters:
-        if label.property("_thumb_path") == path:
-            label.setPixmap(_scale_to_label(pix, width, height))
-            label.setStyleSheet("")
+        # The label's C++ object may already be deleted by the time this
+        # queued (cross-thread) signal is delivered -- e.g. a gallery
+        # rebuild (directory switch) tore down the widget tree while the
+        # background _ThumbWorker was still loading this thumbnail. Skip
+        # stale waiters instead of raising.
+        try:
+            if label.property("_thumb_path") == path:
+                label.setPixmap(_scale_to_label(pix, width, height))
+                label.setStyleSheet("")
+        except RuntimeError:
+            continue
 
 
 def _queue_thumbnail_load(path: str, label: QLabel, width: int, height: int, worker_size: int) -> None:

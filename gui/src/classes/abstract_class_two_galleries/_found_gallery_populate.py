@@ -6,9 +6,6 @@ logic change (see ``_navigation.py``'s docstring).
 
 from __future__ import annotations
 
-import os
-
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 
@@ -103,13 +100,6 @@ class _FoundGalleryPopulateMixin:
             # Check cache for instant thumbnail (stored as QImage, convert for widget)
             _cached = self._found_pixmap_cache.get(path)
 
-            if _cached is None and path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-                cache_path = self._get_disk_cache_path(path)
-                if os.path.exists(cache_path):
-                    _cached = QImage(cache_path)
-                    if not _cached.isNull():
-                        self._found_pixmap_cache[path] = _cached
-
             initial_pixmap = (
                 QPixmap.fromImage(_cached) if isinstance(_cached, QImage) else _cached
             )
@@ -167,24 +157,7 @@ class _FoundGalleryPopulateMixin:
         if not paths_to_load:
             return
 
-        # Separate images and videos
-        image_paths = [
-            p
-            for p in paths_to_load
-            if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-        ]
-        video_paths = [
-            p
-            for p in paths_to_load
-            if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-        ]
-
-        if video_paths:
-            for p in video_paths:
-                self._trigger_video_found_load(p)
-
-        if image_paths:
-            self._trigger_batch_found_load(image_paths)
+        self._trigger_batch_found_load(paths_to_load)
 
     def _trigger_found_load(self, path: str):
         if not hasattr(self, "found_loading_paths"):

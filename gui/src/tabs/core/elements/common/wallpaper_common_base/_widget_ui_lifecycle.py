@@ -71,22 +71,6 @@ class _WidgetUiLifecycleMixin:
                 pass
             self.img_scanner_thread = None
 
-        # Clean up video scanner worker (was previously left running on tab
-        # close -- see populate_scan_image_gallery()'s comment for why an
-        # unwaited scanner thread is unsafe once the widgets it might still
-        # emit to are gone)
-        if hasattr(self, "vid_scanner_worker") and self.vid_scanner_worker is not None:
-            try:
-                if self.vid_scanner_worker.isRunning():
-                    self.vid_scanner_worker.requestInterruption()
-                    self.vid_scanner_worker.stop()
-                    self.vid_scanner_worker.quit()
-                    self.vid_scanner_worker.wait()
-                self.vid_scanner_worker.deleteLater()
-            except Exception:
-                pass
-            self.vid_scanner_worker = None
-
         for win in list(self.open_queue_windows):
             try:
                 if sip.isValid(win):

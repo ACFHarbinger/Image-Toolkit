@@ -36,7 +36,7 @@ were removed or altered):
   `MainWindow` construction/show.
 - `backend/src/core/vault_manager.py` — `jpype.startJVM()` span.
 - `backend/src/core/lifecycle_memory.py` — every RSS snapshot.
-- `gui/src/utils/startup_probe_guard.py` — probe started/settled.
+- `gui/src/utils/guard/startup_probe_guard.py` — probe started/settled.
 - The Wallpaper scan pipeline (`_scan_pipeline.py`, `_scanner_lifecycle.py`,
   `system_display_subtab/_config.py`) — every scanner-`QThread`
   start/stop/wait/deleteLater transition, per panel, per worker instance.

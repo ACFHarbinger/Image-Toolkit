@@ -12,7 +12,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 
 from ...components import MarqueeScrollArea
-from ...utils.lru_image_cache import LRUImageCache
+from ...utils.cache.lru_image_cache import LRUImageCache
 from ..base.gallery_base import AbstractGalleryBase
 from ._color_labels import _ColorLabelsMixin
 from ._context_menu import _ContextMenuMixin

@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ..utils.shortcut_manager import get_registry
+from ..utils.manager.shortcut_manager import get_registry
 from .main import show_main_status
 
 

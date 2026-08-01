@@ -1,5 +1,5 @@
-"""Directory-scan pipeline (image scan -> chained video scan) -- crash-history
-sensitive, DO NOT alter logic.
+"""Directory-scan pipeline (image scan only) -- crash-history sensitive,
+DO NOT alter logic.
 
 Extracted from ``wallpaper_common_base.py`` -- pure code motion, no logic
 change (see ``_monitor_selection.py``'s docstring, and
@@ -7,6 +7,16 @@ change (see ``_monitor_selection.py``'s docstring, and
 staleness/serialization guards defend against). Every comment below is
 load-bearing context for a real, previously-observed crash, not
 incidental documentation.
+
+Video-directory scanning (VideoScannerWorker) was removed entirely
+(2026-08-01) after 22 rounds of fixes failed to close the deleteOrphaned/
+QObjectPrivate::connect() crash class it kept triggering -- the last two
+attempted fixes (Addenda 21/22) made the crash *more* reliable (first
+video-directory browse instead of needing rapid switches) rather than
+closing it. See Addendum 23 in
+.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md. Only image
+directory scanning, which has never been implicated in this crash class,
+remains.
 """
 
 from __future__ import annotations
@@ -14,18 +24,17 @@ from __future__ import annotations
 import os
 import threading
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import telemetry
-from gui.src.helpers import ImageScannerWorker, VideoScannerWorker
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QImage, QPixmap
+from gui.src.helpers import ImageScannerWorker
+from PySide6.QtCore import QTimer
 
 from ......utils.sort_utils import natural_sort_key
-from ......utils.startup_probe_guard import startup_settle_remaining_ms
+from ......utils.guard.startup_probe_guard import startup_settle_remaining_ms
 
 
 class _ScanPipelineMixin:
-    """Serialized directory-switch scan pipeline: image scan, then chained video scan."""
+    """Serialized directory-switch scan pipeline: image scan only."""
 
     def populate_scan_image_gallery(self, directory: str, emit_signal: bool = True):
         if getattr(self, "background_type", None) == "Solid Color":
@@ -42,16 +51,16 @@ class _ScanPipelineMixin:
         # not application logic -- consistent with that subsystem having
         # limited headroom under heavy concurrent churn regardless of how
         # correct the staleness guards are. Not starting a second switch's
-        # teardown until the first one's full scan pipeline (image scan ->
-        # chained video scan) has actually finished closes the overlap at
-        # its source instead of only making each overlap individually safe.
-        # Only the *latest* pending request is kept -- intermediate
-        # directories a user rapidly clicked past are never actually worth
-        # rendering. A watchdog timer force-clears the busy flag as a
-        # safety net in case some exit path from the scan pipeline doesn't
-        # go through _on_video_scan_finished()/handle_scan_error() (both of
-        # which clear it normally) -- a stuck flag must never permanently
-        # block all future switches.
+        # teardown until the first one's full scan pipeline (image scan)
+        # has actually finished closes the overlap at its source instead
+        # of only making each overlap individually safe. Only the *latest*
+        # pending request is kept -- intermediate directories a user
+        # rapidly clicked past are never actually worth rendering. A
+        # watchdog timer force-clears the busy flag as a safety net in
+        # case some exit path from the scan pipeline doesn't go through
+        # _on_image_scan_finished()/handle_scan_error() (both of which
+        # clear it normally) -- a stuck flag must never permanently block
+        # all future switches.
         if getattr(self, "_scan_pipeline_busy", False):
             self._pending_scan_request = (directory, emit_signal)
             return
@@ -160,8 +169,9 @@ class _ScanPipelineMixin:
             entries = sorted(
                 os.scandir(directory), key=lambda e: natural_sort_key(e.name)
             )
-            all_exts = list(SUPPORTED_IMG_FORMATS) + list(SUPPORTED_VIDEO_FORMATS)
-            valid_exts = tuple(f".{fmt.lower().lstrip('.')}" for fmt in all_exts)
+            valid_exts = tuple(
+                f".{fmt.lower().lstrip('.')}" for fmt in SUPPORTED_IMG_FORMATS
+            )
             quick_paths = [
                 e.path
                 for e in entries
@@ -228,14 +238,13 @@ class _ScanPipelineMixin:
         # already replaced self.img_scanner_worker/self.img_scanner_thread
         # with a fresh scan for a different directory (rapid directory
         # switching -- e.g. via the QApplication.sendPostedEvents() flush
-        # in _stop_scanner_threads()/_stop_vid_scanner_worker() reentrantly
-        # pumping this queued signal mid-teardown, or simply because the
-        # event loop hadn't gotten to it yet by the time the user switched
-        # again). Acting on a stale result here would touch gallery state
-        # for a directory the user has already navigated away from, and
-        # would start a VideoScannerWorker nothing ever stops or waits for
-        # -- the actual mechanism behind the deleteOrphaned crash class
-        # recurring even after the round-9 fix (see Addendum 9 in
+        # in _stop_scanner_threads() reentrantly pumping this queued signal
+        # mid-teardown, or simply because the event loop hadn't gotten to
+        # it yet by the time the user switched again). Acting on a stale
+        # result here would touch gallery state for a directory the user
+        # has already navigated away from -- the actual mechanism behind
+        # the deleteOrphaned crash class recurring even after the round-9
+        # fix (see Addendum 9 in
         # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
         #
         # _worker identifies the emitting worker via the connection's own
@@ -282,59 +291,6 @@ class _ScanPipelineMixin:
         else:
             self.refresh_gallery_view()
 
-        if self.scanned_dir:
-            # Never let a second VideoScannerWorker start while an earlier
-            # one is still running (see _stop_vid_scanner_worker()'s
-            # docstring) -- this slot firing more than once for overlapping
-            # scans is exactly the scenario that orphans one.
-            self._stop_vid_scanner_worker()
-            self.vid_scanner_worker = VideoScannerWorker(self.scanned_dir)
-            # Same stale-delivery guard as img_scanner_worker.scan_finished
-            # above (see _on_image_scan_finished's docstring): thumbnail_ready
-            # fires once per discovered video, via a queued cross-thread
-            # connection, so a superseded scan's already-queued deliveries
-            # can still arrive after a newer directory switch replaced
-            # self.vid_scanner_worker -- bind the emitting worker into the
-            # connection itself rather than relying on QObject.sender().
-            self.vid_scanner_worker.thumbnail_ready.connect(
-                lambda path, q_image, _worker=self.vid_scanner_worker: self._add_video_thumbnail_manual(
-                    path, q_image, _worker
-                )
-            )
-            self.vid_scanner_worker.finished.connect(
-                lambda _worker=self.vid_scanner_worker: self._on_video_scan_finished(_worker)
-            )
-            self.vid_scanner_worker.finished.connect(
-                self.vid_scanner_worker.deleteLater
-            )
-            self.vid_scanner_worker.finished.connect(
-                lambda: setattr(self, "vid_scanner_worker", None)
-            )
-            print(
-                f"[thread-lifecycle] panel={id(self):x} vid_worker={id(self.vid_scanner_worker):x} "
-                f"tid={threading.get_ident()} starting VideoScannerWorker for {self.scanned_dir!r}",
-                flush=True,
-            )
-            telemetry.emit(
-                "thread-lifecycle", "vid_worker.start.begin",
-                panel=id(self), vid_worker=id(self.vid_scanner_worker),
-                tid=threading.get_ident(), directory=self.scanned_dir,
-            )
-            self.vid_scanner_worker.start()
-            print(
-                f"[thread-lifecycle] panel={id(self):x} vid_worker={id(self.vid_scanner_worker):x} "
-                f"start() returned",
-                flush=True,
-            )
-            telemetry.emit(
-                "thread-lifecycle", "vid_worker.start.returned",
-                panel=id(self), vid_worker=id(self.vid_scanner_worker),
-                tid=threading.get_ident(),
-            )
-
-    def _on_video_scan_finished(self, _worker=None):
-        if _worker is not None and _worker is not self.vid_scanner_worker:
-            return
         if self.gallery_image_paths:
             self.gallery_image_paths.sort(key=natural_sort_key)
             self.refresh_gallery_view()
@@ -354,59 +310,13 @@ class _ScanPipelineMixin:
 
     def _scan_pipeline_watchdog(self) -> None:
         """Safety net: force-clears a stuck _scan_pipeline_busy flag. Should
-        never actually fire in practice (_on_video_scan_finished()/
+        never actually fire in practice (_on_image_scan_finished()/
         handle_scan_error() clear it on every real exit path from the scan
         pipeline) -- exists so a missed edge case degrades to "an overlap
         can occur" (the pre-existing, individually-guarded behavior) rather
         than "every future switch on this instance silently does nothing"."""
         if getattr(self, "_scan_pipeline_busy", False):
             self._settle_scan_pipeline()
-
-    def _add_video_thumbnail_manual(self, path: str, q_image: QImage, _worker=None):
-        # See _on_image_scan_finished's docstring: a stale (superseded)
-        # scan's already-queued thumbnail_ready deliveries can still arrive
-        # after a newer directory switch replaced self.vid_scanner_worker --
-        # touching gallery_image_paths/create_card_widget() for a directory
-        # the user has already navigated away from is exactly the class of
-        # race that crashes inside Qt/PySide's own binding layer (observed:
-        # Shiboken::BindingManager::retrieveWrapper, QObject::property()).
-        if _worker is not None and _worker is not self.vid_scanner_worker:
-            return
-        if path in self.gallery_image_paths:
-            return
-
-        pixmap = QPixmap.fromImage(q_image)
-
-        if pixmap.isNull():
-            if not hasattr(self, "_failed_paths"):
-                self._failed_paths = set()
-            self._failed_paths.add(path)
-
-        self.gallery_image_paths.append(path)
-        self._initial_pixmap_cache[path] = q_image
-        self._pagination_debounce_timer.start()
-
-        total_items = len(self.gallery_image_paths)
-        start_index = self.current_page * self.page_size
-        end_index = start_index + self.page_size
-        item_index = total_items - 1
-
-        if start_index <= item_index < end_index:
-            card = self.create_card_widget(path, pixmap)
-
-            if self.gallery_layout:
-                current_count = self.gallery_layout.count()
-                cols = self.calculate_columns()
-                row = current_count // cols
-                col = current_count % cols
-                self.gallery_layout.addWidget(
-                    card,
-                    row,
-                    col,
-                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
-                )
-
-            self.path_to_card_widget[path] = card
 
 
 __all__ = ["_ScanPipelineMixin"]

@@ -18,11 +18,11 @@ def _decode_span(tool: str, video_path: str):
     native-crash boundary from Addendum 11 in
     .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md: the FIRST
     QImage().loadFromData() call in the process's lifetime lazily loads
-    Qt's JPEG plugin off whichever thread calls it (here, one of
-    VideoScannerWorker's ThreadPoolExecutor threads, not the main thread),
-    with the JPype JVM already loaded in-process. If a crash happens inside
-    this span, the telemetry file's last line being a `.start` with no
-    matching `.end` is itself the finding -- see debug/telemetry_analyzer.py."""
+    Qt's JPEG plugin off whichever thread calls it (a QRunnable worker
+    thread, not the main thread), with the JPype JVM already loaded
+    in-process. If a crash happens inside this span, the telemetry file's
+    last line being a `.start` with no matching `.end` is itself the
+    finding -- see debug/telemetry_analyzer.py."""
     return telemetry.span(
         "native", "qimage_decode",
         tool=tool, video_path=video_path, tid=threading.get_ident(),

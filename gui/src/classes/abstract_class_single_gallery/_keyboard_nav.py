@@ -61,7 +61,7 @@ class _KeyboardNavMixin:
     def keyPressEvent(self, event: QEvent):
         from PySide6.QtCore import Qt as _Qt
 
-        from ...utils.shortcut_manager import get_registry
+        from ...utils.manager.shortcut_manager import get_registry
 
         reg = get_registry()
         if reg.matches(event, "gallery.select_all"): # pyrefly: ignore [bad-argument-type]

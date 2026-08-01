@@ -87,11 +87,10 @@ class _ConfigMixin:
                 if os.path.isdir(config["scan_directory"]):
                     # Deferred, not called synchronously: this runs during
                     # MainWindow/tab construction, before the Qt event loop
-                    # has started processing events. Starting new QThreads
-                    # (img_scanner_thread/vid_scanner_worker, via
-                    # populate_scan_image_gallery -> _stop_scanner_threads/
-                    # ImageScannerWorker/VideoScannerWorker) this early can
-                    # race Qt Multimedia's own PipeWire backend probe (also
+                    # has started processing events. Starting a new QThread
+                    # (img_scanner_thread, via populate_scan_image_gallery ->
+                    # _stop_scanner_threads/ImageScannerWorker) this early
+                    # can race Qt Multimedia's own PipeWire backend probe (also
                     # thread-based, triggered by QtMultimedia's module
                     # import elsewhere in the app) during this same fragile
                     # startup window -- the exact "QSocketNotifier: ...

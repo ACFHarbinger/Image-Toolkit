@@ -144,7 +144,7 @@ Fix that actually closed this (after a narrower per-call-site defer proved insuf
 
 **And check every place that `emit()`s the signal driving that deferred construction, not just the slot itself.** This exact bug recurred a second time from a completely different file: `LoginWindow` had its own `self.close()` immediately after `self.login_successful.emit(...)`, at three separate call sites. `login_successful` is a *direct* (same-thread) connection, so the connected slot runs synchronously inside `emit()` — but that slot only *schedules* `MainWindow` construction, it doesn't build it immediately. Once `emit()` returned, `LoginWindow`'s own next line (`self.close()`) ran instantly, long before the deferred construction, recreating the zero-windows-open state through a path the first fix never touched. When you fix a slot to defer its work, audit every `emit()` site for code that assumed the old synchronous behavior — a direct connection means the emitter's own subsequent statements are exactly as much a risk as the slot's.
 
-**The 400ms `MainWindow` defer alone was still not a reliable enough margin.** The exact same crash (identical `libQt6Core.so.6` offset, `+0x1df7c9`) recurred with the simplest possible repro — auto-restore a directory, then one immediate manual browse — well after the `QAudioOutput` priming + 400ms defer above was already in place. The implicit assumption behind that fix was that login/vault-unlock (JVM start, keystore load, vault decrypt) reliably eats far more than 400ms, giving the probe a large real margin by the time `MainWindow` (and therefore any scanner `QThread`) can exist. That assumption fails whenever login happens quickly. Fixed by adding an explicit, elapsed-time-based gate: `gui/src/utils/startup_probe_guard.py` records the probe's real start time (`mark_startup_probe_started()`, called from `app.py` right where the priming `QAudioOutput` is constructed) and exposes `startup_settle_remaining_ms()` — a 1.5s settle window measured from that timestamp, not from window-construction timing. Every scanner-thread call site (`WallpaperCommonBase.populate_scan_image_gallery()`, `VideoExtractorSubTab.scan_directory()`) checks this immediately before starting a thread and, if still within the window, reschedules its *entire own call* via `QTimer.singleShot()` — gating the actual danger point directly, rather than hoping enough time already passed by the time execution gets there.
+**The 400ms `MainWindow` defer alone was still not a reliable enough margin.** The exact same crash (identical `libQt6Core.so.6` offset, `+0x1df7c9`) recurred with the simplest possible repro — auto-restore a directory, then one immediate manual browse — well after the `QAudioOutput` priming + 400ms defer above was already in place. The implicit assumption behind that fix was that login/vault-unlock (JVM start, keystore load, vault decrypt) reliably eats far more than 400ms, giving the probe a large real margin by the time `MainWindow` (and therefore any scanner `QThread`) can exist. That assumption fails whenever login happens quickly. Fixed by adding an explicit, elapsed-time-based gate: `gui/src/utils/guard/startup_probe_guard.py` records the probe's real start time (`mark_startup_probe_started()`, called from `app.py` right where the priming `QAudioOutput` is constructed) and exposes `startup_settle_remaining_ms()` — a 1.5s settle window measured from that timestamp, not from window-construction timing. Every scanner-thread call site (`WallpaperCommonBase.populate_scan_image_gallery()`, `VideoExtractorSubTab.scan_directory()`) checks this immediately before starting a thread and, if still within the window, reschedules its *entire own call* via `QTimer.singleShot()` — gating the actual danger point directly, rather than hoping enough time already passed by the time execution gets there.
 
 **UPDATE — this whole root cause is now believed to be a misdiagnosis for the crash that motivated it.** Removing the `QAudioOutput` priming entirely, and separately making `ExtractorTab`'s `QGraphicsVideoItem()` construction lazy (the other, previously-unnoticed Qt Multimedia trigger — plain `QAudioOutput()` construction does *not* print Qt's `"Using Qt multimedia with FFmpeg..."` banner, but `QGraphicsVideoItem()` does), together eliminated every code path that could trigger Qt Multimedia's backend during a Wallpaper-only session. The crash **still recurred** — same warning text, same general `QSocketNotifier` internal-function crash class — in a run whose stdout contained *no* Qt Multimedia backend banner at all, proving the backend was never loaded. This crash was never a Qt Multimedia timing race; the warning text is apparently generic enough to also come from a completely different mechanism (see the `deleteOrphaned` section below, Addendum 15). The `startup_probe_guard.py` machinery described above is kept (it's harmless, tested, and may still matter for a genuine `ExtractorTab` video-preview-shortly-after-launch scenario), but do not spend further effort tuning it against *this* crash pattern — it was never the lever.
 
@@ -442,6 +442,26 @@ site was involved. If you hit this again, reproduce with
 `IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh` (now also captures a
 core dump) and start from `debug/telemetry_analyzer.py`'s report before
 writing another speculative fix.
+
+**Update (2026-08-01, Addendum 23) — video-directory scanning removed
+entirely; crash confirmed gone by live testing.** A further attempted fix
+(disconnect worker signals before teardown) made the crash *more*
+reliable, not less — first video-directory browse instead of needing
+rapid switches. After 23 rounds, none of which closed this crash class,
+the decision was made to stop patching and remove the feature instead:
+`VideoScannerWorker` (directory scan + thumbnail generation for video
+files) was deleted entirely, along with `VideoLoaderWorker`/
+`BatchVideoLoaderWorker` (a separate, never-crash-implicated video
+thumbnail loader used by every gallery tab) for consistency. Only image
+directory scanning remains anywhere in the app. **Live-tested and
+confirmed**: the user's exact original repro (browse a directory, then
+immediately browse a different one) no longer crashes — first time in 23
+rounds. Known accepted gap: video files are no longer discovered/
+thumbnailed anywhere in the app until a from-scratch replacement is
+built (a leading candidate: `VideoLoaderWorker`'s `QRunnable`/
+`QThreadPool` architecture, which was never implicated in this crash
+class, unlike `VideoScannerWorker`'s bespoke `QThread` + internal
+executor). See Addendum 23 in the crash doc for full scope.
 
 Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 

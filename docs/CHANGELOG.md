@@ -2,6 +2,53 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S271 — 2026-08-01 (Video-directory scanning removed after 23 rounds of crash fixes — issue #81)
+
+After 23 rounds of investigation and fixes against the `deleteOrphaned`/
+`QObjectPrivate::connect()` crash class (`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`,
+`docs/TROUBLESHOOTING.md`) — including two attempted in the immediately
+preceding session that made the crash *more* reliable rather than
+closing it — the decision was made to remove the feature entirely rather
+than continue patching:
+
+- **`VideoScannerWorker`** (`gui/src/helpers/video/video_scan_worker.py`)
+  — the bespoke QThread + internal `ThreadPoolExecutor` that scanned a
+  directory for video files and generated thumbnails — deleted entirely,
+  along with all wiring in the Wallpaper tab (`_scan_pipeline.py`,
+  `_scanner_lifecycle.py`, `_widget_ui_lifecycle.py`,
+  `system_display_subtab/_lifecycle.py`, `manager.py`) and Extractor tab
+  (`_directory_scanning.py`, `manager.py`, `_media_player.py`).
+  Extractor's `scan_directory()` is now a plain synchronous
+  `os.scandir()` listing (filename-only placeholders; a thumbnail only
+  shows if already present in the on-disk cache).
+- **`VideoLoaderWorker`/`BatchVideoLoaderWorker`** (never implicated in
+  any of the 22 prior crash rounds — a different, `QRunnable`/
+  `QThreadPool`-based architecture) — deleted for consistency, removing
+  video-file discovery/thumbnailing from every tab inheriting
+  `AbstractClassTwoGalleries` or `AbstractClassSingleGallery`
+  (`_found_gallery_load.py`, `_found_gallery_populate.py`,
+  `_selected_panel.py`, `_sort_zoom.py`, `_loading_pipeline.py`).
+  `VideoThumbnailer` itself (used elsewhere for on-demand single-file
+  thumbnail generation, unrelated to directory scanning) was kept.
+- Only image-directory scanning remains anywhere in the app — never
+  implicated in this crash class across all 22 prior rounds.
+- **Live-tested and confirmed fixed**: the user's exact original repro
+  (browse a directory, then immediately browse a different one) no
+  longer crashes — the first time in 23 rounds. A separate, unrelated,
+  non-fatal bug surfaced instead (`RuntimeError: Internal C++ object
+  already deleted` in `card_thumb_worker.py._dispatch_thumbnail()`, a
+  stale-widget race in the general async thumbnail dispatcher), fixed
+  with a standard `try/except RuntimeError` guard.
+- Known accepted gap: video files are no longer discovered or
+  thumbnailed anywhere in the app until a from-scratch replacement is
+  designed — deliberately deferred, not yet started.
+- Tests updated: `test_wallpaper_scan_race.py` and
+  `test_wallpaper_linked_panel_scan_race.py` trimmed to their still-valid
+  parts (the Addendum 21/22 signal-disconnect and peer-reentrancy-guard
+  regression tests); `test_video_helper.py`'s `TestVideoScannerWorker`
+  removed; `test_core_tab.py` and `test_settings_window.py`'s stale
+  `VideoScannerWorker`/module-import references fixed.
+
 ## S270 — 2026-08-01 (Startup/session recovery refinements & Shortcuts tab KDE-style redesign)
 
 Three related GUI/UX items, each building on the existing §2.16 (startup preferences) and §2.29 (configurable keyboard shortcuts) roadmap sections:

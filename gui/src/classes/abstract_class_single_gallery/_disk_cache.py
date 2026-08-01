@@ -13,7 +13,7 @@ from typing import Optional
 from backend.src.constants import THUMBNAIL_CACHE_DIR
 from PySide6.QtGui import QImage, QPixmap
 
-from ...helpers.video.video_scan_worker import VideoThumbnailer
+from ...helpers.video.video_thumbnailer import VideoThumbnailer
 
 
 class _DiskCacheMixin:

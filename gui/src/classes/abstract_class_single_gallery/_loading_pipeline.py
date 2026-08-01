@@ -2,19 +2,22 @@
 
 Extracted from ``abstract_class_single_gallery.py`` -- pure code motion, no
 logic change.
+
+Video thumbnail loading (VideoLoaderWorker) was removed entirely
+(2026-08-01) alongside the rest of the app's directory-video-scanning
+functionality -- see Addendum 23 in
+.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
 """
 
 from __future__ import annotations
 
-import os
 from typing import Dict, List, Optional
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
 
-from ...helpers import BatchImageLoaderWorker, ImageLoaderWorker, VideoLoaderWorker
-from ...utils.lru_image_cache import LRUImageCache
+from ...helpers import BatchImageLoaderWorker, ImageLoaderWorker
+from ...utils.cache.lru_image_cache import LRUImageCache
 from ...utils.sort_utils import natural_sort_key
 
 
@@ -82,12 +85,6 @@ class _LoadingPipelineMixin:
                 if widget:
                     self.update_card_pixmap(widget, QPixmap())
 
-    def _trigger_batch_video_load(self, paths: List[str]):
-        # User requested parallel/out-of-order loading.
-        # Spawning individual workers allows QThreadPool to manage concurrency.
-        for path in paths:
-            self._trigger_video_load(path)
-
     def _trigger_batch_found_load(self, paths: List[str]):
         if not hasattr(self, "_loading_paths"):
             self._loading_paths = set()
@@ -100,16 +97,6 @@ class _LoadingPipelineMixin:
             per_result_slot=self._on_single_image_loaded,
             batch_slot=self._on_batch_images_loaded,
         )
-
-    def _trigger_video_load(self, path: str):
-        self._loading_paths.add(path)
-        worker = VideoLoaderWorker(path, self.thumbnail_size)
-        worker.load_generation = self._load_generation
-        worker.signals.result.connect(
-            self._on_single_image_loaded
-        )  # Reuse same handler
-        self._active_workers.add(worker)
-        self.thread_pool.start(worker)
 
     def start_loading_gallery(
         self,
@@ -178,15 +165,6 @@ class _LoadingPipelineMixin:
             path = self._paginated_paths[i]
             _cached = self._initial_pixmap_cache.get(path)
 
-            # 2. Check for Video if no cache exists
-            is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-            if _cached is None and is_video:
-                cache_path = self._get_disk_cache_path(path)
-                if os.path.exists(cache_path):
-                    _cached = QImage(cache_path)
-                    if not _cached.isNull():
-                        self._initial_pixmap_cache[path] = _cached
-
             initial_pixmap = (
                 QPixmap.fromImage(_cached) if isinstance(_cached, QImage) else _cached
             )
@@ -205,7 +183,7 @@ class _LoadingPipelineMixin:
                 )
 
             # 5. DEFER Async Load (Visibility Check)
-            # Both images and videos are now loaded asynchronously via visibility check
+            # Images are loaded asynchronously via visibility check
             # if initial_pixmap is None:
             #     pass
 
@@ -232,24 +210,7 @@ class _LoadingPipelineMixin:
         if not paths_to_load:
             return
 
-        # Separate images and videos
-        image_paths = [
-            p
-            for p in paths_to_load
-            if not p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-        ]
-        video_paths = [
-            p
-            for p in paths_to_load
-            if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-        ]
-
-        if video_paths:
-            for p in video_paths:
-                self._trigger_video_load(p)
-
-        if image_paths:
-            self._trigger_batch_found_load(image_paths)
+        self._trigger_batch_found_load(paths_to_load)
 
     def calculate_columns(self):
         return self.common_calculate_columns(
@@ -319,12 +280,6 @@ class _LoadingPipelineMixin:
         # Cache the raw QImage (half the RAM of QPixmap on X11)
         if not q_image.isNull():
             self._initial_pixmap_cache[path] = q_image
-
-            # Save to disk cache if it's a video
-            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-                cache_path = self._get_disk_cache_path(path)
-                if not os.path.exists(cache_path):
-                    q_image.save(cache_path, "JPG") # pyrefly: ignore [no-matching-overload]
 
         widget = self.path_to_card_widget.get(path)
         if widget:

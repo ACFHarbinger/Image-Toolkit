@@ -76,9 +76,6 @@ class TestWallpaperTab:
                 "gui.src.tabs.core.elements.common.wallpaper_common_base._scan_pipeline.ImageScannerWorker"
             ),
             patch(
-                "gui.src.tabs.core.elements.common.wallpaper_common_base._scan_pipeline.VideoScannerWorker"
-            ),
-            patch(
                 "gui.src.tabs.core.elements.common.wallpaper_common_base._monitor_layout.get_monitors",
                 return_value=[mock_monitor],
             ),

@@ -735,7 +735,7 @@ PipeWire right at the very top of stdout, before anything else, which is
 at least consistent with the probe having some kind of trouble/retry
 happening that could extend its real duration unpredictably.
 
-**Fix**: `gui/src/utils/startup_probe_guard.py` (new) tracks the probe's
+**Fix**: `gui/src/utils/guard/startup_probe_guard.py` (new) tracks the probe's
 real start time (`mark_startup_probe_started()`, called from `app.py`
 right where `_startup_audio_prime` is constructed) and exposes
 `startup_settle_remaining_ms()` -- milliseconds still needed, measured
@@ -1769,3 +1769,109 @@ evidence that prompted it. The original SIGABRT/"corrupted size vs.
 prev_size" symptom, and every one of rounds 1-17's Qt-side findings, still
 stand exactly as documented above Addendum 17. Next repro with the fixed
 script is needed before drawing any new conclusion.
+
+## Addendum 23 (2026-08-01) — change of approach: video-directory scanning removed entirely, rather than fixed; live-tested, crash confirmed gone
+
+After Addendum 22's fix (disconnect worker signals before teardown) was
+committed, the user reported it made the crash class *worse*, not
+better: the app now crashed on the very first video-directory browse,
+where it previously needed rapid repeated switches to reproduce. Given
+23 rounds of fixes to this exact crash class, two of them landed and
+tested in this very session, neither closing it and the last one making
+it more reliable rather than less, the user made the call to stop
+patching and remove the feature instead: **all code implementing
+"browsing/scanning a directory with videos" was deleted wholesale**,
+across every tab that had it, keeping only image-directory scanning
+(never implicated in this crash class across 22 rounds).
+
+**Scope of the deletion:**
+
+1. **`VideoScannerWorker`** (`gui/src/helpers/video/video_scan_worker.py`,
+   deleted entirely) — the bespoke QThread + internal
+   `ThreadPoolExecutor` class that scanned a directory for video files
+   and generated thumbnails for each. This was the actual crash
+   mechanism traced in Addenda 20-22. All wiring removed from:
+   - Wallpaper tab: `_scan_pipeline.py` (the image-scan-then-video-scan
+     chain collapsed to image-scan-only; `_on_image_scan_finished()` now
+     settles the pipeline directly instead of chaining into a video
+     scan), `_scanner_lifecycle.py` (`_stop_vid_scanner_worker()` deleted,
+     `_stop_scanner_threads()` now only handles the image scanner
+     thread), `_widget_ui_lifecycle.py`/`system_display_subtab/_lifecycle.py`
+     (video-scanner teardown blocks removed from `closeEvent()`/
+     `cancel_loading()`), `manager.py` (`vid_scanner_worker` attribute
+     removed).
+   - Extractor tab (`_directory_scanning.py`, `manager.py`,
+     `_media_player.py`): this tab's entire reason to exist is browsing a
+     folder of videos, so removing the worker left a real functional gap
+     -- `scan_directory()` is now a plain, synchronous `os.scandir()`
+     listing (no background thread, no signal-based thumbnail delivery).
+     Placeholders show the filename only; a thumbnail only appears if one
+     already exists in the on-disk cache from a prior session. Nothing
+     *generates* a new one anymore.
+
+2. **`VideoLoaderWorker`/`BatchVideoLoaderWorker`** (`gui/src/helpers/video/video_loader_worker.py`/
+   `batch_video_loader_worker.py`, both deleted entirely) — the separate,
+   QRunnable/`QThreadPool`-based thumbnail loader used by every tab
+   inheriting `AbstractClassTwoGalleries` (Convert/Delete/Merge/Search/
+   scan_metadata/similarity) or `AbstractClassSingleGallery`
+   (Wallpaper/Extractor/reverse_search/merge). This class was **never
+   implicated in any of the 22 rounds of crash reports** -- it has a
+   fundamentally different threading model (per-task `QRunnable` on the
+   global pool, not a bespoke `QThread` with its own internal executor)
+   -- but the user explicitly asked for it removed too, for consistency:
+   these tabs no longer discover or load video files as part of a
+   directory scan at all, only images. Wiring removed from
+   `_found_gallery_load.py`, `_found_gallery_populate.py`,
+   `_selected_panel.py`, `_sort_zoom.py` (two-galleries) and
+   `_loading_pipeline.py` (single-gallery). `VideoThumbnailer` itself
+   (`video_thumbnailer.py`, the low-level ffmpeg-subprocess-calling
+   utility both deleted workers used) was **kept** -- it's also used by
+   `extractor_tab/_extraction_workers.py` and
+   `wallpaper_common_base/_gallery_label.py` for on-demand, synchronous,
+   single-file thumbnail generation (extraction preview, card labels),
+   which is a different feature (not directory scanning) and was never
+   part of this crash class either.
+
+**Unrelated, concurrent complication**: mid-deletion, an independent,
+already-in-progress reorganization of `gui/src/utils/` (moving
+`lru_image_cache.py`, `shortcut_manager.py`, `startup_probe_guard.py`
+into new `cache/`/`manager/`/`guard/` subpackages with barrel
+`__init__.py` re-exports) landed in the same working tree, breaking every
+direct-submodule import of those three modules across ~16 files
+(including several this session's own earlier telemetry/shortcuts work
+had added). Fixed by updating every `utils.lru_image_cache` /
+`utils.shortcut_manager` / `utils.startup_probe_guard` import to its new
+`utils.cache.` / `utils.manager.` / `utils.guard.` path.
+
+**Live-tested result: the crash is gone.** The user ran the app with
+this round's changes and reproduced their exact original repro (browse a
+Wallpaper directory, then immediately browse a second, different
+directory) twice in a row with no native crash, no `QSocketNotifier`
+warning, no SIGABRT/SIGSEGV -- the app ran a full session and shut down
+cleanly. This is the first time in 23 rounds this exact repro has not
+crashed.
+
+**A new, much more tractable bug surfaced instead**: repeated
+`RuntimeError: Internal C++ object (DoubleClickableLabel) already
+deleted` in `gui/src/helpers/image/card_thumb_worker.py`'s
+`_dispatch_thumbnail()` -- a `QLabel` registered as a thumbnail-load
+waiter got destroyed (gallery rebuilt for a new directory switch) before
+the queued, cross-thread `ready` signal carrying its thumbnail arrived.
+Unlike every crash this document tracks, this is a **caught Python
+exception** (Qt/PySide's exception boundary logs it and continues, no
+native fault), and a completely standard instance of a pattern already
+guarded against everywhere else in this codebase. Fixed by wrapping the
+per-waiter access in `try/except RuntimeError: continue`, skipping stale
+waiters instead of touching a deleted object.
+
+**Known, accepted gap**: video files are no longer discovered, scanned,
+or thumbnailed *anywhere* in the app. A directory containing only videos
+(no images) now shows nothing in any gallery. This is the direct,
+expected consequence of the deletion above, not a bug -- "re-do it from
+scratch" (the second half of the user's instruction) has not been
+started yet. Given `VideoLoaderWorker`'s `QRunnable`/`QThreadPool`
+architecture was never once implicated across 22 rounds, unlike
+`VideoScannerWorker`'s bespoke `QThread` + internal executor, that
+architecture is the leading candidate to build the replacement on --
+pending discussion before implementing, per this document's own standing
+rule.

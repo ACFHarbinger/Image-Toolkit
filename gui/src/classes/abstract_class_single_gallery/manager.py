@@ -10,7 +10,7 @@ from backend.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QLabel, QScrollArea, QWidget
 
-from ...utils.lru_image_cache import LRUImageCache
+from ...utils.cache.lru_image_cache import LRUImageCache
 from ..base.gallery_base import AbstractGalleryBase
 from ._card_rendering import _CardRenderingMixin
 from ._dir_history import _DirHistoryMixin
@@ -47,7 +47,6 @@ class AbstractClassSingleGallery(
 ):
     """Abstract base class for a single gallery panel.
 
-    Includes built-in support for video thumbnail generation.
     Shared helpers (pagination, sort, dir history) are inherited from
     ``AbstractGalleryBase``.
     """

@@ -10,7 +10,6 @@ from screeninfo import Monitor
 
 from ......classes import AbstractClassSingleGallery
 from ......components import MonitorDropView
-from ......helpers import VideoScannerWorker
 from ._event_filter import _EventFilterMixin
 from ._gallery_label import _GalleryLabelMixin
 from ._graph_drop import _GraphDropMixin
@@ -104,7 +103,6 @@ class WallpaperCommonBase(
 
         self.img_scanner_worker: Optional[Any] = None
         self.img_scanner_thread: Optional[QThread] = None
-        self.vid_scanner_worker: Optional[VideoScannerWorker] = None
 
         self.scanned_dir = None
         self.path_to_label_map = {}

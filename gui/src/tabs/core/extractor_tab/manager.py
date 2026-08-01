@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from ....classes import AbstractClassSingleGallery
 from ....components import ScrubPreviewPopup
-from ....helpers import FrameExtractionWorker, VideoScannerWorker
+from ....helpers import FrameExtractionWorker
 from ....helpers.core.queue_execution_worker import QueueExecutionWorker
 from ....helpers.video.storyboard import StoryboardBuilder, StoryboardMeta
 from ._config_methods import _ConfigMethodsMixin
@@ -71,7 +71,6 @@ class VideoExtractorSubTab(
         self.selected_paths: Set[str] = set()
         self.duration_ms = 0
         self.extractor_worker: Optional[FrameExtractionWorker] = None
-        self.vid_scanner_worker: Optional[VideoScannerWorker] = None
         self.open_preview_windows: List[QWidget] = []
 
         # Reference for the progress dialog and active workers

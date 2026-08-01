@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....utils.shortcut_manager import SHORTCUT_REGISTRY, get_registry
+from ....utils.manager.shortcut_manager import SHORTCUT_REGISTRY, get_registry
 
 # Icons shown next to each functionality/scope in the left-hand list --
 # same emoji-prefix idiom already used for the settings window's own tab

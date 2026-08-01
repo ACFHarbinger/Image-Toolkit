@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..components import QueueItemView
-from ..utils.lru_image_cache import LRUImageCache
+from ..utils.cache.lru_image_cache import LRUImageCache
 
 
 class SlideshowQueueWindow(QWidget):

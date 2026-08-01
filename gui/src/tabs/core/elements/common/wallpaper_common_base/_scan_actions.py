@@ -40,10 +40,9 @@ class _ScanActionsMixin:
         self.common_show_placeholder(
             self.gallery_layout, "Browse for a directory.", self.calculate_columns()
         )
-        # An image-scan error means no VideoScannerWorker will ever be
-        # started for this switch (only _on_image_scan_finished() starts
-        # one), so _on_video_scan_finished() will never fire to settle the
-        # pipeline -- this is the pipeline's actual end for this switch.
+        # An image-scan error means _on_image_scan_finished() will never
+        # fire (and settle the pipeline) for this switch -- this is the
+        # pipeline's actual end for this switch.
         self._settle_scan_pipeline()
 
     def browse_scan_directory(self):
