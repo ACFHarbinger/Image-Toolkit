@@ -1,5 +1,7 @@
 from .embedding_worker import ImageEmbeddingWorker
 from .library_session import get_library_db, run_migration_with_progress
+from .listings_embedding_worker import ListingsEmbeddingWorker
+from .listings_semantic_search_worker import ListingsSemanticSearchWorker
 from .recommendation_worker import RecommendationWorker
 from .search_worker import SearchWorker
 from .semantic_search_worker import SemanticSearchWorker
@@ -10,6 +12,8 @@ __all__ = [
     "get_library_db",
     "run_migration_with_progress",
     "ImageEmbeddingWorker",
+    "ListingsEmbeddingWorker",
+    "ListingsSemanticSearchWorker",
     "RecommendationWorker",
     "SearchWorker",
     "SemanticSearchWorker",

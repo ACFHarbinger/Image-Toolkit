@@ -39,6 +39,7 @@ class _EntryLifecycleMixin:
         self.f_web_link.setText(entry.get("web_link", ""))
 
         self._update_assoc_entities_display()
+        self._refresh_linked_groups_display()
 
         self.f_summary.setPlainText(entry.get("summary", ""))
         self.f_review.setPlainText(entry.get("review", ""))
@@ -66,6 +67,8 @@ class _EntryLifecycleMixin:
         self.assoc_entities_ids = []
         self.f_assoc_entities_display.clear()
         self.f_assoc_entities_display.setToolTip("")
+        self.f_linked_groups_display.clear()
+        self.f_linked_groups_display.setToolTip("")
         self.f_local_file.clear()
         self.f_web_link.clear()
         self.f_summary.clear()

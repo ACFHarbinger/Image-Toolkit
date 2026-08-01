@@ -33,6 +33,17 @@ class _GalleryMixin:
     """Filters/sorts entries via SearchRepo and rebuilds the card grid."""
 
     def _filtered_entries(self) -> List[Dict[str, Any]]:
+        # Semantic search mode (DB.7): show results sorted by descending
+        # similarity score -- same precedence/shape as recommendation mode
+        # below, checked first since it's the more specific, explicitly
+        # user-triggered state.
+        if getattr(self, "_semantic_search_results", None) is not None:
+            assert self._semantic_search_results is not None
+            sem_map = {mid: score for mid, score in self._semantic_search_results}
+            result = [e for e in self._entries if e.get("id") in sem_map]
+            result.sort(key=lambda e: sem_map.get(e.get("id", ""), 0.0), reverse=True)
+            return result
+
         # Recommendation mode: show results sorted by descending relevance score
         if getattr(self, "_recommendation_results", None) is not None:
             assert self._recommendation_results is not None

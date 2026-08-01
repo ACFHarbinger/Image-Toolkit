@@ -8,6 +8,8 @@ from .core.merge_worker import MergeWorker as MergeWorker
 from .core.sampler_worker import SamplerWorker as SamplerWorker
 from .core.similarity_scan_worker import SimilarityScanWorker as SimilarityScanWorker
 from .database.embedding_worker import ImageEmbeddingWorker as ImageEmbeddingWorker
+from .database.listings_embedding_worker import ListingsEmbeddingWorker as ListingsEmbeddingWorker
+from .database.listings_semantic_search_worker import ListingsSemanticSearchWorker as ListingsSemanticSearchWorker
 from .database.search_worker import SearchWorker as SearchWorker
 from .database.semantic_search_worker import SemanticSearchWorker as SemanticSearchWorker
 from .database.upsert_worker import UpsertWorker as UpsertWorker

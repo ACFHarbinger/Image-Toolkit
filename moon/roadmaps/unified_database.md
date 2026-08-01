@@ -241,7 +241,7 @@ Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to
 
 ## 🔄 DB.7 Semantic Search & CBIR
 
-*Started 2026-08-01 (issue #65): image-embedding backfill infrastructure, Search tab "Search by Meaning" text search, and "Find Similar Images" shipped; only the listings BGE-M3/Recommendation-Engine absorption remains — see below.*
+*Started 2026-08-01 (issue #65): image-side semantic search (embedding backfill, "Search by Meaning", "Find Similar Images") shipped, then listings-side semantic search (BGE-M3, both listings subtabs) shipped in a later round; only the full Recommendation-Engine storage absorption remains — see below.*
 
 **Correction to the original roadmap text**: "MetaCLIP image encoder (already integrated for the Inference tab)" was never actually true — `MetaCLIPInferenceTab` (`gui/src/tabs/models/meta_clip_inference_tab.py`) is a thin GUI shell that dispatches a job elsewhere; there is no in-process MetaCLIP encoder anywhere in the codebase to call. What *does* already exist and run in-process is `backend/src/core/similarity/embedder.py` (built for the Similarity tab's Tier-4 semantic hashing) — a lazy-loaded, graceful-fallback `open_clip` embedder (`mobileclip` → `openclip` → `resnet18`), already batched, already GIL-releasing during the torch forward pass. DB.7 builds on that real, tested encoder instead — `model='openclip'`, not `'metaclip'` — rather than inventing a second ML-loading pathway for a model this codebase can't actually run yet.
 
@@ -253,11 +253,20 @@ Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to
 - **`SemanticSearchWorker`** (`gui/src/helpers/database/semantic_search_worker.py`) — a short `QRunnable` dispatched on the global `QThreadPool`, mirroring `SearchWorker`'s own structured-search pattern exactly rather than introducing a second worker style. Embeds the query (text, or an existing image for find-similar) and runs `semantic_image_search` in the same background task; results come back already ranked, worst-to-best excluded via `top_k`.
 - **Search tab "Search by Meaning"** (`search_tab/_semantic_search.py`): an additive natural-language query box + button next to the existing structured Search Database form (kept as a separate control rather than a mode toggle on the existing button, to avoid touching the existing, QML-bridge-shared `perform_search()`/`toggle_search()` flow). Composes with the existing group/subgroup/tag/format filters as a SQL prefilter — group/subgroup only apply when exactly one is selected, since `semantic_image_search()` takes a single name, not a list. Results render in relevance (score) order, bypassing `start_loading_thumbnails()`'s alphabetical `_apply_sort()`.
 - **"🧠 Find Similar Images" context-menu action** on every found-gallery card (`search_tab/_file_actions.py`) — queries by that image's own embedding (computed on the fly, not persisted), excluding the source image from its own results.
-- Tests: `test_image_embedding_backfill_bookkeeping` (`test_unified_repos.py`), `test_semantic_search_facade_surface` (`test_unified_facade.py`) — 62/62 `backend/test/database/` green; `TestSearchTabSemanticSearch` (6 new GUI tests, `gui/test/database/test_database_tab.py`) — dispatch shape, empty/no-db guards, and the relevance-order-preserved assertion.
+- Tests: `test_image_embedding_backfill_bookkeeping` (`test_unified_repos.py`), `test_semantic_search_facade_surface` (`test_unified_facade.py`); `TestSearchTabSemanticSearch` (6 GUI tests, `gui/test/database/test_database_tab.py`) — dispatch shape, empty/no-db guards, and the relevance-order-preserved assertion.
+
+**Listings semantic search (BGE-M3), shipped in a later round**:
+- Found the real, working BGE-M3 embedder already in this codebase: `submodules/Recommendation-Engine/src/data/embedder.py`'s `Embedder.embed_dense()` (1024-dim, `FlagEmbedding`, already a locked dependency) — reused rather than adding a new model, same "use what already runs in-process" principle as the image side's `OpenClipEmbedder`.
+- Fixed a genuine **pre-existing bug** found along the way: `gui/src/helpers/database/recommendation_worker.py`'s `_RE_DIR` pointed at `<repo_root>/Recommendation-Engine`, which doesn't exist — the submodule actually lives at `<repo_root>/submodules/Recommendation-Engine`. The existing recommendation feature was silently broken (`ImportError` on every use) in this checkout before this fix.
+- Confirmed the roadmap's "dead placeholder-embedding code in `listings_common.py`" was already removed back in DB.5 — nothing left to delete.
+- `MediaRepo`/`EntityRepo` gained `upsert_embedding`/`count_unembedded`/`list_unembedded`, mirroring `ImageRepo`'s exact shape; `SearchRepo` gained `semantic_media_search`/`semantic_entity_search`, mirroring `semantic_image_search`.
+- New `ListingsEmbeddingWorker` (`QThread`, backfill) and `ListingsSemanticSearchWorker` (`QRunnable` via `BaseQRunnableWorker`, query-time) in `gui/src/helpers/database/`.
+- Both `content_listings_subtab` and `entity_listings_subtab` gained a "🧠 Search by Meaning" + "⚙️ Build Search Index" toolbar pair and a "❌ Clear Semantic" button (new `_semantic_search.py` mixin in each), composing with the existing `_filtered_entries`/`_filtered_entities` ranked-result precedence the recommendation feature already used.
+- Tests: `test_listings_embedding_backfill_bookkeeping`, `test_semantic_media_and_entity_search` (`test_unified_repos.py`); `gui/test/core/test_listings_semantic_search.py` (6 GUI tests).
 
 **Not done yet** (explicitly deferred, not silently skipped):
-- **Listings semantic search (BGE-M3)**: `Recommendation-Engine` absorption (`LibraryBackend`, deleting the dead placeholder-embedding code in `listings_common.py`) not started — this is a separate, large sub-project (a second embedding model + absorbing an entire existing sub-project's storage) that deserves its own dedicated round rather than being folded into this one.
-- **hnswlib ANN index**: `Database.knn` (DB.2) already has a brute-force fallback path and is what's used above; the persisted-encrypted-blob HNSW index for larger libraries is not built — fine at current library scale (brute-force over a few thousand images is fast), revisit if it becomes a real bottleneck.
+- **Full Recommendation-Engine absorption**: investigated and confirmed substantially larger than the search feature above — `RecommendationWorker` is a hybrid dense+sparse (SPLADE) retriever with RRF fusion and watch-history score boosting, none of which maps onto the simple single-dense-vector `embeddings` table/`Database.knn()` this round built on. Shipping a real, working "search by meaning" feature was judged better than a half-working absorption; `rec_engine.db` stays a separate store for now.
+- **hnswlib ANN index**: `Database.knn` (DB.2) already has a brute-force fallback path and is what's used above; the persisted-encrypted-blob HNSW index for larger libraries is not built — fine at current library scale (brute-force over a few thousand images/entries is fast), revisit if it becomes a real bottleneck.
 - **Multi-group/subgroup semantic prefilter**: `semantic_image_search()` only accepts a single `group_name`/`subgroup_name`, unlike structured search's list-based filters — a real (small) API gap, not just an unimplemented UI hook.
 
 ## Original DB.7 scope (for reference)
@@ -271,30 +280,38 @@ Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to
 
 ## 🔄 DB.8 Cross-Domain Features
 
-*Started 2026-08-01 (issue #66): the DAL layer for DB.8a/DB.8b is shipped and tested; DB.8c's merge mechanism (which already existed from earlier DB.3 scaffolding) now has a GUI entry point. Detail-panel UI for 8a/8b, Entity Recon integration, and DB.8d are not yet done — see below.*
+*Started 2026-08-01 (issue #66): the DAL layer for DB.8a/DB.8b, DB.8c's tag-merge GUI, and — in a later round — the DB.8a/8b detail-panel UI itself are all shipped and tested. Entity Recon integration and DB.8d are not yet done — see below.*
 
 The payoff for a single store (answer #5 — "EVERYTHING"):
 
 **Shipped**:
-- **DB.8a Media ↔ image groups (DAL only)**: `MediaRepo` gained `link_group`/`unlink_group`/`get_linked_groups`/`get_media_for_group`/`suggest_group_matches` (`backend/src/database/unified/media_repo.py`) over the existing `media_groups` M2M table. `suggest_group_matches()` is a simple case/whitespace-insensitive substring match ranked by specificity (not a fuzzy-distance library) — good enough for a human-confirmed suggestion list.
-- **DB.8b Entity ↔ images (DAL only)**: `EntityRepo` gained `link_image`/`unlink_image`/`get_linked_images`/`get_entities_for_image` over the existing `entity_images` M2M table.
+- **DB.8a Media ↔ image groups**: `MediaRepo` gained `link_group`/`unlink_group`/`get_linked_groups`/`get_media_for_group`/`suggest_group_matches` (`backend/src/database/unified/media_repo.py`) over the existing `media_groups` M2M table. `suggest_group_matches()` is a simple case/whitespace-insensitive substring match ranked by specificity (not a fuzzy-distance library) — good enough for a human-confirmed suggestion list. The Content Listings detail panel gained a "Linked Image Groups" chip row (`display/detail_panel/_linked_groups.py`, new) with a link/unlink picker dialog (`elements/dialog/linked_groups_dialog.py`, `_LinkedGroupsDialog` — modeled on the existing `_AssociatedEntitiesDialog`, suggested matches sorted first with a ⭐).
+- **DB.8b Entity ↔ images**: `EntityRepo` gained `link_image`/`unlink_image`/`get_linked_images`/`get_entities_for_image` over the existing `entity_images` M2M table. The entity detail panel gained a "Linked Images" thumbnail gallery strip (`display/entity_detail_panel.py`) — thumbnails via the existing `apply_thumbnail_to_label` helper, "➕ Link Image…" via `QFileDialog` + `ImageRepo.get_image_by_path`/`add_image`, per-image "✕ Unlink".
 - **DB.8c Unified tag vocabulary — GUI entry point**: `TagRepo.merge_tags()` already existed (shipped with DB.3, tested, but never exposed on the facade or reachable from any GUI control). Exposed as `UnifiedImageDatabase.merge_tags()`; the Maintenance panel's tag table gained a "🔀 Merge Into…" right-click action (`database_tab/_context_menus.py` + `_crud.py`) — pick a destination tag from a dialog, confirm, every image/media reference to the source tag is repointed and the source is deleted.
-- Tests: `test_media_group_links`, `test_media_group_fuzzy_suggestions`, `test_entity_image_links` (`test_unified_repos.py`), `test_merge_tags_facade` (`test_unified_facade.py`) — 66/66 `backend/test/database/` green.
+- Tests: `test_media_group_links`, `test_media_group_fuzzy_suggestions`, `test_entity_image_links` (`test_unified_repos.py`), `test_merge_tags_facade` (`test_unified_facade.py`); `gui/test/core/test_detail_panel_links.py` (11 GUI tests for the chip row and gallery strip).
 
 **Not done yet** (explicitly deferred, not silently skipped):
-- **DB.8a/8b detail-panel UI**: no "Linked Image Groups" chip row on the media detail panel, no "View images" cross-tab jump into Search, no linked-images gallery strip on the entity detail panel. The DAL methods above are ready for this; the UI work itself touches the already-complex, actively-used `content_listings_subtab`/`entity_listings_subtab` detail panels and cross-tab navigation (`MainWindow`'s tab registry) — deliberately not attempted in the same round as writing the DAL, to keep this round's risk/review surface small.
+- **"View Images" cross-tab jump** (DB.8a's Search-tab pre-filter-by-group navigation): investigated first — `ListingsTab` (which owns the detail panel) is constructed with only `vault_manager`, with no reference to `DatabaseTab`/`SearchTab` at all; the only existing cross-tab pattern (`DatabaseTab.search_tab_ref`/`merge_tab_ref`/etc., wired in `gui/src/windows/main/_tab_registry.py`) only connects tabs *within* the Library category, not from Listings into it. This is a real architecture change (threading a new tab reference through `ListingsTab`'s constructor and `MainWindow`'s wiring), not "hooking into existing plumbing" — left for a dedicated round rather than forced in.
 - **Entity Recon integration** ("link matches to library entity" action writing `entity_images` from `base.recon` IdentityIndex hits) — depends on the DB.8b DAL above (now available) but touches the separate, large Entity Recon OSINT tab; not started.
-- **DB.8c GUI, remaining pieces**: tag-chip autocomplete from the shared vocabulary in listings, and "search images / search listings with this tag" from any tag click — not started; only the merge tool (the highest-value, most self-contained piece) shipped this round.
+- **DB.8c GUI, remaining pieces**: tag-chip autocomplete from the shared vocabulary in listings, and "search images / search listings with this tag" from any tag click — not started; only the merge tool (the highest-value, most self-contained piece) has shipped so far.
+- **DB.8d Auto-create listings from scans** — not started; the most heuristic-heavy item (needs series/episode detection from a directory scan), deserves its own dedicated round.
 - **DB.8d Auto-create listings from scans** — not started; the most heuristic-heavy item (needs series/episode detection from a directory scan), deserves its own dedicated round.
 
-## DB.9 Data Browser Tab (Raw Tables + ER View)
+## 🔄 DB.9 Data Browser Tab (Raw Tables + ER View)
+
+*Started 2026-08-01 (issue #67): the table-grid slice is shipped and tested; the ER/crow's-foot graphics view and gated edit mode are not — see below.*
 
 New tab in the Library category (answer #7, per the provided ER-diagram reference):
 
-- **Schema/ER view**: QGraphicsScene rendering each table as a titled column-list card (PK starred, FK annotated) with crow's-foot relationship edges — same visual grammar as the reference image. Layout auto-generated from `PRAGMA table_info`/`foreign_key_list` (so it never drifts from the real schema), domain-clustered (media / images / shared / search) like the Sales/Production grouping in the reference. Pan/zoom; clicking a table opens it in the grid. The wallpaper graph-view infrastructure (`elements/graph/`) is the starting point for scene/zoom plumbing.
-- **Table grid view**: table picker → paginated read-only `QTableView` over `Database.query` showing **raw field values** (file-path strings, FK integers, dates — no thumbnails). FK cells are hyperlinks that navigate to the referenced row; a reverse-references side panel lists incoming rows ("this group is referenced by 214 images, 3 media_items"). Column sort + per-column filter + `WHERE` box (read-only: statements are wrapped in `SELECT`, mutations rejected).
-- **Edit mode (v2, gated)**: opt-in cell editing for scalar columns with FK validation — deferred until the read-only browser has soaked.
-- Export current view as CSV/JSON.
+**Shipped**:
+- New `backend/src/database/unified/browser_repo.py` (`BrowserRepo`): `list_tables()` (from `sqlite_master`, also used as a strict allowlist), `table_columns()` (`PRAGMA table_info`), `table_row_count()`, `query_table(table, where_sql, limit, offset)` — validates the table name against the allowlist and rejects a `WHERE` fragment containing a semicolon or an INSERT/UPDATE/DELETE/DROP/ALTER/ATTACH/PRAGMA/CREATE keyword (a basic guard, not a full SQL parser — documented as such in the code).
+- New `gui/src/tabs/database/data_browser_tab/` tab, registered in the "Library Database" category (`gui/src/windows/main/_tab_registry.py`, additive — no reordering of existing entries): table picker, paginated read-only `QTableWidget` grid over raw field values (no thumbnails, per spec), a validated `WHERE` box (invalid input shows a warning, not a crash), prev/next pagination, and CSV/JSON export of the current page. The grid's built-in `setSortingEnabled(True)` gives basic per-column click-to-sort for free.
+- Tests: `backend/test/database/test_browser_repo.py` (10 tests: listing, columns, row count, pagination, WHERE filtering, unknown-table rejection, 4 mutation-attempt rejection cases); `gui/test/database/test_data_browser_tab.py` (8 GUI tests).
+
+**Not done yet** (explicitly deferred, not silently skipped):
+- **Schema/ER view**: the `QGraphicsScene` crow's-foot relationship-diagram view — a much larger, separate piece (layout algorithm, FK-edge rendering, domain clustering) than the table grid above; not attempted this round.
+- **FK-cell hyperlink navigation** and the **reverse-references side panel** ("this group is referenced by 214 images, 3 media_items") — not built; `table_columns()`'s FK metadata is available for this once it's tackled.
+- **Per-column filter UI** beyond the single `WHERE` box, and **edit mode (v2, gated)** — both deferred as the roadmap's own text already anticipated ("deferred until the read-only browser has soaked").
 
 ## DB.10 Backup Pipeline Retarget & Final Cleanup — DONE, 2026-07-27 (issue #68)
 
@@ -318,9 +335,9 @@ Incremental (answer #10 — implementer's choice); the app ships after every pha
 | ✅ P1 | DB.2 `base.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | done (S210) |
 | 🔄 P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | mostly done (S210); SQL-side filtering deferred |
 | 🔄 P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | mostly done (S211); archival + scan-worker deferred |
-| 🔄 P4 | DB.7 semantic search & CBIR | Image text→image + find-similar search live; rec-engine (listings BGE-M3) unification still pending | ~1.5w |
-| 🔄 P5 | DB.8 cross-domain features | Link/tag-merge DAL + tag-merge tool live; detail-panel UI, Entity Recon integration, auto-listings still pending | ~1w |
-| P6 | DB.9 data browser + DB.10 cleanup/backups/docs | End state | ~1w |
+| 🔄 P4 | DB.7 semantic search & CBIR | Image AND listings text→image/find-similar search live; full Recommendation-Engine storage absorption still pending | ~1.5w |
+| 🔄 P5 | DB.8 cross-domain features | Link DAL + detail-panel UI + tag-merge tool live; Entity Recon integration, auto-listings still pending | ~1w |
+| 🔄 P6 | DB.9 data browser + DB.10 cleanup/backups/docs | Table-grid browser live (DB.10 already done); ER view, edit mode still pending | ~1w |
 
 ```mermaid
 flowchart LR

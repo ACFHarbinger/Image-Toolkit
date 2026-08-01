@@ -80,6 +80,38 @@ class _UIBuilderMixin:
         self.sort_order_combo.currentTextChanged.connect(self._on_sort_changed)
         toolbar.addWidget(self.sort_order_combo)
 
+        # ── Semantic search pair (stacked vertically, DB.7) ───────────
+        _semantic_pair = QWidget()
+        _semantic_vbox = QVBoxLayout(_semantic_pair)
+        _semantic_vbox.setContentsMargins(0, 0, 0, 0)
+        _semantic_vbox.setSpacing(3)
+
+        semantic_btn = QPushButton("🧠 Search by Meaning")
+        semantic_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        semantic_btn.setFixedWidth(140)
+        semantic_btn.clicked.connect(self._on_semantic_search)
+        apply_shadow_effect(semantic_btn)
+
+        build_index_btn = QPushButton("⚙️ Build Search Index")
+        build_index_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        build_index_btn.setFixedWidth(140)
+        build_index_btn.clicked.connect(self._on_build_search_index)
+        apply_shadow_effect(build_index_btn)
+
+        _semantic_vbox.addWidget(semantic_btn)
+        _semantic_vbox.addWidget(build_index_btn)
+        toolbar.addWidget(_semantic_pair)
+
+        self.clear_semantic_btn = QPushButton("❌ Clear Semantic")
+        self.clear_semantic_btn.setStyleSheet(
+            "QPushButton { background:#c0392b; color:white; border:none; border-radius:4px; padding:2px 8px; font-weight:bold; font-size:11px; }"
+            "QPushButton:hover { background:#e74c3c; }"
+        )
+        self.clear_semantic_btn.setFixedWidth(130)
+        self.clear_semantic_btn.clicked.connect(self._clear_semantic_search)
+        self.clear_semantic_btn.hide()
+        toolbar.addWidget(self.clear_semantic_btn)
+
         # ── Pair 1: Add Entity (top) / Import Dir (bottom) ──────────────
         entity_pair = QWidget()
         entity_pair_vbox = QVBoxLayout(entity_pair)

@@ -3,6 +3,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 
 from backend.src.database.unified.entity_repo import EntityRepo
+from backend.src.database.unified.image_repo import ImageRepo
 from backend.src.database.unified.media_repo import MediaRepo
 from gui.src.constants.listings import (
     ENTITY_ROLES,
@@ -20,6 +21,7 @@ from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDeta
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QFormLayout,
     QFrame,
     QGroupBox,
@@ -28,9 +30,11 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 
@@ -140,6 +144,28 @@ class _EntityDetailPanel(BaseDetailPanel):
         cg_layout.addWidget(add_credit_btn)
         layout.addWidget(self.credits_group)
 
+        # --- Linked Images Section (DB.8b: entity <-> images) ---
+        self.linked_images_group = QGroupBox("Linked Images")
+        self.linked_images_group.setStyleSheet("QGroupBox{font-weight:bold; color:#00bcd4;}")
+        lig_layout = QVBoxLayout(self.linked_images_group)
+
+        self.linked_images_scroll = QScrollArea()
+        self.linked_images_scroll.setWidgetResizable(True)
+        self.linked_images_scroll.setFixedHeight(90)
+        self.linked_images_scroll.setStyleSheet("QScrollArea{border:none;}")
+        self.linked_images_container = QWidget()
+        self.linked_images_layout = QHBoxLayout(self.linked_images_container)
+        self.linked_images_layout.setContentsMargins(0, 0, 0, 0)
+        self.linked_images_layout.setSpacing(6)
+        self.linked_images_layout.addStretch()
+        self.linked_images_scroll.setWidget(self.linked_images_container)
+        lig_layout.addWidget(self.linked_images_scroll)
+
+        add_linked_image_btn = QPushButton("➕ Link Image…")
+        add_linked_image_btn.clicked.connect(self._link_image)
+        lig_layout.addWidget(add_linked_image_btn)
+        layout.addWidget(self.linked_images_group)
+
         # Action buttons
         btn_row = QHBoxLayout()
         self.save_btn = QPushButton("💾 Save")
@@ -181,9 +207,11 @@ class _EntityDetailPanel(BaseDetailPanel):
 
         self.del_btn.setVisible(True)
         self.credits_group.setVisible(True)
+        self.linked_images_group.setVisible(True)
         QTimer.singleShot(0, self._refresh_assoc_displays)
         QTimer.singleShot(0, self._refresh_image)
         QTimer.singleShot(0, self._refresh_credit_list)
+        QTimer.singleShot(0, self._refresh_linked_images)
 
     def clear_for_new(self):
         self._entity_id = None
@@ -205,8 +233,10 @@ class _EntityDetailPanel(BaseDetailPanel):
             "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
         )
         self._refresh_credit_list()
+        self._refresh_linked_images()
         self.del_btn.setVisible(False)
         self.credits_group.setVisible(False)
+        self.linked_images_group.setVisible(False)
 
     def _browse_image(self):
         self._image_path = self._browse_image_helper(self._entity_id) # pyrefly: ignore [bad-argument-type]
@@ -273,6 +303,105 @@ class _EntityDetailPanel(BaseDetailPanel):
             rl.addWidget(del_btn)
 
             self.credit_list_layout.addWidget(row)
+
+    def _refresh_linked_images(self) -> None:
+        while self.linked_images_layout.count():
+            item = self.linked_images_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()  # pyrefly: ignore [missing-attribute]
+
+        if not self._entity_id:
+            self.linked_images_layout.addStretch()
+            return
+
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            self.linked_images_layout.addStretch()
+            return
+
+        try:
+            linked = EntityRepo(db).get_linked_images(self._entity_id)
+        except Exception as e:
+            print(f"Failed to load linked images: {e}")
+            linked = []
+
+        for img in linked:
+            cell = QWidget()
+            cell_layout = QVBoxLayout(cell)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            cell_layout.setSpacing(2)
+
+            thumb = QLabel()
+            thumb.setFixedSize(70, 70)
+            thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            apply_thumbnail_to_label(
+                thumb,
+                img["file_path"],
+                70,
+                70,
+                worker_size=100,
+                placeholder_text="No Img",
+                placeholder_style=(
+                    "background:#1a1c1e; border-radius:3px; color:#555; font-size:8px;"
+                ),
+            )
+            thumb.setToolTip(img["file_path"])
+            cell_layout.addWidget(thumb)
+
+            remove_btn = QPushButton("✕ Unlink")
+            remove_btn.setFixedHeight(18)
+            remove_btn.setStyleSheet("font-size:9px; padding:0px;")
+            remove_btn.clicked.connect(
+                lambda _, image_id=img["id"]: self._unlink_image(image_id)
+            )
+            cell_layout.addWidget(remove_btn)
+
+            self.linked_images_layout.addWidget(cell)
+
+        self.linked_images_layout.addStretch()
+
+    def _link_image(self) -> None:
+        if not self._entity_id:
+            QMessageBox.information(
+                self, "Save First", "Save this entity before linking images."
+            )
+            return
+
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            QMessageBox.warning(self, "Error", "The library database is not available.")
+            return
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select an Image to Link",
+            "", "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)",
+        )
+        if not file_path:
+            return
+
+        try:
+            image_repo = ImageRepo(db)
+            existing = image_repo.get_image_by_path(file_path)
+            image_id = existing["id"] if existing else image_repo.add_image(file_path, tags=[])
+            EntityRepo(db).link_image(self._entity_id, image_id)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to link image:\n{e}")
+            return
+
+        self._refresh_linked_images()
+
+    def _unlink_image(self, image_id: int) -> None:
+        if not self._entity_id:
+            return
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            return
+        try:
+            EntityRepo(db).unlink_image(self._entity_id, image_id)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to unlink image:\n{e}")
+            return
+        self._refresh_linked_images()
 
     def _add_credit(self):
         dlg = _CreditDialog(parent=self)

@@ -12,6 +12,7 @@ from ._entry_lifecycle import _EntryLifecycleMixin
 from ._episode_list import _EpisodeListMixin
 from ._file_link_actions import _FileLinkActionsMixin
 from ._image_actions import _ImageActionsMixin
+from ._linked_groups import _LinkedGroupsMixin
 from ._mal_sync import _MalSyncMixin
 from ._save_delete import _SaveDeleteMixin
 from ._ui_builder import _UIBuilderMixin
@@ -21,6 +22,7 @@ class _DetailPanel(
     _UIBuilderMixin,
     _ImageActionsMixin,
     _AssociatedEntitiesMixin,
+    _LinkedGroupsMixin,
     _EntryLifecycleMixin,
     _FileLinkActionsMixin,
     _MalSyncMixin,

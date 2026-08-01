@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ._util import dumps_extra, intify, loads_extra, normalized_pair, transaction
 
@@ -136,6 +136,36 @@ class EntityRepo:
             (image_id,),
         )
         return [{"id": r[0], "name": r[1]} for r in rows]
+
+    # ---- DB.7: listings semantic search (BGE-M3) ------------------------
+
+    def upsert_embedding(self, entity_id: str, model: str, vector) -> None:
+        """Store *vector* for this entity under *model* -- mirrors
+        ImageRepo.upsert_embedding (image_repo.py)."""
+        import numpy as np
+
+        self._db.upsert_embedding(
+            "entity", entity_id, model, np.asarray(vector, dtype=np.float32)
+        )
+
+    def count_unembedded(self, model: str) -> int:
+        return self._db.query(
+            "SELECT COUNT(*) FROM entities e WHERE NOT EXISTS ("
+            "SELECT 1 FROM embeddings em WHERE em.owner_type = 'entity' "
+            "AND em.owner_id = e.id AND em.model = ?)",
+            (model,),
+        )[0][0]
+
+    def list_unembedded(self, model: str, limit: int = 500) -> List[Tuple[str, str]]:
+        """[(entity_id, name), ...] for entities with no *model* embedding
+        yet -- the backfill worker's work queue."""
+        return self._db.query(
+            "SELECT e.id, e.name FROM entities e WHERE NOT EXISTS ("
+            "SELECT 1 FROM embeddings em WHERE em.owner_type = 'entity' "
+            "AND em.owner_id = e.id AND em.model = ?) "
+            "ORDER BY e.id LIMIT ?",
+            (model, limit),
+        )
 
     # ------------------------------------------------------------------
     # Reads

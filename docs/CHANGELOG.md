@@ -2,6 +2,20 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S276 — 2026-08-01 (DB.7/8/9 advanced in parallel: listings semantic search, cross-domain detail-panel UI, Data Browser tab — issues #65, #66, #67)
+
+Three DB.X phases pushed forward in one round via parallel work streams, then integrated and verified together (full `backend/test/database/` + relevant scoped GUI suites green).
+
+**DB.7 (issue #65) — listings semantic search**: reused the real, working BGE-M3 embedder already in this codebase (`submodules/Recommendation-Engine/src/data/embedder.py`, `FlagEmbedding`) rather than adding a new model. `MediaRepo`/`EntityRepo` gained embedding bookkeeping mirroring `ImageRepo`'s; `SearchRepo` gained `semantic_media_search`/`semantic_entity_search`. New `ListingsEmbeddingWorker`/`ListingsSemanticSearchWorker`; both listings subtabs gained "🧠 Search by Meaning" + "⚙️ Build Search Index" controls. Along the way, found and fixed a genuine pre-existing bug: `recommendation_worker.py`'s `_RE_DIR` pointed at a nonexistent path (`Recommendation-Engine` instead of `submodules/Recommendation-Engine`) — the existing recommendation feature was silently broken in this checkout before this fix. Full Recommendation-Engine storage absorption investigated and explicitly deferred (its hybrid dense+sparse+RRF+watch-history scoring doesn't map onto the simple vector store this round built on).
+
+**DB.8 (issue #66) — cross-domain link DAL + detail-panel UI**: `MediaRepo`/`EntityRepo` gained `link_group`/`unlink_group`/`get_linked_groups`/`get_media_for_group`/`suggest_group_matches` and `link_image`/`unlink_image`/`get_linked_images`/`get_entities_for_image` over the existing `media_groups`/`entity_images` M2M tables. The Content Listings detail panel gained a "Linked Image Groups" chip row + picker dialog; the entity detail panel gained a "Linked Images" thumbnail gallery strip. Also exposed `TagRepo.merge_tags()` (existed since DB.3, never reachable) on the facade with a new "🔀 Merge Into…" tag-merge tool in Maintenance. The Search-tab cross-tab "View Images" jump was investigated and correctly deferred — it needs new tab-reference plumbing between `ListingsTab` and `MainWindow`, not just reuse of existing wiring.
+
+**DB.9 (issue #67) — Data Browser tab**: new `BrowserRepo` (table listing/columns/row-count/paginated query, with a table-name allowlist and a WHERE-clause mutation-keyword denylist) and a new Data Browser tab (table picker, paginated raw-value grid, WHERE filter, CSV/JSON export), registered additively in the Library category. ER/crow's-foot graphics view and gated edit mode explicitly deferred, per the roadmap's own original text.
+
+**Integration fix**: a genuine test bug found while verifying all three streams together — `test_connect_browser_populates_table_list` only configured `list_tables` on its mock, but the code under test cascades into a query call whose return value gets unpacked; an unconfigured `MagicMock()` isn't iterable, so that raised and popped a real, blocking `QMessageBox.critical()` in the headless test run (hung forever). Fixed by configuring the mock's `table_row_count`/`query_table` return values.
+
+Tests: 18 new backend (`test_media_group_links`, `test_media_group_fuzzy_suggestions`, `test_entity_image_links`, `test_merge_tags_facade`, `test_listings_embedding_backfill_bookkeeping`, `test_semantic_media_and_entity_search`, 10× `test_browser_repo.py`), 25 new GUI (`test_detail_panel_links.py` ×11, `test_listings_semantic_search.py` ×6, `test_data_browser_tab.py` ×8) — all green, 78/78 `backend/test/database/` overall.
+
 ## S275 — 2026-08-01 (DB.8 started: cross-domain link DAL + tag-merge tool — issue #66)
 
 First slice of DB.8 (Cross-Domain Features):

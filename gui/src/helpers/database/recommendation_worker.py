@@ -17,7 +17,7 @@ from PySide6.QtCore import QThread, Signal
 logger = logging.getLogger(__name__)
 
 # Absolute path to the standalone Recommendation-Engine package
-_RE_DIR = Path(__file__).resolve().parents[4] / "Recommendation-Engine"
+_RE_DIR = Path(__file__).resolve().parents[4] / "submodules" / "Recommendation-Engine"
 
 
 def _ensure_re_on_path() -> None:

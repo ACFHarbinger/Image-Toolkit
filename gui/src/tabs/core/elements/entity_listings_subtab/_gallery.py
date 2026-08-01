@@ -29,6 +29,16 @@ class _GalleryMixin:
     """Filters/sorts entities via SearchRepo and rebuilds the card grid."""
 
     def _filtered_entities(self) -> List[Dict[str, Any]]:
+        # Semantic search mode (DB.7): show results sorted by descending
+        # similarity score, same shape as content_listings_subtab's
+        # _recommendation_results precedence.
+        if getattr(self, "_semantic_search_results", None) is not None:
+            assert self._semantic_search_results is not None
+            sem_map = {eid: score for eid, score in self._semantic_search_results}
+            result = [e for e in self._entities if e.get("id") in sem_map]
+            result.sort(key=lambda e: sem_map.get(e.get("id", ""), 0.0), reverse=True)
+            return result
+
         # Search box (name/notes/associated-content-title) and type/role
         # combos are evaluated in one SQL query via SearchRepo.filter_entities
         # (DB.5) — replaces the old per-keystroke full-table title-map

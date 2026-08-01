@@ -378,6 +378,33 @@ def test_image_embedding_backfill_bookkeeping(db, tmp_path):
     assert repo.count_unembedded("bge-m3") == 3
 
 
+def test_listings_embedding_backfill_bookkeeping(db):
+    """DB.7 (listings side): MediaRepo/EntityRepo get the same
+    count_unembedded/list_unembedded/upsert_embedding bookkeeping as
+    ImageRepo, just keyed by their own TEXT ids."""
+    np = pytest.importorskip("numpy")
+    media = MediaRepo(db)
+    entities = EntityRepo(db)
+    media.save_media(dict(LEGACY_ENTRY))
+    entities.save_entity(dict(LEGACY_ENTITY))
+
+    assert media.count_unembedded("bge-m3") == 1
+    pending = media.list_unembedded("bge-m3", limit=10)
+    assert pending == [("m-1", LEGACY_ENTRY["title"])]
+
+    media.upsert_embedding("m-1", "bge-m3", np.array([1.0, 0.0], dtype=np.float32))
+    assert media.count_unembedded("bge-m3") == 0
+    assert media.list_unembedded("bge-m3", limit=10) == []
+    # A different model has its own independent backfill queue.
+    assert media.count_unembedded("openclip") == 1
+
+    assert entities.count_unembedded("bge-m3") == 1
+    entities.upsert_embedding(
+        "ent-abc12345", "bge-m3", np.array([0.0, 1.0], dtype=np.float32)
+    )
+    assert entities.count_unembedded("bge-m3") == 0
+
+
 # ---------------------------------------------------------------------------
 # tag repo
 # ---------------------------------------------------------------------------
@@ -688,6 +715,41 @@ def test_semantic_image_search_with_prefilter(populated):
     assert [h[0] for h in hits] == [ids["c.png"]]
     hits = search.semantic_image_search(q, top_k=5, tags=["night"], input_formats=["jpg"])
     assert [h[0] for h in hits] == [ids["b.jpg"]]
+
+
+def test_semantic_media_and_entity_search(db):
+    """DB.7 (listings side): knn over media_item/entity embeddings,
+    mirroring test_semantic_image_search_with_prefilter above."""
+    np = pytest.importorskip("numpy")
+    media = MediaRepo(db)
+    entities = EntityRepo(db)
+    search = SearchRepo(db)
+
+    media.save_media(dict(LEGACY_ENTRY, id="m-1", title="A", type="Anime", episode_list=[]))
+    media.save_media(dict(LEGACY_ENTRY, id="m-2", title="B", type="Manga", episode_list=[]))
+    media.upsert_embedding("m-1", "bge-m3", np.array([1.0, 0.0], dtype=np.float32))
+    media.upsert_embedding("m-2", "bge-m3", np.array([0.0, 1.0], dtype=np.float32))
+
+    entities.save_entity(dict(LEGACY_ENTITY, id="e-1", name="Alpha", type="Person", credit_list=[]))
+    entities.save_entity(dict(LEGACY_ENTITY, id="e-2", name="Beta", type="Organization", credit_list=[]))
+    entities.upsert_embedding("e-1", "bge-m3", np.array([1.0, 0.0], dtype=np.float32))
+    entities.upsert_embedding("e-2", "bge-m3", np.array([0.0, 1.0], dtype=np.float32))
+
+    q = np.array([1.0, 0.0], dtype=np.float32)
+
+    hits = search.semantic_media_search(q, top_k=2)
+    assert [h[0] for h in hits] == ["m-1", "m-2"]
+    assert hits[0][2] == "A"
+
+    hits = search.semantic_media_search(q, top_k=5, type_filter="Manga")
+    assert [h[0] for h in hits] == ["m-2"]
+
+    hits = search.semantic_entity_search(q, top_k=2)
+    assert [h[0] for h in hits] == ["e-1", "e-2"]
+    assert hits[0][2] == "Alpha"
+
+    hits = search.semantic_entity_search(q, top_k=5, type_filter="Organization")
+    assert [h[0] for h in hits] == ["e-2"]
 
 
 # ---------------------------------------------------------------------------

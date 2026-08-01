@@ -124,6 +124,21 @@ class _UIBuilderMixin:
         assoc_row.addWidget(self.f_assoc_entities_display, 1)
         assoc_row.addWidget(self.btn_select_entities)
 
+        # DB.8a: Linked Image Groups row
+        self.f_linked_groups_display = QTextEdit()
+        self.f_linked_groups_display.setReadOnly(True)
+        self.f_linked_groups_display.setPlaceholderText("None linked")
+        self.f_linked_groups_display.setFixedHeight(40)
+        self.f_linked_groups_display.setStyleSheet(
+            "background:#23272a; border:1px solid #4f545c; border-radius:4px;padding:4px 6px; color:white;"
+        )
+        self.btn_select_linked_groups = QPushButton("🖼️ Link Image Groups")
+        self.btn_select_linked_groups.clicked.connect(self._select_linked_groups)
+
+        linked_groups_row = QHBoxLayout()
+        linked_groups_row.addWidget(self.f_linked_groups_display, 1)
+        linked_groups_row.addWidget(self.btn_select_linked_groups)
+
         # Local File and Web Link rows
         self.f_local_file = QLineEdit()
         self.f_local_file.setPlaceholderText("Select/paste local file path…")
@@ -167,6 +182,7 @@ class _UIBuilderMixin:
         form.addRow("Genres", self.f_genres)
         form.addRow("Tags", self.f_tags)
         form.addRow("Associated Entities", assoc_row)
+        form.addRow("Linked Image Groups", linked_groups_row)
         form.addRow("Local File", local_file_row)
         form.addRow("Web Link", web_link_row)
         form.addRow("Summary", self.f_summary)

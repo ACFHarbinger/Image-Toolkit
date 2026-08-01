@@ -492,3 +492,59 @@ class SearchRepo:
             if row:
                 results.append((int(owner_id), float(score), row[0][0]))
         return results
+
+    def semantic_media_search(
+        self,
+        query_vector,
+        top_k: int = 50,
+        model: str = "bge-m3",
+        type_filter: Optional[str] = None,
+    ) -> List[Tuple[str, float, str]]:
+        """knn over media_item embeddings (DB.7 listings side).
+
+        Returns [(media_id, score, title), ...] by descending score.
+        """
+        prefilter = ""
+        if type_filter:
+            prefilter = (
+                "SELECT m.id FROM media_items m WHERE m.type = "
+                + sql_string_literal(type_filter)
+            )
+
+        hits = self._db.knn("media_item", model, query_vector, top_k, prefilter)
+        results: List[Tuple[str, float, str]] = []
+        for owner_id, score in hits:
+            row = self._db.query(
+                "SELECT title FROM media_items WHERE id = ?", (owner_id,)
+            )
+            if row:
+                results.append((owner_id, float(score), row[0][0]))
+        return results
+
+    def semantic_entity_search(
+        self,
+        query_vector,
+        top_k: int = 50,
+        model: str = "bge-m3",
+        type_filter: Optional[str] = None,
+    ) -> List[Tuple[str, float, str]]:
+        """knn over entity embeddings (DB.7 listings side).
+
+        Returns [(entity_id, score, name), ...] by descending score.
+        """
+        prefilter = ""
+        if type_filter:
+            prefilter = (
+                "SELECT e.id FROM entities e WHERE e.type = "
+                + sql_string_literal(type_filter)
+            )
+
+        hits = self._db.knn("entity", model, query_vector, top_k, prefilter)
+        results: List[Tuple[str, float, str]] = []
+        for owner_id, score in hits:
+            row = self._db.query(
+                "SELECT name FROM entities WHERE id = ?", (owner_id,)
+            )
+            if row:
+                results.append((owner_id, float(score), row[0][0]))
+        return results

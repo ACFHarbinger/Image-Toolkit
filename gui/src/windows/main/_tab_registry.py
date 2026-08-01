@@ -16,6 +16,7 @@ class _TabRegistryMixin:
         from ...tabs import (
             ComfyUITab,
             ConvertTab,
+            DataBrowserTab,
             DatabaseTab,
             DriveSyncTab,
             EntityReconTab,
@@ -40,6 +41,7 @@ class _TabRegistryMixin:
 
         # --- Tab Initialization ---
         self.database_tab = DatabaseTab(vault_manager)
+        self.data_browser_tab = DataBrowserTab(vault_manager)
         self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
         self.scan_metadata_tab = ScanMetadataTab(self.database_tab)  # pyrefly: ignore [bad-instantiation]
         self.convert_tab = ConvertTab(dropdown=dropdown)
@@ -82,6 +84,7 @@ class _TabRegistryMixin:
                 "Image Search": self.search_tab,
                 "Scan and Tag": self.scan_metadata_tab,
                 "Maintenance": self.database_tab,
+                "Data Browser": self.data_browser_tab,
             },
             "Web Integration": {
                 "Crawler": self.crawler_tab,

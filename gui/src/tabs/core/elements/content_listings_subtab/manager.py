@@ -14,6 +14,7 @@ from ._filters import _FiltersMixin
 from ._gallery import _GalleryMixin
 from ._persistence import _PersistenceMixin
 from ._recommendation import _RecommendationMixin
+from ._semantic_search import _SemanticSearchMixin
 from ._ui_builder import _UIBuilderMixin
 
 
@@ -28,6 +29,7 @@ class ContentListingsSubTab(
     _CardActionsMixin,
     _FiltersMixin,
     _RecommendationMixin,
+    _SemanticSearchMixin,
     _BackupSyncMixin,
     _DirectoryImportMixin,
     QWidget,
@@ -47,6 +49,11 @@ class ContentListingsSubTab(
         # Vector search state
         self._recommendation_results: Optional[List[Tuple[str, float]]] = None
         self._active_rec_worker = None
+
+        # Semantic (BGE-M3) search state (DB.7)
+        self._semantic_search_results: Optional[List[Tuple[str, float]]] = None
+        self._active_semantic_worker = None
+        self._active_embed_worker = None
 
         self._build_ui()
 
