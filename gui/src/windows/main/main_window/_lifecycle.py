@@ -13,6 +13,8 @@ from gui.src.windows.settings.app_settings import AppSettings
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea, QSystemTrayIcon
 
+from ....utils.shortcut_manager import get_registry
+
 
 class _LifecycleMixin:
     """Tab switching, status bar, relaunch, and key-press/close handling."""
@@ -82,6 +84,9 @@ class _LifecycleMixin:
             QApplication.quit()
         elif event.key() == Qt.Key.Key_T and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self._open_tab_search()
+            event.accept()
+        elif get_registry().matches(event, "general.save_tab_config"):
+            self._open_save_tab_config_dialog()
             event.accept()
         elif (
             event.key() == Qt.Key.Key_Slash and event.modifiers() == Qt.KeyboardModifier.ControlModifier

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from gui.src.windows.main.main_window import MainWindow
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 pytestmark = pytest.mark.gui
 
@@ -307,3 +307,72 @@ class TestMainWindowSessionRecovery:
         expected_dir = LOCAL_SOURCE_PATH
         assert window.convert_tab.format_subtab.last_browsed_dir == expected_dir
         assert window.extractor_tab.last_browsed_scan_dir == expected_dir
+
+
+class TestMainWindowSaveTabConfig:
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self):
+        cleanup_recovery_files()
+        yield
+        for widget in QApplication.topLevelWidgets():
+            widget.close()
+            widget.deleteLater()
+        for _ in range(5):
+            QApplication.processEvents()
+        cleanup_recovery_files()
+
+    def _make_window(self, q_app):
+        creds = {"account_name": "test_user", "preferences": {}}
+        vault = MockVaultManager(creds)
+        window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
+        QApplication.processEvents()
+        return window, vault
+
+    def test_ctrl_s_triggers_save_dialog(self, q_app):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QKeyEvent
+
+        window, _vault = self._make_window(q_app)
+        with patch.object(window, "_open_save_tab_config_dialog") as mock_open:
+            event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_S, Qt.KeyboardModifier.ControlModifier)
+            window.keyPressEvent(event)
+            mock_open.assert_called_once()
+
+    def test_save_tab_config_to_vault_persists_config(self, q_app):
+        window, vault = self._make_window(q_app)
+
+        class _FakeTab:
+            def collect(self):
+                return {"some_key": "some_value"}
+
+        window._save_tab_config_to_vault(_FakeTab(), "my_profile")
+
+        saved = vault.saved_data
+        assert saved is not None
+        assert saved["tab_configurations"]["_FakeTab"]["my_profile"] == {"some_key": "some_value"}
+
+    def test_save_tab_config_to_vault_no_vault_manager_shows_critical(self, q_app):
+        window, _vault = self._make_window(q_app)
+        window.vault_manager = None
+
+        class _FakeTab:
+            def collect(self):
+                return {}
+
+        with patch.object(QMessageBox, "critical") as mock_critical:
+            window._save_tab_config_to_vault(_FakeTab(), "my_profile")
+            mock_critical.assert_called_once()
+
+    def test_open_save_tab_config_dialog_warns_when_tab_lacks_collect(self, q_app):
+        window, _vault = self._make_window(q_app)
+
+        class _NoCollectTab:
+            pass
+
+        active_category = window.command_combo.currentText()
+        active_tab_name = window.tabs.tabText(window.tabs.currentIndex())
+        window.all_tabs[active_category][active_tab_name] = _NoCollectTab()
+
+        with patch.object(QMessageBox, "warning") as mock_warning:
+            window._open_save_tab_config_dialog()
+            mock_warning.assert_called_once()
