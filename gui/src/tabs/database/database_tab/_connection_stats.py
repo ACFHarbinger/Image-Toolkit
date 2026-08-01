@@ -7,8 +7,11 @@ Extracted from ``database_tab.py`` -- pure code motion, no logic change
 from __future__ import annotations
 
 from backend.src.database.unified.facade import UnifiedImageDatabase as ImageDatabase
+from gui.src.helpers.database.embedding_worker import ImageEmbeddingWorker
 from gui.src.helpers.database.library_session import get_library_db
 from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+EMBED_MODEL = "openclip"
 
 
 class _ConnectionStatsMixin:
@@ -175,6 +178,80 @@ class _ConnectionStatsMixin:
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Reindex failed: {e}")
 
+    def run_embed_backfill(self):
+        """DB.7: compute+store semantic embeddings for images that don't
+        have one yet. Runs in the background (ImageEmbeddingWorker,
+        QThread); the DB write happens back on this (main) thread, in one
+        transaction, once the whole batch's vectors are ready -- the
+        keyed Database handle is not safe to share across threads."""
+        if not self.db:
+            return
+        if getattr(self, "embedding_worker", None) is not None:
+            QMessageBox.information(
+                self, "Already Running", "An embedding backfill is already in progress."
+            )
+            return
+
+        try:
+            pending = self.db.count_unembedded_images(EMBED_MODEL)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to check embedding status: {e}")
+            return
+
+        if pending == 0:
+            QMessageBox.information(
+                self, "Up to Date", "Every image already has a semantic embedding."
+            )
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Embed Images",
+            f"{pending} image(s) have no semantic embedding yet. Compute them now?\n\n"
+            "This runs a local CLIP model over each image and may take a "
+            "while for a large library.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm == QMessageBox.StandardButton.No:
+            return
+
+        items = self.db.list_unembedded_images(EMBED_MODEL, limit=pending)
+        self.btn_embed_backfill.setEnabled(False)
+        self.btn_embed_backfill.setText("🧠 Embedding… 0/%d" % len(items))
+
+        worker = ImageEmbeddingWorker(items, model=EMBED_MODEL)
+        worker.progress.connect(self._on_embed_progress)
+        worker.sig_finished.connect(self._on_embed_finished)
+        worker.error.connect(self._on_embed_error)
+        worker.finished.connect(worker.deleteLater)
+        worker.finished.connect(lambda: setattr(self, "embedding_worker", None))
+        self.embedding_worker = worker
+        worker.start()
+
+    def _on_embed_progress(self, current: int, total: int) -> None:
+        self.btn_embed_backfill.setText(f"🧠 Embedding… {current}/{total}")
+
+    def _on_embed_finished(self, results: list) -> None:
+        self.btn_embed_backfill.setEnabled(True)
+        self.btn_embed_backfill.setText("🧠 Embed Unembedded Images")
+        if not self.db:
+            return
+        try:
+            with self.db.transaction():
+                for image_id, model, vector in results:
+                    self.db.upsert_image_embedding(image_id, model, vector)
+            QMessageBox.information(
+                self, "Success", f"Embedded {len(results)} image(s)."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to store embeddings: {e}")
+
+    def _on_embed_error(self, message: str) -> None:
+        self.btn_embed_backfill.setEnabled(True)
+        self.btn_embed_backfill.setText("🧠 Embed Unembedded Images")
+        QMessageBox.warning(self, "Embedding Failed", message)
+
     def _refresh_all_group_combos(self):
         if not self.db:
             return
@@ -214,6 +291,7 @@ class _ConnectionStatsMixin:
         self.btn_reset_db.setVisible(connected)
         self.btn_vacuum.setVisible(connected)
         self.btn_reindex.setVisible(connected)
+        self.btn_embed_backfill.setVisible(connected)
 
         self.populate_group.setEnabled(connected)
         self.btn_auto_populate.setEnabled(connected)

@@ -143,3 +143,27 @@ def test_maintenance_and_gated_reset(populated, tmp_path, monkeypatch):
     monkeypatch.setattr(backup_all, "PRE_UNIFIED_DIR", tmp_path / "none")
     with pytest.raises(RuntimeError, match="no backup manifest"):
         db.reset_database()
+
+
+def test_semantic_search_facade_surface(populated):
+    """DB.7: the facade methods ImageEmbeddingWorker/the Maintenance panel
+    button/Search tab consume, exercised through the exact same call
+    shapes those callers use."""
+    np = pytest.importorskip("numpy")
+    db, tmp_path = populated
+    ids = {r["file_path"]: r["id"] for r in db.search_images(limit=10000)}
+
+    assert db.count_unembedded_images("openclip") == 2
+    pending = db.list_unembedded_images("openclip")
+    assert {p for _, p in pending} == set(ids)
+
+    a_path = str((tmp_path / "a.png").absolute())
+    b_path = str((tmp_path / "b.jpg").absolute())
+    db.upsert_image_embedding(ids[a_path], "openclip", np.array([1.0, 0.0], dtype=np.float32))
+    db.upsert_image_embedding(ids[b_path], "openclip", np.array([0.9, 0.1], dtype=np.float32))
+    assert db.count_unembedded_images("openclip") == 0
+
+    hits = db.semantic_image_search(
+        np.array([1.0, 0.0], dtype=np.float32), top_k=2, model="openclip"
+    )
+    assert [h[0] for h in hits] == [ids[a_path], ids[b_path]]

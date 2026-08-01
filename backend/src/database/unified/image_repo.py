@@ -313,6 +313,39 @@ class ImageRepo:
                 out.append(row)
         return out
 
+    # ---- embeddings (DB.7 semantic search / CBIR) ----------------------
+
+    def upsert_embedding(self, image_id: int, model: str, vector) -> None:
+        """Store *vector* (any array-like of floats) for this image under
+        *model* — thin wrapper over ``Database.upsert_embedding`` (DB.2),
+        keeping GUI/worker code off the native call and off owner_id's
+        str-cast convention (``embeddings.owner_id`` is TEXT for every
+        owner_type, images included)."""
+        import numpy as np
+
+        self._db.upsert_embedding(
+            "image", str(image_id), model, np.asarray(vector, dtype=np.float32)
+        )
+
+    def count_unembedded(self, model: str) -> int:
+        return self._db.query(
+            "SELECT COUNT(*) FROM images i WHERE NOT EXISTS ("
+            "SELECT 1 FROM embeddings e WHERE e.owner_type = 'image' "
+            "AND e.owner_id = CAST(i.id AS TEXT) AND e.model = ?)",
+            (model,),
+        )[0][0]
+
+    def list_unembedded(self, model: str, limit: int = 500) -> List[Tuple[int, str]]:
+        """[(image_id, file_path), ...] for images with no *model* embedding
+        yet — the backfill worker's work queue."""
+        return self._db.query(
+            "SELECT i.id, i.file_path FROM images i WHERE NOT EXISTS ("
+            "SELECT 1 FROM embeddings e WHERE e.owner_type = 'image' "
+            "AND e.owner_id = CAST(i.id AS TEXT) AND e.model = ?) "
+            "ORDER BY i.id LIMIT ?",
+            (model, limit),
+        )
+
     # ------------------------------------------------------------------
 
     def _assemble(self, row: tuple) -> Dict[str, Any]:

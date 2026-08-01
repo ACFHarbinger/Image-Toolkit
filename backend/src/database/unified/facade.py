@@ -74,6 +74,25 @@ class UnifiedImageDatabase:
             phash_int, threshold=threshold, limit=limit
         )
 
+    # ---- semantic search / CBIR (DB.7) ---------------------------------
+
+    def upsert_image_embedding(self, image_id: int, model: str, vector) -> None:
+        self._images.upsert_embedding(image_id, model, vector)
+
+    def count_unembedded_images(self, model: str) -> int:
+        return self._images.count_unembedded(model)
+
+    def list_unembedded_images(self, model: str, limit: int = 500) -> List[Tuple[int, str]]:
+        return self._images.list_unembedded(model, limit=limit)
+
+    def semantic_image_search(self, query_vector, top_k: int = 50, model: str = "openclip",
+                               group_name=None, subgroup_name=None, tags=None,
+                               input_formats=None) -> List[Tuple[int, float, str]]:
+        return self._search.semantic_image_search(
+            query_vector, top_k=top_k, model=model, group_name=group_name,
+            subgroup_name=subgroup_name, tags=tags, input_formats=input_formats,
+        )
+
     @contextmanager
     def transaction(self):
         """Batch multiple writes into one commit (DB.6 P3b — Scan & Tag's

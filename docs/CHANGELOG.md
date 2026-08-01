@@ -2,6 +2,34 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S273 — 2026-08-01 (DB.7 started: semantic-embedding backfill infrastructure — issue #65)
+
+First slice of DB.7 (Semantic Search & CBIR) from `moon/roadmaps/unified_database.md`:
+
+- `ImageRepo`/`UnifiedImageDatabase` gained `upsert_embedding`/`count_unembedded`/
+  `list_unembedded` and a facade-level `semantic_image_search` (the DAL
+  method already existed from earlier scaffolding but was never exposed
+  or called from anywhere).
+- `backend/src/core/similarity/embedder.py`'s `OpenClipEmbedder` gained
+  `embed_text()` (same vector space as the existing image tower) — real,
+  in-process CLIP encoding, reusing the Similarity tab's already-tested
+  lazy-loaded embedder instead of the originally-planned MetaCLIP path,
+  which turned out to have no in-process encoder anywhere in the
+  codebase to build on (see the roadmap's correction note).
+- New `ImageEmbeddingWorker` (`gui/src/helpers/database/embedding_worker.py`,
+  `QThread` overriding `run()`, matching `UpsertWorker`'s established
+  JPype-JVM-safe pattern) computes embeddings off-thread; the DB write
+  happens back on the main thread in one transaction.
+- Library Maintenance panel gained a "🧠 Embed Unembedded Images" button
+  wired to the worker, matching the existing Vacuum/Reindex button
+  pattern.
+- Text→image search UI, "Find similar" context action, and the listings
+  BGE-M3/Recommendation-Engine absorption are explicitly deferred — see
+  the roadmap for the full breakdown of what's shipped vs. pending.
+- Tests: 2 new (`test_image_embedding_backfill_bookkeeping`,
+  `test_semantic_search_facade_surface`); 62/62 `backend/test/database/`
+  green.
+
 ## S272 — 2026-08-01 (Video thumbnail scanning re-implemented; module-flattening import fixes)
 
 Two pieces of follow-up work in the same session as S271:

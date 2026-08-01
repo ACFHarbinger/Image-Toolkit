@@ -64,6 +64,21 @@ class _UIConnectionMixin:
         self.btn_reindex.hide()
         self.button_conn_layout.addWidget(self.btn_reindex)
 
+        self.btn_embed_backfill = QPushButton("🧠 Embed Unembedded Images")
+        self.btn_embed_backfill.setToolTip(
+            "Compute semantic (open_clip) embeddings for images that don't "
+            "have one yet, enabling text/find-similar search (DB.7)."
+        )
+        self.btn_embed_backfill.setStyleSheet(
+            "background-color: #16a085; color: white; padding: 10px;"
+        )
+        apply_shadow_effect(
+            self.btn_embed_backfill, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        self.btn_embed_backfill.clicked.connect(self.run_embed_backfill)
+        self.btn_embed_backfill.hide()
+        self.button_conn_layout.addWidget(self.btn_embed_backfill)
+
         conn_layout.addLayout(self.button_conn_layout)
         main_layout.addWidget(conn_group)
 

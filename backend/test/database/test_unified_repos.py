@@ -292,6 +292,33 @@ def test_find_near_duplicates_by_phash(db, tmp_path):
     assert len(repo.find_near_duplicates_by_phash(0, threshold=10, limit=1)) == 1
 
 
+def test_image_embedding_backfill_bookkeeping(db, tmp_path):
+    """DB.7: count_unembedded/list_unembedded drive the backfill worker's
+    work queue; upsert_embedding is a thin owner_id-str-cast wrapper over
+    Database.upsert_embedding."""
+    np = pytest.importorskip("numpy")
+    repo = ImageRepo(db)
+    ids = {}
+    for name in ("a.png", "b.png", "c.png"):
+        p = tmp_path / name
+        p.write_bytes(b"x")
+        ids[name] = repo.add_image(str(p), tags=[])
+
+    assert repo.count_unembedded("openclip") == 3
+    pending = repo.list_unembedded("openclip", limit=10)
+    assert {p for _, p in pending} == {
+        str((tmp_path / n).absolute()) for n in ids
+    }
+
+    repo.upsert_embedding(ids["a.png"], "openclip", [1.0, 0.0, 0.0])
+    assert repo.count_unembedded("openclip") == 2
+    remaining_ids = {i for i, _ in repo.list_unembedded("openclip", limit=10)}
+    assert remaining_ids == {ids["b.png"], ids["c.png"]}
+
+    # A different model has its own independent backfill queue.
+    assert repo.count_unembedded("bge-m3") == 3
+
+
 # ---------------------------------------------------------------------------
 # tag repo
 # ---------------------------------------------------------------------------

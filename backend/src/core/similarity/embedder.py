@@ -105,6 +105,7 @@ class OpenClipEmbedder(_TorchEmbedder):
         self.pretrained = pretrained
         self.name = name
         self.dim = dim
+        self._tokenizer = None
 
     def _load(self):
         import open_clip
@@ -117,9 +118,24 @@ class OpenClipEmbedder(_TorchEmbedder):
         model.to(self._device).eval()
         self._model = model
         self._preprocess = preprocess
+        self._tokenizer = open_clip.get_tokenizer(self.arch)
 
     def _forward(self, batch):
         return self._model.encode_image(batch)
+
+    def embed_text(self, text: str) -> np.ndarray:
+        """Text-tower embedding for DB.7 text→image semantic search --
+        same model/space as ``embed_batch``'s image tower, so a query
+        embedding here composes directly with ``base.database.Database.knn``
+        over image embeddings from this same embedder."""
+        import torch
+
+        if self._model is None:
+            self._load()
+        tokens = self._tokenizer([text]).to(self._device)
+        with torch.no_grad():
+            feats = self._model.encode_text(tokens)
+        return feats.float().cpu().numpy()[0].astype(np.float32)
 
 
 class ResNetEmbedder(_TorchEmbedder):

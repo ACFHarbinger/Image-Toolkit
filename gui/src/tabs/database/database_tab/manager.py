@@ -48,6 +48,7 @@ class DatabaseTab(
         self.vault_manager = vault_manager
         self.db: Optional[ImageDatabase] = None
         self._stats_text = "Not Connected"
+        self.embedding_worker = None
 
         # --- Tab References ---
         # These are assigned by MainWindow after all tabs are initialized

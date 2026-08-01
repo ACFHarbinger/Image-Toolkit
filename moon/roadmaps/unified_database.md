@@ -239,9 +239,25 @@ Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to
 - **Retirement**: `backend/src/database/image_database.py`, `pooled_image_database.py`, `sql/*.sql` move to `archive/`; `psycopg2`/`psycopg_pool`/pgvector removed from requirements (psycopg2 stays importable only for `003_migrate_pgvector`, guarded); `env/vars.env` DB_* keys deprecated; `phash_deduplicator` re-pointed at `image_repo`.
 - The saved-config format (`collect`/`set_config`) drops connection credentials — fixes the stored-password wart.
 
-## DB.7 Semantic Search & CBIR
+## 🔄 DB.7 Semantic Search & CBIR
 
-Real semantic image search (answer #4), shared engine across both domains:
+*Started 2026-08-01 (issue #65): image-embedding backfill infrastructure shipped; text/find-similar search UI and the listings BGE-M3/Recommendation-Engine absorption are not yet done — see below.*
+
+**Correction to the original roadmap text**: "MetaCLIP image encoder (already integrated for the Inference tab)" was never actually true — `MetaCLIPInferenceTab` (`gui/src/tabs/models/meta_clip_inference_tab.py`) is a thin GUI shell that dispatches a job elsewhere; there is no in-process MetaCLIP encoder anywhere in the codebase to call. What *does* already exist and run in-process is `backend/src/core/similarity/embedder.py` (built for the Similarity tab's Tier-4 semantic hashing) — a lazy-loaded, graceful-fallback `open_clip` embedder (`mobileclip` → `openclip` → `resnet18`), already batched, already GIL-releasing during the torch forward pass. DB.7 builds on that real, tested encoder instead — `model='openclip'`, not `'metaclip'` — rather than inventing a second ML-loading pathway for a model this codebase can't actually run yet.
+
+**Shipped**:
+- `ImageRepo.upsert_embedding()`/`count_unembedded()`/`list_unembedded()` (`backend/src/database/unified/image_repo.py`) — thin wrappers over `Database.upsert_embedding` (DB.2) plus the "what's left to embed" query the backfill worker's work queue needs. Exposed on `UnifiedImageDatabase` as `upsert_image_embedding`/`count_unembedded_images`/`list_unembedded_images`/`semantic_image_search` (the last one was already implemented in `search_repo.py` ahead of this phase, just never exposed on the facade or called from anywhere).
+- `OpenClipEmbedder.embed_text()` (`embedder.py`) — text-tower embedding in the same vector space as the image tower, needed for text→image search (not yet wired to a GUI control — see Not done below).
+- `ImageEmbeddingWorker` (`gui/src/helpers/database/embedding_worker.py`) — `QThread` subclass overriding `run()` (same pattern as `UpsertWorker`/`MergeWorker`, not `QObject.moveToThread()` — the JPype-JVM/Qt-event-loop precedent). Embedding computation happens off-thread; the DB write is deferred back to the main thread in one transaction (the keyed `Database` handle isn't safe to share across threads, per DB.2's own risk register).
+- Maintenance panel gained a "🧠 Embed Unembedded Images" button (`database_tab/_ui_connection.py` + `_connection_stats.py`) — counts pending images, confirms, runs the worker, shows live progress, writes results transactionally, matching the existing Vacuum/Reindex button pattern exactly.
+- Tests: `test_image_embedding_backfill_bookkeeping` (`test_unified_repos.py`), `test_semantic_search_facade_surface` (`test_unified_facade.py`) — 62/62 `backend/test/database/` green.
+
+**Not done yet** (explicitly deferred, not silently skipped):
+- **Search tab UI**: no "Semantic" mode toggle or natural-language query box wired up yet — `semantic_image_search()`/`embed_text()` exist and are tested at the DAL/embedder level, but nothing in the GUI calls them together end-to-end. "Find similar" context-menu action on image cards: also not wired.
+- **Listings semantic search (BGE-M3)**: `Recommendation-Engine` absorption (`LibraryBackend`, deleting the dead placeholder-embedding code in `listings_common.py`) not started — this is a separate, large sub-project (a second embedding model + absorbing an entire existing sub-project's storage) that deserves its own dedicated round rather than being folded into this one.
+- **hnswlib ANN index**: `Database.knn` (DB.2) already has a brute-force fallback path and is what's used above; the persisted-encrypted-blob HNSW index for larger libraries is not built — fine at current library scale (brute-force over a few thousand images is fast), revisit if it becomes a real bottleneck.
+
+## Original DB.7 scope (for reference)
 
 - **Image embeddings**: MetaCLIP image encoder (already integrated for the Inference tab) as the default `model='metaclip'`; embedding worker (QThreadPool, GPU-optional, batched) fills `embeddings(owner_type='image')` during Scan & Tag upserts and via a backfill action in Maintenance ("Embed N unembedded images").
 - **Text→image search**: MetaCLIP text encoder → `knn('image', 'metaclip', vec, k, sql_prefilter=…)`, with the SQL prefilter compiled from the existing Search tab filters (group/tags/format) so vector search composes with structured search. New "Semantic" mode toggle + natural-language box in the Search tab; "Find similar" context-menu action on every image card (query by image embedding).
@@ -290,7 +306,7 @@ Incremental (answer #10 — implementer's choice); the app ships after every pha
 | ✅ P1 | DB.2 `base.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | done (S210) |
 | 🔄 P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | mostly done (S210); SQL-side filtering deferred |
 | 🔄 P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | mostly done (S211); archival + scan-worker deferred |
-| P4 | DB.7 semantic search & CBIR | Text→image + find-similar live; rec engine unified | ~1.5w |
+| 🔄 P4 | DB.7 semantic search & CBIR | Embedding backfill live; text→image/find-similar UI + rec-engine unification still pending | ~1.5w |
 | P5 | DB.8 cross-domain features | Links, shared tags, auto-listings | ~1w |
 | P6 | DB.9 data browser + DB.10 cleanup/backups/docs | End state | ~1w |
 
