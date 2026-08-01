@@ -2,6 +2,25 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S270 — 2026-08-01 (Startup/session recovery refinements & Shortcuts tab KDE-style redesign)
+
+Three related GUI/UX items, each building on the existing §2.16 (startup preferences) and §2.29 (configurable keyboard shortcuts) roadmap sections:
+
+1. **GUI §2.16H (Current Category session recovery + Default Startup Tab)**:
+   - Session Recovery Level gained a fourth option, "Current Category": restores/saves every tab's config within the category that was active on close, not just the single active tab or every tab. Added to `session_recovery_combo` in `settings_window/_relaunch_settings.py`; save/restore logic (including the `restore_last_dir` reset-on-startup scoping) added to `main_window/_session_recovery.py`.
+   - New "Default Startup Tab" combo (cascades from "Default Startup Category") and independent "Restore last opened tab on startup" checkbox decouple tab *selection* at startup from Session Recovery Level, which now only governs which tab *configs* get restored. `_restore_session_recovery()` picks the previously-active category/tab when the checkbox is on, else the Default Startup Category/Tab preferences.
+   - Tests: `gui/test/core/test_main_window.py::TestMainWindowSessionRecovery` (9 tests, 4 new) and `gui/test/core/test_settings_window.py::TestSettingsWindowStartupTab` (4 new tests).
+
+2. **GUI §2.29 (Shortcuts tab KDE System Settings-style redesign)**:
+   - `gui/src/utils/shortcut_manager.py`: each action now independently supports toggling its default binding on/off plus any number of additional custom bindings (`{"default_enabled": bool, "custom": [str, ...]}` per action), replacing the previous single-override-string model. Backward compatible with the old flat-string `keybindings.json` format.
+   - `settings_window/_shortcuts.py` rebuilt as a two-pane editor: left list of functionalities (shortcut scopes — General, Gallery, Preview — with icons), right panel shows the selected scope's actions each with a default-shortcut checkbox+label and custom-shortcut pills + "+ Add..." button, matching the KDE Shortcuts module reference layout. Given far more height (fills the tab instead of shrinking to content via the shared scroll-area helper).
+   - Conflict detection on save is scoped per-scope, not global — Gallery and Preview both reusing `Left`/`Right` for unrelated, never-simultaneously-active navigation is not a real runtime conflict.
+   - Added `gui/test/utils/test_shortcut_manager.py` (16 tests) and `TestSettingsWindowShortcuts` in `test_settings_window.py` (7 tests).
+
+3. **GUI §2.29 (Ctrl+S save-tab-config dialog)**:
+   - New registry entry `general.save_tab_config` (default `Ctrl+S`, scope "General"). New `main_window/_save_tab_config.py` mixin: opens a small dialog (name field + OK/Cancel), captures the active tab's current configuration via `.collect()`, and saves it into the vault's `tab_configurations` store — the same store the Settings window's Tab Default Configuration Management section uses, so a config saved via Ctrl+S immediately shows up there too. Wired through the shortcut registry (`get_registry().matches(event, "general.save_tab_config")`) in `main_window/_lifecycle.py::keyPressEvent`, so it respects user rebinding like every other registry-backed shortcut.
+   - Added `TestMainWindowSaveTabConfig` in `test_main_window.py` (4 new tests).
+
 ## S269 — 2026-07-30 (UI tag chip components & pipeline trace failure context — issues #127, #128)
 
 Implemented UI tag component enhancements and pipeline error trace diagnostics across two roadmap items:
