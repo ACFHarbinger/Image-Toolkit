@@ -1568,6 +1568,131 @@ was available this round to directly inspect the corrupted
 produce one either; worth investigating apport/`core_pattern`
 configuration separately if a core file is needed to go further.
 
+## Addendum 22 (2026-08-01) — Addendum 21's fix is real but insufficient: a third capture shows genuine cross-thread contention on deleteOrphaned's mutex, triggered via a path the fix doesn't touch
+
+A third `IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh` capture (`hs_err_pid2953168.log`,
+`telemetry-2953168.jsonl`, `gdb-backtrace-20260801-131048.txt`) landed
+after Addendum 21's fix was already in place. This is the richest capture
+yet — for the first time, gdb's `thread apply all bt full` fully resolved
+**Thread 1's entire native stack**, not just a raw offset:
+
+```
+QBasicMutex::lockInternal()
+QObjectPrivate::ConnectionData::cleanOrphanedConnectionsImpl(QObject*, ...)
+?? (unresolved, almost certainly deleteOrphaned's own frame)
+QObject::destroyed(QObject*)
+QWidget::~QWidget()
+QObjectPrivate::deleteChildren()
+QWidget::~QWidget()          <- a parent widget's destructor cascading into a child's
+QObject::event(QEvent*)
+QApplicationPrivate::notify_helper / QCoreApplication::notifyInternal2
+QCoreApplicationPrivate::sendPostedEvents(QObject*, int, QThreadData*)
+[Python C API frames: cfunction_call, _PyEval_EvalFrameDefault, ...]
+PySide::SignalManager::callPythonMetaMethod(...)
+QAbstractButton::clicked(bool)
+[mouse event delivery frames]
+QCoreApplication::exec()
+[Python main / app.exec() entry]
+```
+
+Reading bottom-up: this is the **normal Qt event loop**, delivering a
+**mouse click on a `QAbstractButton`**, invoking its connected Python
+slot, which itself calls `QCoreApplicationPrivate::sendPostedEvents` —
+i.e. **this is `_stop_scanner_threads()`'s own
+`QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)` call**,
+reached via a button click (most likely "Browse..." →
+`browse_scan_directory()` → `populate_scan_image_gallery()`), **not** the
+auto-restore timer path Addendum 21's reentrancy fix targets. That flush
+processes a queued widget deletion; the widget's destructor cascades into
+a child widget's destructor, which fires `QObject::destroyed`, which
+tries to clean up that object's now-orphaned signal connections —
+and blocks trying to acquire `QBasicMutex::lockInternal()`, at the exact
+moment `gdb` caught SIGABRT (glibc heap-corruption abort) on this thread.
+
+**Second, independent finding from the same run**: after gdb's `continue`
+re-delivered the SIGABRT, the JVM's own fatal-error handler caught a
+**second, separate SIGSEGV — on a different OS thread (`tid=2953934`,
+not the main thread above) — at the exact same instruction offset**
+(`libQt6Core.so.6+0x1e74d5`, i.e. `deleteOrphaned+0x165`, confirmed via
+`debug/resolve_qt_offset.py`). Two different threads independently
+faulting inside the identical instruction of the identical function
+around the same moment is strong evidence this is genuine **cross-thread
+contention**, not a single-thread ordering issue: telemetry for this run
+shows an 8-thread `VideoScannerWorker` `ThreadPoolExecutor` was still
+densely active at the crash instant — hundreds of
+`process_video_task`/`qimage_from_cache` begin/end pairs completing every
+~1ms, continuing right up to the very last recorded event, all for the
+same `Wallpapers/Cinematography` scan traced in Addendum 21's
+double-panel race. A worker thread emitting `thumbnail_ready` (which
+touches its own `QObject`'s connection list) while the main thread
+concurrently tears down widgets/connections on a related object is
+exactly the shape of race `QBasicMutex` contention on
+`ConnectionData` would produce.
+
+**Assessment: Addendum 21's fix is a real, legitimate improvement — it
+closes one genuine reentrant-call source of the same crash class — but
+this capture proves it is not the whole story and likely not sufficient
+on its own.** The crash here was reached via a **direct button click**,
+not the peer-reentrancy path that fix guards against, and the evidence
+now points at true concurrent thread contention on Qt's connection-list
+mutex rather than (only) a single-thread timing/ordering problem. Do not
+treat Addendum 21's fix as a resolution of this crash class; it should be
+kept (it's correct and tested on its own terms) but the investigation
+should continue.
+
+**Fix (a) implemented (2026-08-01, same session, explicit user
+confirmation to pursue this direction over (b))**: every scanner-worker
+stop path now disconnects the worker's signals (`thumbnail_ready`/
+`finished` for `VideoScannerWorker`; `scan_finished`/`scan_error`/
+`finished` for `ImageScannerWorker`) as the very first step, before
+`requestInterruption()`/`stop()`/`.wait()`/`deleteLater()` or anything
+else touches the worker — emptying its connection list up front, while
+it's still safe to do so, so a later concurrent `deleteOrphaned()`
+elsewhere in the app has nothing left to race against for that specific
+worker. Applied in all three inline stop-block locations: `_scanner_lifecycle.py`'s
+`_stop_vid_scanner_worker()` and `_stop_scanner_threads()` (Wallpaper
+tab), and `extractor_tab/_directory_scanning.py`'s equivalent inline
+block (this crash class isn't Wallpaper-tab-specific). A disconnected
+signal's `emit()` is a fast, safe no-op (Qt iterates zero connections),
+so this cannot break a worker's own in-flight `run()` logic — it only
+stops results/completion from reaching UI slots, which is exactly what
+tearing the worker down means to do anyway.
+
+**Confirmed live, incidentally, while writing the regression test**:
+`_stop_scanner_threads()`'s own trailing `sendPostedEvents(None,
+QEvent.Type.DeferredDelete)` really does synchronously process a
+just-`deleteLater()`'d worker's actual C++ destruction before the
+function returns (a test emitting on the worker immediately afterward hit
+`RuntimeError: Signal source has been deleted`) — direct confirmation of
+the exact `sendPostedEvents → ~QWidget → ... → deleteOrphaned` call chain
+this addendum's gdb backtrace showed.
+
+**New regression tests**: `test_wallpaper_scan_race.py::TestSignalDisconnectBeforeTeardown`
+(2 tests) confirm the disconnect actually takes effect — a stale `emit()`
+after the stop call never reaches the old slot (either because it's
+disconnected, or because the object was already fully destroyed by the
+trailing flush, an even stronger guarantee). All 20 tests across
+`test_wallpaper_scan_race.py`, `test_wallpaper_linked_panel_scan_race.py`,
+`test_startup_probe_guard.py`, and `test_extractor_drag_preview.py` pass.
+
+Candidate direction (b) — auditing whether `.wait()` genuinely blocks
+until the worker's own `ThreadPoolExecutor` is fully idle, or only until
+the outer `VideoScannerWorker.run()` QThread returns — remains
+unexplored; worth revisiting if this fix also proves insufficient. Still
+no core dump available to inspect the actual contended mutex/object
+directly; `ulimit -c unlimited` continues to not produce one despite four
+consecutive crashes all claiming they would write one.
+
+**Still not independently verified against a live reproduction.** This
+is the second fix attempt in this session alone (see Addendum 21, also
+unconfirmed live and shown insufficient by Addendum 22's own later
+capture) — reproduce again with `IMAGE_TOOLKIT_TELEMETRY=1
+debug/run_with_gdb.sh`, the same rapid-switch pattern, and this time also
+try clicking "Browse..." while a scan is still active (the path Addendum
+22's crash actually went through). If it recurs, check the telemetry for
+the new `*.signals_disconnected` events to confirm the fix path was
+actually reached before the crash.
+
 **Reassessed status**: the SIGSEGV landing inside JVM-managed code, on the
 main thread, during/immediately after `jpype.startJVM()` (matching
 telemetry's unclosed `jvm.start.start` span, same PID) is the strongest

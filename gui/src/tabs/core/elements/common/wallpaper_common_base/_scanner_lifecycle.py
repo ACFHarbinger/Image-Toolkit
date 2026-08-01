@@ -35,6 +35,29 @@ class _ScannerLifecycleMixin:
         if self.vid_scanner_worker is not None:
             _tag = f"[thread-lifecycle] panel={id(self):x} vid_worker={id(self.vid_scanner_worker):x} tid={threading.get_ident()}"
             _panel, _worker_id, _tid = id(self), id(self.vid_scanner_worker), threading.get_ident()
+            # Addendum 22 (.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md):
+            # a telemetry+hs_err-correlated crash showed the worker's own
+            # ThreadPoolExecutor thread still actively emitting
+            # thumbnail_ready (touching this QObject's connection list)
+            # at the exact moment a completely unrelated widget teardown
+            # elsewhere in the app triggered QObjectPrivate::ConnectionData's
+            # cleanup of orphaned connections -- two threads racing on the
+            # same connection-list mutex. Disconnecting every signal here,
+            # BEFORE requesting the thread stop or touching anything else,
+            # empties this object's connection list up front while it's
+            # still safe to do so, so there is nothing left for a later,
+            # concurrent deleteOrphaned() to race against for THIS worker.
+            # A disconnected signal's emit() is a fast, safe no-op (Qt
+            # iterates zero connections), so this cannot break the worker's
+            # own in-flight run() logic -- only stops results/completion
+            # from reaching (now possibly torn-down) UI slots, which is
+            # exactly what tearing this worker down means to do anyway.
+            for _sig_name in ("thumbnail_ready", "finished"):
+                try:
+                    getattr(self.vid_scanner_worker, _sig_name).disconnect()
+                except (RuntimeError, TypeError):
+                    pass  # already disconnected, or the C++ object is gone
+            telemetry.emit("thread-lifecycle", "vid_worker.signals_disconnected", panel=_panel, vid_worker=_worker_id, tid=_tid)
             try:
                 if self.vid_scanner_worker.isRunning():
                     print(f"{_tag} requestInterruption+stop+quit", flush=True)
@@ -75,6 +98,16 @@ class _ScannerLifecycleMixin:
         if self.img_scanner_thread is not None:
             _tag = f"[thread-lifecycle] panel={id(self):x} img_thread={id(self.img_scanner_thread):x} tid={threading.get_ident()}"
             _panel, _thread_id, _tid = id(self), id(self.img_scanner_thread), threading.get_ident()
+            # Addendum 22: see the matching comment in _stop_vid_scanner_worker()
+            # -- empty this worker's connection list up front, before any
+            # stop/wait/teardown, so a later concurrent deleteOrphaned()
+            # elsewhere has nothing left to race against for THIS worker.
+            for _sig_name in ("scan_finished", "scan_error", "finished"):
+                try:
+                    getattr(self.img_scanner_thread, _sig_name).disconnect()
+                except (RuntimeError, TypeError):
+                    pass  # already disconnected, or the C++ object is gone
+            telemetry.emit("thread-lifecycle", "img_thread.signals_disconnected", panel=_panel, img_thread=_thread_id, tid=_tid)
             if self.img_scanner_thread.isRunning():
                 print(f"{_tag} requestInterruption+quit", flush=True)
                 telemetry.emit("thread-lifecycle", "img_thread.stop_requested", panel=_panel, img_thread=_thread_id, tid=_tid)

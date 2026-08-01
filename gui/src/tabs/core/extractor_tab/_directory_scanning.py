@@ -198,6 +198,20 @@ class _DirectoryScanningMixin:
         # tracked by AbstractGalleryBase's thread_pool/_active_workers).
         if self.vid_scanner_worker:
             _panel, _worker_id = id(self), id(self.vid_scanner_worker)
+            # Addendum 22 (.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md):
+            # empty this worker's connection list up front, before any
+            # stop/wait/teardown, so a later concurrent deleteOrphaned()
+            # elsewhere in the app has nothing left to race against for
+            # THIS worker (a telemetry+hs_err-correlated crash showed a
+            # worker's own thread still emitting -- touching its own
+            # connection list -- at the exact moment an unrelated widget
+            # teardown's connection-list cleanup ran on another thread).
+            for _sig_name in ("thumbnail_ready", "finished"):
+                try:
+                    getattr(self.vid_scanner_worker, _sig_name).disconnect()
+                except (RuntimeError, TypeError):
+                    pass
+            telemetry.emit("thread-lifecycle", "extractor_vid_worker.signals_disconnected", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())
             try:
                 if self.vid_scanner_worker.isRunning():
                     telemetry.emit("thread-lifecycle", "extractor_vid_worker.stop_requested", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())

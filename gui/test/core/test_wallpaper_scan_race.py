@@ -240,3 +240,62 @@ class TestRapidDirectorySwitchRace:
                 str(dir_b),
                 None,
             )
+
+
+class TestSignalDisconnectBeforeTeardown:
+    """Addendum 22 (.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md):
+    a telemetry+hs_err-correlated crash showed a worker's own thread still
+    actively emitting a signal -- touching its own QObject's connection
+    list -- at the exact moment an unrelated widget teardown's
+    connection-list cleanup ran concurrently on another thread.
+    _stop_vid_scanner_worker()/_stop_scanner_threads() now disconnect a
+    worker's signals up front, before any stop/wait/teardown, so there is
+    nothing left for a later, concurrent deleteOrphaned() to race against
+    for that specific worker. These tests confirm the disconnect actually
+    takes effect, not just that it's attempted without raising.
+    """
+
+    def test_stop_vid_scanner_worker_disconnects_thumbnail_ready(self, q_app, tmp_path):
+        panel = ConcreteWallpaperBase()
+        worker = VideoScannerWorker(str(tmp_path))
+        panel.vid_scanner_worker = worker
+
+        received = []
+        worker.thumbnail_ready.connect(lambda path, img: received.append(path))
+
+        panel._stop_vid_scanner_worker()
+
+        from PySide6.QtGui import QImage
+
+        worker.thumbnail_ready.emit("some/path.mp4", QImage())
+        assert received == [], (
+            "thumbnail_ready must be disconnected before any teardown -- "
+            "a stale emit reached a slot that should no longer be connected"
+        )
+
+    def test_stop_scanner_threads_disconnects_img_scanner_signals(self, q_app, tmp_path):
+        panel = ConcreteWallpaperBase()
+        worker = ImageScannerWorker(str(tmp_path))
+        panel.img_scanner_thread = worker
+
+        received = []
+        worker.scan_finished.connect(lambda paths: received.append(paths))
+
+        panel._stop_scanner_threads()
+
+        # _stop_scanner_threads()'s own trailing sendPostedEvents(None,
+        # QEvent.Type.DeferredDelete) flush processes this worker's
+        # deleteLater() synchronously (confirmed live via Addendum 22's
+        # gdb backtrace: sendPostedEvents -> ~QWidget -> ... -> deleteOrphaned),
+        # so the C++ object may already be fully destroyed here, not just
+        # disconnected -- an even stronger guarantee against a stale
+        # delivery than disconnection alone. Either outcome is acceptable;
+        # what matters is the old slot is never reached.
+        try:
+            worker.scan_finished.emit(["stale.png"])
+        except RuntimeError:
+            pass  # object already fully destroyed by the DeferredDelete flush
+        assert received == [], (
+            "scan_finished must be disconnected before any teardown -- "
+            "a stale emit reached a slot that should no longer be connected"
+        )
