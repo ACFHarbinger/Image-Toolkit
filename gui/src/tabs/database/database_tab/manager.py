@@ -57,6 +57,8 @@ class DatabaseTab(
         self.merge_tab_ref = None
         self.delete_tab_ref = None
         self.wallpaper_tab_ref = None
+        self.listings_tab_ref = None
+        self.main_window_ref = None
 
         self.old_edit_value = None
 

@@ -266,18 +266,11 @@ class _CrudMixin:
 
     def search_images_with_selected_tag(self):
         """DB.8c: "click a tag anywhere -> search images with this tag."
-        Reuses the same DatabaseTab.search_tab_ref cross-tab reference
-        every "Send To..." action in SearchTab already uses (see
-        gui/src/tabs/database/search_tab/_tab_communication.py) -- it
-        cannot switch MainWindow's visible tab either (no plumbing for
-        that exists anywhere in this codebase), so this matches that
-        established UX: filter Search tab's state and tell the user to
-        switch there themselves.
-
-        The listings-side equivalent ("search listings with this tag")
-        is not implemented here: DatabaseTab has no reference to
-        ListingsTab/the listings subtabs, the same missing-plumbing gap
-        found for DB.8a's "View Images" jump last round.
+        Filters the Search tab's state via DatabaseTab.search_tab_ref
+        (the same cross-tab reference every "Send To..." action in
+        SearchTab already uses) and switches MainWindow to it directly --
+        see search_listings_with_selected_tag()'s docstring for the
+        tab-activation mechanism this reuses.
         """
         current_row = self.tags_table.currentRow()
         if current_row < 0:
@@ -293,9 +286,55 @@ class _CrudMixin:
             return
 
         self.search_tab_ref.search_by_tag(tag_name)
-        QMessageBox.information(
-            self, "Search Started", f"Searching images tagged '{tag_name}' in the Search tab."
-        )
+        if self.main_window_ref is not None:
+            self.main_window_ref.command_combo.setCurrentText("Library Database")
+            self.main_window_ref._select_tab_by_name("Image Search")
+        else:
+            QMessageBox.information(
+                self, "Search Started",
+                f"Searching images tagged '{tag_name}' in the Search tab.",
+            )
+
+    def search_listings_with_selected_tag(self):
+        """DB.8c: "click a tag anywhere -> search listings with this tag."
+        Entities have no tags in the unified schema (only media_items and
+        images do -- see backend/src/database/unified/schema.sql), so this
+        targets Content Listings only. Its search box already matches
+        tags/genres, not just titles (SearchRepo.filter_media(),
+        DB.5) -- no new filter UI needed, just set the existing box.
+
+        Reuses the real tab-activation mechanism MainWindow's Ctrl+T tab
+        search already exercises internally (command_combo +
+        _select_tab_by_name -- see gui/src/windows/main/_tab_search.py's
+        _activate()), via DatabaseTab.main_window_ref/listings_tab_ref,
+        both threaded in by gui/src/windows/main/_tab_registry.py the same
+        way as every other *_tab_ref on this class.
+        """
+        current_row = self.tags_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(
+                self, "Error", "Please select a tag from the list first."
+            )
+            return
+        item = self.tags_table.item(current_row, 0)
+        tag_name = item.text()  # pyrefly: ignore [missing-attribute]
+
+        if not self.listings_tab_ref:
+            QMessageBox.warning(self, "Error", "Listings Tab reference not found.")
+            return
+
+        content_listings = self.listings_tab_ref.content_listings
+        self.listings_tab_ref.tab_widget.setCurrentWidget(content_listings)
+        content_listings.search_box.setText(tag_name)
+
+        if self.main_window_ref is not None:
+            self.main_window_ref.command_combo.setCurrentText("Library Database")
+            self.main_window_ref._select_tab_by_name("Listings")
+        else:
+            QMessageBox.information(
+                self, "Search Started",
+                f"Searching listings tagged '{tag_name}' in the Listings tab.",
+            )
 
 
 __all__ = ["_CrudMixin"]

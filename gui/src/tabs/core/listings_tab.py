@@ -50,6 +50,17 @@ class ListingsTab(QWidget):
         self.tab_widget.addTab(self.entity_listings, "👥 Entity Listings")
         layout.addWidget(self.tab_widget)
 
+    # DB.8a cross-tab navigation: MainWindow assigns this post-construction
+    # (mirrors search_tab_ref/merge_tab_ref in _tab_registry.py); forwarded
+    # to content_listings, which forwards it to its detail panel.
+    @property
+    def main_window_ref(self):
+        return self.content_listings.main_window_ref
+
+    @main_window_ref.setter
+    def main_window_ref(self, value):
+        self.content_listings.main_window_ref = value
+
     def collect(self) -> dict:
         return {"active_subtab_index": self.tab_widget.currentIndex()}
 

@@ -58,6 +58,8 @@ class _QueryMixin:
             self.table_combo.setCurrentText(tables[0])
             self._on_table_changed(tables[0])
 
+        self._refresh_er_view()
+
     def _on_table_changed(self, table_name: str) -> None:
         if not table_name or not self.browser_repo:
             return

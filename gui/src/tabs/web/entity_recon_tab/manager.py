@@ -14,6 +14,7 @@ from ._batch_builder import _BatchBuilderMixin
 from ._config import _ConfigMixin
 from ._dataset_indexing import _DatasetIndexingMixin
 from ._identity_resolution import _IdentityResolutionMixin
+from ._library_link import _LibraryLinkMixin
 from ._lifecycle import _LifecycleMixin
 from ._provenance_export import _ProvenanceExportMixin
 from ._source_image import _SourceImageMixin
@@ -32,6 +33,7 @@ class EntityReconTab(
     _DatasetIndexingMixin,
     _SourceImageMixin,
     _IdentityResolutionMixin,
+    _LibraryLinkMixin,
     _ProvenanceExportMixin,
     _BatchBuilderMixin,
     _WorkerPlumbingMixin,

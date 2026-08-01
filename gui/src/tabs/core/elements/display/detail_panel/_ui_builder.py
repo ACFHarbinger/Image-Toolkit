@@ -134,10 +134,16 @@ class _UIBuilderMixin:
         )
         self.btn_select_linked_groups = QPushButton("🖼️ Link Image Groups")
         self.btn_select_linked_groups.clicked.connect(self._select_linked_groups)
+        self.btn_view_linked_group_images = QPushButton("🔎 View Images")
+        self.btn_view_linked_group_images.setToolTip(
+            "Jump to the Search tab, pre-filtered to a linked image group."
+        )
+        self.btn_view_linked_group_images.clicked.connect(self._view_linked_group_images)
 
         linked_groups_row = QHBoxLayout()
         linked_groups_row.addWidget(self.f_linked_groups_display, 1)
         linked_groups_row.addWidget(self.btn_select_linked_groups)
+        linked_groups_row.addWidget(self.btn_view_linked_group_images)
 
         # Local File and Web Link rows
         self.f_local_file = QLineEdit()

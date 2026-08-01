@@ -57,5 +57,18 @@ class ContentListingsSubTab(
 
         self._build_ui()
 
+    # DB.8a/8c cross-tab navigation: MainWindow assigns this post-construction
+    # (mirrors the existing search_tab_ref/merge_tab_ref pattern in
+    # gui/src/windows/main/_tab_registry.py), and it's forwarded straight
+    # through to the detail panel, which is what actually needs it (the
+    # "View Images" jump lives on the detail panel's Linked Image Groups row).
+    @property
+    def main_window_ref(self):
+        return self._detail.main_window_ref
+
+    @main_window_ref.setter
+    def main_window_ref(self, value):
+        self._detail.main_window_ref = value
+
 
 __all__ = ["ContentListingsSubTab"]

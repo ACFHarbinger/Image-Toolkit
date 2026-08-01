@@ -132,6 +132,134 @@ class TestDetailPanelLinkedGroups:
         mock_media_repo.unlink_group.assert_not_called()
 
 
+class TestDetailPanelViewImages:
+    """DB.8a: "View Images" cross-tab jump to Search, pre-filtered by group."""
+
+    def test_no_main_window_ref_shows_warning(self, q_app):
+        panel = _DetailPanel()
+        panel._entry_id = "m-1"
+        panel.main_window_ref = None
+
+        with patch(
+            "gui.src.tabs.core.elements.display.detail_panel._linked_groups.QMessageBox.warning"
+        ) as mock_warn:
+            panel._view_linked_group_images()
+            mock_warn.assert_called_once()
+
+    def test_no_linked_groups_shows_info(self, q_app):
+        panel = _DetailPanel()
+        panel._entry_id = "m-1"
+        panel.main_window_ref = MagicMock()
+
+        mock_db = MagicMock()
+        mock_media_repo = MagicMock()
+        mock_media_repo.get_linked_groups.return_value = []
+
+        with (
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.get_library_db",
+                return_value=mock_db,
+            ),
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.MediaRepo",
+                return_value=mock_media_repo,
+            ),
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.QMessageBox.information"
+            ) as mock_info,
+        ):
+            panel._view_linked_group_images()
+            mock_info.assert_called_once()
+        panel.main_window_ref.search_tab.filter_by_group.assert_not_called()
+
+    def test_single_linked_group_navigates_directly(self, q_app):
+        panel = _DetailPanel()
+        panel._entry_id = "m-1"
+        mock_mw = MagicMock()
+        panel.main_window_ref = mock_mw
+
+        mock_db = MagicMock()
+        mock_media_repo = MagicMock()
+        mock_media_repo.get_linked_groups.return_value = [{"id": 7, "name": "Trips"}]
+
+        with (
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.get_library_db",
+                return_value=mock_db,
+            ),
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.MediaRepo",
+                return_value=mock_media_repo,
+            ),
+        ):
+            panel._view_linked_group_images()
+
+        mock_mw.command_combo.setCurrentText.assert_called_once_with("Library Database")
+        mock_mw._select_tab_by_name.assert_called_once_with("Image Search")
+        mock_mw.search_tab.filter_by_group.assert_called_once_with("Trips")
+
+    def test_multiple_linked_groups_prompts_choice(self, q_app):
+        panel = _DetailPanel()
+        panel._entry_id = "m-1"
+        mock_mw = MagicMock()
+        panel.main_window_ref = mock_mw
+
+        mock_db = MagicMock()
+        mock_media_repo = MagicMock()
+        mock_media_repo.get_linked_groups.return_value = [
+            {"id": 1, "name": "Trips"}, {"id": 2, "name": "Voyages"},
+        ]
+
+        with (
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.get_library_db",
+                return_value=mock_db,
+            ),
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.MediaRepo",
+                return_value=mock_media_repo,
+            ),
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.QInputDialog.getItem",
+                return_value=("Voyages", True),
+            ),
+        ):
+            panel._view_linked_group_images()
+
+        mock_mw.search_tab.filter_by_group.assert_called_once_with("Voyages")
+
+    def test_multiple_linked_groups_cancelled_does_nothing(self, q_app):
+        panel = _DetailPanel()
+        panel._entry_id = "m-1"
+        mock_mw = MagicMock()
+        panel.main_window_ref = mock_mw
+
+        mock_db = MagicMock()
+        mock_media_repo = MagicMock()
+        mock_media_repo.get_linked_groups.return_value = [
+            {"id": 1, "name": "Trips"}, {"id": 2, "name": "Voyages"},
+        ]
+
+        with (
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.get_library_db",
+                return_value=mock_db,
+            ),
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.MediaRepo",
+                return_value=mock_media_repo,
+            ),
+            patch(
+                "gui.src.tabs.core.elements.display.detail_panel._linked_groups.QInputDialog.getItem",
+                return_value=("", False),
+            ),
+        ):
+            panel._view_linked_group_images()
+
+        mock_mw.search_tab.filter_by_group.assert_not_called()
+        mock_mw._select_tab_by_name.assert_not_called()
+
+
 class TestEntityDetailPanelLinkedImages:
     def test_no_entity_link_image_shows_hint(self, q_app):
         panel = _EntityDetailPanel()

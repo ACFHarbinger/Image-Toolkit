@@ -41,6 +41,9 @@ class _DetailPanel(
         self._entry_id: Optional[str] = None
         self._episode_data: List[Dict[str, Any]] = []
         self._mal_worker = None
+        # DB.8a: set by MainWindow post-construction (via ListingsTab ->
+        # ContentListingsSubTab), used by the "View Images" jump.
+        self.main_window_ref = None
 
         self._build_ui()
         self._attach_tag_completers()

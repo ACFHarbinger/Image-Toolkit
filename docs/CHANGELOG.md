@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S278 — 2026-08-01 (DB.8/9 essentially complete: cross-tab navigation, Entity Recon integration, ER schema view — issues #66, #67)
+
+Three more parallel work streams, following S276/S277. Between them, every DB.8 item attempted so far has shipped, and DB.9 now has its full originally-planned feature set except the deliberately-gated edit mode.
+
+**Cross-tab navigation (issue #66)** — corrects a wrong conclusion from two rounds ago: "no plumbing exists between Listings and the Library category" turned out false once someone actually read `gui/src/windows/main/_tab_search.py` (its Ctrl+T popup already implements "activate tab X by name") and re-checked the tab registry (`ListingsTab` was already in the same category as `DatabaseTab`/`SearchTab`, not a separate one). Both previously-deferred jumps now work: the detail panel's "🔎 View Images" button (Content Listings → Search, pre-filtered by group) and a new "Search Listings with this Tag" (Maintenance → Content Listings); the existing "Search Images with this Tag" was upgraded to actually switch tabs instead of just setting filter state.
+
+**Entity Recon integration (issue #66)** — also corrects stale project memory: `EntityReconTab` is a plain mixin-composed `QWidget`, not the QML tab it was assumed to be, so no special bridge architecture was needed. Gained a right-click "🔗 Link to Library Entity" action on any local provenance match, resolving the matched file/name to library `images`/`entities` rows (human-confirmed at every ambiguous step) and writing `entity_images`.
+
+**DB.9 ER/crow's-foot schema view (issue #67)**: the Data Browser tab gained a "Schema" sub-tab — a pannable/zoomable `QGraphicsScene` with one card per table (PK/FK-annotated columns) and relationship lines, click-to-open-in-grid. Two documented simplifications: plain arrowheads instead of full crow's-foot glyphs, and a deterministic domain-clustered grid layout instead of a force-directed one (the wallpaper tab's existing graph-view infra was investigated first but found too tightly coupled to its own workflow to reuse cleanly).
+
+Tests: 5 new backend-adjacent GUI test files/additions across the three streams (`test_detail_panel_links.py` 16, `test_tag_vocabulary_and_search.py` 12, `test_data_browser_tab.py` 20, `test_entity_recon_library_link.py` 7, `test_main_window.py` 13 confirming the tab-registry change is safe) — all green; `backend/test/database/` unchanged at 82/82 (no DAL changes this round).
+
 ## S277 — 2026-08-01 (DB.8/9 pushed further in parallel: tag vocabulary, scoped auto-listings, Data Browser FK navigation — issues #66, #67)
 
 Three more parallel work streams, following directly on S276.

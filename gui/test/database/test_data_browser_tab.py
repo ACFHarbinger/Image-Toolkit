@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from gui.src.tabs.database.data_browser_tab import DataBrowserTab
-from PySide6.QtWidgets import QWidget
+from gui.src.tabs.database.data_browser_tab._er_view import _TableCardItem
+from PySide6.QtWidgets import QGraphicsLineItem, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -241,3 +242,89 @@ class TestDataBrowserTabNavigation:
 
         assert tab.current_table == "media_groups"
         assert tab.where_edit.text() == "group_id = 1"
+
+
+class TestDataBrowserTabSchemaView:
+    """DB.9: Schema/ER sub-view -- table cards + relationship lines."""
+
+    def _make_tab_with_schema(self):
+        tab = DataBrowserTab()
+        tab.browser_repo = MagicMock()
+        tab.browser_repo.list_tables.return_value = ["images", "groups"]
+
+        def columns_for(table):
+            if table == "images":
+                return [
+                    {"name": "id", "type": "INTEGER", "notnull": True, "pk": True},
+                    {"name": "group_id", "type": "INTEGER", "notnull": False, "pk": False},
+                ]
+            return [{"name": "id", "type": "INTEGER", "notnull": True, "pk": True}]
+
+        def fks_for(table):
+            if table == "images":
+                return [{"column": "group_id", "ref_table": "groups", "ref_column": "id"}]
+            return []
+
+        tab.browser_repo.table_columns.side_effect = columns_for
+        tab.browser_repo.table_foreign_keys.side_effect = fks_for
+        return tab
+
+    def test_er_view_builds_one_card_per_table(self, q_app):
+        tab = self._make_tab_with_schema()
+        tab._refresh_er_view()
+
+        cards = [i for i in tab.er_scene.items() if isinstance(i, _TableCardItem)]
+        assert {c.table_name for c in cards} == {"images", "groups"}
+
+    def test_er_view_draws_relationship_line_for_fk(self, q_app):
+        tab = self._make_tab_with_schema()
+        tab._refresh_er_view()
+
+        # Top-level lines only -- each card's title-divider is also a
+        # QGraphicsLineItem, but parented to the card, not a relationship.
+        lines = [
+            i for i in tab.er_scene.items()
+            if isinstance(i, QGraphicsLineItem) and i.parentItem() is None
+        ]
+        assert len(lines) >= 1
+
+    def test_er_view_no_fk_no_relationship_line(self, q_app):
+        tab = self._make_tab_with_schema()
+        tab.browser_repo.table_foreign_keys.side_effect = None
+        tab.browser_repo.table_foreign_keys.return_value = []
+        tab._refresh_er_view()
+
+        lines = [
+            i for i in tab.er_scene.items()
+            if isinstance(i, QGraphicsLineItem) and i.parentItem() is None
+        ]
+        assert lines == []
+
+    def test_clicking_table_card_switches_to_grid_and_selects_table(self, q_app):
+        tab = self._make_tab_with_schema()
+        # setCurrentText("groups") below fires currentTextChanged ->
+        # _on_table_changed -> _run_query(), which unpacks query_table()'s
+        # return value -- an unconfigured MagicMock isn't iterable, and the
+        # resulting exception pops a real, blocking QMessageBox in this
+        # headless run. Configure the full cascade, not just list_tables.
+        tab.browser_repo.table_row_count.return_value = 0
+        tab.browser_repo.query_table.return_value = ([], [])
+        tab.table_combo.blockSignals(True)
+        tab.table_combo.addItems(["images", "groups"])
+        tab.table_combo.blockSignals(False)
+        tab.view_tabs.setCurrentIndex(1)  # Schema tab
+
+        tab._on_er_table_clicked("groups")
+
+        assert tab.view_tabs.currentIndex() == 0  # back to Grid
+        assert tab.table_combo.currentText() == "groups"
+
+    def test_refresh_table_list_also_populates_schema_view(self, q_app):
+        tab = self._make_tab_with_schema()
+        tab.browser_repo.table_row_count.return_value = 0
+        tab.browser_repo.query_table.return_value = ([], [])
+
+        tab.refresh_table_list()
+
+        cards = [i for i in tab.er_scene.items() if isinstance(i, _TableCardItem)]
+        assert len(cards) == 2

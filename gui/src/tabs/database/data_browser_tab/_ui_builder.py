@@ -17,15 +17,18 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSplitter,
     QTableWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from ....styles import apply_shadow_effect
+from ._er_view import _ERViewMixin
 
 
-class _UIBuilderMixin:
-    """Builds the table picker, WHERE filter, grid, pagination, and export controls."""
+class _UIBuilderMixin(_ERViewMixin):
+    """Builds the table picker, WHERE filter, grid, pagination, export, and
+    Schema/ER sub-view controls."""
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -51,6 +54,19 @@ class _UIBuilderMixin:
         picker_layout.addStretch()
 
         layout.addWidget(picker_group)
+
+        self.view_tabs = QTabWidget()
+        self.view_tabs.addTab(self._build_grid_view(), "Grid")
+        self.view_tabs.addTab(self._build_er_view(), "Schema")
+        layout.addWidget(self.view_tabs)
+
+        self.setLayout(layout)
+        self._set_controls_enabled(False)
+
+    def _build_grid_view(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         # --- WHERE filter ---
         filter_layout = QHBoxLayout()
@@ -132,9 +148,7 @@ class _UIBuilderMixin:
         bottom_layout.addWidget(self.btn_export_json)
 
         layout.addLayout(bottom_layout)
-
-        self.setLayout(layout)
-        self._set_controls_enabled(False)
+        return container
 
     def _set_controls_enabled(self, enabled: bool) -> None:
         for widget in (

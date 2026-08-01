@@ -163,6 +163,8 @@ class _UIBuilderMixin:
         self.prov_tree.setHeaderLabels(["Source", "Score"])
         self.prov_tree.setRootIsDecorated(True)
         self.prov_tree.itemDoubleClicked.connect(self._on_prov_activated)
+        self.prov_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.prov_tree.customContextMenuRequested.connect(self._on_prov_context_menu)
         self.prov_tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         right_v.addWidget(self.prov_tree, 1)
         splitter.addWidget(right)

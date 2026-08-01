@@ -87,6 +87,88 @@ class TestSearchImagesWithTag:
         mock_search_tab.search_by_tag.assert_called_once_with("sunset")
 
 
+class TestSearchListingsWithTag:
+    def test_no_selection_warns(self, q_app):
+        tab = DatabaseTab()
+        with patch(
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
+        ) as mock_warn:
+            tab.search_listings_with_selected_tag()
+            mock_warn.assert_called_once()
+
+    def test_no_listings_tab_ref_warns(self, q_app):
+        tab = DatabaseTab()
+        from PySide6.QtWidgets import QTableWidgetItem
+
+        tab.tags_table.setRowCount(1)
+        tab.tags_table.setItem(0, 0, QTableWidgetItem("sunset"))
+        tab.tags_table.setCurrentCell(0, 0)
+        tab.listings_tab_ref = None
+
+        with patch(
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
+        ) as mock_warn:
+            tab.search_listings_with_selected_tag()
+            mock_warn.assert_called_once()
+
+    def test_dispatches_to_listings_tab_and_switches_main_window(self, q_app):
+        tab = DatabaseTab()
+        from PySide6.QtWidgets import QTableWidgetItem
+
+        tab.tags_table.setRowCount(1)
+        tab.tags_table.setItem(0, 0, QTableWidgetItem("sunset"))
+        tab.tags_table.setCurrentCell(0, 0)
+
+        mock_listings_tab = MagicMock()
+        tab.listings_tab_ref = mock_listings_tab
+        mock_mw = MagicMock()
+        tab.main_window_ref = mock_mw
+
+        tab.search_listings_with_selected_tag()
+
+        mock_listings_tab.tab_widget.setCurrentWidget.assert_called_once_with(
+            mock_listings_tab.content_listings
+        )
+        mock_listings_tab.content_listings.search_box.setText.assert_called_once_with(
+            "sunset"
+        )
+        mock_mw.command_combo.setCurrentText.assert_called_once_with("Library Database")
+        mock_mw._select_tab_by_name.assert_called_once_with("Listings")
+
+    def test_no_main_window_ref_shows_info_instead(self, q_app):
+        tab = DatabaseTab()
+        from PySide6.QtWidgets import QTableWidgetItem
+
+        tab.tags_table.setRowCount(1)
+        tab.tags_table.setItem(0, 0, QTableWidgetItem("sunset"))
+        tab.tags_table.setCurrentCell(0, 0)
+        tab.listings_tab_ref = MagicMock()
+        tab.main_window_ref = None
+
+        with patch(
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.information"
+        ) as mock_info:
+            tab.search_listings_with_selected_tag()
+            mock_info.assert_called_once()
+
+
+class TestSearchTabFilterByGroup:
+    def test_filter_by_group_checks_only_target_group_and_searches(self, q_app):
+        mock_db_tab = MagicMock()
+        mock_db_tab.db = MagicMock()
+        mock_db_tab.db.get_all_groups.return_value = ["Trips", "Voyages"]
+        mock_db_tab.db.get_all_subgroups_detailed.return_value = []
+        tab = SearchTab(mock_db_tab)
+
+        with patch(
+            "gui.src.tabs.database.search_tab._search_worker.QThreadPool"
+        ):
+            tab.filter_by_group("Voyages")
+
+        assert tab.get_selected_groups() == ["Voyages"]
+        assert tab.filename_edit.text() == ""
+
+
 class TestSearchTabSearchByTag:
     def test_search_by_tag_checks_type_and_tag_then_searches(self, q_app):
         mock_db_tab = MagicMock()

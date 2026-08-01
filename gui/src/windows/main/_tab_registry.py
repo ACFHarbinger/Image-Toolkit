@@ -68,6 +68,16 @@ class _TabRegistryMixin:
         self.database_tab.merge_tab_ref = self.merge_tab
         self.database_tab.delete_tab_ref = self.delete_tab
         self.database_tab.wallpaper_tab_ref = self.wallpaper_tab
+        self.database_tab.listings_tab_ref = self.listings_tab
+
+        # DB.8a/8c cross-tab navigation (Library Database <-> Listings):
+        # both directions need to activate a tab that isn't just within
+        # their own tab family, reusing the real tab-activation mechanism
+        # MainWindow's Ctrl+T tab search already exercises internally
+        # (command_combo + _select_tab_by_name -- see _tab_search.py's
+        # _activate()).
+        self.database_tab.main_window_ref = self
+        self.listings_tab.main_window_ref = self
 
         self.all_tabs = {
             "System Tools": {

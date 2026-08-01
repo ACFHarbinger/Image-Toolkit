@@ -101,6 +101,27 @@ class _GroupFiltersMixin:
             if self.subgroups_list_widget.item(i).checkState() == Qt.CheckState.Checked
         ]
 
+    def filter_by_group(self, group_name: str) -> None:
+        """DB.8a: jump here already filtered to a single group (the
+        Content Listings detail panel's "View Images" action). Mirrors
+        search_by_tag()'s structure (_tag_filters.py) -- refresh from the
+        DB first so a just-linked group that predates this SearchTab
+        instance's last group-list refresh is guaranteed to be present,
+        clear other filters, then check only the target group."""
+        self._refresh_groups_from_db()
+        self.groups_list_widget.blockSignals(True)
+        for i in range(self.groups_list_widget.count()):
+            item = self.groups_list_widget.item(i)
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if item.text() == group_name
+                else Qt.CheckState.Unchecked
+            )
+        self.groups_list_widget.blockSignals(False)
+        self._refresh_subgroups_display()
+        self.filename_edit.clear()
+        self.perform_search()
+
     def update_search_button_state(self, connected: Optional[bool] = None):
         db_connected = self.db_tab_ref.db is not None if connected is None else connected
         self.search_button.setEnabled(db_connected)

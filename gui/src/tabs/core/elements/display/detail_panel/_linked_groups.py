@@ -20,7 +20,7 @@ from backend.src.database.unified.image_repo import ImageRepo
 from backend.src.database.unified.media_repo import MediaRepo
 from gui.src.helpers.database.library_session import get_library_db
 from gui.src.tabs.core.elements.dialog import _LinkedGroupsDialog
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 
 class _LinkedGroupsMixin:
@@ -101,6 +101,55 @@ class _LinkedGroupsMixin:
             return
 
         self._refresh_linked_groups_display()
+
+    def _view_linked_group_images(self) -> None:
+        """DB.8a: "View Images" -- switch MainWindow to the Search tab and
+        pre-filter it to one of this entry's linked image groups. Uses the
+        real tab-activation mechanism MainWindow's Ctrl+T tab search already
+        exercises (command_combo + _select_tab_by_name) -- see
+        gui/src/windows/main/_tab_search.py's _activate() -- via
+        main_window_ref, threaded down from MainWindow through ListingsTab
+        -> ContentListingsSubTab -> this panel (mirrors the existing
+        search_tab_ref/merge_tab_ref cross-tab-reference pattern)."""
+        if not self._entry_id:
+            return
+        if self.main_window_ref is None:
+            QMessageBox.warning(
+                self, "Error", "Main window reference not available."
+            )
+            return
+
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            QMessageBox.warning(self, "Error", "The library database is not available.")
+            return
+
+        try:
+            linked = MediaRepo(db).get_linked_groups(self._entry_id)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load image groups:\n{e}")
+            return
+
+        if not linked:
+            QMessageBox.information(
+                self, "No Linked Groups", "This entry has no linked image groups yet."
+            )
+            return
+
+        if len(linked) == 1:
+            group_name = linked[0]["name"]
+        else:
+            names = [g["name"] for g in linked]
+            group_name, ok = QInputDialog.getItem(
+                self, "View Images", "Which linked group?", names, editable=False,
+            )
+            if not ok or not group_name:
+                return
+
+        mw = self.main_window_ref
+        mw.command_combo.setCurrentText("Library Database")
+        mw._select_tab_by_name("Image Search")
+        mw.search_tab.filter_by_group(group_name)
 
 
 __all__ = ["_LinkedGroupsMixin"]
