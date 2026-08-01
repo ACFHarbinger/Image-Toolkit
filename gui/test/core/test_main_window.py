@@ -70,7 +70,8 @@ class TestMainWindowSessionRecovery:
         creds = {
             "account_name": "test_user",
             "preferences": {
-                "session_recovery_level": "All Tabs"
+                "session_recovery_level": "All Tabs",
+                "restore_last_tab": True,
             },
             "session_recovery_data": {
                 "active_category": "Library Database",
@@ -183,6 +184,113 @@ class TestMainWindowSessionRecovery:
             # Category/tab should default (e.g. System Tools) instead of restored
             assert window.command_combo.currentText() == "System Tools"
             mock_search_set.assert_not_called()
+
+    def test_session_recovery_restore_current_category(self, q_app):
+        creds = {
+            "account_name": "test_user",
+            "preferences": {
+                "session_recovery_level": "Current Category",
+                "restore_last_tab": True,
+            },
+            "session_recovery_data": {
+                "active_category": "System Tools",
+                "active_tab": "Convert",
+                "tab_configs": {
+                    "ConvertTab": {"convert_key": "val2"},
+                    "SearchTab": {"search_key": "should_not_apply"},
+                },
+            },
+        }
+        vault = MockVaultManager(creds)
+
+        with (
+            patch("gui.src.tabs.core.convert_tab.ConvertTab.set_config") as mock_convert_set,
+            patch("gui.src.tabs.database.search_tab.SearchTab.set_config") as mock_search_set,
+        ):
+            window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
+            QApplication.processEvents()
+
+            assert window.command_combo.currentText() == "System Tools"
+            # ConvertTab is in the active category -> restored
+            mock_convert_set.assert_called_with({"convert_key": "val2"})
+            # SearchTab belongs to a different category -> not restored, even
+            # though it happened to have a saved config in tab_configs
+            mock_search_set.assert_not_called()
+
+    def test_session_recovery_save_current_category(self, q_app):
+        creds = {
+            "account_name": "test_user",
+            "preferences": {
+                "session_recovery_level": "Current Category"
+            },
+            "session_recovery_data": {}
+        }
+        vault = MockVaultManager(creds)
+
+        with patch("gui.src.tabs.core.convert_tab.ConvertTab.collect", return_value={"convert_key": "val2"}):
+            window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
+            QApplication.processEvents()
+
+            window.command_combo.setCurrentText("System Tools")
+            for index in range(window.tabs.count()):
+                if window.tabs.tabText(index) == "Convert":
+                    window.tabs.setCurrentIndex(index)
+                    break
+
+            window._save_session_recovery()
+
+            saved = vault.saved_data
+            assert saved is not None
+            assert saved["session_recovery_data"]["active_category"] == "System Tools"
+            assert "ConvertTab" in saved["session_recovery_data"]["tab_configs"]
+            # Only tabs within the active category ("System Tools") should be collected
+            assert "SearchTab" not in saved["session_recovery_data"]["tab_configs"]
+
+    def test_default_startup_tab_used_when_restore_last_tab_disabled(self, q_app):
+        creds = {
+            "account_name": "test_user",
+            "preferences": {
+                "session_recovery_level": "None",
+                "restore_last_tab": False,
+                "startup_category": "System Tools",
+                "startup_tab": "Convert",
+            },
+            "session_recovery_data": {
+                "active_category": "Library Database",
+                "active_tab": "Image Search",
+            },
+        }
+        vault = MockVaultManager(creds)
+
+        window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
+        QApplication.processEvents()
+
+        assert window.command_combo.currentText() == "System Tools"
+        active_tab_index = window.tabs.currentIndex()
+        assert window.tabs.tabText(active_tab_index) == "Convert"
+
+    def test_restore_last_tab_overrides_default_startup_tab(self, q_app):
+        creds = {
+            "account_name": "test_user",
+            "preferences": {
+                "session_recovery_level": "None",
+                "restore_last_tab": True,
+                "startup_category": "System Tools",
+                "startup_tab": "Convert",
+            },
+            "session_recovery_data": {
+                "active_category": "Library Database",
+                "active_tab": "Image Search",
+            },
+        }
+        vault = MockVaultManager(creds)
+
+        window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
+        QApplication.processEvents()
+
+        assert window.command_combo.currentText() == "Library Database"
+        active_tab_index = window.tabs.currentIndex()
+        assert window.tabs.tabText(active_tab_index) == "Image Search"
 
     def test_restore_last_dir_disabled(self, q_app):
         from backend.src.constants import LOCAL_SOURCE_PATH

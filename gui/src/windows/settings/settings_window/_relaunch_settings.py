@@ -51,9 +51,33 @@ class _RelaunchSettingsMixin:
         self.startup_category_combo.setToolTip("Which tab group to show when the app launches")
         session_layout.addRow("Default Startup Category:", self.startup_category_combo)
 
+        # Default Startup Tab -- cascades from the category combo above, listing
+        # only the tabs that belong to whichever category is currently selected.
+        self.startup_tab_combo = QComboBox()
+        self._categorized_tabs_for_startup = self._get_all_tab_names_categorized()
+        self.startup_tab_combo.setToolTip(
+            "Which tab within the default category to select when the app launches "
+            "(only used when 'Restore last opened tab on startup' below is unchecked)."
+        )
+        self._refresh_startup_tab_combo(self.startup_category_combo.currentText())
+        if self.pref_startup_tab:
+            self.startup_tab_combo.setCurrentText(self.pref_startup_tab)
+        self.startup_category_combo.currentTextChanged.connect(self._refresh_startup_tab_combo)
+        session_layout.addRow("Default Startup Tab:", self.startup_tab_combo)
+
+        restore_last_dir_row = QHBoxLayout()
         self.restore_last_dir_check = QCheckBox("Restore last browsed directory on startup")
         self.restore_last_dir_check.setChecked(self.pref_restore_last_dir)
-        session_layout.addRow(self.restore_last_dir_check)
+        self.restore_last_tab_check = QCheckBox("Restore last opened tab on startup")
+        self.restore_last_tab_check.setChecked(self.pref_restore_last_tab)
+        self.restore_last_tab_check.setToolTip(
+            "If checked, the app reopens whichever category/tab was active when it was last "
+            "closed. If unchecked, it always opens the Default Startup Category/Tab above."
+        )
+        restore_last_dir_row.addWidget(self.restore_last_dir_check)
+        restore_last_dir_row.addWidget(self.restore_last_tab_check)
+        restore_last_dir_row.addStretch(1)
+        session_layout.addRow(restore_last_dir_row)
 
         self.recent_dirs_count_spinbox = QSpinBox()
         self.recent_dirs_count_spinbox.setRange(1, 50)
@@ -64,10 +88,12 @@ class _RelaunchSettingsMixin:
         session_layout.addRow("Recent Directories Limit:", self.recent_dirs_count_spinbox)
 
         self.session_recovery_combo = QComboBox()
-        self.session_recovery_combo.addItems(["None", "Current Tab", "All Tabs"])
+        self.session_recovery_combo.addItems(["None", "Current Tab", "Current Category", "All Tabs"])
         self.session_recovery_combo.setCurrentText(self.pref_session_recovery)
         self.session_recovery_combo.setToolTip(
-            "Select the level of information to save during app shutdown to recover on next login."
+            "Select the level of information to save during app shutdown to recover on next login.\n"
+            "Current Category restores every tab within the category that was active on close, "
+            "not just the single active tab."
         )
         session_layout.addRow("Session Recovery Level:", self.session_recovery_combo)
 
@@ -84,6 +110,14 @@ class _RelaunchSettingsMixin:
         session_layout.addRow("Default Browse Directory:", default_dir_row)
 
         return session_groupbox
+
+    def _refresh_startup_tab_combo(self, category_name: str) -> None:
+        """Repopulate startup_tab_combo with the tabs belonging to *category_name*."""
+        self.startup_tab_combo.blockSignals(True)
+        self.startup_tab_combo.clear()
+        tab_names = self._categorized_tabs_for_startup.get(category_name, [])
+        self.startup_tab_combo.addItems(tab_names)
+        self.startup_tab_combo.blockSignals(False)
 
     def _build_perf_section(self) -> QGroupBox:
         perf_groupbox = QGroupBox("Performance and Cache")
@@ -219,9 +253,11 @@ class _RelaunchSettingsMixin:
                 "selected_cache_maxsize": self.selected_cache_spinbox.value(),
                 "initial_cache_maxsize": self.initial_cache_spinbox.value(),
                 "restore_last_dir": self.restore_last_dir_check.isChecked(),
+                "restore_last_tab": self.restore_last_tab_check.isChecked(),
                 "default_open_dir": self.default_dir_input.text().strip().replace("Downloads/data", "Downloads/Data"),
                 "recent_dirs_count": self.recent_dirs_count_spinbox.value(),
                 "startup_category": self.startup_category_combo.currentText(),
+                "startup_tab": self.startup_tab_combo.currentText(),
                 "slideshow_interval_min": self.slideshow_default_min_spinbox.value(),
                 "slideshow_interval_sec": self.slideshow_default_sec_spinbox.value(),
                 "slideshow_order": self.slideshow_default_order_combo.currentText(),
@@ -286,7 +322,9 @@ class _RelaunchSettingsMixin:
         items = [self.startup_category_combo.itemText(i) for i in range(self.startup_category_combo.count())]
         if "System Tools" in items:
             self.startup_category_combo.setCurrentText("System Tools")
+        self._refresh_startup_tab_combo(self.startup_category_combo.currentText())
         self.restore_last_dir_check.setChecked(True)
+        self.restore_last_tab_check.setChecked(False)
         self.recent_dirs_count_spinbox.setValue(10)
         self.session_recovery_combo.setCurrentText("None")
 

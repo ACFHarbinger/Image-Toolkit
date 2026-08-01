@@ -254,6 +254,7 @@ class TestSettingsWindowSessionRecovery:
         ]
         assert "None" in items
         assert "Current Tab" in items
+        assert "Current Category" in items
         assert "All Tabs" in items
         assert window.session_recovery_combo.currentText() == "None"
 
@@ -262,6 +263,40 @@ class TestSettingsWindowSessionRecovery:
         window.session_recovery_combo.setCurrentText("All Tabs")
         window.reset_settings()
         assert window.session_recovery_combo.currentText() == "None"
+
+
+class TestSettingsWindowStartupTab:
+    def test_startup_tab_combo_exists(self, q_app):
+        window = SettingsWindow()
+        assert window.startup_tab_combo is not None
+        assert window.restore_last_tab_check is not None
+
+    def test_startup_tab_combo_cascades_from_category(self, q_app):
+        # SettingsWindow() with no parent has no real tab mapping to draw from
+        # (main_window_ref is None); exercise the cascading mechanism directly
+        # against a stand-in mapping instead.
+        window = SettingsWindow()
+        window._categorized_tabs_for_startup = {
+            "System Tools": ["Convert", "Extractor"],
+            "Library Database": ["Image Search"],
+        }
+        window._refresh_startup_tab_combo("System Tools")
+        items = [window.startup_tab_combo.itemText(i) for i in range(window.startup_tab_combo.count())]
+        assert items == ["Convert", "Extractor"]
+
+        window._refresh_startup_tab_combo("Library Database")
+        items = [window.startup_tab_combo.itemText(i) for i in range(window.startup_tab_combo.count())]
+        assert items == ["Image Search"]
+
+    def test_restore_last_tab_default_unchecked(self, q_app):
+        window = SettingsWindow()
+        assert window.restore_last_tab_check.isChecked() is False
+
+    def test_restore_last_tab_reset(self, q_app):
+        window = SettingsWindow()
+        window.restore_last_tab_check.setChecked(True)
+        window.reset_settings()
+        assert window.restore_last_tab_check.isChecked() is False
 
 
 class TestSettingsWindowRecursiveScan:
