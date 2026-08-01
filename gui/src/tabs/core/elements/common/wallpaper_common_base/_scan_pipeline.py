@@ -15,6 +15,7 @@ import os
 import threading
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from backend.src.core import telemetry
 from gui.src.helpers import ImageScannerWorker, VideoScannerWorker
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
@@ -57,10 +58,15 @@ class _ScanPipelineMixin:
 
         if emit_signal:
             import traceback
+            _stack = traceback.format_stack(limit=8)
             print(
                 f"[thread-lifecycle] CALLER TRACE for populate_scan_image_gallery({directory!r}, emit_signal=True):\n"
-                + "".join(traceback.format_stack(limit=8)),
+                + "".join(_stack),
                 flush=True,
+            )
+            telemetry.emit(
+                "thread-lifecycle", "populate_scan_image_gallery.caller_trace",
+                panel=id(self), directory=directory, stack="".join(_stack),
             )
 
         # Refuse to start a scanner QThread while Qt Multimedia's startup
@@ -80,6 +86,11 @@ class _ScanPipelineMixin:
             f"populate_scan_image_gallery({directory!r}) emit_signal={emit_signal} "
             f"remaining_ms={_remaining_ms}",
             flush=True,
+        )
+        telemetry.emit(
+            "thread-lifecycle", "populate_scan_image_gallery.enter",
+            panel=id(self), tid=threading.get_ident(), directory=directory,
+            emit_signal=emit_signal, remaining_ms=_remaining_ms,
         )
         if _remaining_ms > 0:
             QTimer.singleShot(
@@ -169,11 +180,21 @@ class _ScanPipelineMixin:
             f"tid={threading.get_ident()} starting ImageScannerWorker for {directory!r}",
             flush=True,
         )
+        telemetry.emit(
+            "thread-lifecycle", "img_worker.start.begin",
+            panel=id(self), img_thread=id(self.img_scanner_worker),
+            tid=threading.get_ident(), directory=directory,
+        )
         self.img_scanner_worker.start()
         print(
             f"[thread-lifecycle] panel={id(self):x} img_thread={id(self.img_scanner_worker):x} "
             f"start() returned",
             flush=True,
+        )
+        telemetry.emit(
+            "thread-lifecycle", "img_worker.start.returned",
+            panel=id(self), img_thread=id(self.img_scanner_worker),
+            tid=threading.get_ident(),
         )
 
     def _on_image_scan_finished(self, image_paths: list, _worker=None):
@@ -211,11 +232,21 @@ class _ScanPipelineMixin:
                 f"current={_current_id_str}, ignoring",
                 flush=True,
             )
+            telemetry.emit(
+                "thread-lifecycle", "on_image_scan_finished.stale",
+                panel=id(self), tid=threading.get_ident(),
+                worker=_worker_id_str, current=_current_id_str,
+            )
             return
         print(
             f"[thread-lifecycle] panel={id(self):x} tid={threading.get_ident()} "
             f"_on_image_scan_finished: proceeding, worker={_worker_id_str}",
             flush=True,
+        )
+        telemetry.emit(
+            "thread-lifecycle", "on_image_scan_finished.proceeding",
+            panel=id(self), tid=threading.get_ident(), worker=_worker_id_str,
+            image_count=len(image_paths),
         )
 
         existing_paths = set(getattr(self, "master_image_paths", []))
@@ -259,11 +290,21 @@ class _ScanPipelineMixin:
                 f"tid={threading.get_ident()} starting VideoScannerWorker for {self.scanned_dir!r}",
                 flush=True,
             )
+            telemetry.emit(
+                "thread-lifecycle", "vid_worker.start.begin",
+                panel=id(self), vid_worker=id(self.vid_scanner_worker),
+                tid=threading.get_ident(), directory=self.scanned_dir,
+            )
             self.vid_scanner_worker.start()
             print(
                 f"[thread-lifecycle] panel={id(self):x} vid_worker={id(self.vid_scanner_worker):x} "
                 f"start() returned",
                 flush=True,
+            )
+            telemetry.emit(
+                "thread-lifecycle", "vid_worker.start.returned",
+                panel=id(self), vid_worker=id(self.vid_scanner_worker),
+                tid=threading.get_ident(),
             )
 
     def _on_video_scan_finished(self, _worker=None):

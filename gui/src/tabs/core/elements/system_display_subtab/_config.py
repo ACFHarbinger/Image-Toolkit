@@ -18,6 +18,8 @@ from typing import Any, Dict
 
 from PySide6.QtWidgets import QMessageBox
 
+from backend.src.core import telemetry
+
 from .....components import DraggableMonitorContainer, MonitorDropView
 
 
@@ -75,6 +77,10 @@ class _ConfigMixin:
             f"set_config() called, scan_directory={config.get('scan_directory')!r}",
             flush=True,
         )
+        telemetry.emit(
+            "thread-lifecycle", "set_config.called",
+            panel=id(self), scan_directory=config.get("scan_directory"),
+        )
         try:
             if "scan_directory" in config:
                 self.scan_directory_path.setText(config.get("scan_directory", ""))
@@ -107,6 +113,11 @@ class _ConfigMixin:
                         f"(re)starting scan-dir restore timer for {self._pending_restore_dir!r} "
                         f"(was_active={self._scan_dir_restore_timer.isActive()})",
                         flush=True,
+                    )
+                    telemetry.emit(
+                        "thread-lifecycle", "scan_dir_restore_timer.restart",
+                        panel=id(self), directory=self._pending_restore_dir,
+                        was_active=self._scan_dir_restore_timer.isActive(),
                     )
                     self._scan_dir_restore_timer.start(250)
             if "wallpaper_style" in config:
@@ -212,6 +223,10 @@ class _ConfigMixin:
             f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self):x} "
             f"scan-dir restore timer FIRED for {self._pending_restore_dir!r}",
             flush=True,
+        )
+        telemetry.emit(
+            "thread-lifecycle", "scan_dir_restore_timer.fired",
+            panel=id(self), directory=self._pending_restore_dir,
         )
         if self._pending_restore_dir and os.path.isdir(self._pending_restore_dir):
             self.populate_scan_image_gallery(self._pending_restore_dir)

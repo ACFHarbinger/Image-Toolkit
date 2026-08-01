@@ -15,6 +15,8 @@ import threading
 from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication
 
+from backend.src.core import telemetry
+
 
 class _ScannerLifecycleMixin:
     """Stop and fully drain the image/video scanner QThreads before any teardown."""
@@ -32,16 +34,21 @@ class _ScannerLifecycleMixin:
         """
         if self.vid_scanner_worker is not None:
             _tag = f"[thread-lifecycle] panel={id(self):x} vid_worker={id(self.vid_scanner_worker):x} tid={threading.get_ident()}"
+            _panel, _worker_id, _tid = id(self), id(self.vid_scanner_worker), threading.get_ident()
             try:
                 if self.vid_scanner_worker.isRunning():
                     print(f"{_tag} requestInterruption+stop+quit", flush=True)
+                    telemetry.emit("thread-lifecycle", "vid_worker.stop_requested", panel=_panel, vid_worker=_worker_id, tid=_tid)
                     self.vid_scanner_worker.requestInterruption()
                     self.vid_scanner_worker.stop()
                     self.vid_scanner_worker.quit()
                     print(f"{_tag} wait() starting", flush=True)
+                    telemetry.emit("thread-lifecycle", "vid_worker.wait.start", panel=_panel, vid_worker=_worker_id, tid=_tid)
                     self.vid_scanner_worker.wait()  # unbounded
                     print(f"{_tag} wait() returned", flush=True)
+                    telemetry.emit("thread-lifecycle", "vid_worker.wait.end", panel=_panel, vid_worker=_worker_id, tid=_tid)
                 print(f"{_tag} deleteLater()", flush=True)
+                telemetry.emit("thread-lifecycle", "vid_worker.delete_later", panel=_panel, vid_worker=_worker_id, tid=_tid)
                 self.vid_scanner_worker.deleteLater()
             except RuntimeError:
                 pass
@@ -67,14 +74,19 @@ class _ScannerLifecycleMixin:
         """
         if self.img_scanner_thread is not None:
             _tag = f"[thread-lifecycle] panel={id(self):x} img_thread={id(self.img_scanner_thread):x} tid={threading.get_ident()}"
+            _panel, _thread_id, _tid = id(self), id(self.img_scanner_thread), threading.get_ident()
             if self.img_scanner_thread.isRunning():
                 print(f"{_tag} requestInterruption+quit", flush=True)
+                telemetry.emit("thread-lifecycle", "img_thread.stop_requested", panel=_panel, img_thread=_thread_id, tid=_tid)
                 self.img_scanner_thread.requestInterruption()
                 self.img_scanner_thread.quit()
                 print(f"{_tag} wait() starting", flush=True)
+                telemetry.emit("thread-lifecycle", "img_thread.wait.start", panel=_panel, img_thread=_thread_id, tid=_tid)
                 self.img_scanner_thread.wait()  # unbounded
                 print(f"{_tag} wait() returned", flush=True)
+                telemetry.emit("thread-lifecycle", "img_thread.wait.end", panel=_panel, img_thread=_thread_id, tid=_tid)
             print(f"{_tag} deleteLater()", flush=True)
+            telemetry.emit("thread-lifecycle", "img_thread.delete_later", panel=_panel, img_thread=_thread_id, tid=_tid)
             self.img_scanner_thread.deleteLater()
             self.img_scanner_thread = None
 
@@ -105,6 +117,7 @@ class _ScannerLifecycleMixin:
         # behind the deleteOrphaned crash recurring after the round-9 fix
         # (see Addendum 9 in
         # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
+        telemetry.emit("thread-lifecycle", "sendPostedEvents.DeferredDelete", panel=id(self), tid=threading.get_ident())
         QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 

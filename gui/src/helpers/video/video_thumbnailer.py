@@ -2,13 +2,31 @@ import hashlib
 import os
 import shutil
 import subprocess
+import threading
 
 from backend.src.constants import (
     IS_LINUX,
     THUMBNAIL_CACHE_DIR,
 )
+from backend.src.core import telemetry
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
+
+
+def _decode_span(tool: str, video_path: str):
+    """telemetry.span() around a QImage decode -- this is the suspected
+    native-crash boundary from Addendum 11 in
+    .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md: the FIRST
+    QImage().loadFromData() call in the process's lifetime lazily loads
+    Qt's JPEG plugin off whichever thread calls it (here, one of
+    VideoScannerWorker's ThreadPoolExecutor threads, not the main thread),
+    with the JPype JVM already loaded in-process. If a crash happens inside
+    this span, the telemetry file's last line being a `.start` with no
+    matching `.end` is itself the finding -- see debug/telemetry_analyzer.py."""
+    return telemetry.span(
+        "native", "qimage_decode",
+        tool=tool, video_path=video_path, tid=threading.get_ident(),
+    )
 
 
 def get_video_thumbnail_cache_path(video_path: str) -> str:
@@ -86,7 +104,9 @@ class VideoThumbnailer:
 
                 img = QImage()
                 # Load directly from memory buffer
-                if img.loadFromData(result.stdout):
+                with _decode_span("ffmpegthumbnailer", video_path):
+                    decode_ok = img.loadFromData(result.stdout)
+                if decode_ok:
                     if crop_square:
                         return self._crop_to_square(img, size)
                     return img
@@ -126,7 +146,9 @@ class VideoThumbnailer:
                 # Try seeking to 5 seconds first (avoids black intros)
                 result = run_ffmpeg("00:00:05")
                 img = QImage()
-                if img.loadFromData(result.stdout):
+                with _decode_span("ffmpeg@5s", video_path):
+                    decode_ok = img.loadFromData(result.stdout)
+                if decode_ok:
                     if crop_square:
                         return self._crop_to_square(img, size)
                     return img
@@ -135,7 +157,9 @@ class VideoThumbnailer:
                 try:
                     result = run_ffmpeg("00:00:00")
                     img = QImage()
-                    if img.loadFromData(result.stdout):
+                    with _decode_span("ffmpeg@0s", video_path):
+                        decode_ok = img.loadFromData(result.stdout)
+                    if decode_ok:
                         if crop_square:
                             return self._crop_to_square(img, size)
                         return img

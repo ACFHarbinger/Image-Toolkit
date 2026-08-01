@@ -1,11 +1,13 @@
 import concurrent.futures
 import os
+import threading
 from pathlib import Path
 
 from backend.src.constants import (
     HAS_NATIVE_IMAGING,
     SUPPORTED_VIDEO_FORMATS,
 )
+from backend.src.core import telemetry
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QImage
 
@@ -22,11 +24,13 @@ def process_video_task(args):
     Checks for a cached thumbnail on disk before generating a new one.
     """
     path, target_height, thumbnailer, crop_square = args
+    telemetry.emit("thread-lifecycle", "process_video_task.begin", tid=threading.get_ident(), video_path=path)
     try:
         # 1. Check Disk Cache
         cache_path = get_video_thumbnail_cache_path(path)
         if os.path.exists(cache_path):
-            img = QImage(cache_path)
+            with telemetry.span("native", "qimage_from_cache", tid=threading.get_ident(), video_path=path):
+                img = QImage(cache_path)
             if not img.isNull():
                 return path, img
 
@@ -40,6 +44,8 @@ def process_video_task(args):
         return path, image
     except Exception:
         return path, None
+    finally:
+        telemetry.emit("thread-lifecycle", "process_video_task.end", tid=threading.get_ident(), video_path=path)
 
 
 class VideoScannerWorker(QThread):
@@ -78,6 +84,7 @@ class VideoScannerWorker(QThread):
             self.executor.shutdown(wait=False, cancel_futures=True)
 
     def run(self):  # noqa: C901
+        telemetry.emit("thread-lifecycle", "video_scan_worker.run.start", tid=threading.get_ident(), directory=self.directory)
         if self.is_cancelled or self.isInterruptionRequested():
             return
 
@@ -90,9 +97,13 @@ class VideoScannerWorker(QThread):
 
             # Use C++ backend for fast scanning if available, else standard os.scandir / os.walk
             if HAS_NATIVE_IMAGING:
-                video_paths = base.scan_files_multi(  # pyrefly: ignore [missing-attribute]
-                    [self.directory], list(SUPPORTED_VIDEO_FORMATS), self.recursive
-                )
+                with telemetry.span(
+                    "native", "base.scan_files_multi",
+                    directory=self.directory, recursive=self.recursive, tid=threading.get_ident(),
+                ):
+                    video_paths = base.scan_files_multi(  # pyrefly: ignore [missing-attribute]
+                        [self.directory], list(SUPPORTED_VIDEO_FORMATS), self.recursive
+                    )
             else:
                 try:
                     if self.recursive:
@@ -131,6 +142,11 @@ class VideoScannerWorker(QThread):
 
             # 2. Process in Parallel
             max_workers = min(os.cpu_count(), 8)  # pyrefly: ignore [bad-specialization]
+            telemetry.emit(
+                "thread-lifecycle", "video_scan_worker.executor.create",
+                tid=threading.get_ident(), directory=self.directory,
+                video_count=len(video_paths), max_workers=max_workers,
+            )
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=max_workers
             ) as executor:
@@ -161,5 +177,6 @@ class VideoScannerWorker(QThread):
         except Exception:
             pass
         finally:
+            telemetry.emit("thread-lifecycle", "video_scan_worker.run.finished", tid=threading.get_ident(), directory=self.directory)
             self.finished.emit()
 

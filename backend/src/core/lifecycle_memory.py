@@ -22,6 +22,8 @@ from typing import Dict, List, Optional
 
 import psutil
 
+from backend.src.core import telemetry
+
 # The roadmap item names this threshold explicitly ("Alert when any phase
 # increases RSS by >200 MB relative to the previous measurement"). Kept
 # overridable via env var for local tuning without a code change.
@@ -43,6 +45,7 @@ def snapshot(phase: str) -> Dict:
 
     entry = {"phase": phase, "rss_mb": rss_mb, "delta_mb": delta_mb}
     _HISTORY.append(entry)
+    telemetry.emit("startup", "lifecycle.snapshot", phase=phase, rss_mb=rss_mb, delta_mb=delta_mb)
 
     if delta_mb is None:
         print(f"[Lifecycle/{phase}] RSS={rss_mb}MB (baseline)")

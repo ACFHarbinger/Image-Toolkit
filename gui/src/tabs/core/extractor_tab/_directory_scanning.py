@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Any
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from backend.src.core import telemetry
 from PySide6.QtCore import QEvent, QPoint, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
@@ -148,6 +150,11 @@ class _DirectoryScanningMixin:
             f"remaining_ms={_remaining_ms}",
             flush=True,
         )
+        telemetry.emit(
+            "thread-lifecycle", "extractor_scan_directory.enter",
+            panel=id(self), tid=threading.get_ident(), directory=path,
+            remaining_ms=_remaining_ms,
+        )
         if _remaining_ms > 0:
             QTimer.singleShot(_remaining_ms, lambda: self.scan_directory(path))
             return
@@ -190,12 +197,16 @@ class _DirectoryScanningMixin:
         # cover (VideoScannerWorker is a bespoke QThread, not a QRunnable
         # tracked by AbstractGalleryBase's thread_pool/_active_workers).
         if self.vid_scanner_worker:
+            _panel, _worker_id = id(self), id(self.vid_scanner_worker)
             try:
                 if self.vid_scanner_worker.isRunning():
+                    telemetry.emit("thread-lifecycle", "extractor_vid_worker.stop_requested", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())
                     self.vid_scanner_worker.requestInterruption()
                     self.vid_scanner_worker.stop()
                     self.vid_scanner_worker.quit()
+                    telemetry.emit("thread-lifecycle", "extractor_vid_worker.wait.start", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())
                     self.vid_scanner_worker.wait()  # unbounded: see comment above
+                    telemetry.emit("thread-lifecycle", "extractor_vid_worker.wait.end", panel=_panel, vid_worker=_worker_id, tid=threading.get_ident())
                 self.vid_scanner_worker.deleteLater()
             except RuntimeError:
                 pass
@@ -279,7 +290,17 @@ class _DirectoryScanningMixin:
         self.vid_scanner_worker.finished.connect(
             lambda: setattr(self, "vid_scanner_worker", None)
         )
+        telemetry.emit(
+            "thread-lifecycle", "extractor_vid_worker.start.begin",
+            panel=id(self), vid_worker=id(self.vid_scanner_worker),
+            tid=threading.get_ident(), directory=path,
+        )
         self.vid_scanner_worker.start()
+        telemetry.emit(
+            "thread-lifecycle", "extractor_vid_worker.start.returned",
+            panel=id(self), vid_worker=id(self.vid_scanner_worker),
+            tid=threading.get_ident(),
+        )
 
     def _create_source_placeholder_widget(self, path: str) -> QWidget:
         """Creates a placeholder widget with 'Loading...' state for the source gallery."""

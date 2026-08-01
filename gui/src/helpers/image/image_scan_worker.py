@@ -2,6 +2,7 @@ import os
 from typing import List, Optional, Tuple, Union
 
 from backend.src.constants import HAS_NATIVE_IMAGING, SUPPORTED_IMG_FORMATS
+from backend.src.core import telemetry
 from PySide6.QtCore import QThread, Signal, Slot
 
 if HAS_NATIVE_IMAGING:
@@ -114,9 +115,13 @@ class ImageScannerWorker(QThread):
         try:
             if HAS_NATIVE_IMAGING:
                 # cpp-based parallel scan
-                all_image_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
-                    self.directories, list(self.extensions), self.recursive
-                )
+                with telemetry.span(
+                    "native", "base.scan_files_multi",
+                    directories=self.directories, recursive=self.recursive,
+                ):
+                    all_image_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
+                        self.directories, list(self.extensions), self.recursive
+                    )
                 if self._is_cancelled:
                     return
                 self.scan_finished.emit(all_image_paths)

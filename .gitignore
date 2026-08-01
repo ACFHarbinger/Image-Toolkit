@@ -462,10 +462,6 @@ mcp.json
 .ruff_cache/
 .mypy_cache/
 
-# Forcefully add to path
-!tools/build/
-!backend/validation/target
-
 # Reverse-search engine credentials (keep the .example, ignore the real file)
 backend/config/api_keys.yaml
 
@@ -474,3 +470,14 @@ assets/migrations/pre_unified/
 
 # ASP Benchmarks
 data/benchmarks/
+
+# Forcefully add to path
+!debug/
+!tools/build/
+!backend/validation/target
+
+# JVM fatal-error logs + core dumps (debug/run_with_gdb.sh writes these to
+# the repo root, its cwd -- see .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
+# Addendum 20). Move them to ~/.image-toolkit/telemetry/ for analysis.
+hs_err_pid*.log
+core.[0-9]*

@@ -1158,3 +1158,350 @@ GDB session attached before the crash) rather than another Python-level
 code change guess -- eight-plus rounds of plausible, principled Python-side
 fixes have not closed this, which is itself evidence the remaining
 mechanism is likely below what Python-level reasoning can reach.
+
+## Addendum 17 (2026-08-01) -- recurred again (glibc heap corruption); built permanent instrumentation + gdb tooling instead of another guess
+
+Recurred with the same repro shape (auto-restored directory on startup,
+then browsing a video directory -- specifically observed going
+Hentai (images) -> Cinematography (videos) this time) and the same
+`QSocketNotifier: ... another thread` warning, this time followed by
+`corrupted size vs. prev_size` (glibc `malloc_consolidate()` heap
+corruption) and SIGABRT -- the same failure mode already seen once in
+Addendum 13. Every round 6-16 fix is still in place and none of them
+closed this.
+
+Rather than another single-shot Python-level guess (the pattern that
+produced sixteen rounds without a confirmed fix), this round built
+permanent, reusable tooling instead, per the standing recommendation right
+above this addendum ("external process tracing... GDB attached ahead of
+time"):
+
+1. **`backend/src/core/telemetry.py`** -- a toggleable (`IMAGE_TOOLKIT_TELEMETRY=1`
+   env var, near-zero cost when off), dependency-light structured JSONL
+   event logger, with an `emit()` one-shot call and a `span()` context
+   manager for start/end/error timing. Flushes every line immediately, same
+   "survive a SIGABRT moments later" reasoning as the existing
+   `flush=True` print idiom this sits alongside (not replaces -- every
+   existing `[thread-lifecycle]`/`[startup-probe-guard]` print in this
+   file's fix history is untouched).
+2. **Wired additively into every existing instrumented call site**:
+   `app.py` (JVM start, JPEG-plugin priming, login, `MainWindow`
+   construction/show), `vault_manager.py` (`jpype.startJVM()` span),
+   `lifecycle_memory.py` (RSS snapshots), `startup_probe_guard.py`, the
+   full Wallpaper scan pipeline (`_scan_pipeline.py`,
+   `_scanner_lifecycle.py`, `system_display_subtab/_config.py`), and
+   `ExtractorTab`'s equivalent scan path.
+3. **New instrumentation at the actual suspected native-crash boundary**
+   (Addendum 11's finding, never directly instrumented before this round):
+   `video_thumbnailer.py`'s three `QImage().loadFromData(...)` calls --
+   the first video-thumbnail JPEG decode in the process, off a
+   `ThreadPoolExecutor` worker thread, with the JVM already loaded --
+   wrapped in `telemetry.span()`, plus every `base.scan_files_multi()`
+   native call boundary in both `image_scan_worker.py` and
+   `video_scan_worker.py`, and the `ThreadPoolExecutor` creation/dispatch
+   itself in `video_scan_worker.py`. A crash mid-decode now leaves an
+   unambiguous *orphaned span* (a `.start` event with no matching `.end`)
+   in the telemetry file, instead of requiring inference from which
+   `print()` line happened to be last in a terminal scrollback.
+4. **`debug/telemetry_analyzer.py`** -- parses the JSONL file into one
+   merged, time-ordered timeline across every thread, and automatically
+   flags orphaned spans and overlapping scanner-thread windows (the
+   overlap shape every root-cause theory in this document has pointed at).
+5. **`debug/run_with_gdb.sh`** -- runs `main.py` under `gdb -batch`,
+   stopping on SIGSEGV/SIGABRT (glibc's heap-corruption abort included) and
+   dumping `thread apply all bt full` to a timestamped file before the
+   JVM's own `hs_err` handler or process exit gets a chance to run. This is
+   the actual external-process-tracing escalation this document has called
+   for since round 15/16, just never had a ready-made tool for.
+
+**Not a fix.** This round deliberately did not attempt another
+speculative code change -- eleven-plus code-level mitigations across
+rounds 2-16 without a confirmed close is itself evidence a twelfth guess
+isn't the efficient next move. The tooling above is meant to make the
+*next* live reproduction diagnostic instead of another round of
+inference: reproduce with `IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh`,
+then run `python debug/telemetry_analyzer.py` and correlate its
+orphaned-span/overlap findings against the gdb backtrace's timestamp
+before proposing a fix.
+
+See `debug/README.md` for full usage.
+
+## Addendum 18 (2026-08-01) -- first-ever real backtrace + telemetry capture; the trigger has inverted, and the crash may not be about scanner-thread races at all
+
+First live use of the round-17 tooling produced the first-ever gdb
+backtrace and correlated telemetry for this crash class. Two findings,
+both significant:
+
+**1. The telemetry file's last event was `startup/jvm.start.start`, with
+no matching `.end`.** The crash was detected while inside/immediately
+after `jpype.startJVM()` -- before `MainWindow` was ever constructed,
+before any scanner thread, directory scan, or `QImage` decode ran at all.
+Every one of rounds 1-17 assumed the crash required a directory switch (or
+at minimum `MainWindow` to exist); this capture didn't need either.
+
+**2. The gdb backtrace itself is unusually informative for this crash
+class.** Threads 2-17 are all `blas_thread_server` -- NumPy/SciPy's
+OpenBLAS worker pool, idle in `pthread_cond_wait`, spawned whenever
+`numpy`/`base` is imported, well before login. Their presence confirms
+**16 background pthreads already exist in-process by the time
+`jpype.startJVM()` runs.** Thread 1 (main) is where it matters: its
+unwind terminates after 2 frames at non-code addresses (`0x...692`, then
+literally `0x202`, then `0x0`), `No symbol table info available` -- not
+"missing debug symbols for a real function" but the stack itself
+containing garbage return addresses. This is the first *physical*
+confirmation (not inference from a warning string) that this is real
+heap/stack corruption, consistent with "corrupted size vs. prev_size."
+
+**The user also reported the reproduction trigger has inverted.**
+Previously (rounds 1-16) the crash required acting *fast* -- switching
+directories quickly after startup, within a race window. Now: the crash
+happens if the user is *slow* -- waits an interval after opening the app
+before browsing -- and only requires browsing/scanning **one** video
+directory, with no image-directory prerequisite and no rapid switching.
+
+**Working hypothesis (not yet confirmed): this may never have been a Qt
+scanner-thread race at all.** A corruption event that happens once,
+sometime after `jpype.startJVM()` returns -- plausibly from JVM-internal
+background-thread activity (HotSpot JIT compilation or a first GC cycle,
+which need some idle wall-clock time to kick in) interacting badly with
+the 16 pre-existing OpenBLAS pthreads -- would explain both new
+observations at once: (a) glibc's heap-consistency check is lazy, only
+firing on a later `malloc`/`free`, so the *detection* point (a video scan's
+`QImage` decode, which allocates heavily) is downstream of the actual
+corrupting write, not causally connected to it the way every previous
+round assumed; (b) waiting longer gives the JVM's background threads more
+time to do whatever the damage is before the next heavy allocation touches
+the corrupted chunk, naturally flipping "fast" (protective) to "slow"
+(triggering).
+
+**Status**: not confirmed. Debug symbols (`libc6-dbg`, `python3-dbg`)
+requested for the next capture, so thread 1's actual crashing frame
+resolves instead of showing `?? ()`. The next cheap experiment once that's
+in place: set `OPENBLAS_NUM_THREADS=1`/`OMP_NUM_THREADS=1` before
+launching (eliminates the 16-thread OpenBLAS pool) and reproduce again
+under `debug/run_with_gdb.sh` with telemetry on -- if the crash stops or
+moves to a different telemetry-adjacent point, that's strong evidence for
+the OpenBLAS/JVM-threading hypothesis above; if it reproduces identically,
+this hypothesis is falsified and the search should move to what else JPype/
+JVM startup touches in this process (BouncyCastle provider, the JNI
+classpath JARs, or JPype's own C extension).
+
+**Correction, same session -- the debug-symbols request was based on an
+incomplete read of the gdb output.** Reading the full saved
+`gdb-backtrace-20260801-110805.txt` (not just what was pasted into chat,
+which started mid-thread-list) instead of the partial paste changed the
+diagnosis again:
+
+```
+Starting JVM with classpath: [...]
+Installing openjdk unwinder
+Python Exception <class 'gdb.error'>: No type named CodeBlob.
+
+Thread 1 "python" received signal SIGSEGV, Segmentation fault.
+0x00007ffddfa5f692 in ?? ()
+```
+
+`libc6-dbg` turned out to already be installed, and `python3-dbg` was
+never going to help -- `just python` runs a uv-managed, already-unstripped
+standalone CPython 3.11.14 build (`~/.local/share/uv/python/...`), not the
+system Python the `python3-dbg` package targets. Neither was the actual
+gap. **"Installing openjdk unwinder"** is gdb auto-detecting the embedded
+JVM and loading HotSpot's own gdb integration script to resolve JIT-compiled
+("CodeBlob") frames -- and that script errored out on this JDK/gdb
+combination. That is almost certainly *why* thread 1's frame shows `?? ()`:
+not corrupted-stack garbage as first read, but a real code address inside
+HotSpot's JIT code cache (an anonymous executable mapping with no ELF
+symbol table) that only a working JVM-aware unwinder could resolve.
+
+This also means no `hs_err_pid*.log` was produced for this capture --
+`run_with_gdb.sh` originally stopped the process at the fault and never
+let the signal reach the JVM's own installed handler, so its normal
+diagnostic output never got a chance to run. **Fixed**: the script now adds
+a final `-ex "continue"` after dumping its own backtrace, re-delivering the
+same signal (gdb's default "pass" behavior for a handled-but-not-`nopass`
+signal) to the inferior so `hs_err_pid*.log` still gets written for the
+same crash. The JVM's own frame dump is very likely a better diagnostic
+here than gdb's own broken CodeBlob unwinder -- next capture should have
+both.
+
+## Addendum 20 (2026-08-01) — first-ever symbol-resolved crashes, via the fixed gdb script's hs_err pass-through: this really is the deleteOrphaned family, plus a new second crash site inside QObjectPrivate::connect()
+
+With the Addendum 19 fix in place (`run_with_gdb.sh` no longer stops on
+SIGSEGV, only SIGABRT, then `continue`s to let the JVM's own signal
+handler run), two live crashes finally produced real `hs_err_pid*.log`
+files with the JVM's own fatal-error diagnosis — something no round of
+this investigation has had before (every previous `hs_err` was either
+absent, or, per Addendum 18/19, intercepted by an incorrectly-configured
+gdb before the JVM's handler could run).
+
+**Crash 1** (`hs_err_pid2887978.log`, 25.7s after JVM start — the "fast"
+repro): `SIGSEGV`, `si_code: 2 (SEGV_ACCERR)`, `si_addr: 0x67187028`,
+`Problematic frame: C [libQt6Core.so.6+0x1e74d5]`.
+
+**Crash 2** (`hs_err_pid2888898.log`, 52 minutes after JVM start — the
+"slow" repro the user has been reporting recently): `SIGSEGV`,
+`si_code: 1 (SEGV_MAPERR)`, `si_addr: 0x100000005`,
+`Problematic frame: C [libQt6Core.so.6+0x1df7c9]`.
+
+Both `Problematic frame` lines only show a raw offset because the
+PySide6-bundled `libQt6Core.so.6` is fully stripped (`file` confirms
+`stripped`, only a `.note.gnu.build-id` remains — no matching debug
+package exists for it since it's PySide6's own private Qt build, not the
+system Qt). But the **dynamic symbol table** (`.dynsym`, exported C++
+mangled names) survives stripping, and computing which exported symbol's
+address is the nearest one *below* each crash offset resolves both:
+
+```
+0x1e74d5 -> QObjectPrivate::ConnectionData::deleteOrphaned(QObjectPrivate::TaggedSignalVector) + 0x165
+0x1df7c9 -> QObjectPrivate::connect(const QObject*, int, QtPrivate::QSlotObjectBase*, Qt::ConnectionType) + 0x109
+```
+
+(`nm -D --defined-only libQt6Core.so.6`, sorted, nearest-preceding-address
+lookup against each crash `pc`.)
+
+**This confirms, for the first time with hard evidence rather than
+inference, that the crash class documented throughout this entire file
+(rounds 1-16) is real and still open.** `+0x1e74d5` is *exactly* the
+`deleteOrphaned` family from the very first crash log at the top of this
+document (`+0x1e73ae` originally, `+0x1e74d5` recurring identically in
+Addenda 9 and 14) — the connection-list cleanup race this file's Fix
+section (rounds 2-10) targeted with unbounded waits, `DeferredDelete`
+flushing, stale-sender guards, and linked-panel synchronization. None of
+that closed it; it's still crashing inside the same function, at the same
+offset, in a live capture today.
+
+**`+0x1df7c9` resolving to `QObjectPrivate::connect()` is new, useful
+information no previous round had** — this exact offset is the *original*
+"root cause #8" address from Addendum 10, which Addendum 11 attributed to
+the JPEG image-format plugin lazily loading off a worker thread, "fixed"
+by priming it on the main thread, then subsequently disproven as the real
+cause in Addendum 15 (the crash recurred with no Qt Multimedia/JPEG-plugin
+banner in stdout at all). It was never actually understood. Now it is:
+this is a `QObject::connect()` call — i.e., the exact
+`self.img_scanner_worker.scan_finished.connect(...)`-style code in
+`_scan_pipeline.py`/`_directory_scanning.py` that wires up every new
+scanner/loader worker's signals immediately after construction — crashing
+~0x109 bytes into `QObjectPrivate::connect()`'s own logic, dereferencing a
+value (`si_addr: 0x100000005`, register `R15: 0x100000001` in the same
+crash — both improbable-looking 33-ish-bit "pointers" with an identical
+`0x00000001` upper half) that looks far more like a small tagged/packed
+integer than a real heap pointer.
+
+**Working unified theory**: there is one underlying corruption — a
+cross-thread race that damages a `QObject`'s `ConnectionData` structure
+(the same structure `deleteOrphaned` cleans up) — and every crash frame
+seen across 20 rounds of this investigation (`deleteOrphaned` at three
+close offsets, `QSocketNotifier::setEnabled`/`::type()`, unresolved raw
+addresses, and now `connect()`) is a different place that *same* corrupted
+structure happens to get touched next, not 20 independent bugs each
+needing its own fix. This would explain why fixing any one observed
+call-site/ordering issue (rounds 2-10's stop/wait/flush fixes) reduced
+frequency without closing the class: the actual corrupting write is
+upstream of all of them, and any one of `deleteOrphaned`,
+`connect()`, or Qt's own socket-notifier bookkeeping can be the next
+thing to dereference the damaged memory, depending on timing — matching
+both the "sometimes fast, sometimes needs 52 minutes of idle time"
+variability and the wide scatter of previously-reported offsets.
+
+**Not yet actionable as a code fix.** Neither of these two captures had
+`IMAGE_TOOLKIT_TELEMETRY=1` set, so there is no Python-level event log to
+correlate against either crash's timestamp — meaning there is currently no
+way to identify *which* worker's `.connect()` call, or which prior
+`deleteOrphaned` invocation, actually touched the damaged object. Writing
+a speculative fix now would repeat the exact mistake this document has
+already made many times. `ulimit -c` is `0` on this machine, so neither
+crash produced a core dump either, despite `hs_err`'s own message saying
+one would be written — closer inspection (walking the actual corrupted
+`QObjectPrivate`/`ConnectionData` in a debugger) isn't possible without
+one.
+
+**Next steps, in priority order:**
+1. Reproduce again with **both** `IMAGE_TOOLKIT_TELEMETRY=1` set **and**
+   `ulimit -c unlimited` exported first, ideally via `debug/run_with_gdb.sh`
+   (now fixed to only stop on SIGABRT and pass SIGSEGV through) so a
+   crash produces telemetry + hs_err + (this time) a core file together.
+2. Correlate the crash's `hs_err` timestamp against the telemetry file's
+   last few events (`python debug/telemetry_analyzer.py`) to identify
+   which specific worker construction/`.connect()` or teardown/
+   `deleteLater()` call was in flight.
+3. If a core file is produced, load it in gdb (`gdb python core.<pid>`)
+   and inspect the `QObjectPrivate`/`ConnectionData` at the faulting
+   pointer's neighborhood — with the exported symbols now known, gdb can
+   at least identify frame boundaries even without full debug info.
+
+**Reassessed status**: the SIGSEGV landing inside JVM-managed code, on the
+main thread, during/immediately after `jpype.startJVM()` (matching
+telemetry's unclosed `jvm.start.start` span, same PID) is the strongest
+lead this investigation has had in eighteen rounds that this may be a
+genuine HotSpot-side issue (JIT compiler bug, or a JNI/native problem
+inside the JVM) rather than a Qt/PySide6 scanner-thread race -- with the
+directory-scan trigger being an unrelated, downstream detection point
+(glibc's heap check is lazy; a video scan's heavy allocation is just where
+it happens to next look), not the cause. The "too slow now triggers it,
+too fast used to" behavioral flip fits this: more idle wall-clock time
+lets the JVM's own JIT/GC threads do more work before the next heavy
+allocation stumbles on whatever they damaged. Next repro should use the
+fixed `run_with_gdb.sh` and prioritize reading the resulting `hs_err_pid*.log`
+over gdb's own backtrace.
+
+## Addendum 19 (2026-08-01) — Addendum 18 was a tooling artifact, not a real lead: gdb was intercepting the JVM's own benign, self-handled SIGSEGVs
+
+The user ran the fixed `run_with_gdb.sh` (with the `continue`-after-backtrace
+change from Addendum 18) and reported the app now appeared to crash
+*before the login window even opened* -- a symptom that has never occurred
+in eighteen rounds of un-debugged reproduction. That mismatch was the tell
+that something about the gdb harness itself, not the app, was the problem.
+
+**Root cause of the whole Addendum 18 detour: HotSpot JVMs raise SIGSEGV
+*on purpose* as part of normal operation.** Implicit null-pointer checks
+and safepoint polling are both implemented by deliberately letting the CPU
+fault, then the JVM's own installed signal handler catches the SIGSEGV,
+determines it's an expected case, and recovers (turns it into a
+`NullPointerException`, or simply resumes execution) -- this is standard,
+documented HotSpot behavior, not a bug. `run_with_gdb.sh`'s
+`handle SIGSEGV stop print` made gdb break on *every single one* of these
+totally benign, self-handled signals, indistinguishable at that level from
+a real fault. That explains, retroactively, everything Addendum 18 found:
+
+- The "matching JIT-codecache address" (`0x00007ffddfa5f692`, reproduced
+  identically across separate process runs) wasn't evidence of a
+  deterministic real crash -- gdb disables ASLR for the debuggee by
+  default, so a routine, always-executed safepoint-poll fault at a fixed
+  point in JVM bootstrap naturally lands at the same address every time
+  under gdb. It says nothing about corruption.
+- `Installing openjdk unwinder` / `No type named CodeBlob` wasn't a clue
+  that something was going wrong in JIT code -- it's gdb correctly
+  recognizing it's looking at a HotSpot-internal fault and trying (and, on
+  this JDK/gdb pairing, failing) to give it a nicer unwind. Completely
+  consistent with "this is a normal HotSpot mechanism," not evidence of a
+  bug.
+- Confirmed directly this round: after fixing the script to stop only on
+  SIGABRT and letting SIGSEGV pass through untouched
+  (`handle SIGSEGV nostop noprint pass`), the exact same run proceeded
+  cleanly through JVM startup, keystore loading, and secret-key retrieval
+  -- reaching much further into the login flow than any previous gdb
+  capture -- before a **second** SIGSEGV occurred during
+  `"Retrieving secret key for alias: my-aes-key"` (JNI crypto operations).
+  Whether *that* one is another benign HotSpot signal or a genuine fault
+  is not yet known -- it needs the same nostop/pass treatment applied and
+  reproduced again to see whether the app fully recovers past it too.
+
+**Fix applied**: `run_with_gdb.sh` now uses
+`handle SIGSEGV nostop noprint pass` (invisible pass-through, matching
+un-debugged behavior exactly) and only `handle SIGABRT stop print` --
+SIGABRT is never used by the JVM for anything routine, so stopping there
+still catches the actual "corrupted size vs. prev_size" symptom this tool
+was built for, without the false-positive noise.
+
+**This round's core lesson for the whole investigation, restated
+plainly**: debugging a process with an embedded JVM under gdb requires
+telling gdb about the JVM's own signal conventions first
+(`nostop noprint pass` on SIGSEGV, at minimum), or every capture will be
+dominated by artifacts of the JVM's normal operation rather than the
+actual bug. **Addendum 18's central finding -- that this crash class might
+be JVM/HotSpot-internal rather than a Qt/PySide6 scanner-thread race -- is
+now unconfirmed again**, not disproven, just no longer supported by the
+evidence that prompted it. The original SIGABRT/"corrupted size vs.
+prev_size" symptom, and every one of rounds 1-17's Qt-side findings, still
+stand exactly as documented above Addendum 17. Next repro with the fixed
+script is needed before drawing any new conclusion.

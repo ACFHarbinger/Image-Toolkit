@@ -118,7 +118,9 @@ class VaultManager:
                     classpath.append(bc_provider_path)
 
             print(f"Starting JVM with classpath: {classpath}", file=sys.stderr)
-            jpype.startJVM(classpath=classpath) # pyrefly: ignore [missing-attribute]
+            from backend.src.core import telemetry
+            with telemetry.span("startup", "jvm.start", classpath=classpath):
+                jpype.startJVM(classpath=classpath) # pyrefly: ignore [missing-attribute]
 
         try:
             # Load Kotlin classes (Same package structure as Java)

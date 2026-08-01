@@ -32,6 +32,8 @@ This module now does two things instead of guessing a bigger number:
 import time
 from typing import Optional
 
+from backend.src.core import telemetry
+
 # Upper bound if QMediaDevices never confirms (backend doesn't emit the
 # signal, or emits it before we've connected). Deliberately larger than
 # round 11's 1.5s, which was shown insufficient -- this is a ceiling to
@@ -57,6 +59,10 @@ def mark_startup_probe_started() -> None:
         f"(ceiling={_STARTUP_SETTLE_CEILING_SECONDS}s)",
         flush=True,
     )
+    telemetry.emit(
+        "startup-probe-guard", "probe.started",
+        ceiling_s=_STARTUP_SETTLE_CEILING_SECONDS,
+    )
 
 
 def mark_startup_probe_settled(source: str = "unknown") -> None:
@@ -80,6 +86,10 @@ def mark_startup_probe_settled(source: str = "unknown") -> None:
         f"[startup-probe-guard] t={elapsed:.3f}s probe confirmed settled "
         f"(source={source})",
         flush=True,
+    )
+    telemetry.emit(
+        "startup-probe-guard", "probe.settled",
+        elapsed_s=round(elapsed, 3), source=source,
     )
 
 

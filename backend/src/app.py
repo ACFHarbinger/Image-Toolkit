@@ -11,7 +11,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from backend.src.constants import CTRL_C_TIMEOUT, ICON_FILE
-from backend.src.core import lifecycle_memory
+from backend.src.core import lifecycle_memory, telemetry
 
 # ---------------------------------------------------------------------------
 # Logging setup (item 1.13) — rotating file handler + coloured console output
@@ -270,6 +270,11 @@ def launch_app(opts):
         f"(encode_ok={_prime_encode_ok}, decode_ok={_prime_decode_ok})",
         flush=True,
     )
+    telemetry.emit(
+        "startup", "jpeg_plugin.primed",
+        encode_ok=_prime_encode_ok, decode_ok=_prime_decode_ok,
+        tid=threading.get_ident(),
+    )
 
     def launch_main_gui(vault_manager):
         """
@@ -278,6 +283,7 @@ def launch_app(opts):
         """
         nonlocal active_window
         print("[startup-probe-guard] login succeeded", flush=True)
+        telemetry.emit("startup", "login.succeeded", tid=threading.get_ident())
 
         # Create the new main window instance (deferred -- see the
         # QSocketNotifier/heap-corruption comment above) and only THEN
@@ -290,6 +296,7 @@ def launch_app(opts):
         def _build_and_show_main_window():
             nonlocal active_window
             print("[startup-probe-guard] MainWindow construction starting", flush=True)
+            telemetry.emit("startup", "main_window.construction.start", tid=threading.get_ident())
             previous_window = active_window
             active_window = MainWindow(
                 vault_manager=vault_manager,  # Pass the authenticated manager
@@ -298,6 +305,7 @@ def launch_app(opts):
                 enable_manager=opts.get("enable_manager", False),
             )
             active_window.show()
+            telemetry.emit("startup", "main_window.shown", tid=threading.get_ident())
             # Captures the cumulative cost of JVM start (VaultManager, inside
             # the login flow that just completed) + first-tab construction —
             # the "after gallery load" phase in §12.5's spec happens later,
