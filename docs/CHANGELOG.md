@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S280 — 2026-08-01 (Unified Database roadmap complete: real tag-chip widgets + full Recommendation-Engine encryption absorption — issues #65, #66, #127)
+
+Closes out `moon/roadmaps/unified_database.md` — all ten phases (DB.1–DB.10) now shipped.
+
+**Real tag-chip widgets (issue #127, closing DB.8's last item)**: `TagChipWidget`/`TagChipGroup` (`gui/src/components/tag_chip_widget.py`) had been built at some point and sat completely unused. New `TagChipEditor` composite (removable chips + a single autocomplete-backed add-input) replaces the plain `QLineEdit`s in the Content Listings detail panel's Genres/Tags fields — plus a new reusable `FlowLayout` (Qt has no builtin one, and a plain single-row `TagChipGroup` would overflow horizontally for a real tag list). Exposes the same `setText()`/`text()` string contract the old `QLineEdit` did, so no other call site needed to change. Entities have no tags/genres concept in this schema, so no equivalent change there.
+
+**Full Recommendation-Engine storage absorption (issue #65), reversing two earlier rounds' "too large" conclusion**: that conclusion was correct for porting the hybrid dense+sparse+RRF *retrieval algorithm*, but conflated it with the separate, much smaller question of where `SQLiteStore` physically stores its rows. A re-investigation drew that distinction explicitly, and it held: `SQLiteStore`'s SQL turned out fully portable (no JSON1, no FTS5, no `ATTACH`, no custom functions). New `EncryptedSQLiteStore` (same public API, injected already-open connection instead of opening its own file) now stores recommendation data inside `library.db` itself via the already-open unified session — closing the plaintext-sidecar gap DB.1 locked in as decision #2, without touching the retrieval algorithm at all. `SQLiteStore` itself untouched, purely additive.
+
+Tests: 8 new (`TestTagChipEditor`, `gui/test/core/test_tag_vocabulary_and_search.py`); 15 new (`backend/test/database/test_recommendation_encrypted_store.py`, mirroring `Recommendation-Engine`'s own test coverage). `backend/test/database/` at 103/103; `Recommendation-Engine`'s own suite (14 tests) and all touched GUI suites green.
+
 ## S279 — 2026-08-01 (DB.9 complete; DB.8d finished; DB.7 gap precisely documented — issues #65, #66, #67)
 
 Three more parallel work streams, following S276/S277/S278. DB.9 is now fully feature-complete against its original roadmap scope; DB.8 closes out its last open item (DB.8d's video-directory-import half).

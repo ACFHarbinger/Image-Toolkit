@@ -5,7 +5,9 @@ here too, and vice versa).
 
 ``TagCompleter`` (``gui/src/helpers/database/tag_completer.py``) already
 existed -- built and tested (issue #127) but never actually attached to
-any QLineEdit anywhere in the app. This just wires it up.
+any QLineEdit anywhere in the app. This wires it up -- now onto
+``TagChipEditor``'s internal add-input (issue #127's real chip-UI half,
+``gui/src/components/tag_chip_widget.py``) rather than a plain QLineEdit.
 """
 
 from __future__ import annotations
@@ -19,8 +21,10 @@ class _TagVocabularyMixin:
     """Attach TagCompleter to f_genres/f_tags and keep their vocabulary fresh."""
 
     def _attach_tag_completers(self) -> None:
-        self._genres_completer = TagCompleter(parent=self.f_genres)
-        self._tags_completer = TagCompleter(parent=self.f_tags)
+        self._genres_completer = TagCompleter()
+        self._tags_completer = TagCompleter()
+        self.f_genres.attach_completer(self._genres_completer)
+        self.f_tags.attach_completer(self._tags_completer)
 
     def _refresh_tag_vocabulary(self) -> None:
         db = get_library_db(self.vault_manager, parent=self)

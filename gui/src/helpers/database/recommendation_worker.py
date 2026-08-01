@@ -174,6 +174,7 @@ class RecommendationWorker(QThread):
             _ensure_re_on_path()
 
             from backend.src.constants import IMAGE_TOOLKIT_DIR
+            from backend.src.database.unified import session as unified_session
 
             from src.config import Settings  # pyrefly: ignore [missing-import]
             from src.embedder import Embedder  # pyrefly: ignore [missing-import]
@@ -181,12 +182,26 @@ class RecommendationWorker(QThread):
             from src.retriever import HybridRetriever  # pyrefly: ignore [missing-import]
             from src.schema import HistoryProfile, MediaItem, ParsedQuery  # pyrefly: ignore [missing-import]
             from src.scorer import Scorer  # pyrefly: ignore [missing-import]
-            from src.store import SQLiteStore  # pyrefly: ignore [missing-import]
+            from src.data.store import EncryptedSQLiteStore, SQLiteStore  # pyrefly: ignore [missing-import]
 
             # ---- Store setup ----
+            # Prefer the already-open, encrypted unified library session over
+            # a second plaintext sqlite3 file (DB.7 follow-up: rec_engine.db
+            # was a plaintext sidecar next to the encrypted library.db,
+            # violating DB.1's "no plaintext sidecars" decision). Falls back
+            # to the legacy plaintext store only if no session is open yet
+            # (e.g. this worker somehow ran before login) -- recommendations
+            # still work either way, just not encrypted in that edge case.
             db_path = str(IMAGE_TOOLKIT_DIR / "rec_engine.db")
             settings = Settings(sqlite_path=db_path)
-            store = SQLiteStore(settings)
+            if unified_session.is_open():
+                store = EncryptedSQLiteStore(unified_session.get_session())
+            else:
+                logger.warning(
+                    "Unified library session not open -- falling back to "
+                    "plaintext rec_engine.db for this run."
+                )
+                store = SQLiteStore(settings)
             store.create_collection()
 
             # ---- Incremental sync: embed only new entries ----

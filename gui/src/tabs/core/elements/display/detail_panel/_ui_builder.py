@@ -5,6 +5,7 @@ Extracted from ``detail_panel.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from gui.src.components.tag_chip_widget import TagChipEditor
 from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from PySide6.QtCore import Qt
@@ -99,11 +100,8 @@ class _UIBuilderMixin:
         self.f_current_episode = QSpinBox()
         self.f_current_episode.setRange(0, 99999)
         self.f_episodes.valueChanged.connect(lambda val: self.f_current_episode.setRange(0, max(0, val)))
-        self.f_genres = QLineEdit()
-        self.f_genres.setPlaceholderText("e.g. Action, Drama")
-
-        self.f_tags = QLineEdit()
-        self.f_tags.setPlaceholderText("e.g. Space Cowboy, Sci-Fi")
+        self.f_genres = TagChipEditor(placeholder="e.g. Action, Drama")
+        self.f_tags = TagChipEditor(placeholder="e.g. Space Cowboy, Sci-Fi")
 
         # Associated Entities selection row
         self.assoc_entities_ids = []

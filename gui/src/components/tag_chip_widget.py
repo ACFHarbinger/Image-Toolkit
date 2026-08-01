@@ -8,8 +8,18 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QLayout,
+    QLineEdit,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+    QWidgetItem,
+)
 
 
 class TagChipWidget(QWidget):
@@ -159,3 +169,195 @@ class TagChipGroup(QWidget):
 
     def _on_chip_toggled(self, tag_text: str, active: bool) -> None:
         self.selection_changed.emit(self.get_selected_tags())
+
+
+class FlowLayout(QLayout):
+    """Minimal wrapping row layout (the standard Qt "Flow Layout" example
+    pattern) -- QHBoxLayout doesn't wrap, and a real tag list needs to
+    span multiple rows instead of overflowing horizontally."""
+
+    def __init__(self, parent: Optional[QWidget] = None, spacing: int = 6) -> None:
+        super().__init__(parent)
+        self._items: List[QWidgetItem] = []
+        self.setSpacing(spacing)
+
+    def addItem(self, item) -> None:  # noqa: N802 -- Qt override
+        self._items.append(item)
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def itemAt(self, index: int):  # noqa: N802 -- Qt override
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
+
+    def takeAt(self, index: int):  # noqa: N802 -- Qt override
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def expandingDirections(self):  # noqa: N802 -- Qt override
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self) -> bool:  # noqa: N802 -- Qt override
+        return True
+
+    def heightForWidth(self, width: int) -> int:  # noqa: N802 -- Qt override
+        return self._do_layout(QRect(0, 0, width, 0), test_only=True)
+
+    def setGeometry(self, rect) -> None:  # noqa: N802 -- Qt override
+        super().setGeometry(rect)
+        self._do_layout(rect, test_only=False)
+
+    def sizeHint(self) -> QSize:
+        return self.minimumSize()
+
+    def minimumSize(self) -> QSize:
+        size = QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        margins = self.contentsMargins()
+        size += QSize(
+            margins.left() + margins.right(), margins.top() + margins.bottom()
+        )
+        return size
+
+    def _do_layout(self, rect: QRect, test_only: bool) -> int:
+        x, y = rect.x(), rect.y()
+        line_height = 0
+        spacing = self.spacing()
+
+        for item in self._items:
+            widget = item.widget()
+            if widget is not None and not widget.isVisible():
+                continue
+            hint = item.sizeHint()
+            next_x = x + hint.width() + spacing
+            if next_x - spacing > rect.right() and line_height > 0:
+                x = rect.x()
+                y = y + line_height + spacing
+                next_x = x + hint.width() + spacing
+                line_height = 0
+
+            if not test_only:
+                item.setGeometry(QRect(QPoint(x, y), hint))
+
+            x = next_x
+            line_height = max(line_height, hint.height())
+
+        return y + line_height - rect.y()
+
+
+class TagChipEditor(QWidget):
+    """Per-entry tag editor: a wrapping row of removable ``TagChipWidget``
+    chips plus a single-tag "add" input with autocomplete (issue #127).
+
+    Every chip present IS a tag on this entry -- unlike ``TagChipGroup``
+    (built for filter-picker use cases, where ``active``/toggle state
+    selects a subset of a fixed vocabulary), there's no toggle semantics
+    here: a chip's only two states are "present" and "removed via its
+    little x button".
+
+    Exposes ``setText()``/``text()``/``clear()`` matching the plain
+    ``QLineEdit`` (comma-separated string) contract this widget replaces,
+    so callers that load/save a CSV string need no other changes.
+    """
+
+    changed = Signal()
+
+    def __init__(self, parent: Optional[QWidget] = None, placeholder: str = "") -> None:
+        super().__init__(parent)
+        self._tags: List[str] = []
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        self._chip_container = QWidget(self)
+        self._flow = FlowLayout(self._chip_container)
+        self._chip_container.setMinimumHeight(28)
+        layout.addWidget(self._chip_container)
+
+        self.add_edit = QLineEdit(self)
+        if placeholder:
+            self.add_edit.setPlaceholderText(placeholder)
+        self.add_edit.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self.add_edit.returnPressed.connect(self._commit_input)
+        layout.addWidget(self.add_edit)
+
+    # ---- QLineEdit-compatible contract ---------------------------------
+
+    def setText(self, csv_text: str) -> None:  # noqa: N802 -- Qt-style API
+        tags = [t.strip() for t in (csv_text or "").split(",") if t.strip()]
+        self._set_tags(tags)
+
+    def text(self) -> str:
+        return ", ".join(self._tags)
+
+    def clear(self) -> None:
+        self._set_tags([])
+        self.add_edit.clear()
+
+    # ---- Autocomplete wiring --------------------------------------------
+
+    def attach_completer(self, completer) -> None:
+        """Attach a ``TagCompleter`` to the add-input. Selecting a
+        completion commits it as a chip immediately (rather than the
+        completer's own comma-joining behavior, built for a plain
+        multi-tag QLineEdit -- this widget is single-tag-per-commit)."""
+        self.add_edit.setCompleter(completer)
+        completer.activated.connect(self._on_completion_activated)
+
+    # ---- Internals -------------------------------------------------------
+
+    def _on_completion_activated(self, tag: str) -> None:
+        self._add_tags([tag])
+        self.add_edit.clear()
+
+    def _commit_input(self) -> None:
+        raw = self.add_edit.text()
+        self._add_tags(part.strip() for part in raw.split(","))
+        self.add_edit.clear()
+
+    def _add_tags(self, tags) -> None:
+        changed = False
+        for tag in tags:
+            if tag and tag not in self._tags:
+                self._tags.append(tag)
+                changed = True
+        if changed:
+            self._rebuild_chips()
+            self.changed.emit()
+
+    def _set_tags(self, tags: List[str]) -> None:
+        seen = set()
+        ordered = []
+        for tag in tags:
+            if tag not in seen:
+                seen.add(tag)
+                ordered.append(tag)
+        self._tags = ordered
+        self._rebuild_chips()
+
+    def _on_chip_removed(self, tag_text: str) -> None:
+        if tag_text in self._tags:
+            self._tags.remove(tag_text)
+            self._rebuild_chips()
+            self.changed.emit()
+
+    def _rebuild_chips(self) -> None:
+        while self._flow.count():
+            item = self._flow.takeAt(0)
+            widget = item.widget() if item else None
+            if widget is not None:
+                widget.deleteLater()
+
+        for tag in self._tags:
+            chip = TagChipWidget(
+                tag, active=True, removable=True, parent=self._chip_container
+            )
+            chip.removed.connect(self._on_chip_removed)
+            self._flow.addWidget(chip)

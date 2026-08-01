@@ -16,8 +16,10 @@ pytestmark = pytest.mark.gui
 class TestDetailPanelTagCompleter:
     def test_completers_attached_on_construction(self, q_app):
         panel = _DetailPanel()
-        assert panel.f_genres.completer() is panel._genres_completer
-        assert panel.f_tags.completer() is panel._tags_completer
+        # f_genres/f_tags are TagChipEditor (issue #127) -- the completer
+        # attaches to its internal add-input, not the widget itself.
+        assert panel.f_genres.add_edit.completer() is panel._genres_completer
+        assert panel.f_tags.add_edit.completer() is panel._tags_completer
 
     def test_refresh_vocabulary_populates_completers(self, q_app):
         panel = _DetailPanel()
@@ -43,6 +45,79 @@ class TestDetailPanelTagCompleter:
         ):
             panel._refresh_tag_vocabulary()  # must not raise
         assert panel._genres_completer.get_matching_tags("") == []
+
+
+class TestTagChipEditor:
+    """issue #127: TagChipEditor replaces the plain CSV QLineEdit for
+    Genres/Tags -- setText/text/clear must stay drop-in compatible, and
+    chip add/remove must update the underlying tag list correctly."""
+
+    def test_set_text_populates_chips(self, q_app):
+        from gui.src.components.tag_chip_widget import TagChipEditor
+
+        editor = TagChipEditor()
+        editor.setText("Action, Sci-Fi, Space Cowboy")
+        assert editor.text() == "Action, Sci-Fi, Space Cowboy"
+        assert editor._flow.count() == 3
+
+    def test_set_text_dedupes_preserving_order(self, q_app):
+        from gui.src.components.tag_chip_widget import TagChipEditor
+
+        editor = TagChipEditor()
+        editor.setText("Action, Sci-Fi, Action")
+        assert editor.text() == "Action, Sci-Fi"
+
+    def test_enter_commits_chip_and_clears_input(self, q_app):
+        from gui.src.components.tag_chip_widget import TagChipEditor
+
+        editor = TagChipEditor()
+        editor.add_edit.setText("Drama")
+        editor.add_edit.returnPressed.emit()
+        assert editor.text() == "Drama"
+        assert editor.add_edit.text() == ""
+
+    def test_removing_a_chip_updates_text(self, q_app):
+        from gui.src.components.tag_chip_widget import TagChipEditor
+
+        editor = TagChipEditor()
+        editor.setText("Action, Sci-Fi")
+        chip = editor._flow.itemAt(0).widget()
+        chip.removed.emit(chip.tag_text)
+        assert editor.text() == "Sci-Fi"
+
+    def test_clear_empties_chips_and_input(self, q_app):
+        from gui.src.components.tag_chip_widget import TagChipEditor
+
+        editor = TagChipEditor()
+        editor.setText("Action, Sci-Fi")
+        editor.add_edit.setText("leftover")
+        editor.clear()
+        assert editor.text() == ""
+        assert editor.add_edit.text() == ""
+
+    def test_completion_activated_commits_chip(self, q_app):
+        from gui.src.components.tag_chip_widget import TagChipEditor
+
+        editor = TagChipEditor()
+        editor.add_edit.setText("Sci")
+        editor._on_completion_activated("Sci-Fi")
+        assert editor.text() == "Sci-Fi"
+        assert editor.add_edit.text() == ""
+
+    def test_detail_panel_load_entry_populates_chip_editors(self, q_app):
+        panel = _DetailPanel()
+        panel.load_entry({"id": "m-1", "title": "T", "genres": "Action, Drama", "tags": "Sci-Fi"})
+        assert panel.f_genres.text() == "Action, Drama"
+        assert panel.f_tags.text() == "Sci-Fi"
+
+    def test_detail_panel_save_reads_current_chips(self, q_app):
+        panel = _DetailPanel()
+        panel.f_title.setText("Some Title")
+        panel.f_genres.setText("Action")
+        panel.f_tags.setText("Space Cowboy")
+        entry = panel._collect()
+        assert entry["genres"] == "Action"
+        assert entry["tags"] == "Space Cowboy"
 
 
 class TestSearchImagesWithTag:
