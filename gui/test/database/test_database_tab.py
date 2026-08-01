@@ -132,3 +132,87 @@ class TestSearchTab:
 
             mock_worker.assert_called()
             MockThreadPool.globalInstance().start.assert_called_with(worker_instance)
+
+
+class TestSearchTabSemanticSearch:
+    """DB.7: "Search by Meaning" box + "Find Similar" context action."""
+
+    @pytest.fixture
+    def mock_worker(self):
+        with patch(
+            "gui.src.tabs.database.search_tab._semantic_search.SemanticSearchWorker"
+        ) as mock:
+            yield mock
+
+    def test_perform_semantic_search_no_db(self, q_app):
+        mock_db_tab = MagicMock()
+        mock_db_tab.db = None
+        tab = SearchTab(mock_db_tab)
+
+        with patch(
+            "gui.src.tabs.database.search_tab._semantic_search.QMessageBox.warning"
+        ) as mock_warn:
+            tab.semantic_query_edit.setText("a sunset")
+            tab.perform_semantic_search()
+            mock_warn.assert_called()
+
+    def test_perform_semantic_search_empty_query(self, q_app, mock_worker):
+        mock_db_tab = MagicMock()
+        mock_db_tab.db = MagicMock()
+        tab = SearchTab(mock_db_tab)
+
+        with patch(
+            "gui.src.tabs.database.search_tab._semantic_search.QMessageBox.information"
+        ) as mock_info:
+            tab.semantic_query_edit.setText("")
+            tab.perform_semantic_search()
+            mock_info.assert_called()
+            mock_worker.assert_not_called()
+
+    def test_perform_semantic_search_dispatches_worker(self, q_app, mock_worker):
+        mock_db_tab = MagicMock()
+        mock_db_tab.db = MagicMock()
+        tab = SearchTab(mock_db_tab)
+        tab.semantic_query_edit.setText("a sunset over water")
+
+        with patch(
+            "gui.src.tabs.database.search_tab._semantic_search.QThreadPool"
+        ) as MockThreadPool:
+            tab.perform_semantic_search()
+
+            mock_worker.assert_called_once()
+            _, kwargs = mock_worker.call_args
+            assert kwargs["text"] == "a sunset over water"
+            MockThreadPool.globalInstance().start.assert_called_with(
+                mock_worker.return_value
+            )
+
+    def test_display_ranked_results_preserves_score_order(self, q_app):
+        """Semantic hits must NOT be re-sorted alphabetically -- see
+        _display_ranked_results()'s docstring."""
+        mock_db_tab = MagicMock()
+        tab = SearchTab(mock_db_tab)
+        hits = [(3, 0.9, "/z_last.png"), (1, 0.5, "/a_first.png")]
+
+        tab._display_ranked_results(hits)
+
+        assert tab.master_found_files == ["/z_last.png", "/a_first.png"]
+
+    def test_find_similar_images_dispatches_worker(self, q_app, mock_worker):
+        mock_db_tab = MagicMock()
+        mock_db_tab.db = MagicMock()
+        mock_db_tab.db.get_image_by_path.return_value = {"id": 42}
+        tab = SearchTab(mock_db_tab)
+
+        with patch(
+            "gui.src.tabs.database.search_tab._semantic_search.QThreadPool"
+        ) as MockThreadPool:
+            tab.find_similar_images("/some/photo.png")
+
+            mock_worker.assert_called_once()
+            _, kwargs = mock_worker.call_args
+            assert kwargs["image_path"] == "/some/photo.png"
+            assert kwargs["exclude_image_id"] == 42
+            MockThreadPool.globalInstance().start.assert_called_with(
+                mock_worker.return_value
+            )

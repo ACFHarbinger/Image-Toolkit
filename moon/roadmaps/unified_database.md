@@ -241,7 +241,7 @@ Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to
 
 ## 🔄 DB.7 Semantic Search & CBIR
 
-*Started 2026-08-01 (issue #65): image-embedding backfill infrastructure shipped; text/find-similar search UI and the listings BGE-M3/Recommendation-Engine absorption are not yet done — see below.*
+*Started 2026-08-01 (issue #65): image-embedding backfill infrastructure, Search tab "Search by Meaning" text search, and "Find Similar Images" shipped; only the listings BGE-M3/Recommendation-Engine absorption remains — see below.*
 
 **Correction to the original roadmap text**: "MetaCLIP image encoder (already integrated for the Inference tab)" was never actually true — `MetaCLIPInferenceTab` (`gui/src/tabs/models/meta_clip_inference_tab.py`) is a thin GUI shell that dispatches a job elsewhere; there is no in-process MetaCLIP encoder anywhere in the codebase to call. What *does* already exist and run in-process is `backend/src/core/similarity/embedder.py` (built for the Similarity tab's Tier-4 semantic hashing) — a lazy-loaded, graceful-fallback `open_clip` embedder (`mobileclip` → `openclip` → `resnet18`), already batched, already GIL-releasing during the torch forward pass. DB.7 builds on that real, tested encoder instead — `model='openclip'`, not `'metaclip'` — rather than inventing a second ML-loading pathway for a model this codebase can't actually run yet.
 
@@ -250,12 +250,15 @@ Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to
 - `OpenClipEmbedder.embed_text()` (`embedder.py`) — text-tower embedding in the same vector space as the image tower, needed for text→image search (not yet wired to a GUI control — see Not done below).
 - `ImageEmbeddingWorker` (`gui/src/helpers/database/embedding_worker.py`) — `QThread` subclass overriding `run()` (same pattern as `UpsertWorker`/`MergeWorker`, not `QObject.moveToThread()` — the JPype-JVM/Qt-event-loop precedent). Embedding computation happens off-thread; the DB write is deferred back to the main thread in one transaction (the keyed `Database` handle isn't safe to share across threads, per DB.2's own risk register).
 - Maintenance panel gained a "🧠 Embed Unembedded Images" button (`database_tab/_ui_connection.py` + `_connection_stats.py`) — counts pending images, confirms, runs the worker, shows live progress, writes results transactionally, matching the existing Vacuum/Reindex button pattern exactly.
-- Tests: `test_image_embedding_backfill_bookkeeping` (`test_unified_repos.py`), `test_semantic_search_facade_surface` (`test_unified_facade.py`) — 62/62 `backend/test/database/` green.
+- **`SemanticSearchWorker`** (`gui/src/helpers/database/semantic_search_worker.py`) — a short `QRunnable` dispatched on the global `QThreadPool`, mirroring `SearchWorker`'s own structured-search pattern exactly rather than introducing a second worker style. Embeds the query (text, or an existing image for find-similar) and runs `semantic_image_search` in the same background task; results come back already ranked, worst-to-best excluded via `top_k`.
+- **Search tab "Search by Meaning"** (`search_tab/_semantic_search.py`): an additive natural-language query box + button next to the existing structured Search Database form (kept as a separate control rather than a mode toggle on the existing button, to avoid touching the existing, QML-bridge-shared `perform_search()`/`toggle_search()` flow). Composes with the existing group/subgroup/tag/format filters as a SQL prefilter — group/subgroup only apply when exactly one is selected, since `semantic_image_search()` takes a single name, not a list. Results render in relevance (score) order, bypassing `start_loading_thumbnails()`'s alphabetical `_apply_sort()`.
+- **"🧠 Find Similar Images" context-menu action** on every found-gallery card (`search_tab/_file_actions.py`) — queries by that image's own embedding (computed on the fly, not persisted), excluding the source image from its own results.
+- Tests: `test_image_embedding_backfill_bookkeeping` (`test_unified_repos.py`), `test_semantic_search_facade_surface` (`test_unified_facade.py`) — 62/62 `backend/test/database/` green; `TestSearchTabSemanticSearch` (6 new GUI tests, `gui/test/database/test_database_tab.py`) — dispatch shape, empty/no-db guards, and the relevance-order-preserved assertion.
 
 **Not done yet** (explicitly deferred, not silently skipped):
-- **Search tab UI**: no "Semantic" mode toggle or natural-language query box wired up yet — `semantic_image_search()`/`embed_text()` exist and are tested at the DAL/embedder level, but nothing in the GUI calls them together end-to-end. "Find similar" context-menu action on image cards: also not wired.
 - **Listings semantic search (BGE-M3)**: `Recommendation-Engine` absorption (`LibraryBackend`, deleting the dead placeholder-embedding code in `listings_common.py`) not started — this is a separate, large sub-project (a second embedding model + absorbing an entire existing sub-project's storage) that deserves its own dedicated round rather than being folded into this one.
 - **hnswlib ANN index**: `Database.knn` (DB.2) already has a brute-force fallback path and is what's used above; the persisted-encrypted-blob HNSW index for larger libraries is not built — fine at current library scale (brute-force over a few thousand images is fast), revisit if it becomes a real bottleneck.
+- **Multi-group/subgroup semantic prefilter**: `semantic_image_search()` only accepts a single `group_name`/`subgroup_name`, unlike structured search's list-based filters — a real (small) API gap, not just an unimplemented UI hook.
 
 ## Original DB.7 scope (for reference)
 
@@ -306,7 +309,7 @@ Incremental (answer #10 — implementer's choice); the app ships after every pha
 | ✅ P1 | DB.2 `base.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | done (S210) |
 | 🔄 P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | mostly done (S210); SQL-side filtering deferred |
 | 🔄 P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | mostly done (S211); archival + scan-worker deferred |
-| 🔄 P4 | DB.7 semantic search & CBIR | Embedding backfill live; text→image/find-similar UI + rec-engine unification still pending | ~1.5w |
+| 🔄 P4 | DB.7 semantic search & CBIR | Image text→image + find-similar search live; rec-engine (listings BGE-M3) unification still pending | ~1.5w |
 | P5 | DB.8 cross-domain features | Links, shared tags, auto-listings | ~1w |
 | P6 | DB.9 data browser + DB.10 cleanup/backups/docs | End state | ~1w |
 

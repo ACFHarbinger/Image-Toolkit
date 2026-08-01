@@ -16,6 +16,7 @@ from ._group_filters import _GroupFiltersMixin
 from ._lifecycle import _LifecycleMixin
 from ._qml_wrappers import _QmlWrappersMixin
 from ._search_worker import _SearchWorkerMixin
+from ._semantic_search import _SemanticSearchMixin
 from ._tab_communication import _TabCommunicationMixin
 from ._tag_filters import _TagFiltersMixin
 from ._ui_builder import _UIBuilderMixin
@@ -31,6 +32,7 @@ class SearchTab(
     _UIBuilderMixin,
     _GalleryCardsMixin,
     _SearchWorkerMixin,
+    _SemanticSearchMixin,
     _QmlWrappersMixin,
     _FormatFiltersMixin,
     _TagFiltersMixin,

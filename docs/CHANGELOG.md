@@ -2,6 +2,33 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S274 — 2026-08-01 (DB.7: text→image semantic search + Find Similar — issue #65)
+
+Second slice of DB.7, following S273's embedding-backfill infrastructure:
+
+- New `SemanticSearchWorker` (`gui/src/helpers/database/semantic_search_worker.py`)
+  — a `QRunnable` on the global thread pool, mirroring `SearchWorker`'s
+  existing structured-search dispatch pattern. Embeds a query (text, or
+  an existing image for find-similar) and runs `semantic_image_search`
+  together, off the GUI thread.
+- Search tab gained a "🧠 Search by Meaning" natural-language query box,
+  additive alongside the existing structured search form (kept separate
+  from `perform_search()`/`toggle_search()` to avoid touching the
+  QML-bridge-shared flow). Composes with the existing group/subgroup/
+  tag/format filters; results render in relevance order rather than
+  being silently re-sorted alphabetically.
+- New "🧠 Find Similar Images" context-menu action on every found-gallery
+  card — queries by that image's own embedding, excluding itself from
+  its own results.
+- Tests: 6 new GUI tests (`TestSearchTabSemanticSearch`,
+  `gui/test/database/test_database_tab.py`) covering dispatch shape,
+  empty-query/no-db guards, and the relevance-order-preservation fix;
+  backend suite unchanged at 62/62 green.
+- Still deferred: listings BGE-M3 embeddings + Recommendation-Engine
+  absorption (its own separate sub-project), and multi-group/subgroup
+  semantic prefiltering (a real, small API gap in `semantic_image_search`
+  vs. structured search's list-based filters) — see the roadmap.
+
 ## S273 — 2026-08-01 (DB.7 started: semantic-embedding backfill infrastructure — issue #65)
 
 First slice of DB.7 (Semantic Search & CBIR) from `moon/roadmaps/unified_database.md`:

@@ -56,6 +56,7 @@ class _UIBuilderMixin:
 
         layout.addWidget(search_group)
         self._build_search_button(layout)
+        self._build_semantic_search_section(layout)
         self._build_galleries(layout)
 
         # **Assign Base Class References**

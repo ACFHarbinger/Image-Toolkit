@@ -176,6 +176,9 @@ class _FileActionsMixin:
         dir_action = QAction("📂 Open File Location", self)
         dir_action.triggered.connect(lambda: self.open_file_directory(file_path))
         menu.addAction(dir_action)
+        similar_action = QAction("🧠 Find Similar Images (semantic)", self)
+        similar_action.triggered.connect(lambda: self.find_similar_images(file_path))
+        menu.addAction(similar_action)
         menu.addSeparator()
         remove_db_action = QAction("❌ Remove from Database Only", self)
         remove_db_action.triggered.connect(

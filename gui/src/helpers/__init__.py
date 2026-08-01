@@ -9,6 +9,7 @@ from .core.sampler_worker import SamplerWorker as SamplerWorker
 from .core.similarity_scan_worker import SimilarityScanWorker as SimilarityScanWorker
 from .database.embedding_worker import ImageEmbeddingWorker as ImageEmbeddingWorker
 from .database.search_worker import SearchWorker as SearchWorker
+from .database.semantic_search_worker import SemanticSearchWorker as SemanticSearchWorker
 from .database.upsert_worker import UpsertWorker as UpsertWorker
 from .core.video_export_worker import ScrollVideoExportWorker as ScrollVideoExportWorker
 from .core.wallpaper_worker import WallpaperWorker as WallpaperWorker
