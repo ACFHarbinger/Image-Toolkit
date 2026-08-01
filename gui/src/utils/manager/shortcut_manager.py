@@ -52,6 +52,12 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "General",
         "default": "Ctrl+Shift+F",
     },
+    {
+        "id": "general.workflow_templates",
+        "description": "Open the workflow templates picker (run/create a cross-tab setup)",
+        "scope": "General",
+        "default": "Ctrl+Shift+M",
+    },
     # Gallery — two-gallery base class
     {
         "id": "gallery.select_all",

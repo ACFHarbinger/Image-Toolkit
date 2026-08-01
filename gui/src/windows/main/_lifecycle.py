@@ -88,6 +88,9 @@ class _LifecycleMixin:
         elif get_registry().matches(event, "general.global_search"):
             self._open_global_search()
             event.accept()
+        elif get_registry().matches(event, "general.workflow_templates"):
+            self._open_workflow_templates_dialog()
+            event.accept()
         elif get_registry().matches(event, "general.save_tab_config"):
             self._open_save_tab_config_dialog()
             event.accept()

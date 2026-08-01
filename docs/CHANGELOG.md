@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S282 — 2026-08-01 (New Features 4.13: shortcut macros / workflow templates — issue #61)
+
+Closes `moon/roadmaps/new_features.md` §4.13 (Option C: workflow templates, per the roadmap's own recommendation).
+
+`Ctrl+Shift+M` opens a picker (`gui/src/windows/main/_workflow_templates.py`, new `_WorkflowTemplatesMixin`) listing saved named workflow templates with Run/New/Delete. A template is an ordered list of `{category, tab_name, config_name}` steps, built entirely on top of the *existing* `tab_configurations` vault store (the same one Ctrl+S and the Settings window's "Tab Default Configuration Management" section already read/write — no new config format introduced). Running a template applies each step's saved config to its tab via the universal `set_config()` contract every tab already implements, then switches to the **last** step's tab via the same `command_combo` + `_select_tab_by_name` cross-tab-activation pattern §2.28's global search and the Ctrl+T tab-search popup both use — directly matching the pain point's own example workflow ("browse to directory X, scan, then switch to delete tab"). New `general.workflow_templates` shortcut-registry entry (`Ctrl+Shift+M`, remappable); new `workflow_templates` vault key, parallel to `tab_configurations`. Options A (registered-command-ID macro playback) and B (eval'd Python expression macros) not pursued — A's design reduced to exactly what shipped once worked through concretely, and B was explicitly flagged skip-unless-requested in the roadmap text.
+
+Also discovered and documented (not fixed, out of scope for this round): running `gui/test/core/test_main_window.py::TestMainWindowSaveTabConfig::test_save_tab_config_to_vault_persists_config` in isolation pops a real, un-mocked `QMessageBox` on the live desktop and hangs indefinitely waiting for a physical click — a pre-existing test-infra gap unrelated to this session's diff (confirmed: the file it exercises, `_save_tab_config.py`, wasn't touched), non-deterministic, and now written up in the `feedback-no-gui-tests` project memory for future sessions to recognize immediately instead of re-diagnosing.
+
+Tests: `gui/test/core/test_workflow_templates.py` (4, new). `gui/test/core/test_main_window.py` (12/13 green, scoped around the known pre-existing hang above); `gui/test/core/test_global_search.py` + `gui/test/image/test_gallery_classes.py` re-verified green alongside.
+
 ## S281 — 2026-08-01 (GUI/UX 2.28: global cross-tab search — issue #45)
 
 Closes `moon/roadmaps/gui_ux.md` §2.28 (Option A: in-memory search across loaded tabs, zero new dependencies).

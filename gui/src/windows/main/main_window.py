@@ -32,6 +32,7 @@ from ._tab_registry import _TabRegistryMixin
 from ._tab_search import _TabSearchMixin
 from ._theme import _ThemeMixin
 from ._tray import _TrayMixin
+from ._workflow_templates import _WorkflowTemplatesMixin
 from ._zoom import _ZoomMixin
 
 
@@ -46,6 +47,7 @@ class MainWindow(
     _TrayMixin,
     _TabSearchMixin,
     _GlobalSearchMixin,
+    _WorkflowTemplatesMixin,
     _ShortcutOverlayMixin,
     _SaveTabConfigMixin,
     _StartupPrefsMixin,

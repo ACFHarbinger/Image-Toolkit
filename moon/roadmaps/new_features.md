@@ -66,7 +66,7 @@ flowchart TD
     subgraph AUTOMATION["⚙ Automation & API"]
         A8["§4.8 ComfyUI Integration\nPost-processing workflow hooks"]:::integration:::planned
         A10["§4.10 REST API Layer\nRemote control & scripting"]:::integration:::planned
-        A13["§4.13 Shortcut Macros\nCustom action sequences"]:::augment:::planned
+        A13["§4.13 Shortcut Macros ✅\nWorkflow templates"]:::augment:::done
     end
 
     subgraph MEDIA["🖼 Media & Presentation"]
@@ -543,7 +543,13 @@ A full workspace concept capturing: appearance profile + layout profile (§2.32B
 
 ---
 
-## 4.13 Shortcut Macros and Custom Actions
+## 4.13 Shortcut Macros and Custom Actions ✅ Option C (2026-08-01, issue #61) {: #413-shortcut-macros-and-custom-actions }
+
+**Shipped: workflow templates**, per this section's own recommendation ("essentially the existing Tab Default Configuration system extended to cross-tab context"). `Ctrl+Shift+M` opens a picker (`gui/src/windows/main/_workflow_templates.py`, new `_WorkflowTemplatesMixin`) listing saved named templates with Run/New/Delete. A template is an ordered list of `{category, tab_name, config_name}` steps — building one reuses the *existing* `tab_configurations` vault store (the same one the Settings window's "Tab Default Configuration Management" section and Ctrl+S already read/write, no new config format). Running a template applies each step's saved config to its tab via the already-universal `set_config()` contract every tab implements, then switches to the **last** step's tab via the same `command_combo` + `_select_tab_by_name` cross-tab-activation pattern used by Ctrl+T and §2.28's global search — directly matching the pain point's own example ("browse to directory X, scan, then switch to delete tab": set up N tabs' state, then land on the one you actually work in next). New `general.workflow_templates` shortcut-registry entry (`Ctrl+Shift+M`, remappable). Stored in the vault under a new `workflow_templates` key, parallel to `tab_configurations`.
+
+Options A (registered-command-ID macro playback) and B (eval'd Python expressions) not pursued: A's "sequence of commands" framing turned out to reduce to "sequence of tab-config-applications + one final tab switch" once actually designed, which is exactly what shipped without needing a separate command-ID registry; B was explicitly flagged skip-unless-requested for its security profile.
+
+Tests: `gui/test/core/test_workflow_templates.py` (4, new — key dispatch, save/load round-trip, run applying a config + activating the last tab, and the missing-template warning path).
 
 **Pain point:** Some workflows require a fixed sequence of tab switches + operations (e.g., "browse to directory X, scan, then switch to delete tab"). These multi-step sequences have no automation path — users repeat them manually every session. A lightweight macro system bound to user-defined hotkeys would eliminate repetitive navigation.
 
