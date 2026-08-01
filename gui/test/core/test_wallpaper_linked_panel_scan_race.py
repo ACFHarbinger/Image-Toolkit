@@ -188,3 +188,97 @@ class TestLinkedPanelRapidSwitchRace:
         # not stuck on a stale one from mid-switch.
         assert system_display.scanned_dir == final_dir
         assert monitor_display.scanned_dir == final_dir
+
+
+class TestPeerReentrancyGuard:
+    """Addendum 21 (.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md):
+    a live, telemetry+hs_err-correlated SIGSEGV inside
+    QObjectPrivate::ConnectionData::deleteOrphaned was localized to a
+    peer's reentrant _stop_scanner_threads() call reaching into a linked
+    panel that was itself still mid-flight through its own
+    populate_scan_image_gallery() call (i.e. its own _scan_pipeline_busy
+    flag was still set) -- exactly the state the emitting panel is in when
+    the queued directory_scanned signal it fired is delivered to the peer,
+    since _scan_pipeline_busy only clears once that panel's OWN scan
+    settles asynchronously, well after its populate_scan_image_gallery()
+    call has already returned.
+    """
+
+    def test_peer_does_not_reenter_stop_scanner_threads_on_busy_panel(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
+        )
+        video_registry = []
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline,
+            "VideoScannerWorker",
+            _make_spying_video_scanner_worker(video_registry),
+        )
+
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        target_dir = tmp_path / "some_dir"
+        target_dir.mkdir()
+        (target_dir / "pic.png").write_bytes(b"\x00")
+
+        # Simulate system_display being mid-flight through its own
+        # populate_scan_image_gallery() call for a different, newer switch
+        # -- exactly the state it's in, per Addendum 21's telemetry trace,
+        # when the peer's reentrant call reaches back into it.
+        system_display._scan_pipeline_busy = True
+
+        stop_calls = []
+        monkeypatch.setattr(
+            system_display, "_stop_scanner_threads", lambda: stop_calls.append(1)
+        )
+
+        # This is exactly the call the queued directory_scanned signal
+        # triggers on the peer once the emitting panel's own call has
+        # already returned to the event loop.
+        monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
+        _pump(1.0)
+
+        assert stop_calls == [], (
+            "peer's reentrant call must not invoke _stop_scanner_threads() on "
+            "a linked panel that is itself still mid-flight "
+            "(_scan_pipeline_busy) through its own populate_scan_image_gallery() "
+            "-- see Addendum 21 in .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md"
+        )
+
+    def test_peer_still_stops_a_non_busy_panel(self, q_app, monkeypatch, tmp_path):
+        """The guard must not become a blanket no-op: a linked panel that
+        genuinely has stale scanner threads and is NOT mid-flight through
+        its own call should still get stopped/drained as before."""
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
+        )
+        video_registry = []
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline,
+            "VideoScannerWorker",
+            _make_spying_video_scanner_worker(video_registry),
+        )
+
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        target_dir = tmp_path / "some_dir"
+        target_dir.mkdir()
+        (target_dir / "pic.png").write_bytes(b"\x00")
+
+        assert getattr(system_display, "_scan_pipeline_busy", False) is False
+
+        stop_calls = []
+        monkeypatch.setattr(
+            system_display, "_stop_scanner_threads", lambda: stop_calls.append(1)
+        )
+
+        monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
+        _pump(1.0)
+
+        assert stop_calls == [1]

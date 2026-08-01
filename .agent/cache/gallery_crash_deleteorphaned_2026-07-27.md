@@ -1429,6 +1429,145 @@ one.
    pointer's neighborhood — with the exported symbols now known, gdb can
    at least identify frame boundaries even without full debug info.
 
+## Addendum 21 (2026-08-01) — first full telemetry+hs_err correlated capture: crash localized to primary panel's own populate_scan_image_gallery(), 0-22ms after a reentrant peer-triggered DeferredDelete flush
+
+A `IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh` run produced, for the
+first time, telemetry + gdb backtrace + `hs_err_pid*.log` all for the same
+crash (`telemetry-2940282.jsonl`, `hs_err_pid2940282.log`,
+`gdb-backtrace-20260801-124858.txt`). Same offset as before —
+`libQt6Core.so.6+0x1e74d5` → `QObjectPrivate::ConnectionData::deleteOrphaned(...)`
+(confirmed via `debug/resolve_qt_offset.py`) — but this time with a full
+Python-level event trail leading up to it.
+
+**Timeline reconstruction** (anchoring hs_err's JVM-relative "elapsed time:
+16.4s" against telemetry's `jvm.start.start` at `t=5.709`, giving an
+estimated crash window of `t≈22.1-22.5`, which lines up exactly with the
+telemetry file's own last recorded event at `t=22.233`):
+
+1. `t=15.866` — Wallpaper tab's `system_display` panel (`panel=...9680`,
+   called "primary" below) auto-restores `Wallpapers/Cinematography`.
+   `populate_scan_image_gallery()` stops both itself and its linked peer
+   (`monitor_display`, `panel=...8608`) via `_stop_scanner_threads()`,
+   emits `directory_scanned` (queued connection), then continues
+   synchronously to build its own new scan. The peer's mirrored call
+   (triggered by the queued signal, delivered once primary's own call
+   returns) reaches the event loop at `t=15.868` and — racing ahead of
+   primary's own sequence — starts its own `ImageScannerWorker` at
+   `t=15.880` and its own `VideoScannerWorker` at `t=15.891`. Primary's
+   *own* `ImageScannerWorker` doesn't start until `t=15.997` (131ms after
+   its own `_stop_scanner_threads()` flush) and its own
+   `VideoScannerWorker` at `t=16.056`. **Both panels end up running their
+   own independent `VideoScannerWorker` (8-thread `ThreadPoolExecutor`
+   each) over the identical 451-file directory, ~165ms apart, concurrently.**
+   This survived — both scans completed cleanly (dozens of matched
+   `process_video_task`/`qimage_from_cache` begin/end pairs through
+   `t≈16.3`).
+
+2. `t=22.121` — the **same primary panel**, still on the same session, is
+   switched again (this time to `Cinematography`, no `Wallpapers/` prefix
+   — the same directory pair from the very first crash report at the top
+   of this document). Its `_scan_pipeline_busy` guard was already clear
+   (switch 1's scan had long finished), so this proceeds immediately:
+   `populate_scan_image_gallery.enter` → `_stop_scanner_threads()` flushes
+   both itself and the peer (`sendPostedEvents(None, QEvent.Type.DeferredDelete)`
+   — note `receiver=None`: this flushes **every** pending deferred deletion
+   in the whole application, not just this panel's own stale widgets).
+
+3. `t=22.143` (22ms later) — the peer's mirrored call (again via the
+   queued `directory_scanned` signal, only dispatched once primary's own
+   synchronous call has returned control to the event loop) enters, and
+   its own `_stop_scanner_threads()` loop reaches back into **primary**
+   again (`peer._stop_scanner_threads()`, logged with `panel=...9680`
+   since `self` inside that call is primary) — a **second** global
+   `DeferredDelete` flush, 22ms after primary's own.
+
+4. The peer's own sequence completes cleanly from there — its own
+   `ImageScannerWorker` at `t=22.164`, `VideoScannerWorker` at `t=22.200`
+   (this is the orphaned span `telemetry_analyzer.py` flagged: no `.end`
+   because the process died with it still running, not because it was
+   the direct cause).
+
+5. **Primary panel's own `ImageScannerWorker`/`VideoScannerWorker` for
+   this second switch never appear in the telemetry file at all.** Given
+   the peer's queued call only dispatches once primary's own synchronous
+   `populate_scan_image_gallery()` call has already returned to the event
+   loop, primary's *entire* call — flush, `clear_gallery_widgets()`,
+   cache clear, `cancel_loading()`, the `os.scandir` quick-paths prefetch,
+   and constructing/starting its own new `ImageScannerWorker` — had to
+   execute somewhere inside that same 22ms window. It logged the flush
+   and nothing after. **The crash is localized to primary's own
+   `populate_scan_image_gallery()` body, after its `_stop_scanner_threads()`
+   flush and before it reaches its own `img_worker.start.begin` line** —
+   i.e. somewhere in `clear_gallery_widgets()` / `_initial_pixmap_cache.clear()`
+   / `cancel_loading()` / the quick-paths prefetch, or in the act of
+   constructing the new `ImageScannerWorker` and wiring its signals
+   (recall Addendum 20 also resolved a *separate* crash instance to
+   `QObjectPrivate::connect()` — consistent with this exact code region,
+   which does both teardown *and* a fresh `.connect()` call for the new
+   worker in the same stretch).
+
+**Working hypothesis (evidence-backed, not yet implemented or confirmed
+as a fix — matching this document's standing rule against speculative
+fixes)**: the peer's *reentrant* `_stop_scanner_threads()` call reaching
+back into primary — via `for peer_obj in self.linked_tabs: peer_obj._stop_scanner_threads()`,
+with no guard against primary being mid-flight through its own, unrelated
+`populate_scan_image_gallery()` call for a *different* switch — triggers a
+**global** `sendPostedEvents(None, QEvent.Type.DeferredDelete)` flush that
+is not scoped to just the peer's own stale objects. If primary's own
+teardown/rebuild code has, in the intervening ~22ms, itself queued new
+`deleteLater()` calls (e.g. from its own `clear_gallery_widgets()`) or
+constructed new `QObject`s whose connections are being wired up, a
+global flush triggered from a completely different call stack (the
+peer's) at exactly the wrong moment is a plausible mechanism for
+corrupting the very `ConnectionData` structure `deleteOrphaned` then
+trips over. This is a materially more specific theory than "linked-panel
+cross-talk" (Addendum 3) — it names the exact reentrant call path and the
+`receiver=None` global-flush scope as the likely mechanism, not just "two
+panels share state."
+
+**Fix implemented (2026-08-01, same session, with explicit user
+confirmation before touching this crash-history-sensitive code)**:
+`populate_scan_image_gallery()`'s `for peer in linked_tabs:` loop
+(`_scan_pipeline.py`) now skips calling `peer._stop_scanner_threads()`
+when `getattr(peer, "_scan_pipeline_busy", False)` is true, emitting a new
+`thread-lifecycle/stop_scanner_threads.peer_skip_busy` telemetry event
+when it does. Semantics: if a linked panel is itself still mid-flight
+through its own `populate_scan_image_gallery()` call (for a different,
+newer switch than the one that call originally started for), that call
+already handled — or, since it hasn't returned yet at the point of the
+crash, still owns — its own scanner-thread lifecycle and its own
+`_stop_scanner_threads()` call; a peer reaching in from a different call
+stack to redundantly re-flush it is exactly the reentrant path Addendum
+21 correlated with the live crash, via a process-wide (`receiver=None`)
+`DeferredDelete` flush landing in the middle of that panel's own
+in-progress teardown/rebuild.
+
+**New regression tests**: `gui/test/core/test_wallpaper_linked_panel_scan_race.py::TestPeerReentrancyGuard`
+— `test_peer_does_not_reenter_stop_scanner_threads_on_busy_panel` (asserts
+the skip; verified this test *fails* against the pre-fix code, confirming
+it actually exercises the new guard, not a tautology) and
+`test_peer_still_stops_a_non_busy_panel` (the guard must not become a
+blanket no-op — a genuinely idle linked panel with stale scanner threads
+must still get stopped/drained exactly as before). All 12 tests across
+`test_wallpaper_scan_race.py`, `test_wallpaper_linked_panel_scan_race.py`,
+and `test_startup_probe_guard.py` pass with the fix in place.
+
+**Still not independently verified against a live reproduction** — same
+standing caveat as every prior round's fix. This one has unusually strong
+evidence behind it (a real, telemetry+hs_err-correlated crash localized to
+almost exactly this code path, not just a plausible-looking mechanism),
+but "strong evidence" has looked like enough before and wasn't (rounds
+2-16). Reproduce again with `IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh`
+and the same rapid-switch pattern; if it recurs, check first whether the
+new `stop_scanner_threads.peer_skip_busy` event fired before the crash
+(if so, the guard engaged but something else is still wrong) or didn't
+(the reentrancy path assumed here isn't the only trigger). No core dump
+was available this round to directly inspect the corrupted
+`QObjectPrivate`/`ConnectionData` and confirm the exact object involved —
+`ulimit -c unlimited` (added to `run_with_gdb.sh` this round) didn't
+produce one either; worth investigating apport/`core_pattern`
+configuration separately if a core file is needed to go further.
+
 **Reassessed status**: the SIGSEGV landing inside JVM-managed code, on the
 main thread, during/immediately after `jpype.startJVM()` (matching
 telemetry's unclosed `jvm.start.start` span, same PID) is the strongest

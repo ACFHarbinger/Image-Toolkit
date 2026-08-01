@@ -114,6 +114,31 @@ class _ScanPipelineMixin:
         # against for its own, single-instance case.
         self._stop_scanner_threads()
         for peer in getattr(self, "linked_tabs", []):
+            # Addendum 21 (.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md):
+            # a live, telemetry+hs_err-correlated SIGSEGV inside
+            # QObjectPrivate::ConnectionData::deleteOrphaned localized to
+            # exactly this reentrant path -- if *peer* is itself mid-flight
+            # through its own populate_scan_image_gallery() call (for a
+            # different, newer switch than the one that call originally
+            # started for), that call already did (or, since it hasn't
+            # returned yet, still will) call ITS OWN _stop_scanner_threads()
+            # as its own very first step. Reaching into it again from here
+            # is redundant at best, and empirically correlated with the
+            # crash: peer's own in-flight teardown/rebuild can have
+            # freshly-constructed QObjects and/or freshly-queued
+            # deleteLater() calls on the stack at the exact moment this
+            # call's own _stop_scanner_threads() fires ITS process-wide
+            # (receiver=None) DeferredDelete flush -- a global flush
+            # triggered from a completely different call stack, landing in
+            # the middle of unrelated in-progress teardown/construction.
+            # peer's own call remains solely responsible for its own
+            # scanner-thread lifecycle while _scan_pipeline_busy is set.
+            if getattr(peer, "_scan_pipeline_busy", False):
+                telemetry.emit(
+                    "thread-lifecycle", "stop_scanner_threads.peer_skip_busy",
+                    panel=id(self), peer=id(peer),
+                )
+                continue
             if hasattr(peer, "_stop_scanner_threads"):
                 peer._stop_scanner_threads()
 
