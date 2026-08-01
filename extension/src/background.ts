@@ -20,6 +20,7 @@ import { parseImageMetadata } from "./shared/imageMeta";
 import type { ExtensionMessage } from "./shared/messages";
 
 const MENU_ID = "save-to-custom-folder";
+const SAVE_PROFILE_MENU_ID = "save-to-profile";
 const DUP_CHECK_MENU_ID = "dup-check";
 const INGEST_MENU_ID = "send-to-app";
 const SIMILAR_MENU_ID = "find-similar";
@@ -38,14 +39,34 @@ const SEARCH_SERVICES: Array<{ id: string; title: string; url: string }> = [
 ];
 
 // MV3 service workers can be restarted at any time; (re)create the menus on
-// install and on startup. `removeAll` avoids duplicate-id errors.
-function createContextMenu(): void {
+// install, on startup, and whenever folder profiles change. `removeAll`
+// avoids duplicate-id errors.
+async function createContextMenu(): Promise<void> {
+  const settings = await loadSettings();
   api.contextMenus.removeAll(() => {
     api.contextMenus.create({
       id: MENU_ID,
       title: "Save to selected directory",
       contexts: ["image"],
     });
+    // §7.10 folder-profile quick-switch: only worth a submenu once there's
+    // more than one profile to pick from.
+    const profiles = (settings.folderProfiles ?? []).filter(Boolean);
+    if (profiles.length > 1) {
+      api.contextMenus.create({
+        id: SAVE_PROFILE_MENU_ID,
+        title: "Save to profile ▸",
+        contexts: ["image"],
+      });
+      for (const profile of profiles) {
+        api.contextMenus.create({
+          id: `${SAVE_PROFILE_MENU_ID}:${profile}`,
+          parentId: SAVE_PROFILE_MENU_ID,
+          title: profile,
+          contexts: ["image"],
+        });
+      }
+    }
     api.contextMenus.create({
       id: DUP_CHECK_MENU_ID,
       title: "Check if already downloaded",
@@ -92,23 +113,33 @@ function createContextMenu(): void {
   });
 }
 
-api.runtime.onInstalled.addListener(createContextMenu);
+api.runtime.onInstalled.addListener(() => void createContextMenu());
 if (api.runtime.onStartup) {
-  api.runtime.onStartup.addListener(createContextMenu);
+  api.runtime.onStartup.addListener(() => void createContextMenu());
 }
+// Rebuild the "Save to profile ▸" submenu live when the profile list
+// changes in options, instead of requiring an extension reload.
+api.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local" && "folderProfiles" in changes) {
+    void createContextMenu();
+  }
+});
 
 /**
  * Download an image URL into the folder resolved by site rules (§7.10),
  * naming it via the filename template, and optionally writing a JSON
- * provenance sidecar next to it.
+ * provenance sidecar next to it. Pass *overrideFolder* (from the "Save to
+ * profile ▸" submenu) to bypass site-rule resolution for this one save
+ * without changing the active default folder.
  */
 export async function downloadImage(
   imageUrl: string,
   pageUrl?: string,
   suggestedName?: string,
+  overrideFolder?: string,
 ): Promise<void> {
   const settings = await loadSettings();
-  const folder = resolveFolder(settings, pageUrl);
+  const folder = overrideFolder || resolveFolder(settings, pageUrl);
   const relName = suggestedName
     ? suggestedName.replace(/[<>:"\\|?*]/g, "_")
     : buildFilename(settings.filenameTemplate, imageUrl, pageUrl);
@@ -294,6 +325,11 @@ api.contextMenus.onClicked.addListener((info, tab) => {
 
   if (menuId === MENU_ID) {
     void downloadImage(info.srcUrl, info.pageUrl);
+    return;
+  }
+  if (menuId.startsWith(`${SAVE_PROFILE_MENU_ID}:`)) {
+    const profile = menuId.slice(SAVE_PROFILE_MENU_ID.length + 1);
+    void downloadImage(info.srcUrl, info.pageUrl, undefined, profile);
     return;
   }
   if (menuId === DUP_CHECK_MENU_ID) {

@@ -64,6 +64,55 @@ function collectRules(): Array<{ pattern: string; folder: string }> {
   return rules;
 }
 
+// --- Folder profiles (§7.10) ---
+
+function addProfileRow(name = ""): void {
+  const list = $<HTMLDivElement>("profiles-list");
+  const row = document.createElement("div");
+  row.className = "profile-row";
+
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.placeholder = "e.g. wallpapers";
+  nameInput.value = name;
+  nameInput.className = "profile-name";
+
+  const activateBtn = document.createElement("button");
+  activateBtn.className = "profile-active";
+  activateBtn.textContent = "Activate";
+  activateBtn.title = "Switch the default target directory to this profile";
+  activateBtn.addEventListener("click", () => {
+    void activateProfile(nameInput.value.trim());
+  });
+
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "secondary";
+  removeBtn.textContent = "✕";
+  removeBtn.title = "Remove profile";
+  removeBtn.addEventListener("click", () => row.remove());
+
+  row.append(nameInput, activateBtn, removeBtn);
+  list.appendChild(row);
+}
+
+function collectProfiles(): string[] {
+  const profiles: string[] = [];
+  for (const row of document.querySelectorAll<HTMLDivElement>(".profile-row")) {
+    const name = row.querySelector<HTMLInputElement>(".profile-name")?.value.trim() ?? "";
+    if (name) profiles.push(name);
+  }
+  return profiles;
+}
+
+/** Quick-switch: make *name* the active default folder immediately. */
+async function activateProfile(name: string): Promise<void> {
+  if (!name) return;
+  const cleanName = name.replace(/[<>:"\\|?*]/g, "");
+  await saveSettings({ targetFolder: cleanName, folderProfiles: collectProfiles() });
+  $<HTMLInputElement>("folder").value = cleanName;
+  showStatus(`Switched to '${cleanName}'`);
+}
+
 async function restoreOptions(): Promise<void> {
   const settings = await loadSettings();
   $<HTMLInputElement>("folder").value = settings.targetFolder;
@@ -77,6 +126,9 @@ async function restoreOptions(): Promise<void> {
   $<HTMLInputElement>("native-host-name").value = settings.nativeHostName;
   for (const rule of settings.siteRules) {
     addRuleRow(rule.pattern, rule.folder);
+  }
+  for (const profile of settings.folderProfiles) {
+    addProfileRow(profile);
   }
 }
 
@@ -93,6 +145,7 @@ async function saveOptions(): Promise<void> {
     saveSidecar: $<HTMLInputElement>("sidecar").checked,
     dupTabsStripParams: $<HTMLInputElement>("strip-params").checked,
     siteRules: collectRules(),
+    folderProfiles: collectProfiles(),
     bridgeUrl:
       $<HTMLInputElement>("bridge-url").value.trim().replace(/\/+$/, "") ||
       "http://127.0.0.1:8000/api/extension",
@@ -411,6 +464,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   $<HTMLButtonElement>("add-rule").addEventListener("click", () => {
     addRuleRow();
+  });
+  $<HTMLButtonElement>("add-profile").addEventListener("click", () => {
+    addProfileRow();
   });
   $<HTMLButtonElement>("scan-dups").addEventListener("click", () => {
     void scanDuplicateTabs();

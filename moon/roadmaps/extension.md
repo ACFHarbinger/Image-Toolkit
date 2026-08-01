@@ -227,7 +227,11 @@ extension/
 
 ## 7.10 Per-Site Folder Rules, Filename Templating & Metadata Sidecar
 
-**Status: 🔄 Core shipped (S208, 2026-07-04).** `shared/naming.ts`: wildcard hostname rules (first match wins), `{name}/{ext}/{site}/{date}/{time}` template with subfolders, JSON provenance sidecar toggle. Remaining: named folder profiles + context-submenu quick-switch.
+**Status: ✅ Shipped (S208 core 2026-07-04; folder profiles 2026-08-01, issue #103).** `shared/naming.ts`: wildcard hostname rules (first match wins), `{name}/{ext}/{site}/{date}/{time}` template with subfolders, JSON provenance sidecar toggle.
+
+**Folder profiles + quick-switch, shipped:** `ExtensionSettings.folderProfiles: string[]` (new, default `["data"]`) — a named list of target folders managed in a new "Folder Profiles" options section (`options.html`/`options.ts`), each row with an "Activate" button that immediately sets `targetFolder` to that profile (no separate "Save Settings" click needed for the quick-switch case) and a remove button. The same list doubles as the context-menu's "Save to profile ▸" submenu (`background.ts`, `SAVE_PROFILE_MENU_ID`, only rendered once ≥2 profiles exist) — picking one downloads *that* image into the chosen folder via a new `downloadImage(..., overrideFolder?)` parameter that bypasses site-rule resolution for a one-off save without touching the active default. The submenu rebuilds live via `api.storage.onChanged` on `folderProfiles` changes, so editing the list in options doesn't need an extension reload. Site rules already mapped `domain-pattern → folder` directly (`resolveFolder()`, pre-existing) with a fallback to `targetFolder` — since `targetFolder` *is* the active profile now, "fallback to active profile" was already the existing behavior once profiles and `targetFolder` were unified rather than adding a separate indirection layer.
+
+Verified via `npm run typecheck` (clean) and `npm run build:chrome` (compiles). No test framework is configured for this package (no jest/vitest in `package.json`) — verification is typecheck + build, matching how `§7.1`–`§7.9` were verified.
 
 **Pain point:** One global `targetFolder` for every site; filenames are whatever the URL had; provenance is lost for plain downloads (when not using §7.7 ingest).
 

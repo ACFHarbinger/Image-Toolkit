@@ -21,6 +21,14 @@ export interface ExtensionSettings {
   /** Per-site folder rules, evaluated top-to-bottom against the page hostname. */
   siteRules: SiteRule[];
   /**
+   * Named folder profiles (§7.10): quick-switchable from the popup's
+   * "Folder Profiles" list and the image context menu's "Save to ▸"
+   * submenu. Activating one from the popup sets `targetFolder`; picking
+   * one from the context submenu saves that single image there without
+   * changing the active default.
+   */
+  folderProfiles: string[];
+  /**
    * Filename template (§7.10). Tokens: {name} {ext} {site} {date} {time}.
    * May contain `/` to create subfolders below the resolved folder.
    */
@@ -48,6 +56,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   turboMode: false,
   dupTabsStripParams: true,
   siteRules: [],
+  folderProfiles: ["data"],
   filenameTemplate: "{name}.{ext}",
   saveSidecar: false,
   bridgeUrl: "http://127.0.0.1:8000/api/extension",

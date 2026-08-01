@@ -23,6 +23,13 @@
         .rule-row input { flex: 1; margin-bottom: 0; }
         .rule-row button { padding: 4px 10px; }
 
+        /* Folder profiles (§7.10) */
+        .profile-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .profile-row input { flex: 1; margin-bottom: 0; }
+        .profile-row button { padding: 4px 10px; }
+        .profile-row .profile-active { background-color: #2ecc71; }
+        .profile-row .profile-active:hover { background-color: #27ae60; }
+
         /* Connection (§7.5) */
         .conn-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #777; margin-right: 6px; vertical-align: middle; }
         .conn-dot.ok { background: #2ecc71; }
@@ -74,6 +81,13 @@
             Save .json provenance sidecar (source URL, page, timestamp)
         </label>
     </div>
+
+    <hr>
+
+    <h3>Folder Profiles</h3>
+    <div class="note" style="margin-bottom: 8px;">Named, quick-switchable target folders. "Activate" sets the Default Target Directory above immediately; the same list also appears as "Save to profile ▸" on the image right-click menu for a one-off save without changing the default.</div>
+    <div id="profiles-list"></div>
+    <button id="add-profile" class="secondary">+ Add profile</button>
 
     <hr>
 

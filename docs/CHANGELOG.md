@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S283 — 2026-08-01 (Extension 7.10: named folder profiles + quick-switch — issue #103)
+
+Closes the last open item in `moon/roadmaps/extension.md` §7.10 (folder profiles + context-submenu quick-switch); the section is now fully shipped.
+
+New `ExtensionSettings.folderProfiles: string[]` (`extension/src/shared/settings.ts`, default `["data"]`) backs a new "Folder Profiles" section in the options page (`options.html`/`options.ts`): each named profile row has an "Activate" button that immediately switches the default target directory (no separate Save click needed) and a remove button. The same list renders as a "Save to profile ▸" submenu on the image right-click menu (`background.ts`, only shown once ≥2 profiles exist) for a one-off save to a specific folder without touching the active default — routed through a new `downloadImage(..., overrideFolder?)` parameter that bypasses the existing site-rule resolution (`resolveFolder()`, unchanged) for that one download. The submenu rebuilds live via `chrome.storage.onChanged` on `folderProfiles` so editing the list in options takes effect without an extension reload.
+
+Verified via `npm run typecheck` (clean) and `npm run build:chrome` (compiles); no test framework is configured for this package, matching how prior `§7.x` extension work in this same roadmap was verified.
+
 ## S282 — 2026-08-01 (New Features 4.13: shortcut macros / workflow templates — issue #61)
 
 Closes `moon/roadmaps/new_features.md` §4.13 (Option C: workflow templates, per the roadmap's own recommendation).
