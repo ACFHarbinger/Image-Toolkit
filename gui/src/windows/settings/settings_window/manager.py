@@ -240,11 +240,18 @@ class SettingsWindow(
         layout_system.addStretch(1)
         self.tab_widget.addTab(scroll_system, "⚙️ System and Logging")
 
-        # Tab 6: Keyboard Shortcuts (GUI/UX §2.29)
-        scroll_kb, layout_kb = create_tab_scroll_area()
-        layout_kb.addWidget(self._build_shortcuts_groupbox())
-        layout_kb.addStretch(1)
-        self.tab_widget.addTab(scroll_kb, "⌨️ Shortcuts")
+        # Tab 6: Keyboard Shortcuts (GUI/UX §2.29). Deliberately NOT built via
+        # create_tab_scroll_area(): that helper's AlignTop layout + trailing
+        # addStretch(1) shrinks its content to its size hint, which made the
+        # shortcuts editor look short regardless of available tab space. The
+        # shortcuts groupbox has its own internal scroll areas (the scope
+        # list and each scope's action page), so it doesn't need an outer
+        # QScrollArea wrapper either -- just let it fill the tab.
+        shortcuts_tab = QWidget()
+        shortcuts_tab_layout = QVBoxLayout(shortcuts_tab)
+        shortcuts_tab_layout.setContentsMargins(15, 15, 15, 15)
+        shortcuts_tab_layout.addWidget(self._build_shortcuts_groupbox())
+        self.tab_widget.addTab(shortcuts_tab, "⌨️ Shortcuts")
 
         # Tab 7: Bulk Pattern Update
         scroll_bulk, layout_bulk = create_tab_scroll_area()

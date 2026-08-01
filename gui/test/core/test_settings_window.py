@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from gui.src.windows.settings.settings_window import SettingsWindow
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
 pytestmark = pytest.mark.gui
@@ -511,4 +512,93 @@ class TestSettingsWindowMalFetchMethod:
 
         # Reset setting to default
         AppSettings.set_mal_fetch_method("jikan")
+
+
+class TestSettingsWindowShortcuts:
+    @pytest.fixture(autouse=True)
+    def _isolated_keybindings(self, tmp_path, monkeypatch):
+        from gui.src.utils import shortcut_manager
+
+        monkeypatch.setattr(shortcut_manager, "_KEYBINDINGS_PATH", tmp_path / "keybindings.json")
+        shortcut_manager._registry = None
+        yield
+        shortcut_manager._registry = None
+
+    def test_scope_list_has_one_entry_per_scope(self, q_app):
+        from gui.src.utils.shortcut_manager import SHORTCUT_REGISTRY
+
+        window = SettingsWindow()
+        expected_scopes = sorted({e["scope"] for e in SHORTCUT_REGISTRY})
+        assert window._shortcut_scope_list.count() == len(expected_scopes)
+        listed_scopes = [
+            window._shortcut_scope_list.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(window._shortcut_scope_list.count())
+        ]
+        assert listed_scopes == expected_scopes
+
+    def test_selecting_scope_switches_stack_page(self, q_app):
+        window = SettingsWindow()
+        for i in range(window._shortcut_scope_list.count()):
+            item = window._shortcut_scope_list.item(i)
+            window._shortcut_scope_list.setCurrentItem(item)
+            scope = item.data(Qt.ItemDataRole.UserRole)
+            assert window._shortcut_stack.currentIndex() == window._shortcut_scope_pages[scope]
+
+    def test_every_action_has_row_widgets(self, q_app):
+        from gui.src.utils.shortcut_manager import SHORTCUT_REGISTRY
+
+        window = SettingsWindow()
+        for entry in SHORTCUT_REGISTRY:
+            assert entry["id"] in window._shortcut_row_widgets
+
+    def test_add_custom_shortcut_pill_and_save(self, q_app):
+        from gui.src.utils.shortcut_manager import get_registry
+
+        window = SettingsWindow()
+        window._add_custom_shortcut_pill("gallery.select_all", "Meta+A")
+        assert window._collect_shortcut_custom_keys("gallery.select_all") == ["Meta+A"]
+
+        with patch.object(QMessageBox, "information"):
+            window._save_shortcuts()
+
+        reg = get_registry()
+        assert reg.get_custom_keys("gallery.select_all") == ["Meta+A"]
+        assert reg.is_default_enabled("gallery.select_all") is True
+
+    def test_toggle_default_off_and_save(self, q_app):
+        from gui.src.utils.shortcut_manager import get_registry
+
+        window = SettingsWindow()
+        window._shortcut_row_widgets["gallery.select_all"]["default_check"].setChecked(False)
+
+        with patch.object(QMessageBox, "information"):
+            window._save_shortcuts()
+
+        reg = get_registry()
+        assert reg.is_default_enabled("gallery.select_all") is False
+
+    def test_reset_shortcuts_clears_pills_and_re_enables_default(self, q_app):
+        window = SettingsWindow()
+        window._add_custom_shortcut_pill("gallery.select_all", "Meta+A")
+        window._shortcut_row_widgets["gallery.select_all"]["default_check"].setChecked(False)
+
+        with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
+            with patch.object(QMessageBox, "information"):
+                window._reset_shortcuts()
+
+        assert window._shortcut_row_widgets["gallery.select_all"]["default_check"].isChecked() is True
+        assert window._collect_shortcut_custom_keys("gallery.select_all") == []
+
+    def test_save_conflict_detected_between_two_customs(self, q_app):
+        window = SettingsWindow()
+        window._add_custom_shortcut_pill("gallery.select_all", "Meta+X")
+        window._add_custom_shortcut_pill("gallery.deselect_all", "Meta+X")
+
+        with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.No):
+            window._save_shortcuts()
+
+        # User declined to save through the conflict -- registry stays untouched.
+        from gui.src.utils.shortcut_manager import get_registry
+        reg = get_registry()
+        assert reg.get_custom_keys("gallery.select_all") == []
 
