@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S277 — 2026-08-01 (DB.8/9 pushed further in parallel: tag vocabulary, scoped auto-listings, Data Browser FK navigation — issues #66, #67)
+
+Three more parallel work streams, following directly on S276.
+
+**DB.9 (issue #67) — Data Browser FK navigation**: `BrowserRepo` gained `table_foreign_keys()`/`reverse_references()`; the Data Browser tab's grid now renders FK cells styled and clickable (jumps the table picker to the referenced table, filtered to that row), and a new "Referenced By" side panel lists every other row referencing the currently selected one, itself clickable through the same navigation helper. 6 new backend tests, 7 new GUI tests.
+
+**DB.8c (issue #66) — tag vocabulary, remaining pieces**: the listings detail panel's Genres/Tags fields now autocomplete from the shared `tags` vocabulary via `TagCompleter` (built for issue #127, sat unused until now) — one vocabulary, both directions. Maintenance's tag table gained a "🔍 Search Images with this Tag" action. "Search Listings with this Tag" and the Content-Listings "View Images" jump both hit the same missing-cross-tab-plumbing wall and are explicitly deferred together. 7 new GUI tests.
+
+**DB.8d (issue #66) — auto-create listings from scans, scoped down**: rather than the original series/episode-parsing spec (still deferred), ships the more tractable half — after a Scan & Tag batch upsert, any newly-touched image group with no linked `media_items` and no fuzzy-matching existing title is offered in one batched review dialog (create new / link to existing per row), applied in a single transaction on confirm. Wired as a live upsert hook, not a separate Maintenance action. 6 new GUI tests.
+
+**Integration**: all three streams verified together — 82/82 `backend/test/database/`, all new and existing GUI suites green (scoped, one file at a time per the standing rule against unscoped GUI test runs).
+
 ## S276 — 2026-08-01 (DB.7/8/9 advanced in parallel: listings semantic search, cross-domain detail-panel UI, Data Browser tab — issues #65, #66, #67)
 
 Three DB.X phases pushed forward in one round via parallel work streams, then integrated and verified together (full `backend/test/database/` + relevant scoped GUI suites green).

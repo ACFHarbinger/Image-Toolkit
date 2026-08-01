@@ -264,5 +264,38 @@ class _CrudMixin:
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to merge tags:\n{str(e)}")
 
+    def search_images_with_selected_tag(self):
+        """DB.8c: "click a tag anywhere -> search images with this tag."
+        Reuses the same DatabaseTab.search_tab_ref cross-tab reference
+        every "Send To..." action in SearchTab already uses (see
+        gui/src/tabs/database/search_tab/_tab_communication.py) -- it
+        cannot switch MainWindow's visible tab either (no plumbing for
+        that exists anywhere in this codebase), so this matches that
+        established UX: filter Search tab's state and tell the user to
+        switch there themselves.
+
+        The listings-side equivalent ("search listings with this tag")
+        is not implemented here: DatabaseTab has no reference to
+        ListingsTab/the listings subtabs, the same missing-plumbing gap
+        found for DB.8a's "View Images" jump last round.
+        """
+        current_row = self.tags_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(
+                self, "Error", "Please select a tag from the list first."
+            )
+            return
+        item = self.tags_table.item(current_row, 0)
+        tag_name = item.text()  # pyrefly: ignore [missing-attribute]
+
+        if not self.search_tab_ref:
+            QMessageBox.warning(self, "Error", "Search Tab reference not found.")
+            return
+
+        self.search_tab_ref.search_by_tag(tag_name)
+        QMessageBox.information(
+            self, "Search Started", f"Searching images tagged '{tag_name}' in the Search tab."
+        )
+
 
 __all__ = ["_CrudMixin"]

@@ -88,6 +88,57 @@ def test_query_table_unknown_table_rejected(db):
         repo.query_table("not_a_real_table")
 
 
+def test_table_foreign_keys(db):
+    repo = BrowserRepo(db)
+    fks = repo.table_foreign_keys("images")
+    by_column = {fk["column"]: fk for fk in fks}
+    assert by_column["group_id"] == {
+        "column": "group_id", "ref_table": "groups", "ref_column": "id",
+    }
+    assert by_column["subgroup_id"] == {
+        "column": "subgroup_id", "ref_table": "subgroups", "ref_column": "id",
+    }
+
+    # A table with no FKs returns an empty list, not an error.
+    assert repo.table_foreign_keys("groups") == []
+
+
+def test_table_foreign_keys_unknown_table_raises(db):
+    repo = BrowserRepo(db)
+    with pytest.raises(ValueError, match="Unknown table"):
+        repo.table_foreign_keys("not_a_real_table")
+
+
+def test_reverse_references(db, tmp_path):
+    images = ImageRepo(db)
+    repo = BrowserRepo(db)
+    gid = images.add_group("Trips")
+
+    # Nothing references the group yet.
+    assert repo.reverse_references("groups", gid) == []
+
+    for name in ("a.png", "b.png"):
+        p = tmp_path / name
+        p.write_bytes(b"x")
+        images.add_image(str(p), group_name="Trips", tags=[])
+    images.add_subgroup("Beach", "Trips")
+
+    refs = {(r["table"], r["column"]): r["count"] for r in repo.reverse_references("groups", gid)}
+    assert refs[("images", "group_id")] == 2
+    assert refs[("subgroups", "group_id")] == 1
+
+    # A group with no rows referencing it is simply absent (no zero-count
+    # noise in the panel).
+    other_gid = images.add_group("Empty")
+    assert repo.reverse_references("groups", other_gid) == []
+
+
+def test_reverse_references_unknown_table_raises(db):
+    repo = BrowserRepo(db)
+    with pytest.raises(ValueError, match="Unknown table"):
+        repo.reverse_references("not_a_real_table", 1)
+
+
 @pytest.mark.parametrize(
     "where_sql",
     [

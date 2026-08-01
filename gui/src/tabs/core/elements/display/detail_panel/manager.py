@@ -15,6 +15,7 @@ from ._image_actions import _ImageActionsMixin
 from ._linked_groups import _LinkedGroupsMixin
 from ._mal_sync import _MalSyncMixin
 from ._save_delete import _SaveDeleteMixin
+from ._tag_vocabulary import _TagVocabularyMixin
 from ._ui_builder import _UIBuilderMixin
 
 
@@ -23,6 +24,7 @@ class _DetailPanel(
     _ImageActionsMixin,
     _AssociatedEntitiesMixin,
     _LinkedGroupsMixin,
+    _TagVocabularyMixin,
     _EntryLifecycleMixin,
     _FileLinkActionsMixin,
     _MalSyncMixin,
@@ -41,6 +43,8 @@ class _DetailPanel(
         self._mal_worker = None
 
         self._build_ui()
+        self._attach_tag_completers()
+        self._refresh_tag_vocabulary()
 
 
 __all__ = ["_DetailPanel"]

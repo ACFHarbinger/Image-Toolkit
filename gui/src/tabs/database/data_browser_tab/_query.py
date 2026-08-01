@@ -115,7 +115,11 @@ class _QueryMixin:
 
         self.current_columns = columns
         self.current_rows = rows
+        self._refresh_fk_metadata()
         self._populate_grid(columns, rows)
+        self.refs_list.clear()
+        self.refs_hint_label.setText("Select a row to see incoming references.")
+        self.refs_hint_label.show()
 
         page_number = (self.current_offset // self.PAGE_SIZE) + 1
         self.page_label.setText(f"Page {page_number}")
@@ -133,6 +137,7 @@ class _QueryMixin:
                 item = QTableWidgetItem("" if value is None else str(value))
                 self.data_table.setItem(row_idx, col_idx, item)
         self.data_table.setSortingEnabled(True)
+        self._style_fk_cells()
 
 
 __all__ = ["_QueryMixin"]

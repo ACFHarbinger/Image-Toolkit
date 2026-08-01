@@ -40,6 +40,7 @@ class _EntryLifecycleMixin:
 
         self._update_assoc_entities_display()
         self._refresh_linked_groups_display()
+        self._refresh_tag_vocabulary()
 
         self.f_summary.setPlainText(entry.get("summary", ""))
         self.f_review.setPlainText(entry.get("review", ""))

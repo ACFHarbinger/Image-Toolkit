@@ -138,5 +138,25 @@ class _TagFiltersMixin:
             if self.tags_list_widget.item(i).checkState() == Qt.CheckState.Checked
         ]
 
+    def search_by_tag(self, tag_name: str) -> None:
+        """DB.8c: jump here already filtered to a single tag (e.g. from
+        Maintenance's tag table "Search Images with this Tag" action).
+        Checks every tag-type filter first so the target tag is
+        guaranteed to be in the (type-filtered) tags list regardless of
+        whatever type filter state was active before."""
+        self.clear_filters()
+        self.tag_types_list_widget.blockSignals(True)
+        for i in range(self.tag_types_list_widget.count()):
+            self.tag_types_list_widget.item(i).setCheckState(Qt.CheckState.Checked)
+        self.tag_types_list_widget.blockSignals(False)
+        self._populate_tags_for_active_types()
+
+        for i in range(self.tags_list_widget.count()):
+            item = self.tags_list_widget.item(i)
+            if item.data(Qt.ItemDataRole.UserRole) == tag_name:
+                item.setCheckState(Qt.CheckState.Checked)
+                break
+        self.perform_search()
+
 
 __all__ = ["_TagFiltersMixin"]

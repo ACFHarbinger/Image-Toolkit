@@ -144,3 +144,100 @@ class TestDataBrowserTab:
 
         data = json.loads(out_path.read_text())
         assert data == [{"id": 1, "file_path": "/a.png"}]
+
+
+class TestDataBrowserTabNavigation:
+    """DB.9: FK-cell click-to-navigate + reverse-references panel."""
+
+    def _make_tab_on_images(self, fks=None, pk_index_columns=None):
+        tab = DataBrowserTab()
+        tab.browser_repo = MagicMock()
+        tab.current_table = "images"
+        # Pre-seed every table a navigation test might jump to, the way
+        # refresh_table_list() would in the real flow -- adding an item
+        # to an empty QComboBox auto-selects it, firing currentTextChanged
+        # (-> _on_table_changed -> _run_query, which clears refs_list) as
+        # a side effect a test-time addItem() would otherwise trip.
+        tab.table_combo.blockSignals(True)
+        tab.table_combo.addItems(["images", "groups", "media_groups"])
+        tab.table_combo.setCurrentText("images")
+        tab.table_combo.blockSignals(False)
+        tab.browser_repo.table_foreign_keys.return_value = fks or [
+            {"column": "group_id", "ref_table": "groups", "ref_column": "id"},
+        ]
+        tab.browser_repo.table_columns.return_value = pk_index_columns or [
+            {"name": "id", "type": "INTEGER", "notnull": True, "pk": True},
+            {"name": "file_path", "type": "TEXT", "notnull": True, "pk": False},
+            {"name": "group_id", "type": "INTEGER", "notnull": False, "pk": False},
+        ]
+        tab.browser_repo.query_table.return_value = (
+            ["id", "file_path", "group_id"],
+            [(1, "/a.png", 7), (2, "/b.png", None)],
+        )
+        tab._run_query()
+        return tab
+
+    def test_fk_metadata_cached_after_query(self, q_app):
+        tab = self._make_tab_on_images()
+        assert tab.fk_columns_by_index == {
+            2: {"column": "group_id", "ref_table": "groups", "ref_column": "id"}
+        }
+        assert tab.pk_column_index == 0
+
+    def test_fk_cell_click_navigates(self, q_app):
+        tab = self._make_tab_on_images()
+        # Clicking the "group_id" cell (col 2) of row 0 (value 7) should
+        # switch to "groups" filtered to id = 7.
+        tab.browser_repo.table_foreign_keys.return_value = []  # groups has none
+        tab.browser_repo.query_table.return_value = (["id", "name"], [(7, "Trips")])
+
+        tab._on_cell_clicked(0, 2)
+
+        assert tab.current_table == "groups"
+        assert tab.where_edit.text() == "id = 7"
+
+    def test_fk_cell_click_on_null_value_is_noop(self, q_app):
+        tab = self._make_tab_on_images()
+        before_table = tab.current_table
+        tab._on_cell_clicked(1, 2)  # row 1's group_id is None -> "" cell text
+        assert tab.current_table == before_table
+
+    def test_non_fk_cell_click_is_noop(self, q_app):
+        tab = self._make_tab_on_images()
+        tab._on_cell_clicked(0, 1)  # file_path column, not a FK
+        assert tab.current_table == "images"
+
+    def test_row_selection_populates_reverse_references(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.browser_repo.reverse_references.return_value = [
+            {"table": "media_groups", "column": "group_id", "count": 3},
+        ]
+
+        tab.data_table.selectRow(0)
+
+        tab.browser_repo.reverse_references.assert_called_with("images", "1")
+        assert tab.refs_list.count() == 1
+        assert "media_groups.group_id (3)" in tab.refs_list.item(0).text()
+
+    def test_row_selection_no_references_shows_hint(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.browser_repo.reverse_references.return_value = []
+
+        tab.data_table.selectRow(1)
+
+        assert tab.refs_list.count() == 0
+        assert "No other rows reference" in tab.refs_hint_label.text()
+
+    def test_reverse_reference_click_navigates(self, q_app):
+        tab = self._make_tab_on_images()
+        tab.browser_repo.reverse_references.return_value = [
+            {"table": "media_groups", "column": "group_id", "count": 3},
+        ]
+        tab.data_table.selectRow(0)
+        tab.browser_repo.table_foreign_keys.return_value = []
+        tab.browser_repo.query_table.return_value = (["media_item_id", "group_id"], [])
+
+        tab._on_reverse_ref_clicked(tab.refs_list.item(0))
+
+        assert tab.current_table == "media_groups"
+        assert tab.where_edit.text() == "group_id = 1"

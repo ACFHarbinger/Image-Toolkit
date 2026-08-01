@@ -80,6 +80,7 @@ class _UpsertOpsMixin:
         if not db:
             return
         success_count = 0
+        touched_group_names: set = set()
         try:
             with db.transaction():
                 for entry in prepared:
@@ -89,6 +90,8 @@ class _UpsertOpsMixin:
                     tags = entry.get("tags")
                     width = entry.get("width")
                     height = entry.get("height")
+                    if group_name and group_name.strip():
+                        touched_group_names.add(group_name)
 
                     existing = db.get_image_by_path(path)
                     if existing:
@@ -134,6 +137,10 @@ class _UpsertOpsMixin:
                 self, "Success", f"Upserted {success_count} images."
             )
             self.update_button_states(True)
+
+            # DB.8d (scoped): offer to auto-create/link a listing for any
+            # newly-touched image group with no linked listing yet.
+            self._maybe_offer_auto_listings(sorted(touched_group_names))
 
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))

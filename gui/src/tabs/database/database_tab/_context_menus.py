@@ -58,12 +58,15 @@ class _ContextMenusMixin:
         menu = QMenu()
         edit_action = menu.addAction("Edit Cell")
         merge_action = menu.addAction("🔀 Merge Into…")
+        search_action = menu.addAction("🔍 Search Images with this Tag")
         remove_action = menu.addAction("Remove Tag")
         action = menu.exec(self.tags_table.mapToGlobal(pos))
         if action == edit_action:
             self.edit_selected_tag_cell()
         elif action == merge_action:
             self.merge_selected_tag()
+        elif action == search_action:
+            self.search_images_with_selected_tag()
         elif action == remove_action:
             self.remove_selected_tag()
 

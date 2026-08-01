@@ -7,6 +7,7 @@ from typing import Optional
 from PySide6.QtWidgets import QWidget
 
 from ._export import _ExportMixin
+from ._navigation import _NavigationMixin
 from ._query import _QueryMixin
 from ._ui_builder import _UIBuilderMixin
 
@@ -15,6 +16,7 @@ class DataBrowserTab(
     QWidget,
     _UIBuilderMixin,
     _QueryMixin,
+    _NavigationMixin,
     _ExportMixin,
 ):
     """DB.9: read-only raw-table browser over the unified library store.
@@ -36,6 +38,9 @@ class DataBrowserTab(
         self.current_row_count: int = 0
         self.current_columns: list = []
         self.current_rows: list = []
+        self.current_fks: list = []
+        self.fk_columns_by_index: dict = {}
+        self.pk_column_index: Optional[int] = None
 
         self._build_ui()
 

@@ -13,9 +13,12 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
     QPushButton,
+    QSplitter,
     QTableWidget,
     QVBoxLayout,
+    QWidget,
 )
 
 from ....styles import apply_shadow_effect
@@ -72,7 +75,7 @@ class _UIBuilderMixin:
 
         layout.addLayout(filter_layout)
 
-        # --- Grid ---
+        # --- Grid + reverse-references side panel ---
         self.data_table = QTableWidget()
         self.data_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.data_table.setAlternatingRowColors(True)
@@ -80,7 +83,29 @@ class _UIBuilderMixin:
             QHeaderView.ResizeMode.Interactive
         )
         self.data_table.setSortingEnabled(True)
-        layout.addWidget(self.data_table)
+        self.data_table.cellClicked.connect(self._on_cell_clicked)
+        self.data_table.itemSelectionChanged.connect(self._on_row_selection_changed)
+
+        refs_panel = QWidget()
+        refs_layout = QVBoxLayout(refs_panel)
+        refs_layout.setContentsMargins(0, 0, 0, 0)
+        refs_label = QLabel("Referenced By")
+        refs_label.setStyleSheet("font-weight: bold;")
+        refs_layout.addWidget(refs_label)
+        self.refs_hint_label = QLabel("Select a row to see incoming references.")
+        self.refs_hint_label.setWordWrap(True)
+        self.refs_hint_label.setStyleSheet("color: #aaa; font-style: italic;")
+        refs_layout.addWidget(self.refs_hint_label)
+        self.refs_list = QListWidget()
+        self.refs_list.itemClicked.connect(self._on_reverse_ref_clicked)
+        refs_layout.addWidget(self.refs_list)
+
+        grid_splitter = QSplitter()
+        grid_splitter.addWidget(self.data_table)
+        grid_splitter.addWidget(refs_panel)
+        grid_splitter.setStretchFactor(0, 4)
+        grid_splitter.setStretchFactor(1, 1)
+        layout.addWidget(grid_splitter)
 
         # --- Pagination + export ---
         bottom_layout = QHBoxLayout()

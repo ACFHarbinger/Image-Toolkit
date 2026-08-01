@@ -62,6 +62,46 @@ class BrowserRepo:
         self._check_table(table)
         return self._db.query(f'SELECT COUNT(*) FROM "{table}"', ())[0][0]
 
+    def table_foreign_keys(self, table: str) -> List[Dict[str, Any]]:
+        """[{"column": ..., "ref_table": ..., "ref_column": ...}, ...] via
+        PRAGMA foreign_key_list -- drives the Data Browser's FK-cell
+        navigation and reverse_references() below."""
+        self._check_table(table)
+        rows = self._db.query(f'PRAGMA foreign_key_list("{table}")', ())
+        # PRAGMA foreign_key_list columns: id, seq, table, from, to, on_update, on_delete, match
+        return [
+            {"column": r[3], "ref_table": r[2], "ref_column": r[4]}
+            for r in rows
+        ]
+
+    def reverse_references(self, table: str, pk_value: Any) -> List[Dict[str, Any]]:
+        """For a specific row (identified by its PK value) in *table*, find
+        every OTHER table with a FK column pointing at *table*, and count
+        how many of its rows reference this specific value -- e.g.
+        [{"table": "images", "column": "group_id", "count": 214}, ...].
+
+        Scans every table's FK list (cheap: list_tables() is small in this
+        per-user store) rather than requiring the caller to know the
+        reverse-reference graph up front.
+        """
+        self._check_table(table)
+        results: List[Dict[str, Any]] = []
+        for other_table in self.list_tables():
+            for fk in self.table_foreign_keys(other_table):
+                if fk["ref_table"] != table:
+                    continue
+                count = self._db.query(
+                    f'SELECT COUNT(*) FROM "{other_table}" WHERE "{fk["column"]}" = ?',
+                    (pk_value,),
+                )[0][0]
+                if count:
+                    results.append({
+                        "table": other_table,
+                        "column": fk["column"],
+                        "count": count,
+                    })
+        return results
+
     def query_table(
         self,
         table: str,

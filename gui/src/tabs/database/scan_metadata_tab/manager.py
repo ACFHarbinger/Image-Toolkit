@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QWidget
 from ....classes import AbstractClassTwoGalleries
 from ....components import ClickableLabel
 from ....helpers import UpsertWorker
+from ._auto_listings import _AutoListingsMixin
 from ._config import _ConfigMixin
 from ._context_menu_actions import _ContextMenuActionsMixin
 from ._gallery_cards import _GalleryCardsMixin
@@ -43,6 +44,7 @@ class ScanMetadataTab(
     _ViewTogglesMixin,
     _ContextMenuActionsMixin,
     _UpsertOpsMixin,
+    _AutoListingsMixin,
     _ConfigMixin,
     AbstractClassTwoGalleries,
 ):
