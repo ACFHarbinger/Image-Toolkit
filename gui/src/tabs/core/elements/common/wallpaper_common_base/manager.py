@@ -103,6 +103,8 @@ class WallpaperCommonBase(
 
         self.img_scanner_worker: Optional[Any] = None
         self.img_scanner_thread: Optional[QThread] = None
+        self.vid_scanner_worker: Optional[Any] = None
+        self.vid_scanner_thread: Optional[QThread] = None
 
         self.scanned_dir = None
         self.path_to_label_map = {}

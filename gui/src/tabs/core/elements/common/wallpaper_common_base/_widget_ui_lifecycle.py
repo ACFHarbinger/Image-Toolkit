@@ -71,6 +71,18 @@ class _WidgetUiLifecycleMixin:
                 pass
             self.img_scanner_thread = None
 
+        # Clean up video scanner thread
+        if hasattr(self, "vid_scanner_thread") and self.vid_scanner_thread is not None:
+            try:
+                if self.vid_scanner_thread.isRunning():
+                    self.vid_scanner_thread.requestInterruption()
+                    self.vid_scanner_thread.quit()
+                    self.vid_scanner_thread.wait()
+                self.vid_scanner_thread.deleteLater()
+            except Exception:
+                pass
+            self.vid_scanner_thread = None
+
         for win in list(self.open_queue_windows):
             try:
                 if sip.isValid(win):

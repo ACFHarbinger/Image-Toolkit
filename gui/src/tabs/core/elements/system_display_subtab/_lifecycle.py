@@ -23,6 +23,10 @@ class _LifecycleMixin:
             with contextlib.suppress(Exception):
                 self.img_scanner_worker.stop()
 
+        if self.vid_scanner_worker:
+            with contextlib.suppress(Exception):
+                self.vid_scanner_worker.stop()
+
         if (
             getattr(self, "_pagination_debounce_timer", None) is not None
             and self._pagination_debounce_timer.isActive()

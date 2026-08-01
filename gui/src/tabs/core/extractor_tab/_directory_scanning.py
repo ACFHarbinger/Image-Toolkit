@@ -2,15 +2,17 @@
 
 Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
-The background-worker-driven thumbnail generation (VideoScannerWorker) was
-removed entirely (2026-08-01) after 22+ rounds of fixes failed to close
-the deleteOrphaned/QObjectPrivate::connect() crash class it kept
-triggering -- see Addendum 23 in
-.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md. Directory
-scanning here is now a plain, synchronous ``os.scandir()`` listing (no
-background QThread, no signal-based thumbnail delivery) -- placeholders
-show the filename only, with no generated thumbnail image, until a
-from-scratch replacement is designed.
+Directory listing (``scan_directory()``) is a plain, synchronous
+``os.scandir()`` call -- the crash class documented in
+.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md was never traced
+to this. Thumbnail *generation* for entries without a disk-cache hit is
+dispatched via ``BatchVideoLoaderWorker`` on the global QThreadPool --
+the same QRunnable architecture as VideoLoaderWorker/ImageLoaderWorker,
+never implicated across 22+ rounds of that investigation (Addendum 24).
+A monotonically increasing ``_extractor_scan_generation`` counter, bumped
+at the start of every ``scan_directory()`` call before any widget
+teardown, guards delivery of a queued batch result against a directory
+switch that happened while it was still in flight.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from typing import Any
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from backend.src.core import telemetry
-from PySide6.QtCore import QPoint, Qt, QTimer, Slot
+from PySide6.QtCore import QPoint, Qt, QThreadPool, QTimer, Slot
 from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -39,6 +41,7 @@ from PySide6.QtWidgets import (
 
 from ....components import ClickableLabel, MarqueeScrollArea
 from ....constants import MAX_PREVIEW_ITEMS
+from ....helpers import BatchVideoLoaderWorker
 from ....utils.sort_utils import natural_sort_key
 from ....utils.guard.startup_probe_guard import startup_settle_remaining_ms
 
@@ -186,6 +189,12 @@ class _DirectoryScanningMixin:
         self.last_browsed_scan_dir = path
         self._save_last_dir(path)
 
+        # Bump BEFORE any teardown/dispatch below so a still-in-flight
+        # BatchVideoLoaderWorker result from a previous scan_directory()
+        # call is unambiguously identifiable as stale by the time it's
+        # delivered (see this module's docstring).
+        self._extractor_scan_generation = getattr(self, "_extractor_scan_generation", 0) + 1
+
         # Clear grid and path tracking
         paths_to_remove = list(self.source_path_to_widget.keys())
         for p in paths_to_remove:
@@ -219,6 +228,7 @@ class _DirectoryScanningMixin:
         # nothing generates a *new* thumbnail here anymore.
         video_paths_limited = video_paths[:MAX_PREVIEW_ITEMS]
 
+        paths_needing_thumbnail = []
         for i, v_path in enumerate(video_paths_limited):
             cached_image = self._initial_pixmap_cache.get(v_path)
             if cached_image is None:
@@ -237,7 +247,40 @@ class _DirectoryScanningMixin:
 
             if cached_image:
                 self.add_source_thumbnail(v_path, cached_image)
+            else:
+                paths_needing_thumbnail.append(v_path)
 
+        # 3. Generate thumbnails for entries with no disk-cache hit, via
+        # QThreadPool (BatchVideoLoaderWorker) -- see this module's
+        # docstring for why this replaces the old VideoScannerWorker.
+        if paths_needing_thumbnail:
+            _generation = self._extractor_scan_generation
+            worker = BatchVideoLoaderWorker(paths_needing_thumbnail, 120, crop_square=True)
+            worker.signals.result.connect(
+                lambda p, img, _gen=_generation: self._on_source_video_thumbnail(p, img, _gen)
+            )
+            worker.signals.batch_result.connect(
+                lambda results, paths, _gen=_generation: self._on_source_scan_batch_finished(_gen)
+            )
+            telemetry.emit(
+                "thread-lifecycle", "extractor_batch_video_worker.start",
+                panel=id(self), directory=path, count=len(paths_needing_thumbnail),
+            )
+            QThreadPool.globalInstance().start(worker)
+        else:
+            self.scan_progress_complete()
+
+    def _on_source_video_thumbnail(self, path: str, image: QImage, generation: int) -> None:
+        # Directory switched again since this batch was dispatched --
+        # source_path_to_widget now belongs to a different scan entirely.
+        if generation != getattr(self, "_extractor_scan_generation", None):
+            return
+        if image and not image.isNull():
+            self.add_source_thumbnail(path, image)
+
+    def _on_source_scan_batch_finished(self, generation: int) -> None:
+        if generation != getattr(self, "_extractor_scan_generation", None):
+            return
         self.scan_progress_complete()
 
     def _create_source_placeholder_widget(self, path: str) -> QWidget:
@@ -289,7 +332,8 @@ class _DirectoryScanningMixin:
     @Slot(str, object)
     def add_source_thumbnail(self, path: str, image_or_pixmap: Any):
         """Updates an existing alphabetical placeholder with a thumbnail
-        image (from disk cache only -- see scan_directory()'s docstring)."""
+        image, whether from disk cache or freshly generated by
+        BatchVideoLoaderWorker (see scan_directory())."""
         # 1. Resolve to Pixmap
         if isinstance(image_or_pixmap, QPixmap):
             pixmap = image_or_pixmap
@@ -318,8 +362,9 @@ class _DirectoryScanningMixin:
             clickable_label.setPixmap(pixmap)
             clickable_label.setText("")  # Remove "Loading..." text
         else:
-            # No thumbnail available (no disk cache entry) -- generation
-            # is no longer performed here, see this module's docstring.
+            # No thumbnail available (generation failed or is still in
+            # flight -- gets called again by _on_source_video_thumbnail
+            # once the BatchVideoLoaderWorker result arrives).
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 clickable_label.setText("VIDEO")
             else:

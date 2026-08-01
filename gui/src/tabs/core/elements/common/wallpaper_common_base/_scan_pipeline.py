@@ -8,15 +8,21 @@ staleness/serialization guards defend against). Every comment below is
 load-bearing context for a real, previously-observed crash, not
 incidental documentation.
 
-Video-directory scanning (VideoScannerWorker) was removed entirely
-(2026-08-01) after 22 rounds of fixes failed to close the deleteOrphaned/
-QObjectPrivate::connect() crash class it kept triggering -- the last two
-attempted fixes (Addenda 21/22) made the crash *more* reliable (first
-video-directory browse instead of needing rapid switches) rather than
-closing it. See Addendum 23 in
-.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md. Only image
-directory scanning, which has never been implicated in this crash class,
-remains.
+Video-directory scanning (VideoScannerWorker) was reintroduced (Addendum
+24, .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md) after 22
+rounds targeting the deleteOrphaned/QObjectPrivate::connect() crash class
+failed to close it via the original combined scan+thumbnail-generation
+QThread (Addenda 21/22 made it *more* reliable rather than closing it).
+The new VideoScannerWorker only lists file paths -- no internal
+ThreadPoolExecutor, no thumbnail generation -- and runs strictly AFTER
+the image scan settles (_on_image_scan_finished kicks it off instead of
+calling _settle_scan_pipeline() directly), never concurrently with it, so
+the busy-flag serialization and peer-reentrancy guards below cover both
+scan phases as a single unit. Thumbnail generation for found video paths
+goes through the same QThreadPool/QRunnable pipeline
+(VideoLoaderWorker/BatchVideoLoaderWorker) as image thumbnails --
+inherited from AbstractClassSingleGallery, never implicated in this crash
+class.
 """
 
 from __future__ import annotations
@@ -26,7 +32,7 @@ import threading
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import telemetry
-from gui.src.helpers import ImageScannerWorker
+from gui.src.helpers import ImageScannerWorker, VideoScannerWorker
 from PySide6.QtCore import QTimer
 
 from ......utils.sort_utils import natural_sort_key
@@ -34,7 +40,7 @@ from ......utils.guard.startup_probe_guard import startup_settle_remaining_ms
 
 
 class _ScanPipelineMixin:
-    """Serialized directory-switch scan pipeline: image scan only."""
+    """Serialized directory-switch scan pipeline: image scan, then video scan."""
 
     def populate_scan_image_gallery(self, directory: str, emit_signal: bool = True):
         if getattr(self, "background_type", None) == "Solid Color":
@@ -294,6 +300,62 @@ class _ScanPipelineMixin:
         if self.gallery_image_paths:
             self.gallery_image_paths.sort(key=natural_sort_key)
             self.refresh_gallery_view()
+
+        self._start_video_scan(self.scanned_dir)
+
+    def _start_video_scan(self, directory: str) -> None:
+        """Second phase of the scan pipeline, run strictly after the image
+        scan above has settled -- see this module's docstring."""
+        self.vid_scanner_worker = VideoScannerWorker(directory)
+        self.vid_scanner_thread = self.vid_scanner_worker
+
+        self.vid_scanner_worker.scan_finished.connect(
+            lambda paths, _worker=self.vid_scanner_worker: self._on_video_scan_finished(
+                paths, _worker
+            )
+        )
+        self.vid_scanner_worker.scan_error.connect(
+            lambda message, _worker=self.vid_scanner_worker: self._on_video_scan_error(_worker)
+        )
+        self.vid_scanner_worker.finished.connect(self.vid_scanner_worker.deleteLater)
+        self.vid_scanner_worker.finished.connect(
+            lambda: setattr(self, "vid_scanner_thread", None)
+        )
+        telemetry.emit(
+            "thread-lifecycle", "vid_worker.start.begin",
+            panel=id(self), vid_thread=id(self.vid_scanner_worker),
+            tid=threading.get_ident(), directory=directory,
+        )
+        self.vid_scanner_worker.start()
+
+    def _on_video_scan_finished(self, video_paths: list, _worker=None) -> None:
+        # Same staleness guard as _on_image_scan_finished -- see its
+        # docstring for the full rationale (identity comparison via the
+        # closure-bound worker, not sender(), since a superseded worker's
+        # C++ object may already be destroyed by the time this queued
+        # signal is actually processed).
+        if _worker is not None and _worker is not self.vid_scanner_worker and _worker is not self.vid_scanner_thread:
+            telemetry.emit(
+                "thread-lifecycle", "on_video_scan_finished.stale",
+                panel=id(self), tid=threading.get_ident(),
+            )
+            return
+
+        if video_paths:
+            self.start_loading_gallery(video_paths, show_progress=False, append=True)
+            if self.gallery_image_paths:
+                self.gallery_image_paths.sort(key=natural_sort_key)
+                self.refresh_gallery_view()
+
+        self._settle_scan_pipeline()
+
+    def _on_video_scan_error(self, _worker=None) -> None:
+        # Unlike handle_scan_error() for the image phase, a video-scan
+        # error doesn't tear down gallery widgets (the image gallery is
+        # already showing valid content by this point) -- just settle the
+        # pipeline so the next queued switch, if any, can proceed.
+        if _worker is not None and _worker is not self.vid_scanner_worker and _worker is not self.vid_scanner_thread:
+            return
         self._settle_scan_pipeline()
 
     def _settle_scan_pipeline(self) -> None:

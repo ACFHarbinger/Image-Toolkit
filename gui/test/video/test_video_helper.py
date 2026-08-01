@@ -1,7 +1,10 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from gui.src.helpers.video.batch_video_loader_worker import BatchVideoLoaderWorker
 from gui.src.helpers.video.frame_extractor_worker import FrameExtractionWorker
+from gui.src.helpers.video.video_loader_worker import VideoLoaderWorker
+from gui.src.helpers.video.video_scan_worker import VideoScannerWorker
 
 # --- FrameExtractionWorker Tests ---
 
@@ -82,6 +85,124 @@ class TestFrameExtractionWorker:
             assert len(errors) == 1
             assert "Could not open" in errors[0]
 
-# VideoScannerWorker (directory scan + thumbnail generation) was removed
-# entirely 2026-08-01 -- see Addendum 23 in
-# .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
+# --- VideoScannerWorker Tests ---
+# Reintroduced 2026-08-01 as a scan-only QThread (no thumbnail generation,
+# no internal ThreadPoolExecutor) -- see Addendum 24 in
+# .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md. Mirrors
+# TestImageScannerWorker in gui/test/image/test_image_helper.py.
+
+
+class TestVideoScannerWorker:
+    def test_run_scan(self, q_app, tmp_path):
+        d = tmp_path / "videos"
+        d.mkdir()
+        (d / "clip1.mp4").touch()
+        (d / "clip2.mkv").touch()
+        (d / "ignore.txt").touch()
+
+        with patch("gui.src.helpers.video.video_scan_worker.HAS_NATIVE_IMAGING", False):
+            worker = VideoScannerWorker([str(d)])
+
+            finished_signals = []
+            worker.scan_finished.connect(lambda r: finished_signals.append(r))
+
+            worker.run_scan()
+
+            assert len(finished_signals) == 1
+            found = finished_signals[0]
+            assert len(found) == 2
+            assert any("clip1.mp4" in f for f in found)
+
+    def test_error(self, q_app):
+        worker = VideoScannerWorker([])
+
+        error_signals = []
+        worker.scan_error.connect(lambda e: error_signals.append(e))
+
+        worker.run_scan()
+
+        assert len(error_signals) == 1
+        assert "No valid directories" in error_signals[0]
+
+
+# --- VideoLoaderWorker / BatchVideoLoaderWorker Tests ---
+# QRunnable/QThreadPool architecture -- same as ImageLoaderWorker, never
+# implicated in the deleteOrphaned crash class.
+
+
+class TestVideoLoaderWorker:
+    def test_run_uses_disk_cache(self, q_app, tmp_path):
+        cache_file = tmp_path / "cached.jpg"
+        cache_file.write_bytes(b"fake")
+
+        with (
+            patch(
+                "gui.src.helpers.video.video_loader_worker.get_video_thumbnail_cache_path",
+                return_value=str(cache_file),
+            ),
+            patch("gui.src.helpers.video.video_loader_worker.QImage") as MockQImage,
+        ):
+            mock_inst = MagicMock()
+            MockQImage.return_value = mock_inst
+            mock_inst.isNull.return_value = False
+
+            worker = VideoLoaderWorker("/tmp/fake.mp4", 100)
+            results = []
+            worker.signals.result.connect(lambda p, img: results.append((p, img)))
+
+            worker.run()
+
+            assert len(results) == 1
+            assert results[0][0] == "/tmp/fake.mp4"
+
+    def test_run_generates_when_no_cache(self, q_app, tmp_path):
+        cache_file = tmp_path / "missing.jpg"
+
+        mock_image = MagicMock()
+        mock_image.isNull.return_value = False
+
+        with patch(
+            "gui.src.helpers.video.video_loader_worker.get_video_thumbnail_cache_path",
+            return_value=str(cache_file),
+        ):
+            worker = VideoLoaderWorker("/tmp/fake.mp4", 100)
+            worker.thumbnailer = MagicMock()
+            worker.thumbnailer.generate.return_value = mock_image
+
+            results = []
+            worker.signals.result.connect(lambda p, img: results.append((p, img)))
+
+            worker.run()
+
+            worker.thumbnailer.generate.assert_called_once_with(
+                "/tmp/fake.mp4", 100, crop_square=False
+            )
+            mock_image.save.assert_called_once()
+            assert len(results) == 1
+
+
+class TestBatchVideoLoaderWorker:
+    def test_run_batch(self, q_app, tmp_path):
+        cache_file = tmp_path / "missing.jpg"
+        mock_image = MagicMock()
+        mock_image.isNull.return_value = False
+
+        with patch(
+            "gui.src.helpers.video.batch_video_loader_worker.get_video_thumbnail_cache_path",
+            return_value=str(cache_file),
+        ):
+            worker = BatchVideoLoaderWorker(["/tmp/a.mp4", "/tmp/b.mp4"], 100)
+            worker.thumbnailer = MagicMock()
+            worker.thumbnailer.generate.return_value = mock_image
+
+            batch_results = []
+            worker.signals.batch_result.connect(
+                lambda results, paths: batch_results.append((results, paths))
+            )
+
+            worker.run()
+
+            assert len(batch_results) == 1
+            results, paths = batch_results[0]
+            assert paths == ["/tmp/a.mp4", "/tmp/b.mp4"]
+            assert len(results) == 2

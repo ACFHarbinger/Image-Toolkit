@@ -7,6 +7,9 @@ logic change (see ``_navigation.py``'s docstring).
 from __future__ import annotations
 
 import contextlib
+import hashlib
+
+from backend.src.constants import THUMBNAIL_CACHE_DIR
 
 
 class _SortZoomMixin:
@@ -91,6 +94,11 @@ class _SortZoomMixin:
         # Recreate/Refresh both panels
         self.refresh_found_gallery()
         self.refresh_selected_panel()
+
+    def _get_disk_cache_path(self, video_path: str) -> str:
+        THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        path_hash = hashlib.md5(video_path.encode('utf-8')).hexdigest()
+        return str(THUMBNAIL_CACHE_DIR / f"{path_hash}.jpg")
 
     # --- GEOMETRY and LAYOUT LOGIC ---
 

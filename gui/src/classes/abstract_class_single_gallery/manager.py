@@ -48,7 +48,8 @@ class AbstractClassSingleGallery(
     """Abstract base class for a single gallery panel.
 
     Shared helpers (pagination, sort, dir history) are inherited from
-    ``AbstractGalleryBase``.
+    ``AbstractGalleryBase``. Includes built-in support for video thumbnail
+    generation.
     """
 
     def __init__(self):

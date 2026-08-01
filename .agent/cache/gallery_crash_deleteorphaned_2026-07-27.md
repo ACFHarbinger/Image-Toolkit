@@ -1875,3 +1875,112 @@ architecture was never once implicated across 22 rounds, unlike
 architecture is the leading candidate to build the replacement on --
 pending discussion before implementing, per this document's own standing
 rule.
+
+## Addendum 24 (2026-08-01): video thumbnail scanning re-implemented
+
+Same session, later: the user asked for the video-scanning functionality
+to be rebuilt from scratch, informed by everything above. The rebuild
+deliberately keeps the architectural split the deletion phase's own
+analysis pointed at -- **directory scanning** (finding video file paths)
+and **thumbnail generation** (decoding a frame) are now two entirely
+separate concerns, each reusing whichever of the two pre-existing
+patterns was never implicated across 22+ rounds of crash reports:
+
+1. **`VideoScannerWorker`** (`gui/src/helpers/video/video_scan_worker.py`)
+   was rewritten from scratch as a scan-only `QThread`, deliberately
+   modeled line-for-line on `ImageScannerWorker`
+   (`gui/src/helpers/image/image_scan_worker.py`) -- `os.scandir`/
+   `base.scan_files_multi`, no internal `concurrent.futures.ThreadPoolExecutor`,
+   no thumbnail generation inside `run()`, just a `scan_finished(list)`
+   signal carrying found video paths. The **old** `VideoScannerWorker`
+   combined scanning AND thumbnail generation in one `QThread`, fanning
+   the latter out across an internal executor -- concurrent
+   subprocess+`QImage` decode calls on raw Python threads Qt's own
+   machinery doesn't manage, landing squarely on the suspected native
+   crash boundary documented in `video_thumbnailer.py`'s
+   `_decode_span()` docstring (Addendum 11). That coupling is gone.
+
+2. **`VideoLoaderWorker`/`BatchVideoLoaderWorker`** (QRunnable, dispatched
+   via the normal `QThreadPool` -- same architecture as
+   `ImageLoaderWorker`/`BatchImageLoaderWorker`) were restored close to
+   verbatim from before the deletion (they were never implicated in any
+   of the 22 rounds), with an added optional `crop_square` parameter to
+   preserve the Extractor tab's square-cropped thumbnails without a
+   separate code path.
+
+**Wallpaper tab** (`wallpaper_common_base/_scan_pipeline.py`): the video
+scan is deliberately sequenced strictly **after** the image scan settles
+-- `_on_image_scan_finished()` now calls `_start_video_scan()` instead of
+`_settle_scan_pipeline()` directly, and only the video phase's own
+completion (`_on_video_scan_finished()`/`_on_video_scan_error()`) settles
+the pipeline. The two scans are never concurrent within one panel, so the
+existing busy-flag serialization and peer-reentrancy guards (Addenda
+9/21) cover both phases as a single unit without modification. Found
+video paths are merged into the gallery via the existing
+`start_loading_gallery(..., append=True)` path, which was already
+video-aware once `_loading_pipeline.py`'s video branches (below) were
+restored -- no wallpaper-specific thumbnail-loading code was needed.
+`_scanner_lifecycle.py` gained a `_stop_vid_scanner_worker()` mirroring
+`_stop_scanner_threads()` exactly (same Addendum 22
+disconnect-before-teardown mitigation, same unbounded `wait()`), called
+from inside `_stop_scanner_threads()` itself so every existing call site
+(including the peer loop) drains both worker types. `manager.py` gained
+`vid_scanner_worker`/`vid_scanner_thread` attributes;
+`_widget_ui_lifecycle.py`'s `closeEvent()` and
+`system_display_subtab/_lifecycle.py`'s `cancel_loading()` gained the
+matching cleanup blocks, mirroring the image-scanner ones exactly.
+
+**Extractor tab** (`extractor_tab/_directory_scanning.py`): kept its
+existing safe, synchronous `os.scandir()` placeholder-population logic
+unchanged, and added thumbnail generation as a separate step: paths with
+no disk-cache hit are dispatched as one `BatchVideoLoaderWorker(...,
+crop_square=True)` on `QThreadPool.globalInstance()`. No persistent
+worker QThread is kept on `self` at all (unlike before) -- a
+monotonically increasing `_extractor_scan_generation` counter, bumped at
+the very start of `scan_directory()` before any teardown, is captured by
+value in the result-signal closures and compared at delivery time; a
+mismatch means the directory was switched again since dispatch, and the
+result is silently dropped. This sidesteps the old design's entire
+`vid_scanner_worker` stop/wait/drain/disconnect lifecycle (previously
+duplicated in `manager.py` and `_media_player.py`) rather than
+reproducing it.
+
+**Two-galleries / single-gallery bases**: `_found_gallery_load.py`,
+`_found_gallery_populate.py`, `_selected_panel.py`, `_sort_zoom.py`
+(`abstract_class_two_galleries`) and `_loading_pipeline.py`
+(`abstract_class_single_gallery`) had their video branches restored
+close to verbatim from before the deletion -- this code was never
+implicated in any crash round, so no redesign was needed, only
+re-wiring against the current file state (Shiboken guards added
+elsewhere in this session, drag-reorder mixin, disk-cache mixin).
+
+**A second, independent bug found and fixed during verification**:
+scoped `pytest --run-gui` runs of `test_extraction_history.py` segfaulted
+during test-fixture teardown, traced to `self.sender()` being called on
+a gallery widget (`abstract_class_single_gallery`/
+`abstract_class_two_galleries`) whose C++ `QObject` was already destroyed
+by the time a queued cross-thread load-result signal was delivered --
+`self.sender()` on a dead `QObject` segfaults rather than raising
+`RuntimeError`. This is the same crash *class* as everything else in
+this document, just newly caught in the image-loading path rather than
+video-scanning. Fixed with a `Shiboken.isValid(self)` guard at the top of
+`_on_single_image_loaded`, `_on_batch_images_loaded`,
+`_on_found_image_loaded`, `_on_batch_found_loaded`,
+`_on_batch_selected_loaded`, and `_on_selected_image_loaded`.
+
+**Verification**: full repo import sweep (`backend.src.app`, `gui.src.tabs`,
+`gui.src.windows`, etc.) clean; `python -m compileall` clean (only
+pre-existing Python-2 fixtures under vendored `.pixi/` envs fail, as
+expected); every scoped GUI test file touched by this session passes
+individually, run one file at a time per the standing "never run
+unscoped GUI test files together" rule --
+`test_video_helper.py` (7, including new `TestVideoScannerWorker`/
+`TestVideoLoaderWorker`/`TestBatchVideoLoaderWorker` coverage),
+`test_wallpaper_scan_race.py`, `test_wallpaper_linked_panel_scan_race.py`,
+`test_gallery_classes.py`, `test_extraction_history.py` (previously
+segfaulting, now passing 3x in a row), `test_main_window.py`,
+`test_settings_window.py`, `test_extractor_drag_preview.py`. **Not yet
+live-tested in the running app** by the user -- unlike every previous
+round in this document, this one has not yet been confirmed against a
+real directory-switch repro. That confirmation is still needed before
+this addendum's fix can be considered validated the way Addendum 23 was.

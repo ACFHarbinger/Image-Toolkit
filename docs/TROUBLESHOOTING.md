@@ -463,6 +463,22 @@ built (a leading candidate: `VideoLoaderWorker`'s `QRunnable`/
 class, unlike `VideoScannerWorker`'s bespoke `QThread` + internal
 executor). See Addendum 23 in the crash doc for full scope.
 
+**Update (2026-08-01, Addendum 24) — video thumbnail scanning
+re-implemented.** Directory *scanning* and thumbnail *generation* are now
+separate concerns. `VideoScannerWorker` was rewritten as a scan-only
+`QThread` modeled on `ImageScannerWorker` (no internal executor, no
+decode work inside `run()`). Thumbnail generation reuses the restored
+`VideoLoaderWorker`/`BatchVideoLoaderWorker` `QRunnable`/`QThreadPool`
+workers, never implicated in this crash class. Wallpaper tab sequences
+the video scan strictly after the image scan settles (never concurrent);
+Extractor tab dispatches a single `BatchVideoLoaderWorker` per scan,
+guarded by a generation counter instead of a persistent worker reference.
+A second, unrelated segfault (`self.sender()` on an already-destroyed
+gallery widget, same crash *class*, different code path) was found and
+fixed with `Shiboken.isValid(self)` guards while verifying this change.
+Not yet live-tested against a real directory-switch repro — see Addendum
+24 in the crash doc.
+
 Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---

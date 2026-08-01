@@ -1,29 +1,32 @@
-"""Found-gallery search filtering and image thumbnail loading.
+"""Found-gallery search filtering and image/video thumbnail loading.
 
 Extracted from ``abstract_class_two_galleries.py`` -- pure code motion, no
 logic change (see ``_navigation.py``'s docstring).
 
-Video thumbnail loading (VideoLoaderWorker/BatchVideoLoaderWorker) was
-removed entirely (2026-08-01) alongside the rest of the app's
-directory-video-scanning functionality -- see Addendum 23 in
-.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
+Video thumbnail loading (VideoLoaderWorker/BatchVideoLoaderWorker) uses the
+QRunnable/QThreadPool architecture -- the same one ImageLoaderWorker uses --
+which was never implicated in the deleteOrphaned crash class documented in
+.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md (Addendum 23/24);
+only the old VideoScannerWorker's bespoke QThread+ThreadPoolExecutor was.
 """
 
 from __future__ import annotations
 
 import contextlib
+import os
 from typing import List
 
+from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel
 from shiboken6 import Shiboken
 
-from ...helpers import BatchImageLoaderWorker
+from ...helpers import BatchImageLoaderWorker, BatchVideoLoaderWorker, VideoLoaderWorker
 
 
 class _FoundGalleryLoadMixin:
-    """Search filtering plus image batch thumbnail loading."""
+    """Search filtering plus image/video batch and single-shot thumbnail loading."""
 
     def _perform_found_search(self):
         query = self.found_search_input.text()
@@ -41,6 +44,33 @@ class _FoundGalleryLoadMixin:
         self._perform_found_search()
         # self.refresh_found_gallery() # Called by search
 
+    def _trigger_batch_video_found_load(self, paths: List[str]):
+        """Trigger batch workers for all visible videos, chunked for parallel loading."""
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+
+        self.found_loading_paths.update(paths)
+        self.common_start_chunked_load(
+            paths,
+            worker_factory=lambda chunk: BatchVideoLoaderWorker(
+                chunk, self.thumbnail_size
+            ),
+            per_result_slot=self._on_found_image_loaded,
+            batch_slot=self._on_batch_found_loaded,
+        )
+
+    def _trigger_video_found_load(self, path: str):
+        """Fallback for single video load (rarely used by batch logic but kept for consistency)."""
+        if not hasattr(self, "found_loading_paths"):
+            self.found_loading_paths = set()
+
+        self.found_loading_paths.add(path)
+        worker = VideoLoaderWorker(path, self.thumbnail_size)
+        worker.load_generation = self._load_generation
+        worker.signals.result.connect(self._on_found_image_loaded)
+        self._active_workers.add(worker)
+        self.thread_pool.start(worker)
+
     @Slot(str, object)
     def _on_found_image_loaded(self, path: str, image):  # noqa: C901
         # self may already be a dead QObject by the time this queued
@@ -57,7 +87,7 @@ class _FoundGalleryLoadMixin:
                 if worker.signals == sender:
                     if getattr(worker, "load_generation", self._load_generation) != self._load_generation:
                         stale = True
-                    if not isinstance(worker, BatchImageLoaderWorker):
+                    if not isinstance(worker, (BatchImageLoaderWorker, BatchVideoLoaderWorker)):
                         self._active_workers.remove(worker)
                     break
         if stale:
@@ -71,9 +101,19 @@ class _FoundGalleryLoadMixin:
         # Cache QImage (half the memory of QPixmap on X11)
         if isinstance(image, QImage) and not image.isNull():
             self._found_pixmap_cache[path] = image
+            # Save to disk cache if it's a video
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                cache_path = self._get_disk_cache_path(path)
+                if not os.path.exists(cache_path):
+                    image.save(cache_path, "JPG")  # pyrefly: ignore[no-matching-overload]
         elif not isinstance(image, QImage) and image and not image.isNull():
             q_image = image.toImage()
             self._found_pixmap_cache[path] = q_image
+            # Save to disk cache if it's a video
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                cache_path = self._get_disk_cache_path(path)
+                if not os.path.exists(cache_path):
+                    q_image.save(cache_path, "JPG")
 
         widget = self.path_to_label_map.get(path)
         if widget:
@@ -141,10 +181,20 @@ class _FoundGalleryLoadMixin:
             if isinstance(pixmap, QImage) and not pixmap.isNull():
                 self._found_pixmap_cache[path] = pixmap  # store QImage
                 final_pixmap = QPixmap.fromImage(pixmap)
+                # Save to disk cache if it's a video
+                if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                    cache_path = self._get_disk_cache_path(path)
+                    if not os.path.exists(cache_path):
+                        pixmap.save(cache_path, "JPG")  # pyrefly: ignore[no-matching-overload]
             elif not isinstance(pixmap, QImage) and pixmap and not pixmap.isNull():
                 q_image = pixmap.toImage()
                 self._found_pixmap_cache[path] = q_image
                 final_pixmap = pixmap
+                # Save to disk cache if it's a video
+                if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                    cache_path = self._get_disk_cache_path(path)
+                    if not os.path.exists(cache_path):
+                        q_image.save(cache_path, "JPG")
             else:
                 final_pixmap = QPixmap()
 

@@ -19,6 +19,8 @@ class _ScanActionsMixin:
     def cancel_scanning(self):
         if self.img_scanner_thread and self.img_scanner_thread.isRunning():
             self.img_scanner_thread.quit()
+        if self.vid_scanner_thread and self.vid_scanner_thread.isRunning():
+            self.vid_scanner_thread.quit()
 
     @Slot(list)
     def display_scan_results(self, image_paths: list):

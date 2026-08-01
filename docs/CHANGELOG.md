@@ -2,6 +2,41 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S272 — 2026-08-01 (Video thumbnail scanning re-implemented; module-flattening import fixes)
+
+Two pieces of follow-up work in the same session as S271:
+
+- **Import fixes for a concurrent module-flattening reorg**: an
+  independent reorganization (settings_window/, main_window/,
+  metadata_editor_window/, monitor_drop_view/, stitch_worker/,
+  utils.lru_image_cache/shortcut_manager/startup_probe_guard, and
+  helpers.core → helpers.database for the library/recommendation/search/
+  tag/upsert workers — each flattened from a package into a single
+  module) landed mid-session. Fixed stale dotted import paths and
+  relative-import depths left across `gui/` and `backend/` (including a
+  missing `show_main_status`/`show_tray_notification` re-export in the
+  new `main_window.py`), verified via a full repo import sweep and
+  `python -m compileall`.
+- **Video thumbnail scanning rebuilt from scratch** (see Addendum 24,
+  `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`), informed by
+  S271's crash forensics: directory scanning and thumbnail generation
+  are now separate concerns. `VideoScannerWorker` is a scan-only
+  `QThread` modeled on `ImageScannerWorker` (no internal
+  `ThreadPoolExecutor`, no decode work inside `run()`); thumbnail
+  generation reuses `VideoLoaderWorker`/`BatchVideoLoaderWorker`
+  (`QRunnable`/`QThreadPool`, never implicated in the deleteOrphaned
+  crash class). Wallpaper tab sequences the video scan strictly after
+  the image scan settles; Extractor tab dispatches thumbnail generation
+  guarded by a generation counter instead of a persistent worker
+  reference. The two-galleries/single-gallery base classes had their
+  (never crash-implicated) video-loading branches restored.
+- **A second, unrelated segfault found and fixed** while verifying the
+  above: `self.sender()` called on a gallery widget whose C++ `QObject`
+  was already destroyed by the time a queued cross-thread load-result
+  signal was delivered — segfaults instead of raising. Same crash
+  *class* as the deleteOrphaned investigation, newly caught in the
+  image-loading path. Fixed with `Shiboken.isValid(self)` guards.
+
 ## S271 — 2026-08-01 (Video-directory scanning removed after 23 rounds of crash fixes — issue #81)
 
 After 23 rounds of investigation and fixes against the `deleteOrphaned`/

@@ -7,14 +7,14 @@ deleteOrphaned use-after-free crash class documented in
 comment below is load-bearing context for a real, previously-observed
 crash, not incidental documentation.
 
-Video-directory scanning (VideoScannerWorker, and this file's former
-``_stop_vid_scanner_worker()``) was removed entirely (2026-08-01) -- see
-Addendum 23 in the crash doc. 22 rounds of fixes targeting this exact
-class of crash, including two attempted in the same session as this
-removal (Addenda 21/22, both applied here), never closed it; the last
-two attempts made the crash *more* reliable (first video-directory browse
-instead of needing rapid switches) rather than closing it. Only image
-scanning, which has never been implicated in this crash class, remains.
+Video-directory scanning (VideoScannerWorker) was reintroduced (Addendum
+24) as a scan-only QThread -- no thumbnail generation inside it, unlike
+the original that fanned decode work out across an internal
+ThreadPoolExecutor -- run strictly AFTER the image scan settles (see
+_scan_pipeline.py's _on_image_scan_finished), never concurrently with it.
+_stop_vid_scanner_worker() below mirrors _stop_scanner_threads()'s
+image-scanner handling exactly, including the Addendum 22
+disconnect-before-teardown mitigation.
 """
 
 from __future__ import annotations
@@ -92,6 +92,42 @@ class _ScannerLifecycleMixin:
         # queued cross-thread signals reentrantly, mid-teardown (see
         # Addendum 9 in .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
         telemetry.emit("thread-lifecycle", "sendPostedEvents.DeferredDelete", panel=id(self), tid=threading.get_ident())
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+        # Also drain the video scanner thread, if any -- every caller of
+        # _stop_scanner_threads() (this instance's own teardown AND the
+        # peer loop in populate_scan_image_gallery()) needs both worker
+        # types stopped before touching widgets.
+        self._stop_vid_scanner_worker()
+
+    def _stop_vid_scanner_worker(self) -> None:
+        """Stop and fully drain this instance's video scanner thread.
+
+        Mirrors _stop_scanner_threads() above exactly -- see its
+        docstring for the full rationale. Kept as a distinct method (not
+        folded into _stop_scanner_threads()) so callers that only care
+        about one worker type don't have to pay for stopping both.
+        """
+        if getattr(self, "vid_scanner_thread", None) is None:
+            return
+        _panel, _thread_id, _tid = id(self), id(self.vid_scanner_thread), threading.get_ident()
+        for _sig_name in ("scan_finished", "scan_error", "finished"):
+            try:
+                getattr(self.vid_scanner_thread, _sig_name).disconnect()
+            except (RuntimeError, TypeError):
+                pass
+        telemetry.emit("thread-lifecycle", "vid_thread.signals_disconnected", panel=_panel, vid_thread=_thread_id, tid=_tid)
+        if self.vid_scanner_thread.isRunning():
+            telemetry.emit("thread-lifecycle", "vid_thread.stop_requested", panel=_panel, vid_thread=_thread_id, tid=_tid)
+            self.vid_scanner_thread.requestInterruption()
+            self.vid_scanner_thread.quit()
+            telemetry.emit("thread-lifecycle", "vid_thread.wait.start", panel=_panel, vid_thread=_thread_id, tid=_tid)
+            self.vid_scanner_thread.wait()  # unbounded
+            telemetry.emit("thread-lifecycle", "vid_thread.wait.end", panel=_panel, vid_thread=_thread_id, tid=_tid)
+        self.vid_scanner_thread.deleteLater()
+        self.vid_scanner_thread = None
+
+        telemetry.emit("thread-lifecycle", "vid_sendPostedEvents.DeferredDelete", panel=id(self), tid=threading.get_ident())
         QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 

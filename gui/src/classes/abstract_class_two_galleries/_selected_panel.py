@@ -6,9 +6,11 @@ logic change (see ``_navigation.py``'s docstring).
 
 from __future__ import annotations
 
+import os
 import weakref
 from typing import Dict, List, Optional
 
+from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QWidget
@@ -158,6 +160,12 @@ class _SelectedPanelMixin:
         for path, image in results:
             if image and not image.isNull():
                 self._selected_pixmap_cache[path] = image  # store QImage
+
+                # Save to disk cache if it's a video
+                if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                    cache_path = self._get_disk_cache_path(path)
+                    if not os.path.exists(cache_path):
+                        image.save(cache_path, "JPG")
             widget = widgets.get(path)
             if widget:
                 try:
@@ -200,6 +208,15 @@ class _SelectedPanelMixin:
             return
         if image and not image.isNull():
             self._selected_pixmap_cache[path] = image  # store QImage
+
+            # Save to disk cache if it's a video
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                cache_path = self._get_disk_cache_path(path)
+                if not os.path.exists(cache_path):
+                    if isinstance(image, QImage):
+                        image.save(cache_path, "JPG")  # pyrefly: ignore[no-matching-overload]
+                    else:
+                        image.toImage().save(cache_path, "JPG")
         display_pixmap = (
             QPixmap.fromImage(image) if isinstance(image, QImage) else image
         )
