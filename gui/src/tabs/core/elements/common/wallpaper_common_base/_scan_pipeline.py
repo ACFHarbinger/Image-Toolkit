@@ -170,6 +170,17 @@ class _ScanPipelineMixin:
         self._initial_pixmap_cache.clear()
         self.cancel_loading()
         self.gallery_image_paths = []
+        # Unconditional reset (Addendum 25): previously only reset via the
+        # side effect of start_loading_gallery(append=False) below, which
+        # is itself gated on quick_paths being non-empty -- a directory
+        # with no images (a video-only directory, now that video scanning
+        # populates the gallery too) left this holding the PREVIOUS
+        # directory's paths, which _on_video_scan_finished's
+        # start_loading_gallery(..., append=True) would then extend
+        # instead of replace: old thumbnails bleeding into the new
+        # directory, and duplicating on every re-scan of the same
+        # video-only directory.
+        self.master_image_paths = []
 
         try:
             entries = sorted(
@@ -342,7 +353,15 @@ class _ScanPipelineMixin:
             return
 
         if video_paths:
-            self.start_loading_gallery(video_paths, show_progress=False, append=True)
+            # Same dedup as _on_image_scan_finished's new_paths filter --
+            # belt-and-suspenders alongside the unconditional
+            # master_image_paths reset in populate_scan_image_gallery()
+            # above: never append a path start_loading_gallery(append=True)
+            # would otherwise duplicate.
+            existing_paths = set(getattr(self, "master_image_paths", []))
+            new_video_paths = [p for p in video_paths if p not in existing_paths]
+            if new_video_paths:
+                self.start_loading_gallery(new_video_paths, show_progress=False, append=True)
             if self.gallery_image_paths:
                 self.gallery_image_paths.sort(key=natural_sort_key)
                 self.refresh_gallery_view()
