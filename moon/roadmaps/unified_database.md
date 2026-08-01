@@ -269,14 +269,23 @@ Port `ContentListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to
 - **Index**: hnswlib per (owner_type, model) inside `base.database` (DB.2), persisted encrypted; brute-force fallback below ~5k vectors (cheaper than index maintenance). Cosine metric everywhere.
 - Acceptance: text query over 50k images returns top-50 in <150 ms warm; find-similar returns visually coherent neighbors on the owner's real library.
 
-## DB.8 Cross-Domain Features
+## 🔄 DB.8 Cross-Domain Features
+
+*Started 2026-08-01 (issue #66): the DAL layer for DB.8a/DB.8b is shipped and tested; DB.8c's merge mechanism (which already existed from earlier DB.3 scaffolding) now has a GUI entry point. Detail-panel UI for 8a/8b, Entity Recon integration, and DB.8d are not yet done — see below.*
 
 The payoff for a single store (answer #5 — "EVERYTHING"):
 
-- **DB.8a Media ↔ image groups**: `media_groups` M2M; detail panel gains a "Linked Image Groups" chip row (picker over `groups`); a "View images" button jumps to Image Search pre-filtered to that group. Auto-suggest links by title↔group-name fuzzy match (reuse the MAL name-matching normalizer).
-- **DB.8b Entity ↔ images**: `entity_images` M2M; entity detail panel gets a linked-images gallery strip; Entity Recon tab gets a "link matches to library entity" action writing `entity_images` (bridges `base.recon` IdentityIndex hits into the library).
-- **DB.8c Unified tag vocabulary**: listings' free-CSV tags/genres and the image DB's typed tags are the same `tags` table post-migration; Maintenance gains a tag-merge tool (case/underscore duplicates produced by the CSV split); tag chips in listings autocomplete from the shared vocabulary; clicking a tag anywhere offers "search images / search listings with this tag".
-- **DB.8d Auto-create listings from scans**: the video-directory import already parses series/episodes; extend Scan & Tag so an image/video scan can propose `media_items` (one per detected series/group) with `media_groups` links pre-filled — one review dialog, then a single transaction.
+**Shipped**:
+- **DB.8a Media ↔ image groups (DAL only)**: `MediaRepo` gained `link_group`/`unlink_group`/`get_linked_groups`/`get_media_for_group`/`suggest_group_matches` (`backend/src/database/unified/media_repo.py`) over the existing `media_groups` M2M table. `suggest_group_matches()` is a simple case/whitespace-insensitive substring match ranked by specificity (not a fuzzy-distance library) — good enough for a human-confirmed suggestion list.
+- **DB.8b Entity ↔ images (DAL only)**: `EntityRepo` gained `link_image`/`unlink_image`/`get_linked_images`/`get_entities_for_image` over the existing `entity_images` M2M table.
+- **DB.8c Unified tag vocabulary — GUI entry point**: `TagRepo.merge_tags()` already existed (shipped with DB.3, tested, but never exposed on the facade or reachable from any GUI control). Exposed as `UnifiedImageDatabase.merge_tags()`; the Maintenance panel's tag table gained a "🔀 Merge Into…" right-click action (`database_tab/_context_menus.py` + `_crud.py`) — pick a destination tag from a dialog, confirm, every image/media reference to the source tag is repointed and the source is deleted.
+- Tests: `test_media_group_links`, `test_media_group_fuzzy_suggestions`, `test_entity_image_links` (`test_unified_repos.py`), `test_merge_tags_facade` (`test_unified_facade.py`) — 66/66 `backend/test/database/` green.
+
+**Not done yet** (explicitly deferred, not silently skipped):
+- **DB.8a/8b detail-panel UI**: no "Linked Image Groups" chip row on the media detail panel, no "View images" cross-tab jump into Search, no linked-images gallery strip on the entity detail panel. The DAL methods above are ready for this; the UI work itself touches the already-complex, actively-used `content_listings_subtab`/`entity_listings_subtab` detail panels and cross-tab navigation (`MainWindow`'s tab registry) — deliberately not attempted in the same round as writing the DAL, to keep this round's risk/review surface small.
+- **Entity Recon integration** ("link matches to library entity" action writing `entity_images` from `base.recon` IdentityIndex hits) — depends on the DB.8b DAL above (now available) but touches the separate, large Entity Recon OSINT tab; not started.
+- **DB.8c GUI, remaining pieces**: tag-chip autocomplete from the shared vocabulary in listings, and "search images / search listings with this tag" from any tag click — not started; only the merge tool (the highest-value, most self-contained piece) shipped this round.
+- **DB.8d Auto-create listings from scans** — not started; the most heuristic-heavy item (needs series/episode detection from a directory scan), deserves its own dedicated round.
 
 ## DB.9 Data Browser Tab (Raw Tables + ER View)
 
@@ -310,7 +319,7 @@ Incremental (answer #10 — implementer's choice); the app ships after every pha
 | 🔄 P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | mostly done (S210); SQL-side filtering deferred |
 | 🔄 P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | mostly done (S211); archival + scan-worker deferred |
 | 🔄 P4 | DB.7 semantic search & CBIR | Image text→image + find-similar search live; rec-engine (listings BGE-M3) unification still pending | ~1.5w |
-| P5 | DB.8 cross-domain features | Links, shared tags, auto-listings | ~1w |
+| 🔄 P5 | DB.8 cross-domain features | Link/tag-merge DAL + tag-merge tool live; detail-panel UI, Entity Recon integration, auto-listings still pending | ~1w |
 | P6 | DB.9 data browser + DB.10 cleanup/backups/docs | End state | ~1w |
 
 ```mermaid

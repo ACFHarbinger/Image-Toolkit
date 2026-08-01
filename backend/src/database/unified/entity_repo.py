@@ -100,6 +100,43 @@ class EntityRepo:
         with transaction(self._db):
             self._replace_peer_links(entity_id, peer_ids)
 
+    # ---- DB.8b: entity <-> images -----------------------------------------
+
+    def link_image(self, entity_id: str, image_id: int) -> None:
+        self._db.execute(
+            "INSERT OR IGNORE INTO entity_images (entity_id, image_id) "
+            "VALUES (?, ?)",
+            (entity_id, image_id),
+        )
+
+    def unlink_image(self, entity_id: str, image_id: int) -> None:
+        self._db.execute(
+            "DELETE FROM entity_images WHERE entity_id = ? AND image_id = ?",
+            (entity_id, image_id),
+        )
+
+    def get_linked_images(self, entity_id: str) -> List[Dict[str, Any]]:
+        """[{"id": image_id, "file_path": ...}, ...] linked to *entity_id*
+        -- an entity detail panel's "linked images" gallery strip."""
+        rows = self._db.query(
+            "SELECT i.id, i.file_path FROM entity_images ei "
+            "JOIN images i ON i.id = ei.image_id "
+            "WHERE ei.entity_id = ? ORDER BY i.file_path",
+            (entity_id,),
+        )
+        return [{"id": r[0], "file_path": r[1]} for r in rows]
+
+    def get_entities_for_image(self, image_id: int) -> List[Dict[str, Any]]:
+        """Entities (id/name) linked to *image_id* -- the reverse of
+        get_linked_images(), e.g. an image card's "linked people" tooltip."""
+        rows = self._db.query(
+            "SELECT e.id, e.name FROM entity_images ei "
+            "JOIN entities e ON e.id = ei.entity_id "
+            "WHERE ei.image_id = ? ORDER BY e.name",
+            (image_id,),
+        )
+        return [{"id": r[0], "name": r[1]} for r in rows]
+
     # ------------------------------------------------------------------
     # Reads
     # ------------------------------------------------------------------

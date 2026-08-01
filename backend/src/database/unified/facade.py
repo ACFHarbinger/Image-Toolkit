@@ -147,6 +147,12 @@ class UnifiedImageDatabase:
     def update_tag_type(self, name: str, new_type: Optional[str]) -> None:
         self._tags.update_tag_type(name, new_type)
 
+    def merge_tags(self, source_name: str, dest_name: str) -> None:
+        """DB.8c: repoint every reference from *source_name* to
+        *dest_name* (both image and media tag links), then drop
+        *source_name* -- the Maintenance panel's tag-merge tool."""
+        self._tags.merge_tags(source_name, dest_name)
+
     def get_all_tags(self, limit: int = 10000) -> List[str]:
         return self._tags.get_all_tags()
 

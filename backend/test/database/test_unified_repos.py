@@ -177,6 +177,65 @@ def test_entity_round_trip_and_associations(db):
     assert entities.get_entity("ent-abc12345")["associated_content"] == []
 
 
+def test_media_group_links(db):
+    """DB.8a: media_groups M2M -- link a media entry to an image group."""
+    media = MediaRepo(db)
+    images = ImageRepo(db)
+    media.save_media(dict(LEGACY_ENTRY))
+    gid = images.add_group("Cowboy Bebop Scans")
+
+    assert media.get_linked_groups("m-1") == []
+    media.link_group("m-1", gid)
+    assert media.get_linked_groups("m-1") == [{"id": gid, "name": "Cowboy Bebop Scans"}]
+    assert media.get_media_for_group(gid) == [
+        {"id": "m-1", "title": LEGACY_ENTRY["title"]}
+    ]
+
+    # Linking twice is idempotent (INSERT OR IGNORE).
+    media.link_group("m-1", gid)
+    assert len(media.get_linked_groups("m-1")) == 1
+
+    media.unlink_group("m-1", gid)
+    assert media.get_linked_groups("m-1") == []
+
+
+def test_media_group_fuzzy_suggestions(db):
+    """DB.8a: title<->group-name auto-suggest for the "link groups" UI."""
+    media = MediaRepo(db)
+    names = ["Cowboy Bebop", "Trigun", "Cowboy Bebop Scans (RAW)"]
+
+    # Most-specific (longest) match first.
+    assert media.suggest_group_matches("Cowboy Bebop", names) == [
+        "Cowboy Bebop Scans (RAW)", "Cowboy Bebop",
+    ]
+    assert media.suggest_group_matches("trigun", names) == ["Trigun"]  # case-insensitive
+    assert media.suggest_group_matches("no match here", names) == []
+    assert media.suggest_group_matches("", names) == []
+
+
+def test_entity_image_links(db, tmp_path):
+    """DB.8b: entity_images M2M -- link an entity to a library image."""
+    entities = EntityRepo(db)
+    images = ImageRepo(db)
+    entities.save_entity(dict(LEGACY_ENTITY))
+    p = tmp_path / "person.png"
+    p.write_bytes(b"x")
+    image_id = images.add_image(str(p), tags=[])
+
+    assert entities.get_linked_images("ent-abc12345") == []
+    entities.link_image("ent-abc12345", image_id)
+    assert entities.get_linked_images("ent-abc12345") == [
+        {"id": image_id, "file_path": str(p.absolute())}
+    ]
+    assert entities.get_entities_for_image(image_id) == [
+        {"id": "ent-abc12345", "name": "Shinichiro Watanabe"}
+    ]
+
+    entities.unlink_image("ent-abc12345", image_id)
+    assert entities.get_linked_images("ent-abc12345") == []
+    assert entities.get_entities_for_image(image_id) == []
+
+
 def test_peer_links_undirected(db):
     entities = EntityRepo(db)
     entities.save_entity({"id": "ent-b", "name": "B"})

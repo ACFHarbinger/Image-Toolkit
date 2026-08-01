@@ -117,6 +117,62 @@ class MediaRepo:
         with transaction(self._db):
             self._replace_entity_links(media_id, entity_ids)
 
+    # ---- DB.8a: media <-> image groups -----------------------------------
+
+    def link_group(self, media_id: str, group_id: int) -> None:
+        self._db.execute(
+            "INSERT OR IGNORE INTO media_groups (media_item_id, group_id) "
+            "VALUES (?, ?)",
+            (media_id, group_id),
+        )
+
+    def unlink_group(self, media_id: str, group_id: int) -> None:
+        self._db.execute(
+            "DELETE FROM media_groups WHERE media_item_id = ? AND group_id = ?",
+            (media_id, group_id),
+        )
+
+    def get_linked_groups(self, media_id: str) -> List[Dict[str, Any]]:
+        """[{"id": group_id, "name": group_name}, ...] linked to *media_id*."""
+        rows = self._db.query(
+            "SELECT g.id, g.name FROM media_groups mg "
+            "JOIN groups g ON g.id = mg.group_id "
+            "WHERE mg.media_item_id = ? ORDER BY g.name",
+            (media_id,),
+        )
+        return [{"id": r[0], "name": r[1]} for r in rows]
+
+    def get_media_for_group(self, group_id: int) -> List[Dict[str, Any]]:
+        """Media items (id/title) linked to *group_id* -- the reverse of
+        get_linked_groups(), e.g. for a group's "linked series" panel."""
+        rows = self._db.query(
+            "SELECT m.id, m.title FROM media_groups mg "
+            "JOIN media_items m ON m.id = mg.media_item_id "
+            "WHERE mg.group_id = ? ORDER BY m.title",
+            (group_id,),
+        )
+        return [{"id": r[0], "title": r[1]} for r in rows]
+
+    def suggest_group_matches(self, title: str, all_group_names: List[str]) -> List[str]:
+        """Fuzzy title<->group-name candidates for the "auto-suggest links"
+        UI action -- case/whitespace-insensitive substring match either
+        direction, ranked by match length (longest/most-specific first).
+        Deliberately simple (no fuzzy-distance library dependency); good
+        enough for suggesting, since a human always confirms before
+        link_group() is actually called."""
+        norm_title = " ".join(title.lower().split())
+        if not norm_title:
+            return []
+        scored = []
+        for name in all_group_names:
+            norm_name = " ".join(name.lower().split())
+            if not norm_name:
+                continue
+            if norm_name in norm_title or norm_title in norm_name:
+                scored.append((len(norm_name), name))
+        scored.sort(key=lambda t: t[0], reverse=True)
+        return [name for _, name in scored]
+
     # ------------------------------------------------------------------
     # Reads
     # ------------------------------------------------------------------

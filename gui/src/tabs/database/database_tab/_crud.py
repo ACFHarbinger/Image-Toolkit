@@ -6,7 +6,7 @@ Extracted from ``database_tab.py`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 
 class _CrudMixin:
@@ -205,6 +205,64 @@ class _CrudMixin:
                 QMessageBox.information(self, "Success", f"Tag '{tag_name}' removed.")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to remove tag:\n{str(e)}")
+
+    def merge_selected_tag(self):
+        """DB.8c: repoint every image/media reference from the selected
+        (source) tag to a chosen destination tag, then drop the source --
+        cleans up the case/underscore duplicates the old CSV-genre split
+        used to produce."""
+        if not self.db:
+            QMessageBox.warning(self, "Error", "Please connect to a database first")
+            return
+        current_row = self.tags_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(
+                self, "Error", "Please select a tag from the list to merge."
+            )
+            return
+        item = self.tags_table.item(current_row, 0)
+        source_name = item.text()  # pyrefly: ignore [missing-attribute]
+
+        candidates = [t for t in self.db.get_all_tags() if t != source_name]
+        if not candidates:
+            QMessageBox.information(
+                self, "Merge Tags", "There is no other tag to merge into."
+            )
+            return
+
+        dest_name, ok = QInputDialog.getItem(
+            self,
+            "Merge Tags",
+            f"Merge '{source_name}' into which tag?\n\n"
+            f"Every image/media reference to '{source_name}' will be "
+            f"repointed to the destination, and '{source_name}' will be deleted.",
+            candidates,
+            editable=False,
+        )
+        if not ok or not dest_name:
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Merge",
+            f"Merge '{source_name}' into '{dest_name}'? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm == QMessageBox.StandardButton.No:
+            return
+
+        try:
+            self.db.merge_tags(source_name, dest_name)
+            self.refresh_tags_list()
+            self.update_statistics()
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes()
+            QMessageBox.information(
+                self, "Success", f"'{source_name}' merged into '{dest_name}'."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to merge tags:\n{str(e)}")
 
 
 __all__ = ["_CrudMixin"]

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QMenu
 
 
 class _ContextMenusMixin:
-    """Edit/Remove context menus for the three management tables."""
+    """Edit/Remove/Merge context menus for the three management tables."""
 
     def show_group_context_menu(self, pos):
         item = self.groups_table.itemAt(pos)
@@ -57,10 +57,13 @@ class _ContextMenusMixin:
             return
         menu = QMenu()
         edit_action = menu.addAction("Edit Cell")
+        merge_action = menu.addAction("🔀 Merge Into…")
         remove_action = menu.addAction("Remove Tag")
         action = menu.exec(self.tags_table.mapToGlobal(pos))
         if action == edit_action:
             self.edit_selected_tag_cell()
+        elif action == merge_action:
+            self.merge_selected_tag()
         elif action == remove_action:
             self.remove_selected_tag()
 

@@ -2,6 +2,29 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S275 — 2026-08-01 (DB.8 started: cross-domain link DAL + tag-merge tool — issue #66)
+
+First slice of DB.8 (Cross-Domain Features):
+
+- `MediaRepo` gained `link_group`/`unlink_group`/`get_linked_groups`/
+  `get_media_for_group`/`suggest_group_matches` over the existing
+  `media_groups` M2M table (DB.8a).
+- `EntityRepo` gained `link_image`/`unlink_image`/`get_linked_images`/
+  `get_entities_for_image` over the existing `entity_images` M2M table
+  (DB.8b).
+- `TagRepo.merge_tags()` — already implemented and tested since DB.3, but
+  never exposed anywhere reachable — is now on the `UnifiedImageDatabase`
+  facade and wired to a new "🔀 Merge Into…" right-click action on the
+  Maintenance panel's tag table (DB.8c).
+- Tests: 4 new (`test_media_group_links`, `test_media_group_fuzzy_suggestions`,
+  `test_entity_image_links`, `test_merge_tags_facade`); 66/66
+  `backend/test/database/` green.
+- Deferred, documented in the roadmap: detail-panel UI for the new links
+  (chip rows, cross-tab "View images" jump, linked-images gallery strip),
+  Entity Recon integration, tag-chip autocomplete, and DB.8d
+  (auto-create listings from scans) — each a separate, larger piece of
+  work than the DAL/tag-merge slice shipped here.
+
 ## S274 — 2026-08-01 (DB.7: text→image semantic search + Find Similar — issue #65)
 
 Second slice of DB.7, following S273's embedding-backfill infrastructure:

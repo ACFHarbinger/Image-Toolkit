@@ -91,6 +91,24 @@ def test_vocabulary_management_parity(db):
     assert db.get_all_groups() == ["other"]
 
 
+def test_merge_tags_facade(populated):
+    """DB.8c: Maintenance's tag-merge tool, exercised through the facade
+    (TagRepo.merge_tags already existed and was tested at the repo level;
+    this checks it's actually reachable from db.merge_tags(), the way the
+    GUI calls it)."""
+    db, tmp_path = populated
+    p = tmp_path / "dup.png"
+    p.write_bytes(b"x")
+    db.add_image(str(p), embedding=None, tags=["sunset (dup)"])
+    db.add_tag("sunset")
+
+    db.merge_tags("sunset (dup)", "sunset")
+
+    assert "sunset (dup)" not in db.get_all_tags()
+    img = db.get_image_by_path(str(p))
+    assert img["tags"] == ["sunset"]
+
+
 def test_statistics_banner_keys(populated):
     db, _ = populated
     stats = db.get_statistics()
