@@ -21,7 +21,7 @@ class _WallpaperWorkerMixin:
     """Run/stop the wallpaper-setting worker; lock/unlock UI; handle results."""
 
     def run_wallpaper_worker(self, slideshow_mode=False):  # noqa: C901
-        from ....helpers import ImageScannerWorker
+        from .....helpers import ImageScannerWorker
         if self.current_wallpaper_worker:
             print("Wallpaper worker is already running.")
             return
