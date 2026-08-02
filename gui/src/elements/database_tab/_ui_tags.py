@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ....styles import apply_shadow_effect
+from ...styles import apply_shadow_effect
 
 
 class _UITagsMixin:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QMessageBox
 
-from ....utils.sort_utils import natural_sort_key
+from ...utils.sort_utils import natural_sort_key
 
 
 class _TabCommunicationMixin:

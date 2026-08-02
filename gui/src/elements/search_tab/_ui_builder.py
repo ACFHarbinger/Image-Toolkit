@@ -23,8 +23,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....components import MarqueeScrollArea, OptionalField
-from ....styles import apply_shadow_effect
+from ...components import MarqueeScrollArea, OptionalField
+from ...styles import apply_shadow_effect
 
 _SEARCH_BUTTON_STYLE = """
     QPushButton {

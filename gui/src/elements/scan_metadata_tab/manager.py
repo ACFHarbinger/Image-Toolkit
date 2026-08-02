@@ -8,9 +8,9 @@ from PySide6.QtCore import QThreadPool, QTimer
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QWidget
 
-from ....classes import AbstractClassTwoGalleries
-from ....components import ClickableLabel
-from ....helpers import UpsertWorker
+from ...classes import AbstractClassTwoGalleries
+from ...components import ClickableLabel
+from ...helpers import UpsertWorker
 from ._auto_listings import _AutoListingsMixin
 from ._config import _ConfigMixin
 from ._context_menu_actions import _ContextMenuActionsMixin

@@ -12,7 +12,7 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QListWidgetItem
 
-from ....utils.sort_utils import natural_sort_key
+from ...utils.sort_utils import natural_sort_key
 
 
 class _TagFiltersMixin:

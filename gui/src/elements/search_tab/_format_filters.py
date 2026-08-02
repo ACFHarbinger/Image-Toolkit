@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from PySide6.QtCore import Slot
 
-from ....styles import apply_shadow_effect
+from ...styles import apply_shadow_effect
 
 
 class _FormatFiltersMixin:

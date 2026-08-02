@@ -16,7 +16,7 @@ from PySide6.QtGui import QAction, QCursor, QPixmap
 from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
-from ....windows import ImagePreviewWindow
+from ...windows import ImagePreviewWindow
 
 
 class _FileActionsMixin:

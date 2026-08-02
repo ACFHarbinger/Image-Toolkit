@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
-from ....styles import apply_shadow_effect
+from ...styles import apply_shadow_effect
 
 
 class _UIConnectionMixin:

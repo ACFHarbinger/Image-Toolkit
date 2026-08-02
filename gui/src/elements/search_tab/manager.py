@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 from gui.src.helpers import SearchWorker
 from PySide6.QtCore import Signal
 
-from ....classes import AbstractClassTwoGalleries
+from ...classes import AbstractClassTwoGalleries
 from ._config import _ConfigMixin
 from ._file_actions import _FileActionsMixin
 from ._format_filters import _FormatFiltersMixin

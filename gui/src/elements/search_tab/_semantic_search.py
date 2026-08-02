@@ -23,8 +23,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ....helpers import SemanticSearchWorker
-from ....styles import apply_shadow_effect
+from ...helpers import SemanticSearchWorker
+from ...styles import apply_shadow_effect
 
 
 class _SemanticSearchMixin:

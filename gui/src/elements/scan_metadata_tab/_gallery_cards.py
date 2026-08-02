@@ -12,7 +12,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import QLabel, QListWidgetItem, QVBoxLayout, QWidget
 
-from ....components import ClickableLabel
+from ...components import ClickableLabel
 
 
 class _GalleryCardsMixin:

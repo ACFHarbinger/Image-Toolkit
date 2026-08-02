@@ -10,7 +10,7 @@ from gui.src.helpers import UpsertWorker
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QLabel, QMessageBox
 
-from ....windows import MetadataEditorWindow
+from ...windows import MetadataEditorWindow
 
 
 class _UpsertOpsMixin:

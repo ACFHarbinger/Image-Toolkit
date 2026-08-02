@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 
 from PySide6.QtCore import Qt
 
-from ....utils.sort_utils import natural_sort_key
+from ...utils.sort_utils import natural_sort_key
 
 
 class _QmlWrappersMixin:

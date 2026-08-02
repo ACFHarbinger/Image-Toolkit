@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....styles import apply_shadow_effect
+from ...styles import apply_shadow_effect
 from ._er_view import _ERViewMixin
 
 

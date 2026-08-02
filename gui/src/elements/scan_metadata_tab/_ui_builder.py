@@ -28,8 +28,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....components import MarqueeScrollArea
-from ....styles import apply_shadow_effect
+from ...components import MarqueeScrollArea
+from ...styles import apply_shadow_effect
 
 
 class _UIBuilderMixin:

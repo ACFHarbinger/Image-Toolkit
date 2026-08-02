@@ -12,7 +12,7 @@ from gui.src.helpers import ImageScannerWorker
 from PySide6.QtCore import QEventLoop, Qt, QTimer, Slot
 from PySide6.QtWidgets import QFileDialog
 
-from ....utils.sort_utils import natural_sort_key
+from ...utils.sort_utils import natural_sort_key
 
 
 class _ScanLoadingMixin:

@@ -10,8 +10,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QGridLayout, QLabel
 
-from ....classes.mixins import compute_reordered, install_drag_reorder
-from ....utils.sort_utils import natural_sort_key
+from ...classes.mixins import compute_reordered, install_drag_reorder
+from ...utils.sort_utils import natural_sort_key
 
 
 class _SelectionGalleryMixin:

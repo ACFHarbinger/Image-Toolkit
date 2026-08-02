@@ -12,7 +12,7 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QWidget
 
-from ....components import DraggableLabel
+from ...components import DraggableLabel
 
 
 class _GalleryCardsMixin:
