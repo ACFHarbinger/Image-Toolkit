@@ -31,16 +31,12 @@ class _EntryLifecycleMixin:
         self.f_year.setValue(entry.get("year", 0))
         self.f_episodes.setValue(entry.get("episodes", 1))
         self.f_current_episode.setValue(entry.get("current_episode", 0))
-        self.f_genres.setText(entry.get("genres", ""))
-        self.f_tags.setText(entry.get("tags", ""))
         self.assoc_entities_ids = normalize_id_list(entry.get("associated_entities", []))
 
         self.f_local_file.setText(entry.get("local_file", ""))
         self.f_web_link.setText(entry.get("web_link", ""))
 
         self._update_assoc_entities_display()
-        self._refresh_linked_groups_display()
-        self._refresh_tag_vocabulary()
         self._refresh_grouped_tags_display()
 
         self.f_summary.setPlainText(entry.get("summary", ""))
@@ -64,13 +60,9 @@ class _EntryLifecycleMixin:
         self.f_year.setValue(0)
         self.f_episodes.setValue(1)
         self.f_current_episode.setValue(0)
-        self.f_genres.clear()
-        self.f_tags.clear()
         self.assoc_entities_ids = []
         self.f_assoc_entities_display.clear()
         self.f_assoc_entities_display.setToolTip("")
-        self.f_linked_groups_display.clear()
-        self.f_linked_groups_display.setToolTip("")
         self.grouped_tags_display.set_grouped_tags({})
         self.f_local_file.clear()
         self.f_web_link.clear()

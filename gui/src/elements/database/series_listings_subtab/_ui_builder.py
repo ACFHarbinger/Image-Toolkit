@@ -77,13 +77,13 @@ class _UIBuilderMixin:
         _semantic_vbox.setContentsMargins(0, 0, 0, 0)
         _semantic_vbox.setSpacing(3)
 
-        semantic_btn = QPushButton("🧠 Search by Meaning")
+        semantic_btn = QPushButton("🧠 Search by\nMeaning")
         semantic_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         semantic_btn.setFixedWidth(140)
         semantic_btn.clicked.connect(self._on_semantic_search)
         apply_shadow_effect(semantic_btn)
 
-        build_index_btn = QPushButton("⚙️ Build Search Index")
+        build_index_btn = QPushButton("⚙️ Build Search\nIndex")
         build_index_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         build_index_btn.setFixedWidth(140)
         build_index_btn.clicked.connect(self._on_build_search_index)
@@ -191,19 +191,19 @@ class _UIBuilderMixin:
         entry_pair_vbox.addWidget(import_dir_btn)
         toolbar.addWidget(entry_pair)
 
-        # ── Pair 2: Sync Backup (top) / Update Backup (bottom) ─────────
+        # ── Pair 2: Load Backup (top) / Sync Backup (bottom) ─────────
         backup_pair = QWidget()
         backup_pair_vbox = QVBoxLayout(backup_pair)
         backup_pair_vbox.setContentsMargins(0, 0, 0, 0)
         backup_pair_vbox.setSpacing(3)
 
-        sync_btn = QPushButton("🔄 Sync Backup")
+        sync_btn = QPushButton("🔄 Load Backup")
         sync_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         sync_btn.setFixedWidth(130)
         sync_btn.clicked.connect(self._synchronize_listings)
         apply_shadow_effect(sync_btn)
 
-        update_btn = QPushButton("⚡ Update Backup")
+        update_btn = QPushButton("⚡ Sync Backup")
         update_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         update_btn.setFixedWidth(130)
         update_btn.clicked.connect(self._update_encrypted_backup)

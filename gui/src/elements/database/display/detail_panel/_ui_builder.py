@@ -6,7 +6,6 @@ Extracted from ``detail_panel.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 from gui.src.components.grouped_tags_display import GroupedTagsDisplay
-from gui.src.components.tag_chip_widget import TagChipEditor
 from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from PySide6.QtCore import Qt
@@ -101,8 +100,6 @@ class _UIBuilderMixin:
         self.f_current_episode = QSpinBox()
         self.f_current_episode.setRange(0, 99999)
         self.f_episodes.valueChanged.connect(lambda val: self.f_current_episode.setRange(0, max(0, val)))
-        self.f_genres = TagChipEditor(placeholder="e.g. Action, Drama")
-        self.f_tags = TagChipEditor(placeholder="e.g. Space Cowboy, Sci-Fi")
 
         # Associated Entities selection row
         self.assoc_entities_ids = []
@@ -122,27 +119,6 @@ class _UIBuilderMixin:
         assoc_row = QHBoxLayout()
         assoc_row.addWidget(self.f_assoc_entities_display, 1)
         assoc_row.addWidget(self.btn_select_entities)
-
-        # DB.8a: Linked Image Groups row
-        self.f_linked_groups_display = QTextEdit()
-        self.f_linked_groups_display.setReadOnly(True)
-        self.f_linked_groups_display.setPlaceholderText("None linked")
-        self.f_linked_groups_display.setFixedHeight(40)
-        self.f_linked_groups_display.setStyleSheet(
-            "background:#23272a; border:1px solid #4f545c; border-radius:4px;padding:4px 6px; color:white;"
-        )
-        self.btn_select_linked_groups = QPushButton("🖼️ Link Image Groups")
-        self.btn_select_linked_groups.clicked.connect(self._select_linked_groups)
-        self.btn_view_linked_group_images = QPushButton("🔎 View Images")
-        self.btn_view_linked_group_images.setToolTip(
-            "Jump to the Search tab, pre-filtered to a linked image group."
-        )
-        self.btn_view_linked_group_images.clicked.connect(self._view_linked_group_images)
-
-        linked_groups_row = QHBoxLayout()
-        linked_groups_row.addWidget(self.f_linked_groups_display, 1)
-        linked_groups_row.addWidget(self.btn_select_linked_groups)
-        linked_groups_row.addWidget(self.btn_view_linked_group_images)
 
         # Local File and Web Link rows
         self.f_local_file = QLineEdit()
@@ -184,10 +160,7 @@ class _UIBuilderMixin:
         form.addRow("Year", self.f_year)
         form.addRow("Episodes / Pages", self.f_episodes)
         form.addRow("Current Episode / Page", self.f_current_episode)
-        form.addRow("Genres", self.f_genres)
-        form.addRow("Tags", self.f_tags)
         form.addRow("Associated Entities", assoc_row)
-        form.addRow("Linked Image Groups", linked_groups_row)
         form.addRow("Local File", local_file_row)
         form.addRow("Web Link", web_link_row)
         form.addRow("Summary", self.f_summary)
@@ -196,10 +169,21 @@ class _UIBuilderMixin:
 
         # --- All Tags (grouped by category) Section ---
         # Genres/Tags plus tags carried transitively through associated
-        # entities (Danbooru-style tag overhaul).
+        # entities (Danbooru-style tag overhaul) -- replaces the old
+        # standalone Genres/Tags text fields entirely.
         tags_group = QGroupBox("All Tags (by Category)")
         tags_group.setStyleSheet("QGroupBox{font-weight:bold; color:#00bcd4;}")
         tags_group_layout = QVBoxLayout(tags_group)
+
+        tags_header_row = QHBoxLayout()
+        tags_header_row.addStretch()
+        self.btn_add_tag = QPushButton("＋")
+        self.btn_add_tag.setToolTip("Add a tag")
+        self.btn_add_tag.setFixedWidth(28)
+        self.btn_add_tag.clicked.connect(self._on_add_tag)
+        tags_header_row.addWidget(self.btn_add_tag)
+        tags_group_layout.addLayout(tags_header_row)
+
         self.grouped_tags_display = GroupedTagsDisplay()
         tags_group_layout.addWidget(self.grouped_tags_display)
         layout.addWidget(tags_group)

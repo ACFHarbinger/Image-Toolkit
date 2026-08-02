@@ -322,6 +322,16 @@ class MediaRepo:
             grouped.setdefault(category, []).append({"name": name, "color": color})
         return grouped
 
+    def add_tag(self, media_id: str, name: str, category: Optional[str] = None) -> None:
+        """Attach an arbitrary tag (any category) to this media item --
+        the "+" add-tag action in the grouped-tags UI section. Unlike
+        _replace_typed_tags, this doesn't touch any other tag link."""
+        tag_id = self._tags.get_or_create(name, category)
+        self._db.execute(
+            "INSERT OR IGNORE INTO media_tags (media_item_id, tag_id) VALUES (?, ?)",
+            (media_id, tag_id),
+        )
+
     def _replace_episodes(self, media_id: str, episode_list: List[Dict[str, Any]]) -> None:
         self._db.execute("DELETE FROM episodes WHERE media_item_id = ?", (media_id,))
         if not episode_list:

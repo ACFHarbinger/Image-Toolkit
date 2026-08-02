@@ -1,50 +1,18 @@
-"""DB.8c: tag-chip autocomplete (listings detail panel) + "search with
-this tag" actions (Management -> Search tab).
+""""Search with this tag" actions (Management -> Search tab), and the
+generic ``TagChipEditor`` widget (Genres/Tags fields it used to power on
+the listings detail panel were replaced by the grouped-tags "+"
+add-tag action -- see test_detail_panel_links.py -- but the widget
+itself remains a reusable component).
 """
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.elements.database.display.detail_panel import _DetailPanel
 from gui.src.elements.database.database_tab import DatabaseTab
 from gui.src.elements.database.search_tab import SearchTab
 from PySide6.QtCore import Qt
 
 pytestmark = pytest.mark.gui
-
-
-class TestDetailPanelTagCompleter:
-    def test_completers_attached_on_construction(self, q_app):
-        panel = _DetailPanel()
-        # f_genres/f_tags are TagChipEditor (issue #127) -- the completer
-        # attaches to its internal add-input, not the widget itself.
-        assert panel.f_genres.add_edit.completer() is panel._genres_completer
-        assert panel.f_tags.add_edit.completer() is panel._tags_completer
-
-    def test_refresh_vocabulary_populates_completers(self, q_app):
-        panel = _DetailPanel()
-        mock_db = MagicMock()
-
-        with patch(
-            "gui.src.elements.database.display.detail_panel._tag_vocabulary.get_library_db",
-            return_value=mock_db,
-        ), patch(
-            "gui.src.elements.database.display.detail_panel._tag_vocabulary.TagRepo"
-        ) as mock_tag_repo_cls:
-            mock_tag_repo_cls.return_value.get_all_tags.return_value = ["Action", "Sci-Fi"]
-            panel._refresh_tag_vocabulary()
-
-        assert panel._genres_completer.get_matching_tags("") == ["Action", "Sci-Fi"]
-        assert panel._tags_completer.get_matching_tags("") == ["Action", "Sci-Fi"]
-
-    def test_refresh_vocabulary_no_session_is_noop(self, q_app):
-        panel = _DetailPanel()
-        with patch(
-            "gui.src.elements.database.display.detail_panel._tag_vocabulary.get_library_db",
-            return_value=None,
-        ):
-            panel._refresh_tag_vocabulary()  # must not raise
-        assert panel._genres_completer.get_matching_tags("") == []
 
 
 class TestTagChipEditor:
@@ -103,21 +71,6 @@ class TestTagChipEditor:
         editor._on_completion_activated("Sci-Fi")
         assert editor.text() == "Sci-Fi"
         assert editor.add_edit.text() == ""
-
-    def test_detail_panel_load_entry_populates_chip_editors(self, q_app):
-        panel = _DetailPanel()
-        panel.load_entry({"id": "m-1", "title": "T", "genres": "Action, Drama", "tags": "Sci-Fi"})
-        assert panel.f_genres.text() == "Action, Drama"
-        assert panel.f_tags.text() == "Sci-Fi"
-
-    def test_detail_panel_save_reads_current_chips(self, q_app):
-        panel = _DetailPanel()
-        panel.f_title.setText("Some Title")
-        panel.f_genres.setText("Action")
-        panel.f_tags.setText("Space Cowboy")
-        entry = panel._collect()
-        assert entry["genres"] == "Action"
-        assert entry["tags"] == "Space Cowboy"
 
 
 class TestSearchImagesWithTag:

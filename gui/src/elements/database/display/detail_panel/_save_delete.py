@@ -31,8 +31,6 @@ class _SaveDeleteMixin:
             "year": self.f_year.value(),
             "episodes": self.f_episodes.value(),
             "current_episode": self.f_current_episode.value(),
-            "genres": self.f_genres.text().strip(),
-            "tags": self.f_tags.text().strip(),
             "associated_entities": self.assoc_entities_ids,
             "local_file": self.f_local_file.text().strip(),
             "web_link": self.f_web_link.text().strip(),

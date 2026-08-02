@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 from backend.src.database.unified.entity_repo import EntityRepo
 from backend.src.database.unified.image_repo import ImageRepo
 from backend.src.database.unified.media_repo import MediaRepo
+from backend.src.database.unified.tag_repo import TagRepo
+from gui.src.components.dialogs import AddTagDialog
 from gui.src.components.grouped_tags_display import GroupedTagsDisplay
 from gui.src.constants.listings import (
     ENTITY_ROLES,
@@ -137,6 +139,16 @@ class _EntityDetailPanel(BaseDetailPanel):
         tags_group = QGroupBox("All Tags (by Category)")
         tags_group.setStyleSheet("QGroupBox{font-weight:bold; color:#00bcd4;}")
         tags_group_layout = QVBoxLayout(tags_group)
+
+        tags_header_row = QHBoxLayout()
+        tags_header_row.addStretch()
+        self.btn_add_tag = QPushButton("＋")
+        self.btn_add_tag.setToolTip("Add a tag")
+        self.btn_add_tag.setFixedWidth(28)
+        self.btn_add_tag.clicked.connect(self._on_add_tag)
+        tags_header_row.addWidget(self.btn_add_tag)
+        tags_group_layout.addLayout(tags_header_row)
+
         self.grouped_tags_display = GroupedTagsDisplay()
         tags_group_layout.addWidget(self.grouped_tags_display)
         layout.addWidget(tags_group)
@@ -268,6 +280,37 @@ class _EntityDetailPanel(BaseDetailPanel):
             print(f"Failed to load grouped tags: {e}")
             grouped = {}
         self.grouped_tags_display.set_grouped_tags(grouped)
+
+    def _on_add_tag(self) -> None:
+        if not self._entity_id:
+            QMessageBox.information(
+                self, "Save First", "Save this entity before adding tags."
+            )
+            return
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            QMessageBox.warning(self, "Error", "The library database is not available.")
+            return
+        try:
+            tag_repo = TagRepo(db)
+            categories = tag_repo.list_categories(applies_to="entity")
+            all_tags = tag_repo.get_all_tags()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load tag vocabulary:\n{e}")
+            return
+
+        dlg = AddTagDialog(categories, all_tags, parent=self)
+        if not dlg.exec():
+            return
+        name, category = dlg.get_data()
+        if not name:
+            return
+        try:
+            EntityRepo(db).add_tag(self._entity_id, name, category)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to add tag:\n{e}")
+            return
+        self._refresh_grouped_tags_display()
 
     def _refresh_credit_list(self):
         while self.credit_list_layout.count():

@@ -5,7 +5,9 @@ Extracted from ``detail_panel.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from backend.src.database.unified.media_repo import MediaRepo
 from gui.src.constants.listings import ENTRY_STATUS
+from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.web.mal_sync_worker import MalSyncWorker
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
@@ -40,7 +42,7 @@ class _MalSyncMixin:
             self.f_community_rating.setValue(float(score))
         genres = data.get("genres", "")
         if genres:
-            self.f_genres.setText(genres)
+            self._apply_mal_genres(genres)
         year = data.get("year")
         if year:
             self.f_year.setValue(int(year))
@@ -55,6 +57,29 @@ class _MalSyncMixin:
 
         self.btn_mal.setText("Auto-Fill from MAL")
         self.btn_mal.setEnabled(True)
+
+    def _apply_mal_genres(self, genres_csv: str) -> None:
+        """Writes fetched genres directly as Genre-category tags (the
+        Genres text field this used to populate is gone -- replaced by
+        the grouped-tags section). Needs a saved entry (media_tags FK);
+        silently skipped for a not-yet-saved new entry -- save first,
+        then re-fetch, matching this panel's other DB-linked actions."""
+        if not self._entry_id:
+            return
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            return
+        names = [g.strip() for g in genres_csv.split(",") if g.strip()]
+        if not names:
+            return
+        try:
+            repo = MediaRepo(db)
+            for name in names:
+                repo.add_tag(self._entry_id, name, "Genre")
+        except Exception as e:
+            print(f"Failed to apply MAL genres: {e}")
+            return
+        self._refresh_grouped_tags_display()
 
     @Slot(str)
     def _on_mal_error(self, message: str):

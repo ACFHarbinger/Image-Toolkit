@@ -1,3 +1,4 @@
+from .add_tag_dialog import AddTagDialog
 from .batch_stitch_dialog import BatchStitchDialog
 from .crawler_selection_dialogs import (
     DeduplicationPruningDialog,
@@ -12,6 +13,7 @@ from .scroll_video_export_dialog import ScrollVideoExportDialog
 from .tag_review_dialog import TagReviewDialog
 
 __all__ = [
+    "AddTagDialog",
     "BatchStitchDialog",
     "DeduplicationPruningDialog",
     "DuplicateConfigDialog",

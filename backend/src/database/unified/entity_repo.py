@@ -273,6 +273,15 @@ class EntityRepo:
             grouped.setdefault(category, []).append({"name": name, "color": color})
         return grouped
 
+    def add_tag(self, entity_id: str, name: str, category: Optional[str] = None) -> None:
+        """Attach an arbitrary tag (any category) to this entity -- the
+        "+" add-tag action in the grouped-tags UI section."""
+        tag_id = self._tags.get_or_create(name, category)
+        self._db.execute(
+            "INSERT OR IGNORE INTO entity_tags (entity_id, tag_id) VALUES (?, ?)",
+            (entity_id, tag_id),
+        )
+
     def _replace_credits(self, entity_id: str, credit_list: List[Dict[str, Any]]) -> None:
         self._db.execute("DELETE FROM credits WHERE entity_id = ?", (entity_id,))
         if not credit_list:
