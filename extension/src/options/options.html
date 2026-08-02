@@ -30,6 +30,17 @@
         .profile-row .profile-active { background-color: #2ecc71; }
         .profile-row .profile-active:hover { background-color: #27ae60; }
 
+        /* Turbo Mode site list (§7.12) */
+        .site-row { display: flex; gap: 6px; margin-bottom: 6px; }
+        .site-row input { flex: 1; margin-bottom: 0; }
+        .site-row button { padding: 4px 10px; }
+
+        /* Turbo capture history (§7.12) */
+        .turbo-entry { border: 1px solid #4f545c; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
+        .turbo-entry .turbo-entry-url { word-break: break-all; font-size: 0.85em; }
+        .turbo-entry .turbo-entry-meta { color: #999; font-size: 0.8em; margin-top: 2px; }
+        .turbo-entry.error { border-color: #e74c3c; }
+
         /* Connection (§7.5) */
         .conn-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #777; margin-right: 6px; vertical-align: middle; }
         .conn-dot.ok { background: #2ecc71; }
@@ -80,6 +91,36 @@
             <input type="checkbox" id="sidecar">
             Save .json provenance sidecar (source URL, page, timestamp)
         </label>
+    </div>
+
+    <hr>
+
+    <h3>Turbo Mode (§7.12)</h3>
+    <label for="turbo-modifier">Modifier-key capture:</label>
+    <select id="turbo-modifier">
+        <option value="none">Off (Turbo Mode toggle above only)</option>
+        <option value="alt">Hold Alt + click</option>
+        <option value="ctrl">Hold Ctrl + click</option>
+        <option value="shift">Hold Shift + click</option>
+    </select>
+    <div class="note" style="margin: 4px 0 10px;">Captures a single image without turning on Turbo Mode globally. Cursor changes to a crosshair while held.</div>
+
+    <label for="turbo-site-mode">Site gating:</label>
+    <select id="turbo-site-mode">
+        <option value="all">Active everywhere</option>
+        <option value="allowlist">Only on listed sites</option>
+        <option value="denylist">Everywhere except listed sites</option>
+    </select>
+    <div class="note" style="margin: 4px 0 8px;">Applies to both the Turbo Mode toggle and modifier-key capture. Wildcards allowed, e.g. <code>*.pixiv.net</code>.</div>
+    <div id="turbo-sites-list"></div>
+    <button id="add-turbo-site" class="secondary">+ Add site</button>
+
+    <div class="row" style="margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span><b>Capture history</b> (last 25) — <span id="turbo-count">0</span> total</span>
+            <button id="clear-turbo-history" class="secondary">Clear</button>
+        </div>
+        <div id="turbo-history" style="font-size: 0.85em; margin-top: 8px;"></div>
     </div>
 
     <hr>

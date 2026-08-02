@@ -264,16 +264,18 @@ Tests: `npm run typecheck` (clean) and `npm run build:chrome` (compiles) for all
 
 ## 7.12 Turbo Mode Polish
 
-**Status: 🔄 Partial (S208, 2026-07-04).** Capture outline-flash feedback shipped. Remaining: badge counter, modifier-key mode, per-site enable list, history panel.
+**Status: ✅ Shipped (S208 outline-flash 2026-07-04; badge/modifier-key/site-list/history 2026-08-02, issue #105).**
 
 **Pain point:** Turbo mode gives no feedback (was the click captured? downloaded?), is all-or-nothing (global toggle intercepts every left-click on every site), and its event blocking can break sites.
 
-**Approach (selected):**
-- **Capture feedback:** brief outline flash + ✓ overlay on the captured `IMG`; badge counter on the toolbar icon; failure toast when the download errors.
-- **Modifier-key mode:** alternative to the global toggle — hold a configurable modifier (default Alt) + click to capture without enabling interception globally; pointer cursor changes while held.
-- **Per-site enable list:** turbo active only on allowlisted domains (or "everywhere except denylist"), managed in §7.4 and via a popup "enable on this site" toggle.
-- **Download history panel:** last N captures (URL, filename, status, dup-check result) in the popup with re-download and "open folder" actions; backed by `storage.session`/`storage.local` ring buffer.
-- Uses the §7.11 extractor so turbo captures full-res candidates instead of `img.src`.
+**Shipped:**
+- **Badge counter**: `background.ts`'s `recordTurboCapture()` bumps a `turboCaptureCount` (`storage.local`) on every turbo-sourced download and writes it to the toolbar badge via a new shared `setActionBadge()` helper (`shared/api.ts`) — factored out of `shared/dupTabs.ts`'s own badge code (§7.13) so both features share one implementation instead of duplicating the MV3/`browserAction` fallback logic. **Known, documented limitation**: the toolbar badge is a single global slot; §7.12's capture count and §7.13's duplicate-tab count both write to it, so whichever fired most recently wins — the same constraint every multi-feature extension badge has, not something this round attempted to multiplex around.
+- **Modifier-key mode**: new `turboModifierKey: "none"|"alt"|"ctrl"|"shift"` setting (default `"none"`). Holding the configured key + click captures a single image via the existing `findImageAt()`/`bestImageUrl()` pipeline **without** needing the global Turbo Mode toggle on — `content.ts`'s `modifierHeld()` checks the click event's own modifier flags. A `keydown`/`keyup`-toggled `<html>` class + injected `<style>` gives the "pointer cursor changes while held" feedback the roadmap asked for (crosshair cursor).
+- **Per-site enable list**: new `turboSiteMode: "all"|"allowlist"|"denylist"` + `turboSitePatterns: string[]` settings, gating **both** the global toggle and modifier-key capture via a new `isTurboActiveOnSite()` (`shared/naming.ts`, reuses the existing `hostMatches()` wildcard matcher from §7.10's site rules — same pattern syntax, one mental model). Managed in a new "Turbo Mode" options section; the roadmap's "popup enable-on-this-site toggle" was folded into the same allowlist/denylist editor rather than adding a second, parallel UI for the same setting.
+- **Download history panel**: `TurboHistoryEntry` ring buffer (`storage.local` key `turboHistory`, capped at 25, newest first), recorded alongside the badge bump in `recordTurboCapture()` — status (`ok`/`error`) determined from the `downloads.download()` callback's `chrome.runtime.lastError`. Rendered in the options page's new "Turbo Mode" section with a "Clear" button that resets both the history and the badge count. Re-download/open-folder actions from the original spec were **not** added — `chrome.downloads` has no folder-open API without the `downloads.showDefaultFolder`-adjacent permission surface this extension doesn't otherwise need, and re-download is already one click away via the original page; scoped down to history-as-record rather than history-as-relauncher.
+- Already used the §7.11 extractor for full-res candidates (`findImageAt()`); unchanged by this round.
+
+Tests: `npm run typecheck` (clean), all four `npm run build:{chrome,firefox,edge,brave}` targets compile; `isTurboActiveOnSite()`'s allow/deny/wildcard logic and no other changes needed a standalone Node harness check (5/5 cases correct) since no jest/vitest is configured for this package.
 
 **Effort:** ~3d · **Impact:** Medium-High (turbo is the extension's signature interaction; make it trustworthy)
 

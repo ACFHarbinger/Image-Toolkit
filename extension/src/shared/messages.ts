@@ -15,6 +15,9 @@ export interface DownloadImageMsg {
    * data: URL carries no usable name.
    */
   suggestedName?: string;
+  /** Where this capture came from (§7.12): "turbo" captures feed the
+   * badge counter + history panel; other sources don't. */
+  source?: "turbo" | "manual" | "batch";
 }
 
 /** Background → content script: capture frame(s) from a <video> (§7.15A). */

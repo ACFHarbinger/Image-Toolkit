@@ -5,7 +5,7 @@
  * - Downloads images into Downloads/<targetFolder>/ (uniquified).
  * - Routes typed runtime messages from content scripts and the popup.
  */
-import { api } from "./shared/api";
+import { api, setActionBadge, storageGet, storageSet } from "./shared/api";
 import { loadSettings } from "./shared/settings";
 import { buildFilename, resolveFolder } from "./shared/naming";
 import {
@@ -125,18 +125,51 @@ api.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
+/** One entry in the turbo-capture history ring buffer (§7.12), popup-rendered. */
+export interface TurboHistoryEntry {
+  when: string;
+  url: string;
+  filename: string;
+  status: "ok" | "error";
+  error?: string;
+}
+
+const TURBO_HISTORY_LIMIT = 25;
+
+/**
+ * Record a turbo capture into the `turboHistory` ring buffer and bump the
+ * toolbar badge counter (`turboCaptureCount`). Shares the single badge slot
+ * with §7.13's duplicate-tab count — see `setActionBadge()`'s docstring.
+ */
+async function recordTurboCapture(entry: TurboHistoryEntry): Promise<void> {
+  const { turboHistory } = await storageGet<{ turboHistory: TurboHistoryEntry[] }>(
+    "turboHistory",
+  );
+  const history = [entry, ...(turboHistory ?? [])].slice(0, TURBO_HISTORY_LIMIT);
+  await storageSet({ turboHistory: history });
+
+  const { turboCaptureCount } = await storageGet<{ turboCaptureCount: number }>(
+    "turboCaptureCount",
+  );
+  const count = (turboCaptureCount ?? 0) + 1;
+  await storageSet({ turboCaptureCount: count });
+  await setActionBadge(String(count), "#5865f2");
+}
+
 /**
  * Download an image URL into the folder resolved by site rules (§7.10),
  * naming it via the filename template, and optionally writing a JSON
  * provenance sidecar next to it. Pass *overrideFolder* (from the "Save to
  * profile ▸" submenu) to bypass site-rule resolution for this one save
- * without changing the active default folder.
+ * without changing the active default folder. Pass *source: "turbo"* to
+ * feed the §7.12 badge counter + history panel.
  */
 export async function downloadImage(
   imageUrl: string,
   pageUrl?: string,
   suggestedName?: string,
   overrideFolder?: string,
+  source?: "turbo" | "manual" | "batch",
 ): Promise<void> {
   const settings = await loadSettings();
   const folder = overrideFolder || resolveFolder(settings, pageUrl);
@@ -145,12 +178,25 @@ export async function downloadImage(
     : buildFilename(settings.filenameTemplate, imageUrl, pageUrl);
   const destinationPath = `${folder}/${relName}`;
 
-  api.downloads.download({
-    url: imageUrl,
-    filename: destinationPath,
-    conflictAction: "uniquify",
-    saveAs: false,
-  });
+  api.downloads.download(
+    {
+      url: imageUrl,
+      filename: destinationPath,
+      conflictAction: "uniquify",
+      saveAs: false,
+    },
+    (downloadId) => {
+      if (source !== "turbo") return;
+      const err = api.runtime.lastError;
+      void recordTurboCapture({
+        when: new Date().toISOString(),
+        url: imageUrl,
+        filename: destinationPath,
+        status: err || downloadId === undefined ? "error" : "ok",
+        error: err?.message,
+      });
+    },
+  );
 
   if (settings.saveSidecar) {
     const sidecar = {
@@ -433,6 +479,8 @@ api.runtime.onMessage.addListener(
         request.src,
         request.pageUrl ?? sender.tab?.url,
         request.suggestedName,
+        undefined,
+        request.source,
       );
     } else if (request.action === "download_batch" && request.urls?.length) {
       void downloadBatch(request.urls, request.pageUrl ?? sender.tab?.url ?? "");

@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S285 — 2026-08-02 (Extension 7.12: turbo mode polish — badge, modifier-key, site list, history — issue #105)
+
+Closes the last four open items in `moon/roadmaps/extension.md` §7.12; the section is now fully shipped.
+
+**Badge counter**: new shared `setActionBadge()` (`shared/api.ts`, factored out of §7.13's `dupTabs.ts` badge code so both features share one MV3/`browserAction`-fallback implementation) bumps a `turboCaptureCount` on every turbo-sourced download. Documented limitation: the toolbar badge is a single global slot shared with §7.13's duplicate-tab count. **Modifier-key mode**: new `turboModifierKey` setting — hold Alt/Ctrl/Shift + click to capture a single image without enabling Turbo Mode globally, with a crosshair-cursor feedback class toggled on keydown/keyup. **Per-site enable list**: new `turboSiteMode`/`turboSitePatterns` settings gate both the global toggle and modifier-key capture via a new `isTurboActiveOnSite()` (`shared/naming.ts`, reuses §7.10's existing `hostMatches()` wildcard matcher). **Download history panel**: `TurboHistoryEntry` ring buffer (`storage.local`, capped at 25) rendered in a new options-page "Turbo Mode" section with a Clear button; re-download/open-folder actions from the original spec were scoped out (no folder-open API surface this extension otherwise needs).
+
+Verified via `npm run typecheck` (clean), all four `build:{chrome,firefox,edge,brave}` targets, and standalone Node harnesses for `isTurboActiveOnSite()` (5/5 cases) — no test framework is configured for this package.
+
 ## S284 — 2026-08-02 (Extension 7.11: URL-upgrade table + canvas fallback + context-menu correlation — issue #104)
 
 Closes the last three open items in `moon/roadmaps/extension.md` §7.11; the section is now fully shipped.

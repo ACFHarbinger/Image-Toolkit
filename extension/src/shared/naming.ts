@@ -21,6 +21,19 @@ export function hostMatches(hostname: string, pattern: string): boolean {
 }
 
 /**
+ * Whether turbo capture (global toggle or modifier-key mode, §7.12) is
+ * active on *hostname* given the configured site-gating mode.
+ */
+export function isTurboActiveOnSite(
+  hostname: string,
+  settings: Pick<ExtensionSettings, "turboSiteMode" | "turboSitePatterns">,
+): boolean {
+  if (settings.turboSiteMode === "all") return true;
+  const matches = settings.turboSitePatterns.some((p) => hostMatches(hostname, p));
+  return settings.turboSiteMode === "allowlist" ? matches : !matches;
+}
+
+/**
  * Resolve the Downloads/ subfolder for a capture: first site rule whose
  * pattern matches the page hostname wins; otherwise the global target folder.
  */

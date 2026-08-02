@@ -7,7 +7,7 @@
  * has no tabGroups API, so the popup renders the sets instead and the badge
  * shows the duplicate count.
  */
-import { api } from "./api";
+import { api, setActionBadge } from "./api";
 import type { DupTabSet, ScanDupTabsResult } from "./messages";
 
 /** Tracking params stripped during normalization when the option is enabled. */
@@ -118,13 +118,7 @@ async function highlightWithGroups(sets: DupTabSet[]): Promise<void> {
 }
 
 async function setBadge(count: number): Promise<void> {
-  const action = api.action ?? // MV3
-    (api as unknown as { browserAction?: typeof chrome.action }).browserAction;
-  if (!action) return;
-  await action.setBadgeText({ text: count > 0 ? String(count) : "" });
-  if (count > 0 && action.setBadgeBackgroundColor) {
-    await action.setBadgeBackgroundColor({ color: "#e74c3c" });
-  }
+  await setActionBadge(count > 0 ? String(count) : "", count > 0 ? "#e74c3c" : undefined);
 }
 
 /**

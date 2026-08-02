@@ -16,6 +16,22 @@ export interface ExtensionSettings {
   targetFolder: string;
   /** Turbo mode: left-click any image to download it. */
   turboMode: boolean;
+  /**
+   * Modifier-key capture (§7.12): hold this key + click to capture even
+   * when `turboMode` itself is off — a scoped alternative to the global
+   * toggle that doesn't intercept every plain left-click on every site.
+   * "none" disables the feature.
+   */
+  turboModifierKey: "none" | "alt" | "ctrl" | "shift";
+  /**
+   * Per-site turbo gating (§7.12): "all" leaves turbo unaffected by site;
+   * "allowlist"/"denylist" gate BOTH `turboMode` and modifier-key capture
+   * by `turboSitePatterns` (same `*`-wildcard hostname matching as
+   * `siteRules`).
+   */
+  turboSiteMode: "all" | "allowlist" | "denylist";
+  /** Hostname patterns for `turboSiteMode`; `*` wildcards allowed. */
+  turboSitePatterns: string[];
   /** Duplicate-tab scan: also strip common tracking params when normalizing URLs. */
   dupTabsStripParams: boolean;
   /** Per-site folder rules, evaluated top-to-bottom against the page hostname. */
@@ -54,6 +70,9 @@ export interface ExtensionSettings {
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   targetFolder: "data",
   turboMode: false,
+  turboModifierKey: "none",
+  turboSiteMode: "all",
+  turboSitePatterns: [],
   dupTabsStripParams: true,
   siteRules: [],
   folderProfiles: ["data"],

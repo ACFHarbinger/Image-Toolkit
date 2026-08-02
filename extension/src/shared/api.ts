@@ -44,6 +44,25 @@ export function storageSet(items: Record<string, unknown>): Promise<void> {
 }
 
 /**
+ * Set the toolbar icon's badge text/color, uniform across the MV3 `action`
+ * API and Firefox's older `browserAction` fallback. NOTE: the badge is a
+ * single global slot shared by every feature that uses it (§7.12's turbo
+ * capture counter and §7.13's duplicate-tab count both write here) — the
+ * most recent update wins, same limitation every browser extension with
+ * more than one badge-worthy feature has.
+ */
+export async function setActionBadge(text: string, color?: string): Promise<void> {
+  const action =
+    api.action ?? // MV3
+    (api as unknown as { browserAction?: typeof chrome.action }).browserAction;
+  if (!action) return;
+  await action.setBadgeText({ text });
+  if (color && action.setBadgeBackgroundColor) {
+    await action.setBadgeBackgroundColor({ color });
+  }
+}
+
+/**
  * Promise wrapper for runtime.sendNativeMessage (§7.5B), uniform across
  * browsers. Firefox returns a Promise natively; Chromium is callback-based
  * and reports host-launch failures via `chrome.runtime.lastError` rather

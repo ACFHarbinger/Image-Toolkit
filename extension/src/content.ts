@@ -13,6 +13,8 @@ import {
   canvasDataUrl,
   findImageAt,
 } from "./shared/extractor";
+import { isTurboActiveOnSite } from "./shared/naming";
+import type { ExtensionSettings } from "./shared/settings";
 import { collectPageMedia } from "./shared/pageMedia";
 import {
   startSelectionOverlay,
@@ -42,18 +44,84 @@ document.addEventListener(
 console.log(`[Image-Toolkit] Content script loaded on: ${window.location.href}`);
 
 let turboMode = false;
+let turboModifierKey: ExtensionSettings["turboModifierKey"] = "none";
+let turboActiveHere = true;
+
+type TurboGatingKeys = "turboMode" | "turboModifierKey" | "turboSiteMode" | "turboSitePatterns";
+
+function recomputeTurboGating(settings: Partial<ExtensionSettings>): void {
+  if (settings.turboMode !== undefined) turboMode = settings.turboMode;
+  if (settings.turboModifierKey !== undefined) turboModifierKey = settings.turboModifierKey;
+  turboActiveHere = isTurboActiveOnSite(window.location.hostname, {
+    turboSiteMode: settings.turboSiteMode ?? "all",
+    turboSitePatterns: settings.turboSitePatterns ?? [],
+  });
+}
 
 // Initial check
-void storageGet<{ turboMode: boolean }>(["turboMode"]).then((result) => {
-  turboMode = result.turboMode ?? false;
-});
+void storageGet<Pick<ExtensionSettings, TurboGatingKeys>>([
+  "turboMode",
+  "turboModifierKey",
+  "turboSiteMode",
+  "turboSitePatterns",
+]).then(recomputeTurboGating);
 
 // Listen for storage changes to update dynamically
 api.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.turboMode) {
-    turboMode = Boolean(changes.turboMode.newValue);
+  if (area !== "local") return;
+  const patch: Partial<ExtensionSettings> = {};
+  if (changes.turboMode) patch.turboMode = Boolean(changes.turboMode.newValue);
+  if (changes.turboModifierKey) {
+    patch.turboModifierKey = changes.turboModifierKey.newValue as ExtensionSettings["turboModifierKey"];
   }
+  if (changes.turboSiteMode) {
+    patch.turboSiteMode = changes.turboSiteMode.newValue as ExtensionSettings["turboSiteMode"];
+  }
+  if (changes.turboSitePatterns) {
+    patch.turboSitePatterns = changes.turboSitePatterns.newValue as string[];
+  }
+  if (Object.keys(patch).length > 0) recomputeTurboGating(patch);
 });
+
+/** Live cursor feedback while the configured modifier key is held (§7.12). */
+const MODIFIER_CURSOR_CLASS = "image-toolkit-modifier-capture";
+let modifierStyleEl: HTMLStyleElement | null = null;
+
+function ensureModifierStyle(): void {
+  if (modifierStyleEl) return;
+  modifierStyleEl = document.createElement("style");
+  modifierStyleEl.textContent =
+    `html.${MODIFIER_CURSOR_CLASS}, html.${MODIFIER_CURSOR_CLASS} * { cursor: crosshair !important; }`;
+  document.documentElement.appendChild(modifierStyleEl);
+}
+
+function isConfiguredModifierEvent(e: KeyboardEvent): boolean {
+  if (turboModifierKey === "alt") return e.key === "Alt";
+  if (turboModifierKey === "ctrl") return e.key === "Control";
+  if (turboModifierKey === "shift") return e.key === "Shift";
+  return false;
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!turboActiveHere || !isConfiguredModifierEvent(e)) return;
+  ensureModifierStyle();
+  document.documentElement.classList.add(MODIFIER_CURSOR_CLASS);
+});
+document.addEventListener("keyup", (e) => {
+  if (!isConfiguredModifierEvent(e)) return;
+  document.documentElement.classList.remove(MODIFIER_CURSOR_CLASS);
+});
+window.addEventListener("blur", () => {
+  document.documentElement.classList.remove(MODIFIER_CURSOR_CLASS);
+});
+
+/** Whether *e* carries the configured modifier key (§7.12). "none" always misses. */
+function modifierHeld(e: MouseEvent): boolean {
+  if (turboModifierKey === "alt") return e.altKey;
+  if (turboModifierKey === "ctrl") return e.ctrlKey;
+  if (turboModifierKey === "shift") return e.shiftKey;
+  return false;
+}
 
 /** Brief outline flash on the captured element (§7.12 capture feedback). */
 const flashCaptured = (el: Element): void => {
@@ -143,12 +211,17 @@ api.runtime.onMessage.addListener(
 const blockAndDownload = (e: Event): void => {
   // The selection overlay owns clicks while it is active (§7.9B)
   if (overlayActive()) return;
-  if (!turboMode) return;
+  if (!turboActiveHere) return;
+
+  const me = e as MouseEvent & TouchEvent;
+  // Active if the global toggle is on, OR the configured modifier key
+  // (§7.12) is held for this click — a scoped alternative that doesn't
+  // require enabling interception globally.
+  if (!turboMode && !modifierHeld(me)) return;
 
   // For mouse events, only handle main button (Left Click)
   if (e.type.startsWith("mouse") && (e as MouseEvent).button !== 0) return;
 
-  const me = e as MouseEvent & TouchEvent;
   const x = me.clientX ?? me.touches?.[0]?.clientX ?? 0;
   const y = me.clientY ?? me.touches?.[0]?.clientY ?? 0;
 
@@ -169,6 +242,7 @@ const blockAndDownload = (e: Event): void => {
         action: "download_image",
         src: hit.url,
         pageUrl: window.location.href,
+        source: "turbo",
       };
       void api.runtime.sendMessage(msg);
       flashCaptured(hit.element);

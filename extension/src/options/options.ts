@@ -1,15 +1,16 @@
 /**
  * Popup / options page: settings persistence + duplicate-tab scanning (§7.13).
  */
-import { api, storageGet } from "../shared/api";
+import { api, setActionBadge, storageGet, storageSet } from "../shared/api";
 import { loadSettings, saveSettings } from "../shared/settings";
+import type { ExtensionSettings } from "../shared/settings";
 import { scanAndHighlight, clearHighlights } from "../shared/dupTabs";
 import { ping, BridgeError } from "../shared/bridge";
 import {
   getCachedPhashSnapshot,
   refreshPhashSnapshot,
 } from "../shared/clientPhash";
-import type { LastDupCheck, LastSimilar } from "../background";
+import type { LastDupCheck, LastSimilar, TurboHistoryEntry } from "../background";
 import type { DupTabSet } from "../shared/messages";
 
 const $ = <T extends HTMLElement>(id: string): T =>
@@ -113,6 +114,82 @@ async function activateProfile(name: string): Promise<void> {
   showStatus(`Switched to '${cleanName}'`);
 }
 
+// --- Turbo Mode site list (§7.12) ---
+
+function addTurboSiteRow(pattern = ""): void {
+  const list = $<HTMLDivElement>("turbo-sites-list");
+  const row = document.createElement("div");
+  row.className = "site-row";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "*.example.com";
+  input.value = pattern;
+  input.className = "turbo-site-pattern";
+
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "secondary";
+  removeBtn.textContent = "✕";
+  removeBtn.title = "Remove site";
+  removeBtn.addEventListener("click", () => row.remove());
+
+  row.append(input, removeBtn);
+  list.appendChild(row);
+}
+
+function collectTurboSites(): string[] {
+  const patterns: string[] = [];
+  for (const row of document.querySelectorAll<HTMLDivElement>(".site-row")) {
+    const pattern = row.querySelector<HTMLInputElement>(".turbo-site-pattern")?.value.trim() ?? "";
+    if (pattern) patterns.push(pattern);
+  }
+  return patterns;
+}
+
+// --- Turbo capture history (§7.12) ---
+
+async function renderTurboHistory(): Promise<void> {
+  const { turboHistory, turboCaptureCount } = await storageGet<{
+    turboHistory: TurboHistoryEntry[];
+    turboCaptureCount: number;
+  }>(["turboHistory", "turboCaptureCount"]);
+
+  $<HTMLSpanElement>("turbo-count").textContent = String(turboCaptureCount ?? 0);
+
+  const container = $<HTMLDivElement>("turbo-history");
+  container.replaceChildren();
+  const history = turboHistory ?? [];
+  if (history.length === 0) {
+    container.textContent = "No turbo captures yet.";
+    return;
+  }
+
+  for (const entry of history) {
+    const row = document.createElement("div");
+    row.className = entry.status === "error" ? "turbo-entry error" : "turbo-entry";
+
+    const urlLine = document.createElement("div");
+    urlLine.className = "turbo-entry-url";
+    urlLine.textContent = entry.filename;
+    row.appendChild(urlLine);
+
+    const meta = document.createElement("div");
+    meta.className = "turbo-entry-meta";
+    const when = new Date(entry.when).toLocaleString();
+    meta.textContent =
+      entry.status === "error" ? `${when} — failed: ${entry.error ?? "unknown error"}` : when;
+    row.appendChild(meta);
+
+    container.appendChild(row);
+  }
+}
+
+async function clearTurboHistory(): Promise<void> {
+  await storageSet({ turboHistory: [], turboCaptureCount: 0 });
+  await setActionBadge("");
+  await renderTurboHistory();
+}
+
 async function restoreOptions(): Promise<void> {
   const settings = await loadSettings();
   $<HTMLInputElement>("folder").value = settings.targetFolder;
@@ -130,6 +207,11 @@ async function restoreOptions(): Promise<void> {
   for (const profile of settings.folderProfiles) {
     addProfileRow(profile);
   }
+  $<HTMLSelectElement>("turbo-modifier").value = settings.turboModifierKey;
+  $<HTMLSelectElement>("turbo-site-mode").value = settings.turboSiteMode;
+  for (const pattern of settings.turboSitePatterns) {
+    addTurboSiteRow(pattern);
+  }
 }
 
 async function saveOptions(): Promise<void> {
@@ -146,6 +228,13 @@ async function saveOptions(): Promise<void> {
     dupTabsStripParams: $<HTMLInputElement>("strip-params").checked,
     siteRules: collectRules(),
     folderProfiles: collectProfiles(),
+    turboModifierKey:
+      ($<HTMLSelectElement>("turbo-modifier").value as ExtensionSettings["turboModifierKey"]) ||
+      "none",
+    turboSiteMode:
+      ($<HTMLSelectElement>("turbo-site-mode").value as ExtensionSettings["turboSiteMode"]) ||
+      "all",
+    turboSitePatterns: collectTurboSites(),
     bridgeUrl:
       $<HTMLInputElement>("bridge-url").value.trim().replace(/\/+$/, "") ||
       "http://127.0.0.1:8000/api/extension",
@@ -447,6 +536,7 @@ document.addEventListener("DOMContentLoaded", () => {
   void renderLastDupCheck();
   void renderLastSimilar();
   void renderSnapshotStatus();
+  void renderTurboHistory();
   $<HTMLButtonElement>("refresh-snapshot").addEventListener("click", () => {
     void refreshSnapshot();
   });
@@ -467,6 +557,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   $<HTMLButtonElement>("add-profile").addEventListener("click", () => {
     addProfileRow();
+  });
+  $<HTMLButtonElement>("add-turbo-site").addEventListener("click", () => {
+    addTurboSiteRow();
+  });
+  $<HTMLButtonElement>("clear-turbo-history").addEventListener("click", () => {
+    void clearTurboHistory();
   });
   $<HTMLButtonElement>("scan-dups").addEventListener("click", () => {
     void scanDuplicateTabs();
