@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDetailPanel
+from gui.src.database.display.common.base_detail_panel import BaseDetailPanel
 from PySide6.QtCore import Signal
 
 from ._associated_entities import _AssociatedEntitiesMixin

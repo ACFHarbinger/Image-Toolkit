@@ -18,7 +18,7 @@ from gui.src.database.dialog import (
     _AssociatedEntitiesDialog,
 )
 from gui.src.database.dialog.credit_dialog import _CreditDialog
-from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDetailPanel
+from gui.src.database.display.common.base_detail_panel import BaseDetailPanel
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,

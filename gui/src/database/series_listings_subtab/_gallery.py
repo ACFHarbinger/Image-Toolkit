@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from gui.src.constants.listings import CARD_SIZE
-from gui.src.tabs.core.elements.display.listing_card import _ListingCard
+from gui.src.database.display.listing_card import _ListingCard
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
 

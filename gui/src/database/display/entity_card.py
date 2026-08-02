@@ -10,7 +10,7 @@ from gui.src.tabs.core.elements.common.listings_common import (
     _badge,
     open_file_location,
 )
-from gui.src.tabs.core.elements.display.common.base_card import BaseCard
+from gui.src.database.display.common.base_card import BaseCard
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QVBoxLayout
