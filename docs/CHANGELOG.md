@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S287 — 2026-08-02 (Closed issues #174/#175/#176: display/ move follow-up, stale test mock, associated_content key fix)
+
+Follow-up session closing the three issues opened during S286.
+
+**#176** — `entity_card.py` read `entity.get("associated_series", ...)` while `entity_repo.py`/`entity_detail_panel.py`/the extensive backend test suite all consistently use `associated_content`; fixed the outlier to match the majority rather than renaming the much larger, test-covered surface (`68cf6a5d`).
+
+**#175** — `test_sync_with_mock_vault` patched `listings_common.base.fetch_all_listings_secure`/etc., functions that no longer exist anywhere in the sync/backup code path (`_SyncBackupWorker` has used `MediaRepo`/`EntityRepo` against the unified DB since DB.5). Rewrote the test to mock the real current dependencies, and fixed a second, deeper bug it exposed along the way: `ListingsTab` construction itself calls `get_library_db()` (via `_refresh_tag_vocabulary` and others), which — with no real vault session open, as in this test — attempts to open the live encrypted `library.db` with dummy credentials, fails, and shows a blocking `QMessageBox.critical()` with nothing to dismiss it under headless/offscreen test mode. This only "worked" as part of the full test class because an earlier test had already tripped a module-global short-circuit flag; run in isolation it hung indefinitely. Fixed by wrapping the whole test body (construction included) in the `get_library_db` patch and defensively mocking `QMessageBox.critical`/`warning` (`37e67272`).
+
+**#174** — moved the last two listings-exclusive display files (`listing_card.py`, `display/common/{base_card.py,base_detail_panel.py}`) into `gui/src/database/display/`, removing the now-empty `gui/src/tabs/core/elements/display/` directory entirely (`4c798de7`+`3cc322d6`, the latter fixing a bad-pathspec staging mistake in the former). Surveyed the remaining flagged directories (`windows/settings`, `windows/main`, `helpers/animation`, `classes/abstract_class_*`) and confirmed none need a directory-level move — see [architecture.md §5.18](../moon/roadmaps/architecture.md#518-guisrc-structural-reorganization). No gui/src directory-level reorg work remains outstanding.
+
+Tests: `TestListingsTab` (5/5, was 4/5), detail-panel/tag-vocabulary/listings-semantic-search/image-load suites all green.
+
 ## S286 — 2026-08-02 (Rename cleanup, benchmark DB cleanup, Danbooru-style tag categories (DB.11), gui/src structural reorg)
 
 Four-part session: finished a half-landed rename, cleaned up stray benchmark data from the live library DB, overhauled the tag system to match/exceed Danbooru's category model, and reorganized `gui/src`'s tab-family directories.

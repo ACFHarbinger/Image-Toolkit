@@ -1230,7 +1230,7 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 
 ## 5.18 `gui/src` Structural Reorganization (second layer, post-§5.17) {: #518-guisrc-structural-reorganization }
 
-**Priority: Medium. Phase 1 (four tab families) shipped 2026-08-02; remaining directories tracked as follow-up issues.**
+**Priority: Medium. Done, 2026-08-02 — all four tab-family moves plus the listings display/ follow-up shipped; the remaining surveyed directories need no directory-level move (see below).**
 
 §5.17 split individual oversized *files* into `manager.py` + private `_foo.py` submodule packages, but left every such package sitting directly under `gui/src/tabs/<category>/` (or `gui/src/tabs/<category>/elements/`). This section is the follow-on: `gui/src/tabs/<category>/` should hold only one thin `.py` file per tab and one per subtab — a re-export shim, nothing else — with the real implementation living in `gui/src/elements/` (tab-specific implementation) or `gui/src/database/` (the Listings tab family specifically, since it's a database-domain feature). `gui/src/components/` continues to hold genuinely cross-tab reusable widgets; `gui/src/classes/` holds abstract/meta base classes; `gui/src/windows/` already correctly holds window-level UI and needs no directory-level move (it was never nested under `tabs/`).
 
@@ -1245,14 +1245,15 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 
 Each move left a thin single-file re-export shim at the old `tabs/<category>/<name>.py` path so every existing instantiation site (`_tab_registry.py`, `main_backend.py`, QML property bindings) needed no changes — QML binds to Python object attribute names, not module import paths, confirmed unaffected throughout. One real circular-import bug was found and fixed during the `stitch_tab` move (an eager module-level import of the still-unmoved `tabs/animation/stencil` package through the new shim; fixed by making the import local to the functions that use it).
 
-**Not done / follow-up (flagged during the four moves above, or never in scope for this round):**
-- `gui/src/tabs/core/elements/display/listing_card.py` and `display/common/{base_card.py,base_detail_panel.py}` are listings-exclusive (same pattern as `entity_card.py`, which *did* move) but weren't in the Listings-family move's explicit file list — `gui/src/tabs/core/elements/display/` currently holds a mix of moved and unmoved listings-family code.
-- `gui/src/windows/settings/` (17 files, ~4,657 code lines) and `gui/src/windows/main/` (17 files, ~2,768 code lines) — already correctly under `windows/`, not `tabs/`, so no directory-level move needed, but flagged as candidates for further internal splitting if churn/blast-radius analysis (§5.17 Option E) warrants it.
-- `gui/src/helpers/animation/` (14 files, ~2,826 code lines, including an 819-line private `_progress_pipeline.py` — deliberately not split further per §5.17's own note above) — helpers, not tabs, so out of this section's scope; noted for awareness only.
-- `gui/src/classes/abstract_class_single_gallery/` and `abstract_class_two_galleries/` (§5.10 already tracks their overlap) — no directory-level move needed, already under `classes/`.
+**✅ Follow-up shipped 2026-08-02 (issue #174, commits `4c798de7`+`3cc322d6`):** `gui/src/tabs/core/elements/display/listing_card.py` and `display/common/{base_card.py,base_detail_panel.py}` — confirmed listings-exclusive by grep (same pattern as `entity_card.py`) — moved into `gui/src/database/display/`; the old `gui/src/tabs/core/elements/display/` directory removed entirely now that nothing remains under it.
+
+**Surveyed, no move needed (issue #174, closed):**
+- `gui/src/windows/settings/` (17 files, ~4,657 code lines) and `gui/src/windows/main/` (17 files, ~2,768 code lines) — already correctly under `windows/`, not `tabs/`; candidates for further *internal* splitting if churn/blast-radius analysis (§5.17 Option E) ever warrants it, but that's a different kind of work than this section's directory-level moves.
+- `gui/src/helpers/animation/` (14 files, ~2,826 code lines, including an 819-line private `_progress_pipeline.py` — deliberately not split further per §5.17's own note above) — helpers, not tabs, out of this section's scope.
+- `gui/src/classes/abstract_class_single_gallery/` and `abstract_class_two_galleries/` (§5.10 already tracks their overlap) — already under `classes/`.
 - `gui/src/components/views/display/` (7 files, ~713 code lines) — already correctly under `components/`.
 
-Recommend opening a dedicated GitHub issue per remaining item above before scheduling further work, following the same one-move-at-a-time-with-scoped-tests pattern used for the four moves that already shipped.
+No further gui/src directory-level reorg work is currently outstanding.
 
 ---
 
