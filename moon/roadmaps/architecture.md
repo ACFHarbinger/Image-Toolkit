@@ -1228,6 +1228,34 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 
 ---
 
+## 5.18 `gui/src` Structural Reorganization (second layer, post-§5.17) {: #518-guisrc-structural-reorganization }
+
+**Priority: Medium. Phase 1 (four tab families) shipped 2026-08-02; remaining directories tracked as follow-up issues.**
+
+§5.17 split individual oversized *files* into `manager.py` + private `_foo.py` submodule packages, but left every such package sitting directly under `gui/src/tabs/<category>/` (or `gui/src/tabs/<category>/elements/`). This section is the follow-on: `gui/src/tabs/<category>/` should hold only one thin `.py` file per tab and one per subtab — a re-export shim, nothing else — with the real implementation living in `gui/src/elements/` (tab-specific implementation) or `gui/src/database/` (the Listings tab family specifically, since it's a database-domain feature). `gui/src/components/` continues to hold genuinely cross-tab reusable widgets; `gui/src/classes/` holds abstract/meta base classes; `gui/src/windows/` already correctly holds window-level UI and needs no directory-level move (it was never nested under `tabs/`).
+
+**✅ Shipped 2026-08-02 (four sequential moves, each `git mv` + import-site fixes + scoped test verification):**
+
+| Move | From | To | Commit |
+|---|---|---|---|
+| Listings tab family | `tabs/core/{listings_tab.py,elements/{series_listings_subtab,entity_listings_subtab,display/detail_panel,display/entity_detail_panel.py,display/entity_card.py,dialog/}}` | `gui/src/database/` (new package) | `9c2c5e8e` |
+| Wallpaper/Merge tabs + canvas commonality | `tabs/core/{wallpaper_tab.py,merge_tab/,elements/{graph,monitor_display_subtab,system_display_subtab,common/wallpaper_common_base}}` | `gui/src/elements/{wallpaper_tab,merge_tab}/`; new shared `gui/src/components/containers/canvas_base.py` (`CanvasBase(QGraphicsView)`, extracted from real duplicated pan/rubber-band-drag logic confirmed between `MergeCanvas` and the wallpaper graph view) | `ba73cb55` |
+| Library Database tab family | `tabs/database/{database_tab,search_tab,scan_metadata_tab,data_browser_tab}/` | `gui/src/elements/` | `e77ac67a` |
+| Animation/Web/Models tabs | `tabs/animation/{stitch_tab,dialog}/`, `tabs/web/{drive_sync_tab,entity_recon_tab,image_crawler_tab}/`, `tabs/models/delta/cbir_train_tab/` | `gui/src/elements/` (`dialog/` nested under `stitch_tab/` — confirmed stitch-exclusive by grep, not generic) | `8f17392b` |
+
+Each move left a thin single-file re-export shim at the old `tabs/<category>/<name>.py` path so every existing instantiation site (`_tab_registry.py`, `main_backend.py`, QML property bindings) needed no changes — QML binds to Python object attribute names, not module import paths, confirmed unaffected throughout. One real circular-import bug was found and fixed during the `stitch_tab` move (an eager module-level import of the still-unmoved `tabs/animation/stencil` package through the new shim; fixed by making the import local to the functions that use it).
+
+**Not done / follow-up (flagged during the four moves above, or never in scope for this round):**
+- `gui/src/tabs/core/elements/display/listing_card.py` and `display/common/{base_card.py,base_detail_panel.py}` are listings-exclusive (same pattern as `entity_card.py`, which *did* move) but weren't in the Listings-family move's explicit file list — `gui/src/tabs/core/elements/display/` currently holds a mix of moved and unmoved listings-family code.
+- `gui/src/windows/settings/` (17 files, ~4,657 code lines) and `gui/src/windows/main/` (17 files, ~2,768 code lines) — already correctly under `windows/`, not `tabs/`, so no directory-level move needed, but flagged as candidates for further internal splitting if churn/blast-radius analysis (§5.17 Option E) warrants it.
+- `gui/src/helpers/animation/` (14 files, ~2,826 code lines, including an 819-line private `_progress_pipeline.py` — deliberately not split further per §5.17's own note above) — helpers, not tabs, so out of this section's scope; noted for awareness only.
+- `gui/src/classes/abstract_class_single_gallery/` and `abstract_class_two_galleries/` (§5.10 already tracks their overlap) — no directory-level move needed, already under `classes/`.
+- `gui/src/components/views/display/` (7 files, ~713 code lines) — already correctly under `components/`.
+
+Recommend opening a dedicated GitHub issue per remaining item above before scheduling further work, following the same one-move-at-a-time-with-scoped-tests pattern used for the four moves that already shipped.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks

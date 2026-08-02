@@ -208,8 +208,9 @@ Merges the SQLCipher listings store (`base.secret`/`listings_secure.db`, Content
 | DB.8 | **[DB] Cross-domain features** — media↔image-group links, entity↔image links (Entity Recon bridge), unified tag vocabulary + merge tool, auto-create listings from scans | ~1w | [unified_database.md DB.8](roadmaps/unified_database.md#db8-cross-domain-features) |
 | DB.9 | **[DB] Data Browser tab** — crow's-foot ER schema view auto-generated from PRAGMAs + raw-value table grid with FK navigation and reverse-reference panel | ~4d | [unified_database.md DB.9](roadmaps/unified_database.md#db9-data-browser-tab-raw-tables--er-view) |
 | DB.10 | **[DB] Backup pipeline retarget + cleanup** — `.enc` exports from the unified store, full-library encrypted dump, dead-code removal, docs, tests | ~3d | [unified_database.md DB.10](roadmaps/unified_database.md#db10-backup-pipeline-retarget--final-cleanup) |
+| DB.11 | **[DB] Danbooru-style tag category system** — `tag_categories` table (color, scope, extensible), entities now taggable (`entity_tags`), auto-tag-on-create, transitive entity↔series tag search, grouped-tags display component | ~1w | [unified_database.md DB.11](roadmaps/unified_database.md#db11-danbooru-style-tag-category-system--done-2026-08-02) |
 
-**Dependency order:** DB.1 → DB.2 → DB.3 → DB.4 (foundation, strictly sequential); DB.4 → DB.5 → DB.6 (listings cut over before Postgres retires); DB.6 → DB.7 → DB.8; DB.9 anytime after DB.3; DB.10 last.
+**Dependency order:** DB.1 → DB.2 → DB.3 → DB.4 (foundation, strictly sequential); DB.4 → DB.5 → DB.6 (listings cut over before Postgres retires); DB.6 → DB.7 → DB.8; DB.9 anytime after DB.3; DB.10 → DB.11.
 
 ---
 

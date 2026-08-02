@@ -334,6 +334,19 @@ DB.9 is now feature-complete against its original roadmap scope.
 - **Docs**: not touched this round — `docs/database/unified_schema.md` and AGENTS/CLAUDE notes were out of scope for the concrete code changes above; flagged for a follow-up pass, not verified stale or current here.
 - **Tests green**: `backend/test/database/test_backup_all.py` (4/4) and `test_migrations.py` (6/13 — the other 7 fail/error on a pre-existing, unrelated `base.database` build-artifact gap this worktree lacks, confirmed identical with this session's changes reverted).
 
+## ✅ DB.11 Danbooru-Style Tag Category System — DONE, 2026-08-02
+
+Replaces the flat `tags.type` free-text column with a proper `tag_categories` table (`id, name, color, sort_order, applies_to`), matching/exceeding Danbooru's category model per its own tag/search-system documentation.
+
+- **Schema**: new `tag_categories` table, `applies_to` scope (`'universal'`/`'listing'`/`'entity'`); `tags.type` replaced by `tags.category_id`; new `entity_tags` junction table (mirrors `image_tags`/`media_tags`) — entities are now taggable.
+- **Seed categories** (`backend/src/database/unified/tag_categories.py`): universal `General`/`Artist`/`Copyright`/`Character`/`Meta` (Danbooru's 5 core categories; `Series` renamed `Copyright` to avoid colliding with this app's "Series Listings" naming); listing-scoped `Genre`/`Medium`/`Studio`/`Setting`/`Content Warning`/`Release Status` (exceeds Danbooru — this library spans books/TV/movies/anime/games, not just images); entity-scoped `Appearance`/`Occupation`/`Biographical`/`Organization`. General↔Genre colors swapped per request (General now grey, Genre now red/magenta). Extensible by inserting rows — no code change needed for a new category.
+- **Migration**: `backend/migrations/upgrade_tag_categories.py` retrofits existing DBs (maps legacy `type` string → `category_id`, drops the old column where supported); fresh installs seed via `session.ensure_schema`.
+- **Auto-tag-on-create**: saving a Series or Entity listing auto-creates a self tag (`Copyright`/`Character`) linked to it, so associated-entity/associated-series relationships are real, searchable tags, not just display-only text.
+- **Transitive tag search**: `search_repo.py`'s listing tag filter matches through `media_entity → entity_tags` in addition to direct `media_tags` (shared logic in `_util.tag_bucket_clause`) — e.g. searching a Character/Appearance tag like "blue hair" on the listings filter also surfaces series with a linked entity carrying that tag.
+- **GUI**: new `gui/src/components/grouped_tags_display.py` renders a listing's/entity's full tag set grouped by category with real colors (via `MediaRepo.get_grouped_tags`/`EntityRepo.get_grouped_tags`, both already transitive through associated entities/series), wired into both detail panels. Hardcoded category/color literals in `search_tab`, `database_tab`, `scan_metadata_tab`, and the metadata editor window replaced with live `tag_categories` lookups.
+- Facade/`TagRepo` methods renamed (`update_tag_type`→`update_tag_category`, `get_all_tags_with_types`→`get_all_tags_with_categories`) — all GUI call sites updated.
+- Tests: 35/35 green in `backend/test/database/test_unified_repos.py`/`test_unified_facade.py`; scoped GUI tag/listings tests green.
+
 ---
 
 ## Phasing & Dependency Graph
