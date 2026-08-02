@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.tabs.web.drive_sync_tab import DriveSyncTab
-from gui.src.tabs.web.image_crawler_tab import ImageCrawlTab
+from gui.src.elements.drive_sync_tab import DriveSyncTab
+from gui.src.elements.image_crawler_tab import ImageCrawlTab
 from gui.src.tabs.web.reverse_search_tab import ReverseImageSearchTab
 from gui.src.tabs.web.web_requests_tab import WebRequestsTab
 from PySide6.QtWidgets import QWidget
@@ -24,8 +24,8 @@ class TestDriveSyncTab:
     @pytest.fixture
     def mock_workers(self):
         with (
-            patch("gui.src.tabs.web.drive_sync_tab._remote_map.GoogleDriveSyncWorker") as mock_gd,
-            patch("gui.src.tabs.web.drive_sync_tab.manager.LogWindow") as mock_log,
+            patch("gui.src.elements.drive_sync_tab._remote_map.GoogleDriveSyncWorker") as mock_gd,
+            patch("gui.src.elements.drive_sync_tab.manager.LogWindow") as mock_log,
         ):
             yield mock_gd, mock_log
 
@@ -40,8 +40,8 @@ class TestDriveSyncTab:
 
         # Mock file existence checks/paths
         with (
-            patch("gui.src.tabs.web.drive_sync_tab._sync_worker.os.path.isdir", return_value=True),
-            patch("gui.src.tabs.web.drive_sync_tab._remote_map.QThreadPool.globalInstance") as mock_pool,
+            patch("gui.src.elements.drive_sync_tab._sync_worker.os.path.isdir", return_value=True),
+            patch("gui.src.elements.drive_sync_tab._remote_map.QThreadPool.globalInstance") as mock_pool,
         ):
             # Ensure "Google Drive (Service Account)" is selected (default)
             tab.view_remote_map()
@@ -56,27 +56,27 @@ class TestDriveSyncTab:
 class TestImageCrawlTab:
     @pytest.fixture
     def mock_worker(self):
-        with patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.ImageCrawlWorker") as mock:
+        with patch("gui.src.elements.image_crawler_tab._crawl_worker.ImageCrawlWorker") as mock:
             yield mock
 
     def test_init(self, q_app):
         # Mock LogWindow to prevent showing
-        with patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"):
+        with patch("gui.src.elements.image_crawler_tab.manager.LogWindow"):
             tab = ImageCrawlTab()
             assert isinstance(tab, QWidget)
 
     def test_start_crawl_no_dir(self, q_app, mock_worker):
-        with patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"):
+        with patch("gui.src.elements.image_crawler_tab.manager.LogWindow"):
             tab = ImageCrawlTab()
             tab.download_dir_path.clear()
 
-            with patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.warning") as mock_warn:
+            with patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.warning") as mock_warn:
                 tab.start_crawl()
                 mock_warn.assert_called()
                 mock_worker.assert_not_called()
 
     def test_start_crawl_success(self, q_app, mock_worker):
-        with patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"):
+        with patch("gui.src.elements.image_crawler_tab.manager.LogWindow"):
             tab = ImageCrawlTab()
             tab.download_dir_path.setText("/tmp/down")
             tab.crawler_type_combo.setCurrentIndex(0)  # General
@@ -87,7 +87,7 @@ class TestImageCrawlTab:
             mock_worker.return_value.start.assert_called()
 
     def test_selection_mode_config(self, q_app):
-        with patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"):
+        with patch("gui.src.elements.image_crawler_tab.manager.LogWindow"):
             tab = ImageCrawlTab()
             # Default value
             assert tab.selection_mode_combo.currentText() == "Download All (Default)"
@@ -102,11 +102,11 @@ class TestImageCrawlTab:
 
     def test_on_crawl_done_manual_selection_accept(self, q_app):
         with (
-            patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"),
+            patch("gui.src.elements.image_crawler_tab.manager.LogWindow"),
             patch("gui.src.windows.crawler_selection_dialogs.ManualSelectionDialog") as mock_dialog_class,
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.information"),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.information"),
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
         ):
             tab = ImageCrawlTab()
             tab.selection_mode_combo.setCurrentIndex(1)  # Manual Selection
@@ -136,11 +136,11 @@ class TestImageCrawlTab:
 
     def test_on_crawl_done_manual_selection_reject(self, q_app):
         with (
-            patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"),
+            patch("gui.src.elements.image_crawler_tab.manager.LogWindow"),
             patch("gui.src.windows.crawler_selection_dialogs.ManualSelectionDialog") as mock_dialog_class,
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.information"),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.information"),
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
         ):
             tab = ImageCrawlTab()
             tab.selection_mode_combo.setCurrentIndex(1)  # Manual Selection
@@ -161,13 +161,13 @@ class TestImageCrawlTab:
 
     def test_on_crawl_done_automated_selection_accept(self, q_app):
         with (
-            patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"),
+            patch("gui.src.elements.image_crawler_tab.manager.LogWindow"),
             patch("gui.src.windows.crawler_selection_dialogs.DuplicateConfigDialog") as mock_config_dialog_class,
             patch("gui.src.windows.crawler_selection_dialogs.DeduplicationPruningDialog") as mock_prune_dialog_class,
             patch("gui.src.windows.crawler_selection_dialogs.run_duplicate_scan", return_value={}),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.information"),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.information"),
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
         ):
             tab = ImageCrawlTab()
             tab.selection_mode_combo.setCurrentIndex(2)  # Automated Selection
@@ -203,11 +203,11 @@ class TestImageCrawlTab:
 
     def test_on_crawl_done_automated_selection_reject(self, q_app):
         with (
-            patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"),
+            patch("gui.src.elements.image_crawler_tab.manager.LogWindow"),
             patch("gui.src.windows.crawler_selection_dialogs.DuplicateConfigDialog") as mock_config_dialog_class,
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.information"),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.information"),
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
+            patch("gui.src.elements.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
         ):
             tab = ImageCrawlTab()
             tab.selection_mode_combo.setCurrentIndex(2)  # Automated Selection

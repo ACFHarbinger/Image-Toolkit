@@ -6,7 +6,7 @@ gui/src/tabs/web/entity_recon_tab/_library_link.py
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.tabs.web.entity_recon_tab import EntityReconTab
+from gui.src.elements.entity_recon_tab import EntityReconTab
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidgetItem
 
@@ -29,7 +29,7 @@ class TestLibraryLinkGating:
                 "backend.src.database.unified.session.is_open", return_value=False
             ),
             patch(
-                "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.information"
+                "gui.src.elements.entity_recon_tab._library_link.QMessageBox.information"
             ) as mock_info,
         ):
             tab._link_match_to_library("/tmp/does-not-matter.png")
@@ -45,7 +45,7 @@ class TestLibraryLinkGating:
                 "backend.src.database.unified.session.is_open", return_value=True
             ),
             patch(
-                "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.information"
+                "gui.src.elements.entity_recon_tab._library_link.QMessageBox.information"
             ) as mock_info,
         ):
             tab._link_match_to_library("/tmp/does-not-matter.png")
@@ -62,7 +62,7 @@ class TestLibraryLinkGating:
                 "backend.src.database.unified.session.is_open", return_value=True
             ),
             patch(
-                "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.warning"
+                "gui.src.elements.entity_recon_tab._library_link.QMessageBox.warning"
             ) as mock_warn,
         ):
             tab._link_match_to_library(missing)
@@ -99,13 +99,13 @@ class TestLibraryLinkFlow:
                 return_value=mock_entity_repo,
             ),
             patch(
-                "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.question",
+                "gui.src.elements.entity_recon_tab._library_link.QMessageBox.question",
                 return_value=__import__(
                     "PySide6.QtWidgets", fromlist=["QMessageBox"]
                 ).QMessageBox.StandardButton.Yes,
             ),
             patch(
-                "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.information"
+                "gui.src.elements.entity_recon_tab._library_link.QMessageBox.information"
             ),
         ):
             tab._link_match_to_library(str(p))
@@ -146,11 +146,11 @@ class TestLibraryLinkFlow:
                 return_value=mock_entity_repo,
             ),
             patch(
-                "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.question",
+                "gui.src.elements.entity_recon_tab._library_link.QMessageBox.question",
                 return_value=QMessageBox.StandardButton.Yes,
             ),
             patch(
-                "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.information"
+                "gui.src.elements.entity_recon_tab._library_link.QMessageBox.information"
             ),
         ):
             tab._link_match_to_library(str(p))
@@ -192,7 +192,7 @@ class TestLibraryLinkFlow:
                 return_value=mock_entity_repo,
             ),
             patch(
-                "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.question",
+                "gui.src.elements.entity_recon_tab._library_link.QMessageBox.question",
                 return_value=QMessageBox.StandardButton.No,
             ),
         ):
@@ -213,7 +213,7 @@ class TestProvContextMenu:
         ) as mock_link, patch.object(
             tab.prov_tree, "itemAt", return_value=item
         ), patch(
-            "gui.src.tabs.web.entity_recon_tab._library_link.QMenu"
+            "gui.src.elements.entity_recon_tab._library_link.QMenu"
         ) as MockMenu:
             mock_menu_instance = MockMenu.return_value
             mock_menu_instance.exec.return_value = None

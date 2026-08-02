@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 import pytest
-from gui.src.tabs.animation.dialog.canvas_inspector_dialog import (
+from gui.src.elements.stitch_tab.dialog.canvas_inspector_dialog import (
     CanvasInspectorDialog,
 )
 from PySide6.QtCore import QPointF
