@@ -1,3 +1,3 @@
-from gui.src.elements.merge_tab import MergeTab
+from gui.src.elements.core.merge_tab import MergeTab
 
 __all__ = ["MergeTab"]

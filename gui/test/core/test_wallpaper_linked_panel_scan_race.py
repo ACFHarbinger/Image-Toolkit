@@ -20,8 +20,8 @@ import time
 
 import pytest
 from gui.src.helpers import ImageScannerWorker
-from gui.src.elements.wallpaper_tab.common import wallpaper_common_base
-from gui.src.elements.wallpaper_tab.common.wallpaper_common_base import (
+from gui.src.elements.core.wallpaper_tab.common import wallpaper_common_base
+from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
 from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget

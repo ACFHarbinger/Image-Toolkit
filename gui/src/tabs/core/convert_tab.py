@@ -1,9 +1,9 @@
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
-from .elements.codec_subtab import CodecSubTab
-from .elements.format_subtab import FormatSubTab
-from .elements.sampler_subtab import SamplerSubTab
+from .codec_subtab import CodecSubTab
+from .format_subtab import FormatSubTab
+from .sampler_subtab import SamplerSubTab
 
 
 class ConvertTab(QWidget):

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from gui.src.tabs.core.extractor_tab import ExtractorTab
+from gui.src.elements.core.extractor_tab import ExtractorTab
 from gui.src.windows.settings.settings_window import SettingsWindow
 from PySide6.QtWidgets import QMessageBox
 
@@ -14,7 +14,7 @@ def test_extraction_history_limit_and_pruning(q_app, tmp_path, monkeypatch):
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
     monkeypatch.setattr(
-        "gui.src.tabs.core.extractor_tab._video_session_history.IMAGE_TOOLKIT_DIR", test_dir
+        "gui.src.elements.core.extractor_tab._video_session_history.IMAGE_TOOLKIT_DIR", test_dir
     )
 
     # Instantiate tab
@@ -213,7 +213,7 @@ def test_export_finished_records_history(q_app, tmp_path, monkeypatch):
     test_dir = tmp_path / "toolkit"
     test_dir.mkdir()
     monkeypatch.setattr(
-        "gui.src.tabs.core.extractor_tab._video_session_history.IMAGE_TOOLKIT_DIR", test_dir
+        "gui.src.elements.core.extractor_tab._video_session_history.IMAGE_TOOLKIT_DIR", test_dir
     )
 
     tab = ExtractorTab()
