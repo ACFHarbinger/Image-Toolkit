@@ -5,7 +5,7 @@ image groups (gui/src/tabs/database/scan_metadata_tab/_auto_listings.py).
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.elements.scan_metadata_tab import ScanMetadataTab
+from gui.src.elements.database.scan_metadata_tab import ScanMetadataTab
 from PySide6.QtWidgets import QDialog
 
 pytestmark = pytest.mark.gui
@@ -14,7 +14,7 @@ pytestmark = pytest.mark.gui
 def _make_tab():
     mock_db_tab = MagicMock()
     with patch(
-        "gui.src.elements.scan_metadata_tab._ui_builder.LOCAL_SOURCE_PATH", "/tmp"
+        "gui.src.elements.database.scan_metadata_tab._ui_builder.LOCAL_SOURCE_PATH", "/tmp"
     ):
         return ScanMetadataTab(mock_db_tab)
 
@@ -23,7 +23,7 @@ class TestMaybeOfferAutoListings:
     def test_empty_touched_groups_is_noop(self, q_app):
         tab = _make_tab()
         with patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.get_library_db"
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.get_library_db"
         ) as mock_get_db:
             tab._maybe_offer_auto_listings([])
             mock_get_db.assert_not_called()
@@ -31,7 +31,7 @@ class TestMaybeOfferAutoListings:
     def test_no_session_is_noop(self, q_app):
         tab = _make_tab()
         with patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.get_library_db",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.get_library_db",
             return_value=None,
         ):
             # Should not raise even though the session is unavailable.
@@ -46,16 +46,16 @@ class TestMaybeOfferAutoListings:
         mock_media_repo.get_media_for_group.return_value = [{"id": "m-1", "title": "X"}]
 
         with patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.get_library_db",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.get_library_db",
             return_value=MagicMock(),
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.ImageRepo",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.ImageRepo",
             return_value=mock_image_repo,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.MediaRepo",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.MediaRepo",
             return_value=mock_media_repo,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings._AutoListingsReviewDialog"
+            "gui.src.elements.database.scan_metadata_tab._auto_listings._AutoListingsReviewDialog"
         ) as mock_dialog_cls:
             tab._maybe_offer_auto_listings(["Linked Group"])
             mock_dialog_cls.assert_not_called()
@@ -78,16 +78,16 @@ class TestMaybeOfferAutoListings:
         ]
 
         with patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.get_library_db",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.get_library_db",
             return_value=mock_raw_db,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.ImageRepo",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.ImageRepo",
             return_value=mock_image_repo,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.MediaRepo",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.MediaRepo",
             return_value=mock_media_repo,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings._AutoListingsReviewDialog",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings._AutoListingsReviewDialog",
             return_value=mock_dialog,
         ):
             tab._maybe_offer_auto_listings(["New Series"])
@@ -112,16 +112,16 @@ class TestMaybeOfferAutoListings:
         mock_dialog.exec.return_value = QDialog.DialogCode.Rejected
 
         with patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.get_library_db",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.get_library_db",
             return_value=mock_raw_db,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.ImageRepo",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.ImageRepo",
             return_value=mock_image_repo,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.MediaRepo",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.MediaRepo",
             return_value=mock_media_repo,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings._AutoListingsReviewDialog",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings._AutoListingsReviewDialog",
             return_value=mock_dialog,
         ):
             tab._maybe_offer_auto_listings(["Some Group"])
@@ -151,16 +151,16 @@ class TestMaybeOfferAutoListings:
             return mock_dialog
 
         with patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.get_library_db",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.get_library_db",
             return_value=MagicMock(),
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.ImageRepo",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.ImageRepo",
             return_value=mock_image_repo,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings.MediaRepo",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings.MediaRepo",
             return_value=mock_media_repo,
         ), patch(
-            "gui.src.elements.scan_metadata_tab._auto_listings._AutoListingsReviewDialog",
+            "gui.src.elements.database.scan_metadata_tab._auto_listings._AutoListingsReviewDialog",
             side_effect=_capture_dialog,
         ):
             tab._maybe_offer_auto_listings(["Cowboy Bebop Scans (RAW)"])

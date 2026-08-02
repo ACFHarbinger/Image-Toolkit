@@ -28,7 +28,7 @@ def test_load_qimage_reads_avif_via_pillow(q_app, tmp_path):
 
 
 def test_browse_reference_image_uses_avif_filter(q_app, tmp_path):
-    from gui.src.database.display.common.base_detail_panel import (
+    from gui.src.elements.database.display.common.base_detail_panel import (
         BaseDetailPanel,
     )
 
@@ -37,7 +37,7 @@ def test_browse_reference_image_uses_avif_filter(q_app, tmp_path):
     Image.new("RGB", (4, 4), color=(0, 128, 255)).save(avif_path, format="AVIF")
 
     with patch(
-        "gui.src.database.display.common.base_detail_panel.QFileDialog.getOpenFileName",
+        "gui.src.elements.database.display.common.base_detail_panel.QFileDialog.getOpenFileName",
         return_value=(str(avif_path), IMAGE_FILE_DIALOG_FILTER),
     ) as mock_dialog:
         result = panel._browse_image_helper("entry-123")

@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
-from gui.src.database.dialog.directory_import_dialog import (
+from gui.src.elements.database.dialog.directory_import_dialog import (
     _DirectoryImportDialog,
 )
-from gui.src.database.dialog.entity_directory_import_dialog import (
+from gui.src.elements.database.dialog.entity_directory_import_dialog import (
     _EntityDirectoryImportDialog,
 )
 

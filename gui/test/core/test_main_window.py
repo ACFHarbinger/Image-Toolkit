@@ -84,7 +84,7 @@ class TestMainWindowSessionRecovery:
         vault = MockVaultManager(creds)
 
         # Patch set_config on SearchTab to check if it gets called
-        with patch("gui.src.elements.search_tab.SearchTab.set_config") as mock_set_config:
+        with patch("gui.src.elements.database.search_tab.SearchTab.set_config") as mock_set_config:
             window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             # Process events to allow QTimer to fire
             QApplication.processEvents()
@@ -108,7 +108,7 @@ class TestMainWindowSessionRecovery:
         vault = MockVaultManager(creds)
 
         with (
-            patch("gui.src.elements.search_tab.SearchTab.collect", return_value={"search_key": "val1"}),
+            patch("gui.src.elements.database.search_tab.SearchTab.collect", return_value={"search_key": "val1"}),
             patch("gui.src.tabs.core.convert_tab.ConvertTab.collect", return_value={"convert_key": "val2"})
         ):
             window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
@@ -151,7 +151,7 @@ class TestMainWindowSessionRecovery:
         vault = MockVaultManager(creds)
 
         with (
-            patch("gui.src.elements.search_tab.SearchTab.set_config") as mock_search_set,
+            patch("gui.src.elements.database.search_tab.SearchTab.set_config") as mock_search_set,
             patch("gui.src.tabs.core.convert_tab.ConvertTab.set_config") as mock_convert_set
         ):
             MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
@@ -177,7 +177,7 @@ class TestMainWindowSessionRecovery:
         }
         vault = MockVaultManager(creds)
 
-        with patch("gui.src.elements.search_tab.SearchTab.set_config") as mock_search_set:
+        with patch("gui.src.elements.database.search_tab.SearchTab.set_config") as mock_search_set:
             window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             QApplication.processEvents()
 
@@ -205,7 +205,7 @@ class TestMainWindowSessionRecovery:
 
         with (
             patch("gui.src.tabs.core.convert_tab.ConvertTab.set_config") as mock_convert_set,
-            patch("gui.src.elements.search_tab.SearchTab.set_config") as mock_search_set,
+            patch("gui.src.elements.database.search_tab.SearchTab.set_config") as mock_search_set,
         ):
             window = MainWindow(vault_manager=vault) # pyrefly: ignore [bad-argument-type]
             QApplication.processEvents()
