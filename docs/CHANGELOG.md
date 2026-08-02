@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S289 — 2026-08-03 (Listings UI polish: two-line search buttons, "+" quick-add-tag, dropped redundant sections + import-fix follow-up)
+
+**Import-path bugs**: three function-local relative imports (inside method bodies, easy for a line-anchored dot-adjustment script to miss) were left one dot short of what their new package depth needed after the gui/src reorg — `system_display_subtab/_wallpaper_worker.py` (crashed every "Set Wallpaper" click) and both `classes/image/abstract_class_*/_keyboard_nav.py` files. Fixed (`421efbe7`).
+
+**Listings UI**: "Search by Meaning"/"Build Search Index" buttons now wrap onto two lines so their text fits inside the fixed button width instead of clipping. Backup button pair renamed for clarity — "Sync Backup" (reads from the backup file) → "Load Backup"; "Update Backup" (writes to it) → "Sync Backup". Removed the standalone Genres/Tags text fields from the series detail panel (fully redundant with the "All Tags (by Category)" grouped display) and the "Linked Image Groups" section (internal-database-only feature, not per-listing). Added a "+" quick-add-tag button next to the grouped-tags section on both series and entity detail panels, opening a new `AddTagDialog` (autocompleting name + scope-filtered category) that writes via new `MediaRepo.add_tag()`/`EntityRepo.add_tag()` methods. MAL auto-fill's fetched genres now write directly as real Genre tags instead of populating the removed field.
+
+Tests: `backend/test/database/` 103/103; scoped `--run-gui` sweeps across the affected detail-panel/tag/listings test files all green.
+
 ## S288 — 2026-08-03 (Critical DB.11 fix + gui/src reorg Round 2: category-nested elements/, classes/image/)
 
 **Critical fix**: DB.11's schema.sql added `tags.category_id` and an index on it, but `CREATE TABLE IF NOT EXISTS` is a no-op against an already-existing `tags` table — so every live database created before DB.11 hit "no such column: category_id" on login, breaking listings load/save entirely, since the fix required an undocumented manual CLI migration nobody was told to run. Fixed by wiring the retrofit directly into `session.ensure_schema()` in two correctly-ordered phases (`ensure_category_id_column()` before `schema.sql` DDL, `migrate_legacy_type_column()` after `seed()`) so any pre-DB.11 database self-heals automatically on next login (`a528409b`). Verified against a simulated legacy `tags` table and confirmed idempotent.
