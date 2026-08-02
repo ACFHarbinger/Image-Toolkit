@@ -69,7 +69,7 @@ class _EntityCard(BaseCard):
 
         # Associated series or credits count
         credits = entity.get("credit_list", [])
-        assoc = entity.get("associated_series", [])
+        assoc = entity.get("associated_content", [])
         assoc_count = len(assoc) if isinstance(assoc, list) else (1 if assoc else 0)
         if credits:
             info_text = f"Credits: {len(credits)}"
