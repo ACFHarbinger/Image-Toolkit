@@ -1,3 +1,4 @@
+from .canvas_base import CanvasBase as CanvasBase
 from .draggable_monitor_container import (
     DraggableMonitorContainer as DraggableMonitorContainer,
 )

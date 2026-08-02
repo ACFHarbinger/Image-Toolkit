@@ -70,13 +70,13 @@ class TestWallpaperTab:
         mock_monitor = Monitor(name="Display1", x=0, y=0, width=1920, height=1080, is_primary=True)
         with (
             patch(
-                "gui.src.tabs.core.elements.system_display_subtab._wallpaper_worker.WallpaperWorker"
+                "gui.src.elements.wallpaper_tab.system_display_subtab._wallpaper_worker.WallpaperWorker"
             ),
             patch(
-                "gui.src.tabs.core.elements.common.wallpaper_common_base._scan_pipeline.ImageScannerWorker"
+                "gui.src.elements.wallpaper_tab.common.wallpaper_common_base._scan_pipeline.ImageScannerWorker"
             ),
             patch(
-                "gui.src.tabs.core.elements.common.wallpaper_common_base._monitor_layout.get_monitors",
+                "gui.src.elements.wallpaper_tab.common.wallpaper_common_base._monitor_layout.get_monitors",
                 return_value=[mock_monitor],
             ),
         ):
@@ -178,7 +178,7 @@ class TestWallpaperTab:
             mock_select.assert_called_once_with("0")
 
     def test_video_duration_caching(self, q_app):
-        from gui.src.tabs.core.elements.monitor_display_subtab import (
+        from gui.src.elements.wallpaper_tab.monitor_display_subtab import (
             _VIDEO_DURATION_CACHE,
             _get_video_duration,
         )
@@ -189,7 +189,7 @@ class TestWallpaperTab:
         video_path = "/tmp/dummy_test_video.mp4"
 
         with patch(
-            "gui.src.tabs.core.elements.monitor_display_subtab._traversal.subprocess.run"
+            "gui.src.elements.wallpaper_tab.monitor_display_subtab._traversal.subprocess.run"
         ) as mock_run:
             mock_run.return_value.stdout = " 12.34 \n"
 
@@ -206,7 +206,7 @@ class TestWallpaperTab:
 
     def test_clear_monitor_graph(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
-        from gui.src.tabs.core.elements.graph.data_schema import GraphData, NodeData
+        from gui.src.elements.wallpaper_tab.graph.data_schema import GraphData, NodeData
         g = GraphData()
         g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
         tab.monitor_display._graphs["0"] = g
@@ -225,7 +225,7 @@ class TestWallpaperTab:
         tab = WallpaperTab(db_tab_ref=MagicMock())
         tab.system_display._monitor_display_ref = tab.monitor_display
 
-        from gui.src.tabs.core.elements.graph.data_schema import GraphData, NodeData
+        from gui.src.elements.wallpaper_tab.graph.data_schema import GraphData, NodeData
         g = GraphData()
         g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
         tab.monitor_display._graphs["0"] = g
