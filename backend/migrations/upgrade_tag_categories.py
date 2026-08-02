@@ -1,14 +1,12 @@
 """Upgrade an existing library.db's tags table to the categorized model.
 
-Fresh installs get the new schema (``tag_categories``/``entity_tags``, and
-``tags.category_id`` instead of ``tags.type``) automatically via
-``schema.sql`` + ``tag_categories.seed()`` (wired into
-``session.ensure_schema``). This migration retrofits a DB created before the
-Danbooru-style tag overhaul: it applies the current DDL (creates
-``tag_categories``/``entity_tags`` if missing, seeds the default categories),
-then migrates each tag's legacy ``type`` string onto ``category_id`` (mapping
-the old image-tag type ``"Series"`` onto the renamed ``"Copyright"``
-category) and drops the now-unused ``type`` column.
+As of this session, ``session.ensure_schema()`` (called on every login)
+already self-heals a pre-DB.11 ``tags`` table automatically via
+``tag_categories.migrate_legacy_type_column()`` -- no manual step is
+required for the app to keep working. This script remains as an explicit,
+backup-first way to run that same migration standalone (e.g. before a
+scripted/offline maintenance pass), sharing the exact same migration
+function so the two paths can never drift apart.
 
 Usage:
     python backend/migrations/upgrade_tag_categories.py \\
@@ -34,10 +32,6 @@ from backend.src.database.unified import session, tag_categories  # noqa: E402
 DEFAULT_BACKUP_DIR = IMAGE_TOOLKIT_DIR / "backups"
 
 
-def _has_column(db, table: str, column: str) -> bool:
-    return any(row[1] == column for row in db.query(f"PRAGMA table_info({table})", ()))
-
-
 def run(
     password: str,
     salt: str,
@@ -50,11 +44,8 @@ def run(
     path = str(db_path if db_path is not None else session.DEFAULT_DB_PATH)
     db = base.database.Database(path, password, salt)
     try:
-        # Bring tag_categories/entity_tags (and any other new DDL) up to
-        # date first -- ensure_schema is idempotent (IF NOT EXISTS).
-        session.ensure_schema(db)
-
-        if not _has_column(db, "tags", "type"):
+        needs_migration = tag_categories.has_column(db, "tags", "type")
+        if not needs_migration:
             return {
                 "step": "upgrade_tag_categories",
                 "db_path": path,
@@ -67,43 +58,17 @@ def run(
             script="upgrade_tag_categories.py",
         )
 
-        if not _has_column(db, "tags", "category_id"):
-            db.execute(
-                "ALTER TABLE tags ADD COLUMN category_id INTEGER "
-                "REFERENCES tag_categories(id)"
-            )
-
-        rows = db.query(
-            "SELECT id, type FROM tags WHERE type IS NOT NULL AND type != ''", ()
-        )
-        migrated = 0
-        for tag_id, old_type in rows:
-            category_name = tag_categories.LEGACY_CATEGORY_ALIASES.get(old_type, old_type)
-            cat_rows = db.query(
-                "SELECT id FROM tag_categories WHERE name = ?", (category_name,)
-            )
-            category_id = cat_rows[0][0] if cat_rows else None
-            db.execute(
-                "UPDATE tags SET category_id = ? WHERE id = ?", (category_id, tag_id)
-            )
-            migrated += 1
-
-        dropped_type_column = False
-        try:
-            db.execute("ALTER TABLE tags DROP COLUMN type")
-            dropped_type_column = True
-        except Exception:
-            # Older SQLite builds (<3.35) lack DROP COLUMN support; the
-            # leftover unused column is harmless (nothing reads it anymore).
-            pass
+        # Same ordering session.ensure_schema() uses: the column must exist
+        # before schema.sql's DDL (its CREATE INDEX references category_id),
+        # then DDL + seed populate tag_categories, then backfill from the
+        # legacy type column and drop it.
+        session.ensure_schema(db)
 
         return {
             "step": "upgrade_tag_categories",
             "db_path": path,
             "already_upgraded": False,
             "backup_path": str(backup_path),
-            "tags_migrated": migrated,
-            "dropped_type_column": dropped_type_column,
         }
     finally:
         db.close()

@@ -33,8 +33,13 @@ def ensure_schema(db) -> None:
     SQLCipher has FTS5 — ``schema_meta.fts_enabled`` records the outcome so
     search_repo can degrade to LIKE queries.
     """
+    # Must run before apply_ddl: a pre-DB.11 `tags` table lacking
+    # category_id would otherwise make schema.sql's own
+    # `CREATE INDEX idx_tags_category ON tags(category_id)` fail outright.
+    tag_categories.ensure_category_id_column(db)
     db.apply_ddl(SCHEMA_SQL_PATH.read_text())
     tag_categories.seed(db)
+    tag_categories.migrate_legacy_type_column(db)
 
     fts_enabled = False
     if db.has_fts5():
