@@ -28330,7 +28330,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </tr>
 <tr>
 <td>G2.20A QSplitter persistence</td>
-<td><code>_persist_splitter(splitter, key)</code> module-level utility added to <code>listings_tab.py</code>. Restores state from <code>QSettings</code> on creation; saves on every <code>splitterMoved</code>. Applied to all three splitters in <code>listings_tab</code>: directory-import dialog, <code>ContentListingsSubTab</code>, and <code>EntityListingsSubTab</code>.</td>
+<td><code>_persist_splitter(splitter, key)</code> module-level utility added to <code>listings_tab.py</code>. Restores state from <code>QSettings</code> on creation; saves on every <code>splitterMoved</code>. Applied to all three splitters in <code>listings_tab</code>: directory-import dialog, <code>SeriesListingsSubTab</code>, and <code>EntityListingsSubTab</code>.</td>
 </tr>
 <tr>
 <td>G2.26B F2 Rename</td>
@@ -28415,7 +28415,7 @@ The existing <code>docs.yml</code> already manages a <code>gh-pages</code> deplo
 </tr>
 <tr>
 <td>Dual ratings</td>
-<td><code>_DetailPanel</code> in <code>ContentListingsSubTab</code> now has two separate rating fields: <strong>My Rating</strong> (<code>QSpinBox</code>, 0–10, integer stars) and <strong>Community Rating (MAL)</strong> (<code>QDoubleSpinBox</code>, 0.00–10.00). Old single-<code>rating</code> keys in stored JSON are transparently migrated to <code>personal_rating</code> on first load. Card thumbnails display personal rating as gold stars and MAL community score as a purple badge.</td>
+<td><code>_DetailPanel</code> in <code>SeriesListingsSubTab</code> now has two separate rating fields: <strong>My Rating</strong> (<code>QSpinBox</code>, 0–10, integer stars) and <strong>Community Rating (MAL)</strong> (<code>QDoubleSpinBox</code>, 0.00–10.00). Old single-<code>rating</code> keys in stored JSON are transparently migrated to <code>personal_rating</code> on first load. Card thumbnails display personal rating as gold stars and MAL community score as a purple badge.</td>
 </tr>
 <tr>
 <td>MAL web link auto-fill</td>

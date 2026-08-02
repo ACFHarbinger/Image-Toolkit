@@ -44,7 +44,7 @@ flowchart LR
 
     ---
 
-    Listings (Content · Entity) · Image Search · Scan and Tag · Maintenance
+    Listings (Content · Entity) · Image Search · Scan and Tag · Management
 
     *25 screenshots · covers the new Metadata Editor, side-by-side filter lists, and Image Registry*
 

@@ -7,26 +7,26 @@ flowchart LR
     Files[(Files on disk)] -->|Scan and Tag| DB[(library.db\nSQLCipher)]
     DB -->|Image Search| Results([Filtered thumbnails])
     DB <-->|Listings| Catalogue([Content & Entity records])
-    DB -->|Maintenance| Admin([Groups · Subgroups · Tags · Registry])
+    DB -->|Management| Admin([Groups · Subgroups · Tags · Registry])
 
     style DB fill:#0f766e,stroke:#2dd4bf,color:#ecfeff
     style Files fill:#1f2937,stroke:#94a3b8,color:#e5e7eb
 ```
 
 !!! tip "Recently changed"
-    The **Scan and Tag** batch-metadata flow, **Image Search**'s group/tag filters, and the **Maintenance** tab all got a significant upgrade — see the callouts marked :material-new-box: **New** below.
+    The **Scan and Tag** batch-metadata flow, **Image Search**'s group/tag filters, and the **Management** tab all got a significant upgrade — see the callouts marked :material-new-box: **New** below.
 
 ---
 
 ## Listings
 
-A personal catalogue of *content* (anime, movies, shows, books, manga, games…) and *entities* (people, studios, characters…), stored encrypted. Two subtabs: **Content Listings** and **Entity Listings**. Both show a searchable card gallery on the left and a detail panel for the selected entry on the right.
+A personal catalogue of *content* (anime, movies, shows, books, manga, games…) and *entities* (people, studios, characters…), stored encrypted. Two subtabs: **Series Listings** and **Entity Listings**. Both show a searchable card gallery on the left and a detail panel for the selected entry on the right.
 
-### Content Listings
+### Series Listings
 
 Each entry holds a title, type, status, ratings, year, episode counts, genres, tags, associated entities, an optional local file, a web link, a summary, and your review.
 
-![Content Listings detail/edit panel: title, type, status, ratings, episodes, associated entities, local file, web link, summary, review](images/library_database/content_listings_detail_panel.png)
+![Series Listings detail/edit panel: title, type, status, ratings, episodes, associated entities, local file, web link, summary, review](images/library_database/content_listings_detail_panel.png)
 
 - **⚡ Gen Thumbnail** — extracts a cover image *from the entry's associated Local File*. Point the entry's Local File at a video (or a file inside the series' folder), click the button, and a representative frame is grabbed and stored as the entry's thumbnail — no manual screenshotting. (The same button exists inside the episode editor to generate per-episode thumbnails.)
 - **Auto-Fill from MAL** — fetches metadata from MyAnimeList and fills the form (title, ratings, year, episode count, genres, synopsis, and — where the fetch method provides them — characters/staff matched to your entities). Only enabled while **Type = Anime**. Three fetch methods are selectable in *Settings → System and Logging → MyAnimeList Auto-Fill*: **Jikan** (default; richest data, no key, but depends on the Jikan proxy's health), **official MAL API v2** (needs a free client ID; no character/staff data), and **direct scraping** (no key, full data). Transient gateway errors (429/502/503/504) are retried automatically with backoff.
@@ -56,9 +56,9 @@ Entries for people and organizations connected to your content.
     ![Type filter dropdown: All Types, Person, Organization, Fictional Character, Other](images/library_database/entity_listings_type_filter_dropdown.png)
     ![Role filter dropdown: Actor/Seiyuu, Director, Producer, Writer, Studio, Publisher, Fictional Character, Other](images/library_database/entity_listings_role_filter_dropdown.png)
 
-- **Associated Content** — links the entity to Content Listings entries (the mirror of the content side's Associated Entities) via **Select Content**. The read-only box shows linked titles and scrolls when the list is long.
+- **Associated Series** — links the entity to Series Listings entries (the mirror of the content side's Associated Entities) via **Select Series**. The read-only box shows linked titles and scrolls when the list is long.
 
-    ![Select Associated Content picker dialog](images/library_database/entity_listings_select_content_dialog.png)
+    ![Select Associated Series picker dialog](images/library_database/entity_listings_select_series_dialog.png)
 
 - **Associated Entities** — links entities *to each other* (a character to their voice actor, a person to their studio…) via **Select Entities** — same picker-dialog pattern, shown here alongside the detail panel it feeds.
 
@@ -73,7 +73,7 @@ Entries for people and organizations connected to your content.
 
 - **📂 Import Dir** — a one-shot import wizard: pick a directory of video/image files → the wizard groups the files into detected series (or detects entity images) → configure shared metadata → confirm.
 
-    === "Content Listings"
+    === "Series Listings"
         Scans for video files, groups them into series by filename, and expects `<Series> - <##> [suffix].ext` naming. Per series it creates: title from the filename prefix, episode count from matching files, the first episode as the Local File, individual episode entries, and episode numbers parsed from filenames.
 
         ![Import Listings from Video Directory dialog: scan results table + shared metadata form](images/library_database/content_listings_import_dir_dialog.png)
@@ -105,7 +105,7 @@ Queries the image index of the unified library and shows matching thumbnails. It
 ![Image Search tab: Groups/Subgroups checkable lists (side by side) above Tag Types/Tags checkable lists (side by side)](images/library_database/image_search_main.png)
 
 - **Groups** (left list) — check any number of groups. **Subgroups** (right list) updates dynamically to show only subgroups belonging to the checked groups, each entry prefixed `Group:: Subgroup` (e.g. `Gaming:: League_Of_Legends`) so the parent is always visible even with several groups checked at once.
-- **Refresh Groups** — re-reads the group/subgroup list from the database; use after creating groups elsewhere (e.g. in Maintenance) so they appear here.
+- **Refresh Groups** — re-reads the group/subgroup list from the database; use after creating groups elsewhere (e.g. in Management) so they appear here.
 - **Tag Types** (left list) — check any number of tag *types* (`Series`, `Character`, `General`, `Genre`, …) to narrow which tags the **Tags** list (right) offers; **Refresh Tags** re-reads the tag vocabulary from the database.
 - **Filename pattern** and **Input formats** (collapsible sections) — file-system criteria independent of any DB metadata: a glob-style pattern (`*.png`, `img_001`) and per-format toggle buttons (with **Add All** / **Remove All**).
 
@@ -162,11 +162,11 @@ Clicking the green **Add/Update N Selected Images** button now opens a dedicated
 
 ---
 
-## Maintenance
+## Management
 
 Administration of the unified library store itself (this tab was the old "Database" tab; since Phase DB it manages the encrypted SQLCipher library).
 
-![Maintenance tab: Reset/Vacuum/Reindex actions, database statistics banner, and Populate Database section](images/library_database/maintenance_main.png)
+![Management tab: Reset/Vacuum/Reindex actions, database statistics banner, and Populate Database section](images/library_database/maintenance_main.png)
 
 ### Unified Library buttons
 
@@ -209,7 +209,7 @@ Anything else (objects per tag, nested structures) is rejected with a format err
 
 ### :material-new-box: Image Registry
 
-A new section at the bottom of the tab: a live table of **every filepath currently indexed in the database**, alongside its associated Group and Subgroup — the fastest way to answer "is this file actually in my library, and how is it filed?" without leaving Maintenance.
+A new section at the bottom of the tab: a live table of **every filepath currently indexed in the database**, alongside its associated Group and Subgroup — the fastest way to answer "is this file actually in my library, and how is it filed?" without leaving Management.
 
 ![Image Registry table: File Path, Group, Subgroup columns with a client-side filter box](images/library_database/maintenance_image_registry.png)
 

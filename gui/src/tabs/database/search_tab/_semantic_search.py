@@ -122,7 +122,7 @@ class _SemanticSearchMixin:
     def find_similar_images(self, file_path: str) -> None:
         """"Find similar" context-menu action -- query by *file_path*'s own
         embedding (computed on the fly; not persisted, unlike the
-        Maintenance backfill's stored embeddings)."""
+        Management backfill's stored embeddings)."""
         db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Please connect to the database first.")

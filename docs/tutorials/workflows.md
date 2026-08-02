@@ -421,7 +421,7 @@ Register a folder of images into the searchable index *and* create catalogue ent
 flowchart LR
     A["1. Select scanned images"] --> B["2. Add/Update N Selected Images"]
     B --> C["3a-c. Metadata Editor"]
-    C --> D["Listings -> Content Listings"]
+    C --> D["Listings -> Series Listings"]
     D --> E{"4. Import Dir wizard"}
     E -->|4a| F["Browse to folder"]
     F -->|4b| G(["Import Selected"])
@@ -450,7 +450,7 @@ flowchart LR
     | **Filter by Type toggle** | Hides/shows per-type checkboxes (`Artist`, `Series`, `Character`, `General`, `Meta`, …) that filter the tag list live. | Turn on once your tag vocabulary is large enough that scrolling to find one tag is slower than narrowing by type first. |
     | **Cluster + sequential pattern** | A named override applied on top of the Batch defaults for a chosen image subset; the pattern substitutes `{n}` with the 1-based position of each image *within that cluster*. | Fast path for tagging sequentially-numbered episode/page screenshots without editing each image's tab by hand. Overkill for a handful of images — just edit their tabs directly. |
 
-4. Switch to **Listings → Content Listings** and click **📂 Import Dir** to also create a catalogue entry for the show(s) in that same folder:
+4. Switch to **Listings → Series Listings** and click **📂 Import Dir** to also create a catalogue entry for the show(s) in that same folder:
 
     4a. In the **Import Listings from Video Directory** window, click **Browse..** and point it at the source folder.
 
@@ -467,7 +467,7 @@ flowchart LR
     Step 3's Group/Subgroup/Tags describe the *images* (for Image Search filtering); Step 4's Import Dir wizard creates the *show entries* (for the Listings catalogue). They read the same folder but populate different parts of the library — running both is what makes a folder fully searchable both by image metadata and by show.
 
 !!! info "Learn more"
-    The Group/Subgroup/Tag vocabulary this workflow writes into is managed centrally in [Maintenance](library_database.md#maintenance) — if you're about to catalogue a large, differently-organized batch for the first time, **Auto-Sync Groups and Subgroups from Source** there can bootstrap the whole hierarchy from your folder structure before you start this workflow, saving a lot of manual Group/Subgroup typing.
+    The Group/Subgroup/Tag vocabulary this workflow writes into is managed centrally in [Management](library_database.md#maintenance) — if you're about to catalogue a large, differently-organized batch for the first time, **Auto-Sync Groups and Subgroups from Source** there can bootstrap the whole hierarchy from your folder structure before you start this workflow, saving a lot of manual Group/Subgroup typing.
 
 ---
 

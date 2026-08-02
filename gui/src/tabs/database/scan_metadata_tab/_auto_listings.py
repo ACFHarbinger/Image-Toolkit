@@ -3,7 +3,7 @@ image groups, offer to auto-create/link a ``media_items`` listing for any
 touched group that has no linked listing yet.
 
 Hooked directly into the live upsert flow (``_upsert_ops.py``'s
-``_on_upsert_prepared``) rather than a standalone Maintenance action --
+``_on_upsert_prepared``) rather than a standalone Management action --
 the upsert flow already collects each entry's ``group_name`` and commits
 in one transaction, so "which groups were just touched" is a one-line
 collection, not new plumbing.

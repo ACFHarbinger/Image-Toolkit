@@ -838,7 +838,7 @@ make db-migrate
 psql postgresql://toolkit_user:password@localhost:5432/image_toolkit
 ```
 
-### Maintenance
+### Cleanup
 
 **Clean Build Artifacts:**
 ```bash

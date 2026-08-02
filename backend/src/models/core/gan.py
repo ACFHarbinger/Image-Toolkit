@@ -95,7 +95,7 @@ class GAN:
                         f"[Epoch {epoch}/{epochs}][Batch {i}] Loss_D: {loss_D.item():.4f} Loss_G: {loss_G.item():.4f}"
                     )
 
-            # End of Epoch Maintenance
+            # End of Epoch Management
             self.save_checkpoint(f"{save_path}/gan_epoch_{epoch}.pth")
             self.generate_and_save_images(epoch, save_path)
 

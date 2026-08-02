@@ -253,7 +253,7 @@ db-migrate: helper::_print_header
 lora-db-migrate: helper::_print_header
     just database::lora-db-migrate
 
-# --- Maintenance ---
+# --- Cleanup ---
 
 # Clean build artifacts and caches
 clean: helper::_print_header

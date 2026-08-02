@@ -316,7 +316,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `test`: Adding tests
 - `perf`: Performance improvement
 - `ci`: CI/CD changes
-- `chore`: Maintenance
+- `chore`: Management
 
 **Examples:**
 

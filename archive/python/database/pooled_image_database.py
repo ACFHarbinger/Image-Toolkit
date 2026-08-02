@@ -602,7 +602,7 @@ class PooledPgvectorDatabase:
             stats["last_sync_date"] = cur.fetchone()[0]
         return stats
 
-    # ── Maintenance ────────────────────────────────────────────────────────────
+    # ── Management ────────────────────────────────────────────────────────────
 
     def maintenance_vacuum(self, full: bool = False) -> None:
         # VACUUM requires autocommit=True — open a fresh raw connection outside pool

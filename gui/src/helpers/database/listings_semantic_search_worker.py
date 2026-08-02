@@ -4,7 +4,7 @@ text->media_item / text->entity. Mirrors ``semantic_search_worker.py``'s
 ``QThreadPool``, embed+query both happening off the GUI thread), but
 against ``SearchRepo`` directly rather than the image-domain facade --
 listings GUI code already constructs ``MediaRepo(db)``/``EntityRepo(db)``
-directly (see e.g. ``content_listings_subtab``/``entity_listings_subtab``),
+directly (see e.g. ``series_listings_subtab``/``entity_listings_subtab``),
 not through a facade, so this follows that same convention.
 """
 

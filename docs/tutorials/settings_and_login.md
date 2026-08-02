@@ -148,7 +148,7 @@ Save, load, and manage named configuration presets *per tab* — the configs ref
         ![Tab Class dropdown: Adjust, Animation Clusters, Canvas, Graph, Hybrid Stitch, Sequence Builder, Statistics, Stitch](images/settings_login/tab_configs_class_image_stitching_dropdown.png)
 
     === "Library Database"
-        ![Tab Class dropdown: Image Search, Listings, Maintenance, Scan and Tag](images/settings_login/tab_configs_class_library_database_dropdown.png)
+        ![Tab Class dropdown: Image Search, Listings, Management, Scan and Tag](images/settings_login/tab_configs_class_library_database_dropdown.png)
 
     === "System Tools"
         ![Tab Class dropdown: Convert, Extractor, Merge, Similarity, Wallpaper](images/settings_login/tab_configs_class_system_tools_dropdown.png)
@@ -223,7 +223,7 @@ Performance tuning, MyAnimeList integration, logging, and destructive reset acti
 
 #### MyAnimeList Auto-Fill
 
-**Auto-Fill Method** — which of the three fetch strategies the Content Listings **Auto-Fill from MAL** button uses:
+**Auto-Fill Method** — which of the three fetch strategies the Series Listings **Auto-Fill from MAL** button uses:
 
 ![Auto-Fill Method dropdown: Jikan API (Default), Official MyAnimeList API, Direct Website Scraping](images/settings_login/mal_autofill_method_dropdown.png)
 

@@ -1,5 +1,5 @@
 # tools/reducer/justfile
-# Maintenance & cleanup recipes
+# Management & cleanup recipes
 
 set shell := ["bash", "-c"]
 set unstable := true

@@ -1,6 +1,6 @@
 """DB.8a/DB.8b: detail-panel cross-domain link UI.
 
-- _DetailPanel (content listings) "Linked Image Groups" chip row + dialog.
+- _DetailPanel (series listings) "Linked Image Groups" chip row + dialog.
 - _EntityDetailPanel "Linked Images" gallery strip.
 """
 

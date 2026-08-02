@@ -1,6 +1,6 @@
 """Semantic (BGE-M3) "Search by Meaning" + embedding-index backfill for
 ``EntityListingsSubTab`` -- DB.7 listings side. Mirrors
-``content_listings_subtab/_semantic_search.py`` exactly, against
+``series_listings_subtab/_semantic_search.py`` exactly, against
 ``EntityRepo``/``entity`` embeddings instead of ``MediaRepo``/``media_item``.
 """
 
@@ -90,7 +90,7 @@ class _SemanticSearchMixin:
     @Slot()
     def _on_build_search_index(self) -> None:
         """Backfill BGE-M3 embeddings for every entity that doesn't have
-        one yet. No dedicated listings "Maintenance" tab exists, so this
+        one yet. No dedicated listings "Management" tab exists, so this
         lives right next to the search entry point that needs it."""
         if not self.vault_manager or not self.vault_manager.raw_password:
             QMessageBox.information(

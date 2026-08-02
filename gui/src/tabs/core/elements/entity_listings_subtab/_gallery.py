@@ -30,7 +30,7 @@ class _GalleryMixin:
 
     def _filtered_entities(self) -> List[Dict[str, Any]]:
         # Semantic search mode (DB.7): show results sorted by descending
-        # similarity score, same shape as content_listings_subtab's
+        # similarity score, same shape as series_listings_subtab's
         # _recommendation_results precedence.
         if getattr(self, "_semantic_search_results", None) is not None:
             assert self._semantic_search_results is not None

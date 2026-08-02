@@ -76,7 +76,7 @@ class _LinkedGroupsMixin:
                 self,
                 "No Image Groups",
                 "There are no image groups in the library yet. Create one from "
-                "the Library Maintenance tab first.",
+                "the Library Management tab first.",
             )
             return
 
@@ -109,7 +109,7 @@ class _LinkedGroupsMixin:
         exercises (command_combo + _select_tab_by_name) -- see
         gui/src/windows/main/_tab_search.py's _activate() -- via
         main_window_ref, threaded down from MainWindow through ListingsTab
-        -> ContentListingsSubTab -> this panel (mirrors the existing
+        -> SeriesListingsSubTab -> this panel (mirrors the existing
         search_tab_ref/merge_tab_ref cross-tab-reference pattern)."""
         if not self._entry_id:
             return

@@ -67,9 +67,9 @@ class _EntityCard(BaseCard):
         badge_row.addWidget(_badge(r[:9], ENTITY_ROLE_COLORS.get(r, "#607d8b")))
         layout.addLayout(badge_row)
 
-        # Associated content or credits count
+        # Associated series or credits count
         credits = entity.get("credit_list", [])
-        assoc = entity.get("associated_content", [])
+        assoc = entity.get("associated_series", [])
         assoc_count = len(assoc) if isinstance(assoc, list) else (1 if assoc else 0)
         if credits:
             info_text = f"Credits: {len(credits)}"
@@ -90,7 +90,7 @@ class _EntityCard(BaseCard):
 
         # Rating stars — REAL DB columns can surface float ratings; clamp to 0-10 int.
         try:
-            rating = int(round(float(entity.get("rating") or 0)))
+            rating = round(float(entity.get("rating") or 0))
         except (TypeError, ValueError):
             rating = 0
         rating = max(0, min(10, rating))

@@ -14,13 +14,13 @@ from PySide6.QtWidgets import (
 
 
 class _AssociatedContentDialog(QDialog):
-    """Multi-select dialog for linking content listings to an entity."""
+    """Multi-select dialog for linking series listings to an entity."""
 
     def __init__(
         self, all_entries: List[Dict[str, Any]], selected_ids: List[str], parent=None
     ):
         super().__init__(parent)
-        self.setWindowTitle("Select Associated Content")
+        self.setWindowTitle("Select Associated Series")
         self.setMinimumSize(420, 460)
         self.setStyleSheet("background:#2c2f33; color:white;")
 

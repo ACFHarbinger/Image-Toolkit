@@ -103,7 +103,7 @@ class _GroupFiltersMixin:
 
     def filter_by_group(self, group_name: str) -> None:
         """DB.8a: jump here already filtered to a single group (the
-        Content Listings detail panel's "View Images" action). Mirrors
+        Series Listings detail panel's "View Images" action). Mirrors
         search_by_tag()'s structure (_tag_filters.py) -- refresh from the
         DB first so a just-linked group that predates this SearchTab
         instance's last group-list refresh is guaranteed to be present,

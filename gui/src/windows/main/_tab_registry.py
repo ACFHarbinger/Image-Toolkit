@@ -37,6 +37,7 @@ class _TabRegistryMixin:
             WebRequestsTab,
         )
 
+        # pyrefly: ignore [missing-attribute]
         vault_manager = self.vault_manager
 
         # --- Tab Initialization ---
@@ -93,7 +94,7 @@ class _TabRegistryMixin:
                 "Listings": self.listings_tab,
                 "Image Search": self.search_tab,
                 "Scan and Tag": self.scan_metadata_tab,
-                "Maintenance": self.database_tab,
+                "Management": self.database_tab,
                 "Data Browser": self.data_browser_tab,
             },
             "Web Integration": {

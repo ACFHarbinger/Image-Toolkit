@@ -514,7 +514,7 @@ QT_LOGGING_RULES="qt.multimedia.ffmpeg.hwaccel=true" python main.py
 
 ### "Auto-Fill from MAL" fails with `Network error: 504 Server Error: Gateway Time-out`
 
-**Symptom:** Clicking "Auto-Fill from MAL" in the Content Listings detail panel shows a `QMessageBox.critical` with a message like:
+**Symptom:** Clicking "Auto-Fill from MAL" in the Series Listings detail panel shows a `QMessageBox.critical` with a message like:
 ```
 Network error: 504 Server Error: Gateway Time-out for url: https://api.jikan.moe/v4/anime?q=<title>&limit=1
 ```

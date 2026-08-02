@@ -41,7 +41,7 @@ class _UIConnectionMixin:
         self.btn_reset_db.hide()
         self.button_conn_layout.addWidget(self.btn_reset_db)
 
-        # Maintenance Buttons
+        # Management Buttons
         self.btn_vacuum = QPushButton("🧹 Vacuum Database")
         self.btn_vacuum.setStyleSheet(
             "background-color: #8e44ad; color: white; padding: 10px;"

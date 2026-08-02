@@ -123,7 +123,7 @@ help:
     @echo "  just module-graph              Generate import graph"
     @echo "  (run: just --list for every recipe)"
     @echo ""
-    @echo "{{bold}}Maintenance{{reset}}"
+    @echo "{{bold}}Management{{reset}}"
     @echo "  just clean                     Clean build artifacts and caches"
     @echo "  just clean-outputs             Clean ASP benchmark output dirs"
     @echo ""

@@ -1165,7 +1165,7 @@ Two methods were deliberately kept whole rather than force an unsafe split, foll
 | `helpers/animation/stitch_worker.py` | 936 | `bce3329e` |
 | `classes/abstract_class_single_gallery.py` | 870 | `592dd957` |
 | `tabs/web/image_crawler_tab.py` | 834 | `44e538eb` |
-| `tabs/core/elements/content_listings_subtab.py` | 774 | `d1d8e283` |
+| `tabs/core/elements/series_listings_subtab.py` | 774 | `d1d8e283` |
 | `tabs/core/elements/codec_subtab.py` | 757 | `137a91b8` |
 | `tabs/web/drive_sync_tab.py` | 615 | `67032746` |
 | `tabs/core/elements/entity_listings_subtab.py` | 591 | `dd600458` |
