@@ -1230,28 +1230,32 @@ Not every file over 500 lines is equally worth splitting right now. Rank by *(si
 
 ## 5.18 `gui/src` Structural Reorganization (second layer, post-§5.17) {: #518-guisrc-structural-reorganization }
 
-**Priority: Medium. Done, 2026-08-02 — all four tab-family moves plus the listings display/ follow-up shipped; the remaining surveyed directories need no directory-level move (see below).**
+**Priority: Medium. Done, 2026-08-03 (two rounds — the first round's flat `elements/<tab>/` layout and top-level `gui/src/database/` were corrected in a second round once reviewed).**
 
-§5.17 split individual oversized *files* into `manager.py` + private `_foo.py` submodule packages, but left every such package sitting directly under `gui/src/tabs/<category>/` (or `gui/src/tabs/<category>/elements/`). This section is the follow-on: `gui/src/tabs/<category>/` should hold only one thin `.py` file per tab and one per subtab — a re-export shim, nothing else — with the real implementation living in `gui/src/elements/` (tab-specific implementation) or `gui/src/database/` (the Listings tab family specifically, since it's a database-domain feature). `gui/src/components/` continues to hold genuinely cross-tab reusable widgets; `gui/src/classes/` holds abstract/meta base classes; `gui/src/windows/` already correctly holds window-level UI and needs no directory-level move (it was never nested under `tabs/`).
+§5.17 split individual oversized *files* into `manager.py` + private `_foo.py` submodule packages, but left every such package sitting directly under `gui/src/tabs/<category>/` (or `gui/src/tabs/<category>/elements/`). This section is the follow-on: `gui/src/tabs/<category>/` holds only one thin `.py` file per tab and one per subtab — a re-export shim, nothing else — with the real implementation living in `gui/src/elements/<category>/`, mirroring the category structure `gui/src/tabs/` and `gui/src/helpers/` already use (`core/`, `database/`, `animation/`, `web/`, `models/`). `gui/src/components/` holds genuinely cross-tab reusable widgets; `gui/src/classes/` holds abstract/meta base classes, itself split into category subdirs (`image/` for the gallery abstract classes) the same way; `gui/src/windows/` already correctly holds window-level UI, never nested under `tabs/`.
 
-**✅ Shipped 2026-08-02 (four sequential moves, each `git mv` + import-site fixes + scoped test verification):**
+**Round 1 (2026-08-02, commits `9c2c5e8e`..`8f17392b`)** moved four tab families out of `tabs/` but used a flat `gui/src/elements/<tab_name>/` layout (one subdir per tab, no category grouping) and put the Listings family directly at top-level `gui/src/database/` — both wrong. Round 2 below corrected this.
 
-| Move | From | To | Commit |
-|---|---|---|---|
-| Listings tab family | `tabs/core/{listings_tab.py,elements/{series_listings_subtab,entity_listings_subtab,display/detail_panel,display/entity_detail_panel.py,display/entity_card.py,dialog/}}` | `gui/src/database/` (new package) | `9c2c5e8e` |
-| Wallpaper/Merge tabs + canvas commonality | `tabs/core/{wallpaper_tab.py,merge_tab/,elements/{graph,monitor_display_subtab,system_display_subtab,common/wallpaper_common_base}}` | `gui/src/elements/{wallpaper_tab,merge_tab}/`; new shared `gui/src/components/containers/canvas_base.py` (`CanvasBase(QGraphicsView)`, extracted from real duplicated pan/rubber-band-drag logic confirmed between `MergeCanvas` and the wallpaper graph view) | `ba73cb55` |
-| Library Database tab family | `tabs/database/{database_tab,search_tab,scan_metadata_tab,data_browser_tab}/` | `gui/src/elements/` | `e77ac67a` |
-| Animation/Web/Models tabs | `tabs/animation/{stitch_tab,dialog}/`, `tabs/web/{drive_sync_tab,entity_recon_tab,image_crawler_tab}/`, `tabs/models/delta/cbir_train_tab/` | `gui/src/elements/` (`dialog/` nested under `stitch_tab/` — confirmed stitch-exclusive by grep, not generic) | `8f17392b` |
+**Round 2 (2026-08-03) — final structure, category-nested throughout:**
 
-Each move left a thin single-file re-export shim at the old `tabs/<category>/<name>.py` path so every existing instantiation site (`_tab_registry.py`, `main_backend.py`, QML property bindings) needed no changes — QML binds to Python object attribute names, not module import paths, confirmed unaffected throughout. One real circular-import bug was found and fixed during the `stitch_tab` move (an eager module-level import of the still-unmoved `tabs/animation/stencil` package through the new shim; fixed by making the import local to the functions that use it).
+| Move | Result | Commit |
+|---|---|---|
+| `elements/{wallpaper_tab,merge_tab}/` + `tabs/core/{extractor_tab,similarity_tab}/` (never split before) + `tabs/core/elements/{codec_subtab,format_subtab,sampler_subtab,image_extractor_subtab.py}` | `gui/src/elements/core/` — new thin shims added for `extractor_tab.py`/`similarity_tab.py`/`codec_subtab.py`/`format_subtab.py`/`sampler_subtab.py`/`image_extractor_subtab.py` in `tabs/core/` (only `wallpaper_tab.py`/`merge_tab.py` existed before) | `9152239a` |
+| top-level `gui/src/database/` (listings family) + `elements/{database_tab,search_tab,scan_metadata_tab,data_browser_tab}/` | `gui/src/elements/database/` (one merged package) | `ae57eb1f` |
+| `elements/stitch_tab/`, `elements/{drive_sync_tab,entity_recon_tab,image_crawler_tab}/`, `elements/cbir_train_tab/` | `gui/src/elements/animation/stitch_tab/`, `gui/src/elements/web/{...}/`, `gui/src/elements/models/delta/cbir_train_tab/` (mirrors `tabs/models/delta/`) | `a48a30fc` |
+| `classes/{abstract_class_single_gallery,abstract_class_two_galleries}/` | `gui/src/classes/image/{...}/` | `dfc470f2` |
+| `windows/crawler_selection_dialogs.py` | `gui/src/components/dialogs/crawler_selection_dialogs.py` (it's a dialog, not a window) | `1b6a9b11`+`76027049` |
 
-**✅ Follow-up shipped 2026-08-02 (issue #174, commits `4c798de7`+`3cc322d6`):** `gui/src/tabs/core/elements/display/listing_card.py` and `display/common/{base_card.py,base_detail_panel.py}` — confirmed listings-exclusive by grep (same pattern as `entity_card.py`) — moved into `gui/src/database/display/`; the old `gui/src/tabs/core/elements/display/` directory removed entirely now that nothing remains under it.
+Also cleaned up several empty leftover directories Round 1's `git mv` calls left behind (git doesn't track empty dirs, so these were untracked filesystem cruft — `tabs/core/merge_tab/`, several emptied `tabs/core/elements/*` subdirs) — see commit `1b6a9b11`.
 
-**Surveyed, no move needed (issue #174, closed):**
+Every move left a thin single-file re-export shim at the old `tabs/<category>/<name>.py` path so every existing instantiation site (`_tab_registry.py`, `main_backend.py`, QML property bindings) needed no changes — QML binds to Python object attribute names, not module import paths, confirmed unaffected throughout both rounds. Circular-import bugs found and fixed along the way: an eager module-level import of `tabs/animation/stencil` through the `stitch_tab` shim (Round 1), and `extractor_tab`'s label imports pulling in the whole `gui.src.tabs`/`gui.src.tabs.core` aggregator chain mid-initialization (Round 2, `9152239a`) — both fixed by deferring the import to inside the function that uses it.
+
+**Surveyed, no move needed:**
 - `gui/src/windows/settings/` (17 files, ~4,657 code lines) and `gui/src/windows/main/` (17 files, ~2,768 code lines) — already correctly under `windows/`, not `tabs/`; candidates for further *internal* splitting if churn/blast-radius analysis (§5.17 Option E) ever warrants it, but that's a different kind of work than this section's directory-level moves.
 - `gui/src/helpers/animation/` (14 files, ~2,826 code lines, including an 819-line private `_progress_pipeline.py` — deliberately not split further per §5.17's own note above) — helpers, not tabs, out of this section's scope.
-- `gui/src/classes/abstract_class_single_gallery/` and `abstract_class_two_galleries/` (§5.10 already tracks their overlap) — already under `classes/`.
 - `gui/src/components/views/display/` (7 files, ~713 code lines) — already correctly under `components/`.
+
+**Verification (Round 2):** every moved/touched file `py_compile`-clean; a single-process import of all 32 moved modules + thin shims together succeeds (catches cross-move circular-import issues no single agent's isolated check would see); scoped `--run-gui` pytest sweeps across `gui/test/{core,database,web,dialogs,image}/` all green except pre-existing, confirmed-unrelated issues: two `test_cancel_loading_*` mock-assertion failures (confirmed identical on `git stash`-restored pre-session code), one stale `db_host` attribute test (confirmed via `git log -S` predates the Postgres→SQLCipher migration), and `test_tag_review_dialog.py` hanging in isolation (confirmed: file and its full dependency chain untouched by any commit this session).
 
 No further gui/src directory-level reorg work is currently outstanding.
 

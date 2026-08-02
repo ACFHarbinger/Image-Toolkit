@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S288 — 2026-08-03 (Critical DB.11 fix + gui/src reorg Round 2: category-nested elements/, classes/image/)
+
+**Critical fix**: DB.11's schema.sql added `tags.category_id` and an index on it, but `CREATE TABLE IF NOT EXISTS` is a no-op against an already-existing `tags` table — so every live database created before DB.11 hit "no such column: category_id" on login, breaking listings load/save entirely, since the fix required an undocumented manual CLI migration nobody was told to run. Fixed by wiring the retrofit directly into `session.ensure_schema()` in two correctly-ordered phases (`ensure_category_id_column()` before `schema.sql` DDL, `migrate_legacy_type_column()` after `seed()`) so any pre-DB.11 database self-heals automatically on next login (`a528409b`). Verified against a simulated legacy `tags` table and confirmed idempotent.
+
+**gui/src reorg Round 2**: Round 1 (S286) moved four tab families out of `tabs/` but used a flat `gui/src/elements/<tab_name>/` layout and a top-level `gui/src/database/` — both wrong per review. Round 2 corrected this: `elements/` now mirrors `tabs/`'s category structure (`core/`, `database/`, `animation/`, `web/`, `models/`); the Listings family moved from top-level `gui/src/database/` into `elements/database/`, merged with the database-tab family; `extractor_tab`/`similarity_tab` (never split before) and convert-tab's subtabs (`codec_subtab`/`format_subtab`/`sampler_subtab`/`image_extractor_subtab.py`) moved into `elements/core/` with new thin shims; `classes/{abstract_class_single_gallery,abstract_class_two_galleries}/` moved into `classes/image/`; `windows/crawler_selection_dialogs.py` moved into `components/dialogs/` (it's a dialog, not a window). Also cleaned up empty leftover directories Round 1's moves left behind. See [architecture.md §5.18](../moon/roadmaps/architecture.md#518-guisrc-structural-reorganization) for the full move table.
+
+Also fixed: `test_web_tab.py`'s mock-patch targets for the moved crawler dialog, and two commits recovering staging mistakes (a bad pathspec in a multi-path `git add` silently aborted staging for the rest of that command twice this session — both caught and fixed in follow-up commits).
+
+Tests: full single-process import of all 32 moved modules/shims together (catches cross-move circular-import issues no single move's isolated check would see); scoped `--run-gui` sweeps across `gui/test/{core,database,web,dialogs,image}/` all green except pre-existing, confirmed-unrelated failures (two `test_cancel_loading_*` mock-assertion bugs, one stale `db_host` test predating the Postgres→SQLCipher migration, `test_tag_review_dialog.py` hanging in isolation with a fully untouched dependency chain); `backend/test/database/` 103/103 green.
+
 ## S287 — 2026-08-02 (Closed issues #174/#175/#176: display/ move follow-up, stale test mock, associated_content key fix)
 
 Follow-up session closing the three issues opened during S286.
