@@ -79,6 +79,24 @@ export interface PageCaptureResponse {
   error?: string;
 }
 
+/**
+ * Background → content script: re-resolve the full-resolution URL for the
+ * element the user last right-clicked (§7.11 context-menu correlation).
+ * `srcUrl` is the raw URL Chrome's context-menu API reported, used as the
+ * fallback when no better candidate can be found (e.g. the content script
+ * was reloaded/navigated since the right-click).
+ */
+export interface ResolveContextImageMsg {
+  action: "resolve_context_image";
+  srcUrl: string;
+}
+
+export interface ResolveContextImageResponse {
+  /** The best URL found: upgraded srcset/lazy-attr/data-table candidate,
+   * a canvas `data:` capture, or the original `srcUrl` if nothing better. */
+  url: string;
+}
+
 export type ExtensionMessage =
   | DownloadImageMsg
   | ScanDupTabsMsg
@@ -88,7 +106,8 @@ export type ExtensionMessage =
   | DownloadAllMediaMsg
   | StartSelectionOverlayMsg
   | DownloadBatchMsg
-  | CaptureVideoFrameMsg;
+  | CaptureVideoFrameMsg
+  | ResolveContextImageMsg;
 
 /** One duplicate set: ≥2 tabs sharing the same normalized URL. */
 export interface DupTabSet {

@@ -17,7 +17,7 @@ import {
   type SimilarResult,
 } from "./shared/bridge";
 import { parseImageMetadata } from "./shared/imageMeta";
-import type { ExtensionMessage } from "./shared/messages";
+import type { ExtensionMessage, ResolveContextImageResponse } from "./shared/messages";
 
 const MENU_ID = "save-to-custom-folder";
 const SAVE_PROFILE_MENU_ID = "save-to-profile";
@@ -166,6 +166,30 @@ export async function downloadImage(
       conflictAction: "uniquify",
       saveAs: false,
     });
+  }
+}
+
+/**
+ * §7.11 context-menu correlation: `info.srcUrl` from the context-menu API is
+ * often a thumbnail (site lazy-loading, srcset, or a raw `<canvas>` with no
+ * `srcUrl` at all). Ask the tab's content script to re-resolve the best URL
+ * for the element the user actually right-clicked; falls back to the raw
+ * `fallbackUrl` if the tab has no content script (browser-internal pages)
+ * or the round trip otherwise fails.
+ */
+async function resolveContextImageUrl(
+  tabId: number | undefined,
+  fallbackUrl: string,
+): Promise<string> {
+  if (tabId === undefined) return fallbackUrl;
+  try {
+    const resp = (await api.tabs.sendMessage(tabId, {
+      action: "resolve_context_image",
+      srcUrl: fallbackUrl,
+    })) as ResolveContextImageResponse | undefined;
+    return resp?.url || fallbackUrl;
+  } catch {
+    return fallbackUrl;
   }
 }
 
@@ -324,12 +348,16 @@ api.contextMenus.onClicked.addListener((info, tab) => {
   if (!info.srcUrl) return;
 
   if (menuId === MENU_ID) {
-    void downloadImage(info.srcUrl, info.pageUrl);
+    void resolveContextImageUrl(tab?.id, info.srcUrl).then((url) =>
+      downloadImage(url, info.pageUrl),
+    );
     return;
   }
   if (menuId.startsWith(`${SAVE_PROFILE_MENU_ID}:`)) {
     const profile = menuId.slice(SAVE_PROFILE_MENU_ID.length + 1);
-    void downloadImage(info.srcUrl, info.pageUrl, undefined, profile);
+    void resolveContextImageUrl(tab?.id, info.srcUrl).then((url) =>
+      downloadImage(url, info.pageUrl, undefined, profile),
+    );
     return;
   }
   if (menuId === DUP_CHECK_MENU_ID) {

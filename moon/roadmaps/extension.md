@@ -247,18 +247,16 @@ Verified via `npm run typecheck` (clean) and `npm run build:chrome` (compiles). 
 
 ## 7.11 Full-Resolution Extraction
 
-**Status: 🔄 Core shipped (S208, 2026-07-04).** `shared/extractor.ts`: srcset/`<picture>` scoring, lazy-load attrs, CSS background fallback; wired into turbo mode. Remaining: per-site URL upgrade table, canvas `toDataURL` fallback, context-menu correlation.
+**Status: ✅ Shipped (S208 core 2026-07-04; URL-upgrade table + canvas fallback + context-menu correlation 2026-08-02, issue #104).** `shared/extractor.ts`: srcset/`<picture>` scoring, lazy-load attrs, CSS background fallback; wired into turbo mode.
 
 **Pain point:** `img.src` is often a thumbnail: `srcset`/`<picture>` variants, lazy-load attributes (`data-src`, `data-original`), CSS `background-image`, and `<canvas>` renders are all missed; sites like Twitter/Pixiv serve downscaled defaults.
 
-**Approach (selected):**
-- Shared extractor in `content.ts` used by turbo mode, context menu (via `info.srcUrl` correlation), and the §7.9 grabber:
-  - Parse `srcset`/`sizes` and `<picture><source>` to pick the largest candidate by descriptor.
-  - Check lazy-load attributes (`data-src`, `data-original`, `data-lazy-src`, common gallery attrs) when present and larger.
-  - Resolve CSS `background-image: url(...)` on the hit-tested element chain (extends the existing `elementsFromPoint` walk, which already handles overlay layers).
-  - `<canvas>` fallback: `toDataURL()` capture (subject to taint), routed through the message channel as `data_b64`.
-  - Optional per-site URL upgrades table (e.g. strip `/thumb/`, `name=small` → `name=orig`) maintained as data, not code.
-- Picker returns `{best_url, width?, height?, origin_element}` so the UI can show "1200×1600 (upgraded from 300×400)".
+**Remaining three items, all shipped:**
+- **Per-site URL upgrade table**: `URL_UPGRADE_RULES` (`shared/extractor.ts`, data, not code — a new rule is a one-line addition) covers Pixiv (`img-master` → `img-original`, strips the `_masterNNNN` size suffix), Twitter/X (`?name=small|medium|…` → `?name=orig`), Danbooru/Gelbooru-style `/sample/sample-*` paths, Tumblr's `_75`…`_540` size suffixes → `_1280`, and generic WordPress `-300x200.jpg`-style resized filenames. `applyUrlUpgrade()` runs as the final pass in `bestImageUrl()` after srcset/lazy-attr scoring. Verified against 6 realistic sample URLs (one per rule + one pass-through case) in a standalone Node harness, since this package has no test framework configured — all correct.
+- **`<canvas>` fallback**: new `canvasDataUrl()` calls `toDataURL("image/png")`, returning `null` (not throwing) on a tainted cross-origin canvas or a zero-size one — treated as "no candidate," matching how the existing srcset/background paths already degrade gracefully rather than surfacing an error. `findImageAt()` now checks `<canvas>` between `<img>` and CSS-background in its `elementsFromPoint` walk, so canvas-rendered art (viewers/editors that never put a bitmap in an `<img>`) is now capturable via Turbo Mode.
+- **Context-menu correlation**: previously, right-clicking an `<img>` and choosing "Save to selected directory" used Chrome's raw `info.srcUrl` directly — the *thumbnail* URL, with none of the srcset/lazy-attr/URL-upgrade logic applied, since the background service worker has no DOM access. New `resolve_context_image` message (`shared/messages.ts`) + `resolveContextImageUrl()` in `content.ts` reuses the existing `lastContextTarget` element-tracking `videoCapture.ts` already built for §7.15A's video-frame capture (new `getContextTarget()` getter added there) to look up the exact right-clicked element and re-run `bestImageUrl()`/`canvasDataUrl()`/`backgroundImageUrl()` against it. `background.ts`'s "Save to selected directory" and "Save to profile ▸" handlers now round-trip through this before downloading, falling back to the raw `info.srcUrl` if the content script can't be reached (browser-internal pages) or the round trip errors.
+
+Tests: `npm run typecheck` (clean) and `npm run build:chrome` (compiles) for all touched files; URL-upgrade rules additionally verified in a standalone Node harness (6/6 cases) since no jest/vitest is configured for this package.
 
 **Effort:** ~4d · **Impact:** High (quality of every saved image; core to the toolkit's purpose)
 

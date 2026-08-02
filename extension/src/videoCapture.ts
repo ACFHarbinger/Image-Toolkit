@@ -21,6 +21,11 @@ export function rememberContextTarget(el: Element | null): void {
   lastContextTarget = el;
 }
 
+/** The element the user last opened a context menu on (§7.11 correlation). */
+export function getContextTarget(): Element | null {
+  return lastContextTarget;
+}
+
 function findVideo(srcUrl?: string): HTMLVideoElement | null {
   if (lastContextTarget instanceof HTMLVideoElement) return lastContextTarget;
   const videos = [...document.querySelectorAll<HTMLVideoElement>("video")];

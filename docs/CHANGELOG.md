@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S284 — 2026-08-02 (Extension 7.11: URL-upgrade table + canvas fallback + context-menu correlation — issue #104)
+
+Closes the last three open items in `moon/roadmaps/extension.md` §7.11; the section is now fully shipped.
+
+**Per-site URL upgrade table**: new `URL_UPGRADE_RULES` data table in `shared/extractor.ts` (Pixiv `img-master`→`img-original`, Twitter/X `?name=`→`orig`, Danbooru/Gelbooru `/sample/sample-*`, Tumblr size-suffix upgrade, generic WordPress `-WxH` resize suffix stripping), applied as `applyUrlUpgrade()` at the end of `bestImageUrl()`. **Canvas fallback**: new `canvasDataUrl()` (`toDataURL("image/png")`, returns `null` rather than throwing on a tainted/zero-size canvas) wired into `findImageAt()` between the `<img>` and CSS-background checks. **Context-menu correlation**: new `resolve_context_image` message + `resolveContextImageUrl()` in `content.ts`, reusing `videoCapture.ts`'s existing `lastContextTarget` tracking (new `getContextTarget()` getter) to re-run the full extractor against the exact right-clicked element instead of trusting Chrome's raw (often-thumbnail) `info.srcUrl` — `background.ts`'s "Save to selected directory" and "Save to profile ▸" handlers now round-trip through this, falling back to the raw URL if the content script can't be reached.
+
+Verified via `npm run typecheck` (clean), `npm run build:chrome` (compiles), and a standalone Node harness exercising all 5 upgrade rules + 1 pass-through case (6/6 correct) — no test framework is configured for this package.
+
 ## S283 — 2026-08-01 (Extension 7.10: named folder profiles + quick-switch — issue #103)
 
 Closes the last open item in `moon/roadmaps/extension.md` §7.10 (folder profiles + context-submenu quick-switch); the section is now fully shipped.

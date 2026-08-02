@@ -6,7 +6,13 @@
  * worker to download it, while blocking the site's own handlers.
  */
 import { api, storageGet } from "./shared/api";
-import { findImageAt } from "./shared/extractor";
+import {
+  applyUrlUpgrade,
+  backgroundImageUrl,
+  bestImageUrl,
+  canvasDataUrl,
+  findImageAt,
+} from "./shared/extractor";
 import { collectPageMedia } from "./shared/pageMedia";
 import {
   startSelectionOverlay,
@@ -14,6 +20,7 @@ import {
 } from "./contentOverlay";
 import {
   captureVideoFrames,
+  getContextTarget,
   rememberContextTarget,
 } from "./videoCapture";
 import type {
@@ -21,6 +28,7 @@ import type {
   DownloadBatchMsg,
   ExtensionMessage,
   PageCaptureResponse,
+  ResolveContextImageResponse,
 } from "./shared/messages";
 
 // Track the element under the last context-menu so video capture can find
@@ -61,13 +69,38 @@ const flashCaptured = (el: Element): void => {
   }, 450);
 };
 
+/**
+ * Re-resolve the best URL for the element the user last right-clicked
+ * (§7.11 context-menu correlation) — an <img> right-click only gives the
+ * background worker `info.srcUrl`, the raw (often thumbnail) URL, with no
+ * access to the DOM to check srcset/lazy-load attrs or the URL-upgrade
+ * table; a <canvas> right-click gives no `srcUrl` at all. Falls back to
+ * `fallbackUrl` when the remembered target doesn't resolve to anything
+ * better (e.g. the page navigated since the right-click).
+ */
+function resolveContextImageUrl(fallbackUrl: string): string {
+  const target = getContextTarget();
+  if (target instanceof HTMLImageElement && target.src) {
+    return bestImageUrl(target);
+  }
+  if (target instanceof HTMLCanvasElement) {
+    const dataUrl = canvasDataUrl(target);
+    if (dataUrl) return dataUrl;
+  }
+  if (target) {
+    const bg = backgroundImageUrl(target);
+    if (bg) return bg;
+  }
+  return applyUrlUpgrade(fallbackUrl);
+}
+
 // --- Bulk page capture (§7.9) ---
 
 api.runtime.onMessage.addListener(
   (
     request: ExtensionMessage,
     _sender,
-    sendResponse: (r: PageCaptureResponse) => void,
+    sendResponse: (r: PageCaptureResponse | ResolveContextImageResponse) => void,
   ) => {
     if (request.action === "download_all_media") {
       const media = collectPageMedia();
@@ -97,6 +130,10 @@ api.runtime.onMessage.addListener(
         sendResponse(r as PageCaptureResponse),
       );
       return true; // async response
+    }
+    if (request.action === "resolve_context_image") {
+      sendResponse({ url: resolveContextImageUrl(request.srcUrl) });
+      return false;
     }
     return false;
   },
