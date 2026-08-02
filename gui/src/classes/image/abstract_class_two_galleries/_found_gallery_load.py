@@ -22,7 +22,7 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel
 from shiboken6 import Shiboken
 
-from ...helpers import BatchImageLoaderWorker, BatchVideoLoaderWorker, VideoLoaderWorker
+from ....helpers import BatchImageLoaderWorker, BatchVideoLoaderWorker, VideoLoaderWorker
 
 
 class _FoundGalleryLoadMixin:

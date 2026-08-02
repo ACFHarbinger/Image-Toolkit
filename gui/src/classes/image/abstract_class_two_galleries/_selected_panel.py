@@ -16,9 +16,9 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QWidget
 from shiboken6 import Shiboken
 
-from ...components import ClickableLabel
-from ...helpers import BatchImageLoaderWorker, ImageLoaderWorker
-from ..mixins import install_drag_reorder
+from ....components import ClickableLabel
+from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker
+from ...mixins import install_drag_reorder
 
 
 class _SelectedPanelMixin:

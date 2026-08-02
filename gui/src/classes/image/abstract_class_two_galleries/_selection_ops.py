@@ -11,8 +11,8 @@ import contextlib
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QApplication
 
-from ...utils.sort_utils import natural_sort_key
-from ..mixins import compute_reordered
+from ....utils.sort_utils import natural_sort_key
+from ...mixins import compute_reordered
 
 
 class _SelectionOpsMixin:

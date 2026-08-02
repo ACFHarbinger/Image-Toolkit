@@ -34,10 +34,10 @@ classDiagram
     MetaAbstractClassGallery ..> AbstractClassTwoGalleries : metaclass
 ```
 """
-from .abstract_class_single_gallery import (
+from .image.abstract_class_single_gallery import (
     AbstractClassSingleGallery as AbstractClassSingleGallery,
 )
-from .abstract_class_two_galleries import (
+from .image.abstract_class_two_galleries import (
     AbstractClassTwoGalleries as AbstractClassTwoGalleries,
 )
 from .base import (

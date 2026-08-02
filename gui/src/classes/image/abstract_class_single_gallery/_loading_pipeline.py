@@ -18,9 +18,9 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
 from shiboken6 import Shiboken
 
-from ...helpers import BatchImageLoaderWorker, ImageLoaderWorker, VideoLoaderWorker
-from ...utils.cache.lru_image_cache import LRUImageCache
-from ...utils.sort_utils import natural_sort_key
+from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker, VideoLoaderWorker
+from ....utils.cache.lru_image_cache import LRUImageCache
+from ....utils.sort_utils import natural_sort_key
 
 
 class _LoadingPipelineMixin:

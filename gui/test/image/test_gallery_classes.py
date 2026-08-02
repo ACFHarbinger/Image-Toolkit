@@ -1,8 +1,12 @@
 from typing import Optional
 
 import pytest
-from gui.src.classes.abstract_class_single_gallery import AbstractClassSingleGallery
-from gui.src.classes.abstract_class_two_galleries import AbstractClassTwoGalleries
+from gui.src.classes.image.abstract_class_single_gallery import (
+    AbstractClassSingleGallery,
+)
+from gui.src.classes.image.abstract_class_two_galleries import (
+    AbstractClassTwoGalleries,
+)
 from gui.src.classes.base.gallery_base import AbstractGalleryBase
 from gui.src.components import MarqueeScrollArea
 from PySide6.QtGui import QImage, QPixmap
@@ -108,7 +112,7 @@ class DummyGallery(AbstractGalleryBase):
 @pytest.fixture
 def gallery(q_app, mock_image_loader_worker, monkeypatch):
     monkeypatch.setattr(
-        "gui.src.classes.abstract_class_single_gallery._loading_pipeline.ImageLoaderWorker",
+        "gui.src.classes.image.abstract_class_single_gallery._loading_pipeline.ImageLoaderWorker",
         mock_image_loader_worker,
     )
     return ConcreteSingleGallery()
@@ -122,11 +126,11 @@ def two_galleries(q_app, mock_image_loader_worker, monkeypatch):
     # fixture's guarantee holds regardless of which internal path a test
     # exercises.
     monkeypatch.setattr(
-        "gui.src.classes.abstract_class_two_galleries._selected_panel.ImageLoaderWorker",
+        "gui.src.classes.image.abstract_class_two_galleries._selected_panel.ImageLoaderWorker",
         mock_image_loader_worker,
     )
     monkeypatch.setattr(
-        "gui.src.classes.abstract_class_two_galleries._found_gallery_populate.ImageLoaderWorker",
+        "gui.src.classes.image.abstract_class_two_galleries._found_gallery_populate.ImageLoaderWorker",
         mock_image_loader_worker,
     )
     return ConcreteTwoGalleries()

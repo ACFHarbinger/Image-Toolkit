@@ -12,8 +12,8 @@ from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 
-from ...components import ClickableLabel
-from ...helpers import ImageLoaderWorker
+from ....components import ClickableLabel
+from ....helpers import ImageLoaderWorker
 
 
 class _FoundGalleryPopulateMixin:
