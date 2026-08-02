@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict
 
-from gui.src.tabs.core.elements.dialog.advanced_search_dialog import _AdvancedSearchDialog
+from gui.src.database.dialog.advanced_search_dialog import _AdvancedSearchDialog
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox

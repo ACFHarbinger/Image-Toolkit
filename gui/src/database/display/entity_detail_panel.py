@@ -13,11 +13,11 @@ from gui.src.constants.listings import (
 from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.image import apply_thumbnail_to_label
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
-from gui.src.tabs.core.elements.dialog import (
+from gui.src.database.dialog import (
     _AssociatedContentDialog,
     _AssociatedEntitiesDialog,
 )
-from gui.src.tabs.core.elements.dialog.credit_dialog import _CreditDialog
+from gui.src.database.dialog.credit_dialog import _CreditDialog
 from gui.src.tabs.core.elements.display.common.base_detail_panel import BaseDetailPanel
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (

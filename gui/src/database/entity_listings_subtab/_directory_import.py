@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from gui.src.constants.listings import LISTING_IMAGES_DIR
-from gui.src.tabs.core.elements.dialog.entity_directory_import_dialog import _EntityDirectoryImportDialog
+from gui.src.database.dialog.entity_directory_import_dialog import _EntityDirectoryImportDialog
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
 

@@ -13,6 +13,7 @@ class _TabRegistryMixin:
         # Deferred import: these tab modules transitively import a lot of the
         # app, and importing them at gui.src.windows.main module load time
         # would be circular.
+        from ...database import ListingsTab
         from ...tabs import (
             ComfyUITab,
             ConvertTab,
@@ -22,7 +23,6 @@ class _TabRegistryMixin:
             EntityReconTab,
             ExtractorTab,
             ImageCrawlTab,
-            ListingsTab,
             MergeTab,
             MetaCLIPInferenceTab,
             R3GANEvaluateTab,

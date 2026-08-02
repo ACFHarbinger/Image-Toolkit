@@ -508,7 +508,7 @@ class TestExtractorTab:
 
 class TestListingsTab:
     def test_listings_tab_init(self, q_app):
-        from gui.src.tabs.core.listings_tab import ListingsTab
+        from gui.src.database.listings_tab import ListingsTab
 
         tab = ListingsTab()
         assert isinstance(tab, QWidget)
@@ -544,7 +544,7 @@ class TestListingsTab:
         assert not generate_thumbnail_from_file("non_existent_file.pdf", str(dest))
 
     def test_sync_no_vault(self, q_app, monkeypatch):
-        from gui.src.tabs.core.listings_tab import ListingsTab
+        from gui.src.database.listings_tab import ListingsTab
 
         tab = ListingsTab()
 
@@ -566,7 +566,7 @@ class TestListingsTab:
         import json
 
         import backend.src.constants as udef
-        from gui.src.tabs.core.listings_tab import ListingsTab
+        from gui.src.database.listings_tab import ListingsTab
         from PySide6.QtWidgets import QMessageBox
 
         # Override ROOT_DIR for tests to prevent modifying actual project files

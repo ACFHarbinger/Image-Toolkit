@@ -5,8 +5,8 @@ _filtered_entities() (mirrors the existing recommendation-mode branch).
 """
 
 import pytest
-from gui.src.tabs.core.elements.series_listings_subtab import SeriesListingsSubTab
-from gui.src.tabs.core.elements.entity_listings_subtab import EntityListingsSubTab
+from gui.src.database.series_listings_subtab import SeriesListingsSubTab
+from gui.src.database.entity_listings_subtab import EntityListingsSubTab
 
 pytestmark = pytest.mark.gui
 

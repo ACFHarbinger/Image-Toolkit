@@ -5,7 +5,7 @@ this tag" actions (Management -> Search tab).
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.tabs.core.elements.display.detail_panel import _DetailPanel
+from gui.src.database.display.detail_panel import _DetailPanel
 from gui.src.tabs.database.database_tab import DatabaseTab
 from gui.src.tabs.database.search_tab import SearchTab
 from PySide6.QtCore import Qt
@@ -26,10 +26,10 @@ class TestDetailPanelTagCompleter:
         mock_db = MagicMock()
 
         with patch(
-            "gui.src.tabs.core.elements.display.detail_panel._tag_vocabulary.get_library_db",
+            "gui.src.database.display.detail_panel._tag_vocabulary.get_library_db",
             return_value=mock_db,
         ), patch(
-            "gui.src.tabs.core.elements.display.detail_panel._tag_vocabulary.TagRepo"
+            "gui.src.database.display.detail_panel._tag_vocabulary.TagRepo"
         ) as mock_tag_repo_cls:
             mock_tag_repo_cls.return_value.get_all_tags.return_value = ["Action", "Sci-Fi"]
             panel._refresh_tag_vocabulary()
@@ -40,7 +40,7 @@ class TestDetailPanelTagCompleter:
     def test_refresh_vocabulary_no_session_is_noop(self, q_app):
         panel = _DetailPanel()
         with patch(
-            "gui.src.tabs.core.elements.display.detail_panel._tag_vocabulary.get_library_db",
+            "gui.src.database.display.detail_panel._tag_vocabulary.get_library_db",
             return_value=None,
         ):
             panel._refresh_tag_vocabulary()  # must not raise

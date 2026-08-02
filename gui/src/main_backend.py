@@ -18,7 +18,7 @@ from gui.src.tabs import (
     WebRequestsTab,
 )
 from gui.src.tabs.animation.stitch_tab_backend import StitchTabBackend
-from gui.src.tabs.core.listings_tab import ListingsTab
+from gui.src.database.listings_tab import ListingsTab
 from gui.src.windows.logging.log_backend import LogBackend
 from gui.src.windows.settings.settings_backend import SettingsBackend
 from gui.src.windows.slideshow_backend import SlideshowBackend

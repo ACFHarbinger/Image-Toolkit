@@ -1,15 +1,15 @@
-"""Widget construction for ``SeriesListingsSubTab`` (``_build_ui``).
+"""Widget construction for ``EntityListingsSubTab`` (``_build_ui``).
 
-Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
+Extracted from ``entity_listings_subtab.py`` -- pure code motion, no logic
 change.
 """
 
 from __future__ import annotations
 
-from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
+from gui.src.constants.listings import ENTITY_ROLES, ENTITY_TYPES
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.tabs.core.elements.common.listings_common import _persist_splitter
-from gui.src.tabs.core.elements.display.detail_panel import _DetailPanel
+from gui.src.database.display.entity_detail_panel import _EntityDetailPanel
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QComboBox,
@@ -38,38 +38,47 @@ class _UIBuilderMixin:
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
 
-        title_lbl = QLabel("🎬 Series Listings")
+        title_lbl = QLabel("👥 Entity Listings")
         title_lbl.setStyleSheet("font-size:18px;font-weight:bold;color:#00bcd4;")
         toolbar.addWidget(title_lbl)
         toolbar.addStretch()
 
         self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("🔍 Search titles…")
+        self.search_box.setPlaceholderText("🔍 Search entities…")
         self.search_box.setFixedWidth(200)
         self.search_box.textChanged.connect(self._on_search)
         toolbar.addWidget(self.search_box)
 
-        # ── Search / Recommend pair (stacked vertically) ─────────────
-        _search_rec_pair = QWidget()
-        _search_rec_vbox = QVBoxLayout(_search_rec_pair)
-        _search_rec_vbox.setContentsMargins(0, 0, 0, 0)
-        _search_rec_vbox.setSpacing(3)
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(["All Types"] + ENTITY_TYPES)
+        self.type_combo.currentTextChanged.connect(self._on_type_filter)
+        toolbar.addWidget(self.type_combo)
 
-        adv_search_btn = QPushButton("🔍 Advanced")
-        adv_search_btn.setStyleSheet(SHARED_BUTTON_STYLE)
-        adv_search_btn.setFixedWidth(120)
-        adv_search_btn.clicked.connect(self._on_advanced_search)
-        apply_shadow_effect(adv_search_btn)
+        self.role_combo = QComboBox()
+        self.role_combo.addItems(["All Roles"] + ENTITY_ROLES)
+        self.role_combo.currentTextChanged.connect(self._on_role_filter)
+        toolbar.addWidget(self.role_combo)
 
-        rec_btn = QPushButton("🌟 Recommend")
-        rec_btn.setStyleSheet(SHARED_BUTTON_STYLE)
-        rec_btn.setFixedWidth(120)
-        rec_btn.clicked.connect(self._on_recommend_content)
-        apply_shadow_effect(rec_btn)
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems(
+            [
+                "Sort by: Name",
+                "Sort by: Rating",
+                "Sort by: Type",
+                "Sort by: Role",
+                "Sort by: Date Added",
+                "Sort by: Credits Count",
+            ]
+        )
+        self.sort_combo.setFixedWidth(150)
+        self.sort_combo.currentTextChanged.connect(self._on_sort_changed)
+        toolbar.addWidget(self.sort_combo)
 
-        _search_rec_vbox.addWidget(adv_search_btn)
-        _search_rec_vbox.addWidget(rec_btn)
-        toolbar.addWidget(_search_rec_pair)
+        self.sort_order_combo = QComboBox()
+        self.sort_order_combo.addItems(["Ascending", "Descending"])
+        self.sort_order_combo.setFixedWidth(100)
+        self.sort_order_combo.currentTextChanged.connect(self._on_sort_changed)
+        toolbar.addWidget(self.sort_order_combo)
 
         # ── Semantic search pair (stacked vertically, DB.7) ───────────
         _semantic_pair = QWidget()
@@ -93,30 +102,6 @@ class _UIBuilderMixin:
         _semantic_vbox.addWidget(build_index_btn)
         toolbar.addWidget(_semantic_pair)
 
-        # ── Clear pair (stacked vertically, hidden until active) ──────
-        _clear_pair = QWidget()
-        _clear_vbox = QVBoxLayout(_clear_pair)
-        _clear_vbox.setContentsMargins(0, 0, 0, 0)
-        _clear_vbox.setSpacing(3)
-
-        self.clear_adv_btn = QPushButton("❌ Clear Advanced")
-        self.clear_adv_btn.setStyleSheet(
-            "QPushButton { background:#c0392b; color:white; border:none; border-radius:4px; padding:2px 8px; font-weight:bold; font-size:11px; }"
-            "QPushButton:hover { background:#e74c3c; }"
-        )
-        self.clear_adv_btn.setFixedWidth(130)
-        self.clear_adv_btn.clicked.connect(self._clear_advanced_search)
-        self.clear_adv_btn.hide()
-
-        self.clear_rec_btn = QPushButton("❌ Clear Rec")
-        self.clear_rec_btn.setStyleSheet(
-            "QPushButton { background:#c0392b; color:white; border:none; border-radius:4px; padding:2px 8px; font-weight:bold; font-size:11px; }"
-            "QPushButton:hover { background:#e74c3c; }"
-        )
-        self.clear_rec_btn.setFixedWidth(130)
-        self.clear_rec_btn.clicked.connect(self._clear_recommendations)
-        self.clear_rec_btn.hide()
-
         self.clear_semantic_btn = QPushButton("❌ Clear Semantic")
         self.clear_semantic_btn.setStyleSheet(
             "QPushButton { background:#c0392b; color:white; border:none; border-radius:4px; padding:2px 8px; font-weight:bold; font-size:11px; }"
@@ -125,53 +110,15 @@ class _UIBuilderMixin:
         self.clear_semantic_btn.setFixedWidth(130)
         self.clear_semantic_btn.clicked.connect(self._clear_semantic_search)
         self.clear_semantic_btn.hide()
+        toolbar.addWidget(self.clear_semantic_btn)
 
-        _clear_vbox.addWidget(self.clear_adv_btn)
-        _clear_vbox.addWidget(self.clear_rec_btn)
-        _clear_vbox.addWidget(self.clear_semantic_btn)
-        toolbar.addWidget(_clear_pair)
+        # ── Pair 1: Add Entity (top) / Import Dir (bottom) ──────────────
+        entity_pair = QWidget()
+        entity_pair_vbox = QVBoxLayout(entity_pair)
+        entity_pair_vbox.setContentsMargins(0, 0, 0, 0)
+        entity_pair_vbox.setSpacing(3)
 
-        self.type_combo = QComboBox()
-        self.type_combo.addItems(["All Types"] + ENTRY_TYPES)
-        self.type_combo.currentTextChanged.connect(self._on_type_filter)
-        toolbar.addWidget(self.type_combo)
-
-        self.status_combo = QComboBox()
-        self.status_combo.addItems(["All Status"] + ENTRY_STATUS)
-        self.status_combo.currentTextChanged.connect(self._on_status_filter)
-        toolbar.addWidget(self.status_combo)
-
-        self.sort_combo = QComboBox()
-        self.sort_combo.addItems(
-            [
-                "Sort by: Title",
-                "Sort by: Rating",
-                "Sort by: Episodes",
-                "Sort by: Current Episode",
-                "Sort by: Date",
-                "Sort by: Type",
-                "Sort by: Status",
-                "Sort by: Local Filename",
-                "Sort by: Tags",
-            ]
-        )
-        self.sort_combo.setFixedWidth(150)
-        self.sort_combo.currentTextChanged.connect(self._on_sort_changed)
-        toolbar.addWidget(self.sort_combo)
-
-        self.sort_order_combo = QComboBox()
-        self.sort_order_combo.addItems(["Ascending", "Descending"])
-        self.sort_order_combo.setFixedWidth(100)
-        self.sort_order_combo.currentTextChanged.connect(self._on_sort_changed)
-        toolbar.addWidget(self.sort_order_combo)
-
-        # ── Pair 1: Add Entry (top) / Import Dir (bottom) ──────────────
-        entry_pair = QWidget()
-        entry_pair_vbox = QVBoxLayout(entry_pair)
-        entry_pair_vbox.setContentsMargins(0, 0, 0, 0)
-        entry_pair_vbox.setSpacing(3)
-
-        add_btn = QPushButton("＋ Add Entry")
+        add_btn = QPushButton("＋ Add Entity")
         add_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         add_btn.setFixedWidth(120)
         add_btn.clicked.connect(self._on_add_new)
@@ -181,15 +128,14 @@ class _UIBuilderMixin:
         import_dir_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         import_dir_btn.setFixedWidth(120)
         import_dir_btn.setToolTip(
-            "Scan a video directory and auto-create listings\n"
-            "for series that don't already have an entry."
+            "Scan an entity image directory and auto-create listings."
         )
         import_dir_btn.clicked.connect(self._on_import_from_directory)
         apply_shadow_effect(import_dir_btn)
 
-        entry_pair_vbox.addWidget(add_btn)
-        entry_pair_vbox.addWidget(import_dir_btn)
-        toolbar.addWidget(entry_pair)
+        entity_pair_vbox.addWidget(add_btn)
+        entity_pair_vbox.addWidget(import_dir_btn)
+        toolbar.addWidget(entity_pair)
 
         # ── Pair 2: Sync Backup (top) / Update Backup (bottom) ─────────
         backup_pair = QWidget()
@@ -250,12 +196,12 @@ class _UIBuilderMixin:
         detail_scroll.setStyleSheet(
             "QScrollArea{border:1px solid #4f545c;border-radius:8px;background:#2c2f33;}"
         )
-        self._detail = _DetailPanel(vault_manager=self.vault_manager)
-        self._detail.saved.connect(self._on_entry_saved)
-        self._detail.deleted.connect(self._on_entry_deleted)
+        self._detail = _EntityDetailPanel(vault_manager=self.vault_manager)
+        self._detail.saved.connect(self._on_entity_saved)
+        self._detail.deleted.connect(self._on_entity_deleted)
         detail_scroll.setWidget(self._detail)
         splitter.addWidget(detail_scroll)
-        _persist_splitter(splitter, "SeriesListingsSubTab_main")
+        _persist_splitter(splitter, "EntityListingsSubTab_main")
 
         splitter.setSizes([680, 340])
         splitter.setHandleWidth(6)
@@ -272,7 +218,7 @@ class _UIBuilderMixin:
         self._rebuild_gallery()
         self._detail.clear_for_new()
 
-        # Debounced resize — avoid rebuilding the gallery on every pixel of a drag.
+        # Debounced resize for EntityListingsSubTab.
         self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
         self._resize_timer.setInterval(120)

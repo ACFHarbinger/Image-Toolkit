@@ -19,7 +19,7 @@ from typing import List
 from backend.src.database.unified.image_repo import ImageRepo
 from backend.src.database.unified.media_repo import MediaRepo
 from gui.src.helpers.database.library_session import get_library_db
-from gui.src.tabs.core.elements.dialog import _LinkedGroupsDialog
+from gui.src.database.dialog import _LinkedGroupsDialog
 from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 

@@ -1,10 +1,14 @@
 import re
 from pathlib import Path
 
-from gui.src.constants.listings import ENTITY_ROLES, ENTITY_TYPES
+from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES, VIDEO_IMPORT_EXTS
 from gui.src.styles import SHARED_BUTTON_STYLE
-from gui.src.tabs.core.elements.common.listings_common import _persist_splitter
-from gui.src.tabs.core.elements.dialog.common.base_directory_import_dialog import (
+from gui.src.tabs.core.elements.common.listings_common import (
+    _parse_video_series,
+    _persist_splitter,
+    _scan_video_directory,
+)
+from gui.src.database.dialog.common.base_directory_import_dialog import (
     BaseDirectoryImportDialog,
 )
 from PySide6.QtCore import Qt
@@ -31,26 +35,26 @@ from PySide6.QtWidgets import (
 )
 
 
-class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
-    """One-shot wizard: pick a directory of entity images → review detected
-    entities → configure shared metadata → confirm or cancel import."""
+class _DirectoryImportDialog(BaseDirectoryImportDialog):
+    """One-shot wizard: pick a directory of video files → review detected
+    series → configure shared metadata → confirm or cancel import."""
 
-    def __init__(self, existing_names: "set[str]", parent=None):
-        super().__init__("📂 Import Entities from Image Directory", parent)
-        self._existing_names = existing_names  # lowercase normalised set
-        self._scan_result: list = []  # list of tuples: (first_name, last_name, file_path)
+    def __init__(self, existing_titles: "set[str]", parent=None):
+        super().__init__("📂 Import Listings from Video Directory", parent)
+        self._existing_titles = existing_titles  # lowercase normalised set
+        self._scan_result: dict = {}  # {series_name: [(ep_num, path), ...]}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(14, 14, 14, 14)
         root.setSpacing(10)
 
         # ── Directory picker row ──────────────────────────────────────
-        dir_group = QGroupBox("Image Directory")
+        dir_group = QGroupBox("Video Directory")
         dir_row = QHBoxLayout(dir_group)
         dir_row.setSpacing(6)
         self._dir_edit = QLineEdit()
         self._dir_edit.setPlaceholderText(
-            "Select the folder that contains your entity image files…"
+            "Select the folder that contains your video files…"
         )
         self._dir_edit.setReadOnly(True)
         browse_btn = QPushButton("📁 Browse…")
@@ -67,27 +71,23 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         # ── Middle: table left | options right ────────────────────────
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left — detected-entities table
+        # Left — detected-series table
         left = QWidget()
         left_vbox = QVBoxLayout(left)
         left_vbox.setContentsMargins(0, 0, 0, 0)
         left_vbox.setSpacing(6)
 
-        self._status_lbl = QLabel("Scan a directory to detect entity images.")
+        self._status_lbl = QLabel("Scan a directory to detect series.")
         self._status_lbl.setStyleSheet("color:#888; font-size:11px;")
         left_vbox.addWidget(self._status_lbl)
 
         self._table = QTableWidget(0, 4)
-        self._table.setHorizontalHeaderLabels(
-            ["", "Detected Name", "Filename", "Status"]
-        )
+        self._table.setHorizontalHeaderLabels(["", "Series Name", "Episodes", "Status"])
         self._table.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.Stretch
         )
-        self._table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeMode.Stretch
-        )
         self._table.setColumnWidth(0, 32)
+        self._table.setColumnWidth(2, 72)
         self._table.setColumnWidth(3, 120)
         self._table.verticalHeader().hide()
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -123,42 +123,51 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         right_vbox.setContentsMargins(6, 0, 0, 0)
         right_vbox.setSpacing(8)
 
-        meta_group = QGroupBox("Metadata Applied to All New Entities")
+        meta_group = QGroupBox("Metadata Applied to All New Entries")
         meta_form = QFormLayout(meta_group)
         meta_form.setSpacing(8)
 
         self._f_type = QComboBox()
-        self._f_type.addItems(ENTITY_TYPES)
-        self._f_type.setCurrentText("Person")
+        self._f_type.addItems(ENTRY_TYPES)
+        self._f_type.setCurrentText("Anime")
 
-        self._f_role = QComboBox()
-        self._f_role.addItems(ENTITY_ROLES)
-        self._f_role.setCurrentText("Director")
-
-        self._f_rating = QSpinBox()
-        self._f_rating.setRange(0, 10)
-        self._f_rating.setValue(0)
+        self._f_status = QComboBox()
+        self._f_status.addItems(ENTRY_STATUS)
+        self._f_status.setCurrentText("Plan to Watch")
 
         self._f_year = QSpinBox()
         self._f_year.setRange(0, 2100)
         self._f_year.setValue(0)
         self._f_year.setSpecialValueText("Unknown")
 
+        self._f_genres = QLineEdit()
+        self._f_genres.setPlaceholderText("e.g. Action, Comedy")
+
+        self._f_tags = QLineEdit()
+        self._f_tags.setPlaceholderText("e.g. subbed, seasonal")
+
+        self._f_creator = QLineEdit()
+        self._f_creator.setPlaceholderText("Studio / Author (optional)")
+
         meta_form.addRow("Type:", self._f_type)
-        meta_form.addRow("Role:", self._f_role)
-        meta_form.addRow("Rating:", self._f_rating)
-        meta_form.addRow("Active Year:", self._f_year)
+        meta_form.addRow("Status:", self._f_status)
+        meta_form.addRow("Year:", self._f_year)
+        meta_form.addRow("Genres:", self._f_genres)
+        meta_form.addRow("Tags:", self._f_tags)
+        meta_form.addRow("Creator:", self._f_creator)
         right_vbox.addWidget(meta_group)
         right_vbox.addStretch()
 
         info_lbl = QLabel(
             "<small>"
+            "<b>What gets created per series:</b><br>"
+            "• Title from the filename prefix before <code> - </code><br>"
+            "• <i>Episodes</i> count = number of matching files<br>"
+            "• <i>Local File</i> = path to the first episode<br>"
+            "• Individual episode entries, each with its own file path<br>"
+            "• Episode number extracted from the filename<br><br>"
             "<b>Filename format expected:</b><br>"
-            "<code>&lt;First Name&gt; &lt;Last Name&gt;&lt;Optional Number&gt;.ext</code><br><br>"
-            "<b>What gets created:</b><br>"
-            "• First name and last name parsed from the image filename<br>"
-            "• Optional trailing digits are stripped from the entity name<br>"
-            "• Image copied and associated automatically as entity profile picture"
+            "<code>&lt;Series&gt; - &lt;##&gt; [suffix].ext</code>"
             "</small>"
         )
         info_lbl.setWordWrap(True)
@@ -167,7 +176,7 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         splitter.addWidget(right)
 
         splitter.setSizes([520, 300])
-        _persist_splitter(splitter, "entity_directory_import_dialog")
+        _persist_splitter(splitter, "directory_import_dialog")
         root.addWidget(splitter, 1)
 
         # ── Confirm / cancel ──────────────────────────────────────────
@@ -188,7 +197,7 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
     def _browse(self):
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Select Entity Image Directory",
+            "Select Video Directory",
             self._directory or str(Path.home()),
             QFileDialog.Option.ShowDirsOnly
             | QFileDialog.Option.DontResolveSymlinks
@@ -207,29 +216,7 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
             )
             return
         self._directory = directory
-
-        # Scan for images
-        self._scan_result = []
-        p = Path(directory)
-        valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-        try:
-            for item in p.iterdir():
-                if item.is_file() and item.suffix.lower() in valid_exts:
-                    stem = item.stem
-                    # remove optional trailing number and spaces
-                    clean_stem = re.sub(r"\s*\d+$", "", stem).strip()
-                    parts = clean_stem.split()
-                    if not parts:
-                        continue
-                    first_name = parts[0]
-                    last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
-                    self._scan_result.append(
-                        (first_name, last_name, str(item.absolute()))
-                    )
-        except Exception as e:
-            QMessageBox.critical(self, "Scan Error", f"Failed to scan directory: {e}")
-            return
-
+        self._scan_result = _scan_video_directory(directory)
         self._populate_table()
 
     def _do_subdirectory_scan(self):
@@ -241,28 +228,49 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
             return
         self._directory = directory
 
-        self._scan_result = []
+        self._scan_result = {}
         p = Path(directory)
-        valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
         pattern = re.compile(r"^[^\W_]+(?:_[^\W_]+)*$", re.UNICODE)
+
+        from gui.src.windows.settings.app_settings import AppSettings
+        recursive = AppSettings.recursive_scan()
+
         try:
             for child in p.iterdir():
                 if child.is_dir() and pattern.match(child.name):
-                    # parse first name and last name by splitting on underscores
+                    # parse series name by splitting on underscores and joining with space
                     parts = child.name.split("_")
-                    first_name = parts[0]
-                    last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+                    series_name = " ".join(parts)
 
-                    # Search for profile image (first image file in subdirectory)
-                    image_path = ""
-                    for f in child.iterdir():
-                        if f.is_file() and f.suffix.lower() in valid_exts:
-                            image_path = str(f.absolute())
-                            break
+                    # scan child directory for video files
+                    episodes = []
+                    try:
+                        if recursive:
+                            entries = sorted(child.rglob("*"), key=lambda e: e.name.lower())
+                        else:
+                            entries = sorted(child.iterdir(), key=lambda e: e.name.lower())
+                    except OSError:
+                        continue
 
-                    self._scan_result.append(
-                        (first_name, last_name, image_path)
-                    )
+                    for entry in entries:
+                        if not entry.is_file():
+                            continue
+                        if entry.suffix.lower() not in VIDEO_IMPORT_EXTS:
+                            continue
+
+                        # Extract episode number
+                        if " - " in entry.name:
+                            _, ep_num = _parse_video_series(entry.name)
+                        else:
+                            m = re.search(r"(\d+)", entry.name)
+                            ep_num = int(m.group(1)) if m else None
+
+                        episodes.append((ep_num, str(entry.absolute())))
+
+                    if episodes:
+                        # Sort episodes: None episodes go last, otherwise numeric order
+                        episodes.sort(key=lambda x: (x[0] is None, x[0] or 0))
+                        self._scan_result[series_name] = episodes
         except Exception as e:
             QMessageBox.critical(self, "Scan Error", f"Failed to scan directory: {e}")
             return
@@ -272,11 +280,11 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
     def _populate_table(self):
         self._table.setRowCount(0) # pyrefly: ignore [missing-attribute]
         new_count = exists_count = 0
-        for first_name, last_name, file_path in sorted(
-            self._scan_result, key=lambda x: f"{x[0]} {x[1]}".lower()
+
+        for series_name, episodes in sorted(
+            self._scan_result.items(), key=lambda kv: kv[0].lower()
         ):
-            full_name = f"{first_name} {last_name}".strip()
-            already = full_name.lower() in self._existing_names
+            already = series_name.lower() in self._existing_titles
             if already:
                 exists_count += 1
             else:
@@ -296,14 +304,16 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
             c_lay.setContentsMargins(0, 0, 0, 0)
             self._table.setCellWidget(row, 0, container) # pyrefly: ignore [missing-attribute]
 
-            # Col 1 – Detected Name
-            name_item = QTableWidgetItem(full_name)
+            # Col 1 – series name (store original as UserRole for retrieval)
+            name_item = QTableWidgetItem(series_name)
+            name_item.setData(Qt.ItemDataRole.UserRole, series_name)
+            name_item.setToolTip(series_name)
             self._table.setItem(row, 1, name_item) # pyrefly: ignore [missing-attribute]
 
-            # Col 2 – Filename
-            file_item = QTableWidgetItem(Path(file_path).name)
-            file_item.setToolTip(file_path)
-            self._table.setItem(row, 2, file_item) # pyrefly: ignore [missing-attribute]
+            # Col 2 – episode count
+            ep_item = QTableWidgetItem(str(len(episodes)))
+            ep_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._table.setItem(row, 2, ep_item) # pyrefly: ignore [missing-attribute]
 
             # Col 3 – new / already-exists badge
             if already:
@@ -316,28 +326,32 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
 
         total = len(self._scan_result)
         self._status_lbl.setText(
-            f"Found {total} images — {new_count} new, {exists_count} already in entities."
+            f"Found {total} series — {new_count} new, {exists_count} already in listings."
         )
         self._import_btn.setEnabled(total > 0)
 
-    def get_selected_entities(self) -> "list[tuple[str, str, str]]":
-        """Return the list of (first_name, last_name, file_path) whose checkboxes are ticked."""
+    def get_selected_series(self) -> "list[str]":
+        """Return the list of series names whose checkboxes are ticked."""
         selected = []
         for row in range(self._table.rowCount()): # pyrefly: ignore [missing-attribute]
             cw = self._table.cellWidget(row, 0) # pyrefly: ignore [missing-attribute]
             if cw:
                 chk = cw.findChild(QCheckBox)
                 if chk and chk.isChecked():
-                    first_name, last_name, file_path = sorted(
-                        self._scan_result, key=lambda x: f"{x[0]} {x[1]}".lower()
-                    )[row]
-                    selected.append((first_name, last_name, file_path))
+                    item = self._table.item(row, 1) # pyrefly: ignore [missing-attribute]
+                    if item:
+                        selected.append(item.data(Qt.ItemDataRole.UserRole))
         return selected
+
+    def get_scan_result(self) -> dict:
+        return self._scan_result
 
     def get_metadata(self) -> dict:
         return {
             "type": self._f_type.currentText(),
-            "role": self._f_role.currentText(),
-            "rating": self._f_rating.value(),
+            "status": self._f_status.currentText(),
             "year": self._f_year.value(),
+            "genres": self._f_genres.text().strip(),
+            "tags": self._f_tags.text().strip(),
+            "creator": self._f_creator.text().strip(),
         }

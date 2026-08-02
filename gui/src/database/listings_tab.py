@@ -5,14 +5,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...constants.listings import (
+from ..constants.listings import (
     ENTITIES_FILE,  # noqa: F401
     LISTINGS_FILE,  # noqa: F401
 )
 
 # ---------------------------------------------------------------------------
-from .elements.series_listings_subtab import SeriesListingsSubTab
-from .elements.entity_listings_subtab import EntityListingsSubTab
+from .series_listings_subtab import SeriesListingsSubTab
+from .entity_listings_subtab import EntityListingsSubTab
 
 
 class ListingsTab(QWidget):
