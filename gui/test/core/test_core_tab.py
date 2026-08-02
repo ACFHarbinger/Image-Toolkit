@@ -591,45 +591,60 @@ class TestListingsTab:
                 self.account_name = "dummy_account"
                 self.SecureJsonVault = MockSecureJsonVault
 
-        vault_manager = MockVaultManager()
-        tab = ListingsTab(vault_manager=vault_manager)
-
-        # Inject entries and stub save/load
-        tab.series_listings._entries = [{"id": "1", "name": "Local 1"}]
-
-        # Mock message boxes to avoid blocking
+        # Mock message boxes to avoid blocking -- QMessageBox.critical/warning
+        # too, not just information: get_library_db() calls critical() on a
+        # real (failed) connection attempt, which blocks forever under
+        # headless/offscreen test mode with nothing to dismiss it.
         monkeypatch.setattr(QMessageBox, "information", lambda *args: None)
+        monkeypatch.setattr(QMessageBox, "critical", lambda *args: None)
+        monkeypatch.setattr(QMessageBox, "warning", lambda *args: None)
 
+        # get_library_db() is patched for the whole test, not just around
+        # _synchronize_listings(): ListingsTab construction itself can
+        # trigger a real (and here undesired) library.db connection attempt
+        # via the series/entity listings subtabs' initial load.
         with (
-            patch("gui.src.tabs.core.elements.common.listings_common.base.fetch_all_listings_secure", return_value=[]),
-            patch("gui.src.tabs.core.elements.common.listings_common.base.delete_listing_secure"),
-            patch("gui.src.tabs.core.elements.common.listings_common.base.insert_listing_secure"),
+            patch(
+                "gui.src.database.series_listings_subtab._backup_sync.get_library_db",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "gui.src.helpers.web.sync_backup_worker.MediaRepo"
+            ) as mock_media_repo_cls,
         ):
-            # 1. Update Backup should generate the encrypted file since it doesn't exist
+            vault_manager = MockVaultManager()
+            tab = ListingsTab(vault_manager=vault_manager)
+
+            # Inject entries and stub save/load
+            tab.series_listings._entries = [{"id": "1", "name": "Local 1"}]
+
+            # 1. Update Backup should generate the encrypted file since it
+            # doesn't exist -- writes self._entries straight to the
+            # encrypted JSON file, no DB touch (see
+            # _backup_sync.py:_update_encrypted_backup).
             tab.series_listings._update_encrypted_backup()
-        tab.series_listings._backup_worker.wait()  # Wait for QThread to finish!
+            tab.series_listings._backup_worker.wait()  # Wait for QThread to finish!
 
-        enc_file = tmp_path / "assets" / "secrets" / "listings.json.enc"
-        assert enc_file.exists()
+            enc_file = tmp_path / "assets" / "secrets" / "listings.json.enc"
+            assert enc_file.exists()
 
-        # Load encrypted data
-        with open(enc_file, "r") as f:
-            data = json.load(f)
-        assert len(data) == 1
-        assert data[0]["id"] == "1"
+            # Load encrypted data
+            with open(enc_file, "r") as f:
+                data = json.load(f)
+            assert len(data) == 1
+            assert data[0]["id"] == "1"
 
-        # 2. Add another remote entry directly to mock a remote update
-        remote_data = [{"id": "1", "name": "Local 1"}, {"id": "2", "name": "Remote 2"}]
-        with open(enc_file, "w") as f:
-            json.dump(remote_data, f)
+            # 2. Add another remote entry directly to mock a remote update
+            remote_data = [{"id": "1", "name": "Local 1"}, {"id": "2", "name": "Remote 2"}]
+            with open(enc_file, "w") as f:
+                json.dump(remote_data, f)
 
-        # 3. Synchronize - should load from backup and merge
-        with (
-            patch("gui.src.tabs.core.elements.common.listings_common.base.fetch_all_listings_secure", return_value=[]),
-            patch("gui.src.tabs.core.elements.common.listings_common.base.delete_listing_secure"),
-            patch("gui.src.tabs.core.elements.common.listings_common.base.insert_listing_secure"),
-        ):
+            # 3. Synchronize - should load from backup and merge, persisting
+            # via MediaRepo.save_media (unified DB, DB.5) rather than the
+            # retired base.*_listing_secure functions this test used to
+            # (incorrectly) mock -- see issue #175.
             tab.series_listings._synchronize_listings()
             tab.series_listings._sync_worker.wait()  # Wait for QThread to finish!
             q_app.processEvents()
+        assert mock_media_repo_cls.return_value.save_media.call_count == 2
         assert len(tab.series_listings._entries) == 2
