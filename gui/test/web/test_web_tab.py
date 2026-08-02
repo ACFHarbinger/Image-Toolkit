@@ -103,7 +103,7 @@ class TestImageCrawlTab:
     def test_on_crawl_done_manual_selection_accept(self, q_app):
         with (
             patch("gui.src.elements.image_crawler_tab.manager.LogWindow"),
-            patch("gui.src.windows.crawler_selection_dialogs.ManualSelectionDialog") as mock_dialog_class,
+            patch("gui.src.components.dialogs.crawler_selection_dialogs.ManualSelectionDialog") as mock_dialog_class,
             patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.information"),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
@@ -137,7 +137,7 @@ class TestImageCrawlTab:
     def test_on_crawl_done_manual_selection_reject(self, q_app):
         with (
             patch("gui.src.elements.image_crawler_tab.manager.LogWindow"),
-            patch("gui.src.windows.crawler_selection_dialogs.ManualSelectionDialog") as mock_dialog_class,
+            patch("gui.src.components.dialogs.crawler_selection_dialogs.ManualSelectionDialog") as mock_dialog_class,
             patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.information"),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
@@ -162,9 +162,9 @@ class TestImageCrawlTab:
     def test_on_crawl_done_automated_selection_accept(self, q_app):
         with (
             patch("gui.src.elements.image_crawler_tab.manager.LogWindow"),
-            patch("gui.src.windows.crawler_selection_dialogs.DuplicateConfigDialog") as mock_config_dialog_class,
-            patch("gui.src.windows.crawler_selection_dialogs.DeduplicationPruningDialog") as mock_prune_dialog_class,
-            patch("gui.src.windows.crawler_selection_dialogs.run_duplicate_scan", return_value={}),
+            patch("gui.src.components.dialogs.crawler_selection_dialogs.DuplicateConfigDialog") as mock_config_dialog_class,
+            patch("gui.src.components.dialogs.crawler_selection_dialogs.DeduplicationPruningDialog") as mock_prune_dialog_class,
+            patch("gui.src.components.dialogs.crawler_selection_dialogs.run_duplicate_scan", return_value={}),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.information"),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
@@ -204,7 +204,7 @@ class TestImageCrawlTab:
     def test_on_crawl_done_automated_selection_reject(self, q_app):
         with (
             patch("gui.src.elements.image_crawler_tab.manager.LogWindow"),
-            patch("gui.src.windows.crawler_selection_dialogs.DuplicateConfigDialog") as mock_config_dialog_class,
+            patch("gui.src.components.dialogs.crawler_selection_dialogs.DuplicateConfigDialog") as mock_config_dialog_class,
             patch("gui.src.elements.image_crawler_tab._crawl_worker.QMessageBox.information"),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
             patch("gui.src.elements.image_crawler_tab._crawl_worker.os.remove") as mock_remove,

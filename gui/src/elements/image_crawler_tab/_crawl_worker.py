@@ -184,7 +184,7 @@ class _CrawlWorkerMixin:
 
         if self.downloaded_files:
             if "Manual Selection" in mode:
-                from ...windows.crawler_selection_dialogs import ManualSelectionDialog
+                from gui.src.components.dialogs.crawler_selection_dialogs import ManualSelectionDialog
                 dialog = ManualSelectionDialog(self.downloaded_files, self)
                 result = dialog.exec()
 
@@ -209,7 +209,7 @@ class _CrawlWorkerMixin:
                     QMessageBox.information(self, "Cancelled", "Crawl discarded. All downloaded files removed.")
 
             elif "Automated Selection" in mode:
-                from ...windows.crawler_selection_dialogs import (
+                from gui.src.components.dialogs.crawler_selection_dialogs import (
                     DeduplicationPruningDialog,
                     DuplicateConfigDialog,
                     run_duplicate_scan,
