@@ -28,10 +28,8 @@ from __future__ import annotations
 import argparse
 import getpass
 import json
-import shutil
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 
@@ -41,6 +39,8 @@ if str(_REPO_ROOT) not in sys.path:
 
 import base  # noqa: E402
 from backend.src.constants import IMAGE_TOOLKIT_DIR  # noqa: E402
+
+from backend.migrations._backup_utils import backup_database, restore_database  # noqa: E402
 
 DEFAULT_DB_PATH = IMAGE_TOOLKIT_DIR / "listings_secure.db"
 DEFAULT_BACKUP_DIR = IMAGE_TOOLKIT_DIR / "backups"
@@ -184,35 +184,6 @@ def load_listings(
     return contents, entities
 
 
-def backup_database(db_path: Path, backup_dir: Path) -> Path:
-    """Copy the listings database to *backup_dir* and return the backup path."""
-    if not db_path.exists():
-        raise FileNotFoundError(f"Database not found: {db_path}")
-
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    backup_path = backup_dir / f"{db_path.stem}-{stamp}{db_path.suffix}"
-    shutil.copy2(db_path, backup_path)
-
-    manifest = {
-        "created_at": stamp,
-        "source_db": str(db_path),
-        "backup_db": str(backup_path),
-        "script": "sync_listing_associations.py",
-    }
-    manifest_path = backup_path.with_suffix(backup_path.suffix + ".manifest.json")
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    return backup_path
-
-
-def restore_database(backup_path: Path, db_path: Path) -> None:
-    """Replace *db_path* with *backup_path*."""
-    if not backup_path.exists():
-        raise FileNotFoundError(f"Backup not found: {backup_path}")
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(backup_path, db_path)
-
-
 def upsert_content_entry(
     db_path: str, password: str, salt: str, entry: Dict[str, Any]
 ) -> None:
@@ -311,7 +282,7 @@ def run_migration(
         print("\nDry run — no backup created and no database changes written.")
         return 0
 
-    backup_path = backup_database(db_path, backup_dir)
+    backup_path = backup_database(db_path, backup_dir, script="sync_listing_associations.py")
     print(f"\nBackup created: {backup_path}")
     apply_association_fixes(str(db_path), password, salt, contents, entities, plan)
     print(
@@ -328,7 +299,7 @@ def run_migration(
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Backfill missing two-way associations between content listings, "
+            "Backfill missing two-way associations between series listings, "
             "entity listings, and peer entity links in listings_secure.db."
         )
     )

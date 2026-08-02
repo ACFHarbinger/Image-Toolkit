@@ -482,6 +482,10 @@ def dispatch_command(command: str, args: dict) -> None:
         dispatch_web(args)
     elif command == "database":
         dispatch_database(args)
+    elif command == "migrations":
+        from backend.controllers.migrations_dispatch import dispatch_command as dispatch_migrations
+
+        dispatch_migrations(args)
     elif command == "model":
         dispatch_model(args)
     elif command == "slideshow":

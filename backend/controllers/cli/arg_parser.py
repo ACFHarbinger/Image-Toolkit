@@ -195,6 +195,51 @@ def add_database_args(parser):
     return parser
 
 
+def add_migrations_args(parser):
+    mig_subparsers = parser.add_subparsers(dest="migrations_command", required=True)
+
+    def _add_credentials(sub):
+        sub.add_argument("--account-name", dest="account_name", required=True,
+                          help="Vault account name used as the SQLCipher salt.")
+        sub.add_argument("--password", help="Vault password. Prompted securely when omitted.")
+        sub.add_argument("--db-path", dest="db_path", default=None)
+
+    mig_subparsers.add_parser("backup", help="Create the pre-migration backup (step 000)")
+
+    create_db = mig_subparsers.add_parser("create-db", help="Create/upgrade library.db (step 001)")
+    _add_credentials(create_db)
+
+    migrate_listings = mig_subparsers.add_parser(
+        "migrate-listings", help="Migrate legacy listings_secure.db (step 002)"
+    )
+    _add_credentials(migrate_listings)
+    migrate_listings.add_argument("--legacy-db-path", dest="legacy_db_path", default=None)
+
+    migrate_pgvector = mig_subparsers.add_parser(
+        "migrate-pgvector", help="Migrate the legacy pgvector image index (step 003)"
+    )
+    _add_credentials(migrate_pgvector)
+
+    verify = mig_subparsers.add_parser("verify", help="Verify the migration (step 004)")
+    _add_credentials(verify)
+    verify.add_argument("--legacy-db-path", dest="legacy_db_path", default=None)
+
+    run_all = mig_subparsers.add_parser("run-all", help="Run steps 000→004")
+    _add_credentials(run_all)
+    run_all.add_argument("--legacy-db-path", dest="legacy_db_path", default=None)
+    run_all.add_argument("--skip-postgres", action="store_true")
+    run_all.add_argument("--force", action="store_true")
+
+    clean_benchmark = mig_subparsers.add_parser(
+        "clean-benchmark-data",
+        help="Remove orphaned benchmark rows/groups left in library.db",
+    )
+    _add_credentials(clean_benchmark)
+    clean_benchmark.add_argument("--dry-run", action="store_true")
+
+    return parser
+
+
 def add_model_args(parser):
     model_subparsers = parser.add_subparsers(dest="model_command", required=True)
 
@@ -285,6 +330,7 @@ def get_main_parser():
     add_core_args(subparsers.add_parser("core", help="Core image operations"))
     add_web_args(subparsers.add_parser("web", help="Web-based operations"))
     add_database_args(subparsers.add_parser("database", help="Database operations"))
+    add_migrations_args(subparsers.add_parser("migrations", help="Library DB migration operations"))
     add_model_args(subparsers.add_parser("model", help="ML model operations"))
     add_gui_args(subparsers.add_parser("gui", help="Launch GUI"))
     add_stitch_args(subparsers.add_parser(
