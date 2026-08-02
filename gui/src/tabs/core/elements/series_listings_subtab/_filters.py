@@ -1,6 +1,6 @@
 """Search/type/status/sort combo change handlers.
 
-Extracted from ``content_listings_subtab.py`` -- pure code motion, no logic
+Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
 change.
 """
 

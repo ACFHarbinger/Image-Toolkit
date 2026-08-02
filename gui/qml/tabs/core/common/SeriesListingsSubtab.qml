@@ -1,10 +1,10 @@
 /*!
-    \qmltype ContentListingsSubtab
+    \qmltype SeriesListingsSubtab
     \inqmlmodule ImageToolkit.Tabs.Core.Common
-    \brief Content listings sub-tab for media entry management.
+    \brief Series Listings sub-tab for media entry management.
 
     Displays a searchable list of media content entries (anime, films, etc.)
-    with CRUD operations backed by \c mainBackend.listingsTab.contentListings.
+    with CRUD operations backed by \c mainBackend.listingsTab.seriesListings.
 
     Key slots: \c add_entry(), \c edit_entry(id), \c delete_entry(id),
     \c search(query)
@@ -19,7 +19,7 @@ Item {
     id: root
 
     readonly property var backend: mainBackend && mainBackend.listingsTab
-                                   ? mainBackend.listingsTab.content_listings : null
+                                   ? mainBackend.listingsTab.series_listings : null
 
     ColumnLayout {
         anchors.fill: parent
@@ -27,7 +27,7 @@ Item {
         spacing: 12
 
         Text {
-            text: "Content Listings"
+            text: "Series Listings"
             color: Style.text
             font.pixelSize: 20
             font.bold: true

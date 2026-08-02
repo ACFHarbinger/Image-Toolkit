@@ -1,6 +1,6 @@
 """Vector-search recommendation dialog and worker dispatch.
 
-Extracted from ``content_listings_subtab.py`` -- pure code motion, no logic
+Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
 change.
 """
 

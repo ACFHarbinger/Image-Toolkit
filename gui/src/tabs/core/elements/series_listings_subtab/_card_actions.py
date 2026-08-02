@@ -1,6 +1,6 @@
 """Card click/delete/image-remove handlers, context menu, and save/delete slots.
 
-Extracted from ``content_listings_subtab.py`` -- pure code motion, no logic
+Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
 change.
 """
 

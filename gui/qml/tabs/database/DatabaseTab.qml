@@ -1,11 +1,11 @@
 /*!
     \qmltype DatabaseTab
     \inqmlmodule ImageToolkit.Tabs.Database
-    \brief Database management and maintenance tab.
+    \brief Database management tab.
 
     DatabaseTab displays the image registry's connection info and live
     statistics text sourced from \c mainBackend.databaseTab.statsText.  It
-    provides a \e {Sync Database} button and two maintenance actions:
+    provides a \e {Sync Database} button and two management actions:
 
     \list
       \li \c run_vacuum() — reclaims unused pages in the SQLite database
@@ -58,7 +58,7 @@ Item {
         }
 
         GroupBox {
-            title: "Database Maintenance"
+            title: "Database Management"
             Layout.fillWidth: true
             RowLayout {
                 spacing: 10

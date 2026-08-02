@@ -1,6 +1,6 @@
 """Library-DB persistence: load, repo accessors, upsert/delete.
 
-Extracted from ``content_listings_subtab.py`` -- pure code motion, no logic
+Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
 change.
 """
 
@@ -30,7 +30,7 @@ class _PersistenceMixin:
             self._entries = MediaRepo(db).list_media()
             self._all_entities = EntityRepo(db).list_entities()
         except Exception as e:
-            logging.exception("[ContentListingsSubTab] Failed to load from library DB")
+            logging.exception("[SeriesListingsSubTab] Failed to load from library DB")
             QMessageBox.critical(
                 self,
                 "Library Database Unavailable",
@@ -75,7 +75,7 @@ class _PersistenceMixin:
             repo.save_media(entry)
             return True
         except Exception as e:
-            logging.exception("[ContentListingsSubTab] Failed to upsert entry")
+            logging.exception("[SeriesListingsSubTab] Failed to upsert entry")
             QMessageBox.critical(
                 self,
                 "Save Failed",
@@ -94,7 +94,7 @@ class _PersistenceMixin:
             repo.delete_media(entry_id)
             return True
         except Exception as e:
-            logging.exception("[ContentListingsSubTab] Failed to delete entry")
+            logging.exception("[SeriesListingsSubTab] Failed to delete entry")
             QMessageBox.critical(
                 self,
                 "Delete Failed",

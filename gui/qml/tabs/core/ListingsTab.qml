@@ -5,7 +5,7 @@
 
     ListingsTab contains two sub-tabs:
     \list
-      \li \b {Content Listings} — media entries with metadata, ratings, and tags.
+      \li \b {Series Listings} — media entries with metadata, ratings, and tags.
       \li \b {Entity Listings} — people/characters linked to content entries.
     \endlist
 
@@ -32,7 +32,7 @@ Item {
             Layout.fillWidth: true
 
             TabButton {
-                text: "Content Listings"
+                text: "Series Listings"
                 width: implicitWidth
             }
             TabButton {
@@ -46,7 +46,7 @@ Item {
             Layout.fillHeight: true
             currentIndex: tabBar.currentIndex
 
-            ContentListingsSubtab { id: contentListings }
+            SeriesListingsSubtab { id: seriesListings }
             EntityListingsSubtab  { id: entityListings }
         }
     }

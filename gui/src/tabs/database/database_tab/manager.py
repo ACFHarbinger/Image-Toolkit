@@ -38,7 +38,7 @@ class DatabaseTab(
     _AutoPopulateMixin,
 ):
     """
-    Library maintenance: statistics display and tag/group population on the
+    Library management: statistics display and tag/group population on the
     unified library database (Phase DB, DB.6 — the PostgreSQL connection is
     gone; the store opens with the vault session).
     """

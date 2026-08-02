@@ -513,9 +513,9 @@ class TestListingsTab:
         tab = ListingsTab()
         assert isinstance(tab, QWidget)
         assert tab.tab_widget.count() == 2
-        assert tab.tab_widget.tabText(0) == "🎬 Content Listings"
+        assert tab.tab_widget.tabText(0) == "🎬 Series Listings"
         assert tab.tab_widget.tabText(1) == "👥 Entity Listings"
-        assert tab.content_listings is not None
+        assert tab.series_listings is not None
         assert tab.entity_listings is not None
 
     def test_listing_images_subdirectory(self):
@@ -559,7 +559,7 @@ class TestListingsTab:
 
         monkeypatch.setattr(QMessageBox, "warning", mock_warning)
 
-        tab.content_listings._synchronize_listings()
+        tab.series_listings._synchronize_listings()
         assert warning_called
 
     def test_sync_with_mock_vault(self, q_app, monkeypatch, tmp_path):
@@ -595,7 +595,7 @@ class TestListingsTab:
         tab = ListingsTab(vault_manager=vault_manager)
 
         # Inject entries and stub save/load
-        tab.content_listings._entries = [{"id": "1", "name": "Local 1"}]
+        tab.series_listings._entries = [{"id": "1", "name": "Local 1"}]
 
         # Mock message boxes to avoid blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args: None)
@@ -606,8 +606,8 @@ class TestListingsTab:
             patch("gui.src.tabs.core.elements.common.listings_common.base.insert_listing_secure"),
         ):
             # 1. Update Backup should generate the encrypted file since it doesn't exist
-            tab.content_listings._update_encrypted_backup()
-        tab.content_listings._backup_worker.wait()  # Wait for QThread to finish!
+            tab.series_listings._update_encrypted_backup()
+        tab.series_listings._backup_worker.wait()  # Wait for QThread to finish!
 
         enc_file = tmp_path / "assets" / "secrets" / "listings.json.enc"
         assert enc_file.exists()
@@ -629,7 +629,7 @@ class TestListingsTab:
             patch("gui.src.tabs.core.elements.common.listings_common.base.delete_listing_secure"),
             patch("gui.src.tabs.core.elements.common.listings_common.base.insert_listing_secure"),
         ):
-            tab.content_listings._synchronize_listings()
-            tab.content_listings._sync_worker.wait()  # Wait for QThread to finish!
+            tab.series_listings._synchronize_listings()
+            tab.series_listings._sync_worker.wait()  # Wait for QThread to finish!
             q_app.processEvents()
-        assert len(tab.content_listings._entries) == 2
+        assert len(tab.series_listings._entries) == 2

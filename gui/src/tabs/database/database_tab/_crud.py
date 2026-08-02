@@ -299,7 +299,7 @@ class _CrudMixin:
         """DB.8c: "click a tag anywhere -> search listings with this tag."
         Entities have no tags in the unified schema (only media_items and
         images do -- see backend/src/database/unified/schema.sql), so this
-        targets Content Listings only. Its search box already matches
+        targets Series Listings only. Its search box already matches
         tags/genres, not just titles (SearchRepo.filter_media(),
         DB.5) -- no new filter UI needed, just set the existing box.
 
@@ -323,9 +323,9 @@ class _CrudMixin:
             QMessageBox.warning(self, "Error", "Listings Tab reference not found.")
             return
 
-        content_listings = self.listings_tab_ref.content_listings
-        self.listings_tab_ref.tab_widget.setCurrentWidget(content_listings)
-        content_listings.search_box.setText(tag_name)
+        series_listings = self.listings_tab_ref.series_listings
+        self.listings_tab_ref.tab_widget.setCurrentWidget(series_listings)
+        series_listings.search_box.setText(tag_name)
 
         if self.main_window_ref is not None:
             self.main_window_ref.command_combo.setCurrentText("Library Database")

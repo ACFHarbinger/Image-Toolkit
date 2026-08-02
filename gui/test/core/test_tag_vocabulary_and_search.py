@@ -1,5 +1,5 @@
 """DB.8c: tag-chip autocomplete (listings detail panel) + "search with
-this tag" actions (Maintenance -> Search tab).
+this tag" actions (Management -> Search tab).
 """
 
 from unittest.mock import MagicMock, patch
@@ -202,9 +202,9 @@ class TestSearchListingsWithTag:
         tab.search_listings_with_selected_tag()
 
         mock_listings_tab.tab_widget.setCurrentWidget.assert_called_once_with(
-            mock_listings_tab.content_listings
+            mock_listings_tab.series_listings
         )
-        mock_listings_tab.content_listings.search_box.setText.assert_called_once_with(
+        mock_listings_tab.series_listings.search_box.setText.assert_called_once_with(
             "sunset"
         )
         mock_mw.command_combo.setCurrentText.assert_called_once_with("Library Database")

@@ -1,6 +1,6 @@
-"""Widget construction for ``ContentListingsSubTab`` (``_build_ui``).
+"""Widget construction for ``SeriesListingsSubTab`` (``_build_ui``).
 
-Extracted from ``content_listings_subtab.py`` -- pure code motion, no logic
+Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
 change.
 """
 
@@ -38,7 +38,7 @@ class _UIBuilderMixin:
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
 
-        title_lbl = QLabel("🎬 Content Listings")
+        title_lbl = QLabel("🎬 Series Listings")
         title_lbl.setStyleSheet("font-size:18px;font-weight:bold;color:#00bcd4;")
         toolbar.addWidget(title_lbl)
         toolbar.addStretch()
@@ -255,7 +255,7 @@ class _UIBuilderMixin:
         self._detail.deleted.connect(self._on_entry_deleted)
         detail_scroll.setWidget(self._detail)
         splitter.addWidget(detail_scroll)
-        _persist_splitter(splitter, "ContentListingsSubTab_main")
+        _persist_splitter(splitter, "SeriesListingsSubTab_main")
 
         splitter.setSizes([680, 340])
         splitter.setHandleWidth(6)

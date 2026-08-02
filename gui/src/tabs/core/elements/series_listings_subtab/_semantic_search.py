@@ -1,5 +1,5 @@
 """Semantic (BGE-M3) "Search by Meaning" + embedding-index backfill for
-``ContentListingsSubTab`` -- DB.7 listings side.
+``SeriesListingsSubTab`` -- DB.7 listings side.
 
 Mirrors the image Search tab's ``search_tab/_semantic_search.py`` and the
 existing ``_recommendation.py`` mixin's worker-dispatch shape in this same
@@ -100,7 +100,7 @@ class _SemanticSearchMixin:
     @Slot()
     def _on_build_search_index(self) -> None:
         """Backfill BGE-M3 embeddings for every media entry that doesn't
-        have one yet. No dedicated listings "Maintenance" tab exists (the
+        have one yet. No dedicated listings "Management" tab exists (the
         way DatabaseTab has one for images), so this lives right next to
         the search entry point that needs the index populated."""
         if not self.vault_manager or not self.vault_manager.raw_password:

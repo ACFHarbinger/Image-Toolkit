@@ -1,24 +1,24 @@
 """DB.7 (listings side): "Search by Meaning" state wiring for
-ContentListingsSubTab/EntityListingsSubTab -- construction smoke test and
+SeriesListingsSubTab/EntityListingsSubTab -- construction smoke test and
 the semantic-results precedence branch in _filtered_entries()/
 _filtered_entities() (mirrors the existing recommendation-mode branch).
 """
 
 import pytest
-from gui.src.tabs.core.elements.content_listings_subtab import ContentListingsSubTab
+from gui.src.tabs.core.elements.series_listings_subtab import SeriesListingsSubTab
 from gui.src.tabs.core.elements.entity_listings_subtab import EntityListingsSubTab
 
 pytestmark = pytest.mark.gui
 
 
-class TestContentListingsSemanticSearch:
+class TestSeriesListingsSemanticSearch:
     def test_construction(self, q_app):
-        tab = ContentListingsSubTab(vault_manager=None)
+        tab = SeriesListingsSubTab(vault_manager=None)
         assert tab._semantic_search_results is None
         assert tab.clear_semantic_btn.isHidden()
 
     def test_filtered_entries_semantic_mode_ranks_by_score(self, q_app):
-        tab = ContentListingsSubTab(vault_manager=None)
+        tab = SeriesListingsSubTab(vault_manager=None)
         tab._entries = [
             {"id": "m-1", "title": "A"},
             {"id": "m-2", "title": "B"},
@@ -33,7 +33,7 @@ class TestContentListingsSemanticSearch:
         assert [e["id"] for e in result] == ["m-1", "m-2"]
 
     def test_clear_semantic_search_resets_state(self, q_app):
-        tab = ContentListingsSubTab(vault_manager=None)
+        tab = SeriesListingsSubTab(vault_manager=None)
         tab._semantic_search_results = [("m-1", 0.9)]
         tab.clear_semantic_btn.show()
 

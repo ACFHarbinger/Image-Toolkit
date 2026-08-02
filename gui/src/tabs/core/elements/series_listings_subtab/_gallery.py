@@ -1,6 +1,6 @@
 """Gallery filtering/sorting, rebuild, and resize/show events.
 
-Extracted from ``content_listings_subtab.py`` -- pure code motion, no logic
+Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
 change.
 """
 
@@ -88,7 +88,7 @@ class _GalleryMixin:
             )
         except Exception:
             logging.exception(
-                "[ContentListingsSubTab] SQL filter/sort failed; showing "
+                "[SeriesListingsSubTab] SQL filter/sort failed; showing "
                 "unfiltered entries"
             )
             return list(self._entries)

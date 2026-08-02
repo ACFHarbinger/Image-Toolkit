@@ -11,7 +11,7 @@ from ...constants.listings import (
 )
 
 # ---------------------------------------------------------------------------
-from .elements.content_listings_subtab import ContentListingsSubTab
+from .elements.series_listings_subtab import SeriesListingsSubTab
 from .elements.entity_listings_subtab import EntityListingsSubTab
 
 
@@ -35,31 +35,31 @@ class ListingsTab(QWidget):
             "QTabBar::tab:selected { background: #2c2f33; color: #00bcd4; border-bottom: 2px solid #00bcd4; }"
         )
 
-        self.content_listings = ContentListingsSubTab(vault_manager=vault_manager)
+        self.series_listings = SeriesListingsSubTab(vault_manager=vault_manager)
         self.entity_listings = EntityListingsSubTab(vault_manager=vault_manager)
 
         # Bidirectional cross-sync: saving/deleting on one side reloads the other
-        self.content_listings.entities_changed.connect(
+        self.series_listings.entities_changed.connect(
             self.entity_listings._on_external_reload
         )
         self.entity_listings.listings_changed.connect(
-            self.content_listings._on_external_reload
+            self.series_listings._on_external_reload
         )
 
-        self.tab_widget.addTab(self.content_listings, "🎬 Content Listings")
+        self.tab_widget.addTab(self.series_listings, "🎬 Series Listings")
         self.tab_widget.addTab(self.entity_listings, "👥 Entity Listings")
         layout.addWidget(self.tab_widget)
 
     # DB.8a cross-tab navigation: MainWindow assigns this post-construction
     # (mirrors search_tab_ref/merge_tab_ref in _tab_registry.py); forwarded
-    # to content_listings, which forwards it to its detail panel.
+    # to series_listings, which forwards it to its detail panel.
     @property
     def main_window_ref(self):
-        return self.content_listings.main_window_ref
+        return self.series_listings.main_window_ref
 
     @main_window_ref.setter
     def main_window_ref(self, value):
-        self.content_listings.main_window_ref = value
+        self.series_listings.main_window_ref = value
 
     def collect(self) -> dict:
         return {"active_subtab_index": self.tab_widget.currentIndex()}

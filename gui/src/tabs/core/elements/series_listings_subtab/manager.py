@@ -1,4 +1,4 @@
-"""``ContentListingsSubTab`` -- composed from per-concern mixins."""
+"""``SeriesListingsSubTab`` -- composed from per-concern mixins."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from ._semantic_search import _SemanticSearchMixin
 from ._ui_builder import _UIBuilderMixin
 
 
-class ContentListingsSubTab(
+class SeriesListingsSubTab(
     # Mixins MUST precede QWidget in MRO order (see gui/src/tabs/core/
     # merge_tab/manager.py for the bug this pattern fixes): _GalleryMixin's
     # resizeEvent/showEvent override methods QWidget itself defines, and
@@ -71,4 +71,4 @@ class ContentListingsSubTab(
         self._detail.main_window_ref = value
 
 
-__all__ = ["ContentListingsSubTab"]
+__all__ = ["SeriesListingsSubTab"]

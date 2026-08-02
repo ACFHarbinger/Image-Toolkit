@@ -1,6 +1,6 @@
-"""Maintenance operations for the unified store — DB.3 / DB.6.
+"""Management operations for the unified store — DB.3 / DB.6.
 
-Backs the Library Maintenance panel (ex-DatabaseTab): statistics in the
+Backs the Library Management panel (ex-DatabaseTab): statistics in the
 legacy banner shape, vacuum/reindex/integrity, and a reset that is gated on
 a fresh backup manifest (the roadmap's hard rule after the data-loss
 incident).
@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
-class Maintenance:
+class Management:
     def __init__(self, db):
         self._db = db
 

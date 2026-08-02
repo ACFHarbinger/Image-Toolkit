@@ -12,7 +12,7 @@ base = pytest.importorskip("base")
 from backend.src.database.unified import session  # noqa: E402
 from backend.src.database.unified.entity_repo import EntityRepo  # noqa: E402
 from backend.src.database.unified.image_repo import ImageRepo  # noqa: E402
-from backend.src.database.unified.maintenance import Maintenance  # noqa: E402
+from backend.src.database.unified.manager import Management  # noqa: E402
 from backend.src.database.unified.media_repo import MediaRepo  # noqa: E402
 from backend.src.database.unified.search_repo import SearchRepo  # noqa: E402
 from backend.src.database.unified.tag_repo import TagRepo  # noqa: E402
@@ -648,7 +648,7 @@ def test_filter_entities_search_and_combos(db):
     assert search.filter_entities(search_query="watanabe") == ["e-2"]
     # Search box: notes match.
     assert search.filter_entities(search_query="composer") == ["e-1"]
-    # Search box: associated content title match.
+    # Search box: associated series title match.
     assert search.filter_entities(search_query="bebop") == ["e-1"]
     # Search box: no match.
     assert search.filter_entities(search_query="zzzznope") == []
@@ -758,7 +758,7 @@ def test_semantic_media_and_entity_search(db):
 
 
 def test_maintenance_statistics(populated):
-    stats = Maintenance(populated).statistics()
+    stats = Management(populated).statistics()
     assert stats["total_images"] == 3
     assert stats["total_groups"] == 2
     assert stats["total_subgroups"] == 2
@@ -768,7 +768,7 @@ def test_maintenance_statistics(populated):
 
 
 def test_reset_requires_verified_backup(populated, tmp_path, monkeypatch):
-    maint = Maintenance(populated)
+    maint = Management(populated)
     from backend.migrations import backup_all
 
     monkeypatch.setattr(backup_all, "PRE_UNIFIED_DIR", tmp_path / "none")

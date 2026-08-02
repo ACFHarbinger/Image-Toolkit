@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ._util import transaction
 from .image_repo import ImageRepo
-from .maintenance import Maintenance
+from .manager import Management
 from .search_repo import SearchRepo
 from .tag_repo import TagRepo
 
@@ -27,7 +27,7 @@ class UnifiedImageDatabase:
         self._images = ImageRepo(db)
         self._tags = TagRepo(db)
         self._search = SearchRepo(db)
-        self._maintenance = Maintenance(db)
+        self._management = Management(db)
 
     # ---- images -------------------------------------------------------
 
@@ -150,7 +150,7 @@ class UnifiedImageDatabase:
     def merge_tags(self, source_name: str, dest_name: str) -> None:
         """DB.8c: repoint every reference from *source_name* to
         *dest_name* (both image and media tag links), then drop
-        *source_name* -- the Maintenance panel's tag-merge tool."""
+        *source_name* -- the Library Management panel's tag-merge tool."""
         self._tags.merge_tags(source_name, dest_name)
 
     def get_all_tags(self, limit: int = 10000) -> List[str]:
@@ -159,20 +159,20 @@ class UnifiedImageDatabase:
     def get_all_tags_with_types(self, limit: int = 10000) -> List[Dict[str, str]]:
         return self._tags.get_all_tags_with_types()
 
-    # ---- maintenance -----------------------------------------------------
+    # ---- management -----------------------------------------------------
 
     def get_statistics(self) -> Dict[str, Any]:
-        return self._maintenance.statistics()
+        return self._management.statistics()
 
     def maintenance_vacuum(self, full: bool = False) -> None:
-        self._maintenance.vacuum()
+        self._management.vacuum()
 
     def maintenance_reindex(self) -> None:
-        self._maintenance.reindex()
+        self._management.reindex()
 
     def reset_database(self) -> None:
         """Wipe all rows. Refuses without a verified backup manifest."""
-        self._maintenance.reset_database()
+        self._management.reset_database()
 
     def close(self) -> None:
         """No-op: the session Database outlives any one consumer; it is
