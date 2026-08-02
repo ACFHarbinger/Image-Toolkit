@@ -4,17 +4,17 @@ import os
 from unittest.mock import patch
 
 import pytest
-from gui.src.elements.stitch_tab.dialog.canvas_layout_inspector_dialog import (
+from gui.src.elements.animation.stitch_tab.dialog.canvas_layout_inspector_dialog import (
     CanvasLayoutInspectorDialog,
     _canvas_frame_corners,
     parse_canvas_json,
 )
-from gui.src.elements.stitch_tab.dialog.edge_graph_inspector_dialog import (
+from gui.src.elements.animation.stitch_tab.dialog.edge_graph_inspector_dialog import (
     EdgeGraphInspectorDialog,
     _edge_graph_node_positions,
     parse_edge_json,
 )
-from gui.src.elements.stitch_tab import StitchTab
+from gui.src.elements.animation.stitch_tab import StitchTab
 
 pytestmark = pytest.mark.gui
 
@@ -32,7 +32,7 @@ class TestStitchTabBrowseOutput:
 
         # Mock QFileDialog.getSaveFileName to avoid popping up UI
         with patch(
-            "gui.src.elements.stitch_tab._stitch_execution.QFileDialog.getSaveFileName"
+            "gui.src.elements.animation.stitch_tab._stitch_execution.QFileDialog.getSaveFileName"
         ) as mock_save_dialog:
             mock_save_dialog.return_value = (
                 "/home/user/downloads/my_panorama.png",
@@ -61,7 +61,7 @@ class TestStitchTabBrowseOutput:
         tab._output_path.setText("my_custom_panorama.png")
 
         with patch(
-            "gui.src.elements.stitch_tab._stitch_execution.QFileDialog.getSaveFileName"
+            "gui.src.elements.animation.stitch_tab._stitch_execution.QFileDialog.getSaveFileName"
         ) as mock_save_dialog:
             mock_save_dialog.return_value = ("", "")
 

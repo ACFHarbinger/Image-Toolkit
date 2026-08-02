@@ -42,7 +42,7 @@ class TestWaypointCanvas:
     """Tests for _WaypointCanvas internals (no QApplication needed for non-paint ops)."""
 
     def test_nearest_seam_finds_closest(self, q_app):
-        from gui.src.elements.stitch_tab.dialog.seam_diagnostic_dialog import _WaypointCanvas
+        from gui.src.elements.animation.stitch_tab.dialog.seam_diagnostic_dialog import _WaypointCanvas
 
         pix = QPixmap(260, 400)
         canvas = _WaypointCanvas(
@@ -54,7 +54,7 @@ class TestWaypointCanvas:
         assert canvas._nearest_seam(750) == 2
 
     def test_clear_seam_waypoints_removes_entry(self, q_app):
-        from gui.src.elements.stitch_tab.dialog.seam_diagnostic_dialog import _WaypointCanvas
+        from gui.src.elements.animation.stitch_tab.dialog.seam_diagnostic_dialog import _WaypointCanvas
 
         pix = QPixmap(260, 400)
         canvas = _WaypointCanvas(pix, canvas_w=260, canvas_h=900, boundaries=[200.0])
@@ -63,7 +63,7 @@ class TestWaypointCanvas:
         assert canvas.all_waypoints() == {}
 
     def test_all_waypoints_returns_shallow_copy(self, q_app):
-        from gui.src.elements.stitch_tab.dialog.seam_diagnostic_dialog import _WaypointCanvas
+        from gui.src.elements.animation.stitch_tab.dialog.seam_diagnostic_dialog import _WaypointCanvas
 
         pix = QPixmap(260, 400)
         canvas = _WaypointCanvas(pix, canvas_w=260, canvas_h=900, boundaries=[200.0])
@@ -73,7 +73,7 @@ class TestWaypointCanvas:
         assert (99, 99) not in canvas._waypoints[0], "should be a copy, not a view"
 
     def test_waypoint_count_per_seam(self, q_app):
-        from gui.src.elements.stitch_tab.dialog.seam_diagnostic_dialog import _WaypointCanvas
+        from gui.src.elements.animation.stitch_tab.dialog.seam_diagnostic_dialog import _WaypointCanvas
 
         pix = QPixmap(260, 400)
         canvas = _WaypointCanvas(
@@ -93,7 +93,7 @@ class TestSeamDiagnosticDialogWaypoints:
 
     def test_get_overrides_includes_waypoints(self, q_app):
         import cv2
-        from gui.src.elements.stitch_tab.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
+        from gui.src.elements.animation.stitch_tab.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
 
         cv2.resize.side_effect = lambda arr, *args, **kwargs: arr # pyrefly: ignore [missing-attribute]
         cv2.cvtColor.side_effect = lambda arr, *args, **kwargs: arr # pyrefly: ignore [missing-attribute]
@@ -112,7 +112,7 @@ class TestSeamDiagnosticDialogWaypoints:
         assert overrides[1]["waypoints"] == [(150, 400)]
 
     def test_get_overrides_no_canvas_no_waypoints(self, q_app):
-        from gui.src.elements.stitch_tab.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
+        from gui.src.elements.animation.stitch_tab.dialog.seam_diagnostic_dialog import SeamDiagnosticDialog
 
         data = _make_data(n_seams=2, with_preview=False)
         dlg = SeamDiagnosticDialog(data=data)

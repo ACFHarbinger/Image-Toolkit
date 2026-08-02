@@ -137,7 +137,7 @@ class TestFileDialogPatch:
         AppSettings.set_favourite_directories([])
 
     def test_thumbnail_file_picker_favourites(self, q_app, tmp_path):
-        from gui.src.elements.stitch_tab import _ThumbnailFilePicker
+        from gui.src.elements.animation.stitch_tab import _ThumbnailFilePicker
         from PySide6.QtCore import Qt
 
         fav_dir = tmp_path / "picker_fav"
@@ -166,7 +166,7 @@ class TestFileDialogPatch:
 
             # Simulate context menu action trigger
             pos = picker._sidebar.visualItemRect(target_item).center()
-            with patch("gui.src.elements.stitch_tab._thumbnail_file_picker.QMenu", MyMenu):
+            with patch("gui.src.elements.animation.stitch_tab._thumbnail_file_picker.QMenu", MyMenu):
                 picker._on_sidebar_context_menu(pos)
 
             assert str(fav_dir) not in AppSettings.favourite_directories()
