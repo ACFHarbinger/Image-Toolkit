@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
+from backend.src.database.unified import tag_categories
 
 SCHEMA_VERSION = 1
 DEFAULT_DB_PATH = Path(IMAGE_TOOLKIT_DIR) / "library.db"
@@ -33,6 +34,7 @@ def ensure_schema(db) -> None:
     search_repo can degrade to LIKE queries.
     """
     db.apply_ddl(SCHEMA_SQL_PATH.read_text())
+    tag_categories.seed(db)
 
     fts_enabled = False
     if db.has_fts5():

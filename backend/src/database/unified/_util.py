@@ -75,6 +75,25 @@ def normalized_pair(a: str, b: str) -> Tuple[str, str]:
     return (a, b) if a < b else (b, a)
 
 
+# media_tags/entity_tags round-trip the legacy "genres"/"tags" CSV fields as
+# two buckets: the 'Genre' category, and everything else ('Tag' catch-all).
+# 'Copyright' is excluded from the catch-all so the auto-created title/name
+# self-tag (see MediaRepo.save_media / EntityRepo.save_entity) survives every
+# subsequent CSV round-trip instead of being swept up and deleted. Shared by
+# media_repo.py (round-trip) and search_repo.py (tag-filter search) so both
+# agree on which category a "Tag"/"Genre" search term maps to in SQL.
+_TAG_BUCKET_CLAUSE = {
+    "Genre": "c.name = 'Genre'",
+    "Tag": "(c.name IS NULL OR (c.name != 'Genre' AND c.name != 'Copyright'))",
+}
+
+
+def tag_bucket_clause(tag_category: str) -> str:
+    """SQL boolean expression (references a `tag_categories` join aliased
+    `c`) selecting tags belonging to *tag_category* ('Genre' or 'Tag')."""
+    return _TAG_BUCKET_CLAUSE.get(tag_category, "c.name = " + sql_string_literal(tag_category))
+
+
 def intify(value: Any) -> Any:
     """Collapse integral floats back to int.
 

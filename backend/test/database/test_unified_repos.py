@@ -414,13 +414,13 @@ def test_tag_repo_crud_and_merge(db):
     tags = TagRepo(db)
     tags.add_tag("makoto_shinkai", "Artist")
     tags.add_tag("scenery")
-    assert tags.get_all_tags_with_types() == [
-        {"name": "makoto_shinkai", "type": "Artist"},
-        {"name": "scenery", "type": ""},
+    assert tags.get_all_tags_with_categories() == [
+        {"name": "makoto_shinkai", "category": "Artist", "color": "#5865f2"},
+        {"name": "scenery", "category": "", "color": "#95a5a6"},
     ]
-    tags.update_tag_type("scenery", "General")
+    tags.update_tag_category("scenery", "General")
     tags.rename_tag("scenery", "landscape")
-    assert tags.get_all_tags(types=["General"]) == ["landscape"]
+    assert tags.get_all_tags(categories=["General"]) == ["landscape"]
 
     # merge repoints references
     media = MediaRepo(db)
@@ -438,8 +438,9 @@ def test_tag_repo_crud_and_merge(db):
     )
     # UNIQUE tag names: the CSV 'landscape' bound to the existing General tag,
     # and the dup's link merged into the same row (INSERT OR IGNORE dedupe).
-    assert rows == [(1,)]
-    # The listing's tags CSV still reconstructs (non-Genre links).
+    # Plus the auto-created 'X' Copyright self-tag from save_media.
+    assert rows == [(2,)]
+    # The listing's tags CSV still reconstructs (non-Genre, non-Copyright links).
     assert media.get_media("m-1")["tags"] == "landscape"
 
 

@@ -14,6 +14,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 from ._util import dumps_extra, intify, loads_extra, normalized_pair, transaction
+from .tag_repo import TagRepo
 
 _COLUMN_KEYS = {
     "id": "id",
@@ -41,6 +42,7 @@ _SELECT_COLUMNS = (
 class EntityRepo:
     def __init__(self, db):
         self._db = db
+        self._tags = TagRepo(db)
 
     # ------------------------------------------------------------------
     # Writes
@@ -83,6 +85,18 @@ class EntityRepo:
             if "associated_entities" in entity:
                 self._replace_peer_links(
                     entity_id, list(entity.get("associated_entities") or [])
+                )
+
+            # Every entity listing gets a self tag under Character so it's
+            # part of the searchable vocabulary and shows up on linked
+            # series' grouped-tags section as an "associated entities" chip.
+            name = (entity.get("name") or cols.get("name") or "").strip()
+            if name:
+                self_tag_id = self._tags.get_or_create(name, "Character")
+                self._db.execute(
+                    "INSERT OR IGNORE INTO entity_tags (entity_id, tag_id) "
+                    "VALUES (?, ?)",
+                    (entity_id, self_tag_id),
                 )
         return entity_id
 
@@ -232,6 +246,32 @@ class EntityRepo:
             )
         ]
         return entity
+
+    def get_grouped_tags(self, entity_id: str) -> Dict[str, List[Dict[str, Any]]]:
+        """This entity's tags grouped by category name, including tags
+        carried transitively through associated media (e.g. a linked
+        series' Genre tags become visible on the entity too). Mirrors
+        MediaRepo.get_grouped_tags."""
+        rows = self._db.query(
+            "SELECT t.name, COALESCE(c.name, 'General') AS cat, "
+            "COALESCE(c.color, '#95a5a6') AS color, COALESCE(c.sort_order, 999) AS ord "
+            "FROM entity_tags et JOIN tags t ON t.id = et.tag_id "
+            "LEFT JOIN tag_categories c ON c.id = t.category_id "
+            "WHERE et.entity_id = ? "
+            "UNION "
+            "SELECT t.name, COALESCE(c.name, 'General') AS cat, "
+            "COALESCE(c.color, '#95a5a6') AS color, COALESCE(c.sort_order, 999) AS ord "
+            "FROM media_entity me JOIN media_tags mt ON mt.media_item_id = me.media_item_id "
+            "JOIN tags t ON t.id = mt.tag_id "
+            "LEFT JOIN tag_categories c ON c.id = t.category_id "
+            "WHERE me.entity_id = ? "
+            "ORDER BY ord, t.name",
+            (entity_id, entity_id),
+        )
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for name, category, color, _order in rows:
+            grouped.setdefault(category, []).append({"name": name, "color": color})
+        return grouped
 
     def _replace_credits(self, entity_id: str, credit_list: List[Dict[str, Any]]) -> None:
         self._db.execute("DELETE FROM credits WHERE entity_id = ?", (entity_id,))

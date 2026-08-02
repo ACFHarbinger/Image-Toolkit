@@ -188,17 +188,32 @@ CREATE INDEX IF NOT EXISTS idx_images_filename ON images(filename);
 CREATE INDEX IF NOT EXISTS idx_images_phash ON images(phash) WHERE phash IS NOT NULL;
 
 -- ===========================================================================
--- Shared vocabulary
+-- Shared vocabulary (Danbooru-style categorized tags)
 -- ===========================================================================
 
--- name: tags
--- Unified typed vocabulary: Artist/Series/Character/General/Meta (image side)
--- + Genre/Tag (from the listings CSV split). type NULL = untyped.
-CREATE TABLE IF NOT EXISTS tags (
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    type TEXT
+-- name: tag_categories
+-- applies_to: 'universal' (image/listing/entity) | 'listing' | 'entity'.
+-- Extensible by inserting rows -- no code change needed for a new category.
+-- Seeded by tag_categories.seed() (backend/src/database/unified/tag_categories.py).
+CREATE TABLE IF NOT EXISTS tag_categories (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE,
+    color      TEXT NOT NULL DEFAULT '#95a5a6',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    applies_to TEXT NOT NULL DEFAULT 'universal'
 );
+
+-- name: tags
+-- Unified categorized vocabulary shared by images, media_items, and
+-- entities. category_id NULL = uncategorized (renders as General).
+CREATE TABLE IF NOT EXISTS tags (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    category_id INTEGER REFERENCES tag_categories(id) ON DELETE SET NULL
+);
+
+-- name: idx_tags_category
+CREATE INDEX IF NOT EXISTS idx_tags_category ON tags(category_id);
 
 -- name: image_tags
 CREATE TABLE IF NOT EXISTS image_tags (
@@ -219,6 +234,18 @@ CREATE TABLE IF NOT EXISTS media_tags (
 
 -- name: idx_media_tags_tag
 CREATE INDEX IF NOT EXISTS idx_media_tags_tag ON media_tags(tag_id);
+
+-- name: entity_tags
+-- Entities are now taggable too (e.g. Appearance/Occupation/Biographical/
+-- Organization categories) -- mirrors image_tags/media_tags exactly.
+CREATE TABLE IF NOT EXISTS entity_tags (
+    entity_id TEXT    NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+    tag_id    INTEGER NOT NULL REFERENCES tags(id)     ON DELETE CASCADE,
+    PRIMARY KEY (entity_id, tag_id)
+);
+
+-- name: idx_entity_tags_tag
+CREATE INDEX IF NOT EXISTS idx_entity_tags_tag ON entity_tags(tag_id);
 
 -- ===========================================================================
 -- Cross-domain links (DB.8)

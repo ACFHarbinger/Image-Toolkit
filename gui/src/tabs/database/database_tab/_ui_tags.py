@@ -43,12 +43,12 @@ class _UITagsMixin:
         self.new_tag_type_combo = QComboBox()
         self.new_tag_type_combo.setEditable(True)
         self.new_tag_type_combo.addItems(
-            ["", "Artist", "Series", "Character", "General", "Meta"]
+            ["", "Artist", "Copyright", "Character", "General", "Meta"]
         )
         self.new_tag_type_combo.setPlaceholderText(
             "e.g., Artist, Character, General (Optional)"
         )
-        create_tag_layout.addRow("Tag Type (applies to all):", self.new_tag_type_combo)
+        create_tag_layout.addRow("Tag Category (applies to all):", self.new_tag_type_combo)
 
         self.btn_create_tag = QPushButton("Create/Update Tag(s)")
         apply_shadow_effect(
@@ -73,10 +73,10 @@ class _UITagsMixin:
         self.bulk_tag_type_combo = QComboBox()
         self.bulk_tag_type_combo.setEditable(True)
         self.bulk_tag_type_combo.addItems(
-            ["", "Artist", "Series", "Character", "General", "Meta"]
+            ["", "Artist", "Copyright", "Character", "General", "Meta"]
         )
-        self.bulk_tag_type_combo.setPlaceholderText("Tag Type to apply (e.g., Artist)")
-        bulk_import_layout.addRow("Tag Type:", self.bulk_tag_type_combo)
+        self.bulk_tag_type_combo.setPlaceholderText("Tag Category to apply (e.g., Artist)")
+        bulk_import_layout.addRow("Tag Category:", self.bulk_tag_type_combo)
 
         self.json_file_path_edit = QLineEdit()
         self.json_file_path_edit.setPlaceholderText(
@@ -127,7 +127,7 @@ class _UITagsMixin:
 
         self.tags_table = QTableWidget()
         self.tags_table.setColumnCount(2)
-        self.tags_table.setHorizontalHeaderLabels(["Tag Name", "Tag Type"])
+        self.tags_table.setHorizontalHeaderLabels(["Tag Name", "Tag Category"])
         self.tags_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.Stretch
         )

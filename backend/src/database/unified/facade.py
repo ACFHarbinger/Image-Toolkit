@@ -135,8 +135,8 @@ class UnifiedImageDatabase:
 
     # ---- tags -----------------------------------------------------------
 
-    def add_tag(self, name: str, type: Optional[str] = None) -> None:  # noqa: A002
-        self._tags.add_tag(name, type)
+    def add_tag(self, name: str, category: Optional[str] = None) -> None:
+        self._tags.add_tag(name, category)
 
     def delete_tag(self, name: str) -> None:
         self._tags.delete_tag(name)
@@ -144,20 +144,23 @@ class UnifiedImageDatabase:
     def rename_tag(self, old_name: str, new_name: str) -> None:
         self._tags.rename_tag(old_name, new_name)
 
-    def update_tag_type(self, name: str, new_type: Optional[str]) -> None:
-        self._tags.update_tag_type(name, new_type)
+    def update_tag_category(self, name: str, new_category: Optional[str]) -> None:
+        self._tags.update_tag_category(name, new_category)
 
     def merge_tags(self, source_name: str, dest_name: str) -> None:
         """DB.8c: repoint every reference from *source_name* to
-        *dest_name* (both image and media tag links), then drop
+        *dest_name* (image, media, and entity tag links), then drop
         *source_name* -- the Library Management panel's tag-merge tool."""
         self._tags.merge_tags(source_name, dest_name)
 
     def get_all_tags(self, limit: int = 10000) -> List[str]:
         return self._tags.get_all_tags()
 
-    def get_all_tags_with_types(self, limit: int = 10000) -> List[Dict[str, str]]:
-        return self._tags.get_all_tags_with_types()
+    def get_all_tags_with_categories(self, limit: int = 10000) -> List[Dict[str, str]]:
+        return self._tags.get_all_tags_with_categories()
+
+    def list_tag_categories(self, applies_to: Optional[str] = None) -> List[Dict[str, Any]]:
+        return self._tags.list_categories(applies_to)
 
     # ---- management -----------------------------------------------------
 

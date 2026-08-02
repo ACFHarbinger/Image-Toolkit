@@ -41,6 +41,7 @@ class _EntryLifecycleMixin:
         self._update_assoc_entities_display()
         self._refresh_linked_groups_display()
         self._refresh_tag_vocabulary()
+        self._refresh_grouped_tags_display()
 
         self.f_summary.setPlainText(entry.get("summary", ""))
         self.f_review.setPlainText(entry.get("review", ""))
@@ -70,6 +71,7 @@ class _EntryLifecycleMixin:
         self.f_assoc_entities_display.setToolTip("")
         self.f_linked_groups_display.clear()
         self.f_linked_groups_display.setToolTip("")
+        self.grouped_tags_display.set_grouped_tags({})
         self.f_local_file.clear()
         self.f_web_link.clear()
         self.f_summary.clear()

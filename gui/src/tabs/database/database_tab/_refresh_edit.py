@@ -85,18 +85,37 @@ class _RefreshEditMixin:
         self.tags_table.blockSignals(True)
         self.old_edit_value = None
         try:
-            tags = self.db.get_all_tags_with_types()
+            self._refresh_tag_category_combos()
+            tags = self.db.get_all_tags_with_categories()
             self.tags_table.setRowCount(len(tags))
             for row, tag_data in enumerate(tags):
                 name_item = QTableWidgetItem(tag_data["name"])
-                type_item = QTableWidgetItem(tag_data["type"])
+                category_item = QTableWidgetItem(tag_data["category"])
                 self.tags_table.setItem(row, 0, name_item)
-                self.tags_table.setItem(row, 1, type_item)
+                self.tags_table.setItem(row, 1, category_item)
             self.update_statistics()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load tags list:\n{str(e)}")
         finally:
             self.tags_table.blockSignals(False)
+
+    def _refresh_tag_category_combos(self) -> None:
+        """Re-populate the create/bulk-import tag-category combos from the
+        live tag_categories table, so custom/extended categories (added via
+        a DB row, no code change needed) show up without a restart."""
+        if not self.db:
+            return
+        try:
+            names = [c["name"] for c in self.db.list_tag_categories()]
+        except Exception:
+            return
+        for combo in (self.new_tag_type_combo, self.bulk_tag_type_combo):
+            current = combo.currentText()
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItems([""] + names)
+            combo.setCurrentText(current)
+            combo.blockSignals(False)
 
     def refresh_image_registry(self):
         """Populate the Image Registry table with all paths from the DB."""
@@ -280,14 +299,14 @@ class _RefreshEditMixin:
                 item.setText(old_name)
         elif col == 1:
             tag_name = self.tags_table.item(row, 0).text()  # pyrefly: ignore [missing-attribute]
-            new_type = new_value.title()
+            new_category = new_value.title()
             try:
-                self.db.update_tag_type(tag_name, new_type)
-                if item.text() != new_type:
-                    item.setText(new_type)
+                self.db.update_tag_category(tag_name, new_category)
+                if item.text() != new_category:
+                    item.setText(new_category)
             except Exception as e:
                 QMessageBox.critical(
-                    self, "Error", f"Failed to update tag type:\n{str(e)}"
+                    self, "Error", f"Failed to update tag category:\n{str(e)}"
                 )
                 item.setText(old_value)
 

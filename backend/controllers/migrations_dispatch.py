@@ -107,6 +107,18 @@ def dispatch_clean_benchmark_data(args: dict) -> None:
         print(f"❌ clean-benchmark-data failed: {e}", file=sys.stderr)
 
 
+def dispatch_upgrade_tag_categories(args: dict) -> None:
+    try:
+        from backend.migrations import upgrade_tag_categories
+
+        report = upgrade_tag_categories.run(
+            _password(args), args["account_name"], db_path=args.get("db_path"),
+        )
+        print(report)
+    except Exception as e:
+        print(f"❌ upgrade-tag-categories failed: {e}", file=sys.stderr)
+
+
 _HANDLERS = {
     "backup": dispatch_backup,
     "create-db": dispatch_create_db,
@@ -115,6 +127,7 @@ _HANDLERS = {
     "verify": dispatch_verify,
     "run-all": dispatch_run_all,
     "clean-benchmark-data": dispatch_clean_benchmark_data,
+    "upgrade-tag-categories": dispatch_upgrade_tag_categories,
 }
 
 

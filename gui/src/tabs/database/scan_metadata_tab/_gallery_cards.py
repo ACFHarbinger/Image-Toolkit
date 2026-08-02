@@ -126,7 +126,7 @@ class _GalleryCardsMixin:
         if not db:
             return []
         try:
-            return db.get_all_tags_with_types()
+            return db.get_all_tags_with_categories()
         except Exception:
             pass
         return []
@@ -136,27 +136,15 @@ class _GalleryCardsMixin:
 
         tags_data = self._get_tags_from_db()
 
-        color_map = {
-            "Artist": "#5865f2",
-            "Series": "#f1c40f",
-            "Character": "#2ecc71",
-            "General": "#e91e63",
-            "Meta": "#9b59b6",
-            "": "#c7c7c7",
-            None: "#c7c7c7",
-        }
-
         for tag_data in tags_data:
             tag_name = tag_data["name"]
-            tag_type = tag_data["type"] if tag_data.get("type") else ""
 
             item = QListWidgetItem(tag_name.replace("_", " ").title())
             item.setData(Qt.ItemDataRole.UserRole, tag_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Unchecked)
 
-            text_color = color_map.get(tag_type, color_map[""])
-            item.setForeground(QColor(text_color))
+            item.setForeground(QColor(tag_data.get("color") or "#95a5a6"))
 
             self.tags_list_widget.addItem(item)
 

@@ -11,6 +11,7 @@ from ._associated_entities import _AssociatedEntitiesMixin
 from ._entry_lifecycle import _EntryLifecycleMixin
 from ._episode_list import _EpisodeListMixin
 from ._file_link_actions import _FileLinkActionsMixin
+from ._grouped_tags import _GroupedTagsMixin
 from ._image_actions import _ImageActionsMixin
 from ._linked_groups import _LinkedGroupsMixin
 from ._mal_sync import _MalSyncMixin
@@ -25,6 +26,7 @@ class _DetailPanel(
     _AssociatedEntitiesMixin,
     _LinkedGroupsMixin,
     _TagVocabularyMixin,
+    _GroupedTagsMixin,
     _EntryLifecycleMixin,
     _FileLinkActionsMixin,
     _MalSyncMixin,
@@ -42,7 +44,7 @@ class _DetailPanel(
         self._episode_data: List[Dict[str, Any]] = []
         self._mal_worker = None
         # DB.8a: set by MainWindow post-construction (via ListingsTab ->
-        # ContentListingsSubTab), used by the "View Images" jump.
+        # SeriesListingsSubTab), used by the "View Images" jump.
         self.main_window_ref = None
 
         self._build_ui()

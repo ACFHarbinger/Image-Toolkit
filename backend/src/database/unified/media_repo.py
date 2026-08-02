@@ -1,4 +1,4 @@
-"""Media items (content listings) repository — DB.3.
+"""Media items (series listings) repository — DB.3.
 
 Speaks the *legacy entry-dict* dialect the Listings subtabs already use
 (`title`, `type`, `status`, CSV `genres`/`tags`, `associated_entities`,
@@ -19,6 +19,7 @@ from ._util import (
     join_csv,
     loads_extra,
     split_csv,
+    tag_bucket_clause,
     transaction,
 )
 from .tag_repo import TagRepo
@@ -104,6 +105,19 @@ class MediaRepo:
             if "associated_entities" in entry:
                 self._replace_entity_links(
                     media_id, list(entry.get("associated_entities") or [])
+                )
+
+            # Every series/content listing gets a self tag under Copyright
+            # (this app's name for Danbooru's "franchise" category) so it's
+            # part of the searchable vocabulary and shows up on linked
+            # entities' grouped-tags section as an "associated series" chip.
+            title = (entry.get("title") or cols.get("title") or "").strip()
+            if title:
+                self_tag_id = self._tags.get_or_create(title, "Copyright")
+                self._db.execute(
+                    "INSERT OR IGNORE INTO media_tags (media_item_id, tag_id) "
+                    "VALUES (?, ?)",
+                    (media_id, self_tag_id),
                 )
         return media_id
 
@@ -264,24 +278,49 @@ class MediaRepo:
         return entry
 
     # The unified vocabulary has UNIQUE tag names, so a name saved from a
-    # listing CSV may already exist with an image-side type (Artist, General,
-    # …). 'Genre' links reconstruct the genres CSV; every other link
-    # reconstructs the tags CSV — this keeps round-trips stable even when a
-    # name's type was claimed by the other domain.
-    _TYPE_CLAUSE = {
-        "Genre": "t.type = 'Genre'",
-        "Tag": "(t.type IS NULL OR t.type != 'Genre')",
-    }
+    # listing CSV may already exist with an image-side category (Artist,
+    # General, …). 'Genre' links reconstruct the genres CSV; every other
+    # link reconstructs the tags CSV — this keeps round-trips stable even
+    # when a name's category was claimed by another domain. See
+    # _util.tag_bucket_clause for the shared 'Genre'/'Tag' bucket logic
+    # (also used by search_repo.py's tag-filter search).
 
-    def _typed_tags(self, media_id: str, tag_type: str) -> List[str]:
+    def _typed_tags(self, media_id: str, tag_category: str) -> List[str]:
         return [
             r[0] for r in self._db.query(
                 "SELECT t.name FROM media_tags mt JOIN tags t ON t.id = mt.tag_id "
-                f"WHERE mt.media_item_id = ? AND {self._TYPE_CLAUSE[tag_type]} "
+                "LEFT JOIN tag_categories c ON c.id = t.category_id "
+                f"WHERE mt.media_item_id = ? AND {tag_bucket_clause(tag_category)} "
                 "ORDER BY t.name",
                 (media_id,),
             )
         ]
+
+    def get_grouped_tags(self, media_id: str) -> Dict[str, List[Dict[str, Any]]]:
+        """This media's tags grouped by category name, including tags
+        carried transitively through associated entities (e.g. an actor's
+        Appearance tags become visible/searchable on the series they're
+        linked to). {"General": [{"name": ..., "color": ...}, ...], ...}."""
+        rows = self._db.query(
+            "SELECT t.name, COALESCE(c.name, 'General') AS cat, "
+            "COALESCE(c.color, '#95a5a6') AS color, COALESCE(c.sort_order, 999) AS ord "
+            "FROM media_tags mt JOIN tags t ON t.id = mt.tag_id "
+            "LEFT JOIN tag_categories c ON c.id = t.category_id "
+            "WHERE mt.media_item_id = ? "
+            "UNION "
+            "SELECT t.name, COALESCE(c.name, 'General') AS cat, "
+            "COALESCE(c.color, '#95a5a6') AS color, COALESCE(c.sort_order, 999) AS ord "
+            "FROM media_entity me JOIN entity_tags et ON et.entity_id = me.entity_id "
+            "JOIN tags t ON t.id = et.tag_id "
+            "LEFT JOIN tag_categories c ON c.id = t.category_id "
+            "WHERE me.media_item_id = ? "
+            "ORDER BY ord, t.name",
+            (media_id, media_id),
+        )
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for name, category, color, _order in rows:
+            grouped.setdefault(category, []).append({"name": name, "color": color})
+        return grouped
 
     def _replace_episodes(self, media_id: str, episode_list: List[Dict[str, Any]]) -> None:
         self._db.execute("DELETE FROM episodes WHERE media_item_id = ?", (media_id,))
@@ -310,15 +349,16 @@ class MediaRepo:
             rows,
         )
 
-    def _replace_typed_tags(self, media_id: str, tag_type: str, names: List[str]) -> None:
-        """Replace this entry's links to tags of *tag_type* (others untouched)."""
+    def _replace_typed_tags(self, media_id: str, tag_category: str, names: List[str]) -> None:
+        """Replace this entry's links to tags of *tag_category* (others untouched)."""
         self._db.execute(
             "DELETE FROM media_tags WHERE media_item_id = ? AND tag_id IN "
-            f"(SELECT t.id FROM tags t WHERE {self._TYPE_CLAUSE[tag_type]})",
+            "(SELECT t.id FROM tags t LEFT JOIN tag_categories c ON c.id = t.category_id "
+            f"WHERE {tag_bucket_clause(tag_category)})",
             (media_id,),
         )
         for name in names:
-            tag_id = self._tags.get_or_create(name, tag_type)
+            tag_id = self._tags.get_or_create(name, tag_category)
             self._db.execute(
                 "INSERT OR IGNORE INTO media_tags (media_item_id, tag_id) "
                 "VALUES (?, ?)",

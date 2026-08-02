@@ -237,6 +237,12 @@ def add_migrations_args(parser):
     _add_credentials(clean_benchmark)
     clean_benchmark.add_argument("--dry-run", action="store_true")
 
+    upgrade_tags = mig_subparsers.add_parser(
+        "upgrade-tag-categories",
+        help="Migrate tags.type to the tag_categories/category_id model",
+    )
+    _add_credentials(upgrade_tags)
+
     return parser
 
 

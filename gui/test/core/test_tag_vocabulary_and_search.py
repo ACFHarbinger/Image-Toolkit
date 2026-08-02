@@ -248,9 +248,12 @@ class TestSearchTabSearchByTag:
     def test_search_by_tag_checks_type_and_tag_then_searches(self, q_app):
         mock_db_tab = MagicMock()
         mock_db_tab.db = MagicMock()
-        mock_db_tab.db.get_all_tags_with_types.return_value = [
-            {"name": "sunset", "type": "General"},
-            {"name": "portrait", "type": "General"},
+        mock_db_tab.db.get_all_tags_with_categories.return_value = [
+            {"name": "sunset", "category": "General", "color": "#95a5a6"},
+            {"name": "portrait", "category": "General", "color": "#95a5a6"},
+        ]
+        mock_db_tab.db.list_tag_categories.return_value = [
+            {"name": "General", "color": "#95a5a6"},
         ]
         tab = SearchTab(mock_db_tab)
         tab._setup_tag_checkboxes()  # populate _all_tags_cache + type list

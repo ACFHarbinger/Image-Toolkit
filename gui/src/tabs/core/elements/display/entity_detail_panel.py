@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from backend.src.database.unified.entity_repo import EntityRepo
 from backend.src.database.unified.image_repo import ImageRepo
 from backend.src.database.unified.media_repo import MediaRepo
+from gui.src.components.grouped_tags_display import GroupedTagsDisplay
 from gui.src.constants.listings import (
     ENTITY_ROLES,
     ENTITY_TYPES,
@@ -92,7 +93,7 @@ class _EntityDetailPanel(BaseDetailPanel):
         self.f_year.setValue(0)
         self.f_year.setSpecialValueText("Unknown")
 
-        # Associated Content (linked content entry IDs)
+        # Associated Series (linked content entry IDs)
         # QTextEdit (not QLineEdit) so the field can wrap to 2 lines and
         # scroll instead of clipping once the list grows.
         self.f_assoc_content_display = QTextEdit()
@@ -125,10 +126,20 @@ class _EntityDetailPanel(BaseDetailPanel):
         form.addRow("Role", self.f_role)
         form.addRow("Rating (0-10)", self.f_rating)
         form.addRow("Debut Year", self.f_year)
-        form.addRow("Associated Content", assoc_content_row)
+        form.addRow("Associated Series", assoc_content_row)
         form.addRow("Associated Entities", assoc_entity_row)
         form.addRow("Biography / Notes", self.f_notes)
         layout.addLayout(form)
+
+        # --- All Tags (grouped by category) Section ---
+        # This entity's own tags plus tags carried transitively through
+        # associated series (Danbooru-style tag overhaul).
+        tags_group = QGroupBox("All Tags (by Category)")
+        tags_group.setStyleSheet("QGroupBox{font-weight:bold; color:#00bcd4;}")
+        tags_group_layout = QVBoxLayout(tags_group)
+        self.grouped_tags_display = GroupedTagsDisplay()
+        tags_group_layout.addWidget(self.grouped_tags_display)
+        layout.addWidget(tags_group)
 
         # --- Credit List Section ---
         self.credits_group = QGroupBox("Works / Credits / Appearances")
@@ -212,6 +223,7 @@ class _EntityDetailPanel(BaseDetailPanel):
         QTimer.singleShot(0, self._refresh_image)
         QTimer.singleShot(0, self._refresh_credit_list)
         QTimer.singleShot(0, self._refresh_linked_images)
+        QTimer.singleShot(0, self._refresh_grouped_tags_display)
 
     def clear_for_new(self):
         self._entity_id = None
@@ -227,6 +239,7 @@ class _EntityDetailPanel(BaseDetailPanel):
         self.f_assoc_content_display.clear()
         self.f_assoc_entity_display.clear()
         self.f_notes.clear()
+        self.grouped_tags_display.set_grouped_tags({})
         self.img_preview.clear()
         self.img_preview.setText("No Image")
         self.img_preview.setStyleSheet(
@@ -240,6 +253,21 @@ class _EntityDetailPanel(BaseDetailPanel):
 
     def _browse_image(self):
         self._image_path = self._browse_image_helper(self._entity_id) # pyrefly: ignore [bad-argument-type]
+
+    def _refresh_grouped_tags_display(self) -> None:
+        if not self._entity_id:
+            self.grouped_tags_display.set_grouped_tags({})
+            return
+        db = get_library_db(self.vault_manager, parent=self)
+        if db is None:
+            self.grouped_tags_display.set_grouped_tags({})
+            return
+        try:
+            grouped = EntityRepo(db).get_grouped_tags(self._entity_id)
+        except Exception as e:
+            print(f"Failed to load grouped tags: {e}")
+            grouped = {}
+        self.grouped_tags_display.set_grouped_tags(grouped)
 
     def _refresh_credit_list(self):
         while self.credit_list_layout.count():
@@ -482,7 +510,7 @@ class _EntityDetailPanel(BaseDetailPanel):
             QMessageBox.information(
                 self,
                 "No Content Available",
-                "There are no content entries in Content Listings yet.",
+                "There are no content entries in Series Listings yet.",
             )
             return
 

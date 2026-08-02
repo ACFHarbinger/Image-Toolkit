@@ -5,6 +5,7 @@ Extracted from ``detail_panel.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from gui.src.components.grouped_tags_display import GroupedTagsDisplay
 from gui.src.components.tag_chip_widget import TagChipEditor
 from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
@@ -192,6 +193,16 @@ class _UIBuilderMixin:
         form.addRow("Summary", self.f_summary)
         form.addRow("Review / Notes", self.f_review)
         layout.addLayout(form)
+
+        # --- All Tags (grouped by category) Section ---
+        # Genres/Tags plus tags carried transitively through associated
+        # entities (Danbooru-style tag overhaul).
+        tags_group = QGroupBox("All Tags (by Category)")
+        tags_group.setStyleSheet("QGroupBox{font-weight:bold; color:#00bcd4;}")
+        tags_group_layout = QVBoxLayout(tags_group)
+        self.grouped_tags_display = GroupedTagsDisplay()
+        tags_group_layout.addWidget(self.grouped_tags_display)
+        layout.addWidget(tags_group)
 
         # --- Episode List Section ---
         self.episode_group = QGroupBox("Episodes / Chapters / Parts")

@@ -193,9 +193,11 @@ def test_003_migrate_pgvector_with_provider(tmp_path):
         assert rows[1][3] == "Art" and rows[1][4] is None
         assert rows[2][3] is None
         tag_rows = db.query(
-            "SELECT t.name, t.type FROM image_tags it "
+            "SELECT t.name, c.name FROM image_tags it "
             "JOIN tags t ON t.id = it.tag_id "
-            "JOIN images i ON i.id = it.image_id WHERE i.filename = 'a.png'",
+            "JOIN images i ON i.id = it.image_id "
+            "LEFT JOIN tag_categories c ON c.id = t.category_id "
+            "WHERE i.filename = 'a.png'",
             (),
         )
         assert tag_rows == [("sunset", "General")]

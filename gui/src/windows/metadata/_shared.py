@@ -16,16 +16,11 @@ if TYPE_CHECKING:
     from ._filtered_tag_list import FilteredTagList
 
 # ---------------------------------------------------------------------------
-# Tag colour palette (mirrors scan_metadata_tab)
+# Tag colour: real colors now come from tag_categories (via
+# db.get_all_tags_with_categories()) per tag; this is only the fallback for
+# an uncategorized/unknown category name.
 # ---------------------------------------------------------------------------
-_TAG_COLORS: Dict[str, str] = {
-    "Artist": "#5865f2",
-    "Series": "#f1c40f",
-    "Character": "#2ecc71",
-    "General": "#e91e63",
-    "Meta": "#9b59b6",
-    "": "#c7c7c7",
-}
+_DEFAULT_TAG_COLOR = "#95a5a6"
 
 _LIST_STYLE = (
     "QListWidget::item { padding: 4px; } "
@@ -100,7 +95,7 @@ def _thumb(path: str, size: int = 120) -> QLabel:
 
 
 __all__ = [
-    "_TAG_COLORS",
+    "_DEFAULT_TAG_COLOR",
     "_LIST_STYLE",
     "_INPUT_STYLE",
     "_GROUP_STYLE",

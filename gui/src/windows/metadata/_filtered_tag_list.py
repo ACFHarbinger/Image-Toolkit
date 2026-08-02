@@ -1,4 +1,4 @@
-"""``FilteredTagList`` -- a checkable tag list filterable by tag type.
+"""``FilteredTagList`` -- a checkable tag list filterable by tag category.
 
 Extracted from ``metadata_editor_window.py`` -- pure code motion, no logic
 change.
@@ -19,14 +19,23 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ._shared import _LIST_STYLE, _TAG_COLORS
+from ._shared import _DEFAULT_TAG_COLOR, _LIST_STYLE
 
 
 class FilteredTagList(QWidget):
-    """A widget wrapping a QListWidget and horizontal checkboxes to filter by tag type."""
+    """A widget wrapping a QListWidget and horizontal checkboxes to filter by tag category."""
     def __init__(self, tags_data: List[Dict[str, str]], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._tags_data = tags_data
+
+        # Colors come from the tag_categories table (via db.get_all_tags_
+        # with_categories()) rather than a hardcoded literal, so custom/
+        # extended categories render with their real color automatically.
+        category_colors: Dict[str, str] = {
+            (td.get("category") or ""): td["color"]
+            for td in tags_data
+            if td.get("color")
+        }
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -35,37 +44,29 @@ class FilteredTagList(QWidget):
         # Master checkbox toggle for filtering
         self.master_filter_layout = QHBoxLayout()
         self.master_filter_layout.setSpacing(10)
-        self.master_cb = QCheckBox("Filter by Type")
+        self.master_cb = QCheckBox("Filter by Category")
         self.master_cb.setChecked(False)
         self.master_cb.stateChanged.connect(self._toggle_filter_visibility)
         self.master_filter_layout.addWidget(self.master_cb)
 
-        # Container for the individual type checkboxes
+        # Container for the individual category checkboxes
         self.type_container = QWidget()
         self.type_layout = QHBoxLayout(self.type_container)
         self.type_layout.setContentsMargins(0, 0, 0, 0)
         self.type_layout.setSpacing(10)
 
         self.checkboxes: Dict[str, QCheckBox] = {}
-        # Order the types: Artist, Series, Character, General, Meta, then others, then empty/Other
-        standard_types = ["Artist", "Series", "Character", "General", "Meta"]
-        all_types = []
-        for t in standard_types:
-            if any((td.get("type") or "") == t for td in tags_data):
-                all_types.append(t)
-        # Check for others
-        for td in tags_data:
-            t = td.get("type") or ""
-            if t not in all_types and t != "":
-                all_types.append(t)
-        # Empty/uncategorized type
-        if any((td.get("type") or "") == "" for td in tags_data):
+        # Order the categories: General first (via _DEFAULT_TAG_COLOR fallback
+        # ordering is irrelevant since we sort seen categories alphabetically,
+        # empty/uncategorized last).
+        all_types = sorted({(td.get("category") or "") for td in tags_data if td.get("category")})
+        if any(not (td.get("category") or "") for td in tags_data):
             all_types.append("")
 
         for t in all_types:
             label = t if t != "" else "Other"
             cb = QCheckBox(label)
-            color = _TAG_COLORS.get(t, _TAG_COLORS[""])
+            color = category_colors.get(t, _DEFAULT_TAG_COLOR)
             cb.setStyleSheet(f"color: {color}; font-weight: bold;")
             cb.setChecked(True)
             cb.stateChanged.connect(self._apply_filter)
@@ -84,12 +85,12 @@ class FilteredTagList(QWidget):
         self._all_items: List[Tuple[QListWidgetItem, str]] = []
         for td in tags_data:
             name = td["name"]
-            ttype = td.get("type") or ""
+            ttype = td.get("category") or ""
             item = QListWidgetItem(name.replace("_", " ").title())
             item.setData(Qt.ItemDataRole.UserRole, name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Unchecked)
-            item.setForeground(QColor(_TAG_COLORS.get(ttype, _TAG_COLORS[""])))
+            item.setForeground(QColor(category_colors.get(ttype, _DEFAULT_TAG_COLOR)))
             self.list_widget.addItem(item)
             self._all_items.append((item, ttype))
 

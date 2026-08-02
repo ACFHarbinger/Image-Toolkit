@@ -71,12 +71,14 @@ def test_vocabulary_management_parity(db):
     assert db.get_all_groups() == ["G"]
     assert db.get_all_subgroups_detailed() == [("S", "G")]
     assert db.get_subgroups_for_group("G") == ["S"]
-    assert db.get_all_tags_with_types() == [{"name": "t1", "type": "Artist"}]
+    assert db.get_all_tags_with_categories() == [
+        {"name": "t1", "category": "Artist", "color": "#5865f2"}
+    ]
 
     db.rename_group("G", "G2")
     db.rename_subgroup("S", "S2", "G2")
     db.rename_tag("t1", "t2")
-    db.update_tag_type("t2", "Meta")
+    db.update_tag_category("t2", "Meta")
     assert db.get_all_tags() == ["t2"]
 
     # duplicate rename surfaces as an error containing UNIQUE (DatabaseTab
@@ -92,7 +94,7 @@ def test_vocabulary_management_parity(db):
 
 
 def test_merge_tags_facade(populated):
-    """DB.8c: Maintenance's tag-merge tool, exercised through the facade
+    """DB.8c: Management's tag-merge tool, exercised through the facade
     (TagRepo.merge_tags already existed and was tested at the repo level;
     this checks it's actually reachable from db.merge_tags(), the way the
     GUI calls it)."""
@@ -164,7 +166,7 @@ def test_maintenance_and_gated_reset(populated, tmp_path, monkeypatch):
 
 
 def test_semantic_search_facade_surface(populated):
-    """DB.7: the facade methods ImageEmbeddingWorker/the Maintenance panel
+    """DB.7: the facade methods ImageEmbeddingWorker/the Management panel
     button/Search tab consume, exercised through the exact same call
     shapes those callers use."""
     np = pytest.importorskip("numpy")

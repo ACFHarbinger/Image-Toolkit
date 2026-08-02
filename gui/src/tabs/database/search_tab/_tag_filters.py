@@ -23,11 +23,23 @@ class _TagFiltersMixin:
         if not db:
             return []
         try:
-            db_tags = db.get_all_tags_with_types()
+            db_tags = db.get_all_tags_with_categories()
             return sorted(db_tags, key=lambda x: natural_sort_key(x["name"]))
         except Exception:
             pass
         return []
+
+    def _get_category_colors(self) -> Dict[str, str]:
+        """{category_name: color} from tag_categories, data-driven instead
+        of a hardcoded literal so custom/extended categories pick up their
+        real color automatically."""
+        db = self.db_tab_ref.db
+        if not db:
+            return {}
+        try:
+            return {c["name"]: c["color"] for c in db.list_tag_categories()}
+        except Exception:
+            return {}
 
     def _get_active_tag_types(self) -> Optional[set]:
         """Return the set of checked tag type names, or None if list is empty."""
@@ -46,17 +58,9 @@ class _TagFiltersMixin:
         self._populate_tags_for_active_types()
 
     def _populate_tags_for_active_types(self):
-        """Re-populate the tags list based on which type checkboxes are checked."""
+        """Re-populate the tags list based on which category checkboxes are checked."""
         active_types = self._get_active_tag_types()
-        color_map = {
-            "Artist": "#5865f2",
-            "Series": "#f1c40f",
-            "Character": "#2ecc71",
-            "General": "#e91e63",
-            "Meta": "#9b59b6",
-            "": "#c7c7c7",
-            None: "#c7c7c7",
-        }
+        color_map = self._get_category_colors()
         # Preserve previously checked tag names
         previously_checked = {
             self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
@@ -70,9 +74,9 @@ class _TagFiltersMixin:
         all_tags = getattr(self, "_all_tags_cache", [])
         for tag_data in all_tags:
             tag_name = tag_data["name"]
-            tag_type = tag_data["type"] if tag_data["type"] else ""
-            # Filter by active types
-            if active_types is not None and tag_type not in active_types:
+            tag_category = tag_data["category"] if tag_data["category"] else ""
+            # Filter by active categories
+            if active_types is not None and tag_category not in active_types:
                 continue
             item = QListWidgetItem(tag_name.replace("_", " ").title())
             item.setData(Qt.ItemDataRole.UserRole, tag_name)
@@ -82,7 +86,7 @@ class _TagFiltersMixin:
                 if tag_name in previously_checked
                 else Qt.CheckState.Unchecked
             )
-            text_color = color_map.get(tag_type, color_map[""])
+            text_color = color_map.get(tag_category, "#95a5a6")
             item.setForeground(QColor(text_color))
             self.tags_list_widget.addItem(item)
         self.tags_list_widget.blockSignals(False)
@@ -91,40 +95,37 @@ class _TagFiltersMixin:
     def _setup_tag_checkboxes(self):
         tags_data = self._get_tags_from_db()
         self._all_tags_cache = tags_data
+        color_map = self._get_category_colors()
 
-        # Build / refresh the tag-type filter row
-        known_types = ["Artist", "Series", "Character", "General", "Meta"]
-        seen_types = sorted(
-            {(t["type"] or "") for t in tags_data},
-            key=lambda x: (known_types.index(x) if x in known_types else len(known_types), x),
+        # Build / refresh the tag-category filter row, ordered per
+        # tag_categories.sort_order (unknown/legacy names sort last).
+        known_categories = list(color_map.keys())
+        seen_categories = sorted(
+            {(t["category"] or "") for t in tags_data},
+            key=lambda x: (
+                known_categories.index(x) if x in known_categories else len(known_categories),
+                x,
+            ),
         )
         self.tag_types_list_widget.blockSignals(True)
-        # Keep previously checked types
+        # Keep previously checked categories
         previously_checked_types = {
             self.tag_types_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
             for i in range(self.tag_types_list_widget.count())
             if self.tag_types_list_widget.item(i).checkState() == Qt.CheckState.Checked
         }
         self.tag_types_list_widget.clear()
-        type_color_map = {
-            "Artist": "#5865f2",
-            "Series": "#f1c40f",
-            "Character": "#2ecc71",
-            "General": "#e91e63",
-            "Meta": "#9b59b6",
-            "": "#c7c7c7",
-        }
-        for t in seen_types:
-            display = t if t else "(No Type)"
+        for t in seen_categories:
+            display = t if t else "(No Category)"
             item = QListWidgetItem(display)
             item.setData(Qt.ItemDataRole.UserRole, t)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            # All types start checked; preserve state on refresh
+            # All categories start checked; preserve state on refresh
             is_checked = (not previously_checked_types) or (t in previously_checked_types)
             item.setCheckState(
                 Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked
             )
-            item.setForeground(QColor(type_color_map.get(t, "#c7c7c7")))
+            item.setForeground(QColor(color_map.get(t, "#95a5a6")))
             self.tag_types_list_widget.addItem(item)
         self.tag_types_list_widget.blockSignals(False)
 
@@ -140,7 +141,7 @@ class _TagFiltersMixin:
 
     def search_by_tag(self, tag_name: str) -> None:
         """DB.8c: jump here already filtered to a single tag (e.g. from
-        Maintenance's tag table "Search Images with this Tag" action).
+        Management's tag table "Search Images with this Tag" action).
         Checks every tag-type filter first so the target tag is
         guaranteed to be in the (type-filtered) tags list regardless of
         whatever type filter state was active before."""

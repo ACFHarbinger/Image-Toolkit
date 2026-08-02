@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import session
-from ._util import sql_string_literal
+from ._util import sql_string_literal, tag_bucket_clause
 
 _IMAGE_SELECT = (
     "SELECT DISTINCT i.id, i.file_path, i.filename, i.file_size, i.width, "
@@ -48,8 +48,10 @@ _MEDIA_SORT_SQL: Dict[str, str] = {
     "date": "COALESCE(m.date_watched, '')",
     "tags": (
         "(SELECT GROUP_CONCAT(x.name) FROM (SELECT t.name AS name FROM media_tags mt "
-        "JOIN tags t ON t.id = mt.tag_id WHERE mt.media_item_id = m.id "
-        "AND (t.type IS NULL OR t.type != 'Genre') ORDER BY t.name) x)"
+        "JOIN tags t ON t.id = mt.tag_id LEFT JOIN tag_categories c ON c.id = t.category_id "
+        "WHERE mt.media_item_id = m.id "
+        "AND " + tag_bucket_clause("Tag") + " "
+        "ORDER BY t.name) x)"
     ),
 }
 
@@ -259,14 +261,28 @@ class SearchRepo:
         conditions: List[str] = []
         params: list = []
 
-        def tag_subquery(names: Sequence[str], tag_type: str) -> Tuple[str, list]:
+        def tag_subquery(names: Sequence[str], tag_category: str) -> Tuple[str, list]:
+            """Media ids carrying *names* under *tag_category*, either
+            directly (media_tags) or transitively through an associated
+            entity's own tags (entity_tags via media_entity) -- e.g.
+            searching a Character/Appearance tag like "blue hair" on the
+            listings tag filter also surfaces series with a matching actor,
+            without copying the tag onto the listing itself."""
             marks = ",".join("?" * len(names))
+            bucket = tag_bucket_clause(tag_category)
             sql = (
                 "SELECT mt.media_item_id FROM media_tags mt "
                 "JOIN tags t ON t.id = mt.tag_id "
-                f"WHERE t.type = ? AND t.name IN ({marks}) COLLATE NOCASE"
+                "LEFT JOIN tag_categories c ON c.id = t.category_id "
+                f"WHERE {bucket} AND t.name IN ({marks}) COLLATE NOCASE "
+                "UNION "
+                "SELECT me.media_item_id FROM media_entity me "
+                "JOIN entity_tags et ON et.entity_id = me.entity_id "
+                "JOIN tags t ON t.id = et.tag_id "
+                "LEFT JOIN tag_categories c ON c.id = t.category_id "
+                f"WHERE {bucket} AND t.name IN ({marks}) COLLATE NOCASE"
             )
-            return sql, [tag_type, *names]
+            return sql, [*names, *names]
 
         # Exclusions always AND together.
         exclude_entities = list(criteria.get("exclude_entities") or [])
@@ -339,7 +355,7 @@ class SearchRepo:
         sort_key: str = "title",
         descending: bool = False,
     ) -> List[str]:
-        """Media ids for Content Listings' default gallery path: the search
+        """Media ids for Series Listings' default gallery path: the search
         box (matches title/creator/tags/genres/associated-entity-names —
         same fields the old in-memory scan checked), the type/status combos,
         and (if set) the Advanced Search dialog's criteria — all evaluated in

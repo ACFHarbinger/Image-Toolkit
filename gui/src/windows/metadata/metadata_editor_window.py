@@ -45,7 +45,7 @@ class MetadataEditorWindow(QDialog):
         try:
             groups = db.get_all_groups() or []
             subgroups = db.get_all_subgroups_detailed() or []
-            tags_data = db.get_all_tags_with_types() or []
+            tags_data = db.get_all_tags_with_categories() or []
         except Exception:
             pass
 
