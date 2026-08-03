@@ -101,7 +101,7 @@ ci = [
 # dependency at all; this group is not installed by default.
 legacy-postgres = [
     "psycopg2-binary>=2.9.11",
-    "psycopg[pool]>=3.2",
+    "psycopg[pool]>=3.3.4",
 ]
 # Issue #123: the FiftyOne corpus-triage surface of the ASP evaluation tool
 # (backend/benchmark/evaluation/plugin/). Dev-only and deliberately not a
