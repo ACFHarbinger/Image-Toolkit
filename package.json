@@ -29,6 +29,6 @@
     "start-all": "npm run build-frontend && npm run electron-dev"
   },
   "devDependencies": {
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.4"
   }
 }
