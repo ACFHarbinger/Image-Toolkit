@@ -1,15 +1,41 @@
 """nhentai gallery downloader — fetches every page image of a gallery.
 
 Modeled on the ``nhentai-downloader`` PyPI package: given a gallery ID or
-full gallery URL, scrape the gallery page for the embedded
-``window._gallery = JSON.parse("...")`` blob (media id + per-page type/
-dimensions), then build direct image URLs against nhentai's image CDN and
-download each page.
+full gallery URL, scrape the gallery page for its embedded gallery-data
+JSON (media id + a full relative path per page), then build direct image
+URLs against nhentai's image CDN and download each page.
+
+nhentai's frontend is a SvelteKit SPA: the server-rendered HTML embeds the
+data its own client-side JS would otherwise fetch via
+``/api/v2/galleries/<id>`` as a ``<script type="application/json"
+data-sveltekit-fetched data-url="/api/v2/galleries/<id>...">`` tag, whose
+text content is a JSON envelope (``{"status": 200, ..., "body": "<json
+string>"}``) wrapping the actual gallery JSON as a doubly-encoded string.
+An older markup convention (``window._gallery = JSON.parse("...")``,
+carrying ``images.pages[].t`` type-letter + dimensions instead of a direct
+``path``) is tried as a fallback in case of a partial rollout/CDN cache
+serving stale markup.
 
 No authentication is required for public galleries. Cloudflare may
 occasionally challenge requests from non-browser user agents; this module
 sends a browser-like ``User-Agent`` but does not solve JS challenges — a
 failure here surfaces as an ``on_error`` signal rather than a silent hang.
+
+Uses the synchronous ``requests`` library rather than ``asyncio``/
+``aiohttp``. This is deliberate, not a style choice: an earlier
+``aiohttp``-based version of this module crashed the app the first time it
+ran (``QSocketNotifier: Socket notifiers cannot be enabled or disabled from
+another thread`` followed by a SIGSEGV/heap corruption) -- this app has an
+extensively documented crash class (see
+``.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md``) where *any*
+native library's first-ever use off the main thread, with the JPype JVM
+loaded in-process, risks exactly this failure signature. ``asyncio.run()``
+inside a ``QThread`` creates a brand-new event loop (and ``aiohttp``'s TLS/
+DNS machinery on top of it) that had never been exercised live in this app
+before -- ``requests`` (synchronous, no event loop of its own) is the same,
+already-proven-safe pattern every other QThread-based web worker in this
+codebase uses (``ImageCrawler``, ``WebRequestsLogic``, the MAL sync
+workers, ...).
 """
 
 from __future__ import annotations
@@ -19,13 +45,25 @@ import logging
 import os
 import re
 from dataclasses import dataclass
+from typing import List, Optional
 
 from PySide6.QtCore import QObject, Signal
+
+from backend.src.core import telemetry
 
 log = logging.getLogger(__name__)
 
 _GALLERY_ID_RE = re.compile(r"(\d+)")
-_GALLERY_JSON_RE = re.compile(
+# Current SvelteKit markup: a sveltekit-fetched <script> tag whose text is a
+# JSON envelope with the real gallery JSON nested under "body" as a string.
+_SVELTEKIT_JSON_RE = re.compile(
+    r'<script type="application/json" data-sveltekit-fetched '
+    r'data-url="/api/v2/galleries/\d+[^"]*">(.*?)</script>',
+    re.DOTALL,
+)
+# Legacy markup fallback (pre-SvelteKit rewrite): images.pages[].t type
+# letters instead of a direct per-page path.
+_LEGACY_GALLERY_JSON_RE = re.compile(
     r"window\._gallery\s*=\s*JSON\.parse\(\"(.*?)\"\);", re.DOTALL
 )
 _DEFAULT_HEADERS = {
@@ -34,7 +72,7 @@ _DEFAULT_HEADERS = {
         "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     )
 }
-# nhentai page "type" letters -> file extension.
+# Legacy-markup page "type" letters -> file extension.
 _PAGE_EXT = {"j": ".jpg", "p": ".png", "g": ".gif", "w": ".webp"}
 
 
@@ -64,57 +102,59 @@ class NhentaiDownloader(QObject):
             else NhentaiDownloadConfig(**config)
         )
         self._is_running = True
-        self._http = None
+        self._session = None
 
     def stop(self) -> None:
         self._is_running = False
         self.on_status.emit("Cancellation pending...")
 
     def run(self) -> int:
-        import asyncio
+        """Synchronous entry point — safe to call from a plain worker thread."""
+        import requests
 
+        telemetry.emit("media-loader", "nhentai.run.start", gallery=self._config.gallery)
         try:
-            return asyncio.run(self._run_async())
-        except Exception as exc:  # pragma: no cover - defensive top-level guard
+            os.makedirs(self._config.download_dir, exist_ok=True)
+            gallery_id = self._parse_gallery_id(self._config.gallery)
+
+            self._session = requests.Session()
+            self._session.headers.update(_DEFAULT_HEADERS)
+            saved = 0
+            try:
+                page_urls = self._fetch_gallery_metadata(gallery_id)
+                self.on_status.emit(f"Gallery {gallery_id}: {len(page_urls)} page(s) found.")
+                telemetry.emit(
+                    "media-loader", "nhentai.metadata_fetched",
+                    gallery=gallery_id, page_count=len(page_urls),
+                )
+                for page_num, url in enumerate(page_urls, start=1):
+                    if not self._is_running:
+                        break
+                    ext = os.path.splitext(url)[1] or ".jpg"
+                    filename = self._config.filename_template.format(
+                        gallery_id=gallery_id, page=page_num, ext=ext
+                    )
+                    dest = os.path.join(self._config.download_dir, filename)
+                    if self._download_file(url, dest):
+                        saved += 1
+                        self.on_status.emit(f"Saved: {filename}")
+                        self.on_image_saved.emit(dest)
+            finally:
+                self._session.close()
+                self._session = None
+
+            message = f"Finished. Downloaded {saved} page(s)."
+            telemetry.emit("media-loader", "nhentai.run.finished", gallery=gallery_id, saved=saved)
+            self.on_finished.emit(saved, message)
+            return saved
+        except Exception as exc:
+            log.exception("nhentai download failed for %s", self._config.gallery)
+            telemetry.emit(
+                "media-loader", "nhentai.run.error",
+                gallery=self._config.gallery, error=repr(exc),
+            )
             self.on_error.emit(f"Critical error in nhentai downloader: {exc}")
             return 0
-
-    async def _run_async(self) -> int:
-        import aiohttp
-
-        os.makedirs(self._config.download_dir, exist_ok=True)
-        gallery_id = self._parse_gallery_id(self._config.gallery)
-
-        self._http = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=self._config.request_timeout),
-            headers=_DEFAULT_HEADERS,
-        )
-        saved = 0
-        try:
-            media_id, pages = await self._fetch_gallery_metadata(gallery_id)
-            self.on_status.emit(
-                f"Gallery {gallery_id}: {len(pages)} page(s) found."
-            )
-            for page_num, page_type in enumerate(pages, start=1):
-                if not self._is_running:
-                    break
-                ext = _PAGE_EXT.get(page_type, ".jpg")
-                url = f"https://i.nhentai.net/galleries/{media_id}/{page_num}{ext}"
-                filename = self._config.filename_template.format(
-                    gallery_id=gallery_id, page=page_num, ext=ext
-                )
-                dest = os.path.join(self._config.download_dir, filename)
-                if await self._download_file(url, dest):
-                    saved += 1
-                    self.on_status.emit(f"Saved: {filename}")
-                    self.on_image_saved.emit(dest)
-        finally:
-            await self._http.close()
-            self._http = None
-
-        message = f"Finished. Downloaded {saved} page(s)."
-        self.on_finished.emit(saved, message)
-        return saved
 
     @staticmethod
     def _parse_gallery_id(gallery: str) -> str:
@@ -123,36 +163,68 @@ class NhentaiDownloader(QObject):
             raise ValueError(f"Could not parse a gallery id from {gallery!r}")
         return match.group(1)
 
-    async def _fetch_gallery_metadata(self, gallery_id: str):
+    def _fetch_gallery_metadata(self, gallery_id: str) -> List[str]:
         url = f"https://nhentai.net/g/{gallery_id}/"
-        async with self._http.get(url) as resp:
-            if resp.status != 200:
-                raise RuntimeError(
-                    f"Failed to fetch gallery page {url} (HTTP {resp.status})"
-                )
-            html = await resp.text()
+        with telemetry.span("media-loader", "nhentai.http_get", url=url):
+            resp = self._session.get(url, timeout=self._config.request_timeout)
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"Failed to fetch gallery page {url} (HTTP {resp.status_code})"
+            )
+        html = resp.text
 
-        match = _GALLERY_JSON_RE.search(html)
-        if not match:
+        page_urls = self._parse_sveltekit_pages(html, gallery_id)
+        if page_urls is None:
+            page_urls = self._parse_legacy_pages(html)
+        if page_urls is None:
             raise RuntimeError(
                 f"Could not locate gallery metadata on {url} "
                 "(page layout changed, or a Cloudflare challenge blocked the request)"
             )
+        return page_urls
+
+    @staticmethod
+    def _parse_sveltekit_pages(html: str, gallery_id: str) -> Optional[List[str]]:
+        """Current markup: an embedded ``/api/v2/galleries/<id>`` JSON
+        envelope whose ``body`` (itself a JSON string) has a ``pages`` list
+        of ``{"path": "galleries/<media_id>/<n>.<ext>", ...}`` dicts."""
+        match = _SVELTEKIT_JSON_RE.search(html)
+        if not match:
+            return None
+        envelope = json.loads(match.group(1))
+        body = json.loads(envelope["body"])
+        pages = body.get("pages")
+        if not pages:
+            return None
+        return [f"https://i.nhentai.net/{page['path']}" for page in pages]
+
+    @staticmethod
+    def _parse_legacy_pages(html: str) -> Optional[List[str]]:
+        """Older markup: ``window._gallery = JSON.parse("...")`` carrying
+        ``images.pages[].t`` type letters + a separate ``media_id``,
+        instead of a direct per-page path."""
+        match = _LEGACY_GALLERY_JSON_RE.search(html)
+        if not match:
+            return None
         # The embedded blob is itself a JSON-escaped string literal, so it
         # must be decoded once as a string before being parsed as JSON again.
         raw = json.loads(f'"{match.group(1)}"')
         data = json.loads(raw)
-
         media_id = data["media_id"]
-        pages = [p.get("t", "j") for p in data["images"]["pages"]]
-        return media_id, pages
+        pages = data["images"]["pages"]
+        return [
+            f"https://i.nhentai.net/galleries/{media_id}/{i}"
+            f"{_PAGE_EXT.get(page.get('t', 'j'), '.jpg')}"
+            for i, page in enumerate(pages, start=1)
+        ]
 
-    async def _download_file(self, url: str, dest: str) -> bool:
+    def _download_file(self, url: str, dest: str) -> bool:
         try:
-            async with self._http.get(url) as resp:
-                if resp.status != 200:
-                    return False
-                data = await resp.read()
+            with telemetry.span("media-loader", "nhentai.http_get", url=url):
+                resp = self._session.get(url, timeout=self._config.request_timeout)
+            if resp.status_code != 200:
+                return False
+            data = resp.content
         except Exception as exc:
             log.debug("Download failed for %s: %s", url, exc)
             self.on_status.emit(f"Failed to download {url}: {exc}")
