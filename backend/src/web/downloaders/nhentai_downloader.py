@@ -19,7 +19,6 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import List, Optional
 
 from PySide6.QtCore import QObject, Signal
 

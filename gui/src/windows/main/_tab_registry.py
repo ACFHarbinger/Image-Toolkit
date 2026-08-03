@@ -23,6 +23,7 @@ class _TabRegistryMixin:
             EntityReconTab,
             ExtractorTab,
             ImageCrawlTab,
+            MediaLoaderTab,
             MergeTab,
             MetaCLIPInferenceTab,
             R3GANEvaluateTab,
@@ -52,6 +53,7 @@ class _TabRegistryMixin:
         self.reverse_search_tab = ReverseImageSearchTab()  # pyrefly: ignore [bad-instantiation]
         self.entity_recon_tab = EntityReconTab()
         self.drive_sync_tab = DriveSyncTab(vault_manager)
+        self.media_loader_tab = MediaLoaderTab()
         self.wallpaper_tab = WallpaperTab(self.database_tab)
         self.web_requests_tab = WebRequestsTab()
         self.extractor_tab = ExtractorTab()  # pyrefly: ignore [bad-instantiation]
@@ -101,6 +103,7 @@ class _TabRegistryMixin:
                 "Crawler": self.crawler_tab,
                 "Requests": self.web_requests_tab,
                 "Cloud Synchronization": self.drive_sync_tab,
+                "Media Loader": self.media_loader_tab,
                 "Reverse Search": self.reverse_search_tab,
                 "Entity Reconnaissance": self.entity_recon_tab,
             },

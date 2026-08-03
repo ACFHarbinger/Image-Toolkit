@@ -4,6 +4,7 @@ from .cloud.google_drive_sync_worker import GoogleDriveSyncWorker
 from .cloud.one_drive_sync_worker import OneDriveSyncWorker
 from .image_crawl_worker import ImageCrawlWorker
 from .mal_sync_worker import MalSyncWorker
+from .media_loader_worker import MediaLoaderWorker
 from .recon_worker import (
     BatchSuggestWorker,
     IndexBuildWorker,
@@ -20,6 +21,7 @@ __all__ = [
     "OneDriveSyncWorker",
     "ImageCrawlWorker",
     "MalSyncWorker",
+    "MediaLoaderWorker",
     "BatchSuggestWorker",
     "IndexBuildWorker",
     "ResolveWorker",

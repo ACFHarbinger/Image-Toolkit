@@ -39,5 +39,6 @@ from .web import (
     OneDriveSyncWorker as OneDriveSyncWorker,
 )
 from .web.image_crawl_worker import ImageCrawlWorker as ImageCrawlWorker
+from .web.media_loader_worker import MediaLoaderWorker as MediaLoaderWorker
 from .web.reverse_search_worker import ReverseSearchWorker as ReverseSearchWorker
 from .web.web_requests_worker import WebRequestsWorker as WebRequestsWorker
