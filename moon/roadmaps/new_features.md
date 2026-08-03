@@ -20,6 +20,8 @@
 - [4.13 Shortcut Macros and Custom Actions](#413-shortcut-macros-and-custom-actions)
 - [4.14 Extractor Tab Storyboard Scrub Preview](#414-extractor-tab-storyboard-scrub-preview)
 - [4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter)
+- [4.16 Additional Stitcher Options](#416-additional-stitcher-options)
+- [4.17 Media Loader — Web Media Downloader](#417-media-loader--web-media-downloader)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -675,6 +677,16 @@ Overmix's `AnimationSeparator` phase-aware alignment as opt-in toggles once
 either proves worth the extra control; a "compare all four engines" batch
 button that runs every engine on the current canvas selection side by side.
 
+## 4.17 Media Loader — Web Media Downloader ✅ Reddit + nhentai shipped (2026-08-03, issue #182) {: #417-media-loader--web-media-downloader }
+
+**Shipped: a new "Media Loader" tab under Web Integration** for downloading media (images/videos) from the web, with two initial source integrations. `backend/src/web/downloaders/reddit_downloader.py` (`RedditDownloader`, built on `asyncpraw`, reusing the `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET` env-var convention already established by `subreddit_phash_sweep.py`) supports subreddit/user/single-post modes and downloads direct images, gallery posts, and `v.redd.it` video (video-only stream, no audio remux — modeled on, and sharing this exact trade-off with, the [RedDownloader](https://pypi.org/project/RedDownloader/) PyPI package). `backend/src/web/downloaders/nhentai_downloader.py` (`NhentaiDownloader`) scrapes a gallery page's embedded JSON metadata and downloads each page from nhentai's image CDN — modeled on the [nhentai-downloader](https://pypi.org/project/nhentai-downloader/) PyPI package. Both are plain `aiohttp`-based `QObject`s, unlike the existing image-board crawlers which call into the C++ `base` module.
+
+GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composition pattern as `image_crawler_tab`/`drive_sync_tab`) with a source picker, per-source settings pages, and shared download-dir/run/cancel/progress controls; `gui/src/helpers/web/media_loader_worker.py` (`MediaLoaderWorker`, a `QThread` mirroring `image_crawl_worker.py`) dispatches to the selected downloader. Registered as `"Media Loader"` in `_tab_registry.py`'s Web Integration category.
+
+**Possible follow-ups** (tracked in issue #182): ffmpeg audio remux for Reddit video; Cloudflare-challenge handling for nhentai; wiring Reddit credentials into the Vault/credentials system instead of env-vars only; automated tests for the two downloader classes; additional source integrations (Twitter/X, Pixiv, generic gallery-dl-style sites).
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -709,9 +721,10 @@ button that runs every engine on the current canvas selection side by side.
 | 4.14 Extractor Tab Storyboard Scrub Preview | [#414-extractor-tab-storyboard-scrub-preview](#414-extractor-tab-storyboard-scrub-preview) |
 | 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter | [#415-extractor-tab-image-sub-tab--multi-frame-image-splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter) |
 | 4.16 Additional Stitcher Options | [#416-additional-stitcher-options](#416-additional-stitcher-options) |
+| 4.17 Media Loader — Web Media Downloader | [#417-media-loader--web-media-downloader](#417-media-loader--web-media-downloader) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-07-17 — §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-08-03 — §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
