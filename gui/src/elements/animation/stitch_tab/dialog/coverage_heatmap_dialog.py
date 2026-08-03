@@ -19,9 +19,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-_MAX_PREVIEW_H = 600
-_BAR_W = 200
+from gui.src.constants.elements import DIALOG__MAX_PREVIEW_H, _BAR_W
 
 
 def _coverage_color(count: int) -> QColor:
@@ -36,7 +34,7 @@ class _CanvasPreview(QWidget):
     def __init__(self, bgr: np.ndarray, parent=None):
         super().__init__(parent)
         h, w = bgr.shape[:2]
-        scale = min(1.0, _MAX_PREVIEW_H / h)
+        scale = min(1.0, DIALOG__MAX_PREVIEW_H / h)
         if scale < 1.0:
             nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
             bgr = cv2.resize(bgr, (nw, nh), interpolation=cv2.INTER_AREA)

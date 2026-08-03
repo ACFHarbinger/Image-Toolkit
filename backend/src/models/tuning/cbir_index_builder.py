@@ -33,10 +33,9 @@ import torch
 
 from backend.src.constants import CBIR_INDEX_DIR
 from backend.src.models.data.cbir_dataset import scan_images
+from backend.src.constants.models import _BATCH_SIZE
 
 log = logging.getLogger(__name__)
-
-_BATCH_SIZE = 64
 
 
 def load_cbir_model(checkpoint_path: str):

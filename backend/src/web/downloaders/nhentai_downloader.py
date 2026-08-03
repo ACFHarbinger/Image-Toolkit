@@ -43,37 +43,21 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 from dataclasses import dataclass
 from typing import List, Optional
 
 from PySide6.QtCore import QObject, Signal
 
 from backend.src.core import telemetry
+from backend.src.constants.web import _DEFAULT_HEADERS, _GALLERY_ID_RE, _LEGACY_GALLERY_JSON_RE, _PAGE_EXT, _SVELTEKIT_JSON_RE
 
 log = logging.getLogger(__name__)
 
-_GALLERY_ID_RE = re.compile(r"(\d+)")
 # Current SvelteKit markup: a sveltekit-fetched <script> tag whose text is a
 # JSON envelope with the real gallery JSON nested under "body" as a string.
-_SVELTEKIT_JSON_RE = re.compile(
-    r'<script type="application/json" data-sveltekit-fetched '
-    r'data-url="/api/v2/galleries/\d+[^"]*">(.*?)</script>',
-    re.DOTALL,
-)
 # Legacy markup fallback (pre-SvelteKit rewrite): images.pages[].t type
 # letters instead of a direct per-page path.
-_LEGACY_GALLERY_JSON_RE = re.compile(
-    r"window\._gallery\s*=\s*JSON\.parse\(\"(.*?)\"\);", re.DOTALL
-)
-_DEFAULT_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-    )
-}
 # Legacy-markup page "type" letters -> file extension.
-_PAGE_EXT = {"j": ".jpg", "p": ".png", "g": ".gif", "w": ".webp"}
 
 
 @dataclass

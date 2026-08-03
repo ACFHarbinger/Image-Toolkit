@@ -18,18 +18,9 @@ from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from .config import ReconConfig
+from backend.src.constants.web import _SCHEMA
 
 logger = logging.getLogger(__name__)
-
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS provenance_cache (
-    cutout_hash TEXT NOT NULL,
-    engine      TEXT NOT NULL,
-    fetched_at  REAL NOT NULL,
-    results     TEXT NOT NULL,
-    PRIMARY KEY (cutout_hash, engine)
-);
-"""
 
 
 @dataclass

@@ -33,14 +33,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from gui.src.constants.elements import SUPPORTED_IMAGE_FILTER, _MAX_SCALE, _MIN_SCALE
 
-SUPPORTED_IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tiff *.tif);;All Files (*)"
 
 # Absolute zoom bounds for the canvas. 0.01x shows a ~40k-pixel-tall strip
 # whole; 80x makes a single source pixel ~80 screen pixels wide, which is
 # far past what is needed to eyeball a boundary to +/-1 px.
-_MIN_SCALE = 0.01
-_MAX_SCALE = 80.0
 
 
 class FrameSliceCanvas(QGraphicsView):

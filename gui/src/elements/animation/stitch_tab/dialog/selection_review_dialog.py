@@ -18,11 +18,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-_CARD_W = 160
-_CARD_H = 120
-_DIFF_BAR_H = 8
-_DIFF_HIGH = 0.15
+from gui.src.constants.elements import _CARD_H, _CARD_W, _DIFF_BAR_H, _DIFF_HIGH
 
 
 def _diff_color(diff: float) -> QColor:

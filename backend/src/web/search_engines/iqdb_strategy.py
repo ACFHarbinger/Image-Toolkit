@@ -6,7 +6,6 @@ HTML results page. Each match row carries a source-site link and a
 """
 
 import logging
-import re
 from typing import List, Optional
 from urllib.parse import urljoin
 
@@ -15,12 +14,9 @@ from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchE
 from backend.src.web.models import ReverseSearchResult
 
 from .common import make_session, raise_for_rate_limit
+from backend.src.constants.web import SEARCH_ENGINES__RES_RE, SEARCH_ENGINES__SEARCH_URL, _SIM_RE
 
 log = logging.getLogger(__name__)
-
-_SEARCH_URL = "https://iqdb.org/"
-_SIM_RE = re.compile(r"(\d+)%\s*similarity", re.IGNORECASE)
-_RES_RE = re.compile(r"(\d+)[×x](\d+)")
 
 
 class IqdbStrategy(ReverseSearchEngine):
@@ -48,17 +44,17 @@ class IqdbStrategy(ReverseSearchEngine):
 
         with open(image_path, "rb") as fh:
             files = {"file": ("query.jpg", fh, "application/octet-stream")}
-            resp = self._session.post(_SEARCH_URL, files=files, timeout=self._timeout)
+            resp = self._session.post(SEARCH_ENGINES__SEARCH_URL, files=files, timeout=self._timeout)
         raise_for_rate_limit(resp, ENGINE_IQDB)
         resp.raise_for_status()
 
-        results = self._parse_response(resp.text, self._min_similarity, _SEARCH_URL)
+        results = self._parse_response(resp.text, self._min_similarity, SEARCH_ENGINES__SEARCH_URL)
         self._emit_status(f"IQDB returned {len(results)} matches.")
         return results
 
     @staticmethod
     def _parse_response(
-        html: str, min_similarity: float, base_url: str = _SEARCH_URL
+        html: str, min_similarity: float, base_url: str = SEARCH_ENGINES__SEARCH_URL
     ) -> List[ReverseSearchResult]:
         """Parse the IQDB HTML results page. Static + isolated for testing."""
         from bs4 import BeautifulSoup
@@ -93,7 +89,7 @@ class IqdbStrategy(ReverseSearchEngine):
             elif url.startswith("/"):
                 url = urljoin(base_url, url)
 
-            res_match = _RES_RE.search(text)
+            res_match = SEARCH_ENGINES__RES_RE.search(text)
             resolution = (
                 f"{res_match.group(1)}x{res_match.group(2)}" if res_match else "Unknown"
             )

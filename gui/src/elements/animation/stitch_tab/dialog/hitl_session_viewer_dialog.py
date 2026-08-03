@@ -21,22 +21,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
 )
-
-_DEFAULT_SESSION_DIR = (
-    Path.home() / ".config" / "image-toolkit" / "hitl_sessions"
-)
-
-_CHECKPOINT_LABELS = {
-    "frames": "Frame selection",
-    "masks": "Mask / segmentation",
-    "edges": "Edge graph",
-    "canvas": "Canvas layout",
-    "boundaries": "Seam boundaries",
-    "composite": "Post-composite paint",
-    "render": "Render review",
-    "output": "Final output RLHF",
-    "video": "Video frame review",
-}
+from gui.src.constants.elements import _CHECKPOINT_LABELS, _DEFAULT_SESSION_DIR
 
 
 def _list_sessions(session_dir: Path) -> List[Path]:

@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication, QGridLayout
+from gui.src.constants.classes import _WORKER_DRAIN_TIMEOUT_MS
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -39,7 +40,6 @@ if TYPE_CHECKING:
 # still asked to cooperatively cancel first (`.stop()`), so this is expected
 # to return quickly in the overwhelming majority of cases; the tradeoff is a
 # rare, bounded-by-subprocess-timeout UI pause instead of a crash.
-_WORKER_DRAIN_TIMEOUT_MS = -1
 
 
 class _LifecycleMixin:

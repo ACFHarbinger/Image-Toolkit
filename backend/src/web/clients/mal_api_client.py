@@ -15,18 +15,7 @@ same shape).
 import requests
 
 from backend.src.web.search_engines.common import resolve_api_key
-
-_API_ROOT = "https://api.myanimelist.net/v2"
-
-_STATUS_MAP = {
-    "finished_airing": "Completed",
-    "currently_airing": "Watching / Reading",
-    "not_yet_aired": "Plan to Watch",
-}
-
-_ANIME_FIELDS = (
-    "synopsis,mean,num_episodes,status,genres,start_season,studios"
-)
+from backend.src.constants.web import CLIENTS__STATUS_MAP, _ANIME_FIELDS, _API_ROOT
 
 
 def _client_id(explicit: str | None = None) -> str | None:
@@ -97,7 +86,7 @@ def fetch_mal_anime_data(title: str, client_id: str | None = None) -> dict:
             "synopsis": anime.get("synopsis", ""),
             "episodes": anime.get("num_episodes") or 1,
             "score": float(score) if score else 0.0,
-            "status": _STATUS_MAP.get(anime.get("status", ""), ""),
+            "status": CLIENTS__STATUS_MAP.get(anime.get("status", ""), ""),
             "genres": genres,
             "year": int(year) if year else 0,
             "mal_url": f"https://myanimelist.net/anime/{anime_id}",

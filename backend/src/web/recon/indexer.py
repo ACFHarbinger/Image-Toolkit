@@ -14,13 +14,12 @@ import numpy as np
 
 from .config import ReconConfig
 from .embedder import embed, embedding_dim
+from backend.src.constants.web import _IMG_EXTS
 
 logger = logging.getLogger(__name__)
 
 ProgressCb = Callable[[str, int, int], None]
 CancelCb = Callable[[], bool]
-
-_IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"}
 
 
 class DatasetIndexer:

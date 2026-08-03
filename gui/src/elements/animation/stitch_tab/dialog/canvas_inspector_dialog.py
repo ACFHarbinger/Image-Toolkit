@@ -35,19 +35,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-_FRAME_COLORS = [
-    QColor(100, 149, 237, 110),
-    QColor(100, 220, 130, 110),
-    QColor(255, 165,   0, 110),
-    QColor(210, 100, 210, 110),
-    QColor(255, 215,   0, 110),
-    QColor( 32, 178, 170, 110),
-    QColor(255,  99,  71, 110),
-    QColor(173, 216, 230, 110),
-]
-_HIGHLIGHT_PEN = QPen(QColor(255, 220, 50), 3)
-_NORMAL_PEN_ALPHA = 180
+from gui.src.constants.elements import _FRAME_COLORS, _HIGHLIGHT_PEN
 
 
 def _bgr_thumb_to_qpixmap(bgr: np.ndarray, w: int, h: int) -> QPixmap:

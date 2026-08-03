@@ -31,10 +31,10 @@ except ImportError:
     _KORNIA_OK = False
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
+from backend.src.constants.models import WRAPPERS_ALIKED_LG_WRAPPER__MIN_INLIERS
 
 logger = logging.getLogger(__name__)
 
-_MIN_INLIERS = 15
 
 class ALIKEDLightGlueWrapper(ModelWrapper):
     """
@@ -227,7 +227,7 @@ class ALIKEDLightGlueWrapper(ModelWrapper):
         pts_j     : (K,2) matched points in img_j coords.
         """
         pts_i, pts_j, conf = self.match(img_i, img_j, mask_i, mask_j)
-        if len(pts_i) < _MIN_INLIERS:
+        if len(pts_i) < WRAPPERS_ALIKED_LG_WRAPPER__MIN_INLIERS:
             return None, 0.0, pts_i, pts_j
 
         dxs = pts_j[:, 0] - pts_i[:, 0]

@@ -30,11 +30,10 @@ import gc
 import logging
 import weakref
 from abc import abstractmethod
-from typing import Callable, List, Optional, TypeVar
+from typing import List, Optional
+from backend.src.constants.models import _F
 
 logger = logging.getLogger(__name__)
-
-_F = TypeVar("_F", bound=Callable)
 
 
 def lazy_load(method: _F) -> _F:

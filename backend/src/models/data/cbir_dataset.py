@@ -22,10 +22,9 @@ from typing import Callable, List, Tuple
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
+from backend.src.constants.models import _IMG_EXTENSIONS
 
 log = logging.getLogger(__name__)
-
-_IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"}
 
 
 # ---------------------------------------------------------------------------

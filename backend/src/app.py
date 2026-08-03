@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication
 
 from backend.src.constants import CTRL_C_TIMEOUT, ICON_FILE
 from backend.src.core import lifecycle_memory, telemetry
+from backend.src.constants.app import SETTINGS_PREFIX_TYPES, SETTINGS_SCHEMA
 
 # ---------------------------------------------------------------------------
 # Logging setup (item 1.13) — rotating file handler + coloured console output
@@ -111,16 +112,6 @@ logger = logging.getLogger(__name__)
 # QSettings key schema (A.5) — types for known static keys
 # Dynamic keys (session/{ClassName}/*, labels/*, splitters/*) are prefixes.
 # ---------------------------------------------------------------------------
-
-SETTINGS_SCHEMA: dict[str, type] = {
-    "mainwindow/geometry": bytes,
-}
-
-SETTINGS_PREFIX_TYPES: dict[str, type] = {
-    "session/": str,
-    "splitters/": bytes,
-    "splitter/": bytes,
-}
 
 
 def _validate_settings() -> None:

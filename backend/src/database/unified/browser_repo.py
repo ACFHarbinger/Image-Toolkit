@@ -24,13 +24,8 @@ the vault password.
 
 from __future__ import annotations
 
-import re
 from typing import Any, Dict, List, Optional, Tuple
-
-_BANNED_WHERE_PATTERN = re.compile(
-    r";|\b(INSERT|UPDATE|DELETE|DROP|ALTER|ATTACH|PRAGMA|CREATE|REPLACE)\b",
-    re.IGNORECASE,
-)
+from backend.src.constants.database import _BANNED_WHERE_PATTERN
 
 
 class BrowserRepo:

@@ -34,15 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from .landmark_editor_dialog import LandmarkEditorDialog
-
-_RADIUS = 200.0
-_CENTRE = 230.0
-_NODE_R = 18
-_CONF_HIGH = QColor(80, 200, 80)
-_CONF_MED = QColor(200, 200, 80)
-_CONF_LOW = QColor(220, 80, 80)
-_CONF_DIS = QColor(90, 90, 90)
-_CONF_MANUAL = QColor(160, 100, 255)  # purple — manually added edges (S89)
+from gui.src.constants.elements import _CENTRE, _CONF_DIS, _CONF_HIGH, _CONF_LOW, _CONF_MANUAL, _CONF_MED, _NODE_R, _RADIUS
 
 
 class _ManualEdgeDialog(QDialog):

@@ -14,28 +14,11 @@ colliding with this app's unrelated "Series Listings" naming.
 from __future__ import annotations
 
 import contextlib
+from backend.src.constants.database import DEFAULT_TAG_CATEGORIES, LEGACY_CATEGORY_ALIASES
 
 # (name, color, sort_order, applies_to)
-DEFAULT_TAG_CATEGORIES = [
-    ("General", "#95a5a6", 0, "universal"),
-    ("Artist", "#5865f2", 1, "universal"),
-    ("Copyright", "#f1c40f", 2, "universal"),
-    ("Character", "#2ecc71", 3, "universal"),
-    ("Meta", "#9b59b6", 4, "universal"),
-    ("Genre", "#e91e63", 5, "listing"),
-    ("Medium", "#3498db", 6, "listing"),
-    ("Studio", "#8e44ad", 7, "listing"),
-    ("Setting", "#16a085", 8, "listing"),
-    ("Content Warning", "#c0392b", 9, "listing"),
-    ("Release Status", "#7f8c8d", 10, "listing"),
-    ("Appearance", "#1abc9c", 11, "entity"),
-    ("Occupation", "#e67e22", 12, "entity"),
-    ("Biographical", "#d35400", 13, "entity"),
-    ("Organization", "#2980b9", 14, "entity"),
-]
 
 # Pre-overhaul image-tag "type" strings that map onto a renamed category.
-LEGACY_CATEGORY_ALIASES = {"Series": "Copyright"}
 
 
 def seed(db) -> None:

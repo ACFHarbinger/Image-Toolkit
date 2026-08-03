@@ -1,20 +1,13 @@
 import time
 
 import requests
+from backend.src.constants.web import _BACKOFF_BASE_SECONDS, _MAX_RETRIES, _RETRY_STATUS_CODES, _STATUS_MAP
 
-_STATUS_MAP = {
-    "Finished Airing": "Completed",
-    "Currently Airing": "Watching / Reading",
-    "Not yet aired": "Plan to Watch",
-}
 
 # Jikan sits behind Cloudflare and occasionally answers with a transient
 # gateway error (429 rate-limited, 502/503/504 upstream hiccups) that
 # succeeds on a bare retry a few seconds later. Retried with exponential
 # backoff instead of surfacing immediately as a hard failure.
-_RETRY_STATUS_CODES = {429, 502, 503, 504}
-_MAX_RETRIES = 3
-_BACKOFF_BASE_SECONDS = 1.5
 
 
 def _get_with_retry(url: str, **kwargs) -> requests.Response:

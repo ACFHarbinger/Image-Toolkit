@@ -38,14 +38,9 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QVBoxLayout,
 )
+from gui.src.constants.elements import _CLICK_RADIUS, _MAX_DISPLAY_H, _NEGATIVE_COLOR, _OVERLAY_ALPHA, _POSITIVE_COLOR
 
 # ── constants ────────────────────────────────────────────────────────────────
-
-_OVERLAY_ALPHA = 0.40  # mask overlay opacity on the frame
-_POSITIVE_COLOR = (0, 255, 0)  # green dots for positive clicks (BGR)
-_NEGATIVE_COLOR = (0, 0, 255)  # red dots for negative clicks (BGR)
-_CLICK_RADIUS = 6  # dot radius in display pixels
-_MAX_DISPLAY_H = 540  # max display height for the frame thumbnail
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────

@@ -19,14 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...helpers.animation.batch_stitch_worker import BatchStitchWorker
-
-_STATUS_ICON = {
-    "queued": "⏳",  # hourglass
-    "running": "▶",  # play triangle
-    "done": "✅",  # check mark
-    "skipped": "⏭",  # skip
-    "failed": "❌",  # cross mark
-}
+from gui.src.constants.components import _STATUS_ICON
 
 
 class BatchStitchDialog(QDialog):

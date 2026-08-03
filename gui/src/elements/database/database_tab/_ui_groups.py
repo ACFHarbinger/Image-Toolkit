@@ -23,20 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
-
-_TABLE_STYLE = """
-    QTableWidget {
-        background-color: #36393f;
-        border: 1px solid #4f545c;
-        alternate-background-color: #3b3e44;
-    }
-    QHeaderView::section {
-        background-color: #4f545c;
-        color: white;
-        padding: 4px;
-        border: 1px solid #36393f;
-    }
-"""
+from gui.src.constants.elements import _TABLE_STYLE
 
 
 class _UIGroupsMixin:

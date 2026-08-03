@@ -11,14 +11,13 @@ import os
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QDialog, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
+from gui.src.constants.windows import _MAX_RESULTS, _NESTED_GALLERY_ATTRS
 
 # ConvertTab is a plain QWidget composing three gallery subtabs rather than
 # being (or delegating to, like ExtractorTab's __getattr__) a gallery base
 # itself -- these are the attribute names to look under one level down.
-_NESTED_GALLERY_ATTRS = ("format_subtab", "codec_subtab", "sampler_subtab")
 
 # Cap results so a huge library doesn't build an unbounded popup list.
-_MAX_RESULTS = 200
 
 
 class _GlobalSearchMixin:

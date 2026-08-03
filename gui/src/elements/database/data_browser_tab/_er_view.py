@@ -43,29 +43,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-_CARD_WIDTH = 200
-_ROW_HEIGHT = 18
-_TITLE_HEIGHT = 26
-_CARD_MARGIN_X = 60
-_CARD_MARGIN_Y = 40
-_BUCKET_ORDER = ("media", "image", "shared", "search", "other")
-_BUCKET_LABELS = {
-    "media": "Media / Entity domain",
-    "image": "Image domain",
-    "shared": "Shared vocabulary",
-    "search": "Search infrastructure",
-    "other": "Other",
-}
-_BUCKET_TABLES = {
-    "media": {
-        "media_items", "episodes", "entities", "credits",
-        "media_entity", "entity_entity",
-    },
-    "image": {"groups", "subgroups", "images"},
-    "shared": {"tags", "image_tags", "media_tags", "media_groups", "entity_images"},
-    "search": {"embeddings", "vector_index", "media_fts", "entity_fts", "image_fts"},
-}
+from gui.src.constants.elements import _BUCKET_ORDER, _BUCKET_TABLES, _CARD_MARGIN_X, _CARD_MARGIN_Y, _CARD_WIDTH, _ROW_HEIGHT, _TITLE_HEIGHT
 
 
 def _bucket_for(table: str) -> str:

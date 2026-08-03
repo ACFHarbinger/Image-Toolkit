@@ -1,36 +1,15 @@
 import os
 import subprocess
 from typing import Callable, Optional
+from backend.src.constants.core import AUDIO_CODEC_ENCODERS, VIDEO_CODEC_ENCODERS, _MAX_CRF, _SPEED_PRESETS
 
 # Target codec -> (ffmpeg encoder, extra fixed args). Keys match the codec
 # names ffprobe reports for these encoders (h264, hevc, av1, vp9), so a
 # probed source codec can be compared directly against a target key.
-VIDEO_CODEC_ENCODERS = {
-    "h264": ("libx264", ["-pix_fmt", "yuv420p"]),
-    "hevc": ("libx265", ["-pix_fmt", "yuv420p", "-tag:v", "hvc1"]),
-    "av1": ("libsvtav1", ["-pix_fmt", "yuv420p"]),
-    "vp9": ("libvpx-vp9", ["-pix_fmt", "yuv420p", "-b:v", "0"]),
-}
 
-AUDIO_CODEC_ENCODERS = {
-    "aac": ("aac", ["-b:a", "192k"]),
-    "opus": ("libopus", ["-b:a", "128k"]),
-    "mp3": ("libmp3lame", ["-q:a", "2"]),
-    "flac": ("flac", []),
-}
 
 # Speed level 0 (fastest/lowest quality) .. 4 (slowest/best quality), mapped
 # to each encoder's own preset vocabulary.
-_SPEED_PRESETS = {
-    "h264": {0: "ultrafast", 1: "faster", 2: "medium", 3: "slow", 4: "veryslow"},
-    "hevc": {0: "ultrafast", 1: "faster", 2: "medium", 3: "slow", 4: "veryslow"},
-    # libsvtav1: lower preset number = slower/better.
-    "av1": {0: "12", 1: "10", 2: "8", 3: "5", 4: "2"},
-    # libvpx-vp9: lower -cpu-used = slower/better.
-    "vp9": {0: "8", 1: "6", 2: "4", 3: "2", 4: "0"},
-}
-
-_MAX_CRF = {"h264": 51, "hevc": 51, "av1": 63, "vp9": 63}
 
 
 class VideoFormatConverter:
@@ -69,7 +48,6 @@ class VideoFormatConverter:
             "-i",
             input_path,
         ]
-
 
 
         filters = []

@@ -39,18 +39,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-_THUMB_W = 480
-_THUMB_H = 360
-_MARKER_R = 6
-_COLORS = [
-    QColor(255, 80, 80),
-    QColor(80, 200, 80),
-    QColor(80, 150, 255),
-    QColor(255, 200, 50),
-    QColor(230, 80, 230),
-    QColor(80, 220, 220),
-]
+from gui.src.constants.elements import _COLORS, _MARKER_R, _THUMB_H, _THUMB_W
 
 
 def _bgr_to_pixmap(arr: np.ndarray, max_w: int = _THUMB_W, max_h: int = _THUMB_H) -> QPixmap:

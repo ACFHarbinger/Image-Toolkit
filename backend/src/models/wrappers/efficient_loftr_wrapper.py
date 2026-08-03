@@ -28,6 +28,7 @@ import numpy as np
 import torch
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
+from backend.src.constants.models import WRAPPERS__HF_REPO, WRAPPERS__MIN_INLIERS
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,6 @@ try:
 except ImportError:
     _TRANSFORMERS_OK = False
 
-_HF_REPO = "zju-community/efficientloftr"
-_MIN_INLIERS = 20
 
 class EfficientLoFTRWrapper(ModelWrapper):
     """
@@ -88,10 +87,10 @@ class EfficientLoFTRWrapper(ModelWrapper):
         if self._model is None:
             logger.debug("[ELoFTR] Loading EfficientLoFTR from HuggingFace …")
             self._processor = AutoImageProcessor.from_pretrained(
-                _HF_REPO, use_fast=True
+                WRAPPERS__HF_REPO, use_fast=True
             )
             self._model = (
-                EfficientLoFTRForKeypointMatching.from_pretrained(_HF_REPO)
+                EfficientLoFTRForKeypointMatching.from_pretrained(WRAPPERS__HF_REPO)
                 .eval()
                 .to(self.device)
             )
@@ -216,7 +215,7 @@ class EfficientLoFTRWrapper(ModelWrapper):
         img2: np.ndarray,
         mask1: Optional[np.ndarray] = None,
         mask2: Optional[np.ndarray] = None,
-        min_inliers: int = _MIN_INLIERS,
+        min_inliers: int = WRAPPERS__MIN_INLIERS,
     ) -> Tuple[Optional[np.ndarray], float]:
         """
         Estimate a (2, 3) translation-only affine from img1 to img2.

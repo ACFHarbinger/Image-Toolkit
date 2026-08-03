@@ -39,9 +39,8 @@ import torch
 from huggingface_hub import hf_hub_download
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
+from backend.src.constants.models import _CKPT_FILE, _HF_REPO, _JAMMA_ERR, _JAMMA_OK, _MIN_INLIERS
 
-_JAMMA_OK = False
-_JAMMA_ERR = ""
 
 _VENDOR_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "vendor", "JamMa"
@@ -59,10 +58,6 @@ except Exception as _e:
 
 logger = logging.getLogger(__name__)
 
-_HF_REPO = "leoluxxx/JamMa"
-_CKPT_FILE = "jamma_outdoor.ckpt"
-
-_MIN_INLIERS = 20
 
 class JamMaWrapper(ModelWrapper):
     """

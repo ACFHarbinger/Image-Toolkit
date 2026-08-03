@@ -31,11 +31,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QVBoxLayout,
 )
-
-_MAX_PREVIEW_W = 480
-_MAX_PREVIEW_H = 700
-_LINE_COLOR = QColor(255, 80, 80)          # red seam lines
-_LABEL_COLOR = QColor(255, 220, 60)        # frame-index labels
+from gui.src.constants.elements import DIALOG_BOUNDARY_EDITOR_DIALOG__MAX_PREVIEW_H, DIALOG__MAX_PREVIEW_W, _LABEL_COLOR, _LINE_COLOR
 
 
 def _bgr_to_pixmap(bgr: np.ndarray, max_w: int, max_h: int) -> tuple[QPixmap, float]:
@@ -92,7 +88,7 @@ class BoundaryEditorDialog(QDialog):
         frame_count: int = int(data.get("frame_count", len(self._boundaries_full) + 1))
 
         # Downsample canvas for display
-        pixmap, self._scale = _bgr_to_pixmap(canvas_bgr, _MAX_PREVIEW_W, _MAX_PREVIEW_H)
+        pixmap, self._scale = _bgr_to_pixmap(canvas_bgr, DIALOG__MAX_PREVIEW_W, DIALOG_BOUNDARY_EDITOR_DIALOG__MAX_PREVIEW_H)
         self._preview_w = pixmap.width()
         self._preview_h = pixmap.height()
 

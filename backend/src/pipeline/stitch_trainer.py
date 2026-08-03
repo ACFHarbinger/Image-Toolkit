@@ -55,53 +55,11 @@ from backend.src.models.data.stitch_dataset import (
 )
 from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 from backend.src.pipeline.stitch_losses import StitchNetLoss
+from backend.src.constants.pipeline import DEFAULT_CONFIG
 
 # ---------------------------------------------------------------------------
 # Default configuration
 # ---------------------------------------------------------------------------
-
-DEFAULT_CONFIG: Dict = {
-    # Data
-    "image_dir": "",  # required — folder of anime PNGs/JPGs
-    "val_split": 0.10,
-    "dataset_size": 50_000,
-    "patch_hw": [256, 256],
-    "max_dx": 0.50,
-    "max_dy": 0.50,
-    "max_angle": math.pi / 6,
-    "max_log_s": 0.25,
-    "mpeg_noise_prob": 0.30,
-    "dimming_prob": 0.40,
-    "neg_pair_prob": 0.10,
-    "augment": True,
-    # Model
-    "enc_channels": 256,
-    "num_heads": 8,
-    "num_ca_layers": 2,
-    "pretrained": True,
-    # Training
-    "epochs": 30,
-    "batch_size": 32,
-    "num_workers": 4,
-    "lr": 3e-4,
-    "weight_decay": 1e-4,
-    "warmup_epochs": 2,
-    "grad_clip": 1.0,
-    "amp": True,
-    # Loss weights
-    "lambda_param": 1.0,
-    "lambda_photo": 0.5,
-    "lambda_sym": 0.2,
-    "huber_delta": 0.1,
-    "warmup_steps": 500,
-    # I/O
-    "output_dir": "stitch_checkpoints",
-    "save_every": 5,
-    "log_every": 50,
-    # Optional LoFTR distillation
-    "loftr_distill": False,
-    "distill_weight": 0.30,
-}
 
 
 # ---------------------------------------------------------------------------

@@ -14,20 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ._util import transaction
 from .tag_repo import TagRepo
-
-_IMAGE_COLUMNS = (
-    "id", "file_path", "filename", "file_size", "width", "height", "phash",
-    "group_id", "subgroup_id", "date_added", "date_modified",
-)
-
-_SELECT_IMAGE = (
-    "SELECT i.id, i.file_path, i.filename, i.file_size, i.width, i.height, "
-    "i.phash, i.group_id, i.subgroup_id, i.date_added, i.date_modified, "
-    "g.name AS group_name, s.name AS subgroup_name "
-    "FROM images i "
-    "LEFT JOIN groups g ON g.id = i.group_id "
-    "LEFT JOIN subgroups s ON s.id = i.subgroup_id "
-)
+from backend.src.constants.database import UNIFIED__IMAGE_COLUMNS, _SELECT_IMAGE
 
 
 class ImageRepo:
@@ -349,7 +336,7 @@ class ImageRepo:
     # ------------------------------------------------------------------
 
     def _assemble(self, row: tuple) -> Dict[str, Any]:
-        data = dict(zip(_IMAGE_COLUMNS + ("group_name", "subgroup_name"), row, strict=False))
+        data = dict(zip(UNIFIED__IMAGE_COLUMNS + ("group_name", "subgroup_name"), row, strict=False))
         data["tags"] = self.get_image_tags(data["id"])
         return data
 

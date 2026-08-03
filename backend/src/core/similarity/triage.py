@@ -10,20 +10,11 @@ import os
 from typing import Dict, List, Optional, Tuple
 
 from .config import TriageRules
+from backend.src.constants.core import _FORMAT_RANK
 
 logger = logging.getLogger(__name__)
 
 # Format quality ladder — lossless first
-_FORMAT_RANK = {
-    ".png": 1.0,
-    ".tiff": 1.0,
-    ".tif": 1.0,
-    ".bmp": 0.9,
-    ".webp": 0.7,   # may be lossless, usually lossy
-    ".jpg": 0.4,
-    ".jpeg": 0.4,
-    ".gif": 0.3,
-}
 
 
 def _probe(path: str) -> Dict:

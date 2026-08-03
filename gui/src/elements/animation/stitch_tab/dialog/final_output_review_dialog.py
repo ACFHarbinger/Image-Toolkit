@@ -30,13 +30,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from gui.src.constants.elements import _PREVIEW_MAX_PX
 
 try:
     from backend.src.constants.animation import RLHF_FLAW_TYPES
 except Exception:
     RLHF_FLAW_TYPES = ["seam", "ghosting", "misalignment", "color_mismatch", "blur"]
-
-_PREVIEW_MAX_PX = 640
 
 
 class _AddFlawDialog(QDialog):

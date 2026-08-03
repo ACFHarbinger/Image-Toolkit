@@ -43,8 +43,7 @@ from typing import Optional
 from gui.src.helpers.animation.stitch_worker import StitchWorker
 from PySide6.QtCore import Property, QObject, QThread, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-
-_IMAGE_EXTS = ("*.jpg", "*.jpeg", "*.png", "*.webp", "*.bmp", "*.tiff", "*.tif")
+from gui.src.constants.tabs import _IMAGE_EXTS
 
 
 def _collect_images(directory: str) -> list[str]:

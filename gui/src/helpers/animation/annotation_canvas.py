@@ -13,7 +13,7 @@ annotation_added(x, y, w, h)  — emitted with normalized [0,1] region coords
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import (
@@ -25,18 +25,9 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import QRubberBand, QSizePolicy, QWidget
+from gui.src.constants.helpers import _FLAW_COLORS
 
 # Flaw type → (R, G, B, alpha 0-255) overlay colour
-_FLAW_COLORS: Dict[str, Tuple[int, int, int, int]] = {
-    "seam": (255, 60, 60, 90),
-    "blur": (255, 220, 40, 90),
-    "misalignment": (255, 140, 40, 90),
-    "color_mismatch": (180, 60, 255, 90),
-    "dark_border": (120, 120, 120, 90),
-    "compression": (40, 220, 220, 90),
-    "ghosting": (60, 80, 255, 90),
-    "unknown": (200, 200, 200, 90),
-}
 
 
 class _Annotation:

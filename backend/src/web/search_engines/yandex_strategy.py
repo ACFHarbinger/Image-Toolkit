@@ -19,13 +19,9 @@ from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchE
 from backend.src.web.models import ReverseSearchResult
 
 from .common import EngineBlocked, make_session, raise_for_rate_limit
+from backend.src.constants.web import _CAPTCHA_MARKERS, _SEARCH_URL, _UPLOAD_URL
 
 log = logging.getLogger(__name__)
-
-_UPLOAD_URL = "https://yandex.com/images-apphost/image-download"
-_SEARCH_URL = "https://yandex.com/images/search"
-_CAPTCHA_MARKERS = ("showcaptcha", "SmartCaptcha", "captcha")
-_RES_RE = re.compile(r"(\d+)\s*[×x]\s*(\d+)")
 
 
 class YandexSearchStrategy(ReverseSearchEngine):

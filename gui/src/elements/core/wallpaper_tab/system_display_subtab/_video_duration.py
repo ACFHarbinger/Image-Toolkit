@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import os
 import subprocess
-from typing import Dict, Optional
-
-_VIDEO_DURATION_CACHE: Dict[str, float] = {}
+from typing import Optional
+from gui.src.constants.elements import _VIDEO_DURATION_CACHE
 
 
 def _is_video(path: str) -> bool:

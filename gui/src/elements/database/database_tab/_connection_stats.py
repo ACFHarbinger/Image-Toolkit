@@ -10,8 +10,7 @@ from backend.src.database.unified.facade import UnifiedImageDatabase as ImageDat
 from gui.src.helpers.database.embedding_worker import ImageEmbeddingWorker
 from gui.src.helpers.database.library_session import get_library_db
 from PySide6.QtWidgets import QInputDialog, QMessageBox
-
-EMBED_MODEL = "openclip"
+from gui.src.constants.elements import EMBED_MODEL
 
 
 class _ConnectionStatsMixin:

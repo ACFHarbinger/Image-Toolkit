@@ -23,40 +23,10 @@ from ._util import (
     transaction,
 )
 from .tag_repo import TagRepo
+from backend.src.constants.database import UNIFIED__COLUMN_KEYS, UNIFIED__RELATION_KEYS, UNIFIED__SELECT_COLUMNS, _EPISODE_FIELDS
 
 # Legacy entry key -> media_items column (identical names omitted).
-_COLUMN_KEYS = {
-    "id": "id",
-    "title": "title",
-    "type": "type",
-    "status": "status",
-    "personal_rating": "personal_rating",
-    "community_rating": "community_rating",
-    "year": "year",
-    "episodes": "episodes_total",
-    "current_episode": "current_episode",
-    "creator": "creator",
-    "review": "review",
-    "web_link": "web_link",
-    "local_file": "local_file",
-    "image_path": "image_path",
-    "date_added": "date_added",
-    "date_watched": "date_watched",
-}
 # Keys consumed by relations, not columns.
-_RELATION_KEYS = {"genres", "tags", "associated_entities", "episode_list"}
-
-_EPISODE_FIELDS = (
-    "number", "title", "date_watched", "rating", "review",
-    "image_path", "local_file", "web_link",
-)
-
-_SELECT_COLUMNS = (
-    "id", "title", "type", "status", "personal_rating", "community_rating",
-    "year", "episodes_total", "current_episode", "creator", "review",
-    "web_link", "local_file", "image_path", "date_added", "date_watched",
-    "extra",
-)
 
 
 class MediaRepo:
@@ -78,9 +48,9 @@ class MediaRepo:
         cols: Dict[str, Any] = {}
         extra: Dict[str, Any] = {}
         for key, value in entry.items():
-            if key in _COLUMN_KEYS:
-                cols[_COLUMN_KEYS[key]] = value
-            elif key not in _RELATION_KEYS:
+            if key in UNIFIED__COLUMN_KEYS:
+                cols[UNIFIED__COLUMN_KEYS[key]] = value
+            elif key not in UNIFIED__RELATION_KEYS:
                 extra[key] = value
 
         with transaction(self._db):
@@ -223,7 +193,7 @@ class MediaRepo:
 
     def get_media(self, media_id: str) -> Optional[Dict[str, Any]]:
         rows = self._db.query(
-            f"SELECT {', '.join(_SELECT_COLUMNS)} FROM media_items WHERE id = ?",
+            f"SELECT {', '.join(UNIFIED__SELECT_COLUMNS)} FROM media_items WHERE id = ?",
             (media_id,),
         )
         if not rows:
@@ -232,7 +202,7 @@ class MediaRepo:
 
     def list_media(self) -> List[Dict[str, Any]]:
         rows = self._db.query(
-            f"SELECT {', '.join(_SELECT_COLUMNS)} FROM media_items "
+            f"SELECT {', '.join(UNIFIED__SELECT_COLUMNS)} FROM media_items "
             "ORDER BY date_added DESC, title",
             (),
         )
@@ -249,11 +219,11 @@ class MediaRepo:
     # ------------------------------------------------------------------
 
     def _assemble(self, row: tuple) -> Dict[str, Any]:
-        data = dict(zip(_SELECT_COLUMNS, row, strict=False))
+        data = dict(zip(UNIFIED__SELECT_COLUMNS, row, strict=False))
         media_id = data["id"]
 
         entry: Dict[str, Any] = loads_extra(data.pop("extra"))
-        reverse = {col: key for key, col in _COLUMN_KEYS.items()}
+        reverse = {col: key for key, col in UNIFIED__COLUMN_KEYS.items()}
         for col, value in data.items():
             entry[reverse[col]] = intify(value)
 

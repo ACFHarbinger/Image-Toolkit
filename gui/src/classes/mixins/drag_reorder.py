@@ -14,8 +14,7 @@ from typing import List
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt
 from PySide6.QtGui import QDrag, QMouseEvent
 from PySide6.QtWidgets import QApplication, QWidget
-
-_MIME_TYPE = "application/x-image-toolkit-path"
+from gui.src.constants.classes import _MIME_TYPE
 
 
 def compute_reordered(paths: List[str], dragged: str, target: str) -> List[str]:

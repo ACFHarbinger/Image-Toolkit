@@ -15,10 +15,9 @@ import logging
 from typing import Optional, Tuple
 
 import numpy as np
+from backend.src.constants.web import _SAM
 
 logger = logging.getLogger(__name__)
-
-_SAM = {"model": None, "predictor": None, "kind": None}
 
 
 def _try_load_sam() -> Optional[str]:

@@ -42,6 +42,7 @@ import torch.nn.functional as F
 
 from backend.src.errors import ModelLoadError
 from backend.src.models.core.base import ModelWrapper, lazy_load
+from backend.src.constants.models import ANIME_6B_FILENAME
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,6 @@ logger = logging.getLogger(__name__)
 # birefnet_wrapper.py's primary/fallback pattern in case one goes stale.
 ANIME_6B_MODEL = "ximso/RealESRGAN_x4plus_anime_6B"
 ANIME_6B_MODEL_FALLBACK = "gemasai/RealESRGAN_x4plus_anime_6B"
-ANIME_6B_FILENAME = "RealESRGAN_x4plus_anime_6B.pth"
 
 
 class ResidualDenseBlock(nn.Module):

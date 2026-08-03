@@ -30,14 +30,9 @@ from urllib.parse import urlparse
 import requests
 
 from backend.src.web.models import ReverseSearchResult
+from backend.src.constants.web import CLIENTS__MAX_RETRIES, _DEFAULT_TIMEOUT, _RETRY_BACKOFF_BASE, _SEARCH_ENDPOINT
 
 log = logging.getLogger(__name__)
-
-_API_BASE = "https://api.tineye.com/rest/"
-_SEARCH_ENDPOINT = f"{_API_BASE}search/"
-_DEFAULT_TIMEOUT = 30
-_MAX_RETRIES = 3
-_RETRY_BACKOFF_BASE = 2.0  # seconds
 
 
 def _load_credentials() -> tuple[str, str]:
@@ -130,7 +125,7 @@ class TinEyeClient:
             method="search",
             extra={"offset": offset, "limit": limit},
         )
-        for attempt in range(1, _MAX_RETRIES + 1):
+        for attempt in range(1, CLIENTS__MAX_RETRIES + 1):
             try:
                 with open(image_path, "rb") as fh:
                     resp = self._session.post(
@@ -148,9 +143,9 @@ class TinEyeClient:
                 return self._parse_response(resp.json())
             except requests.exceptions.Timeout:
                 log.warning(
-                    "TinEye request timed out (attempt %d/%d).", attempt, _MAX_RETRIES
+                    "TinEye request timed out (attempt %d/%d).", attempt, CLIENTS__MAX_RETRIES
                 )
-                if attempt == _MAX_RETRIES:
+                if attempt == CLIENTS__MAX_RETRIES:
                     raise
                 time.sleep(_RETRY_BACKOFF_BASE * attempt)
             except requests.exceptions.RequestException as exc:

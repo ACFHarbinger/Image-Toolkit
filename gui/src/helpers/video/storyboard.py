@@ -33,18 +33,15 @@ import hashlib
 import json
 import math
 import os
-import re
 import subprocess
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from backend.src.constants import IMAGE_TOOLKIT_DIR
 from PIL import Image
 from PySide6.QtCore import QThread, Signal
-
-_OUT_TIME_RE = re.compile(r"out_time_ms=(\d+)")
+from gui.src.constants.helpers import MAX_TOTAL_TILES, MIN_INTERVAL_MS, MIN_TILES, TILE_WIDTH, _MAX_PAGE_RAW_MB, _OUT_TIME_RE, _STORYBOARD_CACHE_VERSION, _STORYBOARD_DIR
 
 
 def probe_duration_ms(video_path: str) -> int:
@@ -71,25 +68,18 @@ def probe_duration_ms(video_path: str) -> int:
         pass
     return 0
 
-_STORYBOARD_CACHE_VERSION = "v2"
-_STORYBOARD_DIR = IMAGE_TOOLKIT_DIR / "storyboard-cache"
 
 # Tile width in pixels (height follows the source's own aspect ratio). Kept
 # modest since this is a drag-preview thumbnail, not an extraction target,
 # and smaller tiles also directly shrink each page's raw decoded size.
-TILE_WIDTH = 128
 # Sample (at least) this densely -- see module docstring for why. Only
 # widened beyond this for pathologically long sources, bounded by
 # MAX_TOTAL_TILES below, rather than left unbounded.
-MIN_INTERVAL_MS = 100
-MAX_TOTAL_TILES = 50_000
-MIN_TILES = 4
 # Each page is kept to roughly this many raw decoded megabytes (tile_width *
 # tile_height * 3 bytes/px * tiles_per_page), comfortably under Qt's ~256MB
 # QImageIOHandler allocation limit -- deliberately well under it, both for
 # safety margin and so several pages can be held in memory at once without
 # real pressure.
-_MAX_PAGE_RAW_MB = 96
 
 
 def _cache_key(video_path: str) -> str:

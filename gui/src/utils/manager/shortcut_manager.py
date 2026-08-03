@@ -30,10 +30,10 @@ Usage
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Optional
 
 from PySide6.QtGui import QKeyEvent, QKeySequence
+from gui.src.constants.utils import _KEYBINDINGS_PATH
 
 # ---------------------------------------------------------------------------
 # Registry definition — one entry per bindable action
@@ -205,8 +205,6 @@ SHORTCUT_REGISTRY: list[dict] = [
         "default": "L",
     },
 ]
-
-_KEYBINDINGS_PATH = Path.home() / ".image-toolkit" / "keybindings.json"
 
 
 class ShortcutRegistry:

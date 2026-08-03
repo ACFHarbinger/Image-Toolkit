@@ -50,3 +50,7 @@ WALLPAPER_STYLES = {
         "Tiled": "wallpaper",
     },
 }
+
+# --- from backend/src/app.py ---
+SETTINGS_SCHEMA: dict[str, type] = {'mainwindow/geometry': bytes}
+SETTINGS_PREFIX_TYPES: dict[str, type] = {'session/': str, 'splitters/': bytes, 'splitter/': bytes}

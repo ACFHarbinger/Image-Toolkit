@@ -23,15 +23,13 @@ import numpy as np
 import torch
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
+from backend.src.constants.models import WRAPPERS_LOFTR_WRAPPER__MIN_INLIERS, _LOFTR_H, _LOFTR_W
 
 logger = logging.getLogger(__name__)
 
 torch.backends.cudnn.benchmark = False
 
 # LoFTR optimal input size (divisible by 32, close to model sweet-spot)
-_LOFTR_H = 320
-_LOFTR_W = 448
-_MIN_INLIERS = 20
 
 class LoFTRWrapper(ModelWrapper):
     """
@@ -173,7 +171,7 @@ class LoFTRWrapper(ModelWrapper):
         img2: np.ndarray,
         mask1: Optional[np.ndarray] = None,
         mask2: Optional[np.ndarray] = None,
-        min_inliers: int = _MIN_INLIERS,
+        min_inliers: int = WRAPPERS_LOFTR_WRAPPER__MIN_INLIERS,
     ) -> Tuple[Optional[np.ndarray], float]:
         """
         Estimate a 4-DoF affine-partial transform (translation + rotation + uniform scale)

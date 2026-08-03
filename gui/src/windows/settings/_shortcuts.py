@@ -35,16 +35,11 @@ from PySide6.QtWidgets import (
 )
 
 from ...utils.manager.shortcut_manager import SHORTCUT_REGISTRY, get_registry
+from gui.src.constants.windows import _DEFAULT_SCOPE_ICON, _SCOPE_ICONS
 
 # Icons shown next to each functionality/scope in the left-hand list --
 # same emoji-prefix idiom already used for the settings window's own tab
 # titles (see manager.py), rather than bundling separate icon assets.
-_SCOPE_ICONS = {
-    "General": "🖥️",
-    "Gallery": "🖼️",
-    "Preview": "🔍",
-}
-_DEFAULT_SCOPE_ICON = "🔧"
 
 
 class _ShortcutsMixin:

@@ -9,13 +9,6 @@ from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from gui.src.helpers.core.config_types import SamplerConfig
 from PySide6.QtCore import QThread, Signal
 
-_PILLOW_FILTERS = {
-    "lanczos": None,  # resolved at runtime via Image.LANCZOS
-    "bicubic": None,
-    "bilinear": None,
-    "nearest": None,
-}
-
 
 def _get_pil_filter(name: str):
     from PIL import Image

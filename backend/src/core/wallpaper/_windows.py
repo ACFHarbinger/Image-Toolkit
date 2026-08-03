@@ -8,11 +8,9 @@ from typing import Dict, List
 from screeninfo import Monitor
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS, WALLPAPER_STYLES
+from backend.src.constants.core import COM_AVAILABLE, DESKTOPWALLPAPER_CLSID, IDESKTOPWALLPAPER_IID
 
 # Global Definitions for COM components
-IDESKTOPWALLPAPER_IID = "{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}"
-DESKTOPWALLPAPER_CLSID = "{C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD}"
-COM_AVAILABLE = False
 
 # Conditionally import comtypes and winreg only on Windows
 if platform.system() == "Windows":

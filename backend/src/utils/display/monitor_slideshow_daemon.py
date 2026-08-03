@@ -38,6 +38,7 @@ from backend.src.constants import (  # noqa: E402
 )
 from backend.src.core import WallpaperManager  # noqa: E402
 from backend.src.core.wallpaper import find_qdbus_binary  # noqa: E402
+from backend.src.constants.utils import DEFAULT_ENTRY_DURATION_SEC, LOG_PATH
 
 # Safety net: the native scheduler holds a reference to the Python
 # apply_callback closure between start() and stop(). If the process exits
@@ -46,8 +47,6 @@ from backend.src.core.wallpaper import find_qdbus_binary  # noqa: E402
 # static destruction *after* the interpreter has finalized -- which
 # crashes (PyThreadState_Get without the GIL). Always stop() on exit.
 atexit.register(lambda: base.run_monitor_slideshow("stop"))
-
-DEFAULT_ENTRY_DURATION_SEC = 30.0
 
 
 def _video_runtime(path: str) -> Optional[float]:
@@ -146,7 +145,6 @@ def status() -> Optional[dict]:
 # into it for the GUI to read.
 # ---------------------------------------------------------------------------
 
-LOG_PATH = Path.home() / ".image-toolkit" / "logs" / "monitor_slideshow_daemon.log"
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     filename=str(LOG_PATH),

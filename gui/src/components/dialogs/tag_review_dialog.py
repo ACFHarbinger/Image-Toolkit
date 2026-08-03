@@ -37,8 +37,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-_PREVIEW_MAX = 320
+from gui.src.constants.components import _PREVIEW_MAX
 
 
 class TagReviewDialog(QDialog):

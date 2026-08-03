@@ -12,6 +12,7 @@ import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data import Dataset, Sampler
+from backend.src.constants.models import SDXL_BUCKETS
 
 
 # ---------------------------------------------------------------------------
@@ -71,15 +72,6 @@ class _LoRADataset(Dataset):
 # ---------------------------------------------------------------------------
 # SDXL aspect-ratio bucket definitions (kohya canonical set at ~1 MP)
 # ---------------------------------------------------------------------------
-SDXL_BUCKETS: tuple[tuple[int, int], ...] = (
-    (1024, 1024),
-    (1152, 896), (896, 1152),
-    (1216, 832), (832, 1216),
-    (1344, 768), (768, 1344),
-    (1536, 640), (640, 1536),
-    (1280, 768), (768, 1280),
-    (1408, 704), (704, 1408),
-)
 
 def closest_bucket(w: int, h: int, buckets=SDXL_BUCKETS) -> tuple[int, int]:
     """Return the SDXL bucket whose aspect ratio is closest to w/h."""

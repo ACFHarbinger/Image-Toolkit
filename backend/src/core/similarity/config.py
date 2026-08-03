@@ -4,13 +4,10 @@ Every field here is surfaced in the GUI settings panel; keep defaults sane for
 a cold run on a typical photo library.
 """
 
-import os
 from dataclasses import dataclass, field
 from typing import List, Optional
+from backend.src.constants.core import SIMILARITY_DEFAULT_CACHE_PATH
 
-DEFAULT_CACHE_PATH = os.path.join(
-    os.path.expanduser("~"), ".image-toolkit", "similarity_cache.db"
-)
 
 # Detection tiers (bitmask-style string identifiers)
 TIER_EXACT = "exact"            # Tier 1 — xxHash64 bit-for-bit duplicates
@@ -19,8 +16,6 @@ TIER_STRUCTURAL = "structural"  # Tier 3 — SSIM + ORB/SIFT geometric verify
 TIER_SEMANTIC = "semantic"      # Tier 4 — CLIP/MobileCLIP embeddings + HNSW
 
 ALL_TIERS = [TIER_EXACT, TIER_PERCEPTUAL, TIER_STRUCTURAL, TIER_SEMANTIC]
-
-EMBED_MODELS = ["mobileclip", "openclip", "resnet18"]
 
 
 @dataclass
@@ -39,7 +34,7 @@ class SimilarityConfig:
     tiers: List[str] = field(default_factory=lambda: [TIER_EXACT, TIER_PERCEPTUAL])
 
     # --- persistence ------------------------------------------------------
-    cache_path: str = DEFAULT_CACHE_PATH
+    cache_path: str = SIMILARITY_DEFAULT_CACHE_PATH
 
     # --- Tier 2: consensus hashing ---------------------------------------
     hash_size: int = 16            # 8 | 16 | 32

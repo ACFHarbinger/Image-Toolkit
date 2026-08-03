@@ -44,11 +44,9 @@ from urllib.parse import urlparse
 from PySide6.QtCore import QObject, Signal
 
 from backend.src.core import telemetry
+from backend.src.constants.web import DOWNLOADERS__IMAGE_EXTS, _DIRECT_HOSTS
 
 log = logging.getLogger(__name__)
-
-_IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
-_DIRECT_HOSTS = ("i.redd.it", "i.imgur.com")
 
 
 @dataclass
@@ -207,7 +205,7 @@ class RedditDownloader(QObject):
         # Direct image/gif link.
         url = post.get("url_overridden_by_dest") or post.get("url") or ""
         if self._config.download_images and (
-            url.lower().endswith(_IMAGE_EXTS)
+            url.lower().endswith(DOWNLOADERS__IMAGE_EXTS)
             or urlparse(url).netloc in _DIRECT_HOSTS
         ):
             urls.append(url)

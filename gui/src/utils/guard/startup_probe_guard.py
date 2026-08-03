@@ -33,13 +33,13 @@ import time
 from typing import Optional
 
 from backend.src.core import telemetry
+from gui.src.constants.utils import _STARTUP_SETTLE_CEILING_SECONDS
 
 # Upper bound if QMediaDevices never confirms (backend doesn't emit the
 # signal, or emits it before we've connected). Deliberately larger than
 # round 11's 1.5s, which was shown insufficient -- this is a ceiling to
 # fall back to, not the expected wait in the common case (the signal
 # should fire well before this and let callers proceed sooner).
-_STARTUP_SETTLE_CEILING_SECONDS = 5.0
 
 _probe_start_monotonic: Optional[float] = None
 _probe_settled: bool = False

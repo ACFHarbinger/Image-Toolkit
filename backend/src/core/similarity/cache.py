@@ -18,22 +18,7 @@ import threading
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
-
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS file_index (
-    filepath            TEXT PRIMARY KEY,
-    modified_timestamp  REAL NOT NULL,
-    file_size           INTEGER NOT NULL,
-    xxh64               TEXT,
-    hash_size           INTEGER,
-    phash               TEXT,
-    dhash               TEXT,
-    whash               TEXT,
-    embed_model         TEXT,
-    embedding           BLOB
-);
-CREATE INDEX IF NOT EXISTS idx_file_index_xxh64 ON file_index (xxh64);
-"""
+from backend.src.constants.core import SIMILARITY__SCHEMA
 
 
 class SimilarityCache:
@@ -45,7 +30,7 @@ class SimilarityCache:
             os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
         self._local = threading.local()
         with self._conn() as con:
-            con.executescript(_SCHEMA)
+            con.executescript(SIMILARITY__SCHEMA)
 
     def _conn(self) -> sqlite3.Connection:
         con = getattr(self._local, "con", None)

@@ -9,14 +9,12 @@ sources.
 """
 
 import logging
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
+from backend.src.constants.web import _NAME_RE, _NER, _STOP
 
 logger = logging.getLogger(__name__)
-
-_NER = {"model": None, "kind": None, "tried": False}
 
 
 @dataclass
@@ -59,11 +57,6 @@ def _load_ner(model: str):
 
 
 # Two-or-three capitalised words in a row — a reasonable PERSON heuristic.
-_NAME_RE = re.compile(r"\b([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20}){1,2})\b")
-_STOP = {
-    "The Best", "New York", "United States", "Sign In", "Log In", "Home Page",
-    "Privacy Policy", "Terms Of", "All Rights", "Read More", "Search Results",
-}
 
 
 def extract_names(text: str, model: str = "gliner") -> List[str]:

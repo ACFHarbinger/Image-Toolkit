@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from backend.src.constants.database import _TAG_BUCKET_CLAUSE
 
 
 @contextmanager
@@ -82,10 +83,6 @@ def normalized_pair(a: str, b: str) -> Tuple[str, str]:
 # subsequent CSV round-trip instead of being swept up and deleted. Shared by
 # media_repo.py (round-trip) and search_repo.py (tag-filter search) so both
 # agree on which category a "Tag"/"Genre" search term maps to in SQL.
-_TAG_BUCKET_CLAUSE = {
-    "Genre": "c.name = 'Genre'",
-    "Tag": "(c.name IS NULL OR (c.name != 'Genre' AND c.name != 'Copyright'))",
-}
 
 
 def tag_bucket_clause(tag_category: str) -> str:

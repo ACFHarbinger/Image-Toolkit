@@ -33,8 +33,8 @@ from screeninfo import Monitor  # noqa: E402
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS  # noqa: E402
 from backend.src.core.wallpaper import WallpaperManager  # noqa: E402
-
-_VIDEO_DURATION_CACHE: dict[str, float] = {}
+from backend.src.constants.paths import DAEMON_CONFIG_PATH
+from backend.src.constants.utils import DISPLAY_LOG_PATH, PID_PATH, _VIDEO_DURATION_CACHE
 
 
 def _is_video(path: str) -> bool:
@@ -76,17 +76,13 @@ def _get_video_duration(path: str) -> float | None:
 # ---------------------------------------------------------------------------
 # Logging – writes to the same log file the GUI "View Logs" button opens
 # ---------------------------------------------------------------------------
-LOG_PATH = Path.home() / ".image-toolkit" / "logs" / "slideshow_daemon.log"
-LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+DISPLAY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
-    filename=str(LOG_PATH),
+    filename=str(DISPLAY_LOG_PATH),
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
-
-DAEMON_CONFIG_PATH = Path.home() / ".image-toolkit" / ".slideshow_config.json"
-PID_PATH = Path.home() / ".image-toolkit" / ".slideshow_daemon.pid"
 
 
 def _atomic_write_json(path: Path, data: dict) -> None:

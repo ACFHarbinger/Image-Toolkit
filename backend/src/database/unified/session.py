@@ -13,8 +13,8 @@ from typing import Optional
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 from backend.src.database.unified import tag_categories
+from backend.src.constants.database import SCHEMA_VERSION
 
-SCHEMA_VERSION = 1
 DEFAULT_DB_PATH = Path(IMAGE_TOOLKIT_DIR) / "library.db"
 
 _SQL_DIR = Path(__file__).resolve().parent

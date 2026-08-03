@@ -14,10 +14,9 @@ from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchE
 from backend.src.web.models import ReverseSearchResult
 
 from .common import make_session, raise_for_rate_limit, resolve_api_key
+from backend.src.constants.web import _API_BASE
 
 log = logging.getLogger(__name__)
-
-_API_BASE = "https://saucenao.com/search.php"
 
 
 class SauceNaoStrategy(ReverseSearchEngine):

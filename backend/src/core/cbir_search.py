@@ -22,12 +22,9 @@ import numpy as np
 
 from backend.src.constants import CBIR_INDEX_DIR
 from backend.src.web.models import ReverseSearchResult
+from backend.src.constants.core import _CLIP_MODEL_NAME, _INDEX_FILE, _PATHS_FILE
 
 log = logging.getLogger(__name__)
-
-_INDEX_FILE = "clip_index.faiss"
-_PATHS_FILE = "clip_paths.json"
-_CLIP_MODEL_NAME = "clip-ViT-B-32"
 
 
 class LocalCBIRSearch:

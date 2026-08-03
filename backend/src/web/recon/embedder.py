@@ -12,10 +12,9 @@ from typing import Optional
 import numpy as np
 
 from .config import EMBED_CLIP, EMBED_FACE
+from backend.src.constants.web import _FACE_APP
 
 logger = logging.getLogger(__name__)
-
-_FACE_APP = {"app": None, "tried": False}
 
 
 def _load_insightface():

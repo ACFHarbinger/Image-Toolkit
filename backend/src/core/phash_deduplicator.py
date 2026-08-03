@@ -33,15 +33,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from backend.src.constants.core import CORE__IMG_EXTS, DEFAULT_PHASH_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
-_IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif"}
 
 # Default Hamming-distance threshold.  Two 64-bit pHashes with ≤10 different
 # bits are almost certainly the same image (different format, small crop, minor
 # compression artefact).  Raise to 20 for thumbnails or aggressive compression.
-DEFAULT_PHASH_THRESHOLD = 10
 
 
 def compute_phash(path: str) -> Optional[int]:
@@ -137,7 +136,7 @@ class PhashDeduplicator:
         pattern = "**/*" if recursive else "*"
 
         for p in sorted(root.glob(pattern)):
-            if not p.is_file() or p.suffix.lower() not in _IMG_EXTS:
+            if not p.is_file() or p.suffix.lower() not in CORE__IMG_EXTS:
                 continue
             path_str = str(p.absolute())
 

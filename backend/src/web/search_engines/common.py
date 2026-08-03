@@ -10,15 +10,11 @@ import logging
 import os
 from pathlib import Path
 from typing import Optional
+from backend.src.constants.web import DEFAULT_USER_AGENT, _RATE_LIMIT_STATUS
 
 log = logging.getLogger(__name__)
 
 # A realistic desktop UA — engines block obvious bot agents outright.
-DEFAULT_USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0"
-)
-
-_RATE_LIMIT_STATUS = {429, 503}
 
 
 class RateLimited(RuntimeError):

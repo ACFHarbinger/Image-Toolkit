@@ -14,7 +14,6 @@ Both fail soft: on block/parse failure the strategy returns ``[]`` (or raises
 
 import base64
 import logging
-import re
 from typing import List, Optional
 
 from backend.src.constants import ENGINE_BING
@@ -22,12 +21,9 @@ from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchE
 from backend.src.web.models import ReverseSearchResult
 
 from .common import make_session, raise_for_rate_limit, resolve_api_key
+from backend.src.constants.web import SEARCH_ENGINES_BING_VISUAL_STRATEGY__RES_RE, _API_ENDPOINT, _SBI_UPLOAD
 
 log = logging.getLogger(__name__)
-
-_API_ENDPOINT = "https://api.bing.microsoft.com/v7.0/images/visualsearch"
-_SBI_UPLOAD = "https://www.bing.com/images/search?view=detailv2&iss=sbi&FORM=SBIIRP"
-_RES_RE = re.compile(r'"width":(\d+),"height":(\d+)')
 
 
 class BingVisualSearchStrategy(ReverseSearchEngine):
@@ -135,7 +131,7 @@ class BingVisualSearchStrategy(ReverseSearchEngine):
             if not url or url in seen:
                 continue
             seen.add(url)
-            res_match = _RES_RE.search(raw)
+            res_match = SEARCH_ENGINES_BING_VISUAL_STRATEGY__RES_RE.search(raw)
             resolution = (
                 f"{res_match.group(1)}x{res_match.group(2)}" if res_match else "Unknown"
             )

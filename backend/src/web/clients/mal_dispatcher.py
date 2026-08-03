@@ -15,6 +15,7 @@ failure modes:
 """
 
 from backend.src.web.clients import jikan_client, mal_api_client, mal_scrape_client
+from backend.src.constants.web import _DEFAULT_METHOD
 
 # (internal key, human-readable label for Settings UI), in display order.
 MAL_FETCH_METHODS = (
@@ -22,7 +23,6 @@ MAL_FETCH_METHODS = (
     ("official_api", "Official MyAnimeList API"),
     ("scrape", "Direct Website Scraping"),
 )
-_DEFAULT_METHOD = "jikan"
 
 _DISPATCH = {
     "jikan": jikan_client.fetch_mal_anime_data,

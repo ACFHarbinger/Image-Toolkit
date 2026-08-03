@@ -13,16 +13,9 @@ from gui.src.constants.listings import CARD_SIZE
 from gui.src.elements.database.display.entity_card import _EntityCard
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
+from gui.src.constants.elements import ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP
 
 # sort_combo display text -> SearchRepo.filter_entities's sort_key (DB.5).
-_SORT_KEY_MAP = {
-    "Sort by: Name": "name",
-    "Sort by: Rating": "rating",
-    "Sort by: Type": "type",
-    "Sort by: Role": "role",
-    "Sort by: Date Added": "date_added",
-    "Sort by: Credits Count": "credits_count",
-}
 
 
 class _GalleryMixin:
@@ -54,7 +47,7 @@ class _GalleryMixin:
             self._filter_role if self._filter_role not in ("All", "All Roles") else None
         )
         sort_text = self.sort_combo.currentText()
-        sort_key = _SORT_KEY_MAP.get(sort_text, "name")
+        sort_key = ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP.get(sort_text, "name")
         descending = self.sort_order_combo.currentText() == "Descending"
 
         repo = self._search_repo()
@@ -124,4 +117,4 @@ class _GalleryMixin:
         self._rebuild_gallery()
 
 
-__all__ = ["_GalleryMixin", "_SORT_KEY_MAP"]
+__all__ = ["_GalleryMixin", "ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP"]

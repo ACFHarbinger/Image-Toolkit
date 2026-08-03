@@ -24,18 +24,10 @@ from backend.src.web.search_engines.common import (
     make_session,
     raise_for_rate_limit,
 )
+from backend.src.constants.web import CLIENTS_MAL_SCRAPE_CLIENT__STATUS_MAP, CLIENTS__SEARCH_URL, _ANIME_URL_RE, _REQUEST_DELAY_SECONDS
 
-_SEARCH_URL = "https://myanimelist.net/anime.php"
-_ANIME_URL_RE = re.compile(r"https://myanimelist\.net/anime/(\d+)/([^/?#]+)/?$")
-
-_STATUS_MAP = {
-    "Finished Airing": "Completed",
-    "Currently Airing": "Watching / Reading",
-    "Not yet aired": "Plan to Watch",
-}
 
 # Politeness delay between sequential page fetches for a single lookup.
-_REQUEST_DELAY_SECONDS = 0.6
 
 
 def _normalize_name(name: str) -> str:
@@ -82,7 +74,7 @@ def _parse_detail_page(html: str, anime_id: str) -> dict:
     episodes_raw = sidebar.get("Episodes", "")
     episodes = int(episodes_raw) if episodes_raw.isdigit() else 1
 
-    status = _STATUS_MAP.get(sidebar.get("Status", ""), "")
+    status = CLIENTS_MAL_SCRAPE_CLIENT__STATUS_MAP.get(sidebar.get("Status", ""), "")
 
     year = 0
     aired = sidebar.get("Aired", "")
@@ -169,7 +161,7 @@ def fetch_mal_anime_data(title: str) -> dict:
     """
     session = make_session()
     try:
-        search_resp = session.get(_SEARCH_URL, params={"q": title, "cat": "anime"}, timeout=15)
+        search_resp = session.get(CLIENTS__SEARCH_URL, params={"q": title, "cat": "anime"}, timeout=15)
         raise_for_rate_limit(search_resp, "myanimelist")
         search_resp.raise_for_status()
 

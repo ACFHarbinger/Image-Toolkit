@@ -28,17 +28,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
+from backend.src.constants.core import CORE_DIR_PHASH_INDEX__IMG_EXTS, _U64
 
 logger = logging.getLogger(__name__)
 
-_IMG_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif")
 
 DEFAULT_THRESHOLD = 10
 
 BRIDGE_DIR = IMAGE_TOOLKIT_DIR / "extension-bridge"
 DEFAULT_DB_PATH = BRIDGE_DIR / "phash_index.db"
-
-_U64 = 0xFFFFFFFFFFFFFFFF
 
 
 def _to_signed64(v: int) -> int:
@@ -82,7 +80,7 @@ def _scan_tree(root: str, recursive: bool) -> List[str]:
     try:
         import base  # C++ fast path
 
-        return list(base.scan_files_multi([root], list(_IMG_EXTS), recursive))
+        return list(base.scan_files_multi([root], list(CORE_DIR_PHASH_INDEX__IMG_EXTS), recursive))
     except Exception:
         pass
 
@@ -91,13 +89,13 @@ def _scan_tree(root: str, recursive: bool) -> List[str]:
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if not d.startswith(".")]
             for name in filenames:
-                if name.lower().endswith(_IMG_EXTS):
+                if name.lower().endswith(CORE_DIR_PHASH_INDEX__IMG_EXTS):
                     results.append(os.path.join(dirpath, name))
     else:
         try:
             with os.scandir(root) as it:
                 for entry in it:
-                    if entry.is_file() and entry.name.lower().endswith(_IMG_EXTS):
+                    if entry.is_file() and entry.name.lower().endswith(CORE_DIR_PHASH_INDEX__IMG_EXTS):
                         results.append(entry.path)
         except OSError as exc:
             logger.warning("scan failed for %s: %s", root, exc)

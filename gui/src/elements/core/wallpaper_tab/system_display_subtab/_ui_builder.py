@@ -30,24 +30,10 @@ from .....components import MarqueeScrollArea
 from .....styles import STYLE_START_ACTION, apply_shadow_effect
 
 from typing import TYPE_CHECKING
+from gui.src.constants.elements import _GROUP_BOX_STYLE
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
-
-_GROUP_BOX_STYLE = """
-    QGroupBox {
-        border: 1px solid #4f545c;
-        border-radius: 8px;
-        margin-top: 10px;
-    }
-    QGroupBox::title {
-        subcontrol-origin: margin;
-        subcontrol-position: top left;
-        padding: 4px 10px;
-        color: white;
-        border-radius: 4px;
-    }
-"""
 
 
 class _UIBuilderMixin:

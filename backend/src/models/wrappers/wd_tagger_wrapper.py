@@ -48,21 +48,15 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
+from backend.src.constants.models import _CATEGORY_NAMES, _DEFAULT_CACHE, _DEFAULT_REPO
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_REPO = "SmilingWolf/wd-v1-4-convnext-tagger-v2"
-_DEFAULT_CACHE = Path.home() / ".image-toolkit" / "models" / "wd_tagger"
 
 # Tag categories as used in the WD label CSV (verified against the real
 # selected_tags.csv shipped with SmilingWolf/wd-v1-4-convnext-tagger-v2:
 # category 9 is the 4-way rating group — general/sensitive/questionable/explicit —
 # not "copyright"; this repo's CSVs carry no separate copyright category).
-_CATEGORY_NAMES: Dict[int, str] = {
-    0: "general",
-    4: "character",
-    9: "rating",
-}
 
 # Minimum confidence applied when no threshold is given by the caller
 DEFAULT_THRESHOLD: float = 0.35

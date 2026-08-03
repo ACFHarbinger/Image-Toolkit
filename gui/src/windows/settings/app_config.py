@@ -38,17 +38,10 @@ from typing import Any
 
 from backend.src.animation.core.config import asp_schema, get_asp
 from gui.src.windows.settings.app_settings import AppSettings
+from gui.src.constants.windows import _KNOWN_GUI_KEYS
 
 # QSettings keys already exposed as typed AppConfig.gui fields -- excluded
 # from gui_dynamic_keys so they aren't listed twice.
-_KNOWN_GUI_KEYS = frozenset(
-    {
-        "mainwindow/geometry",
-        "preferences/recursive_scan",
-        "preferences/favourite_directories",
-        "preferences/mal_fetch_method",
-    }
-)
 
 
 @dataclass(frozen=True)

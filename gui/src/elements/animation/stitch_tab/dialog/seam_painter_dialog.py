@@ -18,7 +18,6 @@ import cv2
 import numpy as np
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import (
-    QColor,
     QImage,
     QPainter,
     QPen,
@@ -32,11 +31,7 @@ from PySide6.QtWidgets import (
     QSlider,
     QVBoxLayout,
 )
-
-_MAX_PREVIEW_W = 520
-_MAX_PREVIEW_H = 720
-_PAINT_COLOR = QColor(255, 60, 60, 160)  # semi-transparent red overlay
-_DEFAULT_BRUSH_PX = 18
+from gui.src.constants.elements import _DEFAULT_BRUSH_PX, _MAX_PREVIEW_H, _MAX_PREVIEW_W, _PAINT_COLOR
 
 
 def _bgr_to_pixmap(bgr: np.ndarray, max_w: int, max_h: int) -> tuple[QPixmap, float]:

@@ -25,6 +25,7 @@ import torch
 from PIL import Image
 
 from backend.src.models.core.base import ModelWrapper, lazy_load
+from backend.src.constants.models import _MAX_DRIFT_RATIO
 
 logger = logging.getLogger(__name__)
 try:
@@ -34,7 +35,6 @@ try:
 except ImportError:
     _ROMA_OK = False
 
-_MAX_DRIFT_RATIO = 0.4   # reject if |dx| > W * ratio
 
 class RoMaWrapper(ModelWrapper):
     """Wraps RoMa v2 for translation-only dense warp estimation."""

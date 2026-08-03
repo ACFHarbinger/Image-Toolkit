@@ -18,7 +18,6 @@ confirms, then one transaction" pattern (see
 
 from __future__ import annotations
 
-import re
 from typing import Dict, List
 
 from backend.src.database.unified.image_repo import ImageRepo
@@ -36,8 +35,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
-
-_WORD_RE = re.compile(r"[a-z0-9]+")
+from gui.src.constants.elements import _WORD_RE
 
 
 def _words(text: str) -> set:

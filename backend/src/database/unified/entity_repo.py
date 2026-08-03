@@ -15,28 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ._util import dumps_extra, intify, loads_extra, normalized_pair, transaction
 from .tag_repo import TagRepo
-
-_COLUMN_KEYS = {
-    "id": "id",
-    "name": "name",
-    "first_name": "first_name",
-    "last_name": "last_name",
-    "type": "type",
-    "role": "role",
-    "rating": "rating",
-    "year": "year",
-    "notes": "notes",
-    "image_path": "image_path",
-    "date_added": "date_added",
-}
-_RELATION_KEYS = {"credit_list", "associated_content", "associated_entities"}
-
-_CREDIT_FIELDS = ("title", "role", "year", "rating", "notes", "image_path", "web_link")
-
-_SELECT_COLUMNS = (
-    "id", "name", "first_name", "last_name", "type", "role", "rating",
-    "year", "notes", "image_path", "date_added", "extra",
-)
+from backend.src.constants.database import _COLUMN_KEYS, _CREDIT_FIELDS, _RELATION_KEYS, _SELECT_COLUMNS
 
 
 class EntityRepo:

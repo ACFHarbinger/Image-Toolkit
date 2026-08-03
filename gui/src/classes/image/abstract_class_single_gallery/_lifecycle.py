@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, List
 
 from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication
+from gui.src.constants.classes import ABSTRACT_CLASS_SINGLE_GALLERY__WORKER_DRAIN_TIMEOUT_MS
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
@@ -35,7 +36,6 @@ if TYPE_CHECKING:
 # (`.stop()`), so this is expected to return quickly in the overwhelming
 # majority of cases; the tradeoff is a rare, bounded-by-subprocess-timeout UI
 # pause instead of a crash.
-_WORKER_DRAIN_TIMEOUT_MS = -1
 
 
 class _LifecycleMixin:
@@ -79,7 +79,7 @@ class _LifecycleMixin:
             # observed via hs_err_pid79171.log switching from an image to a
             # video directory scan). Matches the same wait already used in
             # AbstractClassTwoGalleries.closeEvent() for the tab-close path.
-            self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
+            self.thread_pool.waitForDone(ABSTRACT_CLASS_SINGLE_GALLERY__WORKER_DRAIN_TIMEOUT_MS)
             # waitForDone() blocks THIS thread until pool workers finish; it
             # does not pump this thread's own event loop meanwhile. Any
             # deleteLater() calls already queued from an earlier, rapid
@@ -127,4 +127,4 @@ class _LifecycleMixin:
                 widget.deleteLater()
 
 
-__all__ = ["_LifecycleMixin", "_WORKER_DRAIN_TIMEOUT_MS"]
+__all__ = ["_LifecycleMixin", "ABSTRACT_CLASS_SINGLE_GALLERY__WORKER_DRAIN_TIMEOUT_MS"]

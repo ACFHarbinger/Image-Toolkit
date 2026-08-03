@@ -7,10 +7,8 @@ the ``_get_*`` lazy loaders (§3.15A).
 
 from __future__ import annotations
 
-import importlib.util as _importlib_util_merger
+from backend.src.constants.core import IMAGE_MERGER__BIREFNET_OK, _LOFTR_OK
 
-_BIREFNET_OK: bool = _importlib_util_merger.find_spec("transformers") is not None
-_LOFTR_OK: bool = _importlib_util_merger.find_spec("kornia") is not None
 try:
     from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
 
@@ -88,7 +86,7 @@ class _ModelCacheMixin:
 
 __all__ = [
     "_ModelCacheMixin",
-    "_BIREFNET_OK",
+    "IMAGE_MERGER__BIREFNET_OK",
     "_LOFTR_OK",
     "_BASIC_OK",
     "_GAN_OK",

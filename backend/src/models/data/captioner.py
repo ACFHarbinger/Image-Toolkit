@@ -58,6 +58,7 @@ import numpy as np
 from PIL import Image
 
 from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
+from backend.src.constants.models import _DEFAULT_UNDESIRED
 
 log = logging.getLogger(__name__)
 
@@ -235,10 +236,6 @@ def _wd_tag(
 # ---------------------------------------------------------------------------
 # Hybrid captioner
 # ---------------------------------------------------------------------------
-_DEFAULT_UNDESIRED = frozenset({
-    "watermark", "signature", "artist name", "logo", "text",
-    "copyright name", "censored", "bar censor",
-})
 
 class HybridCaptioner:
     """

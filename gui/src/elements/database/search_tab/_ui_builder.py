@@ -25,19 +25,7 @@ from PySide6.QtWidgets import (
 
 from ....components import MarqueeScrollArea, OptionalField
 from ....styles import apply_shadow_effect
-
-_SEARCH_BUTTON_STYLE = """
-    QPushButton {
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-            stop:0 #667eea, stop:1 #764ba2);
-        color: white; font-weight: bold; font-size: 16px;
-        padding: 14px; border-radius: 10px; min-height: 44px;
-    }
-    QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-        stop:0 #764ba2, stop:1 #667eea); }
-    QPushButton:disabled { background: #4f545c; color: #a0a0a0; }
-    QPushButton:pressed { background: #5a67d8; }
-"""
+from gui.src.constants.elements import _SEARCH_BUTTON_STYLE
 
 
 class _UIBuilderMixin:

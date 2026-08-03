@@ -6,10 +6,9 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
+from backend.src.constants.models import DEFAULT_HOST, DEFAULT_PORT
 
 COMFYUI_DIR = Path(__file__).parents[3] / "ComfyUI"
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8188
 
 class ComfyUIManager:
     """Singleton that owns the ComfyUI server subprocess."""

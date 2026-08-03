@@ -14,19 +14,9 @@ from gui.src.constants.listings import CARD_SIZE
 from gui.src.elements.database.display.listing_card import _ListingCard
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
+from gui.src.constants.elements import _SORT_KEY_MAP
 
 # sort_combo display text -> SearchRepo.filter_media's sort_key (DB.5).
-_SORT_KEY_MAP = {
-    "Sort by: Title": "title",
-    "Sort by: Rating": "rating",
-    "Sort by: Episodes": "episodes",
-    "Sort by: Current Episode": "current_episode",
-    "Sort by: Date": "date",
-    "Sort by: Type": "type",
-    "Sort by: Status": "status",
-    "Sort by: Local Filename": "local_file",
-    "Sort by: Tags": "tags",
-}
 
 
 class _GalleryMixin:

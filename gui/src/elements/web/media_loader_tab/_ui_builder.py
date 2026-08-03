@@ -21,8 +21,8 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from gui.src.constants.elements import SOURCE_REDDIT
 
-SOURCE_REDDIT = 0
 SOURCE_NHENTAI = 1
 
 

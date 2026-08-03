@@ -41,17 +41,14 @@ from PIL import Image
 
 from backend.src.errors import ModelLoadError
 from backend.src.models.core.base import ModelWrapper, lazy_load
+from backend.src.constants.models import BIREFNET_MODEL, TOONOUT_MODEL, _BIREFNET_ERR, _BIREFNET_OK
 
 logger = logging.getLogger(__name__)
 
 torch.backends.cudnn.benchmark = False
 
 # Preferred model: ToonOut (anime-fine-tuned BiRefNet, 99.5 % anime pixel accuracy)
-TOONOUT_MODEL = "joelseytre/toonout"
-BIREFNET_MODEL = "ZhengPeng7/BiRefNet"
 
-_BIREFNET_OK = False
-_BIREFNET_ERR = ""
 
 _VENDOR_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "..", "vendor", "BiRefNet"

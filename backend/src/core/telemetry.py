@@ -40,12 +40,9 @@ from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any, Optional
+from backend.src.constants.core import NATIVE_IMAGE_BATCH_LOCK, NATIVE_SCAN_LOCK, TELEMETRY_DIR, _ENV_VAR, _TRUTHY
 
-_ENV_VAR = "IMAGE_TOOLKIT_TELEMETRY"
 
-TELEMETRY_DIR = Path.home() / ".image-toolkit" / "telemetry"
-
-_TRUTHY = {"1", "true", "yes", "on"}
 _enabled = os.environ.get(_ENV_VAR, "").strip().lower() in _TRUTHY
 
 _lock = threading.Lock()
@@ -65,7 +62,6 @@ _file_path: Optional[Path] = None
 # anyway (cheap, harmless, and scans are infrequent) rather than removed,
 # so as not to re-open a "confirmed safe without a live regression test"
 # gap purely on static-code-reading confidence.
-NATIVE_SCAN_LOCK = threading.Lock()
 
 # Serializes calls into the native `base.load_image_batch()` boundary
 # (base/src/image/image_batch.cpp, called from
@@ -92,7 +88,6 @@ NATIVE_SCAN_LOCK = threading.Lock()
 # Serializing this call costs little: a single call already parallelizes
 # internally via OpenMP across all cores, so multiple *concurrent* Python
 # entries were never adding real parallelism, only race risk.
-NATIVE_IMAGE_BATCH_LOCK = threading.Lock()
 _pid = os.getpid()
 _t0 = time.monotonic()
 

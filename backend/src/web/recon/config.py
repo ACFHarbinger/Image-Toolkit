@@ -1,17 +1,14 @@
 """Configuration for the Entity Recon tab."""
 
-import os
 from dataclasses import dataclass, field
 from typing import List
+from backend.src.constants.web import DEFAULT_CACHE_PATH, REVERSE_ENGINES
 
-RECON_HOME = os.path.join(os.path.expanduser("~"), ".image-toolkit", "recon")
-DEFAULT_CACHE_PATH = os.path.join(RECON_HOME, "provenance_cache.db")
 
 # Embedding modes for identity resolution
 EMBED_FACE = "face"     # ArcFace / InsightFace 512d — humans
 EMBED_CLIP = "clip"     # CLIP — non-human / fictional characters
 
-REVERSE_ENGINES = ["google_lens", "yandex", "bing", "saucenao"]
 
 # Discovery scope for identity resolution
 SCOPE_LOCAL = "local"   # local identity index only (fully offline)

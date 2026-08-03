@@ -13,19 +13,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import session
 from ._util import sql_string_literal, tag_bucket_clause
-
-_IMAGE_SELECT = (
-    "SELECT DISTINCT i.id, i.file_path, i.filename, i.file_size, i.width, "
-    "i.height, i.phash, g.name AS group_name, s.name AS subgroup_name, "
-    "i.date_added, i.date_modified "
-    "FROM images i "
-    "LEFT JOIN groups g ON g.id = i.group_id "
-    "LEFT JOIN subgroups s ON s.id = i.subgroup_id "
-)
-_IMAGE_COLUMNS = (
-    "id", "file_path", "filename", "file_size", "width", "height", "phash",
-    "group_name", "subgroup_name", "date_added", "date_modified",
-)
+from backend.src.constants.database import _ENTITY_SORT_SQL, _IMAGE_COLUMNS, _IMAGE_SELECT
 
 
 def _like(fragment: str) -> str:
@@ -56,14 +44,6 @@ _MEDIA_SORT_SQL: Dict[str, str] = {
 }
 
 # Sort keys accepted by ``SearchRepo.filter_entities`` -> ORDER BY expression.
-_ENTITY_SORT_SQL: Dict[str, str] = {
-    "name": "LOWER(COALESCE(e.name, ''))",
-    "rating": "COALESCE(e.rating, 0)",
-    "type": "LOWER(COALESCE(e.type, ''))",
-    "role": "LOWER(COALESCE(e.role, ''))",
-    "date_added": "COALESCE(e.date_added, '')",
-    "credits_count": "(SELECT COUNT(*) FROM credits c WHERE c.entity_id = e.id)",
-}
 
 
 class SearchRepo:

@@ -23,16 +23,15 @@ from typing import Dict, List, Optional
 import psutil
 
 from backend.src.core import telemetry
+from backend.src.constants.core import LIFECYCLE_RSS_ALERT_MB, _HISTORY
 
 # The roadmap item names this threshold explicitly ("Alert when any phase
 # increases RSS by >200 MB relative to the previous measurement"). Kept
 # overridable via env var for local tuning without a code change.
-LIFECYCLE_RSS_ALERT_MB: float = float(os.environ.get("LIFECYCLE_RSS_ALERT_MB", "200"))
 
 # Module-level history for the current process — one process launches one
 # app instance, so a process-global list (not a class the caller has to
 # thread through app.py's closures) is the simplest fit here.
-_HISTORY: List[Dict] = []
 
 
 def snapshot(phase: str) -> Dict:

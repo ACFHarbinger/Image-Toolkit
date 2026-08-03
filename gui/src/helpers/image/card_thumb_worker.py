@@ -7,6 +7,7 @@ from gui.src.utils.image_load import load_qimage
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel
+from gui.src.constants.helpers import _INFLIGHT_PATHS
 
 # Shared LRU cache: stores scaled QImages keyed by absolute path.
 # 250 entries ≈ ~30 MB at 130×130 RGBA — well within budget.
@@ -15,7 +16,6 @@ _CARD_THUMB_CACHE: LRUImageCache = LRUImageCache(maxsize=250)
 # path -> [(label, width, height), ...]
 _ThumbWaiter = Tuple[QLabel, int, int]
 _THUMB_WAITERS: dict[str, List[_ThumbWaiter]] = {}
-_INFLIGHT_PATHS: set[str] = set()
 
 
 class _ThumbSignalHub(QObject):
