@@ -127,7 +127,7 @@ class SearchRepo:
             ext_conditions = []
             for ext in input_formats:
                 ext_conditions.append("i.filename LIKE ? COLLATE NOCASE")
-                params.append(f"%.{str(ext).strip().lstrip('.')}")
+                params.append(f"%.{ext.strip().lstrip('.')}")
             conditions.append("(" + " OR ".join(ext_conditions) + ")")
 
         where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -157,9 +157,9 @@ class SearchRepo:
         )
         rows = self._db.query(
             _IMAGE_SELECT + where + " ORDER BY i.date_added DESC LIMIT ?",
-            tuple(params) + (int(limit),),
+            tuple(params) + (limit,),
         )
-        results = [dict(zip(_IMAGE_COLUMNS, row)) for row in rows]
+        results = [dict(zip(_IMAGE_COLUMNS, row, strict=False)) for row in rows]
         if results:
             self._attach_tags(results)
         return results
@@ -195,14 +195,14 @@ class SearchRepo:
                 "SELECT m.id FROM media_fts f "
                 "JOIN media_items m ON m.rowid = f.rowid "
                 "WHERE media_fts MATCH ? ORDER BY rank LIMIT ?",
-                (self._fts_query(query), int(limit)),
+                (self._fts_query(query), limit),
             )
         else:
             rows = self._db.query(
                 "SELECT id FROM media_items WHERE title LIKE ? COLLATE NOCASE "
                 "OR review LIKE ? COLLATE NOCASE OR creator LIKE ? COLLATE NOCASE "
                 "LIMIT ?",
-                (_like(query), _like(query), _like(query), int(limit)),
+                (_like(query), _like(query), _like(query), limit),
             )
         return [r[0] for r in rows]
 
@@ -216,13 +216,13 @@ class SearchRepo:
                 "SELECT e.id FROM entity_fts f "
                 "JOIN entities e ON e.rowid = f.rowid "
                 "WHERE entity_fts MATCH ? ORDER BY rank LIMIT ?",
-                (self._fts_query(query), int(limit)),
+                (self._fts_query(query), limit),
             )
         else:
             rows = self._db.query(
                 "SELECT id FROM entities WHERE name LIKE ? COLLATE NOCASE "
                 "OR notes LIKE ? COLLATE NOCASE LIMIT ?",
-                (_like(query), _like(query), int(limit)),
+                (_like(query), _like(query), limit),
             )
         return [r[0] for r in rows]
 
@@ -487,7 +487,7 @@ class SearchRepo:
             if input_formats:
                 exts = [
                     "i.filename LIKE "
-                    + sql_string_literal(f"%.{str(e).strip().lstrip('.')}")
+                    + sql_string_literal(f"%.{e.strip().lstrip('.')}")
                     + " COLLATE NOCASE"
                     for e in input_formats
                 ]

@@ -17,8 +17,8 @@ class _TabRegistryMixin:
         from ...tabs import (
             ComfyUITab,
             ConvertTab,
-            DataBrowserTab,
             DatabaseTab,
+            DataBrowserTab,
             DriveSyncTab,
             EntityReconTab,
             ExtractorTab,

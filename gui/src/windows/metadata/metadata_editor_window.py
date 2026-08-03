@@ -69,7 +69,7 @@ class MetadataEditorWindow(QDialog):
         self._tabs.addTab(batch_tab, "📋 Batch / Overview")
 
         # Per-image tabs
-        for i, (tab, path) in enumerate(zip(self._image_tabs, self._paths)):
+        for _i, (tab, path) in enumerate(zip(self._image_tabs, self._paths, strict=False)):
             label = os.path.basename(path)
             # Truncate long filenames in the tab bar
             if len(label) > 20:

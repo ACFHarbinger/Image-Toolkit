@@ -136,6 +136,74 @@ class BiRefNetWrapper(ModelWrapper):
         """Load the BiRefNet segmentation model onto self.device."""
         self._ensure_loaded()
 
+    def _load_weights_for_repo(self, repo_id: str):
+        """Load weights for *repo_id*, preferring the local HF cache and trying
+        safetensors first (ZhengPeng7/BiRefNet ships model.safetensors;
+        joelseytre/toonout ships a plain .pth checkpoint instead of the
+        HF-standard names).
+        """
+        cache = os.path.expanduser("~/.cache/huggingface/hub")
+        last_err: Exception | None = None
+        for fname in (
+            "model.safetensors",
+            "pytorch_model.bin",
+            "birefnet_finetuned_toonout.pth",
+        ):
+            for local_only in (True, False):
+                try:
+                    ckpt = hf_hub_download(
+                        repo_id=repo_id,
+                        filename=fname,
+                        cache_dir=cache,
+                        local_files_only=local_only,
+                    )
+                    logger.info(f"[BiRefNet] Loading weights from {ckpt}…")
+                    if fname.endswith(".safetensors"):
+                        from safetensors.torch import load_file
+
+                        return load_file(ckpt)
+                    sd = torch.load(ckpt, map_location="cpu")
+                    # Some checkpoints wrap the flat state_dict under a
+                    # "state_dict"/"model" key rather than saving it directly.
+                    if isinstance(sd, dict) and not any(
+                        isinstance(v, torch.Tensor) for v in sd.values()
+                    ):
+                        for wrap_key in ("state_dict", "model"):
+                            if wrap_key in sd:
+                                sd = sd[wrap_key]
+                                break
+                    # joelseytre/toonout's checkpoint was saved from a
+                    # torch.compile(DataParallel(model)) wrapper, so every
+                    # key carries a "module._orig_mod." prefix our plain
+                    # BiRefNet instance doesn't have — strip it (and the
+                    # more common lone "module."/"_orig_mod." variants)
+                    # so strict=True load_state_dict actually matches.
+                    for prefix in ("module._orig_mod.", "module.", "_orig_mod."):
+                        if all(k.startswith(prefix) for k in sd):
+                            sd = {k[len(prefix):]: v for k, v in sd.items()}
+                            break
+                    return sd
+                except Exception as e:  # noqa: PERF203
+                    last_err = e
+        raise last_err  # type: ignore[misc]
+
+    def _load_state_dict_with_fallback(self, model) -> None:
+        try:
+            state_dict = self._load_weights_for_repo(self.model_name)
+            model.load_state_dict(state_dict, strict=True)
+        except Exception as hf_err:
+            logger.debug(
+                f"[BiRefNet] Could not load {self.model_name} weights: {hf_err}; "
+                f"falling back to {BIREFNET_MODEL}."
+            )
+            try:
+                state_dict = self._load_weights_for_repo(BIREFNET_MODEL)
+                model.load_state_dict(state_dict, strict=True)
+            except Exception as fallback_err:
+                raise ModelLoadError(
+                    f"Could not load BiRefNet weights from HF Hub: {fallback_err}"
+                ) from fallback_err
+
     def _ensure_loaded(self):
         """Load if needed and return the active model instance."""
         key = (self.model_name, self.device)
@@ -149,72 +217,7 @@ class BiRefNetWrapper(ModelWrapper):
                 # Create local BiRefNet model instance
                 model = BiRefNet(bb_pretrained=False)  # Don't load backbone pretrained
                 model.eval()
-
-                # Load weights: prefer the local HF cache, try safetensors first
-                # (ZhengPeng7/BiRefNet ships model.safetensors; joelseytre/toonout
-                # ships a plain .pth checkpoint instead of the HF-standard names).
-                def _load_weights(repo_id: str):
-                    cache = os.path.expanduser("~/.cache/huggingface/hub")
-                    last_err: Exception | None = None
-                    for fname in (
-                        "model.safetensors",
-                        "pytorch_model.bin",
-                        "birefnet_finetuned_toonout.pth",
-                    ):
-                        for local_only in (True, False):
-                            try:
-                                ckpt = hf_hub_download(
-                                    repo_id=repo_id,
-                                    filename=fname,
-                                    cache_dir=cache,
-                                    local_files_only=local_only,
-                                )
-                                logger.info(f"[BiRefNet] Loading weights from {ckpt}…")
-                                if fname.endswith(".safetensors"):
-                                    from safetensors.torch import load_file
-
-                                    return load_file(ckpt)
-                                sd = torch.load(ckpt, map_location="cpu")
-                                # Some checkpoints wrap the flat state_dict under a
-                                # "state_dict"/"model" key rather than saving it directly.
-                                if isinstance(sd, dict) and not any(
-                                    isinstance(v, torch.Tensor) for v in sd.values()
-                                ):
-                                    for wrap_key in ("state_dict", "model"):
-                                        if wrap_key in sd:
-                                            sd = sd[wrap_key]
-                                            break
-                                # joelseytre/toonout's checkpoint was saved from a
-                                # torch.compile(DataParallel(model)) wrapper, so every
-                                # key carries a "module._orig_mod." prefix our plain
-                                # BiRefNet instance doesn't have — strip it (and the
-                                # more common lone "module."/"_orig_mod." variants)
-                                # so strict=True load_state_dict actually matches.
-                                for prefix in ("module._orig_mod.", "module.", "_orig_mod."):
-                                    if all(k.startswith(prefix) for k in sd):
-                                        sd = {k[len(prefix):]: v for k, v in sd.items()}
-                                        break
-                                return sd
-                            except Exception as e:  # noqa: PERF203
-                                last_err = e
-                    raise last_err  # type: ignore[misc]
-
-                try:
-                    state_dict = _load_weights(self.model_name)
-                    model.load_state_dict(state_dict, strict=True)
-                except Exception as hf_err:
-                    logger.debug(
-                        f"[BiRefNet] Could not load {self.model_name} weights: {hf_err}; "
-                        f"falling back to {BIREFNET_MODEL}."
-                    )
-                    try:
-                        state_dict = _load_weights(BIREFNET_MODEL)
-                        model.load_state_dict(state_dict, strict=True)
-                    except Exception as fallback_err:
-                        raise ModelLoadError(
-                            f"Could not load BiRefNet weights from HF Hub: {fallback_err}"
-                        ) from fallback_err
-
+                self._load_state_dict_with_fallback(model)
                 model = model.to(self.device)
                 BiRefNetWrapper._models[key] = model
             except Exception as e:
@@ -256,10 +259,7 @@ class BiRefNetWrapper(ModelWrapper):
         with torch.no_grad():
             # BiRefNet returns list of predictions; last is final output
             preds = model(tensor)
-            if isinstance(preds, list):
-                pred = preds[-1]  # final prediction
-            else:
-                pred = preds
+            pred = preds[-1] if isinstance(preds, list) else preds  # final prediction
             pred = pred.sigmoid().detach().cpu().numpy()
         del tensor
         mask = pred[0].squeeze()

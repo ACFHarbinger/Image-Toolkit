@@ -1,13 +1,13 @@
 from typing import Optional
 
 import pytest
+from gui.src.classes.base.gallery_base import AbstractGalleryBase
 from gui.src.classes.image.abstract_class_single_gallery import (
     AbstractClassSingleGallery,
 )
 from gui.src.classes.image.abstract_class_two_galleries import (
     AbstractClassTwoGalleries,
 )
-from gui.src.classes.base.gallery_base import AbstractGalleryBase
 from gui.src.components import MarqueeScrollArea
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QGridLayout, QLabel, QScrollArea, QWidget

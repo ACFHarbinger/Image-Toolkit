@@ -1,7 +1,6 @@
 """Unit tests for Matcher abstract base class, plugins, and MatcherRegistry (§5.3 Architecture)."""
 
 import numpy as np
-import pytest
 from backend.src.animation.alignment.matching import (
     Matcher,
     MatcherRegistry,

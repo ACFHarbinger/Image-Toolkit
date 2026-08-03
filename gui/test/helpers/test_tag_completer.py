@@ -1,8 +1,8 @@
 """Unit tests for TagCompleter helper (§2.22 Option D)."""
 
 import pytest
-from PySide6.QtWidgets import QLineEdit
 from gui.src.helpers.database.tag_completer import TagCompleter
+from PySide6.QtWidgets import QLineEdit
 
 
 @pytest.mark.gui

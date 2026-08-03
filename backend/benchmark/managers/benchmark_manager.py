@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import psutil  # pyrefly: ignore [untyped-import]
+
 from .memory_manager import MemoryManager
 
 

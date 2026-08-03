@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 from backend.src.constants import LOCAL_SOURCE_PATH
-from PySide6.QtCore import QObject, QRect, QRectF, Qt, QThreadPool, QRunnable, Signal, Slot
+from PySide6.QtCore import QObject, QRect, QRectF, QRunnable, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -235,7 +235,7 @@ class ImageExtractorSubTab(QWidget):
         self.image_path: Optional[str] = None
         self.image_size = (0, 0)
         self._frame_rects: List[QRect] = []
-        self.last_browsed_dir = str(LOCAL_SOURCE_PATH)
+        self.last_browsed_dir = LOCAL_SOURCE_PATH
         self.extraction_dir = Path(LOCAL_SOURCE_PATH) / "Frames"
         self._active_workers: Set[ImageFrameCutWorker] = set()
 

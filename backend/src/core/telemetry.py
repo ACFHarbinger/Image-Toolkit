@@ -36,9 +36,10 @@ import json
 import os
 import threading
 import time
-from contextlib import contextmanager
+from collections.abc import Generator
+from contextlib import contextmanager, suppress
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
 _ENV_VAR = "IMAGE_TOOLKIT_TELEMETRY"
 
@@ -63,7 +64,7 @@ def set_enabled(value: bool) -> None:
     """Toggle telemetry at runtime -- e.g. from a settings checkbox or a
     debug menu action, without requiring the env var / a restart."""
     global _enabled
-    _enabled = bool(value)
+    _enabled = value
 
 
 def current_file_path() -> Optional[Path]:
@@ -79,8 +80,8 @@ def _ensure_file():
         return _file
     TELEMETRY_DIR.mkdir(parents=True, exist_ok=True)
     _file_path = TELEMETRY_DIR / f"telemetry-{_pid}.jsonl"
-    _file = open(_file_path, "a", encoding="utf-8")
-    return _file
+    with open(_file_path, "a", encoding="utf-8") as _file:
+        return _file
 
 
 def emit(category: str, event: str, **fields: Any) -> None:
@@ -120,7 +121,7 @@ def emit(category: str, event: str, **fields: Any) -> None:
 
 
 @contextmanager
-def span(category: str, event: str, **fields: Any) -> Iterator[None]:
+def span(category: str, event: str, **fields: Any) -> Generator[None, None, None]:
     """Emit ``<event>.start`` before the block and ``<event>.end`` (with
     ``duration_ms``) after it, or ``<event>.error`` (with ``duration_ms``
     and ``error``) if the block raises -- the exception is always
@@ -165,10 +166,8 @@ def close() -> None:
     global _file, _file_path
     with _lock:
         if _file is not None:
-            try:
+            with suppress(Exception):
                 _file.close()
-            except Exception:
-                pass
             _file = None
             _file_path = None
 

@@ -2,8 +2,8 @@
 
 from typing import List, Optional, Tuple
 
-from gui.src.utils.image_load import load_qimage
 from gui.src.utils.cache.lru_image_cache import LRUImageCache
+from gui.src.utils.image_load import load_qimage
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel

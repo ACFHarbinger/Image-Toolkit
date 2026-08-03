@@ -20,7 +20,6 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-import backend.src.animation.alignment.canvas as _canvas_mod  # noqa: E402
 from backend.src.animation.alignment.canvas import (  # noqa: E402
     _compute_canvas,
     _crop_to_valid,

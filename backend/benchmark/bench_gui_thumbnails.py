@@ -14,6 +14,7 @@ Run standalone:
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -25,7 +26,6 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -47,7 +47,6 @@ except ImportError:
     _QT_AVAILABLE = False
 
 from gui.src.utils.cache.lru_image_cache import LRUImageCache  # noqa: E402
-
 
 # ── Shared test fixtures (created once, reused across benchmarks) ─────────────
 

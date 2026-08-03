@@ -50,10 +50,10 @@ from backend.src.models.data.lora_dataset import AspectRatioBucketSampler, Bucke
 
 # --- Relocated Nested Imports ---
 from backend.src.models.data.video_frame_extractor import VideoFrameExtractor, _phash64
-from backend.src.models.tuning.full_fine_tuner import FullFineTuner
-from backend.src.models.tuning.full_ft_config import FullFTConfig
 from backend.src.models.hooks import DiagnosticsLogger
 from backend.src.models.tuning.dream_booth_tuner import DreamBoothTuner
+from backend.src.models.tuning.full_fine_tuner import FullFineTuner
+from backend.src.models.tuning.full_ft_config import FullFTConfig
 from backend.src.models.tuning.lo_ra_tuner_config import LoRATunerConfig
 from backend.src.models.tuning.lo_ra_tuner_v2 import LoRATunerV2
 from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper

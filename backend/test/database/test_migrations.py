@@ -13,9 +13,14 @@ import pytest
 
 base = pytest.importorskip("base")
 
-from backend.migrations import backup_all, runner  # noqa: E402
-from backend.migrations import create_library_db, migrate_listings  # noqa: E402
-from backend.migrations import migrate_pgvector, verify_migration  # noqa: E402
+from backend.migrations import (  # noqa: E402  # noqa: E402  # noqa: E402
+    backup_all,
+    create_library_db,
+    migrate_listings,
+    migrate_pgvector,
+    runner,
+    verify_migration,
+)
 from backend.src.database.unified.entity_repo import EntityRepo  # noqa: E402
 from backend.src.database.unified.media_repo import MediaRepo  # noqa: E402
 

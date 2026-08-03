@@ -355,7 +355,7 @@ def test_image_embedding_backfill_bookkeeping(db, tmp_path):
     """DB.7: count_unembedded/list_unembedded drive the backfill worker's
     work queue; upsert_embedding is a thin owner_id-str-cast wrapper over
     Database.upsert_embedding."""
-    np = pytest.importorskip("numpy")
+    pytest.importorskip("numpy")
     repo = ImageRepo(db)
     ids = {}
     for name in ("a.png", "b.png", "c.png"):

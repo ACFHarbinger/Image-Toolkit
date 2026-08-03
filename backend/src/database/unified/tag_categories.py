@@ -13,6 +13,8 @@ colliding with this app's unrelated "Series Listings" naming.
 
 from __future__ import annotations
 
+import contextlib
+
 # (name, color, sort_order, applies_to)
 DEFAULT_TAG_CATEGORIES = [
     ("General", "#95a5a6", 0, "universal"),
@@ -109,9 +111,5 @@ def migrate_legacy_type_column(db) -> None:
             "UPDATE tags SET category_id = ? WHERE id = ?", (category_id, tag_id)
         )
 
-    try:
+    with contextlib.suppress(Exception):
         db.execute("ALTER TABLE tags DROP COLUMN type")
-    except Exception:
-        # Older SQLite builds (<3.35) lack DROP COLUMN; the leftover unused
-        # column is harmless (nothing reads it anymore).
-        pass

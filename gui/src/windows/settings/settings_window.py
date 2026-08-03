@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .app_settings import AppSettings
 from ._appearance import _AppearanceMixin
 from ._credentials import _CredentialsMixin
 from ._misc_sections import _MiscSectionsMixin
@@ -30,6 +29,7 @@ from ._reset_state import _ResetStateMixin
 from ._shortcuts import _ShortcutsMixin
 from ._tab_config_editing import _TabConfigEditingMixin
 from ._tab_config_management import _TabConfigMixin
+from .app_settings import AppSettings
 
 
 class SettingsWindow(

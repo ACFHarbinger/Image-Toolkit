@@ -16,9 +16,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict
 
-from PySide6.QtWidgets import QMessageBox
-
 from backend.src.core import telemetry
+from PySide6.QtWidgets import QMessageBox
 
 from .....components import DraggableMonitorContainer, MonitorDropView
 

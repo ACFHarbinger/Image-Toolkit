@@ -26,17 +26,6 @@ try to paint a million labels.
 
 from __future__ import annotations
 
-# ---------------------------------------------------------------------------
-# Debug instrumentation — mirrors _DBG_INSPECTOR in main_window.py.
-# Set to False to silence all [DBG-PANEL] output.
-# ---------------------------------------------------------------------------
-_DBG_PANEL: bool = False
-
-
-def _dbg_panel(key: str, *parts) -> None:  # noqa: D103
-    if _DBG_PANEL:
-        print(f"[DBG-PANEL][{key}]", *parts, flush=True)
-
 from typing import Iterable, List, Optional, Tuple
 
 import cv2
@@ -72,6 +61,17 @@ from ..constants.user_interface import (
 )
 from ..other.schema import BoundingBox
 from . import pixel_overlay
+
+# ---------------------------------------------------------------------------
+# Debug instrumentation — mirrors _DBG_INSPECTOR in main_window.py.
+# Set to False to silence all [DBG-PANEL] output.
+# ---------------------------------------------------------------------------
+_DBG_PANEL: bool = False
+
+
+def _dbg_panel(key: str, *parts) -> None:  # noqa: D103
+    if _DBG_PANEL:
+        print(f"[DBG-PANEL][{key}]", *parts, flush=True)
 
 
 def bgr_to_qimage(img: np.ndarray) -> QImage:

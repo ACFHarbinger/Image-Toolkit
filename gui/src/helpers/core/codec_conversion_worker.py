@@ -54,6 +54,66 @@ class CodecConversionWorker(QThread):
     def stop(self):
         self.cancel()
 
+    def _run_multicore(self, files_to_convert: List[str], total_files: int) -> tuple[int, List[str]]:
+        converted_count = 0
+        failures: List[str] = []
+        max_workers = min(os.cpu_count() or 1, 8)
+        self._executor = ThreadPoolExecutor(max_workers=max_workers)
+
+        futures = []
+        for idx, input_file in enumerate(files_to_convert):
+            if self._is_cancelled:
+                break
+            futures.append(
+                self._executor.submit(self._convert_single_file, input_file, idx, total_files)
+            )
+
+        for idx, future in enumerate(as_completed(futures)):
+            if self._is_cancelled:
+                break
+            try:
+                if future.result():
+                    converted_count += 1
+            except Exception as e:
+                failures.append(str(e))
+
+            self.progress_signal.emit(idx + 1, total_files)
+
+        self._executor.shutdown(wait=True)
+        self._executor = None
+        return converted_count, failures
+
+    def _run_sequential(self, files_to_convert: List[str], total_files: int) -> tuple[int, List[str]]:
+        converted_count = 0
+        failures: List[str] = []
+        for idx, input_file in enumerate(files_to_convert):
+            if self._is_cancelled:
+                break
+            try:
+                if self._convert_single_file(input_file, idx, total_files):
+                    converted_count += 1
+            except Exception as e:
+                failures.append(str(e))
+
+            self.progress_signal.emit(idx + 1, total_files)
+        return converted_count, failures
+
+    def _emit_completion(self, converted_count: int, total_files: int, failures: List[str]) -> None:
+        if self._is_cancelled:
+            self.finished_signal.emit(converted_count, "**Conversion Cancelled**")
+        elif failures:
+            summary = f"Processed {converted_count}/{total_files} successfully.\n{len(failures)} error(s) occurred."
+            if len(failures) == 1:
+                summary += f"\n\nError: {failures[0]}"
+            else:
+                summary += "\n\nFirst few errors:\n - " + "\n - ".join(failures[:3])
+            self.finished_signal.emit(converted_count, summary)
+        else:
+            msg = f"Processed {converted_count} file(s)!"
+            if self._skipped_count:
+                msg += f" ({self._skipped_count} already in the target codec, skipped)"
+            self.finished_signal.emit(converted_count, msg)
+
     def run(self):
         try:
             files_to_convert: List[str] = list(self.config.get("files_to_convert", []))
@@ -63,65 +123,16 @@ class CodecConversionWorker(QThread):
                 return
 
             total_files = len(files_to_convert)
-            converted_count = 0
             self.progress_signal.emit(0, total_files)
 
             use_multicore = self.config.get("use_multicore", False)
-            failures: List[str] = []
 
             if use_multicore and total_files > 1:
-                max_workers = min(os.cpu_count() or 1, 8)
-                self._executor = ThreadPoolExecutor(max_workers=max_workers)
-
-                futures = []
-                for idx, input_file in enumerate(files_to_convert):
-                    if self._is_cancelled:
-                        break
-                    futures.append(
-                        self._executor.submit(
-                            self._convert_single_file, input_file, idx, total_files
-                        )
-                    )
-
-                for idx, future in enumerate(as_completed(futures)):
-                    if self._is_cancelled:
-                        break
-                    try:
-                        if future.result():
-                            converted_count += 1
-                    except Exception as e:
-                        failures.append(str(e))
-
-                    self.progress_signal.emit(idx + 1, total_files)
-
-                self._executor.shutdown(wait=True)
-                self._executor = None
+                converted_count, failures = self._run_multicore(files_to_convert, total_files)
             else:
-                for idx, input_file in enumerate(files_to_convert):
-                    if self._is_cancelled:
-                        break
-                    try:
-                        if self._convert_single_file(input_file, idx, total_files):
-                            converted_count += 1
-                    except Exception as e:
-                        failures.append(str(e))
+                converted_count, failures = self._run_sequential(files_to_convert, total_files)
 
-                    self.progress_signal.emit(idx + 1, total_files)
-
-            if self._is_cancelled:
-                self.finished_signal.emit(converted_count, "**Conversion Cancelled**")
-            elif failures:
-                summary = f"Processed {converted_count}/{total_files} successfully.\n{len(failures)} error(s) occurred."
-                if len(failures) == 1:
-                    summary += f"\n\nError: {failures[0]}"
-                else:
-                    summary += "\n\nFirst few errors:\n - " + "\n - ".join(failures[:3])
-                self.finished_signal.emit(converted_count, summary)
-            else:
-                msg = f"Processed {converted_count} file(s)!"
-                if self._skipped_count:
-                    msg += f" ({self._skipped_count} already in the target codec, skipped)"
-                self.finished_signal.emit(converted_count, msg)
+            self._emit_completion(converted_count, total_files, failures)
 
         except Exception as e:
             self.progress_signal.emit(0, 0)
@@ -129,6 +140,59 @@ class CodecConversionWorker(QThread):
         finally:
             if self._executor:
                 self._executor.shutdown(wait=False)
+
+    def _resolve_output_dir(self, output_path_config: str, input_file: str, total_files: int) -> str:
+        if output_path_config and os.path.isdir(output_path_config):
+            return output_path_config
+        if (
+            output_path_config
+            and not os.path.exists(output_path_config)
+            and total_files > 1
+        ):
+            try:
+                os.makedirs(output_path_config, exist_ok=True)
+                return output_path_config
+            except Exception as e:
+                logger.warning(
+                    "Could not create output directory %s: %s", output_path_config, e
+                )
+                return os.path.dirname(input_file)
+        return os.path.dirname(input_file)
+
+    def _finalize_conversion(
+        self,
+        success: bool,
+        input_file: str,
+        temp_output_path: str,
+        final_output_path: str,
+        is_collision: bool,
+        delete_original: bool,
+        out_dir: str,
+        fname: str,
+        ext: str,
+    ) -> None:
+        if success:
+            if delete_original:
+                try:
+                    os.remove(input_file)
+                    if is_collision:
+                        os.rename(temp_output_path, final_output_path)
+                except Exception as e:
+                    logger.warning(
+                        "Could not remove original file %s: %s", input_file, e
+                    )
+            elif is_collision:
+                safe_name = os.path.join(out_dir, f"{fname}_recoded{ext}")
+                if os.path.exists(safe_name):
+                    os.remove(safe_name)
+                os.rename(temp_output_path, safe_name)
+        elif is_collision and os.path.exists(temp_output_path):
+            try:
+                os.remove(temp_output_path)
+            except Exception as e:
+                logger.warning(
+                    "Could not remove temp file %s: %s", temp_output_path, e
+                )
 
     def _convert_single_file(self, input_file: str, idx: int, total_files: int) -> bool:
         if self._is_cancelled or not os.path.exists(input_file):
@@ -152,24 +216,7 @@ class CodecConversionWorker(QThread):
                 return False
 
         base_name, ext = os.path.splitext(os.path.basename(input_file))
-
-        if output_path_config and os.path.isdir(output_path_config):
-            out_dir = output_path_config
-        elif (
-            output_path_config
-            and not os.path.exists(output_path_config)
-            and total_files > 1
-        ):
-            try:
-                os.makedirs(output_path_config, exist_ok=True)
-                out_dir = output_path_config
-            except Exception as e:
-                logger.warning(
-                    "Could not create output directory %s: %s", output_path_config, e
-                )
-                out_dir = os.path.dirname(input_file)
-        else:
-            out_dir = os.path.dirname(input_file)
+        out_dir = self._resolve_output_dir(output_path_config, input_file, total_files)
 
         if output_filename_prefix:
             fname = (
@@ -213,30 +260,17 @@ class CodecConversionWorker(QThread):
                 delete=False,
                 process_callback=register_p,
             )
-
-            if success:
-                if delete_original:
-                    try:
-                        os.remove(input_file)
-                        if is_collision:
-                            os.rename(temp_output_path, final_output_path)
-                    except Exception as e:
-                        logger.warning(
-                            "Could not remove original file %s: %s", input_file, e
-                        )
-                elif is_collision:
-                    safe_name = os.path.join(out_dir, f"{fname}_recoded{ext}")
-                    if os.path.exists(safe_name):
-                        os.remove(safe_name)
-                    os.rename(temp_output_path, safe_name)
-            else:
-                if is_collision and os.path.exists(temp_output_path):
-                    try:
-                        os.remove(temp_output_path)
-                    except Exception as e:
-                        logger.warning(
-                            "Could not remove temp file %s: %s", temp_output_path, e
-                        )
+            self._finalize_conversion(
+                success,
+                input_file,
+                temp_output_path,
+                final_output_path,
+                is_collision,
+                delete_original,
+                out_dir,
+                fname,
+                ext,
+            )
         finally:
             if current_p:
                 self._deregister_process(current_p)

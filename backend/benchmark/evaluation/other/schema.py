@@ -34,9 +34,9 @@ from ..constants.schema import (
     IMAGE_ASP,
     IMAGE_SIMPLE,
     PRIMARY_KEYS,
+    SCORABLE_KEYS,
     SCORE_MAX,
     SCORE_MIN,
-    SCORABLE_KEYS,
 )
 
 
@@ -116,12 +116,9 @@ class Edge:
 
     @staticmethod
     def from_dict(d: Dict) -> "Edge":
-        if "points" in d:
-            points = [EdgePoint(**p) for p in d["points"]]
-        else:
-            # Pre-2026-07-30 shape: exactly two endpoints, {"a": ..., "b": ...}.
-            # EdgePoint(**d["a"]) works unchanged since w/h default to 0.0.
-            points = [EdgePoint(**d["a"]), EdgePoint(**d["b"])]
+        # Pre-2026-07-30 shape: exactly two endpoints, {"a": ..., "b": ...}.
+        # EdgePoint(**d["a"]) works unchanged since w/h default to 0.0.
+        points = [EdgePoint(**p) for p in d["points"]] if "points" in d else [EdgePoint(**d["a"]), EdgePoint(**d["b"])]
         return Edge(points=points, label=d.get("label", ""))
 
 

@@ -84,9 +84,8 @@ class TestSpan:
         assert end_record["duration_ms"] >= 0
 
     def test_span_records_error_and_reraises(self, tmp_path):
-        with pytest.raises(ValueError):
-            with telemetry.span("native", "decode"):
-                raise ValueError("boom")
+        with pytest.raises(ValueError), telemetry.span("native", "decode"):
+            raise ValueError("boom")
         events = [r["event"] for r in _read_records(tmp_path)]
         assert events == ["decode.start", "decode.error"]
         assert "boom" in _read_records(tmp_path)[1]["error"]

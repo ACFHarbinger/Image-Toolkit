@@ -137,88 +137,58 @@ class _SessionRecoveryMixin:
 
         # Defer config restoration by 150ms to ensure the UI layout has fully settled and shown
         def do_restore():
-            # Apply active profile configurations first so that they are loaded when layouts have settled
-            self._apply_active_tab_configs()
-
-            # Apply config information depending on the level of recovery configured
-            if recovery_level == "All Tabs":
-                for _category, tabs_in_category in self.all_tabs.items():
-                    for tab_instance in tabs_in_category.values():
-                        tab_class_name = type(tab_instance).__name__
-                        if (
-                            tab_class_name in tab_configs
-                            and hasattr(tab_instance, "set_config")
-                            and callable(tab_instance.set_config)
-                        ):
-                            try:
-                                sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
-                                if tab_class_name == "ExtractorTab":
-                                    avc = sanitized_cfg.get("active_videos_config", {})
-                                    print(
-                                        f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'"
-                                    )
-                                sig = inspect.signature(tab_instance.set_config)
-                                if "quiet" in sig.parameters:
-                                    tab_instance.set_config(sanitized_cfg, quiet=True)  # pyrefly: ignore [unexpected-keyword]
-                                else:
-                                    tab_instance.set_config(sanitized_cfg)
-                            except Exception as e:
-                                print(
-                                    f"Warning: Failed to restore config to {tab_class_name} during session recovery: {e}"
-                                )
-            elif recovery_level == "Current Category":
-                if active_category:
-                    for tab_instance in self.all_tabs.get(active_category, {}).values():
-                        tab_class_name = type(tab_instance).__name__
-                        if (
-                            tab_class_name in tab_configs
-                            and hasattr(tab_instance, "set_config")
-                            and callable(tab_instance.set_config)
-                        ):
-                            try:
-                                sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
-                                sig = inspect.signature(tab_instance.set_config)
-                                if "quiet" in sig.parameters:
-                                    tab_instance.set_config(sanitized_cfg, quiet=True)  # pyrefly: ignore [unexpected-keyword]
-                                else:
-                                    tab_instance.set_config(sanitized_cfg)
-                            except Exception as e:
-                                print(
-                                    f"Warning: Failed to restore config to {tab_class_name} during session recovery (Current Category): {e}"
-                                )
-            elif recovery_level == "Current Tab":
-                if active_category and active_tab_name:
-                    tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
-                    if tab_instance:
-                        tab_class_name = type(tab_instance).__name__
-                        if (
-                            tab_class_name in tab_configs
-                            and hasattr(tab_instance, "set_config")
-                            and callable(tab_instance.set_config)
-                        ):
-                            try:
-                                sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
-                                if tab_class_name == "ExtractorTab":
-                                    avc = sanitized_cfg.get("active_videos_config", {})
-                                    print(
-                                        f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'"
-                                    )
-                                sig = inspect.signature(tab_instance.set_config)
-                                if "quiet" in sig.parameters:
-                                    tab_instance.set_config(sanitized_cfg, quiet=True)  # pyrefly: ignore [unexpected-keyword]
-                                else:
-                                    tab_instance.set_config(sanitized_cfg)
-                            except Exception as e:
-                                print(
-                                    f"Warning: Failed to restore config to active tab {tab_class_name} during session recovery: {e}"
-                                )
-            else:
-                print(f"[RECOVERY] recovery_level='{recovery_level}' — no set_config called")
+            self._do_restore_configs(recovery_level, active_category, active_tab_name, tab_configs)
 
         if "PYTEST_CURRENT_TEST" in os.environ:
             do_restore()
         else:
             QTimer.singleShot(150, do_restore)
+
+    def _restore_tab_config_instance(self, tab_instance, tab_configs, error_context: str) -> None:
+        tab_class_name = type(tab_instance).__name__
+        if not (
+            tab_class_name in tab_configs
+            and hasattr(tab_instance, "set_config")
+            and callable(tab_instance.set_config)
+        ):
+            return
+        try:
+            sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
+            if tab_class_name == "ExtractorTab":
+                avc = sanitized_cfg.get("active_videos_config", {})
+                print(
+                    f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'"
+                )
+            sig = inspect.signature(tab_instance.set_config)
+            if "quiet" in sig.parameters:
+                tab_instance.set_config(sanitized_cfg, quiet=True)  # pyrefly: ignore [unexpected-keyword]
+            else:
+                tab_instance.set_config(sanitized_cfg)
+        except Exception as e:
+            print(
+                f"Warning: Failed to restore config to {tab_class_name} during session recovery{error_context}: {e}"
+            )
+
+    def _do_restore_configs(self, recovery_level, active_category, active_tab_name, tab_configs) -> None:
+        # Apply active profile configurations first so that they are loaded when layouts have settled
+        self._apply_active_tab_configs()
+
+        # Apply config information depending on the level of recovery configured
+        if recovery_level == "All Tabs":
+            for tabs_in_category in self.all_tabs.values():
+                for tab_instance in tabs_in_category.values():
+                    self._restore_tab_config_instance(tab_instance, tab_configs, "")
+        elif recovery_level == "Current Category":
+            if active_category:
+                for tab_instance in self.all_tabs.get(active_category, {}).values():
+                    self._restore_tab_config_instance(tab_instance, tab_configs, " (Current Category)")
+        elif recovery_level == "Current Tab":
+            if active_category and active_tab_name:
+                tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
+                if tab_instance:
+                    self._restore_tab_config_instance(tab_instance, tab_configs, "")
+        else:
+            print(f"[RECOVERY] recovery_level='{recovery_level}' — no set_config called")
 
     def _save_session_recovery(self) -> None:  # noqa: C901
         """Saves current active tab and tab configurations for session recovery."""

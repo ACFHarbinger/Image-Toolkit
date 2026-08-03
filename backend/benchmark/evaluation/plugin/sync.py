@@ -60,7 +60,7 @@ def _group_tags(dataset) -> Dict[str, Set[str]]:
     """
     view = dataset.select_group_slices(_allow_mixed=True)
     tags: Dict[str, Set[str]] = {}
-    for name, sample_tags in zip(*_iter_values(view, ("dataset_name", "tags"))):
+    for name, sample_tags in zip(*_iter_values(view, ("dataset_name", "tags")), strict=False):
         if not name:
             continue
         tags.setdefault(name, set()).update(sample_tags or [])

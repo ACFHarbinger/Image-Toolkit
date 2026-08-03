@@ -1,10 +1,11 @@
 import os
 import shutil
 
-from .app_settings import AppSettings
-from PySide6.QtCore import QEvent, QObject, QSortFilterProxyModel, QUrl
+from PySide6.QtCore import QEvent, QObject, QSortFilterProxyModel, Qt, QUrl
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QInputDialog, QMenu, QMessageBox
+
+from .app_settings import AppSettings
 
 
 class FileDialogEventFilter(QObject):
@@ -60,49 +61,42 @@ class FileDialogEventFilter(QObject):
             except Exception as e:
                 QMessageBox.critical(self.dialog, "Error", f"Failed to delete folder: {e}")
 
+
+    def _get_path_from_index(self, index, watched):
+        model = watched.model()
+        actual_index = index
+        actual_model = model
+        while isinstance(actual_model, QSortFilterProxyModel):
+            actual_index = actual_model.mapToSource(actual_index)
+            actual_model = actual_model.sourceModel()
+
+        path = actual_model.filePath(actual_index) if hasattr(actual_model, "filePath") else ""
+        if not path:
+            # Try getting QUrl or path string from index data (e.g. for sidebar items)
+            for role in (Qt.ItemDataRole.UserRole, Qt.ItemDataRole.DisplayRole, 32):
+                val = index.data(role)
+                if isinstance(val, QUrl):
+                    p = val.toLocalFile()
+                    if p and os.path.exists(p):
+                        path = p
+                        break
+                elif isinstance(val, str) and val and os.path.exists(val):
+                    path = val
+                    break
+        return path
+
     def eventFilter(self, watched, event):
         if event.type() != QEvent.Type.ContextMenu:
             return False
 
         index = watched.indexAt(event.pos())
-        path = ""
-
-        if index.isValid():
-            model = watched.model()
-            actual_index = index
-            actual_model = model
-            while isinstance(actual_model, QSortFilterProxyModel):
-                actual_index = actual_model.mapToSource(actual_index)
-                actual_model = actual_model.sourceModel()
-
-            if hasattr(actual_model, "filePath"):
-                path = actual_model.filePath(actual_index)
-
-            if not path:
-                # Try getting QUrl or path string from index data (e.g. for sidebar items)
-                for role in (Qt.ItemDataRole.UserRole, Qt.ItemDataRole.DisplayRole, 32):
-                    val = index.data(role)
-                    if isinstance(val, QUrl):
-                        p = val.toLocalFile()
-                        if p and os.path.exists(p):
-                            path = p
-                            break
-                    elif isinstance(val, str) and val and os.path.exists(val):
-                        path = val
-                        break
-        else:
-            # Right clicked on empty space / background
-            path = self.dialog.directory()
-
+        path = self._get_path_from_index(index, watched) if index.isValid() else self.dialog.directory()
         if not path:
             return False
 
         if not os.path.isdir(path):
             parent_dir = os.path.dirname(path)
-            if os.path.isdir(parent_dir):
-                path = parent_dir
-            else:
-                path = self.dialog.directory()
+            path = parent_dir if os.path.isdir(parent_dir) else self.dialog.directory()
 
         if not path or not os.path.isdir(path):
             return False

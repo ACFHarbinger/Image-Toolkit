@@ -35,7 +35,6 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QApplication, QSizePolicy
 
 pytestmark = pytest.mark.inspector_ui
@@ -175,7 +174,6 @@ class TestResizeEvent:
         # Test the invariant directly: _compute_fit_scale grows with viewport.
         _load_solid(panel, h=1200, w=800)
         # Simulate different viewport sizes via the computation function
-        from PySide6.QtCore import QSize
         # Larger viewport → larger fit_scale
         panel.resize(400, 400)
         QApplication.processEvents()

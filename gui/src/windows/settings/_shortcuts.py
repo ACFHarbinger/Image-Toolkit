@@ -334,7 +334,7 @@ class _ShortcutsMixin:
         if reply != QMessageBox.StandardButton.Yes:
             return
         get_registry().reset()
-        for action_id, widgets in self._shortcut_row_widgets.items():
+        for _action_id, widgets in self._shortcut_row_widgets.items():
             widgets["default_check"].setChecked(True)
             flow = widgets["custom_flow"]
             for i in reversed(range(flow.count())):

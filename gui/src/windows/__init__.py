@@ -1,8 +1,8 @@
 from .drag_preview_window import DragPreviewWindow
-from .metadata import MetadataEditorWindow
 from .image_preview_window import ImagePreviewWindow
 from .logging import LogBackend, LogWindow
 from .main import LoginWindow, MainWindow
+from .metadata import MetadataEditorWindow
 from .settings import SettingsBackend, SettingsWindow
 from .slideshow_backend import SlideshowBackend
 from .slideshow_window import SlideshowQueueWindow

@@ -40,7 +40,7 @@ class _ExportMixin:
         if not path:
             return
         try:
-            records = [dict(zip(self.current_columns, row)) for row in self.current_rows]
+            records = [dict(zip(self.current_columns, row, strict=False)) for row in self.current_rows]
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(records, f, indent=2, default=str)
             QMessageBox.information(self, "Export JSON", f"Exported to {path}")

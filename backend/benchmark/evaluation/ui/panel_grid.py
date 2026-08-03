@@ -361,10 +361,7 @@ class PanelGrid(QWidget):
     def cycle_focus(self, step: int = 1) -> None:
         if not self._visible:
             return
-        if self._focus_key in self._visible:
-            index = self._visible.index(self._focus_key)
-        else:
-            index = -1 if step > 0 else 0
+        index = self._visible.index(self._focus_key) if self._focus_key in self._visible else -1 if step > 0 else 0
         self.set_focus(self._visible[(index + step) % len(self._visible)])
 
     def focused_panel(self) -> Optional[ImagePanel]:

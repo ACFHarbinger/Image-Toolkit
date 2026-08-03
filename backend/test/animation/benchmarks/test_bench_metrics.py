@@ -98,7 +98,7 @@ class TestComputeAllMetrics:
 
     def test_core_keys_present(self):
         m = _compute_all_metrics(_stacked(60, 180), n_strips=2)
-        assert self.CORE_KEYS <= set(m.keys())
+        assert set(m.keys()) >= self.CORE_KEYS
 
     def test_removed_metric_zoo_keys_absent(self):
         m = _compute_all_metrics(_stacked(60, 180), n_strips=2)
@@ -129,10 +129,10 @@ class TestSeamVisGateFormula:
         return max(floor, ratio * max(sim_sv, 1.0))
 
     def test_catastrophic_seam_fires(self):
-        assert 92.6 > self._limit(2.9)  # test74-representative
+        assert self._limit(2.9) < 92.6  # test74-representative
 
     def test_clean_seam_does_not_fire(self):
-        assert 6.0 <= self._limit(1.2)  # test27-representative
+        assert self._limit(1.2) >= 6.0  # test27-representative
 
     def test_floor_dominates_for_clean_simple(self):
         assert self._limit(0.0) == 20.0

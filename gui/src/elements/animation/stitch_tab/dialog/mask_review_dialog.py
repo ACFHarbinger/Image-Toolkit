@@ -24,7 +24,7 @@ from typing import Callable, List, Optional, Tuple
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QImage, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
     QDialog,

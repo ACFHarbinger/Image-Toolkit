@@ -35,7 +35,6 @@ from backend.benchmark.bench_anime_stitch import (  # noqa: E402
     detect_regressions,
 )
 
-
 # ---------------------------------------------------------------------------
 # §11.6 — stage-level memory profiling
 # ---------------------------------------------------------------------------

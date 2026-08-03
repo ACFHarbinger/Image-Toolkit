@@ -306,7 +306,7 @@ class ImageRepo:
                 scored.append((dist, img_id, file_path, phash))
         scored.sort(key=lambda t: t[0])
         out = []
-        for dist, img_id, file_path, phash in scored[:limit]:
+        for dist, img_id, _file_path, _phash in scored[:limit]:
             row = self.get_image_by_id(img_id)
             if row is not None:
                 row["hamming_dist"] = dist
@@ -349,7 +349,7 @@ class ImageRepo:
     # ------------------------------------------------------------------
 
     def _assemble(self, row: tuple) -> Dict[str, Any]:
-        data = dict(zip(_IMAGE_COLUMNS + ("group_name", "subgroup_name"), row))
+        data = dict(zip(_IMAGE_COLUMNS + ("group_name", "subgroup_name"), row, strict=False))
         data["tags"] = self.get_image_tags(data["id"])
         return data
 

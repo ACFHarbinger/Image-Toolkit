@@ -10,7 +10,6 @@ All tests run without GPU — no BiRefNet or LoFTR dependencies.
 
 from __future__ import annotations
 
-import importlib
 import os
 import sys
 
@@ -57,12 +56,6 @@ from backend.src.constants import (  # noqa: E402
 )
 from backend.src.constants import (  # noqa: E402
     FEATHER_TABLE as _FEATHER_TABLE,  # noqa: F401
-)
-from backend.src.constants import (  # noqa: E402
-    SEAM_OVERLAY_AMBER_THRESH as _AMBER,
-)
-from backend.src.constants import (  # noqa: E402
-    SEAM_OVERLAY_RED_THRESH as _RED,
 )
 from conftest import make_frame, make_translation_affine  # noqa: E402
 

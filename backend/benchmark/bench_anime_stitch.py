@@ -3062,7 +3062,7 @@ def _report_stage_memory_waterfall(
                 range(len(tags_present)), deltas, bottom=bottoms,
                 color=colors, edgecolor="white", linewidth=1,
             )
-            for i, (b, d) in enumerate(zip(bottoms, deltas)):
+            for i, (b, d) in enumerate(zip(bottoms, deltas, strict=False)):
                 ax.text(
                     i, b + d + (3 if d >= 0 else -3), f"{d:+.0f}",
                     ha="center", va="bottom" if d >= 0 else "top", fontsize=7,
@@ -3086,7 +3086,7 @@ def _report_stage_memory_waterfall(
     lines.append("| Stage | Avg RSS (MB) | Δ vs previous stage |\n|---|---:|---:|\n")
     prev = None
     worst_stage, worst_delta = None, 0.0
-    for tag, rss in zip(tags_present, avg_rss):
+    for tag, rss in zip(tags_present, avg_rss, strict=False):
         delta = rss if prev is None else rss - prev
         if prev is not None and delta > worst_delta:
             worst_delta, worst_stage = delta, tag
@@ -3226,7 +3226,7 @@ def _report_regression_dashboard(
         deltas = reg["deltas"] if reg else {}
         reasons = set(reg["reasons"]) if reg else set()
 
-        def _cell(key: str, metric: str) -> str:
+        def _cell(key: str, metric: str, deltas=deltas, reasons=reasons) -> str:
             if key not in deltas:
                 return "—"
             val = deltas[key]

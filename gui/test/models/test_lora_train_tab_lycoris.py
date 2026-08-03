@@ -17,8 +17,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from gui.src.tabs.models.delta.lora_train_tab import LoRATrainTab, _TRAINING_ENGINES
+from gui.src.tabs.models.delta.lora_train_tab import _TRAINING_ENGINES, LoRATrainTab
 
 pytestmark = pytest.mark.gui
 

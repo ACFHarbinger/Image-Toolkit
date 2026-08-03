@@ -37,11 +37,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
-import shutil
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR, ROOT_DIR
 from backend.src.database.unified.session import DEFAULT_DB_PATH

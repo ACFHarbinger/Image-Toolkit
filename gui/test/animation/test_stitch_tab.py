@@ -4,6 +4,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+from gui.src.elements.animation.stitch_tab import StitchTab
 from gui.src.elements.animation.stitch_tab.dialog.canvas_layout_inspector_dialog import (
     CanvasLayoutInspectorDialog,
     _canvas_frame_corners,
@@ -14,7 +15,6 @@ from gui.src.elements.animation.stitch_tab.dialog.edge_graph_inspector_dialog im
     _edge_graph_node_positions,
     parse_edge_json,
 )
-from gui.src.elements.animation.stitch_tab import StitchTab
 
 pytestmark = pytest.mark.gui
 

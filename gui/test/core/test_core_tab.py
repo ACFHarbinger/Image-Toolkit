@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import cv2
 import pytest
-from gui.src.tabs.core.convert_tab import ConvertTab
 from gui.src.elements.core.extractor_tab import ExtractorTab
-from gui.src.tabs.core.merge_tab import MergeTab
 from gui.src.elements.core.similarity_tab import SimilarityTab
+from gui.src.tabs.core.convert_tab import ConvertTab
+from gui.src.tabs.core.merge_tab import MergeTab
 from gui.src.tabs.core.wallpaper_tab import WallpaperTab
 from PySide6.QtWidgets import QDialog, QWidget
 

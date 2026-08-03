@@ -1,8 +1,6 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from PySide6.QtWidgets import QWidget
-from gui.src.elements.animation.stitch_tab import StitchTab
+from unittest.mock import patch
 
+from gui.src.elements.animation.stitch_tab import StitchTab
 
 
 class TestStitchTabFrameCounter:

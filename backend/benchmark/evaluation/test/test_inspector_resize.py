@@ -34,16 +34,13 @@ Run:
 from __future__ import annotations
 
 import os
-import tempfile
-import unittest.mock as mock
 
 import numpy as np
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QSizePolicy
+from PySide6.QtWidgets import QApplication
 
 pytestmark = pytest.mark.inspector_ui
 
@@ -307,7 +304,6 @@ class TestInspectorWindowGeometry:
 
         The window must not grow beyond the target size at step 3.
         """
-        from PySide6.QtCore import QSize
         from PySide6.QtGui import QGuiApplication
 
         screen = QGuiApplication.primaryScreen()

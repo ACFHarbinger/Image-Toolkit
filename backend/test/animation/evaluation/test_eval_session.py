@@ -138,7 +138,8 @@ def test_visiting_tests_writes_nothing(out_path):
     session.go_to("asp_test03")
     session.go_to("asp_test05")
     session.save()
-    assert not os.path.exists(out_path) or json.loads(open(out_path).read()) == {}
+    with open(out_path) as f:
+        assert not os.path.exists(out_path) or json.loads(f.read()) == {}
 
 
 def test_a_visited_test_is_still_queued_next_session(out_path):
@@ -165,7 +166,9 @@ def test_any_real_input_is_persisted(out_path, mutate, expected_key):
     session = EvaluationSession(NAMES, out_path)
     mutate(session.entry("asp_test01"))
     session.commit("asp_test01")
-    doc = json.loads(open(out_path).read())
+    with open(out_path) as f:
+        doc = json.loads(f.read())
+
     assert "asp_test01" in doc
     assert doc["asp_test01"].get(expected_key) not in (None, "", [], False)
 
@@ -198,7 +201,9 @@ def test_accept_clears_a_previous_skip(out_path):
     _rate(session, "asp_test01")
     session.accept()
     session.save()
-    entry = json.loads(open(out_path).read())["asp_test01"]
+    with open(out_path) as f:
+        entry = json.loads(f.read())["asp_test01"]
+
     assert entry["asp"] == 3 and entry.get("skipped") is not True
     assert entry.get("reviewed") is True
 
@@ -247,7 +252,8 @@ def test_empty_corpus_does_not_crash(out_path):
 def test_autosave_writes_on_every_commit(out_path):
     session = EvaluationSession(NAMES, out_path, autosave=True)
     _rate(session, "asp_test01")
-    assert json.loads(open(out_path).read())["asp_test01"]["asp"] == 3
+    with open(out_path) as f:
+        assert json.loads(f.read())["asp_test01"]["asp"] == 3
 
 
 def test_autosave_off_defers_until_save(out_path):
@@ -255,4 +261,5 @@ def test_autosave_off_defers_until_save(out_path):
     _rate(session, "asp_test01")
     assert not os.path.exists(out_path)
     session.save()
-    assert "asp_test01" in json.loads(open(out_path).read())
+    with open(out_path) as f:
+        assert "asp_test01" in json.loads(f.read())

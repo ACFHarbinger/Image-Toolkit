@@ -85,9 +85,8 @@ def test_blank_out_dir_normalizes_to_none():
 
 pytest.importorskip("PySide6", reason="the settings dialog needs PySide6")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
-
 from backend.benchmark.evaluation.ui.settings_dialog import SettingsDialog  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
 
 
 @pytest.fixture(scope="module")

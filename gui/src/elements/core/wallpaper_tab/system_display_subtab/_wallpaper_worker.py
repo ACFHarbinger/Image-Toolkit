@@ -13,7 +13,7 @@ from backend.src.core import WallpaperManager
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from .....helpers import WallpaperWorker
+from .....helpers import ImageScannerWorker, WallpaperWorker
 from .....styles import STYLE_START_ACTION, STYLE_STOP_ACTION
 
 
@@ -21,7 +21,6 @@ class _WallpaperWorkerMixin:
     """Run/stop the wallpaper-setting worker; lock/unlock UI; handle results."""
 
     def run_wallpaper_worker(self, slideshow_mode=False):  # noqa: C901
-        from .....helpers import ImageScannerWorker
         if self.current_wallpaper_worker:
             print("Wallpaper worker is already running.")
             return

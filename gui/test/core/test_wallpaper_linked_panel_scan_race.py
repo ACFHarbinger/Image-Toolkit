@@ -19,11 +19,11 @@ from __future__ import annotations
 import time
 
 import pytest
-from gui.src.helpers import ImageScannerWorker
 from gui.src.elements.core.wallpaper_tab.common import wallpaper_common_base
 from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
+from gui.src.helpers import ImageScannerWorker
 from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
 pytestmark = pytest.mark.gui

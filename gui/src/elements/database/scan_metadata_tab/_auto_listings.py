@@ -19,7 +19,7 @@ confirms, then one transaction" pattern (see
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from backend.src.database.unified.image_repo import ImageRepo
 from backend.src.database.unified.media_repo import MediaRepo

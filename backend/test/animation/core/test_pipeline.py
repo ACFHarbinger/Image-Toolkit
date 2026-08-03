@@ -12,7 +12,6 @@ Tests for pipeline.py module-level functions:
 import cv2
 import numpy as np
 import pytest
-from backend.src.animation.core import config, pipeline
 from backend.src.animation.core.pipeline import (  # noqa: E402
     _apply_hires_keyframes,
     _check_edge_graph_connectivity,

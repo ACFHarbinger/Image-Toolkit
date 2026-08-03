@@ -38,9 +38,9 @@ import ctypes
 with contextlib.suppress(OSError):
     ctypes.CDLL("/usr/lib/x86_64-linux-gnu/libpulse.so.0")
 
-from backend.src.app import launch_app, log_uncaught_exceptions
-from backend.controllers.cli.arg_parser import parse_params
 from backend.controllers.backend_dispatch import dispatch_command
+from backend.controllers.cli.arg_parser import parse_params
+from backend.src.app import launch_app, log_uncaught_exceptions
 from gui.src.windows.settings.file_dialog_patch import apply_patch
 
 # Apply the patch to add the favorites side bar to the file dialogs

@@ -142,12 +142,11 @@ def test_transaction_batches_writes(db, tmp_path):
         assert db.get_image_by_path(p) is not None
 
     # a failure mid-transaction must roll back every write in the block
-    with pytest.raises(ValueError):
-        with db.transaction():
-            db.add_image(str(tmp_path / "t4.png"), embedding=None,
-                         group_name="G", subgroup_name=None, tags=[],
-                         width=1, height=1)
-            raise ValueError("boom")
+    with pytest.raises(ValueError), db.transaction():
+        db.add_image(str(tmp_path / "t4.png"), embedding=None,
+                     group_name="G", subgroup_name=None, tags=[],
+                     width=1, height=1)
+        raise ValueError("boom")
     assert db.get_image_by_path(str(tmp_path / "t4.png")) is None
     assert db.get_statistics()["total_images"] == 3
 

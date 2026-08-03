@@ -277,36 +277,63 @@ class _LoadingPipelineMixin:
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
+    def _is_single_load_stale(self, sender) -> bool:
+        # We need to find the worker that owns this signals object
+        for worker in list(self._active_workers):
+            if worker.signals == sender:
+                # This result was already in flight (chunk dispatched,
+                # or a single image/video load started) when a newer
+                # directory switch bumped _load_generation. Only *new*
+                # chunk dispatch is gated by that bump
+                # (common_start_chunked_load's start_next()) -- an
+                # already-running worker's own result still arrives
+                # here regardless, and path_to_card_widget/the gallery
+                # layout may already belong to the new directory (or be
+                # mid-teardown) by the time it does. Drop it instead of
+                # touching a widget that may no longer be what `path`
+                # thinks it is, or may already be destroyed.
+                stale = getattr(worker, "load_generation", self._load_generation) != self._load_generation
+                # Cleanup worker ref if it is NOT a BatchImageLoaderWorker
+                # BatchImageLoaderWorker is cleaned up in _on_batch_images_loaded
+                if not isinstance(worker, BatchImageLoaderWorker):
+                    self._active_workers.remove(worker)
+                return stale
+        return False
+
+    def _handle_failed_single_load(self, path: str) -> None:
+        # If loading failed, mark as failed instead of generating a red placeholder
+        if not hasattr(self, "_failed_paths"):
+            self._failed_paths = set()
+        self._failed_paths.add(path)
+
+        # Cache a null sentinel so _load_all_page_images stops requesting this path
+        self._initial_pixmap_cache[path] = QImage()
+
+        widget = self.path_to_card_widget.get(path)
+        if widget:
+            # This will trigger the "VIDEO" / "No Thumbnail" text style via update_card_pixmap
+            self.update_card_pixmap(widget, QPixmap())
+
+    def _cache_single_loaded_image(self, path: str, q_image: QImage) -> None:
+        # Cache the raw QImage (half the RAM of QPixmap on X11)
+        if q_image.isNull():
+            return
+        self._initial_pixmap_cache[path] = q_image
+
+        # Save to disk cache if it's a video
+        if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+            cache_path = self._get_disk_cache_path(path)
+            if not os.path.exists(cache_path):
+                q_image.save(cache_path, "JPG")  # pyrefly: ignore [no-matching-overload]
+
     @Slot(str, QImage)
     def _on_single_image_loaded(self, path: str, q_image: QImage):
         # See _on_batch_images_loaded above: self may already be a dead
         # QObject by the time this queued signal is delivered.
         if not Shiboken.isValid(self):
             return
-        # Cleanup worker ref if it is NOT a BatchImageLoaderWorker
-        # BatchImageLoaderWorker is cleaned up in _on_batch_images_loaded
         sender = self.sender()
-        stale = False
-        if sender:
-            # We need to find the worker that owns this signals object
-            for worker in list(self._active_workers):
-                if worker.signals == sender:
-                    # This result was already in flight (chunk dispatched,
-                    # or a single image/video load started) when a newer
-                    # directory switch bumped _load_generation. Only *new*
-                    # chunk dispatch is gated by that bump
-                    # (common_start_chunked_load's start_next()) -- an
-                    # already-running worker's own result still arrives
-                    # here regardless, and path_to_card_widget/the gallery
-                    # layout may already belong to the new directory (or be
-                    # mid-teardown) by the time it does. Drop it instead of
-                    # touching a widget that may no longer be what `path`
-                    # thinks it is, or may already be destroyed.
-                    if getattr(worker, "load_generation", self._load_generation) != self._load_generation:
-                        stale = True
-                    if not isinstance(worker, BatchImageLoaderWorker):
-                        self._active_workers.remove(worker)
-                    break
+        stale = self._is_single_load_stale(sender) if sender else False
 
         if stale:
             self._loading_paths.discard(path)
@@ -317,30 +344,11 @@ class _LoadingPipelineMixin:
 
         pixmap = QPixmap.fromImage(q_image)
 
-        # If loading failed, mark as failed instead of generating a red placeholder
         if pixmap.isNull():
-            if not hasattr(self, "_failed_paths"):
-                self._failed_paths = set()
-            self._failed_paths.add(path)
-
-            # Cache a null sentinel so _load_all_page_images stops requesting this path
-            self._initial_pixmap_cache[path] = QImage()
-
-            widget = self.path_to_card_widget.get(path)
-            if widget:
-                # This will trigger the "VIDEO" / "No Thumbnail" text style via update_card_pixmap
-                self.update_card_pixmap(widget, QPixmap())
+            self._handle_failed_single_load(path)
             return
 
-        # Cache the raw QImage (half the RAM of QPixmap on X11)
-        if not q_image.isNull():
-            self._initial_pixmap_cache[path] = q_image
-
-            # Save to disk cache if it's a video
-            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-                cache_path = self._get_disk_cache_path(path)
-                if not os.path.exists(cache_path):
-                    q_image.save(cache_path, "JPG")  # pyrefly: ignore [no-matching-overload]
+        self._cache_single_loaded_image(path, q_image)
 
         widget = self.path_to_card_widget.get(path)
         if widget:

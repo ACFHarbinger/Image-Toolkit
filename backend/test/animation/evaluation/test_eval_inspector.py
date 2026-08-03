@@ -36,9 +36,6 @@ sys.path.insert(0, _repo_root)
 
 pytest.importorskip("PySide6", reason="the inspector needs PySide6")
 
-from PySide6.QtCore import QPoint  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
-
 from backend.benchmark.evaluation.constants.user_interface import (  # noqa: E402
     DISPLAY_PIXEL,
     DISPLAY_RAW,
@@ -55,6 +52,8 @@ from backend.benchmark.evaluation.constants.user_interface import (  # noqa: E40
 from backend.benchmark.evaluation.ui.image_panel import ImagePanel  # noqa: E402
 from backend.benchmark.evaluation.ui.panel_grid import PanelGrid  # noqa: E402
 from backend.benchmark.evaluation.ui.scoring_panel import ScoringPanel  # noqa: E402
+from PySide6.QtCore import QPoint  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
 
 
 @pytest.fixture(scope="module")

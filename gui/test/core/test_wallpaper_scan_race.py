@@ -12,11 +12,13 @@ worker's signals before any teardown) is still tested below.
 
 from __future__ import annotations
 
+import contextlib
+
 import pytest
-from gui.src.helpers import ImageScannerWorker
 from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
+from gui.src.helpers import ImageScannerWorker
 from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
 pytestmark = pytest.mark.gui
@@ -79,10 +81,8 @@ class TestSignalDisconnectBeforeTeardown:
         # disconnected -- an even stronger guarantee against a stale
         # delivery than disconnection alone. Either outcome is acceptable;
         # what matters is the old slot is never reached.
-        try:
+        with contextlib.suppress(RuntimeError, TypeError):
             worker.scan_finished.emit(["stale.png"])
-        except RuntimeError:
-            pass  # object already fully destroyed by the DeferredDelete flush
         assert received == [], (
             "scan_finished must be disconnected before any teardown -- "
             "a stale emit reached a slot that should no longer be connected"

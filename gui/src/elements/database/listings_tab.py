@@ -9,10 +9,10 @@ from ...constants.listings import (
     ENTITIES_FILE,  # noqa: F401
     LISTINGS_FILE,  # noqa: F401
 )
+from .entity_listings_subtab import EntityListingsSubTab
 
 # ---------------------------------------------------------------------------
 from .series_listings_subtab import SeriesListingsSubTab
-from .entity_listings_subtab import EntityListingsSubTab
 
 
 class ListingsTab(QWidget):

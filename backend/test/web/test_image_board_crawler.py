@@ -4,7 +4,7 @@ derived from the on_status/on_image_saved signals.
 """
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from backend.src.web.crawlers.image_board_crawler import ImageBoardCrawler
 

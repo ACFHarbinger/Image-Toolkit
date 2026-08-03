@@ -16,10 +16,9 @@ from PIL import Image
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from backend.benchmark.managers import BenchmarkManager, measure_memory
 from backend.src.models.core.siamese_network import SiameseModelLoader
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
-
-from backend.benchmark.managers import BenchmarkManager, measure_memory
 
 runner = BenchmarkManager("ML Model Inference")
 

@@ -17,24 +17,8 @@ can't reach. The key map lives in ``shortcuts.py`` and the annotation flow in
 
 from __future__ import annotations
 
-# ---------------------------------------------------------------------------
-# Debug instrumentation — set to False to silence all [DBG-INSPECTOR] output.
-# Tracks resize events, _fit_all calls (with call-stack origin), splitter
-# geometry, and individual panel viewport sizes to diagnose the
-# "UI expands beyond boundaries after maximize" bug (issue #153).
-# ---------------------------------------------------------------------------
 import traceback as _traceback
-
-_DBG_INSPECTOR: bool = False
-
-
-def _dbg(*parts) -> None:  # noqa: D103 — internal debug helper
-    if _DBG_INSPECTOR:
-        print("[DBG-INSPECTOR]", *parts, flush=True)
-
-
 from typing import Dict, List, Optional
-
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFontMetrics
@@ -80,6 +64,19 @@ from .settings_flow import SettingsFlowMixin
 from .theme import apply_theme, heading, subtle
 from .toolbar import InspectorToolbar
 from .viz_tab import VisualizationTab
+
+# ---------------------------------------------------------------------------
+# Debug instrumentation — set to False to silence all [DBG-INSPECTOR] output.
+# Tracks resize events, _fit_all calls (with call-stack origin), splitter
+# geometry, and individual panel viewport sizes to diagnose the
+# "UI expands beyond boundaries after maximize" bug (issue #153).
+# ---------------------------------------------------------------------------
+_DBG_INSPECTOR: bool = False
+
+
+def _dbg(*parts) -> None:  # noqa: D103 — internal debug helper
+    if _DBG_INSPECTOR:
+        print("[DBG-INSPECTOR]", *parts, flush=True)
 
 
 class _ElidingLabel(QLabel):

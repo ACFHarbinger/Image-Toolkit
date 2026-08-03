@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
-import pytest
-from PySide6.QtWidgets import QMessageBox
 
+import pytest
 from gui.src.elements.database.dialog.directory_import_dialog import (
     _DirectoryImportDialog,
 )

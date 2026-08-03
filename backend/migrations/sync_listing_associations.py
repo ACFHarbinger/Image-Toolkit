@@ -38,9 +38,9 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 import base  # noqa: E402
-from backend.src.constants import IMAGE_TOOLKIT_DIR  # noqa: E402
 
 from backend.migrations._backup_utils import backup_database, restore_database  # noqa: E402
+from backend.src.constants import IMAGE_TOOLKIT_DIR  # noqa: E402
 
 DEFAULT_DB_PATH = IMAGE_TOOLKIT_DIR / "listings_secure.db"
 DEFAULT_BACKUP_DIR = IMAGE_TOOLKIT_DIR / "backups"
@@ -84,6 +84,69 @@ class AssociationFixPlan:
         )
 
 
+def _fix_content_to_entity_links(
+    plan: AssociationFixPlan,
+    contents: Dict[str, Dict[str, Any]],
+    entities: Dict[str, Dict[str, Any]],
+    content_entities: Dict[str, Set[str]],
+    entity_content: Dict[str, Set[str]],
+) -> None:
+    for cid, entity_ids in content_entities.items():
+        for eid in entity_ids:
+            if eid not in entities:
+                plan.warnings.append(
+                    f"Content '{contents[cid].get('title', cid)}' ({cid}) "
+                    f"references missing entity id '{eid}'"
+                )
+                continue
+            if cid not in entity_content[eid]:
+                entity_content[eid].add(cid)
+                plan.entity_to_content_fixes.append((eid, cid))
+                plan.changed_entity_ids.add(eid)
+
+
+def _fix_entity_to_content_links(
+    plan: AssociationFixPlan,
+    contents: Dict[str, Dict[str, Any]],
+    entities: Dict[str, Dict[str, Any]],
+    content_entities: Dict[str, Set[str]],
+    entity_content: Dict[str, Set[str]],
+) -> None:
+    for eid, content_ids in entity_content.items():
+        for cid in content_ids:
+            if cid not in contents:
+                plan.warnings.append(
+                    f"Entity '{entities[eid].get('name', eid)}' ({eid}) "
+                    f"references missing content id '{cid}'"
+                )
+                continue
+            if eid not in content_entities[cid]:
+                content_entities[cid].add(eid)
+                plan.content_to_entity_fixes.append((cid, eid))
+                plan.changed_content_ids.add(cid)
+
+
+def _fix_entity_to_entity_links(
+    plan: AssociationFixPlan,
+    entities: Dict[str, Dict[str, Any]],
+    entity_entities: Dict[str, Set[str]],
+) -> None:
+    for eid, peer_ids in entity_entities.items():
+        for peer_id in peer_ids:
+            if peer_id == eid:
+                continue
+            if peer_id not in entities:
+                plan.warnings.append(
+                    f"Entity '{entities[eid].get('name', eid)}' ({eid}) "
+                    f"references missing entity id '{peer_id}'"
+                )
+                continue
+            if eid not in entity_entities[peer_id]:
+                entity_entities[peer_id].add(eid)
+                plan.entity_to_entity_fixes.append((peer_id, eid))
+                plan.changed_entity_ids.add(peer_id)
+
+
 def compute_association_fixes(
     contents: Dict[str, Dict[str, Any]],
     entities: Dict[str, Dict[str, Any]],
@@ -104,46 +167,9 @@ def compute_association_fixes(
         for eid, entry in entities.items()
     }
 
-    for cid, entity_ids in content_entities.items():
-        for eid in entity_ids:
-            if eid not in entities:
-                plan.warnings.append(
-                    f"Content '{contents[cid].get('title', cid)}' ({cid}) "
-                    f"references missing entity id '{eid}'"
-                )
-                continue
-            if cid not in entity_content[eid]:
-                entity_content[eid].add(cid)
-                plan.entity_to_content_fixes.append((eid, cid))
-                plan.changed_entity_ids.add(eid)
-
-    for eid, content_ids in entity_content.items():
-        for cid in content_ids:
-            if cid not in contents:
-                plan.warnings.append(
-                    f"Entity '{entities[eid].get('name', eid)}' ({eid}) "
-                    f"references missing content id '{cid}'"
-                )
-                continue
-            if eid not in content_entities[cid]:
-                content_entities[cid].add(eid)
-                plan.content_to_entity_fixes.append((cid, eid))
-                plan.changed_content_ids.add(cid)
-
-    for eid, peer_ids in entity_entities.items():
-        for peer_id in peer_ids:
-            if peer_id == eid:
-                continue
-            if peer_id not in entities:
-                plan.warnings.append(
-                    f"Entity '{entities[eid].get('name', eid)}' ({eid}) "
-                    f"references missing entity id '{peer_id}'"
-                )
-                continue
-            if eid not in entity_entities[peer_id]:
-                entity_entities[peer_id].add(eid)
-                plan.entity_to_entity_fixes.append((peer_id, eid))
-                plan.changed_entity_ids.add(peer_id)
+    _fix_content_to_entity_links(plan, contents, entities, content_entities, entity_content)
+    _fix_entity_to_content_links(plan, contents, entities, content_entities, entity_content)
+    _fix_entity_to_entity_links(plan, entities, entity_entities)
 
     for cid in plan.changed_content_ids:
         contents[cid]["associated_entities"] = sorted(content_entities[cid])

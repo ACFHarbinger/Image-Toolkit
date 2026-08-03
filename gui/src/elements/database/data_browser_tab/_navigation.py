@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor
-from PySide6.QtWidgets import QListWidgetItem, QMessageBox, QTableWidgetItem
+from PySide6.QtWidgets import QListWidgetItem, QMessageBox
 
 _FK_CELL_COLOR = QColor("#5dade2")  # a link-blue, distinct from normal cell text
 

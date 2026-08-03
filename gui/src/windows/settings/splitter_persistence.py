@@ -1,8 +1,9 @@
 """§2.20A — QSplitter state persistence via QSettings."""
 from __future__ import annotations
 
-from .app_settings import AppSettings
 from PySide6.QtWidgets import QSplitter
+
+from .app_settings import AppSettings
 
 
 def persist_splitter(splitter: QSplitter, key: str) -> None:

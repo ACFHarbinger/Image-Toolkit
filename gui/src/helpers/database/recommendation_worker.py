@@ -169,79 +169,115 @@ class RecommendationWorker(QThread):
     # Main thread body
     # ------------------------------------------------------------------
 
+    def _setup_store(self, db_path: str, settings):
+        # Prefer the already-open, encrypted unified library session over
+        # a second plaintext sqlite3 file (DB.7 follow-up: rec_engine.db
+        # was a plaintext sidecar next to the encrypted library.db,
+        # violating DB.1's "no plaintext sidecars" decision). Falls back
+        # to the legacy plaintext store only if no session is open yet
+        # (e.g. this worker somehow ran before login) -- recommendations
+        # still work either way, just not encrypted in that edge case.
+        from backend.src.database.unified import session as unified_session
+
+        from src.data.store import EncryptedSQLiteStore, SQLiteStore  # pyrefly: ignore [missing-import]
+
+        if unified_session.is_open():
+            store = EncryptedSQLiteStore(unified_session.get_session())
+        else:
+            logger.warning(
+                "Unified library session not open -- falling back to "
+                "plaintext rec_engine.db for this run."
+            )
+            store = SQLiteStore(settings)
+        store.create_collection()
+        return store
+
+    def _collect_new_payloads(self, store) -> List[Dict[str, Any]]:
+        existing_ids = {row["id"] for row in store.fetch_filtered()}
+        name_map = self._entity_name_map()
+
+        new_payloads: List[Dict[str, Any]] = []
+        for entry in self._entries:
+            if entry.get("id") in existing_ids:
+                continue
+            payload = self._entry_to_payload(entry, name_map)
+            if payload is not None:
+                new_payloads.append(payload)
+        return new_payloads
+
+    def _index_new_payloads(self, store, embedder, new_payloads: List[Dict[str, Any]]) -> None:
+        from src.schema import MediaItem  # pyrefly: ignore [missing-import]
+
+        if not new_payloads:
+            self.status.emit("Index is up-to-date. Searching…")
+            return
+
+        self.status.emit(
+            f"Loading embedding model and indexing {len(new_payloads)} new items…"
+        )
+        self.progress.emit(0, len(new_payloads))
+
+        items_to_embed: List[MediaItem] = []
+        for p in new_payloads:
+            try:
+                items_to_embed.append(MediaItem.model_validate(p))
+            except Exception as exc:
+                logger.debug("Skipping entry %s: %s", p.get("id"), exc)
+
+        def _cb(cur: int, tot: int) -> None:
+            self.progress.emit(cur, tot)
+            self.status.emit(f"Indexing… {cur}/{tot}")
+
+        embedded = embedder.embed_batch(
+            items_to_embed, batch_size=16, progress_callback=_cb
+        )
+        store.upsert(embedded)
+        self.status.emit(f"Indexed {len(embedded)} new items.")
+
+    def _build_history_profile(self, settings):
+        from src.schema import HistoryProfile  # pyrefly: ignore [missing-import]
+
+        try:
+            profile_payloads = []
+            for e in self._entries:
+                raw_rating = e.get("personal_rating") or e.get("rating") or 0
+                if (
+                    e.get("status") in ("Completed", "Watching / Reading")
+                    and float(raw_rating) >= settings.history_min_rating
+                ):
+                    genres_raw = e.get("genres", "") or ""
+                    tags_raw = e.get("tags", "") or ""
+                    profile_payloads.append({
+                        "genres": [g.strip() for g in genres_raw.split(",") if g.strip()],
+                        "tags": [t.strip() for t in tags_raw.split(",") if t.strip()],
+                    })
+            if profile_payloads:
+                return HistoryProfile.from_payloads(profile_payloads)
+        except Exception:
+            pass  # history boost is best-effort
+        return None
+
     def run(self) -> None:
         try:
             _ensure_re_on_path()
 
             from backend.src.constants import IMAGE_TOOLKIT_DIR
-            from backend.src.database.unified import session as unified_session
 
             from src.config import Settings  # pyrefly: ignore [missing-import]
             from src.embedder import Embedder  # pyrefly: ignore [missing-import]
             from src.query_parser import _build_sql_filter  # pyrefly: ignore [missing-import]
             from src.retriever import HybridRetriever  # pyrefly: ignore [missing-import]
-            from src.schema import HistoryProfile, MediaItem, ParsedQuery  # pyrefly: ignore [missing-import]
+            from src.schema import ParsedQuery  # pyrefly: ignore [missing-import]
             from src.scorer import Scorer  # pyrefly: ignore [missing-import]
-            from src.data.store import EncryptedSQLiteStore, SQLiteStore  # pyrefly: ignore [missing-import]
 
-            # ---- Store setup ----
-            # Prefer the already-open, encrypted unified library session over
-            # a second plaintext sqlite3 file (DB.7 follow-up: rec_engine.db
-            # was a plaintext sidecar next to the encrypted library.db,
-            # violating DB.1's "no plaintext sidecars" decision). Falls back
-            # to the legacy plaintext store only if no session is open yet
-            # (e.g. this worker somehow ran before login) -- recommendations
-            # still work either way, just not encrypted in that edge case.
             db_path = str(IMAGE_TOOLKIT_DIR / "rec_engine.db")
             settings = Settings(sqlite_path=db_path)
-            if unified_session.is_open():
-                store = EncryptedSQLiteStore(unified_session.get_session())
-            else:
-                logger.warning(
-                    "Unified library session not open -- falling back to "
-                    "plaintext rec_engine.db for this run."
-                )
-                store = SQLiteStore(settings)
-            store.create_collection()
+            store = self._setup_store(db_path, settings)
 
             # ---- Incremental sync: embed only new entries ----
-            existing_ids = {row["id"] for row in store.fetch_filtered()}
-            name_map = self._entity_name_map()
-
-            new_payloads: List[Dict[str, Any]] = []
-            for entry in self._entries:
-                if entry.get("id") in existing_ids:
-                    continue
-                payload = self._entry_to_payload(entry, name_map)
-                if payload is not None:
-                    new_payloads.append(payload)
-
+            new_payloads = self._collect_new_payloads(store)
             embedder = Embedder(settings.embed_model)
-
-            if new_payloads:
-                self.status.emit(
-                    f"Loading embedding model and indexing {len(new_payloads)} new items…"
-                )
-                self.progress.emit(0, len(new_payloads))
-
-                items_to_embed: List[MediaItem] = []
-                for p in new_payloads:
-                    try:
-                        items_to_embed.append(MediaItem.model_validate(p))
-                    except Exception as exc:
-                        logger.debug("Skipping entry %s: %s", p.get("id"), exc)
-
-                def _cb(cur: int, tot: int) -> None:
-                    self.progress.emit(cur, tot)
-                    self.status.emit(f"Indexing… {cur}/{tot}")
-
-                embedded = embedder.embed_batch(
-                    items_to_embed, batch_size=16, progress_callback=_cb
-                )
-                store.upsert(embedded)
-                self.status.emit(f"Indexed {len(embedded)} new items.")
-            else:
-                self.status.emit("Index is up-to-date. Searching…")
+            self._index_new_payloads(store, embedder, new_payloads)
 
             total_indexed = store.collection_info()["points_count"]
             if total_indexed == 0:
@@ -271,25 +307,7 @@ class RecommendationWorker(QThread):
             )
 
             # ---- Watch-history boost from completed / highly-rated entries ----
-            history: Optional[HistoryProfile] = None
-            try:
-                profile_payloads = []
-                for e in self._entries:
-                    raw_rating = e.get("personal_rating") or e.get("rating") or 0
-                    if (
-                        e.get("status") in ("Completed", "Watching / Reading")
-                        and float(raw_rating) >= settings.history_min_rating
-                    ):
-                        genres_raw = e.get("genres", "") or ""
-                        tags_raw = e.get("tags", "") or ""
-                        profile_payloads.append({
-                            "genres": [g.strip() for g in genres_raw.split(",") if g.strip()],
-                            "tags": [t.strip() for t in tags_raw.split(",") if t.strip()],
-                        })
-                if profile_payloads:
-                    history = HistoryProfile.from_payloads(profile_payloads)
-            except Exception:
-                pass  # history boost is best-effort
+            history = self._build_history_profile(settings)
 
             # ---- Score + rank ----
             scorer = Scorer(settings)

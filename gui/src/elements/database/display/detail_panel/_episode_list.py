@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from gui.src.elements.database.dialog.episode_dialog import _EpisodeDialog
 from gui.src.helpers.image import apply_thumbnail_to_label
 from gui.src.tabs.core.elements.common.listings_common import open_file_location, open_web_link
-from gui.src.elements.database.dialog.episode_dialog import _EpisodeDialog
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
 

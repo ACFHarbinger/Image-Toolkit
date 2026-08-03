@@ -17,8 +17,10 @@ instantiate strategy objects directly.
 ``GoogleSearchStrategy`` to avoid breaking existing import sites.
 """
 
+import contextlib
 import json
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
@@ -383,11 +385,8 @@ class ReverseImageSearchManager(QObject):
                 results = strategy.search(search_image_path, **kwargs)
             finally:
                 if search_image_path != image_path:
-                    import os
-                    try:
+                    with contextlib.suppress(OSError):
                         os.unlink(search_image_path)
-                    except OSError:
-                        pass
         finally:
             self._active_strategy = None
 

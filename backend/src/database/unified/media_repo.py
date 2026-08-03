@@ -249,7 +249,7 @@ class MediaRepo:
     # ------------------------------------------------------------------
 
     def _assemble(self, row: tuple) -> Dict[str, Any]:
-        data = dict(zip(_SELECT_COLUMNS, row))
+        data = dict(zip(_SELECT_COLUMNS, row, strict=False))
         media_id = data["id"]
 
         entry: Dict[str, Any] = loads_extra(data.pop("extra"))
@@ -267,7 +267,7 @@ class MediaRepo:
             )
         ]
         entry["episode_list"] = [
-            dict(zip(("id",) + _EPISODE_FIELDS, map(intify, ep_row)))
+            dict(zip(("id",) + _EPISODE_FIELDS, map(intify, ep_row), strict=False))
             for ep_row in self._db.query(
                 f"SELECT id, {', '.join(_EPISODE_FIELDS)} FROM episodes "
                 "WHERE media_item_id = ? "

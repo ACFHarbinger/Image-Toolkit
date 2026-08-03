@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QWidget
+from PySide6.QtWidgets import QLineEdit
 
 from ._navigation import _sql_literal
 

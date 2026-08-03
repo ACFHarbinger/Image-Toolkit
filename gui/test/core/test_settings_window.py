@@ -582,9 +582,11 @@ class TestSettingsWindowShortcuts:
         window._add_custom_shortcut_pill("gallery.select_all", "Meta+A")
         window._shortcut_row_widgets["gallery.select_all"]["default_check"].setChecked(False)
 
-        with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
-            with patch.object(QMessageBox, "information"):
-                window._reset_shortcuts()
+        with (
+            patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes),
+            patch.object(QMessageBox, "information"),
+        ):
+            window._reset_shortcuts()
 
         assert window._shortcut_row_widgets["gallery.select_all"]["default_check"].isChecked() is True
         assert window._collect_shortcut_custom_keys("gallery.select_all") == []

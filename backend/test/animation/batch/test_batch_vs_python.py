@@ -563,8 +563,8 @@ def _py_find_optimal_boundaries(warped_list, order, init_bounds, H, W,
                                  search_range=250, search_slab=20,
                                  bg_masks=None, affines=None):
     """Python reference: calls the wired _find_optimal_boundaries dispatcher."""
-    from backend.src.animation.rendering.compositing import _find_optimal_boundaries
     import backend.src.animation.rendering.compositing as comp
+    from backend.src.animation.rendering.compositing import _find_optimal_boundaries
     orig_avail = comp.BATCH_AVAILABLE
     try:
         comp.BATCH_AVAILABLE = False

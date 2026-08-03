@@ -214,7 +214,7 @@ class EntityRepo:
     # ------------------------------------------------------------------
 
     def _assemble(self, row: tuple) -> Dict[str, Any]:
-        data = dict(zip(_SELECT_COLUMNS, row))
+        data = dict(zip(_SELECT_COLUMNS, row, strict=False))
         entity_id = data["id"]
 
         entity: Dict[str, Any] = loads_extra(data.pop("extra"))
@@ -223,7 +223,7 @@ class EntityRepo:
             entity[reverse[col]] = intify(value)
 
         entity["credit_list"] = [
-            dict(zip(("id",) + _CREDIT_FIELDS, map(intify, credit_row)))
+            dict(zip(("id",) + _CREDIT_FIELDS, map(intify, credit_row), strict=False))
             for credit_row in self._db.query(
                 f"SELECT id, {', '.join(_CREDIT_FIELDS)} FROM credits "
                 "WHERE entity_id = ? ORDER BY year IS NULL, year, title",

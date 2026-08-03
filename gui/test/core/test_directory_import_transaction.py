@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from gui.src.elements.database.series_listings_subtab import SeriesListingsSubTab
-from PySide6.QtWidgets import QDialog, QMessageBox
+from PySide6.QtWidgets import QDialog
 
 pytestmark = pytest.mark.gui
 

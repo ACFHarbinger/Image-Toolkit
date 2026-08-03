@@ -83,13 +83,11 @@ def test_load_uses_primary_repo_when_available():
     wrapper = ESRGANWrapper(device="cpu", num_block=1)
     with patch.object(
         ESRGANWrapper, "_load_state_dict", return_value=_fake_state_dict()
-    ) as mock_load, patch.object(RRDBNet, "__init__", RRDBNet.__init__):
-        # Patch RRDBNet construction to match the fake state dict's small dims.
-        with patch(
-            "backend.src.models.wrappers.esrgan_wrapper.RRDBNet",
-            lambda num_block: RRDBNet(num_feat=8, num_block=num_block, num_grow_ch=4),
-        ):
-            wrapper.load()
+    ) as mock_load, patch.object(RRDBNet, "__init__", RRDBNet.__init__), patch(
+        "backend.src.models.wrappers.esrgan_wrapper.RRDBNet",
+        lambda num_block: RRDBNet(num_feat=8, num_block=num_block, num_grow_ch=4),
+    ):
+        wrapper.load() # Patch RRDBNet construction to match the fake state dict's small dims.
     mock_load.assert_called_once_with(ANIME_6B_MODEL)
     assert wrapper.loaded
 
@@ -120,9 +118,8 @@ def test_load_raises_model_load_error_when_both_repos_fail():
     wrapper = ESRGANWrapper(device="cpu", num_block=1)
     with patch.object(
         ESRGANWrapper, "_load_state_dict", side_effect=RuntimeError("network down")
-    ):
-        with pytest.raises(ModelLoadError):
-            wrapper.load()
+    ), pytest.raises(ModelLoadError):
+        wrapper.load()
     assert not wrapper.loaded
 
 

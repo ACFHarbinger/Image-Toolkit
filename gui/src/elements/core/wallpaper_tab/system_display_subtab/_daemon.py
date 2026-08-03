@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 from backend.src.constants import DAEMON_CONFIG_PATH, ROOT_DIR
 from PySide6.QtCore import QTimer
@@ -36,7 +37,7 @@ class _DaemonMixin:
                         self.time_remaining_sec = self.interval_sec
 
                     if not hasattr(self, "countdown_timer") or not self.countdown_timer:
-                        self.countdown_timer = QTimer(self)
+                        self.countdown_timer: Optional[QTimer] = QTimer(self)
                         self.countdown_timer.timeout.connect(self.update_countdown)
 
                     if not self.countdown_timer.isActive():

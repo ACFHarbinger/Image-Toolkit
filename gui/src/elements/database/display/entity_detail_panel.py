@@ -12,15 +12,15 @@ from gui.src.constants.listings import (
     ENTITY_ROLES,
     ENTITY_TYPES,
 )
-from gui.src.helpers.database.library_session import get_library_db
-from gui.src.helpers.image import apply_thumbnail_to_label
-from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from gui.src.elements.database.dialog import (
     _AssociatedContentDialog,
     _AssociatedEntitiesDialog,
 )
 from gui.src.elements.database.dialog.credit_dialog import _CreditDialog
 from gui.src.elements.database.display.common.base_detail_panel import BaseDetailPanel
+from gui.src.helpers.database.library_session import get_library_db
+from gui.src.helpers.image import apply_thumbnail_to_label
+from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,

@@ -17,11 +17,11 @@ import numpy as np
 from matplotlib.figure import Figure
 
 from ..constants.logic import (
+    _SCATTER_SAMPLE,
     FFT_PERCENTILE_HI,
     FFT_PERCENTILE_LO,
     FFT_RADIAL_BINS,
     VIZ_MAX_EDGE,
-    _SCATTER_SAMPLE,
 )
 from .figure_theme import themed_figure, themed_legend
 

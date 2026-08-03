@@ -36,7 +36,8 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
-from backend.benchmark.evaluation.other import discovery, metrics_view as mv  # noqa: E402
+from backend.benchmark.evaluation.other import discovery  # noqa: E402
+from backend.benchmark.evaluation.other import metrics_view as mv  # noqa: E402
 from backend.benchmark.evaluation.other.schema import BoundingBox, RatingEntry  # noqa: E402
 from backend.benchmark.evaluation.plugin import sample_fields as sf  # noqa: E402
 

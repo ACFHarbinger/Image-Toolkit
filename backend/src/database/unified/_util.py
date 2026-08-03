@@ -25,7 +25,7 @@ def transaction(db):
 
 
 def rows_to_dicts(columns: Sequence[str], rows: Iterable[tuple]) -> List[Dict[str, Any]]:
-    return [dict(zip(columns, row)) for row in rows]
+    return [dict(zip(columns, row, strict=False)) for row in rows]
 
 
 def loads_extra(raw: Optional[str]) -> Dict[str, Any]:
@@ -67,7 +67,7 @@ def sql_string_literal(value: str) -> str:
     Only for the knn prefilter_sql path, which cannot carry bound
     parameters; everything else must use ?-placeholders.
     """
-    return "'" + str(value).replace("'", "''") + "'"
+    return "'" + value.replace("'", "''") + "'"
 
 
 def normalized_pair(a: str, b: str) -> Tuple[str, str]:

@@ -35,8 +35,8 @@ from backend.src.core import telemetry
 from gui.src.helpers import ImageScannerWorker, VideoScannerWorker
 from PySide6.QtCore import QTimer
 
-from ......utils.sort_utils import natural_sort_key
 from ......utils.guard.startup_probe_guard import startup_settle_remaining_ms
+from ......utils.sort_utils import natural_sort_key
 
 
 class _ScanPipelineMixin:

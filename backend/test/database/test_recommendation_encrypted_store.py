@@ -35,8 +35,8 @@ for name in _saved_src_modules:
 if str(_RE_DIR) not in sys.path:
     sys.path.insert(0, str(_RE_DIR))
 
-from src.data.store import EncryptedSQLiteStore  # noqa: E402  # pyrefly: ignore [missing-import]
 from src.core.schema import EmbeddedItem, MediaItem  # noqa: E402  # pyrefly: ignore [missing-import]
+from src.data.store import EncryptedSQLiteStore  # noqa: E402  # pyrefly: ignore [missing-import]
 
 # Evict Recommendation-Engine's "src.*" entries in turn and restore Image
 # Toolkit's originals -- everything this test file needs from RE's "src"

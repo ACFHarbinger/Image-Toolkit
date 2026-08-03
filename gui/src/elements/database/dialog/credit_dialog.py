@@ -3,8 +3,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from gui.src.styles import SHARED_BUTTON_STYLE
 from gui.src.elements.database.dialog.common.base_sub_item_dialog import BaseSubItemDialog
+from gui.src.styles import SHARED_BUTTON_STYLE
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFormLayout,

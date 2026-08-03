@@ -81,7 +81,7 @@ class ComparisonTab(ToolTabBase):
         if IMAGE_ASP in keys and self._a.currentData() not in keys:
             self._a.setCurrentIndex(keys.index(IMAGE_ASP))
         if self._b.currentData() == self._a.currentData() and len(keys) > 1:
-            fallback = IMAGE_SIMPLE if IMAGE_SIMPLE in keys and IMAGE_SIMPLE != self._a.currentData() else None
+            fallback = IMAGE_SIMPLE if IMAGE_SIMPLE in keys and self._a.currentData() != IMAGE_SIMPLE else None
             target = fallback or next(k for k in keys if k != self._a.currentData())
             self._b.setCurrentIndex(keys.index(target))
 

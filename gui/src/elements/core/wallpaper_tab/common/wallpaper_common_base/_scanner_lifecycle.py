@@ -19,12 +19,12 @@ disconnect-before-teardown mitigation.
 
 from __future__ import annotations
 
+import contextlib
 import threading
 
+from backend.src.core import telemetry
 from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication
-
-from backend.src.core import telemetry
 
 
 class _ScannerLifecycleMixin:
@@ -53,10 +53,8 @@ class _ScannerLifecycleMixin:
             # (Addendum 23) -- this specific mitigation was never shown to
             # be harmful, only insufficient on its own for the video path.
             for _sig_name in ("scan_finished", "scan_error", "finished"):
-                try:
-                    getattr(self.img_scanner_thread, _sig_name).disconnect()
-                except (RuntimeError, TypeError):
-                    pass  # already disconnected, or the C++ object is gone
+                with contextlib.suppress(RuntimeError, TypeError):
+                    getattr(self.img_scanner_thread, _sig_name).disconnect() # already disconnected, or the C++ object is gone
             telemetry.emit("thread-lifecycle", "img_thread.signals_disconnected", panel=_panel, img_thread=_thread_id, tid=_tid)
             if self.img_scanner_thread.isRunning():
                 print(f"{_tag} requestInterruption+quit", flush=True)
@@ -112,10 +110,8 @@ class _ScannerLifecycleMixin:
             return
         _panel, _thread_id, _tid = id(self), id(self.vid_scanner_thread), threading.get_ident()
         for _sig_name in ("scan_finished", "scan_error", "finished"):
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 getattr(self.vid_scanner_thread, _sig_name).disconnect()
-            except (RuntimeError, TypeError):
-                pass
         telemetry.emit("thread-lifecycle", "vid_thread.signals_disconnected", panel=_panel, vid_thread=_thread_id, tid=_tid)
         if self.vid_scanner_thread.isRunning():
             telemetry.emit("thread-lifecycle", "vid_thread.stop_requested", panel=_panel, vid_thread=_thread_id, tid=_tid)

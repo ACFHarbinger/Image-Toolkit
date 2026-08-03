@@ -11,7 +11,6 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 
-
 class _HybridPanelMixin:
     def _build_hybrid_panel(self) -> QWidget:
         from gui.src.tabs.animation.stencil import HybridStitchPanel

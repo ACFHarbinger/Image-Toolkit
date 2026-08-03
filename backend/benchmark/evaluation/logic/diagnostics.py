@@ -56,7 +56,7 @@ def seam_quality_figure(entry: Dict) -> Figure:
     fig, axes = themed_figure(figsize=(8.5, 3.4 * len(series)), n_axes=len(series), nrows=len(series))
     if len(series) == 1:
         axes = [axes] if not isinstance(axes, list) else axes
-    for ax, (key, scores) in zip(axes, series.items()):
+    for ax, (key, scores) in zip(axes, series.items(), strict=False):
         positions = np.arange(1, len(scores) + 1)
         colors = [_BAND_COLORS[mv.ghost_band(s)] for s in scores]
         ax.bar(positions, scores, color=colors, edgecolor="#111", linewidth=0.5)
@@ -295,7 +295,7 @@ def gt_comparison_figure(entry: Dict, previous_entry: Optional[Dict] = None) -> 
             values.append((value / row_max) if value is not None else 0.0)
         bars = ax.bar(positions + offset, values, width, color=color, edgecolor="#111",
                       linewidth=0.5, label=_title(key))
-        for bar, value in zip(bars, raw):
+        for bar, value in zip(bars, raw, strict=False):
             if value is None:
                 continue
             ax.annotate(f"{value:.4g}", xy=(bar.get_x() + bar.get_width() / 2, bar.get_height()),

@@ -12,6 +12,7 @@ Example:
 import argparse
 import ast
 import os
+import sys
 from collections import defaultdict
 from typing import Dict, List, Set
 
@@ -135,7 +136,7 @@ def generate_markdown_report(display_data: List[Dict], file_data: List[Dict], li
         str: Markdown document string.
     """
     lines = [
-        f"# Codebase Line-Count Analysis Report",
+        "# Codebase Line-Count Analysis Report",
         "",
         f"*Sorted by: {sort_key.upper()}*",
         "",
@@ -245,9 +246,12 @@ def main() -> None:
     violations: List[Dict] = []
     for item in file_data:
         norm_path = os.path.normpath(item["path"])
-        if item["code"] > args.max_code_lines:
-            if norm_path not in exceptions and not any(norm_path.endswith(exc) for exc in exceptions):
-                violations.append(item)
+        if (
+            item["code"] > args.max_code_lines
+            and norm_path not in exceptions
+            and not any(norm_path.endswith(exc) for exc in exceptions)
+        ):
+            violations.append(item)
 
     if violations:
         console.print(
@@ -264,6 +268,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    import sys
     main()
 

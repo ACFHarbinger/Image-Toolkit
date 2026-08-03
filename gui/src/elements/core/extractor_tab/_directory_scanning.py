@@ -42,8 +42,8 @@ from PySide6.QtWidgets import (
 from ....components import ClickableLabel, MarqueeScrollArea
 from ....constants import MAX_PREVIEW_ITEMS
 from ....helpers import BatchVideoLoaderWorker
-from ....utils.sort_utils import natural_sort_key
 from ....utils.guard.startup_probe_guard import startup_settle_remaining_ms
+from ....utils.sort_utils import natural_sort_key
 
 
 class _DirectoryScanningMixin:

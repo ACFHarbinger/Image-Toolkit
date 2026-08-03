@@ -16,6 +16,9 @@ from __future__ import annotations
 import os
 import sys
 
+import numpy as np
+import pytest
+
 # ---------------------------------------------------------------------------
 # Force the offscreen Qt platform adapter BEFORE any PySide6 import.
 # This allows QWidget geometry/layout tests to run without a display.
@@ -33,10 +36,6 @@ for _ in range(8):
     _REPO_ROOT = os.path.dirname(_REPO_ROOT)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
-
-import numpy as np
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Pytest markers used by this sub-suite

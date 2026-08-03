@@ -7,7 +7,6 @@ same filesystem; the caller can fall back to symlinks across devices.
 
 import logging
 import os
-import tempfile
 from dataclasses import dataclass, field
 from typing import List
 

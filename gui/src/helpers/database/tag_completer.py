@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Set
 
-from PySide6.QtCore import Qt, QStringListModel
+from PySide6.QtCore import QStringListModel, Qt
 from PySide6.QtWidgets import QCompleter, QLineEdit
 
 

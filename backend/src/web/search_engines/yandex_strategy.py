@@ -60,7 +60,7 @@ class YandexSearchStrategy(ReverseSearchEngine):
         try:
             payload = up.json()
         except Exception as exc:
-            raise EngineBlocked(f"Yandex upload returned non-JSON response: {exc}")
+            raise EngineBlocked(f"Yandex upload returned non-JSON response: {exc}") from exc
         cbir_id, image_url = self._parse_upload(payload)
         if not cbir_id:
             self._emit_status("Yandex upload returned no CBIR id.")

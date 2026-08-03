@@ -29,8 +29,8 @@ sys.path.insert(0, _repo_root)
 
 from backend.benchmark.evaluation.constants.schema import (  # noqa: E402
     DEFECT_KEYS,
-    DIMENSION_KEYS,
     DIM_COHERENCE,
+    DIMENSION_KEYS,
     SCORABLE_KEYS,
 )
 from backend.benchmark.evaluation.other.schema import (  # noqa: E402
@@ -94,7 +94,8 @@ def test_bench_contract_keys_survive_a_round_trip(legacy_file, tmp_path):
 
     out = str(tmp_path / "out.json")
     save_evaluations(out, evaluations)
-    raw = json.loads(open(out).read())["asp_test01"]
+    with open(out) as f:
+        raw = json.loads(f.read())["asp_test01"]
 
     # This is the whole contract bench_anime_stitch.py depends on.
     assert raw.get("asp") == 3
@@ -112,7 +113,9 @@ def test_a_plain_pass_writes_no_additive_noise(tmp_path):
     entry.set_score("simple", DIM_COHERENCE, 2)
     out = str(tmp_path / "out.json")
     save_evaluations(out, {"asp_test01": entry})
-    raw = json.loads(open(out).read())["asp_test01"]
+    with open(out) as f:
+        raw = json.loads(f.read())["asp_test01"]
+
     # The old schema's five keys, plus the mirrored coherence block. No
     # updated_at: only EvaluationSession.commit() stamps that, via touch().
     assert set(raw) == {"asp", "simple", "notes", "bboxes", "edges", "dimensions"}

@@ -4,8 +4,8 @@ import pytest
 from gui.src.helpers.core.conversion_worker import ConversionWorker
 from gui.src.helpers.core.deletion_worker import DeletionWorker
 from gui.src.helpers.core.duplicate_scan_worker import DuplicateScanWorker
-from gui.src.helpers.database.search_worker import SearchWorker
 from gui.src.helpers.core.wallpaper_worker import WallpaperWorker
+from gui.src.helpers.database.search_worker import SearchWorker
 
 # --- ConversionWorker Tests ---
 

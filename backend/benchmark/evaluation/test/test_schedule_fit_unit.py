@@ -25,7 +25,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
-
 # ---------------------------------------------------------------------------
 # Minimal stub that contains only _schedule_fit and _resize_timer logic.
 # This avoids constructing the full InspectorWindow (which needs a data dir).
@@ -35,7 +34,6 @@ class _ScheduleFitStub:
     """Minimal reproduction of InspectorWindow._schedule_fit + _resize_timer."""
 
     def __init__(self):
-        from PySide6.QtCore import QTimer
         self._resize_timer = QTimer()
         self._resize_timer.setSingleShot(True)
         self._fit_all_calls: list[str] = []  # log of call origins

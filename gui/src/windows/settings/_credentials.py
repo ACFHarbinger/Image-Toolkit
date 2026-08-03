@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -32,6 +33,62 @@ from PySide6.QtWidgets import (
 )
 
 from .app_settings import AppSettings
+
+
+def dry_run_replace(search: str, replace: str, use_regex: bool, changes: list, val, path_str: str = "") -> None:
+    """Recursively record what a bulk find/replace would change, without applying it."""
+    if isinstance(val, str):
+        if use_regex:
+            try:
+                new_val, count = re.subn(search, replace, val)
+            except Exception:
+                new_val = val.replace(search, replace)
+                count = val.count(search)
+        else:
+            new_val = val.replace(search, replace)
+            count = val.count(search)
+        if count > 0:
+            changes.append(f"[{path_str}] '{val}' ➡️ '{new_val}'")
+    elif isinstance(val, dict):
+        for k, v in val.items():
+            dry_run_replace(search, replace, use_regex, changes, v, f"{path_str}/{k}" if path_str else k)
+    elif isinstance(val, list):
+        for idx, item in enumerate(val):
+            dry_run_replace(search, replace, use_regex, changes, item, f"{path_str}[{idx}]")
+
+
+def recursive_replace(search: str, replace: str, use_regex: bool, val):
+    """Recursively apply a bulk find/replace, returning (new_value, replacement_count)."""
+    if isinstance(val, str):
+        if use_regex:
+            try:
+                new_val, count = re.subn(search, replace, val)
+                return new_val, count
+            except Exception:
+                new_val = val.replace(search, replace)
+                count = val.count(search)
+                return new_val, count
+        else:
+            new_val = val.replace(search, replace)
+            count = val.count(search)
+            return new_val, count
+    elif isinstance(val, dict):
+        new_dict = {}
+        local_count = 0
+        for k, v in val.items():
+            new_v, count = recursive_replace(search, replace, use_regex, v)
+            new_dict[k] = new_v
+            local_count += count
+        return new_dict, local_count
+    elif isinstance(val, list):
+        new_list = []
+        local_count = 0
+        for item in val:
+            new_item, count = recursive_replace(search, replace, use_regex, item)
+            new_list.append(new_item)
+            local_count += count
+        return new_list, local_count
+    return val, 0
 
 
 class _CredentialsMixin:
@@ -479,60 +536,7 @@ class _CredentialsMixin:
         else:
             QMessageBox.information(self, "Already Exists", "This directory is already in your favourites.")
 
-    def _preview_bulk_update(self):
-        import re
-
-        search = self.bulk_search_input.text()
-        replace = self.bulk_replace_input.text()
-        use_regex = self.bulk_regex_check.isChecked()
-
-        if not search:
-            QMessageBox.warning(self, "Warning", "Please enter a search pattern.")
-            return
-
-        changes = []
-
-        # Helper function to dry run replacement
-        def dry_run_replace(val, path_str=""):
-            if isinstance(val, str):
-                if use_regex:
-                    try:
-                        new_val, count = re.subn(search, replace, val)
-                    except Exception:
-                        new_val = val.replace(search, replace)
-                        count = val.count(search)
-                else:
-                    new_val = val.replace(search, replace)
-                    count = val.count(search)
-                if count > 0:
-                    changes.append(f"[{path_str}] '{val}' ➡️ '{new_val}'")
-            elif isinstance(val, dict):
-                for k, v in val.items():
-                    dry_run_replace(v, f"{path_str}/{k}" if path_str else k)
-            elif isinstance(val, list):
-                for idx, item in enumerate(val):
-                    dry_run_replace(item, f"{path_str}[{idx}]")
-
-        # 1. Preview Vault Data
-        if self.bulk_target_vault.isChecked() and self.vault_manager:
-            try:
-                creds = self.vault_manager.load_account_credentials()
-                dry_run_replace(creds, "Vault")
-            except Exception as e:
-                changes.append(f"Error reading vault: {e}")
-
-        # 2. Preview QSettings
-        if self.bulk_target_qsettings.isChecked():
-            for key in AppSettings.all_keys():
-                val = AppSettings.get(key)
-                if isinstance(val, (str, list, dict)):
-                    dry_run_replace(val, f"QSettings/{key}")
-
-        if not changes:
-            QMessageBox.information(self, "Preview", "No matching fields/values found to update.")
-            return
-
-        # Display preview in a Dialog
+    def _show_bulk_update_preview_dialog(self, changes: list) -> None:
         dialog = QDialog(self)
         dialog.setWindowTitle("Bulk Update Preview")
         dialog.setMinimumSize(600, 400)
@@ -553,13 +557,42 @@ class _CredentialsMixin:
 
         dialog.exec()
 
-    def _apply_bulk_update(self):
-        import re
-
+    def _preview_bulk_update(self):
         search = self.bulk_search_input.text()
         replace = self.bulk_replace_input.text()
         use_regex = self.bulk_regex_check.isChecked()
 
+        if not search:
+            QMessageBox.warning(self, "Warning", "Please enter a search pattern.")
+            return
+
+        changes: list = []
+
+        # 1. Preview Vault Data
+        if self.bulk_target_vault.isChecked() and self.vault_manager:
+            try:
+                creds = self.vault_manager.load_account_credentials()
+                dry_run_replace(search, replace, use_regex, changes, creds, "Vault")
+            except Exception as e:
+                changes.append(f"Error reading vault: {e}")
+
+        # 2. Preview QSettings
+        if self.bulk_target_qsettings.isChecked():
+            for key in AppSettings.all_keys():
+                val = AppSettings.get(key)
+                if isinstance(val, (str, list, dict)):
+                    dry_run_replace(search, replace, use_regex, changes, val, f"QSettings/{key}")
+
+        if not changes:
+            QMessageBox.information(self, "Preview", "No matching fields/values found to update.")
+            return
+
+        self._show_bulk_update_preview_dialog(changes)
+
+    def _apply_bulk_update(self):
+        search = self.bulk_search_input.text()
+        replace = self.bulk_replace_input.text()
+        use_regex = self.bulk_regex_check.isChecked()
         if not search:
             QMessageBox.warning(self, "Warning", "Please enter a search pattern.")
             return
@@ -577,47 +610,14 @@ class _CredentialsMixin:
         vault_count = 0
         qsettings_count = 0
 
-        # Helper function to perform replacement recursively
-        def recursive_replace(val):
-            local_count = 0
-            if isinstance(val, str):
-                if use_regex:
-                    try:
-                        new_val, count = re.subn(search, replace, val)
-                        return new_val, count
-                    except Exception:
-                        new_val = val.replace(search, replace)
-                        count = val.count(search)
-                        return new_val, count
-                else:
-                    new_val = val.replace(search, replace)
-                    count = val.count(search)
-                    return new_val, count
-            elif isinstance(val, dict):
-                new_dict = {}
-                for k, v in val.items():
-                    new_v, count = recursive_replace(v)
-                    new_dict[k] = new_v
-                    local_count += count
-                return new_dict, local_count
-            elif isinstance(val, list):
-                new_list = []
-                for item in val:
-                    new_item, count = recursive_replace(item)
-                    new_list.append(new_item)
-                    local_count += count
-                return new_list, local_count
-            return val, 0
-
         # 1. Update Vault
         if self.bulk_target_vault.isChecked() and self.vault_manager:
             try:
                 creds = self.vault_manager.load_account_credentials()
-                updated_creds, vault_count = recursive_replace(creds)
-                if vault_count > 0:
-                    if not self._save_vault_data(updated_creds):
-                        QMessageBox.critical(self, "Error", "Failed to save updated data back to secure vault.")
-                        return
+                updated_creds, vault_count = recursive_replace(search, replace, use_regex, creds)
+                if vault_count > 0 and not self._save_vault_data(updated_creds):
+                    QMessageBox.critical(self, "Error", "Failed to save updated data back to secure vault.")
+                    return
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to update secure vault: {e}")
                 return
@@ -628,7 +628,7 @@ class _CredentialsMixin:
                 for key in AppSettings.all_keys():
                     val = AppSettings.get(key)
                     if isinstance(val, (str, list, dict)):
-                        new_val, count = recursive_replace(val)
+                        new_val, count = recursive_replace(search, replace, use_regex, val)
                         if count > 0:
                             AppSettings.set(key, new_val)
                             qsettings_count += count

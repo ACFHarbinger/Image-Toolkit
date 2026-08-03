@@ -6,9 +6,9 @@ from typing import Any, Dict, Optional
 
 from gui.src.components.dialogs.frame_selection_dialog import FrameSelectionDialog
 from gui.src.constants.listings import LISTING_IMAGES_DIR
+from gui.src.elements.database.dialog.common.base_sub_item_dialog import BaseSubItemDialog
 from gui.src.helpers.image.card_thumb_worker import invalidate_thumbnail_cache
 from gui.src.styles import SHARED_BUTTON_STYLE
-from gui.src.elements.database.dialog.common.base_sub_item_dialog import BaseSubItemDialog
 from PySide6.QtWidgets import (
     QDateEdit,
     QDialog,
