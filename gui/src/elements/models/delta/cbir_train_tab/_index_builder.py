@@ -6,8 +6,12 @@ Extracted from ``cbir_train_tab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import threading
+from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QWidget
+
+if TYPE_CHECKING:
+    from ...protos.cbir_train_tab import CBIRTrainTabHostProtocol
 
 try:
     from backend.src.models.tuning.cbir_index_builder import build_cbir_index
@@ -21,10 +25,12 @@ except ImportError:
 class _IndexBuilderMixin:
     """Starts the background FAISS index-build thread."""
 
-    def _start_build_index(self) -> None:
+    _index_thread: Optional[threading.Thread]
+
+    def _start_build_index(self: "CBIRTrainTabHostProtocol") -> None:
         if not _INDEX_OK or build_cbir_index is None:
             QMessageBox.critical(
-                self, "Missing dependencies",
+                cast(QWidget, self), "Missing dependencies",
                 "Could not import build_cbir_index.\n"
                 "Ensure faiss-cpu and transformers are installed.",
             )
@@ -33,14 +39,14 @@ class _IndexBuilderMixin:
         ckpt = self._ckpt_path.text().strip()
         if not ckpt:
             QMessageBox.warning(
-                self, "No checkpoint",
+                cast(QWidget, self), "No checkpoint",
                 "Please specify a checkpoint file (cbir_best.pt) before building the index.",
             )
             return
 
         img_dir = self._index_img_dir.text().strip() or self._img_dir.text().strip()
         if not img_dir:
-            QMessageBox.warning(self, "No image directory", "Please specify the image library directory.")
+            QMessageBox.warning(cast(QWidget, self), "No image directory", "Please specify the image library directory.")
             return
 
         out_dir = self._index_out_dir.text().strip()
@@ -68,8 +74,9 @@ class _IndexBuilderMixin:
             except Exception as exc:
                 self.sig_index_done.emit("error", str(exc))
 
-        self._index_thread = threading.Thread(target=_run, daemon=True)
-        self._index_thread.start()
+        index_thread = threading.Thread(target=_run, daemon=True)
+        self._index_thread = index_thread
+        index_thread.start()
 
 
 __all__ = ["_IndexBuilderMixin"]

@@ -101,6 +101,13 @@ class VideoExtractorSubTab(
         self._drag_settle_timer.setSingleShot(True)
         self._drag_settle_timer.setInterval(200)
         self._drag_settle_timer.timeout.connect(self._on_drag_settled)
+        # video_view/player_container/lbl_current_time/edit_current_time are
+        # only assigned partway through _build_player_section() below, but
+        # installEventFilter() calls made earlier in that same method can
+        # trigger a reentrant eventFilter() (e.g. via a nested event loop)
+        # before the later widgets exist -- eventFilter guards against that
+        # with `if self.lbl_current_time and ...`, so the attribute must
+        # exist (as None) from the start rather than only after assignment.
         self.video_view: Optional[QGraphicsView] = None
         self.player_container: Optional[QWidget] = None
         self.lbl_current_time: Optional[QLabel] = None

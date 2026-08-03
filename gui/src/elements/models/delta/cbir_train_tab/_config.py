@@ -7,12 +7,16 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.cbir_train_tab import CBIRTrainTabHostProtocol
 
 
 class _ConfigMixin:
     """Collects/restores the full CBIRTrainTab UI state as a config dict."""
 
-    def collect(self) -> dict:
+    def collect(self: "CBIRTrainTabHostProtocol") -> dict:
         """Return all widget values as a config dict."""
         return {
             "image_dir": self._img_dir.text().strip(),
@@ -40,7 +44,7 @@ class _ConfigMixin:
             "index_out_dir": self._index_out_dir.text().strip(),
         }
 
-    def set_config(self, cfg: dict) -> None:
+    def set_config(self: "CBIRTrainTabHostProtocol", cfg: dict) -> None:
         """Restore widget values from a config dict."""
         _set = {
             "image_dir": lambda v: self._img_dir.setText(v),

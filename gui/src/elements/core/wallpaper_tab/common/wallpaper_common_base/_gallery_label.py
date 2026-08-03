@@ -16,11 +16,16 @@ from PySide6.QtWidgets import QLabel
 
 from ......components import DraggableLabel
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
+
 
 class _GalleryLabelMixin:
     """Build draggable gallery labels; resolve/generate their thumbnails."""
 
-    def create_gallery_label(self, path: str, size: int) -> QLabel:
+    def create_gallery_label(self: "WallpaperCommonBaseHostProtocol", path: str, size: int) -> QLabel:
         draggable_label = DraggableLabel(
             path, size, selection_provider=lambda: self.selected_files
         )
@@ -35,13 +40,13 @@ class _GalleryLabelMixin:
 
     # ---- Thumbnail helpers -----------------------------------------------
 
-    def _cache_get_thumb(self, path: str) -> Optional[QPixmap]:
+    def _cache_get_thumb(self: "WallpaperCommonBaseHostProtocol", path: str) -> Optional[QPixmap]:
         img = self._initial_pixmap_cache.get(path)
         if img is None:
             return None
         return QPixmap.fromImage(img) if isinstance(img, QImage) else img
 
-    def _get_or_generate_thumbnail(self, path: str) -> Optional[QPixmap]:
+    def _get_or_generate_thumbnail(self: "WallpaperCommonBaseHostProtocol", path: str) -> Optional[QPixmap]:
         if not path:
             return None
         thumb = self._cache_get_thumb(path)

@@ -14,18 +14,23 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from backend.src.core import telemetry
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .....components import DraggableMonitorContainer, MonitorDropView
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
 class _ConfigMixin:
     """Save/restore monitor layout, style/interval settings, and queue state."""
 
-    def collect(self) -> dict:
+    def collect(self: "SystemDisplaySubTabHostProtocol") -> dict:
         monitor_order = []
         monitor_layout = []
         if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
@@ -52,7 +57,7 @@ class _ConfigMixin:
             "monitor_image_paths": self.monitor_image_paths,
         }
 
-    def get_default_config(self) -> Dict[str, Any]:
+    def get_default_config(self: "SystemDisplaySubTabHostProtocol") -> Dict[str, Any]:
         default_style = (
             self.style_combo.itemText(0) if self.style_combo.count() > 0 else "Fill"
         )
@@ -70,7 +75,7 @@ class _ConfigMixin:
             "monitor_layout": [],
         }
 
-    def set_config(self, config: Dict[str, Any]):  # noqa: C901
+    def set_config(self: "SystemDisplaySubTabHostProtocol", config: Dict[str, Any]):  # noqa: C901
         print(
             f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self):x} "
             f"set_config() called, scan_directory={config.get('scan_directory')!r}",
@@ -200,14 +205,14 @@ class _ConfigMixin:
                             self.monitor_widgets[mid].clear()
         except Exception as e:
             QMessageBox.critical(
-                self, "Config Error", f"Failed to apply wallpaper configuration:\n{e}"
+                cast(QWidget, self), "Config Error", f"Failed to apply wallpaper configuration:\n{e}"
             )
 
         if self._is_daemon_running_config():
             self._start_daemon_countdown_if_active()
         self.wallpapers_changed.emit()
 
-    def _do_pending_scan_dir_restore(self) -> None:
+    def _do_pending_scan_dir_restore(self: "SystemDisplaySubTabHostProtocol") -> None:
         """Fires the single restartable restore timer from set_config().
 
         Reads self._pending_restore_dir at fire time rather than a value

@@ -8,23 +8,30 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import cv2
 from PySide6.QtCore import Qt, QThreadPool, Slot
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QDialog, QMessageBox, QStyle
+from PySide6.QtWidgets import QDialog, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel, FrameSelectionDialog
 from ....helpers import FrameExtractionWorker
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
 class _ExtractionExecutionMixin:
     """Snapshot/range extraction triggers, target-resolution resolution,
     and the FrameExtractionWorker dispatch path."""
 
+    _active_metadata: Optional[dict]
+
     # --- NEW HELPER: Resolution Swapping ---
-    def _get_target_size(self) -> Optional[Union[Tuple[int | str, int | str], str]]:
+    def _get_target_size(self: "VideoExtractorSubTabHostProtocol") -> Optional[Union[Tuple[int | str, int | str], str]]:
         selected_key = self.combo_extract_size.currentText()
         target_size = self.extraction_res_map.get(selected_key)
         if selected_key == "Native":
@@ -44,7 +51,7 @@ class _ExtractionExecutionMixin:
     # ---------------------------------------
 
     @Slot()
-    def extract_single_frame(self):
+    def extract_single_frame(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
 
@@ -66,11 +73,11 @@ class _ExtractionExecutionMixin:
             else self.start_time_ms
         )
 
-        dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=self)
+        dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=cast(QWidget, self))
         if dlg.exec() == QDialog.DialogCode.Accepted:
             timestamp_ms = int(dlg.selected_frame_idx / dlg.fps * 1000)
             if self.extraction_queue_enabled:
-                config = {
+                config: Dict[str, Any] = {
                     "type": "single",
                     "video_path": self.video_path,
                     "start_ms": timestamp_ms,
@@ -138,9 +145,9 @@ class _ExtractionExecutionMixin:
                     self.start_loading_gallery([str(out_path)], append=True)
                     self.current_extracted_paths = self.gallery_image_paths[:]
                 else:
-                    QMessageBox.critical(self, "Error", "Failed to save snapshot.")
+                    QMessageBox.critical(cast(QWidget, self), "Error", "Failed to save snapshot.")
 
-    def _set_extraction_buttons_enabled(self, enabled: bool):
+    def _set_extraction_buttons_enabled(self: "VideoExtractorSubTabHostProtocol", enabled: bool):
         """Helper to enable/disable all extraction-related buttons."""
         self.btn_snapshot.setEnabled(enabled and self.video_path is not None)
         self.btn_set_start.setEnabled(enabled and self.video_path is not None)
@@ -181,7 +188,7 @@ class _ExtractionExecutionMixin:
             self.btn_cancel_extraction.setEnabled(True)
 
     @Slot()
-    def cancel_extraction(self, enabled: bool = True):
+    def cancel_extraction(self: "VideoExtractorSubTabHostProtocol", enabled: bool = True):
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
             self.active_extraction_worker = None
@@ -196,7 +203,7 @@ class _ExtractionExecutionMixin:
         self.btn_clear_tags.setEnabled(len(self.tags_ms) > 0)
 
     @Slot()
-    def extract_range(self):
+    def extract_range(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
         if self.use_internal_player:
@@ -207,7 +214,7 @@ class _ExtractionExecutionMixin:
         self._run_extraction(self.start_time_ms, self.end_time_ms, is_range=True)
 
     @Slot()
-    def extract_range_as_gif(self):
+    def extract_range_as_gif(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
         if self.use_internal_player:
@@ -218,7 +225,7 @@ class _ExtractionExecutionMixin:
         self._run_gif_extraction(self.start_time_ms, self.end_time_ms)
 
     @Slot()
-    def extract_range_as_video(self):
+    def extract_range_as_video(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
         if self.use_internal_player:
@@ -228,7 +235,7 @@ class _ExtractionExecutionMixin:
             )
         self._run_video_extraction(self.start_time_ms, self.end_time_ms)
 
-    def _run_extraction(self, start: int, end: int, is_range: bool):
+    def _run_extraction(self: "VideoExtractorSubTabHostProtocol", start: int, end: int, is_range: bool):
         target_size = self._get_target_size()
 
         if self.extraction_queue_enabled:
@@ -262,11 +269,12 @@ class _ExtractionExecutionMixin:
         self.extraction_status_label.setText("Extracting frames...")
         self.extraction_status_label.show()
 
-        self._active_metadata = self._get_current_extraction_metadata()
-        self._active_metadata["mode"] = "range" if is_range else "single"
+        active_metadata = self._get_current_extraction_metadata()
+        active_metadata["mode"] = "range" if is_range else "single"
+        self._active_metadata = active_metadata
 
         assert self.video_path is not None
-        self.active_extraction_worker = FrameExtractionWorker(
+        worker = FrameExtractionWorker(
             video_path=self.video_path,
             output_dir=str(self.extraction_dir),
             start_ms=start,
@@ -278,25 +286,20 @@ class _ExtractionExecutionMixin:
             smart_extract=self.check_smart_extract.isChecked(),
             smart_method=self.combo_smart_method.currentText(),
         )
-        self.active_extraction_worker.signals.progress.connect(
-            self.extraction_progress_bar.setValue
-        )
-        self.active_extraction_worker.signals.finished.connect(
-            self._on_extraction_finished
-        )
-        self.active_extraction_worker.signals.error.connect(
-            lambda e: self._on_extraction_error(e)
-        )
-        QThreadPool.globalInstance().start(self.active_extraction_worker)
+        self.active_extraction_worker = worker
+        worker.signals.progress.connect(self.extraction_progress_bar.setValue)
+        worker.signals.finished.connect(self._on_extraction_finished)
+        worker.signals.error.connect(lambda e: self._on_extraction_error(e))
+        QThreadPool.globalInstance().start(worker)
 
-    def _on_extraction_error(self, error_msg: str):
+    def _on_extraction_error(self: "VideoExtractorSubTabHostProtocol", error_msg: str):
         self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
         self._active_metadata = None
         if "cancelled" not in error_msg.lower():
-            QMessageBox.warning(self, "Extraction Error", error_msg)
+            QMessageBox.warning(cast(QWidget, self), "Extraction Error", error_msg)
 
 
 __all__ = ["_ExtractionExecutionMixin"]

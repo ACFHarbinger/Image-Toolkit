@@ -6,12 +6,15 @@ logic change.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
 
 
 class _CardRenderingMixin:
@@ -40,7 +43,7 @@ class _CardRenderingMixin:
                 )
 
     @Slot(str, str)
-    def update_preview_highlight(self, old_path: str, new_path: str):
+    def update_preview_highlight(self: "AbstractClassSingleGalleryHostProtocol", old_path: str, new_path: str):
         """Adds a blue highlight border to the card currently being viewed in the preview window."""
         is_closing = new_path == "WINDOW_CLOSED"
 
@@ -80,7 +83,7 @@ class _CardRenderingMixin:
 
         highlight_card(new_path, self.path_to_card_widget.get(new_path))
 
-    def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
+    def create_card_widget(self: "AbstractClassSingleGalleryHostProtocol", path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
         container.setFixedSize(self.approx_item_width, self.approx_item_width)
 
@@ -123,7 +126,7 @@ class _CardRenderingMixin:
         return container
 
     def update_card_pixmap(
-        self,
+        self: "AbstractClassSingleGalleryHostProtocol",
         widget: QWidget,
         pixmap: Optional[QPixmap],
         label_ref: Optional[QLabel] = None,
@@ -193,7 +196,7 @@ class _CardRenderingMixin:
                 "border: 1px solid #e74c3c; color: #e74c3c; font-size: 10px; background-color: #2c2f33;"
             )
 
-    def _generate_error_pixmap(self) -> QPixmap:
+    def _generate_error_pixmap(self: "AbstractClassSingleGalleryHostProtocol") -> QPixmap:
         """Generates a visual placeholder for failed loads."""
         size = self.thumbnail_size
         pixmap = QPixmap(size, size)

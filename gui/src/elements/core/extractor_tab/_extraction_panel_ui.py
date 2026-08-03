@@ -21,12 +21,17 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from typing import TYPE_CHECKING, List, Tuple
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
+
 
 class _ExtractionPanelUIMixin:
     """Builds the "4. Extraction Controls" groupbox and adds it to
     self.main_layout."""
 
-    def _build_extraction_settings_section(self) -> None:
+    def _build_extraction_settings_section(self: "VideoExtractorSubTabHostProtocol") -> None:
         self.extract_group = QGroupBox("Extraction Settings")
         extract_main_layout = QVBoxLayout(self.extract_group)
 
@@ -106,8 +111,8 @@ class _ExtractionPanelUIMixin:
         self.end_time_ms = 0
         self.cut_start_ms = 0
         self.cut_end_ms = 0
-        self.cuts_ms = []
-        self.tags_ms = []
+        self.cuts_ms: List[Tuple[int, int]] = []
+        self.tags_ms: List[Tuple[int, str]] = []
 
         self.btn_cancel_extraction = QPushButton("🛑 Cancel Extraction")
         self.btn_cancel_extraction.setStyleSheet(

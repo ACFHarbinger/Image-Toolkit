@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction
+from typing import cast
+
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
@@ -20,6 +22,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
+
 # NOTE: ``_TagLabel`` is imported lazily (inside the method that uses it)
 # rather than at module load time. ``gui.src.tabs.core`` eagerly re-exports
 # every tab (including this one via a thin shim), so a top-level import
@@ -29,7 +36,7 @@ from PySide6.QtWidgets import (
 class _TagsLogicMixin:
     """Timestamp tags, their UI row, and the video-surface context menu."""
 
-    def _build_tags_row(self) -> QHBoxLayout:
+    def _build_tags_row(self: "VideoExtractorSubTabHostProtocol") -> QHBoxLayout:
         """Builds "Row 5: Tags" for the Extraction Settings panel."""
         extract_tags_layout = QHBoxLayout()
         self.btn_add_tag = QPushButton("🏷️ Add Tag")
@@ -74,13 +81,13 @@ class _TagsLogicMixin:
         return extract_tags_layout
 
     @Slot()
-    def add_tag(self):
+    def add_tag(self: "VideoExtractorSubTabHostProtocol"):
         current_ms = self.media_player.position()
         formatted = self._format_time(current_ms)
 
         proposed_name = f"Tag {len(self.tags_ms) + 1}"
         label, ok = QInputDialog.getText(
-            self, "Add Tag", f"Enter label for tag at {formatted}:", text=proposed_name
+            cast(QWidget, self), "Add Tag", f"Enter label for tag at {formatted}:", text=proposed_name
         )
         if ok and label:
             self.tags_ms.append((current_ms, label))
@@ -88,16 +95,17 @@ class _TagsLogicMixin:
             self._update_tags_ui()
 
     @Slot()
-    def clear_tags(self):
+    def clear_tags(self: "VideoExtractorSubTabHostProtocol"):
         self.tags_ms.clear()
         self._update_tags_ui()
 
-    def _update_tags_ui(self):
+    def _update_tags_ui(self: "VideoExtractorSubTabHostProtocol"):
         # Clear existing tag labels
         while self.tags_layout.count():
             item = self.tags_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
 
         if not self.tags_ms:
             none_label = QLabel("Tags: None")
@@ -123,13 +131,13 @@ class _TagsLogicMixin:
         self.btn_clear_tags.setEnabled(has_tags)
 
     @Slot(QPoint)
-    def show_video_context_menu(self, pos: QPoint):
+    def show_video_context_menu(self: "VideoExtractorSubTabHostProtocol", pos: QPoint):
         """Show a context menu on the video player or slider with tag jumping and other options."""
         sender = self.sender()
         if not sender:
             return
 
-        menu = QMenu(self)
+        menu = QMenu(cast(QWidget, self))
         menu.setStyleSheet(
             "QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }"
         )
@@ -141,22 +149,22 @@ class _TagsLogicMixin:
                 "QMenu { background-color: #1e1f22; color: #FFC107; }"
             )
             for ms, label in self.tags_ms:
-                action = QAction(f"{label} ({self._format_time(ms)})", self)
+                action = QAction(f"{label} ({self._format_time(ms)})", cast(QWidget, self))
                 action.triggered.connect(lambda _, m=ms: self.jump_to_tag_time(m))
                 jump_menu.addAction(action)
             menu.addSeparator()
 
         # 2. Add Tag at current pos
-        add_tag_action = QAction("🏷️ Add Tag Here", self)
+        add_tag_action = QAction("🏷️ Add Tag Here", cast(QWidget, self))
         add_tag_action.triggered.connect(self.add_tag)
         menu.addAction(add_tag_action)
 
         # 3. Range actions
-        set_start_action = QAction("🎞️ Set Range Start", self)
+        set_start_action = QAction("🎞️ Set Range Start", cast(QWidget, self))
         set_start_action.triggered.connect(self.set_range_start)
         menu.addAction(set_start_action)
 
-        set_end_action = QAction("🎞️ Set Range End", self)
+        set_end_action = QAction("🎞️ Set Range End", cast(QWidget, self))
         set_end_action.triggered.connect(self.set_range_end)
         menu.addAction(set_end_action)
 
@@ -164,7 +172,7 @@ class _TagsLogicMixin:
 
         # 4. Extraction triggers (convenience)
         if self.end_time_ms > self.start_time_ms:
-            extract_vid_action = QAction("🎬 Extract Video Range", self)
+            extract_vid_action = QAction("🎬 Extract Video Range", cast(QWidget, self))
             extract_vid_action.triggered.connect(self.extract_range_as_video)
             menu.addAction(extract_vid_action)
 
@@ -173,7 +181,7 @@ class _TagsLogicMixin:
         menu.exec(global_pos)
 
     @Slot(int)
-    def jump_to_tag_time(self, ms: int):
+    def jump_to_tag_time(self: "VideoExtractorSubTabHostProtocol", ms: int):
         self.media_player.setPosition(ms)
         self.media_player.pause()
         self.btn_play.setIcon(
@@ -181,39 +189,39 @@ class _TagsLogicMixin:
         )
 
     @Slot(QPoint, int)
-    def show_tag_context_menu(self, global_pos: QPoint, index: int):
-        menu = QMenu(self)
+    def show_tag_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, index: int):
+        menu = QMenu(cast(QWidget, self))
 
-        jump_action = QAction("📍 Jump to Tag", self)
+        jump_action = QAction("📍 Jump to Tag", cast(QWidget, self))
         jump_action.triggered.connect(
             lambda: self.jump_to_tag_time(self.tags_ms[index][0])
         )
         menu.addAction(jump_action)
         menu.addSeparator()
 
-        edit_action = QAction("Edit Tag", self)
+        edit_action = QAction("Edit Tag", cast(QWidget, self))
         edit_action.triggered.connect(lambda: self.edit_tag(index))
         menu.addAction(edit_action)
 
-        delete_action = QAction("Delete Tag", self)
+        delete_action = QAction("Delete Tag", cast(QWidget, self))
         delete_action.triggered.connect(lambda: self.delete_tag(index))
         menu.addAction(delete_action)
 
         menu.exec(global_pos)
 
-    def edit_tag(self, index: int):
+    def edit_tag(self: "VideoExtractorSubTabHostProtocol", index: int):
         if 0 <= index < len(self.tags_ms):
             ms, label = self.tags_ms[index]
             formatted_time = self._format_time(ms)
 
             new_label, ok = QInputDialog.getText(
-                self, "Edit Tag", f"Label for tag at {formatted_time}:", text=label
+                cast(QWidget, self), "Edit Tag", f"Label for tag at {formatted_time}:", text=label
             )
             if ok and new_label:
                 # Also allow editing time? Let's just do label for now as it's easier.
                 # Actually, editing time would be good too.
                 new_time_str, ok_time = QInputDialog.getText(
-                    self,
+                    cast(QWidget, self),
                     "Edit Tag Time",
                     f"Time for '{new_label}':",
                     text=formatted_time,
@@ -226,15 +234,15 @@ class _TagsLogicMixin:
                         self._update_tags_ui()
                     else:
                         QMessageBox.warning(
-                            self, "Invalid Format", "Invalid time format."
+                            cast(QWidget, self), "Invalid Format", "Invalid time format."
                         )
 
-    def delete_tag(self, index: int):
+    def delete_tag(self: "VideoExtractorSubTabHostProtocol", index: int):
         if 0 <= index < len(self.tags_ms):
             self.tags_ms.pop(index)
             self._update_tags_ui()
 
-    def _validate_range(self):
+    def _validate_range(self: "VideoExtractorSubTabHostProtocol"):
         if self.end_time_ms > self.start_time_ms:
             total_duration_ms = self.end_time_ms - self.start_time_ms
 
@@ -264,7 +272,7 @@ class _TagsLogicMixin:
             self.btn_extract_video.setText("MP4 Extract as Video")
 
     @Slot()
-    def jump_to_range_start(self):
+    def jump_to_range_start(self: "VideoExtractorSubTabHostProtocol"):
         self.media_player.setPosition(self.start_time_ms)
         # Pause to let user see exactly where they are? Or keep playing?
         # Usually pausing is better when jumping to specific frame.
@@ -274,7 +282,7 @@ class _TagsLogicMixin:
         )
 
     @Slot()
-    def jump_to_range_end(self):
+    def jump_to_range_end(self: "VideoExtractorSubTabHostProtocol"):
         self.media_player.setPosition(self.end_time_ms)
         self.media_player.pause()
         self.btn_play.setIcon(

@@ -15,8 +15,13 @@ from __future__ import annotations
 import contextlib
 import os
 
+from typing import TYPE_CHECKING, Optional
+
 from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication, QGridLayout
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
 
 # How long cancel_loading()/closeEvent() will block waiting for already-
 # dispatched pool workers to actually finish before tearing down gallery
@@ -40,7 +45,7 @@ _WORKER_DRAIN_TIMEOUT_MS = -1
 class _LifecycleMixin:
     """Cancel loading, close-event teardown, and clear/restore gallery state."""
 
-    def cancel_loading(self):
+    def cancel_loading(self: "AbstractClassTwoGalleriesHostProtocol"):
         """Stops all active timers and background workers."""
         # Invalidate any queued (not yet dispatched) load chunks
         self._load_generation += 1
@@ -85,7 +90,7 @@ class _LifecycleMixin:
             # cross-thread signals reentrantly, mid-teardown.
             QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
-    def closeEvent(self, event):
+    def closeEvent(self: "AbstractClassTwoGalleriesHostProtocol", event):
         """Cleanup processes on close."""
         self.cancel_loading()
         # Clean up pool
@@ -93,9 +98,9 @@ class _LifecycleMixin:
         # Ensure signals don't fire to a destroyed object
         self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
         QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)  # flush pending deleteLater()s -- see cancel_loading()
-        super().closeEvent(event)
+        super().closeEvent(event)  # type: ignore[misc,safe-super]
 
-    def clear_galleries(self, clear_data=True):
+    def clear_galleries(self: "AbstractClassTwoGalleriesHostProtocol", clear_data=True):
         if clear_data:
             self.found_files.clear()
             self.selected_files.clear()
@@ -119,7 +124,7 @@ class _LifecycleMixin:
 
         self.on_selection_changed()
 
-    def _restore_selected_files(self, config: dict):
+    def _restore_selected_files(self: "AbstractClassTwoGalleriesHostProtocol", config: dict):
         """Restores the selected gallery from a saved config, skipping missing paths."""
         saved = config.get("selected_files", [])
         if not saved:
@@ -130,13 +135,14 @@ class _LifecycleMixin:
             self.refresh_selected_panel()
             self.on_selection_changed()
 
-    def _clear_layout(self, layout: QGridLayout):
+    def _clear_layout(self: "AbstractClassTwoGalleriesHostProtocol", layout: Optional[QGridLayout]):
         if not layout:
             return
         while layout.count():
             item = layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()  # pyrefly: ignore [missing-attribute]
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
 
 
 __all__ = ["_LifecycleMixin", "_WORKER_DRAIN_TIMEOUT_MS"]

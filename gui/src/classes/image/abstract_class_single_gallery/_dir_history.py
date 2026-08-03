@@ -6,13 +6,16 @@ logic change.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
 
 
 class _DirHistoryMixin:
     """Back/forward stacks for directory navigation."""
 
-    def _push_dir_history(self, path: str) -> None:
+    def _push_dir_history(self: "AbstractClassSingleGalleryHostProtocol", path: str) -> None:
         if not path:
             return
         current = self.last_browsed_scan_dir
@@ -20,14 +23,14 @@ class _DirHistoryMixin:
             self._dir_back_stack.append(current)
         self._dir_forward_stack.clear()
 
-    def _dir_go_back(self) -> Optional[str]:
+    def _dir_go_back(self: "AbstractClassSingleGalleryHostProtocol") -> Optional[str]:
         if not self._dir_back_stack:
             return None
         prev = self._dir_back_stack.pop()
         self._dir_forward_stack.append(self.last_browsed_scan_dir)
         return prev
 
-    def _dir_go_forward(self) -> Optional[str]:
+    def _dir_go_forward(self: "AbstractClassSingleGalleryHostProtocol") -> Optional[str]:
         if not self._dir_forward_stack:
             return None
         nxt = self._dir_forward_stack.pop()

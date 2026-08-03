@@ -38,6 +38,19 @@ import ctypes
 with contextlib.suppress(OSError):
     ctypes.CDLL("/usr/lib/x86_64-linux-gnu/libpulse.so.0")
 
+# Same SONAME-dedup hazard as libpulse above, this time with libfontconfig:
+# `import base` -> pixi OpenCV videoio -> (GTK/Pango font stack in that
+# build's transitive deps) loads the pixi build of libfontconfig.so.1 into
+# the process first. Once loaded, Qt's later font lookups dedup onto that
+# copy by SONAME instead of the system one Qt was built/tested against —
+# and the pixi build's parser chokes on this system's on-disk
+# ~/.cache/fontconfig/*.cache-11 files (a different cache format/version),
+# crashing with SIGSEGV in FcCharSetFindLeafForward during MainWindow's
+# first font lookup. Preloading the system copy first makes every later
+# consumer, pixi OpenCV included, bind to it instead.
+with contextlib.suppress(OSError):
+    ctypes.CDLL("/usr/lib/x86_64-linux-gnu/libfontconfig.so.1")
+
 from backend.controllers.backend_dispatch import dispatch_command
 from backend.controllers.cli.arg_parser import parse_params
 from backend.src.app import launch_app, log_uncaught_exceptions
@@ -70,6 +83,7 @@ if __name__ == "__main__":
         if command == "gui":
             sys.exit(launch_app(opts))
         else:
+            assert command is not None
             dispatch_command(command, opts)
     else:
         # Default to GUI

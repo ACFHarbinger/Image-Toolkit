@@ -15,15 +15,20 @@ from PySide6.QtGui import QImage, QPixmap
 from ....components import ClickableLabel
 from ....helpers import ImageLoaderWorker
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
+
 
 class _FoundGalleryPopulateMixin:
     """Batch-populate found-gallery cards, then trigger their thumbnail loads."""
 
-    def refresh_found_gallery(self):
+    def refresh_found_gallery(self: "AbstractClassTwoGalleriesHostProtocol"):
         self.cancel_loading()
 
         if not hasattr(self, "found_loading_paths"):
-            self.found_loading_paths = set()
+            self.found_loading_paths: set = set()
         self.found_loading_paths.clear()
 
         # 1. Identify new paginated slice
@@ -67,7 +72,7 @@ class _FoundGalleryPopulateMixin:
         # Start population loop
         self._populate_found_step()
 
-    def _populate_found_step(self):
+    def _populate_found_step(self: "AbstractClassTwoGalleriesHostProtocol"):
         if not hasattr(
             self, "_paginated_found_paths"
         ) or self._populating_found_index >= len(self._paginated_found_paths):
@@ -145,7 +150,7 @@ class _FoundGalleryPopulateMixin:
         else:
             self._load_all_found_page_images()
 
-    def _load_all_found_page_images(self):
+    def _load_all_found_page_images(self: "AbstractClassTwoGalleriesHostProtocol"):
         """Triggers loading for all images in the current found gallery paginated view."""
         if (
             not hasattr(self, "_paginated_found_paths")
@@ -186,7 +191,7 @@ class _FoundGalleryPopulateMixin:
         if image_paths:
             self._trigger_batch_found_load(image_paths)
 
-    def _trigger_found_load(self, path: str):
+    def _trigger_found_load(self: "AbstractClassTwoGalleriesHostProtocol", path: str):
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
 

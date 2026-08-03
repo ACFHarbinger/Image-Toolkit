@@ -26,6 +26,11 @@ class ImageLoaderWorker(QRunnable):
     Designed to be run in a QThreadPool.
     """
 
+    # Set externally by callers that track cancellation generations (e.g.
+    # AbstractClassSingleGallery._trigger_image_load) -- not assigned in
+    # __init__ since not every caller needs it.
+    load_generation: int
+
     def __init__(self, path: str, target_size: int):
         super().__init__()
         self.path = path

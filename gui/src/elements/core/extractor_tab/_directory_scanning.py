@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from backend.src.core import telemetry
@@ -45,11 +45,16 @@ from ....helpers import BatchVideoLoaderWorker
 from ....utils.guard.startup_probe_guard import startup_settle_remaining_ms
 from ....utils.sort_utils import natural_sort_key
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
+
 
 class _DirectoryScanningMixin:
     """Source-directory browsing/scanning and the source media gallery."""
 
-    def _build_directory_section(self) -> None:
+    def _build_directory_section(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Builds "1./1.5. Directory Selection" + "2. Source Gallery" and
         adds them to self.main_layout."""
         # 1. Directory Selection Section (Source Directory)
@@ -112,30 +117,30 @@ class _DirectoryScanningMixin:
         self.main_layout.addWidget(self.source_group)
 
     @Slot()
-    def browse_directory(self):
+    def browse_directory(self: "VideoExtractorSubTabHostProtocol"):
         d = QFileDialog.getExistingDirectory(
-            self, "Select Source Directory", self.last_browsed_scan_dir
+            cast(QWidget, self), "Select Source Directory", self.last_browsed_scan_dir
         )
         if d:
             self.last_browsed_scan_dir = d
             self._save_last_dir(d)
             self.scan_directory(d)
 
-    def _load_last_extraction_dir(self, default: str = "") -> str:
+    def _load_last_extraction_dir(self: "VideoExtractorSubTabHostProtocol", default: str = "") -> str:
         from gui.src.windows.settings.app_settings import AppSettings
 
         return AppSettings.session(
             self.__class__.__name__, "last_extraction_dir", default
         )
 
-    def _save_last_extraction_dir(self, path: str) -> None:
+    def _save_last_extraction_dir(self: "VideoExtractorSubTabHostProtocol", path: str) -> None:
         from gui.src.windows.settings.app_settings import AppSettings
 
         AppSettings.set_session(
             self.__class__.__name__, "last_extraction_dir", path
         )
 
-    def _refresh_source_extracted_indicators(self) -> None:
+    def _refresh_source_extracted_indicators(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Refresh source thumbnail borders after output-dir or extraction changes."""
         for path, widget in self.source_path_to_widget.items():
             label = widget.findChild(ClickableLabel)
@@ -144,7 +149,7 @@ class _DirectoryScanningMixin:
                     path, label, path == getattr(self, "video_path", None)
                 )
 
-    def scan_directory(self, path: str):
+    def scan_directory(self: "VideoExtractorSubTabHostProtocol", path: str):
         if not os.path.isdir(path):
             return
 
@@ -203,8 +208,9 @@ class _DirectoryScanningMixin:
 
         while self.source_grid.count():
             item = self.source_grid.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
+            item_widget = item.widget()
+            if item_widget:
+                item_widget.deleteLater()
 
         # 0. Refresh extracted stems cache
         self._refresh_extracted_stems_cache()
@@ -270,7 +276,7 @@ class _DirectoryScanningMixin:
         else:
             self.scan_progress_complete()
 
-    def _on_source_video_thumbnail(self, path: str, image: QImage, generation: int) -> None:
+    def _on_source_video_thumbnail(self: "VideoExtractorSubTabHostProtocol", path: str, image: QImage, generation: int) -> None:
         # Directory switched again since this batch was dispatched --
         # source_path_to_widget now belongs to a different scan entirely.
         if generation != getattr(self, "_extractor_scan_generation", None):
@@ -278,12 +284,12 @@ class _DirectoryScanningMixin:
         if image and not image.isNull():
             self.add_source_thumbnail(path, image)
 
-    def _on_source_scan_batch_finished(self, generation: int) -> None:
+    def _on_source_scan_batch_finished(self: "VideoExtractorSubTabHostProtocol", generation: int) -> None:
         if generation != getattr(self, "_extractor_scan_generation", None):
             return
         self.scan_progress_complete()
 
-    def _create_source_placeholder_widget(self, path: str) -> QWidget:
+    def _create_source_placeholder_widget(self: "VideoExtractorSubTabHostProtocol", path: str) -> QWidget:
         """Creates a placeholder widget with 'Loading...' state for the source gallery."""
         thumb_size = 120
         container = QWidget()
@@ -326,11 +332,11 @@ class _DirectoryScanningMixin:
         layout.addWidget(name_label)
         return container
 
-    def scan_progress_complete(self):
+    def scan_progress_complete(self: "VideoExtractorSubTabHostProtocol"):
         pass
 
     @Slot(str, object)
-    def add_source_thumbnail(self, path: str, image_or_pixmap: Any):
+    def add_source_thumbnail(self: "VideoExtractorSubTabHostProtocol", path: str, image_or_pixmap: Any):
         """Updates an existing alphabetical placeholder with a thumbnail
         image, whether from disk cache or freshly generated by
         BatchVideoLoaderWorker (see scan_directory())."""
@@ -375,8 +381,8 @@ class _DirectoryScanningMixin:
         )
 
     @Slot(QPoint, str)
-    def show_source_context_menu(self, global_pos: QPoint, path: str):
-        menu = QMenu(self)
+    def show_source_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, path: str):
+        menu = QMenu(cast(QWidget, self))
 
         is_open = False
         tab_idx = -1
@@ -387,35 +393,35 @@ class _DirectoryScanningMixin:
                 break
 
         if is_open:
-            close_action = QAction("Close Video", self)
+            close_action = QAction("Close Video", cast(QWidget, self))
             close_action.triggered.connect(
                 lambda: self._on_active_video_tab_closed(tab_idx)
             )
             menu.addAction(close_action)
         else:
-            open_action = QAction("Open Video", self)
+            open_action = QAction("Open Video", cast(QWidget, self))
             open_action.triggered.connect(lambda: self.load_media(path))
             menu.addAction(open_action)
 
-        view_action = QAction("View Preview", self)
+        view_action = QAction("View Preview", cast(QWidget, self))
         view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
         menu.addAction(view_action)
 
         menu.exec(global_pos)
 
     @Slot(QPoint)
-    def _show_tab_context_menu(self, pos: QPoint):
+    def _show_tab_context_menu(self: "VideoExtractorSubTabHostProtocol", pos: QPoint):
         idx = self.active_videos_tabbar.tabAt(pos)
         if idx >= 0:
-            menu = QMenu(self)
-            close_action = QAction("Close Video", self)
+            menu = QMenu(cast(QWidget, self))
+            close_action = QAction("Close Video", cast(QWidget, self))
             close_action.triggered.connect(
                 lambda: self._on_active_video_tab_closed(idx)
             )
             menu.addAction(close_action)
             menu.exec(self.active_videos_tabbar.mapToGlobal(pos))
 
-    def _refresh_extracted_stems_cache(self):
+    def _refresh_extracted_stems_cache(self: "VideoExtractorSubTabHostProtocol"):
         """Scans extraction_dir once and caches which video stems have files."""
         self._extracted_stems_cache.clear()
         if not self.extraction_dir.exists():
@@ -445,7 +451,7 @@ class _DirectoryScanningMixin:
         except Exception as e:
             print(f"Error refreshing extracted stems cache: {e}")
 
-    def _has_extracted_files(self, video_path: str) -> bool:
+    def _has_extracted_files(self: "VideoExtractorSubTabHostProtocol", video_path: str) -> bool:
         """Check if the video has extracted files in the output directory using cache."""
         if not self._extracted_stems_cache:
             self._refresh_extracted_stems_cache()
@@ -454,7 +460,7 @@ class _DirectoryScanningMixin:
         return stem in self._extracted_stems_cache
 
     def _update_source_label_style(
-        self, path: str, label: ClickableLabel, selected: bool
+        self: "VideoExtractorSubTabHostProtocol", path: str, label: ClickableLabel, selected: bool
     ):
         has_extracted = self._has_extracted_files(path)
         is_other_open = (

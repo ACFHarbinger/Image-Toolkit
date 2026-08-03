@@ -9,23 +9,28 @@ from __future__ import annotations
 import os
 import platform
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, cast
 
 from backend.src.core import WallpaperManager
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QWidget
 from shiboken6 import Shiboken as sip
 
 from ......windows import SlideshowQueueWindow
 from ...graph.data_schema import GraphData
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
+
 
 class _WallpaperSwapMixin:
     """Set-active-from-queue, monitor/graph swap, item swap, and queue reorder/clear."""
 
-    def _set_specific_wallpaper(self, monitor_id: str, path: str, index: Optional[int] = None):
+    def _set_specific_wallpaper(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, path: str, index: Optional[int] = None):
         if not os.path.exists(path):
-            QMessageBox.warning(self, "Error", f"File not found:\n{path}")
+            QMessageBox.warning(cast(QWidget, self), "Error", f"File not found:\n{path}")
             return
 
         self.monitor_image_paths[monitor_id] = path
@@ -46,10 +51,10 @@ class _WallpaperSwapMixin:
                 if hasattr(peer, "run_wallpaper_worker"):
                     peer.run_wallpaper_worker()
 
-    def on_image_dropped(self, monitor_id: str, image_path: str):
+    def on_image_dropped(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, image_path: str):
         self.on_images_dropped(monitor_id, [image_path])
 
-    def swap_monitors(self, m0: str, m1: str = ""):
+    def swap_monitors(self: "WallpaperCommonBaseHostProtocol", m0: str, m1: str = ""):
         monitor_ids = list(self.monitor_widgets.keys())
         if len(monitor_ids) < 2:
             return
@@ -88,7 +93,7 @@ class _WallpaperSwapMixin:
                 if hasattr(peer, "toggle_daemon") and peer._is_daemon_running_config():
                     peer.toggle_daemon(True)
 
-    def swap_graphs(self, m0: str, m1: str = ""):
+    def swap_graphs(self: "WallpaperCommonBaseHostProtocol", m0: str, m1: str = ""):
         monitor_ids = list(self.monitor_widgets.keys())
         if len(monitor_ids) < 2:
             return
@@ -108,7 +113,7 @@ class _WallpaperSwapMixin:
             if self._current_monitor_id in [m0, m1]:
                 self._on_monitor_selected(self._current_monitor_id)
 
-    def handle_item_swap_request(self, s_mid: str, s_idx: int, t_mid: str, t_idx: int):
+    def handle_item_swap_request(self: "WallpaperCommonBaseHostProtocol", s_mid: str, s_idx: int, t_mid: str, t_idx: int):
         src_queue = self.monitor_slideshow_queues.get(s_mid, [])
         target_queue = self.monitor_slideshow_queues.get(t_mid, [])
 
@@ -140,7 +145,7 @@ class _WallpaperSwapMixin:
                         peer.toggle_daemon(True)
 
     @Slot(str, list)
-    def on_queue_reordered(self, monitor_id: str, new_queue: List[str]):
+    def on_queue_reordered(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, new_queue: List[str]):
         self.monitor_slideshow_queues[monitor_id] = new_queue
         self.monitor_current_index[monitor_id] = -1
         new_first_image = new_queue[0] if new_queue else None
@@ -150,7 +155,7 @@ class _WallpaperSwapMixin:
         self.check_all_monitors_set()
 
     @Slot(str)
-    def handle_clear_monitor_queue(self, monitor_id: str):
+    def handle_clear_monitor_queue(self: "WallpaperCommonBaseHostProtocol", monitor_id: str):
         if monitor_id not in self.monitor_widgets:
             return
         monitor_name = self.monitor_widgets[monitor_id].monitor.name
@@ -184,7 +189,7 @@ class _WallpaperSwapMixin:
         self.check_all_monitors_set()
 
         QMessageBox.information(
-            self,
+            cast(QWidget, self),
             "Monitor Cleared",
             f"All pending items and the slideshow queue for **{monitor_name}** have been cleared.\n\nThe system's current background remains unchanged.",
         )

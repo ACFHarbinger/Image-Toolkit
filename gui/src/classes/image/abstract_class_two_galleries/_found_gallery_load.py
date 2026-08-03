@@ -24,18 +24,23 @@ from shiboken6 import Shiboken
 
 from ....helpers import BatchImageLoaderWorker, BatchVideoLoaderWorker, VideoLoaderWorker
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
+
 
 class _FoundGalleryLoadMixin:
     """Search filtering plus image/video batch and single-shot thumbnail loading."""
 
-    def _perform_found_search(self):
+    def _perform_found_search(self: "AbstractClassTwoGalleriesHostProtocol"):
         query = self.found_search_input.text()
         filtered = self.common_filter_string_list(self.master_found_files, query)
         self.found_files = filtered
         self.found_current_page = 0
         self.refresh_found_gallery()
 
-    def jump_to_path(self, path: str) -> bool:
+    def jump_to_path(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> bool:
         """§2.28 global search: isolate *path* in the found gallery by
         filtering the search box down to its exact basename, so it's the
         only (or first) card visible without any pagination math. Returns
@@ -48,7 +53,7 @@ class _FoundGalleryLoadMixin:
         self._perform_found_search()
         return True
 
-    def start_loading_thumbnails(self, paths: list[str]):
+    def start_loading_thumbnails(self: "AbstractClassTwoGalleriesHostProtocol", paths: list[str]):
         self.cancel_loading()
         self.master_found_files = self._apply_sort(list(paths))
         # Clear cache when starting fresh with new content
@@ -57,7 +62,7 @@ class _FoundGalleryLoadMixin:
         self._perform_found_search()
         # self.refresh_found_gallery() # Called by search
 
-    def _trigger_batch_video_found_load(self, paths: List[str]):
+    def _trigger_batch_video_found_load(self: "AbstractClassTwoGalleriesHostProtocol", paths: List[str]):
         """Trigger batch workers for all visible videos, chunked for parallel loading."""
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
@@ -72,7 +77,7 @@ class _FoundGalleryLoadMixin:
             batch_slot=self._on_batch_found_loaded,
         )
 
-    def _trigger_video_found_load(self, path: str):
+    def _trigger_video_found_load(self: "AbstractClassTwoGalleriesHostProtocol", path: str):
         """Fallback for single video load (rarely used by batch logic but kept for consistency)."""
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
@@ -85,7 +90,7 @@ class _FoundGalleryLoadMixin:
         self.thread_pool.start(worker)
 
     @Slot(str, object)
-    def _on_found_image_loaded(self, path: str, image):  # noqa: C901
+    def _on_found_image_loaded(self: "AbstractClassTwoGalleriesHostProtocol", path: str, image):  # noqa: C901
         # self may already be a dead QObject by the time this queued
         # (cross-thread) signal is delivered (e.g. mid-teardown) --
         # self.sender() on a dead QObject segfaults rather than raising.
@@ -118,7 +123,7 @@ class _FoundGalleryLoadMixin:
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 cache_path = self._get_disk_cache_path(path)
                 if not os.path.exists(cache_path):
-                    image.save(cache_path, "JPG")  # pyrefly: ignore[no-matching-overload]
+                    image.save(cache_path, b"JPG")  # pyrefly: ignore[no-matching-overload]
         elif not isinstance(image, QImage) and image and not image.isNull():
             q_image = image.toImage()
             self._found_pixmap_cache[path] = q_image
@@ -126,7 +131,7 @@ class _FoundGalleryLoadMixin:
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 cache_path = self._get_disk_cache_path(path)
                 if not os.path.exists(cache_path):
-                    q_image.save(cache_path, "JPG")
+                    q_image.save(cache_path, b"JPG")
 
         widget = self.path_to_label_map.get(path)
         if widget:
@@ -145,7 +150,7 @@ class _FoundGalleryLoadMixin:
             except RuntimeError:
                 pass
 
-    def _trigger_batch_found_load(self, paths: List[str]):
+    def _trigger_batch_found_load(self: "AbstractClassTwoGalleriesHostProtocol", paths: List[str]):
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
         self.found_loading_paths.update(paths)
@@ -159,7 +164,7 @@ class _FoundGalleryLoadMixin:
         )
 
     @Slot(list, list)
-    def _on_batch_found_loaded(self, results: List[tuple], requested_paths: List[str]):  # noqa: C901
+    def _on_batch_found_loaded(self: "AbstractClassTwoGalleriesHostProtocol", results: List[tuple], requested_paths: List[str]):  # noqa: C901
         # See _on_found_image_loaded above.
         if not Shiboken.isValid(self):
             return
@@ -198,7 +203,7 @@ class _FoundGalleryLoadMixin:
                 if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                     cache_path = self._get_disk_cache_path(path)
                     if not os.path.exists(cache_path):
-                        pixmap.save(cache_path, "JPG")  # pyrefly: ignore[no-matching-overload]
+                        pixmap.save(cache_path, b"JPG")  # pyrefly: ignore[no-matching-overload]
             elif not isinstance(pixmap, QImage) and pixmap and not pixmap.isNull():
                 q_image = pixmap.toImage()
                 self._found_pixmap_cache[path] = q_image
@@ -207,7 +212,7 @@ class _FoundGalleryLoadMixin:
                 if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                     cache_path = self._get_disk_cache_path(path)
                     if not os.path.exists(cache_path):
-                        q_image.save(cache_path, "JPG")
+                        q_image.save(cache_path, b"JPG")
             else:
                 final_pixmap = QPixmap()
 

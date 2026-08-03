@@ -11,9 +11,13 @@ confirm zero logic drift.
 from __future__ import annotations
 
 import contextlib
+from typing import TYPE_CHECKING, List
 
 from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
 
 # How long cancel_loading() will block waiting for already-dispatched pool
 # workers to actually finish before tearing down gallery widgets. Any FIXED
@@ -37,12 +41,12 @@ _WORKER_DRAIN_TIMEOUT_MS = -1
 class _LifecycleMixin:
     """Cancels in-flight loads and tears down gallery widgets safely."""
 
-    def closeEvent(self, event):
+    def closeEvent(self: "AbstractClassSingleGalleryHostProtocol", event):
         """Cleanup processes on close."""
         self.cancel_loading()
-        super().closeEvent(event)
+        super().closeEvent(event)  # type: ignore[misc,safe-super]
 
-    def cancel_loading(self):
+    def cancel_loading(self: "AbstractClassSingleGalleryHostProtocol"):
         """Stops all active timers and background workers."""
         # Invalidate any queued (not yet dispatched) load chunks
         self._load_generation += 1
@@ -95,7 +99,7 @@ class _LifecycleMixin:
         if hasattr(self, "found_loading_paths"):
             self.found_loading_paths.clear()
 
-    def clear_gallery_widgets(self):
+    def clear_gallery_widgets(self: "AbstractClassSingleGalleryHostProtocol"):
         # Clear path_to_card_widget BEFORE cancel_loading()'s DeferredDelete
         # flush, not after. cancel_loading() flushes deleteLater() calls
         # queued by an earlier, rapid directory switch -- widgets that switch
@@ -112,14 +116,15 @@ class _LifecycleMixin:
         # and safely no-ops instead.
         self.path_to_card_widget.clear()
         self.cancel_loading()
-        self._paginated_paths = []
+        self._paginated_paths: List[str] = []
 
         if not self.gallery_layout:
             return
         while self.gallery_layout.count():
             item = self.gallery_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
 
 
 __all__ = ["_LifecycleMixin", "_WORKER_DRAIN_TIMEOUT_MS"]

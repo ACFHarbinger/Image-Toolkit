@@ -11,20 +11,27 @@ import copy
 import json
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Optional, cast
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 from PySide6.QtCore import QUrl, Slot
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox, QWidget
 
 from ....components import ClickableLabel
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
 class _VideoSessionHistoryMixin:
     """Active-video-tabs bar, per-video config persistence, and the
     extraction-history JSON."""
 
-    def _save_current_video_config(self):
+    video_path: Optional[str]
+
+    def _save_current_video_config(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
 
@@ -46,7 +53,7 @@ class _VideoSessionHistoryMixin:
         }
         self.active_videos_config[self.video_path] = config
 
-    def _load_video_config(self, path: str):
+    def _load_video_config(self: "VideoExtractorSubTabHostProtocol", path: str):
         config = self.active_videos_config.get(path, {})
         if not config:
             self.clear_cuts()
@@ -95,24 +102,26 @@ class _VideoSessionHistoryMixin:
 
         self.check_mute_audio.setChecked(config.get("check_mute_audio", False))
         self.spin_gif_fps.setValue(config.get("spin_gif_fps", 24))
-        if config.get("combo_extract_size"):
-            self.combo_extract_size.setCurrentText(config.get("combo_extract_size"))
+        extract_size = config.get("combo_extract_size")
+        if extract_size:
+            self.combo_extract_size.setCurrentText(extract_size)
         self.check_extract_vertical.setChecked(
             config.get("check_extract_vertical", False)
         )
         self.spin_interval.setValue(config.get("spin_interval", 1))
         self.check_smart_extract.setChecked(config.get("check_smart_extract", False))
-        if config.get("combo_smart_method"):
-            self.combo_smart_method.setCurrentText(config.get("combo_smart_method"))
+        smart_method = config.get("combo_smart_method")
+        if smart_method:
+            self.combo_smart_method.setCurrentText(smart_method)
 
         pos = config.get("media_position", 0)
         if pos > 0 and self.media_player:
             self.media_player.setPosition(pos)
             self.slider.setValue(pos)
-            self.lbl_current_time.setText(self._format_time(pos)) # pyrefly: ignore [missing-attribute]
+            cast(QLabel, self.lbl_current_time).setText(self._format_time(pos)) # pyrefly: ignore [missing-attribute]
 
     @Slot(int)
-    def _on_active_video_tab_changed(self, index: int):
+    def _on_active_video_tab_changed(self: "VideoExtractorSubTabHostProtocol", index: int):
         if self._is_switching_tabs or index < 0:
             return
 
@@ -121,13 +130,13 @@ class _VideoSessionHistoryMixin:
             self.load_media(path)
 
     @Slot(int)
-    def _on_active_video_tab_closed(self, index: int):
+    def _on_active_video_tab_closed(self: "VideoExtractorSubTabHostProtocol", index: int):
         path = self.active_videos_tabbar.tabData(index)
 
         # Don't allow closing the last tab
         if self.active_videos_tabbar.count() <= 1:
             QMessageBox.information(
-                self, "Cannot Close", "Cannot close the last active video."
+                cast(QWidget, self), "Cannot Close", "Cannot close the last active video."
             )
             return
 
@@ -150,7 +159,7 @@ class _VideoSessionHistoryMixin:
                     self._update_source_label_style(path, label, False)
 
     @Slot(str)
-    def load_media(self, file_path: str, force: bool = False):
+    def load_media(self: "VideoExtractorSubTabHostProtocol", file_path: str, force: bool = False):
         old_path = self.video_path
 
         if old_path == file_path and not force:
@@ -228,9 +237,9 @@ class _VideoSessionHistoryMixin:
         self._start_storyboard()
 
     @Slot()
-    def browse_extraction_directory(self):
+    def browse_extraction_directory(self: "VideoExtractorSubTabHostProtocol"):
         d = QFileDialog.getExistingDirectory(
-            self, "Select Extraction Directory", self.last_browsed_extraction_dir
+            cast(QWidget, self), "Select Extraction Directory", self.last_browsed_extraction_dir
         )
         if d:
             new_path = Path(d)
@@ -245,7 +254,7 @@ class _VideoSessionHistoryMixin:
             self._load_existing_output_images()
             self._refresh_source_extracted_indicators()
 
-    def _load_extraction_history(self):
+    def _load_extraction_history(self: "VideoExtractorSubTabHostProtocol"):
         """Loads metadata for extracted frames from a central hidden JSON file."""
         history_file = IMAGE_TOOLKIT_DIR / ".extraction_history.json"
         if history_file.exists():
@@ -282,7 +291,7 @@ class _VideoSessionHistoryMixin:
         ):
             self._update_recent_extractions_ui()
 
-    def _save_extraction_history(self):
+    def _save_extraction_history(self: "VideoExtractorSubTabHostProtocol"):
         """Saves metadata for extracted frames to a central hidden JSON file."""
         history_file = IMAGE_TOOLKIT_DIR / ".extraction_history.json"
         try:
@@ -296,7 +305,7 @@ class _VideoSessionHistoryMixin:
         except Exception as e:
             print(f"Error saving extraction history: {e}")
 
-    def _record_extraction(self, file_paths: List[str], metadata: dict):
+    def _record_extraction(self: "VideoExtractorSubTabHostProtocol", file_paths: List[str], metadata: dict):
         """Records metadata for a set of extracted files using absolute paths as keys."""
         metadata = copy.deepcopy(metadata)
         # 1. Update file_map for the new files
@@ -328,7 +337,7 @@ class _VideoSessionHistoryMixin:
         self._save_extraction_history()
         self._update_recent_extractions_ui()
 
-    def _apply_new_extractions_limit(self):
+    def _apply_new_extractions_limit(self: "VideoExtractorSubTabHostProtocol"):
         """Called when the settings window updates recent_extractions_limit."""
         if hasattr(self, "recent_runs") and self.recent_runs:
             self.recent_runs = self.recent_runs[: self.recent_extractions_limit]
@@ -348,7 +357,7 @@ class _VideoSessionHistoryMixin:
             self._save_extraction_history()
             self._update_recent_extractions_ui()
 
-    def _update_recent_extractions_ui(self):
+    def _update_recent_extractions_ui(self: "VideoExtractorSubTabHostProtocol"):
         """Updates the dropdown of recent extractions in the Extract tab."""
         if self._recent_combo_connected:
             with contextlib.suppress(RuntimeError, TypeError):
@@ -390,17 +399,17 @@ class _VideoSessionHistoryMixin:
         )
         self._recent_combo_connected = True
 
-    def _on_recent_extraction_selected(self, index: int):
+    def _on_recent_extraction_selected(self: "VideoExtractorSubTabHostProtocol", index: int):
         """Enables/disables the load button based on selection."""
         if hasattr(self, "btn_load_recent") and self.btn_load_recent is not None:
             self.btn_load_recent.setEnabled(index > 0)
 
-    def _load_selected_recent_extraction(self):
+    def _load_selected_recent_extraction(self: "VideoExtractorSubTabHostProtocol"):
         """Loads the selected recent extraction configuration into the UI."""
         index = self.combo_recent_extractions.currentIndex()
         if index <= 0:
             QMessageBox.warning(
-                self, "Error", "Please select a valid configuration from the list."
+                cast(QWidget, self), "Error", "Please select a valid configuration from the list."
             )
             return
 
@@ -408,10 +417,10 @@ class _VideoSessionHistoryMixin:
         if run_data:
             self._reload_extraction(run_data)
             QMessageBox.information(
-                self, "Success", "Extraction configuration loaded successfully."
+                cast(QWidget, self), "Success", "Extraction configuration loaded successfully."
             )
 
-    def _clear_output_gallery(self):
+    def _clear_output_gallery(self: "VideoExtractorSubTabHostProtocol"):
         """Clear only the extracted-output gallery (not source media or player state)."""
         output_paths = set(self.gallery_image_paths) | set(
             self.current_extracted_paths
@@ -424,7 +433,7 @@ class _VideoSessionHistoryMixin:
         self.gallery_image_paths.clear()
         self.clear_gallery_widgets()
 
-    def _clear_gallery(self):
+    def _clear_gallery(self: "VideoExtractorSubTabHostProtocol"):
         self._clear_output_gallery()
         self._initial_pixmap_cache.clear()
         self.start_time_ms = 0

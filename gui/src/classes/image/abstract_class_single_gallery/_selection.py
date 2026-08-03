@@ -6,15 +6,20 @@ logic change.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QLabel
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
 
 
 class _SelectionMixin:
     """Selects/deselects gallery items and reports selection state."""
 
     @Slot()
-    def select_all_items(self):
+    def select_all_items(self: "AbstractClassSingleGalleryHostProtocol"):
         """Selects all items currently visible on the current page."""
         paginated_paths = self.common_get_paginated_slice(
             self.gallery_image_paths, self.current_page, self.page_size
@@ -35,7 +40,7 @@ class _SelectionMixin:
             self.on_selection_changed()
 
     @Slot()
-    def deselect_all_items(self):
+    def deselect_all_items(self: "AbstractClassSingleGalleryHostProtocol"):
         """Clears the selection."""
         if self.selected_files:
             affected_paths = list(self.selected_files)
@@ -52,7 +57,7 @@ class _SelectionMixin:
             self.on_selection_changed()
 
     @Slot(str)
-    def toggle_selection(self, path: str):
+    def toggle_selection(self: "AbstractClassSingleGalleryHostProtocol", path: str):
         """Toggle the selection state of a gallery item."""
         if path in self.selected_files:
             self.selected_files.remove(path)
@@ -69,7 +74,7 @@ class _SelectionMixin:
 
         self.on_selection_changed()
 
-    def is_path_selected(self, path: str) -> bool:
+    def is_path_selected(self: "AbstractClassSingleGalleryHostProtocol", path: str) -> bool:
         """Returns True if the given path is currently selected."""
         return path in self.selected_files
 

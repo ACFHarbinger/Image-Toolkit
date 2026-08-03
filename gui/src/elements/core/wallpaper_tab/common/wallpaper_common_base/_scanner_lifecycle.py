@@ -21,16 +21,25 @@ from __future__ import annotations
 
 import contextlib
 import threading
+from typing import Optional
 
 from backend.src.core import telemetry
-from PySide6.QtCore import QEvent
+from PySide6.QtCore import QEvent, QThread
 from PySide6.QtWidgets import QApplication
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
 
 
 class _ScannerLifecycleMixin:
     """Stop and fully drain the image scanner QThread before any teardown."""
 
-    def _stop_scanner_threads(self) -> None:
+    img_scanner_thread: Optional[QThread]
+    vid_scanner_thread: Optional[QThread]
+
+    def _stop_scanner_threads(self: "WallpaperCommonBaseHostProtocol") -> None:
         """Stop and fully drain this instance's image scanner thread.
 
         This is a bespoke QThread subclass (ImageScannerWorker), not a
@@ -98,7 +107,7 @@ class _ScannerLifecycleMixin:
         # types stopped before touching widgets.
         self._stop_vid_scanner_worker()
 
-    def _stop_vid_scanner_worker(self) -> None:
+    def _stop_vid_scanner_worker(self: "WallpaperCommonBaseHostProtocol") -> None:
         """Stop and fully drain this instance's video scanner thread.
 
         Mirrors _stop_scanner_threads() above exactly -- see its
@@ -106,21 +115,22 @@ class _ScannerLifecycleMixin:
         folded into _stop_scanner_threads()) so callers that only care
         about one worker type don't have to pay for stopping both.
         """
-        if getattr(self, "vid_scanner_thread", None) is None:
+        vid_scanner_thread = self.vid_scanner_thread
+        if vid_scanner_thread is None:
             return
-        _panel, _thread_id, _tid = id(self), id(self.vid_scanner_thread), threading.get_ident()
+        _panel, _thread_id, _tid = id(self), id(vid_scanner_thread), threading.get_ident()
         for _sig_name in ("scan_finished", "scan_error", "finished"):
             with contextlib.suppress(RuntimeError, TypeError):
-                getattr(self.vid_scanner_thread, _sig_name).disconnect()
+                getattr(vid_scanner_thread, _sig_name).disconnect()
         telemetry.emit("thread-lifecycle", "vid_thread.signals_disconnected", panel=_panel, vid_thread=_thread_id, tid=_tid)
-        if self.vid_scanner_thread.isRunning():
+        if vid_scanner_thread.isRunning():
             telemetry.emit("thread-lifecycle", "vid_thread.stop_requested", panel=_panel, vid_thread=_thread_id, tid=_tid)
-            self.vid_scanner_thread.requestInterruption()
-            self.vid_scanner_thread.quit()
+            vid_scanner_thread.requestInterruption()
+            vid_scanner_thread.quit()
             telemetry.emit("thread-lifecycle", "vid_thread.wait.start", panel=_panel, vid_thread=_thread_id, tid=_tid)
-            self.vid_scanner_thread.wait()  # unbounded
+            vid_scanner_thread.wait()  # unbounded
             telemetry.emit("thread-lifecycle", "vid_thread.wait.end", panel=_panel, vid_thread=_thread_id, tid=_tid)
-        self.vid_scanner_thread.deleteLater()
+        vid_scanner_thread.deleteLater()
         self.vid_scanner_thread = None
 
         telemetry.emit("thread-lifecycle", "vid_sendPostedEvents.DeferredDelete", panel=id(self), tid=threading.get_ident())

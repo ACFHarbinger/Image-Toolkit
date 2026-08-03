@@ -29,20 +29,33 @@ from __future__ import annotations
 
 import os
 import threading
+from typing import Any, List, Optional
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import telemetry
 from gui.src.helpers import ImageScannerWorker, VideoScannerWorker
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QThread, QTimer
 
 from ......utils.guard.startup_probe_guard import startup_settle_remaining_ms
 from ......utils.sort_utils import natural_sort_key
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
 
 
 class _ScanPipelineMixin:
     """Serialized directory-switch scan pipeline: image scan, then video scan."""
 
-    def populate_scan_image_gallery(self, directory: str, emit_signal: bool = True):
+    img_scanner_worker: Optional[Any]
+    img_scanner_thread: Optional[QThread]
+    vid_scanner_worker: Optional[Any]
+    vid_scanner_thread: Optional[QThread]
+    gallery_image_paths: List[str]
+    master_image_paths: List[str]
+
+    def populate_scan_image_gallery(self: "WallpaperCommonBaseHostProtocol", directory: str, emit_signal: bool = True):
         if getattr(self, "background_type", None) == "Solid Color":
             return
 
@@ -202,15 +215,16 @@ class _ScanPipelineMixin:
         except Exception:
             pass
 
-        self.img_scanner_worker = ImageScannerWorker(directory)
-        self.img_scanner_thread = self.img_scanner_worker
+        img_scanner_worker = ImageScannerWorker(directory)
+        self.img_scanner_worker = img_scanner_worker
+        self.img_scanner_thread = img_scanner_worker
 
         # Bind the worker instance into the connection itself (rather than
         # relying on QObject.sender() inside the slot) so a stale delivery
         # can be identified even after the sender's C++ object has already
         # been destroyed -- see _on_image_scan_finished()'s docstring.
-        self.img_scanner_worker.scan_finished.connect(
-            lambda paths, _worker=self.img_scanner_worker: self._on_image_scan_finished(
+        img_scanner_worker.scan_finished.connect(
+            lambda paths, _worker=img_scanner_worker: self._on_image_scan_finished(
                 paths, _worker
             )
         )
@@ -219,37 +233,37 @@ class _ScanPipelineMixin:
         # replaced self.img_scanner_worker; handle_scan_error() tears down
         # gallery widgets unconditionally, which would otherwise do so for
         # whatever directory is now current, not the one that actually errored.
-        self.img_scanner_worker.scan_error.connect(
-            lambda message, _worker=self.img_scanner_worker: self.handle_scan_error(message, _worker)
+        img_scanner_worker.scan_error.connect(
+            lambda message, _worker=img_scanner_worker: self.handle_scan_error(message, _worker)
         )
 
-        self.img_scanner_worker.finished.connect(self.img_scanner_worker.deleteLater)
-        self.img_scanner_worker.finished.connect(
+        img_scanner_worker.finished.connect(img_scanner_worker.deleteLater)
+        img_scanner_worker.finished.connect(
             lambda: setattr(self, "img_scanner_thread", None)
         )
         print(
-            f"[thread-lifecycle] panel={id(self):x} img_thread={id(self.img_scanner_worker):x} "
+            f"[thread-lifecycle] panel={id(self):x} img_thread={id(img_scanner_worker):x} "
             f"tid={threading.get_ident()} starting ImageScannerWorker for {directory!r}",
             flush=True,
         )
         telemetry.emit(
             "thread-lifecycle", "img_worker.start.begin",
-            panel=id(self), img_thread=id(self.img_scanner_worker),
+            panel=id(self), img_thread=id(img_scanner_worker),
             tid=threading.get_ident(), directory=directory,
         )
-        self.img_scanner_worker.start()
+        img_scanner_worker.start()
         print(
-            f"[thread-lifecycle] panel={id(self):x} img_thread={id(self.img_scanner_worker):x} "
+            f"[thread-lifecycle] panel={id(self):x} img_thread={id(img_scanner_worker):x} "
             f"start() returned",
             flush=True,
         )
         telemetry.emit(
             "thread-lifecycle", "img_worker.start.returned",
-            panel=id(self), img_thread=id(self.img_scanner_worker),
+            panel=id(self), img_thread=id(img_scanner_worker),
             tid=threading.get_ident(),
         )
 
-    def _on_image_scan_finished(self, image_paths: list, _worker=None):
+    def _on_image_scan_finished(self: "WallpaperCommonBaseHostProtocol", image_paths: list, _worker=None):
         # scan_finished is delivered via a queued cross-thread connection,
         # so it can arrive AFTER a newer populate_scan_image_gallery() call
         # already replaced self.img_scanner_worker/self.img_scanner_thread
@@ -314,32 +328,33 @@ class _ScanPipelineMixin:
 
         self._start_video_scan(self.scanned_dir)
 
-    def _start_video_scan(self, directory: str) -> None:
+    def _start_video_scan(self: "WallpaperCommonBaseHostProtocol", directory: str) -> None:
         """Second phase of the scan pipeline, run strictly after the image
         scan above has settled -- see this module's docstring."""
-        self.vid_scanner_worker = VideoScannerWorker(directory)
-        self.vid_scanner_thread = self.vid_scanner_worker
+        vid_scanner_worker = VideoScannerWorker(directory)
+        self.vid_scanner_worker = vid_scanner_worker
+        self.vid_scanner_thread = vid_scanner_worker
 
-        self.vid_scanner_worker.scan_finished.connect(
-            lambda paths, _worker=self.vid_scanner_worker: self._on_video_scan_finished(
+        vid_scanner_worker.scan_finished.connect(
+            lambda paths, _worker=vid_scanner_worker: self._on_video_scan_finished(
                 paths, _worker
             )
         )
-        self.vid_scanner_worker.scan_error.connect(
-            lambda message, _worker=self.vid_scanner_worker: self._on_video_scan_error(_worker)
+        vid_scanner_worker.scan_error.connect(
+            lambda message, _worker=vid_scanner_worker: self._on_video_scan_error(_worker)
         )
-        self.vid_scanner_worker.finished.connect(self.vid_scanner_worker.deleteLater)
-        self.vid_scanner_worker.finished.connect(
+        vid_scanner_worker.finished.connect(vid_scanner_worker.deleteLater)
+        vid_scanner_worker.finished.connect(
             lambda: setattr(self, "vid_scanner_thread", None)
         )
         telemetry.emit(
             "thread-lifecycle", "vid_worker.start.begin",
-            panel=id(self), vid_thread=id(self.vid_scanner_worker),
+            panel=id(self), vid_thread=id(vid_scanner_worker),
             tid=threading.get_ident(), directory=directory,
         )
-        self.vid_scanner_worker.start()
+        vid_scanner_worker.start()
 
-    def _on_video_scan_finished(self, video_paths: list, _worker=None) -> None:
+    def _on_video_scan_finished(self: "WallpaperCommonBaseHostProtocol", video_paths: list, _worker=None) -> None:
         # Same staleness guard as _on_image_scan_finished -- see its
         # docstring for the full rationale (identity comparison via the
         # closure-bound worker, not sender(), since a superseded worker's
@@ -368,7 +383,7 @@ class _ScanPipelineMixin:
 
         self._settle_scan_pipeline()
 
-    def _on_video_scan_error(self, _worker=None) -> None:
+    def _on_video_scan_error(self: "WallpaperCommonBaseHostProtocol", _worker=None) -> None:
         # Unlike handle_scan_error() for the image phase, a video-scan
         # error doesn't tear down gallery widgets (the image gallery is
         # already showing valid content by this point) -- just settle the
@@ -377,7 +392,7 @@ class _ScanPipelineMixin:
             return
         self._settle_scan_pipeline()
 
-    def _settle_scan_pipeline(self) -> None:
+    def _settle_scan_pipeline(self: "WallpaperCommonBaseHostProtocol") -> None:
         """Marks the current directory switch's scan pipeline as finished
         and, if a newer switch was requested while this one was still in
         flight, kicks it off now. See populate_scan_image_gallery()'s
@@ -389,7 +404,7 @@ class _ScanPipelineMixin:
             directory, emit_signal = pending
             QTimer.singleShot(0, lambda: self.populate_scan_image_gallery(directory, emit_signal))
 
-    def _scan_pipeline_watchdog(self) -> None:
+    def _scan_pipeline_watchdog(self: "WallpaperCommonBaseHostProtocol") -> None:
         """Safety net: force-clears a stuck _scan_pipeline_busy flag. Should
         never actually fire in practice (_on_image_scan_finished()/
         handle_scan_error() clear it on every real exit path from the scan

@@ -23,6 +23,7 @@ from ..settings import SettingsWindow
 from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
 from ._lifecycle import _LifecycleMixin
+from ._notify import show_main_status, show_tray_notification
 from ._save_tab_config import _SaveTabConfigMixin
 from ._session_recovery import _SessionRecoveryMixin
 from ._shortcuts import _ShortcutOverlayMixin
@@ -189,4 +190,4 @@ class MainWindow(
         self.settings_window = None
 
 
-__all__ = ["MainWindow"]
+__all__ = ["MainWindow", "show_main_status", "show_tray_notification"]

@@ -7,32 +7,39 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Slot
-from PySide6.QtGui import QResizeEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QResizeEvent, QWheelEvent
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QMessageBox, QStyle
+from PySide6.QtWidgets import QGraphicsView, QLabel, QLineEdit, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
 class _ViewControlsMixin:
     """Event filtering, view resizing/fullscreen, resolution swapping, and
     internal/external player-mode toggling."""
 
-    def eventFilter(self, watched: QObject, event: QEvent  # noqa: C901
+    def eventFilter(self: "VideoExtractorSubTabHostProtocol", watched: QObject, event: QEvent  # noqa: C901
     ) -> bool:
         if self.lbl_current_time and watched is self.lbl_current_time and event.type() == QEvent.Type.MouseButtonPress:
+                edit_current_time = cast(QLineEdit, self.edit_current_time)
                 self.lbl_current_time.hide()
-                self.edit_current_time.setText(self.lbl_current_time.text()) # pyrefly: ignore [missing-attribute]
-                self.edit_current_time.show() # pyrefly: ignore [missing-attribute]
-                self.edit_current_time.setFocus() # pyrefly: ignore [missing-attribute]
-                self.edit_current_time.selectAll() # pyrefly: ignore [missing-attribute]
+                edit_current_time.setText(self.lbl_current_time.text())
+                edit_current_time.show()
+                edit_current_time.setFocus()
+                edit_current_time.selectAll()
                 return True
 
         if self.edit_current_time and watched is self.edit_current_time:
             if event.type() == QEvent.Type.KeyPress:
-                if event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
+                if cast(QKeyEvent, event).key() == Qt.Key.Key_Escape:
                     self._cancel_time_edit()
                     return True
             elif event.type() == QEvent.Type.FocusOut:
@@ -55,7 +62,7 @@ class _ViewControlsMixin:
                 # Only perform seek logic if the video is loaded and we are in internal player mode
                 duration_ms = self.duration_ms or self.media_player.duration()
                 if self.use_internal_player and duration_ms > 0:
-                    delta = event.angleDelta().y() # pyrefly: ignore [missing-attribute]
+                    delta = cast(QWheelEvent, event).angleDelta().y()
                     # Jump by configured ms per scroll tick
                     step = self.wheel_seek_ms if delta > 0 else -self.wheel_seek_ms
                     current_pos = self.slider.value()
@@ -71,27 +78,28 @@ class _ViewControlsMixin:
             # toggle play on click
             if (
                 event.type() == QEvent.Type.MouseButtonPress
-                and event.button() == Qt.MouseButton.LeftButton # pyrefly: ignore [missing-attribute]
+                and cast(QMouseEvent, event).button() == Qt.MouseButton.LeftButton
             ):
                 self.toggle_playback()
                 return True
 
             # --- Arrow Keys for Video Seeking (When video has focus) ---
             if event.type() == QEvent.Type.KeyPress:
-                if event.key() == Qt.Key.Key_Right:# pyrefly: ignore [missing-attribute]
+                key_event = cast(QKeyEvent, event)
+                if key_event.key() == Qt.Key.Key_Right:
                     # Seek forward
                     pos = self.slider.value()
                     duration = self.duration_ms or self.media_player.duration()
                     new_pos = min(pos + self.wheel_seek_ms, duration)
                     self._seek_to(new_pos)
                     return True
-                elif event.key() == Qt.Key.Key_Left:# pyrefly: ignore [missing-attribute]
+                elif key_event.key() == Qt.Key.Key_Left:
                     # Seek backward
                     pos = self.slider.value()
                     new_pos = max(0, pos - self.wheel_seek_ms)
                     self._seek_to(new_pos)
                     return True
-                elif event.key() == Qt.Key.Key_Escape: # pyrefly: ignore [missing-attribute]
+                elif key_event.key() == Qt.Key.Key_Escape:
                     if (
                         self.player_container
                         and self.player_container.isFullScreen()
@@ -100,15 +108,15 @@ class _ViewControlsMixin:
                         return True
 
         if self.player_container and watched is self.player_container:
-            if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape and self.player_container.isFullScreen(): # pyrefly: ignore [missing-attribute]
+            if event.type() == QEvent.Type.KeyPress and cast(QKeyEvent, event).key() == Qt.Key.Key_Escape and self.player_container.isFullScreen():
                 self.toggle_fullscreen()
                 return True
-            if event.type() == QEvent.Type.Resize and self.video_view.isVisible(): # pyrefly: ignore [missing-attribute]
+            if event.type() == QEvent.Type.Resize and self.video_view and self.video_view.isVisible():
                 self.fit_video_in_view()
 
-        return super().eventFilter(watched, event)
+        return super().eventFilter(watched, event)  # type: ignore[misc]
 
-    def fit_video_in_view(self):
+    def fit_video_in_view(self: "VideoExtractorSubTabHostProtocol"):
         # Don't force video_item's lazy construction (see the property
         # above) just from a resize event before any video has actually
         # been loaded -- there's nothing to fit yet, and constructing it
@@ -116,33 +124,36 @@ class _ViewControlsMixin:
         # trigger this laziness exists to avoid.
         if self._video_item is None:
             return
-        rect = self.video_view.viewport().rect() # pyrefly: ignore [missing-attribute]
-        self.video_item.setSize(rect.size()) # pyrefly: ignore [missing-attribute]
-        self.video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio) # pyrefly: ignore [missing-attribute]
+        video_view = cast(QGraphicsView, self.video_view)
+        rect = video_view.viewport().rect()
+        self.video_item.setSize(rect.size())
+        video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
 
-    def toggle_fullscreen(self):
-        if self.player_container.isFullScreen(): # pyrefly: ignore [missing-attribute]
-            self.player_container.setWindowFlags(Qt.WindowType.Widget) # pyrefly: ignore [missing-attribute]
-            self.player_container.showNormal() # pyrefly: ignore [missing-attribute]
-            self.player_layout_container.addWidget(self.player_container) # pyrefly: ignore [missing-attribute, bad-argument-type]
-            self.change_resolution(self.combo_resolution.currentIndex()) # pyrefly: ignore [missing-attribute]
+    def toggle_fullscreen(self: "VideoExtractorSubTabHostProtocol"):
+        player_container = cast(QWidget, self.player_container)
+        video_view = cast(QWidget, self.video_view)
+        if player_container.isFullScreen():
+            player_container.setWindowFlags(Qt.WindowType.Widget)
+            player_container.showNormal()
+            self.player_layout_container.addWidget(player_container)
+            self.change_resolution(self.combo_resolution.currentIndex())
         else:
-            self.player_container.setWindowFlags(Qt.WindowType.Window) # pyrefly: ignore [missing-attribute]
-            self.player_container.showFullScreen() # pyrefly: ignore [missing-attribute]
-            self.video_view.setFixedSize(16777215, 16777215) # pyrefly: ignore [missing-attribute]
-            self.video_view.setMinimumSize(0, 0) # pyrefly: ignore [missing-attribute]
-            self.video_view.setMaximumSize(16777215, 16777215) # pyrefly: ignore [missing-attribute]
-            self.player_container.setFocus() # pyrefly: ignore [missing-attribute]
+            player_container.setWindowFlags(Qt.WindowType.Window)
+            player_container.showFullScreen()
+            video_view.setFixedSize(16777215, 16777215)  # pyrefly: ignore [missing-attribute]
+            video_view.setMinimumSize(0, 0)  # pyrefly: ignore [missing-attribute]
+            video_view.setMaximumSize(16777215, 16777215)  # pyrefly: ignore [missing-attribute]
+            player_container.setFocus()
 
     @Slot(QResizeEvent)
-    def resizeEvent(self, event: QResizeEvent):
-        super().resizeEvent(event)
-        if self.video_view.isVisible(): # pyrefly: ignore [missing-attribute]
+    def resizeEvent(self: "VideoExtractorSubTabHostProtocol", event: QResizeEvent):
+        super().resizeEvent(event)  # type: ignore[safe-super]
+        if self.video_view and self.video_view.isVisible():
             self.fit_video_in_view()
 
     @Slot(int)
-    def change_resolution(self, index: int):
-        if not self.player_container.isFullScreen() and 0 <= index < len( # pyrefly: ignore [missing-attribute]
+    def change_resolution(self: "VideoExtractorSubTabHostProtocol", index: int):
+        if not cast(QWidget, self.player_container).isFullScreen() and 0 <= index < len(
             self.available_resolutions
         ):
             w, h = self.available_resolutions[index]
@@ -150,13 +161,13 @@ class _ViewControlsMixin:
             if self.check_player_vertical.isChecked():
                 w, h = h, w
             # -----------------------------------------------------------
-            self.video_view.setFixedSize(w, h) # pyrefly: ignore [missing-attribute]
+            cast(QWidget, self.video_view).setFixedSize(w, h)  # pyrefly: ignore [missing-attribute]
             self.fit_video_in_view()
 
-    def is_path_selected(self, path: str) -> bool:
+    def is_path_selected(self: "VideoExtractorSubTabHostProtocol", path: str) -> bool:
         return path in self.selected_paths
 
-    def create_gallery_label(self, path: str, size: int) -> ClickableLabel:
+    def create_gallery_label(self: "VideoExtractorSubTabHostProtocol", path: str, size: int) -> ClickableLabel:
         clickable_label = ClickableLabel(file_path=path)
         clickable_label.setFixedSize(size, size)
         clickable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -168,11 +179,11 @@ class _ViewControlsMixin:
         return clickable_label
 
     @Slot()
-    def toggle_player_mode(self):
+    def toggle_player_mode(self: "VideoExtractorSubTabHostProtocol"):
         self.use_internal_player = not self.use_internal_player
         self._apply_player_mode()
 
-    def _apply_player_mode(self):
+    def _apply_player_mode(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
         ext = Path(self.video_path).suffix.lower()
@@ -185,7 +196,7 @@ class _ViewControlsMixin:
                 self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)
             )
             self.combo_resolution.setEnabled(True)
-            self.video_view.setVisible(True) # pyrefly: ignore [missing-attribute]
+            cast(QWidget, self.video_view).setVisible(True)
             self.btn_play.setVisible(True)
             self.btn_fullscreen.setVisible(True)
             self.lbl_vol.setVisible(True)
@@ -205,21 +216,21 @@ class _ViewControlsMixin:
             )
             self.info_label.setVisible(True)
             self.combo_resolution.setEnabled(False)
-            self.video_view.setVisible(False) # pyrefly: ignore [missing-attribute]
+            cast(QWidget, self.video_view).setVisible(False)
             self.btn_play.setVisible(False)
             self.btn_fullscreen.setVisible(False)
             self.lbl_vol.setVisible(False)
             self.volume_slider.setVisible(False)
-            self.media_player.setVideoOutput(None) # pyrefly: ignore [bad-argument-type]
-            self.media_player.setAudioOutput(None) # pyrefly: ignore [bad-argument-type]
-            self.media_player.setAudioOutput(None) # pyrefly: ignore [bad-argument-type]
+            self.media_player.setVideoOutput(None)  # type: ignore[arg-type] # pyrefly: ignore [bad-argument-type]
+            self.media_player.setAudioOutput(None)  # type: ignore[arg-type] # pyrefly: ignore [bad-argument-type]
+            self.media_player.setAudioOutput(None)  # type: ignore[arg-type] # pyrefly: ignore [bad-argument-type]
             self.media_player.pause()
 
         # Apply current speed locally
         self.update_playback_speed(self.combo_player_speed.currentText())
 
     @Slot(str)
-    def update_playback_speed(self, text: str):
+    def update_playback_speed(self: "VideoExtractorSubTabHostProtocol", text: str):
         speed_str = text.replace("x", "")
         try:
             speed = float(speed_str)
@@ -230,7 +241,7 @@ class _ViewControlsMixin:
         self.media_player.setPlaybackRate(speed)
 
     @Slot()
-    def toggle_playback(self):
+    def toggle_playback(self: "VideoExtractorSubTabHostProtocol"):
         if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.media_player.pause()
             self.btn_play.setIcon(
@@ -243,28 +254,28 @@ class _ViewControlsMixin:
             )
 
     @Slot(int)
-    def position_changed(self, position: int):
+    def position_changed(self: "VideoExtractorSubTabHostProtocol", position: int):
         self.slider.blockSignals(True)
         self.slider.setValue(position)
         self.slider.blockSignals(False)
-        self.lbl_current_time.setText(self._format_time(position)) # pyrefly: ignore [missing-attribute]
+        cast(QLabel, self.lbl_current_time).setText(self._format_time(position)) # pyrefly: ignore [missing-attribute]
 
     @Slot(int)
-    def duration_changed(self, duration: int):
+    def duration_changed(self: "VideoExtractorSubTabHostProtocol", duration: int):
         self.duration_ms = duration
         self.slider.setRange(0, duration)
         self.lbl_total_time.setText(self._format_time(duration))
 
     @Slot(int)
-    def set_position(self, position: int):
+    def set_position(self: "VideoExtractorSubTabHostProtocol", position: int):
         self._seek_to(position)
 
     @Slot(QMediaPlayer.Error, str)
-    def handle_player_error(self, error: QMediaPlayer.Error, error_string: str):
+    def handle_player_error(self: "VideoExtractorSubTabHostProtocol", error: QMediaPlayer.Error, error_string: str):
         if self.use_internal_player:
             self.btn_play.setEnabled(False)
             QMessageBox.critical(
-                self, "Video Error", f"Media Player Error: {error_string}"
+                cast(QWidget, self), "Video Error", f"Media Player Error: {error_string}"
             )
 
 

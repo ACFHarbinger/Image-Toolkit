@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, Set
+from typing import Optional, Set, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Qt, Slot
@@ -20,11 +20,16 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 from ....components import ClickableLabel
 from ....windows import ImagePreviewWindow
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
+
 
 class _GallerySelectionMixin:
     """Extracted-frame gallery card rendering, selection, and context menu."""
 
-    def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
+    def create_card_widget(self: "VideoExtractorSubTabHostProtocol", path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
@@ -38,7 +43,7 @@ class _GallerySelectionMixin:
             self._style_label(clickable_label, is_selected)
 
         # Assign custom styling method for the Base class to call
-        container.set_selected_style = apply_style  # pyrefly: ignore [missing-attribute]
+        container.set_selected_style = apply_style  # type: ignore[attr-defined] # pyrefly: ignore [missing-attribute]
 
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
@@ -73,7 +78,7 @@ class _GallerySelectionMixin:
         layout.addWidget(clickable_label)
         return container
 
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap], label_ref: QLabel | None = None):
+    def update_card_pixmap(self: "VideoExtractorSubTabHostProtocol", widget: QWidget, pixmap: Optional[QPixmap], label_ref: QLabel | None = None):
         clickable_label = widget.findChild(ClickableLabel)
         if clickable_label:
             is_video = clickable_label.path.lower().endswith(
@@ -101,7 +106,7 @@ class _GallerySelectionMixin:
                 clickable_label, selected=(clickable_label.path in self.selected_paths)
             )
 
-    def _style_label(self, label: ClickableLabel, selected: bool):
+    def _style_label(self: "VideoExtractorSubTabHostProtocol", label: ClickableLabel, selected: bool):
         is_video = label.path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
         if selected:
@@ -120,7 +125,7 @@ class _GallerySelectionMixin:
                 label.setStyleSheet("border: 1px solid #4f545c;")
 
     @Slot(str)
-    def handle_thumbnail_single_click(self, image_path: str):
+    def handle_thumbnail_single_click(self: "VideoExtractorSubTabHostProtocol", image_path: str):
         mods = QApplication.keyboardModifiers()
         is_ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
         if is_ctrl:
@@ -134,14 +139,14 @@ class _GallerySelectionMixin:
         self.update_visual_selection()
 
     @Slot(set, bool)
-    def handle_marquee_selection(self, marquee_selection: Set[str], is_ctrl: bool):
+    def handle_marquee_selection(self: "VideoExtractorSubTabHostProtocol", marquee_selection: Set[str], is_ctrl: bool):
         if is_ctrl:
             self.selected_paths.update(marquee_selection)
         else:
             self.selected_paths = marquee_selection
         self.update_visual_selection()
 
-    def update_visual_selection(self):
+    def update_visual_selection(self: "VideoExtractorSubTabHostProtocol"):
         if not self.gallery_container:
             return
         for label in self.gallery_container.findChildren(ClickableLabel):
@@ -150,11 +155,11 @@ class _GallerySelectionMixin:
                 self._style_label(label, is_selected)
 
     @Slot(str)
-    def handle_thumbnail_double_click(self, image_path: str):
+    def handle_thumbnail_double_click(self: "VideoExtractorSubTabHostProtocol", image_path: str):
         if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
             try:
                 if os.name == "nt":
-                    os.startfile(image_path)
+                    os.startfile(image_path)  # type: ignore[attr-defined]
                 else:
                     subprocess.Popen(
                         ["xdg-open", image_path],
@@ -184,7 +189,7 @@ class _GallerySelectionMixin:
         window = ImagePreviewWindow(
             image_path=image_path,
             db_tab_ref=None,
-            parent=self,
+            parent=cast(QWidget, self),
             all_paths=all_paths_list,
             start_index=start_index,
         )
@@ -194,13 +199,13 @@ class _GallerySelectionMixin:
         self.open_preview_windows.append(window)
 
     @Slot(QPoint, str)
-    def show_image_context_menu(self, global_pos: QPoint, path: str):
+    def show_image_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, path: str):
         if path not in self.selected_paths:
             self.selected_paths = {path}
             self.update_visual_selection()
 
         count = len(self.selected_paths)
-        menu = QMenu(self)
+        menu = QMenu(cast(QWidget, self))
 
         # Extraction History Actions
         abs_path = str(Path(path).absolute())
@@ -208,19 +213,19 @@ class _GallerySelectionMixin:
         if metadata:
             menu.addSection("🎬 Extraction Source")
 
-            jump_start_act = QAction("Jump to Start", self)
+            jump_start_act = QAction("Jump to Start", cast(QWidget, self))
             jump_start_act.triggered.connect(
                 lambda: self._jump_to_extraction_start(metadata)
             )
             menu.addAction(jump_start_act)
 
-            jump_end_act = QAction("Jump to End", self)
+            jump_end_act = QAction("Jump to End", cast(QWidget, self))
             jump_end_act.triggered.connect(
                 lambda: self._jump_to_extraction_end(metadata)
             )
             menu.addAction(jump_end_act)
 
-            reload_act = QAction("♻️ Reload Extraction Params", self)
+            reload_act = QAction("♻️ Reload Extraction Params", cast(QWidget, self))
             reload_act.setToolTip(
                 "Sets player time, cuts, and engine configs to match this run."
             )
@@ -230,7 +235,7 @@ class _GallerySelectionMixin:
             menu.addSeparator()
 
         if count == 1 and not path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-            view_action = QAction("View Full Size", self)
+            view_action = QAction("View Full Size", cast(QWidget, self))
             view_action.triggered.connect(
                 lambda: self.handle_thumbnail_double_click(path)
             )
@@ -238,12 +243,12 @@ class _GallerySelectionMixin:
             menu.addSeparator()
 
         del_text = f"Delete {count} Items" if count > 1 else "Delete Item"
-        delete_action = QAction(del_text, self)
+        delete_action = QAction(del_text, cast(QWidget, self))
         delete_action.triggered.connect(self.delete_selected_images)
         menu.addAction(delete_action)
         menu.exec(global_pos)
 
-    def _jump_to_extraction_start(self, metadata: dict):
+    def _jump_to_extraction_start(self: "VideoExtractorSubTabHostProtocol", metadata: dict):
         video_path = metadata.get("video_path")
         if video_path and os.path.exists(video_path):
             if video_path != self.video_path:
@@ -251,7 +256,7 @@ class _GallerySelectionMixin:
             self.media_player.setPosition(metadata.get("start_ms", 0))
             self.media_player.pause()
 
-    def _jump_to_extraction_end(self, metadata: dict):
+    def _jump_to_extraction_end(self: "VideoExtractorSubTabHostProtocol", metadata: dict):
         video_path = metadata.get("video_path")
         if video_path and os.path.exists(video_path):
             if video_path != self.video_path:
@@ -259,7 +264,7 @@ class _GallerySelectionMixin:
             self.media_player.setPosition(metadata.get("end_ms", 0))
             self.media_player.pause()
 
-    def _reload_extraction(self, metadata: dict):
+    def _reload_extraction(self: "VideoExtractorSubTabHostProtocol", metadata: dict):
         video_path = metadata.get("video_path")
         if video_path and os.path.exists(video_path) and video_path != self.video_path:
             self.load_media(video_path)
@@ -296,7 +301,7 @@ class _GallerySelectionMixin:
         self.extraction_status_label.setText("Reloaded extraction parameters.")
         self.extraction_status_label.show()
 
-    def delete_selected_images(self):
+    def delete_selected_images(self: "VideoExtractorSubTabHostProtocol"):
         if not self.selected_paths:
             return
 
@@ -308,7 +313,7 @@ class _GallerySelectionMixin:
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
 
         confirm = QMessageBox.question(
-            self,
+            cast(QWidget, self),
             f"Confirm {action_name}",
             f"Are you sure you want to move {len(self.selected_paths)} items to {action_name}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -342,9 +347,9 @@ class _GallerySelectionMixin:
 
             self.selected_paths.clear()
 
-            if layout_changed:
+            if layout_changed and self.gallery_layout is not None:
                 for widget in widgets_to_delete:
-                    self.gallery_layout.removeWidget(widget) # pyrefly: ignore [missing-attribute]
+                    self.gallery_layout.removeWidget(widget)
                     widget.deleteLater()
 
                 cols = self.common_calculate_columns(
@@ -354,9 +359,9 @@ class _GallerySelectionMixin:
                 self._update_pagination_ui()
 
             if failed:
-                QMessageBox.warning(self, "Partial Deletion Failure", "\n".join(failed))
+                QMessageBox.warning(cast(QWidget, self), "Partial Deletion Failure", "\n".join(failed))
 
-    def delete_image(self, path: str):
+    def delete_image(self: "VideoExtractorSubTabHostProtocol", path: str):
         if path not in self.selected_paths:
             self.selected_paths = {path}
         self.delete_selected_images()

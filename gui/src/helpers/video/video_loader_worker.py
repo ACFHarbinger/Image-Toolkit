@@ -33,6 +33,11 @@ class VideoLoaderWorker(QRunnable):
     non-Qt-managed threads.
     """
 
+    # Set externally by callers that track cancellation generations (e.g.
+    # AbstractClassSingleGallery._trigger_video_load) -- not assigned in
+    # __init__ since not every caller needs it.
+    load_generation: int
+
     def __init__(self, path: str, target_size: int, crop_square: bool = False):
         super().__init__()
         self.path = path

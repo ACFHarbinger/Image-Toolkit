@@ -14,12 +14,17 @@ from PySide6.QtWidgets import QApplication
 from ....utils.sort_utils import natural_sort_key
 from ...mixins import compute_reordered
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
+
 
 class _SelectionOpsMixin:
     """Select-all/deselect-all, single-click toggle, and marquee selection."""
 
     @Slot()
-    def select_all_items(self):
+    def select_all_items(self: "AbstractClassTwoGalleriesHostProtocol"):
         """Selects all items currently visible on the current page."""
         # Calculate the slice for the current page using the common helper
         current_page_paths = self.common_get_paginated_slice(
@@ -38,7 +43,7 @@ class _SelectionOpsMixin:
             self.on_selection_changed()
 
     @Slot()
-    def deselect_all_items(self):
+    def deselect_all_items(self: "AbstractClassTwoGalleriesHostProtocol"):
         """Clears the selection."""
         if self.selected_files:
             self.selected_files.clear()
@@ -46,7 +51,7 @@ class _SelectionOpsMixin:
             self._update_found_card_styles()
             self.on_selection_changed()
 
-    def _update_found_card_styles(self):
+    def _update_found_card_styles(self: "AbstractClassTwoGalleriesHostProtocol"):
         """Helper to re-evaluate and apply style to all currently loaded/visible found cards."""
         for path, widget in self.path_to_label_map.items():
             if widget:
@@ -54,7 +59,7 @@ class _SelectionOpsMixin:
                 self.update_card_style(widget, is_selected)
 
     @Slot(str)
-    def toggle_selection(self, path: str):
+    def toggle_selection(self: "AbstractClassTwoGalleriesHostProtocol", path: str):
         try:
             index = self.selected_files.index(path)
             self.selected_files.pop(index)
@@ -75,7 +80,7 @@ class _SelectionOpsMixin:
         self.refresh_selected_panel()
         self.on_selection_changed()
 
-    def reorder_selected(self, dragged_path: str, target_path: str) -> None:
+    def reorder_selected(self: "AbstractClassTwoGalleriesHostProtocol", dragged_path: str, target_path: str) -> None:
         """Drag-and-drop callback: move ``dragged_path`` to sit before ``target_path``."""
         self.selected_files = compute_reordered(
             self.selected_files, dragged_path, target_path
@@ -83,7 +88,7 @@ class _SelectionOpsMixin:
         self.refresh_selected_panel()
         self.on_selection_changed()
 
-    def handle_marquee_selection(self, paths_from_marquee: set, is_ctrl_pressed: bool):
+    def handle_marquee_selection(self: "AbstractClassTwoGalleriesHostProtocol", paths_from_marquee: set, is_ctrl_pressed: bool):
         # Check for Shift modifier explicitly
         modifiers = QApplication.keyboardModifiers()
         is_shift_pressed = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
@@ -115,7 +120,7 @@ class _SelectionOpsMixin:
         self.refresh_selected_panel()
         self.on_selection_changed()
 
-    def is_path_selected(self, path: str) -> bool:
+    def is_path_selected(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> bool:
         """Returns True if the given path is currently selected."""
         return path in self.selected_files
 

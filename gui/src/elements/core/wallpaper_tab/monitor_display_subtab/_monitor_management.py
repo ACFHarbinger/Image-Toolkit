@@ -6,18 +6,25 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from PySide6.QtCore import QTimer, Slot
 from screeninfo import Monitor
 
 from ..graph.data_schema import GraphData
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
+
 
 class _MonitorManagementMixin:
     """Update the monitor list and react to monitor selection changes."""
 
-    def update_monitors(self, monitors: List[Monitor]):
+    _current_monitor_id: Optional[str]
+
+    def update_monitors(self: "MonitorDisplaySubTabHostProtocol", monitors: List[Monitor]):
         self._monitors = monitors
         self.monitors = monitors
         self.populate_monitor_layout()
@@ -30,8 +37,8 @@ class _MonitorManagementMixin:
         else:
             self._stack.setCurrentIndex(0)
 
-    def populate_monitor_layout(self):
-        super().populate_monitor_layout()
+    def populate_monitor_layout(self: "MonitorDisplaySubTabHostProtocol"):
+        super().populate_monitor_layout()  # type: ignore[safe-super]
 
         # If we have a system display reference, sync the images to our newly created widgets!
         if hasattr(self, "_system_display_ref") and self._system_display_ref:
@@ -46,7 +53,7 @@ class _MonitorManagementMixin:
             self.monitor_widgets[self._current_monitor_id].set_selected(True)
 
     @Slot(str)
-    def _on_monitor_selected(self, monitor_id: str):
+    def _on_monitor_selected(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str):
         self._current_monitor_id = monitor_id
         if monitor_id not in self._graphs:
             self._graphs[monitor_id] = GraphData()

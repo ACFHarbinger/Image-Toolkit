@@ -14,18 +14,26 @@ import time
 from typing import Dict, Optional
 
 from backend.src.constants import DAEMON_CONFIG_PATH
-from PySide6.QtCore import QTimer, Slot
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtCore import QObject, QTimer, Slot
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .....styles import STYLE_STOP_ACTION
 from ._video_duration import _get_video_duration, _is_video
+
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
 class _SlideshowMixin:
     """Start/stop/cycle the local slideshow timer and update its countdown label."""
 
+    slideshow_timer: Optional[QTimer]
+    countdown_timer: Optional[QTimer]
+
     @Slot()
-    def handle_set_wallpaper_click(self):
+    def handle_set_wallpaper_click(self: "SystemDisplaySubTabHostProtocol"):
         if self.background_type == "Solid Color":
             if self.current_wallpaper_worker:
                 self.stop_wallpaper_worker()
@@ -44,7 +52,7 @@ class _SlideshowMixin:
                 self.run_wallpaper_worker()
 
     def _compute_video_runtime_interval_sec(
-        self, monitor_paths: Optional[Dict[str, Optional[str]]] = None
+        self: "SystemDisplaySubTabHostProtocol", monitor_paths: Optional[Dict[str, Optional[str]]] = None
     ) -> Optional[int]:
         """Longest duration among the currently displayed videos across
         monitors, so no monitor's video gets cut off early. Returns None
@@ -64,10 +72,10 @@ class _SlideshowMixin:
         return max(1, round(max(durations)))
 
     @Slot()
-    def start_slideshow(self):
+    def start_slideshow(self: "SystemDisplaySubTabHostProtocol"):
         if self._is_daemon_running_config():
             QMessageBox.warning(
-                self,
+                cast(QWidget, self),
                 "Daemon Conflict",
                 "The background slideshow daemon is currently running. "
                 "Please stop it before starting a local slideshow to avoid double-transitions.",
@@ -77,7 +85,7 @@ class _SlideshowMixin:
         num_monitors = len(self.monitor_widgets)
         if self.background_type == "Solid Color":
             QMessageBox.warning(
-                self,
+                cast(QWidget, self),
                 "Slideshow Error",
                 "Slideshow is disabled when Solid Color mode is selected.",
             )
@@ -85,12 +93,12 @@ class _SlideshowMixin:
         is_ready, total_images = self._is_slideshow_validation_ready()
         if num_monitors == 0:
             QMessageBox.warning(
-                self, "Slideshow Error", "No monitors detected or configured."
+                cast(QWidget, self), "Slideshow Error", "No monitors detected or configured."
             )
             return
         if not is_ready:
             QMessageBox.critical(
-                self,
+                cast(QWidget, self),
                 "Slideshow Error",
                 "To start the slideshow, at least one monitor must have images dropped on it.",
             )
@@ -113,7 +121,7 @@ class _SlideshowMixin:
         )
         if not use_video_runtime and self.interval_sec <= 0:
             QMessageBox.critical(
-                self,
+                cast(QWidget, self),
                 "Slideshow Error",
                 "Slideshow interval must be greater than 0 seconds.",
             )
@@ -124,22 +132,24 @@ class _SlideshowMixin:
             self.interval_sec = max(self.interval_sec, 1)
         interval_ms = self.interval_sec * 1000
         self.time_remaining_sec = self.interval_sec
-        self.slideshow_timer = QTimer(self)
-        self.slideshow_timer.timeout.connect(self._cycle_slideshow_wallpaper)
-        self.slideshow_timer.start(interval_ms)
-        self.countdown_timer = QTimer(self)
-        self.countdown_timer.timeout.connect(self.update_countdown)
-        self.countdown_timer.start(1000)
+        slideshow_timer = QTimer(cast(QObject, self))
+        self.slideshow_timer = slideshow_timer
+        slideshow_timer.timeout.connect(self._cycle_slideshow_wallpaper)
+        slideshow_timer.start(interval_ms)
+        countdown_timer = QTimer(cast(QObject, self))
+        self.countdown_timer = countdown_timer
+        countdown_timer.timeout.connect(self.update_countdown)
+        countdown_timer.start(1000)
         if use_video_runtime:
             QMessageBox.information(
-                self,
+                cast(QWidget, self),
                 "Slideshow Started",
                 f"Per-monitor slideshow started with {total_images} total items, "
                 "cycling at each video's own runtime.",
             )
         else:
             QMessageBox.information(
-                self,
+                cast(QWidget, self),
                 "Slideshow Started",
                 f"Per-monitor slideshow started with {total_images} total items, cycling every {interval_minutes} minutes and {interval_seconds} seconds.",
             )
@@ -148,7 +158,7 @@ class _SlideshowMixin:
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
 
-    def update_countdown(self):
+    def update_countdown(self: "SystemDisplaySubTabHostProtocol"):
         if self.time_remaining_sec % 5 == 0 or self.time_remaining_sec <= 0:
             try:
                 if self._is_daemon_running_config():
@@ -181,13 +191,13 @@ class _SlideshowMixin:
                 self.time_remaining_sec = self.interval_sec
 
     @Slot()
-    def stop_slideshow(self):
+    def stop_slideshow(self: "SystemDisplaySubTabHostProtocol"):
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.slideshow_timer.stop()
             self.slideshow_timer.deleteLater()
             self.slideshow_timer = None
             QMessageBox.information(
-                self, "Slideshow Stopped", "Wallpaper slideshow stopped."
+                cast(QWidget, self), "Slideshow Stopped", "Wallpaper slideshow stopped."
             )
 
         if self.countdown_timer and self.countdown_timer.isActive() and not self._is_daemon_running_config():
@@ -199,7 +209,7 @@ class _SlideshowMixin:
         self.check_all_monitors_set()
 
     @Slot()
-    def skip_current_wallpapers(self):
+    def skip_current_wallpapers(self: "SystemDisplaySubTabHostProtocol"):
         if self.background_type == "Solid Color":
             return
 
@@ -225,7 +235,7 @@ class _SlideshowMixin:
                 self.update_countdown()
 
     @Slot()
-    def _cycle_slideshow_wallpaper(self, increment: bool = True):  # noqa: C901
+    def _cycle_slideshow_wallpaper(self: "SystemDisplaySubTabHostProtocol", increment: bool = True):  # noqa: C901
         monitor_ids = list(self.monitor_widgets.keys())
         if not monitor_ids:
             return
@@ -329,7 +339,7 @@ class _SlideshowMixin:
             self.time_remaining_sec = self.interval_sec
         except Exception as e:
             QMessageBox.critical(
-                self, "Slideshow Cycle Error", f"Failed to cycle wallpaper: {str(e)}"
+                cast(QWidget, self), "Slideshow Cycle Error", f"Failed to cycle wallpaper: {str(e)}"
             )
             self.stop_slideshow()
 

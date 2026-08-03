@@ -8,23 +8,31 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
+from typing import Any, Optional, cast
 
 from PySide6.QtCore import QThreadPool, Slot
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QFileDialog, QWidget
 
 from ....helpers import FrameExtractionWorker
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
 class _QmlHandlersMixin:
     """QML bridge slots for the Video subtab."""
 
+    active_extraction_worker: Optional[Any]
+
     @Slot(str)
-    def browse_source_qml(self, current_path=""):
+    def browse_source_qml(self: "VideoExtractorSubTabHostProtocol", current_path=""):
         starting_dir = (
             current_path if os.path.isdir(current_path) else self.last_browsed_scan_dir
         )
         d = QFileDialog.getExistingDirectory(
-            self, "Select Source Directory", starting_dir
+            cast(QWidget, self), "Select Source Directory", starting_dir
         )
         if d:
             self.line_edit_dir.setText(d)  # Sync widget
@@ -40,7 +48,7 @@ class _QmlHandlersMixin:
         return ""
 
     @Slot(str, int)
-    def extract_single_frame_qml(self, video_path, timestamp_ms):
+    def extract_single_frame_qml(self: "VideoExtractorSubTabHostProtocol", video_path, timestamp_ms):
         """Extracts a single frame at the given timestamp (ms)."""
         if not video_path or not os.path.exists(video_path):
             self.qml_extraction_status.emit("Error: Video not found")
@@ -58,7 +66,7 @@ class _QmlHandlersMixin:
             lambda: self._quick_extract(video_path, timestamp_ms, str(out_path))
         )
 
-    def _quick_extract(self, vid_path, ms, out_path):
+    def _quick_extract(self: "VideoExtractorSubTabHostProtocol", vid_path, ms, out_path):
         try:
             t_start = ms / 1000.0
 
@@ -92,7 +100,7 @@ class _QmlHandlersMixin:
             self.qml_extraction_status.emit(f"Error: {e}")
 
     @Slot(str, int, int, int)
-    def extract_range_qml(self, video_path, start_ms, end_ms, fps):
+    def extract_range_qml(self: "VideoExtractorSubTabHostProtocol", video_path, start_ms, end_ms, fps):
         """Extracts frames in range."""
         if not video_path or not os.path.exists(video_path):
             self.qml_extraction_status.emit("Error: Invalid video")

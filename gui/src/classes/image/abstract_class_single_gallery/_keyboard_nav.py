@@ -6,13 +6,18 @@ logic change.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent
+from typing import TYPE_CHECKING
+
+from PySide6.QtGui import QKeyEvent
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
 
 
 class _KeyboardNavMixin:
     """Arrow-key focus movement and the top-level keyPressEvent dispatcher."""
 
-    def _navigate_gallery(self, key) -> None:
+    def _navigate_gallery(self: "AbstractClassSingleGalleryHostProtocol", key) -> None:
         """Move the gallery focus cursor with arrow keys (§2.3A)."""
         from PySide6.QtCore import Qt as _Qt
         page_paths = self.common_get_paginated_slice(
@@ -35,7 +40,7 @@ class _KeyboardNavMixin:
         self._focused_idx = idx
         self._highlight_focused(page_paths, idx)
 
-    def _highlight_focused(self, page_paths: list, idx: int) -> None:
+    def _highlight_focused(self: "AbstractClassSingleGalleryHostProtocol", page_paths: list, idx: int) -> None:
         target_path = page_paths[idx] if 0 <= idx < len(page_paths) else None
         if target_path is None:
             return
@@ -45,7 +50,7 @@ class _KeyboardNavMixin:
             if self.gallery_scroll_area:
                 self.gallery_scroll_area.ensureWidgetVisible(widget)
 
-    def _preview_focused_item(self) -> None:
+    def _preview_focused_item(self: "AbstractClassSingleGalleryHostProtocol") -> None:
         """Open a preview for the keyboard-focused gallery item."""
         page_paths = self.common_get_paginated_slice(
             self.gallery_image_paths, self.current_page, self.page_size
@@ -58,7 +63,7 @@ class _KeyboardNavMixin:
                 widget.path_double_clicked.emit(path)
 
     # --- KEYBOARD SHORTCUTS (GUI/UX §2.29 — registry-driven) ---
-    def keyPressEvent(self, event: QEvent):
+    def keyPressEvent(self: "AbstractClassSingleGalleryHostProtocol", event: QKeyEvent):
         from PySide6.QtCore import Qt as _Qt
 
         from ....utils.manager.shortcut_manager import get_registry
@@ -95,7 +100,7 @@ class _KeyboardNavMixin:
             self._rename_selected_file()
             event.accept()
         else:
-            super().keyPressEvent(event) # pyrefly: ignore [bad-argument-type]
+            super().keyPressEvent(event)  # type: ignore[misc,safe-super] # pyrefly: ignore [bad-argument-type]
 
 
 __all__ = ["_KeyboardNavMixin"]

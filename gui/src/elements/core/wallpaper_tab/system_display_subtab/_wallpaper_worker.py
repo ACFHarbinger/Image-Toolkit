@@ -7,20 +7,27 @@ change (see ``_ui_builder.py``'s docstring).
 from __future__ import annotations
 
 import platform
-from typing import Dict, Optional
+from typing import Dict, Optional, cast
 
 from backend.src.core import WallpaperManager
 from PySide6.QtCore import QThreadPool, Slot
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from .....helpers import ImageScannerWorker, WallpaperWorker
 from .....styles import STYLE_START_ACTION, STYLE_STOP_ACTION
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
 class _WallpaperWorkerMixin:
     """Run/stop the wallpaper-setting worker; lock/unlock UI; handle results."""
 
-    def run_wallpaper_worker(self, slideshow_mode=False):  # noqa: C901
+    current_wallpaper_worker: Optional[WallpaperWorker]
+
+    def run_wallpaper_worker(self: "SystemDisplaySubTabHostProtocol", slideshow_mode=False):  # noqa: C901
         if self.current_wallpaper_worker:
             print("Wallpaper worker is already running.")
             return
@@ -38,7 +45,7 @@ class _WallpaperWorkerMixin:
             if not any(self.monitor_image_paths.values()):
                 if not slideshow_mode:
                     QMessageBox.warning(
-                        self,
+                        cast(QWidget, self),
                         "Incomplete",
                         "No images/videos have been dropped on the monitors.",
                     )
@@ -46,7 +53,7 @@ class _WallpaperWorkerMixin:
 
             if ImageScannerWorker is None:
                 QMessageBox.warning(
-                    self,
+                        cast(QWidget, self),
                     "Missing Helpers",
                     "The ImageScannerWorker or ImageLoaderWorker could not be imported.",
                 )
@@ -94,31 +101,28 @@ class _WallpaperWorkerMixin:
         if not slideshow_mode:
             self.lock_ui_for_wallpaper()
 
-        self.current_wallpaper_worker = WallpaperWorker(
+        worker = WallpaperWorker(
             final_path_map,
             monitors,
             self.qdbus,
             wallpaper_style=style_to_use,
         )
-        self.current_wallpaper_worker.signals.status_update.connect(
-            self.handle_wallpaper_status
-        )
-        self.current_wallpaper_worker.signals.work_finished.connect(
-            self.handle_wallpaper_finished
-        )
-        self.current_wallpaper_worker.signals.work_finished.connect(
+        self.current_wallpaper_worker = worker
+        worker.signals.status_update.connect(self.handle_wallpaper_status)
+        worker.signals.work_finished.connect(self.handle_wallpaper_finished)
+        worker.signals.work_finished.connect(
             lambda: setattr(self, "current_wallpaper_worker", None)
         )
-        QThreadPool.globalInstance().start(self.current_wallpaper_worker)
+        QThreadPool.globalInstance().start(worker)
 
-    def stop_wallpaper_worker(self):
+    def stop_wallpaper_worker(self: "SystemDisplaySubTabHostProtocol"):
         if self.current_wallpaper_worker:
             self.current_wallpaper_worker.stop()
             self.handle_wallpaper_status("Manual stop requested.")
             self.unlock_ui_for_wallpaper()
             self.current_wallpaper_worker = None
 
-    def lock_ui_for_wallpaper(self):
+    def lock_ui_for_wallpaper(self: "SystemDisplaySubTabHostProtocol"):
         self.set_wallpaper_btn.setText("Applying (Click to Stop)")
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
@@ -133,7 +137,7 @@ class _WallpaperWorkerMixin:
             widget.setEnabled(False)
         QApplication.processEvents()
 
-    def unlock_ui_for_wallpaper(self):
+    def unlock_ui_for_wallpaper(self: "SystemDisplaySubTabHostProtocol"):
         self.set_wallpaper_btn.setText("Set Wallpaper")
         self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
         self.slideshow_group.setEnabled(True)
@@ -150,22 +154,23 @@ class _WallpaperWorkerMixin:
         QApplication.processEvents()
 
     @Slot(str)
-    def handle_wallpaper_status(self, msg: str):
+    def handle_wallpaper_status(self: "SystemDisplaySubTabHostProtocol", msg: str):
         print(f"[WallpaperWorker] {msg}")
 
     @Slot(bool, str)
-    def handle_wallpaper_finished(self, success: bool, message: str):
+    def handle_wallpaper_finished(self: "SystemDisplaySubTabHostProtocol", success: bool, message: str):
         is_slideshow_active = self.slideshow_timer and self.slideshow_timer.isActive()
         if success:
             if not is_slideshow_active and self.background_type != "Solid Color":
-                QMessageBox.information(self, "Success", "Wallpaper has been updated!")
+                QMessageBox.information(
+                        cast(QWidget, self), "Success", "Wallpaper has been updated!")
                 for monitor_id, path in self.monitor_image_paths.items():
                     if path and monitor_id in self.monitor_widgets:
                         thumb = self._get_or_generate_thumbnail(path)
                         self.monitor_widgets[monitor_id].set_image(path, thumb)
             elif self.background_type == "Solid Color":
                 QMessageBox.information(
-                    self,
+                        cast(QWidget, self),
                     "Success",
                     f"Solid color background set to {self.solid_color_hex}!",
                 )
@@ -176,12 +181,12 @@ class _WallpaperWorkerMixin:
                     self.stop_slideshow()
                 else:
                     QMessageBox.critical(
-                        self, "Error", f"Failed to set wallpaper:\n{message}"
+                        cast(QWidget, self), "Error", f"Failed to set wallpaper:\n{message}"
                     )
         if not is_slideshow_active:
             self.unlock_ui_for_wallpaper()
 
-    def _apply_vault_slideshow_defaults(self):
+    def _apply_vault_slideshow_defaults(self: "SystemDisplaySubTabHostProtocol"):
         main_win = self.window()
         if not (main_win and hasattr(main_win, "cached_creds")):
             return

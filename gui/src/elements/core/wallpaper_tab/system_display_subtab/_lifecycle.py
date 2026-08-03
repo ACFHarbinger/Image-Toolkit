@@ -8,16 +8,21 @@ from __future__ import annotations
 
 import contextlib
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
+
 
 class _LifecycleMixin:
     """Override WallpaperCommonBase hooks with SystemDisplaySubTab-specific cleanup."""
 
-    def populate_monitor_layout(self):
-        super().populate_monitor_layout()
+    def populate_monitor_layout(self: "SystemDisplaySubTabHostProtocol"):
+        super().populate_monitor_layout()  # type: ignore[safe-super]
         self.check_all_monitors_set()
 
-    def cancel_loading(self):
-        super().cancel_loading()
+    def cancel_loading(self: "SystemDisplaySubTabHostProtocol"):
+        super().cancel_loading()  # type: ignore[safe-super]
 
         if self.img_scanner_worker:
             with contextlib.suppress(Exception):

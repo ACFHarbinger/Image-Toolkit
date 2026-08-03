@@ -7,17 +7,22 @@ logic change (see ``_navigation.py``'s docstring).
 from __future__ import annotations
 
 import math
-from typing import Optional
+from typing import Optional, cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QWidget
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
+
 
 class _PaginationMixin:
     """Build pagination controls for both galleries and drive page/thumb changes."""
 
-    def create_pagination_controls(self, is_found_gallery: bool) -> QWidget:
+    def create_pagination_controls(self: "AbstractClassTwoGalleriesHostProtocol", is_found_gallery: bool) -> QWidget:
         """Creates pagination using shared logic, then binds contextual signals."""
         container, controls = self.common_create_pagination_ui()
 
@@ -71,7 +76,7 @@ class _PaginationMixin:
 
         return container
 
-    def _on_page_size_changed(self, text: str, is_found: bool):
+    def _on_page_size_changed(self: "AbstractClassTwoGalleriesHostProtocol", text: str, is_found: bool):
         size = 999999 if text == "All" else int(text)
         if is_found:
             self.found_page_size = size
@@ -82,7 +87,7 @@ class _PaginationMixin:
             self.selected_current_page = 0
             self.refresh_selected_panel()
 
-    def _on_thumb_slider_changed(self, value: int, is_found: bool) -> None:
+    def _on_thumb_slider_changed(self: "AbstractClassTwoGalleriesHostProtocol", value: int, is_found: bool) -> None:
         """Live thumbnail resize via slider (§4.11). Snaps to nearest 16px step."""
         snapped = max(64, min(512, (value // 16) * 16))
         if snapped == self.thumbnail_size:
@@ -94,7 +99,7 @@ class _PaginationMixin:
         self._on_layout_change()
         self._recreate_galleries_on_zoom()
 
-    def _change_page(self, delta: int, is_found: bool):
+    def _change_page(self: "AbstractClassTwoGalleriesHostProtocol", delta: int, is_found: bool):
         if is_found:
             total = len(self.found_files)
             max_p = math.ceil(total / self.found_page_size) - 1
@@ -110,7 +115,7 @@ class _PaginationMixin:
                 self.selected_current_page = new_p
                 self.refresh_selected_panel()
 
-    def _jump_to_page(self, page_index: int, is_found: bool):
+    def _jump_to_page(self: "AbstractClassTwoGalleriesHostProtocol", page_index: int, is_found: bool):
         if is_found:
             if page_index != self.found_current_page:
                 self.found_current_page = page_index
@@ -120,7 +125,7 @@ class _PaginationMixin:
                 self.selected_current_page = page_index
                 self.refresh_selected_panel()
 
-    def _update_pagination_ui(self, is_found: bool, mode: Optional[str] = "scan"):
+    def _update_pagination_ui(self: "AbstractClassTwoGalleriesHostProtocol", is_found: bool, mode: Optional[str] = "scan"):
         if is_found:
             if not hasattr(self, "found_page_button"):
                 return
@@ -172,7 +177,7 @@ class _PaginationMixin:
             old_menu.deleteLater()
 
         # Update Menu
-        menu = QMenu(self)
+        menu = QMenu(cast(QWidget, self))
         for i in range(total_pages):
             action = QAction(f"Page {i + 1}", menu)  # Parent to menu instead of self
             action.setCheckable(True)

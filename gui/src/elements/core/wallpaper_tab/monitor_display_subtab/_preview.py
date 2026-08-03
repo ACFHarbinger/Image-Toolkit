@@ -11,30 +11,37 @@ import platform
 import shutil
 import subprocess
 import tempfile
-from typing import List, Tuple
+from typing import List, Optional, Tuple, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QTimer, Slot
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 from ._traversal import _build_traversal
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
 class _PreviewMixin:
     """Generate + open a temporary concatenated preview video of the graph traversal."""
 
+    _preview_tmp_dir: "Optional[str]"
+
     @Slot()
-    def _preview_timelapse(self):
+    def _preview_timelapse(self: "MonitorDisplaySubTabHostProtocol"):
         graph = self._current_graph()
         if graph is None:
             return
         seq = _build_traversal(graph)
         if not seq:
-            QMessageBox.information(self, "Empty Sequence",
+            QMessageBox.information(cast(QWidget, self), "Empty Sequence",
                                     "Add nodes and edges to build a sequence before previewing.")
             return
         if not shutil.which("ffmpeg"):
-            QMessageBox.warning(self, "ffmpeg Not Found",
+            QMessageBox.warning(cast(QWidget, self), "ffmpeg Not Found",
                                 "ffmpeg must be installed to generate a preview video.\n"
                                 "Install it via your package manager (e.g. sudo apt install ffmpeg).")
             return
@@ -43,14 +50,14 @@ class _PreviewMixin:
         if self._preview_tmp_dir and os.path.isdir(self._preview_tmp_dir):
             shutil.rmtree(self._preview_tmp_dir, ignore_errors=True)
 
-        self._preview_tmp_dir = tempfile.mkdtemp(prefix="wallpaper_preview_")
-        tmp = self._preview_tmp_dir
+        tmp = tempfile.mkdtemp(prefix="wallpaper_preview_")
+        self._preview_tmp_dir = tmp
 
         self._btn_preview.setText("Generating…")
         self._btn_preview.setEnabled(False)
         QTimer.singleShot(0, lambda: self._generate_preview(seq, tmp))
 
-    def _generate_preview(self, seq: List[Tuple[str, float]], tmp: str):
+    def _generate_preview(self: "MonitorDisplaySubTabHostProtocol", seq: List[Tuple[str, float]], tmp: str):
         try:
             concat_list = os.path.join(tmp, "concat.txt")
             segment_paths = []
@@ -100,12 +107,12 @@ class _PreviewMixin:
 
             self._open_file(out_path)
         except Exception as e:
-            QMessageBox.critical(self, "Preview Error", f"Failed to generate preview:\n{e}")
+            QMessageBox.critical(cast(QWidget, self), "Preview Error", f"Failed to generate preview:\n{e}")
         finally:
             self._btn_preview.setText("▶ Preview Timelapse")
             self._btn_preview.setEnabled(True)
 
-    def _open_file(self, path: str):
+    def _open_file(self: "MonitorDisplaySubTabHostProtocol", path: str):
         sys_name = platform.system()
         try:
             if sys_name == "Windows":
@@ -118,7 +125,7 @@ class _PreviewMixin:
                 subprocess.Popen(["xdg-open", path],
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
-            QMessageBox.warning(self, "Open Error", f"Could not open preview:\n{path}\n{e}")
+            QMessageBox.warning(cast(QWidget, self), "Open Error", f"Could not open preview:\n{path}\n{e}")
 
 
 __all__ = ["_PreviewMixin"]

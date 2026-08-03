@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, cast
 
-from PySide6.QtCore import QPoint, Qt, Slot
+from PySide6.QtCore import QObject, QPoint, Qt, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -44,12 +44,25 @@ from ....helpers.video.storyboard import (
 )
 from ....utils.sort_utils import natural_sort_key
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
+
 
 class _MediaPlayerMixin:
     """Lazy QMediaPlayer/QGraphicsVideoItem, slider seeking, and storyboard
     scrub-preview drag handling."""
 
-    def _build_player_section(self) -> None:
+    video_view: Optional[QGraphicsView]
+    player_container: Optional[QWidget]
+    lbl_current_time: Optional[QLabel]
+    edit_current_time: Optional[QLineEdit]
+    _storyboard_builder: Optional[StoryboardBuilder]
+    _storyboard_meta: Optional[StoryboardMeta]
+    _scrub_popup: Optional[ScrubPreviewPopup]
+
+    def _build_player_section(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Builds "3. Video Player Section" and adds it to self.main_layout."""
         self.video_container_widget = QWidget()
         video_container_layout = QVBoxLayout(self.video_container_widget)
@@ -78,9 +91,10 @@ class _MediaPlayerMixin:
         player_group = QGroupBox("Video Player")
         self.player_layout_container = QVBoxLayout(player_group)
 
-        self.player_container = QWidget()
-        self.player_container.setStyleSheet("background-color: #2b2d31;")
-        self.player_inner_layout = QVBoxLayout(self.player_container)
+        player_container = QWidget()
+        self.player_container = player_container
+        player_container.setStyleSheet("background-color: #2b2d31;")
+        self.player_inner_layout = QVBoxLayout(player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
         # QGraphicsVideoItem() is constructed lazily (see the video_item
@@ -93,26 +107,27 @@ class _MediaPlayerMixin:
         # See .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
         # Addendum 14.
         self._video_item: Optional[QGraphicsVideoItem] = None
-        self.graphics_scene = QGraphicsScene(self)
+        self.graphics_scene = QGraphicsScene(cast(QObject, self))
 
-        self.video_view = QGraphicsView(self.graphics_scene)
-        self.video_view.setFixedSize(1920, 1080)
-        self.video_view.setHorizontalScrollBarPolicy(
+        video_view = QGraphicsView(self.graphics_scene)
+        self.video_view = video_view
+        video_view.setFixedSize(1920, 1080)
+        video_view.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.video_view.setVerticalScrollBarPolicy(
+        video_view.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.video_view.setVisible(True)
+        video_view.setVisible(True)
 
         # Install event filters on the view AND its viewport for robust wheel capture
-        self.video_view.installEventFilter(self)
-        self.video_view.viewport().installEventFilter(self)
-        self.video_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.video_view.customContextMenuRequested.connect(self.show_video_context_menu)
+        video_view.installEventFilter(cast(QObject, self))
+        video_view.viewport().installEventFilter(cast(QObject, self))
+        video_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        video_view.customContextMenuRequested.connect(self.show_video_context_menu)
 
         self.player_inner_layout.addWidget(
-            self.video_view, 1, Qt.AlignmentFlag.AlignCenter
+            video_view, 1, Qt.AlignmentFlag.AlignCenter
         )
 
         # QMediaPlayer/QAudioOutput are constructed lazily (see the
@@ -190,20 +205,22 @@ class _MediaPlayerMixin:
         )
         self.volume_slider.setVisible(True)
 
-        self.lbl_current_time = QLabel("00:00:000")
-        self.lbl_current_time.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.lbl_current_time.setToolTip("Click to jump to time")
-        self.lbl_current_time.installEventFilter(self)
+        lbl_current_time = QLabel("00:00:000")
+        self.lbl_current_time = lbl_current_time
+        lbl_current_time.setCursor(Qt.CursorShape.PointingHandCursor)
+        lbl_current_time.setToolTip("Click to jump to time")
+        lbl_current_time.installEventFilter(cast(QObject, self))
 
-        self.edit_current_time = QLineEdit()
-        self.edit_current_time.setFixedWidth(85)
-        self.edit_current_time.setVisible(False)
-        self.edit_current_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.edit_current_time.setStyleSheet(
+        edit_current_time = QLineEdit()
+        self.edit_current_time = edit_current_time
+        edit_current_time.setFixedWidth(85)
+        edit_current_time.setVisible(False)
+        edit_current_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        edit_current_time.setStyleSheet(
             "QLineEdit { background-color: #1e1f22; color: #00BCD4; border: 1px solid #4f545c; border-radius: 4px; font-family: monospace; }"
         )
-        self.edit_current_time.returnPressed.connect(self._jump_to_edited_time)
-        self.edit_current_time.installEventFilter(self)
+        edit_current_time.returnPressed.connect(self._jump_to_edited_time)
+        edit_current_time.installEventFilter(cast(QObject, self))
 
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
@@ -226,8 +243,8 @@ class _MediaPlayerMixin:
         controls_layout.addWidget(self.lbl_vol)
         controls_layout.addWidget(self.volume_slider)
         controls_layout.addWidget(self.btn_play)
-        controls_layout.addWidget(self.lbl_current_time)
-        controls_layout.addWidget(self.edit_current_time)
+        controls_layout.addWidget(lbl_current_time)
+        controls_layout.addWidget(edit_current_time)
         controls_layout.addWidget(self.slider)
         controls_layout.addWidget(self.lbl_total_time)
         controls_layout.addWidget(self.btn_fullscreen)
@@ -260,29 +277,29 @@ class _MediaPlayerMixin:
         self.storyboard_progress_bar.hide()
         self.player_inner_layout.addWidget(self.storyboard_progress_bar)
 
-        self.player_layout_container.addWidget(self.player_container)
-        self.player_container.installEventFilter(self)
+        self.player_layout_container.addWidget(player_container)
+        player_container.installEventFilter(cast(QObject, self))
 
         video_container_layout.addWidget(player_group)
         self.main_layout.addWidget(self.video_container_widget)
         self.video_container_widget.setVisible(False)
 
     @property
-    def video_item(self) -> QGraphicsVideoItem:
+    def video_item(self: "VideoExtractorSubTabHostProtocol") -> QGraphicsVideoItem:
         if self._video_item is None:
             self._video_item = QGraphicsVideoItem()
             self.graphics_scene.addItem(self._video_item)
         return self._video_item
 
     @property
-    def audio_output(self) -> QAudioOutput:
+    def audio_output(self: "VideoExtractorSubTabHostProtocol") -> QAudioOutput:
         if self._audio_output is None:
             self._audio_output = QAudioOutput()
             self._audio_output.setVolume(0.0)
         return self._audio_output
 
     @property
-    def media_player(self) -> QMediaPlayer:
+    def media_player(self: "VideoExtractorSubTabHostProtocol") -> QMediaPlayer:
         if self._media_player is None:
             self._media_player = QMediaPlayer()
             self._media_player.setAudioOutput(self.audio_output)
@@ -292,7 +309,7 @@ class _MediaPlayerMixin:
             self._media_player.errorOccurred.connect(self.handle_player_error)
         return self._media_player
 
-    def cancel_loading(self):
+    def cancel_loading(self: "VideoExtractorSubTabHostProtocol"):
         """Stops all active media players, timers, and background workers.
 
         Deliberately does NOT stop the storyboard scrub-preview builder: the
@@ -306,7 +323,7 @@ class _MediaPlayerMixin:
         Storyboard teardown is handled explicitly by load_media() (on actual
         video switch) and closeEvent() (on tab close) instead.
         """
-        super().cancel_loading()
+        super().cancel_loading()  # type: ignore[safe-super]
 
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
@@ -318,13 +335,13 @@ class _MediaPlayerMixin:
                 win.close()
         self.open_preview_windows.clear()
 
-    def closeEvent(self, event):
+    def closeEvent(self: "VideoExtractorSubTabHostProtocol", event):
         """Cleanup processes on close."""
         self.cancel_loading()
         self._stop_storyboard()
-        super().closeEvent(event)
+        super().closeEvent(event)  # type: ignore[misc,safe-super]
 
-    def _load_existing_output_images(self):
+    def _load_existing_output_images(self: "VideoExtractorSubTabHostProtocol"):
         valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".mp4"}
         found_paths = []
 
@@ -343,7 +360,7 @@ class _MediaPlayerMixin:
             )
 
     @Slot()
-    def _on_slider_pressed(self):
+    def _on_slider_pressed(self: "VideoExtractorSubTabHostProtocol"):
         self._slider_scrubbing = True
         self.media_player.pause()
         self.btn_play.setIcon(
@@ -352,19 +369,19 @@ class _MediaPlayerMixin:
         self._update_drag_preview(self.slider.value())
 
     @Slot(int)
-    def _on_slider_value_changed(self, position: int):
+    def _on_slider_value_changed(self: "VideoExtractorSubTabHostProtocol", position: int):
         if self.slider.isSliderDown():
             self._update_drag_preview(position)
 
     @Slot()
-    def set_position_on_release(self):
+    def set_position_on_release(self: "VideoExtractorSubTabHostProtocol"):
         self._slider_scrubbing = False
         self._drag_settle_timer.stop()
         self._hide_scrub_popup()
         self._seek_to(self.slider.value())
 
     @Slot()
-    def _on_drag_settled(self):
+    def _on_drag_settled(self: "VideoExtractorSubTabHostProtocol"):
         """Fires ~200ms after the last drag tick, while the slider is still
         held down. Commits the real player frame without waiting for the
         user to actually release -- matches how a paused pointer hovering a
@@ -374,7 +391,7 @@ class _MediaPlayerMixin:
             return
         self._seek_to(self.slider.value())
 
-    def _seek_to(self, position_ms: int):
+    def _seek_to(self: "VideoExtractorSubTabHostProtocol", position_ms: int):
         """Seeks the real player to position_ms immediately. Used by every
         seek trigger except an active slider drag -- a drag instead shows a
         storyboard preview via _update_drag_preview() and only ever calls
@@ -384,23 +401,23 @@ class _MediaPlayerMixin:
         self.slider.blockSignals(True)
         self.slider.setValue(position_ms)
         self.slider.blockSignals(False)
-        self.lbl_current_time.setText(self._format_time(position_ms)) # pyrefly: ignore [missing-attribute]
+        cast(QLabel, self.lbl_current_time).setText(self._format_time(position_ms)) # pyrefly: ignore [missing-attribute]
         self.media_player.setPosition(position_ms)
 
     # --- Storyboard drag-scrub preview ---
 
-    def _stop_storyboard(self):
+    def _stop_storyboard(self: "VideoExtractorSubTabHostProtocol"):
         if self._storyboard_builder is not None:
             self._storyboard_builder.cancel()
             self._storyboard_builder.wait(1000)
             self._storyboard_builder.deleteLater()
             self._storyboard_builder = None
-        self._storyboard_pages = []
+        self._storyboard_pages: List[QPixmap] = []
         self._storyboard_meta = None
         self._hide_scrub_popup()
         self.storyboard_progress_bar.hide()
 
-    def _start_storyboard(self):
+    def _start_storyboard(self: "VideoExtractorSubTabHostProtocol"):
         self._stop_storyboard()
         if not self.video_path or not self.use_internal_player:
             return
@@ -422,17 +439,19 @@ class _MediaPlayerMixin:
         self.storyboard_progress_bar.show()
         self._storyboard_builder.start()
 
-    def _load_storyboard_cache(self):
-        meta_path = storyboard_meta_path_for(self.video_path) # pyrefly: ignore [bad-argument-type]
+    def _load_storyboard_cache(self: "VideoExtractorSubTabHostProtocol"):
+        if not self.video_path:
+            return
+        meta_path = storyboard_meta_path_for(self.video_path)
         self._on_storyboard_ready(str(meta_path))
 
     @Slot(int, int)
-    def _on_storyboard_progress(self, elapsed_ms: int, duration_ms: int):
+    def _on_storyboard_progress(self: "VideoExtractorSubTabHostProtocol", elapsed_ms: int, duration_ms: int):
         self.storyboard_progress_bar.setMaximum(max(duration_ms, 1))
         self.storyboard_progress_bar.setValue(elapsed_ms)
 
     @Slot(str)
-    def _on_storyboard_ready(self, meta_path: str):
+    def _on_storyboard_ready(self: "VideoExtractorSubTabHostProtocol", meta_path: str):
         self.storyboard_progress_bar.hide()
         try:
             meta = StoryboardMeta.load(Path(meta_path))
@@ -455,14 +474,14 @@ class _MediaPlayerMixin:
         self._storyboard_builder = None
 
     @Slot(str)
-    def _on_storyboard_failed(self, message: str):
+    def _on_storyboard_failed(self: "VideoExtractorSubTabHostProtocol", message: str):
         # Silent: the drag preview simply won't appear for this video, but
         # dragging still works (it just commits real frames on pause/
         # release, same as if the storyboard were never attempted).
         self.storyboard_progress_bar.hide()
         self._storyboard_builder = None
 
-    def _ensure_scrub_popup(self) -> ScrubPreviewPopup:
+    def _ensure_scrub_popup(self: "VideoExtractorSubTabHostProtocol") -> ScrubPreviewPopup:
         # Parented to the tab's top-level window (not `self`): Wayland
         # compositors ignore a client's attempt to freely reposition a
         # top-level window (confirmed empirically -- .move() on one is
@@ -476,14 +495,17 @@ class _MediaPlayerMixin:
         if self._scrub_popup is None or self._scrub_popup.parentWidget() is not top_level:
             if self._scrub_popup is not None:
                 self._scrub_popup.deleteLater()
-            self._scrub_popup = ScrubPreviewPopup(top_level)
-        return self._scrub_popup
+            popup = ScrubPreviewPopup(top_level)
+            self._scrub_popup = popup
+        else:
+            popup = self._scrub_popup
+        return popup
 
-    def _hide_scrub_popup(self):
+    def _hide_scrub_popup(self: "VideoExtractorSubTabHostProtocol"):
         if self._scrub_popup is not None:
             self._scrub_popup.hide_popup()
 
-    def _slider_handle_local_pos(self) -> QPoint:
+    def _slider_handle_local_pos(self: "VideoExtractorSubTabHostProtocol") -> QPoint:
         """The slider's current handle position, mapped into the top-level
         window's local coordinate space (see _ensure_scrub_popup for why
         this can't be a screen-global point)."""
@@ -492,7 +514,7 @@ class _MediaPlayerMixin:
         local_x = int(frac * self.slider.width())
         return self.slider.mapTo(self.window(), QPoint(local_x, 0))
 
-    def _update_drag_preview(self, position_ms: int):
+    def _update_drag_preview(self: "VideoExtractorSubTabHostProtocol", position_ms: int):
         """Called on every slider tick while actively dragging. Never
         touches QMediaPlayer or the video surface -- only crops the
         pre-generated storyboard sprite sheet (cheap pixmap slicing, no
@@ -502,7 +524,7 @@ class _MediaPlayerMixin:
         self.slider.blockSignals(True)
         self.slider.setValue(position_ms)
         self.slider.blockSignals(False)
-        self.lbl_current_time.setText(self._format_time(position_ms)) # pyrefly: ignore [missing-attribute]
+        cast(QLabel, self.lbl_current_time).setText(self._format_time(position_ms)) # pyrefly: ignore [missing-attribute]
 
         if self._storyboard_pages and self._storyboard_meta is not None:
             page_index, x, y, w, h = self._storyboard_meta.tile_location_for(position_ms)

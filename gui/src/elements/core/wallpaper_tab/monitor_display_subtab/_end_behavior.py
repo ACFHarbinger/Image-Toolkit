@@ -6,10 +6,18 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 
 from __future__ import annotations
 
+from typing import cast
+
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QWidget
 
 from ..graph.data_schema import GraphData
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
 class _EndBehaviorMixin:
@@ -23,7 +31,7 @@ class _EndBehaviorMixin:
         "jump_to",
     ]
 
-    def _sync_end_behavior_ui(self, graph: GraphData):
+    def _sync_end_behavior_ui(self: "MonitorDisplaySubTabHostProtocol", graph: GraphData):
         try:
             idx = self._END_KEYS.index(graph.end_behavior)
         except ValueError:
@@ -36,7 +44,7 @@ class _EndBehaviorMixin:
         self._on_end_behavior_changed(idx)
 
     @Slot(int)
-    def _on_end_behavior_changed(self, idx: int):
+    def _on_end_behavior_changed(self: "MonitorDisplaySubTabHostProtocol", idx: int):
         is_color = idx == 1
         is_jump = idx == 4
         self._end_color_preview.setVisible(is_color)
@@ -47,7 +55,7 @@ class _EndBehaviorMixin:
         if graph:
             self._read_end_behavior_to_graph(graph)
 
-    def _read_end_behavior_to_graph(self, graph: GraphData):
+    def _read_end_behavior_to_graph(self: "MonitorDisplaySubTabHostProtocol", graph: GraphData):
         idx = self._end_combo.currentIndex()
         graph.end_behavior = self._END_KEYS[idx] if 0 <= idx < len(self._END_KEYS) else "repeat_graph"
         graph.end_color = self._end_color_current
@@ -55,10 +63,10 @@ class _EndBehaviorMixin:
             data = self._end_jump_combo.currentData()
             graph.end_jump_node_id = data if data else None
 
-    def _pick_end_color(self):
+    def _pick_end_color(self: "MonitorDisplaySubTabHostProtocol"):
         initial = QColor(self._end_color_current)
         from PySide6.QtWidgets import QColorDialog
-        col = QColorDialog.getColor(initial, self, "Pick End Color")
+        col = QColorDialog.getColor(initial, cast(QWidget, self), "Pick End Color")
         if col.isValid():
             self._end_color_current = col.name().upper()
             self._refresh_end_color_preview()
@@ -66,12 +74,12 @@ class _EndBehaviorMixin:
             if graph:
                 graph.end_color = self._end_color_current
 
-    def _refresh_end_color_preview(self):
+    def _refresh_end_color_preview(self: "MonitorDisplaySubTabHostProtocol"):
         self._end_color_preview.setStyleSheet(
             f"background-color:{self._end_color_current}; border:1px solid #4f545c;"
         )
 
-    def _update_end_jump_combo(self):
+    def _update_end_jump_combo(self: "MonitorDisplaySubTabHostProtocol"):
         self._end_jump_combo.blockSignals(True)
         self._end_jump_combo.clear()
         graph = self._current_graph()

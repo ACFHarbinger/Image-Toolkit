@@ -7,20 +7,25 @@ change (see ``_monitor_selection.py``'s docstring).
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, cast
 
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import QMenu, QMessageBox
+from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
 from shiboken6 import Shiboken as sip
 
 from ......windows import SlideshowQueueWindow
 from ...graph.data_schema import GraphData
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
+
 
 class _MonitorContextMixin:
     """Double-click Wallpaper Queue window; right-click monitor context menu."""
 
-    def handle_monitor_double_click(self, monitor_id: str):
+    def handle_monitor_double_click(self: "WallpaperCommonBaseHostProtocol", monitor_id: str):
         bg_type = getattr(self, "background_type", "Image")
         if bg_type == "Solid Color":
             return
@@ -65,12 +70,12 @@ class _MonitorContextMixin:
             ]
             event.accept()
 
-        window.closeEvent = remove_closed_win
+        window.closeEvent = remove_closed_win  # type: ignore[method-assign]
         window.show()
         self.open_queue_windows.append(window)
 
     @Slot(str, QMenu)
-    def on_monitor_context_menu(self, monitor_id: str, menu: QMenu):
+    def on_monitor_context_menu(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, menu: QMenu):
         if self._current_monitor_id == monitor_id:
             unselect_action = menu.addAction("Unselect Display")
             unselect_action.triggered.connect(lambda: self._select_monitor(monitor_id))
@@ -124,9 +129,9 @@ class _MonitorContextMixin:
             lambda _, m=monitor_id: self.clear_monitor_graph(m)
         )
 
-    def clear_monitor_graph(self, monitor_id: str):
+    def clear_monitor_graph(self: "WallpaperCommonBaseHostProtocol", monitor_id: str):
         reply = QMessageBox.question(
-            self, "Clear Graph",
+            cast(QWidget, self), "Clear Graph",
             f"Are you sure you want to clear the graph for Monitor {monitor_id}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
@@ -139,7 +144,7 @@ class _MonitorContextMixin:
         else:
             self.clear_monitor_graph_direct(monitor_id)
 
-    def clear_monitor_graph_direct(self, monitor_id: str):
+    def clear_monitor_graph_direct(self: "WallpaperCommonBaseHostProtocol", monitor_id: str):
         if hasattr(self, "_graphs"):
             self._graphs[monitor_id] = GraphData()
             if self._current_monitor_id == monitor_id and hasattr(self, "_scene"):

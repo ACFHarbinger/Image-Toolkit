@@ -12,13 +12,18 @@ from typing import Mapping, Optional, Tuple, Union, cast
 from backend.src.constants import WALLPAPER_STYLES
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QColorDialog
+from PySide6.QtWidgets import QColorDialog, QWidget
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
 class _StyleSelectorsMixin:
     """Resolve platform-relevant styles and wire the style/background-type combos."""
 
-    def _get_relevant_styles(self) -> Mapping[str, Optional[Union[str, int, Tuple[str, str]]]]:
+    def _get_relevant_styles(self: "SystemDisplaySubTabHostProtocol") -> Mapping[str, Optional[Union[str, int, Tuple[str, str]]]]:
         system = platform.system()
         if system == "Windows":
             return cast(Mapping[str, Optional[Union[str, int, Tuple[str, str]]]], WALLPAPER_STYLES["Windows"])
@@ -31,21 +36,21 @@ class _StyleSelectorsMixin:
             return {"Default (System)": None}
 
     @Slot(str)
-    def _update_wallpaper_style(self, style_name: str):
+    def _update_wallpaper_style(self: "SystemDisplaySubTabHostProtocol", style_name: str):
         self.wallpaper_style = style_name
 
     @Slot(str)
-    def _update_video_style(self, style_name: str):
+    def _update_video_style(self: "SystemDisplaySubTabHostProtocol", style_name: str):
         self.video_style = style_name
 
     @Slot(bool)
-    def _on_video_runtime_interval_toggled(self, checked: bool):
+    def _on_video_runtime_interval_toggled(self: "SystemDisplaySubTabHostProtocol", checked: bool):
         self.interval_min_spinbox.setEnabled(not checked)
         self.interval_sec_spinbox.setEnabled(not checked)
         self._sync_daemon_config()
 
     @Slot(str)
-    def _update_background_type(self, type_name: str):
+    def _update_background_type(self: "SystemDisplaySubTabHostProtocol", type_name: str):
         self.background_type = type_name
 
         is_solid_color = type_name == "Solid Color"
@@ -96,10 +101,10 @@ class _StyleSelectorsMixin:
         self.check_all_monitors_set()
 
     @Slot()
-    def select_solid_color(self):
+    def select_solid_color(self: "SystemDisplaySubTabHostProtocol"):
         initial_color = QColor(self.solid_color_hex)
         color = QColorDialog.getColor(
-            initial_color, self, "Select Solid Background Color"
+            initial_color, cast(QWidget, self), "Select Solid Background Color"
         )
         if color.isValid():
             self.solid_color_hex = color.name().upper()

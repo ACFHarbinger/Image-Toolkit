@@ -11,6 +11,7 @@ import copy
 import os
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import QPoint, Qt, QThreadPool, Slot
 from PySide6.QtWidgets import (
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -31,13 +33,18 @@ from PySide6.QtWidgets import (
 from ....components import ClickableLabel, MarqueeScrollArea
 from ....helpers.core.queue_execution_worker import QueueExecutionWorker
 
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
+
 
 class _QueueManagementMixin:
     """Extraction queue management and the Results Gallery / Queue section."""
 
-    def _build_results_section(self) -> None:
+    active_queue_worker: Optional[QueueExecutionWorker]
+
+    def _build_results_section(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Builds "5. Results Gallery Section" and adds it to self.main_layout."""
-        self.gallery_scroll_area = MarqueeScrollArea()
+        self.gallery_scroll_area: Optional[QScrollArea] = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True) # pyrefly: ignore [missing-attribute]
         self.gallery_scroll_area.setStyleSheet( # pyrefly: ignore [missing-attribute]
             """
@@ -88,7 +95,7 @@ class _QueueManagementMixin:
         self.gallery_container = QWidget()
         self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
 
-        self.gallery_layout = QGridLayout(self.gallery_container)
+        self.gallery_layout: Optional[QGridLayout] = QGridLayout(self.gallery_container)
         self.gallery_layout.setAlignment( # pyrefly: ignore [missing-attribute]
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
         )
@@ -151,14 +158,14 @@ class _QueueManagementMixin:
         self.main_layout.addWidget(self.extraction_status_label)
 
     @Slot()
-    def clear_queue(self):
+    def clear_queue(self: "VideoExtractorSubTabHostProtocol"):
         self.extraction_queue.clear()
         self._update_queue_ui()
         self.extraction_status_label.setText("Queue cleared.")
         self.extraction_status_label.show()
 
     @Slot(QPoint)
-    def show_queue_context_menu(self, pos: QPoint):
+    def show_queue_context_menu(self: "VideoExtractorSubTabHostProtocol", pos: QPoint):
         item = self.queue_list.itemAt(pos)
         if not item:
             return
@@ -166,7 +173,7 @@ class _QueueManagementMixin:
         if idx < 0 or idx >= len(self.extraction_queue):
             return
 
-        menu = QMenu(self)
+        menu = QMenu(cast(QWidget, self))
         menu.setStyleSheet(
             "QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }"
         )
@@ -179,21 +186,21 @@ class _QueueManagementMixin:
         elif action == remove_action:
             self.remove_queue_item(idx)
 
-    def remove_queue_item(self, idx: int):
+    def remove_queue_item(self: "VideoExtractorSubTabHostProtocol", idx: int):
         if 0 <= idx < len(self.extraction_queue):
             self.extraction_queue.pop(idx)
             self._update_queue_ui()
             self.extraction_status_label.setText("Removed item from queue.")
             self.extraction_status_label.show()
 
-    def load_extraction_config(self, idx: int):  # noqa: C901
+    def load_extraction_config(self: "VideoExtractorSubTabHostProtocol", idx: int):  # noqa: C901
         if idx < 0 or idx >= len(self.extraction_queue):
             return
         item = self.extraction_queue[idx]
         v_path = item.get("video_path")
         if not v_path or not os.path.exists(v_path):
             QMessageBox.warning(
-                self, "File Not Found", f"The video file '{v_path}' no longer exists."
+                cast(QWidget, self), "File Not Found", f"The video file '{v_path}' no longer exists."
             )
             return
 
@@ -222,8 +229,9 @@ class _QueueManagementMixin:
         # Load interval/smart extract
         self.spin_interval.setValue(item.get("frame_interval", 1))
         self.check_smart_extract.setChecked(item.get("smart_extract", False))
-        if item.get("smart_method"):
-            self.combo_smart_method.setCurrentText(item.get("smart_method"))
+        smart_method = item.get("smart_method")
+        if smart_method:
+            self.combo_smart_method.setCurrentText(smart_method)
 
         # Target resolution
         target_res = item.get("target_resolution")
@@ -273,7 +281,7 @@ class _QueueManagementMixin:
         if self.start_time_ms > 0 and self.media_player:
             self.media_player.setPosition(self.start_time_ms)
             self.slider.setValue(self.start_time_ms)
-            self.lbl_current_time.setText(self._format_time(self.start_time_ms)) # pyrefly: ignore [missing-attribute]
+            cast(QLabel, self.lbl_current_time).setText(self._format_time(self.start_time_ms)) # pyrefly: ignore [missing-attribute]
 
         # Update active video config dictionary so switching tabs doesn't lose it
         config = self.active_videos_config.get(v_path, {})
@@ -294,7 +302,7 @@ class _QueueManagementMixin:
         )
         self.extraction_status_label.show()
 
-    def _update_queue_ui(self):
+    def _update_queue_ui(self: "VideoExtractorSubTabHostProtocol"):
         self.queue_list.clear()
         for idx, item in enumerate(self.extraction_queue):
             v_name = Path(item["video_path"]).name
@@ -315,7 +323,7 @@ class _QueueManagementMixin:
         self.btn_process_queue.setEnabled(enabled)
         self.btn_clear_queue.setEnabled(enabled)
 
-    def _on_queue_reordered(self) -> None:
+    def _on_queue_reordered(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Drag-and-drop (InternalMove) callback: resync extraction_queue's
         processing order from the list widget's new visual order, then
         re-run _update_queue_ui to refresh the "n." position captions."""
@@ -325,12 +333,12 @@ class _QueueManagementMixin:
         ]
         self._update_queue_ui()
 
-    def _on_queue_toggle_changed(self):
+    def _on_queue_toggle_changed(self: "VideoExtractorSubTabHostProtocol"):
         if hasattr(self, "queue_group"):
             self.queue_group.setVisible(self.extraction_queue_enabled)
 
     @Slot()
-    def process_queue(self):
+    def process_queue(self: "VideoExtractorSubTabHostProtocol"):
         if not self.extraction_queue:
             return
 
@@ -346,23 +354,20 @@ class _QueueManagementMixin:
         self.extraction_status_label.setText(f"Processing queue ({mode})...")
         self.extraction_status_label.show()
 
-        self.active_queue_worker = QueueExecutionWorker(
-            self.extraction_queue, parallel=is_parallel
-        )
-        self.active_queue_worker.signals.progress.connect(self._on_queue_progress)
-        self.active_queue_worker.signals.finished.connect(
-            self._on_queue_processing_finished
-        )
-        self.active_queue_worker.signals.error.connect(self._on_queue_processing_error)
+        worker = QueueExecutionWorker(self.extraction_queue, parallel=is_parallel)
+        self.active_queue_worker = worker
+        worker.signals.progress.connect(self._on_queue_progress)
+        worker.signals.finished.connect(self._on_queue_processing_finished)
+        worker.signals.error.connect(self._on_queue_processing_error)
 
-        QThreadPool.globalInstance().start(self.active_queue_worker)
+        QThreadPool.globalInstance().start(worker)
 
     @Slot(int, int)
-    def _on_queue_progress(self, completed: int, total: int):
+    def _on_queue_progress(self: "VideoExtractorSubTabHostProtocol", completed: int, total: int):
         self.extraction_progress_bar.setMaximum(max(total, 1))
         self.extraction_progress_bar.setValue(completed)
 
-    def _on_queue_processing_finished(self, results):
+    def _on_queue_processing_finished(self: "VideoExtractorSubTabHostProtocol", results):
         self.active_queue_worker = None
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
@@ -399,18 +404,18 @@ class _QueueManagementMixin:
 
         if errors:
             QMessageBox.warning(
-                self,
+                cast(QWidget, self),
                 "Queue Extraction Completed with Errors",
                 "Processed queue items. Errors encountered:\n" + "\n".join(errors),
             )
         else:
             QMessageBox.information(
-                self,
+                cast(QWidget, self),
                 "Success",
                 f"Queue execution complete! Processed all items. Extracted {len(new_paths)} items.",
             )
 
-    def _on_queue_processing_error(self, error_msg):
+    def _on_queue_processing_error(self: "VideoExtractorSubTabHostProtocol", error_msg):
         self.active_queue_worker = None
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
@@ -420,7 +425,7 @@ class _QueueManagementMixin:
         self.combo_queue_mode.setEnabled(True)
 
         if "cancelled" not in error_msg.lower():
-            QMessageBox.warning(self, "Queue Processing Error", error_msg)
+            QMessageBox.warning(cast(QWidget, self), "Queue Processing Error", error_msg)
 
 
 __all__ = ["_QueueManagementMixin"]

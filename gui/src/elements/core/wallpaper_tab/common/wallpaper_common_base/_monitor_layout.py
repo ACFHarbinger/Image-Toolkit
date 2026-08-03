@@ -11,16 +11,21 @@ from pathlib import Path
 from typing import Any, Dict, Optional, cast
 
 from backend.src.core import WallpaperManager
-from PySide6.QtWidgets import QLabel, QMessageBox
+from PySide6.QtWidgets import QLabel, QMessageBox, QWidget
 from screeninfo import get_monitors
 
 from ......components import MonitorDropView
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
 
 
 class _MonitorLayoutMixin:
     """Detect system monitors and rebuild the monitor-drop-widget layout."""
 
-    def populate_monitor_layout(self):  # noqa: C901
+    def populate_monitor_layout(self: "WallpaperCommonBaseHostProtocol"):  # noqa: C901
         self.monitor_layout_container.clear_widgets()
         self.monitor_widgets.clear()
         system_monitors = []
@@ -29,7 +34,7 @@ class _MonitorLayoutMixin:
             system_monitors = sorted(system_monitors, key=lambda m: m.x)
             self.monitors = system_monitors
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not get monitor info: {e}")
+            QMessageBox.critical(cast(QWidget, self), "Error", f"Could not get monitor info: {e}")
             self.monitors = []
 
         if not self.monitors or not self.monitors[0].name or "Mock" in self.monitors[0].name:
@@ -120,13 +125,13 @@ class _MonitorLayoutMixin:
 
         self.monitors_updated.emit(self.monitors)
 
-    def _get_rotated_map_for_ui(self, raw_paths: Dict[str, str | None]) -> Dict[str, str | None]:
+    def _get_rotated_map_for_ui(self: "WallpaperCommonBaseHostProtocol", raw_paths: Dict[str, str | None]) -> Dict[str, str | None]:
         mapped = {}
         for idx, path in raw_paths.items():
             mapped[idx] = path
         return mapped
 
-    def _get_current_system_image_paths_for_all(self) -> Dict[str, Optional[str]]:
+    def _get_current_system_image_paths_for_all(self: "WallpaperCommonBaseHostProtocol") -> Dict[str, Optional[str]]:
         system = platform.system()
         num_monitors = len(self.monitors)
         current_paths: Dict[str, Optional[str]] = {}

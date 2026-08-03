@@ -6,14 +6,20 @@ logic change (see ``_navigation.py``'s docstring).
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, Qt
+from typing import TYPE_CHECKING
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeyEvent
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
 
 
 class _KeyboardNavMixin:
     """§2.29 registry-driven shortcuts and arrow-key focus navigation/preview."""
 
     # --- KEYBOARD SHORTCUTS (GUI/UX §2.29 — registry-driven) ---
-    def keyPressEvent(self, event: QEvent):
+    def keyPressEvent(self: "AbstractClassTwoGalleriesHostProtocol", event: QKeyEvent):
         from ....utils.manager.shortcut_manager import get_registry
 
         reg = get_registry()
@@ -59,10 +65,10 @@ class _KeyboardNavMixin:
                 self._navigate_to_dir(nxt)
             event.accept()
         else:
-            super().keyPressEvent(event)  # pyrefly: ignore [bad-argument-type]
+            super().keyPressEvent(event)  # type: ignore[misc,safe-super] # pyrefly: ignore [bad-argument-type]
 
     # --- GALLERY NAVIGATION (GUI/UX §2.3A) ---
-    def _navigate_gallery(self, key) -> None:
+    def _navigate_gallery(self: "AbstractClassTwoGalleriesHostProtocol", key) -> None:
         """Move the gallery focus cursor with arrow keys."""
         page_paths = self.common_get_paginated_slice(
             self.master_found_files, self.found_current_page, self.found_page_size
@@ -89,7 +95,7 @@ class _KeyboardNavMixin:
         self._focused_found_idx = idx
         self._highlight_focused(page_paths, idx)
 
-    def _highlight_focused(self, page_paths: list, idx: int) -> None:
+    def _highlight_focused(self: "AbstractClassTwoGalleriesHostProtocol", page_paths: list, idx: int) -> None:
         """Visually highlight the focused thumbnail and scroll it into view."""
         target_path = page_paths[idx] if 0 <= idx < len(page_paths) else None
         if target_path is None:
@@ -100,7 +106,7 @@ class _KeyboardNavMixin:
             if self.found_gallery_scroll:
                 self.found_gallery_scroll.ensureWidgetVisible(widget)
 
-    def _preview_focused_item(self) -> None:
+    def _preview_focused_item(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
         """Open a preview for the currently focused gallery item.
 
         Delegates to the concrete tab by emitting `path_double_clicked` on the

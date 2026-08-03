@@ -12,11 +12,16 @@ from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 
 from ...graph.data_schema import GraphData, NodeData
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
+
 
 class _GraphDropMixin:
     """Add a wallpaper to the graph canvas, and handle files dropped on a monitor."""
 
-    def add_image_to_graph(self, monitor_id: str, path: str):
+    def add_image_to_graph(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, path: str):
         monitor_subtab = None
         if hasattr(self, "_graphs"):
             monitor_subtab = self
@@ -42,7 +47,7 @@ class _GraphDropMixin:
                 if graph.basis_node_id is None:
                      graph.basis_node_id = nid
 
-    def on_images_dropped(self, monitor_id: str, image_paths: list):
+    def on_images_dropped(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, image_paths: list):
         if not image_paths:
             return
 
@@ -68,7 +73,7 @@ class _GraphDropMixin:
 
         self.deselect_all_items()
 
-    def _process_single_drop(self, monitor_id: str, image_path: str):
+    def _process_single_drop(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, image_path: str):
         is_video = image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         target = self if hasattr(self, "background_type_combo") else None
         if not target:

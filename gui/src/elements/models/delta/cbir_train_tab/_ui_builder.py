@@ -6,6 +6,7 @@ Extracted from ``cbir_train_tab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -29,12 +30,15 @@ from PySide6.QtWidgets import (
 
 from ._sparkline import _SparkLine
 
+if TYPE_CHECKING:
+    from ...protos.cbir_train_tab import CBIRTrainTabHostProtocol
+
 
 class _UIBuilderMixin:
     """Builds the config/telemetry splitter panels."""
 
-    def _init_ui(self) -> None:
-        root = QVBoxLayout(self)
+    def _init_ui(self: "CBIRTrainTabHostProtocol") -> None:
+        root = QVBoxLayout(cast(QWidget, self))
         root.setSpacing(6)
 
         # Left / Right splitter so config and log sit side-by-side on wide screens

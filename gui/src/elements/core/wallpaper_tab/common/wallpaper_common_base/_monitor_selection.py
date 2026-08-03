@@ -14,11 +14,16 @@ from PySide6.QtWidgets import QApplication, QGroupBox, QLabel, QVBoxLayout, QWid
 from ......components import DraggableMonitorContainer, MonitorDropView
 from ......styles import STYLE_START_ACTION
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
+
 
 class _MonitorSelectionMixin:
     """Monitor selection (with peer sync) and the shared "Set Wallpaper" button."""
 
-    def set_system_display_ref(self, system_display):
+    def set_system_display_ref(self: "WallpaperCommonBaseHostProtocol", system_display):
         """Set the system display reference.
 
         Args:
@@ -26,7 +31,7 @@ class _MonitorSelectionMixin:
         """
         self._system_display_ref = system_display
 
-    def create_monitor_layout_section(self, title: str) -> QGroupBox:
+    def create_monitor_layout_section(self: "WallpaperCommonBaseHostProtocol", title: str) -> QGroupBox:
         group_box_style = """
             QGroupBox {
                 border: 1px solid #4f545c;
@@ -50,7 +55,7 @@ class _MonitorSelectionMixin:
         gb_layout.addWidget(self.monitor_layout_container)
         return layout_group
 
-    def _select_monitor(self, monitor_id: Optional[str]):
+    def _select_monitor(self: "WallpaperCommonBaseHostProtocol", monitor_id: Optional[str]):
         new_id = None if self._current_monitor_id == monitor_id else monitor_id
 
         self._current_monitor_id = new_id
@@ -74,7 +79,7 @@ class _MonitorSelectionMixin:
 
         self._on_monitor_selected(new_id)
 
-    def _select_monitor_peer(self, monitor_id: Optional[str]):
+    def _select_monitor_peer(self: "WallpaperCommonBaseHostProtocol", monitor_id: Optional[str]):
         self._current_monitor_id = monitor_id
         for mid, widget in self.monitor_widgets.items():
             if isinstance(widget, MonitorDropView):
@@ -85,11 +90,11 @@ class _MonitorSelectionMixin:
 
         self._on_monitor_selected(monitor_id)
 
-    def _on_monitor_selected(self, monitor_id: Optional[str]):
+    def _on_monitor_selected(self: "WallpaperCommonBaseHostProtocol", monitor_id: Optional[str]):
         pass
 
-    def update_card_style(self, widget: QWidget, is_selected: bool):
-        super().update_card_style(widget, is_selected)
+    def update_card_style(self: "WallpaperCommonBaseHostProtocol", widget: QWidget, is_selected: bool):
+        super().update_card_style(widget, is_selected)  # type: ignore[safe-super]
 
         label = widget.findChild(QLabel)
         if not label:
@@ -117,18 +122,18 @@ class _MonitorSelectionMixin:
             else:
                 label.setStyleSheet("border: 3px solid #2ecc71; background-color: rgba(46, 204, 113, 0.15);")
 
-    def _refresh_gallery_highlights(self):
+    def _refresh_gallery_highlights(self: "WallpaperCommonBaseHostProtocol"):
         for path, widget in self.path_to_card_widget.items():
             self.update_card_style(widget, self.is_path_selected(path))
 
-    def _is_slideshow_validation_ready(self) -> Tuple[bool, int]:
+    def _is_slideshow_validation_ready(self: "WallpaperCommonBaseHostProtocol") -> Tuple[bool, int]:
         target_monitor_ids = list(self.monitor_widgets.keys())
         total_images = 0
         for mid in target_monitor_ids:
             total_images += len(self.monitor_slideshow_queues.get(mid, []))
         return total_images > 0, total_images
 
-    def check_all_monitors_set(self):  # noqa: C901
+    def check_all_monitors_set(self: "WallpaperCommonBaseHostProtocol"):  # noqa: C901
         self._refresh_gallery_highlights()
         for peer in getattr(self, "linked_tabs", []):
             peer._refresh_gallery_highlights()

@@ -18,6 +18,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
+
 # NOTE: ``_CutLabel`` is imported lazily (inside the method that uses it)
 # rather than at module load time. ``gui.src.tabs.core`` eagerly re-exports
 # every tab (including this one via a thin shim), so a top-level import
@@ -27,7 +32,7 @@ from PySide6.QtWidgets import (
 class _CutsLogicMixin:
     """Extraction range and mid-clip cut segments, and their UI row."""
 
-    def _build_cuts_row(self) -> QHBoxLayout:
+    def _build_cuts_row(self: "VideoExtractorSubTabHostProtocol") -> QHBoxLayout:
         """Builds "Row 3: Cuts" for the Extraction Settings panel."""
         extract_cuts_layout = QHBoxLayout()
         self.btn_set_cut_start = QPushButton("Set Cut Start [00:00]")
@@ -76,7 +81,7 @@ class _CutsLogicMixin:
 
         return extract_cuts_layout
 
-    def _update_range_labels(self):
+    def _update_range_labels(self: "VideoExtractorSubTabHostProtocol"):
         """Updates the text and enabled state of range-related buttons."""
         start_str = self._format_time(self.start_time_ms)
         end_str = self._format_time(self.end_time_ms)
@@ -92,37 +97,37 @@ class _CutsLogicMixin:
         self._validate_range()
 
     @Slot()
-    def set_range_start(self):
+    def set_range_start(self: "VideoExtractorSubTabHostProtocol"):
         self.start_time_ms = self.media_player.position()
         self._update_range_labels()
 
     @Slot()
-    def set_range_end(self):
+    def set_range_end(self: "VideoExtractorSubTabHostProtocol"):
         self.end_time_ms = self.media_player.position()
         self._update_range_labels()
 
     @Slot()
-    def set_cut_start(self):
+    def set_cut_start(self: "VideoExtractorSubTabHostProtocol"):
         self.cut_start_ms = self.media_player.position()
         time_str = self._format_time(self.cut_start_ms)
         self.btn_set_cut_start.setText(f"Cut Start: {time_str}")
         self._validate_cut_range()
 
     @Slot()
-    def set_cut_end(self):
+    def set_cut_end(self: "VideoExtractorSubTabHostProtocol"):
         self.cut_end_ms = self.media_player.position()
         time_str = self._format_time(self.cut_end_ms)
         self.btn_set_cut_end.setText(f"Cut End: {time_str}")
         self._validate_cut_range()
 
-    def _validate_cut_range(self):
+    def _validate_cut_range(self: "VideoExtractorSubTabHostProtocol"):
         if self.cut_end_ms > self.cut_start_ms:
             self.btn_add_cut.setEnabled(True)
         else:
             self.btn_add_cut.setEnabled(False)
 
     @Slot()
-    def add_cut(self):
+    def add_cut(self: "VideoExtractorSubTabHostProtocol"):
         if self.cut_end_ms > self.cut_start_ms:
             self.cuts_ms.append((self.cut_start_ms, self.cut_end_ms))
             self.cut_start_ms = 0
@@ -133,16 +138,17 @@ class _CutsLogicMixin:
             self._update_cuts_label()
 
     @Slot()
-    def clear_cuts(self):
+    def clear_cuts(self: "VideoExtractorSubTabHostProtocol"):
         self.cuts_ms.clear()
         self._update_cuts_label()
 
-    def _update_cuts_label(self):
+    def _update_cuts_label(self: "VideoExtractorSubTabHostProtocol"):
         # Clear existing cut labels
         while self.cuts_layout.count():
             item = self.cuts_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
 
         if not self.cuts_ms:
             none_label = QLabel("Cuts: None")
@@ -164,16 +170,16 @@ class _CutsLogicMixin:
         self._validate_range()
 
     @Slot(QPoint, int)
-    def show_cut_context_menu(self, global_pos: QPoint, index: int):
-        menu = QMenu(self)
+    def show_cut_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, index: int):
+        menu = QMenu(cast(QWidget, self))
 
-        edit_start_action = QAction("Edit Start Timestamp", self)
+        edit_start_action = QAction("Edit Start Timestamp", cast(QWidget, self))
         edit_start_action.triggered.connect(
             lambda: self.edit_cut_timestamp(index, is_start=True)
         )
         menu.addAction(edit_start_action)
 
-        edit_end_action = QAction("Edit End Timestamp", self)
+        edit_end_action = QAction("Edit End Timestamp", cast(QWidget, self))
         edit_end_action.triggered.connect(
             lambda: self.edit_cut_timestamp(index, is_start=False)
         )
@@ -181,13 +187,13 @@ class _CutsLogicMixin:
 
         menu.addSeparator()
 
-        jump_start_action = QAction("Jump to Start", self)
+        jump_start_action = QAction("Jump to Start", cast(QWidget, self))
         jump_start_action.triggered.connect(
             lambda: self.jump_to_cut_time(index, is_start=True)
         )
         menu.addAction(jump_start_action)
 
-        jump_end_action = QAction("Jump to End", self)
+        jump_end_action = QAction("Jump to End", cast(QWidget, self))
         jump_end_action.triggered.connect(
             lambda: self.jump_to_cut_time(index, is_start=False)
         )
@@ -195,12 +201,12 @@ class _CutsLogicMixin:
 
         menu.addSeparator()
 
-        delete_action = QAction("Delete Cut", self)
+        delete_action = QAction("Delete Cut", cast(QWidget, self))
         delete_action.triggered.connect(lambda: self.delete_cut(index))
         menu.addAction(delete_action)
         menu.exec(global_pos)
 
-    def edit_cut_timestamp(self, index: int, is_start: bool):
+    def edit_cut_timestamp(self: "VideoExtractorSubTabHostProtocol", index: int, is_start: bool):
         if 0 <= index < len(self.cuts_ms):
             current_start, current_end = self.cuts_ms[index]
             current_val = current_start if is_start else current_end
@@ -212,7 +218,7 @@ class _CutsLogicMixin:
                 else "New End Time (MM:SS:mmm):"
             )
             new_time_str, ok = QInputDialog.getText(
-                self, "Edit Cut", label_text, text=formatted
+                cast(QWidget, self), "Edit Cut", label_text, text=formatted
             )
 
             if ok and new_time_str:
@@ -223,7 +229,7 @@ class _CutsLogicMixin:
                             self.cuts_ms[index] = (new_ms, current_end)
                         else:
                             QMessageBox.warning(
-                                self,
+                                cast(QWidget, self),
                                 "Invalid Time",
                                 "Start time must be before end time.",
                             )
@@ -232,24 +238,24 @@ class _CutsLogicMixin:
                             self.cuts_ms[index] = (current_start, new_ms)
                         else:
                             QMessageBox.warning(
-                                self,
+                                cast(QWidget, self),
                                 "Invalid Time",
                                 "End time must be after start time.",
                             )
                     self._update_cuts_label()
                 else:
                     QMessageBox.warning(
-                        self,
+                        cast(QWidget, self),
                         "Invalid Format",
                         "Please use MM:SS:mmm, MM:SS, or SS formats.",
                     )
 
-    def jump_to_cut_time(self, index: int, is_start: bool):
+    def jump_to_cut_time(self: "VideoExtractorSubTabHostProtocol", index: int, is_start: bool):
         if 0 <= index < len(self.cuts_ms):
             ms = self.cuts_ms[index][0] if is_start else self.cuts_ms[index][1]
             self.media_player.setPosition(ms)
 
-    def delete_cut(self, index: int):
+    def delete_cut(self: "VideoExtractorSubTabHostProtocol", index: int):
         if 0 <= index < len(self.cuts_ms):
             self.cuts_ms.pop(index)
             self._update_cuts_label()

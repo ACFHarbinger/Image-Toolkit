@@ -8,12 +8,15 @@ from __future__ import annotations
 
 import hashlib
 import os
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import THUMBNAIL_CACHE_DIR
 from PySide6.QtGui import QImage, QPixmap
 
 from ....helpers.video.video_thumbnailer import VideoThumbnailer
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
 
 
 class _DiskCacheMixin:
@@ -24,7 +27,7 @@ class _DiskCacheMixin:
         path_hash = hashlib.md5(video_path.encode('utf-8')).hexdigest()
         return str(THUMBNAIL_CACHE_DIR / f"{path_hash}.jpg")
 
-    def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
+    def _generate_video_thumbnail(self: "AbstractClassSingleGalleryHostProtocol", path: str) -> Optional[QPixmap]:
         """
         Generates a video thumbnail synchronously on demand.
         Used for fallback or when immediate preview is needed.
@@ -42,7 +45,7 @@ class _DiskCacheMixin:
             image = thumbnailer.generate(path, self.thumbnail_size)
             if image and not image.isNull():
                 # 3. Save to disk cache
-                image.save(cache_path, "JPG") # pyrefly: ignore [no-matching-overload]
+                image.save(cache_path, b"JPG")  # pyrefly: ignore [no-matching-overload]
                 return QPixmap.fromImage(image)
         except Exception as e:
             print(f"Failed to generate explicit video thumbnail for {path}: {e}")

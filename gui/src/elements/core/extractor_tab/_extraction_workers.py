@@ -9,23 +9,31 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QWidget
 
 from ....components import ClickableLabel
 from ....helpers import GifCreationWorker, VideoExtractionWorker
 from ....helpers.video.video_thumbnailer import VideoThumbnailer
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
 class _ExtractionWorkersMixin:
     """GIF/video export worker dispatch, export completion, metadata
     snapshotting, and time formatting/parsing."""
 
-    def _run_gif_extraction(self, start: int, end: int):
+    active_extraction_worker: Optional[Any]
+    _active_metadata: Optional[dict]
+
+    def _run_gif_extraction(self: "VideoExtractorSubTabHostProtocol", start: int, end: int):
         target_size = self._get_target_size()
         fps = self.spin_gif_fps.value()
 
@@ -69,13 +77,14 @@ class _ExtractionWorkersMixin:
         )
         self.extraction_status_label.show()
 
-        self._active_metadata = self._get_current_extraction_metadata()
-        self._active_metadata["mode"] = "gif"
+        active_metadata = self._get_current_extraction_metadata()
+        active_metadata["mode"] = "gif"
+        self._active_metadata = active_metadata
 
         assert self.video_path is not None
         output_name = f"{Path(self.video_path).stem}_{start}ms_{end}ms.gif"
         output_path = str(self.extraction_dir / output_name)
-        self.active_extraction_worker = GifCreationWorker(
+        worker = GifCreationWorker(
             video_path=self.video_path,
             start_ms=start,
             end_ms=end,
@@ -86,14 +95,13 @@ class _ExtractionWorkersMixin:
             speed=speed,
             cuts_ms=self.cuts_ms,
         )
-        self.active_extraction_worker.signals.progress.connect(
-            self.extraction_progress_bar.setValue
-        )
-        self.active_extraction_worker.signals.finished.connect(self._on_export_finished)
-        self.active_extraction_worker.signals.error.connect(self._on_export_error)
-        QThreadPool.globalInstance().start(self.active_extraction_worker)
+        self.active_extraction_worker = worker
+        worker.signals.progress.connect(self.extraction_progress_bar.setValue)
+        worker.signals.finished.connect(self._on_export_finished)
+        worker.signals.error.connect(self._on_export_error)
+        QThreadPool.globalInstance().start(worker)
 
-    def _run_video_extraction(self, start: int, end: int):
+    def _run_video_extraction(self: "VideoExtractorSubTabHostProtocol", start: int, end: int):
         target_size = self._get_target_size()
         mute_audio = self.check_mute_audio.isChecked()
 
@@ -137,14 +145,15 @@ class _ExtractionWorkersMixin:
         )
         self.extraction_status_label.show()
 
-        self._active_metadata = self._get_current_extraction_metadata()
-        self._active_metadata["mode"] = "video"
-
-        output_name = f"{Path(self.video_path).stem}_{start}ms_{end}ms.mp4" # pyrefly: ignore [bad-argument-type]
-        output_path = str(self.extraction_dir / output_name)
+        active_metadata = self._get_current_extraction_metadata()
+        active_metadata["mode"] = "video"
+        self._active_metadata = active_metadata
 
         assert self.video_path is not None
-        self.active_extraction_worker = VideoExtractionWorker(
+        output_name = f"{Path(self.video_path).stem}_{start}ms_{end}ms.mp4"
+        output_path = str(self.extraction_dir / output_name)
+
+        worker = VideoExtractionWorker(
             video_path=self.video_path,
             start_ms=start,
             end_ms=end,
@@ -155,15 +164,14 @@ class _ExtractionWorkersMixin:
             speed=speed,
             cuts_ms=self.cuts_ms,
         )
-        self.active_extraction_worker.signals.progress.connect(
-            self.extraction_progress_bar.setValue
-        )
-        self.active_extraction_worker.signals.finished.connect(self._on_export_finished)
-        self.active_extraction_worker.signals.error.connect(self._on_export_error)
-        QThreadPool.globalInstance().start(self.active_extraction_worker)
+        self.active_extraction_worker = worker
+        worker.signals.progress.connect(self.extraction_progress_bar.setValue)
+        worker.signals.finished.connect(self._on_export_finished)
+        worker.signals.error.connect(self._on_export_error)
+        QThreadPool.globalInstance().start(worker)
 
     @Slot(str)
-    def _on_export_finished(self, new_path: str):
+    def _on_export_finished(self: "VideoExtractorSubTabHostProtocol", new_path: str):
         self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
@@ -186,20 +194,20 @@ class _ExtractionWorkersMixin:
             self._active_metadata = None
 
             QMessageBox.information(
-                self, "Success", f"Media created successfully:\n{Path(new_path).name}"
+                cast(QWidget, self), "Success", f"Media created successfully:\n{Path(new_path).name}"
             )
 
     @Slot(str)
-    def _on_export_error(self, error_msg: str):
+    def _on_export_error(self: "VideoExtractorSubTabHostProtocol", error_msg: str):
         self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
         self._active_metadata = None
         if "cancelled" not in error_msg.lower():
-            QMessageBox.warning(self, "Export Error", error_msg)
+            QMessageBox.warning(cast(QWidget, self), "Export Error", error_msg)
 
-    def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
+    def _generate_video_thumbnail(self: "VideoExtractorSubTabHostProtocol", path: str) -> Optional[QPixmap]:
         """Generate a thumbnail for a single video file."""
         thumbnailer = VideoThumbnailer()
         q_image = thumbnailer.generate(path, self.thumbnail_size)
@@ -209,7 +217,7 @@ class _ExtractionWorkersMixin:
         return None
 
     @Slot(list)
-    def _on_extraction_finished(self, new_paths: List[str]):
+    def _on_extraction_finished(self: "VideoExtractorSubTabHostProtocol", new_paths: List[str]):
         if self._active_metadata and new_paths:
             if self.active_extraction_worker and hasattr(
                 self.active_extraction_worker, "fps"
@@ -233,7 +241,7 @@ class _ExtractionWorkersMixin:
         self.extraction_status_label.hide()
 
         if not new_paths:
-            QMessageBox.information(self, "Info", "No frames extracted.")
+            QMessageBox.information(cast(QWidget, self), "Info", "No frames extracted.")
             return
 
         self.start_loading_gallery(new_paths, append=True)
@@ -241,12 +249,12 @@ class _ExtractionWorkersMixin:
         self._refresh_source_extracted_indicators()
 
         QMessageBox.information(
-            self,
+            cast(QWidget, self),
             "Success",
             f"Extracted {len(new_paths)} images. Total: {len(self.current_extracted_paths)}",
         )
 
-    def _get_current_extraction_metadata(self) -> dict:
+    def _get_current_extraction_metadata(self: "VideoExtractorSubTabHostProtocol") -> dict:
         """Collects current UI state as metadata for an extraction run."""
         return {
             "video_path": str(self.video_path),
@@ -266,7 +274,7 @@ class _ExtractionWorkersMixin:
             "timestamp": time.time(),
         }
 
-    def _format_time(self, ms: int) -> str:
+    def _format_time(self: "VideoExtractorSubTabHostProtocol", ms: int) -> str:
         fmt = getattr(self, "time_display_format", "m:s:ms")
         if fmt == "h:m:s":
             hours = ms // 3600000
@@ -283,7 +291,7 @@ class _ExtractionWorkersMixin:
             milliseconds = ms % 1000
             return f"{minutes:02}:{seconds:02}:{milliseconds:03}"
 
-    def _parse_time(self, time_str: str) -> Optional[int]:
+    def _parse_time(self: "VideoExtractorSubTabHostProtocol", time_str: str) -> Optional[int]:
         """Parses various formats (MM:SS:mmm, HH:MM:SS, pure milliseconds, or microseconds) into milliseconds."""
         try:
             time_str = time_str.strip()
@@ -329,12 +337,12 @@ class _ExtractionWorkersMixin:
             pass
         return None
 
-    def refresh_time_display(self):
+    def refresh_time_display(self: "VideoExtractorSubTabHostProtocol"):
         if self._media_player is not None:
             pos = self.media_player.position()
             dur = self.media_player.duration()
             if self.lbl_current_time:
-                self.lbl_current_time.setText(self._format_time(pos))
+                cast(QLabel, self.lbl_current_time).setText(self._format_time(pos))
             if self.lbl_total_time:
                 self.lbl_total_time.setText(self._format_time(dur))
 
@@ -371,8 +379,8 @@ class _ExtractionWorkersMixin:
             self._update_tags_ui()
 
     @Slot()
-    def _jump_to_edited_time(self):
-        time_str = self.edit_current_time.text() # pyrefly: ignore [missing-attribute]
+    def _jump_to_edited_time(self: "VideoExtractorSubTabHostProtocol"):
+        time_str = cast(QLineEdit, self.edit_current_time).text()
         ms = self._parse_time(time_str)
         if ms is not None:
             # Clamp to duration
@@ -380,9 +388,9 @@ class _ExtractionWorkersMixin:
             self.media_player.setPosition(ms)
         self._cancel_time_edit()
 
-    def _cancel_time_edit(self):
-        self.edit_current_time.hide() # pyrefly: ignore [missing-attribute]
-        self.lbl_current_time.show() # pyrefly: ignore [missing-attribute]
+    def _cancel_time_edit(self: "VideoExtractorSubTabHostProtocol"):
+        cast(QLineEdit, self.edit_current_time).hide()
+        cast(QLabel, self.lbl_current_time).show()
 
 
 __all__ = ["_ExtractionWorkersMixin"]

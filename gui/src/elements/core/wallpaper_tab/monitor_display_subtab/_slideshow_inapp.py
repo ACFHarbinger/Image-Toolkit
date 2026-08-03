@@ -18,14 +18,22 @@ from typing import List, Optional, cast
 
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QWidget
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
 class _SlideshowInAppMixin:
     """Start/stop the in-app (foreground-process) wallpaper slideshow."""
 
+    _inapp_active_monitor_id: Optional[str]
+    _daemon_active_monitor_id: Optional[str]
+
     @Slot()
-    def _toggle_inapp_slideshow(self):
+    def _toggle_inapp_slideshow(self: "MonitorDisplaySubTabHostProtocol"):
         monitor_id = self._current_monitor_id
         if monitor_id is None:
             return
@@ -34,11 +42,11 @@ class _SlideshowInAppMixin:
         else:
             self._start_inapp_slideshow(monitor_id)
 
-    def _start_inapp_slideshow(self, monitor_id: str):
+    def _start_inapp_slideshow(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str):
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         if not queue:
             QMessageBox.information(
-                self, "Empty Queue",
+                cast(QWidget, self), "Empty Queue",
                 "This display's Wallpaper Queue is empty. Use 'Export to Queue' "
                 "or drop files onto the monitor first.",
             )
@@ -46,7 +54,7 @@ class _SlideshowInAppMixin:
             return
         if self._daemon_active_monitor_id == monitor_id:
             QMessageBox.warning(
-                self, "Slideshow Conflict",
+                cast(QWidget, self), "Slideshow Conflict",
                 "The Slideshow Daemon is running for this display. "
                 "Stop it before starting the in-app slideshow.",
             )
@@ -54,7 +62,7 @@ class _SlideshowInAppMixin:
             return
         if self._inapp_active_monitor_id and self._inapp_active_monitor_id != monitor_id:
             reply = QMessageBox.question(
-                self, "Slideshow Already Running",
+                cast(QWidget, self), "Slideshow Already Running",
                 "The in-app slideshow is already running for another display "
                 f"(Monitor {self._inapp_active_monitor_id}). Only one display "
                 "can run it at a time. Switch it to this display?",
@@ -90,7 +98,8 @@ class _SlideshowInAppMixin:
                 other_paths=other_paths,
             )
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to start in-app slideshow: {e}")
+            QMessageBox.critical(
+                cast(QWidget, self), "Error", f"Failed to start in-app slideshow: {e}")
             self._update_slideshow_buttons()
             return
 
@@ -98,7 +107,7 @@ class _SlideshowInAppMixin:
         self._update_slideshow_buttons()
         self._update_queue_status_label()
 
-    def _stop_inapp_slideshow(self):
+    def _stop_inapp_slideshow(self: "MonitorDisplaySubTabHostProtocol"):
         if self._inapp_active_monitor_id is None:
             return
         with contextlib.suppress(Exception):
@@ -107,7 +116,7 @@ class _SlideshowInAppMixin:
         self._update_slideshow_buttons()
         self._update_queue_status_label()
 
-    def _sync_inapp_state_from_native(self, monitor_id: str, status: dict):
+    def _sync_inapp_state_from_native(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str, status: dict):
         """The native scheduler applies wallpapers directly via
         WallpaperManager (off the Qt thread), so it never touches this
         subtab's own bookkeeping. Reconcile monitor_image_paths / the

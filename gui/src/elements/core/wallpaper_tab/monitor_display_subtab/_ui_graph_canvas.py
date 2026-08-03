@@ -7,6 +7,8 @@ convention (§5.17).
 
 from __future__ import annotations
 
+from typing import Optional, cast
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGridLayout,
@@ -15,6 +17,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QStackedWidget,
     QVBoxLayout,
@@ -25,12 +28,21 @@ from .....components import MarqueeScrollArea
 from .....styles import apply_shadow_effect
 from ..graph import WallpaperGraphScene, WallpaperGraphView
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
+
 
 class _UIGraphCanvasMixin:
     """Builds the placeholder/graph-content stack, toolbar, canvas, and gallery."""
 
-    def _build_ui(self):
-        root = QVBoxLayout(self)
+    scan_directory_path: Optional[QLineEdit]
+    gallery_scroll_area: Optional[QScrollArea]
+    gallery_layout: Optional[QGridLayout]
+
+    def _build_ui(self: "MonitorDisplaySubTabHostProtocol"):
+        root = QVBoxLayout(cast(QWidget, self))
         root.setContentsMargins(6, 6, 6, 6)
         root.setSpacing(6)
 
@@ -104,7 +116,7 @@ class _UIGraphCanvasMixin:
 
         root.addWidget(self._stack, 1)
 
-    def _build_graph_toolbar(self, graph_lyt) -> None:
+    def _build_graph_toolbar(self: "MonitorDisplaySubTabHostProtocol", graph_lyt) -> None:
         tb = QHBoxLayout()
         graph_lbl = QLabel("Graph Canvas")
         graph_lbl.setStyleSheet("font-weight: bold; padding: 4px;")
@@ -152,7 +164,7 @@ class _UIGraphCanvasMixin:
             tb.addWidget(btn)
         graph_lyt.addLayout(tb)
 
-    def _build_bottom_toolbar(self, graph_lyt) -> None:
+    def _build_bottom_toolbar(self: "MonitorDisplaySubTabHostProtocol", graph_lyt) -> None:
         # Bottom toolbar: queue export/preview + slideshow controls, plus a
         # per-display timer/counter reflecting the currently selected monitor
         bottom_tb = QHBoxLayout()
@@ -229,7 +241,7 @@ class _UIGraphCanvasMixin:
 
         graph_lyt.addLayout(bottom_tb)
 
-    def _build_gallery_panel(self) -> QGroupBox:
+    def _build_gallery_panel(self: "MonitorDisplaySubTabHostProtocol") -> QGroupBox:
         # Gallery panel for dragging and dropping files
         gallery_panel = QGroupBox("Gallery / Drag and Drop")
         gallery_panel.setStyleSheet(
@@ -242,10 +254,11 @@ class _UIGraphCanvasMixin:
 
         # Scan Directory Row
         scan_dir_layout = QHBoxLayout()
-        self.scan_directory_path = QLineEdit()
-        self.scan_directory_path.setPlaceholderText("Select directory to scan for graph files...")
-        self.scan_directory_path.returnPressed.connect(
-            lambda: self.populate_scan_image_gallery(self.scan_directory_path.text().strip())
+        scan_directory_path = QLineEdit()
+        self.scan_directory_path = scan_directory_path
+        scan_directory_path.setPlaceholderText("Select directory to scan for graph files...")
+        scan_directory_path.returnPressed.connect(
+            lambda: self.populate_scan_image_gallery(scan_directory_path.text().strip())
         )
         btn_browse_scan = QPushButton("Browse...")
         apply_shadow_effect(
@@ -253,7 +266,7 @@ class _UIGraphCanvasMixin:
         )
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
         scan_dir_layout.addWidget(QLabel("Scan Directory:"))
-        scan_dir_layout.addWidget(self.scan_directory_path)
+        scan_dir_layout.addWidget(scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
         gallery_lyt.addLayout(scan_dir_layout)
 
@@ -261,12 +274,13 @@ class _UIGraphCanvasMixin:
         gallery_lyt.addWidget(self.search_input)
 
         # Scroll Area for Thumbnails
-        self.gallery_scroll_area = MarqueeScrollArea()
-        self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setStyleSheet(
+        gallery_scroll_area = MarqueeScrollArea()
+        self.gallery_scroll_area = gallery_scroll_area
+        gallery_scroll_area.setWidgetResizable(True)
+        gallery_scroll_area.setStyleSheet(
             "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
         )
-        self.gallery_scroll_area.setMinimumHeight(600)
+        gallery_scroll_area.setMinimumHeight(600)
 
         self.scan_thumbnail_widget = QWidget()
         self.scan_thumbnail_widget.setStyleSheet(
@@ -277,8 +291,8 @@ class _UIGraphCanvasMixin:
         self.scan_thumbnail_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
         )
-        self.gallery_scroll_area.setWidget(self.scan_thumbnail_widget)
-        gallery_lyt.addWidget(self.gallery_scroll_area, 1)
+        gallery_scroll_area.setWidget(self.scan_thumbnail_widget)
+        gallery_lyt.addWidget(gallery_scroll_area, 1)
 
         # Pagination controls
         gallery_lyt.addWidget(

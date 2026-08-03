@@ -11,7 +11,7 @@ architecture, never implicated in the deleteOrphaned crash class -- see
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt, Slot
@@ -22,12 +22,15 @@ from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker, VideoLoaderWo
 from ....utils.cache.lru_image_cache import LRUImageCache
 from ....utils.sort_utils import natural_sort_key
 
+if TYPE_CHECKING:
+    from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
+
 
 class _LoadingPipelineMixin:
     """Dispatches image/video thumbnail loads and populates the gallery grid."""
 
     @Slot(list, list)
-    def _on_batch_images_loaded(self, results: List[tuple], requested_paths: List[str]):  # noqa: C901
+    def _on_batch_images_loaded(self: "AbstractClassSingleGalleryHostProtocol", results: List[tuple], requested_paths: List[str]):  # noqa: C901
         # This gallery widget's C++ object may already be deleted by the
         # time a queued (cross-thread) signal is delivered -- e.g. during
         # test/window teardown, deleteLater() was processed before this
@@ -94,13 +97,13 @@ class _LoadingPipelineMixin:
                 if widget:
                     self.update_card_pixmap(widget, QPixmap())
 
-    def _trigger_batch_video_load(self, paths: List[str]):
+    def _trigger_batch_video_load(self: "AbstractClassSingleGalleryHostProtocol", paths: List[str]):
         # User requested parallel/out-of-order loading.
         # Spawning individual workers allows QThreadPool to manage concurrency.
         for path in paths:
             self._trigger_video_load(path)
 
-    def _trigger_batch_found_load(self, paths: List[str]):
+    def _trigger_batch_found_load(self: "AbstractClassSingleGalleryHostProtocol", paths: List[str]):
         if not hasattr(self, "_loading_paths"):
             self._loading_paths = set()
         self._loading_paths.update(paths)
@@ -113,7 +116,7 @@ class _LoadingPipelineMixin:
             batch_slot=self._on_batch_images_loaded,
         )
 
-    def _trigger_video_load(self, path: str):
+    def _trigger_video_load(self: "AbstractClassSingleGalleryHostProtocol", path: str):
         self._loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
         worker.load_generation = self._load_generation
@@ -124,7 +127,7 @@ class _LoadingPipelineMixin:
         self.thread_pool.start(worker)
 
     def start_loading_gallery(
-        self,
+        self: "AbstractClassSingleGalleryHostProtocol",
         paths: List[str],
         show_progress: bool = True,
         append: bool = False,
@@ -154,7 +157,7 @@ class _LoadingPipelineMixin:
 
         # self.refresh_gallery_view() # _perform_search calls this
 
-    def refresh_gallery_view(self):
+    def refresh_gallery_view(self: "AbstractClassSingleGalleryHostProtocol"):
         self.cancel_loading()
         self.clear_gallery_widgets()
         self._update_pagination_ui()
@@ -174,7 +177,7 @@ class _LoadingPipelineMixin:
         # Start population
         self._populate_step()
 
-    def _populate_step(self):
+    def _populate_step(self: "AbstractClassSingleGalleryHostProtocol"):
         """Adds a small batch of widgets to the layout."""
         if not hasattr(self, "_paginated_paths") or self._populating_index >= len(
             self._paginated_paths
@@ -228,7 +231,7 @@ class _LoadingPipelineMixin:
         else:
             self._load_all_page_images()
 
-    def _load_all_page_images(self):
+    def _load_all_page_images(self: "AbstractClassSingleGalleryHostProtocol"):
         """Triggers loading for all images in the current paginated view."""
         if not self._paginated_paths:
             return
@@ -263,12 +266,12 @@ class _LoadingPipelineMixin:
         if image_paths:
             self._trigger_batch_found_load(image_paths)
 
-    def calculate_columns(self):
+    def calculate_columns(self: "AbstractClassSingleGalleryHostProtocol"):
         return self.common_calculate_columns(
             self.gallery_scroll_area, self.approx_item_width
         )
 
-    def _trigger_image_load(self, path: str):
+    def _trigger_image_load(self: "AbstractClassSingleGalleryHostProtocol", path: str):
         self._loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.load_generation = self._load_generation
@@ -277,7 +280,7 @@ class _LoadingPipelineMixin:
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
-    def _is_single_load_stale(self, sender) -> bool:
+    def _is_single_load_stale(self: "AbstractClassSingleGalleryHostProtocol", sender) -> bool:
         # We need to find the worker that owns this signals object
         for worker in list(self._active_workers):
             if worker.signals == sender:
@@ -300,7 +303,7 @@ class _LoadingPipelineMixin:
                 return stale
         return False
 
-    def _handle_failed_single_load(self, path: str) -> None:
+    def _handle_failed_single_load(self: "AbstractClassSingleGalleryHostProtocol", path: str) -> None:
         # If loading failed, mark as failed instead of generating a red placeholder
         if not hasattr(self, "_failed_paths"):
             self._failed_paths = set()
@@ -314,7 +317,7 @@ class _LoadingPipelineMixin:
             # This will trigger the "VIDEO" / "No Thumbnail" text style via update_card_pixmap
             self.update_card_pixmap(widget, QPixmap())
 
-    def _cache_single_loaded_image(self, path: str, q_image: QImage) -> None:
+    def _cache_single_loaded_image(self: "AbstractClassSingleGalleryHostProtocol", path: str, q_image: QImage) -> None:
         # Cache the raw QImage (half the RAM of QPixmap on X11)
         if q_image.isNull():
             return
@@ -324,10 +327,10 @@ class _LoadingPipelineMixin:
         if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
             cache_path = self._get_disk_cache_path(path)
             if not os.path.exists(cache_path):
-                q_image.save(cache_path, "JPG")  # pyrefly: ignore [no-matching-overload]
+                q_image.save(cache_path, b"JPG")  # pyrefly: ignore [no-matching-overload]
 
     @Slot(str, QImage)
-    def _on_single_image_loaded(self, path: str, q_image: QImage):
+    def _on_single_image_loaded(self: "AbstractClassSingleGalleryHostProtocol", path: str, q_image: QImage):
         # See _on_batch_images_loaded above: self may already be a dead
         # QObject by the time this queued signal is delivered.
         if not Shiboken.isValid(self):

@@ -8,15 +8,20 @@ from __future__ import annotations
 import copy
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QWidget
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
 class _ConfigMethodsMixin:
     """get_default_config/collect/set_config for SettingsWindow integration."""
 
-    def get_default_config(self) -> Dict[str, Any]:
+    def get_default_config(self: "VideoExtractorSubTabHostProtocol") -> Dict[str, Any]:
         return {
             "source_directory": str(Path.home()),
             "extraction_directory": str(self.extraction_dir),
@@ -28,7 +33,7 @@ class _ConfigMethodsMixin:
             "extraction_engine": "MoviePy",
         }
 
-    def collect(self) -> Dict[str, Any]:
+    def collect(self: "VideoExtractorSubTabHostProtocol") -> Dict[str, Any]:
         if self.video_path:
             self._save_current_video_config()
         return {
@@ -44,7 +49,7 @@ class _ConfigMethodsMixin:
             "video_path": self.video_path,
         }
 
-    def set_config(self, config: Dict[str, Any], quiet: bool = False):  # noqa: C901
+    def set_config(self: "VideoExtractorSubTabHostProtocol", config: Dict[str, Any], quiet: bool = False):  # noqa: C901
         try:
             # 1. Restore active videos tab state FIRST so scan_directory can style them
             active_configs = config.get("active_videos_config", {})
@@ -135,14 +140,14 @@ class _ConfigMethodsMixin:
 
             if not quiet:
                 QMessageBox.information(
-                    self,
+                    cast(QWidget, self),
                     "Config Loaded",
                     "Image Extractor configuration applied successfully.",
                 )
 
         except Exception as e:
             QMessageBox.critical(
-                self,
+                cast(QWidget, self),
                 "Config Error",
                 f"Failed to apply image extractor configuration:\n{e}",
             )

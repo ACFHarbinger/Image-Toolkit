@@ -8,12 +8,17 @@ from __future__ import annotations
 
 from PySide6.QtCore import Slot
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
+
 
 class _QmlHandlersMixin:
     """Bridge slots consumed by the QML wallpaper UI."""
 
     @Slot()
-    def request_monitors_qml(self):
+    def request_monitors_qml(self: "WallpaperCommonBaseHostProtocol"):
         monitor_data = []
         for m in self.monitors:
             monitor_data.append(
@@ -29,7 +34,7 @@ class _QmlHandlersMixin:
         self.qml_monitors_changed.emit(monitor_data)
 
     @Slot(str, str)
-    def set_wallpaper_qml(self, path, monitor_name="All"):
+    def set_wallpaper_qml(self: "WallpaperCommonBaseHostProtocol", path, monitor_name="All"):
         if monitor_name == "All":
             for mid in self.monitor_widgets.keys():
                 self.monitor_image_paths[mid] = path
@@ -50,7 +55,7 @@ class _QmlHandlersMixin:
         self.request_monitors_qml()
 
     @Slot(str)
-    def drop_image_qml(self, path):
+    def drop_image_qml(self: "WallpaperCommonBaseHostProtocol", path):
         self.set_wallpaper_qml(path, "All")
 
 

@@ -11,6 +11,11 @@ from typing import Dict, Optional
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
+
 
 class _ColorLabelsMixin:
     """Color labels, card border styling, and the preview-window highlight."""
@@ -28,12 +33,12 @@ class _ColorLabelsMixin:
         "green": "🟢", "blue": "🔵", "purple": "🟣",
     }
 
-    def _get_color_label(self, path: str) -> Optional[str]:
+    def _get_color_label(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> Optional[str]:
         """Return the color key for *path*, or None if unlabelled."""
         from gui.src.windows.settings.app_settings import AppSettings
         return AppSettings.label(path)
 
-    def _set_color_label(self, path: str, color_key: Optional[str]) -> None:
+    def _set_color_label(self: "AbstractClassTwoGalleriesHostProtocol", path: str, color_key: Optional[str]) -> None:
         """Persist *color_key* (or clear it) for *path*, then refresh the card border."""
         from gui.src.windows.settings.app_settings import AppSettings
         if color_key:
@@ -44,7 +49,7 @@ class _ColorLabelsMixin:
         if card:
             self.update_card_style(card, path in self.selected_files)
 
-    def update_card_style(self, widget: QWidget, is_selected: bool):
+    def update_card_style(self: "AbstractClassTwoGalleriesHostProtocol", widget: QWidget, is_selected: bool):
         if hasattr(widget, "set_selected_style"):
             widget.set_selected_style(is_selected)
         else:
@@ -59,7 +64,7 @@ class _ColorLabelsMixin:
             widget.setStyleSheet(f"border: {width} solid {color};")
 
     @Slot(str, str)
-    def update_preview_highlight(self, old_path: str, new_path: str):
+    def update_preview_highlight(self: "AbstractClassTwoGalleriesHostProtocol", old_path: str, new_path: str):
         """Adds a blue highlight border to the card currently being viewed in the preview window."""
         is_closing = new_path == "WINDOW_CLOSED"
 

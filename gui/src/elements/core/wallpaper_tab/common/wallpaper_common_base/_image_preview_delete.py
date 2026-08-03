@@ -10,29 +10,34 @@ import os
 import platform
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMenu, QMessageBox
+from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 from shiboken6 import Shiboken as sip
 
 from ......utils.sort_utils import natural_sort_key
 from ......windows import ImagePreviewWindow
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
+
 
 class _ImagePreviewDeleteMixin:
     """Thumbnail activation, full-size preview, right-click menu, and file delete."""
 
-    def handle_thumbnail_double_click(self, image_path: str):
+    def handle_thumbnail_double_click(self: "WallpaperCommonBaseHostProtocol", image_path: str):
         if self._current_monitor_id is not None:
             self.on_image_dropped(self._current_monitor_id, image_path)
         else:
             self.handle_full_image_preview(image_path)
 
-    def handle_full_image_preview(self, image_path: str):
+    def handle_full_image_preview(self: "WallpaperCommonBaseHostProtocol", image_path: str):
         if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
             try:
                 if platform.system() == "Windows":
@@ -53,7 +58,7 @@ class _ImagePreviewDeleteMixin:
                     )
             except Exception as e:
                 QMessageBox.warning(
-                    self, "Video Error", f"Could not launch video player: {e}"
+                    cast(QWidget, self), "Video Error", f"Could not launch video player: {e}"
                 )
             return
 
@@ -75,7 +80,7 @@ class _ImagePreviewDeleteMixin:
         window = ImagePreviewWindow(
             image_path=image_path,
             db_tab_ref=None,
-            parent=self,
+            parent=cast(QWidget, self),
             all_paths=all_paths_list,
             start_index=start_index,
         )
@@ -93,20 +98,20 @@ class _ImagePreviewDeleteMixin:
             ]
             event.accept()
 
-        window.closeEvent = remove_closed_win
+        window.closeEvent = remove_closed_win  # type: ignore[method-assign]
         window.show()
         self.open_image_preview_windows.append(window)
 
     @Slot(QPoint, str)
-    def show_image_context_menu(self, global_pos: QPoint, path: str):
+    def show_image_context_menu(self: "WallpaperCommonBaseHostProtocol", global_pos: QPoint, path: str):
         if getattr(self, "background_type", None) == "Solid Color":
             return
-        menu = QMenu(self)
+        menu = QMenu(cast(QWidget, self))
 
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         view_text = "Play Video" if is_video else "View Full Size Preview"
 
-        view_action = QAction(view_text, self)
+        view_action = QAction(view_text, cast(QWidget, self))
         view_action.triggered.connect(lambda: self.handle_full_image_preview(path))
         menu.addAction(view_action)
 
@@ -115,7 +120,7 @@ class _ImagePreviewDeleteMixin:
             add_menu = menu.addMenu("Add to Monitor Queue")
             for monitor_id, widget in self.monitor_widgets.items():
                 monitor_name = widget.monitor.name
-                action = QAction(f"{monitor_name} (ID: {monitor_id})", self)
+                action = QAction(f"{monitor_name} (ID: {monitor_id})", cast(QWidget, self))
                 action.triggered.connect(
                     lambda checked,
                     mid=monitor_id,
@@ -126,7 +131,7 @@ class _ImagePreviewDeleteMixin:
             add_graph_menu = menu.addMenu("Add to Monitor Graph")
             for monitor_id, widget in self.monitor_widgets.items():
                 monitor_name = widget.monitor.name
-                action = QAction(f"{monitor_name} (ID: {monitor_id})", self)
+                action = QAction(f"{monitor_name} (ID: {monitor_id})", cast(QWidget, self))
                 action.triggered.connect(
                     lambda checked,
                     mid=monitor_id,
@@ -135,16 +140,16 @@ class _ImagePreviewDeleteMixin:
                 add_graph_menu.addAction(action)
 
         menu.addSeparator()
-        delete_action = QAction("🗑️ Delete File (Permanent)", self)
+        delete_action = QAction("🗑️ Delete File (Permanent)", cast(QWidget, self))
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
         menu.addAction(delete_action)
         menu.exec(global_pos)
 
     @Slot(str)
-    def handle_delete_image(self, path: str):
+    def handle_delete_image(self: "WallpaperCommonBaseHostProtocol", path: str):
         if not path or not Path(path).exists():
             QMessageBox.warning(
-                self, "Delete Error", "File not found or path is invalid."
+                cast(QWidget, self), "Delete Error", "File not found or path is invalid."
             )
             return
         filename = os.path.basename(path)
@@ -156,7 +161,7 @@ class _ImagePreviewDeleteMixin:
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
 
         reply = QMessageBox.question(
-            self,
+            cast(QWidget, self),
             f"Confirm {action_name}",
             f"Move to {action_name}:\n\n{filename}",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -200,11 +205,11 @@ class _ImagePreviewDeleteMixin:
             self.check_all_monitors_set()
 
             QMessageBox.information(
-                self, "Success", f"File moved to {action_name}: {filename}"
+                cast(QWidget, self), "Success", f"File moved to {action_name}: {filename}"
             )
         except Exception as e:
             QMessageBox.critical(
-                self, "Deletion Failed", f"Could not delete the file: {e}"
+                cast(QWidget, self), "Deletion Failed", f"Could not delete the file: {e}"
             )
 
 

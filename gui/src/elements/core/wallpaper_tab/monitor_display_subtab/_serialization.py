@@ -8,18 +8,23 @@ from __future__ import annotations
 
 from ..graph.data_schema import GraphData
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
+
 
 class _SerializationMixin:
     """Serialize/restore per-monitor graphs and the tab's saved config."""
 
-    def collect_graphs(self) -> dict:
+    def collect_graphs(self: "MonitorDisplaySubTabHostProtocol") -> dict:
         self._persist_current()
         return {
             mid: g.to_dict()
             for mid, g in self._graphs.items()
         }
 
-    def restore_graphs(self, data: dict):
+    def restore_graphs(self: "MonitorDisplaySubTabHostProtocol", data: dict):
         self._graphs = {
             mid: GraphData.from_dict(gd)
             for mid, gd in data.items()
@@ -32,18 +37,18 @@ class _SerializationMixin:
             self._update_end_jump_combo()
             self._update_seq_label()
 
-    def get_default_config(self) -> dict:
+    def get_default_config(self: "MonitorDisplaySubTabHostProtocol") -> dict:
         """Return the default tab configuration dict."""
         return {
             "monitor_display_graphs": {},
         }
 
-    def set_config(self, config: dict) -> None:
+    def set_config(self: "MonitorDisplaySubTabHostProtocol", config: dict) -> None:
         """Populate input fields from a saved configuration dict."""
         if "monitor_display_graphs" in config:
             self.restore_graphs(config["monitor_display_graphs"])
 
-    def _persist_current(self):
+    def _persist_current(self: "MonitorDisplaySubTabHostProtocol"):
         """Flush UI end-behavior state back into the current graph."""
         graph = self._current_graph()
         if graph:

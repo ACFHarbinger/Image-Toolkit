@@ -20,11 +20,16 @@ from ....components import ClickableLabel
 from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker
 from ...mixins import install_drag_reorder
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
+
 
 class _SelectedPanelMixin:
     """Rebuild the paginated "Selected" gallery and load its thumbnails."""
 
-    def _cache_get_as_pixmap(self, path: str) -> Optional[QPixmap]:
+    def _cache_get_as_pixmap(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> Optional[QPixmap]:
         """Retrieve a cached thumbnail as QPixmap, converting from QImage if needed."""
         img = self._selected_pixmap_cache.get(path) or self._found_pixmap_cache.get(
             path
@@ -33,7 +38,7 @@ class _SelectedPanelMixin:
             return None
         return QPixmap.fromImage(img) if isinstance(img, QImage) else img
 
-    def refresh_selected_panel(self):  # noqa: C901
+    def refresh_selected_panel(self: "AbstractClassTwoGalleriesHostProtocol"):  # noqa: C901
         if not self.selected_gallery_layout:
             return
 
@@ -120,7 +125,7 @@ class _SelectedPanelMixin:
             self._trigger_batch_selected_load(paths_to_load, target_widgets)
 
     def _trigger_batch_selected_load(
-        self, paths: List[str], widgets: Dict[str, QWidget]
+        self: "AbstractClassTwoGalleriesHostProtocol", paths: List[str], widgets: Dict[str, QWidget]
     ):
         self.common_start_chunked_load(
             paths,
@@ -133,7 +138,7 @@ class _SelectedPanelMixin:
         )
 
     def _on_batch_selected_loaded(
-        self, results: List[tuple], widgets: Dict[str, QWidget]
+        self: "AbstractClassTwoGalleriesHostProtocol", results: List[tuple], widgets: Dict[str, QWidget]
     ):
         # self may already be a dead QObject by the time this queued
         # (cross-thread) signal is delivered (e.g. mid-teardown) --
@@ -165,7 +170,7 @@ class _SelectedPanelMixin:
                 if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                     cache_path = self._get_disk_cache_path(path)
                     if not os.path.exists(cache_path):
-                        image.save(cache_path, "JPG")
+                        image.save(cache_path, b"JPG")
             widget = widgets.get(path)
             if widget:
                 try:
@@ -176,7 +181,7 @@ class _SelectedPanelMixin:
                 except RuntimeError:
                     pass
 
-    def _trigger_priority_load(self, path: str, target_widget: QWidget):
+    def _trigger_priority_load(self: "AbstractClassTwoGalleriesHostProtocol", path: str, target_widget: QWidget):
         weak_widget = weakref.ref(target_widget)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.load_generation = self._load_generation
@@ -188,7 +193,7 @@ class _SelectedPanelMixin:
         )
         self.thread_pool.start(worker)
 
-    def _on_selected_image_loaded(self, path: str, image, widget: Optional[QWidget]):
+    def _on_selected_image_loaded(self: "AbstractClassTwoGalleriesHostProtocol", path: str, image, widget: Optional[QWidget]):
         # See _on_batch_selected_loaded above.
         if not Shiboken.isValid(self):
             return
@@ -214,9 +219,9 @@ class _SelectedPanelMixin:
                 cache_path = self._get_disk_cache_path(path)
                 if not os.path.exists(cache_path):
                     if isinstance(image, QImage):
-                        image.save(cache_path, "JPG")  # pyrefly: ignore[no-matching-overload]
+                        image.save(cache_path, b"JPG")  # pyrefly: ignore[no-matching-overload]
                     else:
-                        image.toImage().save(cache_path, "JPG")
+                        image.toImage().save(cache_path, b"JPG")
         display_pixmap = (
             QPixmap.fromImage(image) if isinstance(image, QImage) else image
         )

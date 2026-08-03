@@ -7,6 +7,8 @@ convention (§5.17).
 
 from __future__ import annotations
 
+from typing import Optional, cast
+
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication,
@@ -27,6 +29,11 @@ from PySide6.QtWidgets import (
 from .....components import MarqueeScrollArea
 from .....styles import STYLE_START_ACTION, apply_shadow_effect
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
+
 _GROUP_BOX_STYLE = """
     QGroupBox {
         border: 1px solid #4f545c;
@@ -46,7 +53,9 @@ _GROUP_BOX_STYLE = """
 class _UIBuilderMixin:
     """Builds the scrollable content area: monitor layout, settings, gallery, action bar."""
 
-    def _build_ui(self):
+    gallery_layout: Optional[QGridLayout]
+
+    def _build_ui(self: "SystemDisplaySubTabHostProtocol"):
         self.pagination_widget = self.create_pagination_controls()
 
         content_widget = QWidget()
@@ -56,16 +65,16 @@ class _UIBuilderMixin:
         self.main_scroll_area.setWidgetResizable(True)
         self.main_scroll_area.setWidget(content_widget)
 
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(cast(QWidget, self))
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.main_scroll_area)
-        self.setLayout(main_layout)
+        cast(QWidget, self).setLayout(main_layout)
 
-        self.setAcceptDrops(True)
+        cast(QWidget, self).setAcceptDrops(True)
 
         app = QApplication.instance()
         if app is not None:
-            app.installEventFilter(self)
+            app.installEventFilter(cast(QWidget, self))
         self.main_scroll_area.viewport().setAcceptDrops(True)
 
         layout_group = self.create_monitor_layout_section(
@@ -100,7 +109,7 @@ class _UIBuilderMixin:
         self.check_all_monitors_set()
         self.stop_slideshow()
 
-    def _build_background_type_row(self, settings_layout) -> None:
+    def _build_background_type_row(self: "SystemDisplaySubTabHostProtocol", settings_layout) -> None:
         background_type_layout = QHBoxLayout()
         self.background_type_combo = QComboBox()
         self.background_type_combo.addItems(
@@ -121,7 +130,7 @@ class _UIBuilderMixin:
         background_type_layout.addStretch(1)
         settings_layout.addLayout(background_type_layout)
 
-    def _build_slideshow_group(self, settings_layout) -> None:
+    def _build_slideshow_group(self: "SystemDisplaySubTabHostProtocol", settings_layout) -> None:
         self.slideshow_group = QWidget()
         slideshow_layout = QHBoxLayout(self.slideshow_group)
         slideshow_layout.setContentsMargins(0, 10, 0, 10)
@@ -199,7 +208,7 @@ class _UIBuilderMixin:
 
         QTimer.singleShot(0, self._apply_vault_slideshow_defaults)
 
-    def _build_solid_color_row(self, settings_layout) -> None:
+    def _build_solid_color_row(self: "SystemDisplaySubTabHostProtocol", settings_layout) -> None:
         self.solid_color_widget = QWidget()
         self.solid_color_layout = QHBoxLayout(self.solid_color_widget)
         self.solid_color_layout.setContentsMargins(0, 0, 0, 0)
@@ -221,7 +230,7 @@ class _UIBuilderMixin:
         settings_layout.addWidget(self.solid_color_widget)
         self.solid_color_widget.setVisible(False)
 
-    def _build_style_selectors(self, settings_layout) -> None:
+    def _build_style_selectors(self: "SystemDisplaySubTabHostProtocol", settings_layout) -> None:
         self.style_layout_widget = QWidget()
         style_layout = QHBoxLayout(self.style_layout_widget)
         style_layout.setContentsMargins(0, 0, 0, 0)
@@ -269,7 +278,7 @@ class _UIBuilderMixin:
         style_layout.addStretch(1)
         settings_layout.addWidget(self.style_layout_widget)
 
-    def _build_scan_directory_row(self, settings_layout) -> None:
+    def _build_scan_directory_row(self: "SystemDisplaySubTabHostProtocol", settings_layout) -> None:
         settings_layout.addWidget(QLabel("<hr>"))
         settings_layout.addWidget(QLabel("Scan Directory (Image Source):"))
         scan_dir_layout = QHBoxLayout()
@@ -287,7 +296,7 @@ class _UIBuilderMixin:
         scan_dir_layout.addWidget(btn_browse_scan)
         settings_layout.addLayout(scan_dir_layout)
 
-    def _build_gallery_section(self, content_layout) -> None:
+    def _build_gallery_section(self: "SystemDisplaySubTabHostProtocol", content_layout) -> None:
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
         self.gallery_scroll_area.setStyleSheet(
@@ -314,7 +323,7 @@ class _UIBuilderMixin:
 
         self.gallery_layout = self.scan_thumbnail_layout
 
-    def _build_action_row(self, content_layout) -> None:
+    def _build_action_row(self: "SystemDisplaySubTabHostProtocol", content_layout) -> None:
         action_layout = QHBoxLayout()
         action_layout.setSpacing(10)
 

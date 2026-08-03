@@ -9,17 +9,24 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import QPoint, Qt, QTimer, Slot
-from PySide6.QtWidgets import QInputDialog, QListWidgetItem, QMenu
+from typing import cast
+
+from PySide6.QtWidgets import QInputDialog, QListWidgetItem, QMenu, QWidget
 
 from ..graph import NodeItem, is_video
 from ..graph.data_schema import NodeData
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
 class _PropsBehaviorMixin:
     """Selection sync, Apply button, and the outgoing-edges list."""
 
     @Slot()
-    def _on_selection_changed(self):
+    def _on_selection_changed(self: "MonitorDisplaySubTabHostProtocol"):
         def do_selection_update():
             try:
                 if not self._scene:
@@ -41,7 +48,7 @@ class _PropsBehaviorMixin:
                 pass
         QTimer.singleShot(0, do_selection_update)
 
-    def _show_node_in_props(self, nd: NodeData):
+    def _show_node_in_props(self: "MonitorDisplaySubTabHostProtocol", nd: NodeData):
         self._props_node_id = nd.node_id
         self._props_hint.setVisible(False)
         fname = os.path.basename(nd.file_path)
@@ -63,7 +70,7 @@ class _PropsBehaviorMixin:
 
         self._populate_props_edges_list(nd.node_id)
 
-    def _apply_props(self):
+    def _apply_props(self: "MonitorDisplaySubTabHostProtocol"):
         graph = self._current_graph()
         if graph is None or self._props_node_id is None:
             return
@@ -81,7 +88,7 @@ class _PropsBehaviorMixin:
 
     # ---- Outgoing edges (props panel) --------------------------------------
 
-    def _populate_props_edges_list(self, node_id: str):
+    def _populate_props_edges_list(self: "MonitorDisplaySubTabHostProtocol", node_id: str):
         graph = self._current_graph()
 
         self._props_edges_list.blockSignals(True)
@@ -112,7 +119,7 @@ class _PropsBehaviorMixin:
                 self._props_edge_target_combo.addItem(display, nid)
         self._props_edge_target_combo.blockSignals(False)
 
-    def _add_props_edge(self):
+    def _add_props_edge(self: "MonitorDisplaySubTabHostProtocol"):
         if self._props_node_id is None:
             return
         target_id = self._props_edge_target_combo.currentData()
@@ -125,7 +132,7 @@ class _PropsBehaviorMixin:
         # but do it explicitly too in case a future refactor decouples them.
         self._populate_props_edges_list(self._props_node_id)
 
-    def _props_edges_context_menu(self, pos: QPoint):
+    def _props_edges_context_menu(self: "MonitorDisplaySubTabHostProtocol", pos: QPoint):
         item = self._props_edges_list.itemAt(pos)
         if not item or self._props_node_id is None:
             return
@@ -137,7 +144,7 @@ class _PropsBehaviorMixin:
                 if e.source_id == self._props_node_id and e.edge_id == edge_id:
                     current_repeat = e.repeat_count
                     break
-        menu = QMenu(self)
+        menu = QMenu(cast(QWidget, self))
         act_repeat = menu.addAction(f"Set Repeat Count… (currently ×{current_repeat})")
         act_del = menu.addAction(f"🗑 Remove Edge #{edge_id}")
         chosen = menu.exec(self._props_edges_list.mapToGlobal(pos))
@@ -146,7 +153,7 @@ class _PropsBehaviorMixin:
             self._populate_props_edges_list(self._props_node_id)
         elif chosen == act_repeat:
             value, ok = QInputDialog.getInt(
-                self, "Set Repeat Count",
+                cast(QWidget, self), "Set Repeat Count",
                 "Number of times the target wallpaper repeats\n"
                 "back-to-back when this edge is taken:",
                 current_repeat, 1, 999,
@@ -155,7 +162,7 @@ class _PropsBehaviorMixin:
                 self._scene.set_edge_repeat_count(self._props_node_id, edge_id, value)
                 self._populate_props_edges_list(self._props_node_id)
 
-    def _on_props_edges_reordered(self, *args):
+    def _on_props_edges_reordered(self: "MonitorDisplaySubTabHostProtocol", *args):
         if self._props_node_id is None:
             return
         ordered_edge_ids = [

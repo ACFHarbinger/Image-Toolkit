@@ -7,15 +7,19 @@ logic change.
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING, cast
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QWidget
+
+if TYPE_CHECKING:
+    from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
 
 
 class _PaginationMixin:
     """Builds the pagination bar and handles page/thumbnail-size changes."""
 
-    def create_pagination_controls(self) -> QWidget:
+    def create_pagination_controls(self: "AbstractClassSingleGalleryHostProtocol") -> QWidget:
         """Uses shared logic to create UI, then binds signals."""
         container, controls = self.common_create_pagination_ui()
 
@@ -52,13 +56,13 @@ class _PaginationMixin:
 
         return container
 
-    def _on_page_size_changed(self, text: str):
+    def _on_page_size_changed(self: "AbstractClassSingleGalleryHostProtocol", text: str):
         size = 999999 if text == "All" else int(text)
         self.page_size = size
         self.current_page = 0
         self.refresh_gallery_view()
 
-    def _on_thumb_slider_changed(self, value: int) -> None:
+    def _on_thumb_slider_changed(self: "AbstractClassSingleGalleryHostProtocol", value: int) -> None:
         """Live thumbnail resize via slider (§4.11)."""
         snapped = max(64, min(512, (value // 16) * 16))
         if snapped == self.thumbnail_size:
@@ -73,7 +77,7 @@ class _PaginationMixin:
         if paths:
             self.start_loading_gallery(paths)
 
-    def _change_page(self, delta: int):
+    def _change_page(self: "AbstractClassSingleGalleryHostProtocol", delta: int):
         total_items = len(self.gallery_image_paths)
         if total_items == 0:
             return
@@ -85,12 +89,12 @@ class _PaginationMixin:
             self.current_page = new_page
             self.refresh_gallery_view()
 
-    def _jump_to_page(self, page_index: int):
+    def _jump_to_page(self: "AbstractClassSingleGalleryHostProtocol", page_index: int):
         if page_index != self.current_page:
             self.current_page = page_index
             self.refresh_gallery_view()
 
-    def _update_pagination_ui(self):
+    def _update_pagination_ui(self: "AbstractClassSingleGalleryHostProtocol"):
         if not hasattr(self, "page_button"):
             return
 
@@ -123,7 +127,7 @@ class _PaginationMixin:
             old_menu.deleteLater()
 
         # Update Menu
-        menu = QMenu(self)
+        menu = QMenu(cast(QWidget, self))
         for i in range(total_pages):
             page_num = i + 1
             action = QAction(f"Page {page_num}", menu)  # Parent to menu instead of self

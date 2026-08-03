@@ -13,17 +13,24 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 from backend.src.constants import DAEMON_CONFIG_PATH, ROOT_DIR
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtCore import QObject, QTimer
+from PySide6.QtWidgets import QMessageBox, QWidget
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
 class _DaemonMixin:
     """Countdown, config sync, process start/stop, and log viewer for the daemon."""
 
-    def _start_daemon_countdown_if_active(self):
+    countdown_timer: Optional[QTimer]
+
+    def _start_daemon_countdown_if_active(self: "SystemDisplaySubTabHostProtocol"):
         if self._is_daemon_running_config():
             try:
                 with open(DAEMON_CONFIG_PATH, "r") as f:
@@ -37,11 +44,13 @@ class _DaemonMixin:
                         self.time_remaining_sec = self.interval_sec
 
                     if not hasattr(self, "countdown_timer") or not self.countdown_timer:
-                        self.countdown_timer: Optional[QTimer] = QTimer(self)
-                        self.countdown_timer.timeout.connect(self.update_countdown)
+                        countdown_timer = QTimer(cast(QObject, self))
+                        self.countdown_timer = countdown_timer
+                        countdown_timer.timeout.connect(self.update_countdown)
 
-                    if not self.countdown_timer.isActive():
-                        self.countdown_timer.start(1000)
+                    countdown_timer = self.countdown_timer
+                    if countdown_timer is not None and not countdown_timer.isActive():
+                        countdown_timer.start(1000)
 
                     self.update_countdown()
 
@@ -50,7 +59,7 @@ class _DaemonMixin:
             except Exception:
                 pass
 
-    def _get_daemon_script_path(self):
+    def _get_daemon_script_path(self: "SystemDisplaySubTabHostProtocol"):
         script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "slideshow_daemon.py"
         if script_path.exists():
             return str(script_path)
@@ -66,7 +75,7 @@ class _DaemonMixin:
 
         return str(script_path)
 
-    def _is_daemon_running_config(self):
+    def _is_daemon_running_config(self: "SystemDisplaySubTabHostProtocol"):
         if not DAEMON_CONFIG_PATH.exists():
             return False
         try:
@@ -76,7 +85,7 @@ class _DaemonMixin:
         except Exception:
             return False
 
-    def _is_background_daemon_process_alive(self) -> bool:
+    def _is_background_daemon_process_alive(self: "SystemDisplaySubTabHostProtocol") -> bool:
         """Whether a slideshow_daemon.py process is actually alive (not just
         the config file's stale 'running' flag from a process that crashed
         without cleaning up). Used to avoid spawning a second daemon process
@@ -89,7 +98,7 @@ class _DaemonMixin:
             return False
         return True
 
-    def _sync_daemon_config(self):
+    def _sync_daemon_config(self: "SystemDisplaySubTabHostProtocol"):
         if not self._is_daemon_running_config():
             return
 
@@ -141,7 +150,7 @@ class _DaemonMixin:
         except Exception:
             pass
 
-    def toggle_daemon(self, checked: bool):
+    def toggle_daemon(self: "SystemDisplaySubTabHostProtocol", checked: bool):
         start = checked
         if start:
             self.stop_slideshow()
@@ -192,7 +201,7 @@ class _DaemonMixin:
             with open(DAEMON_CONFIG_PATH, "w") as f:
                 json.dump(config, f, indent=4)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save daemon config: {e}")
+            QMessageBox.critical(cast(QWidget, self), "Error", f"Failed to save daemon config: {e}")
             return
 
         if start and self._is_background_daemon_process_alive():
@@ -212,7 +221,7 @@ class _DaemonMixin:
             script_path = self._get_daemon_script_path()
             if not os.path.exists(script_path):
                 QMessageBox.critical(
-                    self, "Error", f"Daemon script not found at:\n{script_path}"
+                    cast(QWidget, self), "Error", f"Daemon script not found at:\n{script_path}"
                 )
                 return
             try:
@@ -242,7 +251,7 @@ class _DaemonMixin:
                 )
                 self._start_daemon_countdown_if_active()
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to start daemon: {e}")
+                QMessageBox.critical(cast(QWidget, self), "Error", f"Failed to start daemon: {e}")
         else:
             self.btn_daemon_toggle.setText("Start Background Daemon")
             self.btn_daemon_toggle.setStyleSheet(
@@ -252,10 +261,10 @@ class _DaemonMixin:
                 self.countdown_timer.stop()
             self.countdown_label.setText("Timer: --:--")
 
-    def view_daemon_logs(self):
+    def view_daemon_logs(self: "SystemDisplaySubTabHostProtocol"):
         log_path = Path.home() / ".image-toolkit" / "logs" / "slideshow_daemon.log"
         if not log_path.exists():
-            QMessageBox.information(self, "No Logs", "No daemon log file found yet.")
+            QMessageBox.information(cast(QWidget, self), "No Logs", "No daemon log file found yet.")
             return
         try:
             if platform.system() == "Windows":
@@ -267,7 +276,7 @@ class _DaemonMixin:
             else:
                 subprocess.run(["xdg-open", str(log_path)])
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not open log file: {e}")
+            QMessageBox.critical(cast(QWidget, self), "Error", f"Could not open log file: {e}")
 
 
 __all__ = ["_DaemonMixin"]

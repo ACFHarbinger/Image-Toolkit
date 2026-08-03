@@ -6,9 +6,9 @@ Extracted from ``MonitorDisplaySubTab`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -23,11 +23,16 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
+
 
 class _UIPropsEndMixin:
     """Builds the "Node Properties" panel and the "End of Graph Behavior" bar."""
 
-    def _build_props_panel(self) -> QGroupBox:
+    def _build_props_panel(self: "MonitorDisplaySubTabHostProtocol") -> QGroupBox:
         grp = QGroupBox("Node Properties")
         grp.setStyleSheet(
             "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
@@ -48,7 +53,7 @@ class _UIPropsEndMixin:
         mode_lyt = QVBoxLayout(mode_grp)
         self._props_radio_fixed = QRadioButton("Fixed duration")
         self._props_radio_runtime = QRadioButton("Full video runtime")
-        self._props_bg = QButtonGroup(self)
+        self._props_bg = QButtonGroup(cast(QObject, self))
         self._props_bg.addButton(self._props_radio_fixed)
         self._props_bg.addButton(self._props_radio_runtime)
         mode_lyt.addWidget(self._props_radio_fixed)
@@ -138,7 +143,7 @@ class _UIPropsEndMixin:
 
         return grp
 
-    def _build_end_behavior_bar(self) -> QGroupBox:
+    def _build_end_behavior_bar(self: "MonitorDisplaySubTabHostProtocol") -> QGroupBox:
         grp = QGroupBox("End of Graph Behavior")
         grp.setStyleSheet(
             "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"

@@ -8,22 +8,36 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Any, Optional
 
 from backend.src.constants import DAEMON_CONFIG_PATH
+from PySide6.QtCore import QThread, QTimer
 from shiboken6 import Shiboken as sip
 
 from ......windows import SlideshowQueueWindow
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
 
 
 class _WidgetUiLifecycleMixin:
     """Refresh monitor-drop widgets; tear down timers/threads/windows on close."""
 
-    def update_monitor_widget_ui(self, monitor_id: str):
+    slideshow_timer: Optional[QTimer]
+    countdown_timer: Optional[QTimer]
+    img_scanner_thread: Optional[QThread]
+    vid_scanner_thread: Optional[QThread]
+    open_queue_windows: list
+    open_image_preview_windows: list
+
+    def update_monitor_widget_ui(self: "WallpaperCommonBaseHostProtocol", monitor_id: str):
         self._update_widget_ui_local(monitor_id)
         for peer in getattr(self, "linked_tabs", []):
             peer._update_widget_ui_local(monitor_id)
 
-    def _update_widget_ui_local(self, monitor_id: str):
+    def _update_widget_ui_local(self: "WallpaperCommonBaseHostProtocol", monitor_id: str):
         widget = self.monitor_widgets.get(monitor_id)
         if widget:
             path = self.monitor_image_paths.get(monitor_id)
@@ -33,7 +47,7 @@ class _WidgetUiLifecycleMixin:
             else:
                 widget.clear()
 
-    def closeEvent(self, event):  # noqa: C901
+    def closeEvent(self: "WallpaperCommonBaseHostProtocol", event):  # noqa: C901
         # Stop slideshow and countdown timers
         if hasattr(self, "slideshow_timer") and self.slideshow_timer:
             try:
@@ -89,7 +103,7 @@ class _WidgetUiLifecycleMixin:
                     win.close()
             except RuntimeError:
                 pass
-        self.open_queue_windows = []
+        self.open_queue_windows: list = []
 
         for win in list(self.open_image_preview_windows):
             try:
@@ -97,11 +111,11 @@ class _WidgetUiLifecycleMixin:
                     win.close()
             except RuntimeError:
                 pass
-        self.open_image_preview_windows = []
+        self.open_image_preview_windows: list = []
 
-        super().closeEvent(event)
+        super().closeEvent(event)  # type: ignore[misc,safe-super]
 
-    def _refresh_open_queue_window(self, monitor_id: str):
+    def _refresh_open_queue_window(self: "WallpaperCommonBaseHostProtocol", monitor_id: str):
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         for win in self.open_queue_windows:
             if (
@@ -111,7 +125,7 @@ class _WidgetUiLifecycleMixin:
             ):
                 win.populate_list(queue)
 
-    def _is_daemon_running_config(self) -> bool:
+    def _is_daemon_running_config(self: "WallpaperCommonBaseHostProtocol") -> bool:
         if not os.path.exists(DAEMON_CONFIG_PATH):
             return False
         try:

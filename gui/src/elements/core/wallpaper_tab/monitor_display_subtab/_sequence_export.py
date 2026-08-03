@@ -7,13 +7,18 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 from __future__ import annotations
 
 import os
-from typing import List
+from typing import List, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 from ._traversal import _build_traversal, _get_video_duration
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
 class _SequenceExportMixin:
@@ -21,7 +26,7 @@ class _SequenceExportMixin:
 
     # ---- Sequence summary -------------------------------------------------
 
-    def _update_seq_label(self):
+    def _update_seq_label(self: "MonitorDisplaySubTabHostProtocol"):
         graph = self._current_graph()
         if graph is None or (not graph.nodes and not graph.edges):
             self._seq_label.setText("Graph is empty. Add nodes and edges to build the sequence.")
@@ -46,7 +51,7 @@ class _SequenceExportMixin:
     # ---- Export to Queue ---------------------------------------------------
 
     @Slot()
-    def _export_graph_to_queue(self):
+    def _export_graph_to_queue(self: "MonitorDisplaySubTabHostProtocol"):
         if self._current_monitor_id is None:
             return
         graph = self._current_graph()
@@ -55,7 +60,7 @@ class _SequenceExportMixin:
         seq = _build_traversal(graph)
         if not seq:
             QMessageBox.information(
-                self, "Empty Sequence",
+                cast(QWidget, self), "Empty Sequence",
                 "Add nodes and edges to build a sequence before exporting to the queue.",
             )
             return
@@ -80,14 +85,14 @@ class _SequenceExportMixin:
         self._update_queue_status_label()
 
         QMessageBox.information(
-            self, "Exported to Queue",
+                cast(QWidget, self), "Exported to Queue",
             f"Appended {len(seq)} item{'s' if len(seq) != 1 else ''} from the graph "
             f"to the Wallpaper Queue, each with its own duration from the graph.",
         )
 
     # ---- Per-entry queue durations -----------------------------------------
 
-    def _default_entry_duration(self, path: str) -> float:
+    def _default_entry_duration(self: "MonitorDisplaySubTabHostProtocol", path: str) -> float:
         """Full runtime for a video, else the default fixed duration -- the
         same fallback semantics used for graph nodes without an explicit
         duration (see _node_duration)."""
@@ -97,7 +102,7 @@ class _SequenceExportMixin:
                 return dur
         return 30.0
 
-    def _reconcile_queue_durations(self, monitor_id: str) -> List[float]:
+    def _reconcile_queue_durations(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str) -> List[float]:
         """Keep self._queue_durations[monitor_id] index-aligned with
         monitor_slideshow_queues[monitor_id], padding new entries (added by
         drag/drop, the context menu, etc.) with a sensible default and
@@ -113,8 +118,8 @@ class _SequenceExportMixin:
         return durations
 
     @Slot(str, list)
-    def on_queue_reordered(self, monitor_id: str, new_queue: List[str]):
-        super().on_queue_reordered(monitor_id, new_queue)
+    def on_queue_reordered(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str, new_queue: List[str]):
+        super().on_queue_reordered(monitor_id, new_queue)  # type: ignore[safe-super]
         # A manual drag-reorder in the Wallpaper Queue window carries no
         # duration metadata, so the old index-aligned durations no longer
         # correspond to the right entries. Reset rather than risk silently
@@ -122,10 +127,10 @@ class _SequenceExportMixin:
         # reconcile recomputes sane per-item defaults.
         self._queue_durations[monitor_id] = []
 
-    def handle_item_swap_request(self, s_mid: str, s_idx: int, t_mid: str, t_idx: int):
+    def handle_item_swap_request(self: "MonitorDisplaySubTabHostProtocol", s_mid: str, s_idx: int, t_mid: str, t_idx: int):
         s_durs = self._reconcile_queue_durations(s_mid)
         t_durs = self._reconcile_queue_durations(t_mid)
-        super().handle_item_swap_request(s_mid, s_idx, t_mid, t_idx)
+        super().handle_item_swap_request(s_mid, s_idx, t_mid, t_idx)  # type: ignore[safe-super]
         if s_idx < len(s_durs) and t_idx < len(t_durs):
             s_durs[s_idx], t_durs[t_idx] = t_durs[t_idx], s_durs[s_idx]
 

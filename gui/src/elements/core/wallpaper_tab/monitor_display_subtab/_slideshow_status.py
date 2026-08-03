@@ -11,11 +11,16 @@ from typing import Optional
 
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
+
 
 class _SlideshowStatusMixin:
     """Refresh the in-app/daemon toggle buttons and the queue position/timer labels."""
 
-    def _update_slideshow_buttons(self):
+    def _update_slideshow_buttons(self: "MonitorDisplaySubTabHostProtocol"):
         monitor_id = self._current_monitor_id
         inapp_running = bool(monitor_id and self._inapp_active_monitor_id == monitor_id)
         daemon_running = bool(monitor_id and self._daemon_active_monitor_id == monitor_id)
@@ -34,7 +39,7 @@ class _SlideshowStatusMixin:
         )
         self._btn_daemon_slideshow.blockSignals(False)
 
-    def _update_queue_status_label(self):
+    def _update_queue_status_label(self: "MonitorDisplaySubTabHostProtocol"):
         monitor_id = self._current_monitor_id
         if monitor_id is None:
             self._queue_position_label.setText("-- / --")
