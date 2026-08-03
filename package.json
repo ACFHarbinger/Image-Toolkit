@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Root package for the Image Toolkit repo.",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-or-later",
   "workspaces": [
     "frontend"
   ],
