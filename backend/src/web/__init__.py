@@ -36,6 +36,18 @@ from .crawlers.reverse_image_search_crawler import (
     resolve_search_image as resolve_search_image,
 )
 from .crawlers.sankaku_crawler import SankakuCrawler as SankakuCrawler
+from .downloaders.nhentai_downloader import (
+    NhentaiDownloadConfig as NhentaiDownloadConfig,
+)
+from .downloaders.nhentai_downloader import (
+    NhentaiDownloader as NhentaiDownloader,
+)
+from .downloaders.reddit_downloader import (
+    RedditDownloadConfig as RedditDownloadConfig,
+)
+from .downloaders.reddit_downloader import (
+    RedditDownloader as RedditDownloader,
+)
 from .meta_search_dispatcher import (
     ConsensusResult as ConsensusResult,
 )
@@ -90,4 +102,8 @@ __all__ = [
     "DropboxDriveSync",
     "GoogleDriveSync",
     "OneDriveSync",
+    "RedditDownloader",
+    "RedditDownloadConfig",
+    "NhentaiDownloader",
+    "NhentaiDownloadConfig",
 ]
