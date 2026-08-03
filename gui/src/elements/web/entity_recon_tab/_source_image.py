@@ -11,11 +11,9 @@ import os
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QFileDialog
 
-from ....constants import DIALOG_OPTS
+from ....constants import DIALOG_OPTS, RECON_IMAGE_FILTER
 
 logger = logging.getLogger(__name__)
-
-_IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.webp *.bmp)"
 
 
 class _SourceImageMixin:
@@ -23,7 +21,7 @@ class _SourceImageMixin:
 
     def _browse_source(self):
         start = os.path.dirname(self._source_path) if self._source_path else ""
-        path, _ = QFileDialog.getOpenFileName(self, "Select Source Image", start, _IMAGE_FILTER, options=DIALOG_OPTS)
+        path, _ = QFileDialog.getOpenFileName(self, "Select Source Image", start, RECON_IMAGE_FILTER, options=DIALOG_OPTS)
         if path:
             self._load_source(path)
 

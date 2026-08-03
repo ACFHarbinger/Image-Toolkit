@@ -6,6 +6,9 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 # System Dirs
 IMAGE_TOOLKIT_DIR = Path.home() / ".image-toolkit"
 THUMBNAIL_CACHE_DIR = IMAGE_TOOLKIT_DIR / "thumbnail-cache"
+# Previously redeclared identically as _DEFAULT_INDEX_DIR in both
+# core/cbir_search.py (reader) and models/tuning/cbir_index_builder.py (writer).
+CBIR_INDEX_DIR = IMAGE_TOOLKIT_DIR / "cbir_index"
 
 # Base Dirs
 BACKEND_DIR = ROOT_DIR / "backend"

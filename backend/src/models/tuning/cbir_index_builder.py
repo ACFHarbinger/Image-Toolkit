@@ -31,11 +31,11 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 import torch
 
+from backend.src.constants import CBIR_INDEX_DIR
 from backend.src.models.data.cbir_dataset import scan_images
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_INDEX_DIR = Path.home() / ".image-toolkit" / "cbir_index"
 _BATCH_SIZE = 64
 
 
@@ -112,7 +112,7 @@ def build_cbir_index(
             "faiss is not installed.  Add 'faiss-cpu>=1.7.4' to pyproject.toml."
         ) from exc
 
-    out_dir = Path(output_dir) if output_dir else _DEFAULT_INDEX_DIR
+    out_dir = Path(output_dir) if output_dir else CBIR_INDEX_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
 
     model, cfg = load_cbir_model(checkpoint_path)

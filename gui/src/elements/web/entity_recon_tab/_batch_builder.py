@@ -10,12 +10,10 @@ import os
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QTableWidgetItem
 
-from ....constants import DIALOG_OPTS
+from ....constants import DIALOG_OPTS, RECON_IMAGE_FILTER
 from ....helpers.web.recon_worker import BatchSuggestWorker
 
 logger = logging.getLogger(__name__)
-
-_IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.webp *.bmp)"
 
 
 class _BatchBuilderMixin:
@@ -25,7 +23,7 @@ class _BatchBuilderMixin:
         if self._engine is None:
             QMessageBox.information(self, "No Index", "Build the identity index first.")
             return
-        paths, _ = QFileDialog.getOpenFileNames(self, "Select Images", "", _IMAGE_FILTER, options=DIALOG_OPTS)
+        paths, _ = QFileDialog.getOpenFileNames(self, "Select Images", "", RECON_IMAGE_FILTER, options=DIALOG_OPTS)
         paths = [p for p in paths if os.path.isfile(p)]
         if not paths:
             return

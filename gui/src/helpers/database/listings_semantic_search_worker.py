@@ -8,18 +8,17 @@ directly (see e.g. ``series_listings_subtab``/``entity_listings_subtab``),
 not through a facade, so this follows that same convention.
 """
 
-from pathlib import Path
 from typing import List, Literal, Optional, Tuple
 
 from gui.src.helpers.base import BaseQRunnableWorker
 
-_RE_DIR = Path(__file__).resolve().parents[4] / "submodules" / "Recommendation-Engine"
+from ...constants import RECOMMENDATION_ENGINE_DIR
 
 
 def _ensure_re_on_path() -> None:
     import sys
 
-    path = str(_RE_DIR)
+    path = str(RECOMMENDATION_ENGINE_DIR)
     if path not in sys.path:
         sys.path.insert(0, path)
 

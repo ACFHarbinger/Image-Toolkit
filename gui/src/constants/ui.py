@@ -7,6 +7,9 @@ from PySide6.QtWidgets import QFileDialog
 # Previously redeclared identically in four entity_recon_tab files.
 DIALOG_OPTS = QFileDialog.Option.DontUseNativeDialog
 
+# Previously redeclared identically in two entity_recon_tab files.
+RECON_IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.webp *.bmp)"
+
 # UI Behavior
 ZOOM_STEP = 1.1
 LAG_COMPENSATION_MS = 300

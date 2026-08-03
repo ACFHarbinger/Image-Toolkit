@@ -10,20 +10,17 @@ inventing a new embedding pathway -- same principle DB.7's image side used
 (reusing the Similarity tab's existing open_clip embedder).
 """
 
-from pathlib import Path
 from typing import List, Tuple
 
 from PySide6.QtCore import QThread, Signal
 
-# Absolute path to the standalone Recommendation-Engine package, same
-# convention as recommendation_worker.py.
-_RE_DIR = Path(__file__).resolve().parents[4] / "submodules" / "Recommendation-Engine"
+from ...constants import RECOMMENDATION_ENGINE_DIR
 
 
 def _ensure_re_on_path() -> None:
     import sys
 
-    path = str(_RE_DIR)
+    path = str(RECOMMENDATION_ENGINE_DIR)
     if path not in sys.path:
         sys.path.insert(0, path)
 

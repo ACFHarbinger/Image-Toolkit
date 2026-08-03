@@ -9,20 +9,18 @@ from __future__ import annotations
 
 import logging
 import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QThread, Signal
 
-logger = logging.getLogger(__name__)
+from ...constants import RECOMMENDATION_ENGINE_DIR
 
-# Absolute path to the standalone Recommendation-Engine package
-_RE_DIR = Path(__file__).resolve().parents[4] / "submodules" / "Recommendation-Engine"
+logger = logging.getLogger(__name__)
 
 
 def _ensure_re_on_path() -> None:
     """Add Recommendation-Engine/ to sys.path so ``from src.X import Y`` works."""
-    path = str(_RE_DIR)
+    path = str(RECOMMENDATION_ENGINE_DIR)
     if path not in sys.path:
         sys.path.insert(0, path)
 

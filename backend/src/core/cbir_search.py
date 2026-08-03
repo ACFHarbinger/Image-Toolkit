@@ -20,11 +20,11 @@ from typing import List, Optional
 
 import numpy as np
 
+from backend.src.constants import CBIR_INDEX_DIR
 from backend.src.web.models import ReverseSearchResult
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_INDEX_DIR = Path.home() / ".image-toolkit" / "cbir_index"
 _INDEX_FILE = "clip_index.faiss"
 _PATHS_FILE = "clip_paths.json"
 _CLIP_MODEL_NAME = "clip-ViT-B-32"
@@ -53,7 +53,7 @@ class LocalCBIRSearch:
         model_name: str = _CLIP_MODEL_NAME,
         top_k: int = 20,
     ) -> None:
-        self._index_dir = Path(index_dir) if index_dir else _DEFAULT_INDEX_DIR
+        self._index_dir = Path(index_dir) if index_dir else CBIR_INDEX_DIR
         self._model_name = model_name
         self._default_top_k = top_k
 
