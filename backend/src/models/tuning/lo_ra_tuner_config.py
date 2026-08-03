@@ -25,18 +25,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-# ---------------------------------------------------------------------------
-# SDXL LoRA target modules
-# ---------------------------------------------------------------------------
-SDXL_ATTN_TARGETS = (
-    "to_q", "to_k", "to_v", "to_out.0",
-    "proj_in", "proj_out",
-    "ff.net.0.proj", "ff.net.2",
+from backend.src.constants import (  # noqa: F401
+    SDXL_ATTN_TARGETS as SDXL_ATTN_TARGETS,
 )
-SDXL_CONV_TARGETS = (
-    "conv1", "conv2", "conv_shortcut", "conv", "time_emb_proj",
+from backend.src.constants import (  # noqa: F401
+    SDXL_CONV_TARGETS as SDXL_CONV_TARGETS,
 )
-TE_ATTN_TARGETS = ("q_proj", "k_proj", "v_proj", "out_proj")
+from backend.src.constants import (  # noqa: F401
+    TE_ATTN_TARGETS as TE_ATTN_TARGETS,
+)
 
 # ===========================================================================
 # LoRA Tuner Config

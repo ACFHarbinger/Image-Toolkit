@@ -1,4 +1,11 @@
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QFileDialog
+
+# File dialogs: MUST pass this to every QFileDialog call. The native
+# GTK file dialog conflicts with the in-process JPype JVM (RTTI collision)
+# and crashes with a SIGSEGV -- see project memory "Tab widget constraints".
+# Previously redeclared identically in four entity_recon_tab files.
+DIALOG_OPTS = QFileDialog.Option.DontUseNativeDialog
 
 # UI Behavior
 ZOOM_STEP = 1.1

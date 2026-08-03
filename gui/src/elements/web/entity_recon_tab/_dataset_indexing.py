@@ -10,9 +10,8 @@ import os
 from backend.src.web.recon import ReconEngine
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from ....constants import DIALOG_OPTS
 from ....helpers.web.recon_worker import IndexBuildWorker
-
-_DIALOG_OPTS = QFileDialog.Option.DontUseNativeDialog
 
 
 class _DatasetIndexingMixin:
@@ -20,7 +19,7 @@ class _DatasetIndexingMixin:
 
     def _browse_dataset(self):
         start = self.dataset_edit.text() if os.path.isdir(self.dataset_edit.text()) else ""
-        d = QFileDialog.getExistingDirectory(self, "Select Dataset Root", start, _DIALOG_OPTS)
+        d = QFileDialog.getExistingDirectory(self, "Select Dataset Root", start, DIALOG_OPTS)
         if d:
             self.dataset_edit.setText(d)
             self._config.dataset_root = d
@@ -31,7 +30,7 @@ class _DatasetIndexingMixin:
 
     def _browse_target(self):
         start = self.target_edit.text() if os.path.isdir(self.target_edit.text()) else ""
-        d = QFileDialog.getExistingDirectory(self, "Select Target Directory", start, _DIALOG_OPTS)
+        d = QFileDialog.getExistingDirectory(self, "Select Target Directory", start, DIALOG_OPTS)
         if d:
             self.target_edit.setText(d)
 

@@ -17,6 +17,7 @@ import logging
 import re
 from typing import List, Optional
 
+from backend.src.constants import ENGINE_BING
 from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchEngine
 from backend.src.web.models import ReverseSearchResult
 
@@ -24,7 +25,6 @@ from .common import make_session, raise_for_rate_limit, resolve_api_key
 
 log = logging.getLogger(__name__)
 
-ENGINE_BING = "bing"
 _API_ENDPOINT = "https://api.bing.microsoft.com/v7.0/images/visualsearch"
 _SBI_UPLOAD = "https://www.bing.com/images/search?view=detailv2&iss=sbi&FORM=SBIIRP"
 _RES_RE = re.compile(r'"width":(\d+),"height":(\d+)')

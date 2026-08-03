@@ -108,6 +108,23 @@ _CONFIG_SCHEMA: Dict[str, Tuple] = {
     "ASP_POST_SEAM_WARN_THRESH": (float, 0.0, None, "Post-composite seam lum-step warning threshold"),
     # ── C++ acceleration ─────────────────────────────────────────────────
     "ASP_BATCH_GPU": (int, 0, 1, "GPU dispatch for C++ base kernels"),
+    # ── Bundle adjustment (previously hardcoded module constants) ────────
+    "ASP_ST_INLIER_THRESHOLD": (float, 0.0, None, "§1.1B max allowed disagreement (px) vs spanning-tree reference"),
+    # ── Affine validation (previously hardcoded module constants) ────────
+    "ASP_ROT_TIGHT": (float, 0.0, None, "§0.5D tight rotation threshold (high frame-to-frame variance)"),
+    "ASP_ROT_LOOSE": (float, 0.0, None, "§0.5D loose rotation threshold (near-identical camera rotation)"),
+    "ASP_SC_TIGHT": (float, 0.0, None, "§0.5D tight scale threshold (high frame-to-frame variance)"),
+    "ASP_SC_LOOSE": (float, 0.0, None, "§0.5D loose scale threshold (near-identical camera scale)"),
+    "ASP_MONO_TAU_MIN": (float, 0.0, 1.0, "§1.12 min |Kendall tau| for translation-monotonicity check"),
+    "ASP_ROT_SCALE_CONSISTENCY_THRESH": (float, 0.0, None, "Rotation/scale consistency threshold for adaptive tight/loose selection"),
+    # ── Frame selection: hold detection / pose refinement (previously
+    # hardcoded module constants) ─────────────────────────────────────────
+    "ASP_MAX_SKIPPABLE_HOLD_SIZE": (int, 1, None, "Max hold-block size (frames) treated as a real animation hold, not a false positive"),
+    "ASP_POSE_REFINE_LOOK_RANGE": (int, 0, None, "Pass-2 pose refinement: +-N slot search window"),
+    "ASP_POSE_REFINE_MIN_GAIN": (float, 0.0, 1.0, "Pass-2 pose refinement: min pose-similarity improvement to swap candidates"),
+    "ASP_POSE_REFINE_MIN_ADV_FRAC": (float, 0.0, None, "Pass-2 pose refinement: min frame-advance fraction constraint"),
+    "ASP_POSE_REFINE_MAX_ADV_FRAC": (float, 0.0, None, "Pass-2 pose refinement: max frame-advance fraction constraint"),
+    "ASP_POSE_REFINE_SAME_HOLD_PENALTY": (float, 0.0, 1.0, "Pass-2 pose refinement: similarity penalty for staying within the same hold block"),
 }
 
 
@@ -311,6 +328,16 @@ _DUMP_SECTIONS: Dict[str, List[str]] = {
         "ASP_BG_NORM_MIN_PX", "ASP_POST_SEAM_WARN_THRESH",
     ],
     "acceleration": ["ASP_BATCH_GPU"],
+    "bundle_adjust": ["ASP_ST_INLIER_THRESHOLD"],
+    "validation": [
+        "ASP_ROT_TIGHT", "ASP_ROT_LOOSE", "ASP_SC_TIGHT", "ASP_SC_LOOSE",
+        "ASP_MONO_TAU_MIN", "ASP_ROT_SCALE_CONSISTENCY_THRESH",
+    ],
+    "pose_refine": [
+        "ASP_MAX_SKIPPABLE_HOLD_SIZE", "ASP_POSE_REFINE_LOOK_RANGE",
+        "ASP_POSE_REFINE_MIN_GAIN", "ASP_POSE_REFINE_MIN_ADV_FRAC",
+        "ASP_POSE_REFINE_MAX_ADV_FRAC", "ASP_POSE_REFINE_SAME_HOLD_PENALTY",
+    ],
 }
 
 

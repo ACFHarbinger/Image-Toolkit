@@ -9,6 +9,7 @@ accordingly.
 import logging
 from typing import List, Optional
 
+from backend.src.constants import ENGINE_SAUCENAO
 from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchEngine
 from backend.src.web.models import ReverseSearchResult
 
@@ -16,7 +17,6 @@ from .common import make_session, raise_for_rate_limit, resolve_api_key
 
 log = logging.getLogger(__name__)
 
-ENGINE_SAUCENAO = "saucenao"
 _API_BASE = "https://saucenao.com/search.php"
 
 

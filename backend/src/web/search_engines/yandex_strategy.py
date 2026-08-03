@@ -14,6 +14,7 @@ import logging
 import re
 from typing import List, Optional
 
+from backend.src.constants import ENGINE_YANDEX
 from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchEngine
 from backend.src.web.models import ReverseSearchResult
 
@@ -21,7 +22,6 @@ from .common import EngineBlocked, make_session, raise_for_rate_limit
 
 log = logging.getLogger(__name__)
 
-ENGINE_YANDEX = "yandex"
 _UPLOAD_URL = "https://yandex.com/images-apphost/image-download"
 _SEARCH_URL = "https://yandex.com/images/search"
 _CAPTCHA_MARKERS = ("showcaptcha", "SmartCaptcha", "captcha")

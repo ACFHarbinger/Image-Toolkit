@@ -8,7 +8,7 @@ from __future__ import annotations
 from backend.src.web.recon import export_provenance
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-_DIALOG_OPTS = QFileDialog.Option.DontUseNativeDialog
+from ....constants import DIALOG_OPTS
 
 
 class _ProvenanceExportMixin:
@@ -20,7 +20,7 @@ class _ProvenanceExportMixin:
             return
         ext = "csv" if fmt == "csv" else "json"
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export Provenance", f"provenance.{ext}", f"{ext.upper()} (*.{ext})", options=_DIALOG_OPTS
+            self, "Export Provenance", f"provenance.{ext}", f"{ext.upper()} (*.{ext})", options=DIALOG_OPTS
         )
         if not path:
             return

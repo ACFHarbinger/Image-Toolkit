@@ -27,23 +27,19 @@ from typing import List, Optional, Tuple
 import base  # Native C++ extension  # noqa: E402
 from PySide6.QtCore import QObject, Signal
 
+from backend.src.constants import (
+    ENGINE_BING,
+    ENGINE_GOOGLE,
+    ENGINE_IQDB,
+    ENGINE_LOCAL_CBIR,
+    ENGINE_SAUCENAO,
+    ENGINE_TINEYE,
+    ENGINE_YANDEX,
+    SUPPORTED_ENGINES,
+)
 from backend.src.web.models import ReverseSearchResult
 
 log = logging.getLogger(__name__)
-
-# ── Engine type literals ──────────────────────────────────────────────────────
-ENGINE_GOOGLE = "google"
-ENGINE_TINEYE = "tineye"
-ENGINE_LOCAL_CBIR = "local_cbir"
-ENGINE_BING = "bing"
-ENGINE_YANDEX = "yandex"
-ENGINE_SAUCENAO = "saucenao"
-ENGINE_IQDB = "iqdb"
-
-SUPPORTED_ENGINES = (
-    ENGINE_GOOGLE, ENGINE_TINEYE, ENGINE_LOCAL_CBIR,
-    ENGINE_BING, ENGINE_YANDEX, ENGINE_SAUCENAO, ENGINE_IQDB,
-)
 
 
 def resolve_search_image(

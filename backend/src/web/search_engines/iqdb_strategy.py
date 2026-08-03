@@ -10,6 +10,7 @@ import re
 from typing import List, Optional
 from urllib.parse import urljoin
 
+from backend.src.constants import ENGINE_IQDB
 from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchEngine
 from backend.src.web.models import ReverseSearchResult
 
@@ -17,7 +18,6 @@ from .common import make_session, raise_for_rate_limit
 
 log = logging.getLogger(__name__)
 
-ENGINE_IQDB = "iqdb"
 _SEARCH_URL = "https://iqdb.org/"
 _SIM_RE = re.compile(r"(\d+)%\s*similarity", re.IGNORECASE)
 _RES_RE = re.compile(r"(\d+)[×x](\d+)")

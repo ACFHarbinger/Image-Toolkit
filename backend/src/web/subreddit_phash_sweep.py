@@ -17,11 +17,10 @@ import os
 from dataclasses import dataclass
 from typing import List, Optional
 
+from backend.src.constants import ENGINE_SUBREDDIT_SWEEP
 from backend.src.web.models import ReverseSearchResult
 
 log = logging.getLogger(__name__)
-
-ENGINE_SUBREDDIT_SWEEP = "subreddit_sweep"
 
 _IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif")
 _HASH_SIZE = 8          # 64-bit pHash; thresholds below are calibrated for it

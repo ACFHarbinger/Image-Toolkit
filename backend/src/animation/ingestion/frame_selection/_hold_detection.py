@@ -64,7 +64,11 @@ except Exception:
 # not be treated as one held cel: not for the phase-correlation skip (which
 # would zero out real camera motion across the whole span) and not for
 # hold-block averaging (which would blur dozens of distinct poses together).
-_MAX_SKIPPABLE_HOLD_SIZE = 8
+# Exposed as ASP_MAX_SKIPPABLE_HOLD_SIZE (see core/config.py _CONFIG_SCHEMA).
+try:
+    _MAX_SKIPPABLE_HOLD_SIZE = int(os.environ.get("ASP_MAX_SKIPPABLE_HOLD_SIZE", "8"))
+except ValueError:
+    _MAX_SKIPPABLE_HOLD_SIZE = 8
 
 
 def _detect_hold_blocks(

@@ -48,6 +48,15 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
 
+from backend.src.constants import (  # noqa: F401
+    SDXL_ATTN_TARGETS as SDXL_ATTN_TARGETS,
+)
+from backend.src.constants import (  # noqa: F401
+    SDXL_CONV_TARGETS as SDXL_CONV_TARGETS,
+)
+from backend.src.constants import (  # noqa: F401
+    TE_ATTN_TARGETS as TE_ATTN_TARGETS,
+)
 from backend.src.models.tuning.lo_ra_tuner_config import LoRATunerConfig
 
 # ---------------------------------------------------------------------------
@@ -76,19 +85,6 @@ try:
     _LYCORIS_OK = True
 except ImportError:
     _LYCORIS_OK = False
-
-# ---------------------------------------------------------------------------
-# SDXL LoRA target modules
-# ---------------------------------------------------------------------------
-SDXL_ATTN_TARGETS = (
-    "to_q", "to_k", "to_v", "to_out.0",
-    "proj_in", "proj_out",
-    "ff.net.0.proj", "ff.net.2",
-)
-SDXL_CONV_TARGETS = (
-    "conv1", "conv2", "conv_shortcut", "conv", "time_emb_proj",
-)
-TE_ATTN_TARGETS = ("q_proj", "k_proj", "v_proj", "out_proj")
 
 # ===========================================================================
 # LoRA Tuner Config

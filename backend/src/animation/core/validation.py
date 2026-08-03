@@ -13,6 +13,7 @@ Issue categories covered:
 from __future__ import annotations
 
 # --------------------------------
+import os
 from typing import List, NamedTuple, Tuple
 
 import numpy as np
@@ -36,17 +37,39 @@ except ImportError:
 # _compute_adaptive_rot_scale.  "Loose" applies when all frames share a
 # near-identical rotation/scale (systematic camera property); "tight" when
 # frame-to-frame variance is high (BA noise).
-_ROT_TIGHT: float = 0.10
+# All six thresholds below are exposed as ASP advanced options (see
+# backend/src/animation/core/config.py _CONFIG_SCHEMA's "validation" section).
+try:
+    _ROT_TIGHT: float = float(os.environ.get("ASP_ROT_TIGHT", "0.10"))
+except ValueError:
+    _ROT_TIGHT = 0.10
 
 # §1.12 — Minimum |Kendall τ| for the translation-monotonicity check.
 # A value of 0.4 allows up to ~30 % discordant frame pairs before flagging
 # the solution as catastrophically disordered.  Good BA solutions typically
 # score ≥ 0.85; random permutations of N=14 score ≈ 0.27 on average.
-_MONO_TAU_MIN: float = 0.4
-_ROT_LOOSE: float = 0.15
-_SC_TIGHT: float = 0.10
-_SC_LOOSE: float = 0.15
-_ROT_SCALE_CONSISTENCY_THRESH: float = 0.02
+try:
+    _MONO_TAU_MIN: float = float(os.environ.get("ASP_MONO_TAU_MIN", "0.4"))
+except ValueError:
+    _MONO_TAU_MIN = 0.4
+try:
+    _ROT_LOOSE: float = float(os.environ.get("ASP_ROT_LOOSE", "0.15"))
+except ValueError:
+    _ROT_LOOSE = 0.15
+try:
+    _SC_TIGHT: float = float(os.environ.get("ASP_SC_TIGHT", "0.10"))
+except ValueError:
+    _SC_TIGHT = 0.10
+try:
+    _SC_LOOSE: float = float(os.environ.get("ASP_SC_LOOSE", "0.15"))
+except ValueError:
+    _SC_LOOSE = 0.15
+try:
+    _ROT_SCALE_CONSISTENCY_THRESH: float = float(
+        os.environ.get("ASP_ROT_SCALE_CONSISTENCY_THRESH", "0.02")
+    )
+except ValueError:
+    _ROT_SCALE_CONSISTENCY_THRESH = 0.02
 
 
 def _check_translation_monotonicity(

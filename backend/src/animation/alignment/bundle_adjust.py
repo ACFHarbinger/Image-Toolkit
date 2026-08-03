@@ -48,7 +48,10 @@ except ValueError:
 _GNC_C_PX: float = GNC_C_PX
 _GNC_MU_ANNEAL: float = GNC_MU_ANNEAL
 
-_ST_INLIER_THRESHOLD = 50.0  # §1.1B: max allowed disagreement (px) vs spanning-tree reference
+try:
+    _ST_INLIER_THRESHOLD = float(os.environ.get("ASP_ST_INLIER_THRESHOLD", "50.0"))
+except ValueError:
+    _ST_INLIER_THRESHOLD = 50.0  # §1.1B: max allowed disagreement (px) vs spanning-tree reference
 
 
 def _gnc_weights_geman_mcclure(

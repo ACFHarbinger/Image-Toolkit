@@ -16,6 +16,7 @@ Similarity metric priority:
 
 from __future__ import annotations
 
+import os
 from typing import List, Optional
 
 import numpy as np
@@ -24,11 +25,28 @@ from ._hold_detection import _compute_dhash
 from ._pose import _compute_dinov2_features, _fg_center_diff
 from .phases import _phase_ids_from_hashes
 
-_LOOK_RANGE = 2
-_MIN_GAIN = 0.10
-_MIN_ADV_FRAC = 0.50
-_MAX_ADV_FRAC = 2.50
-_SAME_HOLD_PENALTY = 0.05
+# Exposed as ASP advanced options (see core/config.py _CONFIG_SCHEMA's
+# "pose_refine" section).
+try:
+    _LOOK_RANGE = int(os.environ.get("ASP_POSE_REFINE_LOOK_RANGE", "2"))
+except ValueError:
+    _LOOK_RANGE = 2
+try:
+    _MIN_GAIN = float(os.environ.get("ASP_POSE_REFINE_MIN_GAIN", "0.10"))
+except ValueError:
+    _MIN_GAIN = 0.10
+try:
+    _MIN_ADV_FRAC = float(os.environ.get("ASP_POSE_REFINE_MIN_ADV_FRAC", "0.50"))
+except ValueError:
+    _MIN_ADV_FRAC = 0.50
+try:
+    _MAX_ADV_FRAC = float(os.environ.get("ASP_POSE_REFINE_MAX_ADV_FRAC", "2.50"))
+except ValueError:
+    _MAX_ADV_FRAC = 2.50
+try:
+    _SAME_HOLD_PENALTY = float(os.environ.get("ASP_POSE_REFINE_SAME_HOLD_PENALTY", "0.05"))
+except ValueError:
+    _SAME_HOLD_PENALTY = 0.05
 
 
 def _pass2_pose_refine(  # noqa: C901
