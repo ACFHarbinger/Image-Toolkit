@@ -104,10 +104,14 @@ class VideoScannerWorker(QThread):
 
         try:
             if HAS_NATIVE_IMAGING:
+                # Serialized against every other scanner worker's own call
+                # into this same native boundary -- see
+                # telemetry.NATIVE_SCAN_LOCK's docstring (image_scan_worker.py
+                # takes the identical lock around its own call).
                 with telemetry.span(
                     "native", "base.scan_files_multi",
                     directories=self.directories, recursive=self.recursive,
-                ):
+                ), telemetry.NATIVE_SCAN_LOCK:
                     all_video_paths = base.scan_files_multi(  # pyrefly: ignore [missing-attribute]
                         self.directories, list(self.extensions), self.recursive
                     )

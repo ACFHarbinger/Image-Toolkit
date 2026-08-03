@@ -114,11 +114,17 @@ class ImageScannerWorker(QThread):
 
         try:
             if HAS_NATIVE_IMAGING:
-                # cpp-based parallel scan
+                # cpp-based parallel scan. Serialized against every other
+                # scanner worker's own call into this same native boundary
+                # (see telemetry.NATIVE_SCAN_LOCK's docstring) -- two linked
+                # Wallpaper-tab panels can each start their own scanner
+                # QThread for the same directory within the same event-loop
+                # tick, and nothing establishes base.scan_files_multi is
+                # safe to call concurrently from multiple threads.
                 with telemetry.span(
                     "native", "base.scan_files_multi",
                     directories=self.directories, recursive=self.recursive,
-                ):
+                ), telemetry.NATIVE_SCAN_LOCK:
                     all_image_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
                         self.directories, list(self.extensions), self.recursive
                     )

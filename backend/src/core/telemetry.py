@@ -51,6 +51,22 @@ _enabled = os.environ.get(_ENV_VAR, "").strip().lower() in _TRUTHY
 _lock = threading.Lock()
 _file = None  # type: ignore[var-annotated]
 _file_path: Optional[Path] = None
+
+# Serializes calls into the native `base.scan_files_multi()` boundary across
+# the independent ImageScannerWorker/VideoScannerWorker QThreads (issue #81,
+# round 26 of .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md): two
+# linked Wallpaper-tab panels can each start their own scanner QThread for
+# the same directory within the same event-loop tick, so both threads can
+# call into the native extension concurrently. Nothing establishes that
+# `base.scan_files_multi` is safe to call reentrantly from multiple threads
+# at once, and the crash signature (a corrupted QSocketNotifier on the main
+# thread, immediately after both panels' scans start back-to-back) is
+# consistent with concurrent native-side file-descriptor churn. This lives
+# in `telemetry` (not a new module) since both scanner workers already
+# import it for `span()`, and this module is deliberately kept
+# dependency-light/stdlib-only so it's safe to import from exactly this
+# kind of hot path.
+NATIVE_SCAN_LOCK = threading.Lock()
 _pid = os.getpid()
 _t0 = time.monotonic()
 
@@ -180,4 +196,5 @@ __all__ = [
     "emit",
     "span",
     "close",
+    "NATIVE_SCAN_LOCK",
 ]
