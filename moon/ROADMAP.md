@@ -19,11 +19,13 @@ Section-specific roadmaps:
 - [Architecture & Infrastructure](roadmaps/architecture.md)
 - [Browser Extension — Capture, Build System & App Integration](roadmaps/extension.md)
 - [Unified Database — Merging Listings Subtabs & Database Tabs](roadmaps/unified_database.md)
+- [Manga Colorization & Animation — HITL Deep Learning + Mathematical Optimization](roadmaps/manga_colorization_animation.md)
 
 Consolidated research reports (read before working on the respective pipeline):
 - [Anime Stitching — Consolidated Research](../research/Image_Stitching_Research.md) — foreground-assembly paradigm, per-stage toolbox, 13-stage spec.
 - [Anime Generation — Consolidated Research](../research/Image_Generation_Research.md) — image + video models, fine-tuning, video→LoRA pipeline.
 - [Anime Stitch Pipeline ML Research](../research/ASP_Comprehensive_Research_Report.md) — ML-driven solutions for aperture problem (AnimeInterp SGM), frame selection (DINOv2 submodular), camera estimation (CamFlow), generative composition (ToonCrafter, RDIStitcher), and reference-free metrics (SIQE, SI-FID, MLLM SIQS). Full roadmap entries in [asp.md §3.0](roadmaps/asp.md#30-ml-driven-pipeline-modernisation-research-phase--from-ml-research-report).
+- [Manga Colorization & Animation — Consolidated Research](../research/Manga%20Colorization%20and%20Animation%20Research.md) — HITL deep learning (diffusion reference colorization, DiT inbetweening, Diffusion-DPO) and mathematical optimization (Levin quadratic-cost scribbles, screentone level-sets, graph-correspondence QP, Optimal-Transport/Sinkhorn, Boykov-Kolmogorov graph cuts, ARAP mesh deformation). Full roadmap in [manga_colorization_animation.md](roadmaps/manga_colorization_animation.md).
 
 Phases are ordered by impact-to-effort ratio and dependency order. Items within a phase are independent and can be parallelised.
 
@@ -66,6 +68,33 @@ Builds on the existing generation stack (`LoRATuner` on Illustrious-XL, `SD3Wrap
 | CG.8 | **[Gen] ToonCrafter inbetweening** (shared with ASP `animation/anim_fill.py` ghost-fill) | [Research] | [content_generation.md §2.2](roadmaps/content_generation.md) |
 | CG.9 | **[Gen] FLUX.1 [dev] secondary support** (FP8/GGUF for 16 GB) | [Research] | [content_generation.md §1.5](roadmaps/content_generation.md) |
 | CG.10 | **[Gen] Wan2.1 / SVD foundation video** (3090 Ti, VRAM-gated) | [Long-term] | [content_generation.md §2.3](roadmaps/content_generation.md) |
+
+---
+
+## Phase MCA — Manga Colorization & Animation (HITL Deep Learning + Mathematical Optimization)
+
+Greenfield feature area tracked under GitHub Milestone #6 ("Manga Colorization and Animation"). Combines a deterministic, copyright-safe mathematical-optimization track (Levin scribble colorization, screentone-aware level sets, graph-correspondence QP / Optimal-Transport reference colorization, Boykov-Kolmogorov graph-cut temporal coherence, ARAP mesh puppeteering) with a [Research]-gated generative deep-learning track (diffusion reference colorization, DiT inbetweening, Diffusion-DPO/LoRA alignment), all exposed through a shared HITL layered-canvas editor. Full detail in [manga_colorization_animation.md](roadmaps/manga_colorization_animation.md).
+
+| # | Item | Effort | Roadmap Link |
+|---|------|--------|--------------|
+| MCA.1 | **[Manga] Text/speech-bubble detection + inpainting** (CRAFT/PaddleOCR + LaMa; manual-mask MVP first) | ~3–5d | [manga_colorization_animation.md §1.1](roadmaps/manga_colorization_animation.md#11-textspeech-bubble-detection--inpainting) |
+| MCA.2 | **[Manga] Line art extraction** (PiDiNet / Informative-Drawing wrapper) | ~2–3d | [manga_colorization_animation.md §1.2](roadmaps/manga_colorization_animation.md#12-line-art-extraction) |
+| MCA.3 | **[Manga] Screentone Gabor feature extraction** (C++ `base` kernel) | ~3–5d | [manga_colorization_animation.md §1.3](roadmaps/manga_colorization_animation.md#13-screentone-gabor-feature-extraction) |
+| MCA.4 | **[Manga] Levin quadratic-cost scribble colorizer** (Eigen sparse solve, `base::manga`) | ~1w | [manga_colorization_animation.md §2.1](roadmaps/manga_colorization_animation.md#21-levin-quadratic-cost-scribble-colorizer) |
+| MCA.5 | **[Manga] Screentone-aware level-set propagation** | ~1–2w | [manga_colorization_animation.md §2.2](roadmaps/manga_colorization_animation.md#22-screentone-aware-level-set-propagation) |
+| MCA.6 | **[Manga] Optimal-Transport / Sinkhorn reference colorizer** (POT / torch Sinkhorn) | ~1–2w | [manga_colorization_animation.md §2.4](roadmaps/manga_colorization_animation.md#24-optimal-transport--sinkhorn-reference-colorizer) |
+| MCA.7 | **[Manga] Graph-correspondence QP reference colorizer** (fallback path) | ~2w+ | [manga_colorization_animation.md §2.3](roadmaps/manga_colorization_animation.md#23-graph-correspondence-qp-reference-colorizer) |
+| MCA.8 | **[Manga] Layered HITL canvas editor** (Multiply-blend line art + scribble/mask layers) | ~1–2w | [manga_colorization_animation.md §5.1](roadmaps/manga_colorization_animation.md#51-layered-canvas-editor-multiply-blend-scribble--mask-layers) |
+| MCA.9 | **[Manga] Quadtree-accelerated interactive solve** | ~2w+ | [manga_colorization_animation.md §5.2](roadmaps/manga_colorization_animation.md#52-quadtree-accelerated-interactive-solve) |
+| MCA.10 | **[Manga] 3D quadratic-cost temporal propagation** (extends MCA.4 to $(x,y,t)$) | ~1–2w | [manga_colorization_animation.md §3.1](roadmaps/manga_colorization_animation.md#31-3d-quadratic-cost-temporal-propagation) |
+| MCA.11 | **[Manga] Graph-cut (Boykov-Kolmogorov) temporal coherence** (PyMaxflow) | ~1–2w | [manga_colorization_animation.md §3.2](roadmaps/manga_colorization_animation.md#32-graph-cut-boykov-kolmogorov-temporal-coherence) |
+| MCA.12 | **[Manga] ARAP mesh puppeteering** (SVD local step + Poisson global solve) | ~2w+ | [manga_colorization_animation.md §3.3](roadmaps/manga_colorization_animation.md#33-arap-mesh-puppeteering) |
+| MCA.13 | **[Manga] GUI: Manga Colorization Tab** (`gui/src/tabs/manga/colorization_tab.py`) | ~1–2w | [manga_colorization_animation.md §6.1](roadmaps/manga_colorization_animation.md#61-manga-colorization-tab) |
+| MCA.14 | **[Manga] GUI: Manga Animation Tab** (`gui/src/tabs/manga/animation_tab.py`) | ~1–2w | [manga_colorization_animation.md §6.2](roadmaps/manga_colorization_animation.md#62-manga-animation-tab) |
+| MCA.15 | **[Manga] GUI: Preference Review Dialog** (DPO preference capture, built early) | ~3–5d | [manga_colorization_animation.md §6.3](roadmaps/manga_colorization_animation.md#63-preference-review-dialog-dpo-capture) |
+| MCA.16 | **[Manga] Diffusion reference colorizer** (MangaNinja/ColorFlow-style, ComfyUI spike first) | [Research] | [manga_colorization_animation.md §2.5](roadmaps/manga_colorization_animation.md#25-diffusion-reference-colorizer-manganinja-style-research) |
+| MCA.17 | **[Manga] Diffusion inbetweening** (ToonCrafter-style, shared spike with ASP ghost-fill) | [Research] | [manga_colorization_animation.md §3.4](roadmaps/manga_colorization_animation.md#34-diffusion-inbetweening-tooncrafter-style-research) |
+| MCA.18 | **[Manga] LocalDPO region preference fine-tuning + LoRA feedback loop** | [Research] | [manga_colorization_animation.md §4](roadmaps/manga_colorization_animation.md#4-hitl-alignment-dpo--lora) |
 
 ---
 
