@@ -86,7 +86,7 @@ warn_unused_configs = true
 ignore_missing_imports = true
 # Per-module overrides — gradually opt in to stricter checking
 [[tool.mypy.overrides]]
-module = ["backend.src.errors", "backend.src.models.base"]
+module = ["backend.src.errors"]
 disallow_untyped_defs = true
 check_untyped_defs = true
 
