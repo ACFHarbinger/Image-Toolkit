@@ -76,6 +76,26 @@ class _LifecycleMixin:
         super().showEvent(event)
         self._shown = True
 
+        # §2.12A tray-icon setup is intentionally NOT auto-constructed here
+        # (or anywhere else during startup). Every timing attempt tried --
+        # synchronous in __init__, QTimer.singleShot(0), (1500), and this
+        # window's own first showEvent() -- still crashed a meaningful
+        # fraction of launches with a null-pointer SIGSEGV in libQt6Gui.so.6
+        # (nearby offsets: +0x136666, +0x14071e, +0x1342c4), no preceding
+        # QSocketNotifier warning. This matches this project's own Addendum
+        # 13 precedent for a different Qt subsystem: a genuinely unstable
+        # native call under this Plasma6/Wayland/Qt6 combination isn't fixed
+        # by *when* it's called, only by not calling it unconditionally at
+        # all. See Addendum 27 in
+        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
+        #
+        # `_setup_tray_icon()` itself (in _tray.py) is untouched and still
+        # fully callable -- e.g. from a future opt-in settings toggle -- for
+        # anyone who wants the tray icon back and is willing to accept the
+        # crash risk on an affected environment; this just removes the
+        # unconditional automatic call every session paid regardless of
+        # whether tray features were ever used.
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self._save_session_recovery()

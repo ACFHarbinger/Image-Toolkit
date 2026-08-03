@@ -152,11 +152,13 @@ class MainWindow(
         self.setLayout(vbox)
         self.set_application_theme(self.current_theme)
 
-        # §2.12A — System tray icon
+        # §2.12A — System tray icon. NOT auto-constructed -- see
+        # _lifecycle.py's showEvent() for why (a real, reproducible native
+        # SIGSEGV on this Plasma6/Wayland/Qt6 combination, not fixed by any
+        # startup-timing adjustment tried). _tray_icon stays None; anything
+        # that reads it (e.g. tray_notify()) already handles that safely.
         self._tray_icon: QSystemTrayIcon | None = None
         self._minimize_to_tray: bool = False
-        if QSystemTrayIcon.isSystemTrayAvailable():
-            self._setup_tray_icon(app_icon)
 
         # GUI/UX §2.8 — live OS color-scheme changes (e.g. user toggles dark mode in KDE/Windows)
         try:
