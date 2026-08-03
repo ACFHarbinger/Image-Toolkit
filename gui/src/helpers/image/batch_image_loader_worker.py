@@ -2,6 +2,7 @@ import contextlib
 
 import numpy as np
 from backend.src.constants import HAS_NATIVE_IMAGING, THUMBNAIL_CACHE_DIR
+from backend.src.core import telemetry
 from PySide6.QtCore import QObject, QRunnable, Qt, Signal, Slot
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
@@ -32,14 +33,22 @@ def _rgb_array_to_qimage(arr: np.ndarray) -> QImage:
 def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QImage | None, str]]:
     """Call base.load_image_batch with the RGB + disk-cache fast path,
     falling back to the legacy BGR signature for older native builds.
-    Returns list of (path, QImage|None, error)."""
+    Returns list of (path, QImage|None, error).
+
+    Serialized via ``telemetry.NATIVE_IMAGE_BATCH_LOCK`` -- see that lock's
+    docstring in ``backend/src/core/telemetry.py`` for why concurrent Python-
+    level entries into this native boundary (not just concurrent OpenMP
+    work within a single call) are unsafe and were the actual root cause of
+    this project's long-running QSocketNotifier/SIGSEGV crash class.
+    """
     global _NATIVE_SUPPORTS_RGB_CACHE
     if _NATIVE_SUPPORTS_RGB_CACHE:
         try:
-            raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
-                paths, target_size, target_size, True,
-                True, str(THUMBNAIL_CACHE_DIR),
-            )
+            with telemetry.NATIVE_IMAGE_BATCH_LOCK:
+                raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
+                    paths, target_size, target_size, True,
+                    True, str(THUMBNAIL_CACHE_DIR),
+                )
             return [
                 (p, _rgb_array_to_qimage(a) if a is not None and not e else None, e)
                 for p, a, e in raw
@@ -47,9 +56,10 @@ def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QIm
         except TypeError:
             _NATIVE_SUPPORTS_RGB_CACHE = False
 
-    raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
-        paths, target_size, target_size, True
-    )
+    with telemetry.NATIVE_IMAGE_BATCH_LOCK:
+        raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
+            paths, target_size, target_size, True
+        )
     return [
         (p, _bgr_array_to_qimage(a) if a is not None and not e else None, e)
         for p, a, e in raw

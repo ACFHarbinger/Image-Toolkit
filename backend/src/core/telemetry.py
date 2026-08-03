@@ -54,19 +54,45 @@ _file_path: Optional[Path] = None
 
 # Serializes calls into the native `base.scan_files_multi()` boundary across
 # the independent ImageScannerWorker/VideoScannerWorker QThreads (issue #81,
-# round 26 of .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md): two
-# linked Wallpaper-tab panels can each start their own scanner QThread for
-# the same directory within the same event-loop tick, so both threads can
-# call into the native extension concurrently. Nothing establishes that
-# `base.scan_files_multi` is safe to call reentrantly from multiple threads
-# at once, and the crash signature (a corrupted QSocketNotifier on the main
-# thread, immediately after both panels' scans start back-to-back) is
-# consistent with concurrent native-side file-descriptor churn. This lives
-# in `telemetry` (not a new module) since both scanner workers already
-# import it for `span()`, and this module is deliberately kept
-# dependency-light/stdlib-only so it's safe to import from exactly this
-# kind of hot path.
+# round 26 of .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md).
+# Round 26's own hypothesis (Gemini-delegated, marked unverified at the
+# time because the native `base` extension failed to import in that
+# session) turned out to target the wrong function once the C++ source was
+# actually readable: `base::image::scan_files`/`scan_files_multi`
+# (base/src/image/scan_files.cpp) only touches local `std::vector`s and
+# `std::filesystem` iterators -- no global/static mutable state -- so it is
+# reentrant by construction and was never the real race. This lock is kept
+# anyway (cheap, harmless, and scans are infrequent) rather than removed,
+# so as not to re-open a "confirmed safe without a live regression test"
+# gap purely on static-code-reading confidence.
 NATIVE_SCAN_LOCK = threading.Lock()
+
+# Serializes calls into the native `base.load_image_batch()` boundary
+# (base/src/image/image_batch.cpp, called from
+# gui/src/helpers/image/batch_image_loader_worker.py::native_load_batch,
+# which both `BatchImageLoaderWorker` and `ImageLoaderWorker` funnel
+# through) -- the actual root cause this project's SIGSEGV/QSocketNotifier
+# crash class (see NATIVE_SCAN_LOCK above and
+# .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md) was chasing.
+# Unlike `scan_files_multi`, `load_image_batch` releases the GIL
+# (`py::gil_scoped_release`) and runs `cv::imread`/`cv::imdecode`/
+# `cv::resize`/`cv::imwrite` across an internal OpenMP thread team
+# (`#pragma omp parallel for`) to fill/read a *shared, unlocked* on-disk
+# thumbnail cache directory. It is called concurrently and frequently --
+# every `QThreadPool` worker across every open gallery tab funnels through
+# it, e.g. two linked Wallpaper-tab panels finishing their scans back to
+# back both immediately queue `BatchImageLoaderWorker` runnables. Nothing
+# in this call establishes it is safe to have two independent OpenMP
+# thread teams (each spawned by a different host thread) alive at once
+# inside libopencv/libjpeg, nor that two threads racing to
+# read-then-write the same cache file (mtime-invalidated, no lock) can't
+# corrupt each other's I/O -- both are consistent with the observed
+# `QSocketNotifier: Socket notifiers cannot be enabled or disabled from
+# another thread` + `SIGSEGV` inside `QString::vasprintf` signature.
+# Serializing this call costs little: a single call already parallelizes
+# internally via OpenMP across all cores, so multiple *concurrent* Python
+# entries were never adding real parallelism, only race risk.
+NATIVE_IMAGE_BATCH_LOCK = threading.Lock()
 _pid = os.getpid()
 _t0 = time.monotonic()
 
@@ -197,4 +223,5 @@ __all__ = [
     "span",
     "close",
     "NATIVE_SCAN_LOCK",
+    "NATIVE_IMAGE_BATCH_LOCK",
 ]
