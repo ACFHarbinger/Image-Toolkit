@@ -9,12 +9,41 @@ pytestmark = pytest.mark.gui
 
 
 class TestMangaColorizationTab:
-    def test_constructs_with_only_scribble_mode_enabled(self, q_app):
+    def test_constructs_with_only_implemented_modes_enabled(self, q_app):
         tab = MangaColorizationTab()
         assert tab.mode_combo.count() == 4
+        # Scribble (Levin) and Screentone-aware have working backends.
         assert tab.mode_combo.model().item(0).isEnabled() is True
-        for idx in range(1, 4):
-            assert tab.mode_combo.model().item(idx).isEnabled() is False
+        assert tab.mode_combo.model().item(1).isEnabled() is True
+        # Reference/Optimal-Transport and Reference/Graph-QP don't yet.
+        assert tab.mode_combo.model().item(2).isEnabled() is False
+        assert tab.mode_combo.model().item(3).isEnabled() is False
+
+    def test_screentone_mode_dispatches_to_screentone_backend(self, q_app):
+        from backend.src.manga import colorize_scribble, colorize_scribble_screentone
+        from gui.src.tabs.manga.colorization_tab import _MODE_BACKENDS
+
+        assert _MODE_BACKENDS[0] is colorize_scribble
+        assert _MODE_BACKENDS[1] is colorize_scribble_screentone
+
+    def test_run_colorize_uses_selected_mode_backend(self, q_app):
+        from backend.src.manga import colorize_scribble_screentone
+        from PySide6.QtGui import QImage
+
+        tab = MangaColorizationTab()
+        img = QImage(20, 20, QImage.Format.Format_RGB888)
+        img.fill(QColor(180, 180, 180))
+        tab.canvas.set_line_art(img)
+        tab.canvas._paint_line(QPointF(5, 5), QPointF(5, 5))
+
+        tab.mode_combo.setCurrentIndex(1)
+        try:
+            tab._run_colorize()
+            assert tab._worker is not None
+            assert tab._worker._colorize_fn is colorize_scribble_screentone
+        finally:
+            if tab._worker is not None:
+                tab._worker.wait()
 
     def test_colorize_without_line_art_shows_info(self, q_app):
         tab = MangaColorizationTab()

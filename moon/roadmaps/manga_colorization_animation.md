@@ -157,11 +157,13 @@ Research basis: [`research/Manga Colorization and Animation Research.md`](../../
 
 **Recommendation:** PiDiNet (lightweight, ONNX-exportable) as the primary edge extractor; Informative-Drawing as a fallback/quality option. New `backend/src/models/wrappers/pidinet_wrapper.py`.
 
-### 1.3 Screentone Gabor Feature Extraction
+### 1.3 Screentone Gabor Feature Extraction — ✅ Done (2026-08-04, issue #185)
 
 **Pain point:** Raw pixel intensity is unusable as an affinity signal on screentoned manga (§5.2 of the research report) — local variance is artificially maximized by halftone dots, breaking both the Levin quadratic-cost weighting (§2.1) and naive edge detection.
 
-**Recommendation:** A Gabor filter bank (`cv2.getGaborKernel` bank across orientations/frequencies) computing a per-pixel texture signature $T(x,y)$, implemented in `base/src/manga/gabor_features.cpp` for performance (full-page 4K Gabor convolution in Python/NumPy is too slow for interactive HITL). This is the shared foundation for §2.2's level-set halting function and a stronger affinity signal for §2.3/§2.4's superpixel segmentation.
+**Shipped as:** `backend/src/manga/gabor.py` (`gabor_feature_bank()`) — a Gabor filter bank (`cv2.getGaborKernel` across orientations/frequencies) computing a per-pixel texture signature, **pure Python/OpenCV, not the C++ `base/src/manga/gabor_features.cpp` this section originally recommended** — same rationale as §2.1's deviation (avoid a new build-system surface before the rest of the HITL loop is proven out; a native port is a valid follow-up if profiling shows it's needed for full-page 4K interactive use). Each filter response is converted to a locally-smoothed "Gabor energy" map (`cv2.GaussianBlur` over the response magnitude) rather than raw per-pixel response — raw Gabor magnitude is phase-sensitive at the pixel level (two adjacent pixels in the *same* halftone pattern can land on opposite dot-grid phases and score very differently), so this smoothing step was necessary to get a genuine regional texture signature rather than phase noise; verified quantitatively (a same-region pixel pair scores a much smaller feature-space distance than a pair straddling a screentone/flat boundary). Feeds §2.2's texture-affinity colorizer directly.
+
+Tests: `backend/test/manga/test_gabor.py` (7).
 
 ---
 
@@ -179,13 +181,15 @@ Research basis: [`research/Manga Colorization and Animation Research.md`](../../
 
 Tests: `backend/test/manga/test_colorization.py` (12).
 
-### 2.2 Screentone-Aware Level-Set Propagation
+### 2.2 Screentone-Aware Level-Set Propagation — ✅ Done (2026-08-04, issue #187)
 
 **Pain point:** §2.1 alone fails on screentoned regions (halftone dot variance breaks the weighting function).
 
 **Formulation:** Level-set PDE $\Phi_t = h \cdot (F_0 + F_1|\nabla\Phi|)$ with halting function $h(x,y) = 1/(1+|D(T_{scribble}, T(x,y))|)$ over the Gabor features from §1.3 (research report §5.2).
 
-**Recommendation:** `base::manga::propagate_screentone()`, consuming §1.3's feature maps. Ship as an alternate/blended mode in the same colorizer entry point as §2.1 (auto-detect screentone density and switch weighting strategy, or expose as a toggle).
+**Shipped as:** `backend/src/manga/screentone.py` (`build_texture_affinity_system()` + `colorize_scribble_screentone()`) — **not a separate level-set PDE solver**, a deliberate reuse of §2.1's already-shipped, already-tested convex quadratic-cost graph-Laplacian solver with pixel affinity weights swapped from intensity correlation to a Gaussian kernel over Gabor texture-feature distance (`w_rs = exp(-||T(r)-T(s)||^2 / (2*sigma^2))`, row-normalized). Both formulations are monotonically-decreasing functions of a local pattern-distance measure — the graph weight is the direct discrete graph-Laplacian analog of the level-set halting function — so this achieves the same observable goal (propagation halts at screentone-pattern boundaries, not raw-intensity boundaries) without a second, separate PDE time-stepping solver and its own stability/reinitialization concerns. Full doc-string rationale in the module itself. Same `max_solve_dim` resolution cap and Dirichlet-constraint machinery as §2.1; same worker/UI wiring (§6.1) via `ColorizeWorker`'s new pluggable `colorize_fn` parameter. Wired into the Manga Colorization Tab as the "Screentone-aware (Gabor texture)" mode.
+
+Tests: `backend/test/manga/test_screentone.py` (10).
 
 ### 2.3 Graph-Correspondence QP Reference Colorizer
 

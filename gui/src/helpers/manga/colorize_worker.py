@@ -1,16 +1,19 @@
-"""Off-main-thread runner for the Levin scribble colorizer (issue #186/#195).
+"""Off-main-thread runner for the manga scribble colorizers (issue #186/#187/
+#195).
 
 A ``QThread`` subclass overriding ``run()`` (not ``QObject`` + ``moveToThread``)
 -- the JPype-JVM-safe pattern this codebase already uses for every other
 background worker (see e.g. ``gui/src/helpers/web/media_loader_worker.py``).
 The solve itself (~1-4s for a full page, see
-``backend/src/manga/colorization.py``) is pure NumPy/SciPy/OpenCV, so it
-carries none of the native-Qt-subsystem crash risk that pattern guards
-against -- but running it on the GUI thread would still freeze the UI for
-the whole solve, so it's threaded regardless.
+``backend/src/manga/colorization.py``/``screentone.py``) is pure NumPy/
+SciPy/OpenCV, so it carries none of the native-Qt-subsystem crash risk that
+pattern guards against -- but running it on the GUI thread would still
+freeze the UI for the whole solve, so it's threaded regardless.
 """
 
 from __future__ import annotations
+
+from typing import Callable, Optional
 
 import numpy as np
 from backend.src.manga import colorize_scribble
@@ -18,7 +21,12 @@ from PySide6.QtCore import QThread, Signal
 
 
 class ColorizeWorker(QThread):
-    """Runs :func:`backend.src.manga.colorize_scribble` off the UI thread."""
+    """Runs a ``colorize_fn(gray, scribble_rgb, scribble_mask,
+    max_solve_dim=...) -> np.ndarray`` off the UI thread. Defaults to
+    :func:`backend.src.manga.colorize_scribble` (the Levin solver) so
+    existing single-mode call sites don't need to change; pass a different
+    ``colorize_fn`` (e.g. :func:`backend.src.manga.colorize_scribble_screentone`)
+    to run a different colorization mode through the same worker."""
 
     finished_ok = Signal(np.ndarray)
     error = Signal(str)
@@ -29,6 +37,7 @@ class ColorizeWorker(QThread):
         scribble_rgb: np.ndarray,
         scribble_mask: np.ndarray,
         max_solve_dim: int = 640,
+        colorize_fn: Optional[Callable[..., np.ndarray]] = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -36,10 +45,11 @@ class ColorizeWorker(QThread):
         self._scribble_rgb = scribble_rgb
         self._scribble_mask = scribble_mask
         self._max_solve_dim = max_solve_dim
+        self._colorize_fn = colorize_fn or colorize_scribble
 
     def run(self) -> None:
         try:
-            result = colorize_scribble(
+            result = self._colorize_fn(
                 self._gray,
                 self._scribble_rgb,
                 self._scribble_mask,

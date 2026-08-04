@@ -183,6 +183,23 @@ def colorize_scribble(
     if not np.any(scribble_mask):
         raise ValueError("scribble_mask has no scribbled pixels -- nothing to propagate from")
 
+    # Serializes the OpenCV/scipy-heavy solve across independent
+    # ColorizeWorker QThreads -- see telemetry.MANGA_COLORIZE_LOCK's
+    # docstring for why. Validation above stays outside the lock since it's
+    # cheap and independent of any shared/native state.
+    from backend.src.core.telemetry import MANGA_COLORIZE_LOCK
+
+    with MANGA_COLORIZE_LOCK:
+        return _colorize_scribble_impl(gray, scribble_rgb, scribble_mask, win_rad, max_solve_dim)
+
+
+def _colorize_scribble_impl(
+    gray: np.ndarray,
+    scribble_rgb: np.ndarray,
+    scribble_mask: np.ndarray,
+    win_rad: int,
+    max_solve_dim: int,
+) -> np.ndarray:
     h, w = gray.shape
     gray_u8 = gray.astype(np.uint8) if gray.dtype != np.uint8 else gray
 

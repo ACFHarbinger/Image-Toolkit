@@ -1,20 +1,22 @@
 """Manga Colorization tab (roadmap §6.1, issue #195).
 
-Exercises the Levin scribble colorizer (backend/src/manga/colorization.py,
-issue #186) end-to-end through the layered canvas editor (issue #190):
-load a grayscale/line-art page, paint colored scribbles, run the solver off
-the UI thread, and view the result. Only the Scribble (Levin) mode is wired
-up in this first pass -- the roadmap's other colorization modes
-(screentone-aware level-set #187, Optimal-Transport reference #188,
-graph-QP reference #189) are separate, not-yet-implemented backends; the
-mode selector is left in place (single entry, disabled placeholder text on
-the others) so this tab doesn't need reshaping again once they land.
+Exercises the scribble colorizers (backend/src/manga/colorization.py issue
+#186, screentone.py issue #187) end-to-end through the layered canvas editor
+(issue #190): load a grayscale/line-art page, paint colored scribbles, run
+the selected solver off the UI thread, and view the result. Two modes are
+wired up so far -- Scribble (Levin) and Screentone-aware (Gabor
+texture-affinity) -- the roadmap's remaining two colorization modes
+(Optimal-Transport reference #188, graph-QP reference #189) are reference-
+image-based, not scribble-based, and still not-yet-implemented backends;
+the mode selector is left in place (disabled placeholder entries) so this
+tab doesn't need reshaping again once they land.
 
 New feature, not code motion.
 """
 
 from __future__ import annotations
 
+from backend.src.manga import colorize_scribble, colorize_scribble_screentone
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
@@ -34,6 +36,13 @@ from ...constants import DIALOG_OPTS
 from ...elements.manga import MangaCanvasEditor
 from ...helpers.manga import ColorizeWorker
 from ...utils.image_load import IMAGE_FILE_DIALOG_FILTER, load_qimage
+
+# Index in mode_combo -> backend colorize_fn (see ColorizeWorker's
+# colorize_fn parameter). Modes not present here are disabled placeholders.
+_MODE_BACKENDS = {
+    0: colorize_scribble,
+    1: colorize_scribble_screentone,
+}
 
 
 class MangaColorizationTab(QWidget):
@@ -59,13 +68,14 @@ class MangaColorizationTab(QWidget):
         self.mode_combo = QComboBox()
         self.mode_combo.addItems([
             "Scribble (Levin quadratic-cost)",
-            "Screentone-aware (coming soon)",
+            "Screentone-aware (Gabor texture)",
             "Reference / Optimal-Transport (coming soon)",
             "Reference / Graph-QP (coming soon)",
         ])
-        # Only the first entry has a working backend right now.
-        for idx in range(1, self.mode_combo.count()):
-            self.mode_combo.model().item(idx).setEnabled(False)
+        # Only entries present in _MODE_BACKENDS have a working backend.
+        for idx in range(self.mode_combo.count()):
+            if idx not in _MODE_BACKENDS:
+                self.mode_combo.model().item(idx).setEnabled(False)
         toolbar.addWidget(self.mode_combo)
 
         toolbar.addWidget(QLabel("Pen Color:"))
@@ -148,10 +158,12 @@ class MangaColorizationTab(QWidget):
         scribble_rgb = self.canvas.get_scribble_rgb()
         scribble_mask = self.canvas.get_scribble_mask()
 
+        colorize_fn = _MODE_BACKENDS.get(self.mode_combo.currentIndex(), colorize_scribble)
+
         self.btn_colorize.setEnabled(False)
         self.status_label.setText("Colorizing… (solving the scribble system)")
 
-        self._worker = ColorizeWorker(gray, scribble_rgb, scribble_mask)
+        self._worker = ColorizeWorker(gray, scribble_rgb, scribble_mask, colorize_fn=colorize_fn)
         self._worker.finished_ok.connect(self._on_colorize_finished)
         self._worker.error.connect(self._on_colorize_error)
         self._worker.finished.connect(self._on_worker_thread_finished)

@@ -65,7 +65,13 @@ class _LoadTabConfigMixin:
 
         dlg = QDialog(self)
         dlg.setWindowTitle("Load Tab Configuration")
-        dlg.setMinimumWidth(360)
+        # Default height was 360x~100 (QDialog auto-sizing to its layout's
+        # size hint) -- with more than 2-3 saved configs, the list only
+        # showed a couple of names before scrolling, and the scrollbar
+        # itself was barely visible. Widened + given real height so users
+        # can actually see their saved configs at a glance.
+        dlg.resize(420, 420)
+        dlg.setMinimumSize(360, 300)
         layout = QVBoxLayout(dlg)
         layout.addWidget(QLabel(f"Select a saved configuration to load into '{active_tab_name}':"))
 

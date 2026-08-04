@@ -40,14 +40,32 @@ from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any, Optional
-from backend.src.constants.core import NATIVE_IMAGE_BATCH_LOCK, NATIVE_SCAN_LOCK, TELEMETRY_DIR, _ENV_VAR, _TRUTHY
 
+from backend.src.constants.core import _ENV_VAR, _TRUTHY, NATIVE_IMAGE_BATCH_LOCK, NATIVE_SCAN_LOCK, TELEMETRY_DIR
 
 _enabled = os.environ.get(_ENV_VAR, "").strip().lower() in _TRUTHY
 
 _lock = threading.Lock()
 _file = None  # type: ignore[var-annotated]
 _file_path: Optional[Path] = None
+
+# Serializes calls into backend/src/manga/{colorization,screentone}.py's
+# OpenCV-heavy solve path (cv2.filter2D/GaussianBlur/resize + cvtColor,
+# plus the scipy sparse LU factorization) across independent
+# ColorizeWorker QThreads. Prompted by a "Mean of empty slice"/"Degrees of
+# freedom <= 0" RuntimeWarning observed only when two ColorizeWorker
+# threads' solves overlapped in wall-clock time (back-to-back GUI tests
+# each starting a real worker) -- never seen with a single solve run in
+# isolation, and every dedicated backend/test/manga/ correctness test
+# (which never overlaps two solves) passes reliably. Consistent with this
+# project's own established, previously-confirmed pattern for this exact
+# risk class -- see NATIVE_IMAGE_BATCH_LOCK's docstring/history for the
+# same "concurrent native-touching calls from independent QThreads"
+# mechanism, there for base.load_image_batch(). Manga colorization is a
+# single-shot "click Colorize and wait ~4s" operation (the UI disables the
+# button while a solve is in flight), so serializing concurrent solves
+# costs nothing in real usage.
+MANGA_COLORIZE_LOCK = threading.Lock()
 
 # Serializes calls into the native `base.scan_files_multi()` boundary across
 # the independent ImageScannerWorker/VideoScannerWorker QThreads (issue #81,
@@ -219,4 +237,5 @@ __all__ = [
     "close",
     "NATIVE_SCAN_LOCK",
     "NATIVE_IMAGE_BATCH_LOCK",
+    "MANGA_COLORIZE_LOCK",
 ]
