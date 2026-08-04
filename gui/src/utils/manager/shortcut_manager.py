@@ -47,6 +47,12 @@ SHORTCUT_REGISTRY: list[dict] = [
         "default": "Ctrl+S",
     },
     {
+        "id": "general.load_tab_config",
+        "description": "Load a saved configuration into the current tab",
+        "scope": "General",
+        "default": "Meta+S",
+    },
+    {
         "id": "general.global_search",
         "description": "Search for a file across every loaded gallery tab",
         "scope": "General",

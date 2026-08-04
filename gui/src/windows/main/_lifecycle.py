@@ -114,6 +114,9 @@ class _LifecycleMixin:
         elif get_registry().matches(event, "general.save_tab_config"):
             self._open_save_tab_config_dialog()
             event.accept()
+        elif get_registry().matches(event, "general.load_tab_config"):
+            self._open_load_tab_config_dialog()
+            event.accept()
         elif (
             event.key() == Qt.Key.Key_Slash and event.modifiers() == Qt.KeyboardModifier.ControlModifier
         ) or event.key() == Qt.Key.Key_F1:
