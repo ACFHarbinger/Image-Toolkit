@@ -167,13 +167,17 @@ Research basis: [`research/Manga Colorization and Animation Research.md`](../../
 
 ## 2. Reference-Guided Colorization
 
-### 2.1 Levin Quadratic-Cost Scribble Colorizer
+### 2.1 Levin Quadratic-Cost Scribble Colorizer — ✅ Done (2026-08-04, issue #186)
 
 **Pain point:** No deterministic, from-scratch (no pretrained weights) scribble-based colorization exists in the toolkit today.
 
 **Formulation:** minimize $J(U) = U^T(I-W)^T(I-W)U$ per chrominance channel, $W$ built from intensity-correlation weights (research report §5.1). Solve via sparse Cholesky or preconditioned conjugate gradient.
 
-**Recommendation:** `base::manga::colorize_scribble()` in C++ (pybind11-exposed), using Eigen's `SimplicialLDLT` or `ConjugateGradient` sparse solvers — consistent with the rest of `base/`'s dependency stack. This is the foundational MVP: it requires zero pretrained models and delivers the first working HITL colorization loop end-to-end (§5, §6.1). [Quick Win]-adjacent given Eigen is likely already a `base/` dependency (verify during implementation).
+**Shipped as:** `backend/src/manga/colorization.py` (`build_levin_system()` + `colorize_scribble()`) — **pure Python/NumPy/SciPy**, not the C++ `base::manga`/Eigen kernel this section originally recommended. `scipy.sparse.linalg.splu` solves each chrominance channel; the affinity matrix is assembled via fully-vectorized NumPy (no per-pixel Python loop). A `max_solve_dim` cap (default 640px) solves chrominance at reduced resolution and upsamples it onto full-resolution luminance for large images, keeping solve time roughly constant (~4s) regardless of source size — the quadtree acceleration in §5.2 remains the follow-up for genuinely interactive (sub-second) redraw.
+
+**Why the deviation from the plan:** SciPy's sparse LU solver is fast enough for interactive single-page use, and building the first working version this way avoided opening a new CMake/pybind11 build-system surface (and an unverified Eigen dependency) before proving out the rest of the HITL loop end-to-end. A native `base::manga` port remains open as a follow-up if profiling ever shows it's needed for multi-page batch throughput — tracked as a reopenable scope note on issue #186, not a new issue.
+
+Tests: `backend/test/manga/test_colorization.py` (12).
 
 ### 2.2 Screentone-Aware Level-Set Propagation
 
@@ -255,11 +259,15 @@ Research basis: [`research/Manga Colorization and Animation Research.md`](../../
 
 ## 5. Client-Side Architecture & HITL Canvas
 
-### 5.1 Layered Canvas Editor (Multiply blend, scribble + mask layers)
+### 5.1 Layered Canvas Editor (Multiply blend, scribble + mask layers) — ✅ Done (2026-08-04, issue #190)
 
 **Pain point:** Every colorization mode (§2.1–§2.4) needs the same interaction primitive: an artist draws scribbles/reference points on top of line art and sees results composited live.
 
-**Recommendation:** A `QGraphicsView`-based layered canvas widget (`gui/src/elements/manga/canvas_editor.py`) with three `QGraphicsPixmapItem` layers — line art (multiply composition mode via `QPainter.CompositionMode_Multiply`), generated/solved color, and a paintable mask layer (`QPainterPath` strokes) — mirroring the layer hierarchy in the research report §9.2. This is the shared UI investment underlying §6.1/§6.2.
+**Shipped as:** `gui/src/elements/manga/canvas_editor.py` (`MangaCanvasEditor`, `QGraphicsView`-based) with three `QGraphicsPixmapItem` layers exactly as recommended — generated/solved color at the bottom, line art above it via a `_MultiplyPixmapItem` subclass overriding `paint()` to set `QPainter.CompositionMode_Multiply`, and a semi-transparent scribble overlay on top (painted live into a backing `QImage`, read back as an RGB array + alpha-channel mask for the solver). This is the shared UI investment §6.1 (Manga Colorization Tab) now builds on; §6.2 (Manga Animation Tab) remains a follow-up consumer once an animation backend (§3.x) exists.
+
+Found and fixed along the way: `QPainter.drawLine()` renders nothing for a zero-length line even with a round-cap pen, which would have silently dropped single-click dots — fixed by drawing a filled circle instead when a stroke's two endpoints coincide.
+
+Tests: `gui/test/manga/test_canvas_editor.py` (10).
 
 ### 5.2 Quadtree-Accelerated Interactive Solve
 
@@ -277,11 +285,13 @@ Research basis: [`research/Manga Colorization and Animation Research.md`](../../
 
 New GUI tabs to exercise and validate each backend capability above end-to-end — following the existing tab conventions in `gui/src/tabs/animation/` and `gui/src/tabs/models/gen/`.
 
-### 6.1 Manga Colorization Tab
+### 6.1 Manga Colorization Tab — ✅ Done (2026-08-04, issue #195)
 
-**New file:** `gui/src/tabs/manga/colorization_tab.py` (+ `gui/src/tabs/manga/elements/` for sub-widgets), registered in `main_window.py` alongside the other core tabs.
+**New file:** `gui/src/tabs/manga/colorization_tab.py`, registered as a new "Manga" category (→ "Colorization") in `gui/src/windows/main/_tab_registry.py`.
 
-**Contents:** embeds the §5.1 layered canvas editor; a mode selector (Scribble/Levin §2.1, Screentone-aware §2.2, Reference/QP §2.3, Reference/Optimal-Transport §2.4); reference-image loader; Before/After toggle (reusing the existing pattern from `StitchTab`'s comparison toggle, `gui_ux.md` §2.6); export to PNG/PSD-layered.
+**Shipped:** embeds the §5.1 layered canvas editor; line-art file loader (`DIALOG_OPTS`-safe); pen color/width controls; a mode selector listing all four planned colorization modes with only "Scribble (Levin)" enabled (the other three are disabled placeholders pending §2.2/§2.3/§2.4's backends, so the tab won't need reshaping once they land); "Colorize" runs the solver off the UI thread via `gui/src/helpers/manga/colorize_worker.py`'s `ColorizeWorker` (`QThread` subclass overriding `run()`); PNG export. **Not yet shipped** (deferred, not a gap in this pass's scope): reference-image loader (only relevant to §2.3/§2.4's not-yet-built reference-based modes) and a Before/After toggle (the canvas editor's layer stack already shows line art composited live over the result, judged sufficient for the scribble-mode MVP).
+
+Tests: `gui/test/manga/test_colorization_tab.py` (8).
 
 ### 6.2 Manga Animation Tab
 

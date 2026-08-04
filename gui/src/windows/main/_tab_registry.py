@@ -23,6 +23,7 @@ class _TabRegistryMixin:
             EntityReconTab,
             ExtractorTab,
             ImageCrawlTab,
+            MangaColorizationTab,
             MediaLoaderTab,
             MergeTab,
             MetaCLIPInferenceTab,
@@ -64,6 +65,7 @@ class _TabRegistryMixin:
         self.inference_tab = MetaCLIPInferenceTab()
         self.comfyui_tab = ComfyUITab(enable_manager=enable_manager)
         self.stitch_tab = StitchTab()
+        self.manga_colorization_tab = MangaColorizationTab()
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab
@@ -123,6 +125,9 @@ class _TabRegistryMixin:
                 "Sequence Builder": self.stitch_tab.seq_builder_panel,
                 "Hybrid Stitch": self.stitch_tab.hybrid_stitch_panel,
                 "Animation Clusters": self.stitch_tab.anim_clusters_panel,
+            },
+            "Manga": {
+                "Colorization": self.manga_colorization_tab,
             },
         }
 
