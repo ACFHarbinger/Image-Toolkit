@@ -2,6 +2,20 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S304 — 2026-08-05 (Manga: Preference Review Dialog, DPO preference capture — issue #197)
+
+**Continued Manga Colorization & Animation** (Milestone #6): shipped MCA.15, closing issue #197.
+
+**`gui/src/components/manga_preference_dialog.py` (`MangaPreferenceDialog`, issue #197) — side-by-side A/B preference capture.** Built early per the roadmap's own rationale ("as a stub capturing preferences to a local SQLite/JSON log even before §4 lands") — the LocalDPO/LoRA alignment pipeline it feeds (§4.1/§4.2) doesn't exist yet, but preference data collection should start as soon as any generative colorization mode ships, and the Manga Colorization Tab already has three working modes to compare (Scribble, Screentone, Reference/Optimal-Transport). The dialog shows two candidate images side by side with "← Prefer A" / "Tie / Skip" / "Prefer B →" buttons; a vote emits `preference_recorded` and calls `log_preference()`.
+
+**`backend/src/manga/preference_log.py` — JSON-lines vote log.** `log_preference(source_a, source_b, winner, metadata=None, log_path=None)` appends one JSON record (`{timestamp, source_a, source_b, winner, metadata}`) to `~/.image-toolkit/manga_preferences.jsonl` by default; `read_preferences()` reads them back, returning `[]` if the log doesn't exist yet rather than raising. **Deviation, documented transparently:** JSON-lines instead of SQLite (the roadmap's own text says "SQLite/JSON," leaving the choice open) — an append-only vote log has no query/update/deletion requirements, so SQLite's transactional guarantees and query engine would be unused machinery; JSONL is human-inspectable, needs no new dependency, and is trivially concatenable if preference logs from multiple installs are ever merged for training. The log path reuses this project's existing `~/.image-toolkit/` local-app-data convention (same directory `gui/src/utils/manager/shortcut_manager.py`'s `keybindings.json` already uses).
+
+**Deliberately not wired into any existing tab.** Issue #197's own scope is "New file: `gui/src/components/manga_preference_dialog.py`" — the dialog + log module, not tab integration. An automatic "Compare Modes" trigger in the Colorization Tab (running two solvers on the same scribbles and opening this dialog with the results) would be a natural, small follow-up, but wasn't built here to stay within scope; `MangaPreferenceDialog(candidate_a, candidate_b, source_a=..., source_b=..., metadata=...)` is directly instantiable by any future caller (a tab, a batch-review script, §4's eventual training loop) without further plumbing.
+
+**Tests**: `backend/test/manga/test_preference_log.py` (9: append/return, parent-directory creation, multi-vote ordering, metadata pass-through/default, invalid-winner validation, missing-file/blank-line read handling), `gui/test/components/test_manga_preference_dialog.py` (7: construction, per-button vote + log-record assertions for all three outcomes, signal emission, metadata pass-through, large-candidate preview scaling). 82 backend manga tests, 55 GUI manga+components tests total, all passing. `ruff check --fix` clean; `python -m compileall` clean on `backend/src`/`gui/src`. Manual smoke test confirmed the log round-trips correctly outside pytest.
+
+**Roadmap status**: §6 (GUI Test Components) is now fully shipped (MCA.13, MCA.14, MCA.15). Remaining manga items: MCA.7 (graph-QP fallback colorizer, explicitly lower-priority per the roadmap's own recommendation), MCA.9 (quadtree acceleration, needs live-interactive-solve architecture), MCA.12 (ARAP mesh puppeteering, the highest-effort roadmap item), and the `[Research]`-tagged diffusion/DPO items (§2.5, §3.4, §4).
+
 ## S303 — 2026-08-05 (Manga: Manga Animation Tab, a test/exercise harness for the temporal solvers — issue #196)
 
 **Continued Manga Colorization & Animation** (Milestone #6): shipped MCA.14, closing issue #196.

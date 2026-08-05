@@ -328,11 +328,15 @@ Tests: `gui/test/manga/test_colorization_tab.py` (8).
 
 Tests: `gui/test/manga/test_animation_tab.py` (18), `gui/test/manga/test_animation_worker.py` (5) — 46 GUI manga tests total (up from 25). A confirmed, documented environment hazard shaped several tests: `gui/test/conftest.py` globally mocks `cv2` (`sys.modules["cv2"] = MagicMock()`), and running `colorize_scribble_sequence()`/`graph_cut_temporal_refine()` (both call `cv2.cvtColor()` internally) from a real background `QThread` against that mock reproducibly corrupted memory ("double free or corruption") during development — confirmed via a minimal repro, not guessed. GUI tests for this tab therefore mock `AnimationColorizeWorker`/the backend functions rather than letting a real thread run them (dispatch-args/button-state coverage only, matching this session's established "cross-thread signal delivery is unreliable inside a test's own control flow" constraint); real end-to-end correctness (including the full load→scribble→solve→preview round trip against the *real* cv2) was manually verified via a standalone script outside pytest.
 
-### 6.3 Preference Review Dialog (DPO capture)
+### 6.3 Preference Review Dialog (DPO capture) — ✅ Done (2026-08-05, issue #197)
 
 **New file:** `gui/src/components/manga_preference_dialog.py`.
 
 **Contents:** side-by-side candidate comparison (A/B) with a single-click preference vote, feeding the §4.1/§4.2 pipeline once it exists. Built early (as a stub capturing preferences to a local SQLite/JSON log even before §4 lands) so preference data collection starts as soon as any generative mode (§2.5/§3.4) ships, rather than being retrofitted later.
+
+**Shipped as:** `MangaPreferenceDialog` (`gui/src/components/manga_preference_dialog.py`) shows two candidate colorizations side by side with "Prefer A" / "Tie / Skip" / "Prefer B" buttons; a vote both emits `preference_recorded` and calls `log_preference()` (`backend/src/manga/preference_log.py`), which appends one JSON line (`{timestamp, source_a, source_b, winner, metadata}`) to `~/.image-toolkit/manga_preferences.jsonl` — the same `~/.image-toolkit/` local-app-data convention `gui/src/utils/manager/shortcut_manager.py`'s `keybindings.json` already uses. `read_preferences()` reads the log back for a future training script. **Deviation:** JSON-lines instead of SQLite (the roadmap's own text allows either) — an append-only vote log has no query/update/deletion requirements, so SQLite's transactional/query machinery would go unused; JSONL is human-inspectable, needs no new dependency, and is trivially concatenable across installs. **Deliberately not wired into any existing tab** (e.g. an automatic "Compare Modes" trigger in the Colorization Tab that runs two solvers and opens this dialog) — issue #197's own scope is the dialog + log file, not tab integration; the dialog is a standalone, directly-instantiable component (`MangaPreferenceDialog(candidate_a, candidate_b, source_a=..., source_b=..., metadata=...)`) any future caller (a tab, a batch-review script, §4's eventual training loop) can drive without further plumbing.
+
+Tests: `backend/test/manga/test_preference_log.py` (9), `gui/test/components/test_manga_preference_dialog.py` (7) — 82 backend manga tests, 55 GUI manga+components tests total.
 
 ---
 
