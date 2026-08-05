@@ -206,13 +206,96 @@ into `LoRATunerV2` or the Hydra pipeline in any way.
   mocked) since the actual training run itself needs GPU/VRAM not
   available in this environment.
 
-### 1.4 ControlNet + IP-Adapter in generation tabs
+### 1.4 ControlNet + IP-Adapter in generation tabs — Phase A ✅ Done (2026-08-05, issue #35)
 
 **Pain point:** Pose/composition control (ControlNet OpenPose/depth/lineart) and character/style reference (IP-Adapter) are the two highest-leverage controllability features, currently TODO in `sd3_wrapper` and absent from the SDXL gen path.
 
 **Options.** **A** Route control through ComfyUI workflows (the gen tab already launches ComfyUI) — fastest, most flexible. **B** Native diffusers ControlNet/IP-Adapter pipelines in the wrappers — tighter GUI integration, more code.
 
 **Recommendation:** A first (ship a curated set of ComfyUI workflow JSONs: txt2img, pose-control, reference-transfer, upscale), B for the native SDXL gen tab later.
+
+**Shipped as:** Phase A only (Option A above), matching the issue's own two-part
+scope ("Phase A quick win now, Phase B native diffusers integration later").
+
+- **Investigation first — the ComfyUI integration was less built-out than
+  this section implied.** `ComfyUIManager` (`backend/src/models/core/
+  comfy_manager.py`) only started/stopped the ComfyUI server subprocess and
+  exposed its URL for the user to open in a system browser; there was no
+  in-app mechanism to submit a workflow JSON, override its parameters, or
+  supply an extra image via ComfyUI's HTTP API. `ComfyUITab` (`gui/src/
+  tabs/models/gen/comfy_generate_tab.py`) was correspondingly just a
+  "Start/Stop server + Open in Browser + log viewer" panel — the user was
+  expected to build/run workflows entirely inside ComfyUI's own web UI. §1.1
+  and §1.6 (captioning, upscaling) don't depend on this mechanism at all, so
+  this doesn't call the rest of the roadmap's "done" claims into question —
+  it's specific to the ComfyUI launch path this item needed.
+- **Smallest correct extension, per the task's own fallback plan:** added
+  four methods to `ComfyUIManager` — `load_workflow()` (load a curated
+  template JSON by bare name or path), `apply_overrides()` (a generic
+  `{node_id: {input_key: value}}` merge into a workflow's node inputs,
+  returning a deep copy), `upload_image()` (multipart POST to ComfyUI's
+  `/upload/image`, returning the server-side filename a `LoadImage` node
+  can reference), and `queue_workflow()` (POST to `/prompt`, returning the
+  `prompt_id`). This is the "generic extra image inputs parameter dict
+  passed through to workflow JSON node overrides" mechanism the task
+  anticipated, not a larger refactor.
+- **Curated workflow JSON templates** (`configs/comfy_workflows/`,
+  ComfyUI's own "API format" node-graph shape — the same format already
+  used by the pre-existing personal reference pipeline at `configs/
+  workflow_api.json`): `controlnet_generate.json` (`CheckpointLoaderSimple`
+  → `ControlNetLoader` + `LoadImage` → `ControlNetApplyAdvanced` →
+  `KSampler` → `VAEDecode` → `SaveImage`) and `ipadapter_generate.json`
+  (`CLIPVisionLoader` + `IPAdapterModelLoader` + `LoadImage` →
+  `IPAdapterAdvanced` → `KSampler` → `VAEDecode` → `SaveImage`, mirroring
+  the IP-Adapter node pattern already proven working in `configs/
+  workflow_api.json`). The ControlNet template deliberately takes an
+  **already-preprocessed** control image (a pose skeleton / depth map /
+  canny edge map), not a raw photo — turning a raw photo into one of those
+  requires the `comfyui_controlnet_aux` custom node pack, which is not part
+  of core ComfyUI and out of this item's scope; the three "pose / depth /
+  canny" GUI modes share this one template and differ only in which
+  ControlNet checkpoint + pre-processed control image the user supplies.
+- **GUI wiring** — `ComfyUITab` gained a "ControlNet / IP-Adapter Workflow"
+  panel: a mode dropdown (Pose / Depth / Canny / IP-Adapter Reference, each
+  auto-filling the matching default checkpoint filename and image-field
+  label), base-checkpoint and extra-checkpoint text fields, a control/
+  reference image file picker, positive/negative prompt fields, and a
+  "Queue Workflow" button. Clicking it uploads the selected image via
+  `ComfyUIManager.upload_image()`, builds the node-override dict, and
+  submits via `ComfyUIManager.queue_workflow()` on a background thread,
+  logging the returned `prompt_id` (or any error) to the existing log
+  panel — the same "background thread + Qt signal back to the log view"
+  pattern the server-start path already used.
+- **Model checkpoints — same "user provides, app doesn't download"
+  convention already established by `configs/parameters.json`/`workflow_api
+  .json`:** the GUI's checkpoint fields are free-text with tooltips naming
+  the required `ComfyUI/models/{checkpoints,controlnet,ipadapter}/`
+  subfolder; nothing in this change downloads or validates model weights,
+  per this task's explicit constraint.
+- **Tests:** `backend/test/models/test_comfy_manager.py` (12 tests —
+  template loading, override merging incl. non-mutation and unknown-node
+  handling, mocked-urllib `upload_image`/`queue_workflow` incl. the HTTP
+  error path) and `gui/test/models/test_comfy_generate_tab.py` (16 tests —
+  mode-switch field wiring, `build_workflow()` node-override correctness
+  for every mode, the queue handler's guard rails and happy/error paths,
+  file-picker browse/cancel). All 28 new tests pass; the pre-existing 107
+  `gui/test/models/` and full `backend/test/models/` suites (150 tests
+  total) still pass — no regressions.
+- **Manual smoke test:** loaded both curated templates and applied real
+  node overrides through the actual (non-mocked) `ComfyUIManager.
+  load_workflow()`/`apply_overrides()` path outside pytest, confirming both
+  parse as valid ComfyUI API-format graphs (every node has `class_type` +
+  `inputs`) and that overrides land on the right nodes.
+- **Not done here (explicitly out of scope):** actually running generation
+  against a live ComfyUI server with real ControlNet/IP-Adapter weights —
+  no such weights exist in this environment and downloading multi-GB
+  checkpoints was an explicit non-goal; raw-photo-to-control-map
+  preprocessing (needs `comfyui_controlnet_aux`, a custom node pack not
+  installed here); Phase B (native diffusers `StableDiffusion3ControlNetPipeline`
+  / `IPAdapterMixin` wiring into `sd3_wrapper.py` and `SD3GenerateTab`) —
+  tracked separately per this section's own Option B / CG-3 (Quality) split,
+  and `SD3GenerateTab`'s existing `controlnet_ckpt`/`controlnet_cond_image`
+  fields are still unwired stubs, untouched by this change.
 
 ### 1.5 FLUX.1 [dev] secondary support [Research]
 
