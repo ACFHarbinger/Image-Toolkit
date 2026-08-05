@@ -292,11 +292,19 @@ Found and fixed along the way: `QPainter.drawLine()` renders nothing for a zero-
 
 Tests: `gui/test/manga/test_canvas_editor.py` (10).
 
-### 5.2 Quadtree-Accelerated Interactive Solve
+### 5.2 Quadtree-Accelerated Interactive Solve — 🔄 Partial (2026-08-05, issue #191)
 
 **Pain point:** Full-resolution 4K sparse-solve on every scribble stroke is too slow for interactive feedback.
 
 **Recommendation:** Recursive quadtree partitioning of flat vs. detailed regions (research report §9.3) before building the affinity graph for §2.1–§2.4; re-solve only the dirty quadtree region touched by the latest stroke, not the whole page. Medium-High effort; required for genuine interactivity, deferrable for an initial "solve on demand" (non-live) MVP.
+
+**Shipped so far:** `backend/src/manga/quadtree.py` (`build_quadtree()` + `colorize_region_incremental()`) — the spatial-partitioning and windowed-resolve mechanism itself. `build_quadtree()` recursively subdivides a grayscale image into flat-vs-detailed leaf regions by local intensity variance (detailed/screentone regions subdivide into small leaves, flat regions stay as large ones — verified: a stroke landing in a finely-partitioned detailed region re-solves a window ~56x56px in ~0.01s vs. a full-page ~3.5s solve, a ~300x speedup for that case). `colorize_region_incremental()` takes a "dirty" bounding box (the latest stroke's extent), expands it to the union of whichever quadtree leaves it touches plus a halo, re-solves only that window via any existing §2.1/§2.2/§2.4 colorizer, and composites the result into a previously-solved full-canvas output — everything outside the window is copied through unchanged.
+
+**Not yet shipped, and why this is "Partial" not "Done":** no live per-stroke GUI dispatch loop. The Manga Colorization Tab (§6.1) and Manga Animation Tab (§6.2) both still solve on an explicit "Colorize"/"Colorize Sequence" button click, not per-stroke — issue #191's own text explicitly allows this ("Deferrable for an initial 'solve on demand' (non-live) MVP," which is this project's actual current state), so this is a legitimate, scoped partial delivery, not a shortfall. Wiring `colorize_region_incremental()` into a real live-stroke loop (debounced re-solve on `MangaCanvasEditor.scribble_changed`, replacing/augmenting the current single big "Colorize" action) is a real, separately-scoped follow-up.
+
+**Real pre-existing solver limitation found during development, documented not fixed:** an early test fixture using a dense high-contrast striped synthetic pattern (every 4th column dark) reproducibly triggered `RuntimeError: Factor is exactly singular` inside `colorize_scribble`'s SuperLU factorization for some sub-window crops of that specific pattern -- a real numerical edge case in `build_levin_system`'s Levin-weight construction for a pathological repeating structure, not something introduced by this module. Not fixed here (`colorization.py` is out of scope for this issue); worked around in this module's own tests by using a sparse-dot screentone pattern instead (matching `test_screentone.py`'s already-established `_screentone_gray` fixture), which doesn't trigger it. Worth a dedicated follow-up investigation if a real scribbled image ever hits the same structure.
+
+Tests: `backend/test/manga/test_quadtree.py` (13) — 95 backend manga tests total.
 
 ### 5.3 Uncertainty Overlay (MC-Dropout/BALD)
 

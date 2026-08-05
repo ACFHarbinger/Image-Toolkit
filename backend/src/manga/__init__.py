@@ -5,6 +5,8 @@ from .optimal_transport import colorize_reference as colorize_reference
 from .optimal_transport import sinkhorn as sinkhorn
 from .preference_log import log_preference as log_preference
 from .preference_log import read_preferences as read_preferences
+from .quadtree import build_quadtree as build_quadtree
+from .quadtree import colorize_region_incremental as colorize_region_incremental
 from .screentone import colorize_scribble_screentone as colorize_scribble_screentone
 from .temporal import colorize_scribble_sequence as colorize_scribble_sequence
 
@@ -18,4 +20,6 @@ __all__ = [
     "graph_cut_temporal_refine",
     "log_preference",
     "read_preferences",
+    "build_quadtree",
+    "colorize_region_incremental",
 ]
