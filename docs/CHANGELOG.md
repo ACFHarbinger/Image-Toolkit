@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S297 — 2026-08-05 (Manga: 3D temporal propagation for scribble colorization — issue #192)
+
+**Continued Manga Colorization & Animation** (Milestone #6): shipped MCA.10, closing issue #192.
+
+**`backend/src/manga/temporal.py` (issue #192) — 3D quadratic-cost temporal propagation.** Extends MCA.4's Levin scribble colorizer so scribbles propagate through time across an animated sequence, not just spatially within a single frame: if an artist scribbles a character's iris in frame 0 and frame 24, the color should interpolate smoothly through frames 1-23. `build_levin_system_3d()`/`colorize_scribble_sequence()` are a direct dimensional generalization of `colorization.py`'s `build_levin_system()`/`colorize_scribble()` — same intensity-correlation weighting, same Dirichlet-constraint scribble pinning — but built over an expanded 3D `(t, y, x)` neighborhood and solved as a single combined sparse system across the whole sequence, so color naturally diffuses along the temporal axis through whichever frames have no scribbles of their own (no separate interpolation post-process). Exactly the roadmap's own recommendation ("same solver, expanded affinity graph").
+
+**Scaling issue found and addressed during implementation**: the 3D system's sparse-LU fill-in scales much worse than the 2D case. A 10-frame 400x400 test sequence exhausted available memory (OOM) at `max_solve_dim=256` — the same proportional default as the single-frame colorizer's 640 — but solved in ~36s using ~4.4GB at `max_solve_dim=128`. `colorize_scribble_sequence()`'s default is therefore 128, with the tradeoff documented in the module docstring: this is scoped for short in-between spans at modest resolution (issue #192's actual stated use case), not full-episode timelines. A chunked/windowed solve is noted as a real, not-yet-built follow-up for larger sequences.
+
+**Verification**: `backend/test/manga/test_temporal.py` (14 new — 3D system shape/zero-row-sum/finite-weight correctness, sequence colorization shape/dtype, monotonic cross-frame color interpolation, unscribbled-middle-frame propagation, input validation, downscale/degenerate-downscale handling, per-frame luminance preservation). 54 backend manga tests total, all passing. `gui/test/manga/` unaffected (25 passing) — this ships the backend solver only; GUI wiring (an animation-sequence-aware tab) is tracked separately under MCA.14/issue #196, not yet built.
+
+**Roadmap status**: §3 (Spatio-Temporal Animation) now has its first shipped item. Remaining: MCA.11 (graph-cut temporal coherence, for fast-motion/occlusion cases where MCA.10's local intensity tracking degrades), MCA.12 (ARAP mesh puppeteering, the highest-effort roadmap item).
+
 ## S296 — 2026-08-05 (Manga: Optimal-Transport / Sinkhorn reference colorizer — issue #188)
 
 **Continued Manga Colorization & Animation** (Milestone #6): shipped MCA.6, closing issue #188.

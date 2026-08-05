@@ -228,11 +228,17 @@ Tests: `backend/test/manga/test_optimal_transport.py` (13), `gui/test/manga/test
 
 ## 3. Spatio-Temporal Animation
 
-### 3.1 3D Quadratic-Cost Temporal Propagation
+### 3.1 3D Quadratic-Cost Temporal Propagation — ✅ Done (2026-08-05, issue #192)
 
 **Pain point:** §2.1's colorizer only handles single frames; animated sequences need scribbles to propagate through time, not just space.
 
 **Recommendation:** Extend `base::manga::colorize_scribble()` (§2.1) to accept a 3D $(x,y,t)$ neighborhood — same solver, expanded affinity graph. Reuses the Eigen sparse-solver investment from §2.1 directly.
+
+**Shipped as:** `backend/src/manga/temporal.py` (`build_levin_system_3d()` + `colorize_scribble_sequence()`) — a direct dimensional generalization of §2.1's `build_levin_system()`/`colorize_scribble()` to a 3D `(t, y, x)` neighborhood, same intensity-correlation weighting and Dirichlet-constraint scribble pinning, solved as one combined sparse system across the whole sequence (not per-frame), so color naturally diffuses along the temporal axis through unscribbled in-between frames. Pure Python/SciPy, same pragmatic choice as §2.1 over a native `base::manga` kernel.
+
+**Scaling caveat found during implementation:** the 3D system's sparse-LU fill-in grows much faster than linearly with the temporal window. A 10-frame 400x400 sequence OOM'd at `max_solve_dim=256` (the single-frame colorizer's proportional default) but solved in ~36s / ~4.4GB at `max_solve_dim=128` — so `colorize_scribble_sequence()`'s default `max_solve_dim` is 128, not 640/256. This is scoped correctly for issue #192's stated use case (short in-between spans at modest resolution), not full-episode timelines; a chunked/windowed solve is a documented, not-yet-built follow-up for larger sequences.
+
+Tests: `backend/test/manga/test_temporal.py` (14) — 54 backend manga tests total.
 
 ### 3.2 Graph-Cut (Boykov-Kolmogorov) Temporal Coherence
 
