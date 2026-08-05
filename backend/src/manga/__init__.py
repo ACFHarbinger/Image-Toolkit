@@ -1,3 +1,5 @@
+from .arap import arap_deform as arap_deform
+from .arap import generate_mesh as generate_mesh
 from .colorization import colorize_scribble as colorize_scribble
 from .gabor import gabor_feature_bank as gabor_feature_bank
 from .graph_cut import graph_cut_temporal_refine as graph_cut_temporal_refine
@@ -22,4 +24,6 @@ __all__ = [
     "read_preferences",
     "build_quadtree",
     "colorize_region_incremental",
+    "generate_mesh",
+    "arap_deform",
 ]

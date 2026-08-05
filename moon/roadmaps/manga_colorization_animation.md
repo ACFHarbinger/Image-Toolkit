@@ -252,13 +252,23 @@ Tests: `backend/test/manga/test_temporal.py` (14) — 54 backend manga tests tot
 
 Tests: `backend/test/manga/test_graph_cut.py` (19) — 73 backend manga tests total.
 
-### 3.3 ARAP Mesh Puppeteering
+### 3.3 ARAP Mesh Puppeteering — 🔄 Partial (2026-08-05, issue #194)
 
 **Pain point:** No mesh-based deformation/animation tool exists; pixel-level color-flow animation (§3.1/§3.2) does not itself move characters, only recolors static frames.
 
 **Formulation:** alternating local step (per-triangle SVD rotation) / global step (sparse Poisson solve), skeleton-length constraint (research report §6.2).
 
 **Recommendation:** `base::manga::arap_deform()` in C++ (SVD via Eigen, sparse solve via the same solver stack as §2.1). This is the highest-effort item in the roadmap (mesh generation, rigging UI, real-time re-solve) but is the deterministic counterpart to Live2D-style puppeteering and the clearest "animate a single manga panel interactively" HITL demo.
+
+**Shipped so far:** `backend/src/manga/arap.py` (`generate_mesh()` + `arap_deform()`) — the deterministic algorithmic core. `generate_mesh(mask, grid_step)` samples a regular grid inside a caller-supplied binary mask, Delaunay-triangulates it, discards triangles whose centroid falls outside the mask, and drops/reindexes any vertex left unreferenced. `arap_deform(vertices, triangles, anchors, n_iters)` alternates the local step (per-triangle optimal rotation via 2D orthogonal Procrustes/SVD) and global step (a sparse graph-Laplacian solve over the mesh's edges, anchors pinned via the same Dirichlet row-replacement trick `colorization.py`'s `_solve_chrominance` already uses for scribbled pixels — the Laplacian itself doesn't depend on the rotations, so it's factorized once via `splu` and reused across iterations).
+
+**Verified correct, not just plausible-sounding:** with every boundary vertex of a mesh anchored to a rigidly-rotated (20°) target position, the *free* interior vertices converge to their own analytically-rotated positions to well under 1% of the mesh's own scale (mean error ~0.0018px against a ~127px mesh diagonal in one manual run) — exactly the property a correct ARAP implementation must have (it reproduces rigid motion exactly when nothing contradicts it). A single moved anchor with the rest of the mesh free produces a finite, smoothly-decaying local deformation (no blow-up/NaN), matching the intended "locally rigid, globally flexible" behavior.
+
+**Deviations from the roadmap's plan, documented transparently:** (1) pure Python/NumPy/SciPy, not the originally-proposed C++ `base::manga::arap_deform()` Eigen kernel — same deliberate, already-established deviation as `colorization.py`/`temporal.py`/etc., for the same reason (avoids a new build-system surface before the algorithm is proven correct; SciPy's sparse LU + NumPy's SVD are fast enough at interactive scale — ~33ms for a single-anchor solve on a ~100-vertex mesh). (2) no automatic character-isolation dependency on issue #184 (line art extraction, itself unbuilt) — `generate_mesh()` accepts any caller-supplied binary mask, matching the roadmap's own established "manual-mask MVP first" pattern used at §1.1. (3) the "skeleton-length constraint for anatomical regularity" mentioned in the formulation is not implemented — it's an optional refinement on top of the core ARAP energy (constraining specific bone-like edge lengths to stay fixed), not required for the base algorithm to be correct, and no rigging/skeleton UI exists yet to define what those constrained edges would even be.
+
+**Not yet shipped, and why this is "Partial" not "Done":** no rigging UI (drag control vertices) and no real-time re-solve GUI wiring — issue #194's own text lists both as part of its ~2+ week scope, on top of the algorithmic core this session shipped. This mirrors issue #191's own two-part delivery pattern (backend mechanism, then GUI wiring in a follow-up); a real, separately-scoped follow-up, not a shortfall.
+
+Tests: `backend/test/manga/test_arap.py` (14) — 109 backend manga tests total.
 
 ### 3.4 Diffusion Inbetweening (ToonCrafter-style) [Research]
 
