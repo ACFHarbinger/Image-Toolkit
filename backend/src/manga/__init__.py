@@ -1,5 +1,6 @@
 from .colorization import colorize_scribble as colorize_scribble
 from .gabor import gabor_feature_bank as gabor_feature_bank
+from .graph_cut import graph_cut_temporal_refine as graph_cut_temporal_refine
 from .optimal_transport import colorize_reference as colorize_reference
 from .optimal_transport import sinkhorn as sinkhorn
 from .screentone import colorize_scribble_screentone as colorize_scribble_screentone
@@ -12,4 +13,5 @@ __all__ = [
     "colorize_scribble_sequence",
     "gabor_feature_bank",
     "sinkhorn",
+    "graph_cut_temporal_refine",
 ]

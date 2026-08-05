@@ -240,13 +240,17 @@ Tests: `backend/test/manga/test_optimal_transport.py` (13), `gui/test/manga/test
 
 Tests: `backend/test/manga/test_temporal.py` (14) — 54 backend manga tests total.
 
-### 3.2 Graph-Cut (Boykov-Kolmogorov) Temporal Coherence
+### 3.2 Graph-Cut (Boykov-Kolmogorov) Temporal Coherence — ✅ Done (2026-08-05, issue #193)
 
 **Pain point:** §3.1 degrades under fast motion/occlusion where local intensity tracking breaks down.
 
 **Formulation:** MRF energy $E(L) = \sum_p D_p(L_p) + \sum_{(p,q)} V_{p,q}(L_p,L_q)$, solved via Boykov-Kolmogorov max-flow/min-cut (research report §6.1).
 
 **Recommendation:** Use an existing, well-tested max-flow library (`maxflow`/PyMaxflow wraps the reference Boykov-Kolmogorov C++ implementation) rather than reimplementing graph-cut from scratch — lower risk, same guarantees. Wire the data term from §2.1/§2.4 outputs and the smoothness term from §1.3's Gabor features.
+
+**Shipped as:** `backend/src/manga/graph_cut.py` (`build_temporal_coherence_graph()` + `graph_cut_temporal_refine()`) — a second refinement pass that takes §3.1's already-solved sequence output (`colorize_scribble_sequence()`) as a label hypothesis and uses `PyMaxflow`'s `GraphFloat` (the recommended, not-reimplemented Boykov-Kolmogorov binding) to decide per pixel whether to keep it. **Deliberate simplification:** rather than the roadmap's fully general multi-label MRF (which would need alpha-expansion — real scope creep for a first pass, per issue #193's own stated latitude), this ships a **2-label binary graph-cut per frame**: label `OWN` (trust this frame's own solved chrominance) vs. label `BLEND` (fall back to the mean of its temporal neighbor frame(s)' chrominance at the same spatial location). The data term weighs `flicker` (the OWN/BLEND chrominance disagreement) by `motion` (normalized grayscale intensity difference to the temporal neighbor(s) — a direct proxy for where §3.1's intensity-correlation-based tracking is least trustworthy): high motion + high flicker pushes toward `BLEND`, low motion + high flicker keeps `OWN` (the disagreement is real signal, not a tracking failure). The smoothness term reuses §2.2's *exact* Gabor-affinity Gaussian kernel (`exp(-||T(p)-T(q)||^2/(2*sigma^2))`) as a symmetric Potts penalty over the standard 4-connected pixel grid — submodular by construction, which is exactly what gives Boykov-Kolmogorov's binary min-cut an *exact* (not approximate) solution, unlike general multi-label alpha-expansion. `PyMaxflow` installed cleanly from a prebuilt manylinux wheel (added to `backend/pyproject.toml`, alphabetically), so the "no C++ toolchain" `scipy.sparse.csgraph.maximum_flow` fallback contemplated for this item wasn't needed.
+
+Tests: `backend/test/manga/test_graph_cut.py` (19) — 73 backend manga tests total.
 
 ### 3.3 ARAP Mesh Puppeteering
 
