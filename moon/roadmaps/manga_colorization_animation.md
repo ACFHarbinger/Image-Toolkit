@@ -316,11 +316,17 @@ New GUI tabs to exercise and validate each backend capability above end-to-end �
 
 Tests: `gui/test/manga/test_colorization_tab.py` (8).
 
-### 6.2 Manga Animation Tab
+### 6.2 Manga Animation Tab — ✅ Done (2026-08-05, issue #196)
 
 **New file:** `gui/src/tabs/manga/animation_tab.py`.
 
 **Contents:** frame-sequence loader; scribble-through-time UI reusing §5.1's canvas across a frame scrubber; mode selector (3D quadratic-cost §3.1, Graph-Cut §3.2, ARAP mesh puppeteering §3.3); mesh-vertex control-point overlay for §3.3; playback preview.
+
+**Shipped as:** a test/exercise harness for §3.1/§3.2's already-built solvers, per the issue's own title framing — not the production timeline editor the original brainstorm above sketched (mode selector across all three animation backends, mesh-vertex overlay). Loads a frame sequence via a multi-select file picker (`QFileDialog.getOpenFileNames`, sorted by filename — simpler than a directory-scan, reusing the single-image tab's `load_qimage`/`IMAGE_FILE_DIALOG_FILTER`); reuses §5.1's `MangaCanvasEditor` as a single shared widget across frames, with a small per-frame-index scribble-overlay dict (`MangaAnimationTab._scribble_images`) saving/restoring the canvas's scribble layer on every frame-slider move — the editor itself wasn't touched (out of scope for this issue), so this reaches into its private `_scribble_qimage`/`_scribble_item` attributes, the same ones `test_colorization_tab.py` already pokes at directly. "Colorize Sequence" dispatches a new `gui/src/helpers/manga/animation_worker.py::AnimationColorizeWorker` (`QThread` subclass, same pattern as `ColorizeWorker`) running `colorize_scribble_sequence()` (§3.1, issue #192) and, when a "Graph-cut refine" checkbox is ticked, chaining `graph_cut_temporal_refine()` (§3.2, issue #193) as a second pass — both already-built backends wired, not just one. A second slider scrubs the solved result over a plain `QLabel` (not the editable canvas), and "Export…" writes the sequence as `frame_%04d.png` into a chosen directory (`QFileDialog.getExistingDirectory`, `DIALOG_OPTS`-safe).
+
+**Deliberate scope line vs. the original brainstorm:** no ARAP mesh puppeteering mode (§3.3 has no backend yet — MCA.12 is unbuilt) and no mesh-vertex control-point overlay (meaningless without it); the mode selector accordingly reduced to the "Graph-cut refine" toggle rather than a 3-way backend picker, since only two backends exist to pick between and one is strictly a refinement pass over the other's output, not an alternative from-scratch mode. Both reductions are the natural consequence of "test the already-built solvers," not an oversight.
+
+Tests: `gui/test/manga/test_animation_tab.py` (18), `gui/test/manga/test_animation_worker.py` (5) — 46 GUI manga tests total (up from 25). A confirmed, documented environment hazard shaped several tests: `gui/test/conftest.py` globally mocks `cv2` (`sys.modules["cv2"] = MagicMock()`), and running `colorize_scribble_sequence()`/`graph_cut_temporal_refine()` (both call `cv2.cvtColor()` internally) from a real background `QThread` against that mock reproducibly corrupted memory ("double free or corruption") during development — confirmed via a minimal repro, not guessed. GUI tests for this tab therefore mock `AnimationColorizeWorker`/the backend functions rather than letting a real thread run them (dispatch-args/button-state coverage only, matching this session's established "cross-thread signal delivery is unreliable inside a test's own control flow" constraint); real end-to-end correctness (including the full load→scribble→solve→preview round trip against the *real* cv2) was manually verified via a standalone script outside pytest.
 
 ### 6.3 Preference Review Dialog (DPO capture)
 
