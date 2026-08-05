@@ -23,6 +23,7 @@ token auth, CORS, DRF request/response plumbing, OpenAPI schema) on top.
 
 from __future__ import annotations
 
+import base64
 import hmac
 import logging
 
@@ -240,3 +241,162 @@ class PhashSnapshotView(CorsAPIView):
     def get(self, request):  # noqa: ANN001
         _status, body = bridge_handlers.handle_phash_snapshot({})
         return Response(body, status=_status)
+
+
+# ── §7.14A/B — App-powered CV operations (bg-remove / upscale) ──────────────
+#
+# Unlike ping/dup-check/ingest/similar/phash-snapshot (fast, synchronous),
+# BiRefNet/Real-ESRGAN inference is genuinely long-running, so these two
+# endpoints follow the "job-id + polling" pattern the roadmap calls for,
+# reusing this project's existing Celery task queue (the same one
+# `tasks/views.py`'s `CoreTaskView` already uses for other async work)
+# rather than inventing a second async mechanism. The image payload is
+# still resolved synchronously here (via the shared
+# `bridge_handlers._resolve_image_payload` helper) so a bad/unreachable
+# URL fails fast with 400 instead of silently after being queued.
+#
+# These two are HTTP-only for now — they don't go through
+# `bridge_handlers.HANDLERS`/`native_host.py`'s synchronous
+# action-dispatch model, since a job-id-and-poll flow doesn't map onto a
+# single-request/single-response native-messaging call without a second
+# design pass (the native host would need its own polling loop or a
+# push-style follow-up message). Not attempted here to keep this change
+# bounded to what issues #93/#94 actually ask for; native-messaging parity
+# for §7.14A/B is a reasonable, separate follow-on.
+
+
+def _cv_job_response(task) -> Response:  # noqa: ANN001
+    return Response({"job_id": task.id, "status": "processing"}, status=202)
+
+
+def _decode_check(data: bytes):
+    """Cheap synchronous decode probe so a bad image 400s immediately instead
+    of only failing inside the queued job (§7.14A/B fail-fast, mirroring
+    dup-check/similar's own ``"Image could not be decoded."`` behavior)."""
+    import cv2
+    import numpy as np
+
+    arr = np.frombuffer(data, dtype=np.uint8)
+    return cv2.imdecode(arr, cv2.IMREAD_COLOR)
+
+
+class CvBgRemoveView(CorsAPIView):
+    """§7.14A — "Remove background" (BiRefNet) — queues a Celery job."""
+
+    permission_classes = [BridgeTokenPermission]
+
+    @extend_schema(
+        tags=["Extension Bridge"],
+        summary="Queue a background-removal job (BiRefNet)",
+        request=inline_serializer(
+            name="ExtensionCvBgRemoveRequest",
+            fields={
+                "url": drf_serializers.URLField(required=False),
+                "data_b64": drf_serializers.CharField(required=False),
+            },
+        ),
+        responses={
+            202: OpenApiResponse(description="job_id / status"),
+            400: OpenApiResponse(description="bad request or undecodable image"),
+        },
+    )
+    def post(self, request):  # noqa: ANN001
+        data, url, err = bridge_handlers._resolve_image_payload(request.data)
+        if err is not None:
+            _status, body = err
+            return Response(body, status=_status)
+        if _decode_check(data) is None:
+            return Response({"error": "Image could not be decoded."}, status=400)
+
+        from .tasks import cv_bg_remove_task
+
+        name_hint = _filename_hint(url)
+        task = cv_bg_remove_task.delay(
+            base64.b64encode(data).decode("ascii"), name_hint
+        )
+        return _cv_job_response(task)
+
+
+class CvUpscaleView(CorsAPIView):
+    """§7.14B — "Upscale & save" (Real-ESRGAN anime_6B) — queues a Celery job."""
+
+    permission_classes = [BridgeTokenPermission]
+
+    @extend_schema(
+        tags=["Extension Bridge"],
+        summary="Queue an upscale job (Real-ESRGAN anime_6B)",
+        request=inline_serializer(
+            name="ExtensionCvUpscaleRequest",
+            fields={
+                "url": drf_serializers.URLField(required=False),
+                "data_b64": drf_serializers.CharField(required=False),
+                "scale": drf_serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            202: OpenApiResponse(description="job_id / status"),
+            400: OpenApiResponse(description="bad request or undecodable image"),
+        },
+    )
+    def post(self, request):  # noqa: ANN001
+        data, url, err = bridge_handlers._resolve_image_payload(request.data)
+        if err is not None:
+            _status, body = err
+            return Response(body, status=_status)
+        if _decode_check(data) is None:
+            return Response({"error": "Image could not be decoded."}, status=400)
+
+        try:
+            scale = int(request.data.get("scale", 4))
+        except (TypeError, ValueError):
+            scale = 4
+        if scale not in (2, 4):
+            scale = 4
+
+        from .tasks import cv_upscale_task
+
+        name_hint = _filename_hint(url)
+        task = cv_upscale_task.delay(
+            base64.b64encode(data).decode("ascii"), name_hint, scale
+        )
+        return _cv_job_response(task)
+
+
+class CvJobStatusView(CorsAPIView):
+    """§7.14A/B — poll a queued CV job's Celery status/result."""
+
+    permission_classes = [BridgeTokenPermission]
+
+    @extend_schema(
+        tags=["Extension Bridge"],
+        summary="Poll a queued CV job (bg-remove/upscale) by job_id",
+        responses={
+            200: OpenApiResponse(
+                description="state (PENDING/STARTED/SUCCESS/FAILURE/...), "
+                "result (once SUCCESS), error (once FAILURE)"
+            ),
+        },
+    )
+    def get(self, request, job_id):  # noqa: ANN001
+        from celery.result import AsyncResult
+
+        result = AsyncResult(job_id)
+        body = {"job_id": job_id, "state": result.state}
+        if result.state == "SUCCESS":
+            body["result"] = result.result
+        elif result.state == "FAILURE":
+            body["error"] = str(result.result)
+        return Response(body, status=200)
+
+
+def _filename_hint(url) -> str:  # noqa: ANN001
+    """Best-effort basename for suggesting `<name>_nobg.png`-style output names."""
+    if not url:
+        return "image.png"
+    try:
+        from urllib.parse import unquote, urlparse
+
+        name = unquote(urlparse(url).path.split("/")[-1])
+        return name or "image.png"
+    except Exception:
+        return "image.png"

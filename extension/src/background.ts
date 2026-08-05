@@ -12,6 +12,9 @@ import {
   dupCheck,
   ingest,
   findSimilar,
+  cvBgRemove,
+  cvUpscale,
+  pollCvJob,
   BridgeError,
   type DupCheckResult,
   type SimilarResult,
@@ -28,6 +31,8 @@ const INSPECT_MENU_ID = "inspect-metadata";
 const FRAME_MENU_ID = "capture-frame";
 const BURST_MENU_ID = "capture-frame-burst";
 const SEARCH_MENU_ID = "reverse-search";
+const BG_REMOVE_MENU_ID = "cv-bg-remove";
+const UPSCALE_MENU_ID = "cv-upscale";
 
 /** Reverse-image-search services (§7.16B). URL gets the image URL appended. */
 const SEARCH_SERVICES: Array<{ id: string; title: string; url: string }> = [
@@ -85,6 +90,16 @@ async function createContextMenu(): Promise<void> {
     api.contextMenus.create({
       id: INSPECT_MENU_ID,
       title: "Inspect image metadata",
+      contexts: ["image"],
+    });
+    api.contextMenus.create({
+      id: BG_REMOVE_MENU_ID,
+      title: "Remove background",
+      contexts: ["image"],
+    });
+    api.contextMenus.create({
+      id: UPSCALE_MENU_ID,
+      title: "Upscale & save",
       contexts: ["image"],
     });
     api.contextMenus.create({
@@ -348,6 +363,47 @@ async function runIngest(
   }
 }
 
+/**
+ * Run a §7.14A/B app-powered CV job (background removal / upscale): queue
+ * it, show a progress badge while polling, then hand the result off to
+ * `downloadImage()` as a data URL so it lands in the active folder profile
+ * exactly like any other capture (site-rule resolution, filename template,
+ * optional sidecar all still apply). `label` is used in notifications only.
+ */
+async function runCvJob(
+  label: string,
+  queue: () => Promise<{ job_id: string }>,
+  pageUrl: string | undefined,
+): Promise<void> {
+  try {
+    const { job_id: jobId } = await queue();
+    await setActionBadge("…", "#5865f2");
+    const result = await pollCvJob(jobId);
+    await setActionBadge("", "#5865f2");
+
+    if (result.status !== "success" || !result.data_b64) {
+      notify(`${label} failed`, result.message || "Unknown error.");
+      return;
+    }
+    const dataUrl = `data:${result.content_type ?? "image/png"};base64,${result.data_b64}`;
+    await downloadImage(dataUrl, pageUrl, result.filename);
+    notify(`${label} complete`, `Saved as ${result.filename ?? "image"}.`);
+  } catch (err) {
+    await setActionBadge("", "#5865f2");
+    notify(`${label} failed`, err instanceof BridgeError ? err.message : String(err));
+  }
+}
+
+/** §7.14A — "Remove background" (BiRefNet) via the app bridge. */
+async function runBgRemove(imageUrl: string, pageUrl?: string): Promise<void> {
+  await runCvJob("Remove background", () => cvBgRemove(imageUrl), pageUrl);
+}
+
+/** §7.14B — "Upscale & save" (Real-ESRGAN anime_6B) via the app bridge. */
+async function runUpscale(imageUrl: string, pageUrl?: string): Promise<void> {
+  await runCvJob("Upscale & save", () => cvUpscale(imageUrl, 4), pageUrl);
+}
+
 /** Ask the tab's content script to capture video frame(s) (§7.15A). */
 async function runFrameCapture(
   tabId: number,
@@ -420,6 +476,18 @@ api.contextMenus.onClicked.addListener((info, tab) => {
   }
   if (menuId === INSPECT_MENU_ID) {
     void runInspect(info.srcUrl);
+    return;
+  }
+  if (menuId === BG_REMOVE_MENU_ID) {
+    void resolveContextImageUrl(tab?.id, info.srcUrl).then((url) =>
+      runBgRemove(url, info.pageUrl),
+    );
+    return;
+  }
+  if (menuId === UPSCALE_MENU_ID) {
+    void resolveContextImageUrl(tab?.id, info.srcUrl).then((url) =>
+      runUpscale(url, info.pageUrl),
+    );
     return;
   }
   if (menuId.startsWith(`${SEARCH_MENU_ID}:`)) {
