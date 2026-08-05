@@ -25,6 +25,7 @@ import {
   getContextTarget,
   rememberContextTarget,
 } from "./videoCapture";
+import { captureVideoClip } from "./videoClip";
 import type {
   DownloadImageMsg,
   DownloadBatchMsg,
@@ -32,6 +33,7 @@ import type {
   PageCaptureResponse,
   ResolveContextImageResponse,
   CollectPageImagesResponse,
+  CaptureVideoClipResponse,
 } from "./shared/messages";
 
 // Track the element under the last context-menu so video capture can find
@@ -170,7 +172,11 @@ api.runtime.onMessage.addListener(
     request: ExtensionMessage,
     _sender,
     sendResponse: (
-      r: PageCaptureResponse | ResolveContextImageResponse | CollectPageImagesResponse,
+      r:
+        | PageCaptureResponse
+        | ResolveContextImageResponse
+        | CollectPageImagesResponse
+        | CaptureVideoClipResponse,
     ) => void,
   ) => {
     if (request.action === "collect_page_images") {
@@ -213,6 +219,10 @@ api.runtime.onMessage.addListener(
     if (request.action === "resolve_context_image") {
       sendResponse({ url: resolveContextImageUrl(request.srcUrl) });
       return false;
+    }
+    if (request.action === "capture_video_clip") {
+      void captureVideoClip(request).then(sendResponse);
+      return true; // async response
     }
     return false;
   },

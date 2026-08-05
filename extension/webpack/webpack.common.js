@@ -57,6 +57,7 @@ function makeConfig(browser) {
       options: "./src/options/options.ts",
       inspect: "./src/inspect/inspect.ts",
       gallery: "./src/gallery/gallery.ts",
+      frames: "./src/frames/frames.ts",
     },
     output: {
       path: path.join(ROOT, "dist", browser),
@@ -88,6 +89,7 @@ function makeConfig(browser) {
           { from: "src/options/options.html", to: "options.html" },
           { from: "src/inspect/inspect.html", to: "inspect.html" },
           { from: "src/gallery/gallery.html", to: "gallery.html" },
+          { from: "src/frames/frames.html", to: "frames.html" },
           {
             from: "webpack/manifest/manifest.base.json",
             to: "manifest.json",

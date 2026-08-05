@@ -26,7 +26,9 @@ export function getContextTarget(): Element | null {
   return lastContextTarget;
 }
 
-function findVideo(srcUrl?: string): HTMLVideoElement | null {
+/** Exported for reuse by `videoClip.ts` (§7.15D shares §7.15A's target-video
+ * resolution logic instead of duplicating it). */
+export function findVideo(srcUrl?: string): HTMLVideoElement | null {
   if (lastContextTarget instanceof HTMLVideoElement) return lastContextTarget;
   const videos = [...document.querySelectorAll<HTMLVideoElement>("video")];
   if (srcUrl) {
@@ -41,7 +43,8 @@ function findVideo(srcUrl?: string): HTMLVideoElement | null {
   return videos[0] ?? null;
 }
 
-function videoBaseName(video: HTMLVideoElement): string {
+/** Exported for reuse by `videoClip.ts` (§7.15D). */
+export function videoBaseName(video: HTMLVideoElement): string {
   try {
     const stem = new URL(video.currentSrc || video.src, document.baseURI)
       .pathname.split("/").pop()?.replace(/\.[a-z0-9]+$/i, "");
@@ -65,7 +68,9 @@ function grabFrame(video: HTMLVideoElement): string {
   return canvas.toDataURL("image/png");
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Exported for reuse by `videoClip.ts` (§7.15D). */
+export const sleep = (ms: number): Promise<void> =>
+  new Promise((r) => setTimeout(r, ms));
 
 export async function captureVideoFrames(
   msg: CaptureVideoFrameMsg,

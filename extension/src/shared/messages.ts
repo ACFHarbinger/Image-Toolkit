@@ -145,6 +145,39 @@ export interface ResolveContextImageResponse {
   url: string;
 }
 
+/**
+ * Background → content script: record a clip from a <video> element and
+ * export it as WebM or a hand-muxed animated WebP (§7.15D). Fixed duration
+ * (mirrors §7.15A's fixed 5-frame burst rather than adding a config panel —
+ * see `videoClip.ts`'s docstring for the full rationale).
+ */
+export interface CaptureVideoClipMsg {
+  action: "capture_video_clip";
+  /** srcUrl from the context-menu click, used to locate the video. */
+  srcUrl?: string;
+  durationSec: number;
+  format: "webm" | "webp";
+}
+
+export interface CaptureVideoClipResponse {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Persisted under `framesData` in storage.local — the hand-off between the
+ * background service worker's "Extract frames…" context-menu handler (which
+ * resolves the right-clicked image's best URL, same §7.11 correlation the
+ * other image actions use) and the `frames.html` tab it opens, since a new
+ * tab can't receive constructor arguments directly (same pattern as
+ * `GalleryData` for #102's grid-preview page).
+ */
+export interface FramesData {
+  pageUrl?: string;
+  imageUrl: string;
+  capturedAt: string;
+}
+
 export type ExtensionMessage =
   | DownloadImageMsg
   | ScanDupTabsMsg
@@ -157,7 +190,8 @@ export type ExtensionMessage =
   | CaptureVideoFrameMsg
   | ResolveContextImageMsg
   | CollectPageImagesMsg
-  | DownloadGalleryItemMsg;
+  | DownloadGalleryItemMsg
+  | CaptureVideoClipMsg;
 
 /** One duplicate set: ≥2 tabs sharing the same normalized URL. */
 export interface DupTabSet {

@@ -20,7 +20,12 @@ import {
   type SimilarResult,
 } from "./shared/bridge";
 import { parseImageMetadata } from "./shared/imageMeta";
-import type { ExtensionMessage, ResolveContextImageResponse } from "./shared/messages";
+import type {
+  ExtensionMessage,
+  ResolveContextImageResponse,
+  FramesData,
+  CaptureVideoClipResponse,
+} from "./shared/messages";
 
 const MENU_ID = "save-to-custom-folder";
 const SAVE_PROFILE_MENU_ID = "save-to-profile";
@@ -33,6 +38,13 @@ const BURST_MENU_ID = "capture-frame-burst";
 const SEARCH_MENU_ID = "reverse-search";
 const BG_REMOVE_MENU_ID = "cv-bg-remove";
 const UPSCALE_MENU_ID = "cv-upscale";
+const EXTRACT_FRAMES_MENU_ID = "extract-frames";
+const CLIP_WEBM_MENU_ID = "capture-clip-webm";
+const CLIP_WEBP_MENU_ID = "capture-clip-webp";
+
+/** Fixed clip length for §7.15D — mirrors §7.15A's fixed 5-frame burst
+ * (no duration-picker panel yet; see `videoClip.ts`'s docstring). */
+const CLIP_DURATION_SEC = 5;
 
 /** Reverse-image-search services (§7.16B). URL gets the image URL appended. */
 const SEARCH_SERVICES: Array<{ id: string; title: string; url: string }> = [
@@ -103,6 +115,11 @@ async function createContextMenu(): Promise<void> {
       contexts: ["image"],
     });
     api.contextMenus.create({
+      id: EXTRACT_FRAMES_MENU_ID,
+      title: "Extract frames…",
+      contexts: ["image"],
+    });
+    api.contextMenus.create({
       id: FRAME_MENU_ID,
       title: "Capture video frame",
       contexts: ["video"],
@@ -110,6 +127,16 @@ async function createContextMenu(): Promise<void> {
     api.contextMenus.create({
       id: BURST_MENU_ID,
       title: "Capture 5-frame burst",
+      contexts: ["video"],
+    });
+    api.contextMenus.create({
+      id: CLIP_WEBM_MENU_ID,
+      title: `Record ${CLIP_DURATION_SEC}s clip (WebM)`,
+      contexts: ["video"],
+    });
+    api.contextMenus.create({
+      id: CLIP_WEBP_MENU_ID,
+      title: `Record ${CLIP_DURATION_SEC}s clip → Animated WebP`,
       contexts: ["video"],
     });
     api.contextMenus.create({
@@ -450,6 +477,45 @@ async function runFrameCapture(
   }
 }
 
+/**
+ * "Extract frames…" (§7.15B): stash the resolved image URL under
+ * `framesData` and open `frames.html`, which does the actual GIF/APNG/
+ * animated-WebP decoding — this hand-off mirrors #102's `galleryData`
+ * pattern (a new tab can't receive constructor arguments directly).
+ */
+async function runExtractFrames(imageUrl: string, pageUrl?: string): Promise<void> {
+  const entry: FramesData = {
+    imageUrl,
+    pageUrl,
+    capturedAt: new Date().toISOString(),
+  };
+  await api.storage.local.set({ framesData: entry });
+  await api.tabs.create({ url: api.runtime.getURL("frames.html") });
+}
+
+/** Ask the tab's content script to record a video clip (§7.15D). */
+async function runVideoClip(
+  tabId: number,
+  srcUrl: string | undefined,
+  format: "webm" | "webp",
+): Promise<void> {
+  try {
+    const resp = (await api.tabs.sendMessage(tabId, {
+      action: "capture_video_clip",
+      srcUrl,
+      durationSec: CLIP_DURATION_SEC,
+      format,
+    })) as CaptureVideoClipResponse | undefined;
+    if (!resp?.ok) {
+      notify("Clip capture failed", resp?.error ?? "Unknown error.");
+    } else {
+      notify("Clip captured", `Saved ${CLIP_DURATION_SEC}s clip as ${format}.`);
+    }
+  } catch (err) {
+    notify("Clip capture failed", String(err));
+  }
+}
+
 api.contextMenus.onClicked.addListener((info, tab) => {
   const menuId = String(info.menuItemId);
 
@@ -464,8 +530,21 @@ api.contextMenus.onClicked.addListener((info, tab) => {
     }
     return;
   }
+  if (menuId === CLIP_WEBM_MENU_ID || menuId === CLIP_WEBP_MENU_ID) {
+    if (tab?.id !== undefined) {
+      void runVideoClip(tab.id, info.srcUrl, menuId === CLIP_WEBP_MENU_ID ? "webp" : "webm");
+    }
+    return;
+  }
 
   if (!info.srcUrl) return;
+
+  if (menuId === EXTRACT_FRAMES_MENU_ID) {
+    void resolveContextImageUrl(tab?.id, info.srcUrl).then((url) =>
+      runExtractFrames(url, info.pageUrl),
+    );
+    return;
+  }
 
   if (menuId === MENU_ID) {
     void resolveContextImageUrl(tab?.id, info.srcUrl).then((url) =>

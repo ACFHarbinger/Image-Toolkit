@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Extract Frames — Image Toolkit</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; background: #2c2f33; color: #dcddde; font-size: 13px; }
+        h2 { margin: 0 0 2px 0; font-size: 1.1em; color: #fff; }
+        .page-url { color: #999; font-size: 0.85em; word-break: break-all; margin-bottom: 12px; }
+
+        .preview { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #23272a; border: 1px solid #4f545c; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+        .preview img { max-width: 100%; max-height: 320px; background: repeating-conic-gradient(#33363b 0% 25%, #2c2f33 0% 50%) 50% / 16px 16px; border-radius: 4px; }
+        .preview-controls { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 480px; }
+        .preview-controls input[type="range"] { flex: 1; }
+        #preview-label { color: #999; font-size: 0.85em; }
+
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+        .spacer { flex: 1; }
+
+        button { background: #4f545c; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 0.85em; }
+        button:hover { background: #5d636b; }
+        button.primary { background: #5865f2; }
+        button.primary:hover { background: #4752c4; }
+        button:disabled { opacity: 0.5; cursor: default; }
+
+        #summary { font-size: 0.85em; color: #999; margin-bottom: 10px; }
+
+        #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+        .cell { position: relative; background: #23272a; border: 1px solid #4f545c; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; }
+        .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #1e2124; display: flex; align-items: center; justify-content: center; }
+        .thumb-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .cell-select { position: absolute; top: 6px; left: 6px; width: 18px; height: 18px; z-index: 2; }
+        .cell-meta { padding: 4px 8px; font-size: 0.75em; color: #999; display: flex; justify-content: space-between; gap: 6px; }
+        .cell-actions { padding: 0 8px 8px; display: flex; gap: 6px; }
+        .cell-actions button { flex: 1; padding: 4px 6px; font-size: 0.78em; }
+
+        #empty { color: #999; font-style: italic; margin-top: 20px; display: none; }
+    </style>
+</head>
+<body>
+    <h2>Extract Frames</h2>
+    <div id="source-url" class="page-url"></div>
+
+    <div class="preview">
+        <div id="preview-label">Loading…</div>
+        <img id="preview-img" alt="Frame preview">
+        <div class="preview-controls">
+            <button id="play-pause" disabled>Play</button>
+            <input type="range" id="scrubber" min="0" max="0" value="0" disabled>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <button id="select-all">Select all</button>
+        <button id="select-none">Select none</button>
+        <div class="spacer"></div>
+        <button id="download-selected" class="primary">Download selected</button>
+    </div>
+
+    <div id="summary"></div>
+    <div id="grid"></div>
+    <div id="empty"></div>
+
+    <script src="frames.js"></script>
+</body>
+</html>
