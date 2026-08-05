@@ -23,6 +23,7 @@ class _TabRegistryMixin:
             EntityReconTab,
             ExtractorTab,
             ImageCrawlTab,
+            MangaAnimationTab,
             MangaColorizationTab,
             MediaLoaderTab,
             MergeTab,
@@ -66,6 +67,7 @@ class _TabRegistryMixin:
         self.comfyui_tab = ComfyUITab(enable_manager=enable_manager)
         self.stitch_tab = StitchTab()
         self.manga_colorization_tab = MangaColorizationTab()
+        self.manga_animation_tab = MangaAnimationTab()
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab
@@ -128,6 +130,7 @@ class _TabRegistryMixin:
             },
             "Manga": {
                 "Colorization": self.manga_colorization_tab,
+                "Animation": self.manga_animation_tab,
             },
         }
 
