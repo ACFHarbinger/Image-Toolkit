@@ -164,13 +164,24 @@ async function recordTurboCapture(entry: TurboHistoryEntry): Promise<void> {
  * without changing the active default folder. Pass *source: "turbo"* to
  * feed the §7.12 badge counter + history panel.
  */
+/**
+ * Result of a single `api.downloads.download()` call — used by the grid-
+ * preview page (§7.9C) to render a per-item progress/status badge instead of
+ * the fire-and-forget behavior plain `download_image`/`download_batch`
+ * callers rely on.
+ */
+export interface DownloadOutcome {
+  ok: boolean;
+  error?: string;
+}
+
 export async function downloadImage(
   imageUrl: string,
   pageUrl?: string,
   suggestedName?: string,
   overrideFolder?: string,
   source?: "turbo" | "manual" | "batch",
-): Promise<void> {
+): Promise<DownloadOutcome> {
   const settings = await loadSettings();
   const folder = overrideFolder || resolveFolder(settings, pageUrl);
   const relName = suggestedName
@@ -178,25 +189,30 @@ export async function downloadImage(
     : buildFilename(settings.filenameTemplate, imageUrl, pageUrl);
   const destinationPath = `${folder}/${relName}`;
 
-  api.downloads.download(
-    {
-      url: imageUrl,
-      filename: destinationPath,
-      conflictAction: "uniquify",
-      saveAs: false,
-    },
-    (downloadId) => {
-      if (source !== "turbo") return;
-      const err = api.runtime.lastError;
-      void recordTurboCapture({
-        when: new Date().toISOString(),
+  const outcome = await new Promise<DownloadOutcome>((resolve) => {
+    api.downloads.download(
+      {
         url: imageUrl,
         filename: destinationPath,
-        status: err || downloadId === undefined ? "error" : "ok",
-        error: err?.message,
-      });
-    },
-  );
+        conflictAction: "uniquify",
+        saveAs: false,
+      },
+      (downloadId) => {
+        const err = api.runtime.lastError;
+        const ok = !err && downloadId !== undefined;
+        if (source === "turbo") {
+          void recordTurboCapture({
+            when: new Date().toISOString(),
+            url: imageUrl,
+            filename: destinationPath,
+            status: ok ? "ok" : "error",
+            error: err?.message,
+          });
+        }
+        resolve({ ok, error: err?.message });
+      },
+    );
+  });
 
   if (settings.saveSidecar) {
     const sidecar = {
@@ -213,6 +229,8 @@ export async function downloadImage(
       saveAs: false,
     });
   }
+
+  return outcome;
 }
 
 /**
@@ -473,7 +491,7 @@ async function downloadBatch(urls: string[], pageUrl: string): Promise<void> {
 }
 
 api.runtime.onMessage.addListener(
-  (request: ExtensionMessage, sender, _sendResponse) => {
+  (request: ExtensionMessage, sender, sendResponse) => {
     if (request.action === "download_image" && request.src) {
       void downloadImage(
         request.src,
@@ -482,8 +500,19 @@ api.runtime.onMessage.addListener(
         undefined,
         request.source,
       );
-    } else if (request.action === "download_batch" && request.urls?.length) {
+      return false;
+    }
+    if (request.action === "download_batch" && request.urls?.length) {
       void downloadBatch(request.urls, request.pageUrl ?? sender.tab?.url ?? "");
+      return false;
+    }
+    if (request.action === "download_gallery_item" && request.url) {
+      // §7.9C: unlike the fire-and-forget batch path above, the grid-preview
+      // page awaits this per item to drive its own progress/status badge.
+      void downloadImage(request.url, request.pageUrl, undefined, undefined, "batch").then(
+        sendResponse,
+      );
+      return true; // async response
     }
     return false;
   },

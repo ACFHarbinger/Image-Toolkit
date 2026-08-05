@@ -11,7 +11,7 @@ import {
   refreshPhashSnapshot,
 } from "../shared/clientPhash";
 import type { LastDupCheck, LastSimilar, TurboHistoryEntry } from "../background";
-import type { DupTabSet } from "../shared/messages";
+import type { DupTabSet, CollectPageImagesResponse, GalleryData } from "../shared/messages";
 
 const $ = <T extends HTMLElement>(id: string): T =>
   document.getElementById(id) as T;
@@ -531,6 +531,40 @@ async function sendToActiveTab(action: CaptureAction): Promise<void> {
   }
 }
 
+/**
+ * Grid-preview page (§7.9C): collect the page's detected images via the
+ * content script, stash them under `galleryData` for the new tab to read
+ * (see `GalleryData`), then open `gallery.html`. Reuses the same content-
+ * script round trip as `sendToActiveTab` but doesn't download anything.
+ */
+async function openGridPreview(): Promise<void> {
+  const statusEl = $<HTMLDivElement>("capture-status");
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    statusEl.textContent = "No active tab.";
+    return;
+  }
+  try {
+    const resp = (await api.tabs.sendMessage(tab.id, {
+      action: "collect_page_images",
+    })) as CollectPageImagesResponse | undefined;
+    if (!resp?.ok) {
+      statusEl.textContent = "Could not scan this page.";
+      return;
+    }
+    const galleryData: GalleryData = {
+      pageUrl: resp.pageUrl,
+      images: resp.images,
+      capturedAt: new Date().toISOString(),
+    };
+    await storageSet({ galleryData });
+    await api.tabs.create({ url: api.runtime.getURL("gallery.html") });
+  } catch {
+    statusEl.textContent =
+      "Cannot capture on this page (browser-internal pages are blocked).";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   void restoreOptions();
   void renderLastDupCheck();
@@ -545,6 +579,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   $<HTMLButtonElement>("select-images").addEventListener("click", () => {
     void sendToActiveTab("start_selection_overlay");
+  });
+  $<HTMLButtonElement>("grid-preview").addEventListener("click", () => {
+    void openGridPreview();
   });
   $<HTMLButtonElement>("test-conn").addEventListener("click", () => {
     void testConnection();

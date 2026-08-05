@@ -15,7 +15,7 @@ import {
 } from "./shared/extractor";
 import { isTurboActiveOnSite } from "./shared/naming";
 import type { ExtensionSettings } from "./shared/settings";
-import { collectPageMedia } from "./shared/pageMedia";
+import { collectPageMedia, collectImageDetails } from "./shared/pageMedia";
 import {
   startSelectionOverlay,
   overlayActive,
@@ -31,6 +31,7 @@ import type {
   ExtensionMessage,
   PageCaptureResponse,
   ResolveContextImageResponse,
+  CollectPageImagesResponse,
 } from "./shared/messages";
 
 // Track the element under the last context-menu so video capture can find
@@ -168,8 +169,18 @@ api.runtime.onMessage.addListener(
   (
     request: ExtensionMessage,
     _sender,
-    sendResponse: (r: PageCaptureResponse | ResolveContextImageResponse) => void,
+    sendResponse: (
+      r: PageCaptureResponse | ResolveContextImageResponse | CollectPageImagesResponse,
+    ) => void,
   ) => {
+    if (request.action === "collect_page_images") {
+      sendResponse({
+        ok: true,
+        pageUrl: window.location.href,
+        images: collectImageDetails(),
+      });
+      return false;
+    }
     if (request.action === "download_all_media") {
       const media = collectPageMedia();
       const urls = [...media.images, ...media.videos];

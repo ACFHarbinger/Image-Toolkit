@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Grid Preview — Image Toolkit</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; background: #2c2f33; color: #dcddde; font-size: 13px; }
+        h2 { margin: 0 0 2px 0; font-size: 1.1em; color: #fff; }
+        .page-url { color: #999; font-size: 0.85em; word-break: break-all; margin-bottom: 12px; }
+
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; background: #23272a; border: 1px solid #4f545c; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; }
+        .toolbar .field { display: flex; flex-direction: column; gap: 3px; }
+        .toolbar label { font-size: 0.78em; color: #999; }
+        .toolbar input[type="text"], .toolbar input[type="number"] { background: #2c2f33; color: #dcddde; border: 1px solid #4f545c; border-radius: 4px; padding: 5px 8px; font-size: 0.9em; }
+        .toolbar input[type="number"] { width: 70px; }
+        .format-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+        .chip { background: #4f545c; color: #dcddde; border: 1px solid transparent; border-radius: 12px; padding: 3px 10px; font-size: 0.8em; cursor: pointer; user-select: none; }
+        .chip.active { background: #5865f2; color: #fff; }
+        .spacer { flex: 1; }
+
+        button { background: #4f545c; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 0.85em; }
+        button:hover { background: #5d636b; }
+        button.primary { background: #5865f2; }
+        button.primary:hover { background: #4752c4; }
+        button:disabled { opacity: 0.5; cursor: default; }
+
+        #summary { font-size: 0.85em; color: #999; margin-bottom: 10px; }
+
+        #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+        .cell { position: relative; background: #23272a; border: 1px solid #4f545c; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; }
+        .cell.hidden { display: none; }
+        .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #1e2124; display: flex; align-items: center; justify-content: center; }
+        .thumb-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .cell-select { position: absolute; top: 6px; left: 6px; width: 18px; height: 18px; z-index: 2; }
+        .badge { position: absolute; font-size: 0.68em; padding: 2px 6px; border-radius: 10px; color: #fff; z-index: 2; }
+        .badge-status { top: 6px; right: 6px; background: #4f545c; }
+        .badge-status.downloading { background: #f0a020; }
+        .badge-status.done { background: #2ecc71; }
+        .badge-status.error { background: #e74c3c; }
+        .badge-dup { bottom: 6px; right: 6px; background: #4f545c; }
+        .badge-dup.possible { background: #e74c3c; }
+        .badge-dup.none { background: #2ecc71; }
+        .badge-dup.checking { background: #f0a020; }
+        .cell-meta { padding: 6px 8px; font-size: 0.78em; color: #999; display: flex; justify-content: space-between; gap: 6px; }
+        .cell-actions { padding: 0 8px 8px; display: flex; gap: 6px; }
+        .cell-actions button { flex: 1; padding: 4px 6px; font-size: 0.78em; }
+
+        #empty { color: #999; font-style: italic; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>Grid Preview</h2>
+    <div id="page-url" class="page-url"></div>
+
+    <div class="toolbar">
+        <div class="field">
+            <label for="filter-min-dim">Min dimension (px)</label>
+            <input type="number" id="filter-min-dim" min="0" step="16" value="0">
+        </div>
+        <div class="field">
+            <label for="filter-url">URL contains</label>
+            <input type="text" id="filter-url" placeholder="e.g. cdn.example.com">
+        </div>
+        <div class="field">
+            <label>Format</label>
+            <div class="format-chips" id="format-chips"></div>
+        </div>
+        <div class="spacer"></div>
+        <button id="select-all">Select all shown</button>
+        <button id="select-none" class="secondary">Select none</button>
+        <button id="check-dups">Check duplicates</button>
+        <button id="download-selected" class="primary">Download selected</button>
+    </div>
+
+    <div id="summary"></div>
+    <div id="grid"></div>
+    <div id="empty" style="display: none;">No images detected on this page.</div>
+
+    <script src="gallery.js"></script>
+</body>
+</html>
