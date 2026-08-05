@@ -36,8 +36,17 @@ from .bridge_config import load_config
 
 logger = logging.getLogger(__name__)
 
-BRIDGE_VERSION = "1.3"
-FEATURES = ["ping", "dup-check", "ingest", "similar", "phash-snapshot"]
+BRIDGE_VERSION = "1.4"
+FEATURES = [
+    "ping",
+    "dup-check",
+    "ingest",
+    "similar",
+    "phash-snapshot",
+    "auto-tag",
+    "cv-bg-remove",
+    "cv-upscale",
+]
 
 _MAX_FETCH_BYTES = 64 * 1024 * 1024  # 64 MB
 _FETCH_TIMEOUT_S = 20
@@ -219,11 +228,38 @@ def handle_ingest(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         "saved_at": datetime.now(timezone.utc).isoformat(),
         "via": "image-toolkit-extension",
     }
+
+    response_body: Dict[str, Any] = {"path": str(dest)}
+
+    # §7.14C: auto_tag — WD14 tags computed server-side at ingest. Threshold
+    # + review-queue semantics reuse WDTaggerWrapper.tag_with_review()
+    # (§4.4E). Tagging failure (missing onnxruntime, model download error,
+    # ...) must not fail the ingest itself — the image is already saved by
+    # this point — so it's caught and reported alongside the result instead.
+    if payload.get("auto_tag"):
+        tag_info: Dict[str, Any] = {}
+        try:
+            from backend.src.models.wrappers.wd_tagger_wrapper import (
+                WDTaggerWrapper,
+            )
+
+            tagger = WDTaggerWrapper()
+            auto_tags, review_tags = tagger.tag_with_review(str(dest))
+            tag_info = {
+                "tags": [t["tag"] for t in auto_tags],
+                "review_tags": [t["tag"] for t in review_tags],
+            }
+        except Exception as exc:
+            logger.warning("auto_tag failed for %s: %s", dest, exc)
+            tag_info = {"error": str(exc)}
+        sidecar["auto_tags"] = tag_info
+        response_body["tags"] = tag_info
+
     (dest_dir / (dest.name + ".json")).write_text(
         _json.dumps(sidecar, indent=2), encoding="utf-8"
     )
 
-    return 201, {"path": str(dest)}
+    return 201, response_body
 
 
 def handle_similar(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:

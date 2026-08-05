@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 import numpy as np
-from django.test import Client, SimpleTestCase
+from django.test import Client, SimpleTestCase, override_settings
 from PIL import Image
 
 
@@ -19,8 +19,17 @@ def _png_bytes(seed=0, size=(64, 64)) -> bytes:
     return buf.getvalue()
 
 
+@override_settings(ROOT_URLCONF="extension_api.test_urls")
 class BridgeTestCase(SimpleTestCase):
-    """Common setup: isolated bridge dir (token/config/index) in a temp path."""
+    """Common setup: isolated bridge dir (token/config/index) in a temp path.
+
+    ``ROOT_URLCONF`` is overridden to a minimal test-only urlconf
+    (``extension_api/test_urls.py``) that mounts only this app's URLs —
+    the project's real ``api.urls`` also includes ``tasks.urls``, which is
+    independently broken (pre-existing, unrelated to this app) and would
+    make every ``Client`` request here fail at import time otherwise. See
+    ``test_urls.py``'s docstring for the full story.
+    """
 
     def setUp(self):
         import tempfile
@@ -210,6 +219,55 @@ class TestIngest(BridgeTestCase):
         resp = self._post({"data_b64": base64.b64encode(_png_bytes()).decode()})
         self.assertEqual(resp.status_code, 409)
 
+    def test_auto_tag_adds_tags_to_sidecar_and_response(self):
+        """§7.14C — auto_tag=true calls tag_with_review() and stores results."""
+        auto_tags = [{"tag": "1girl", "confidence": 0.9, "category": "general"}]
+        review_tags = [{"tag": "maybe", "confidence": 0.2, "category": "general"}]
+        with mock.patch(
+            "backend.src.models.wrappers.wd_tagger_wrapper.WDTaggerWrapper"
+            ".tag_with_review",
+            return_value=(auto_tags, review_tags),
+        ):
+            resp = self._post(
+                {
+                    "data_b64": base64.b64encode(_png_bytes(seed=41)).decode(),
+                    "auto_tag": True,
+                }
+            )
+        self.assertEqual(resp.status_code, 201)
+        body = resp.json()
+        self.assertEqual(body["tags"]["tags"], ["1girl"])
+        self.assertEqual(body["tags"]["review_tags"], ["maybe"])
+
+        import json
+
+        saved = Path(body["path"])
+        sidecar = json.loads((saved.parent / (saved.name + ".json")).read_text())
+        self.assertEqual(sidecar["auto_tags"]["tags"], ["1girl"])
+
+    def test_auto_tag_false_by_default_no_tags_key(self):
+        resp = self._post({"data_b64": base64.b64encode(_png_bytes(seed=43)).decode()})
+        self.assertEqual(resp.status_code, 201)
+        self.assertNotIn("tags", resp.json())
+
+    def test_auto_tag_failure_does_not_fail_ingest(self):
+        """Tagging errors (e.g. model unavailable) must not lose the saved image."""
+        with mock.patch(
+            "backend.src.models.wrappers.wd_tagger_wrapper.WDTaggerWrapper"
+            ".tag_with_review",
+            side_effect=RuntimeError("onnxruntime not installed"),
+        ):
+            resp = self._post(
+                {
+                    "data_b64": base64.b64encode(_png_bytes(seed=44)).decode(),
+                    "auto_tag": True,
+                }
+            )
+        self.assertEqual(resp.status_code, 201)
+        body = resp.json()
+        self.assertIn("error", body["tags"])
+        self.assertTrue(Path(body["path"]).exists())
+
 
 class TestSimilar(BridgeTestCase):
     """§7.8 ranked visual-similarity search (pHash-degraded path)."""
@@ -356,3 +414,194 @@ class TestPhashSnapshot(BridgeTestCase):
         body_text = resp.content.decode()
         self.assertNotIn("secret_filename", body_text)
         self.assertNotIn(str(self.images_dir), body_text)
+
+
+# ── §7.14A/B — App-powered CV operations ─────────────────────────────────────
+#
+# Runs Celery tasks synchronously (CELERY_TASK_ALWAYS_EAGER) against an
+# in-memory result backend so these tests need neither a live broker nor a
+# running worker — matching how `tasks/tests.py` remains an empty stub in
+# this codebase (no established Celery-test convention existed to follow).
+# The actual BiRefNet/Real-ESRGAN model wrappers are mocked: loading real
+# weights is out of scope for a unit test and would require network/GPU
+# access this environment doesn't reliably have.
+_EAGER_CELERY = override_settings(
+    CELERY_TASK_ALWAYS_EAGER=True,
+    CELERY_TASK_EAGER_PROPAGATES=True,
+    CELERY_TASK_STORE_EAGER_RESULT=True,
+    CELERY_RESULT_BACKEND="cache+memory://",
+)
+
+
+class TestCvBgRemove(BridgeTestCase):
+    def _post(self, payload):
+        return self.client.post(
+            "/api/extension/cv/bg-remove/",
+            payload,
+            content_type="application/json",
+            **self._auth(),
+        )
+
+    def test_requires_token(self):
+        resp = self.client.post(
+            "/api/extension/cv/bg-remove/", {}, content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_400_without_url_or_data(self):
+        resp = self._post({})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_400_on_undecodable_image(self):
+        resp = self._post({"data_b64": base64.b64encode(b"not an image").decode()})
+        self.assertEqual(resp.status_code, 400)
+
+    @_EAGER_CELERY
+    def test_queues_job_and_completes_with_transparent_png(self):
+        h, w = 32, 32
+        fake_mask = np.full((h, w), 255, dtype=np.uint8)
+        fake_mask[:16, :] = 0  # half foreground / half background, for realism
+        with mock.patch(
+            "backend.src.models.wrappers.birefnet_wrapper.BiRefNetWrapper.get_mask",
+            return_value=fake_mask,
+        ):
+            resp = self._post(
+                {
+                    "data_b64": base64.b64encode(_png_bytes(seed=60, size=(w, h))).decode(),
+                    "url": "https://site.com/imgs/photo.png",
+                }
+            )
+        self.assertEqual(resp.status_code, 202)
+        job_id = resp.json()["job_id"]
+        self.assertEqual(resp.json()["status"], "processing")
+
+        status_resp = self.client.get(
+            f"/api/extension/cv/status/{job_id}/", **self._auth()
+        )
+        self.assertEqual(status_resp.status_code, 200)
+        body = status_resp.json()
+        self.assertEqual(body["state"], "SUCCESS")
+        result = body["result"]
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["filename"], "photo_nobg.png")
+
+        png_bytes = base64.b64decode(result["data_b64"])
+        img = Image.open(io.BytesIO(png_bytes))
+        self.assertEqual(img.mode, "RGBA")
+        self.assertEqual(img.size, (w, h))
+
+    @_EAGER_CELERY
+    def test_job_failure_surfaces_error(self):
+        with mock.patch(
+            "backend.src.models.wrappers.birefnet_wrapper.BiRefNetWrapper.get_mask",
+            side_effect=RuntimeError("model load failed"),
+        ):
+            resp = self._post({"data_b64": base64.b64encode(_png_bytes(seed=61)).decode()})
+        job_id = resp.json()["job_id"]
+        status_resp = self.client.get(
+            f"/api/extension/cv/status/{job_id}/", **self._auth()
+        )
+        body = status_resp.json()
+        self.assertEqual(body["state"], "SUCCESS")  # task caught it internally
+        self.assertEqual(body["result"]["status"], "error")
+        self.assertIn("model load failed", body["result"]["message"])
+
+
+class TestCvUpscale(BridgeTestCase):
+    def _post(self, payload):
+        return self.client.post(
+            "/api/extension/cv/upscale/",
+            payload,
+            content_type="application/json",
+            **self._auth(),
+        )
+
+    def test_requires_token(self):
+        resp = self.client.post(
+            "/api/extension/cv/upscale/", {}, content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_400_without_url_or_data(self):
+        resp = self._post({})
+        self.assertEqual(resp.status_code, 400)
+
+    @_EAGER_CELERY
+    def test_queues_job_and_completes_at_4x(self):
+        w, h = 16, 16
+
+        def _fake_upscale(self_wrapper, img):
+            return np.repeat(np.repeat(img, 4, axis=0), 4, axis=1)
+
+        with mock.patch(
+            "backend.src.models.wrappers.esrgan_wrapper.ESRGANWrapper.upscale",
+            _fake_upscale,
+        ):
+            resp = self._post(
+                {
+                    "data_b64": base64.b64encode(_png_bytes(seed=70, size=(w, h))).decode(),
+                    "url": "https://site.com/a.jpg",
+                }
+            )
+        self.assertEqual(resp.status_code, 202)
+        job_id = resp.json()["job_id"]
+
+        status_resp = self.client.get(
+            f"/api/extension/cv/status/{job_id}/", **self._auth()
+        )
+        body = status_resp.json()
+        result = body["result"]
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["scale"], 4)
+        self.assertEqual(result["filename"], "a_upscaled.png")
+
+        png_bytes = base64.b64decode(result["data_b64"])
+        img = Image.open(io.BytesIO(png_bytes))
+        self.assertEqual(img.size, (w * 4, h * 4))
+
+    @_EAGER_CELERY
+    def test_scale_2_downsamples_the_native_4x_output(self):
+        w, h = 16, 16
+
+        def _fake_upscale(self_wrapper, img):
+            return np.repeat(np.repeat(img, 4, axis=0), 4, axis=1)
+
+        with mock.patch(
+            "backend.src.models.wrappers.esrgan_wrapper.ESRGANWrapper.upscale",
+            _fake_upscale,
+        ):
+            resp = self._post(
+                {
+                    "data_b64": base64.b64encode(_png_bytes(seed=71, size=(w, h))).decode(),
+                    "scale": 2,
+                }
+            )
+        job_id = resp.json()["job_id"]
+        status_resp = self.client.get(
+            f"/api/extension/cv/status/{job_id}/", **self._auth()
+        )
+        result = status_resp.json()["result"]
+        self.assertEqual(result["scale"], 2)
+        img = Image.open(io.BytesIO(base64.b64decode(result["data_b64"])))
+        self.assertEqual(img.size, (w * 2, h * 2))
+
+    def test_invalid_scale_falls_back_to_4(self):
+        # No @_EAGER_CELERY: only checking the 202 + validated payload, not
+        # the queued task's own result.
+        resp = self._post(
+            {"data_b64": base64.b64encode(_png_bytes(seed=72)).decode(), "scale": 3}
+        )
+        self.assertEqual(resp.status_code, 202)
+
+
+class TestCvJobStatus(BridgeTestCase):
+    def test_requires_token(self):
+        resp = self.client.get("/api/extension/cv/status/some-job-id/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_unknown_job_id_is_pending(self):
+        resp = self.client.get(
+            "/api/extension/cv/status/not-a-real-job-id/", **self._auth()
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["state"], "PENDING")

@@ -235,3 +235,89 @@ export function getPhashSnapshot(): Promise<PhashSnapshotResult> {
     {},
   );
 }
+
+// ── §7.14A/B — App-powered CV operations (bg-remove / upscale) ──────────────
+//
+// These two are HTTP-only: unlike ping/dup-check/ingest/similar/
+// phash-snapshot, they're backed by a job-id + polling flow (BiRefNet /
+// Real-ESRGAN inference is genuinely long-running, queued via the app's
+// Celery task queue — see extension_api/tasks.py), which doesn't map onto
+// native messaging's single-request/single-response call without a second
+// design pass. If `settings.bridgeTransport` is `"native"`, these still go
+// over HTTP directly (`bridgeFetch`, not `bridgeCall`) — the HTTP bridge
+// (`bridgeUrl`/`bridgeToken`) must be configured for them to work regardless
+// of which transport the other bridge features use.
+
+export interface CvJobQueued {
+  job_id: string;
+  status: string;
+}
+
+/** Shape of a completed bg-remove/upscale job's `result` field. */
+export interface CvJobResult {
+  status: "success" | "error";
+  data_b64?: string;
+  filename?: string;
+  content_type?: string;
+  scale?: number;
+  message?: string;
+}
+
+export interface CvJobStatus {
+  job_id: string;
+  /** Celery task state: PENDING / STARTED / SUCCESS / FAILURE / ... */
+  state: string;
+  result?: CvJobResult;
+  error?: string;
+}
+
+/** §7.14A — queue a BiRefNet background-removal job for an image URL. */
+export function cvBgRemove(imageUrl: string): Promise<CvJobQueued> {
+  return bridgeFetch<CvJobQueued>("/cv/bg-remove/", {
+    method: "POST",
+    body: JSON.stringify({ url: imageUrl }),
+  });
+}
+
+/** §7.14B — queue a Real-ESRGAN anime_6B upscale job for an image URL. */
+export function cvUpscale(
+  imageUrl: string,
+  scale: 2 | 4 = 4,
+): Promise<CvJobQueued> {
+  return bridgeFetch<CvJobQueued>("/cv/upscale/", {
+    method: "POST",
+    body: JSON.stringify({ url: imageUrl, scale }),
+  });
+}
+
+/** Poll a queued §7.14A/B job's status/result by `job_id`. */
+export function cvJobStatus(jobId: string): Promise<CvJobStatus> {
+  return bridgeFetch<CvJobStatus>(
+    `/cv/status/${encodeURIComponent(jobId)}/`,
+    { method: "GET" },
+  );
+}
+
+/**
+ * Poll `cvJobStatus` until the job leaves Celery's PENDING/STARTED states,
+ * with a fixed interval and a cap on attempts (~2 minutes total) so a
+ * stuck/never-run job doesn't poll forever. Throws `BridgeError` if the
+ * poll itself fails (bridge unreachable) or the job reports `state ===
+ * "FAILURE"`.
+ */
+export async function pollCvJob(
+  jobId: string,
+  { intervalMs = 2000, maxAttempts = 60 } = {},
+): Promise<CvJobResult> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const status = await cvJobStatus(jobId);
+    if (status.state === "SUCCESS" && status.result) {
+      return status.result;
+    }
+    if (status.state === "FAILURE") {
+      throw new BridgeError(status.error || "CV job failed.");
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new BridgeError(`Timed out waiting for job ${jobId} to complete.`);
+}
