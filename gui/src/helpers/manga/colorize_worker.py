@@ -13,10 +13,11 @@ freeze the UI for the whole solve, so it's threaded regardless.
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 import numpy as np
 from backend.src.manga import colorize_reference, colorize_scribble
+from backend.src.manga.quadtree import colorize_region_incremental
 from PySide6.QtCore import QThread, Signal
 
 
@@ -101,4 +102,54 @@ class ReferenceColorizeWorker(QThread):
             self.error.emit(str(e))
 
 
-__all__ = ["ColorizeWorker", "ReferenceColorizeWorker"]
+class IncrementalColorizeWorker(QThread):
+    """Runs :func:`backend.src.manga.quadtree.colorize_region_incremental`
+    off the UI thread -- the "live preview" counterpart to
+    :class:`ColorizeWorker` (roadmap §5.2, issue #191). Re-solves only the
+    quadtree-expanded window around the latest completed stroke and
+    composites it into ``prev_result``, instead of re-running a full-page
+    solve on every stroke."""
+
+    finished_ok = Signal(np.ndarray)
+    error = Signal(str)
+
+    def __init__(
+        self,
+        gray: np.ndarray,
+        scribble_rgb: np.ndarray,
+        scribble_mask: np.ndarray,
+        prev_result: np.ndarray,
+        dirty_bbox: Tuple[int, int, int, int],
+        leaves=None,
+        colorize_fn: Optional[Callable[..., np.ndarray]] = None,
+        max_solve_dim: int = 0,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._gray = gray
+        self._scribble_rgb = scribble_rgb
+        self._scribble_mask = scribble_mask
+        self._prev_result = prev_result
+        self._dirty_bbox = dirty_bbox
+        self._leaves = leaves
+        self._colorize_fn = colorize_fn or colorize_scribble
+        self._max_solve_dim = max_solve_dim
+
+    def run(self) -> None:
+        try:
+            result = colorize_region_incremental(
+                self._gray,
+                self._scribble_rgb,
+                self._scribble_mask,
+                self._prev_result,
+                self._dirty_bbox,
+                leaves=self._leaves,
+                colorize_fn=self._colorize_fn,
+                max_solve_dim=self._max_solve_dim,
+            )
+            self.finished_ok.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+__all__ = ["ColorizeWorker", "ReferenceColorizeWorker", "IncrementalColorizeWorker"]

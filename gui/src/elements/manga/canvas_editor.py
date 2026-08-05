@@ -91,6 +91,13 @@ class MangaCanvasEditor(QGraphicsView):
         self._painting = False
         self._last_point: Optional[QPointF] = None
 
+        # Pixel-space bounding box of the stroke currently being painted
+        # (accumulated across mousePressEvent/mouseMoveEvent, finalized on
+        # mouseReleaseEvent) -- issue #191's quadtree-incremental-resolve
+        # consumer needs this to know which region actually changed.
+        self._stroke_bbox: Optional[Tuple[int, int, int, int]] = None
+        self._last_stroke_bbox: Optional[Tuple[int, int, int, int]] = None
+
     # ------------------------------------------------------------------
     # Loading / clearing
     # ------------------------------------------------------------------
@@ -112,6 +119,9 @@ class MangaCanvasEditor(QGraphicsView):
         self._color_item.setPixmap(QPixmap())
         self._color_item.setPos(0, 0)
 
+        self._stroke_bbox = None
+        self._last_stroke_bbox = None
+
         self._scene.setSceneRect(QRectF(0, 0, w, h))
         self.fitInView(self._scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
@@ -120,6 +130,7 @@ class MangaCanvasEditor(QGraphicsView):
             return
         self._scribble_qimage.fill(Qt.GlobalColor.transparent)
         self._scribble_item.setPixmap(QPixmap.fromImage(self._scribble_qimage))
+        self._last_stroke_bbox = None
         self.scribble_changed.emit()
 
     def set_result(self, rgb_array: np.ndarray) -> None:
@@ -177,6 +188,8 @@ class MangaCanvasEditor(QGraphicsView):
         if event.button() == Qt.MouseButton.LeftButton and self.has_line_art():
             self._painting = True
             self._last_point = self.mapToScene(event.pos())
+            self._stroke_bbox = None
+            self._accumulate_stroke_bbox(self._last_point)
             self._paint_dot(self._last_point)
         else:
             super().mousePressEvent(event)
@@ -184,6 +197,7 @@ class MangaCanvasEditor(QGraphicsView):
     def mouseMoveEvent(self, event) -> None:
         if self._painting and self._last_point is not None:
             point = self.mapToScene(event.pos())
+            self._accumulate_stroke_bbox(point)
             self._paint_line(self._last_point, point)
             self._last_point = point
         else:
@@ -193,9 +207,37 @@ class MangaCanvasEditor(QGraphicsView):
         if event.button() == Qt.MouseButton.LeftButton and self._painting:
             self._painting = False
             self._last_point = None
+            self._last_stroke_bbox = self._stroke_bbox
+            self._stroke_bbox = None
             self.scribble_changed.emit()
         else:
             super().mouseReleaseEvent(event)
+
+    def _accumulate_stroke_bbox(self, point: QPointF) -> None:
+        """Expand the in-progress stroke's pixel-space bounding box to
+        include ``point``, padded by half the pen width (a stroke's visible
+        extent reaches beyond its path centerline) and clipped to the
+        canvas bounds."""
+        w, h = self._image_size
+        if w == 0 or h == 0:
+            return
+        radius = self._pen_width / 2
+        x0 = max(0, int(point.x() - radius))
+        y0 = max(0, int(point.y() - radius))
+        x1 = min(w, int(point.x() + radius) + 1)
+        y1 = min(h, int(point.y() + radius) + 1)
+
+        if self._stroke_bbox is None:
+            self._stroke_bbox = (y0, x0, y1, x1)
+        else:
+            sy0, sx0, sy1, sx1 = self._stroke_bbox
+            self._stroke_bbox = (min(sy0, y0), min(sx0, x0), max(sy1, y1), max(sx1, x1))
+
+    def get_last_stroke_bbox(self) -> Optional[Tuple[int, int, int, int]]:
+        """The completed stroke's ``(y0, x0, y1, x1)`` pixel-space bounding
+        box, or ``None`` if no stroke has finished yet (e.g. right after
+        loading a fresh image, or after :meth:`clear_scribbles`)."""
+        return self._last_stroke_bbox
 
     def _paint_dot(self, point: QPointF) -> None:
         self._paint_line(point, point)

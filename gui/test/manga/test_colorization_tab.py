@@ -213,6 +213,149 @@ class TestMangaColorizationTab:
         tab.canvas._paint_line(QPointF(5, 5), QPointF(5, 5))
         assert tab.canvas.has_scribbles() is True
 
-        # Same button the toolbar wires to canvas.clear_scribbles directly.
-        tab.canvas.clear_scribbles()
+        # Same handler the toolbar's "Clear Scribbles" button is wired to.
+        tab._on_clear_scribbles()
         assert tab.canvas.has_scribbles() is False
+
+    def test_clear_scribbles_resets_incremental_baseline(self, q_app):
+        import numpy as np
+
+        tab = MangaColorizationTab()
+        tab._prev_result = np.zeros((10, 10, 3), dtype=np.uint8)
+        tab._on_clear_scribbles()
+        assert tab._prev_result is None
+
+
+class TestMangaColorizationTabLivePreview:
+    """Issue #191: quadtree-accelerated incremental resolve wiring."""
+
+    def _tab_with_line_art(self, size=40):
+        from PySide6.QtGui import QImage
+
+        tab = MangaColorizationTab()
+        img = QImage(size, size, QImage.Format.Format_RGB888)
+        img.fill(QColor(180, 180, 180))
+        tab.canvas.set_line_art(img)
+        return tab
+
+    def test_live_preview_enabled_only_for_scribble_based_modes(self, q_app):
+        tab = self._tab_with_line_art()
+        assert tab.chk_live_preview.isEnabled() is True
+
+        tab.mode_combo.setCurrentIndex(2)  # Reference / Optimal-Transport
+        assert tab.chk_live_preview.isEnabled() is False
+        assert tab.chk_live_preview.isChecked() is False
+
+        tab.mode_combo.setCurrentIndex(0)
+        assert tab.chk_live_preview.isEnabled() is True
+
+    def test_selecting_reference_mode_unchecks_live_preview(self, q_app):
+        tab = self._tab_with_line_art()
+        tab.chk_live_preview.setChecked(True)
+        tab.mode_combo.setCurrentIndex(2)
+        assert tab.chk_live_preview.isChecked() is False
+
+    def test_scribble_changed_with_live_preview_off_does_nothing(self, q_app):
+        tab = self._tab_with_line_art()
+        tab.canvas._paint_line(QPointF(5, 5), QPointF(5, 5))
+        tab._on_scribble_changed()
+        assert tab._worker is None
+
+    def test_scribble_changed_without_baseline_triggers_full_solve(self, q_app):
+        tab = self._tab_with_line_art()
+        tab.canvas._paint_line(QPointF(5, 5), QPointF(5, 5))
+        tab.chk_live_preview.setChecked(True)
+
+        try:
+            assert tab._worker is not None
+            from gui.src.helpers.manga import ColorizeWorker
+
+            assert isinstance(tab._worker, ColorizeWorker)
+        finally:
+            if tab._worker is not None:
+                tab._worker.wait()
+
+    def test_scribble_changed_with_baseline_starts_incremental_worker(self, q_app):
+        import numpy as np
+
+        tab = self._tab_with_line_art()
+        tab.canvas._paint_line(QPointF(5, 5), QPointF(5, 5))
+        tab._prev_result = np.full((40, 40, 3), 200, dtype=np.uint8)
+        tab.canvas._last_stroke_bbox = (0, 0, 10, 10)
+        tab.chk_live_preview.setChecked(True)
+
+        tab._on_scribble_changed()
+        try:
+            from gui.src.helpers.manga import IncrementalColorizeWorker
+
+            assert isinstance(tab._worker, IncrementalColorizeWorker)
+        finally:
+            if tab._worker is not None:
+                tab._worker.wait()
+
+    def test_scribble_changed_skips_when_a_worker_is_already_running(self, q_app):
+        import numpy as np
+
+        tab = self._tab_with_line_art()
+        tab.canvas._paint_line(QPointF(5, 5), QPointF(5, 5))
+        tab._prev_result = np.full((40, 40, 3), 200, dtype=np.uint8)
+        tab.canvas._last_stroke_bbox = (0, 0, 10, 10)
+        tab.chk_live_preview.setChecked(True)
+
+        sentinel = object()
+        tab._worker = sentinel
+        tab._on_scribble_changed()
+        assert tab._worker is sentinel
+
+    def test_scribble_changed_without_dirty_bbox_does_nothing(self, q_app):
+        import numpy as np
+
+        tab = self._tab_with_line_art()
+        tab.canvas._paint_line(QPointF(5, 5), QPointF(5, 5))
+        tab._prev_result = np.full((40, 40, 3), 200, dtype=np.uint8)
+        tab.canvas._last_stroke_bbox = None
+        tab.chk_live_preview.setChecked(True)
+
+        tab._on_scribble_changed()
+        assert tab._worker is None
+
+    def test_on_colorize_finished_seeds_incremental_baseline(self, q_app):
+        import numpy as np
+
+        tab = self._tab_with_line_art()
+        assert tab._prev_result is None
+
+        result = np.full((40, 40, 3), 128, dtype=np.uint8)
+        tab._on_colorize_finished(result)
+        assert tab._prev_result is result
+
+    def test_on_incremental_finished_updates_canvas_and_baseline(self, q_app):
+        import numpy as np
+
+        tab = self._tab_with_line_art()
+        result = np.full((40, 40, 3), 64, dtype=np.uint8)
+        tab._on_incremental_finished(result)
+
+        assert tab._prev_result is result
+        assert not tab.canvas.get_result_pixmap().isNull()
+        assert "live preview" in tab.status_label.text().lower()
+
+    def test_loading_new_line_art_resets_incremental_baseline(self, q_app, tmp_path):
+        import numpy as np
+        from PySide6.QtGui import QImage
+
+        tab = self._tab_with_line_art()
+        tab._prev_result = np.zeros((40, 40, 3), dtype=np.uint8)
+        tab._quadtree_leaves = [(0, 0, 40, 40)]
+
+        img_path = tmp_path / "line_art.png"
+        img = QImage(20, 20, QImage.Format.Format_RGB888)
+        img.fill(QColor(180, 180, 180))
+        img.save(str(img_path))
+
+        with patch("gui.src.tabs.manga.colorization_tab.QFileDialog") as mock_dialog:
+            mock_dialog.getOpenFileName.return_value = (str(img_path), "")
+            tab._browse_line_art()
+
+        assert tab._prev_result is None
+        assert tab._quadtree_leaves is None

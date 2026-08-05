@@ -1,10 +1,23 @@
 import numpy as np
 import pytest
 from gui.src.elements.manga.canvas_editor import MangaCanvasEditor
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QImage
 
 pytestmark = pytest.mark.gui
+
+
+class _FakeMouseEvent:
+    """A minimal stand-in for QMouseEvent exposing only what
+    MangaCanvasEditor's mouseReleaseEvent actually reads -- avoids fighting
+    QGraphicsView's viewport/scene coordinate mapping just to unit-test the
+    stroke-bbox-finalization logic in isolation."""
+
+    def __init__(self, button=Qt.MouseButton.LeftButton):
+        self._button = button
+
+    def button(self):
+        return self._button
 
 
 def _make_image(w=50, h=50, color=(200, 200, 200)):
@@ -77,3 +90,67 @@ class TestMangaCanvasEditor:
 
         editor.clear_scribbles()  # also emits, sanity check the connection works
         assert received == [True]
+
+    def test_get_last_stroke_bbox_none_before_any_stroke(self, q_app):
+        editor = MangaCanvasEditor()
+        editor.set_line_art(_make_image())
+        assert editor.get_last_stroke_bbox() is None
+
+    def test_accumulate_stroke_bbox_expands_with_pen_width_padding(self, q_app):
+        editor = MangaCanvasEditor()
+        editor.set_line_art(_make_image())
+        editor.set_pen_width(10)
+
+        editor._accumulate_stroke_bbox(QPointF(20, 20))
+        assert editor._stroke_bbox == (15, 15, 26, 26)
+
+        editor._accumulate_stroke_bbox(QPointF(30, 22))
+        y0, x0, y1, x1 = editor._stroke_bbox
+        assert y0 == 15 and x0 == 15
+        assert y1 >= 27 and x1 >= 35
+
+    def test_stroke_bbox_clipped_to_canvas_bounds(self, q_app):
+        editor = MangaCanvasEditor()
+        editor.set_line_art(_make_image(w=50, h=50))
+        editor.set_pen_width(20)
+
+        editor._accumulate_stroke_bbox(QPointF(0, 0))
+        y0, x0, y1, x1 = editor._stroke_bbox
+        assert y0 == 0 and x0 == 0
+
+        editor._accumulate_stroke_bbox(QPointF(49, 49))
+        _, _, y1, x1 = editor._stroke_bbox
+        assert y1 <= 50 and x1 <= 50
+
+    def test_stroke_bbox_finalized_on_release(self, q_app):
+        editor = MangaCanvasEditor()
+        editor.set_line_art(_make_image())
+        editor._painting = True
+        editor._stroke_bbox = (10, 10, 20, 20)
+
+        editor.mouseReleaseEvent(_FakeMouseEvent())
+
+        assert editor.get_last_stroke_bbox() == (10, 10, 20, 20)
+        assert editor._painting is False
+
+    def test_clear_scribbles_resets_last_stroke_bbox(self, q_app):
+        editor = MangaCanvasEditor()
+        editor.set_line_art(_make_image())
+        editor._painting = True
+        editor._stroke_bbox = (10, 10, 20, 20)
+        editor.mouseReleaseEvent(_FakeMouseEvent())
+        assert editor.get_last_stroke_bbox() is not None
+
+        editor.clear_scribbles()
+        assert editor.get_last_stroke_bbox() is None
+
+    def test_set_line_art_resets_last_stroke_bbox(self, q_app):
+        editor = MangaCanvasEditor()
+        editor.set_line_art(_make_image())
+        editor._painting = True
+        editor._stroke_bbox = (10, 10, 20, 20)
+        editor.mouseReleaseEvent(_FakeMouseEvent())
+        assert editor.get_last_stroke_bbox() is not None
+
+        editor.set_line_art(_make_image())
+        assert editor.get_last_stroke_bbox() is None

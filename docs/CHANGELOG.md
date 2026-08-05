@@ -2,6 +2,22 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S306 — 2026-08-05 (Manga: live-stroke incremental resolve GUI wiring, closing issue #191)
+
+**Continued Manga Colorization & Animation** (Milestone #6): completed MCA.9, closing issue #191 fully (S305 shipped the backend mechanism; this session wires it into the GUI).
+
+**`MangaCanvasEditor` (§5.1) — stroke bounding-box tracking.** `_accumulate_stroke_bbox()` expands a running pixel-space bbox as the user paints (called from `mousePressEvent`/`mouseMoveEvent`), padded by half the pen width (a stroke's visible extent reaches beyond its path centerline) and clipped to canvas bounds; `mouseReleaseEvent` finalizes it into `get_last_stroke_bbox()`, reset to `None` by `clear_scribbles()` and `set_line_art()`. This is the missing piece `colorize_region_incremental()` (S305) needed to know *which* region actually changed.
+
+**Manga Colorization Tab (§6.1) — "Live Preview" checkbox.** Enabled for the scribble-based modes only (Scribble, Screentone) — the reference mode's two-image `colorize_reference` signature doesn't fit `colorize_region_incremental`'s single-image contract, so selecting it disables and unchecks the box, mirroring the existing "Load Reference…" button's mode-gating pattern. Connected to `MangaCanvasEditor.scribble_changed`: the first stroke after enabling (or on freshly loaded line art) triggers one ordinary full solve to seed a baseline (`colorize_region_incremental` has no "solve from nothing" path); every stroke after that dispatches a new `IncrementalColorizeWorker` (`gui/src/helpers/manga/colorize_worker.py`, `QThread` subclass, same pattern as `ColorizeWorker`) that re-solves only the touched quadtree window and composites it into the running baseline. Quadtree leaves are computed once per loaded image and cached (`self._quadtree_leaves`) rather than rebuilt per stroke, since the partition only depends on the static line art, not the scribbles.
+
+**Deliberate design choice, documented transparently:** a stroke completing while a previous solve is still in flight is silently skipped, not queued — the scribble bitmap already has the new stroke painted onto it by the time the next solve runs, so nothing is lost, just delayed by one stroke; a reasonable best-effort trade-off for a HITL live preview, not a correctness gap.
+
+**Manually verified end-to-end with real threads and real cv2**, outside pytest (per issue #196's own documented finding, `gui/test/conftest.py`'s global `cv2` mock plus a real background `QThread` running the real solver is a crash hazard, so GUI tests mock the worker/backend calls — see below): loaded a synthetic line-art image, painted a seed stroke, toggled Live Preview on (triggering and completing a full solve via genuine cross-thread signal delivery -- `QThread.wait()` followed by `app.processEvents()` to flush the queued connection, not a synchronous call), painted a second stroke elsewhere, confirmed an `IncrementalColorizeWorker` was dispatched and its result correctly composited into the running baseline.
+
+**Verification**: `gui/test/manga/test_canvas_editor.py` (+6: stroke-bbox padding/expansion, canvas-bounds clipping, finalization-on-release via a minimal fake-mouse-event stub, reset-on-clear, reset-on-new-line-art), `gui/test/manga/test_colorization_tab.py` (+13: mode-gating of the checkbox, no-op when unchecked, full-solve-seeds-baseline, incremental-worker-dispatch-with-baseline, skip-when-worker-busy, no-op-without-dirty-bbox, baseline-seeded-by-any-full-solve-finish, canvas/status update on incremental completion, baseline reset on new line art load). 95 backend manga tests (unaffected), 63 GUI manga tests total (up from 46), all passing. `ruff check --fix` clean; `python -m compileall` clean on `backend/src`/`gui/src`.
+
+**Roadmap status**: fully-open manga items remaining: #189 (graph-QP fallback colorizer, correctly gated by the roadmap's own "only build if OT proves insufficient" condition), #194 (ARAP mesh puppeteering, the highest-effort roadmap item), and the `[Research]`-tagged diffusion/DPO items (§2.5, §3.4, §4/#198/#199/#200).
+
 ## S305 — 2026-08-05 (Manga: quadtree-accelerated dirty-region resolve, partial — issue #191)
 
 **Continued Manga Colorization & Animation** (Milestone #6): shipped MCA.9 partial, progressing issue #191 (kept open — see below).
