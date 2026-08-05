@@ -59,6 +59,7 @@ dependencies = [
     "requests>=2.34.2",
     "safetensors>=0.7.0",
     "scenedetect>=0.6.7.1",
+    "scikit-image>=0.26.0", # SLIC superpixel segmentation for reference-based manga colorization
     "scikit-learn>=1.8.0",
     "scipy>=1.16.3",
     "screeninfo>=0.8.1",

@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Callable, Optional
 
 import numpy as np
-from backend.src.manga import colorize_scribble
+from backend.src.manga import colorize_reference, colorize_scribble
 from PySide6.QtCore import QThread, Signal
 
 
@@ -60,4 +60,45 @@ class ColorizeWorker(QThread):
             self.error.emit(str(e))
 
 
-__all__ = ["ColorizeWorker"]
+class ReferenceColorizeWorker(QThread):
+    """Runs a ``colorize_fn(target_gray, reference_rgb, max_solve_dim=...) ->
+    np.ndarray`` off the UI thread -- the reference-image-based counterpart
+    to :class:`ColorizeWorker` (issue #188). Kept as a separate class rather
+    than generalizing ``ColorizeWorker`` to accept both signatures: the two
+    workflows take a genuinely different number/shape of inputs (no
+    scribble mask concept applies here), so a shared class would need an
+    awkward variadic-args escape hatch for no real benefit -- the run()
+    bodies are already this short. Defaults to
+    :func:`backend.src.manga.colorize_reference` (the Optimal-Transport
+    solver)."""
+
+    finished_ok = Signal(np.ndarray)
+    error = Signal(str)
+
+    def __init__(
+        self,
+        target_gray: np.ndarray,
+        reference_rgb: np.ndarray,
+        max_solve_dim: int = 400,
+        colorize_fn: Optional[Callable[..., np.ndarray]] = None,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._target_gray = target_gray
+        self._reference_rgb = reference_rgb
+        self._max_solve_dim = max_solve_dim
+        self._colorize_fn = colorize_fn or colorize_reference
+
+    def run(self) -> None:
+        try:
+            result = self._colorize_fn(
+                self._target_gray,
+                self._reference_rgb,
+                max_solve_dim=self._max_solve_dim,
+            )
+            self.finished_ok.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+__all__ = ["ColorizeWorker", "ReferenceColorizeWorker"]

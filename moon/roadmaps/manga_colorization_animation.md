@@ -201,13 +201,22 @@ Tests: `backend/test/manga/test_screentone.py` (10).
 
 **Recommendation:** B first if timeline is tight (OT/Sinkhorn is simpler to implement correctly and is GPU-friendly); A as a follow-up for cases where OT's soft assignment under-performs on sharply bounded regions (e.g. distinct clothing pieces).
 
-### 2.4 Optimal-Transport / Sinkhorn Reference Colorizer
+### 2.4 Optimal-Transport / Sinkhorn Reference Colorizer — ✅ Done (2026-08-05, issue #188)
 
 **Pain point:** Same as §2.3 — reference-based full-chapter colorization — via a more GPU-friendly, differentiable formulation.
 
 **Formulation:** entropic-regularized OT, $\min_P \langle P,C\rangle + \epsilon H(P)$, solved by Sinkhorn iteration; Optimal Flow Transport (OFT) variant for occluded/disjoint character regions (research report §5.4).
 
-**Recommendation:** Implement via `POT` (Python Optimal Transport library) for the MVP (`ot.sinkhorn`), with a C++/CUDA reimplementation in `base/` only if profiling shows it's the interactive-latency bottleneck (Sinkhorn's matrix-vector iterations are naturally GPU-parallel — consider `torch`-based Sinkhorn on CUDA before hand-rolling C++). This is Medium-High effort but the highest-value MVP colorization mode for real production use (reference-sheet-driven, matches the dominant manga workflow per the research report).
+**Shipped as:** `backend/src/manga/optimal_transport.py` (`sinkhorn()` + `colorize_reference()`). Both the reference image and the target line art are over-segmented into SLIC superpixels; each superpixel is described by a structural feature vector (§1.3's Gabor texture signature + normalized centroid position, matched on structure since the target has no color yet); `sinkhorn()` solves for a soft reference→target correspondence under a squared-Euclidean structural cost; each target superpixel's color is the transport-plan-weighted average of reference superpixel colors. Target luminance is preserved exactly, matching §2.1/§2.2's contract. Same `max_solve_dim` resolution-cap pattern as §2.1/§2.2 (both images are independently downscaled for the solve, chrominance is upsampled back via nearest-neighbor onto full-resolution luminance) and the same `MANGA_COLORIZE_LOCK` native-call serialization. Wired into the Manga Colorization Tab (§6.1) as "Reference / Optimal-Transport", with a dedicated "Load Reference…" button (enabled only in that mode) and `ReferenceColorizeWorker` (`gui/src/helpers/manga/colorize_worker.py`) — kept as a separate `QThread` subclass rather than generalizing `ColorizeWorker`, since the reference workflow's inputs (two images, no scribble mask) don't fit that worker's signature.
+
+**Deviations from the original plan, made transparently:**
+- **Hand-written NumPy Sinkhorn instead of the `POT` library.** The algorithm is ~15 lines (Gibbs kernel + alternating row/column rescaling); pulling in a new third-party dependency for something this self-contained wasn't justified. `POT` remains a reasonable follow-up if a more feature-complete OT toolkit (unbalanced OT, GPU dispatch, the OFT occluded-region variant) is ever needed — the module docstring says so explicitly.
+- **Gabor texture + normalized position matching instead of CLIP embeddings.** The research report's retrieval-augmented pipelines (ColorFlow etc.) match via a pretrained vision-language model; this stays dependency-light and assumes the reference and target share a roughly similar pose/composition (the common case for a single-character reference sheet applied to consecutive panels of that same character) — a real, documented limitation, not a hidden one.
+- **No CUDA/C++ reimplementation.** Profiling never showed Sinkhorn itself as the bottleneck — SLIC segmentation and per-pixel Gabor feature extraction dominate, and both are already bounded by `max_solve_dim`; solve time for a downscaled page is ~1-2s, well within the interactive budget the recommendation was guarding against.
+
+**Bug found and fixed during implementation:** `sinkhorn()`'s early-stopping residual check was tautological in an earlier draft (`u_new * kv` is trivially `≈ mu` by construction of `u_new = mu / kv`, so it broke after the first iteration regardless of actual convergence). Fixed by tracking iterate stability (`|v_new - v|`) instead, which only shrinks to ~0 once both marginals are actually satisfied — caught by `test_marginals_are_approximately_satisfied` before this shipped.
+
+Tests: `backend/test/manga/test_optimal_transport.py` (13), `gui/test/manga/test_colorization_tab.py` (+6 reference-mode cases, 25 total).
 
 ### 2.5 Diffusion Reference Colorizer (MangaNinja-style) [Research]
 
