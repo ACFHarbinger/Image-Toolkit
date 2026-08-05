@@ -3,6 +3,7 @@
  * the background service worker (§7.2). All runtime messages are members of
  * this discriminated union.
  */
+import type { PageImageItem } from "./pageMedia";
 
 export interface DownloadImageMsg {
   action: "download_image";
@@ -83,6 +84,50 @@ export interface PageCaptureResponse {
 }
 
 /**
+ * Popup → content script: collect all detected images (with dimensions) for
+ * the grid-preview page (§7.9C) — unlike DownloadAllMediaMsg this does not
+ * download anything, it only enumerates candidates for the user to filter
+ * and pick from.
+ */
+export interface CollectPageImagesMsg {
+  action: "collect_page_images";
+}
+
+export interface CollectPageImagesResponse {
+  ok: boolean;
+  pageUrl: string;
+  images: PageImageItem[];
+}
+
+/**
+ * Grid-preview page → background: download one item and report success/
+ * failure, so the grid can show a per-item progress/status badge (§7.9C)
+ * instead of the fire-and-forget behavior of DownloadBatchMsg.
+ */
+export interface DownloadGalleryItemMsg {
+  action: "download_gallery_item";
+  url: string;
+  pageUrl: string;
+}
+
+export interface DownloadGalleryItemResponse {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Persisted under `galleryData` in storage.local — the hand-off between the
+ * popup's "Grid preview…" button (which collects the image list from the
+ * active tab's content script) and the gallery tab page it opens, since a
+ * new tab can't receive constructor arguments directly.
+ */
+export interface GalleryData {
+  pageUrl: string;
+  images: PageImageItem[];
+  capturedAt: string;
+}
+
+/**
  * Background → content script: re-resolve the full-resolution URL for the
  * element the user last right-clicked (§7.11 context-menu correlation).
  * `srcUrl` is the raw URL Chrome's context-menu API reported, used as the
@@ -110,7 +155,9 @@ export type ExtensionMessage =
   | StartSelectionOverlayMsg
   | DownloadBatchMsg
   | CaptureVideoFrameMsg
-  | ResolveContextImageMsg;
+  | ResolveContextImageMsg
+  | CollectPageImagesMsg
+  | DownloadGalleryItemMsg;
 
 /** One duplicate set: ≥2 tabs sharing the same normalized URL. */
 export interface DupTabSet {

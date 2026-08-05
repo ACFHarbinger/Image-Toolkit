@@ -20,24 +20,37 @@ function isDownloadableUrl(url: string): boolean {
   );
 }
 
-/** All content images on the page (icons and tracking pixels filtered out). */
-export function collectImages(minPx: number = MIN_MEDIA_PX): string[] {
-  const urls: string[] = [];
+/** One detected image on the page, with the dimensions used for size filtering. */
+export interface PageImageItem {
+  url: string;
+  /** max(naturalWidth, clientWidth) — the larger of rendered/intrinsic size. */
+  width: number;
+  /** max(naturalHeight, clientHeight). */
+  height: number;
+}
+
+/**
+ * All content images on the page (icons and tracking pixels filtered out),
+ * with per-image dimensions — feeds the §7.9 grid-preview page's size filter.
+ */
+export function collectImageDetails(minPx: number = MIN_MEDIA_PX): PageImageItem[] {
+  const items: PageImageItem[] = [];
   const seen = new Set<string>();
   for (const img of document.querySelectorAll<HTMLImageElement>("img")) {
-    const dim = Math.max(
-      img.naturalWidth,
-      img.naturalHeight,
-      img.clientWidth,
-      img.clientHeight,
-    );
-    if (dim < minPx) continue;
+    const width = Math.max(img.naturalWidth, img.clientWidth);
+    const height = Math.max(img.naturalHeight, img.clientHeight);
+    if (Math.max(width, height) < minPx) continue;
     const url = bestImageUrl(img);
     if (!url || !isDownloadableUrl(url) || seen.has(url)) continue;
     seen.add(url);
-    urls.push(url);
+    items.push({ url, width, height });
   }
-  return urls;
+  return items;
+}
+
+/** All content images on the page (icons and tracking pixels filtered out). */
+export function collectImages(minPx: number = MIN_MEDIA_PX): string[] {
+  return collectImageDetails(minPx).map((item) => item.url);
 }
 
 /** All directly-downloadable video sources on the page. */

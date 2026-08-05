@@ -2,8 +2,8 @@
  * Shared webpack configuration for all browser targets (§7.1).
  *
  * Per-browser configs call `makeConfig("<browser>")`, which:
- *   - bundles the TypeScript entries (background, content, options),
- *   - copies static assets (icons, options.html),
+ *   - bundles the TypeScript entries (background, content, options, gallery),
+ *   - copies static assets (icons, options.html, gallery.html),
  *   - generates dist/<browser>/manifest.json by deep-merging
  *     manifest/manifest.base.json with manifest/manifest.<browser>.json
  *     and stamping `version` from package.json.
@@ -56,6 +56,7 @@ function makeConfig(browser) {
       content: "./src/content.ts",
       options: "./src/options/options.ts",
       inspect: "./src/inspect/inspect.ts",
+      gallery: "./src/gallery/gallery.ts",
     },
     output: {
       path: path.join(ROOT, "dist", browser),
@@ -86,6 +87,7 @@ function makeConfig(browser) {
           { from: "icons", to: "icons" },
           { from: "src/options/options.html", to: "options.html" },
           { from: "src/inspect/inspect.html", to: "inspect.html" },
+          { from: "src/gallery/gallery.html", to: "gallery.html" },
           {
             from: "webpack/manifest/manifest.base.json",
             to: "manifest.json",
