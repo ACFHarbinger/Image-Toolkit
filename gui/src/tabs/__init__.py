@@ -1,5 +1,5 @@
 from asp_gui.tabs import StitchTab, StitchTabBackend  # noqa: F401
-from manga_gui.tabs import (  # noqa: F401
+from cel_shaded_generator_gui.tabs import (  # noqa: F401
     MangaAnimationTab,
     MangaColorizationTab,
     MangaPuppeteeringTab,

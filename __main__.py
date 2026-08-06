@@ -19,12 +19,8 @@ warnings.filterwarnings(
 
 # Ensure that your root directory is on the path if needed
 sys.path.insert(0, os.path.dirname(__file__))
-# ASP (Anime Stitch Pipeline) and Manga Colorization & Animation live in
-# their own submodules, each with its own flattened src/ (no wrapping
-# "animation"/"manga" directory), so their packages are registered under
-# explicit aliases rather than added to sys.path directly -- avoids any
-# top-level name collision between the two submodules' identically-named
-# subpackages (e.g. both have a gui/src/tabs/).
+# Register ASP's collision-proof aliases and Cel-Shaded-Generator's ordinary,
+# independently installable package roots.
 from _submodule_bootstrap import register_submodule_packages  # noqa: E402
 
 register_submodule_packages(os.path.dirname(__file__))
