@@ -8,13 +8,13 @@ set working-directory := '../..'
 # Sync uv dependencies
 sync:
     @echo "🔄 Syncing dependencies..."
-    uv sync --all-groups --all-extras
+    uv sync --all-groups --all-extras --all-packages
 
 # Complete setup (install deps + types)
 setup:
     @echo "🔧 Setting up Image Toolkit..."
     npm run setup
-    uv sync --all-groups --all-extras
+    uv sync --all-groups --all-extras --all-packages
     @echo "✅ Setup complete!"
     @echo ""
     @echo "Next steps:"
