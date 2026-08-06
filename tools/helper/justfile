@@ -9,8 +9,8 @@ reset := '\033[0m'
 # Print the project banner
 [private]
 _print_header:
-    @printf '{{bold}}{{cyan}}Dev-Repo-Template{{reset}}\n'
-    @printf 'Polyglot GitHub template repository (Python · TypeScript · Kotlin · Rust · Go · C++)\n\n'
+    @printf '{{bold}}{{cyan}}Cel-Shaded-Generator{{reset}}\n'
+    @printf 'Manga Colorization & Animation (Python)\n\n'
 
 # List every recipe across all sub-modules
 help: _print_header

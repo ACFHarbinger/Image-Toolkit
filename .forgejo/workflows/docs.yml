@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "python/validation/docs/**"
+      - "validation/docs/**"
       - "mkdocs.yml"
 
 permissions:
