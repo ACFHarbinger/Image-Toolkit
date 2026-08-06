@@ -4,12 +4,10 @@
 
 ### Affected module
 <!-- Exactly one. -->
-- [ ] Python (`python/`)
-- [ ] TypeScript (`typescript/`)
-- [ ] Kotlin (`kotlin/`)
-- [ ] Rust (`rust/`)
-- [ ] Go (`go/`)
-- [ ] C++ (`cpp/`)
+- [ ] `src/` (colorization / temporal / rigging / features solvers)
+- [ ] `gui/` (PySide6 desktop UI)
+- [ ] `frontend/` (Tauri, unimplemented scaffold)
+- [ ] `app/` (iOS/Android, unimplemented scaffold)
 - [ ] Build / tooling (just, docker, CI)
 - [ ] Other / unknown
 
