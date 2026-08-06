@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 import backend.src.constants as udef
-from backend.src.core.vault_manager import VaultManager
+from backend.src.core.vault_manager import CryptographyJarNotBuiltError, VaultManager
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -587,6 +587,13 @@ class LoginWindow(QWidget):
             else:
                 QMessageBox.critical(self, "Login Failed", "Invalid password.")
 
+        except CryptographyJarNotBuiltError:
+            QMessageBox.critical(
+                self,
+                "Cryptography JAR Not Built",
+                "The cryptography module hasn't been built yet.\n\n"
+                "Run `just build-jar` from the repo root, then try again.",
+            )
         except FileNotFoundError:
             QMessageBox.critical(
                 self,
@@ -673,6 +680,15 @@ class LoginWindow(QWidget):
             # ~line 564) for why.
             self.login_successful.emit(self.vault_manager)
 
+        except CryptographyJarNotBuiltError:
+            QMessageBox.critical(
+                self,
+                "Cryptography JAR Not Built",
+                "The cryptography module hasn't been built yet.\n\n"
+                "Run `just build-jar` from the repo root, then try again.",
+            )
+            if self.vault_manager:
+                self.vault_manager.shutdown()
         except Exception as e:
             QMessageBox.critical(self, "Creation Error", f"Failed to create account: {e}")
             if self.vault_manager:
