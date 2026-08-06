@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from threading import Event
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -51,6 +51,16 @@ class JobTimedOut(WorkerFailure):
 
 class JobCancelled(WorkerFailure):
     """Raised when the host requests cancellation."""
+
+
+class _StoppableProcess(Protocol):
+    def terminate(self) -> None: ...
+
+    def kill(self) -> None: ...
+
+    def join(self, timeout: float | None = None) -> None: ...
+
+    def is_alive(self) -> bool: ...
 
 
 def adaptive_timeout(request: JobRequest, maximum_seconds: float) -> float:
@@ -147,7 +157,7 @@ class IsolatedRunner:
             handle.write(json.dumps(record, sort_keys=True) + "\n")
 
     @staticmethod
-    def _stop(process: mp.Process) -> None:
+    def _stop(process: _StoppableProcess) -> None:
         """Terminate a worker, escalating to SIGKILL after a bounded grace period."""
         process.terminate()
         process.join(0.5)
