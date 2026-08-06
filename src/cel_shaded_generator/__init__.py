@@ -10,17 +10,27 @@ from .colorization.optimal_transport import sinkhorn as sinkhorn
 from .colorization.screentone import (
     colorize_scribble_screentone as colorize_scribble_screentone,
 )
+from .execution import (
+    IsolatedRunner as IsolatedRunner,
+)
+from .execution import (
+    JobCancelled as JobCancelled,
+)
+from .execution import (
+    JobRequest as JobRequest,
+)
+from .execution import (
+    JobTimedOut as JobTimedOut,
+)
+from .execution import (
+    Operation as Operation,
+)
+from .execution import (
+    WorkerCrashed as WorkerCrashed,
+)
 from .features.gabor import gabor_feature_bank as gabor_feature_bank
 from .features.preference_log import log_preference as log_preference
 from .features.preference_log import read_preferences as read_preferences
-from .execution import (
-    IsolatedRunner as IsolatedRunner,
-    JobCancelled as JobCancelled,
-    JobRequest as JobRequest,
-    JobTimedOut as JobTimedOut,
-    Operation as Operation,
-    WorkerCrashed as WorkerCrashed,
-)
 from .rigging.arap import arap_deform as arap_deform
 from .rigging.arap import generate_mesh as generate_mesh
 from .temporal.quadtree import build_quadtree as build_quadtree
