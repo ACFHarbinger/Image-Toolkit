@@ -34,3 +34,6 @@
 [submodule "submodules/Cel-Shaded-Generator"]
 	path = submodules/Cel-Shaded-Generator
 	url = https://github.com/ACFHarbinger/Cel-Shaded-Generator.git
+[submodule "submodules/Anime-Stitch-Pipeline"]
+	path = submodules/Anime-Stitch-Pipeline
+	url = https://github.com/ACFHarbinger/Anime-Stitch-Pipeline.git
