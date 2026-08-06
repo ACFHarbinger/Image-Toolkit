@@ -65,9 +65,8 @@ class VideoFormatConverter:
             # If ar_mode == 'crop':
             #   if (a > AR) -> width is too big, crop width -> new_w = ih * AR
             #   else        -> height is too big, crop height -> new_h = iw / AR
-            ar = float(aspect_ratio)
-
-            if "pad" in str(ar_mode).lower():
+            ar = aspect_ratio
+            if "pad" in ar_mode.lower():
                 # Pad logic:
                 # If image is too wide (a > AR), we need to pad height.
                 # If image is too tall (a < AR), we need to pad width.
@@ -76,7 +75,7 @@ class VideoFormatConverter:
                 # oh = max(ih, iw/AR)
                 # This ensures the output bounding box covers the target aspect ratio while containing the input.
                 filters.append(f"pad='max(iw,ih*{ar})':'max(ih,iw/{ar})':(ow-iw)/2:(oh-ih)/2:black")
-            elif "stretch" in str(ar_mode).lower():
+            elif "stretch" in ar_mode.lower():
                 # Stretch logic:
                 # Resize to target aspect ratio.
                 # To avoid upscaling artifacts on width, we keep width constant and adjust height?
@@ -182,9 +181,9 @@ class VideoFormatConverter:
 
             cmd += ["-c:v", encoder_name, "-crf", str(clamped_crf)]
             if vcodec_key == "vp9":
-                cmd += ["-deadline", "good", "-cpu-used", str(speed_val)]
+                cmd += ["-deadline", "good", "-cpu-used", speed_val]
             else:
-                cmd += ["-preset", str(speed_val)]
+                cmd += ["-preset", speed_val]
             cmd += extra_args
 
         acodec_key = (audio_codec or "copy").strip().lower()

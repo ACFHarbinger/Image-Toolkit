@@ -8,11 +8,11 @@ import pytest
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from backend.src.core.video_converter import VideoFormatConverter  # noqa: E402
+from backend.src.core.video.video_converter import VideoFormatConverter  # noqa: E402
 
 
 class TestVideoFormatConverter:
-    @patch("backend.src.core.video_converter.subprocess.Popen")
+    @patch("backend.src.core.video.video_converter.subprocess.Popen")
     def test_convert_with_ffmpeg_success(
         self, mock_popen, sample_video, output_dir
     ):
@@ -38,7 +38,7 @@ class TestVideoFormatConverter:
         assert "-i" in cmd_args
         assert output_path in cmd_args
 
-    @patch("backend.src.core.video_converter.subprocess.Popen")
+    @patch("backend.src.core.video.video_converter.subprocess.Popen")
     def test_convert_with_ffmpeg_failure(
         self, mock_popen, sample_video, output_dir
     ):
@@ -69,8 +69,8 @@ class TestVideoFormatConverter:
 
         assert result is False
 
-    @patch("backend.src.core.video_converter.os.remove")
-    @patch("backend.src.core.video_converter.subprocess.Popen")
+    @patch("backend.src.core.video.video_converter.os.remove")
+    @patch("backend.src.core.video.video_converter.subprocess.Popen")
     def test_delete_original_success_ffmpeg(
         self, mock_popen, mock_remove, sample_video, output_dir
     ):
@@ -90,7 +90,7 @@ class TestVideoFormatConverter:
         assert result is True
         mock_remove.assert_called_with(input_path)
 
-    @patch("backend.src.core.video_converter.subprocess.Popen")
+    @patch("backend.src.core.video.video_converter.subprocess.Popen")
     def test_convert_video_with_aspect_ratio(
         self, mock_popen, sample_video, output_dir
     ):
@@ -132,7 +132,7 @@ class TestVideoFormatConverter:
         vf_idx = cmd_args.index("-vf")
         assert "scale" in cmd_args[vf_idx + 1]
 
-    @patch("backend.src.core.video_converter.subprocess.Popen")
+    @patch("backend.src.core.video.video_converter.subprocess.Popen")
     def test_convert_to_gif_success(
         self, mock_popen, sample_video, output_dir
     ):
@@ -155,7 +155,7 @@ class TestVideoFormatConverter:
         assert "ffmpeg" in cmd_args
         assert "-filter_complex" in cmd_args
 
-    @patch("backend.src.core.video_converter.subprocess.Popen")
+    @patch("backend.src.core.video.video_converter.subprocess.Popen")
     def test_convert_to_gif_failure(
         self, mock_popen, sample_video, output_dir
     ):
@@ -174,8 +174,8 @@ class TestVideoFormatConverter:
 
         assert result is False
 
-    @patch("backend.src.core.video_converter.os.remove")
-    @patch("backend.src.core.video_converter.subprocess.Popen")
+    @patch("backend.src.core.video.video_converter.os.remove")
+    @patch("backend.src.core.video.video_converter.subprocess.Popen")
     def test_convert_to_gif_delete(
         self, mock_popen, mock_remove, sample_video, output_dir
     ):
