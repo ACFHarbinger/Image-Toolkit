@@ -95,10 +95,34 @@ export const navTree: NavNode[] = [
         "source": "moon/ROADMAP.md"
       },
       {
-        "title": "Python",
+        "title": "Krita Learning Alpha",
         "kind": "md",
-        "path": "/moon/roadmaps/python",
-        "source": "moon/roadmaps/python.md"
+        "path": "/moon/roadmaps/krita_learning_alpha",
+        "source": "moon/roadmaps/krita_learning_alpha.md"
+      },
+      {
+        "title": "Engine Architecture",
+        "kind": "md",
+        "path": "/moon/roadmaps/engine_architecture",
+        "source": "moon/roadmaps/engine_architecture.md"
+      },
+      {
+        "title": "Reference Coloring",
+        "kind": "md",
+        "path": "/moon/roadmaps/reference_coloring",
+        "source": "moon/roadmaps/reference_coloring.md"
+      },
+      {
+        "title": "Anime Animation",
+        "kind": "md",
+        "path": "/moon/roadmaps/anime_animation",
+        "source": "moon/roadmaps/anime_animation.md"
+      },
+      {
+        "title": "Game Assets",
+        "kind": "md",
+        "path": "/moon/roadmaps/game_assets",
+        "source": "moon/roadmaps/game_assets.md"
       }
     ]
   },
@@ -207,9 +231,33 @@ export const searchIndex: { title: string; path: string; source: string; kind: "
     "kind": "md"
   },
   {
-    "title": "Python",
-    "path": "/moon/roadmaps/python",
-    "source": "moon/roadmaps/python.md",
+    "title": "Krita Learning Alpha",
+    "path": "/moon/roadmaps/krita_learning_alpha",
+    "source": "moon/roadmaps/krita_learning_alpha.md",
+    "kind": "md"
+  },
+  {
+    "title": "Engine Architecture",
+    "path": "/moon/roadmaps/engine_architecture",
+    "source": "moon/roadmaps/engine_architecture.md",
+    "kind": "md"
+  },
+  {
+    "title": "Reference Coloring",
+    "path": "/moon/roadmaps/reference_coloring",
+    "source": "moon/roadmaps/reference_coloring.md",
+    "kind": "md"
+  },
+  {
+    "title": "Anime Animation",
+    "path": "/moon/roadmaps/anime_animation",
+    "source": "moon/roadmaps/anime_animation.md",
+    "kind": "md"
+  },
+  {
+    "title": "Game Assets",
+    "path": "/moon/roadmaps/game_assets",
+    "source": "moon/roadmaps/game_assets.md",
     "kind": "md"
   },
   {

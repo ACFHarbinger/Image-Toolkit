@@ -63,7 +63,11 @@ nav:
   - Architecture Decisions: adr/
   - Roadmap:
       - Master Roadmap: moon/ROADMAP.md
-      - Python: moon/roadmaps/python.md
+      - Krita Learning Alpha: moon/roadmaps/krita_learning_alpha.md
+      - Engine Architecture: moon/roadmaps/engine_architecture.md
+      - Reference Coloring: moon/roadmaps/reference_coloring.md
+      - Anime Animation: moon/roadmaps/anime_animation.md
+      - Game Assets: moon/roadmaps/game_assets.md
   - Changelog: moon/CHANGELOG.md
   - Research:
       - Manga Colorization & Animation Research: research/Manga Colorization and Animation Research.md

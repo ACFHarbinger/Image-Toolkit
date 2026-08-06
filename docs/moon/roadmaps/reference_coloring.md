@@ -1,0 +1,50 @@
+# Reference-Consistent Character Coloring Roadmap
+
+## Outcome
+
+After the learning alpha, color black-and-white manga or line art consistently
+from reusable character references while minimizing correction time and
+preserving artist control.
+
+## Core workflow
+
+1. Create a character style bible from one or more reference views.
+2. Define named regions/materials such as skin, hair, eyes, clothes, and
+   accessories with local-color and lighting palettes.
+3. Segment a target drawing into editable regions.
+4. Propose region correspondences and colors with confidence.
+5. Correct ambiguous matches once and propagate those corrections.
+6. Preview, accept, reject, or repaint individual regions.
+
+## Implementation avenues
+
+- **Deterministic:** trapped-ball filling, gap closing, region adjacency graphs,
+  palette constraints, user-authored correspondences, and graph optimization.
+- **Hybrid:** learned segmentation/dense features propose correspondences;
+  deterministic boundaries and palette constraints produce the editable result.
+- **Generative:** locally installed reference-guided diffusion proposes missing
+  content or shading, reviewed per region and never treated as ground truth.
+
+The existing optimal-transport implementation remains a lightweight
+palette/structure-transfer baseline. Gabor features, scribble propagation, and
+incremental solving remain experimental components. Promotion requires tests
+against pose changes, occlusions, repeated characters, screentones, open gaps,
+and user corrections.
+
+## Quality measures
+
+- Time and actions required to reach an acceptable result.
+- Region leakage and missed-region rate.
+- Character material/palette consistency across pages.
+- Correction reuse across subsequent panels.
+- Artist acceptance rate per proposed region.
+- Peak RAM/VRAM and preview/final latency at representative resolutions.
+
+## Milestones
+
+1. Editable segmentation and gap-repair tools in Krita.
+2. Versioned character style-bible format and palette application.
+3. Manual correspondence workflow and deterministic propagation baseline.
+4. Assisted correspondence with confidence and correction learning.
+5. Optional generative proposals through the local model registry.
+6. Batch chapter workflow with review queue and recoverable checkpoints.

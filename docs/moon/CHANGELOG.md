@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Replaced the imported manga-feature roadmap with an outcome-based product
+  roadmap following the 2026-08-06 product review and owner brainstorm. Added
+  focused roadmaps for the Krita anime head-and-face learning alpha, standalone
+  C++ engine migration, reference-consistent coloring, anime animation, and 2D/
+  3D game assets; explicitly deferred browser and mobile clients.
+- Defined the offline Linux/NVIDIA deployment target, artist-controlled
+  automation levels, opt-in progress/artwork retention, open local-model policy,
+  measurable-learning release gates, and Blender/Unity/Unreal integration
+  priorities.
 - Moved `moon/` and `research/` into `docs/` (`docs/moon/`, `docs/research/`), consolidating all documentation under one directory; extended `docs/mkdocs.yml`'s nav with Roadmap/Changelog/Research sections at the new locations plus a link back to the parent Image-Toolkit project.
 - Added `docs/website/` — a Vue 3 + Vite documentation site (same design as Image-Toolkit's own) rendering every `docs/**/*.md` directly, nav/search generated from this repo's own `docs/mkdocs.yml`. Includes a "Related Projects" sidebar section embedding Image-Toolkit's and Anime-Stitch-Pipeline's own docs sites via iframe. Deployed alongside the MkDocs portal in CI (`.github/workflows/docs.yml` + Forgejo/Gitea/GitLab mirrors) at `/app/`.
 - Fixed `.gitlab/.gitlab-ci.yml`, `.gitlab/issue_templates/`, `.gitlab/merge_request_templates/`, and `.devcontainer/` — all still referenced the polyglot template's removed cpp/rust/typescript/kotlin/go dirs, missed when the `src`/`gui` flatten+split landed.
