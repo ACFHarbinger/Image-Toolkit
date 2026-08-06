@@ -1295,6 +1295,29 @@ npm test -- --watch
 - **[CLAUDE.md](CLAUDE.md)** - Architecture and development guidelines for AI coding assistants
 - **[GEMINI.md](GEMINI.md)** - Project instructions for Gemini
 
+### Documentation Website
+
+The [`docs/website`](docs/website) directory is a Vue-powered interactive site that
+renders every Markdown page under `docs/` (roadmap, changelog, research, tutorials,
+API references, and the linked submodule sites). It's an npm workspace, so it can be
+launched from the repo root:
+
+```bash
+# One-time setup (installs the root, frontend, and docs/website workspaces)
+npm run install:all
+
+# Start the docs site in dev mode (hot reload) at http://localhost:5173
+npm run docs-website:dev
+
+# Build the static site to docs/website/dist/
+npm run docs-website:build
+
+# Preview a production build locally
+npm run docs-website:preview
+```
+
+The same site is what's deployed to GitHub Pages by `.github/workflows/docs.yml` on
+every push to `main`.
 
 ---
 

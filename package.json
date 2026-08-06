@@ -5,7 +5,8 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "workspaces": [
-    "frontend"
+    "frontend",
+    "docs/website"
   ],
   "dependencies": {
     "concurrently": "^10.0.4",
@@ -13,7 +14,7 @@
     "wait-on": "^9.1.0"
   },
   "scripts": {
-    "install:all": "npm install && npm install --workspace=frontend",
+    "install:all": "npm install && npm install --workspace=frontend && npm install --workspace=docs/website",
     "setup": "npm run install:all && npm install --save-dev @types/react-dom",
     "dev": "npm run tauri:dev",
     "build": "npm run tauri:build",
@@ -26,7 +27,10 @@
     "test": "npm run test-frontend",
     "start-electron": "npm run build-frontend && npm exec --workspace=frontend -- electron .",
     "electron-dev": "concurrently \"npm run start-frontend\" \"npm run electron-dev --workspace=frontend\"",
-    "start-all": "npm run build-frontend && npm run electron-dev"
+    "start-all": "npm run build-frontend && npm run electron-dev",
+    "docs-website:dev": "npm run dev --workspace=docs/website",
+    "docs-website:build": "npm run build --workspace=docs/website",
+    "docs-website:preview": "npm run preview --workspace=docs/website"
   },
   "devDependencies": {
     "@types/react-dom": "^19.2.4"
