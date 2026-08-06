@@ -448,7 +448,7 @@ mcp.json
 # Secret files
 /backup
 /**/api/*.json
-/**/cryptography/*.txt
+/**/secrets/*.txt
 
 # Added by cargo
 /target
