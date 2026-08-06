@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S314 — 2026-08-06 (Cel-Shaded-Generator portable learning-project format)
+
+Advanced Cel-Shaded-Generator Phase 0 with a versioned, offline project and learning-progress contract (`9bffebf`). Portable project folders now retain their own exercise attempts, feedback, and metrics; artwork-history paths require explicit consent. Autosave defaults to ten bounded atomic recovery manifests, with user-selectable retention, while opt-in cross-project aggregates live in a separate global learner profile. A deterministic privacy-preserving v0→v1 migration and interrupted-write coverage bring the core suite to 119 passing tests; the GUI remains at 103 passing tests.
+
 ## S313 — 2026-08-06 (Cel-Shaded-Generator standalone package boundary)
 
 Replaced Cel-Shaded-Generator's temporary, host-created `manga` and `manga_gui` module aliases with independently installable `cel_shaded_generator` and `cel_shaded_generator_gui` packages. The submodule now owns its runtime lock and GUI platform helpers instead of importing Image Toolkit internals, declares the GUI-to-core dependency explicitly in its uv workspace, builds both distributions, and runs both test suites in its own CI. The migration is covered by 111 core tests and 102 GUI tests, clean Ruff checks, and successful wheel/sdist builds.
