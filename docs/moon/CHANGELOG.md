@@ -2,6 +2,12 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S313 — 2026-08-06 (Cel-Shaded-Generator standalone package boundary)
+
+Replaced Cel-Shaded-Generator's temporary, host-created `manga` and `manga_gui` module aliases with independently installable `cel_shaded_generator` and `cel_shaded_generator_gui` packages. The submodule now owns its runtime lock and GUI platform helpers instead of importing Image Toolkit internals, declares the GUI-to-core dependency explicitly in its uv workspace, builds both distributions, and runs both test suites in its own CI. The migration is covered by 111 core tests and 102 GUI tests, clean Ruff checks, and successful wheel/sdist builds.
+
+Image Toolkit's submodule bootstrap now adds the two normal source roots and imports their stable public namespaces; its Manga tab compatibility exports remain intact for callers. This keeps Image Toolkit an optional host rather than a hidden runtime requirement and establishes the boundary needed for the Krita plugin and eventual standalone C++-engine application. Cel-Shaded-Generator commits: `b7d2f89` and `9c4a450`.
+
 ## S312 — 2026-08-06 (Vue docs sites for all three submodules, cross-linked and homogeneously styled)
 
 Moved `moon/`, `reports/` (ASP only), and `research/` into `docs/` for all three submodules (Anime-Stitch-Pipeline, Cel-Shaded-Generator, Recommendation-Engine — the last never had a `docs/mkdocs.yml` at all, added one), extending each repo's own MkDocs nav with Roadmap/Changelog/Research sections at the new locations.
