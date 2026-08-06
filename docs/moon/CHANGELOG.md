@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S323 — 2026-08-07 (Corrected Krita packaging target)
+
+Corrected the S322 deployment assumption after the expected Python Plugin Manager was absent. Inspection of the installed Krita 5.2.11 Snap showed that the build omits Krita's Python plugin subsystem entirely, so files copied into its user-data directory are inert. Cel-Shaded-Generator `ecea1bf` now targets the standard Linux/AppImage resource directory, rejects Snap destinations with an actionable error, documents the official AppImage requirement, and adds regression tests. The eight focused integration tests and Ruff checks pass. A1 remains In Progress pending installation and visible-docker verification in a Python-enabled Krita AppImage.
+
 ## S322 — 2026-08-07 (Live Krita Snap plugin installation)
 
 Installed the Cel-Shaded-Generator A1 plugin into the owner's live Krita 5.2.11 Snap user directory using the scoped installer. Exact-file verification caught test-generated Python cache artifacts in the first installation; Cel-Shaded-Generator `58343c0` now excludes `__pycache__`, `.pyc`, and `.pyo`, adds regression coverage, and was used to cleanly uninstall/reinstall the live plugin. Six adapter tests pass and the installed package contains only its five intended source/content files. Krita restart, Plugin Manager enablement, and visible-docker confirmation remain for the owner-facing discovery check.
