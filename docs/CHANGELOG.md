@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S318 — 2026-08-06 (Cel-Shaded-Generator native crash containment complete)
+
+Completed Cel-Shaded-Generator issue #6 (`ae01b14`): built-in ordinary/screentone/reference/incremental colorization and temporal/graph-refined animation Qt workers now execute in fresh spawned processes, while interactive ARAP uses the restartable persistent worker from S317. Crash, EOF, cancellation, adaptive timeout, forced termination, next-job recovery, privacy-safe rotating diagnostics, and measured overhead are covered. The process-local lock remains defense in depth inside workers. Arbitrary third-party Python callables retain an explicit in-process compatibility fallback until a future versioned plugin operation registry exists. Verification: 129 core and 103 GUI tests, Ruff and mypy clean.
+
 ## S317 — 2026-08-06 (Persistent isolated ARAP interaction)
 
 Cel-Shaded-Generator added a lazily started, restartable persistent worker and routed Qt ARAP mesh dragging through it (`0dd8381`, `fbaa525`). Healthy requests reuse the process; crash or timeout discards it and the next request starts a replacement. The anonymized CPU baseline measured ~311 ms cold startup, then 8.78 ms isolated versus 8.75 ms direct (~0.04 ms steady-state overhead), validating persistence for interactive dragging while retaining fresh workers for batch work. Core coverage is 129 passing tests and GUI coverage remains 103; batch Qt routing keeps issue #6 In Progress.
