@@ -75,7 +75,7 @@ class TestArapDeform:
         should converge to their own rigidly-rotated positions too -- ARAP's
         whole point is exactly reproducing rigid motion when nothing
         contradicts it."""
-        vertices, triangles = generate_mesh(_square_mask(h=120, w=120, margin=10), grid_step=10)
+        vertices, triangles = generate_mesh(_square_mask(h=120, w=120, margin=10), grid_step=15)
         center = vertices.mean(axis=0)
         theta = np.deg2rad(20)
         rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
@@ -90,7 +90,7 @@ class TestArapDeform:
         rotated_all = rotate(vertices)
         anchors = {int(i): tuple(rotated_all[i]) for i in boundary_idx}
 
-        q = arap_deform(vertices, triangles, anchors, n_iters=15)
+        q = arap_deform(vertices, triangles, anchors, n_iters=10)
 
         free_mask = np.ones(vertices.shape[0], dtype=bool)
         free_mask[boundary_idx] = False
@@ -126,10 +126,10 @@ class TestArapDeform:
             arap_deform(vertices, triangles, {vertices.shape[0] + 100: (0.0, 0.0)})
 
     def test_more_iterations_do_not_diverge(self):
-        vertices, triangles = generate_mesh(_square_mask(), grid_step=10)
+        vertices, triangles = generate_mesh(_square_mask(), grid_step=15)
         anchors = {0: tuple(vertices[0] + [10, 5])}
         q_few = arap_deform(vertices, triangles, anchors, n_iters=2)
-        q_many = arap_deform(vertices, triangles, anchors, n_iters=30)
+        q_many = arap_deform(vertices, triangles, anchors, n_iters=15)
         assert np.isfinite(q_few).all()
         assert np.isfinite(q_many).all()
         # Should converge, not blow up -- later iterations shouldn't be

@@ -108,7 +108,15 @@ def generate_mesh(mask: np.ndarray, grid_step: int = 16) -> Tuple[np.ndarray, np
         )
 
     vertices = np.stack([pts_x, pts_y], axis=1).astype(np.float64)
-    triangulation = Delaunay(vertices)
+
+    # Same MANGA_COLORIZE_LOCK serialization as arap_deform() (see that
+    # function's own comment) -- Delaunay triangulation is also a compiled
+    # native call (Qhull), so it's guarded by the same established
+    # SIGSEGV-crash-class mitigation.
+    from backend.src.core.telemetry import MANGA_COLORIZE_LOCK
+
+    with MANGA_COLORIZE_LOCK:
+        triangulation = Delaunay(vertices)
     triangles = triangulation.simplices
 
     centroids = vertices[triangles].mean(axis=1)
@@ -235,6 +243,29 @@ def arap_deform(
     anchor_idx = np.array(sorted(anchors.keys()), dtype=np.int64)
     if anchor_idx.min() < 0 or anchor_idx.max() >= n:
         raise ValueError(f"anchor vertex index out of range for a {n}-vertex mesh")
+
+    # Serializes the SciPy/NumPy-heavy solve (SVD per local step, sparse LU
+    # factorization) across concurrent calls -- see
+    # telemetry.MANGA_COLORIZE_LOCK's docstring for why every other manga
+    # solver in this codebase does the same (a documented SIGSEGV crash
+    # class when PySide6/Shiboken's introspection hooks are loaded
+    # in-process alongside certain native BLAS/LAPACK calls). Validation
+    # above stays outside the lock since it's cheap and independent of any
+    # shared/native state.
+    from backend.src.core.telemetry import MANGA_COLORIZE_LOCK
+
+    with MANGA_COLORIZE_LOCK:
+        return _arap_deform_impl(vertices, triangles, anchor_idx, anchors, n, n_iters)
+
+
+def _arap_deform_impl(
+    vertices: np.ndarray,
+    triangles: np.ndarray,
+    anchor_idx: np.ndarray,
+    anchors: Dict[int, Tuple[float, float]],
+    n: int,
+    n_iters: int,
+) -> np.ndarray:
     anchor_targets = np.array([anchors[int(i)] for i in anchor_idx], dtype=np.float64)
 
     q = vertices.copy()

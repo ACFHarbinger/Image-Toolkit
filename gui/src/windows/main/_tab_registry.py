@@ -25,6 +25,7 @@ class _TabRegistryMixin:
             ImageCrawlTab,
             MangaAnimationTab,
             MangaColorizationTab,
+            MangaPuppeteeringTab,
             MediaLoaderTab,
             MergeTab,
             MetaCLIPInferenceTab,
@@ -68,6 +69,7 @@ class _TabRegistryMixin:
         self.stitch_tab = StitchTab()
         self.manga_colorization_tab = MangaColorizationTab()
         self.manga_animation_tab = MangaAnimationTab()
+        self.manga_puppeteering_tab = MangaPuppeteeringTab()
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab
@@ -131,6 +133,7 @@ class _TabRegistryMixin:
             "Manga": {
                 "Colorization": self.manga_colorization_tab,
                 "Animation": self.manga_animation_tab,
+                "Puppeteering": self.manga_puppeteering_tab,
             },
         }
 
