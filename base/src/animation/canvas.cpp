@@ -10,7 +10,7 @@
 //   rendering/rendering.py :: _render_median (basic hot-path)
 //
 // Phase 5 implementation.
-// See moon/roadmaps/asp_cpp_migration.md §base::canvas
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::canvas
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

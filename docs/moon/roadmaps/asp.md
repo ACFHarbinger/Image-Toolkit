@@ -53,7 +53,7 @@ serves as Phase 2.6's full-corpus host-freeze-fix confirmation (issue #25).
    side-by-side montages (ASP | simple | Overmix | GT) are part of the definition of
    done. No automated metric currently measures structural coherence.
 3. **Budgets:** ≤ ~50 env flags, ≤ 10 gates (a new gate displaces an old one),
-   roadmap ≤ ~350 lines. Shipped items move to `docs/CHANGELOG.md`; failures get a
+   roadmap ≤ ~350 lines. Shipped items move to `docs/moon/CHANGELOG.md`; failures get a
    one-paragraph post-mortem in `.agent/cache/asp_benchmark_*.md` — they do not
    accrete here.
 4. **The human owns priorities and quality calls; agents implement and measure.**
@@ -403,7 +403,7 @@ warp incompatible poses together. Evaluation §9.2 has the full sketch.*
 ### 2.1 `ASP_HOLD_AVERAGE=1` A/B  `[done — measured at full-corpus scale, S214/S217]`
 Overmix-style ECC sub-pixel averaging within hold blocks. Needed real
 engineering before it was even measurable — the benchmark had its own
-disconnected frame-selection reimplementation; see `docs/CHANGELOG.md` S214
+disconnected frame-selection reimplementation; see `docs/moon/CHANGELOG.md` S214
 for the consolidation + bugs found/fixed (both pre-dated this work and
 already affected the GUI path). **Full-corpus (S217, n=96/97, combined with
 2.3's flag — not isolated) vs the 2026-07-09 baseline**: CV verdict 31/36/27/2
@@ -427,7 +427,7 @@ primitive as hold detection one level up. Measurement-only (JSON diagnostics
 different phases skip midpoint-warp entirely and escalate to single-pose
 from the dominant phase, via `_dominant_frame_in_band` in `compositing.py`.
 `phase_ids` computed once in `AnimeStitchPipeline.run()`, shared by GUI and
-benchmark (see `docs/CHANGELOG.md` S216 for an index-alignment bug caught
+benchmark (see `docs/moon/CHANGELOG.md` S216 for an index-alignment bug caught
 before shipping). 5-test verify: neutral-to-slightly-better, 8 seams
 correctly escalated, spot-checked visually coherent. Full-corpus: see 2.1's
 numbers (run combined). Human ratings — the roadmap's actual Phase-2.3

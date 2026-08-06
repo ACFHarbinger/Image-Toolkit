@@ -14,7 +14,7 @@ optimisations, per the roadmap item:
   (a cold vs hot seam-DP cache). The roadmap item also asks for "with/without
   Poisson seam blend" -- that feature was removed from the active compositing
   module in the 2026-07-09 "great trim" (S200; see
-  `moon/roadmaps/asp_trim_2026-07.md`) along with GraphCut, which the same
+  `docs/moon/roadmaps/asp_trim_2026-07.md`) along with GraphCut, which the same
   trim measured worse than the DP seam path. `_poisson_seam_blend` now only
   exists in `backend/src/core/image_merger/_legacy_compositing.py`, a
   different (non-ASP) feature -- there is nothing left to benchmark "with"

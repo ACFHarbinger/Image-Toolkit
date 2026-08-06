@@ -2,7 +2,7 @@
 
 *2026-07-08. An independent, evidence-based assessment of the ASP's two-month evolution (2026-04-30 → 2026-07-08), its current state, where it stagnates, and what to do next.*
 
-*Sources: all six `.agent/cache/` analysis documents; `research/ASP_Comprehensive_Research_Report.md` and `research/Image_Stitching_Research.md`; `moon/roadmaps/asp.md` (3,596 lines); the full `backend/src/animation/` (30,640 lines, 49 files) and `base/src/animation/` (5,753 lines C++) codebases; git history from `771ac756` (2026-04-30) through HEAD (307 commits); the full 97-test benchmark JSON (`anime_stitch_20260623_234305.json`, S160 code) and `dump/output/benchmark_report.md`; and a direct visual audit of ASP vs. simple-stitch vs. ground-truth outputs for 16 representative tests, including per-stage intermediates.*
+*Sources: all six `.agent/cache/` analysis documents; `research/ASP_Comprehensive_Research_Report.md` and `research/Image_Stitching_Research.md`; `docs/moon/roadmaps/asp.md` (3,596 lines); the full `backend/src/animation/` (30,640 lines, 49 files) and `base/src/animation/` (5,753 lines C++) codebases; git history from `771ac756` (2026-04-30) through HEAD (307 commits); the full 97-test benchmark JSON (`anime_stitch_20260623_234305.json`, S160 code) and `dump/output/benchmark_report.md`; and a direct visual audit of ASP vs. simple-stitch vs. ground-truth outputs for 16 representative tests, including per-stage intermediates.*
 
 ---
 
@@ -209,7 +209,7 @@ The comparative analyses extracted the right lessons on paper. In practice:
 
 **Option C — keep the assets, rebuild the pipeline small, coherence-first (recommended).** Details below.
 
-**On the roadmap:** the current `moon/roadmaps/asp.md` is unsalvageable as a plan — it is 3,596 lines of which ~2,000 are shipped-gate archaeology. Whatever option you choose, archive it and write a one-page replacement. The Phase 2 (video ingestion, multi-modal HITL) and dataset-harvesting ambitions should be explicitly parked until the core produces images you'd keep.
+**On the roadmap:** the current `docs/moon/roadmaps/asp.md` is unsalvageable as a plan — it is 3,596 lines of which ~2,000 are shipped-gate archaeology. Whatever option you choose, archive it and write a one-page replacement. The Phase 2 (video ingestion, multi-modal HITL) and dataset-harvesting ambitions should be explicitly parked until the core produces images you'd keep.
 
 ### 9.2 The recommended architecture: "coherent by construction, enhanced where safe"
 
@@ -242,7 +242,7 @@ Not wholly — but the two-month record is clear about the boundary. The agents 
 ## Appendix A — Key Quantitative Facts
 
 - **Codebase:** `backend/src/animation/` = 30,640 lines / 49 files (compositing.py 6,939; pipeline.py 6,536; config.py 1,673). `base/src/animation/` = 5,753 lines C++ / 11 files. 387 distinct `ASP_*` env flags. 1,272 backend tests (S160).
-- **Roadmap:** `moon/roadmaps/asp.md` = 3,596 lines; ~75 §1.x quick-win gates; 104 §5.x CV gates (§5.14–§5.112); sessions referenced through S204 (matrix updated 2026-07-02).
+- **Roadmap:** `docs/moon/roadmaps/asp.md` = 3,596 lines; ~75 §1.x quick-win gates; 104 §5.x CV gates (§5.14–§5.112); sessions referenced through S204 (matrix updated 2026-07-02).
 - **Benchmark (2026-06-23, S160, 97 tests, 12,447 s):** verdicts 10 asp_better / 41 comparable / 45 simple_better / 1 insufficient. GT-SSIM 0.6526 vs 0.6934; aligned-SSIM 0.6795 vs 0.7195 (−5.6%). seam_visibility 25.77 vs 4.21 (6.1× worse). ghosting_siqe 36.21 vs 72.34 (49.9% better). sharpness 96.7 vs 64.3 (+50.2%). dy_cv regimes: <0.17 → +1.0%; 0.17–0.50 → −5.1%; ≥0.50 → −13.2%.
 - **No full benchmark exists for any code after S160** (GraphCut default-ON landed S161).
 

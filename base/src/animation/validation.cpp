@@ -9,7 +9,7 @@
 //                          _compute_adaptive_rot_scale
 //
 // Implementation roadmap: Phase 3.
-// See moon/roadmaps/asp_cpp_migration.md §base::validation
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::validation
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

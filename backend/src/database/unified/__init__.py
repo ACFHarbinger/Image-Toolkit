@@ -11,7 +11,7 @@ Usage::
     from backend.src.database.unified.media_repo import MediaRepo
     MediaRepo(db).save_media(entry_dict)
 
-See moon/roadmaps/unified_database.md §DB.3 and
+See docs/moon/roadmaps/unified_database.md §DB.3 and
 docs/database/unified_schema.md for the schema contract.
 """
 

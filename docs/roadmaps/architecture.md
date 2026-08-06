@@ -21,6 +21,7 @@
 - [§5.14 Centralised Settings Facade](#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy)
 - [§5.15 Fault Isolation & Error Boundary Protocol](#515-fault-isolation--error-boundary-protocol)
 - [§5.16 Contract Testing for ML Model Wrappers](#516-contract-testing-for-ml-model-wrappers-backendsrcmodels)
+- [§5.17 File Size Limit Enforcement (<500 LoC)](#517-file-size-limit-enforcement-500-loc)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -66,22 +67,23 @@ flowchart LR
         s57["§5.7 Dependency\nAudit & Pinning"]:::infra:::planned
         s58["§5.8 Model Wrapper\nAbstraction Layer"]:::refactor:::planned
         s513["§5.13 Decorator\nLibrary"]:::infra:::planned
-        s514["§5.14 Centralised\nSettings Facade"]:::refactor:::planned
+        s514["§5.14 Centralised\nSettings Facade"]:::refactor:::done
         s515["§5.15 Fault Isolation\n& Error Boundaries"]:::augment:::planned
     end
 
     subgraph GUI ["🖥️ GUI Architecture"]
         direction TB
         s56["§5.6 Mobile Feature\nParity Backlog"]:::feature:::planned
-        s59["§5.9 Worker Thread\nBase Class"]:::refactor:::planned
+        s59["§5.9 Worker Thread\nBase Class"]:::refactor:::done
         s510["§5.10 Gallery Base\nConsolidation"]:::refactor:::planned
     end
 
     subgraph Quality ["📐 Code Quality"]
         direction TB
         s55["§5.5 Gradual\nType Safety"]:::refactor:::planned
-        s511["§5.11 Circular Import\nPrevention"]:::fix:::planned
+        s511["§5.11 Circular Import\nPrevention"]:::fix:::done
         s512["§5.12 Codebase Docs\n& Diagrams"]:::docs:::planned
+        s517["§5.17 File Size Limit\nEnforcement (<500 LoC)"]:::refactor:::active
     end
 
     %% Cross-group dependencies
@@ -91,6 +93,7 @@ flowchart LR
     s514 --> s53
     s511 --- s512
     s54 --- s515
+    s59 --- s517
 ```
 
 *Node fill encodes element type (see legend above). Node border encodes status (thick green = complete, thick amber = in-progress, thin slate = planned). To update when an item ships: change `:::planned` → `:::active` → `:::done` on the node.*
@@ -105,7 +108,9 @@ Each section describes an architectural debt or infrastructure gap, all viable i
 
 ## 5.1 ASP Pipeline Unit Test Coverage
 
-**Pain point:** `backend/test/animation/` tests end-to-end ASP runs but has limited unit tests for individual pipeline stages. Regressions in `bundle_adjust.py` or `compositing.py` are hard to catch without running the full benchmark.
+**✅ Shipped — see ROADMAP.md item 3.13.** Confirmed 2026-07-27 via `pytest backend/test/animation/ --collect-only` (675 tests collected; covers `bundle_adjust.py`, `compositing.py`, `frame_selection.py`, `canvas.py`, `pipeline.py`, `matching.py`, `validation.py`, `config.py`, `fg_register.py`). Option A (unit tests per stage) is what shipped; Option C (benchmark diff golden-gate CI) is separately tracked at §5.2/ROADMAP 3.14.
+
+**Pain point (original framing):** `backend/test/animation/` tests end-to-end ASP runs but has limited unit tests for individual pipeline stages. Regressions in `bundle_adjust.py` or `compositing.py` are hard to catch without running the full benchmark.
 
 ### Options
 
@@ -152,7 +157,9 @@ Store the intermediate outputs of each stage (affine matrices, seam masks, gain-
 
 ## 5.2 Benchmark Regression CI
 
-**Pain point:** The benchmark suite in `backend/benchmark/` exists with baseline comparison but is not wired into GitHub Actions for automatic regression detection.
+**✅ Shipped — see ROADMAP.md items 3.14 and 4.3.** Confirmed 2026-07-27: `.github/workflows/benchmark.yml` exists (Option A) and includes a weekly `cron` schedule (Option B, ROADMAP 4.3).
+
+**Pain point (original framing):** The benchmark suite in `backend/benchmark/` exists with baseline comparison but is not wired into GitHub Actions for automatic regression detection.
 
 ### Options
 
@@ -251,7 +258,9 @@ Apply the same registry/interface pattern to compositing strategies (hard-partit
 
 ## 5.4 Logging and Diagnostics
 
-**Pain point:** Pipeline logs to stdout with `print()` statements. Diagnosing failures requires replaying the entire run. No structured log format for automated analysis.
+**Partial — Options A and B shipped, see ROADMAP.md items 1.13 and 2.13.** Confirmed: `backend/src/app.py::_setup_logging()` sets up a `RotatingFileHandler` + console handler (Option A), and a per-run pipeline execution trace JSON is written under `~/.image-toolkit/traces/` (Option B). Options C (GUI log panel — see §2.17 in gui_ux.md, also shipped), D (structlog), E (Sentry), F (OpenTelemetry), G (Rerun.io) remain open/not done.
+
+**Pain point (original framing):** Pipeline logs to stdout with `print()` statements. Diagnosing failures requires replaying the entire run. No structured log format for automated analysis.
 
 ### Options
 
@@ -298,13 +307,13 @@ Send exception tracebacks and error-level log events to Sentry. Aggregates error
 Instrument the ASP pipeline with the **OpenTelemetry** SDK: each pipeline stage runs as a span with `trace_id`/`span_id`, exporting to Jaeger (traces) or Prometheus (metrics). At the end of each run, serialise per-stage telemetry to **Apache Parquet** for downstream causal discovery analysis (`gcastle`/`causal-learn`).
 - Pros: Vendor-neutral standard. Parquet emission feeds directly into Phase 4 (Causal Discovery) of the Visual Analytics roadmap. Span hierarchy exposes exact inter-stage latency distribution.
 - Cons: OpenTelemetry SDK dependency (~5 MB). Parquet requires `pyarrow`. More setup than option B.
-- See: [`moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 8 (Distributed Observability) and Phase 4 (Causal Discovery).
+- See: [`docs/moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 8 (Distributed Observability) and Phase 4 (Causal Discovery).
 
 **G — Rerun.io spatial + temporal telemetry logger**
 Integrate **rerun-sdk** as the primary diagnostic logger for CV-heavy stages. Logs `Transform3D`, `Points3D`, `Tensor`, and `Pinhole` archetypes with named timelines (`frame_index`, `gnc_optimization_step`). Embeds as a Wasm viewer in the React dashboard — no install required at client side.
 - Pros: Spatial-first design matches ASP needs exactly. Temporal scrubbing replaces `print()`-based replay. `.rrd` files are archivable benchmark artifacts.
 - Cons: rerun-sdk dependency. Adds ~50ms overhead per stage for log serialization. Not a replacement for standard text logging (A/D) — complementary.
-- See: [`moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 3 (CV Diagnostics, §3.1).
+- See: [`docs/moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 3 (CV Diagnostics, §3.1).
 
 **Recommendation:** A + B immediately. C as a quality-of-life follow-on. D if log analysis at scale is needed. F + G when building out the Visual Analytics dashboard (see analytics roadmap). Skip E unless the app becomes multi-user.
 
@@ -312,7 +321,11 @@ Integrate **rerun-sdk** as the primary diagnostic logger for CV-heavy stages. Lo
 
 ## 5.5 Gradual Static Type Safety Migration
 
-**Pain point:** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `backend/src/animation/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
+**Partial — see ROADMAP.md items A.1 and A.10.** Confirmed: Option B shipped (`typeCheckingMode = "basic"` in `pyproject.toml`); Options A + C shipped together (`[tool.mypy]` baseline section + `ConversionConfig`/`DeletionConfig`/`MergeConfig`/`StitchConfig` `TypedDict`s wired into their workers). Option D (`ty`/`pyrefly`) and the full-strict end state (ROADMAP 6.10, "all modules under `disallow_untyped_defs = true`") remain open/not done.
+
+**S290 update (2026-08-03):** `uv run mypy --explicit-package-bases gui/src` baseline was 4693 errors/397 files, nearly all `attr-defined` noise from `self`-typed mixins that mypy checks in isolation (each composed tab = a `manager.py` host + a dozen-plus mixins). Fix pattern: a `Protocol` per composed tab at `gui/src/<package>/protos/<tab>.py` declaring every attribute/method the mixins assume the host provides, `self: "<Tab>HostProtocol"` on every mixin method, `cast(QWidget, self)` at Qt-API call sites needing a nominal `QWidget`, `# type: ignore[safe-super]` on `super().foo()` calls where `foo`'s only Protocol-visible body is `...`, and explicit class-body attribute annotations where two mixins infer conflicting types for the same host attribute. Fully clean so far: `cbir_train_tab`, `abstract_class_single_gallery`, `abstract_class_two_galleries`, `extractor_tab`, `wallpaper_tab/common/wallpaper_common_base`, `wallpaper_tab/monitor_display_subtab`, `wallpaper_tab/system_display_subtab` — down to 2987 errors/322 files. Remaining large clusters (`scan_metadata_tab`, `search_tab`, `stitch_tab`, `merge_tab`, `similarity_tab`, ...) are unstarted follow-up work under this same item, not new issues. Full session detail in `docs/moon/CHANGELOG.md` S290.
+
+**Pain point (original framing):** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `backend/src/animation/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
 
 Informed by: JetBrains 2025 survey (type hint adoption grew from 48% to 71% in Python projects 2022–2025); mypy maintainer guidance on per-module strictness escalation; and the Dropbox engineering blog's account of migrating 4M LOC to mypy over 5 years using per-package ignore files.
 
@@ -418,7 +431,18 @@ Initiate an ASP pipeline run from the phone by selecting a frame group via the R
 
 ## 5.7 Dependency Audit and Pinning
 
-**Pain point:** `requirements.txt` / `pyproject.toml` may have unpinned transitive dependencies. Version drift between environments causes subtle failures.
+**✅ Shipped — see ROADMAP.md items 1.12 and 2.15, GitHub issue #75.** Confirmed: Option A (`uv.lock` committed, CI uses `uv sync --frozen`); Options C + D (`pip-audit` + `cargo audit` in `.github/workflows/security.yml`, weekly). Option B (Dependabot) — **correction: this was already partially live** (`.github/dependabot.yml` existed since commit `d97c5c77`/`00592833` and had already merged real bump PRs — e.g. #5, #6, #10, #16 — for `pip`, `cargo`, `gradle` × 3 dirs, and `npm`; the roadmap text calling it "not confirmed/not done" was stale). Issue #75 audited and completed the config:
+- **Fixed**: Python ecosystem was `"pip"` (no `requirements.txt` exists) — corrected to `"uv"` so Dependabot resolves against `pyproject.toml` + `uv.lock` (the actual live manager) instead of guessing at pip-style manifests.
+- **Added — `github-actions`** (directory `/`): keeps `actions/checkout`, `actions/upload-artifact`, etc. current in `.github/workflows/*.yml`. Always safe/low-noise, included regardless.
+- **Added — `npm`** (directory `/extension`): the browser extension (`extension/package.json`, its own `package-lock.json`) is *not* part of the root npm workspace (`package.json`'s `workspaces` only lists `frontend`), so it was previously untracked.
+- **Added — `swift`** (directory `/app/ios`): confirmed live — real SwiftUI source (`App.swift`, per-tab screens, DocC catalog), CI-wired (`docs.yml`), a real `Package.swift` with a Kingfisher dependency. Previously untracked.
+- **Added — `docker` + `docker-compose`** (directory `/docker`): confirmed live — `docker/Dockerfile` + `docker/docker-compose.yml` back the Django/Celery/Postgres(pgvector)/Redis backend stack, added 2026-07-13. Previously untracked.
+- **Kept as-is**: `cargo` (directory `/`, root workspace whose only member is `frontend/src-tauri` — the Tauri desktop shell; confirmed live, matches `security.yml`'s own comment "cargo-audit now scans only the frontend/src-tauri crate"), `gradle` × 3 (root, `/app/android`, `/cryptography` — all confirmed live per §5.6 Mobile App Feature Parity Backlog and existing merged Dependabot PRs against `app/android`, despite that module being temporarily excluded from `settings.gradle.kts`'s `include(":app")` since commit `140b4242`), `npm` (directory `/`, root workspace covering `frontend/`).
+- **Deliberately excluded**: `archive/rust/Cargo.toml` (the retired Rust `base` crate — Rust→C++ migration complete, module lives only under `archive/`, never scanned); C++/CMake/vcpkg/Conan dependencies in `base/` (no native Dependabot ecosystem support exists for these).
+- All entries: `schedule.interval: weekly` (roadmap's own suggestion — daily would be excessive at this project's scale) and `open-pull-requests-limit: 10`, with all updates per ecosystem grouped into a single PR (`groups: <name>: patterns: ["*"]`) to control noise, consistent with the pre-existing entries' style.
+- `security.yml`'s `cargo-audit` job was checked per the task's own instruction: it is **not** dead — it already scans only `frontend/src-tauri` (its own comment says so), which is exactly the one live Cargo crate. No change needed there.
+
+**Pain point (original framing):** `requirements.txt` / `pyproject.toml` may have unpinned transitive dependencies. Version drift between environments causes subtle failures.
 
 ### Options
 
@@ -448,7 +472,9 @@ Run `cargo audit` in CI to detect CVEs in Rust crate dependencies.
 
 ## 5.8 Model Wrapper Abstraction Layer (`backend/src/models/`)
 
-**Pain point:** Every model wrapper (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `RoMaWrapper`, `BiRefNetWrapper`, `BaSiCWrapper`, etc.) independently reimplements the same lifecycle boilerplate: CUDA device selection in `__init__`, a `torch.cuda.empty_cache()` + `gc.collect()` `unload()` body, a `logger = logging.getLogger(__name__)` line at module level, and a `# --- Relocated Nested Imports ---` comment block. Adding a new model requires copying this scaffolding by hand.
+**✅ Shipped — see ROADMAP.md item 4.2 (A+B+C) and A.3 (D).** Confirmed: `ModelWrapper` class exists at `backend/src/models/core/base.py` (moved from the `backend/src/models/base.py` path this section assumes); `@lazy_load` decorator and `ModelRegistry` also shipped per ROADMAP 4.2; the "Relocated Nested Imports" comment blocks (Option D) were removed per ROADMAP A.3.
+
+**Pain point (original framing):** Every model wrapper (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `RoMaWrapper`, `BiRefNetWrapper`, `BaSiCWrapper`, etc.) independently reimplements the same lifecycle boilerplate: CUDA device selection in `__init__`, a `torch.cuda.empty_cache()` + `gc.collect()` `unload()` body, a `logger = logging.getLogger(__name__)` line at module level, and a `# --- Relocated Nested Imports ---` comment block. Adding a new model requires copying this scaffolding by hand.
 
 ### Options
 
@@ -533,7 +559,9 @@ These comment blocks were added when imports were moved from nested function sco
 
 ## 5.9 Worker Thread Base Class & Lifecycle Standardisation (`gui/src/helpers/`) {: #59-worker-thread-base-class--lifecycle-standardisation-guisrchelpers }
 
-**Pain point:** The worker layer in `gui/src/helpers/` is split between two Qt threading paradigms — `QThread` subclasses (`ConversionWorker`, `DeletionWorker`, `StitchWorker`) and `QRunnable`/`QObject` pairs (`SearchWorker` with `_SearchWorkerSignals`, `MergeWorker`) — with no shared base. Each worker independently declares `finished`, `error`, `progress` signals, a `stop()`/`cancel()` method, and a `run()` body, leading to inconsistent naming (`stop()` vs `cancel()`, `progress` vs `progress_update`) and copy-pasted cancellation idioms.
+**✅ Shipped (A+B+C+D) — updated 2026-07-28.** Confirmed: `BaseQThreadWorker` and `BaseQRunnableWorker` both exist in `gui/src/helpers/base.py`, and `BaseQThreadWorker.run()` implements the three-tier exception routing described under §5.15B below (Options A+B, ROADMAP.md item A.14). **Options C + D completed this session**: every worker that previously emitted a 0–100 int-percentage `progress` signal (`base.py`'s two base classes, `SamplerWorker`, `CodecConversionWorker`, `ConversionWorker`, `QueueExecutionWorker`, `StatsWorker`, `AnimClusterWorker`, `SequenceBuilderWorker`, `GifCreationWorker`, `FrameExtractionWorker`, `VideoExtractionWorker`, `StoryboardBuilder`, `LoRATrainingWorker`) now emits `(completed, total)`; workers with a genuine discrete unit (files, frames, queue items, ms-of-duration) report real counts — `StatsWorker` additionally had its two-phase percentage estimate replaced with an exact `n + len(pairs)` denominator, fixing a latent weighting bug in the old formula. Workers with no natural unit (ffmpeg/moviepy stage checkpoints, the 3-phase-weighted `SequenceBuilderWorker`) emit `(percent, 100)` to keep the tuple contract uniform without inventing a fake item count. All ~15 connected slot handlers across `gui/src/tabs/` updated to unpack `(completed, total)` and call `setMaximum`/`setValue` instead of binding a percentage directly to `setValue`. `gui/src/helpers/core/config_types.py` (§5.9D) extended with `SamplerConfig`, `CodecConversionConfig`, and `ExtractionConfig` TypedDicts, wired into their respective workers as `Union[XConfig, Dict[str, Any]]` — same pattern already shipped for `ConversionConfig`/`DeletionConfig`/`MergeConfig`/`StitchConfig` per §5.5C.
+
+**Pain point (original framing):** The worker layer in `gui/src/helpers/` is split between two Qt threading paradigms — `QThread` subclasses (`ConversionWorker`, `DeletionWorker`, `StitchWorker`) and `QRunnable`/`QObject` pairs (`SearchWorker` with `_SearchWorkerSignals`, `MergeWorker`) — with no shared base. Each worker independently declares `finished`, `error`, `progress` signals, a `stop()`/`cancel()` method, and a `run()` body, leading to inconsistent naming (`stop()` vs `cancel()`, `progress` vs `progress_update`) and copy-pasted cancellation idioms.
 
 ### Options
 
@@ -617,7 +645,9 @@ Workers receive configuration as `dict[str, Any]`. The same conceptual parameter
 
 ## 5.10 Gallery Base Class Consolidation (`gui/src/classes/`)
 
-**Pain point:** `AbstractClassTwoGalleries` and `AbstractClassSingleGallery` share ~80 lines of identical `__init__` state (`thumbnail_size`, `padding_width`, `approx_item_width`, `_current_cols`, `thread_pool`, `_active_workers`, `_resize_timer`, `_load_thumbnail_size()`) but have no common parent class below `QWidget`. The `MetaAbstractClassGallery` metaclass injection pattern is non-standard — it injects free functions as methods rather than using normal inheritance, making the class hierarchy opaque to IDEs and type checkers.
+**✅ Shipped (A+B+C+D) — see ROADMAP.md items A.16 and A.7.** Confirmed: `AbstractGalleryBase` exists at `gui/src/classes/base/gallery_base.py` (Option A); `gui/src/classes/meta/meta_abstract_class_gallery.py` is now only 19 lines defining `class MetaAbstractClassGallery(ABCMeta, type(QObject))` with no `__new__` injection logic left (Option B — matches ROADMAP A.16's "metaclass 397→18 lines"); the module docstring and `_load_thumbnail_size` extraction (Options C+D) are also in per ROADMAP A.7.
+
+**Pain point (original framing):** `AbstractClassTwoGalleries` and `AbstractClassSingleGallery` share ~80 lines of identical `__init__` state (`thumbnail_size`, `padding_width`, `approx_item_width`, `_current_cols`, `thread_pool`, `_active_workers`, `_resize_timer`, `_load_thumbnail_size()`) but have no common parent class below `QWidget`. The `MetaAbstractClassGallery` metaclass injection pattern is non-standard — it injects free functions as methods rather than using normal inheritance, making the class hierarchy opaque to IDEs and type checkers.
 
 ### Options
 
@@ -650,7 +680,9 @@ Both `AbstractClassSingleGallery` and `AbstractClassTwoGalleries` call `self._lo
 
 ## 5.11 Circular Import Prevention & Module Boundary Documentation {: #511-circular-import-prevention--module-boundary-documentation }
 
-**Pain point:** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.animation import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
+**✅ Shipped (A+B+C+D). See ROADMAP.md items A.17, A.8, A.4, A.18.** Confirmed: `pyproject.toml` has a `[tool.importlinter]` section with 3 contracts (Option A); `TYPE_CHECKING` guards added for heavy GUI→backend imports (Option B); `__all__` hygiene pass done across 15 `__init__.py` files (Option D). **Option C shipped 2026-07-29**: rather than adding `pydeps` as a new dependency, fixed and wired the codebase's own pre-existing (but broken — its `DEFAULT_LAYERS` prefixes still said `"logic"`, a pre-rename leftover that made it silently detect zero `Backend`-layer modules) `backend/validation/visualize_module_graph.py`. `just validation::module-graph` now scans `backend/src` + `gui/src` together (so cross-boundary edges/violations are visible) and the generated graph is committed at `docs/module_graph.html` (408→475 modules as the epic's file splits landed, 0 unexplained cross-layer violations — 1 allowlisted exception for `backend.src.app`, the Qt composition root).
+
+**Pain point (original framing):** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.animation import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
 
 ### Options
 
@@ -767,7 +799,7 @@ Wire into CI to regenerate on every merge to `main` and host via GitHub Pages.
 
 **E — Live Meta-Graph dashboard (beyond static diagrams)**
 Rather than static Mermaid diagrams, generate a live, GPU-rendered force-directed graph of the codebase using **SCIP** semantic indexing + **Cosmograph** (cosmos.gl). Rust backend parses SCIP indices into Apache Arrow RecordBatches; TypeScript frontend renders 1M+ node graphs at 60fps with DuckDB-WASM SQL filtering. Supports Software Cartography (LSI+MDS semantic layout), DSM architecture compliance views, and dynamic execution trace overlays.
-- This is a full-scope project defined in detail in [`moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 1 (Interactive Meta-Graph), covering SCIP indexing, Cosmograph rendering, SBEB edge bundling, Dependency Structure Matrix, and CPG-based semantic code analysis.
+- This is a full-scope project defined in detail in [`docs/moon/roadmaps/analytics_and_interpretability.md`](analytics_and_interpretability.md) — Phase 1 (Interactive Meta-Graph), covering SCIP indexing, Cosmograph rendering, SBEB edge bundling, Dependency Structure Matrix, and CPG-based semantic code analysis.
 - Recommendation for §5.12: Options A+B cover immediate documentation needs; Option E is Phase 1 of the analytics roadmap and should be tracked there.
 
 **Recommendation:** A + B immediately; they have zero infrastructure cost. C as a onboarding-focused one-pager. D once A is done and there is something worth generating docs from. E tracked separately in the analytics roadmap.
@@ -776,7 +808,9 @@ Rather than static Mermaid diagrams, generate a live, GPU-rendered force-directe
 
 ## 5.13 Decorator Library for Cross-Cutting Concerns (`backend/src/utils/decorators.py`)
 
-**Pain point:** Several patterns recur identically across many files but are not extracted as reusable utilities: (1) "call `self.load()` if not already loaded" appears in every wrapper method body; (2) "emit `self.error.emit(str(e))` on exception" appears in every worker `run()`; (3) "validate that this path exists before doing anything" appears in every file-operation entry point; (4) "log entry + exit with timing" is not applied anywhere but was requested in §5.4.
+**Partial — Options A, C, E shipped; B not confirmed; D superseded. See ROADMAP.md item A.6.** Confirmed: `log_call()` (Option C) exists at `backend/src/utils/decorators/function_calls.py` (the module became a package rather than a single file, but is still importable via `backend/src/utils/decorators` per Option E); `@lazy_load` (Option A) shipped per ROADMAP 4.2/§5.8. `@require_path` (Option B) not found anywhere in the codebase — still open. `@worker_method` (Option D) is superseded by `BaseQThreadWorker`'s built-in three-tier handler (§5.9/§5.15B, already shipped) — the option text itself says to choose one or the other.
+
+**Pain point (original framing):** Several patterns recur identically across many files but are not extracted as reusable utilities: (1) "call `self.load()` if not already loaded" appears in every wrapper method body; (2) "emit `self.error.emit(str(e))` on exception" appears in every worker `run()`; (3) "validate that this path exists before doing anything" appears in every file-operation entry point; (4) "log entry + exit with timing" is not applied anywhere but was requested in §5.4.
 
 ### Options
 
@@ -848,7 +882,9 @@ All the above decorators live in a single module. Keeps them discoverable and im
 
 ## 5.14 Centralised Settings Facade (`gui/src/utils/settings.py` + `backend/src/animation/config.py`) {: #514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy }
 
-**Pain point:** Application configuration is split across at least three independent mechanisms with no unified access point:
+**✅ Shipped (A+B+C+D). See ROADMAP.md items A.11, A.12, A.5, A.19.** Confirmed: an `AppSettings` singleton facade exists (Option A) — now at `gui/src/windows/settings/app_settings.py` rather than the `gui/src/utils/settings.py` path this section assumes; `get_asp(key, default)` exists in `backend/src/animation/core/config.py` (Option B); `SETTINGS_SCHEMA` + `_validate_settings()` in `backend/src/app.py` validate QSettings keys at startup (Option D). **Option C shipped 2026-07-29**, now that §5.11 landed: `AppConfig` at `gui/src/windows/settings/app_config.py` — a read-only, introspectable snapshot merging every `ASP_*` env-var key (via the backend's own `asp_schema()`) with `AppSettings`'s known static GUI preference keys, plus a `gui_dynamic_keys` listing (names only) for the runtime-created `session/`/`splitters/`/`labels/` QSettings namespaces that have no fixed schema to snapshot as typed fields. Deliberately placed under `gui/src/windows/settings/`, not `gui/src/utils/` (the original sketch's suggested location) — `gui.src.utils` is the codebase's documented bottom import-linter layer, and this module needs to import `AppSettings` from `gui.src.windows`, which would break that layering contract from `utils`. Additive only: `AppSettings` and `get_asp()` remain the source of truth for all existing read/write call sites.
+
+**Pain point (original framing):** Application configuration is split across at least three independent mechanisms with no unified access point:
 1. **GUI persistent state** — `QSettings("ImageToolkit", "ImageToolkit")` is called with hardcoded organisation/application strings in 20+ locations across `abstract_class_two_galleries.py`, `abstract_class_single_gallery.py`, `splitter_persistence.py`, `listings_common.py`, `main_window.py`, and `settings_window.py`. Any typo in the string creates a silently-separate settings namespace.
 2. **Backend ASP flags** — 132+ `os.environ.get("ASP_*", default)` calls scattered across `pipeline.py`, `compositing.py`, `frame_selection.py`, etc. The `config.py` module (§1.8A `load_asp_config`) exists but is not universally used — modules still read `os.environ` directly.
 3. **Application-level constants** — `backend/src/constants/` has 8 modules (`app.py`, `paths.py`, `system.py`, etc.) that mix runtime-changeable values with true compile-time constants.
@@ -920,7 +956,9 @@ Define a `SETTINGS_SCHEMA: dict[str, type]` mapping every valid QSettings key to
 
 ## 5.15 Fault Isolation & Error Boundary Protocol {: #515-fault-isolation--error-boundary-protocol }
 
-**Pain point:** Errors propagate differently across the three execution contexts (Qt main thread, `QThread` workers, `QRunnable` tasks) with no uniform contract. Specific failures observed in the codebase:
+**Status: ✅ Shipped (A+B+C+D, 2026-07-30).** Option A (`ImageToolkitError` hierarchy), Option B (`BaseQThreadWorker` three-tier handler), Option C (`print`/`pass` cleanup), and Option D (`failures` list with per-stage exception type, message, and fallback in execution trace JSON, issue #128) are all shipped.
+
+**Pain point (original framing):** Errors propagate differently across the three execution contexts (Qt main thread, `QThread` workers, `QRunnable` tasks) with no uniform contract. Specific failures observed in the codebase:
 - `ConversionWorker._convert_single_file()` uses `print(f"Error creating directory: {e}")` and `print(f"Error removing original file: {e}")` instead of logging, and silently returns `False` — the GUI never shows a per-file error.
 - `DeletionWorker` has a bare `except Exception: pass` in the `send2trash` loop body, swallowing all trash errors silently.
 - `AnimeStitchPipeline` raises bare `RuntimeError` and `ValueError` with no custom exception hierarchy, making it impossible for the GUI to distinguish "expected quality failure" (trigger retry) from "unexpected crash" (show stack trace to user).
@@ -1007,7 +1045,9 @@ This makes the difference between "pipeline succeeded via fallback" and "pipelin
 
 ## 5.16 Contract Testing for ML Model Wrappers (`backend/src/models/`)
 
-**Pain point:** The 827-test suite covers pipeline logic (`bundle_adjust.py`, `compositing.py`, `validation.py`, `frame_selection.py`, etc.) extensively but has **zero tests for the model wrapper layer** (`backend/src/models/`). The wrappers (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `BiRefNetWrapper`, `RoMaWrapper`, `BaSiCWrapper`, `EfficientLoFTRWrapper`, `JamMaWrapper`) are the highest-risk files in the codebase: they wrap third-party PyTorch models whose APIs change across versions, and a silent interface break (wrong tensor shape, changed output key name, removed method) will only surface when the full pipeline is run on real images.
+**Partial — Option A shipped; C not yet, B not done. See ROADMAP.md item A.9.** Confirmed: `backend/test/models/test_wrapper_contracts.py` exists with mock-based interface contract tests (Option A). Option C (a shared `ModelWrapperContractMixin`) is not yet factored out — a comment in the test file itself still describes it as future work ("will..."), so individual per-wrapper contract test classes exist without the shared mixin. Option B (GPU-gated smoke tests with real weights) not found — still open. Note also: the "827-test suite" figure below is stale post-S200-trim; re-verified 2026-07-27 at 675 tests (see ROADMAP.md item 3.13).
+
+**Pain point (original framing):** The 827-test suite covers pipeline logic (`bundle_adjust.py`, `compositing.py`, `validation.py`, `frame_selection.py`, etc.) extensively but has **zero tests for the model wrapper layer** (`backend/src/models/`). The wrappers (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `BiRefNetWrapper`, `RoMaWrapper`, `BaSiCWrapper`, `EfficientLoFTRWrapper`, `JamMaWrapper`) are the highest-risk files in the codebase: they wrap third-party PyTorch models whose APIs change across versions, and a silent interface break (wrong tensor shape, changed output key name, removed method) will only surface when the full pipeline is run on real images.
 
 Informed by: Ploomber's ML testing taxonomy (2024) — "Code tests", "Data tests", "Model tests" are three independent concerns; Google's ML Test Score rubric (2016, Sculley et al.) which assigns points for "testing the model's input and output shapes explicitly"; Made With ML / Anyscale MLOps guide (2024) which separates *behavioral tests* (expected outputs) from *infrastructure tests* (model loads, inputs accepted, outputs shaped correctly).
 
@@ -1091,6 +1131,138 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 
 ---
 
+## 5.17 File Size Limit Enforcement (<500 LoC) {: #517-file-size-limit-enforcement-500-loc }
+
+**Priority: Medium. Option B (splitting) now 100% complete — every offender identified in the original audit, across `backend/src/` (issue #117), `gui/src/` medium files (issue #121, 24 files), and the 3 `gui/src/` giants (issue #122: `stitch_tab.py`, `extractor_tab.py`, `settings_window.py`), has been split via package-directory re-export. Options A (CI-enforced gate) and D (LoC dashboard) remain open.** All 8 `backend/src/` files listed below were split using Option B (package-directory, public-API re-export) — `compositing.py` and `pipeline.py`, explicitly the two largest and most benchmark-sensitive files in the codebase, included. Confirmed via `count_loc.py backend/src --sort code`: the largest file anywhere in `backend/src` is now 457 code lines (`animation/core/pipeline/run_stage.py` — see its own module docstring for why it's the one file left close to, rather than comfortably under, the limit: `run()` has no end-to-end regression test, so a full context-object decomposition wasn't attempted). All 24 `gui/src/` files between 515–1,355 code lines were likewise split via Option B (issue #121, superseding the `gui/src` portion of the original issue #116/#118); the 3 giants — `stitch_tab.py` (5,032), `extractor_tab.py` (3,268), and `settings_window.py` (2,505, mostly one `__init__`) — were explicitly scoped *out* of issue #121 per Option E's own triage guidance given their size and centrality, tracked instead under a dedicated issue #122, and have now shipped 2026-07-29 as well (see below).
+
+**Pain point (historical — resolved 2026-07-29):** `backend/src/utils/validation/count_loc.py` (already built, already used ad hoc — see §5.12/§5.11C's companion `tree_loc.py`) has never been wired into an *enforced* limit (Option A is still open), which is why these files were able to grow this large before being caught by a manual audit in the first place. Two files had exceeded **5,000 code lines** (`gui/src/tabs/animation/stitch_tab.py` at 5,032; `gui/src/tabs/core/extractor_tab.py` at 3,268); `windows/settings/settings_window.py` (2,505) was the third giant. All `gui/src/` (24 medium + 3 giants) and `backend/src/` (8 files) offenders identified in the original audit have now been split (issues #121, #122, and #117 respectively). Large files had compounding costs specific to this codebase: `stitch_tab.py` mixed HITL checkpoint UI, session replay, and pipeline-trigger logic in one class, making it the single riskiest file to touch for any change (as already flagged informally in `docs/moon/roadmaps/asp_sessions_log.md`); `settings_window.py`'s `__init__` alone was ~1,113 physical lines of widget construction, meaning even IDE "go to definition" and code review degraded badly; and `count_loc.py`'s own output repeatedly drifted from hand-maintained snapshots within a day of other sessions committing, confirming that a *manual* audit process cannot keep pace with concurrent work on this codebase and only a CI-enforced gate (Option A, still open) will hold the line going forward for *new* files.
+
+**Fresh count (2026-07-28, `count_loc.py --sort code`, code lines only, excludes comments/docstrings/blank):**
+
+`gui/src/` — the 3 giants, explicitly deferred out of scope for issue #121, **✅ shipped 2026-07-29** under a dedicated issue #122, split via Option B. Pre-split code-LoC shown for reference; each is now a package whose largest sibling file is well under 500 code lines (worst case: `settings_window/_credentials.py` at 498):
+
+| File (pre-split) | Code LoC | Now | Commit |
+|---|---|---|---|
+| `tabs/animation/stitch_tab.py` | 5,032 | `tabs/animation/stitch_tab/` (21 files) | `d6532a4c` |
+| `tabs/core/extractor_tab.py` | 3,268 | `tabs/core/extractor_tab/` (16 files) | `da84e270` |
+| `windows/settings/settings_window.py` | 2,505 | `windows/settings/settings_window/` (11 files) | `e209a793` |
+
+Two methods were deliberately kept whole rather than force an unsafe split, following the same behavior-risk precedent as `_progress_pipeline.py` below: `stitch_tab`'s `_build_stitch_panel` (~455 lines of continuous widget-tree construction, no natural internal seams) and `_stats_build_recommendations` (~374 lines, a single static report-generation method carrying a pre-existing `# noqa: C901`). `extractor_tab.py`'s crash-history-sensitive code (lazy `QGraphicsVideoItem`/`QMediaPlayer`/`QAudioOutput` construction, `cancel_loading()`'s storyboard/scanner-worker teardown ordering — see `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`) moved verbatim, comments included. Verified per-file: `ast.parse`, a live MRO check (mixins correctly precede `QWidget`/`AbstractClassSingleGallery`, confirmed by tracing method resolution for known overrides like `cancel_loading`), scoped test runs (`settings_window`: 27/27; `stitch_tab`: 27/27; `extractor_tab`'s `QMediaPlayer`-dependent tests hit the pre-existing, already-documented JVM/Qt-Multimedia crash class — reproduced identically against the pristine pre-split file, confirming it is not a regression from this work), `ruff check` (only pre-existing findings — 3 `C901`, 1 `SIM102`, all confirmed present in the original files), `uv run lint-imports` (all 3 contracts kept), and a regenerated `docs/module_graph.html` (768 modules, 1,237 edges, 0 unexplained cross-layer violations). Ref: issue #122 (tracking this work).
+
+`gui/src/` — all 24 medium files (515–1,355 LoC) **✅ shipped 2026-07-29/30** (issue #121), split via Option B (package-directory, public-API re-export). Pre-split code-LoC shown for reference; each is now a package whose largest sibling file is well under 500 code lines:
+
+| File (pre-split) | Code LoC | Commit |
+|---|---|---|
+| `tabs/core/elements/common/wallpaper_common_base.py` | 1,355 | `c793892c` |
+| `tabs/database/database_tab.py` | 1,314 | `414cdfe8` |
+| `tabs/core/merge_tab.py` | 1,299 | `7cbd9563` |
+| `tabs/core/elements/monitor_display_subtab.py` | 1,273 | `8a0624b3` |
+| `tabs/database/scan_metadata_tab.py` | 1,271 | `1bcf4240` |
+| `tabs/core/elements/system_display_subtab.py` | 1,270 | `90965431`+`90241bcf` |
+| `classes/abstract_class_two_galleries.py` | 1,229 | `adf8adf6` |
+| `tabs/core/similarity_tab.py` | 1,095 | `3a9589f9` |
+| `tabs/database/search_tab.py` | 1,077 | `607dfbe9` |
+| `windows/main/main_window.py` | 990 | `21afe5fa` |
+| `tabs/core/elements/format_subtab.py` | 952 | `e62845c5` |
+| `helpers/animation/stitch_worker.py` | 936 | `bce3329e` |
+| `classes/abstract_class_single_gallery.py` | 870 | `592dd957` |
+| `tabs/web/image_crawler_tab.py` | 834 | `44e538eb` |
+| `tabs/core/elements/series_listings_subtab.py` | 774 | `d1d8e283` |
+| `tabs/core/elements/codec_subtab.py` | 757 | `137a91b8` |
+| `tabs/web/drive_sync_tab.py` | 615 | `67032746` |
+| `tabs/core/elements/entity_listings_subtab.py` | 591 | `dd600458` |
+| `tabs/models/delta/cbir_train_tab.py` | 588 | `b31fde83` |
+| `tabs/core/elements/display/detail_panel.py` | 578 | `35610649` |
+| `tabs/core/elements/sampler_subtab.py` | 566 | `40bc6498` |
+| `windows/metadata_editor_window.py` | 530 | `46ce014a` |
+| `tabs/web/entity_recon_tab.py` | 522 | `fc58320d` |
+| `components/views/monitor_drop_view.py` | 515 | `5b87af47` |
+
+One file among the 24 (`helpers/animation/stitch_worker/_progress_pipeline.py`) still exceeds 500 code lines post-split (689) by deliberate choice, not oversight — its `run()` is the crash/behavior-sensitive ASP stage-by-stage HITL pipeline threading a large amount of local state across 13 sequential stages via closures; decomposing it further into sub-methods would require converting that state into instance attributes for a line-count-only benefit, a real behavior-change risk documented in the file's own module docstring. Flagged as a candidate for a future dedicated session, not attempted here.
+
+`backend/src/` — all 8 files **✅ shipped 2026-07-29**, split via Option B (package-directory, public-API re-export). Pre-split code-LoC shown for reference; each is now a package whose largest sibling file is well under 500 code lines (worst case: `animation/core/pipeline/run_stage.py` at 457):
+
+| File (pre-split) | Code LoC | Now | Commit |
+|---|---|---|---|
+| `animation/rendering/compositing.py` | 1,787 | `animation/rendering/compositing/` (13 files) | `0dfcc564` |
+| `animation/core/pipeline.py` | 1,635 | `animation/core/pipeline/` (17 files) | `2565c8e3` |
+| `animation/rendering/rendering.py` | 914 | `animation/rendering/rendering/` (10 files) | `b79e4a97` |
+| `animation/ingestion/frame_selection.py` | 908 | `animation/ingestion/frame_selection/` (12 files) | `8b2105e3` |
+| `core/image_merger.py` | 874 | `core/image_merger/` (6 files) | `264e286d` |
+| `animation/alignment/fg_register.py` | 624 | `animation/alignment/fg_register/` (7 files) | `a27461ed` |
+| `core/wallpaper.py` | 570 | `core/wallpaper/` (6 files) | `084b5801` |
+| `animation/alignment/matching.py` | 517 | `animation/alignment/matching/` (5 files) | `b6b16a93` |
+
+Every external `from ...pipeline import AnimeStitchPipeline`-style import keeps working unchanged — each package's `__init__.py` re-exports the original public API. Verified per-file via: the file's own test suite, the full `backend/test/animation/ --skip-gpu` suite (670 passed/5 skipped, stable across all 8), `ruff check`, `uv run lint-imports` (all 3 contracts kept), and a regenerated `docs/module_graph.html` (0 unexplained cross-layer violations throughout). Ref: issue #117 (closed by this work).
+
+`gui/src/`'s 24 medium files (issue #121) all shipped as above — same verification pattern per file (scoped tests, ruff, lint-imports, live Qt construction), plus a mandatory MRO-shadowing check for every class extending `AbstractClassTwoGalleries`/`AbstractClassSingleGallery`/`WallpaperCommonBase`/`QWidget`/`QLabel` (mixins must precede the base class in the class declaration, or the base class's own same-named methods silently shadow the mixin's override — discovered via a real regression in `merge_tab.py`'s Ctrl+Wheel handler, now documented and applied everywhere in this epic). The 3 giants (`stitch_tab.py`, `extractor_tab.py`, `settings_window.py`) were deferred out of issue #121's scope but have since shipped under issue #122 (see the table above) — same MRO rule applied, extending it to `StitchTab`'s node-graph/match-editor helper classes and `VideoExtractorSubTab`'s `AbstractClassSingleGallery` base. Issue #121 explicitly excluded the giants (superseding the `gui/src` portion of the original #116/#118, both closed without that work landing); issue #122 was filed specifically to pick them up, and all `gui/src/` file-size offenders identified across both audits are now split.
+
+Notes on borderline cases: `frame_selection.py`'s comment+docstring density (237+377 = 614, nearly 2× its own code) means its *total* line count looks far worse than its actual maintainability burden — re-check with `count_loc.py --sort code` (not `--sort total`) before scheduling a split. `animation/alignment/bundle_adjust.py` is 431 code lines (500 *total* including comments/docstrings) — below the code-line threshold this section tracks; excluded from the worst-offenders list above but worth a second look if the threshold is later redefined as total-lines rather than code-lines.
+
+### Options
+
+**A — CI-enforced LoC gate using the existing `count_loc.py` [Quick Win, Recommended]**
+Add a `--max-code-lines N --fail-over` mode to `count_loc.py` (or a thin wrapper script) that exits non-zero if any file under `gui/src/` or `backend/src/` exceeds 500 code lines, and wire it into a new `just check-loc` target plus a CI job. New files are checked on every PR; the *existing* offenders are grandfathered via an explicit allow-list (a `docs/loc_exceptions.txt` of paths, each requiring a comment linking to the tracking issue) so the gate does not block unrelated work immediately — as of 2026-07-30 that allow-list only needs the 3 remaining `gui/src/` giants (`stitch_tab.py`, `extractor_tab.py`, `settings_window.py`) plus `helpers/animation/stitch_worker/_progress_pipeline.py` (689 code lines, deliberately not split further — see above); the 8 `backend/src/` offenders (issue #117) and 24 `gui/src/` medium files (issue #121) shipped and no longer need an entry.
+- Pros: Stops the bleeding immediately — no new file can quietly cross 500 lines. Reuses a tool that already exists and already has a `--sort`/`--limit` CLI. Zero new dependencies.
+- Cons: The allow-list itself needs periodic pruning as files are split, or it silently becomes permanent scaffolding.
+
+**B — Package-directory split with public-API re-export [Recommended, per-file]**
+For each oversized file, convert `foo.py` into `foo/__init__.py` (re-exporting the public class so every external `from ...foo import Foo` keeps working unchanged) plus sibling files split along the file's *existing* internal structure — comment banners (`# --- Profile Management Methods ---` style, already present in `settings_window.py`, `stitch_tab.py`, etc.) or existing method groupings, not an arbitrary line-count cut. Mixins (`class _ProfileManagementMixin: ...`) composed into the main class via multiple inheritance is the concrete mechanism for classes whose bulk is in instance methods rather than the constructor.
+- Pros: Zero call-site changes for correctly-authored re-exports. Each new file independently verifiable at <500 lines. Matches how `gui/src/classes/base/gallery_base.py` (§5.10A) was already extracted from the two gallery classes.
+- Cons: Files whose bulk is in a single giant `__init__` (widget construction) — `settings_window.py`'s `__init__` was ~1,113 of its 2,505 lines — don't benefit from a mixin split alone; the constructor itself must be broken into `_build_xxx_section()` calls first, a materially larger and riskier change than moving already-independent methods (confirmed in practice under issue #122 — see the giants table above). Blast-radius must be checked per-file with `grep -rn "<ClassName>(\|from .*import <ClassName>"` before starting.
+
+**C — Extract shared cross-cutting logic before splitting, not instead of it**
+Several oversized files are large partly because they duplicate patterns better solved by other sections in this document rather than by a mechanical split: `abstract_class_two_galleries.py`/`abstract_class_single_gallery.py` overlap is already tracked by §5.10; repeated `QSettings(...)` boilerplate across `main_window.py`/`settings_window.py` is §5.14; repeated worker-config `dict.get()` chains in the tab files are §5.9D. Apply the relevant existing section first so the file being split is smaller and cleaner going in, rather than mechanically relocating duplication into more files.
+- Pros: Avoids "splitting the mess into three smaller messes." Directly composes with sections already in this document.
+- Cons: Sequencing cost — a file may need two rounds of cleanup (dedup, then split) instead of one.
+
+**D — Auto-generated LoC dashboard as a docs artifact [Quick Win]**
+Run `count_loc.py --sort code` in CI on merges to `main` and commit the table to `docs/loc_report.md` (or surface it in the §5.12 Mermaid/pdoc docs effort), so the worst-offenders list in this section never goes stale between manual audits — the fresh run performed for this section already found 6 files had drifted (in both directions) from the snapshot gathered less than a day earlier by concurrent sessions.
+- Pros: Removes the manual-re-run step this section itself required. Cheap — the tool already exists and runs in seconds.
+- Cons: Another generated-docs file to keep from rotting if the CI step is ever skipped.
+
+**E — Judgment-call triage before scheduling any split**
+Not every file over 500 lines is equally worth splitting right now. Rank by *(size × blast radius × churn frequency)*, not size alone: a self-contained 1,300-line file with one importer (e.g. `database_tab.py`) is a safer, higher-value target than a 900-line file with dozens of call sites. Use `grep -rn "from .*import <ClassName>"` / `grep -rn "<ClassName>("` per candidate before committing effort.
+- Pros: Avoids spending the first sprint on the riskiest file just because it is the biggest number.
+- Cons: Requires a person (or agent) to actually do the ranking rather than mechanically working top-down.
+
+**Recommendation:** A immediately — it is the only option that prevents *new* files from crossing the limit now that every existing offender has been split; it reuses a tool this codebase already has. D as a nearly-free companion to A (same CI job). E before every individual split decided under B (this is how the giants were sequenced under issue #122 — `settings_window.py` first as the smallest, `stitch_tab.py` last as the largest and most central). C wherever a section of this document already targets the duplication driving a file's size.
+
+---
+
+## 5.18 `gui/src` Structural Reorganization (second layer, post-§5.17) {: #518-guisrc-structural-reorganization }
+
+**Priority: Medium. Done, 2026-08-03 (two rounds — the first round's flat `elements/<tab>/` layout and top-level `gui/src/database/` were corrected in a second round once reviewed).**
+
+§5.17 split individual oversized *files* into `manager.py` + private `_foo.py` submodule packages, but left every such package sitting directly under `gui/src/tabs/<category>/` (or `gui/src/tabs/<category>/elements/`). This section is the follow-on: `gui/src/tabs/<category>/` holds only one thin `.py` file per tab and one per subtab — a re-export shim, nothing else — with the real implementation living in `gui/src/elements/<category>/`, mirroring the category structure `gui/src/tabs/` and `gui/src/helpers/` already use (`core/`, `database/`, `animation/`, `web/`, `models/`). `gui/src/components/` holds genuinely cross-tab reusable widgets; `gui/src/classes/` holds abstract/meta base classes, itself split into category subdirs (`image/` for the gallery abstract classes) the same way; `gui/src/windows/` already correctly holds window-level UI, never nested under `tabs/`.
+
+**Round 1 (2026-08-02, commits `9c2c5e8e`..`8f17392b`)** moved four tab families out of `tabs/` but used a flat `gui/src/elements/<tab_name>/` layout (one subdir per tab, no category grouping) and put the Listings family directly at top-level `gui/src/database/` — both wrong. Round 2 below corrected this.
+
+**Round 2 (2026-08-03) — final structure, category-nested throughout:**
+
+| Move | Result | Commit |
+|---|---|---|
+| `elements/{wallpaper_tab,merge_tab}/` + `tabs/core/{extractor_tab,similarity_tab}/` (never split before) + `tabs/core/elements/{codec_subtab,format_subtab,sampler_subtab,image_extractor_subtab.py}` | `gui/src/elements/core/` — new thin shims added for `extractor_tab.py`/`similarity_tab.py`/`codec_subtab.py`/`format_subtab.py`/`sampler_subtab.py`/`image_extractor_subtab.py` in `tabs/core/` (only `wallpaper_tab.py`/`merge_tab.py` existed before) | `9152239a` |
+| top-level `gui/src/database/` (listings family) + `elements/{database_tab,search_tab,scan_metadata_tab,data_browser_tab}/` | `gui/src/elements/database/` (one merged package) | `ae57eb1f` |
+| `elements/stitch_tab/`, `elements/{drive_sync_tab,entity_recon_tab,image_crawler_tab}/`, `elements/cbir_train_tab/` | `gui/src/elements/animation/stitch_tab/`, `gui/src/elements/web/{...}/`, `gui/src/elements/models/delta/cbir_train_tab/` (mirrors `tabs/models/delta/`) | `a48a30fc` |
+| `classes/{abstract_class_single_gallery,abstract_class_two_galleries}/` | `gui/src/classes/image/{...}/` | `dfc470f2` |
+| `windows/crawler_selection_dialogs.py` | `gui/src/components/dialogs/crawler_selection_dialogs.py` (it's a dialog, not a window) | `1b6a9b11`+`76027049` |
+
+Also cleaned up several empty leftover directories Round 1's `git mv` calls left behind (git doesn't track empty dirs, so these were untracked filesystem cruft — `tabs/core/merge_tab/`, several emptied `tabs/core/elements/*` subdirs) — see commit `1b6a9b11`.
+
+Every move left a thin single-file re-export shim at the old `tabs/<category>/<name>.py` path so every existing instantiation site (`_tab_registry.py`, `main_backend.py`, QML property bindings) needed no changes — QML binds to Python object attribute names, not module import paths, confirmed unaffected throughout both rounds. Circular-import bugs found and fixed along the way: an eager module-level import of `tabs/animation/stencil` through the `stitch_tab` shim (Round 1), and `extractor_tab`'s label imports pulling in the whole `gui.src.tabs`/`gui.src.tabs.core` aggregator chain mid-initialization (Round 2, `9152239a`) — both fixed by deferring the import to inside the function that uses it.
+
+**Surveyed, no move needed:**
+- `gui/src/windows/settings/` (17 files, ~4,657 code lines) and `gui/src/windows/main/` (17 files, ~2,768 code lines) — already correctly under `windows/`, not `tabs/`; candidates for further *internal* splitting if churn/blast-radius analysis (§5.17 Option E) ever warrants it, but that's a different kind of work than this section's directory-level moves.
+- `gui/src/helpers/animation/` (14 files, ~2,826 code lines, including an 819-line private `_progress_pipeline.py` — deliberately not split further per §5.17's own note above) — helpers, not tabs, out of this section's scope.
+- `gui/src/components/views/display/` (7 files, ~713 code lines) — already correctly under `components/`.
+
+**Verification (Round 2):** every moved/touched file `py_compile`-clean; a single-process import of all 32 moved modules + thin shims together succeeds (catches cross-move circular-import issues no single agent's isolated check would see); scoped `--run-gui` pytest sweeps across `gui/test/{core,database,web,dialogs,image}/` all green except pre-existing, confirmed-unrelated issues: two `test_cancel_loading_*` mock-assertion failures (confirmed identical on `git stash`-restored pre-session code), one stale `db_host` attribute test (confirmed via `git log -S` predates the Postgres→SQLCipher migration), and `test_tag_review_dialog.py` hanging in isolation (confirmed: file and its full dependency chain untouched by any commit this session).
+
+No further gui/src directory-level reorg work is currently outstanding.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
@@ -1098,9 +1270,9 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | §5.8D remove relocated-import comments · §5.10C metaclass docstring · §5.10D `_load_thumbnail_size` extraction · §5.11C module graph · §5.11D `__all__` hygiene · §5.13C `@log_call` decorator · §5.14D QSettings key validation · §5.15C eliminate bare `except: pass` | §5.4A `logging` module adoption · §5.5B Pyright `basic` mode · §5.7A `uv lock` · §5.7C+D pip-audit + cargo-audit · §5.9C progress tuple · §5.9D `WorkerConfig` typed dicts | §5.1A per-stage unit tests (most stages) · §5.11B TYPE_CHECKING guards (deferred heavy imports) · §5.16A wrapper contract tests (mock-based) | — |
-| **Medium (1d–1w)** | — | §5.4B pipeline trace JSON · §5.5A mypy baseline + per-module opt-in · §5.5C TypedDict worker configs · §5.6A remote wallpaper API · §5.6B gallery web view · §5.12C tab→worker→backend doc · §5.13A `@lazy_load` + §5.13E `decorators.py` module · §5.14A `AppSettings` GUI facade · §5.14B merge backend `os.environ` into `load_asp_config` | §5.2A+B benchmark regression CI · §5.8A `ModelWrapper` ABC + §5.8B `@lazy_load` · §5.9A `BaseQThreadWorker` + §5.9B `BaseQRunnableWorker` · §5.12A NumPy docstrings · §5.12B Mermaid diagrams · §5.15A custom exception hierarchy · §5.15B error boundary in `BaseQThreadWorker` | §5.16C `ModelWrapperContractMixin` (after §5.8A) |
-| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) |
+| **Low (<1d)** | §5.8D remove relocated-import comments · §5.10C metaclass docstring · §5.10D `_load_thumbnail_size` extraction · §5.11C module graph · §5.11D `__all__` hygiene · §5.13C `@log_call` decorator · §5.14D QSettings key validation · §5.15C eliminate bare `except: pass` | §5.4A `logging` module adoption · §5.5B Pyright `basic` mode · §5.7A `uv lock` · §5.7C+D pip-audit + cargo-audit · §5.9C progress tuple · §5.9D `WorkerConfig` typed dicts · §5.17A CI LoC gate · §5.17D LoC dashboard | §5.1A per-stage unit tests (most stages) · §5.11B TYPE_CHECKING guards (deferred heavy imports) · §5.16A wrapper contract tests (mock-based) · §5.17E per-file blast-radius triage | — |
+| **Medium (1d–1w)** | — | §5.4B pipeline trace JSON · §5.5A mypy baseline + per-module opt-in · §5.5C TypedDict worker configs · §5.6A remote wallpaper API · §5.6B gallery web view · §5.12C tab→worker→backend doc · §5.13A `@lazy_load` + §5.13E `decorators.py` module · §5.14A `AppSettings` GUI facade · §5.14B merge backend `os.environ` into `load_asp_config` | §5.2A+B benchmark regression CI · §5.8A `ModelWrapper` ABC + §5.8B `@lazy_load` · §5.9A `BaseQThreadWorker` + §5.9B `BaseQRunnableWorker` · §5.12A NumPy docstrings · §5.12B Mermaid diagrams · §5.15A custom exception hierarchy · §5.15B error boundary in `BaseQThreadWorker` · §5.17B split of a single self-contained file (e.g. `settings_window.py`'s method-group mixins) | §5.16C `ModelWrapperContractMixin` (after §5.8A) |
+| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) · §5.17B ✅ all `backend/src` (issue #117, 2026-07-29), `gui/src` medium (issue #121, 2026-07-29/30), and `gui/src` giants (issue #122, 2026-07-29) offenders shipped |
 | **Very High (2w+)** | — | — | §5.1C benchmark golden-gate diff (CI integration) · §5.11A `import-linter` enforcement · §5.12D Sphinx/pdoc auto-docs · §5.5A full strict mypy coverage (end state) | — |
 
 ---
@@ -1124,9 +1296,18 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 | 5.14 Centralised Settings Facade | [#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy](#514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy) |
 | 5.15 Fault Isolation & Error Boundary Protocol | [#515-fault-isolation--error-boundary-protocol](#515-fault-isolation--error-boundary-protocol) |
 | 5.16 Contract Testing for ML Wrappers | [#516-contract-testing-for-ml-model-wrappers-backendsrcmodels](#516-contract-testing-for-ml-model-wrappers-backendsrcmodels) |
+| 5.17 File Size Limit Enforcement | [#517-file-size-limit-enforcement-500-loc](#517-file-size-limit-enforcement-500-loc) |
 
 ---
 
 ## Document History
 
 *Last updated: 2026-06-18. Added §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper abstraction, worker lifecycle standardisation, gallery base class consolidation, circular import prevention, codebase documentation & diagrams, decorator library), and §5.14–§5.16 (centralised settings facade, fault isolation & error boundary protocol, contract testing for ML wrappers). ASP unit tests now at 827 (session 131). ASP benchmark corpus: 97 tests. Phase 2 architecture defined: direct video ingestion (PyAV `VideoIngestionStream`), multi-modal HITL with Grounded SAM-2. See `asp.md` for per-session tracking and Phase 2 Sprint specs.*
+
+*Updated 2026-07-28: Added §5.17 (File Size Limit Enforcement, <500 LoC — high priority, 27 `gui/src` + 8 `backend/src` offenders identified via a fresh `count_loc.py` run). §5.9 (Worker Thread Base Class & Lifecycle Standardisation) completed this session — Options C (`(completed, total)` progress tuples) and D (`WorkerConfig` TypedDicts) shipped across all remaining int-percentage workers; §5.9 marked ✅ Shipped (A+B+C+D) and its Mermaid node updated to `:::done`. See GitHub issues tracking §5.17's file-size epic and §5.9's now-closed quick wins for follow-up.*
+
+*Updated 2026-07-29: §5.11 (Option C — module dependency graph) and §5.14 (Option C — unified `AppConfig`) both shipped, closing out their remaining open sub-items; both now marked ✅ Shipped (A+B+C+D). §5.17: all 8 `backend/src/` offenders (issue #117) split via Option B and shipped — `compositing.py` (1,787 LoC) and `pipeline.py` (1,635 LoC), the two largest/most benchmark-sensitive files in the codebase, included; largest file anywhere in `backend/src/` is now 457 code lines. §5.17's `gui/src/` half (issue #116, 27 files) remains open and is deferred to a follow-up session. See GitHub issue #117 (closed by this work), #120 (§5.11C/§5.14C DRY work), and the parent epic #118 (now partially complete) for tracking.*
+
+*Updated 2026-07-30: §5.17: all 24 `gui/src/` files between 515–1,355 code lines split via Option B and shipped under a fresh issue #121 (filed to supersede the `gui/src` portion of #116/#118, both of which had been closed on GitHub without that work landing). Every split composed per-concern mixins via multiple inheritance, following each file's existing comment-banner/method-group structure; discovered and documented a previously-unknown MRO-shadowing bug in the process (a mixin's override of a method the base class already defines is silently shadowed if the base class is listed before the mixins in the class declaration — fixed by always listing mixins first, verified via a real regression in `merge_tab.py`'s Ctrl+Wheel handler) and applied that ordering to every subsequent split touching `AbstractClassTwoGalleries`, `AbstractClassSingleGallery`, `WallpaperCommonBase`, `QWidget`, or `QLabel`. One file (`helpers/animation/stitch_worker/_progress_pipeline.py`, 689 code lines) was deliberately left over the limit — its `run()` is the crash/behavior-sensitive ASP HITL pipeline, and decomposing it further was judged a real behavior-change risk for no benefit beyond the line count. The 3 remaining giants (`stitch_tab.py` 5,032, `extractor_tab.py` 3,268, `settings_window.py` 2,505) stay explicitly out of scope, tracked for a dedicated follow-up. Verified end-to-end: `uv run lint-imports` (all 3 contracts kept), a regenerated `docs/module_graph.html` (723 modules, 1,131 edges, 0 unexplained cross-layer violations), and per-file scoped test runs (all previously-passing tests green; a handful of pre-existing unrelated failures confirmed via git-stash baseline comparisons). See GitHub issue #121 (tracking this work) and the parent epics #116/#118 (both closed; #121 supersedes their `gui/src` scope).*
+
+*Updated 2026-07-29: §5.17: the 3 deferred giants (`stitch_tab.py` 5,032, `extractor_tab.py` 3,268, `settings_window.py` 2,505 code lines) split via Option B and shipped under a fresh issue #122, closing out §5.17's Option B entirely — every file-size offender identified across the original audit and issue #121's follow-up is now split. Sequenced smallest-to-largest per Option E (`settings_window.py` → `extractor_tab.py` → `stitch_tab.py`), each as its own commit (`e209a793`, `da84e270`, `d6532a4c`). `settings_window.py`'s `__init__` (~1,113 of its 2,505 lines) required decomposing the constructor into `_build_*_section()` helpers before a mixin split was possible — confirming Option B's documented caveat about single-giant-`__init__` files. `extractor_tab.py`'s crash-history-sensitive lazy `QMediaPlayer`/`QAudioOutput`/`QGraphicsVideoItem` construction and `cancel_loading()` teardown ordering (`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`) moved verbatim. `stitch_tab.py` decomposed cleanly along its 8 pre-existing sub-tab features (Stitch/Graph/Adjust/Canvas/Stats/Sequence/Hybrid/Animation Clusters), plus its ~1,200 lines of standalone node-graph/match-editor/thumbnail-picker helper classes extracted into their own modules; two methods (`_build_stitch_panel`, `_stats_build_recommendations`) kept whole as documented over-limit exceptions, same precedent as `_progress_pipeline.py`. Verified end-to-end: `ast.parse` + live MRO checks on all 3 packages, scoped test runs (`settings_window` 27/27, `stitch_tab` 27/27; `extractor_tab`'s `QMediaPlayer` tests hit the pre-existing, already-documented JVM/Qt-Multimedia crash class, reproduced identically against the pristine original file, confirming no regression), `ruff check` (only pre-existing findings), `uv run lint-imports` (all 3 contracts kept), and a regenerated `docs/module_graph.html` (768 modules, 1,237 edges, 0 unexplained cross-layer violations). §5.17 overall moves from High to Medium priority — Options A (CI-enforced gate) and D (LoC dashboard) remain the only open sub-items. See GitHub issue #122 (tracking this work).*

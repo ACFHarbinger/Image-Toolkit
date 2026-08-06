@@ -276,7 +276,7 @@ Tests: `backend/test/manga/test_arap.py` (14) — 109 backend manga tests total.
 
 ### 3.4 Diffusion Inbetweening (ToonCrafter-style) [Research]
 
-**Recommendation:** Same posture as §2.5 — ComfyUI-first spike (ToonCrafter is already referenced elsewhere in the codebase's ASP research for ghost-fill, see `moon/roadmaps/asp.md`); evaluate sharing a wrapper with ASP's `animation/anim_fill.py` ghost-fill path before writing a manga-specific one.
+**Recommendation:** Same posture as §2.5 — ComfyUI-first spike (ToonCrafter is already referenced elsewhere in the codebase's ASP research for ghost-fill, see `docs/moon/roadmaps/asp.md`); evaluate sharing a wrapper with ASP's `animation/anim_fill.py` ghost-fill path before writing a manga-specific one.
 
 ---
 

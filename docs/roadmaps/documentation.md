@@ -13,7 +13,7 @@
   - [§6.5 Swift Reference Docs (DocC)](#65-swift-reference-docs-docc)
 - [Domain B — Source of Truth Files (Meso-Level)](#domain-b--source-of-truth-files-meso-level)
   - [§6.6 ARCHITECTURE.md Standardisation](#66-architecturemd-standardisation)
-  - [§6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md](#67-changelogmd-dependency_policymd-and-documentation_standardsmd)
+  - [§6.7 docs/moon/CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md](#67-changelogmd-dependency_policymd-and-documentation_standardsmd)
   - [§6.8 TROUBLESHOOTING.md and BENCHMARKS.md](#68-troubleshootingmd-and-benchmarksmd)
   - [§6.9 Jupyter Notebooks as Executable Polyglot Documentation](#69-jupyter-notebooks-as-executable-polyglot-documentation)
 - [Domain C — Static Site Generators & Portals (Macro-Level)](#domain-c--static-site-generators--portals-macro-level)
@@ -21,7 +21,7 @@
   - [§6.11 Unified Cross-Stack Documentation Portal](#611-unified-cross-stack-documentation-portal)
 - [Domain D — Implementation Best Practices & Automation](#domain-d--implementation-best-practices--automation)
   - [§6.12 CI/CD Documentation Pipeline (GitHub Actions)](#612-cicd-documentation-pipeline-github-actions)
-  - [§6.13 Enforcing Documentation Standards (doclint, just test-base-cpp, pre-commit)](#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit)
+  - [§6.13 Enforcing Documentation Standards (doclint, just test-base-cpp, pre-commit)](#613-enforcing-documentation-standards-doclint-just-test-base-cpp-pre-commit)
   - [§6.14 Diagrams-as-Code (Mermaid.js / PlantUML)](#614-diagrams-as-code-mermaidjs--plantuml)
   - [§6.15 Interactive Documentation (API Playgrounds, Algorithm Stepping)](#615-interactive-documentation-api-playgrounds-algorithm-stepping)
 - [Effort × Impact Matrix](#effort--impact-matrix)
@@ -311,14 +311,14 @@ Embed a Mermaid module graph directly in README.md rather than a separate file.
 
 ---
 
-## ✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
+## ✅ §6.7 docs/moon/CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
 
-**Pain point:** `docs/CHANGELOG.md` exists but is not yet structured with the [Keep a Changelog](https://keepachangelog.com/) format. `DEPENDENCY_POLICY.md` and `DOCUMENTATION_STANDARDS.md` do not exist. (This file previously also existed as a separately-maintained `moon/CHANGELOG.md` copy; the two were merged back into one file on 2026-07-11 — see the note at the top of `docs/CHANGELOG.md`.)
+**Pain point:** `docs/moon/CHANGELOG.md` exists but is not yet structured with the [Keep a Changelog](https://keepachangelog.com/) format. `DEPENDENCY_POLICY.md` and `DOCUMENTATION_STANDARDS.md` do not exist. (This file previously also existed as a separately-maintained `docs/moon/CHANGELOG.md` copy; the two were merged back into one file on 2026-07-11 — see the note at the top of `docs/moon/CHANGELOG.md`.)
 
 ### Options
 
-**A — Keep a Changelog format for CHANGELOG.md [Quick Win]**
-Restructure `docs/CHANGELOG.md` to use sections `[Unreleased]`, `[x.y.z] — YYYY-MM-DD`, with subsections `Added`, `Changed`, `Fixed`, `Removed`. Link version numbers to GitHub diff URLs.
+**A — Keep a Changelog format for docs/moon/CHANGELOG.md [Quick Win]**
+Restructure `docs/moon/CHANGELOG.md` to use sections `[Unreleased]`, `[x.y.z] — YYYY-MM-DD`, with subsections `Added`, `Changed`, `Fixed`, `Removed`. Link version numbers to GitHub diff URLs.
 - Effort: < 1 hour to reformat; ongoing discipline to maintain.
 - Pros: Machine-parseable for automated release notes. Standard format recognised by GitHub release automation.
 - Reference: [keepachangelog.com](https://keepachangelog.com/)
@@ -335,7 +335,7 @@ Create `docs/DEPENDENCY_POLICY.md` with:
 **C — `DOCUMENTATION_STANDARDS.md` — enforce docstring style and TOC requirements [Quick Win]**
 Create `docs/DOCUMENTATION_STANDARDS.md` codifying:
 - Python: Google-style docstrings, required sections (Args, Returns, Raises), max line length.
-- Rust: `///` for public items, doc-tests for pure functions.
+- C++: Doxygen `///` for public items, Catch2 tests for pure functions.
 - TypeScript: TSDoc `@param`/`@returns` for all exports.
 - Kotlin/Swift: KDoc / DocC `///` for public APIs.
 - Markdown: TOC required for files > 100 lines; anchor index at the bottom of roadmap files.
@@ -355,7 +355,7 @@ Create `docs/DOCUMENTATION_STANDARDS.md` codifying:
 **A — Expand TROUBLESHOOT.md with per-subsystem sections [Quick Win]**
 Add sections:
 - **ASP Pipeline**: common `ValueError`/`RuntimeError` patterns from `pipeline.py`, how to interpret the stage trace JSON, how to engage fallback modes via env vars.
-- **C++/pybind11**: `just build-base` failure modes, pybind11 version mismatch, `libpqxx` link errors.
+- **C++/pybind11**: `just build-base` failure modes, `pybind11` version mismatch, `libpqxx` link errors.
 - **Hydra CLI**: `HydraException`, config override syntax, `config_path` resolution.
 - **Mobile (Android/iOS)**: common Gradle/Xcode build failures, signing issues.
 - Pros: Reduces support burden. Each ASP session that hits a new failure mode generates one new entry.
@@ -419,7 +419,7 @@ Use `papermill` to run notebooks with different parameters (different test seque
 
 ## Domain C — Static Site Generators & Portals (Macro-Level) {: #domain-c--static-site-generators--portals-macro-level }
 
-> The portal is the public face of the documentation system. It ingests all Domain A output (rustdoc HTML, TypeDoc Markdown, mkdocstrings, Dokka GFM) and renders them as a single searchable site.
+> The portal is the public face of the documentation system. It ingests all Domain A output (Doxygen HTML, TypeDoc Markdown, mkdocstrings, Dokka GFM) and renders them as a single searchable site.
 
 ---
 
@@ -430,10 +430,10 @@ Use `papermill` to run notebooks with different parameters (different test seque
 ### Options
 
 **A — MkDocs Material (recommended) [Quick Win relative to alternatives]**
-- Python-native, `pip install mkdocs-material`. Integrates with `mkdocstrings` (Python), `typedoc-plugin-markdown` (TypeScript), and `myst-nb` (notebooks). C++ docs (Doxygen HTML) linked as an external HTML tree via an iframe or a redirect.
+- Python-native, `pip install mkdocs-material`. Integrates with `mkdocstrings` (Python), `typedoc-plugin-markdown` (TypeScript), and `myst-nb` (notebooks). C++ docs linked as an external Doxygen HTML tree via an iframe or a redirect.
 - Navigation defined in `mkdocs.yml`. Full-text search. Dark mode. GitHub Pages deployment in < 30 min.
 - Pros: Zero-config for Python projects. Best-in-class Markdown rendering. Active community. Used by FastAPI, Pydantic, Typer.
-- Cons: Rust/Kotlin/Swift docs must be embedded as HTML iframes or separate subdomains (not native pages). Less suitable if the primary audience is not Python-centric.
+- Cons: C++/Kotlin/Swift docs must be embedded as HTML iframes or separate subdomains (not native pages). Less suitable if the primary audience is not Python-centric.
 - Effort: Initial setup < 1 day. Integration per language: 2–4 hours each.
 - Reference: [squidfunk.github.io/mkdocs-material](https://squidfunk.github.io/mkdocs-material/)
 
@@ -473,11 +473,11 @@ docs/
   architecture.md      ← promoted from docs/ARCHITECTURE.md
   api/
     python/            ← mkdocstrings output
-    rust/              ← cargo doc HTML (symlinked or copied from target/doc/)
+    cpp/               ← Doxygen HTML (symlinked or copied from base/docs/html/)
     typescript/        ← typedoc-plugin-markdown output
     kotlin/            ← dokkaGfm output
   notebooks/           ← Jupyter notebooks (myst-nb)
-  roadmaps/            ← symlinks or copies of moon/roadmaps/*.md
+  roadmaps/            ← symlinks or copies of docs/moon/roadmaps/*.md
   research/            ← research/*.md
   troubleshooting.md
   benchmarks.md
@@ -485,7 +485,7 @@ docs/
 ```
 - `mkdocs.yml` at the project root with `docs_dir: docs`.
 - Pros: Everything in one place. CI just runs `mkdocs build`.
-- Cons: Some files (roadmaps, research) currently live under `moon/` and `research/` — symlinks or a `hooks:` script in `mkdocs.yml` keeps them in sync without moving them.
+- Cons: Some files (roadmaps, reports) currently live under `moon/` and `research/` — symlinks or a `hooks:` script in `mkdocs.yml` keeps them in sync without moving them.
 
 **B — Separate `docs-site/` directory, independent of `docs/`**
 Keep the existing `docs/` for raw Markdown files and create `docs-site/` as the MkDocs project that copies/transforms them.
@@ -497,7 +497,7 @@ Use the GitHub repository wiki for all documentation.
 - Pros: Zero setup.
 - Cons: Not version-controlled with the code. No CI integration. No search. Not recommended for a complex polyglot project.
 
-**Recommendation:** A. Using `mkdocs.yml` hooks to softlink `moon/roadmaps/*.md` and `research/*.md` into `docs/` avoids moving files while keeping the portal coherent.
+**Recommendation:** A. Using `mkdocs.yml` hooks to softlink `docs/moon/roadmaps/*.md` and `research/*.md` into `docs/` avoids moving files while keeping the portal coherent.
 
 ---
 
@@ -520,7 +520,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths: ['docs/**', 'moon/roadmaps/**', 'backend/src/**', 'base/src/**', 'frontend/src/**']
+    paths: ['docs/**', 'docs/moon/roadmaps/**', 'backend/src/**', 'base/src/**', 'frontend/src/**']
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -547,7 +547,7 @@ Split `build` into parallel jobs: `docs-python`, `docs-rust`, `docs-typescript`,
 - Cons: More complex `mkdocs.yml` integration for multi-artifact merge.
 
 **C — Preview deployments on PRs ✅**
-Each PR that touches `docs/`, `moon/roadmaps/`, `backend/src/`, or `mkdocs.yml` gets a live preview deployment to `gh-pages/pr-preview/{number}/` via the `preview` job in `.github/workflows/docs.yml`.
+Each PR that touches `docs/`, `docs/moon/roadmaps/`, `backend/src/`, or `mkdocs.yml` gets a live preview deployment to `gh-pages/pr-preview/{number}/` via the `preview` job in `.github/workflows/docs.yml`.
 - Implemented without Netlify/Cloudflare — uses `peaceiris/actions-gh-pages@v4` to deploy to a PR-specific subdirectory on the existing `gh-pages` branch.
 - A sticky bot comment on the PR links to `https://{owner}.github.io/{repo}/pr-preview/{number}/` (updated on each commit via `actions/github-script@v7` — finds and updates the existing comment rather than creating duplicates).
 - Cleanup is handled by `.github/workflows/docs-cleanup.yml` — fires on `pull_request: types: [closed]`, checks out `gh-pages`, removes `pr-preview/{number}/`, pushes a deletion commit.
@@ -581,10 +581,10 @@ Run `jupyter nbconvert --to html --execute docs/notebooks/*.ipynb` on a weekly s
 - Effort: < 1 hour setup; fixing existing violations: 2–4 hours for `animation/` modules.
 - Reference: [jsh9/pydoclint](https://github.com/jsh9/pydoclint)
 
-**B — `just test-base-cpp` in CI for C++ tests [Quick Win]**
-Add `just test-base-cpp` as a separate CI step. Fails if any Catch2 test in `base/tests/` does not pass. Covers all pybind11-exported public APIs.
-- Effort: < 30 min. Already part of the CMake build.
-- Pros: Tests cover all public API surface. Zero new dependencies beyond CMake and Catch2.
+**B — `just test-base-cpp` in CI for C++ Catch2 tests [Quick Win]**
+Add `just test-base-cpp` as a separate CI step alongside the main test suite. Fails if any Catch2 `TEST_CASE` does not compile and pass.
+- Effort: < 30 min. Already part of the CMake/Catch2 build.
+- Pros: Tests double as documentation of expected behaviour. Zero new dependencies.
 
 **C — `typedoc --treatWarningsAsErrors` for TypeScript [Quick Win]**
 Pass `--treatWarningsAsErrors` to TypeDoc in CI. Fails if any exported symbol is undocumented.
@@ -710,7 +710,7 @@ Build an algorithm visualisation page into `frontend/src/tabs/analytics/` that s
 | §6.10 SSG Selection | [#610-ssg-selection-for-a-polyglot-portal](#610-ssg-selection-for-a-polyglot-portal) |
 | §6.11 Unified Portal | [#611-unified-cross-stack-documentation-portal](#611-unified-cross-stack-documentation-portal) |
 | §6.12 CI/CD Pipeline | [#612-cicd-documentation-pipeline-github-actions](#612-cicd-documentation-pipeline-github-actions) |
-| §6.13 Enforcing Standards | [#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit](#613-enforcing-documentation-standards-doclint-cargo-test-pre-commit) |
+| §6.13 Enforcing Standards | [#613-enforcing-documentation-standards-doclint-just-test-base-cpp-pre-commit](#613-enforcing-documentation-standards-doclint-just-test-base-cpp-pre-commit) |
 | §6.14 Diagrams-as-Code | [#614-diagrams-as-code-mermaidjs--plantuml](#614-diagrams-as-code-mermaidjs--plantuml) |
 | §6.15 Interactive Docs | [#615-interactive-documentation-api-playgrounds-algorithm-stepping](#615-interactive-documentation-api-playgrounds-algorithm-stepping) |
 | Effort × Impact Matrix | [#effort--impact-matrix](#effort--impact-matrix) |
@@ -719,4 +719,4 @@ Build an algorithm visualisation page into `frontend/src/tabs/analytics/` that s
 
 ## Document History
 
-*Last updated: 2026-07-17 — **GUI tab tutorials added**: new `docs/tutorials/` set (`index.md` + `system_tools.md`, `library_database.md`, `web_integration.md`, `deep_learning.md`, `image_stitching.md`) documenting every tab category's purpose, workflow, and parameters; MkDocs nav gained a top-level "Tutorials" section. Previous update 2026-06-20. Session 8 complete: **§6.12C** PR preview deployments — `preview` job (Job 11) added to `docs.yml`: fires on `pull_request` events (not push/schedule), builds MkDocs with `--strict`, deploys to `gh-pages/pr-preview/{number}/` via `peaceiris/actions-gh-pages@v4` (`keep_files: true` preserves root site), posts sticky preview-URL comment via `actions/github-script@v7` (finds and updates existing bot comment rather than creating duplicates); new `docs-cleanup.yml` workflow fires on `pull_request: types: [closed]`, checks out `gh-pages` branch, removes `pr-preview/{number}/`, pushes deletion commit — no Netlify/Cloudflare required; §6.12C section text updated to ✅; §6.12C added to Effort×Impact matrix (Medium effort / High impact). Documentation roadmap now completely implemented — §6.15C (TypeScript algorithm stepper) is the only remaining item and is gated on Phase 13. Session 7 complete: **§6.14C** Structurizr / C4 model — `docs/structurizr/workspace.dsl` (full 5-view C4 model: SystemContext, Containers, PythonBackendComponents, RustCoreComponents, DjangoApiComponents), `docs/structurizr/README.md` (Docker Lite + CLI export instructions), `docs/STRUCTURIZR.md` (MkDocs portal page); MkDocs nav extended with "C4 Architecture Model" under Getting Started; hooks.py syncs STRUCTURIZR.md · **§6.15D** OpenAPI playground — `drf-spectacular` confirmed already wired (`/api/schema/`, `/api/docs/` Swagger UI, `/api/redoc/`); `docs/api/rest-api.md` comprehensive reference (21 endpoints in 4 tag groups, response format, static spec generation, add-endpoint guide); `docs-openapi` CI job (Job 9) in `docs.yml` — `manage.py spectacular --validate`, 14-day `openapi-spec` artifact; MkDocs nav extended with "REST API" under Reference; hooks.py stub added · **§6.13E** `alex` inclusive language pre-commit hook — scoped to `docs/*.md`, `--quiet` mode, added to `.pre-commit-config.yaml` · **Matrix** — All completed items marked ✅ across all four effort tiers; §6.15C (TypeScript algorithm stepper) remains the only unimplemented item, gated on Phase 13; §6.15D corrected from "blocked on §4.10" to ✅ (already implemented). Session 6 complete: **§6.9C** `mkdocs-jupyter` enabled in `mkdocs.yml` (replaces the commented-out myst-nb block) — `.ipynb` files in the nav are now first-class portal pages rendered as static code+markdown · **§6.4B + §6.12B** Dokka GFM portal integration: `docs-kotlin` CI job (`actions/setup-java` + Android SDK + `./gradlew dokkaGfm`) added to `docs.yml`; `docs/hooks.py` creates `docs/api/kotlin/index.md` stub with module overview table; MkDocs nav extended with "Kotlin API" under Reference · **§6.12D** Scheduled weekly notebook execution: `schedule: cron '0 2 * * 1'` trigger added to `docs.yml`; `weekly-notebooks` job runs `benchmark_analysis.ipynb` via `papermill`/nbconvert with 300 s timeout; 30-day artifact retention · **§6.1B** Sphinx for full Python backend: `docs/sphinx/conf.py` (sphinx-autoapi + napoleon + myst-nb + furo theme + intersphinx to NumPy/PyTorch), `docs/sphinx/index.rst` (auto-toctree from autoapi), `docs/sphinx/requirements.txt`; `docs-sphinx` CI job (`sphinx-build -b html docs/sphinx site/sphinx-api -W --keep-going`); `docs/hooks.py` creates `docs/api/sphinx.md` comparison stub; MkDocs nav extended with "Python Reference (Sphinx)" under Reference. All remaining implementable roadmap items now complete — only gated items remain (§6.15C TypeScript stepper gated on Phase 13, §6.15D OpenAPI gated on §4.10 REST API, §6.14C Structurizr deferred). Session 5 complete: **§6.13C** TypeDoc strict mode — `"treatWarningsAsErrors": true` in `typedoc.json`; CI TypeDoc step upgraded to enforce strict mode via `typedoc-markdown.json` · **§6.2A** Full `# Examples` doc-test blocks added to all remaining Rust math functions: 10 in `stats.rs` (`sample_std_dev`, `covariance`, `min`, `max`, `iqr`, `z_score_normalize`, `min_max_normalize`, `histogram`, `counts_to_probs`, `covariance_matrix`), 7 in `distance.rs` (`hamming_distance`, `hamming_f64`, `bhattacharyya_coefficient`, `bhattacharyya_distance`, `hellinger_distance`, `pairwise_distance_matrix`, `condensed_distance_matrix`), 9 in `information.rs` (`entropy_nats`, `empirical_entropy`, `joint_entropy`, `conditional_entropy`, `js_divergence`, `total_variation`, `mutual_information_discrete`, `normalised_mutual_information`, `cross_entropy`) — 100% doc-test coverage across all 3 math modules · **§6.3B** `typedoc-plugin-markdown` wired into `frontend/` (`package.json` devDeps, `typedoc-markdown.json` config); TypeDoc markdown output → `docs/api/typescript/`; MkDocs nav extended with "TypeScript API" section under Reference · **§6.14D** Mermaid CLI (`@mermaid-js/mermaid-cli`) integrated into `docs-typescript` CI job; module-dependency diagram from `docs/ARCHITECTURE.md` pre-rendered to `site/architecture-diagram.svg`; output stored as CI artifact. Documentation roadmap secondary sub-options now fully implemented — all primary sections ✅, all low/medium-effort secondary items ✅. Session 4 complete: **§6.5A** DocC `///` comments on all 8 public iOS Swift types (`ImageToolkitApp`, `Screen`, `MainAppScreen`, `ConvertScreen`, `AppTheme`, `FlowLayout`, `FileInput`, `SectionCard`, `FormatSelector`) + `ImageToolkit.docc/ImageToolkit.md` catalog with architecture overview, nav structure, `xcodebuild docbuild` instructions, and `## Topics` reference · **§6.15A** `benchmark_analysis.ipynb` cell 8 added — ipywidgets interactive threshold explorer (3 `FloatSlider`s for `ghosting_siqe`, `seam_visibility`, `ssim`; live failure-bar + scatter plot + filtered table; static fallback when ipywidgets absent) · **§6.15B** Binder launch badges added to all 3 notebooks; `ipywidgets` added to prerequisites. Documentation roadmap is now **fully implemented** — all 15 sections ✅. Session 3 complete: **§6.8B** `docs/BENCHMARKS.md` restructured (Suite Index table, Rust math criterion scaffolding, frontend `benchmark.ts` analytics layer documented, ASP corpus description with 97-test failure taxonomy + baseline metrics table, CI registration guide, RLHF score integration note) · **§6.9A (full)** `docs/notebooks/asp_pipeline_walkthrough.ipynb` (6 cells: source frames, frame selection, pipeline run, Stage 9 vs final, translation vectors, seam heatmap) · `docs/notebooks/clip_embedding_walkthrough.ipynb` (5 cells: CLIP load, batch embedding, text query → top-K, PCA visualisation, SQLiteStore demo) · `nbstripout 0.7.1` added to `.pre-commit-config.yaml` · `docs-notebooks` job added to `.github/workflows/docs.yml` (nbconvert execute for CPU-safe benchmark_analysis.ipynb) · `mkdocs.yml` nav updated with Notebooks section. Session 2: **§6.1A** Google-style docstrings · **§6.3A** typedoc.json + TSDoc · **§6.4A** Dokka · **§6.6A+§6.14A** ARCHITECTURE.md graph · **§6.9A** benchmark_analysis.ipynb. Session 1: **§6.2B** Rust doc-tests · **§6.7B/C** policy docs · **§6.8A+C** TROUBLESHOOTING.md · **§6.10A** mkdocs.yml · **§6.11A** portal · **§6.12A** CI · **§6.13A** pre-commit. Remaining: §6.5A (DocC/iOS — Xcode required), §6.15A (interactive widgets — deferred).*
+*Last updated: 2026-07-19 — **Typical Workflows split + deepened into a technical reference**: the combined "download then stitch" walkthrough was split into two workflows (multi-site crawling with URL-pagination/Actions-recipe building; panorama stitching with two smart-frame-selection avenues and three execution paths — automated/semi-automated/full 10-checkpoint HITL), and every parameter across all six `workflows.md` workflows now carries a 4-column table (what it is / technical mechanism / when to choose it / effect of changing it) plus "Learn more" paper/doc links (LoFTR, ECC, ORB, Laplacian pyramid blending, BiRefNet, HNSW, SSIM, LoRA, classifier-free guidance, Lanczos resampling, Selenium). Screenshot count for the page rose from 22 to 41 (179 total across all tutorial pages); `system_tools.md`/`web_integration.md`/`image_stitching.md` picked up matching Learn-more callouts and cross-references rather than duplicating the new technical content. `backend/benchmark/bench_anime_stitch.py`'s `--data-dir` default also moved off the old `~/Repositories/Image-Toolkit/dump` path to `~/Downloads/Data/Dump`. Previous update, same day — **Typical Workflows + Settings/Login tutorials added**: two new `docs/tutorials/` pages — `workflows.md` (five cross-category walkthroughs with 22 Pillow-annotated screenshots: numbered step badges plus colored click-target boxes/arrows) and `settings_and_login.md` (Login Window + all 7 Application Settings tabs, 25 screenshots). Total tutorial screenshot count now 161 across seven pages; nav and index card grid updated. A mislabeling bug from the original tutorial session (two Library Database screenshots pointing at the wrong source capture) was also fixed. Previous update, same day — **GUI tab tutorials fully illustrated**: all five `docs/tutorials/` pages (`system_tools.md`, `library_database.md`, `web_integration.md`, `deep_learning.md`, `image_stitching.md`) rewritten with 114 live screenshots captured against the running app, Mermaid workflow diagrams per category, comparison/reference tables, and tabbed content for multi-mode controls; `index.md` gained a category-relationship diagram and a card grid. `library_database.md` and `image_stitching.md` also picked up content updates for the S213 Metadata Editor / HITL-group-box changes, cross-checked against the widget source rather than inferred from screenshots. Full-desktop screenshots were cropped to remove the host OS taskbar strip. Previous update 2026-07-17 — **GUI tab tutorials added**: new `docs/tutorials/` set (`index.md` + `system_tools.md`, `library_database.md`, `web_integration.md`, `deep_learning.md`, `image_stitching.md`) documenting every tab category's purpose, workflow, and parameters; MkDocs nav gained a top-level "Tutorials" section. Previous update 2026-06-20. Session 8 complete: **§6.12C** PR preview deployments — `preview` job (Job 11) added to `docs.yml`: fires on `pull_request` events (not push/schedule), builds MkDocs with `--strict`, deploys to `gh-pages/pr-preview/{number}/` via `peaceiris/actions-gh-pages@v4` (`keep_files: true` preserves root site), posts sticky preview-URL comment via `actions/github-script@v7` (finds and updates existing bot comment rather than creating duplicates); new `docs-cleanup.yml` workflow fires on `pull_request: types: [closed]`, checks out `gh-pages` branch, removes `pr-preview/{number}/`, pushes deletion commit — no Netlify/Cloudflare required; §6.12C section text updated to ✅; §6.12C added to Effort×Impact matrix (Medium effort / High impact). Documentation roadmap now completely implemented — §6.15C (TypeScript algorithm stepper) is the only remaining item and is gated on Phase 13. Session 7 complete: **§6.14C** Structurizr / C4 model — `docs/structurizr/workspace.dsl` (full 5-view C4 model: SystemContext, Containers, PythonBackendComponents, RustCoreComponents, DjangoApiComponents), `docs/structurizr/README.md` (Docker Lite + CLI export instructions), `docs/STRUCTURIZR.md` (MkDocs portal page); MkDocs nav extended with "C4 Architecture Model" under Getting Started; hooks.py syncs STRUCTURIZR.md · **§6.15D** OpenAPI playground — `drf-spectacular` confirmed already wired (`/api/schema/`, `/api/docs/` Swagger UI, `/api/redoc/`); `docs/api/rest-api.md` comprehensive reference (21 endpoints in 4 tag groups, response format, static spec generation, add-endpoint guide); `docs-openapi` CI job (Job 9) in `docs.yml` — `manage.py spectacular --validate`, 14-day `openapi-spec` artifact; MkDocs nav extended with "REST API" under Reference; hooks.py stub added · **§6.13E** `alex` inclusive language pre-commit hook — scoped to `docs/*.md`, `--quiet` mode, added to `.pre-commit-config.yaml` · **Matrix** — All completed items marked ✅ across all four effort tiers; §6.15C (TypeScript algorithm stepper) remains the only unimplemented item, gated on Phase 13; §6.15D corrected from "blocked on §4.10" to ✅ (already implemented). Session 6 complete: **§6.9C** `mkdocs-jupyter` enabled in `mkdocs.yml` (replaces the commented-out myst-nb block) — `.ipynb` files in the nav are now first-class portal pages rendered as static code+markdown · **§6.4B + §6.12B** Dokka GFM portal integration: `docs-kotlin` CI job (`actions/setup-java` + Android SDK + `./gradlew dokkaGfm`) added to `docs.yml`; `docs/hooks.py` creates `docs/api/kotlin/index.md` stub with module overview table; MkDocs nav extended with "Kotlin API" under Reference · **§6.12D** Scheduled weekly notebook execution: `schedule: cron '0 2 * * 1'` trigger added to `docs.yml`; `weekly-notebooks` job runs `benchmark_analysis.ipynb` via `papermill`/nbconvert with 300 s timeout; 30-day artifact retention · **§6.1B** Sphinx for full Python backend: `docs/sphinx/conf.py` (sphinx-autoapi + napoleon + myst-nb + furo theme + intersphinx to NumPy/PyTorch), `docs/sphinx/index.rst` (auto-toctree from autoapi), `docs/sphinx/requirements.txt`; `docs-sphinx` CI job (`sphinx-build -b html docs/sphinx site/sphinx-api -W --keep-going`); `docs/hooks.py` creates `docs/api/sphinx.md` comparison stub; MkDocs nav extended with "Python Reference (Sphinx)" under Reference. All remaining implementable roadmap items now complete — only gated items remain (§6.15C TypeScript stepper gated on Phase 13, §6.15D OpenAPI gated on §4.10 REST API, §6.14C Structurizr deferred). Session 5 complete: **§6.13C** TypeDoc strict mode — `"treatWarningsAsErrors": true` in `typedoc.json`; CI TypeDoc step upgraded to enforce strict mode via `typedoc-markdown.json` · **§6.2A** Full `# Examples` doc-test blocks added to all remaining Rust math functions: 10 in `stats.rs` (`sample_std_dev`, `covariance`, `min`, `max`, `iqr`, `z_score_normalize`, `min_max_normalize`, `histogram`, `counts_to_probs`, `covariance_matrix`), 7 in `distance.rs` (`hamming_distance`, `hamming_f64`, `bhattacharyya_coefficient`, `bhattacharyya_distance`, `hellinger_distance`, `pairwise_distance_matrix`, `condensed_distance_matrix`), 9 in `information.rs` (`entropy_nats`, `empirical_entropy`, `joint_entropy`, `conditional_entropy`, `js_divergence`, `total_variation`, `mutual_information_discrete`, `normalised_mutual_information`, `cross_entropy`) — 100% doc-test coverage across all 3 math modules · **§6.3B** `typedoc-plugin-markdown` wired into `frontend/` (`package.json` devDeps, `typedoc-markdown.json` config); TypeDoc markdown output → `docs/api/typescript/`; MkDocs nav extended with "TypeScript API" section under Reference · **§6.14D** Mermaid CLI (`@mermaid-js/mermaid-cli`) integrated into `docs-typescript` CI job; module-dependency diagram from `docs/ARCHITECTURE.md` pre-rendered to `site/architecture-diagram.svg`; output stored as CI artifact. Documentation roadmap secondary sub-options now fully implemented — all primary sections ✅, all low/medium-effort secondary items ✅. Session 4 complete: **§6.5A** DocC `///` comments on all 8 public iOS Swift types (`ImageToolkitApp`, `Screen`, `MainAppScreen`, `ConvertScreen`, `AppTheme`, `FlowLayout`, `FileInput`, `SectionCard`, `FormatSelector`) + `ImageToolkit.docc/ImageToolkit.md` catalog with architecture overview, nav structure, `xcodebuild docbuild` instructions, and `## Topics` reference · **§6.15A** `benchmark_analysis.ipynb` cell 8 added — ipywidgets interactive threshold explorer (3 `FloatSlider`s for `ghosting_siqe`, `seam_visibility`, `ssim`; live failure-bar + scatter plot + filtered table; static fallback when ipywidgets absent) · **§6.15B** Binder launch badges added to all 3 notebooks; `ipywidgets` added to prerequisites. Documentation roadmap is now **fully implemented** — all 15 sections ✅. Session 3 complete: **§6.8B** `docs/BENCHMARKS.md` restructured (Suite Index table, Rust math criterion scaffolding, frontend `benchmark.ts` analytics layer documented, ASP corpus description with 97-test failure taxonomy + baseline metrics table, CI registration guide, RLHF score integration note) · **§6.9A (full)** `docs/notebooks/asp_pipeline_walkthrough.ipynb` (6 cells: source frames, frame selection, pipeline run, Stage 9 vs final, translation vectors, seam heatmap) · `docs/notebooks/clip_embedding_walkthrough.ipynb` (5 cells: CLIP load, batch embedding, text query → top-K, PCA visualisation, SQLiteStore demo) · `nbstripout 0.7.1` added to `.pre-commit-config.yaml` · `docs-notebooks` job added to `.github/workflows/docs.yml` (nbconvert execute for CPU-safe benchmark_analysis.ipynb) · `mkdocs.yml` nav updated with Notebooks section. Session 2: **§6.1A** Google-style docstrings · **§6.3A** typedoc.json + TSDoc · **§6.4A** Dokka · **§6.6A+§6.14A** ARCHITECTURE.md graph · **§6.9A** benchmark_analysis.ipynb. Session 1: **§6.2B** Rust doc-tests · **§6.7B/C** policy docs · **§6.8A+C** TROUBLESHOOTING.md · **§6.10A** mkdocs.yml · **§6.11A** portal · **§6.12A** CI · **§6.13A** pre-commit. Remaining: §6.5A (DocC/iOS — Xcode required), §6.15A (interactive widgets — deferred).*

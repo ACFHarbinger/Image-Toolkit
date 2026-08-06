@@ -623,7 +623,7 @@ top-level Modes for what is really one engine with one parameter. Getting a
 genuinely different stitching *algorithm* (not just a different `Stitcher`
 mode) meant checking "Perfect Stitch Mode", a single boolean that routed to
 the Anime Stitch Pipeline (ASP) with no way to reach Overmix or Hugin — both
-already built and benchmarked as reference comparators in `moon/roadmaps/asp.md`
+already built and benchmarked as reference comparators in `docs/moon/roadmaps/asp.md`
 §0.3/§0.5 — from the GUI at all. A boolean checkbox also doesn't scale: adding
 a third or fourth engine would mean more checkboxes fighting for the same
 mutually-exclusive slot.

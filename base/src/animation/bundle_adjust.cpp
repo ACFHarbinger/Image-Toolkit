@@ -10,7 +10,7 @@
 //                                   _compute_adaptive_f_scale
 //
 // Implementation roadmap: Phase 3.
-// See moon/roadmaps/asp_cpp_migration.md §base::bundle_adjust
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::bundle_adjust
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

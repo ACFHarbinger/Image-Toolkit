@@ -173,6 +173,6 @@ inline std::vector<int> path_from_array(py::array_t<int32_t> arr)
 #define BATCH_NOT_IMPLEMENTED(fn)                                       \
     throw std::runtime_error(                                           \
         std::string("[batch] ") + (fn) + " is not yet implemented. "   \
-        "See moon/roadmaps/asp_cpp_migration.md for the implementation roadmap.")
+        "See docs/moon/roadmaps/asp_cpp_migration.md for the implementation roadmap.")
 
 } // namespace batch

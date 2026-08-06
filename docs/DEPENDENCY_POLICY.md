@@ -1,6 +1,6 @@
 # Dependency Policy
 
-*Last updated: 2026-06-19. Establishes minimum version requirements, pinning policy, upgrade cadence, and the process for introducing new dependencies. See `moon/roadmaps/documentation.md §6.7B` for rationale.*
+*Last updated: 2026-06-19. Establishes minimum version requirements, pinning policy, upgrade cadence, and the process for introducing new dependencies. See `docs/moon/roadmaps/documentation.md §6.7B` for rationale.*
 
 ---
 
@@ -72,7 +72,7 @@ torch==2.3.1
 | **Security patch** (CVE with CVSS ≥ 7.0) | Within 7 days | Direct commit to `main`; no PR review gate required. Run `pip-audit` + `cargo audit` to verify. |
 | **Security patch** (CVE with CVSS < 7.0) | Within 30 days | Normal PR process. |
 | **Minor version** (new features, backwards-compatible) | Monthly sweep | Batch together with the first Monday of each month's routine maintenance. Update `uv.lock`, `Cargo.lock`, `package-lock.json` in a single PR. |
-| **Major version** (breaking changes) | With migration plan | Create a `feat/upgrade-<package>-vN` branch. Update test suite. Document breaking changes in `CHANGELOG.md`. |
+| **Major version** (breaking changes) | With migration plan | Create a `feat/upgrade-<package>-vN` branch. Update test suite. Document breaking changes in `docs/moon/CHANGELOG.md`. |
 | **Python runtime** (e.g., 3.11 → 3.12) | After 6-month soak | Requires updating `pyproject.toml` `requires-python`, `uv.lock`, GitHub Actions matrix, and PyInstaller spec. |
 | **Rust edition** (2021 → 2024) | With Rust stable release + 3 months | Run `cargo fix --edition`, audit `unsafe` usages. |
 
@@ -88,7 +88,7 @@ Before adding any new package, answer the following questions:
 4. **Does it have a compatible license?** Permitted licenses: MIT, Apache-2.0, BSD-2/3, MPL-2.0, ISC. Prohibited: GPL (except for tools, not linked into the app), LGPL without dynamic linking, SSPL, BSL. Check with `pip-licenses` or `cargo-deny`.
 5. **Is there a security history?** Check [osv.dev](https://osv.dev/) and [deps.dev](https://deps.dev/) for known CVEs before adding.
 
-Once approved, add to the correct requirements file and run `uv lock` / `cargo update` / `npm install` to update the lockfile. Document the addition in `CHANGELOG.md` under `Dependencies`.
+Once approved, add to the correct requirements file and run `uv lock` / `cargo update` / `npm install` to update the lockfile. Document the addition in `docs/moon/CHANGELOG.md` under `Dependencies`.
 
 ---
 
@@ -98,7 +98,7 @@ Once approved, add to the correct requirements file and run `uv lock` / `cargo u
 2. Remove from `requirements.txt` / `Cargo.toml` / `package.json`.
 3. Regenerate the lockfile: `uv lock` / `cargo update` / `npm install`.
 4. Run the full test suite.
-5. Document the removal in `CHANGELOG.md` under `Dependencies`.
+5. Document the removal in `docs/moon/CHANGELOG.md` under `Dependencies`.
 
 ---
 

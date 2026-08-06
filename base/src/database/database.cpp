@@ -10,7 +10,7 @@
 // embeddings storage and brute-force cosine knn back DB.7 (HNSW later).
 //
 // Deliberately separate from base.secret (Vault-only, untouchable).
-// See moon/roadmaps/unified_database.md §DB.2.
+// See docs/moon/roadmaps/unified_database.md §DB.2.
 // ---------------------------------------------------------------------------
 
 #include "database/database.hpp"

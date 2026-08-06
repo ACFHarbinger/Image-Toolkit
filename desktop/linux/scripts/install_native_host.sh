@@ -91,7 +91,7 @@ for browser in "${BROWSERS[@]}"; do
             ;;
         brave)
             # Brave reads the Chrome NativeMessagingHosts location, not its own —
-            # documented quirk, see moon/roadmaps/extension.md §7.13.
+            # documented quirk, see docs/moon/roadmaps/extension.md §7.13.
             write_manifest "$HOME/.config/google-chrome/NativeMessagingHosts" "allowed_origins" "$CHROMIUM_ORIGIN"
             ;;
         edge)

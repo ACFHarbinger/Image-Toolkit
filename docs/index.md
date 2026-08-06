@@ -16,8 +16,8 @@
 | [Benchmarks](BENCHMARKS.md) | ASP corpus, C++ Catch2, frontend math benchmarks |
 | [Dependency Policy](DEPENDENCY_POLICY.md) | Version pins, upgrade cadence, security CVE SLA |
 | [Documentation Standards](DOCUMENTATION_STANDARDS.md) | Docstring style, TOC rules, enforcement hooks |
-| [Roadmaps](../moon/ROADMAP.md) | Architecture, performance, features, GUI/UX, ASP, docs |
-| [Changelog](CHANGELOG.md) | All shipped features ordered by session |
+| [Roadmaps](moon/ROADMAP.md) | Architecture, performance, features, GUI/UX, ASP, docs |
+| [Changelog](moon/CHANGELOG.md) | All shipped features ordered by session |
 
 
 ---

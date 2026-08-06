@@ -928,7 +928,7 @@ xcodebuild test   -project app/ImageToolkit.xcodeproj -scheme ImageToolkit \
 
 ### Tests hang / system becomes unresponsive
 
-**Cause:** One of the §3.10 test-suite freeze root causes. All 5 are fixed; see `moon/roadmaps/performance.md §3.10–§3.15` for the full analysis.
+**Cause:** One of the §3.10 test-suite freeze root causes. All 5 are fixed; see `docs/moon/roadmaps/performance.md §3.10–§3.15` for the full analysis.
 
 **Safe invocation:**
 ```bash

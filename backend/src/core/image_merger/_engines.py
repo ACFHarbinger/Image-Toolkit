@@ -111,7 +111,7 @@ class _EngineMixin:
         Stitches images using the system Hugin CLI toolchain (GPL/GPL-adjacent
         external tool via apt hugin-tools/enblend — run as a subprocess chain,
         never linked): pto_gen -> cpfind -> autooptimiser -> pano_modify ->
-        nona -> enblend. See roadmap moon/roadmaps/asp.md §0.5 and its field
+        nona -> enblend. See roadmap docs/moon/roadmaps/asp.md §0.5 and its field
         notes for why the system packages are used instead of building the
         vendor/Hugin submodule fork (its CMake only wires up align_image_stack).
 
@@ -213,7 +213,7 @@ class _EngineMixin:
         Stitches images using Overmix (GPL-3.0 external tool — run as a
         subprocess, never linked). Requires vendor/Overmix/build/OvermixCli,
         built via desktop/linux/scripts/setup_overmix.sh. See roadmap
-        moon/roadmaps/asp.md §0.3 and its field notes.
+        docs/moon/roadmaps/asp.md §0.3 and its field notes.
 
         aligner     : Overmix's own aligner names — Recursive / Average / Linear.
         render_stat : "average" (Overmix's dedicated average render) or one of

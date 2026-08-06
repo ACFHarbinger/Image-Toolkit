@@ -4,7 +4,7 @@ Every attempt to make the Extractor tab's playhead-drag preview fast by
 decoding a real video frame on demand -- a per-frame ffmpeg subprocess, a
 background dense-keyframe proxy, a persistent in-process decoder -- kept
 hitting either latency or QMediaPlayer/QVideoSink surface-swap bugs (see
-moon/roadmaps/new_features.md §4.14 for the retrospective). None of that is
+docs/moon/roadmaps/new_features.md §4.14 for the retrospective). None of that is
 actually how large-scale video platforms solve this: YouTube's scrub
 preview isn't a live decode at all. It's a sprite sheet -- a grid of small
 thumbnails sampled at a fixed interval across the whole video, built once

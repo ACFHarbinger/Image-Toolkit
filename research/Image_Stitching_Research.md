@@ -360,7 +360,7 @@ Replaces whole-frame phase correlation with the two-channel (camera vs animation
 - **Model wrappers:** EfficientLoFTR, LoFTR, ALIKED+LightGlue, RoMa, JamMa, BiRefNet, BaSiC.
 - **Benchmark:** `backend/benchmark/bench_anime_stitch.py` — 96-test corpus, 55 with ground truth; GT-SSIM + seam-coherence metrics; render quality gate; selective runner.
 - **Current GT baseline:** ASP 0.669 vs simple-stitch 0.695 SSIM-vs-GT — the foreground-assembly track (§8) is the path to surpass it.
-- **Roadmap:** `moon/roadmaps/asp.md` Phase 0 (foreground assembly: A1 SEA-RAFT engine, A3 full ARAP+LSD, A5 bg-only median, A6 single-pose fallback, two-channel selection, segment-guided flow).
+- **Roadmap:** `docs/moon/roadmaps/asp.md` Phase 0 (foreground assembly: A1 SEA-RAFT engine, A3 full ARAP+LSD, A5 bg-only median, A6 single-pose fallback, two-channel selection, segment-guided flow).
 
 ### Addendum (2026-07-27) — Literature Sweep for Issue #21 Gap Areas
 

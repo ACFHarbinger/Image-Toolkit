@@ -10,7 +10,7 @@
 //                             _spatial_dedup_frames
 //
 // Implementation roadmap: Phase 3 (alignment hot path).
-// See moon/roadmaps/asp_cpp_migration.md §base::matching
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::matching
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

@@ -1,6 +1,6 @@
 """
 Full-corpus triage report for the ASP Phase-4 fallback classes (roadmap
-moon/roadmaps/asp.md Phase 4, GitHub issue #29).
+docs/moon/roadmaps/asp.md Phase 4, GitHub issue #29).
 
 The 2026-07-27 18-test sample (.agent/cache/asp_phase4_fallback_class_analysis_2026-07-27.md)
 found seam_vis_gate is not homogeneous -- some failures are pose-blend

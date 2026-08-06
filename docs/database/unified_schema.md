@@ -1,6 +1,6 @@
 # Unified Library Database — Schema v1
 
-*Phase DB, item DB.1 — see [moon/roadmaps/unified_database.md](../../moon/roadmaps/unified_database.md).*
+*Phase DB, item DB.1 — see [docs/moon/roadmaps/unified_database.md](../moon/roadmaps/unified_database.md).*
 
 One SQLCipher-encrypted SQLite database at `~/.image-toolkit/library.db` replaces both legacy stores:
 

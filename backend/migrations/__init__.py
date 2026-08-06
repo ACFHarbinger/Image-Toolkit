@@ -8,5 +8,5 @@ Order is mandatory and enforced by :mod:`backend.migrations.runner`:
     003_migrate_pgvector   PostgreSQL -> library.db (skippable if unreachable)
     004_verify_migration   row-count / integrity / checksum report
 
-See moon/roadmaps/unified_database.md (DB.4).
+See docs/moon/roadmaps/unified_database.md (DB.4).
 """

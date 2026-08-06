@@ -249,7 +249,7 @@ Native FLUX OOMs; quantisation is mandatory:
 - **Generation:** `sd3_wrapper.py` (`SD3Wrapper`, SD3.5; ControlNet TODO), `comfy_manager.py` + ComfyUI tab.
 - **Data pipeline:** `backend/src/models/data/` — `video_frame_extractor.py`, `captioner.py`, `lora_dataset.py`, `augmentations.py`, `stitch_dataset.py`.
 - **GUI tabs:** `gui/src/tabs/models/{gen,train}/` — LoRA train, SD3 gen, ComfyUI gen, GAN/R3GAN, diagnostics hooks (`models/hooks/`).
-- **Gaps (→ `moon/roadmaps/content_generation.md`):** WD14/Florence-2 captioning, LyCORIS variants, v-pred/ztSNR support, IP-Adapter/ControlNet wiring, FLUX support, AnimateDiff/ToonCrafter video, the guided video→LoRA flow, per-GPU TOML presets, GGUF/FP8 quantised inference.
+- **Gaps (→ `docs/moon/roadmaps/content_generation.md`):** WD14/Florence-2 captioning, LyCORIS variants, v-pred/ztSNR support, IP-Adapter/ControlNet wiring, FLUX support, AnimateDiff/ToonCrafter video, the guided video→LoRA flow, per-GPU TOML presets, GGUF/FP8 quantised inference.
 
 ---
 

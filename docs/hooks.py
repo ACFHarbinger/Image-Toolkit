@@ -1,4 +1,4 @@
-"""MkDocs hooks — symlink moon/ and research/ content into docs/ at build time.
+"""MkDocs hooks — symlink docs/moon/ and research/ content into docs/ at build time.
 
 Called by the `hooks:` key in mkdocs.yml. Creates the docs/roadmaps/,
 docs/research/, and stub API pages that the nav references.
@@ -49,9 +49,9 @@ def on_pre_build(config: dict) -> None:
     SOURCE_TO_DEST[ROOT / "frontend" / "README.md"] = DOCS / "api" / "typescript" / "readme.md"
     SOURCE_TO_DEST[DOCS / "api" / "typescript" / "README.md"] = DOCS / "api" / "typescript" / "readme.md"
 
-    _sync_dir(ROOT / "moon" / "roadmaps", DOCS / "roadmaps")
-    _sync_dir(ROOT / "moon", DOCS, only=["CHANGELOG.md"])
-    _sync_dir(ROOT / "moon", DOCS / "roadmaps", only=["ROADMAP.md"])
+    _sync_dir(DOCS / "moon" / "roadmaps", DOCS / "roadmaps")
+    _sync_dir(DOCS / "moon", DOCS, only=["CHANGELOG.md"])
+    _sync_dir(DOCS / "moon", DOCS / "roadmaps", only=["ROADMAP.md"])
     _sync_dir(ROOT, DOCS, only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(ROOT / "frontend", DOCS / "api" / "typescript", only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(

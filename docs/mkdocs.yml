@@ -185,6 +185,6 @@ nav:
       - Image Stitching Research: research/image_stitching.md
   - Changelog: CHANGELOG.md
 
-# Hooks — symlink moon/ and research/ content into docs/ at build time
+# Hooks — symlink docs/moon/ and research/ content into docs/ at build time
 hooks:
   - hooks.py
