@@ -52,6 +52,7 @@ plugins:
 nav:
   - Home: index.md
   - Architecture: ARCHITECTURE.md
+  - Portable Project Format: project_format.md
   - Development: DEVELOPMENT.md
   - Testing: TESTING.md
   - Dependencies: DEPENDENCIES.md

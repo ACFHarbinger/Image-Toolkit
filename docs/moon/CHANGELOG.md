@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Completed Phase 0 issue #4: added the versioned, storage-neutral project and
+  learning domain model plus atomic JSON persistence. Projects are portable
+  folders with project-local attempts, tutor feedback, and metrics; artwork
+  history is rejected unless explicitly enabled. Autosave defaults to ten
+  bounded recovery manifests, while opt-in cross-project aggregates live in a
+  separate learner profile. Added deterministic privacy-preserving v0→v1
+  migration, format documentation, and failure/recovery coverage.
 - Started Phase 0 issue #3: replaced dynamic `manga`/`manga_gui` aliases with
   installable `cel_shaded_generator`/`cel_shaded_generator_gui` packages in a
   `uv` workspace; moved native-workload coordination out of Image-Toolkit into

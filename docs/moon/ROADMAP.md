@@ -60,8 +60,9 @@ new algorithms.
 - ✅ Make the current GUI an explicit workspace client of the core package.
 - ✅ Run core and headless GUI tests in CI, build both wheels, and smoke-test
   the installed packages and desktop composition in a clean environment.
-- Define a versioned local project/exercise/progress data model, autosave
-  behavior, opt-in artwork retention, and migration policy.
+- ✅ Define a versioned local project/exercise/progress data model, portable
+  project folders, bounded multi-revision autosave, opt-in artwork retention,
+  separate global learner profiles, and deterministic migration policy.
 - Establish representative correctness, latency, memory, and golden-image
   benchmarks before selecting native ports.
 - Root-cause or contain native-library crashes. Global serialization is a
