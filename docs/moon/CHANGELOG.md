@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Krita 5.2.11 Snap omits the entire Python plugin subsystem. Corrected the
   installer to reject Snap paths and target the official AppImage's standard
   Linux resource directory; the Snap files are inert and cannot be enabled.
+  Downloaded the official Krita 5.3.2.1 AppImage, verified its SHA-256 against
+  KDE's published value, confirmed it bundles `pykrita`, Scripter, and the plugin
+  importer, installed a desktop launcher and the plugin's six intended files,
+  and completed a clean startup probe. Interactive enablement and visible-docker
+  confirmation remain.
 - Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
   template README, contributor/agent guidance, documentation landing page,
   development/testing/dependency/troubleshooting/module guides, glossary,

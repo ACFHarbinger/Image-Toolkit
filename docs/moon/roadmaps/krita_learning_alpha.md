@@ -110,8 +110,10 @@ not evidence of pedagogical validity.
 ### A1 — plugin skeleton and local data model
 
 - 🔄 Krita 5.2+ and Python 3.10+ documented for Kubuntu. The inspected Krita
-  5.2.11 Snap omits Python plugin support and is explicitly rejected; live
-  verification must use an official AppImage.
+  5.2.11 Snap omits Python plugin support and is explicitly rejected. The
+  checksum-verified official Krita 5.3.2.1 AppImage contains `pykrita`, Scripter,
+  and the plugin importer; it and the plugin are installed, with interactive
+  enablement and visible-docker verification remaining.
 - ✅ Scoped install/uninstall tooling and privacy-safe plugin self-diagnostics.
 - ✅ Versioned lesson, exercise, rubric, review, and progress schemas with
   atomic catalog persistence, deterministic v0 migration, and future-version
