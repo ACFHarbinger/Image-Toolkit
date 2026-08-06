@@ -37,7 +37,7 @@ desktop editor, but it must earn that expansion with a polished narrow alpha.
 
 | Phase | Outcome | Status |
 | --- | --- | --- |
-| 0 | Truthful, installable standalone foundation | Next |
+| 0 | Truthful, installable standalone foundation | In progress |
 | 1 | Krita anime head-and-face learning alpha | Planned |
 | 2 | Reference-consistent character coloring | Planned |
 | 3 | Anime frame-by-frame animation assistance | Deferred |
@@ -58,8 +58,8 @@ new algorithms.
   `cel_shaded_generator_gui` packages; remove dynamic alias bootstrapping.
 - ✅ Remove imports from `backend.src.*` and the parent `gui.src.*` package.
 - ✅ Make the current GUI an explicit workspace client of the core package.
-- 🔄 Run core and headless GUI tests in CI and build both wheels; clean-wheel
-  installation and launch smoke tests remain to be added.
+- ✅ Run core and headless GUI tests in CI, build both wheels, and smoke-test
+  the installed packages and desktop composition in a clean environment.
 - Define a versioned local project/exercise/progress data model, autosave
   behavior, opt-in artwork retention, and migration policy.
 - Establish representative correctness, latency, memory, and golden-image

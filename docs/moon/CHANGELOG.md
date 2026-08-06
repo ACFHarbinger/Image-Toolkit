@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   package-boundary tests, headless GUI CI execution, wheel builds, and a real
   architecture document. The Image-Toolkit adapter now consumes the public
   namespaces rather than defining the submodule's identity.
+- Completed Phase 0 issue #3's distribution gate: added the installed
+  `cel-shaded-generator` desktop command, extracted a reusable/testable main
+  window composition boundary, and made CI install both wheels into a clean
+  Python 3.11 environment before constructing the full GUI offscreen. The GUI
+  suite now covers the standalone shell with 103 passing tests. Narrowed the
+  CI lint boundary to product source/tests (rather than unrelated imported
+  template tooling) and resolved all existing core and GUI mypy errors, making
+  both declared quality gates executable and green.
 - Replaced the imported manga-feature roadmap with an outcome-based product
   roadmap following the 2026-08-06 product review and owner brainstorm. Added
   focused roadmaps for the Krita anime head-and-face learning alpha, standalone

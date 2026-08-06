@@ -22,6 +22,9 @@ dependencies = [
     "opencv-python-headless>=4.11.0.86",
 ]
 
+[project.scripts]
+cel-shaded-generator = "cel_shaded_generator_gui.app:main"
+
 [project.optional-dependencies]
 dev = [
     "ruff>=0.5.0",

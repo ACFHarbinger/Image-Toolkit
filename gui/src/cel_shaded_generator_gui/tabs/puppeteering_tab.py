@@ -154,8 +154,12 @@ class MangaPuppeteeringTab(QWidget):
         self.chk_paint_mask.setChecked(False)
 
     def _on_mesh_generated(self) -> None:
-        n_vertices = self.editor.get_rest_vertices().shape[0]
-        n_triangles = self.editor.get_triangles().shape[0]
+        vertices = self.editor.get_rest_vertices()
+        triangles = self.editor.get_triangles()
+        if vertices is None or triangles is None:
+            return
+        n_vertices = vertices.shape[0]
+        n_triangles = triangles.shape[0]
         self.status_label.setText(
             f"Mesh generated: {n_vertices} vertices, {n_triangles} triangles. "
             "Drag a vertex to pose it."

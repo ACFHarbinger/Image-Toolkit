@@ -18,24 +18,9 @@ for source_root in (_REPO_ROOT / "src", _REPO_ROOT / "gui" / "src"):
 
 
 def main() -> int:
-    from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
+    from cel_shaded_generator_gui.app import main as run_app
 
-    from cel_shaded_generator_gui.tabs.animation_tab import MangaAnimationTab
-    from cel_shaded_generator_gui.tabs.colorization_tab import MangaColorizationTab
-    from cel_shaded_generator_gui.tabs.puppeteering_tab import MangaPuppeteeringTab
-
-    app = QApplication(sys.argv)
-    tabs = QTabWidget()
-    tabs.addTab(MangaColorizationTab(), "Colorization")
-    tabs.addTab(MangaAnimationTab(), "Animation")
-    tabs.addTab(MangaPuppeteeringTab(), "Puppeteering")
-
-    window = QMainWindow()
-    window.setWindowTitle("Cel-Shaded-Generator")
-    window.setCentralWidget(tabs)
-    window.resize(1400, 900)
-    window.show()
-    return app.exec()
+    return run_app()
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QFileDialog
 DIALOG_OPTS = QFileDialog.Option.DontUseNativeDialog
 
 _QT_NATIVE_EXTS = sorted(
-    fmt.data().decode().lower() for fmt in QImageReader.supportedImageFormats()
+    bytes(fmt.data()).decode().lower() for fmt in QImageReader.supportedImageFormats()
 )
 IMAGE_FILE_DIALOG_FILTER = "Images (" + " ".join(f"*.{ext}" for ext in _QT_NATIVE_EXTS) + ")"
 

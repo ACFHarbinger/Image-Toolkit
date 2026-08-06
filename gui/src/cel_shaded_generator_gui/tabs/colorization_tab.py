@@ -32,7 +32,7 @@ from __future__ import annotations
 from cel_shaded_generator import colorize_reference, colorize_scribble, colorize_scribble_screentone
 from cel_shaded_generator.temporal.quadtree import build_quadtree
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QStandardItemModel
 from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -102,9 +102,11 @@ class MangaColorizationTab(QWidget):
             ]
         )
         # Entries absent from both backend maps are disabled placeholders.
+        mode_model = self.mode_combo.model()
+        assert isinstance(mode_model, QStandardItemModel)
         for idx in range(self.mode_combo.count()):
             if idx not in _MODE_BACKENDS and idx not in _REFERENCE_MODE_BACKENDS:
-                self.mode_combo.model().item(idx).setEnabled(False)
+                mode_model.item(idx).setEnabled(False)
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         toolbar.addWidget(self.mode_combo)
 

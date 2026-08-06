@@ -94,9 +94,9 @@ def generate_mesh(mask: np.ndarray, grid_step: int = 16) -> tuple[np.ndarray, np
     h, w = mask.shape
     ys = np.arange(0, h, grid_step)
     xs = np.arange(0, w, grid_step)
-    grid_y, grid_x = np.meshgrid(ys, xs, indexing="ij")
-    grid_y = grid_y.ravel()
-    grid_x = grid_x.ravel()
+    grid_y_2d, grid_x_2d = np.meshgrid(ys, xs, indexing="ij")
+    grid_y = grid_y_2d.ravel()
+    grid_x = grid_x_2d.ravel()
 
     inside = mask[grid_y, grid_x].astype(bool)
     pts_y = grid_y[inside]
@@ -144,9 +144,9 @@ def _build_arap_laplacian(triangles: np.ndarray, n: int) -> sparse.csr_matrix:
     mesh's edges -- see the module docstring's global-step derivation.
     Each triangle occurrence of an edge (i, j) contributes 1 to L[i,i],
     L[j,j] and -1 to L[i,j], L[j,i]."""
-    rows = []
-    cols = []
-    data = []
+    rows: list[int] = []
+    cols: list[int] = []
+    data: list[float] = []
     diag = np.zeros(n, dtype=np.float64)
 
     for va, vb, vc in triangles:

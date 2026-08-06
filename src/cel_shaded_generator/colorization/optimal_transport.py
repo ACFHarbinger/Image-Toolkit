@@ -230,7 +230,7 @@ def _colorize_reference_impl(
     # with pixel count, so this is what keeps solve time roughly bounded
     # regardless of source resolution (mirrors max_solve_dim in
     # colorization.py / screentone.py).
-    solve_gray = target_u8
+    solve_gray: np.ndarray = target_u8
     if max_solve_dim and max(h, w) > max_solve_dim:
         scale = max_solve_dim / max(h, w)
         solve_gray = cv2.resize(
@@ -239,7 +239,7 @@ def _colorize_reference_impl(
             interpolation=cv2.INTER_AREA,
         )
 
-    ref_u8 = reference_rgb.astype(np.uint8)
+    ref_u8: np.ndarray = reference_rgb.astype(np.uint8)
     rh, rw = ref_u8.shape[:2]
     if max_solve_dim and max(rh, rw) > max_solve_dim:
         rscale = max_solve_dim / max(rh, rw)
@@ -285,7 +285,7 @@ def _colorize_reference_impl(
     target_colors = normalized_plan.T @ ref_colors  # (n_target, 3)
 
     sh, sw = target_labels.shape
-    out_rgb = np.zeros((sh, sw, 3), dtype=np.float64)
+    out_rgb: np.ndarray = np.zeros((sh, sw, 3), dtype=np.float64)
     for label in range(target_colors.shape[0]):
         out_rgb[target_labels == label] = target_colors[label]
 
