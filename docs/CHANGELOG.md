@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S320 — 2026-08-06 (Krita learning-alpha plugin skeleton)
+
+Started Cel-Shaded-Generator A1 issue #9 (`5543bbb`) against the owner's installed Krita 5.2.11 Snap: added a discoverable Python plugin package, right-default dockable lesson shell, English-only offline front-view head-construction placeholder content, manual, and scoped Snap-aware installer/uninstaller that refuses unknown overwrites. Two installer tests verify repeatable, unrelated-file-preserving behavior. The alpha epic #1 and A1 are In Progress.
+
 ## S319 — 2026-08-06 (Cel-Shaded-Generator standalone foundation complete)
 
 Completed Cel-Shaded-Generator Phase 0 and issue #8 (`d274ed0`) by replacing the remaining template-era README, contributor/agent instructions, documentation landing page, development/testing/dependency/troubleshooting/module guides, glossary, Sphinx identity, and placeholder C4 model with truthful standalone-product documentation. The historical polyglot ADR is explicitly superseded. Fixed MkDocs ingesting `docs/website/node_modules`, corrected ADR navigation and out-of-root links, and verified a strict Material/Mkdocstrings build. Documented lint/type commands pass; the roadmap now marks the Krita anime head-and-face learning alpha as Next.
