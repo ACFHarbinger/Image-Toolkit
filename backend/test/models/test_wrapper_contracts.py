@@ -202,14 +202,14 @@ class TestRoMaWrapperLifecycle:
 
     def test_availability_flag_is_bool(self):
         """_ROMA_OK must be a bool regardless of whether romatch is installed."""
-        import animation.models.wrappers.roma_wrapper as _mod
+        import asp_backend.models.wrappers.roma_wrapper as _mod
         assert isinstance(_mod._ROMA_OK, bool)
 
     def test_unavailable_when_romatch_blocked(self):
         """When romatch is blocked, _ROMA_OK must be False after reload."""
         from importlib import reload
         with patch.dict(sys.modules, {"romatch": None}):
-            import animation.models.wrappers.roma_wrapper as _mod
+            import asp_backend.models.wrappers.roma_wrapper as _mod
             reload(_mod)
             assert _mod._ROMA_OK is False
 
@@ -219,7 +219,7 @@ class TestALIKEDWrapperLifecycle:
 
     def test_availability_flag_is_bool(self):
         """_KORNIA_OK must be a bool regardless of whether kornia is installed."""
-        import animation.models.wrappers.aliked_lg_wrapper as _mod
+        import asp_backend.models.wrappers.aliked_lg_wrapper as _mod
         assert isinstance(_mod._KORNIA_OK, bool)
 
     def test_unavailable_when_kornia_blocked(self):
@@ -227,7 +227,7 @@ class TestALIKEDWrapperLifecycle:
         from importlib import reload
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub, "kornia": None, "kornia.feature": None}):
-            import animation.models.wrappers.aliked_lg_wrapper as _mod
+            import asp_backend.models.wrappers.aliked_lg_wrapper as _mod
             # Force reload so the try/except runs under the blocked kornia
             reload(_mod)
             assert _mod._KORNIA_OK is False

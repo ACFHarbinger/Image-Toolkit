@@ -1,4 +1,4 @@
-from animation.gui.tabs.animation import StitchTab, StitchTabBackend  # noqa: F401
+from asp_gui.tabs import StitchTab, StitchTabBackend  # noqa: F401
 from manga.gui.tabs.manga import (  # noqa: F401
     MangaAnimationTab,
     MangaColorizationTab,

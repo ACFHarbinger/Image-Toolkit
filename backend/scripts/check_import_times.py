@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """§3.14B — Module import-time regression gate.
 
-Measures the wall-clock import time of every ``animation.*`` module
+Measures the wall-clock import time of every ``asp_backend.*`` module
 and flags any that exceed SLOW_IMPORT_THRESHOLD seconds.
 
 Usage
@@ -44,20 +44,20 @@ SLOW_IMPORT_THRESHOLD = (
 
 # All animation modules we track.  Add new modules here when they are created.
 ANIM_MODULES: List[str] = [
-    "animation.alignment.bundle_adjust",
-    "animation.alignment.canvas",
-    "animation.rendering.compositing",
-    "animation.core.config",
-    "animation.alignment.ecc",
-    "animation.alignment.fg_register",
-    "animation.ingestion.frame_selection",
-    "animation.alignment.matching",
-    "animation.ingestion.masking",
-    "animation.core.pipeline",
-    "animation.rendering.photometric",
-    "animation.rendering.rendering",
-    "animation.core.validation",
-    "animation.ingestion.bg_complete",
+    "asp_backend.alignment.bundle_adjust",
+    "asp_backend.alignment.canvas",
+    "asp_backend.rendering.compositing",
+    "asp_backend.core.config",
+    "asp_backend.alignment.ecc",
+    "asp_backend.alignment.fg_register",
+    "asp_backend.ingestion.frame_selection",
+    "asp_backend.alignment.matching",
+    "asp_backend.ingestion.masking",
+    "asp_backend.core.pipeline",
+    "asp_backend.rendering.photometric",
+    "asp_backend.rendering.rendering",
+    "asp_backend.core.validation",
+    "asp_backend.ingestion.bg_complete",
 ]
 
 # §3.15C — Core modules that were audited for heavy-import isolation.

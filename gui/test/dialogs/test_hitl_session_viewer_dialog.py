@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from animation.gui.elements.animation.stitch_tab.dialog.hitl_session_viewer_dialog import (
+from asp_gui.elements.stitch_tab.dialog.hitl_session_viewer_dialog import (
     HITLSessionViewerDialog,
     _format_session_info,
     _list_sessions,

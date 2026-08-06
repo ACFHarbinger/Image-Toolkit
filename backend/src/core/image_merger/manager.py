@@ -130,7 +130,7 @@ class ImageMerger(
             params["renderer"] = params["compositor"]
 
         # 5. Initialize and run the pipeline with full parameter propagation
-        from animation import AnimeStitchPipeline  # §3.15A lazy
+        from asp_backend import AnimeStitchPipeline  # §3.15A lazy
 
         pipeline = AnimeStitchPipeline(**params)
 
