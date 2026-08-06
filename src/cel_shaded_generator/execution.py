@@ -146,6 +146,15 @@ class IsolatedRunner:
         with self.diagnostics_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, sort_keys=True) + "\n")
 
+    @staticmethod
+    def _stop(process: mp.Process) -> None:
+        """Terminate a worker, escalating to SIGKILL after a bounded grace period."""
+        process.terminate()
+        process.join(0.5)
+        if process.is_alive():
+            process.kill()
+            process.join(0.5)
+
     def run(self, request: JobRequest, cancel: Event | None = None) -> Any:
         """Execute one request, terminating its process on cancel or timeout."""
         parent, child = self._context.Pipe(duplex=False)
@@ -158,13 +167,11 @@ class IsolatedRunner:
             while process.is_alive():
                 elapsed = time.monotonic() - started
                 if cancel is not None and cancel.is_set():
-                    process.terminate()
-                    process.join()
+                    self._stop(process)
                     self._log(request, "cancelled", elapsed)
                     raise JobCancelled(f"{request.operation.value} was cancelled")
                 if elapsed >= timeout:
-                    process.terminate()
-                    process.join()
+                    self._stop(process)
                     self._log(request, "timeout", elapsed)
                     raise JobTimedOut(f"{request.operation.value} exceeded {timeout:.2f}s")
                 process.join(0.01)
@@ -180,7 +187,7 @@ class IsolatedRunner:
                 if ok:
                     self._log(request, "ok", elapsed)
                     return payload
-                self._log(request, "error", elapsed, payload["type"])
+                self._log(request, "error", elapsed, payload["traceback"])
                 raise WorkerFailure(f"{payload['type']}: {payload['message']}")
             self._log(request, "crashed", elapsed, f"exit code {process.exitcode}")
             raise WorkerCrashed(
