@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S317 — 2026-08-06 (Persistent isolated ARAP interaction)
+
+Cel-Shaded-Generator added a lazily started, restartable persistent worker and routed Qt ARAP mesh dragging through it (`0dd8381`, `fbaa525`). Healthy requests reuse the process; crash or timeout discards it and the next request starts a replacement. The anonymized CPU baseline measured ~311 ms cold startup, then 8.78 ms isolated versus 8.75 ms direct (~0.04 ms steady-state overhead), validating persistence for interactive dragging while retaining fresh workers for batch work. Core coverage is 129 passing tests and GUI coverage remains 103; batch Qt routing keeps issue #6 In Progress.
+
 ## S316 — 2026-08-06 (Cel-Shaded-Generator native-worker containment core)
 
 Started Cel-Shaded-Generator Phase 0 crash containment (`19e7cf3`, `ce6d9cf`, `d405c7f`, `5077e57`, `57964e7`): a stable GUI-independent request contract now executes native-heavy jobs in fresh spawned processes with hard-crash/EOF detection, termination on adaptive user-capped timeout or cancellation, and automatic recovery on the next request. Optional local JSONL diagnostics are allowlisted to operation, array dimensions, timing, outcome, and caught stack trace, excluding artwork pixels and request filenames. Timeout/cancellation cleanup escalates from SIGTERM to a bounded forced kill so hostile native code cannot hang the host. Diagnostics default to the XDG state directory with seven-day or 20 MiB rotation and a five-minute timeout cap. Seven containment tests bring the core suite to 125 passing; GUI routing and process-overhead measurement remain, so issue #6 stays In Progress.
