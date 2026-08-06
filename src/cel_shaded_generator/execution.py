@@ -10,7 +10,7 @@ import traceback
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from threading import Event
+from threading import Event, Lock
 from typing import Any, Protocol
 
 import numpy as np
@@ -129,6 +129,29 @@ def _worker(connection: Any, request: JobRequest) -> None:
         connection.close()
 
 
+def _persistent_worker(connection: Any) -> None:
+    try:
+        while True:
+            request = connection.recv()
+            if request is None:
+                return
+            try:
+                connection.send((True, _dispatch(request)))
+            except BaseException as error:
+                connection.send(
+                    (
+                        False,
+                        {
+                            "type": type(error).__name__,
+                            "message": str(error),
+                            "traceback": traceback.format_exc(),
+                        },
+                    )
+                )
+    finally:
+        connection.close()
+
+
 def _dimensions(request: JobRequest) -> dict[str, list[int]]:
     return {
         name: list(value.shape)
@@ -235,3 +258,91 @@ class IsolatedRunner:
             )
         finally:
             parent.close()
+
+
+class PersistentIsolatedRunner(IsolatedRunner):
+    """Reuse one isolated worker for latency-sensitive serial operations."""
+
+    def __init__(self, **kwargs: Any):
+        super().__init__(**kwargs)
+        self._connection: Any | None = None
+        self._process: Any | None = None
+        self._run_lock = Lock()
+
+    @property
+    def worker_pid(self) -> int | None:
+        """Return the current worker PID for diagnostics and lifecycle tests."""
+        return self._process.pid if self._process is not None else None
+
+    def _start(self) -> None:
+        if self._process is not None and self._process.is_alive():
+            return
+        parent, child = self._context.Pipe(duplex=True)
+        process = self._context.Process(target=_persistent_worker, args=(child,), daemon=True)
+        process.start()
+        child.close()
+        self._connection = parent
+        self._process = process
+
+    def _discard(self, stop: bool = False) -> None:
+        if stop and self._process is not None and self._process.is_alive():
+            self._stop(self._process)
+        if self._connection is not None:
+            self._connection.close()
+        self._connection = None
+        self._process = None
+
+    def run(self, request: JobRequest, cancel: Event | None = None) -> Any:
+        """Run one serial request, restarting the persistent worker after failure."""
+        with self._run_lock:
+            self._start()
+            connection, process = self._connection, self._process
+            assert connection is not None and process is not None
+            started = time.monotonic()
+            connection.send(request)
+            timeout = adaptive_timeout(request, self.maximum_timeout_seconds)
+            while True:
+                elapsed = time.monotonic() - started
+                if connection.poll(0.01):
+                    try:
+                        ok, payload = connection.recv()
+                    except EOFError:
+                        self._discard()
+                        self._log(request, "crashed", elapsed, f"exit code {process.exitcode}")
+                        raise WorkerCrashed(
+                            f"{request.operation.value} worker exited with code {process.exitcode}"
+                        ) from None
+                    if ok:
+                        self._log(request, "ok", elapsed)
+                        return payload
+                    self._log(request, "error", elapsed, payload["traceback"])
+                    raise WorkerFailure(f"{payload['type']}: {payload['message']}")
+                if not process.is_alive():
+                    self._discard()
+                    self._log(request, "crashed", elapsed, f"exit code {process.exitcode}")
+                    raise WorkerCrashed(
+                        f"{request.operation.value} worker exited with code {process.exitcode}"
+                    )
+                if cancel is not None and cancel.is_set():
+                    self._discard(stop=True)
+                    self._log(request, "cancelled", elapsed)
+                    raise JobCancelled(f"{request.operation.value} was cancelled")
+                if elapsed >= timeout:
+                    self._discard(stop=True)
+                    self._log(request, "timeout", elapsed)
+                    raise JobTimedOut(f"{request.operation.value} exceeded {timeout:.2f}s")
+
+    def close(self) -> None:
+        """Gracefully stop the persistent worker."""
+        with self._run_lock:
+            if self._connection is not None and self._process is not None:
+                if self._process.is_alive():
+                    self._connection.send(None)
+                    self._process.join(0.5)
+                self._discard(stop=True)
+
+    def __enter__(self) -> PersistentIsolatedRunner:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()

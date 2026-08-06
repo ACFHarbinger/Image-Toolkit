@@ -14,6 +14,7 @@ from cel_shaded_generator.execution import (
     JobRequest,
     JobTimedOut,
     Operation,
+    PersistentIsolatedRunner,
     WorkerCrashed,
     adaptive_timeout,
     default_diagnostics_path,
@@ -85,3 +86,29 @@ def test_diagnostics_default_to_xdg_state_and_rotate_by_size(tmp_path, monkeypat
 
 def test_diagnostics_can_be_disabled():
     assert IsolatedRunner(diagnostics_enabled=False).diagnostics_path is None
+
+
+def test_persistent_runner_reuses_healthy_worker_and_restarts_after_crash():
+    runner = PersistentIsolatedRunner(diagnostics_enabled=False, maximum_timeout_seconds=5)
+    try:
+        assert runner.run(JobRequest(Operation.HEALTH_CHECK)) == "ok"
+        first_pid = runner.worker_pid
+        assert runner.run(JobRequest(Operation.HEALTH_CHECK)) == "ok"
+        assert runner.worker_pid == first_pid
+
+        with pytest.raises(WorkerCrashed):
+            runner.run(JobRequest(Operation._TEST_CRASH))
+        assert runner.worker_pid is None
+
+        assert runner.run(JobRequest(Operation.HEALTH_CHECK)) == "ok"
+        assert runner.worker_pid != first_pid
+    finally:
+        runner.close()
+
+
+def test_persistent_runner_timeout_discards_worker():
+    runner = PersistentIsolatedRunner(diagnostics_enabled=False, maximum_timeout_seconds=0.05)
+    with pytest.raises(JobTimedOut):
+        runner.run(JobRequest(Operation._TEST_HANG))
+    assert runner.worker_pid is None
+    runner.close()

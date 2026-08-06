@@ -26,6 +26,9 @@ from .execution import (
     Operation as Operation,
 )
 from .execution import (
+    PersistentIsolatedRunner as PersistentIsolatedRunner,
+)
+from .execution import (
     WorkerCrashed as WorkerCrashed,
 )
 from .features.gabor import gabor_feature_bank as gabor_feature_bank
@@ -58,5 +61,6 @@ __all__ = [
     "JobRequest",
     "JobTimedOut",
     "Operation",
+    "PersistentIsolatedRunner",
     "WorkerCrashed",
 ]
