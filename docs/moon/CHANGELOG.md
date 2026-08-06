@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Started alpha A1 issue #9: added a Krita 5.2/Snap plugin skeleton with a
   right-default lesson docker, packaged English-only offline placeholder lesson,
   and scoped install/uninstall tool that refuses unknown overwrites.
+  Added core versioned contracts for lessons, exercises, rubrics, structured
+  review evidence, redlines, preview suggestions, artist feedback, independent
+  privacy settings, automation level/shortcuts, and an offline model registry
+  with built-in/community/unverified trust labels.
 - Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
   template README, contributor/agent guidance, documentation landing page,
   development/testing/dependency/troubleshooting/module guides, glossary,
