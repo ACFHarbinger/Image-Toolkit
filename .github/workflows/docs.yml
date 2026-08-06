@@ -117,6 +117,30 @@ jobs:
         run: cmake --build build --target base_tests -j$(nproc)
         # Confirms the C++ sources compile cleanly; doc-level API drift is caught by parity tests.
 
+  # ── Job 2b: Vue documentation website (type-check + build) ──────────────
+  docs-website:
+    name: Vue website (docs/website) type-check + build
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: docs/website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs/website
+        run: npm ci
+
+      - name: Type-check + build
+        working-directory: docs/website
+        run: npm run build
+
   # ── Job 3: Markdown link check ───────────────────────────────────────────
   docs-links:
     name: Markdown link check (lychee)
@@ -540,6 +564,28 @@ jobs:
         env:
           PYTHONPATH: .
 
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: docs/website/package-lock.json
+
+      - name: Install Vue website dependencies
+        working-directory: docs/website
+        run: npm ci
+
+      - name: Build Vue documentation website
+        working-directory: docs/website
+        run: npm run build
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}/pr-preview/${{ github.event.pull_request.number }}/app/
+
+      - name: Fold Vue website into the MkDocs site output
+        run: |
+          mkdir -p site/app
+          cp -r docs/website/dist/. site/app/
+
       - name: Deploy PR preview to gh-pages/pr-preview/{number}/
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -585,7 +631,7 @@ jobs:
   # ── Job 10: Deploy to GitHub Pages (main branch push only) ─────────────
   deploy:
     name: Deploy to GitHub Pages
-    needs: [docs-python, docs-cpp, docs-links]
+    needs: [docs-python, docs-cpp, docs-website, docs-links]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
@@ -629,6 +675,28 @@ jobs:
         run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose
         env:
           PYTHONPATH: .
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: docs/website/package-lock.json
+
+      - name: Install Vue website dependencies
+        working-directory: docs/website
+        run: npm ci
+
+      - name: Build Vue documentation website
+        working-directory: docs/website
+        run: npm run build
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}/app/
+
+      - name: Fold Vue website into the MkDocs site output
+        run: |
+          mkdir -p site/app
+          cp -r docs/website/dist/. site/app/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

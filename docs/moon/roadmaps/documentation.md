@@ -501,6 +501,16 @@ Use the GitHub repository wiki for all documentation.
 
 ---
 
+## ✅ §6.13 Interactive Vue Documentation Site (docs/website/) {: #613-interactive-vue-documentation-site }
+
+**Pain point:** §6.11's MkDocs Material portal is comprehensive but static-generator-shaped — full rebuild per change, server-rendered search index, no client-side interactivity beyond what Material's JS bundle provides.
+
+**Shipped as:** `docs/website/` — a Vue 3 + Vite single-page site that renders every `docs/**/*.md` and `docs/**/*.ipynb` directly, no separate content pipeline. `scripts/generate-nav.mjs` parses `docs/mkdocs.yml`'s `nav:` tree at build time (same source of truth the Material portal uses, so the two never drift), producing the sidebar and a client-side search index (⌘K palette). `useMarkdown.ts` renders via `markdown-it` with syntax highlighting and live Mermaid diagrams; a lightweight notebook renderer handles `.ipynb` markdown/code cells and static outputs. Ships light/dark theme, collapsible sections, a per-page table of contents, and an "Edit on GitHub" link.
+
+Deployed by `.github/workflows/docs.yml`'s `deploy`/`preview` jobs (mirrored on Forgejo/Gitea): built and folded into `site/app/` before the existing `gh-pages` publish step, so it ships in the same atomic deploy as the MkDocs portal at `/app/`, with a dedicated `docs-website` CI job type-checking and building it on every push/PR independent of the deploy gate.
+
+---
+
 ## Domain D — Implementation Best Practices & Automation {: #domain-d--implementation-best-practices--automation }
 
 > Automation is what makes docs-as-code sustainable. Without it, documentation drifts within weeks of the initial effort.

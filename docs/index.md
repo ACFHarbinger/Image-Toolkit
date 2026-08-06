@@ -2,6 +2,8 @@
 
 **Image-Toolkit** is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV, C++/pybind11) with robust web automation (Selenium) and cross-platform accessibility.
 
+Prefer a faster, searchable interface? The [Vue documentation site](app/) (`docs/website/`) renders every page here with instant search (⌘K), a collapsible sidebar, dark mode, and live Mermaid diagrams.
+
 ---
 
 ## What's here
