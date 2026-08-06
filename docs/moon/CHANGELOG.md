@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Started Phase 0 issue #6: introduced a host-neutral `JobRequest`/`Operation`
+  contract and `IsolatedRunner`, spawning a fresh process for each native-heavy
+  job. Hard exits, hangs, cancellation, ordinary exceptions, and pipe EOF are
+  converted into recoverable host-side failures; the next worker starts cleanly.
+  Adaptive timeouts are capped by user policy, and optional local JSONL
+  diagnostics contain only operation, array dimensions, timing, outcome, and
+  error type—never pixels or filenames. GUI routing and overhead measurements
+  remain before this issue is complete.
 - Completed Phase 0 issue #5's current-engine baseline: deterministic synthetic
   fixtures and directly committed golden arrays now cover scribble/reference
   colorization, temporal propagation, and ARAP. Added documented cross-platform

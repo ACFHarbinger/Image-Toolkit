@@ -13,6 +13,14 @@ from .colorization.screentone import (
 from .features.gabor import gabor_feature_bank as gabor_feature_bank
 from .features.preference_log import log_preference as log_preference
 from .features.preference_log import read_preferences as read_preferences
+from .execution import (
+    IsolatedRunner as IsolatedRunner,
+    JobCancelled as JobCancelled,
+    JobRequest as JobRequest,
+    JobTimedOut as JobTimedOut,
+    Operation as Operation,
+    WorkerCrashed as WorkerCrashed,
+)
 from .rigging.arap import arap_deform as arap_deform
 from .rigging.arap import generate_mesh as generate_mesh
 from .temporal.quadtree import build_quadtree as build_quadtree
@@ -35,4 +43,10 @@ __all__ = [
     "colorize_region_incremental",
     "generate_mesh",
     "arap_deform",
+    "IsolatedRunner",
+    "JobCancelled",
+    "JobRequest",
+    "JobTimedOut",
+    "Operation",
+    "WorkerCrashed",
 ]

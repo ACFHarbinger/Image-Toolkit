@@ -67,8 +67,10 @@ new algorithms.
   anonymized latency/Python-memory baselines, and a separate manual benchmark
   workflow. Add real-art perceptual fixtures and native/GPU memory capture as
   their respective workloads land; current data does not justify a C++ port.
-- Root-cause or contain native-library crashes. Global serialization is a
-  temporary safety measure, not a permanent engine architecture.
+- 🔄 Contain native-library crashes behind spawned, killable workers with
+  adaptive user-capped timeouts, cancellation, restart-on-next-job behavior,
+  and metadata-only local diagnostics. Core boundary complete; GUI/Krita
+  routing and measured overhead remain before removing the compatibility lock.
 
 **Exit gate:** a new Kubuntu environment can install, launch, and exercise the
 core without an Image-Toolkit checkout or undocumented imports.
