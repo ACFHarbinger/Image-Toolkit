@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S322 — 2026-08-07 (Live Krita Snap plugin installation)
+
+Installed the Cel-Shaded-Generator A1 plugin into the owner's live Krita 5.2.11 Snap user directory using the scoped installer. Exact-file verification caught test-generated Python cache artifacts in the first installation; Cel-Shaded-Generator `58343c0` now excludes `__pycache__`, `.pyc`, and `.pyo`, adds regression coverage, and was used to cleanly uninstall/reinstall the live plugin. Six adapter tests pass and the installed package contains only its five intended source/content files. Krita restart, Plugin Manager enablement, and visible-docker confirmation remain for the owner-facing discovery check.
+
 ## S321 — 2026-08-07 (Krita Snap diagnostics and atomic tutor catalog)
 
 Advanced Cel-Shaded-Generator A1 issue #9 (`c6dc188`, `2278222`): the Krita docker now reports offline compatibility for Krita/Python versions, packaged content, and standalone-core visibility, with documented install/enable/uninstall steps verified against Krita 5.2.11 Snap. Added atomic persistence for versioned lessons, exercises, rubrics, privacy/automation settings, and the trust-labeled local model registry, including deterministic privacy-preserving v0 migration and future-version rejection. Full verification: 142 core and 103 GUI tests; Ruff and mypy clean. A1 remains In Progress for model-package validation and a live-Krita installation check.
