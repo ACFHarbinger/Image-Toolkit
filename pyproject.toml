@@ -24,8 +24,6 @@ dependencies = [
     "scipy>=1.16.3",
     "scikit-image>=0.26.0", # SLIC superpixel segmentation for reference-based colorization
     "PyMaxflow>=1.3.2", # Boykov-Kolmogorov max-flow/min-cut for temporal graph-cut coherence
-    # GUI
-    "pyside6>=6.10.0",
 ]
 
 [project.optional-dependencies]

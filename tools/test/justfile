@@ -1,8 +1,11 @@
-# tools/test — run the test suite.
+# tools/test — run the test suites.
 
 set shell := ["bash", "-c"]
 
-all: python
+all: src gui
 
-python:
+src:
     uv run pytest test -v
+
+gui:
+    cd gui && uv run pytest test -v

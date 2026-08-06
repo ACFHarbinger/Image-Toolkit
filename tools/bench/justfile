@@ -1,8 +1,6 @@
-# tools/bench — run benchmarks.
+# tools/bench — no benchmark suite yet.
 
 set shell := ["bash", "-c"]
 
-all: python
-
-python:
-    uv run pytest benchmark --benchmark-only
+all:
+    @echo "No benchmark suite defined yet for Cel-Shaded-Generator."

@@ -2,7 +2,10 @@
 
 set shell := ["bash", "-c"]
 
-all: python
+all: src gui
 
-python:
+src:
     uv run ruff check . && uv run ruff format --check .
+
+gui:
+    cd gui && uv run ruff check . && uv run ruff format --check .

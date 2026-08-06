@@ -2,10 +2,11 @@
 
 set shell := ["bash", "-c"]
 
-# Set up the dev environment
+# Set up the dev environments
 setup:
     @echo "Setting up dev environment..."
     uv sync --all-extras --dev
+    cd gui && uv sync --all-extras --dev
     pip install pre-commit || true
     pre-commit install --install-hooks || echo "pre-commit not available"
     @echo "Setup complete. Run 'just test' to verify."
@@ -14,6 +15,7 @@ setup:
 update:
     @echo "Updating dependencies..."
     uv sync --upgrade
+    cd gui && uv sync --upgrade
 
 # Run pre-commit hooks manually
 pre-commit:
@@ -22,3 +24,4 @@ pre-commit:
 # Clean build artifacts
 clean:
     rm -rf .pytest_cache .ruff_cache .mypy_cache **/__pycache__
+    rm -rf gui/.pytest_cache gui/.ruff_cache gui/.mypy_cache gui/**/__pycache__

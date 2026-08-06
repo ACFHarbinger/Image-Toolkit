@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-test-python:
+  lint-test-src:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,3 +25,15 @@ jobs:
         with:
           files: coverage.xml
           fail_ci_if_error: false
+
+  lint-test-gui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --group dev
+        working-directory: gui
+      - run: uv run ruff check .
+        working-directory: gui
+      - run: uv run mypy src
+        working-directory: gui

@@ -1,8 +1,11 @@
-# tools/build — build the Python package.
+# tools/build — build the Python packages.
 
 set shell := ["bash", "-c"]
 
-all: python
+all: src gui
 
-python:
+src:
     uv build
+
+gui:
+    cd gui && uv build

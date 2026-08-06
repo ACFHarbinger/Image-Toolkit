@@ -40,9 +40,9 @@ repos:
     rev: v1.10.1
     hooks:
       - id: mypy
-        name: mypy (src/)
+        name: mypy (src/, gui/src/)
         args: [--ignore-missing-imports, --no-error-summary]
-        files: ^src/
+        files: ^(src|gui/src)/
 
   # ── Markdown: link checker ───────────────────────────────────────────────
   - repo: https://github.com/lycheeverse/lychee
