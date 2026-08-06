@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Documented the verified Krita 5.2.11 Snap install/enable/uninstall workflow and
   explicitly requires A2 to use a real local transport instead of `sys.path`
   injection across Snap confinement.
+  Added atomic learning-catalog persistence for lessons, exercises, rubrics,
+  privacy/automation settings, and trust-labeled local models, with deterministic
+  privacy-preserving v0 migration and unsupported-future-version rejection.
 - Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
   template README, contributor/agent guidance, documentation landing page,
   development/testing/dependency/troubleshooting/module guides, glossary,

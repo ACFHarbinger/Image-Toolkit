@@ -7,6 +7,7 @@ from .model import (
     Evidence,
     EvidenceSource,
     Exercise,
+    LearningCatalog,
     Lesson,
     LocalModel,
     ModelRegistry,
@@ -18,6 +19,7 @@ from .model import (
     Suggestion,
     TutorSettings,
 )
+from .storage import load_catalog, save_catalog
 
 __all__ = [
     "LEARNING_SCHEMA_VERSION",
@@ -27,6 +29,7 @@ __all__ = [
     "EvidenceSource",
     "Exercise",
     "Lesson",
+    "LearningCatalog",
     "LocalModel",
     "ModelRegistry",
     "ModelTrust",
@@ -36,4 +39,6 @@ __all__ = [
     "RubricDimension",
     "Suggestion",
     "TutorSettings",
+    "load_catalog",
+    "save_catalog",
 ]

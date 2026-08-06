@@ -112,11 +112,12 @@ not evidence of pedagogical validity.
 - ✅ Krita 5.2+ and Python 3.10+ documented for Kubuntu, initially verified
   against the owner's Krita 5.2.11 Snap.
 - ✅ Scoped install/uninstall tooling and privacy-safe plugin self-diagnostics.
-- 🔄 Versioned lesson, exercise, rubric, review, and progress schemas: core
-  contracts exist; persistence/migration fixtures remain.
+- ✅ Versioned lesson, exercise, rubric, review, and progress schemas with
+  atomic catalog persistence, deterministic v0 migration, and future-version
+  rejection.
 - ✅ Opt-in settings contracts for progress, artwork retention, and model use.
-- ✅ Local model registry contract with built-in/community/unverified labels;
-  filesystem persistence and content validation remain.
+- 🔄 Local model registry with built-in/community/unverified labels and atomic
+  persistence; model-package content validation remains.
 
 ### A2 — lesson and overlay vertical slice
 

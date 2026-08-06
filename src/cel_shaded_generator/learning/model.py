@@ -41,6 +41,7 @@ class Rubric:
     id: str
     version: str
     dimensions: list[RubricDimension]
+    schema_version: int = LEARNING_SCHEMA_VERSION
 
 
 @dataclass(slots=True)
@@ -52,6 +53,7 @@ class Exercise:
     title: str
     instructions: list[str]
     completion_criteria: list[str]
+    schema_version: int = LEARNING_SCHEMA_VERSION
 
 
 @dataclass(slots=True)
@@ -183,3 +185,65 @@ class ModelRegistry:
         if any(item.id == model.id and item.version == model.version for item in self.models):
             raise ValueError(f"model already registered: {model.id}@{model.version}")
         self.models.append(model)
+
+
+@dataclass(slots=True)
+class LearningCatalog:
+    """Persistable local teaching content and user-controlled settings."""
+
+    lessons: list[Lesson] = field(default_factory=list)
+    exercises: list[Exercise] = field(default_factory=list)
+    rubrics: list[Rubric] = field(default_factory=list)
+    settings: TutorSettings = field(default_factory=TutorSettings)
+    model_registry: ModelRegistry = field(default_factory=ModelRegistry)
+    schema_version: int = LEARNING_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        if self.schema_version != LEARNING_SCHEMA_VERSION:
+            raise ValueError(f"unsupported learning schema version: {self.schema_version}")
+        for lesson in self.lessons:
+            lesson.validate()
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> LearningCatalog:
+        version = payload.get("schema_version", 0)
+        if version == 0:
+            payload = payload | {"schema_version": 1, "model_registry": {"models": []}}
+        elif version != LEARNING_SCHEMA_VERSION:
+            raise ValueError(f"unsupported learning schema version: {version}")
+        return cls(
+            lessons=[Lesson.from_dict(item) for item in payload.get("lessons", [])],
+            exercises=[Exercise(**item) for item in payload.get("exercises", [])],
+            rubrics=[
+                Rubric(
+                    **(
+                        item
+                        | {
+                            "dimensions": [
+                                RubricDimension(**dimension)
+                                for dimension in item.get("dimensions", [])
+                            ]
+                        }
+                    )
+                )
+                for item in payload.get("rubrics", [])
+            ],
+            settings=TutorSettings(
+                **(
+                    payload.get("settings", {})
+                    | {
+                        "automation_level": AutomationLevel(
+                            payload.get("settings", {}).get("automation_level", "suggest")
+                        )
+                    }
+                )
+            ),
+            model_registry=ModelRegistry(
+                [
+                    LocalModel(**(item | {"trust": ModelTrust(item.get("trust", "unverified"))}))
+                    for item in payload.get("model_registry", {}).get("models", [])
+                ]
+            ),
+            schema_version=LEARNING_SCHEMA_VERSION,
+        )
