@@ -46,19 +46,12 @@ class TestAnimationColorizeWorker:
         worker.finished_ok.connect(lambda arr: received.append(arr))
 
         fake_result = np.zeros((3, 10, 10, 3), dtype=np.uint8)
-        with (
-            patch(
-                "cel_shaded_generator_gui.helpers.animation_worker.colorize_scribble_sequence",
-                return_value=fake_result,
-            ) as mock_seq,
-            patch(
-                "cel_shaded_generator_gui.helpers.animation_worker.graph_cut_temporal_refine"
-            ) as mock_refine,
-        ):
+        with patch("cel_shaded_generator_gui.helpers.animation_worker.IsolatedRunner") as cls:
+            cls.return_value.run.return_value = fake_result
             worker.run()
 
-        mock_seq.assert_called_once()
-        mock_refine.assert_not_called()
+        request = cls.return_value.run.call_args.args[0]
+        assert request.options["refine"] is False
         assert len(received) == 1
         assert received[0] is fake_result
 
@@ -68,22 +61,13 @@ class TestAnimationColorizeWorker:
         received = []
         worker.finished_ok.connect(lambda arr: received.append(arr))
 
-        seq_result = np.zeros((3, 10, 10, 3), dtype=np.uint8)
         refined_result = np.ones((3, 10, 10, 3), dtype=np.uint8)
-        with (
-            patch(
-                "cel_shaded_generator_gui.helpers.animation_worker.colorize_scribble_sequence",
-                return_value=seq_result,
-            ) as mock_seq,
-            patch(
-                "cel_shaded_generator_gui.helpers.animation_worker.graph_cut_temporal_refine",
-                return_value=refined_result,
-            ) as mock_refine,
-        ):
+        with patch("cel_shaded_generator_gui.helpers.animation_worker.IsolatedRunner") as cls:
+            cls.return_value.run.return_value = refined_result
             worker.run()
 
-        mock_seq.assert_called_once()
-        mock_refine.assert_called_once_with(gray, seq_result)
+        request = cls.return_value.run.call_args.args[0]
+        assert request.options["refine"] is True
         assert len(received) == 1
         assert np.array_equal(received[0], refined_result)
 
@@ -93,10 +77,8 @@ class TestAnimationColorizeWorker:
         errors = []
         worker.error.connect(lambda msg: errors.append(msg))
 
-        with patch(
-            "cel_shaded_generator_gui.helpers.animation_worker.colorize_scribble_sequence",
-            side_effect=ValueError("boom"),
-        ):
+        with patch("cel_shaded_generator_gui.helpers.animation_worker.IsolatedRunner") as cls:
+            cls.return_value.run.side_effect = ValueError("boom")
             worker.run()
 
         assert errors == ["boom"]

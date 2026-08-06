@@ -29,8 +29,10 @@ class Operation(StrEnum):
     """Stable operation identifiers shared by desktop and plugin hosts."""
 
     SCRIBBLE_COLORIZE = "scribble_colorize"
+    SCREENTONE_COLORIZE = "screentone_colorize"
     REFERENCE_COLORIZE = "reference_colorize"
     TEMPORAL_COLORIZE = "temporal_colorize"
+    INCREMENTAL_COLORIZE = "incremental_colorize"
     ARAP_DEFORM = "arap_deform"
     HEALTH_CHECK = "health_check"
     _TEST_CRASH = "_test_crash"
@@ -79,6 +81,7 @@ def adaptive_timeout(request: JobRequest, maximum_seconds: float) -> float:
     )
     base = {
         Operation.SCRIBBLE_COLORIZE: 5.0,
+        Operation.SCREENTONE_COLORIZE: 8.0,
         Operation.REFERENCE_COLORIZE: 8.0,
         Operation.TEMPORAL_COLORIZE: 15.0,
         Operation.ARAP_DEFORM: 5.0,
@@ -91,15 +94,28 @@ def _dispatch(request: JobRequest) -> Any:
         arap_deform,
         colorize_reference,
         colorize_scribble,
+        colorize_scribble_screentone,
         colorize_scribble_sequence,
+        graph_cut_temporal_refine,
     )
+    from cel_shaded_generator.temporal.quadtree import colorize_region_incremental
 
     if request.operation == Operation.SCRIBBLE_COLORIZE:
         return colorize_scribble(**request.inputs, **request.options)
+    if request.operation == Operation.SCREENTONE_COLORIZE:
+        return colorize_scribble_screentone(**request.inputs, **request.options)
     if request.operation == Operation.REFERENCE_COLORIZE:
         return colorize_reference(**request.inputs, **request.options)
     if request.operation == Operation.TEMPORAL_COLORIZE:
-        return colorize_scribble_sequence(**request.inputs, **request.options)
+        refine = request.options.get("refine", False)
+        options = {key: value for key, value in request.options.items() if key != "refine"}
+        result = colorize_scribble_sequence(**request.inputs, **options)
+        return graph_cut_temporal_refine(request.inputs["gray_stack"], result) if refine else result
+    if request.operation == Operation.INCREMENTAL_COLORIZE:
+        mode = request.options.get("colorize_mode", "scribble")
+        options = {key: value for key, value in request.options.items() if key != "colorize_mode"}
+        colorize_fn = colorize_scribble_screentone if mode == "screentone" else colorize_scribble
+        return colorize_region_incremental(**request.inputs, **options, colorize_fn=colorize_fn)
     if request.operation == Operation.ARAP_DEFORM:
         return arap_deform(**request.inputs, **request.options)
     if request.operation == Operation.HEALTH_CHECK:

@@ -67,12 +67,12 @@ new algorithms.
   anonymized latency/Python-memory baselines, and a separate manual benchmark
   workflow. Add real-art perceptual fixtures and native/GPU memory capture as
   their respective workloads land; current data does not justify a C++ port.
-- 🔄 Contain native-library crashes behind spawned, killable workers with
+- ✅ Contain native-library crashes behind spawned, killable workers with
   adaptive user-capped timeouts, cancellation, restart-on-next-job behavior,
-  and metadata-only local diagnostics. Core boundary complete; GUI/Krita
-  routing and measured overhead remain before removing the compatibility lock.
-  Persistent ARAP lifecycle and Qt mesh-editor routing are complete; measured
-  warm overhead is negligible on the initial baseline. Batch Qt workers remain.
+  and metadata-only local diagnostics. Built-in Qt batch workers use fresh
+  processes; interactive ARAP uses a restartable persistent process with
+  negligible measured warm overhead. The process-local lock remains defense in
+  depth inside workers. Third-party callable isolation awaits a plugin registry.
 
 **Exit gate:** a new Kubuntu environment can install, launch, and exercise the
 core without an Image-Toolkit checkout or undocumented imports.

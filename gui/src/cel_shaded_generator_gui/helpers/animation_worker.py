@@ -13,7 +13,7 @@ freeze the GUI.
 from __future__ import annotations
 
 import numpy as np
-from cel_shaded_generator import colorize_scribble_sequence, graph_cut_temporal_refine
+from cel_shaded_generator import IsolatedRunner, JobRequest, Operation
 from PySide6.QtCore import QThread, Signal
 
 
@@ -48,16 +48,22 @@ class AnimationColorizeWorker(QThread):
 
     def run(self) -> None:
         try:
-            result = colorize_scribble_sequence(
-                self._gray_stack,
-                self._scribble_rgb_stack,
-                self._scribble_mask_stack,
-                win_rad=self._win_rad,
-                t_rad=self._t_rad,
-                max_solve_dim=self._max_solve_dim,
+            result = IsolatedRunner().run(
+                JobRequest(
+                    Operation.TEMPORAL_COLORIZE,
+                    {
+                        "gray_stack": self._gray_stack,
+                        "scribble_rgb_stack": self._scribble_rgb_stack,
+                        "scribble_mask_stack": self._scribble_mask_stack,
+                    },
+                    {
+                        "win_rad": self._win_rad,
+                        "t_rad": self._t_rad,
+                        "max_solve_dim": self._max_solve_dim,
+                        "refine": self._refine,
+                    },
+                )
             )
-            if self._refine:
-                result = graph_cut_temporal_refine(self._gray_stack, result)
             self.finished_ok.emit(result)
         except Exception as e:
             self.error.emit(str(e))

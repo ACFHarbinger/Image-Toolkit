@@ -23,11 +23,12 @@ Image-Toolkit adds the two source roots to its import path and imports the same
 public package names. This is an adapter owned by Image-Toolkit, not a runtime
 service consumed by Cel-Shaded-Generator.
 
-Heavy numerical calls are temporarily serialized by
-`cel_shaded_generator.runtime.NATIVE_COMPUTE_LOCK` because the existing native
-library mix has shown intermittent in-process instability. This is containment,
-not the target architecture. Cancellable process-isolated jobs are the planned
-next boundary for heavy or unstable work.
+Built-in heavy numerical calls cross a serializable `JobRequest`/`Operation`
+boundary. Batch colorization and animation use fresh spawned processes;
+latency-sensitive ARAP dragging uses a restartable persistent process. The
+process-local `NATIVE_COMPUTE_LOCK` remains defense in depth inside workers.
+Cancellation, adaptive timeouts, forced termination, and metadata-only local
+diagnostics prevent a native failure from taking down the Qt/Krita host.
 
 ## Target system
 

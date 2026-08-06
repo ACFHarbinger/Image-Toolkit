@@ -16,7 +16,14 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import numpy as np
-from cel_shaded_generator import colorize_reference, colorize_scribble
+from cel_shaded_generator import (
+    IsolatedRunner,
+    JobRequest,
+    Operation,
+    colorize_reference,
+    colorize_scribble,
+    colorize_scribble_screentone,
+)
 from cel_shaded_generator.temporal.quadtree import colorize_region_incremental
 from PySide6.QtCore import QThread, Signal
 
@@ -50,12 +57,30 @@ class ColorizeWorker(QThread):
 
     def run(self) -> None:
         try:
-            result = self._colorize_fn(
-                self._gray,
-                self._scribble_rgb,
-                self._scribble_mask,
-                max_solve_dim=self._max_solve_dim,
+            operation = (
+                Operation.SCREENTONE_COLORIZE
+                if self._colorize_fn is colorize_scribble_screentone
+                else Operation.SCRIBBLE_COLORIZE
             )
+            if self._colorize_fn in (colorize_scribble, colorize_scribble_screentone):
+                result = IsolatedRunner().run(
+                    JobRequest(
+                        operation,
+                        {
+                            "gray": self._gray,
+                            "scribble_rgb": self._scribble_rgb,
+                            "scribble_mask": self._scribble_mask,
+                        },
+                        {"max_solve_dim": self._max_solve_dim},
+                    )
+                )
+            else:
+                result = self._colorize_fn(
+                    self._gray,
+                    self._scribble_rgb,
+                    self._scribble_mask,
+                    max_solve_dim=self._max_solve_dim,
+                )
             self.finished_ok.emit(result)
         except Exception as e:
             self.error.emit(str(e))
@@ -92,11 +117,18 @@ class ReferenceColorizeWorker(QThread):
 
     def run(self) -> None:
         try:
-            result = self._colorize_fn(
-                self._target_gray,
-                self._reference_rgb,
-                max_solve_dim=self._max_solve_dim,
-            )
+            if self._colorize_fn is colorize_reference:
+                result = IsolatedRunner().run(
+                    JobRequest(
+                        Operation.REFERENCE_COLORIZE,
+                        {"target_gray": self._target_gray, "reference_rgb": self._reference_rgb},
+                        {"max_solve_dim": self._max_solve_dim},
+                    )
+                )
+            else:
+                result = self._colorize_fn(
+                    self._target_gray, self._reference_rgb, max_solve_dim=self._max_solve_dim
+                )
             self.finished_ok.emit(result)
         except Exception as e:
             self.error.emit(str(e))
@@ -137,16 +169,40 @@ class IncrementalColorizeWorker(QThread):
 
     def run(self) -> None:
         try:
-            result = colorize_region_incremental(
-                self._gray,
-                self._scribble_rgb,
-                self._scribble_mask,
-                self._prev_result,
-                self._dirty_bbox,
-                leaves=self._leaves,
-                colorize_fn=self._colorize_fn,
-                max_solve_dim=self._max_solve_dim,
-            )
+            if self._colorize_fn in (colorize_scribble, colorize_scribble_screentone):
+                mode = (
+                    "screentone"
+                    if self._colorize_fn is colorize_scribble_screentone
+                    else "scribble"
+                )
+                result = IsolatedRunner().run(
+                    JobRequest(
+                        Operation.INCREMENTAL_COLORIZE,
+                        {
+                            "gray": self._gray,
+                            "scribble_rgb": self._scribble_rgb,
+                            "scribble_mask": self._scribble_mask,
+                            "prev_result": self._prev_result,
+                            "dirty_bbox": self._dirty_bbox,
+                        },
+                        {
+                            "leaves": self._leaves,
+                            "max_solve_dim": self._max_solve_dim,
+                            "colorize_mode": mode,
+                        },
+                    )
+                )
+            else:
+                result = colorize_region_incremental(
+                    self._gray,
+                    self._scribble_rgb,
+                    self._scribble_mask,
+                    self._prev_result,
+                    self._dirty_bbox,
+                    leaves=self._leaves,
+                    colorize_fn=self._colorize_fn,
+                    max_solve_dim=self._max_solve_dim,
+                )
             self.finished_ok.emit(result)
         except Exception as e:
             self.error.emit(str(e))

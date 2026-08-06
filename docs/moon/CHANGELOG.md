@@ -23,7 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   work and routed Qt ARAP dragging through it. The committed CPU baseline
   measures ~311 ms cold startup but only ~0.04 ms steady-state overhead
   (8.78 ms isolated versus 8.75 ms direct), validating persistence for dragging.
-  Batch Qt colorization/animation routing remains.
+  Completed the built-in host routing: ordinary scribble, screentone,
+  reference, incremental-preview, temporal, and graph-refined animation jobs
+  now use fresh isolated processes. Arbitrary third-party Python callables keep
+  an explicit in-process compatibility fallback until a versioned plugin
+  operation registry can replace unsafe callable serialization.
 - Completed Phase 0 issue #5's current-engine baseline: deterministic synthetic
   fixtures and directly committed golden arrays now cover scribble/reference
   colorization, temporal propagation, and ARAP. Added documented cross-platform
