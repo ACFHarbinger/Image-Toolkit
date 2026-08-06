@@ -1,4 +1,4 @@
-from animation.gui.dialogs.batch_stitch_dialog import BatchStitchDialog
+from asp_gui.dialogs.batch_stitch_dialog import BatchStitchDialog
 
 from .add_tag_dialog import AddTagDialog
 from .crawler_selection_dialogs import (

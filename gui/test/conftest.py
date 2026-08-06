@@ -25,7 +25,7 @@ sys.modules["backend.src.models.wrappers.loftr_wrapper"] = MagicMock()
 sys.modules["backend.src.models.lora_diffusion"] = MagicMock()
 sys.modules["backend.src.models.wrappers.sd3_wrapper"] = MagicMock()
 sys.modules["backend.src.models.core.siamese_network"] = MagicMock()
-sys.modules["animation.models.stitch_net"] = MagicMock()
+sys.modules["asp_backend.models.stitch_net"] = MagicMock()
 sys.modules["backend.src.models.stable_diffusion"] = MagicMock()
 sys.modules["backend.src.models.gen"] = MagicMock()
 
@@ -42,9 +42,11 @@ project_root = Path(__file__).resolve().parent.parent.parent
 # Add the project root to sys.path. This allows 'import gui.src...'
 # to resolve 'gui' as a package within Image-Toolkit/.
 sys.path.insert(0, str(project_root))
-# ASP and Manga Colorization & Animation live in their own submodules.
-sys.path.insert(0, str(project_root / "submodules" / "Anime-Stitch-Pipeline" / "python" / "src"))
-sys.path.insert(0, str(project_root / "submodules" / "Cel-Shaded-Generator" / "src"))
+# ASP and Manga Colorization & Animation live in their own submodules;
+# see _submodule_bootstrap.py for why this isn't a plain sys.path.insert.
+from _submodule_bootstrap import register_submodule_packages  # noqa: E402
+
+register_submodule_packages(str(project_root))
 
 from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
 

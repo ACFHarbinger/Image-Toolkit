@@ -148,15 +148,15 @@ pybind11_add_module(base
     # Animation / Anime Stitch Pipeline sources (Phase 1–6, complete) — these
     # live in the Anime-Stitch-Pipeline submodule; compiled here so they
     # still link into the single `base` native extension.
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/matching.cpp
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/bundle_adjust.cpp
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/validation.cpp
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/canvas.cpp
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/seam.cpp
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/compositing.cpp
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/exposure.cpp
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/frame_selection.cpp
-    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/fg_register.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/matching.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/bundle_adjust.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/validation.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/canvas.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/seam.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/compositing.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/exposure.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/frame_selection.cpp
+    ../submodules/Anime-Stitch-Pipeline/base/src/fg_register.cpp
 
     # Image I/O + filesystem (Phase 2)
     src/image/image_batch.cpp

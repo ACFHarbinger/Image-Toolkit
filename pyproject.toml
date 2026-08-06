@@ -106,10 +106,10 @@ markers = [
     "forked: run test in isolated subprocess",
 ]
 # §3.12A — pytest-xdist parallel execution (opt-in).
-# ASP tests now live in submodules/Anime-Stitch-Pipeline/python/test/animation/
-# Serial run (default):   pytest submodules/Anime-Stitch-Pipeline/python/test/animation/
-# Parallel, no GPU tests: pytest submodules/Anime-Stitch-Pipeline/python/test/animation/ -n auto --dist=worksteal --skip-gpu
-# Parallel, with GPU:     pytest submodules/Anime-Stitch-Pipeline/python/test/animation/ -n auto --dist=worksteal
+# ASP tests now live in submodules/Anime-Stitch-Pipeline/backend/test/
+# Serial run (default):   pytest submodules/Anime-Stitch-Pipeline/backend/test/
+# Parallel, no GPU tests: pytest submodules/Anime-Stitch-Pipeline/backend/test/ -n auto --dist=worksteal --skip-gpu
+# Parallel, with GPU:     pytest submodules/Anime-Stitch-Pipeline/backend/test/ -n auto --dist=worksteal
 #   (GPU tests run @forked, each in its own subprocess — safe but serial)
 # addopts is intentionally empty; parallel execution is never forced.
 

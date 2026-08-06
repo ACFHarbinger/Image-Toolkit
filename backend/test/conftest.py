@@ -32,13 +32,11 @@ if test_dir not in sys.path:
 build_base = os.path.join(repo_root, "build", "base")
 if os.path.exists(build_base) and build_base not in sys.path:
     sys.path.insert(0, build_base)
-# ASP and Manga Colorization & Animation live in their own submodules.
-asp_src = os.path.join(repo_root, "submodules", "Anime-Stitch-Pipeline", "python", "src")
-manga_src = os.path.join(repo_root, "submodules", "Cel-Shaded-Generator", "src")
-if asp_src not in sys.path:
-    sys.path.insert(0, asp_src)
-if manga_src not in sys.path:
-    sys.path.insert(0, manga_src)
+# ASP and Manga Colorization & Animation live in their own submodules;
+# see _submodule_bootstrap.py for why this isn't a plain sys.path.insert.
+from _submodule_bootstrap import register_submodule_packages
+
+register_submodule_packages(repo_root)
 
 # Limit OpenCV threads to prevent CPU thrashing
 try:
@@ -156,7 +154,7 @@ def clear_ml_singletons():
     """
     yield
     try:
-        import animation.ingestion.frame_selection as _fs
+        import asp_backend.ingestion.frame_selection as _fs
 
         for _k in list(getattr(_fs, "_DINOV2_CACHE", {}).keys()):
             _entry = _fs._DINOV2_CACHE.pop(_k, None)
@@ -171,8 +169,8 @@ def clear_ml_singletons():
         # attribute on the wrong module object would silently no-op (each
         # module has its own separate global namespace) and leak VRAM across
         # the test session, defeating the point of this fixture.
-        import animation.alignment.fg_register._flow as _fgr_flow
-        import animation.alignment.fg_register._vgg as _fgr_vgg
+        import asp_backend.alignment.fg_register._flow as _fgr_flow
+        import asp_backend.alignment.fg_register._vgg as _fgr_vgg
 
         if getattr(_fgr_flow, "_SEARAFT_SINGLETON", None) is not None:
             del _fgr_flow._SEARAFT_SINGLETON
@@ -188,7 +186,7 @@ def clear_ml_singletons():
     except Exception:
         pass
     try:
-        import animation.rendering.anim_fill as _af
+        import asp_backend.rendering.anim_fill as _af
 
         if getattr(_af, "_TC_PIPELINE", None) is not None:
             del _af._TC_PIPELINE
@@ -196,7 +194,7 @@ def clear_ml_singletons():
     except Exception:
         pass
     try:
-        import animation.rendering.compositing as _comp
+        import asp_backend.rendering.compositing as _comp
 
         if getattr(_comp, "_SEAM_POOL", None) is not None:
             _comp._SEAM_POOL.shutdown(wait=False)

@@ -502,7 +502,7 @@ class ImageMergerTest:
         # Verify matchTemplate was called to check overlap
         assert mock_cv2.matchTemplate.called
 
-    @patch("animation.AnimeStitchPipeline")
+    @patch("asp_backend.AnimeStitchPipeline")
     def test_perfect_stitch(self, mock_pipeline_cls, sample_images, output_dir):
         """Test perfect_stitch algorithm (mocked)"""
         temp_dir, image_paths = sample_images
