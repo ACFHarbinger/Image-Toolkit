@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
-from manga_gui.elements.canvas_editor import MangaCanvasEditor
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QImage
+
+from cel_shaded_generator_gui.elements.canvas_editor import MangaCanvasEditor
 
 pytestmark = pytest.mark.gui
 

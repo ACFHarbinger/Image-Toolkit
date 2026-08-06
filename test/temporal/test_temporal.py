@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pytest
 
-from manga.temporal.temporal import build_levin_system_3d, colorize_scribble_sequence
+from cel_shaded_generator.temporal.temporal import build_levin_system_3d, colorize_scribble_sequence
 
 
 def _uniform_gray_stack(t=5, h=40, w=40, value=200):
@@ -155,6 +155,10 @@ class TestColorizeScribbleSequence:
 
         out = colorize_scribble_sequence(gray, scribble_rgb, mask, max_solve_dim=0)
         for frame in range(t):
-            out_y = cv2.cvtColor(cv2.cvtColor(out[frame], cv2.COLOR_RGB2BGR), cv2.COLOR_BGR2YCrCb)[:, :, 0]
-            target_y = cv2.cvtColor(cv2.cvtColor(gray[frame], cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2YCrCb)[:, :, 0]
+            out_y = cv2.cvtColor(cv2.cvtColor(out[frame], cv2.COLOR_RGB2BGR), cv2.COLOR_BGR2YCrCb)[
+                :, :, 0
+            ]
+            target_y = cv2.cvtColor(
+                cv2.cvtColor(gray[frame], cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2YCrCb
+            )[:, :, 0]
             assert np.array_equal(out_y, target_y)

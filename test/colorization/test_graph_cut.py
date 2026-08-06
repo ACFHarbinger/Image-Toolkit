@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from manga.features.gabor import gabor_feature_bank
-from manga.colorization.graph_cut import (
+from cel_shaded_generator.colorization.graph_cut import (
     _frame_chroma,
     build_temporal_coherence_graph,
     graph_cut_temporal_refine,
 )
+from cel_shaded_generator.features.gabor import gabor_feature_bank
 
 
 def _uniform_gray_stack(t=3, h=40, w=40, value=150):
@@ -156,8 +156,12 @@ class TestGraphCutTemporalRefine:
         import cv2
 
         for t in range(gray.shape[0]):
-            out_y = cv2.cvtColor(cv2.cvtColor(out[t], cv2.COLOR_RGB2BGR), cv2.COLOR_BGR2YCrCb)[:, :, 0].astype(np.int16)
-            target_y = cv2.cvtColor(cv2.cvtColor(gray[t], cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2YCrCb)[:, :, 0].astype(np.int16)
+            out_y = cv2.cvtColor(cv2.cvtColor(out[t], cv2.COLOR_RGB2BGR), cv2.COLOR_BGR2YCrCb)[
+                :, :, 0
+            ].astype(np.int16)
+            target_y = cv2.cvtColor(cv2.cvtColor(gray[t], cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2YCrCb)[
+                :, :, 0
+            ].astype(np.int16)
             assert np.max(np.abs(out_y - target_y)) <= 10
 
     def test_non_3d_gray_stack_raises(self):
@@ -191,7 +195,9 @@ class TestGraphCutTemporalRefine:
         therefore not error, and still produce a valid output) -- exercises
         the pass-through to gabor_feature_bank."""
         gray, color = _flicker_sequence(gray1_value=0)
-        out = graph_cut_temporal_refine(gray, color, gabor_kwargs={"orientations": 2, "frequencies": (0.2,)})
+        out = graph_cut_temporal_refine(
+            gray, color, gabor_kwargs={"orientations": 2, "frequencies": (0.2,)}
+        )
         assert out.shape == color.shape
 
     def test_two_frame_sequence(self):

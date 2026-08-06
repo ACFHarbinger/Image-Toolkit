@@ -50,15 +50,16 @@ desktop editor, but it must earn that expansion with a polished narrow alpha.
 This phase blocks the alpha. It is intentionally about product integrity, not
 new algorithms.
 
-- Replace template-era README, architecture, contributing, agent, benchmark,
+- Replace template-era README, contributing, agent, benchmark,
   and setup documentation with the real project state.
-- Adopt a conventional installable core package; remove dynamic `manga` alias
-  bootstrapping.
-- Remove imports from `backend.src.*` and the parent `gui.src.*` package.
-- Make the Krita plugin an explicit client of the core package or a versioned
-  local engine API.
-- Run core and headless GUI tests in CI; add clean-wheel install and launch
-  smoke tests.
+- ✅ Replace the placeholder architecture document with the real current and
+  target boundaries.
+- ✅ Adopt conventional `cel_shaded_generator` and
+  `cel_shaded_generator_gui` packages; remove dynamic alias bootstrapping.
+- ✅ Remove imports from `backend.src.*` and the parent `gui.src.*` package.
+- ✅ Make the current GUI an explicit workspace client of the core package.
+- 🔄 Run core and headless GUI tests in CI and build both wheels; clean-wheel
+  installation and launch smoke tests remain to be added.
 - Define a versioned local project/exercise/progress data model, autosave
   behavior, opt-in artwork retention, and migration policy.
 - Establish representative correctness, latency, memory, and golden-image

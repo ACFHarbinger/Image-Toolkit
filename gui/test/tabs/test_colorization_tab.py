@@ -1,9 +1,10 @@
 from unittest.mock import patch
 
 import pytest
-from manga_gui.tabs.colorization_tab import MangaColorizationTab
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor
+
+from cel_shaded_generator_gui.tabs.colorization_tab import MangaColorizationTab
 
 pytestmark = pytest.mark.gui
 
@@ -21,15 +22,17 @@ class TestMangaColorizationTab:
         assert tab.mode_combo.model().item(3).isEnabled() is False
 
     def test_screentone_mode_dispatches_to_screentone_backend(self, q_app):
-        from manga import colorize_scribble, colorize_scribble_screentone
-        from manga_gui.tabs.colorization_tab import _MODE_BACKENDS
+        from cel_shaded_generator import colorize_scribble, colorize_scribble_screentone
+
+        from cel_shaded_generator_gui.tabs.colorization_tab import _MODE_BACKENDS
 
         assert _MODE_BACKENDS[0] is colorize_scribble
         assert _MODE_BACKENDS[1] is colorize_scribble_screentone
 
     def test_reference_mode_dispatches_to_optimal_transport_backend(self, q_app):
-        from manga import colorize_reference
-        from manga_gui.tabs.colorization_tab import _REFERENCE_MODE_BACKENDS
+        from cel_shaded_generator import colorize_reference
+
+        from cel_shaded_generator_gui.tabs.colorization_tab import _REFERENCE_MODE_BACKENDS
 
         assert _REFERENCE_MODE_BACKENDS[2] is colorize_reference
 
@@ -50,15 +53,16 @@ class TestMangaColorizationTab:
         tab.canvas.set_line_art(img)
         tab.mode_combo.setCurrentIndex(2)
 
-        with patch("manga_gui.tabs.colorization_tab.QMessageBox") as mock_box:
+        with patch("cel_shaded_generator_gui.tabs.colorization_tab.QMessageBox") as mock_box:
             tab._run_colorize()
             mock_box.information.assert_called_once()
         assert tab.btn_colorize.isEnabled() is True
 
     def test_run_colorize_in_reference_mode_starts_reference_worker(self, q_app):
         import numpy as np
-        from manga_gui.helpers import ReferenceColorizeWorker
         from PySide6.QtGui import QImage
+
+        from cel_shaded_generator_gui.helpers import ReferenceColorizeWorker
 
         tab = MangaColorizationTab()
         img = QImage(20, 20, QImage.Format.Format_RGB888)
@@ -77,7 +81,7 @@ class TestMangaColorizationTab:
                 tab._worker.wait()
 
     def test_run_colorize_uses_selected_mode_backend(self, q_app):
-        from manga import colorize_scribble_screentone
+        from cel_shaded_generator import colorize_scribble_screentone
         from PySide6.QtGui import QImage
 
         tab = MangaColorizationTab()
@@ -97,7 +101,7 @@ class TestMangaColorizationTab:
 
     def test_colorize_without_line_art_shows_info(self, q_app):
         tab = MangaColorizationTab()
-        with patch("manga_gui.tabs.colorization_tab.QMessageBox") as mock_box:
+        with patch("cel_shaded_generator_gui.tabs.colorization_tab.QMessageBox") as mock_box:
             tab._run_colorize()
             mock_box.information.assert_called_once()
 
@@ -109,13 +113,13 @@ class TestMangaColorizationTab:
         img.fill(QColor(180, 180, 180))
         tab.canvas.set_line_art(img)
 
-        with patch("manga_gui.tabs.colorization_tab.QMessageBox") as mock_box:
+        with patch("cel_shaded_generator_gui.tabs.colorization_tab.QMessageBox") as mock_box:
             tab._run_colorize()
             mock_box.information.assert_called_once()
 
     def test_pen_color_picker_updates_canvas(self, q_app):
         tab = MangaColorizationTab()
-        with patch("manga_gui.tabs.colorization_tab.QColorDialog") as mock_dialog:
+        with patch("cel_shaded_generator_gui.tabs.colorization_tab.QColorDialog") as mock_dialog:
             mock_dialog.getColor.return_value = QColor(9, 9, 9)
             tab._pick_pen_color()
         assert tab.canvas.pen_color().getRgb()[:3] == (9, 9, 9)
@@ -127,7 +131,7 @@ class TestMangaColorizationTab:
 
     def test_export_without_result_shows_info(self, q_app):
         tab = MangaColorizationTab()
-        with patch("manga_gui.tabs.colorization_tab.QMessageBox") as mock_box:
+        with patch("cel_shaded_generator_gui.tabs.colorization_tab.QMessageBox") as mock_box:
             tab._export_result()
             mock_box.information.assert_called_once()
 
@@ -146,7 +150,7 @@ class TestMangaColorizationTab:
 
     def test_on_colorize_error_shows_critical_and_resets_status(self, q_app):
         tab = MangaColorizationTab()
-        with patch("manga_gui.tabs.colorization_tab.QMessageBox") as mock_box:
+        with patch("cel_shaded_generator_gui.tabs.colorization_tab.QMessageBox") as mock_box:
             tab._on_colorize_error("boom")
             mock_box.critical.assert_called_once()
         assert "failed" in tab.status_label.text().lower()
@@ -157,7 +161,7 @@ class TestMangaColorizationTab:
         unreliable in this harness -- hangs in isolation, silently drops the
         signal when run with sibling tests -- despite the same worker
         completing correctly and delivering its signal in under a second
-        when driven outside pytest; see backend/test/manga/ for the
+        when driven outside pytest; see backend/test/cel_shaded_generator/ for the
         algorithm's own correctness coverage and
         test_on_colorize_finished_updates_canvas_directly /
         test_on_colorize_error_shows_critical_and_resets_status below for
@@ -195,7 +199,7 @@ class TestMangaColorizationTab:
         img.fill(QColor(50, 100, 150))
         img.save(str(ref_path))
 
-        with patch("manga_gui.tabs.colorization_tab.QFileDialog") as mock_dialog:
+        with patch("cel_shaded_generator_gui.tabs.colorization_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileName.return_value = (str(ref_path), "")
             tab._browse_reference()
 
@@ -268,7 +272,7 @@ class TestMangaColorizationTabLivePreview:
 
         try:
             assert tab._worker is not None
-            from manga_gui.helpers import ColorizeWorker
+            from cel_shaded_generator_gui.helpers import ColorizeWorker
 
             assert isinstance(tab._worker, ColorizeWorker)
         finally:
@@ -286,7 +290,7 @@ class TestMangaColorizationTabLivePreview:
 
         tab._on_scribble_changed()
         try:
-            from manga_gui.helpers import IncrementalColorizeWorker
+            from cel_shaded_generator_gui.helpers import IncrementalColorizeWorker
 
             assert isinstance(tab._worker, IncrementalColorizeWorker)
         finally:
@@ -353,7 +357,7 @@ class TestMangaColorizationTabLivePreview:
         img.fill(QColor(180, 180, 180))
         img.save(str(img_path))
 
-        with patch("manga_gui.tabs.colorization_tab.QFileDialog") as mock_dialog:
+        with patch("cel_shaded_generator_gui.tabs.colorization_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileName.return_value = (str(img_path), "")
             tab._browse_line_art()
 

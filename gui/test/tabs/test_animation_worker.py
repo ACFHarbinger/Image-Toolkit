@@ -2,7 +2,8 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from manga_gui.helpers.animation_worker import AnimationColorizeWorker
+
+from cel_shaded_generator_gui.helpers.animation_worker import AnimationColorizeWorker
 
 pytestmark = pytest.mark.gui
 
@@ -19,7 +20,9 @@ def _sequence(t=3, h=10, w=10):
 class TestAnimationColorizeWorker:
     def test_stores_constructor_args(self, q_app):
         gray, scribble_rgb, mask = _sequence()
-        worker = AnimationColorizeWorker(gray, scribble_rgb, mask, win_rad=2, t_rad=1, max_solve_dim=64, refine=True)
+        worker = AnimationColorizeWorker(
+            gray, scribble_rgb, mask, win_rad=2, t_rad=1, max_solve_dim=64, refine=True
+        )
         assert worker._gray_stack is gray
         assert worker._scribble_rgb_stack is scribble_rgb
         assert worker._scribble_mask_stack is mask
@@ -44,8 +47,13 @@ class TestAnimationColorizeWorker:
 
         fake_result = np.zeros((3, 10, 10, 3), dtype=np.uint8)
         with (
-            patch("manga_gui.helpers.animation_worker.colorize_scribble_sequence", return_value=fake_result) as mock_seq,
-            patch("manga_gui.helpers.animation_worker.graph_cut_temporal_refine") as mock_refine,
+            patch(
+                "cel_shaded_generator_gui.helpers.animation_worker.colorize_scribble_sequence",
+                return_value=fake_result,
+            ) as mock_seq,
+            patch(
+                "cel_shaded_generator_gui.helpers.animation_worker.graph_cut_temporal_refine"
+            ) as mock_refine,
         ):
             worker.run()
 
@@ -63,8 +71,14 @@ class TestAnimationColorizeWorker:
         seq_result = np.zeros((3, 10, 10, 3), dtype=np.uint8)
         refined_result = np.ones((3, 10, 10, 3), dtype=np.uint8)
         with (
-            patch("manga_gui.helpers.animation_worker.colorize_scribble_sequence", return_value=seq_result) as mock_seq,
-            patch("manga_gui.helpers.animation_worker.graph_cut_temporal_refine", return_value=refined_result) as mock_refine,
+            patch(
+                "cel_shaded_generator_gui.helpers.animation_worker.colorize_scribble_sequence",
+                return_value=seq_result,
+            ) as mock_seq,
+            patch(
+                "cel_shaded_generator_gui.helpers.animation_worker.graph_cut_temporal_refine",
+                return_value=refined_result,
+            ) as mock_refine,
         ):
             worker.run()
 
@@ -80,7 +94,7 @@ class TestAnimationColorizeWorker:
         worker.error.connect(lambda msg: errors.append(msg))
 
         with patch(
-            "manga_gui.helpers.animation_worker.colorize_scribble_sequence",
+            "cel_shaded_generator_gui.helpers.animation_worker.colorize_scribble_sequence",
             side_effect=ValueError("boom"),
         ):
             worker.run()
@@ -97,7 +111,7 @@ class TestAnimationColorizeWorker:
     # developing this test file), so it's avoided entirely here, not just
     # left unasserted. The real backend solvers' own correctness is already
     # covered end-to-end against the *real* cv2 in
-    # backend/test/manga/test_temporal.py and test_graph_cut.py; this file
+    # backend/test/cel_shaded_generator/test_temporal.py and test_graph_cut.py; this file
     # only needs to prove the worker dispatches to them with the right
     # arguments and reports success/failure via the right signal, which the
     # mocked-`colorize_scribble_sequence`/`graph_cut_temporal_refine` tests

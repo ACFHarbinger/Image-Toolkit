@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from manga.rigging.arap import arap_deform, generate_mesh
+from cel_shaded_generator.rigging.arap import arap_deform, generate_mesh
 
 
 def _square_mask(h=100, w=100, margin=10):

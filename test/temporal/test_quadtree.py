@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from manga.colorization.colorization import colorize_scribble
-from manga.temporal.quadtree import build_quadtree, colorize_region_incremental
+from cel_shaded_generator.colorization.colorization import colorize_scribble
+from cel_shaded_generator.temporal.quadtree import build_quadtree, colorize_region_incremental
 
 
 def _uniform_gray(h=128, w=128, value=220):
@@ -78,7 +78,9 @@ class TestColorizeRegionIncremental:
         scribble_rgb[100:105, 100:105] = [40, 40, 220]
         mask[100:105, 100:105] = True
 
-        out = colorize_region_incremental(gray, scribble_rgb, mask, prev, (100, 100, 105, 105), max_solve_dim=0)
+        out = colorize_region_incremental(
+            gray, scribble_rgb, mask, prev, (100, 100, 105, 105), max_solve_dim=0
+        )
         assert out.shape == prev.shape
         assert out.dtype == np.uint8
 
@@ -88,7 +90,9 @@ class TestColorizeRegionIncremental:
         scribble_rgb[100:105, 100:105] = [40, 40, 220]
         mask[100:105, 100:105] = True
 
-        out = colorize_region_incremental(gray, scribble_rgb, mask, prev, (100, 100, 105, 105), halo=4, max_solve_dim=0)
+        out = colorize_region_incremental(
+            gray, scribble_rgb, mask, prev, (100, 100, 105, 105), halo=4, max_solve_dim=0
+        )
         # Far corner of the image, well outside any plausible resolve window.
         assert np.array_equal(out[0:5, 0:5], prev[0:5, 0:5])
 
@@ -113,13 +117,17 @@ class TestColorizeRegionIncremental:
         gray = _detailed_gray()
         scribble_rgb, mask, prev = self._seed(gray)
         # dirty_bbox far from any scribble -- window has no scribbled pixels.
-        out = colorize_region_incremental(gray, scribble_rgb, mask, prev, (100, 100, 105, 105), max_solve_dim=0)
+        out = colorize_region_incremental(
+            gray, scribble_rgb, mask, prev, (100, 100, 105, 105), max_solve_dim=0
+        )
         assert np.array_equal(out, prev)
 
     def test_dirty_bbox_outside_all_leaves_returns_prev_result_unchanged(self):
         gray = _detailed_gray()
         scribble_rgb, mask, prev = self._seed(gray)
-        out = colorize_region_incremental(gray, scribble_rgb, mask, prev, (500, 500, 500, 500), max_solve_dim=0)
+        out = colorize_region_incremental(
+            gray, scribble_rgb, mask, prev, (500, 500, 500, 500), max_solve_dim=0
+        )
         assert np.array_equal(out, prev)
 
     def test_shape_mismatch_raises(self):
@@ -159,7 +167,9 @@ class TestColorizeRegionIncremental:
         mask[50:52, 50:52] = True
 
         t0 = time.time()
-        colorize_region_incremental(gray, scribble_rgb, mask, prev, (50, 50, 52, 52), leaves=leaves, max_solve_dim=0)
+        colorize_region_incremental(
+            gray, scribble_rgb, mask, prev, (50, 50, 52, 52), leaves=leaves, max_solve_dim=0
+        )
         incremental_time = time.time() - t0
 
         t0 = time.time()

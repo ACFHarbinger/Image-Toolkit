@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
-from manga_gui.elements.mesh_overlay_editor import MeshOverlayEditor
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QImage
+
+from cel_shaded_generator_gui.elements.mesh_overlay_editor import MeshOverlayEditor
 
 pytestmark = pytest.mark.gui
 
@@ -99,8 +100,12 @@ class TestPosing:
 
         idx = 0
         editor._dragging_idx = idx
-        editor._drag_vertex_to(idx, QPointF(float(rest_before[idx, 0] + 5), float(rest_before[idx, 1])))
-        editor._drag_vertex_to(idx, QPointF(float(rest_before[idx, 0] + 25), float(rest_before[idx, 1])))
+        editor._drag_vertex_to(
+            idx, QPointF(float(rest_before[idx, 0] + 5), float(rest_before[idx, 1]))
+        )
+        editor._drag_vertex_to(
+            idx, QPointF(float(rest_before[idx, 0] + 25), float(rest_before[idx, 1]))
+        )
 
         # rest_vertices must be untouched by dragging -- only live_vertices
         # (the solve output) should change.

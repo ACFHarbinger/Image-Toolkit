@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Started Phase 0 issue #3: replaced dynamic `manga`/`manga_gui` aliases with
+  installable `cel_shaded_generator`/`cel_shaded_generator_gui` packages in a
+  `uv` workspace; moved native-workload coordination out of Image-Toolkit into
+  the core runtime; gave the GUI local file-dialog/image-loading helpers; added
+  package-boundary tests, headless GUI CI execution, wheel builds, and a real
+  architecture document. The Image-Toolkit adapter now consumes the public
+  namespaces rather than defining the submodule's identity.
 - Replaced the imported manga-feature roadmap with an outcome-based product
   roadmap following the 2026-08-06 product review and owner brainstorm. Added
   focused roadmaps for the Krita anime head-and-face learning alpha, standalone

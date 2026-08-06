@@ -1,9 +1,10 @@
 from unittest.mock import patch
 
 import pytest
-from manga_gui.tabs.puppeteering_tab import MangaPuppeteeringTab
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QImage
+
+from cel_shaded_generator_gui.tabs.puppeteering_tab import MangaPuppeteeringTab
 
 pytestmark = pytest.mark.gui
 
@@ -34,7 +35,7 @@ class TestMangaPuppeteeringTab:
         img_path = tmp_path / "panel.png"
         _make_image().save(str(img_path))
 
-        with patch("manga_gui.tabs.puppeteering_tab.QFileDialog") as mock_dialog:
+        with patch("cel_shaded_generator_gui.tabs.puppeteering_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileName.return_value = (str(img_path), "")
             tab._browse_image()
 
@@ -61,14 +62,14 @@ class TestMangaPuppeteeringTab:
 
     def test_generate_mesh_without_image_shows_info(self, q_app):
         tab = MangaPuppeteeringTab()
-        with patch("manga_gui.tabs.puppeteering_tab.QMessageBox") as mock_box:
+        with patch("cel_shaded_generator_gui.tabs.puppeteering_tab.QMessageBox") as mock_box:
             tab._on_generate_mesh()
             mock_box.information.assert_called_once()
 
     def test_generate_mesh_without_mask_shows_info(self, q_app):
         tab = MangaPuppeteeringTab()
         tab.editor.set_image(_make_image())
-        with patch("manga_gui.tabs.puppeteering_tab.QMessageBox") as mock_box:
+        with patch("cel_shaded_generator_gui.tabs.puppeteering_tab.QMessageBox") as mock_box:
             tab._on_generate_mesh()
             mock_box.information.assert_called_once()
 
@@ -95,7 +96,7 @@ class TestMangaPuppeteeringTab:
         tab.editor._paint_line(QPointF(5, 5), QPointF(5, 5))
         tab.grid_step_spin.setValue(64)
 
-        with patch("manga_gui.tabs.puppeteering_tab.QMessageBox") as mock_box:
+        with patch("cel_shaded_generator_gui.tabs.puppeteering_tab.QMessageBox") as mock_box:
             tab._on_generate_mesh()
             mock_box.warning.assert_called_once()
 

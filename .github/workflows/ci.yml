@@ -17,10 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv sync --group dev
+      - run: uv sync --all-packages --all-extras --dev
       - run: uv run ruff check .
       - run: uv run mypy src
       - run: uv run pytest test -v --cov=src --cov-report=xml
+      - run: uv build --all-packages
       - uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
@@ -31,9 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv sync --group dev
-        working-directory: gui
-      - run: uv run ruff check .
-        working-directory: gui
-      - run: uv run mypy src
-        working-directory: gui
+      - run: uv sync --all-packages --all-extras --dev
+      - run: uv run --package cel-shaded-generator-gui ruff check gui
+      - run: uv run --package cel-shaded-generator-gui mypy gui/src
+      - run: uv run --package cel-shaded-generator-gui pytest gui/test -v

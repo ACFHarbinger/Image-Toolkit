@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from manga.colorization.colorization import build_levin_system, colorize_scribble
+from cel_shaded_generator.colorization.colorization import build_levin_system, colorize_scribble
 
 
 def _uniform_gray(h=40, w=40, value=200):

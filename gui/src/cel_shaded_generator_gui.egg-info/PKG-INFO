@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: cel-shaded-generator-gui
+Version: 0.1.0
+Summary: Manga Colorization & Animation — desktop Qt/PySide6 UI.
+Author: ACFHarbinger
+License-Expression: AGPL-3.0-only
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.11
+Description-Content-Type: text/plain
+Requires-Dist: cel-shaded-generator>=0.1.0
+Requires-Dist: pyside6>=6.10.0
+Requires-Dist: numpy>=2.3.4
+Requires-Dist: opencv-python-headless>=4.11.0.86
+Provides-Extra: dev
+Requires-Dist: ruff>=0.5.0; extra == "dev"
+Requires-Dist: mypy>=1.10.0; extra == "dev"
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
+
+Qt/PySide6 demonstration client for Cel-Shaded-Generator.

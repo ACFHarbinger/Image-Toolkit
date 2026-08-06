@@ -7,13 +7,12 @@ name = "cel-shaded-generator"
 version = "0.1.0"
 description = "Manga Colorization & Animation — HITL deep learning + mathematical optimization."
 readme = "README.md"
-license = { file = "LICENSE.md" }
+license = "AGPL-3.0-only"
 requires-python = ">=3.11"
 authors = [{ name = "ACFHarbinger" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
@@ -52,6 +51,9 @@ ignore_missing_imports = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv.workspace]
+members = ["gui"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

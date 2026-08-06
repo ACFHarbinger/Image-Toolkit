@@ -2,8 +2,9 @@
 
 import numpy as np
 import pytest
-from manga.features.preference_log import read_preferences
-from manga_gui.components.manga_preference_dialog import MangaPreferenceDialog
+from cel_shaded_generator.features.preference_log import read_preferences
+
+from cel_shaded_generator_gui.components.manga_preference_dialog import MangaPreferenceDialog
 
 pytestmark = pytest.mark.gui
 
@@ -14,13 +15,19 @@ def _candidate(value=200):
 
 class TestMangaPreferenceDialog:
     def test_constructs_with_both_candidates(self, q_app):
-        dlg = MangaPreferenceDialog(_candidate(200), _candidate(100), source_a="Scribble", source_b="Screentone")
+        dlg = MangaPreferenceDialog(
+            _candidate(200), _candidate(100), source_a="Scribble", source_b="Screentone"
+        )
         assert dlg.winner() is None
 
     def test_prefer_a_logs_and_closes(self, q_app, tmp_path):
         log_path = tmp_path / "prefs.jsonl"
         dlg = MangaPreferenceDialog(
-            _candidate(), _candidate(), source_a="Scribble", source_b="Screentone", log_path=log_path
+            _candidate(),
+            _candidate(),
+            source_a="Scribble",
+            source_b="Screentone",
+            log_path=log_path,
         )
         dlg.btn_prefer_a.click()
 
@@ -60,11 +67,17 @@ class TestMangaPreferenceDialog:
     def test_metadata_passed_through_to_log(self, q_app, tmp_path):
         log_path = tmp_path / "prefs.jsonl"
         dlg = MangaPreferenceDialog(
-            _candidate(), _candidate(), metadata={"mode_a": "scribble", "mode_b": "reference"}, log_path=log_path
+            _candidate(),
+            _candidate(),
+            metadata={"mode_a": "scribble", "mode_b": "reference"},
+            log_path=log_path,
         )
         dlg.btn_tie.click()
 
-        assert read_preferences(log_path=log_path)[0]["metadata"] == {"mode_a": "scribble", "mode_b": "reference"}
+        assert read_preferences(log_path=log_path)[0]["metadata"] == {
+            "mode_a": "scribble",
+            "mode_b": "reference",
+        }
 
     def test_large_candidate_is_scaled_down_for_preview(self, q_app, tmp_path):
         log_path = tmp_path / "prefs.jsonl"

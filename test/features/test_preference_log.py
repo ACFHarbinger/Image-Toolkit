@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from manga.features.preference_log import log_preference, read_preferences
+from cel_shaded_generator.features.preference_log import log_preference, read_preferences
 
 
 class TestLogPreference:
@@ -30,7 +30,13 @@ class TestLogPreference:
 
     def test_metadata_stored_as_is(self, tmp_path):
         log_path = tmp_path / "prefs.jsonl"
-        record = log_preference("a.png", "b.png", "b", metadata={"mode_a": "scribble", "mode_b": "screentone"}, log_path=log_path)
+        record = log_preference(
+            "a.png",
+            "b.png",
+            "b",
+            metadata={"mode_a": "scribble", "mode_b": "screentone"},
+            log_path=log_path,
+        )
         assert record["metadata"] == {"mode_a": "scribble", "mode_b": "screentone"}
 
     def test_no_metadata_defaults_to_empty_dict(self, tmp_path):
