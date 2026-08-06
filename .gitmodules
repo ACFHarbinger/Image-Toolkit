@@ -17,7 +17,7 @@
 	path = vendor/BiRefNet
 	url = https://github.com/ACFHarbinger/BiRefNet.git
 [submodule "submodules/ComfyUI"]
-	path = submodules/ComfyUI
+	path = vendor/ComfyUI
 	url = https://github.com/ACFHarbinger/ComfyUI.git
 [submodule "submodules/Recommendation-Engine"]
 	path = submodules/Recommendation-Engine
@@ -31,3 +31,6 @@
 [submodule "vendor/Overmix"]
 	path = vendor/Overmix
 	url = https://github.com/ACFHarbinger/Overmix.git
+[submodule "submodules/Cel-Shaded-Generator"]
+	path = submodules/Cel-Shaded-Generator
+	url = https://github.com/ACFHarbinger/Cel-Shaded-Generator.git
