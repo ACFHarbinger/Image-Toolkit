@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S324 — 2026-08-07 (Verified Krita AppImage deployment)
+
+Installed the official Krita 5.3.2.1 Linux AppImage under the owner's user applications after verifying its SHA-256 against KDE's published value. Confirmed that this build contains `pykrita`, Scripter, and the plugin importer, installed a desktop launcher and the Cel-Shaded-Generator plugin's six intended files, and completed a clean X11 startup probe. Cel-Shaded-Generator `e15250b` records the deployment in the A1 roadmap and changelog. Interactive plugin enablement and visible-docker confirmation remain, so issue #9 stays In Progress.
+
 ## S323 — 2026-08-07 (Corrected Krita packaging target)
 
 Corrected the S322 deployment assumption after the expected Python Plugin Manager was absent. Inspection of the installed Krita 5.2.11 Snap showed that the build omits Krita's Python plugin subsystem entirely, so files copied into its user-data directory are inert. Cel-Shaded-Generator `ecea1bf` now targets the standard Linux/AppImage resource directory, rejects Snap destinations with an actionable error, documents the official AppImage requirement, and adds regression tests. The eight focused integration tests and Ruff checks pass. A1 remains In Progress pending installation and visible-docker verification in a Python-enabled Krita AppImage.
