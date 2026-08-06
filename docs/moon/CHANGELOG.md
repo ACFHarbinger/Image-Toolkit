@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S312 — 2026-08-06 (Vue docs sites for all three submodules, cross-linked and homogeneously styled)
+
+Moved `moon/`, `reports/` (ASP only), and `research/` into `docs/` for all three submodules (Anime-Stitch-Pipeline, Cel-Shaded-Generator, Recommendation-Engine — the last never had a `docs/mkdocs.yml` at all, added one), extending each repo's own MkDocs nav with Roadmap/Changelog/Research sections at the new locations.
+
+Built `docs/website/` in each submodule — copied verbatim from Image-Toolkit's own site (same Vue app, components, and CSS, only the site name/description/branding differ) so all four sites are visually homogeneous. Each site's "Related Projects" sidebar section (`src/submodules.ts` + `SubmodulePage.vue`) embeds the other three via iframe at `/submodules/<slug>`, with an "Open in new tab"/"Source" fallback since cross-origin embeds aren't guaranteed to load; added a `404.html` SPA fallback (`scripts/spa-fallback.mjs`) so GitHub Pages serves Vue Router's history-mode deep links correctly. `docs/mkdocs.yml`'s Roadmaps/Research nav entries for all three submodules now point at their deployed `gh-pages` sites (previously raw GitHub blob URLs, and Recommendation-Engine wasn't referenced from here at all before this).
+
+Wired each submodule's own `.github/workflows/docs.yml` (+ Forgejo/Gitea/GitLab mirrors, the last a new `.gitlab-ci.yml` `pages` job for Recommendation-Engine, which had no GitLab CI at all) to build and fold `docs/website/dist/` into `site/app/` before the existing deploy step, mirroring Image-Toolkit's own `gh-pages`-branch wiring from S311.
+
+Brought Recommendation-Engine's repo-infrastructure scaffolding up to parity with the other two submodules: added `.gitlab/`, `.gitea/`, `.forgejo/` (mirroring its actual `.github/` — issue templates, PR template, CI), `.devcontainer/`, `.dockerignore`, `.gitattributes`, `.pre-commit-config.yaml`, `.python-version`, `CLAUDE.md`, `GEMINI.md`.
+
+Found and fixed real bugs along the way, unrelated to this session's own earlier work but surfaced by touching these files again: Anime-Stitch-Pipeline's and Cel-Shaded-Generator's `.gitlab/.gitlab-ci.yml`, GitLab issue/MR templates, and `.devcontainer/` still referenced the polyglot template's removed rust/typescript/kotlin/go/java directories — missed when the `base`/`backend`/`gui` rename+flatten (S310) landed, since that work only touched `.github`/`.forgejo`/`.gitea`. Also fixed broken relative markdown links in both Cel-Shaded-Generator's and Recommendation-Engine's roadmap files that were never updated for the `moon`/`research` → `docs/moon`/`docs/research` move (off-by-one directory depth).
+
 ## S311 — 2026-08-06 (docs/research/ move + Vue documentation website + gh-pages deploy)
 
 Moved the two remaining `research/` reports (Analytics & Codebase Visualization, Image Generation — the ASP-specific reports already live in the Anime-Stitch-Pipeline submodule) into `docs/research/`; fixed `docs/hooks.py`'s now-dead `merged_reports` redirect table and pointed its research sync at the new in-place location; `docs/mkdocs.yml`'s Research nav links the two ASP-specific reports at the submodule instead of a sync target that no longer exists locally.
