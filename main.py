@@ -51,10 +51,20 @@ with contextlib.suppress(OSError):
 with contextlib.suppress(OSError):
     ctypes.CDLL("/usr/lib/x86_64-linux-gnu/libfontconfig.so.1")
 
-from backend.controllers.backend_dispatch import dispatch_command
-from backend.controllers.cli.arg_parser import parse_params
-from backend.src.app import launch_app, log_uncaught_exceptions
-from gui.src.windows.settings.file_dialog_patch import apply_patch
+# Ensure that your root directory is on the path if needed
+sys.path.insert(0, os.path.dirname(__file__))
+# ASP and Manga Colorization & Animation live in their own submodules;
+# see _submodule_bootstrap.py for why this isn't a plain sys.path.insert.
+# Must run before any backend/gui import below -- gui.src.windows.settings.
+# app_config imports asp_backend at module load time.
+from _submodule_bootstrap import register_submodule_packages  # noqa: E402
+
+register_submodule_packages(os.path.dirname(__file__))
+
+from backend.controllers.backend_dispatch import dispatch_command  # noqa: E402
+from backend.controllers.cli.arg_parser import parse_params  # noqa: E402
+from backend.src.app import launch_app, log_uncaught_exceptions  # noqa: E402
+from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
 
 # Apply the patch to add the favorites side bar to the file dialogs
 apply_patch()
@@ -65,14 +75,6 @@ apply_patch()
 warnings.filterwarnings(
     "ignore", message=".*urllib3.*doesn't match a supported version!.*"
 )
-
-# Ensure that your root directory is on the path if needed
-sys.path.insert(0, os.path.dirname(__file__))
-# ASP and Manga Colorization & Animation live in their own submodules;
-# see _submodule_bootstrap.py for why this isn't a plain sys.path.insert.
-from _submodule_bootstrap import register_submodule_packages  # noqa: E402
-
-register_submodule_packages(os.path.dirname(__file__))
 
 
 if __name__ == "__main__":
