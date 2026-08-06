@@ -12,7 +12,7 @@
 //   Required : OpenCV imgproc, video, Eigen3
 //
 // Phase 5 implementation.
-// See moon/roadmaps/asp_cpp_migration.md §base::fg_register
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::fg_register
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

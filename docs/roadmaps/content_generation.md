@@ -45,7 +45,7 @@ flowchart TD
 
     subgraph IMG["§1 Image Generation"]
         direction TB
-        S11["§1.1 Anime Captioning — WD14 + Florence-2 [Quick Win]"]:::feature:::planned
+        S11["§1.1 Anime Captioning — WD14 + Florence-2 [Quick Win]"]:::feature:::done
         S12["§1.2 v-Prediction / zero-terminal-SNR [Research]"]:::research:::planned
         S13["§1.3 LyCORIS — LoCon / LoHa / LoKr [Research]"]:::research:::planned
         S14["§1.4 ControlNet + IP-Adapter — ComfyUI workflows"]:::integration:::planned
@@ -113,7 +113,7 @@ flowchart TD
 
 ## How to Use This Document
 
-Each section: current state in the codebase → pain point → options with trade-offs → recommendation. Tags: **[Quick Win]** (<1 day), **[Research]** (prototype first), **[Long-term]** (depends on external data/infra). Phased execution sequence is summarised at the end and mirrored into the [Master Roadmap](ROADMAP.md).
+Each section: current state in the codebase → pain point → options with trade-offs → recommendation. Tags: **[Quick Win]** (<1 day), **[Research]** (prototype first), **[Long-term]** (depends on external data/infra). Phased execution sequence is summarised at the end and mirrored into the [Master Roadmap](../ROADMAP.md).
 
 ---
 
@@ -138,15 +138,17 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 ## 1. Image Generation
 
-### 1.1 Anime-native captioning (WD14 + Florence-2) [Quick Win]
+### 1.1 Anime-native captioning (WD14 + Florence-2) [Quick Win] — done (2026-07-27, issue #32)
 
-**Current:** `captioner.py` exists but captioning quality drives LoRA fidelity.
+**Current:** `captioner.py` already had a full `HybridCaptioner` (WD14 booru tags + optional Florence-2 sentence + trigger token + per-base-model quality prefix) wired into `anime_training_pipeline.py`'s captioning stage — this predates issue #32 and the roadmap text above was stale (it described this as unimplemented). What issue #32 actually found and fixed:
 
-**Pain point:** Anime LoRAs need booru-tag captions (the base models' native vocabulary), not generic VLM prose. WD14/WD-v3 taggers produce booru tags; Florence-2 adds natural-language context.
+- **A (WD14 primary, confidence-thresholded):** already implemented via an inline `WD14Tagger` class in `captioner.py` (general_thresh=0.35 default, matches WD14 convention) — but it duplicated, rather than reused, the shared `backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper` from `new_features.md` §4.4 (Auto-Tagger), which was itself fully built but never called from anywhere (dormant). Fixed: added a `_wd_tag()` adapter in `captioner.py` so `HybridCaptioner.wd` now accepts either backend, and wired `WDTaggerWrapper` in as the pipeline's fallback default (`anime_training_pipeline.py::_run_captioning` now uses the legacy local-path `WD14Tagger` only if an explicit `data.captioning.wd14_onnx` file exists, otherwise falls back to `WDTaggerWrapper`, which auto-downloads `SmilingWolf/wd-v1-4-convnext-tagger-v2` from Hugging Face Hub — repo existence and exact filenames [`model.onnx`, `selected_tags.csv`] verified reachable). This is the "implement once, use in both tagging and training" sharing the original recommendation called for. Also found and fixed a real bug while wiring this in: `WDTaggerWrapper`'s `_CATEGORY_NAMES` mapped WD category `9` to `"copyright"`; the real `selected_tags.csv` uses category `9` for the 4-way **rating** group (general/sensitive/questionable/explicit), not copyright — fixed, with a test update.
+- **C (trigger token per character):** already wired via `data.trigger_word` in the Hydra training config — the same field `LoRADatasetV2`/`BucketSample` use to identify "the character" being trained, confirmed as the natural existing mechanism (no new input added).
+- **B (Florence-2 augmentation):** already implemented as a plain natural-language sentence appended after the booru tags (`"<tags>. <sentence>"`) when `florence` is supplied and `use_florence2=true` — no new work needed here.
+- **Additive prose mode:** added `HybridCaptioner(caption_mode="booru"|"prose")` (default `"booru"`, fully backward compatible) so pure VLM-prose captioning stays available as an explicit option per the issue's requirement, rather than only reachable by omitting `wd`.
+- **Not verified end-to-end:** `onnxruntime` is not installed in the project's `.venv` (only `huggingface_hub` is), so no real ONNX inference was run against the downloaded model in this session — the HF repo/filenames were confirmed reachable via the HF API, and all logic was verified with mocked ONNX sessions in `backend/test/models/test_captioner.py` (new) and `backend/test/models/test_wd_tagger_wrapper.py` (updated for the category fix). Installing `onnxruntime` and running a real image through `WDTaggerWrapper.tag()` is the remaining step to fully close this out.
 
-**Options.** **A** WD14 ONNX tagger as primary, confidence-thresholded (reuses the §3.6 auto-tagger from `new_features.md`). **B** Florence-2 for caption augmentation. **C** trigger-token + curated-tag schema per character.
-
-**Recommendation:** A+C now (booru tags + trigger token), B as augmentation. Shared with the Auto-Tagger feature — implement once, use in both tagging and training.
+**Recommendation (original):** A+C now (booru tags + trigger token), B as augmentation. Shared with the Auto-Tagger feature — implement once, use in both tagging and training. **Status:** A+B+C all in place; see above for what changed and what's still unverified.
 
 ### 1.2 v-Prediction / zero-terminal-SNR support [Research]
 
@@ -154,13 +156,57 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 **Recommendation:** Detect the base's prediction type and switch the training/sampling objective accordingly. Add v-pred + ztSNR to `LoRATuner` and the SD3/SDXL samplers.
 
-### 1.3 LyCORIS variants (LoCon / LoHa / LoKr) [Research]
+### 1.3 LyCORIS variants (LoCon / LoHa / LoKr) — GUI exposure DONE 2026-07-27
 
 **Pain point:** Standard LoRA captures the character but not the conv-layer style; LoCon (`dim 16 / conv 8`) is preferred for style-bound characters, LoHa/LoKr for tiny datasets.
 
-**Recommendation:** Integrate the `lycoris` library into `LoRATuner` as selectable algorithms; expose in the LoRA train tab.
+**Done:** the "integrate the lycoris library into LoRATuner" half of this
+bullet's recommendation was **already fully implemented** before this
+session touched it — `LoRATunerV2` (`backend/src/models/tuning/
+lo_ra_tuner_v2.py`) already dispatches `cfg.method == "lycoris"` to
+`lycoris.kohya.create_network()` with `lora`/`locon`/`loha`/`lokr`/`dylora`
+algorithms, and a `lycoris_locon.yaml` Hydra preset already existed under
+`backend/config/training/`. **The actual gap was "expose in the LoRA train
+tab"** — the GUI's `LoRATrainTab` only ever instantiated the *legacy*
+`LoRATuner` (V1, no LyCORIS support at all; V2 is documented in its own
+module docstring as the "adds LyCORIS support" successor) and never called
+into `LoRATunerV2` or the Hydra pipeline in any way.
 
-### 1.4 ControlNet + IP-Adapter in generation tabs
+- **Added two missing presets**: `lycoris_loha.yaml` and `lycoris_lokr.yaml`
+  (only `lycoris_locon.yaml` existed), each with algorithm-appropriate
+  dims/epochs per this bullet's own "LoHa/LoKr for tiny datasets" framing
+  (smaller nominal rank, more epochs to compensate for fewer trainable
+  parameters on small datasets).
+- **Found and fixed a pre-existing, unrelated bug that blocked this
+  entirely**: `anime_training_pipeline.py` (the orchestrator `LoRATunerV2`
+  needs — dataset bucketing, tuner construction, training loop) had two
+  broken imports left over from a prior code reorganization
+  (`backend.src.models.full_finetune` and `backend.src.models.
+  lora_diffusion`, neither of which exist anymore — the real paths are
+  under `backend.src.models.tuning.*`). This meant `python -m
+  backend.dispatcher command=train` has been completely broken for *any*
+  training run, LyCORIS or standard, since that reorganization — nobody
+  had noticed because nothing actually invoked this pipeline. Fixed both
+  imports; verified via a real Hydra `--cfg job` dry-run composition for
+  all four training presets (`lora_4080`, `lycoris_locon/loha/lokr`).
+- **GUI**: new "Training Engine" dropdown in `LoRATrainTab`
+  (`gui/src/tabs/models/delta/lora_train_tab.py`) — "Standard (LoRA)"
+  keeps the existing legacy `LoRATuner` path completely unchanged (zero
+  risk to current behavior); the three LyCORIS options launch `python -m
+  backend.dispatcher command=train training=lycoris_<algo> model.model_id=
+  ... data.images_dir=... data.trigger_word=... output_dir=...` as a
+  subprocess (reusing the existing, now-fixed pipeline end-to-end rather
+  than re-implementing dataset/tuner construction inline), streaming
+  output to the status label and supporting Cancel via `proc.terminate()`.
+- **Tests**: 10 new cases in `gui/test/models/test_lora_train_tab_lycoris.py`
+  covering the engine dropdown defaults, the standard path staying on the
+  legacy tuner, correct Hydra CLI command construction for all three
+  algorithms, and success/error/cancel signal handling — all passing.
+  `--cfg job` dry-run composition verified separately (real Hydra, not
+  mocked) since the actual training run itself needs GPU/VRAM not
+  available in this environment.
+
+### 1.4 ControlNet + IP-Adapter in generation tabs — Phase A ✅ Done (2026-08-05, issue #35)
 
 **Pain point:** Pose/composition control (ControlNet OpenPose/depth/lineart) and character/style reference (IP-Adapter) are the two highest-leverage controllability features, currently TODO in `sd3_wrapper` and absent from the SDXL gen path.
 
@@ -168,17 +214,146 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 **Recommendation:** A first (ship a curated set of ComfyUI workflow JSONs: txt2img, pose-control, reference-transfer, upscale), B for the native SDXL gen tab later.
 
+**Shipped as:** Phase A only (Option A above), matching the issue's own two-part
+scope ("Phase A quick win now, Phase B native diffusers integration later").
+
+- **Investigation first — the ComfyUI integration was less built-out than
+  this section implied.** `ComfyUIManager` (`backend/src/models/core/
+  comfy_manager.py`) only started/stopped the ComfyUI server subprocess and
+  exposed its URL for the user to open in a system browser; there was no
+  in-app mechanism to submit a workflow JSON, override its parameters, or
+  supply an extra image via ComfyUI's HTTP API. `ComfyUITab` (`gui/src/
+  tabs/models/gen/comfy_generate_tab.py`) was correspondingly just a
+  "Start/Stop server + Open in Browser + log viewer" panel — the user was
+  expected to build/run workflows entirely inside ComfyUI's own web UI. §1.1
+  and §1.6 (captioning, upscaling) don't depend on this mechanism at all, so
+  this doesn't call the rest of the roadmap's "done" claims into question —
+  it's specific to the ComfyUI launch path this item needed.
+- **Smallest correct extension, per the task's own fallback plan:** added
+  four methods to `ComfyUIManager` — `load_workflow()` (load a curated
+  template JSON by bare name or path), `apply_overrides()` (a generic
+  `{node_id: {input_key: value}}` merge into a workflow's node inputs,
+  returning a deep copy), `upload_image()` (multipart POST to ComfyUI's
+  `/upload/image`, returning the server-side filename a `LoadImage` node
+  can reference), and `queue_workflow()` (POST to `/prompt`, returning the
+  `prompt_id`). This is the "generic extra image inputs parameter dict
+  passed through to workflow JSON node overrides" mechanism the task
+  anticipated, not a larger refactor.
+- **Curated workflow JSON templates** (`configs/comfy_workflows/`,
+  ComfyUI's own "API format" node-graph shape — the same format already
+  used by the pre-existing personal reference pipeline at `configs/
+  workflow_api.json`): `controlnet_generate.json` (`CheckpointLoaderSimple`
+  → `ControlNetLoader` + `LoadImage` → `ControlNetApplyAdvanced` →
+  `KSampler` → `VAEDecode` → `SaveImage`) and `ipadapter_generate.json`
+  (`CLIPVisionLoader` + `IPAdapterModelLoader` + `LoadImage` →
+  `IPAdapterAdvanced` → `KSampler` → `VAEDecode` → `SaveImage`, mirroring
+  the IP-Adapter node pattern already proven working in `configs/
+  workflow_api.json`). The ControlNet template deliberately takes an
+  **already-preprocessed** control image (a pose skeleton / depth map /
+  canny edge map), not a raw photo — turning a raw photo into one of those
+  requires the `comfyui_controlnet_aux` custom node pack, which is not part
+  of core ComfyUI and out of this item's scope; the three "pose / depth /
+  canny" GUI modes share this one template and differ only in which
+  ControlNet checkpoint + pre-processed control image the user supplies.
+- **GUI wiring** — `ComfyUITab` gained a "ControlNet / IP-Adapter Workflow"
+  panel: a mode dropdown (Pose / Depth / Canny / IP-Adapter Reference, each
+  auto-filling the matching default checkpoint filename and image-field
+  label), base-checkpoint and extra-checkpoint text fields, a control/
+  reference image file picker, positive/negative prompt fields, and a
+  "Queue Workflow" button. Clicking it uploads the selected image via
+  `ComfyUIManager.upload_image()`, builds the node-override dict, and
+  submits via `ComfyUIManager.queue_workflow()` on a background thread,
+  logging the returned `prompt_id` (or any error) to the existing log
+  panel — the same "background thread + Qt signal back to the log view"
+  pattern the server-start path already used.
+- **Model checkpoints — same "user provides, app doesn't download"
+  convention already established by `configs/parameters.json`/`workflow_api
+  .json`:** the GUI's checkpoint fields are free-text with tooltips naming
+  the required `ComfyUI/models/{checkpoints,controlnet,ipadapter}/`
+  subfolder; nothing in this change downloads or validates model weights,
+  per this task's explicit constraint.
+- **Tests:** `backend/test/models/test_comfy_manager.py` (12 tests —
+  template loading, override merging incl. non-mutation and unknown-node
+  handling, mocked-urllib `upload_image`/`queue_workflow` incl. the HTTP
+  error path) and `gui/test/models/test_comfy_generate_tab.py` (16 tests —
+  mode-switch field wiring, `build_workflow()` node-override correctness
+  for every mode, the queue handler's guard rails and happy/error paths,
+  file-picker browse/cancel). All 28 new tests pass; the pre-existing 107
+  `gui/test/models/` and full `backend/test/models/` suites (150 tests
+  total) still pass — no regressions.
+- **Manual smoke test:** loaded both curated templates and applied real
+  node overrides through the actual (non-mocked) `ComfyUIManager.
+  load_workflow()`/`apply_overrides()` path outside pytest, confirming both
+  parse as valid ComfyUI API-format graphs (every node has `class_type` +
+  `inputs`) and that overrides land on the right nodes.
+- **Not done here (explicitly out of scope):** actually running generation
+  against a live ComfyUI server with real ControlNet/IP-Adapter weights —
+  no such weights exist in this environment and downloading multi-GB
+  checkpoints was an explicit non-goal; raw-photo-to-control-map
+  preprocessing (needs `comfyui_controlnet_aux`, a custom node pack not
+  installed here); Phase B (native diffusers `StableDiffusion3ControlNetPipeline`
+  / `IPAdapterMixin` wiring into `sd3_wrapper.py` and `SD3GenerateTab`) —
+  tracked separately per this section's own Option B / CG-3 (Quality) split,
+  and `SD3GenerateTab`'s existing `controlnet_ckpt`/`controlnet_cond_image`
+  fields are still unwired stubs, untouched by this change.
+
 ### 1.5 FLUX.1 [dev] secondary support [Research]
 
 **Pain point:** FLUX is the quality king for prompt adherence/text but a poor *primary* anime base (VRAM-heavy, slow to train, thin anime ecosystem). Worth supporting as a secondary model for stylised realism.
 
 **Recommendation:** Add a FLUX wrapper with FP8/GGUF Q8 quantisation for 16 GB; rectified-flow sampler; keep it clearly secondary in the UI.
 
-### 1.6 Anime upscaling stage [Quick Win]
+### 1.6 Anime upscaling stage [Quick Win] — shared wrapper DONE 2026-07-27
 
 **Pain point:** Generated images and stitched panoramas both want anime-aware SR.
 
-**Recommendation:** Shared `Real-ESRGAN anime_6B` / `4x-AnimeSharp` tiled upscaler module, reused by both the generation tabs and the ASP super-resolution stage (`animation/super_res.py` already exists — unify).
+**Done:** `ESRGANWrapper` (`backend/src/models/wrappers/esrgan_wrapper.py`) — a
+tiled Real-ESRGAN anime_6B upscaler, the shared reusable primitive this
+item asked for. **Correction to this bullet's own claim**: `animation/
+super_res.py` does not exist anywhere in the codebase (confirmed by a
+repo-wide search before writing anything) — there was no super-resolution
+module to "unify" with; this wrapper is a new module, not a merge of two
+existing ones.
+
+- **Architecture**: a self-contained RRDBNet (Residual-in-Residual Dense
+  Block Network, the Real-ESRGAN generator) in plain `torch`, rather than
+  the `basicsr`/`realesrgan` PyPI packages (not installed in this
+  project's `.venv`; deliberately not added — `basicsr` carries a large,
+  fragile dependency tree with known compatibility breaks against newer
+  torchvision). Matches this project's established pattern for BiRefNet/
+  ToonOut: load raw weights into a hand-written architecture.
+- **Weights verified, not guessed**: downloaded the real
+  `RealESRGAN_x4plus_anime_6B.pth` checkpoint from its HF Hub mirror and
+  inspected the actual state dict before writing the architecture —
+  confirmed 6 RRDB blocks, `num_feat=64`, weights wrapped under a
+  `params_ema` key (Real-ESRGAN's own convention). Two independent HF Hub
+  mirrors (`ximso/...`, `gemasai/...`) wired as primary/fallback, same
+  pattern as `birefnet_wrapper.py`.
+- **Tiled inference**: large images processed in overlapping tiles
+  (`tile_size=400`, `tile_pad=10` defaults) to bound VRAM/RAM use, matching
+  upstream Real-ESRGAN's own approach. Verified quantitatively against a
+  non-tiled full-pass on the same image: mean abs pixel diff 0.76/255
+  under production tile settings, with boundary-adjacent pixels showing
+  the expected (and upstream-documented) minor tiling-seam effect — not a
+  bug, an accepted trade-off of the tiling approach itself.
+- **Verified end-to-end with real downloaded weights** (not just "loads
+  without erroring"): loaded the actual anime_6B checkpoint and ran both
+  the non-tiled and tiled code paths on synthetic images, confirming
+  correct 4x output shape and dtype in both cases.
+- **Tests**: `backend/test/models/test_esrgan_wrapper.py`, 16 tests —
+  architecture shape checks (locking the real checkpoint's 6-block/
+  64-feature structure), primary/fallback/failure load() paths, tiled vs
+  non-tiled shape correctness (including a non-tile-size-multiple
+  remainder case), file-path convenience wrapper, unload lifecycle. Uses
+  randomly-initialized small weights for CI speed (no network dependency
+  in the committed suite) — the real-weights end-to-end run above was done
+  manually, documented here rather than asserted in CI, same convention as
+  this session's WD14 tagger work.
+- **Not done here** (separate, larger follow-on items, out of this
+  Quick-Win's scope): wiring `ESRGANWrapper` into the generation tabs' GUI,
+  and into an actual ASP super-resolution pipeline stage (which itself
+  doesn't exist yet — see the correction above). This item delivers the
+  shared primitive module only.
 
 ---
 

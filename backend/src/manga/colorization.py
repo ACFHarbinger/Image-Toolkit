@@ -2,7 +2,7 @@
 cost scribble-based colorization, solved as a sparse linear system.
 
 Reference: ``research/Manga Colorization and Animation Research.md`` §5.1
-(``moon/roadmaps/manga_colorization_animation.md`` §2.1, issue #186).
+(``docs/moon/roadmaps/manga_colorization_animation.md`` §2.1, issue #186).
 
 An artist provides a sparse set of colored scribbles on a grayscale line-art
 image. Each unscribbled pixel's chrominance is expressed as a locally-weighted

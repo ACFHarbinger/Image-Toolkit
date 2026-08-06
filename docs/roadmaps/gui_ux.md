@@ -37,6 +37,7 @@
 - [2.30 Accent Color and UI Density Customization](#230-accent-color-and-ui-density-customization)
 - [2.31 Custom QSS User Theme Override](#231-custom-qss-user-theme-override)
 - [2.32 Window Layout and State Profiles](#232-window-layout-and-state-profiles)
+- [2.33 Extractor Tab Playback Engine — libmpv Integration](#233-extractor-tab-playback-engine--libmpv-integration)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -89,9 +90,9 @@ flowchart LR
         S215["§2.15 Undo/Redo ✅p"]:::feature:::active
         S216["§2.16 Command Palette ✅p"]:::feature:::active
         S221["§2.21 Dir Nav History ✅p"]:::augment:::active
-        S222["§2.22 Tag Chip UI"]:::feature:::planned
+        S222["§2.22 Tag Chip UI ✅p"]:::feature:::active
         S227["§2.27 Multi-Image Compare"]:::feature:::planned
-        S228["§2.28 Global Search"]:::feature:::planned
+        S228["§2.28 Global Search ✅"]:::feature:::done
         S222 --> S228
         S216 --> S228
     end
@@ -198,7 +199,7 @@ Extend A/B so each tab remembers its own thumbnail size independently (e.g., con
 
 ---
 
-## 2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes) {: #23-keyboard-navigation }
+## 2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes; §B satisfied via §2.29, corrected 2026-07-27 — see below) {: #23-keyboard-navigation }
 
 **Pain point:** Common operations require mouse interaction. Power users expect keyboard shortcuts for gallery navigation, preview, and operations.
 
@@ -209,10 +210,12 @@ Left/right/up/down select the adjacent thumbnail. Enter opens the full-size prev
 - Pros: Baseline expectation for any image browser. Minimal code (install `QShortcut` on the gallery widget).
 - Cons: Requires focus management — shortcuts only fire when gallery has focus.
 
-**B — Global hotkey table in settings**
+**B — Global hotkey table in settings** ✅ **Satisfied via §2.29, verified 2026-07-27 (GitHub issue #47).**
 Let users configure custom bindings for any tab action. Store in `~/.config/image-toolkit/keybindings.json`. Use Qt's `QShortcut` with `Qt.ApplicationShortcut` context.
 - Pros: Power-user friendly. Accommodates diverse workflows.
 - Cons: Significant UI investment for the settings panel. Conflict detection between shortcuts.
+- **Verified before building anything new**: this option's own architecture — a central registry, a settings-window table with `QKeySequenceEdit` per row, JSON persistence, reset-to-default — is exactly what §2.29 ("Configurable Keyboard Shortcuts") already built and shipped: `gui/src/utils/shortcut_manager.py`'s `SHORTCUT_REGISTRY`/`ShortcutRegistry` (load/save/reset/`get_key_sequence`/`matches`, persisted to `~/.image-toolkit/keybindings.json` — same file, `.image-toolkit` not `.config/image-toolkit`, a harmless path difference from this bullet's original text) and `SettingsWindow`'s "Keyboard Shortcuts" tab (`settings_window.py`, Tab 6). Confirmed genuinely wired at runtime, not just a settings stub: both `AbstractClassTwoGalleries` and `AbstractClassSingleGallery`'s `keyPressEvent` handlers call `reg.matches(event, "...")` against the live registry. This section's own status line simply never got updated to point at §2.29's completion — no new code needed.
+- **Honest scope note**: the registry currently covers 24 actions across two scopes (`Gallery`, `Preview`) — genuinely "global" in *mechanism* (any future shortcut can register into it and gets settings-UI configurability for free), but not yet *coverage* of every tab's actions (e.g. ASP stitch tab, convert/merge-specific operations beyond gallery basics have no registry entries yet). Expanding registry coverage to more tabs is a legitimate, separate follow-on — not a gap in what this option asked for.
 
 **C — Operation hotkeys (non-configurable)**
 Fixed shortcuts for common operations: `Ctrl+D` duplicate scan, `Ctrl+E` export, `Ctrl+W` close preview, `Space` toggle selection. Discoverable via tooltips.
@@ -411,31 +414,35 @@ Allow users to choose a custom accent colour (used for selected thumbnails, prog
 
 ### Remaining Work
 
-**A — Wire thumbnail size / page size to gallery base classes at startup**
-`main_window.py` should read `preferences["thumbnail_size"]` and `preferences["page_size"]` after vault load and set `tab.thumbnail_size` / `tab.found_page_size` / `tab.page_size` on each gallery tab instance before displaying them. One loop in `MainWindow.__init__` after all tabs are constructed.
+**Re-verified 2026-07-27** against `gui/src/windows/main/main_window.py` (`_apply_startup_preferences()`) and
+`gui/src/windows/settings/settings_window.py`. A/B/C/E/F/G below are all now confirmed wired (each is
+tagged `§2.16A`/`§2.16B`/`§2.16C`/`§2.16E`/`§2.16F` directly in `_apply_startup_preferences()`, `G` via
+`§2.9G`); D was already shipped per the note below. F was the last remaining gap and is fixed as of
+2026-07-27 (issue #48) — see its entry for what changed.
 
-**B — Wire LRU cache sizes to gallery base classes at startup**
-Same loop as A: read `found_cache_maxsize`, `selected_cache_maxsize`, `initial_cache_maxsize` and call `tab._found_pixmap_cache = LRUImageCache(maxsize=...)` etc. The `LRUImageCache` class supports `maxsize` at construction time.
+**A — ✅ Wire thumbnail size / page size to gallery base classes at startup**
+Confirmed shipped: `_apply_startup_preferences()` reads `preferences["thumbnail_size"]` / `["page_size"]` and sets `tab.thumbnail_size` / `tab.found_page_size` / `tab.page_size` on every gallery tab, tagged `§2.16A`.
 
-**C — Wire startup category to MainWindow**
-`MainWindow.__init__` already calls `self.on_command_changed(self.command_combo.currentText())`. Before that, set `self.command_combo.setCurrentText(prefs.get("startup_category", "System Tools"))` after reading preferences from vault.
+**B — ✅ Wire LRU cache sizes to gallery base classes at startup**
+Confirmed shipped: same function reads `found_cache_maxsize`, `selected_cache_maxsize`, `initial_cache_maxsize` and rebuilds `tab._found_pixmap_cache` / `_selected_pixmap_cache` / `_initial_pixmap_cache` as `LRUImageCache(maxsize=...)`, tagged `§2.16B`.
+
+**C — ✅ Wire startup category to MainWindow**
+Confirmed shipped: `_apply_startup_preferences()` sets `self.command_combo.setCurrentText(startup_cat)` from `prefs.get("startup_category", "")`, tagged `§2.16C`.
 
 **D — Wire confirm_deletions to deletion workflows ✅ (2026-06-10)**
 `_confirm_deletions_enabled()` helper reads `preferences["confirm_deletions"]` from vault in both gallery base classes. `_trash_path` in `AbstractClassTwoGalleries` gates on this preference. `ConvertTab`, `DeleteTab`, and `WallpaperTab` standalone deletion paths still use their own dialogs (partial coverage).
 
-**E — Wire slideshow defaults to WallpaperTab**
-After `WallpaperTab` construction in `MainWindow.__init__`, set:
-```python
-self.wallpaper_tab.interval_min_spinbox.setValue(prefs.get("slideshow_interval_min", 5))
-self.wallpaper_tab.interval_sec_spinbox.setValue(prefs.get("slideshow_interval_sec", 0))
-self.wallpaper_tab.playback_order_combo.setCurrentText(prefs.get("slideshow_order", "Sequential"))
-```
+**E — ✅ Wire slideshow defaults to WallpaperTab**
+Confirmed shipped: `_apply_startup_preferences()` sets `wallpaper_tab.interval_min_spinbox` / `interval_sec_spinbox` / `playback_order_combo` from `prefs`, tagged `§2.16E`.
 
-**F — Wire logging settings**
-On app startup (before `MainWindow` init), read `preferences["log_level"]` and `preferences["file_logging_enabled"]` and configure the `logging` module: set the root logger level and add/remove the `RotatingFileHandler`. This should go in `main.py` after vault load.
+**F — ✅ Wire logging settings (2026-07-27, issue #48)**
+Confirmed the gap before fixing: `preferences["log_level"]`/`["file_logging_enabled"]` round-tripped through `settings_window.py` but were never consumed. The architectural constraint is real — `_setup_logging()` runs before `QApplication`/vault unlock, so it has no access to vault preferences at that point — so the fix applies them later instead: a new `_reconfigure_logging(log_level_name, file_logging_enabled)` in `backend/src/app.py`, called from `_apply_startup_preferences()` (tagged `§2.16F`) once the vault is unlocked. It sets the console handler's level from the preference (string "DEBUG"/"INFO"/"WARNING"/"ERROR" → `logging` module constant, defaulting to INFO for an unrecognized value) and adds/removes a tagged `RotatingFileHandler` based on `file_logging_enabled` (`_make_file_handler()`/`_LOG_FILE_HANDLER_TAG`, factored out of `_setup_logging()` to avoid duplicating the handler-construction logic). Since `_apply_startup_preferences()` runs during the current launch's `MainWindow` init (right after login), this preference now actually takes effect on the very session it's read in, not just "next restart" as the table above implies for these two rows. Verified via 6 new unit tests in `backend/test/core/test_app_logging.py` (handler tagging, level application, add/remove/idempotent-enable, unknown-level fallback) — all passing; a `_clean_root_logger` fixture saves/restores the real root logger's handlers around each test so this doesn't leak into other test files' logging state.
 
-**G — Wire restore_last_dir and recent_dirs_count**
-Requires implementing the session persistence feature (§2.5). The vault settings are already stored; they just need to be consumed.
+**G — ✅ Wire restore_last_dir and recent_dirs_count (2026-07-27, issue #49)**
+`restore_last_dir` was already consumed (`_apply_startup_preferences()` reads it and gates directory restoration). `recent_dirs_count` is now wired too: `settings_window.py` gained a `recent_dirs_count_spinbox` (QSpinBox, range 1-50, default 10) in the Startup & Session section, `collect()` now saves `self.recent_dirs_count_spinbox.value()` instead of the literal `10`, and `set_config()`/`reset_settings()` populate/reset it. `AbstractGalleryBase.__init__` (`gui/src/classes/base/gallery_base.py`) gained a `self.recent_dirs_limit: int = 10` instance attribute, and `_add_recent_dir(self, path, max_entries: Optional[int] = None)` now defaults to `self.recent_dirs_limit` when no explicit `max_entries` is passed (existing explicit-argument callers are unaffected). `main_window.py::_apply_startup_preferences()` reads `prefs.get("recent_dirs_count", 10)` and sets `recent_dirs_limit` on every gallery tab plus, since `ConvertTab` is a plain `QWidget` wrapper (not a gallery base subclass itself), explicitly on its nested `format_subtab`/`codec_subtab`/`sampler_subtab` — the actual `_add_recent_dir` callers. Default behavior (10) is unchanged for existing saved configs with no `recent_dirs_count` key. Verified via `gui/test/core/test_settings_window.py` and `gui/test/core/test_main_window.py` (both green, `--run-gui` scoped) plus a manual smoke test of `_add_recent_dir` MRU-trim behavior under a custom limit.
+
+**H — ✅ Current Category session recovery + Default Startup Tab / restore-last-tab decoupling (2026-08-01)**
+Two related additions. First, Session Recovery Level gained a fourth option, "Current Category": saves/restores `.collect()`/`.set_config()` for every tab within whichever category was active on close, not just the single active tab (`Current Tab`) or every tab in the app (`All Tabs`) — `main_window/_session_recovery.py`'s `_save_session_recovery()`/`_restore_session_recovery()` both gained a `"Current Category"` branch, plus the `restore_last_dir` reset-on-startup block gained a matching branch that only resets directories for tabs *outside* the active category. Second, tab **selection** at startup is now fully decoupled from Session Recovery Level (previously, any non-"None" recovery level implicitly also navigated to the last-active tab as a side effect of restoring its config): a new "Default Startup Tab" combo (cascades from the existing "Default Startup Category" combo) and an independent "Restore last opened tab on startup" checkbox (next to "Restore last browsed directory on startup") now govern *which tab is shown*, while Session Recovery Level governs only *which tab configs get restored*. `_restore_session_recovery()` picks the previously-active category/tab from `recovery_data` when the checkbox is on, else the Default Startup Category/Tab preferences — and `_save_session_recovery()` now persists `active_category`/`active_tab` whenever either feature needs them (previously only written when `session_recovery_level != "None"`). Verified via `gui/test/core/test_main_window.py` (`TestMainWindowSessionRecovery`, `--run-gui` scoped) and `gui/test/core/test_settings_window.py` (`TestSettingsWindowStartupTab`).
 
 ---
 
@@ -836,7 +843,7 @@ Add a dropdown (▼ button beside the path input) showing the 10 most recent pat
 
 ---
 
-## 2.22 Tag Chip UI and Compound Tag Search
+## 2.22 Tag Chip UI and Compound Tag Search ✅ Partial (2026-07-30 — §A TagChipWidget + §D TagCompleter shipped, issue #127 — In review) {: #222-tag-chip-ui-and-compound-tag-search }
 
 **Pain point:** The search and scan metadata tabs use `QListWidget` for tag display (implemented to avoid per-QCheckBox memory cost). While this is correct for large tag sets, the visual style is a plain list item — not a modern chip/badge that makes tag relationships scannable at a glance.
 
@@ -1022,7 +1029,13 @@ Add an optional second `QScrollArea` pane to the existing `ImagePreviewWindow`, 
 
 ---
 
-## 2.28 Global Cross-Tab Search
+## 2.28 Global Cross-Tab Search ✅ (2026-08-01, issue #45) {: #228-global-cross-tab-search }
+
+**Shipped: Option A (in-memory search across loaded tabs).** `Ctrl+Shift+F` opens a floating popup (`gui/src/windows/main/_global_search.py`, `_GlobalSearchMixin`, mirroring `_tab_search.py`'s Ctrl+T popup shape) that filters over every gallery-like tab's `master_found_files`/`master_image_paths` as-you-type, grouped by tab, and jumps to the selected hit via the same `command_combo` + `_select_tab_by_name` cross-tab-activation pattern DB.8 established. A new per-gallery `jump_to_path(path)` (added to both `AbstractClassTwoGalleries`/`_found_gallery_load.py` and `AbstractClassSingleGallery`/`_geometry_events.py` — no such primitive existed before) isolates the target file by filtering the tab's own search box down to its exact basename, reusing the existing debounced-search machinery instead of adding new pagination/highlight logic. `ConvertTab` doesn't itself expose a path list (it composes `format_subtab`/`codec_subtab`/`sampler_subtab`, each a real gallery) — `_iter_gallery_tabs()` checks those three nested attributes one level down so Convert's subtabs are still searchable; `ExtractorTab`'s existing `__getattr__` delegation to `VideoExtractorSubTab` needed no special-casing. New `general.global_search` entry in the shortcut registry (`Ctrl+Shift+F` default, remappable like every other action). Capped at 200 results so a very large library doesn't build an unbounded popup list.
+
+Options B/C/D (per-tab-input broadcast, Postgres-backed, OS `locate`) not pursued — A covers the in-memory case with zero new dependencies, and C's premise (a running PostgreSQL connection) no longer applies now that `unified_database.md` has retired Postgres in favor of the unified SQLCipher store.
+
+Tests: `gui/test/core/test_global_search.py` (3, incl. the Ctrl+Shift+F key-dispatch and ConvertTab-subtab-discovery cases), `gui/test/image/test_gallery_classes.py` (+4 `jump_to_path` cases across both gallery base classes).
 
 **Pain point:** Each gallery tab has its own search input, and there is no unified way to search across all loaded galleries simultaneously. A user who doesn't know which tab contains a specific file must search each tab manually.
 
@@ -1082,6 +1095,10 @@ Only make app-global shortcuts configurable (e.g., Command Palette `Ctrl+K`, glo
 - Cons: Leaves per-gallery shortcuts (F2, Ctrl+E, Del) unconfigurable — the highest-demand items.
 
 **Recommendation:** A — JSON registry approach. `QKeySequenceEdit` + `SHORTCUT_REGISTRY` is a one-time investment that covers all future shortcuts automatically once the registry discipline is established.
+
+**Update (2026-08-01) — KDE System Settings-style multi-shortcut editor.** The original single-`QKeySequenceEdit`-per-row table is replaced with a two-pane editor matching KDE's own Shortcuts module: a left-hand list of "functionalities" (shortcut scopes -- Gallery, Preview, General -- each with an icon) where selecting one shows its actions on the right, each with an independently-togglable default shortcut plus any number of custom shortcuts (pill + delete button, "+ Add..." to capture a new one), mirroring the reference screenshots exactly (default shortcut near the action name, custom shortcuts to the right). `shortcut_manager.py`'s `ShortcutRegistry` now stores `{"default_enabled": bool, "custom": [str, ...]}` per action instead of one override string, backward-compatible with the old flat-string `keybindings.json` format. Conflict detection on save is scoped per-scope (Gallery and Preview both reusing `Left`/`Right` for unrelated, never-simultaneously-active navigation is not a real conflict -- flagging it cross-scope produced a blocking false-positive dialog every save). The shortcuts groupbox is now built directly into its tab (not the shared `create_tab_scroll_area()` helper, whose `AlignTop` layout + trailing stretch shrank it to content) so it fills the available tab height instead of showing only a few rows. Also added `general.save_tab_config` (default `Ctrl+S`) to the registry -- see §2.16H below for what it does.
+
+**Update (2026-08-04) — `general.load_tab_config` (default `Meta+S`), the load counterpart to Ctrl+S.** `_open_save_tab_config_dialog()` could only *save* a named profile for the active tab; there was no shortcut to load one back in without going through Settings' full "Tab Default Configuration Management" section. `gui/src/windows/main/_load_tab_config.py` (`_LoadTabConfigMixin`) adds Meta+S: resolves the active tab the same way Ctrl+S does (`command_combo.currentText()` + `tabs.tabText(tabs.currentIndex())`), reads that tab class's saved configs from the same `tab_configurations` vault store, and shows a picker dialog (`QListWidget` of saved names, double-click or OK to load) that calls the selected config through `tab_instance.set_config(...)`. Warns if the active tab doesn't implement `set_config`, or informs if it has no saved configs yet, rather than silently no-opping.
 
 ---
 
@@ -1167,6 +1184,33 @@ Each tab class saves and restores its own internal splitter + scroll position in
 
 ---
 
+## 2.33 Extractor Tab Playback Engine — libmpv Integration {: #233-extractor-tab-playback-engine--libmpv-integration }
+
+**Pain point:** The Extractor tab's internal player is built on `QMediaPlayer`/`QGraphicsVideoItem`. Repeated attempts (2026-07) to make the main player itself track the playhead in real time during a drag — subprocess-per-frame extraction, a background dense-keyframe H.264 "scrub proxy," and finally a persistent in-process PyAV decoder feeding an overlay pixmap — all ran into some combination of latency, image quality, or `QMediaPlayer`/`QVideoSink` surface-swap timing bugs (aspect-ratio corruption on release, a stale-frame "flash" between the pre-drag and post-drag frame, and a final regression that only manifested under real interactive dragging, never in scripted reproductions). The conclusion: the class of bug repeatedly hit is inherent to driving `QMediaPlayer`'s own video surface at drag speed, not something a better preview-fetching algorithm alone fixes.
+
+The chosen near-term fix (§4.14, tracked in `new_features.md`) is a YouTube-style storyboard/sprite-sheet scrub preview shown in a small floating widget above the slider, which never touches the main player's surface during the drag at all — see that section for the accepted design. This section instead tracks the complementary, larger initiative: giving the *main player itself* fast, high-quality seeking, by swapping its engine to `libmpv` — the same engine Haruna (the reference UX for this feature) is built on.
+
+### Options
+
+**A — Embed via `python-mpv` + native window ID (`wid`)**
+`python-mpv` is a ctypes wrapper around `libmpv`. Hand it the native window handle of a Qt widget (`int(widget.winId())`) and let mpv render into it directly, replacing `QMediaPlayer`/`QGraphicsVideoItem` as the Extractor tab's internal engine. mpv owns seeking, its own demuxer cache, and hr-seek/keyframe-seek tuning — this is literally Haruna's own approach, not an approximation of it.
+- Pros: Highest ceiling — inherits 15+ years of tuned scrub-seek behavior for free. No custom decode/overlay code to maintain going forward.
+- Cons: New native dependency (`libmpv`/`libmpv2`). Per this project's own history (three prior SIGSEGVs from JPype/JVM colliding with lazily-loaded native GPU/media libs — GTK file dialog, QWebEngineView/Chromium, QMediaPlayer FFmpeg VA-API — see `jvm_native_lib_conflicts` in project memory), a fourth native lib coexisting with the JVM needs a deliberate isolated smoke test before wiring it into the main app. Window embedding (`wid`) is straightforward on X11 but meaningfully more fragile on Wayland (frequently requires falling back through XWayland) — worth confirming the target session type first. This is a genuine engine swap, not a small patch: audio routing, playback-speed control, and the existing AV1/VP9 H.264-proxy workaround (`transcoded_playback.py`) would all need to be re-plumbed through mpv's own APIs (mpv can decode AV1/VP9 natively via ffmpeg, likely obsoleting that proxy entirely) or bridged.
+
+**B — mpv render API into a `QOpenGLWidget`**
+Instead of native window embedding, use mpv's render API to draw into an OpenGL context Qt owns (`QOpenGLWidget`), pulling frames via a render callback instead of handing mpv a raw window handle.
+- Pros: Avoids the X11/Wayland window-embedding fragility of Option A entirely — works identically on both since Qt owns the surface. More natural fit for compositing mpv's output with Qt-drawn overlays (e.g. the storyboard preview widget, HUD elements) in the same widget.
+- Cons: More integration code than `wid` embedding (explicit OpenGL context sharing, render callback wiring). Requires `PyOpenGL` or equivalent alongside `python-mpv`.
+
+**C — Status quo (`QMediaPlayer`) + debounced seeks only**
+Keep `QMediaPlayer` as the engine; rely on the storyboard preview (§4.14) for the live-drag visual, and only ever call `QMediaPlayer.setPosition()` when the drag pauses or releases (not on every tick), reusing the existing `videoSink().videoFrameChanged`-gated safe-reveal logic.
+- Pros: Zero new dependencies, zero engine-swap risk. Already-fixed bugs (aspect ratio, release flash) stay fixed because the code paths that caused them aren't exercised at drag speed anymore.
+- Cons: The main player's seek latency (observed ~100-300ms per real seek) is still whatever `QMediaPlayer` gives you on pause/release — noticeably slower to "settle" than mpv's own seeking, just no longer perceptible as continuous stutter since it doesn't fire on every tick.
+
+**Recommendation:** Ship C now (it's the low-risk baseline the storyboard work already assumes). Pursue A as a follow-up spike behind a feature flag, with an isolated smoke test for JVM/libmpv coexistence before any wider integration; fall back to B if `wid` embedding proves unreliable on the team's actual desktop session (Wayland).
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
@@ -1177,7 +1221,7 @@ Each tab class saves and restores its own internal splitter + scroll position in
 | **Low (<1d)** | §2.4B right-click context menu · §2.10 toast notifications · §2.14 thumbnail metadata overlay · §2.24 hover animations · §2.25 shortcut discovery overlay · §2.26 inline rename | §2.2B Ctrl+scroll zoom [Quick Win] · §2.5A session path persistence · §2.9 settings extensions · §2.12 system tray · §2.17 log panel · §2.18 image rating + labels · §2.31A QSS user override | §2.3A+C keyboard nav shortcuts · §2.7A progress bar + cancel button [Quick Win] · §2.32A auto-save geometry [Quick Win] | — |
 | **Medium (1d–1w)** | §2.19 contact sheet export | §2.2A slider control · §2.5B session restore dialog · §2.6B side-by-side before/after · §2.13 gallery filter+sort · §2.15 undo/redo deletions · §2.20A QSplitter persistence · §2.21 nav history · §2.27 multi-image compare · §2.28 global search · §2.29 configurable shortcuts · §2.30 accent colour + density | §2.4A multi-select with QItemSelectionModel · §2.8A dark/light theme toggle · §2.8B dynamic colour extraction · §2.12B+C tray preview + context ops · §2.22 tag chip compound search · §2.32B named layout profiles | §2.6A interactive zoom/pan preview · §2.16A command palette + registry |
 | **High (1–2w)** | — | §2.30C density modes (compact/comfortable/spacious) · §2.31B in-app QSS editor | §2.23 accessibility audit · §2.29B global keybinding conflict detection | §2.1A QListView virtual scroll (full refactor) |
-| **Very High (2w+)** | — | §2.4E drag-and-drop reorder | — | §4.12C named workspaces (superset of §2.29+§2.30+§2.32) |
+| **Very High (2w+)** | — | §2.4E drag-and-drop reorder | §2.33A libmpv engine swap (spike, gated on JVM coexistence smoke test) | §4.12C named workspaces (superset of §2.29+§2.30+§2.32) |
 
 ---
 
@@ -1217,9 +1261,10 @@ Each tab class saves and restores its own internal splitter + scroll position in
 | 2.30 Accent Color and UI Density | [#230-accent-color-and-ui-density-customization](#230-accent-color-and-ui-density-customization) |
 | 2.31 Custom QSS User Theme Override | [#231-custom-qss-user-theme-override](#231-custom-qss-user-theme-override) |
 | 2.32 Window Layout and State Profiles | [#232-window-layout-and-state-profiles](#232-window-layout-and-state-profiles) |
+| 2.33 Extractor Tab Playback Engine — libmpv | [#233-extractor-tab-playback-engine--libmpv-integration](#233-extractor-tab-playback-engine--libmpv-integration) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.*
+*Last updated: 2026-07-11 — §2.33 Extractor Tab Playback Engine (libmpv integration) added; near-term scrub-preview UX handled separately via `new_features.md` §4.14 (storyboard sprite sheet). Previous update 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.*

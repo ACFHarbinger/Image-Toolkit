@@ -11,7 +11,7 @@
 // C++ replacement for Rust secure_vector_db functions in base/src/core/.
 //
 // Phase 4 of the Rust → C++ migration.
-// See moon/roadmaps/rust_to_cpp_migration.md §Phase 4
+// See docs/moon/roadmaps/rust_to_cpp_migration.md §Phase 4
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

@@ -28,7 +28,7 @@ class DataBrowserTab(
     Table picker, paginated raw rows, a WHERE box + per-column filters,
     FK-cell navigation + reverse-references, a schema/ER view, CSV/JSON
     export, and a gated, session-only cell-edit mode (see
-    moon/roadmaps/unified_database.md, DB.9).
+    docs/moon/roadmaps/unified_database.md, DB.9).
     """
 
     PAGE_SIZE = 100

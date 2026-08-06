@@ -4,14 +4,14 @@ version: 2
 # Dependabot ecosystem support and are therefore not tracked here.
 #
 # Rust `base` module was fully retired to archive/rust/ (Rust -> C++
-# migration, see moon/roadmaps/asp.md history) — archive/rust/Cargo.toml is
+# migration, see docs/moon/roadmaps/asp.md history) — archive/rust/Cargo.toml is
 # intentionally NOT scanned. The only live Cargo.toml is the root workspace
 # manifest, whose sole member is frontend/src-tauri (the Tauri desktop shell).
 #
 # app/android is temporarily excluded from the root settings.gradle.kts
 # `include(":app")` (see commit 140b4242, "Hotfix for gradle build of android
 # app") but remains an actively developed, independently-buildable Gradle
-# module (moon/roadmaps/architecture.md §5.6 Mobile App Feature Parity
+# module (docs/moon/roadmaps/architecture.md §5.6 Mobile App Feature Parity
 # Backlog) — Dependabot has already opened and merged bump PRs against it
 # (e.g. PR #5), so it is scanned directly by directory.
 

@@ -12,7 +12,7 @@
 //   cv::detail::GraphCutSeamFinder — global multi-image seam
 //
 // Implementation roadmap: Phase 2 (seam DP + cost map) + Phase 4 (GraphCut).
-// See moon/roadmaps/asp_cpp_migration.md §base::seam
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::seam
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

@@ -1,6 +1,6 @@
 """
 Generates Overmix reference-comparator stitches for the ASP benchmark corpus
-(roadmap moon/roadmaps/asp.md §0.3, GitHub issue #18).
+(roadmap docs/moon/roadmaps/asp.md §0.3, GitHub issue #18).
 
 Overmix (github.com/spillerrec/Overmix, GPL-3.0) is built and run as an
 external tool — never linked into our own binaries. Run

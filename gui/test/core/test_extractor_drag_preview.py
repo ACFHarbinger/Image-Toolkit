@@ -14,7 +14,7 @@ class TestExtractorTabDragPreview:
     approach (subprocess-per-frame, proxy-backed subprocess, persistent
     in-process decoder) -- all of which either couldn't sustain real-time
     cadence under actual interactive dragging or reintroduced QMediaPlayer
-    surface-swap bugs. See moon/roadmaps/new_features.md §4.14.
+    surface-swap bugs. See docs/moon/roadmaps/new_features.md §4.14.
 
     Every codec (including AV1/VP9) flows through the exact same
     QMediaPlayer path -- native Qt/FFmpeg playback handles them fine, so

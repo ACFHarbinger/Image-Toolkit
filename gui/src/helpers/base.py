@@ -78,7 +78,7 @@ class BaseQThreadWorker(QThread):
         Emitted when an unhandled exception escapes ``_execute()``.
     progress : Signal(int, int)
         Emitted as ``(completed, total)`` (see §5.9 Option C,
-        ``moon/roadmaps/architecture.md``). Connecting slots should call
+        ``docs/moon/roadmaps/architecture.md``). Connecting slots should call
         ``progress_bar.setMaximum(total)`` then ``.setValue(completed)``.
     """
 

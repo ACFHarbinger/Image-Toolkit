@@ -1,7 +1,7 @@
 """Directory-import wizard: scan a video dir and auto-create listings.
 
 Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
-change, plus DB.8d (moon/roadmaps/unified_database.md, issue #66): the
+change, plus DB.8d (docs/moon/roadmaps/unified_database.md, issue #66): the
 whole batch of newly-created series now commits in a single transaction
 (previously one implicit transaction per ``save_media()`` call, via
 ``_upsert_entry()``), and a series whose name exactly matches an existing

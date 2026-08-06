@@ -11,7 +11,7 @@
 //     gain normalization loops, all single-pose escalation gates
 //
 // Implementation roadmap: Phase 2 (zone norms wired) + Phase 4 (MultiBandBlender).
-// See moon/roadmaps/asp_cpp_migration.md §base::compositing
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::compositing
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

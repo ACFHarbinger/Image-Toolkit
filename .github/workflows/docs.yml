@@ -5,8 +5,8 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
-      - 'moon/roadmaps/**'
-      - 'moon/ROADMAP.md'
+      - 'docs/moon/roadmaps/**'
+      - 'docs/moon/ROADMAP.md'
       - 'research/**'
       - 'backend/src/**/*.py'
       - 'base/src/math/**/*.rs'
@@ -23,7 +23,7 @@ on:
     types: [opened, synchronize, reopened, closed]
     paths:
       - 'docs/**'
-      - 'moon/roadmaps/**'
+      - 'docs/moon/roadmaps/**'
       - 'backend/src/**/*.py'
       - 'docs/mkdocs.yml'
       - '.github/workflows/docs.yml'

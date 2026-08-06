@@ -13,7 +13,7 @@
   - [§6.5 Swift Reference Docs (DocC)](#65-swift-reference-docs-docc)
 - [Domain B — Source of Truth Files (Meso-Level)](#domain-b--source-of-truth-files-meso-level)
   - [§6.6 ARCHITECTURE.md Standardisation](#66-architecturemd-standardisation)
-  - [§6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md](#67-changelogmd-dependency_policymd-and-documentation_standardsmd)
+  - [§6.7 docs/moon/CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md](#67-changelogmd-dependency_policymd-and-documentation_standardsmd)
   - [§6.8 TROUBLESHOOTING.md and BENCHMARKS.md](#68-troubleshootingmd-and-benchmarksmd)
   - [§6.9 Jupyter Notebooks as Executable Polyglot Documentation](#69-jupyter-notebooks-as-executable-polyglot-documentation)
 - [Domain C — Static Site Generators & Portals (Macro-Level)](#domain-c--static-site-generators--portals-macro-level)
@@ -311,14 +311,14 @@ Embed a Mermaid module graph directly in README.md rather than a separate file.
 
 ---
 
-## ✅ §6.7 CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
+## ✅ §6.7 docs/moon/CHANGELOG.md, DEPENDENCY_POLICY.md, and DOCUMENTATION_STANDARDS.md
 
-**Pain point:** `docs/CHANGELOG.md` exists but is not yet structured with the [Keep a Changelog](https://keepachangelog.com/) format. `DEPENDENCY_POLICY.md` and `DOCUMENTATION_STANDARDS.md` do not exist. (This file previously also existed as a separately-maintained `moon/CHANGELOG.md` copy; the two were merged back into one file on 2026-07-11 — see the note at the top of `docs/CHANGELOG.md`.)
+**Pain point:** `docs/moon/CHANGELOG.md` exists but is not yet structured with the [Keep a Changelog](https://keepachangelog.com/) format. `DEPENDENCY_POLICY.md` and `DOCUMENTATION_STANDARDS.md` do not exist. (This file previously also existed as a separately-maintained `docs/moon/CHANGELOG.md` copy; the two were merged back into one file on 2026-07-11 — see the note at the top of `docs/moon/CHANGELOG.md`.)
 
 ### Options
 
-**A — Keep a Changelog format for CHANGELOG.md [Quick Win]**
-Restructure `docs/CHANGELOG.md` to use sections `[Unreleased]`, `[x.y.z] — YYYY-MM-DD`, with subsections `Added`, `Changed`, `Fixed`, `Removed`. Link version numbers to GitHub diff URLs.
+**A — Keep a Changelog format for docs/moon/CHANGELOG.md [Quick Win]**
+Restructure `docs/moon/CHANGELOG.md` to use sections `[Unreleased]`, `[x.y.z] — YYYY-MM-DD`, with subsections `Added`, `Changed`, `Fixed`, `Removed`. Link version numbers to GitHub diff URLs.
 - Effort: < 1 hour to reformat; ongoing discipline to maintain.
 - Pros: Machine-parseable for automated release notes. Standard format recognised by GitHub release automation.
 - Reference: [keepachangelog.com](https://keepachangelog.com/)
@@ -477,7 +477,7 @@ docs/
     typescript/        ← typedoc-plugin-markdown output
     kotlin/            ← dokkaGfm output
   notebooks/           ← Jupyter notebooks (myst-nb)
-  roadmaps/            ← symlinks or copies of moon/roadmaps/*.md
+  roadmaps/            ← symlinks or copies of docs/moon/roadmaps/*.md
   research/            ← research/*.md
   troubleshooting.md
   benchmarks.md
@@ -497,7 +497,7 @@ Use the GitHub repository wiki for all documentation.
 - Pros: Zero setup.
 - Cons: Not version-controlled with the code. No CI integration. No search. Not recommended for a complex polyglot project.
 
-**Recommendation:** A. Using `mkdocs.yml` hooks to softlink `moon/roadmaps/*.md` and `research/*.md` into `docs/` avoids moving files while keeping the portal coherent.
+**Recommendation:** A. Using `mkdocs.yml` hooks to softlink `docs/moon/roadmaps/*.md` and `research/*.md` into `docs/` avoids moving files while keeping the portal coherent.
 
 ---
 
@@ -520,7 +520,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths: ['docs/**', 'moon/roadmaps/**', 'backend/src/**', 'base/src/**', 'frontend/src/**']
+    paths: ['docs/**', 'docs/moon/roadmaps/**', 'backend/src/**', 'base/src/**', 'frontend/src/**']
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -547,7 +547,7 @@ Split `build` into parallel jobs: `docs-python`, `docs-rust`, `docs-typescript`,
 - Cons: More complex `mkdocs.yml` integration for multi-artifact merge.
 
 **C — Preview deployments on PRs ✅**
-Each PR that touches `docs/`, `moon/roadmaps/`, `backend/src/`, or `mkdocs.yml` gets a live preview deployment to `gh-pages/pr-preview/{number}/` via the `preview` job in `.github/workflows/docs.yml`.
+Each PR that touches `docs/`, `docs/moon/roadmaps/`, `backend/src/`, or `mkdocs.yml` gets a live preview deployment to `gh-pages/pr-preview/{number}/` via the `preview` job in `.github/workflows/docs.yml`.
 - Implemented without Netlify/Cloudflare — uses `peaceiris/actions-gh-pages@v4` to deploy to a PR-specific subdirectory on the existing `gh-pages` branch.
 - A sticky bot comment on the PR links to `https://{owner}.github.io/{repo}/pr-preview/{number}/` (updated on each commit via `actions/github-script@v7` — finds and updates the existing comment rather than creating duplicates).
 - Cleanup is handled by `.github/workflows/docs-cleanup.yml` — fires on `pull_request: types: [closed]`, checks out `gh-pages`, removes `pr-preview/{number}/`, pushes a deletion commit.

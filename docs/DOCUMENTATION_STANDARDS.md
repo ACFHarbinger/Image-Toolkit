@@ -1,6 +1,6 @@
 # Documentation Standards
 
-*Last updated: 2026-06-19. Establishes required docstring styles, TOC requirements, and inline comment conventions for each stack component. These standards are enforced by pre-commit hooks and CI (see `moon/roadmaps/documentation.md §6.13`). Violations in new code are blocking; violations in existing code are tracked in §6.1–§6.5.*
+*Last updated: 2026-06-19. Establishes required docstring styles, TOC requirements, and inline comment conventions for each stack component. These standards are enforced by pre-commit hooks and CI (see `docs/moon/roadmaps/documentation.md §6.13`). Violations in new code are blocking; violations in existing code are tracked in §6.1–§6.5.*
 
 ---
 
@@ -256,7 +256,7 @@ Any Markdown file exceeding **100 lines** must have a Table of Contents immediat
 
 GitHub anchor derivation rules: lowercase, spaces → `-`, special characters stripped.
 
-### Roadmap files (`moon/roadmaps/`)
+### Roadmap files (`docs/moon/roadmaps/`)
 
 - Must end with an **Effort × Impact Matrix** and an **Anchor Index**.
 - Section headers follow the numbering convention of the file (§5.x for architecture, §3.x for performance, etc.).

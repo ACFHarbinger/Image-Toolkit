@@ -20,6 +20,8 @@
 - [4.13 Shortcut Macros and Custom Actions](#413-shortcut-macros-and-custom-actions)
 - [4.14 Extractor Tab Storyboard Scrub Preview](#414-extractor-tab-storyboard-scrub-preview)
 - [4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter)
+- [4.16 Additional Stitcher Options](#416-additional-stitcher-options)
+- [4.17 Media Loader — Web Media Downloader](#417-media-loader--web-media-downloader)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -53,7 +55,7 @@ flowchart TD
 
     subgraph STITCH["🎞 Stitching & Export"]
         S1["§4.1 Batch Stitching\nAutomate ASP across directories"]:::feature:::planned
-        S2["§4.2 Scrolling Video Export\nPanorama → scrolling MP4"]:::feature:::planned
+        S2["§4.2 Scrolling Video Export\nPanorama → scrolling MP4"]:::feature:::done
         S11["§4.11 RLHF Feedback Interface\nQuality rating loop for ASP"]:::feature:::planned
     end
 
@@ -66,7 +68,7 @@ flowchart TD
     subgraph AUTOMATION["⚙ Automation & API"]
         A8["§4.8 ComfyUI Integration\nPost-processing workflow hooks"]:::integration:::planned
         A10["§4.10 REST API Layer\nRemote control & scripting"]:::integration:::planned
-        A13["§4.13 Shortcut Macros\nCustom action sequences"]:::augment:::planned
+        A13["§4.13 Shortcut Macros ✅\nWorkflow templates"]:::augment:::done
     end
 
     subgraph MEDIA["🖼 Media & Presentation"]
@@ -109,9 +111,17 @@ Each section describes a proposed feature, all viable implementation options wit
 
 ---
 
-## 4.1 Batch Stitching
+## 4.1 Batch Stitching — ✅ Options A, C, E implemented (2026-07-27, issue #56)
 
 **Pain point:** Users with large screenshot libraries (e.g., 50+ groups of frames from novel-reading sessions) currently process each group one at a time in the StitchTab.
+
+**Status:** Options C (CLI batch mode) and E (resume support) were already fully implemented in `backend/src/utils/io/dispatcher.py::dispatch_stitch` before this item was picked up — `python main.py stitch --batch-dir /path --resume` scans immediate subdirectories, runs `AnimeStitchPipeline` on each via `_run_single_stitch()`, and persists `.stitch_progress.json` after every sequence. This wasn't reflected in the roadmap text (it read as an open TODO). Option A (the GUI counterpart the roadmap's own recommendation calls for "once C is validated") is now implemented too:
+
+- **`gui/src/helpers/animation/batch_stitch_worker.py::BatchStitchWorker`** (`QThread`): runs the same batch loop as the CLI, reusing `dispatcher.py`'s `_collect_image_paths`/`_run_single_stitch` directly rather than re-implementing "run one sequence" a second time, so the two entry points can never silently diverge. Reads/writes the identical `.stitch_progress.json`, so a batch interrupted from one entry point resumes correctly from the other. Runs the plain (non-HITL) pipeline path — unattended batch runs don't pause for interactive review, unlike the single-sequence StitchTab/`StitchWorker` flow. `cancel()` is checked between items (a single `AnimeStitchPipeline.run()` call isn't interruptible mid-stage, matching this project's existing §2.7B cancellation granularity).
+- **`gui/src/components/dialogs/batch_stitch_dialog.py::BatchStitchDialog`**: root-directory picker (`QFileDialog` with `DontUseNativeDialog`), renderer/output-suffix/resume options, and the progress list the roadmap asks for — one row per subdirectory with a status icon (queued/running/done/skipped/failed), backed by a progress bar. Its `closeEvent()` deliberately uses an *unbounded* `QThread.wait()` rather than a fixed timeout when cancelling mid-run — the gallery crash fixed earlier this same session (`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`) is the exact same class of bug (a worker's signals connected to widgets that a bounded wait can let outlive), so this dialog was built to avoid it from the start rather than needing the same fix applied twice.
+- New "⚏ Batch Stitch…" button in the StitchTab's action row, opening the dialog.
+- **Not implemented**: ETA display (not asked for by Option A's exact text beyond "per-item status"), output preview thumbnails in the progress list, ATA ordering, and Options B (Postgres-backed queue) and D (filesystem watcher) — both explicitly deferred by the roadmap's own recommendation.
+- **Tests**: 11 new cases in `gui/test/dialogs/test_batch_stitch_dialog.py` (worker: subdirectory iteration, resume-skip, progress-JSON format, cancellation, empty directory, too-few-images skip; dialog: construction defaults, missing-directory guard, progress-list/bar updates, batch-finished summary) — all passing, plus the existing `gui/test/animation/test_stitch_tab.py` (27) and `gui/test/core/test_stitch_tab.py` (2) re-verified unaffected (66 total across all stitch/dialog tests).
 
 ### Options
 
@@ -144,9 +154,15 @@ Extend C with a `results.json` that records which groups have been processed. Re
 
 ---
 
-## 4.2 Export Stitched Panorama to Scrolling Video
+## 4.2 Export Stitched Panorama to Scrolling Video — ✅ Option B implemented (2026-07-27, issue #57)
 
 **Pain point:** Stitched manga/visual novel pages are long-form content users may want to share as videos (e.g., on platforms that don't support long images). A scrolling video export is a natural derived product.
+
+**Status:** Option B (FFmpeg pipe, full-resolution/quality) is implemented. C (animated WebP) and E (easing/hold) are not — left as future follow-ons, not blocking.
+
+- `ImageMerger.export_scrolling_video(image_path, output_path, scroll_speed_px_per_frame=10, fps=30, resolution=None, scroll_axis=None, codec="libx264")` in `backend/src/core/image_merger.py`. Auto-detects scroll axis from aspect ratio (tall -> vertical, wide -> horizontal) unless `scroll_axis` is given explicitly. Auto-derives a 16:9-ish viewport (clamped to the source, forced even for `yuv420p`) when `resolution` is `None`. Crops a sliding window across the panorama and pipes raw RGB24 frame bytes to `ffmpeg` via stdin (`-f rawvideo -pix_fmt rgb24 -s {W}x{H} -r {fps} -i pipe:0 -c:v {codec} -pix_fmt yuv420p out.mp4`), reusing the same bare-`ffmpeg`-on-PATH convention as `backend/src/core/video_converter.py`. If the panorama is smaller than one viewport's worth of scroll, it exports a short static clip (`fps` frames, ~1s) rather than raising — documented in the function's docstring.
+- GUI entry point: a new "Export as Video…" action in the Merge tab's post-merge confirm dialog (`MergeTab.show_preview_and_confirm` in `gui/src/tabs/core/merge_tab.py`), alongside the existing Copy/Save/Save-and-Add-to-Canvas/Discard actions. Opens `ScrollVideoExportDialog` (`gui/src/components/dialogs/scroll_video_export_dialog.py`) to collect scroll speed, fps, codec (libx264/libx265/libvpx-vp9), and an optional custom resolution; output path uses `QFileDialog.getSaveFileName` with `DontUseNativeDialog` (project hard rule — native GTK dialog + live JVM SIGSEGV). Export runs off the GUI thread via `ScrollVideoExportWorker` (`gui/src/helpers/core/video_export_worker.py`), a `QThread` mirroring `MergeWorker`'s signal pattern. The action doesn't consume the in-progress merge result — the confirm dialog re-appears afterwards so Save/Copy/Discard still work normally.
+- Verified directly (not via GUI) with real `ffmpeg`/`ffprobe`, no mocking of the encode path: `backend/test/core/test_export_scrolling_video.py` (5 tests — vertical auto-detect, horizontal auto-detect, nothing-to-scroll static clip, explicit resolution/axis override, missing-ffmpeg error path). All passing.
 
 ### Options
 
@@ -222,6 +238,15 @@ For collections that don't need persistent storage, use FAISS (`faiss-cpu` or `f
 
 **Pain point:** The database supports tags, but tagging is entirely manual. Crawlers fetch Danbooru/Gelbooru tags for downloaded images, but locally-sourced images have no tags.
 
+**Status update (2026-07-27, issue #32):** Option A's backend (`backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper`) was fully built previously but had zero callers anywhere in the codebase (confirmed via repo-wide grep). It now has its first real caller — `backend/src/pipeline/anime_training_pipeline.py`'s captioning stage, via `content_generation.md` §1.1 — as the fallback WD14 backend when no local ONNX path is configured. A category-mapping bug was fixed in the process (WD category `9` is the rating group, not "copyright"). The database-ingest tagging path (this section's actual pain point — tagging locally-sourced images on ingest) and background Celery ingest (§D) are still not built.
+
+**Status update (2026-07-27, issue #58 — §C shipped):** Built the human-in-the-loop review queue for the LoRA training dataset-prep flow specifically (not the database-ingest path, which is a separate, still-open item). Verified before building: `WDTaggerWrapper.tag_with_review()` (§E's confidence-threshold split) already existed with a full implementation and test coverage, but — like `WDTaggerWrapper` itself before issue #32 — had zero callers anywhere in the codebase. This is now its first real caller.
+- **`gui/src/helpers/models/tag_review_worker.py::TagReviewWorker`**: a `QThread` that runs `tag_with_review()` over a dataset folder's untagged images (skips any image whose `.txt` caption sidecar already exists, matching the training pipeline's own skip logic) and emits `(auto_tags, review_tags)` per image, tagged with which zone each came from.
+- **`gui/src/components/dialogs/tag_review_dialog.py::TagReviewDialog`**: pages through each untagged image one at a time — thumbnail, a checkbox per predicted tag (auto-confidence tags pre-checked, borderline review-zone tags unchecked by default — the human's job is mainly to promote a few review-zone tags, not re-tag from scratch), a free-text "add a custom tag" field, and Prev/Next navigation that syncs in-progress edits so they aren't lost when paging. "Save All" writes each image's checked tags as a `.txt` caption sidecar — the exact same format `HybridCaptioner.write_caption_file` produces, so reviewed captions are indistinguishable from auto-generated ones to the training pipeline.
+- **Not backed by PostgreSQL**, as this option's original text specified: the project has since moved away from Postgres entirely (`unified_database.md`), and the review happens synchronously within one GUI session against a dataset folder already on disk — a `.txt`-sidecar-per-image queue matches the existing training-pipeline convention with zero new schema, rather than introducing a retired dependency for a single-session workflow. A DB-backed, cross-session queue remains a valid future extension if the database-ingest tagging path (this section's still-open pain point) is ever built.
+- **Wired into `gui/src/tabs/models/delta/lora_train_tab.py`**: a new "Review Tags..." button next to "Inspect .safetensors...", scoped to the tab's already-selected dataset folder.
+- **Tests**: `gui/test/dialogs/test_tag_review_dialog.py` (6 cases — result bookkeeping, checkbox-toggle promotion of review-zone tags, custom-tag addition, caption-file writing with only checked tags, trigger-token prepending, navigation-preserves-edits) and `gui/test/helpers/test_tag_review_worker.py` (4 cases — skip-already-tagged, auto/review split with correct checked-by-default flags, unavailable-tagger error path, progress signal accuracy). All 10 passing.
+
 ### Options
 
 **A — WD-1.4 (WaifuDiffusion Tagger) via ONNX**
@@ -237,8 +262,8 @@ Use zero-shot classification against the full Danbooru tag vocabulary (50k+ tags
 - Pros: No additional model if CLIP is installed.
 - Cons: Much lower accuracy than WD-1.4 for domain-specific tags. Slow for large tag vocabularies.
 
-**C — Human-in-the-loop tagging queue**
-Show untagged images in a review queue. Present top-N auto-tag suggestions (from A or B) as checkboxes. User confirms or corrects. Persistent queue backed by PostgreSQL.
+**C — Human-in-the-loop tagging queue** `[shipped 2026-07-27, issue #58, LoRA-training-flow scope — see status update above]`
+Show untagged images in a review queue. Present top-N auto-tag suggestions (from A or B) as checkboxes. User confirms or corrects. ~~Persistent queue backed by PostgreSQL~~ — shipped as `.txt`-sidecar-per-image instead, per the status update above (Postgres has been retired project-wide).
 - Pros: Quality control — don't fully automate without review. Generates high-quality labelled data for future fine-tuning.
 - Cons: Requires building a new UI component (tag review queue tab or panel).
 
@@ -456,7 +481,17 @@ Add a WebSocket endpoint (`/ws/jobs/{job_id}/`) that streams stage-level progres
 
 ## 4.11 ASP Quality Feedback Interface (RLHF)
 
-**Pain point:** The `StitchRewardModel` in `bench_anime_stitch.py` (§1.10A, S29) uses random weights until feedback is collected. There is no UI for users to rate stitching outputs so the reward model can learn meaningful preferences. Without rated outputs, the RLHF loop cannot close and the reward model never improves.
+**Status (2026-07-27):** The entire foundation this item was written against — the `StitchRewardModel` /
+`_compute_rlhf_score()` / `_get_reward_model()` reward-model loop in `bench_anime_stitch.py` (formerly §1.10A,
+S29) — was deleted in the 2026-07-09 "S200 great trim" (`refactor(asp): trim benchmark to core metrics; prune
+dead-feature tests` / `refactor(asp): trim Python pipeline to its benchmarked core path`). The HITL
+checkpoints/session-review UI in `stitch_tab.py`/`stitch_worker.py` still exist and still collect a per-run
+"final output quality rating" at checkpoint 5, but nothing currently consumes that rating to train a reward
+model — there is no reward model left to train. This item is **not done**; it would need the RLHF
+foundation rescoped and rebuilt from scratch (a reward model, a training loop, and a reason to have one)
+before any of the UI options below are worth building. The current `asp.md` roadmap has no equivalent item.
+
+**Pain point (original framing, now describing removed infrastructure):** The `StitchRewardModel` in `bench_anime_stitch.py` (§1.10A, S29) uses random weights until feedback is collected. There is no UI for users to rate stitching outputs so the reward model can learn meaningful preferences. Without rated outputs, the RLHF loop cannot close and the reward model never improves.
 
 ### Options
 
@@ -510,7 +545,13 @@ A full workspace concept capturing: appearance profile + layout profile (§2.32B
 
 ---
 
-## 4.13 Shortcut Macros and Custom Actions
+## 4.13 Shortcut Macros and Custom Actions ✅ Option C (2026-08-01, issue #61) {: #413-shortcut-macros-and-custom-actions }
+
+**Shipped: workflow templates**, per this section's own recommendation ("essentially the existing Tab Default Configuration system extended to cross-tab context"). `Ctrl+Shift+M` opens a picker (`gui/src/windows/main/_workflow_templates.py`, new `_WorkflowTemplatesMixin`) listing saved named templates with Run/New/Delete. A template is an ordered list of `{category, tab_name, config_name}` steps — building one reuses the *existing* `tab_configurations` vault store (the same one the Settings window's "Tab Default Configuration Management" section and Ctrl+S already read/write, no new config format). Running a template applies each step's saved config to its tab via the already-universal `set_config()` contract every tab implements, then switches to the **last** step's tab via the same `command_combo` + `_select_tab_by_name` cross-tab-activation pattern used by Ctrl+T and §2.28's global search — directly matching the pain point's own example ("browse to directory X, scan, then switch to delete tab": set up N tabs' state, then land on the one you actually work in next). New `general.workflow_templates` shortcut-registry entry (`Ctrl+Shift+M`, remappable). Stored in the vault under a new `workflow_templates` key, parallel to `tab_configurations`.
+
+Options A (registered-command-ID macro playback) and B (eval'd Python expressions) not pursued: A's "sequence of commands" framing turned out to reduce to "sequence of tab-config-applications + one final tab switch" once actually designed, which is exactly what shipped without needing a separate command-ID registry; B was explicitly flagged skip-unless-requested for its security profile.
+
+Tests: `gui/test/core/test_workflow_templates.py` (4, new — key dispatch, save/load round-trip, run applying a config + activating the last tab, and the missing-template warning path).
 
 **Pain point:** Some workflows require a fixed sequence of tab switches + operations (e.g., "browse to directory X, scan, then switch to delete tab"). These multi-step sequences have no automation path — users repeat them manually every session. A lightweight macro system bound to user-defined hotkeys would eliminate repetitive navigation.
 
@@ -573,6 +614,79 @@ The new Image subtab (`gui/src/tabs/core/elements/image_extractor_subtab.py`):
 
 ---
 
+## 4.16 Additional Stitcher Options
+
+**Pain point:** The Merge tab's "panorama" mode only ever drove OpenCV's
+`Stitcher`, and a separate "stitch" mode existed solely to run the same
+`Stitcher` in SCANS mode (mode 1) instead of PANORAMA mode (mode 0) — two
+top-level Modes for what is really one engine with one parameter. Getting a
+genuinely different stitching *algorithm* (not just a different `Stitcher`
+mode) meant checking "Perfect Stitch Mode", a single boolean that routed to
+the Anime Stitch Pipeline (ASP) with no way to reach Overmix or Hugin — both
+already built and benchmarked as reference comparators in `docs/moon/roadmaps/asp.md`
+§0.3/§0.5 — from the GUI at all. A boolean checkbox also doesn't scale: adding
+a third or fourth engine would mean more checkboxes fighting for the same
+mutually-exclusive slot.
+
+**Implemented 2026-07-27:** replaced the checkbox with an **Engine** dropdown, shown
+only when Mode is "panorama", with four options — each revealing only its
+own relevant settings:
+
+- **OpenCV** (the previous panorama/stitch split, now one engine):
+  - *Stitcher mode*: `0 — Panorama` or `1 — SCANS` (this *is* the old "stitch"
+    Mode — folded in here since it was never a different algorithm, just a
+    different `cv2.Stitcher` mode + registration resolution).
+  - *Registration resolution*: the same `setRegistrationResol()` knob SCANS
+    mode already used internally, now user-facing for both modes.
+- **Hugin Toolchain** (external tool, `pto_gen`→`cpfind`→`autooptimiser`→
+  `pano_modify`→`nona`→`enblend`, via system `hugin-tools`/`enblend` packages —
+  see §0.5's field notes for why system packages rather than the vendored
+  fork):
+  - *Projection*: Rectilinear / Cylindrical / Equirectangular.
+  - *Linear sequence matching*: on by default — uses `cpfind --linearmatch`
+    (frames are a scrolling pan, not a rotating-camera panorama) instead of
+    the multi-row heuristic.
+- **Overmix** (external tool, GPL-3.0, `vendor/Overmix/build/OvermixCli` — see
+  §0.3's field notes):
+  - *Aligner*: Recursive / Average / Linear.
+  - *Render statistic*: average / median / min / max / difference. Comparator
+    is fixed to `Gradient` internally — the field notes found `BruteForce`
+    too slow to expose as a real option (didn't finish a 6-frame test in
+    90s at full frame resolution).
+- **Anime Stitch Pipeline**: the pre-existing AI options panel, reused as-is
+  except for two cleanups found while auditing it for this change — neither
+  is wired to anything in `AnimeStitchPipeline.__init__` (verified by grep):
+  the "Order-Agnostic Matching / Parallax Absorption / Structure Preservation /
+  Neural Synthesis Refinement" checkboxes (`use_siamese`/`use_apap`/`use_lsd`/
+  `use_gan` — dead parameters `perfect_stitch()`'s own docstring already
+  flagged as ignored) and the entire "MFSR Super-Resolution" group (no `mfsr_*`
+  reference exists anywhere in `backend/src/animation/`). Both removed rather
+  than left as non-functional UI. Kept: renderer, motion model, BiRefNet/BaSiC/
+  LoFTR/ECC toggles, composite-foreground toggle, edge crop, and pyramid
+  (Laplacian band) levels — all genuinely consumed by the pipeline.
+
+Backend: `backend/src/core/image_merger.py` gained `_merge_images_hugin` and
+`_merge_images_overmix` (subprocess wrappers, matching the benchmark scripts'
+settings) alongside the existing `_merge_images_opencv` (now parameterized by
+stitcher mode + registration resolution instead of two near-duplicate
+functions). `merge_images()`'s `direction="panorama"` branch takes an
+`engine` kwarg; `direction="stitch"` no longer exists.
+
+**Possible follow-ups:** exposing Hugin's `cpclean` outlier-removal pass and
+Overmix's `AnimationSeparator` phase-aware alignment as opt-in toggles once
+either proves worth the extra control; a "compare all four engines" batch
+button that runs every engine on the current canvas selection side by side.
+
+## 4.17 Media Loader — Web Media Downloader ✅ Reddit + nhentai shipped (2026-08-03, issue #182) {: #417-media-loader--web-media-downloader }
+
+**Shipped: a new "Media Loader" tab under Web Integration** for downloading media (images/videos) from the web, with two initial source integrations. `backend/src/web/downloaders/reddit_downloader.py` (`RedditDownloader`) supports subreddit/user/single-post modes and downloads direct images, gallery posts, and `v.redd.it` video (video-only stream, no audio remux — modeled on, and sharing this exact trade-off with, the [RedDownloader](https://pypi.org/project/RedDownloader/) PyPI package). `backend/src/web/downloaders/nhentai_downloader.py` (`NhentaiDownloader`) scrapes a gallery page's embedded JSON metadata and downloads each page from nhentai's image CDN — modeled on the [nhentai-downloader](https://pypi.org/project/nhentai-downloader/) PyPI package. Both use the synchronous `requests` library (a plain `QObject`, no C++ `base` module dependency). **Not** `asyncio`/`aiohttp`/`asyncpraw`: an initial version of both downloaders used that combination and crashed the app on its first real download (`QSocketNotifier`/SIGSEGV/heap corruption — the extensively-documented off-main-thread-native-lib-with-JVM-loaded crash class, see `architecture.md` and `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`); fixed same-day by switching to `requests` — the same pattern already proven safe in this exact QThread+JVM environment by `ImageCrawler`/`WebRequestsLogic`/the MAL sync workers. `RedditDownloader` hits Reddit's public `.json` listing endpoints (no OAuth app registration needed). `NhentaiDownloader` parses nhentai's current SvelteKit-embedded gallery JSON, with a fallback parser for the older markup.
+
+GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composition pattern as `image_crawler_tab`/`drive_sync_tab`) with a source picker, per-source settings pages, and shared download-dir/run/cancel/progress controls; `gui/src/helpers/web/media_loader_worker.py` (`MediaLoaderWorker`, a `QThread` mirroring `image_crawl_worker.py`) dispatches to the selected downloader. Registered as `"Media Loader"` in `_tab_registry.py`'s Web Integration category. Both downloaders emit `backend/src/core/telemetry.py` events (`media-loader` category) around every HTTP call and the overall run.
+
+**Possible follow-ups** (tracked in issue #182): ffmpeg audio remux for Reddit video; Cloudflare-challenge handling for nhentai; wiring Reddit credentials into the Vault/credentials system instead of env-vars only; automated tests for the two downloader classes; additional source integrations (Twitter/X, Pixiv, generic gallery-dl-style sites).
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -606,9 +720,11 @@ The new Image subtab (`gui/src/tabs/core/elements/image_extractor_subtab.py`):
 | 4.13 Shortcut Macros and Custom Actions | [#413-shortcut-macros-and-custom-actions](#413-shortcut-macros-and-custom-actions) |
 | 4.14 Extractor Tab Storyboard Scrub Preview | [#414-extractor-tab-storyboard-scrub-preview](#414-extractor-tab-storyboard-scrub-preview) |
 | 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter | [#415-extractor-tab-image-sub-tab--multi-frame-image-splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter) |
+| 4.16 Additional Stitcher Options | [#416-additional-stitcher-options](#416-additional-stitcher-options) |
+| 4.17 Media Loader — Web Media Downloader | [#417-media-loader--web-media-downloader](#417-media-loader--web-media-downloader) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-07-17 — §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-08-03 — §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*

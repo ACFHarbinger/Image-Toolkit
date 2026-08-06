@@ -10,7 +10,7 @@
 // Requires libsodium.
 //
 // Phase 4 of the Rust → C++ migration.
-// See moon/roadmaps/rust_to_cpp_migration.md §Phase 4
+// See docs/moon/roadmaps/rust_to_cpp_migration.md §Phase 4
 // ---------------------------------------------------------------------------
 
 #ifdef HAVE_SQLCIPHER

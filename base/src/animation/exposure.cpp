@@ -13,7 +13,7 @@
 //   cv::detail::BlocksChannelsCompensator (per-block per-channel, Phase 4)
 //
 // Implementation roadmap: Phase 2.
-// See moon/roadmaps/asp_cpp_migration.md §base::exposure
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::exposure
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

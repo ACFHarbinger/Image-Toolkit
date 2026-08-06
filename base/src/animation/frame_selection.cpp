@@ -8,7 +8,7 @@
 //     _temporal_variance_filter, _near_dup_luma_filter, _spatial_dedup_frames
 //
 // Phase 5 implementation.
-// See moon/roadmaps/asp_cpp_migration.md §base::frame_selection
+// See docs/moon/roadmaps/asp_cpp_migration.md §base::frame_selection
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

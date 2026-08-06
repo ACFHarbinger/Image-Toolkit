@@ -8,7 +8,7 @@
 // Uses cpp-httplib (header-only) and nlohmann/json.
 //
 // Phase 5 of the Rust → C++ migration.
-// See moon/roadmaps/rust_to_cpp_migration.md §Phase 5
+// See docs/moon/roadmaps/rust_to_cpp_migration.md §Phase 5
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

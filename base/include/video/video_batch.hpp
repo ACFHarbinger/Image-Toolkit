@@ -8,7 +8,7 @@
 // Uses OpenCV VideoCapture + OpenMP; eliminates the Rust ffmpeg subprocess.
 //
 // Phase 3 of the Rust → C++ migration.
-// See moon/roadmaps/rust_to_cpp_migration.md §Phase 3
+// See docs/moon/roadmaps/rust_to_cpp_migration.md §Phase 3
 // ---------------------------------------------------------------------------
 
 #include <pybind11/pybind11.h>

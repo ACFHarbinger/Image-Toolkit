@@ -1,6 +1,6 @@
 """
 Generates Hugin reference-comparator stitches for the ASP benchmark corpus
-(roadmap moon/roadmaps/asp.md §0.5, GitHub issue #20).
+(roadmap docs/moon/roadmaps/asp.md §0.5, GitHub issue #20).
 
 Uses the system `hugin-tools`/`enblend` packages (apt) as the CLI toolchain —
 pto_gen -> cpfind -> autooptimiser -> pano_modify -> nona -> enblend. This is
