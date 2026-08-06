@@ -61,3 +61,11 @@ nav:
   - Troubleshooting: TROUBLESHOOTING.md
   - Glossary: GLOSSARY.md
   - Architecture Decisions: adr/
+  - Roadmap:
+      - Master Roadmap: moon/ROADMAP.md
+      - Python: moon/roadmaps/python.md
+  - Changelog: moon/CHANGELOG.md
+  - Research:
+      - Manga Colorization & Animation Research: research/Manga Colorization and Animation Research.md
+      - Cel-Shaded Art Assistant Research: research/Cel-Shaded Art Assistant Research.md
+  - Image-Toolkit (parent project): https://github.com/ACFHarbinger/Image-Toolkit
