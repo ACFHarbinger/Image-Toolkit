@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   review evidence, redlines, preview suggestions, artist feedback, independent
   privacy settings, automation level/shortcuts, and an offline model registry
   with built-in/community/unverified trust labels.
+  Added offline self-diagnostics for Krita/Python compatibility, packaged lesson
+  presence, and confined core visibility; the docker displays actionable status.
+  Documented the verified Krita 5.2.11 Snap install/enable/uninstall workflow and
+  explicitly requires A2 to use a real local transport instead of `sys.path`
+  injection across Snap confinement.
 - Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
   template README, contributor/agent guidance, documentation landing page,
   development/testing/dependency/troubleshooting/module guides, glossary,

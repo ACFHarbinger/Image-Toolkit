@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from krita import DockWidget
+from krita import DockWidget, Krita
 from PyQt5.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+from .diagnostics import diagnose
 
 
 class LearningDocker(DockWidget):
@@ -25,9 +27,13 @@ class LearningDocker(DockWidget):
         body.setWordWrap(True)
         status = QLabel("Placeholder lesson — drawing review is not implemented yet.", container)
         status.setWordWrap(True)
+        report = diagnose(Krita.instance().version())
+        diagnostics = QLabel("Diagnostics: " + " ".join(report.messages), container)
+        diagnostics.setWordWrap(True)
         layout.addWidget(title)
         layout.addWidget(body)
         layout.addWidget(status)
+        layout.addWidget(diagnostics)
         layout.addStretch(1)
         self.setWidget(container)
 

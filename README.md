@@ -44,6 +44,10 @@ uv run --package cel-shaded-generator-gui cel-shaded-generator
 The current executable is a demonstration shell, not the learning alpha.
 Installed wheels expose the same `cel-shaded-generator` command.
 
+The in-progress Krita 5.2/Snap plugin has separate, scoped installation steps
+in [`integrations/krita/README.md`](integrations/krita/README.md). It currently
+shows only an offline placeholder lesson and diagnostics.
+
 ## Verify and build
 
 ```bash

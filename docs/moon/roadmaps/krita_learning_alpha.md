@@ -109,11 +109,14 @@ not evidence of pedagogical validity.
 
 ### A1 — plugin skeleton and local data model
 
-- Supported Krita and Python versions documented for Kubuntu.
-- Install/uninstall tooling and plugin self-diagnostics.
-- Versioned lesson, exercise, rubric, review, and progress schemas.
-- Opt-in settings for progress, artwork retention, and model use.
-- Local model registry with built-in/community/unverified trust labels.
+- ✅ Krita 5.2+ and Python 3.10+ documented for Kubuntu, initially verified
+  against the owner's Krita 5.2.11 Snap.
+- ✅ Scoped install/uninstall tooling and privacy-safe plugin self-diagnostics.
+- 🔄 Versioned lesson, exercise, rubric, review, and progress schemas: core
+  contracts exist; persistence/migration fixtures remain.
+- ✅ Opt-in settings contracts for progress, artwork retention, and model use.
+- ✅ Local model registry contract with built-in/community/unverified labels;
+  filesystem persistence and content validation remain.
 
 ### A2 — lesson and overlay vertical slice
 
