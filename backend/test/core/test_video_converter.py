@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from backend.src.core.video_converter import VideoFormatConverter
+from backend.src.core.video.video_converter import VideoFormatConverter
 
 
 class TestVideoConverterReproduction(unittest.TestCase):
@@ -144,4 +144,5 @@ class TestVideoConverterReproduction(unittest.TestCase):
                 vf_part = cmd_list[i+1]
                 break
 
+        # pyrefly: ignore [bad-argument-type]
         self.assertIn("scale=1280:720", vf_part)

@@ -1,8 +1,6 @@
 from .duplicate_finder import DuplicateFinder as DuplicateFinder
 from .file_system_entries import FileDeleter as FileDeleter
 from .file_system_entries import FSETool as FSETool
-from .image_converter import ImageFormatConverter as ImageFormatConverter
-from .image_merger import ImageMerger as ImageMerger
 from .phash_deduplicator import PhashDeduplicator as PhashDeduplicator
 from .phash_deduplicator import compute_phash as compute_phash
 from .similarity import SimilarityCache as SimilarityCache
@@ -12,10 +10,16 @@ from .similarity import SimilarityReport as SimilarityReport
 from .similarity import TriageRules as TriageRules
 from .similarity_finder import SimilarityFinder as SimilarityFinder
 from .vault_manager import VaultManager as VaultManager
-from .video_converter import VideoFormatConverter as VideoFormatConverter
-from .video_probe import probe_audio_codec as probe_audio_codec
-from .video_probe import probe_codecs as probe_codecs
-from .video_probe import probe_video_codec as probe_video_codec
+from .video import (
+    VideoFormatConverter as VideoFormatConverter,
+    probe_audio_codec as probe_audio_codec,
+    probe_codecs as probe_codecs,
+    probe_video_codec as probe_video_codec,
+)
+from .image import (
+    ImageFormatConverter as ImageFormatConverter,
+    ImageMerger as ImageMerger,
+)
 from .wallpaper import (
     WallpaperManager as WallpaperManager,
 )

@@ -19,13 +19,14 @@ import os
 import re
 import sys
 
+# pyrefly: ignore [untyped-import]
 import yaml
 from PySide6.QtCore import QSettings
 
 import backend.src.constants as udef
 from backend.src.constants import BACKEND_DIR
-from backend.src.core.image_converter import ImageFormatConverter
-from backend.src.core.image_merger import ImageMerger
+from backend.src.core.image.image_converter import ImageFormatConverter
+from backend.src.core.image.image_merger import ImageMerger
 from backend.src.core.vault_manager import VaultManager
 from backend.src.utils.display.slideshow_daemon import run as launch_slideshow
 from backend.src.web.crawlers.image_crawler import ImageCrawler
@@ -42,8 +43,10 @@ def dispatch_core(args: dict) -> None:
         recursive = args.get("recursive", False)
 
         # Determine if single or batch
+        # pyrefly: ignore [bad-argument-type, unsupported-operation]
         if len(inputs) == 1 and os.path.isfile(inputs[0]):
             success = ImageFormatConverter.convert_single_image(
+                # pyrefly: ignore [unsupported-operation]
                 image_path=inputs[0],
                 output_name=output,
                 format=fmt,
@@ -53,6 +56,7 @@ def dispatch_core(args: dict) -> None:
             )
         else:
             # Batch conversion — multiple inputs or a directory
+            # pyrefly: ignore [not-iterable]
             for input_path in inputs:
                 if os.path.isdir(input_path):
                     ImageFormatConverter.convert_batch(
@@ -246,6 +250,7 @@ def _collect_image_paths(directory: str) -> list:
 
 def _run_single_stitch(image_paths: list, output: str, renderer: str) -> bool:
     """Run AnimeStitchPipeline on image_paths; return True on success."""
+    # pyrefly: ignore [missing-import]
     from asp_backend import AnimeStitchPipeline
 
     pipeline = AnimeStitchPipeline(renderer=renderer)
@@ -425,7 +430,7 @@ def dispatch_update_settings(args: dict) -> None:
     stored_hash = stored_data.get("hashed_password")
     stored_salt = stored_data.get("salt")
     pepper = vault_manager.PEPPER
-    password_combined = (password + stored_salt + pepper).encode("utf-8")
+    password_combined = (password + stored_salt + pepper).encode("utf-8") # pyrefly: ignore [unsupported-operation]
     verification_hash = hashlib.sha256(password_combined).hexdigest()
     if verification_hash != stored_hash:
         print("❌ Error: Invalid password.", file=sys.stderr)
@@ -434,7 +439,7 @@ def dispatch_update_settings(args: dict) -> None:
     print("✅ Vault unlocked successfully.")
 
     # 1. Update Vault
-    updated_data, vault_count = _recursive_replace(stored_data, search, replace, use_regex)
+    updated_data, vault_count = _recursive_replace(stored_data, search, replace, use_regex) # pyrefly: ignore [bad-argument-type]
     if vault_count > 0:
         try:
             vault_manager.save_data(json.dumps(updated_data))
@@ -452,7 +457,7 @@ def dispatch_update_settings(args: dict) -> None:
         for key in qsettings.allKeys():
             val = qsettings.value(key)
             if isinstance(val, (str, list, dict)):
-                new_val, count = _recursive_replace(val, search, replace, use_regex)
+                new_val, count = _recursive_replace(val, search, replace, use_regex) # pyrefly: ignore [bad-argument-type]
                 if count > 0:
                     qsettings.setValue(key, new_val)
                     qsettings_count += count

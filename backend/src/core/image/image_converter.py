@@ -27,7 +27,7 @@ class ImageFormatConverter:
     def convert_single_image(
         cls,
         image_path: str,
-        output_name: str = None,
+        output_name: Optional[str] = None,
         format: str = "png",
         delete: bool = False,
         aspect_ratio: Optional[float] = None,
@@ -59,6 +59,7 @@ class ImageFormatConverter:
                 output_path = f"{output_name}.{format}"
 
         # The C++ backend raises a PyValueError on failure which will be caught by the worker
+        # pyrefly: ignore [missing-attribute]
         res = base.convert_single_image(
             image_path,
             output_path,
@@ -87,7 +88,7 @@ class ImageFormatConverter:
         cls,
         input_dir: str,
         inputs_formats: List[str],
-        output_dir: str = None,
+        output_dir: Optional[str] = None,
         output_format: str = "png",
         delete: bool = False,
         aspect_ratio: Optional[float] = None,
@@ -164,6 +165,7 @@ class ImageFormatConverter:
 
         # --- Call C++ Backend ---
         try:
+            # pyrefly: ignore [missing-attribute]
             results = base.convert_image_batch(
                 image_pairs=image_pairs,
                 output_format=output_format,

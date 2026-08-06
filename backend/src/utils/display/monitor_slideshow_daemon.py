@@ -46,7 +46,7 @@ from backend.src.constants.utils import DEFAULT_ENTRY_DURATION_SEC, LOG_PATH
 # some other way), that reference would otherwise be released during C++
 # static destruction *after* the interpreter has finalized -- which
 # crashes (PyThreadState_Get without the GIL). Always stop() on exit.
-atexit.register(lambda: base.run_monitor_slideshow("stop"))
+atexit.register(lambda: base.run_monitor_slideshow("stop")) # pyrefly: ignore [missing-attribute]
 
 
 def _video_runtime(path: str) -> Optional[float]:
@@ -69,8 +69,8 @@ def resolve_duration(path: str, configured: Optional[float]) -> float:
     video entry uses its own runtime, and everything else falls back to the
     default duration."""
     if configured and configured > 0:
-        return float(configured)
-    if str(path).lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+        return configured
+    if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
         dur = _video_runtime(path)
         if dur:
             return dur
@@ -97,7 +97,7 @@ def make_apply_callback(
     def _apply(monitor_id: str, path: str, index: int) -> None:
         style_to_use = (
             f"SmartVideoWallpaper::{video_style}"
-            if str(path).lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
             else style
         )
         path_map = dict(other_paths)
@@ -124,16 +124,16 @@ def start(
     resolved = [resolve_duration(p, d) for p, d in zip(queue, durations, strict=False)]
     config = {"monitor_id": monitor_id, "queue": list(queue), "durations": resolved}
     callback = make_apply_callback(monitors, style, video_style, other_paths, qdbus)
-    return base.run_monitor_slideshow("start", json.dumps(config), callback)
+    return base.run_monitor_slideshow("start", json.dumps(config), callback) # pyrefly: ignore [missing-attribute]
 
 
 def stop() -> str:
-    return base.run_monitor_slideshow("stop")
+    return base.run_monitor_slideshow("stop") # pyrefly: ignore [missing-attribute]
 
 
 def status() -> Optional[dict]:
     try:
-        return json.loads(base.run_monitor_slideshow("status"))
+        return json.loads(base.run_monitor_slideshow("status")) # pyrefly: ignore [missing-attribute]
     except Exception:
         return None
 
