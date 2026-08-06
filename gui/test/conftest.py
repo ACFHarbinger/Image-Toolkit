@@ -25,7 +25,7 @@ sys.modules["backend.src.models.wrappers.loftr_wrapper"] = MagicMock()
 sys.modules["backend.src.models.lora_diffusion"] = MagicMock()
 sys.modules["backend.src.models.wrappers.sd3_wrapper"] = MagicMock()
 sys.modules["backend.src.models.core.siamese_network"] = MagicMock()
-sys.modules["backend.src.models.core.stitch_net"] = MagicMock()
+sys.modules["animation.models.stitch_net"] = MagicMock()
 sys.modules["backend.src.models.stable_diffusion"] = MagicMock()
 sys.modules["backend.src.models.gen"] = MagicMock()
 
