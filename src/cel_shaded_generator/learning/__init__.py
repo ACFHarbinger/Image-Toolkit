@@ -19,4 +19,21 @@ from .model import (
     TutorSettings,
 )
 
-__all__ = [name for name in globals() if not name.startswith("_")]
+__all__ = [
+    "LEARNING_SCHEMA_VERSION",
+    "ArtistFeedback",
+    "AutomationLevel",
+    "Evidence",
+    "EvidenceSource",
+    "Exercise",
+    "Lesson",
+    "LocalModel",
+    "ModelRegistry",
+    "ModelTrust",
+    "Redline",
+    "Review",
+    "Rubric",
+    "RubricDimension",
+    "Suggestion",
+    "TutorSettings",
+]
