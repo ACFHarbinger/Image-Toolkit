@@ -1,5 +1,5 @@
 {
-    "name": "Dev-Repo-Template Dev Environment",
+    "name": "Cel-Shaded-Generator Dev Environment",
     "build": {
         "dockerfile": "Dockerfile",
         "context": ".."
@@ -11,16 +11,10 @@
                 "ms-python.vscode-pylance",
                 "charliermarsh.ruff",
                 "ms-python.mypy-type-checker",
-                "dbaeumer.vscode-eslint",
-                "esbenp.prettier-vscode",
-                "rust-lang.rust-analyzer",
-                "golang.go",
-                "fwcd.kotlin",
-                "ms-vscode.cpptools",
                 "ms-azuretools.vscode-docker"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "/app/python/.venv/bin/python",
+                "python.defaultInterpreterPath": "/app/.venv/bin/python",
                 "python.testing.pytestEnabled": true,
                 "python.testing.unittestEnabled": false,
                 "editor.formatOnSave": true,
@@ -34,6 +28,6 @@
             }
         }
     },
-    "postCreateCommand": "cd python && uv sync --all-extras --dev && cd .. && pre-commit install",
+    "postCreateCommand": "uv sync --all-extras --dev && cd gui && uv sync --all-extras --dev && cd .. && pre-commit install",
     "remoteUser": "vscode"
 }
