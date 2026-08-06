@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S315 — 2026-08-06 (Cel-Shaded-Generator engine regression baselines)
+
+Added Cel-Shaded-Generator's first evidence-driven engine baseline (`98bc265`): deterministic synthetic fixtures and directly committed goldens cover scribble/reference colorization, temporal propagation, and ARAP; a machine-readable report captures anonymized broad hardware classes, warmed latency, Python-tracked peak memory, and correctness tolerances. A manual benchmark workflow keeps timing noise out of ordinary CI while the 120-test core suite enforces the goldens. Temporal propagation is currently the largest fixture workload, but the baseline does not yet justify a C++ rewrite; real-art perceptual fixtures and native/GPU-memory capture remain incremental requirements as relevant workloads land.
+
 ## S314 — 2026-08-06 (Cel-Shaded-Generator portable learning-project format)
 
 Advanced Cel-Shaded-Generator Phase 0 with a versioned, offline project and learning-progress contract (`9bffebf`). Portable project folders now retain their own exercise attempts, feedback, and metrics; artwork-history paths require explicit consent. Autosave defaults to ten bounded atomic recovery manifests, with user-selectable retention, while opt-in cross-project aggregates live in a separate global learner profile. A deterministic privacy-preserving v0→v1 migration and interrupted-write coverage bring the core suite to 119 passing tests; the GUI remains at 103 passing tests.
