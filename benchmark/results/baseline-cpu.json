@@ -1,0 +1,67 @@
+{
+  "all_correct": true,
+  "cases": {
+    "arap_deformation": {
+      "correctness": {
+        "maximum_absolute_error": 0.0,
+        "maximum_tolerance": 1e-05,
+        "mean_absolute_error": 0.0,
+        "mean_tolerance": 1e-06,
+        "passed": true,
+        "shape_matches": true
+      },
+      "median_ms": 31.05300599418115,
+      "minimum_ms": 29.654694997589104,
+      "peak_python_memory_mib": 0.04813575744628906,
+      "repeats": 5
+    },
+    "reference_colorization": {
+      "correctness": {
+        "maximum_absolute_error": 0.0,
+        "maximum_tolerance": 2.0,
+        "mean_absolute_error": 0.0,
+        "mean_tolerance": 0.25,
+        "passed": true,
+        "shape_matches": true
+      },
+      "median_ms": 9.48052499734331,
+      "minimum_ms": 9.308475004218053,
+      "peak_python_memory_mib": 0.41052913665771484,
+      "repeats": 5
+    },
+    "scribble_colorization": {
+      "correctness": {
+        "maximum_absolute_error": 0.0,
+        "maximum_tolerance": 2.0,
+        "mean_absolute_error": 0.0,
+        "mean_tolerance": 0.25,
+        "passed": true,
+        "shape_matches": true
+      },
+      "median_ms": 44.52215600031195,
+      "minimum_ms": 41.79316099907737,
+      "peak_python_memory_mib": 2.398286819458008,
+      "repeats": 5
+    },
+    "temporal_propagation": {
+      "correctness": {
+        "maximum_absolute_error": 0.0,
+        "maximum_tolerance": 2.0,
+        "mean_absolute_error": 0.0,
+        "mean_tolerance": 0.25,
+        "passed": true,
+        "shape_matches": true
+      },
+      "median_ms": 103.91833200264955,
+      "minimum_ms": 101.44634299649624,
+      "peak_python_memory_mib": 8.987468719482422,
+      "repeats": 5
+    }
+  },
+  "environment": {
+    "hardware_class": "CPU-only baseline",
+    "os_class": "Linux x86_64",
+    "python": "3.11.14"
+  },
+  "schema_version": 1
+}

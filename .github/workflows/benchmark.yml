@@ -1,0 +1,27 @@
+name: Engine baseline
+
+on:
+  workflow_dispatch:
+    inputs:
+      hardware_class:
+        description: Broad hardware class; do not enter hostnames or serials
+        default: GitHub-hosted CPU runner
+        required: true
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --all-extras --dev
+      - name: Run baseline
+        run: >-
+          uv run python benchmark/run_baseline.py
+          --repeats 5
+          --hardware-class "${{ inputs.hardware_class }}"
+          --output benchmark/results/ci.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-baseline
+          path: benchmark/results/ci.json

@@ -57,5 +57,5 @@ members = ["gui"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 addopts = "-ra"

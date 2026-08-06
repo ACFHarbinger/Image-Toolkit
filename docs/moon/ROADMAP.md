@@ -63,8 +63,10 @@ new algorithms.
 - ✅ Define a versioned local project/exercise/progress data model, portable
   project folders, bounded multi-revision autosave, opt-in artwork retention,
   separate global learner profiles, and deterministic migration policy.
-- Establish representative correctness, latency, memory, and golden-image
-  benchmarks before selecting native ports.
+- ✅ Establish deterministic synthetic correctness fixtures, committed goldens,
+  anonymized latency/Python-memory baselines, and a separate manual benchmark
+  workflow. Add real-art perceptual fixtures and native/GPU memory capture as
+  their respective workloads land; current data does not justify a C++ port.
 - Root-cause or contain native-library crashes. Global serialization is a
   temporary safety measure, not a permanent engine architecture.
 

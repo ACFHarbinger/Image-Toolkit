@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Completed Phase 0 issue #5's current-engine baseline: deterministic synthetic
+  fixtures and directly committed golden arrays now cover scribble/reference
+  colorization, temporal propagation, and ARAP. Added documented cross-platform
+  regression tolerances, machine-readable anonymized latency/Python-memory
+  reports, and an explicitly invoked benchmark workflow. The first CPU baseline
+  identifies temporal propagation as the largest fixture workload but does not
+  yet justify a C++ rewrite; real-art perceptual and native/GPU-memory measures
+  remain incremental requirements as those workloads land.
 - Completed Phase 0 issue #4: added the versioned, storage-neutral project and
   learning domain model plus atomic JSON persistence. Projects are portable
   folders with project-local attempts, tutor feedback, and metrics; artwork
