@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remain before this issue is complete. Diagnostics are enabled by default in
   the XDG state directory, rotate at seven days or 20 MiB, and can be disabled;
   the default maximum job timeout is five minutes.
+  Added a restartable persistent isolated worker for latency-sensitive serial
+  work and routed Qt ARAP dragging through it. The committed CPU baseline
+  measures ~311 ms cold startup but only ~0.04 ms steady-state overhead
+  (8.78 ms isolated versus 8.75 ms direct), validating persistence for dragging.
+  Batch Qt colorization/animation routing remains.
 - Completed Phase 0 issue #5's current-engine baseline: deterministic synthetic
   fixtures and directly committed golden arrays now cover scribble/reference
   colorization, temporal propagation, and ARAP. Added documented cross-platform

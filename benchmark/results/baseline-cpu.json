@@ -10,9 +10,9 @@
         "passed": true,
         "shape_matches": true
       },
-      "median_ms": 31.05300599418115,
-      "minimum_ms": 29.654694997589104,
-      "peak_python_memory_mib": 0.04813575744628906,
+      "median_ms": 31.525521000730805,
+      "minimum_ms": 31.280508999770973,
+      "peak_python_memory_mib": 0.043570518493652344,
       "repeats": 5
     },
     "reference_colorization": {
@@ -24,9 +24,9 @@
         "passed": true,
         "shape_matches": true
       },
-      "median_ms": 9.48052499734331,
-      "minimum_ms": 9.308475004218053,
-      "peak_python_memory_mib": 0.41052913665771484,
+      "median_ms": 9.501401997113135,
+      "minimum_ms": 9.378594993904699,
+      "peak_python_memory_mib": 0.4104747772216797,
       "repeats": 5
     },
     "scribble_colorization": {
@@ -38,9 +38,9 @@
         "passed": true,
         "shape_matches": true
       },
-      "median_ms": 44.52215600031195,
-      "minimum_ms": 41.79316099907737,
-      "peak_python_memory_mib": 2.398286819458008,
+      "median_ms": 43.14301499834983,
+      "minimum_ms": 42.823185001907405,
+      "peak_python_memory_mib": 2.398343086242676,
       "repeats": 5
     },
     "temporal_propagation": {
@@ -52,9 +52,9 @@
         "passed": true,
         "shape_matches": true
       },
-      "median_ms": 103.91833200264955,
-      "minimum_ms": 101.44634299649624,
-      "peak_python_memory_mib": 8.987468719482422,
+      "median_ms": 107.87078999419464,
+      "minimum_ms": 104.82605199649697,
+      "peak_python_memory_mib": 8.987577438354492,
       "repeats": 5
     }
   },
@@ -62,6 +62,12 @@
     "hardware_class": "CPU-only baseline",
     "os_class": "Linux x86_64",
     "python": "3.11.14"
+  },
+  "isolation_overhead": {
+    "cold_ms": 311.0005979979178,
+    "direct_ms": 8.745243001612835,
+    "warm_ms": 8.7829670010251,
+    "warm_overhead_ms": 0.037723999412264675
   },
   "schema_version": 1
 }

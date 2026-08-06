@@ -33,3 +33,10 @@ memory-intensive current workload, followed by scribble colorization. ARAP is
 smaller and reference colorization is fastest at fixture scale. This evidence
 does not yet justify rewriting any component in C++; larger representative
 fixtures and native-allocation measurements are required first.
+
+The persistent ARAP isolation measurement separates cold startup from steady
+state. On the anonymized CPU-only baseline, process startup was about 311 ms;
+after startup, an isolated solve was 8.78 ms versus 8.75 ms in-process—about
+0.04 ms measured steady-state overhead. Values vary by machine, but this
+supports a persistent isolated worker for dragging and fresh workers for batch
+operations.

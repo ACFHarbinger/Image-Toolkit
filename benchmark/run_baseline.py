@@ -15,6 +15,9 @@ from typing import Any
 import numpy as np
 
 from cel_shaded_generator import (
+    JobRequest,
+    Operation,
+    PersistentIsolatedRunner,
     arap_deform,
     colorize_reference,
     colorize_scribble,
@@ -59,6 +62,40 @@ def _arap() -> np.ndarray:
     mask[10:70, 10:70] = True
     vertices, triangles = generate_mesh(mask, grid_step=10)
     return arap_deform(vertices, triangles, {0: tuple(vertices[0] + (8, -3))}, n_iters=8)
+
+
+def _isolation_overhead() -> dict[str, float]:
+    mask = np.zeros((80, 80), dtype=bool)
+    mask[10:70, 10:70] = True
+    vertices, triangles = generate_mesh(mask, grid_step=10)
+    request = JobRequest(
+        Operation.ARAP_DEFORM,
+        {
+            "vertices": vertices,
+            "triangles": triangles,
+            "anchors": {0: tuple(vertices[0] + (8, -3))},
+        },
+        {"n_iters": 8},
+    )
+    runner = PersistentIsolatedRunner(diagnostics_enabled=False)
+    try:
+        started = time.perf_counter()
+        runner.run(request)
+        cold = (time.perf_counter() - started) * 1000
+        started = time.perf_counter()
+        runner.run(request)
+        warm = (time.perf_counter() - started) * 1000
+        started = time.perf_counter()
+        arap_deform(vertices, triangles, {0: tuple(vertices[0] + (8, -3))}, n_iters=8)
+        direct = (time.perf_counter() - started) * 1000
+        return {
+            "cold_ms": cold,
+            "warm_ms": warm,
+            "direct_ms": direct,
+            "warm_overhead_ms": warm - direct,
+        }
+    finally:
+        runner.close()
 
 
 CASES: dict[str, Callable[[], np.ndarray]] = {
@@ -129,6 +166,7 @@ def run(repeats: int, update_goldens: bool, hardware_class: str) -> dict[str, An
             "hardware_class": hardware_class,
         },
         "cases": cases,
+        "isolation_overhead": _isolation_overhead(),
         "all_correct": all(case["correctness"]["passed"] for case in cases.values()),
     }
 

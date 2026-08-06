@@ -12,26 +12,28 @@ vertex to pose it -- every mouse-move during a drag re-solves
 of dragged/pinned vertices (not incrementally from the previous frame's
 pose), exactly matching `arap_deform()`'s own contract and giving the
 "real-time re-solve as vertices move" behavior issue #194 asks for.
-Empirically ~17ms mean solve time for a ~64-vertex mesh (grid_step=16 over a
-130x130 mask) -- fast enough to call synchronously on the GUI thread
-directly from the mouse handler; unlike the scribble colorizers (which
-solve full linear systems over every image pixel and can take seconds), an
-async QThread dispatch here would actually hurt drag responsiveness by
-letting the displayed pose lag behind the mouse, so this deliberately does
-NOT follow this codebase's usual QThread-worker pattern for compute.
+The mouse handler uses a persistent isolated solver process: it pays spawn
+cost once, retains serial low-latency updates, and protects the Qt host from a
+native NumPy/SciPy failure. The worker is automatically replaced after failure.
 
 New feature, not code motion.
 """
 
 from __future__ import annotations
 
+import atexit
+
 import numpy as np
-from cel_shaded_generator.rigging.arap import arap_deform, generate_mesh
+from cel_shaded_generator.execution import JobRequest, Operation, PersistentIsolatedRunner
+from cel_shaded_generator.rigging.arap import generate_mesh
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
 
 from .canvas_editor import qimage_alpha_to_mask
+
+_ARAP_RUNNER = PersistentIsolatedRunner()
+atexit.register(_ARAP_RUNNER.close)
 
 _VERTEX_RADIUS = 4.0
 _PICK_RADIUS = 10.0  # mouse-to-vertex hit tolerance, in scene (pixel) coords
@@ -262,8 +264,16 @@ class MeshOverlayEditor(QGraphicsView):
         # accumulated anchor set -- arap_deform() has no incremental/
         # from-previous-pose mode, and mixing the two would double-count
         # deformation.
-        self._live_vertices = arap_deform(
-            self._rest_vertices, self._triangles, self._anchors, n_iters=_DRAG_ITERS
+        self._live_vertices = _ARAP_RUNNER.run(
+            JobRequest(
+                Operation.ARAP_DEFORM,
+                inputs={
+                    "vertices": self._rest_vertices,
+                    "triangles": self._triangles,
+                    "anchors": self._anchors,
+                },
+                options={"n_iters": _DRAG_ITERS},
+            )
         )
         self._mesh_item.update()
         self.pose_changed.emit()

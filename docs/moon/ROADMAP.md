@@ -71,6 +71,8 @@ new algorithms.
   adaptive user-capped timeouts, cancellation, restart-on-next-job behavior,
   and metadata-only local diagnostics. Core boundary complete; GUI/Krita
   routing and measured overhead remain before removing the compatibility lock.
+  Persistent ARAP lifecycle and Qt mesh-editor routing are complete; measured
+  warm overhead is negligible on the initial baseline. Batch Qt workers remain.
 
 **Exit gate:** a new Kubuntu environment can install, launch, and exercise the
 core without an Image-Toolkit checkout or undocumented imports.
