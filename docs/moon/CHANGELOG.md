@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S319 — 2026-08-06 (Cel-Shaded-Generator standalone foundation complete)
+
+Completed Cel-Shaded-Generator Phase 0 and issue #8 (`d274ed0`) by replacing the remaining template-era README, contributor/agent instructions, documentation landing page, development/testing/dependency/troubleshooting/module guides, glossary, Sphinx identity, and placeholder C4 model with truthful standalone-product documentation. The historical polyglot ADR is explicitly superseded. Fixed MkDocs ingesting `docs/website/node_modules`, corrected ADR navigation and out-of-root links, and verified a strict Material/Mkdocstrings build. Documented lint/type commands pass; the roadmap now marks the Krita anime head-and-face learning alpha as Next.
+
 ## S318 — 2026-08-06 (Cel-Shaded-Generator native crash containment complete)
 
 Completed Cel-Shaded-Generator issue #6 (`ae01b14`): built-in ordinary/screentone/reference/incremental colorization and temporal/graph-refined animation Qt workers now execute in fresh spawned processes, while interactive ARAP uses the restartable persistent worker from S317. Crash, EOF, cancellation, adaptive timeout, forced termination, next-job recovery, privacy-safe rotating diagnostics, and measured overhead are covered. The process-local lock remains defense in depth inside workers. Arbitrary third-party Python callables retain an explicit in-process compatibility fallback until a future versioned plugin operation registry exists. Verification: 129 core and 103 GUI tests, Ruff and mypy clean.
