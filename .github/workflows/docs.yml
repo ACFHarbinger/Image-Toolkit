@@ -4,31 +4,31 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'docs/moon/roadmaps/**'
-      - 'docs/moon/ROADMAP.md'
-      - 'research/**'
-      - 'backend/src/**/*.py'
-      - 'base/src/math/**/*.rs'
-      - 'frontend/src/**/*.ts'
-      - 'frontend/tsconfig*.json'
-      - 'frontend/package*.json'
-      - 'app/android/src/**/*.kt'
-      - 'docs/mkdocs.yml'
-      - '.github/workflows/docs.yml'
-      - 'base/CMakeLists.txt'
-      - 'base/tests/CMakeLists.txt'
+      - "docs/**"
+      - "docs/moon/roadmaps/**"
+      - "docs/moon/ROADMAP.md"
+      - "research/**"
+      - "backend/src/**/*.py"
+      - "base/src/math/**/*.rs"
+      - "frontend/src/**/*.ts"
+      - "frontend/tsconfig*.json"
+      - "frontend/package*.json"
+      - "app/android/src/**/*.kt"
+      - "docs/mkdocs.yml"
+      - ".github/workflows/docs.yml"
+      - "base/CMakeLists.txt"
+      - "base/tests/CMakeLists.txt"
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, closed]
     paths:
-      - 'docs/**'
-      - 'docs/moon/roadmaps/**'
-      - 'backend/src/**/*.py'
-      - 'docs/mkdocs.yml'
-      - '.github/workflows/docs.yml'
+      - "docs/**"
+      - "docs/moon/roadmaps/**"
+      - "backend/src/**/*.py"
+      - "docs/mkdocs.yml"
+      - ".github/workflows/docs.yml"
   schedule:
-    - cron: '0 2 * * 1'   # Weekly: every Monday at 02:00 UTC (§6.12D)
+    - cron: "0 2 * * 1" # Weekly: every Monday at 02:00 UTC (§6.12D)
   workflow_dispatch:
     inputs:
       reason:
@@ -51,12 +51,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history for git-revision-date-localized plugin
+          fetch-depth: 0 # full history for git-revision-date-localized plugin
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -129,7 +129,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Run check_links.py diagnostic script
         run: python backend/scripts/check_links.py
@@ -166,8 +166,6 @@ jobs:
             '**/*.md'
           fail: true
 
-
-
   # ── Job 4: Jupyter notebooks (non-GPU cells only) ──────────────────────
   docs-notebooks:
     name: nbconvert (non-GPU notebook validation)
@@ -180,7 +178,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -233,7 +231,7 @@ jobs:
       - name: Set up Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "18"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -297,12 +295,12 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
         continue-on-error: true
         # Android SDK installation may be slow; continue so the artifact step
         # always runs even if SDK setup partially fails.
@@ -343,7 +341,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -393,7 +391,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -451,7 +449,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -500,8 +498,8 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # push to gh-pages branch
-      pull-requests: write   # post preview URL comment
+      contents: write # push to gh-pages branch
+      pull-requests: write # post preview URL comment
 
     steps:
       - uses: actions/checkout@v4
@@ -511,7 +509,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -545,7 +543,7 @@ jobs:
       - name: Deploy PR preview to gh-pages/pr-preview/{number}/
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.REPO_PROJECT_TOKEN }}
           publish_dir: ./site
           destination_dir: pr-preview/${{ github.event.pull_request.number }}
           keep_files: true
@@ -601,7 +599,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -635,7 +633,7 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.REPO_PROJECT_TOKEN }}
           publish_dir: ./site
 
   # ── Job 12: Remove PR preview subdirectory on PR close ──────────────────
