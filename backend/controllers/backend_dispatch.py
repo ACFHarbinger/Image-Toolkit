@@ -246,7 +246,7 @@ def _collect_image_paths(directory: str) -> list:
 
 def _run_single_stitch(image_paths: list, output: str, renderer: str) -> bool:
     """Run AnimeStitchPipeline on image_paths; return True on success."""
-    from backend.src.animation import AnimeStitchPipeline
+    from animation import AnimeStitchPipeline
 
     pipeline = AnimeStitchPipeline(renderer=renderer)
     try:

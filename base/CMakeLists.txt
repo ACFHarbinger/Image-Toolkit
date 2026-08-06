@@ -145,16 +145,18 @@ pybind11_add_module(base
     # Module entry point
     src/bindings.cpp
 
-    # Animation / Anime Stitch Pipeline submodules (Phase 1–6, complete)
-    src/animation/matching.cpp
-    src/animation/bundle_adjust.cpp
-    src/animation/validation.cpp
-    src/animation/canvas.cpp
-    src/animation/seam.cpp
-    src/animation/compositing.cpp
-    src/animation/exposure.cpp
-    src/animation/frame_selection.cpp
-    src/animation/fg_register.cpp
+    # Animation / Anime Stitch Pipeline sources (Phase 1–6, complete) — these
+    # live in the Anime-Stitch-Pipeline submodule; compiled here so they
+    # still link into the single `base` native extension.
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/matching.cpp
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/bundle_adjust.cpp
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/validation.cpp
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/canvas.cpp
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/seam.cpp
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/compositing.cpp
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/exposure.cpp
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/frame_selection.cpp
+    ../submodules/Anime-Stitch-Pipeline/cpp/src/animation/fg_register.cpp
 
     # Image I/O + filesystem (Phase 2)
     src/image/image_batch.cpp

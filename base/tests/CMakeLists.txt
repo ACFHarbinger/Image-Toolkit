@@ -43,16 +43,17 @@ endif()
 # entry point) so the test binary can link them directly without Python.
 # ---------------------------------------------------------------------------
 add_library(base_impl STATIC
-    # Animation / Anime Stitch Pipeline submodules
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/matching.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/bundle_adjust.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/validation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/canvas.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/seam.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/compositing.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/exposure.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/frame_selection.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/animation/fg_register.cpp
+    # Animation / Anime Stitch Pipeline sources — live in the
+    # Anime-Stitch-Pipeline submodule, compiled here for the test binary.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/matching.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/bundle_adjust.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/canvas.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/seam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/compositing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/exposure.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/frame_selection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/src/animation/fg_register.cpp
 
     # Image I/O + filesystem (Phase 2)
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/image/image_batch.cpp
@@ -111,13 +112,13 @@ endif()
 # Test executable
 # ---------------------------------------------------------------------------
 add_executable(base_tests
-    # Animation tests
-    animation/test_seam.cpp
-    animation/test_compositing.cpp
-    animation/test_bundle_adjust.cpp
-    animation/test_matching.cpp
-    animation/test_validation.cpp
-    animation/test_fuzz.cpp
+    # Animation tests — live in the Anime-Stitch-Pipeline submodule.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/test/animation/test_seam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/test/animation/test_compositing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/test/animation/test_bundle_adjust.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/test/animation/test_matching.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/test/animation/test_validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/cpp/test/animation/test_fuzz.cpp
 
     # Image I/O + filesystem tests (Phase 2)
     image/test_image_batch.cpp

@@ -1,5 +1,6 @@
+from animation.gui.dialogs.batch_stitch_dialog import BatchStitchDialog
+
 from .add_tag_dialog import AddTagDialog
-from .batch_stitch_dialog import BatchStitchDialog
 from .crawler_selection_dialogs import (
     DeduplicationPruningDialog,
     DuplicateConfigDialog,

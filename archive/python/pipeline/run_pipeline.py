@@ -11,9 +11,9 @@ import sys
 
 import cv2
 import numpy as np
-from backend.src.animation.alignment.canvas import _crop_to_valid
-from backend.src.animation.rendering.compositing import _composite_foreground
-from backend.src.animation.rendering.rendering import _render_median
+from animation.alignment.canvas import _crop_to_valid
+from animation.rendering.compositing import _composite_foreground
+from animation.rendering.rendering import _render_median
 from PIL import Image
 
 sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))

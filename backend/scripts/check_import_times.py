@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """§3.14B — Module import-time regression gate.
 
-Measures the wall-clock import time of every ``backend.src.animation.*`` module
+Measures the wall-clock import time of every ``animation.*`` module
 and flags any that exceed SLOW_IMPORT_THRESHOLD seconds.
 
 Usage
@@ -44,20 +44,20 @@ SLOW_IMPORT_THRESHOLD = (
 
 # All animation modules we track.  Add new modules here when they are created.
 ANIM_MODULES: List[str] = [
-    "backend.src.animation.alignment.bundle_adjust",
-    "backend.src.animation.alignment.canvas",
-    "backend.src.animation.rendering.compositing",
-    "backend.src.animation.core.config",
-    "backend.src.animation.alignment.ecc",
-    "backend.src.animation.alignment.fg_register",
-    "backend.src.animation.ingestion.frame_selection",
-    "backend.src.animation.alignment.matching",
-    "backend.src.animation.ingestion.masking",
-    "backend.src.animation.core.pipeline",
-    "backend.src.animation.rendering.photometric",
-    "backend.src.animation.rendering.rendering",
-    "backend.src.animation.core.validation",
-    "backend.src.animation.ingestion.bg_complete",
+    "animation.alignment.bundle_adjust",
+    "animation.alignment.canvas",
+    "animation.rendering.compositing",
+    "animation.core.config",
+    "animation.alignment.ecc",
+    "animation.alignment.fg_register",
+    "animation.ingestion.frame_selection",
+    "animation.alignment.matching",
+    "animation.ingestion.masking",
+    "animation.core.pipeline",
+    "animation.rendering.photometric",
+    "animation.rendering.rendering",
+    "animation.core.validation",
+    "animation.ingestion.bg_complete",
 ]
 
 # §3.15C — Core modules that were audited for heavy-import isolation.

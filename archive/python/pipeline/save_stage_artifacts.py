@@ -17,7 +17,7 @@ Saved artefacts (in <output_dir>/panorama_stages/):
 Usage
 -----
     from save_stage_artifacts import instrument_pipeline
-    from backend.src.animation import AnimeStitchPipeline
+    from animation import AnimeStitchPipeline
 
     pipeline = AnimeStitchPipeline(use_birefnet=True, use_loftr=True)
     instrument_pipeline(pipeline, output_dir="/path/to/dataset/output")
@@ -123,20 +123,20 @@ def instrument_pipeline(pipeline: Any, output_dir: str) -> None:
         """
         import gc
         import warnings
-        from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
-        from backend.src.animation.alignment.canvas import (
+        from animation.alignment.bundle_adjust import _bundle_adjust_affine
+        from animation.alignment.canvas import (
             _compute_canvas,
             _crop_to_valid,
             _load_frames,
             _normalise_widths,
             _scan_stitch_fallback,
         )
-        from backend.src.animation.rendering.compositing import _composite_foreground
-        from backend.src.animation.alignment.ecc import _ecc_refine
-        from backend.src.animation.ingestion.masking import _compute_fg_masks
-        from backend.src.animation.alignment.matching import _pairwise_match
-        from backend.src.animation.rendering.photometric import _apply_basic, _correct_vignetting
-        from backend.src.animation.rendering.rendering import _render
+        from animation.rendering.compositing import _composite_foreground
+        from animation.alignment.ecc import _ecc_refine
+        from animation.ingestion.masking import _compute_fg_masks
+        from animation.alignment.matching import _pairwise_match
+        from animation.rendering.photometric import _apply_basic, _correct_vignetting
+        from animation.rendering.rendering import _render
 
         import torch
 
@@ -350,7 +350,7 @@ def run_and_save(
 
     Returns the final PIL Image.
     """
-    from backend.src.animation import AnimeStitchPipeline
+    from animation import AnimeStitchPipeline
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_path = str(Path(output_dir) / "panorama.png")

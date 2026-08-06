@@ -199,10 +199,10 @@ def _ensure_stub_api_pages() -> None:
     stubs = {
         DOCS / "api" / "python" / "animation.md": (
             "# ASP / Animation Module API\n\n"
-            "::: backend.src.animation.core.pipeline\n\n"
-            "::: backend.src.animation.rendering.compositing\n\n"
-            "::: backend.src.animation.ingestion.frame_selection\n\n"
-            "::: backend.src.animation.alignment.bundle_adjust\n"
+            "::: animation.core.pipeline\n\n"
+            "::: animation.rendering.compositing\n\n"
+            "::: animation.ingestion.frame_selection\n\n"
+            "::: animation.alignment.bundle_adjust\n"
         ),
         DOCS / "api" / "python" / "core.md": (
             "# Backend Core API\n\n"

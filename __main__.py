@@ -19,6 +19,11 @@ warnings.filterwarnings(
 
 # Ensure that your root directory is on the path if needed
 sys.path.insert(0, os.path.dirname(__file__))
+# ASP (Anime Stitch Pipeline) and Manga Colorization & Animation live in
+# their own submodules; expose their python/src (resp. src) roots as
+# top-level `animation` / `manga` packages.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "submodules", "Anime-Stitch-Pipeline", "python", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "submodules", "Cel-Shaded-Generator", "src"))
 
 
 if __name__ == "__main__":
