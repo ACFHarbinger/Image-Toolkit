@@ -174,10 +174,11 @@ nav:
       - Performance: roadmaps/performance.md
       - New Features: roadmaps/new_features.md
       - GUI / UX: roadmaps/gui_ux.md
-      - ASP Pipeline: roadmaps/asp.md
       - Content Generation: roadmaps/content_generation.md
       - Analytics & Interpretability: roadmaps/analytics_and_interpretability.md
       - Documentation: roadmaps/documentation.md
+      - ASP Pipeline (submodule): https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/moon/ROADMAP.md
+      - Manga Colorization & Animation (submodule): https://github.com/ACFHarbinger/Cel-Shaded-Generator/blob/main/moon/ROADMAP.md
   - Research:
       - Analytics & Codebase Visualisation: research/analytics.md
       - ASP Comprehensive Research: research/asp_research.md

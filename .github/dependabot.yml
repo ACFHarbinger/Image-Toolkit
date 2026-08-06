@@ -4,7 +4,7 @@ version: 2
 # Dependabot ecosystem support and are therefore not tracked here.
 #
 # Rust `base` module was fully retired to archive/rust/ (Rust -> C++
-# migration, see docs/moon/roadmaps/asp.md history) — archive/rust/Cargo.toml is
+# migration, see https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/moon/ROADMAP.md history) — archive/rust/Cargo.toml is
 # intentionally NOT scanned. The only live Cargo.toml is the root workspace
 # manifest, whose sole member is frontend/src-tauri (the Tauri desktop shell).
 #

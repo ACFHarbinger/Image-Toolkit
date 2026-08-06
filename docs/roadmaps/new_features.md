@@ -489,7 +489,7 @@ checkpoints/session-review UI in `stitch_tab.py`/`stitch_worker.py` still exist 
 "final output quality rating" at checkpoint 5, but nothing currently consumes that rating to train a reward
 model — there is no reward model left to train. This item is **not done**; it would need the RLHF
 foundation rescoped and rebuilt from scratch (a reward model, a training loop, and a reason to have one)
-before any of the UI options below are worth building. The current `asp.md` roadmap has no equivalent item.
+before any of the UI options below are worth building. The current `the Anime-Stitch-Pipeline submodule's moon/ROADMAP.md` roadmap has no equivalent item.
 
 **Pain point (original framing, now describing removed infrastructure):** The `StitchRewardModel` in `bench_anime_stitch.py` (§1.10A, S29) uses random weights until feedback is collected. There is no UI for users to rate stitching outputs so the reward model can learn meaningful preferences. Without rated outputs, the RLHF loop cannot close and the reward model never improves.
 
@@ -623,7 +623,7 @@ top-level Modes for what is really one engine with one parameter. Getting a
 genuinely different stitching *algorithm* (not just a different `Stitcher`
 mode) meant checking "Perfect Stitch Mode", a single boolean that routed to
 the Anime Stitch Pipeline (ASP) with no way to reach Overmix or Hugin — both
-already built and benchmarked as reference comparators in `docs/moon/roadmaps/asp.md`
+already built and benchmarked as reference comparators in `https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/moon/ROADMAP.md`
 §0.3/§0.5 — from the GUI at all. A boolean checkbox also doesn't scale: adding
 a third or fourth engine would mean more checkboxes fighting for the same
 mutually-exclusive slot.

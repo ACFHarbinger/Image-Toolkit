@@ -42,6 +42,9 @@ project_root = Path(__file__).resolve().parent.parent.parent
 # Add the project root to sys.path. This allows 'import gui.src...'
 # to resolve 'gui' as a package within Image-Toolkit/.
 sys.path.insert(0, str(project_root))
+# ASP and Manga Colorization & Animation live in their own submodules.
+sys.path.insert(0, str(project_root / "submodules" / "Anime-Stitch-Pipeline" / "python" / "src"))
+sys.path.insert(0, str(project_root / "submodules" / "Cel-Shaded-Generator" / "src"))
 
 from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
 

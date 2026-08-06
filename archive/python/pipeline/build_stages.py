@@ -17,18 +17,18 @@ sys.path.insert(0, os.path.expanduser("~/Repositories/Image-Toolkit"))
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 import torch
-from backend.src.animation.core.pipeline import AnimeStitchPipeline
-from backend.src.animation.alignment.canvas import (
+from animation.core.pipeline import AnimeStitchPipeline
+from animation.alignment.canvas import (
     _load_frames,
     _normalise_widths,
     _compute_canvas,
     _crop_to_valid,
 )
-from backend.src.animation.ingestion.masking import _compute_fg_masks
-from backend.src.animation.alignment.matching import _pairwise_match
-from backend.src.animation.alignment.bundle_adjust import _bundle_adjust_affine
-from backend.src.animation.alignment.ecc import _ecc_refine
-from backend.src.animation.rendering.rendering import _render_median
+from animation.ingestion.masking import _compute_fg_masks
+from animation.alignment.matching import _pairwise_match
+from animation.alignment.bundle_adjust import _bundle_adjust_affine
+from animation.alignment.ecc import _ecc_refine
+from animation.rendering.rendering import _render_median
 from PIL import Image
 
 DIR = os.path.expanduser("~/Downloads/Data/New")

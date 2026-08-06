@@ -18,7 +18,7 @@ from gui.src.tabs import (
     WallpaperTab,
     WebRequestsTab,
 )
-from gui.src.tabs.animation.stitch_tab_backend import StitchTabBackend
+from animation.gui.tabs.animation.stitch_tab_backend import StitchTabBackend
 from gui.src.windows.logging.log_backend import LogBackend
 from gui.src.windows.settings.settings_backend import SettingsBackend
 from gui.src.windows.slideshow_backend import SlideshowBackend

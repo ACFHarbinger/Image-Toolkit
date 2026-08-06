@@ -13,7 +13,7 @@ pytestmark = pytest.mark.gui
 
 class TestAppConfigCapture:
     def test_capture_includes_every_asp_schema_key(self, q_app, monkeypatch):
-        from backend.src.animation.core.config import asp_schema
+        from animation.core.config import asp_schema
         from gui.src.windows.settings.app_config import AppConfig
 
         monkeypatch.setenv("ASP_HOLD_THRESHOLD", "0.05")
