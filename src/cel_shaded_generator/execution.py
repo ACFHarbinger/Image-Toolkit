@@ -15,6 +15,15 @@ from typing import Any, Protocol
 
 import numpy as np
 
+DEFAULT_DIAGNOSTIC_MAX_BYTES = 20 * 1024 * 1024
+DEFAULT_DIAGNOSTIC_MAX_AGE_DAYS = 7
+
+
+def default_diagnostics_path() -> Path:
+    """Return the local XDG-compatible diagnostics path without creating it."""
+    state_root = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
+    return state_root / "cel-shaded-generator" / "diagnostics.jsonl"
+
 
 class Operation(StrEnum):
     """Stable operation identifiers shared by desktop and plugin hosts."""
@@ -132,19 +141,40 @@ class IsolatedRunner:
     """Runs each native job in a fresh spawned process for crash containment."""
 
     def __init__(
-        self, maximum_timeout_seconds: float = 300, diagnostics_path: str | Path | None = None
+        self,
+        maximum_timeout_seconds: float = 300,
+        diagnostics_path: str | Path | None = None,
+        diagnostics_enabled: bool = True,
+        diagnostic_max_bytes: int = DEFAULT_DIAGNOSTIC_MAX_BYTES,
+        diagnostic_max_age_days: int = DEFAULT_DIAGNOSTIC_MAX_AGE_DAYS,
     ):
         if maximum_timeout_seconds <= 0:
             raise ValueError("maximum_timeout_seconds must be positive")
         self.maximum_timeout_seconds = maximum_timeout_seconds
-        self.diagnostics_path = Path(diagnostics_path) if diagnostics_path else None
+        self.diagnostics_path = (
+            (Path(diagnostics_path) if diagnostics_path else default_diagnostics_path())
+            if diagnostics_enabled
+            else None
+        )
+        self.diagnostic_max_bytes = diagnostic_max_bytes
+        self.diagnostic_max_age_days = diagnostic_max_age_days
         self._context = mp.get_context("spawn")
+
+    def _rotate_diagnostics(self) -> None:
+        path = self.diagnostics_path
+        if path is None or not path.exists():
+            return
+        too_large = path.stat().st_size >= self.diagnostic_max_bytes
+        too_old = time.time() - path.stat().st_mtime >= self.diagnostic_max_age_days * 86400
+        if too_large or too_old:
+            os.replace(path, path.with_suffix(".jsonl.previous"))
 
     def _log(
         self, request: JobRequest, outcome: str, elapsed: float, detail: str | None = None
     ) -> None:
         if self.diagnostics_path is None:
             return
+        self._rotate_diagnostics()
         record = {
             "operation": request.operation.value,
             "dimensions": _dimensions(request),

@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Adaptive timeouts are capped by user policy, and optional local JSONL
   diagnostics contain only operation, array dimensions, timing, outcome, and
   error type—never pixels or filenames. GUI routing and overhead measurements
-  remain before this issue is complete.
+  remain before this issue is complete. Diagnostics are enabled by default in
+  the XDG state directory, rotate at seven days or 20 MiB, and can be disabled;
+  the default maximum job timeout is five minutes.
 - Completed Phase 0 issue #5's current-engine baseline: deterministic synthetic
   fixtures and directly committed golden arrays now cover scribble/reference
   colorization, temporal propagation, and ARAP. Added documented cross-platform

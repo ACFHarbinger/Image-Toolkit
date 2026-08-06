@@ -16,11 +16,12 @@ from cel_shaded_generator.execution import (
     Operation,
     WorkerCrashed,
     adaptive_timeout,
+    default_diagnostics_path,
 )
 
 
 def test_deliberate_worker_crash_does_not_kill_host_and_next_job_succeeds():
-    runner = IsolatedRunner(maximum_timeout_seconds=5)
+    runner = IsolatedRunner(maximum_timeout_seconds=5, diagnostics_enabled=False)
 
     with pytest.raises(WorkerCrashed, match="exit.*86"):
         runner.run(JobRequest(Operation._TEST_CRASH))
@@ -29,7 +30,7 @@ def test_deliberate_worker_crash_does_not_kill_host_and_next_job_succeeds():
 
 
 def test_timeout_terminates_hung_worker_and_runner_recovers():
-    runner = IsolatedRunner(maximum_timeout_seconds=0.05)
+    runner = IsolatedRunner(maximum_timeout_seconds=0.05, diagnostics_enabled=False)
 
     with pytest.raises(JobTimedOut):
         runner.run(JobRequest(Operation._TEST_HANG))
@@ -43,7 +44,7 @@ def test_pre_requested_cancellation_is_deterministic():
     cancel.set()
 
     with pytest.raises(JobCancelled):
-        IsolatedRunner().run(JobRequest(Operation._TEST_HANG), cancel)
+        IsolatedRunner(diagnostics_enabled=False).run(JobRequest(Operation._TEST_HANG), cancel)
 
 
 def test_adaptive_timeout_is_operation_specific_and_user_capped():
@@ -67,3 +68,20 @@ def test_diagnostics_include_shapes_but_neither_pixels_nor_filenames(tmp_path):
     assert record["dimensions"] == {"artwork": [2, 3]}
     assert "217" not in text
     assert "filename" not in text
+
+
+def test_diagnostics_default_to_xdg_state_and_rotate_by_size(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    path = default_diagnostics_path()
+    runner = IsolatedRunner(diagnostic_max_bytes=1)
+    assert runner.diagnostics_path == path
+
+    runner.run(JobRequest(Operation.HEALTH_CHECK))
+    runner.run(JobRequest(Operation.HEALTH_CHECK))
+
+    assert path.exists()
+    assert path.with_suffix(".jsonl.previous").exists()
+
+
+def test_diagnostics_can_be_disabled():
+    assert IsolatedRunner(diagnostics_enabled=False).diagnostics_path is None
