@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verified exact file scope/checksums. The first verification exposed copied
   Python cache artifacts; the installer now excludes `__pycache__`, `.pyc`, and
   `.pyo`, with regression coverage, and the live plugin was cleanly reinstalled.
+  Follow-up inspection after the Python Plugin Manager was absent proved the
+  Krita 5.2.11 Snap omits the entire Python plugin subsystem. Corrected the
+  installer to reject Snap paths and target the official AppImage's standard
+  Linux resource directory; the Snap files are inert and cannot be enabled.
 - Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
   template README, contributor/agent guidance, documentation landing page,
   development/testing/dependency/troubleshooting/module guides, glossary,

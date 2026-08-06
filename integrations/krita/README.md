@@ -1,8 +1,13 @@
 # Krita plugin (A1 pre-alpha)
 
-The current target is the owner's Krita 5.2.11 Snap on Kubuntu. The plugin
-requires Krita 5.2+ with Python 3.10+ and contains an English-only offline
-placeholder lesson. Artwork review is not implemented yet.
+The plugin requires Krita 5.2+ with Python 3.10+ and contains an English-only
+offline placeholder lesson. Artwork review is not implemented yet.
+
+**Do not use the Krita Snap.** Revision 109 (5.2.11) was inspected on Kubuntu
+and omits Krita's Python plugin subsystem: no Python Plugin Manager, `pykrita`,
+Scripter, or importer is bundled. Installing files into its confined data path
+cannot enable a feature absent from the build. Use an official Linux AppImage,
+which stores user plugins under `~/.local/share/krita/pykrita`.
 
 Install from the repository root while Krita is closed:
 
@@ -21,11 +26,10 @@ Remove only this plugin with:
 uv run python integrations/krita/install.py uninstall
 ```
 
-The Snap installer target is
-`~/snap/krita/current/.local/share/krita/pykrita`. Use `--root PATH` only for a
-different verified Krita user-data directory.
+The default target is `~/.local/share/krita/pykrita`. Use `--root PATH` only for
+a different verified Krita user-data directory.
 
 The docker reports whether packaged content and the standalone core are visible.
-Snap confinement may prevent importing a repository virtual environment; this
-does not prevent the lesson shell from loading. A2 must use an explicit local
-engine transport rather than editing `sys.path` or assuming host visibility.
+The AppImage's embedded Python should not be coupled to a repository virtual
+environment. A2 must use an explicit local engine transport rather than editing
+`sys.path` or assuming host visibility.

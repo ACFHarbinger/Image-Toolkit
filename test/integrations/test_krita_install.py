@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
-from integrations.krita.install import install, uninstall
+import pytest
+
+from integrations.krita.install import default_root, install, uninstall
 
 
 def test_install_and_uninstall_are_scoped(tmp_path):
@@ -40,3 +42,14 @@ def test_installer_excludes_python_cache_artifacts(tmp_path):
     install(tmp_path)
 
     assert not (tmp_path / "cel_shaded_generator" / "__pycache__").exists()
+
+
+def test_default_root_uses_standard_linux_resource_path(monkeypatch, tmp_path):
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    assert default_root() == tmp_path / ".local/share/krita/pykrita"
+
+
+def test_snap_target_is_rejected(tmp_path):
+    snap_root = tmp_path / "snap/krita/current/.local/share/krita/pykrita"
+    with pytest.raises(RuntimeError, match="omits Python plugin support"):
+        install(snap_root)

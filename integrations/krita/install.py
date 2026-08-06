@@ -11,12 +11,16 @@ PLUGIN_NAME = "cel_shaded_generator"
 
 
 def default_root() -> Path:
-    """Return the Krita Snap user plugin directory."""
-    return Path.home() / "snap" / "krita" / "current" / ".local" / "share" / "krita" / "pykrita"
+    """Return the standard Linux/AppImage Krita user plugin directory."""
+    return Path.home() / ".local" / "share" / "krita" / "pykrita"
 
 
 def install(root: Path) -> None:
     """Install this plugin, refusing to overwrite an unknown existing package."""
+    if "snap/krita" in root.as_posix():
+        raise RuntimeError(
+            "the Krita Snap build omits Python plugin support; use the official AppImage"
+        )
     source = Path(__file__).parent / "pykrita"
     package = root / PLUGIN_NAME
     desktop = root / f"{PLUGIN_NAME}.desktop"
