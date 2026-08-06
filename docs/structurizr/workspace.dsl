@@ -1,41 +1,23 @@
-/*
- * Dev-Repo-Template — Structurizr DSL workspace (C4 model)
- *
- * See docs/structurizr/README.md for rendering instructions.
- *
- * TODO: Replace the placeholder model below with the real system once this
- * template is used to seed a product repository.
- */
-
-workspace "Dev-Repo-Template" "Placeholder C4 model for a repository generated from this template." {
-
+workspace "Cel-Shaded-Generator" "Offline anime learning and cel-shaded art application." {
     model {
-        user = person "User" "Interacts with the system."
-
-        system = softwareSystem "System" "The application generated from this template." {
-            api = container "API" "Serves requests." "Python"
-            webapp = container "Web App" "User-facing interface." "TypeScript"
-            core = container "Core Engine" "Performance-critical logic." "Rust / C++"
-            database = container "Database" "Stores application state." "PostgreSQL"
+        artist = person "Artist/Learner" "Learns and creates cel-shaded artwork offline."
+        system = softwareSystem "Cel-Shaded-Generator" "Krita-first tutor and future desktop editor." {
+            krita = container "Krita Plugin" "Guided lessons, exercises, and accepted suggestions." "Python / Krita"
+            gui = container "Desktop GUI" "Current solver demonstration; future editor shell." "PySide6"
+            core = container "Core" "Projects, teaching contracts, and algorithm orchestration." "Python"
+            workers = container "Isolated Workers" "Crash-contained native numerical jobs." "Spawned Python processes"
+            engine = container "Future Engine" "Measured performance-critical implementation." "C++"
         }
-
-        user -> webapp "Uses"
-        webapp -> api "Calls" "HTTPS/JSON"
-        api -> core "Delegates to"
-        api -> database "Reads/writes"
+        artist -> krita "Practises and requests review"
+        artist -> gui "Uses standalone tools"
+        krita -> core "Uses public contracts"
+        gui -> core "Uses public contracts"
+        core -> workers "Dispatches serializable operations"
+        core -> engine "Future stable bindings"
     }
-
     views {
-        systemContext system "SystemContext" {
-            include *
-            autoLayout
-        }
-
-        container system "Containers" {
-            include *
-            autoLayout
-        }
-
+        systemContext system "Context" { include *; autoLayout lr }
+        container system "Containers" { include *; autoLayout lr }
         theme default
     }
 }

@@ -37,8 +37,8 @@ desktop editor, but it must earn that expansion with a polished narrow alpha.
 
 | Phase | Outcome | Status |
 | --- | --- | --- |
-| 0 | Truthful, installable standalone foundation | In progress |
-| 1 | Krita anime head-and-face learning alpha | Planned |
+| 0 | Truthful, installable standalone foundation | Complete |
+| 1 | Krita anime head-and-face learning alpha | Next |
 | 2 | Reference-consistent character coloring | Planned |
 | 3 | Anime frame-by-frame animation assistance | Deferred |
 | 4 | 2D and 3D game-asset workflows | Deferred |
@@ -50,8 +50,9 @@ desktop editor, but it must earn that expansion with a polished narrow alpha.
 This phase blocks the alpha. It is intentionally about product integrity, not
 new algorithms.
 
-- Replace template-era README, contributing, agent, benchmark,
-  and setup documentation with the real project state.
+- ✅ Replace template-era README, contributing, agent, benchmark,
+  setup, testing, dependency, troubleshooting, and architecture-portal
+  documentation with the real project state.
 - ✅ Replace the placeholder architecture document with the real current and
   target boundaries.
 - ✅ Adopt conventional `cel_shaded_generator` and

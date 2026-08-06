@@ -11,6 +11,8 @@ docs_dir: .
 site_dir: ../site
 exclude_docs: |
   sphinx/conf.py
+  website/node_modules/**
+  website/README.md
 
 theme:
   name: material
@@ -61,7 +63,9 @@ nav:
   - Benchmarks: BENCHMARKS.md
   - Troubleshooting: TROUBLESHOOTING.md
   - Glossary: GLOSSARY.md
-  - Architecture Decisions: adr/
+  - Architecture Decisions:
+      - Recording Decisions: adr/0001-record-architecture-decisions.md
+      - Superseded Polyglot Layout: adr/0002-polyglot-module-layout.md
   - Roadmap:
       - Master Roadmap: moon/ROADMAP.md
       - Krita Learning Alpha: moon/roadmaps/krita_learning_alpha.md

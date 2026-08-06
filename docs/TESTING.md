@@ -1,21 +1,22 @@
-# Testing Guide
+# Testing guide
 
-Each language module owns its own test suite under `<module>/test/` (or `tests/`/`benches/` where the ecosystem convention differs — see each module's README).
+Run the core and GUI suites separately:
 
-| Module | Framework | Command |
-| --- | --- | --- |
-| `python/` | pytest | `uv run pytest test -v --cov=src` |
-| `typescript/` | Vitest + Testing Library | `npm test` |
-| `kotlin/` | JUnit 5 + Kotest | `./gradlew test` |
-| `java/` | JUnit 5 | `mvn test` |
-| `rust/` | built-in `cargo test` | `cargo test` |
-| `go/` | built-in `testing` | `go test ./...` |
-| `cpp/` | GoogleTest via CTest | `ctest --test-dir build --output-on-failure` |
+```bash
+uv run pytest test
+QT_QPA_PLATFORM=offscreen uv run --package cel-shaded-generator-gui pytest gui/test
+```
 
-## Coverage
+Core tests use real NumPy/SciPy/OpenCV implementations. GUI tests run Qt
+offscreen and mock selected native calls where the GUI fixture deliberately
+replaces OpenCV. Installed-wheel construction is smoke-tested in CI.
 
-CI uploads coverage to [Codecov](https://codecov.io/); thresholds are configured in [`git/codecov.yaml`](../git/codecov.yaml).
+Every public behavior needs tests. Numerical work should assert meaningful
+invariants and tolerances rather than only shape or absence of exceptions.
+Native execution changes must test crash, timeout, cancellation, and next-job
+recovery when applicable. Project-format changes require round-trip, migration,
+privacy-default, and interrupted-write coverage.
 
-## Writing Tests
-
-See [`.agent/rules/test_writing.md`](../.agent/rules/test_writing.md) and [`.agent/workflows/test_writing.md`](../.agent/workflows/test_writing.md).
+Deterministic golden regressions live under `benchmark/goldens/`; performance
+measurements are explicit and do not run as timing gates in ordinary CI. See
+[BENCHMARKS.md](BENCHMARKS.md).

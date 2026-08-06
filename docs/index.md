@@ -1,14 +1,14 @@
-# Dev-Repo-Template Documentation
+# Cel-Shaded-Generator documentation
 
-Welcome to the documentation portal for this repository. This site is built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/); the Python API reference is generated separately with [Sphinx](sphinx/index.rst) via `autoapi`.
+Cel-Shaded-Generator is an offline-first anime drawing tutor and cel-shaded art
+tool in pre-alpha development. Start with:
 
-> **TODO:** Replace this landing page with a real project overview once this template is used to seed a product repository.
+- [Roadmap](moon/ROADMAP.md) — product sequence and honest feature status
+- [Architecture](ARCHITECTURE.md) — current and target system boundaries
+- [Development](DEVELOPMENT.md) — accurate setup and commands
+- [Testing](TESTING.md) and [benchmarks](BENCHMARKS.md)
+- [Portable project format](project_format.md)
+- [Changelog](moon/CHANGELOG.md)
 
-## Where to start
-
-- [Architecture](ARCHITECTURE.md) — system design and module boundaries
-- [Development](DEVELOPMENT.md) — local setup
-- [Testing](TESTING.md) — how to run and write tests
-- [Troubleshooting](TROUBLESHOOTING.md) — common problems and fixes
-- [`moon/ROADMAP.md`](../moon/ROADMAP.md) — what's planned
-- [`moon/CHANGELOG.md`](../moon/CHANGELOG.md) — what shipped
+The first user-facing milestone is a Krita plugin teaching anime head-and-face
+construction. The current Qt executable is a solver demonstration shell.

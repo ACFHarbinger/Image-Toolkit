@@ -1,40 +1,34 @@
-# Development Guide
+# Development guide
 
-## Prerequisites
+## Setup
 
-- Git, [`just`](https://github.com/casey/just), `pre-commit`
-- Per-module toolchains: `uv` (Python 3.11+), Node 22 (TypeScript), JDK 21 + Gradle wrapper (Kotlin), JDK 21 + Maven (Java), stable Rust (Cargo), Go 1.22+, CMake + a C++17 compiler
-
-## Local Setup
+Install Git and `uv`, clone the repository, then run:
 
 ```bash
-git clone https://github.com/<org>/<repo>.git
-cd <repo>
-cp .env.example .env
-pip install pre-commit && pre-commit install
-just --list
+uv sync --all-packages --all-extras --dev
 ```
 
-## Running a Single Module
+No cloud account, API key, Image-Toolkit checkout, CUDA installation, Node,
+JVM, Rust, Go, or C++ compiler is required for the current Python product.
 
-```bash
-just test python       # or typescript, kotlin, java, rust, go, cpp
-just lint python
-```
-
-## Containerized Dev Environment
-
-Open the repo in VS Code and choose "Reopen in Container" — see [`.devcontainer/devcontainer.json`](../.devcontainer/devcontainer.json). Or run the full stack with:
-
-```bash
-docker compose -f infra/docker/docker-compose.yml up
-```
-
-## Common Tasks
+## Common commands
 
 | Task | Command |
 | --- | --- |
-| Run all tests | `just test` |
-| Run all linters | `just lint` |
-| Build docs | `just docs` |
-| Build & start Docker stack | `just docker-up` |
+| Core tests | `uv run pytest test` |
+| GUI tests | `QT_QPA_PLATFORM=offscreen uv run --package cel-shaded-generator-gui pytest gui/test` |
+| Core lint | `uv run ruff check src test` |
+| GUI lint | `uv run --package cel-shaded-generator-gui ruff check gui` |
+| Core types | `uv run mypy src` |
+| GUI types | `uv run --package cel-shaded-generator-gui mypy gui/src` |
+| Build both distributions | `uv build --all-packages` |
+| Launch demo | `uv run --package cel-shaded-generator-gui cel-shaded-generator` |
+| Explicit benchmark | `uv run python benchmark/run_baseline.py --repeats 5` |
+
+Keep core code independent of Qt and Image-Toolkit. Host integrations consume
+public core contracts. Native-heavy built-in operations must use the isolated
+execution boundary. Do not serialize arbitrary callables across it.
+
+The committed `frontend/` and `app/` directories are deferred scaffolds, not
+active build targets. C++ is the intended long-term engine language, but ports
+must be justified by representative measurements first.

@@ -1,15 +1,14 @@
 # Dependencies
 
-| Module | Manifest | Manager |
-| --- | --- | --- |
-| `python/` | `pyproject.toml` | [uv](https://github.com/astral-sh/uv) |
-| `typescript/` | `package.json` | npm |
-| `kotlin/` | `build.gradle.kts` | Gradle |
-| `java/` | `pom.xml` | Maven |
-| `rust/` | `Cargo.toml` | Cargo |
-| `go/` | `go.mod` | Go modules |
-| `cpp/` | `CMakeLists.txt` | CMake (+ vcpkg/Conan as needed) |
+`pyproject.toml` defines the core Python distribution and uv workspace;
+`gui/pyproject.toml` defines the PySide6 client and its explicit core dependency.
+`uv.lock` is the reproducible development lock file.
 
-Dependency updates are automated via [Dependabot](../.github/dependabot.yml) on a per-ecosystem weekly schedule. Environment-level dependencies (system packages, CUDA, etc.) are documented in [`env/`](../env/).
+Current runtime categories are NumPy/SciPy/scikit-image/PyMaxflow for numerical
+algorithms, headless OpenCV for image operations, and PySide6 in the GUI only.
+Native-heavy built-ins run in isolated local processes. No dependency requires
+network access at runtime.
 
-See [`DEPENDENCY_POLICY.md`](DEPENDENCY_POLICY.md) for the policy on adding, pinning, and upgrading dependencies.
+See [DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md) before adding packages. Do not
+add an ML framework until a selected local model and measured use case require
+it; consumer NVIDIA support alone is not justification for dependency weight.

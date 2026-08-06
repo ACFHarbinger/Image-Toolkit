@@ -1,29 +1,28 @@
 # Troubleshooting
 
-## `just` commands fail with "recipe not found"
+## `uv` cannot find Python
 
-Make sure you're running `just` from the repo root — recipes are defined relative to `tools/`.
+Install Python 3.11+ through `uv python install 3.11`, then rerun
+`uv sync --all-packages --all-extras --dev`.
 
-## Python module can't find dependencies
+## Qt fails without a display
 
-Run `uv sync --group dev` inside `python/`, and confirm `.python-version` matches an interpreter `uv` can find.
+For tests and smoke checks use `QT_QPA_PLATFORM=offscreen`. The interactive
+application requires a working Linux desktop session.
 
-## TypeScript build fails on a fresh clone
+## A solver times out or crashes
 
-Delete `typescript/node_modules` and re-run `npm ci` (not `npm install`) to get the exact locked versions.
+Built-in native jobs are isolated and should return an actionable error without
+terminating the host. Local metadata-only diagnostics are under
+`${XDG_STATE_HOME:-~/.local/state}/cel-shaded-generator/diagnostics.jsonl` and
+rotate after seven days or 20 MiB. They exclude artwork pixels and request
+filenames. Users may disable diagnostics and configure the five-minute cap.
 
-## C++ module fails to configure with CMake
+## Image-Toolkit imports fail
 
-Confirm CMake ≥ 3.20 and a C++17-capable compiler are on `PATH`. If using vcpkg/Pixi, make sure the toolchain file is passed via `-DCMAKE_TOOLCHAIN_FILE`.
+Do not add Image-Toolkit to `PYTHONPATH`; this repository is standalone. Install
+or sync both workspace packages normally.
 
-## Docker Compose stack won't start
-
-Check `.env` exists (`cp .env.example .env`) and that the ports in `infra/docker/docker-compose.yml` aren't already bound by another local service.
-
-## Pre-commit hook fails on a hook I don't have installed locally
-
-Most hooks run via `language: system` and expect the module's toolchain (e.g. `cargo`, `./gradlew`) to already be on `PATH` — install the missing toolchain rather than skipping the hook.
-
----
-
-Still stuck? Open an issue using the [bug report template](../.github/ISSUE_TEMPLATE/bug_report.yml).
+Still stuck? Open a GitHub issue with the operation name, array dimensions,
+broad hardware class, and sanitized diagnostic outcome. Do not attach private
+artwork unless you intentionally choose to share it.

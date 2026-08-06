@@ -1,17 +1,12 @@
-# python/
+# Python packages
 
-Python module template. Managed with [uv](https://github.com/astral-sh/uv).
+The uv workspace builds two distributions:
 
-```bash
-uv sync --all-extras --dev
-uv run pytest test -v
-uv run ruff check .
-```
+| Distribution | Import | Responsibility |
+| --- | --- | --- |
+| `cel-shaded-generator` | `cel_shaded_generator` | Core algorithms, projects, isolated jobs |
+| `cel-shaded-generator-gui` | `cel_shaded_generator_gui` | PySide6 demonstration application |
 
-| Directory | Purpose |
-| --- | --- |
-| `src/` | Application/library source |
-| `test/` | Tests (pytest), with shared fixtures in `conftest.py` |
-| `benchmark/` | Performance benchmarks (pytest-benchmark) |
-| `config/` | Runtime/experiment configuration |
-| `validation/` | Dev-tooling scripts (import graph, docstring, LOC checks) — see [`validation/README.md`](validation/README.md) |
+The GUI declares the core distribution as a dependency. The core never imports
+Qt or Image-Toolkit. Tests live in `test/` and `gui/test/`; benchmarks live in
+`benchmark/`. Both packages require Python 3.11 or newer.

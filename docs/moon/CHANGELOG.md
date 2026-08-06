@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
+  template README, contributor/agent guidance, documentation landing page,
+  development/testing/dependency/troubleshooting/module guides, glossary,
+  Sphinx identity, and placeholder C4 model with truthful project-specific
+  content. The historical polyglot ADR is explicitly superseded. Documented
+  commands now match the uv core+GUI workspace, current features are separated
+  from planned promises, and the Krita head-and-face alpha is the next phase.
 - Started Phase 0 issue #6: introduced a host-neutral `JobRequest`/`Operation`
   contract and `IsolatedRunner`, spawning a fresh process for each native-heavy
   job. Hard exits, hangs, cancellation, ordinary exceptions, and pipe EOF are

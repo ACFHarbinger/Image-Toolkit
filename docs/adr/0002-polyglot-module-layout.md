@@ -1,10 +1,13 @@
-# 2. One top-level directory per language
+# 2. One top-level directory per language (superseded)
 
 Date: 2026-07-30
 
 ## Status
 
-Accepted
+Superseded by the standalone Python core/GUI workspace architecture.
+
+This ADR is retained as template-extraction history and is not current design
+guidance. See `docs/ARCHITECTURE.md`.
 
 ## Context
 
