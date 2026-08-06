@@ -139,7 +139,7 @@ This is a **greenfield feature area** — the repository has no manga colorizati
 
 **Gap analysis:** everything in §1–§5 is new work. The mathematical-optimization track (§2.1–§2.4, §3.1–§3.3) is prioritized first — it needs no pretrained weights, carries no training-data copyright exposure, and is the natural extension of existing C++ solver infrastructure. The deep-learning track (§2.5, §3.4) is explicitly scoped as [Research] follow-on, reusing the existing ComfyUI integration before any native wrapper is written.
 
-Research basis: [`research/Manga Colorization and Animation Research.md`](../../research/Manga%20Colorization%20and%20Animation%20Research.md) (merged from the prior HITL-deep-learning and mathematical-optimization research passes).
+Research basis: [`research/Manga Colorization and Animation Research.md`](../research/Manga%20Colorization%20and%20Animation%20Research.md) (merged from the prior HITL-deep-learning and mathematical-optimization research passes).
 
 ---
 
@@ -396,4 +396,4 @@ Dependencies: §1.3 (Gabor features) blocks §2.2 and materially strengthens §2
 
 ## Document History
 
-*Created 2026-08-03. Research basis: **[`research/Manga Colorization and Animation Research.md`](../../research/Manga%20Colorization%20and%20Animation%20Research.md)** (merged from the prior "HITL Deep Learning for Manga Colorization and Animation" and "Mathematical Optimization in Manga Colorization and Animation" research passes). Tracked under GitHub Milestone #6 ("Manga Colorization and Animation").*
+*Created 2026-08-03. Research basis: **[`research/Manga Colorization and Animation Research.md`](../research/Manga%20Colorization%20and%20Animation%20Research.md)** (merged from the prior "HITL Deep Learning for Manga Colorization and Animation" and "Mathematical Optimization in Manga Colorization and Animation" research passes). Tracked under GitHub Milestone #6 ("Manga Colorization and Animation").*
