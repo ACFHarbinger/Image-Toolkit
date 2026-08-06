@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from backend.src.manga.preference_log import log_preference, read_preferences
+from manga.preference_log import log_preference, read_preferences
 
 
 class TestLogPreference:

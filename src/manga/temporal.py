@@ -58,7 +58,7 @@ def _neighbor_offsets_3d(win_rad: int, t_rad: int) -> np.ndarray:
 def build_levin_system_3d(y_stack: np.ndarray, win_rad: int = 1, t_rad: int = 1) -> sparse.csr_matrix:
     """Build the sparse ``(I - W)`` affinity system for 3D (t, y, x) Levin
     colorization -- the direct temporal generalization of
-    :func:`backend.src.manga.colorization.build_levin_system`.
+    :func:`manga.colorization.build_levin_system`.
 
     Args:
         y_stack: TxHxW float array, luminance normalized to [0, 1].
@@ -177,7 +177,7 @@ def colorize_scribble_sequence(
             :func:`build_levin_system_3d`).
         t_rad: temporal affinity neighborhood radius.
         max_solve_dim: same role as
-            :func:`backend.src.manga.colorization.colorize_scribble`'s
+            :func:`manga.colorization.colorize_scribble`'s
             parameter of the same name -- caps the spatial (not temporal)
             solve resolution; chrominance is upsampled back per-frame.
             Pass 0 to disable and always solve at full resolution.

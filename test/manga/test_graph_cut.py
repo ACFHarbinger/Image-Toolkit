@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from backend.src.manga.gabor import gabor_feature_bank
-from backend.src.manga.graph_cut import (
+from manga.gabor import gabor_feature_bank
+from manga.graph_cut import (
     _frame_chroma,
     build_temporal_coherence_graph,
     graph_cut_temporal_refine,

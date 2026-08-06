@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from backend.src.manga.gabor import gabor_feature_bank
+from manga.gabor import gabor_feature_bank
 
 
 def _dotted_vs_flat_image(h=60, w=60):

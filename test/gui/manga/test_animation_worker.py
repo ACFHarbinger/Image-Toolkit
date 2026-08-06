@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from gui.src.helpers.manga.animation_worker import AnimationColorizeWorker
+from manga.gui.helpers.manga.animation_worker import AnimationColorizeWorker
 
 pytestmark = pytest.mark.gui
 
@@ -44,8 +44,8 @@ class TestAnimationColorizeWorker:
 
         fake_result = np.zeros((3, 10, 10, 3), dtype=np.uint8)
         with (
-            patch("gui.src.helpers.manga.animation_worker.colorize_scribble_sequence", return_value=fake_result) as mock_seq,
-            patch("gui.src.helpers.manga.animation_worker.graph_cut_temporal_refine") as mock_refine,
+            patch("manga.gui.helpers.manga.animation_worker.colorize_scribble_sequence", return_value=fake_result) as mock_seq,
+            patch("manga.gui.helpers.manga.animation_worker.graph_cut_temporal_refine") as mock_refine,
         ):
             worker.run()
 
@@ -63,8 +63,8 @@ class TestAnimationColorizeWorker:
         seq_result = np.zeros((3, 10, 10, 3), dtype=np.uint8)
         refined_result = np.ones((3, 10, 10, 3), dtype=np.uint8)
         with (
-            patch("gui.src.helpers.manga.animation_worker.colorize_scribble_sequence", return_value=seq_result) as mock_seq,
-            patch("gui.src.helpers.manga.animation_worker.graph_cut_temporal_refine", return_value=refined_result) as mock_refine,
+            patch("manga.gui.helpers.manga.animation_worker.colorize_scribble_sequence", return_value=seq_result) as mock_seq,
+            patch("manga.gui.helpers.manga.animation_worker.graph_cut_temporal_refine", return_value=refined_result) as mock_refine,
         ):
             worker.run()
 
@@ -80,7 +80,7 @@ class TestAnimationColorizeWorker:
         worker.error.connect(lambda msg: errors.append(msg))
 
         with patch(
-            "gui.src.helpers.manga.animation_worker.colorize_scribble_sequence",
+            "manga.gui.helpers.manga.animation_worker.colorize_scribble_sequence",
             side_effect=ValueError("boom"),
         ):
             worker.run()

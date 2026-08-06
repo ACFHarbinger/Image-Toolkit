@@ -1,12 +1,12 @@
 <div align="center">
 
-# Dev-Repo-Template
+# Cel-Shaded-Generator
 
-**A batteries-included GitHub template repository — CI/CD, docs, containerization, LLM agent scaffolding, and multi-language module skeletons in one place.**
+**Manga Colorization & Animation — HITL deep learning + mathematical optimization for scribble-based colorization, temporal propagation, and ARAP mesh puppeteering.**
 
-<a href="https://github.com/ACFHarbinger/Dev-Repo-Template/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ACFHarbinger/Dev-Repo-Template/actions/workflows/ci.yml/badge.svg"></a>
-<a href="https://github.com/ACFHarbinger/Dev-Repo-Template/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/ACFHarbinger/Dev-Repo-Template/actions/workflows/docs.yml/badge.svg"></a>
-<a href="https://github.com/ACFHarbinger/Dev-Repo-Template/actions/workflows/security.yml"><img alt="Security Audit" src="https://github.com/ACFHarbinger/Dev-Repo-Template/actions/workflows/security.yml/badge.svg"></a>
+<a href="https://github.com/ACFHarbinger/Cel-Shaded-Generator/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ACFHarbinger/Cel-Shaded-Generator/actions/workflows/ci.yml/badge.svg"></a>
+<a href="https://github.com/ACFHarbinger/Cel-Shaded-Generator/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/ACFHarbinger/Cel-Shaded-Generator/actions/workflows/docs.yml/badge.svg"></a>
+<a href="https://github.com/ACFHarbinger/Cel-Shaded-Generator/actions/workflows/security.yml"><img alt="Security Audit" src="https://github.com/ACFHarbinger/Cel-Shaded-Generator/actions/workflows/security.yml/badge.svg"></a>
 <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
 <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
 <a href="https://mypy-lang.org/"><img alt="MyPy" src="https://img.shields.io/badge/MyPy-checked-2f4f4f.svg"></a>

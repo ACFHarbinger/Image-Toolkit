@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
-from backend.src.manga.preference_log import log_preference
+from manga.preference_log import log_preference
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 

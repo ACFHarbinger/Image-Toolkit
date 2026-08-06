@@ -28,7 +28,7 @@ from __future__ import annotations
 from typing import Dict, Optional, Tuple
 
 import numpy as np
-from backend.src.manga.arap import arap_deform, generate_mesh
+from manga.arap import arap_deform, generate_mesh
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView

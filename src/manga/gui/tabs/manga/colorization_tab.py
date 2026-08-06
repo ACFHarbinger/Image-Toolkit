@@ -29,8 +29,8 @@ New feature, not code motion.
 
 from __future__ import annotations
 
-from backend.src.manga import colorize_reference, colorize_scribble, colorize_scribble_screentone
-from backend.src.manga.quadtree import build_quadtree
+from manga import colorize_reference, colorize_scribble, colorize_scribble_screentone
+from manga.quadtree import build_quadtree
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (

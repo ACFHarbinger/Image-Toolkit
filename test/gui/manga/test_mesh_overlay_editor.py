@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from gui.src.elements.manga.mesh_overlay_editor import MeshOverlayEditor
+from manga.gui.elements.manga.mesh_overlay_editor import MeshOverlayEditor
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QImage
 

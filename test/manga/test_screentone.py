@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pytest
 
-from backend.src.manga.screentone import build_texture_affinity_system, colorize_scribble_screentone
+from manga.screentone import build_texture_affinity_system, colorize_scribble_screentone
 
 
 def _screentone_gray(h=60, w=60, dot_value=20, bg_value=240, pitch=4):

@@ -16,17 +16,17 @@ from __future__ import annotations
 from typing import Callable, Optional, Tuple
 
 import numpy as np
-from backend.src.manga import colorize_reference, colorize_scribble
-from backend.src.manga.quadtree import colorize_region_incremental
+from manga import colorize_reference, colorize_scribble
+from manga.quadtree import colorize_region_incremental
 from PySide6.QtCore import QThread, Signal
 
 
 class ColorizeWorker(QThread):
     """Runs a ``colorize_fn(gray, scribble_rgb, scribble_mask,
     max_solve_dim=...) -> np.ndarray`` off the UI thread. Defaults to
-    :func:`backend.src.manga.colorize_scribble` (the Levin solver) so
+    :func:`manga.colorize_scribble` (the Levin solver) so
     existing single-mode call sites don't need to change; pass a different
-    ``colorize_fn`` (e.g. :func:`backend.src.manga.colorize_scribble_screentone`)
+    ``colorize_fn`` (e.g. :func:`manga.colorize_scribble_screentone`)
     to run a different colorization mode through the same worker."""
 
     finished_ok = Signal(np.ndarray)
@@ -70,7 +70,7 @@ class ReferenceColorizeWorker(QThread):
     scribble mask concept applies here), so a shared class would need an
     awkward variadic-args escape hatch for no real benefit -- the run()
     bodies are already this short. Defaults to
-    :func:`backend.src.manga.colorize_reference` (the Optimal-Transport
+    :func:`manga.colorize_reference` (the Optimal-Transport
     solver)."""
 
     finished_ok = Signal(np.ndarray)
@@ -103,7 +103,7 @@ class ReferenceColorizeWorker(QThread):
 
 
 class IncrementalColorizeWorker(QThread):
-    """Runs :func:`backend.src.manga.quadtree.colorize_region_incremental`
+    """Runs :func:`manga.quadtree.colorize_region_incremental`
     off the UI thread -- the "live preview" counterpart to
     :class:`ColorizeWorker` (roadmap §5.2, issue #191). Re-solves only the
     quadtree-expanded window around the latest completed stroke and

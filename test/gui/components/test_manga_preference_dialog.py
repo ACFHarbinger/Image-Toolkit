@@ -2,8 +2,8 @@
 
 import numpy as np
 import pytest
-from backend.src.manga.preference_log import read_preferences
-from gui.src.components.manga_preference_dialog import MangaPreferenceDialog
+from manga.preference_log import read_preferences
+from manga.gui.components.manga_preference_dialog import MangaPreferenceDialog
 
 pytestmark = pytest.mark.gui
 

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pytest
 
-from backend.src.manga.optimal_transport import colorize_reference, sinkhorn
+from manga.optimal_transport import colorize_reference, sinkhorn
 
 
 def _split_target(h=60, w=60, left_value=200, right_value=60):

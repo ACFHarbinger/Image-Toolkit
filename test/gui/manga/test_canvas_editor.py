@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from gui.src.elements.manga.canvas_editor import MangaCanvasEditor
+from manga.gui.elements.manga.canvas_editor import MangaCanvasEditor
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QImage
 

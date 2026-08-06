@@ -127,7 +127,7 @@ def colorize_region_incremental(
     compositing it into an already-solved ``prev_result``.
 
     This is the incremental counterpart to a full-page
-    :func:`backend.src.manga.colorization.colorize_scribble` (or
+    :func:`manga.colorization.colorize_scribble` (or
     ``colorize_scribble_screentone``/``colorize_reference`` via
     ``colorize_fn``) call: it solves a small window instead of the whole
     image, then pastes that window's output into ``prev_result``. Every

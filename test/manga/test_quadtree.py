@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from backend.src.manga.colorization import colorize_scribble
-from backend.src.manga.quadtree import build_quadtree, colorize_region_incremental
+from manga.colorization import colorize_scribble
+from manga.quadtree import build_quadtree, colorize_region_incremental
 
 
 def _uniform_gray(h=128, w=128, value=220):

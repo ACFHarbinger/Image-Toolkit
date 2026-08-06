@@ -40,6 +40,10 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.11"
 ignore_missing_imports = true
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 testpaths = ["test"]
+pythonpath = ["src"]
 addopts = "-ra"

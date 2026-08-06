@@ -2,9 +2,9 @@
 #196, roadmap §6.2).
 
 A ``QThread`` subclass overriding ``run()`` -- the same JPype-JVM-safe
-pattern :class:`gui.src.helpers.manga.colorize_worker.ColorizeWorker` already
-uses. Runs :func:`backend.src.manga.colorize_scribble_sequence` (issue #192)
-and, optionally, a follow-up :func:`backend.src.manga.graph_cut_temporal_refine`
+pattern :class:`manga.gui.helpers.manga.colorize_worker.ColorizeWorker` already
+uses. Runs :func:`manga.colorize_scribble_sequence` (issue #192)
+and, optionally, a follow-up :func:`manga.graph_cut_temporal_refine`
 pass (issue #193) off the UI thread so a multi-frame solve (tens of seconds
 for even a short sequence, per ``temporal.py``'s own docstring) doesn't
 freeze the GUI.
@@ -13,7 +13,7 @@ freeze the GUI.
 from __future__ import annotations
 
 import numpy as np
-from backend.src.manga import colorize_scribble_sequence, graph_cut_temporal_refine
+from manga import colorize_scribble_sequence, graph_cut_temporal_refine
 from PySide6.QtCore import QThread, Signal
 
 
