@@ -434,7 +434,7 @@ outputs/**/*.yaml
 backend/benchmark/output/*.json
 
 # Build directories
-/**/Image_Toolkit.egg-info
+/**/*.egg-info/
 /**/build
 /**/dist
 /**/target
