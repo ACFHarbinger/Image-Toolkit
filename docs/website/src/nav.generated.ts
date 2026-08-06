@@ -307,12 +307,17 @@ export const navTree: NavNode[] = [
       {
         "title": "ASP Pipeline (submodule)",
         "kind": "external",
-        "href": "https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/moon/ROADMAP.md"
+        "href": "https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/moon/ROADMAP"
       },
       {
         "title": "Manga Colorization & Animation (submodule)",
         "kind": "external",
-        "href": "https://github.com/ACFHarbinger/Cel-Shaded-Generator/blob/main/moon/ROADMAP.md"
+        "href": "https://acfharbinger.github.io/Cel-Shaded-Generator/app/moon/ROADMAP"
+      },
+      {
+        "title": "Recommendation Engine (submodule)",
+        "kind": "external",
+        "href": "https://acfharbinger.github.io/Recommendation-Engine/app/moon/ROADMAP"
       }
     ]
   },
@@ -335,12 +340,43 @@ export const navTree: NavNode[] = [
       {
         "title": "ASP Comprehensive Research (submodule)",
         "kind": "external",
-        "href": "https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/research/ASP_Comprehensive_Research_Report.md"
+        "href": "https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/research/ASP_Comprehensive_Research_Report"
       },
       {
         "title": "Image Stitching Research (submodule)",
         "kind": "external",
-        "href": "https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/research/Image_Stitching_Research.md"
+        "href": "https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/research/Image_Stitching_Research"
+      },
+      {
+        "title": "Manga & Animation Research (submodule)",
+        "kind": "external",
+        "href": "https://acfharbinger.github.io/Cel-Shaded-Generator/app/research/Manga%20Colorization%20and%20Animation%20Research"
+      },
+      {
+        "title": "Recommendation Engine Research (submodule)",
+        "kind": "external",
+        "href": "https://acfharbinger.github.io/Recommendation-Engine/app/research/Building%20a%20Smart%20Recommendation%20Engine"
+      }
+    ]
+  },
+  {
+    "title": "Submodules",
+    "kind": "section",
+    "children": [
+      {
+        "title": "Anime-Stitch-Pipeline",
+        "kind": "external",
+        "href": "https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/"
+      },
+      {
+        "title": "Cel-Shaded-Generator",
+        "kind": "external",
+        "href": "https://acfharbinger.github.io/Cel-Shaded-Generator/app/"
+      },
+      {
+        "title": "Recommendation-Engine",
+        "kind": "external",
+        "href": "https://acfharbinger.github.io/Recommendation-Engine/app/"
       }
     ]
   },
