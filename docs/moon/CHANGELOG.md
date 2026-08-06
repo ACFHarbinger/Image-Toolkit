@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S321 — 2026-08-07 (Krita Snap diagnostics and atomic tutor catalog)
+
+Advanced Cel-Shaded-Generator A1 issue #9 (`c6dc188`, `2278222`): the Krita docker now reports offline compatibility for Krita/Python versions, packaged content, and standalone-core visibility, with documented install/enable/uninstall steps verified against Krita 5.2.11 Snap. Added atomic persistence for versioned lessons, exercises, rubrics, privacy/automation settings, and the trust-labeled local model registry, including deterministic privacy-preserving v0 migration and future-version rejection. Full verification: 142 core and 103 GUI tests; Ruff and mypy clean. A1 remains In Progress for model-package validation and a live-Krita installation check.
+
 ## S320 — 2026-08-06 (Krita learning-alpha plugin skeleton)
 
 Started Cel-Shaded-Generator A1 issue #9 (`5543bbb`) against the owner's installed Krita 5.2.11 Snap: added a discoverable Python plugin package, right-default dockable lesson shell, English-only offline front-view head-construction placeholder content, manual, and scoped Snap-aware installer/uninstaller that refuses unknown overwrites. Two installer tests verify repeatable, unrelated-file-preserving behavior. The alpha epic #1 and A1 are In Progress.
