@@ -364,6 +364,22 @@ comfyui-stop: helper::_print_header
 gui-manager: helper::_print_header
     just gui::gui-manager
 
+# Launch just the ASP stitch tab in its own PySide6 window
+asp-gui: helper::_print_header
+    just gui::asp-gui
+
+# Launch the ASP Tauri cross-platform UI
+asp-web: helper::_print_header
+    just gui::asp-web
+
+# Launch just the Manga Colorization/Animation/Puppeteering tabs in their own PySide6 window
+manga-gui: helper::_print_header
+    just gui::manga-gui
+
+# Launch the Manga Tauri cross-platform UI
+manga-web: helper::_print_header
+    just gui::manga-web
+
 # --- Core Image Processing ---
 
 # Run the 'Perfect Stitch' pipeline on the default data directory
