@@ -1,5 +1,7 @@
 """Tests for the scoped Krita plugin installer."""
 
+from pathlib import Path
+
 from integrations.krita.install import install, uninstall
 
 
@@ -26,3 +28,15 @@ def test_installer_refuses_to_overwrite_existing_plugin(tmp_path):
         assert "uninstall" in str(error)
     else:
         raise AssertionError("installer overwrote an existing plugin")
+
+
+def test_installer_excludes_python_cache_artifacts(tmp_path):
+    source_cache = (
+        Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator/__pycache__"
+    )
+    source_cache.mkdir(exist_ok=True)
+    (source_cache / "generated.pyc").write_bytes(b"cache")
+
+    install(tmp_path)
+
+    assert not (tmp_path / "cel_shaded_generator" / "__pycache__").exists()

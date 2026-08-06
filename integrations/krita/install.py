@@ -23,7 +23,11 @@ def install(root: Path) -> None:
     if package.exists() or desktop.exists():
         raise FileExistsError("plugin already exists; uninstall it explicitly before reinstalling")
     root.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(source / PLUGIN_NAME, package)
+    shutil.copytree(
+        source / PLUGIN_NAME,
+        package,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+    )
     shutil.copy2(source / f"{PLUGIN_NAME}.desktop", desktop)
 
 

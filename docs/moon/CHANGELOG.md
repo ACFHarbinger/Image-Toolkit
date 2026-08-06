@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Added atomic learning-catalog persistence for lessons, exercises, rubrics,
   privacy/automation settings, and trust-labeled local models, with deterministic
   privacy-preserving v0 migration and unsupported-future-version rejection.
+  Installed the plugin into the owner's live Krita Snap user directory and
+  verified exact file scope/checksums. The first verification exposed copied
+  Python cache artifacts; the installer now excludes `__pycache__`, `.pyc`, and
+  `.pyo`, with regression coverage, and the live plugin was cleanly reinstalled.
 - Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
   template README, contributor/agent guidance, documentation landing page,
   development/testing/dependency/troubleshooting/module guides, glossary,
