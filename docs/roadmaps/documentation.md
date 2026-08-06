@@ -485,7 +485,7 @@ docs/
 ```
 - `mkdocs.yml` at the project root with `docs_dir: docs`.
 - Pros: Everything in one place. CI just runs `mkdocs build`.
-- Cons: Some files (roadmaps, reports) currently live under `moon/` and `research/` — symlinks or a `hooks:` script in `mkdocs.yml` keeps them in sync without moving them.
+- Cons: Some files (roadmaps, reports) currently live under `moon/` and `research/` — symlinks or a `hooks:` script in `mkdocs.yml` keeps them in sync without moving them. *(Update, 2026-08-06: `moon/` and `research/` have since actually moved to `docs/moon/` and `docs/research/`; `docs/hooks.py` now only handles the roadmaps/CHANGELOG mirror rename, not a cross-directory sync.)*
 
 **B — Separate `docs-site/` directory, independent of `docs/`**
 Keep the existing `docs/` for raw Markdown files and create `docs-site/` as the MkDocs project that copies/transforms them.

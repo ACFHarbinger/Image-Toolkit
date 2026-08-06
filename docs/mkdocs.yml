@@ -181,9 +181,9 @@ nav:
       - Manga Colorization & Animation (submodule): https://github.com/ACFHarbinger/Cel-Shaded-Generator/blob/main/moon/ROADMAP.md
   - Research:
       - Analytics & Codebase Visualisation: research/analytics.md
-      - ASP Comprehensive Research: research/asp_research.md
       - Image Generation Research: research/image_generation.md
-      - Image Stitching Research: research/image_stitching.md
+      - ASP Comprehensive Research (submodule): https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/research/ASP_Comprehensive_Research_Report.md
+      - Image Stitching Research (submodule): https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/research/Image_Stitching_Research.md
   - Changelog: CHANGELOG.md
 
 # Hooks — symlink docs/moon/ and research/ content into docs/ at build time

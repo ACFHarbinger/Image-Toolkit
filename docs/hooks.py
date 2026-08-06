@@ -29,20 +29,6 @@ def on_pre_build(config: dict) -> None:
     if ts_readme_path.exists():
         ts_readme_path.unlink()
 
-    # Pre-populate exact redirects for merged reports
-    merged_reports = [
-        "ASP Consolidated Research Plan.md",
-        "Anime Stitch Pipeline ML Research.md",
-        "Multi-modal Anime Panorama Stitching.md",
-        "Multimodal_ASP_HITL_Research.md",
-        "Upgrading Anime Stitch Pipeline.md",
-        "ASP_Consolidated_Research_Plan.md",
-        "Anime_Stitch_Pipeline_ML_Research.md",
-        "Multi-modal_Anime_Panorama_Stitching.md",
-    ]
-    for r in merged_reports:
-        SOURCE_TO_DEST[ROOT / "research" / r] = DOCS / "research" / "asp_research.md"
-
     # Pre-populate exact redirects for READMEs
     SOURCE_TO_DEST[ROOT / "README.md"] = DOCS / "readme.md"
     SOURCE_TO_DEST[DOCS / "README.md"] = DOCS / "readme.md"
@@ -55,13 +41,11 @@ def on_pre_build(config: dict) -> None:
     _sync_dir(ROOT, DOCS, only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(ROOT / "frontend", DOCS / "api" / "typescript", only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(
-        ROOT / "research",
+        DOCS / "research",
         DOCS / "research",
         rename={
             "Analytics and Codebase Visualization Research.md": "analytics.md",
-            "ASP_Comprehensive_Research_Report.md": "asp_research.md",
             "Image_Generation_Research.md": "image_generation.md",
-            "Image_Stitching_Research.md": "image_stitching.md",
         },
     )
     _sync_dir(
