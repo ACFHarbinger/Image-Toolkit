@@ -1,5 +1,5 @@
 import pytest
-from editor import LayerStack
+from editor import EditHistory, LayerStack
 from PySide6.QtCore import Qt
 
 from cel_shaded_generator_gui.elements.layer_list_panel import LayerListPanel
@@ -133,3 +133,62 @@ def test_add_layer_auto_selects_the_new_layer(q_app):
     panel._add_layer()
     new_id = stack.layers()[0].meta.id
     assert panel.selected_layer_id() == new_id
+
+
+def test_add_layer_records_history_checkpoint(q_app):
+    stack = LayerStack(2, 2)
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    history = EditHistory(stack)
+    panel.set_history(history)
+    panel._add_layer()
+    assert history.can_undo() is True
+    history.undo()
+    assert stack.layers() == []
+
+
+def test_remove_and_move_record_history_checkpoints(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("bottom", "Bottom")
+    stack.add_layer("top", "Top")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    history = EditHistory(stack)
+    panel.set_history(history)
+
+    panel._list.setCurrentRow(0)  # "top"
+    panel._move_selected_layer(1)
+    assert [layer.meta.id for layer in stack.layers()] == ["top", "bottom"]
+    history.undo()
+    assert [layer.meta.id for layer in stack.layers()] == ["bottom", "top"]
+
+    panel._select_layer("top")
+    panel._remove_selected_layer()
+    assert [layer.meta.id for layer in stack.layers()] == ["bottom"]
+    history.undo()
+    assert [layer.meta.id for layer in stack.layers()] == ["bottom", "top"]
+
+
+def test_visibility_toggle_records_history_checkpoint(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    history = EditHistory(stack)
+    panel.set_history(history)
+
+    panel._list.item(0).setCheckState(Qt.CheckState.Unchecked)
+    assert stack.layer("only").meta.visible is False
+    history.undo()
+    assert stack.layer("only").meta.visible is True
+
+
+def test_refresh_re_syncs_list_from_layer_stack(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    stack.add_layer("other", "Other")  # mutated externally, e.g. by an undo
+    assert panel._list.count() == 1
+    panel.refresh()
+    assert panel._list.count() == 2

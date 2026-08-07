@@ -112,3 +112,21 @@ layer `LayerListPanel` reports as selected (`layer_selected` signal, new).
 `ReferenceColoringTab` adds Pan/Brush radio buttons, a color-swatch button
 (`QColorDialog`), and a brush-size spin box. Still no masks, segmentation,
 or palette-preview UI — those remain later slices on this same foundation.
+
+**Third slice (issue #27, In review pending a manual desktop-app check):
+undo/redo.** `src/editor/history.py` adds `EditHistory`, a snapshot-based
+undo/redo stack bound to one `LayerStack` — callers call `record()`
+immediately before a discrete mutation, and `undo()`/`redo()` restore or
+reapply the full prior state, bounded by a `max_depth` that evicts the
+oldest entries. Deliberately snapshot-based rather than a command/diff log:
+the simplest deterministic contract that stays fully testable, since every
+canvas in this project is bounded with no infinite-undo requirement.
+`LayerStack.save_state()`/`load_state()` back this with a deep, in-place
+copy so the `LayerStack` object's identity survives an undo/redo — nothing
+needs to rebind to a new object. `LayerCanvas` records one checkpoint per
+brush stroke (at `mousePressEvent`, not per dot, so a whole stroke undoes
+as one step); `LayerListPanel` records one before each add/remove/reorder/
+visibility-toggle and gained a public `refresh()` to re-sync after an
+external mutation. `ReferenceColoringTab` creates one `EditHistory` per
+canvas and adds Undo/Redo buttons. Still no masks, segmentation, or
+palette-preview UI.

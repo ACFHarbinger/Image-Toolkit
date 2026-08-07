@@ -1,9 +1,22 @@
 import pytest
-from editor import LayerStack
+from editor import EditHistory, LayerStack
+from PySide6.QtCore import QPoint, Qt
 
 from cel_shaded_generator_gui.elements.layer_canvas import LayerCanvas
 
 pytestmark = pytest.mark.gui
+
+
+class _FakeMousePressEvent:
+    def __init__(self, x, y, button=Qt.MouseButton.LeftButton):
+        self._point = QPoint(x, y)
+        self._button = button
+
+    def pos(self):
+        return self._point
+
+    def button(self):
+        return self._button
 
 
 def test_no_layer_stack_initially(q_app):
@@ -156,3 +169,40 @@ def test_mouse_paint_flow_via_private_pixel_hooks(q_app):
 
     assert stack.layer("base").pixels[2, 2, 3] > 0
     assert stack.layer("base").pixels[2, 6, 3] > 0
+
+
+def test_mouse_press_records_one_history_checkpoint_per_stroke(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_tool("brush")
+    history = EditHistory(stack)
+    canvas.set_history(history)
+    # Bypass QGraphicsView's viewport/scene coordinate mapping (untestable
+    # without a shown, sized widget) the same way MangaCanvasEditor's tests
+    # avoid it -- stub the one call mousePressEvent makes through it.
+    canvas._scene_point_to_pixel = lambda event: (3, 3)
+
+    canvas.mousePressEvent(_FakeMousePressEvent(3, 3))
+    canvas.mouseReleaseEvent(_FakeMousePressEvent(3, 3))
+
+    assert stack.layer("base").pixels[3, 3, 3] > 0
+    assert history.can_undo() is True
+    assert history.undo() is True
+    assert stack.layer("base").pixels[3, 3, 3] == 0
+
+
+def test_mouse_press_does_not_record_without_an_active_layer(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    canvas.set_tool("brush")
+    history = EditHistory(stack)
+    canvas.set_history(history)
+
+    canvas.mousePressEvent(_FakeMousePressEvent(3, 3))
+
+    assert history.can_undo() is False

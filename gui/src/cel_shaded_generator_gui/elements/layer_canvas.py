@@ -8,7 +8,9 @@ mouse-wheel zoom / hand-drag pan, and now painting onto whichever layer is
 the bound "active" one, via ``editor.brush``'s pure-numpy stamping. Pan and
 Brush are separate explicit tools (``set_tool``) rather than overloading
 left-click, since ``QGraphicsView.DragMode.ScrollHandDrag`` already claims
-left-click-drag for panning.
+left-click-drag for panning. If bound with ``set_history``, records one
+undo checkpoint per stroke, at the moment the mouse is pressed -- not per
+dot -- so a whole stroke undoes as a single step.
 
 New feature, not code motion.
 """
@@ -16,7 +18,7 @@ New feature, not code motion.
 from __future__ import annotations
 
 import numpy as np
-from editor import LayerStack, stamp_dot, stamp_line
+from editor import EditHistory, LayerStack, stamp_dot, stamp_line
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
@@ -54,6 +56,7 @@ class LayerCanvas(QGraphicsView):
         self._brush_radius = _DEFAULT_BRUSH_RADIUS
         self._painting = False
         self._last_point: tuple[int, int] | None = None
+        self._history: EditHistory | None = None
 
     def set_layer_stack(self, layer_stack: LayerStack | None) -> None:
         self._layer_stack = layer_stack
@@ -112,6 +115,9 @@ class LayerCanvas(QGraphicsView):
     def brush_radius(self) -> int:
         return self._brush_radius
 
+    def set_history(self, history: EditHistory | None) -> None:
+        self._history = history
+
     # ------------------------------------------------------------------
     # Painting
     # ------------------------------------------------------------------
@@ -141,6 +147,8 @@ class LayerCanvas(QGraphicsView):
 
     def mousePressEvent(self, event) -> None:
         if self._tool == "brush" and event.button() == Qt.MouseButton.LeftButton:
+            if self._history is not None and self._active_layer_pixels() is not None:
+                self._history.record()
             self._painting = True
             self._last_point = self._scene_point_to_pixel(event)
             self._paint_dot_at_pixel(*self._last_point)

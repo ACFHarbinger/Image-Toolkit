@@ -1,20 +1,21 @@
 """Standalone Reference Coloring editor tab -- canvas + layer stack
-foundation, now with a brush paint tool (roadmap: standalone editor,
+foundation, a brush paint tool, and undo/redo (roadmap: standalone editor,
 gate-5 exception; see ``docs/moon/roadmaps/engine_architecture.md``).
 
 Create a blank canvas of a chosen size, add/remove/reorder/show-hide
-layers, select a layer and paint on it with a solid-color circular brush.
-No masks, segmentation, or palette-preview UI yet -- those are later slices
-built on top of this same ``editor.LayerStack``/``LayerCanvas``/
-``LayerListPanel``/``editor.brush`` foundation, mirroring how the Krita
-Dockers built on Krita's own layer model.
+layers, select a layer and paint on it with a solid-color circular brush,
+and undo/redo any of the above. No masks, segmentation, or palette-preview
+UI yet -- those are later slices built on top of this same
+``editor.LayerStack``/``LayerCanvas``/``LayerListPanel``/``editor.brush``/
+``editor.EditHistory`` foundation, mirroring how the Krita Dockers built on
+Krita's own layer model.
 
 New feature, not code motion.
 """
 
 from __future__ import annotations
 
-from editor import LayerStack
+from editor import EditHistory, LayerStack
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QColorDialog,
@@ -37,10 +38,12 @@ _DEFAULT_BRUSH_RADIUS = 4
 
 
 class ReferenceColoringTab(QWidget):
-    """Standalone canvas + layer stack editor, with a brush paint tool."""
+    """Standalone canvas + layer stack editor, with a brush paint tool and
+    undo/redo."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._history: EditHistory | None = None
         self._status = QLabel("No canvas yet. Click New Canvas to begin.", self)
         self._status.setWordWrap(True)
         self._new_canvas_button = QPushButton("New Canvas", self)
@@ -69,6 +72,11 @@ class ReferenceColoringTab(QWidget):
         self._brush_radius_spin.valueChanged.connect(self._on_brush_radius_changed)
         self._canvas.set_brush_radius(_DEFAULT_BRUSH_RADIUS)
 
+        self._undo_button = QPushButton("Undo", self)
+        self._redo_button = QPushButton("Redo", self)
+        self._undo_button.clicked.connect(self._undo)
+        self._redo_button.clicked.connect(self._redo)
+
         controls = QHBoxLayout()
         controls.addWidget(self._new_canvas_button)
         controls.addWidget(self._pan_tool)
@@ -77,6 +85,8 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._brush_color_button)
         controls.addWidget(QLabel("Size:", self))
         controls.addWidget(self._brush_radius_spin)
+        controls.addWidget(self._undo_button)
+        controls.addWidget(self._redo_button)
         controls.addStretch(1)
 
         right = QVBoxLayout()
@@ -103,8 +113,11 @@ class ReferenceColoringTab(QWidget):
             return
         layer_stack = LayerStack(width, height)
         layer_stack.add_layer("layer-1", "Layer 1")
+        self._history = EditHistory(layer_stack)
         self._canvas.set_layer_stack(layer_stack)
+        self._canvas.set_history(self._history)
         self._layer_panel.set_layer_stack(layer_stack)
+        self._layer_panel.set_history(self._history)
         self._layer_panel.select_layer("layer-1")
         self._update_status()
 
@@ -136,11 +149,28 @@ class ReferenceColoringTab(QWidget):
     def _on_brush_radius_changed(self, value: int) -> None:
         self._canvas.set_brush_radius(value)
 
+    def _undo(self) -> None:
+        if self._history is None or not self._history.undo():
+            return
+        self._canvas.refresh()
+        self._layer_panel.refresh()
+        self._update_status()
+
+    def _redo(self) -> None:
+        if self._history is None or not self._history.redo():
+            return
+        self._canvas.refresh()
+        self._layer_panel.refresh()
+        self._update_status()
+
     def canvas(self) -> LayerCanvas:
         return self._canvas
 
     def layer_panel(self) -> LayerListPanel:
         return self._layer_panel
+
+    def history(self) -> EditHistory | None:
+        return self._history
 
 
 __all__ = ["ReferenceColoringTab"]

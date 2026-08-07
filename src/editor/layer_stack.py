@@ -150,3 +150,23 @@ class LayerStack:
                 continue
             result = _BLEND_FUNCS[layer.meta.blend_mode](result, layer.pixels, layer.meta.opacity)
         return result
+
+    def save_state(self) -> list[tuple[str, str, bool, float, str, np.ndarray]]:
+        """A deep, order-preserving copy of every layer's full state, opaque
+        to callers -- pass it back to :meth:`load_state` to restore it.
+        Backs ``editor.history.EditHistory``'s undo/redo."""
+        return [
+            (layer.meta.id, layer.meta.name, layer.meta.visible, layer.meta.opacity,
+             layer.meta.blend_mode, layer.pixels.copy())
+            for layer in self._layers
+        ]
+
+    def load_state(self, state: list[tuple[str, str, bool, float, str, np.ndarray]]) -> None:
+        """Replace every layer with a deep copy of ``state`` (from an earlier
+        :meth:`save_state`), in place -- callers keep the same ``LayerStack``
+        identity across an undo/redo, so nothing needs to rebind to a new
+        object."""
+        self._layers = [
+            Layer(LayerMeta(layer_id, name, visible, opacity, blend_mode), pixels.copy())
+            for layer_id, name, visible, opacity, blend_mode, pixels in state
+        ]

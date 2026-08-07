@@ -38,9 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. The first slice (canvas + layer-stack foundation) and second slice
-  (issue #26, brush paint tool) are both In review pending a manual
-  desktop-app check (see the `### Added` entries below).
+  host. Three slices — canvas + layer-stack foundation, brush paint tool
+  (issue #26), and undo/redo (issue #27) — are all In review pending a
+  manual desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -155,6 +155,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   headless-Qt `gui` tests (459 core + 136 gui total); Ruff and mypy clean.
   Needs a manual desktop launch to confirm visually — see issue #26's
   testing comment.
+- **Standalone editor third slice (issue #27, In review): undo/redo.** New
+  `src/editor/history.py`: `EditHistory`, a snapshot-based undo/redo stack
+  bound to one `LayerStack` — callers call `record()` immediately before a
+  discrete mutation, and `undo()`/`redo()` restore or reapply the full
+  prior state, bounded by a `max_depth` (default 50) that evicts the
+  oldest entries. Deliberately snapshot-based rather than a command/diff
+  log — the simplest deterministic contract that stays fully testable,
+  since every canvas here is bounded with no infinite-undo requirement.
+  `LayerStack` gained `save_state()`/`load_state()`: a deep, in-place copy
+  of every layer's full state (ids, names, visibility, opacity, blend
+  mode, pixels) so the `LayerStack` object's identity survives an
+  undo/redo — nothing needs to rebind to a new object. `LayerCanvas`
+  records one checkpoint per brush stroke (at `mousePressEvent`, not per
+  dot, so a whole stroke undoes as one step) via new `set_history`.
+  `LayerListPanel` records one before each add/remove/reorder/
+  visibility-toggle (also via `set_history`) and gained a public
+  `refresh()` to re-sync its list after an external mutation like an undo.
+  `ReferenceColoringTab` creates one `EditHistory` per canvas and adds
+  Undo/Redo buttons (always enabled; clicking with nothing to undo/redo is
+  a harmless no-op). Still no masks, segmentation, or palette-preview UI.
+  Verification: 12 new core `editor` tests (2 for `save_state`/
+  `load_state`, 10 for `EditHistory`), 10 new headless-Qt `gui` tests
+  (470 core + 146 gui total); Ruff and mypy clean. Needs a manual desktop
+  launch to confirm visually — see issue #27's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

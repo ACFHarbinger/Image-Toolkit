@@ -75,3 +75,44 @@ def test_new_canvas_default_layer_is_selected_and_paintable(q_app, monkeypatch):
     tab._canvas.set_brush_radius(0)
     tab._canvas._paint_dot_at_pixel(5, 5)
     assert tab.canvas().layer_stack().layer("layer-1").pixels[5, 5].tolist() == [255, 0, 0, 255]
+
+
+def _new_canvas(tab, monkeypatch, size=10):
+    from PySide6.QtWidgets import QInputDialog
+
+    monkeypatch.setattr(QInputDialog, "getInt", staticmethod(lambda *a, **k: (size, True)))
+    tab._new_canvas()
+
+
+def test_new_canvas_creates_a_history_bound_to_both_widgets(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    assert tab.history() is not None
+    assert tab.canvas()._history is tab.history()
+    assert tab.layer_panel()._history is tab.history()
+
+
+def test_undo_button_reverts_a_layer_addition_and_refreshes_ui(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    tab._layer_panel._add_layer()
+    assert len(tab.canvas().layer_stack().layers()) == 2
+    tab._undo()
+    assert len(tab.canvas().layer_stack().layers()) == 1
+    assert "1 layer" in tab._status.text()
+
+
+def test_redo_button_reapplies_an_undone_mutation(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    tab._layer_panel._add_layer()
+    tab._undo()
+    tab._redo()
+    assert len(tab.canvas().layer_stack().layers()) == 2
+
+
+def test_undo_before_any_canvas_exists_is_a_no_op(q_app):
+    tab = ReferenceColoringTab()
+    tab._undo()
+    tab._redo()
+    assert tab.history() is None

@@ -6,7 +6,8 @@ reorder, and visibility toggle. Emits ``layers_changed`` after every
 mutation so a bound canvas (``layer_canvas.py``) knows to re-render, and
 ``layer_selected`` whenever the current selection changes so a canvas can
 paint onto the right layer -- never touches the canvas directly, keeping
-this panel reusable without one.
+this panel reusable without one. If bound with ``set_history``, records an
+undo checkpoint immediately before each structural mutation.
 
 New feature, not code motion.
 """
@@ -15,7 +16,7 @@ from __future__ import annotations
 
 import uuid
 
-from editor import LayerStack
+from editor import EditHistory, LayerStack
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -37,6 +38,7 @@ class LayerListPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._layer_stack: LayerStack | None = None
+        self._history: EditHistory | None = None
 
         self._list = QListWidget(self)
         self._list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -68,6 +70,14 @@ class LayerListPanel(QWidget):
     def layer_stack(self) -> LayerStack | None:
         return self._layer_stack
 
+    def set_history(self, history: EditHistory | None) -> None:
+        self._history = history
+
+    def refresh(self) -> None:
+        """Re-sync the list from the bound ``LayerStack``'s current state
+        (e.g. after an external mutation such as an undo/redo)."""
+        self._refresh_list()
+
     def selected_layer_id(self) -> str | None:
         item = self._list.currentItem()
         return item.data(Qt.ItemDataRole.UserRole) if item is not None else None
@@ -95,6 +105,8 @@ class LayerListPanel(QWidget):
     def _add_layer(self) -> None:
         if self._layer_stack is None:
             return
+        if self._history is not None:
+            self._history.record()
         layer_id = "layer-" + uuid.uuid4().hex[:8]
         count = len(self._layer_stack.layers())
         self._layer_stack.add_layer(layer_id, f"Layer {count + 1}")
@@ -106,6 +118,8 @@ class LayerListPanel(QWidget):
         layer_id = self.selected_layer_id()
         if self._layer_stack is None or layer_id is None:
             return
+        if self._history is not None:
+            self._history.record()
         if self._layer_stack.remove_layer(layer_id):
             self._refresh_list()
             self.layers_changed.emit()
@@ -123,6 +137,8 @@ class LayerListPanel(QWidget):
         new_index = current_index - direction
         if not 0 <= new_index < len(stack_ids):
             return
+        if self._history is not None:
+            self._history.record()
         self._layer_stack.reorder_layer(layer_id, new_index)
         self._refresh_list()
         self._select_layer(layer_id)
@@ -140,6 +156,8 @@ class LayerListPanel(QWidget):
             return
         layer_id = item.data(Qt.ItemDataRole.UserRole)
         visible = item.checkState() == Qt.CheckState.Checked
+        if self._history is not None:
+            self._history.record()
         if self._layer_stack.set_visibility(layer_id, visible):
             self.layers_changed.emit()
 

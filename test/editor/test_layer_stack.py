@@ -131,3 +131,34 @@ def test_composite_multiply_darkens_beneath_and_leaves_white_unchanged():
     ink.pixels[:, :, :] = [0, 0, 0, 255]
     composite2 = stack2.composite()
     assert composite2[0, 0, :3].tolist() == [0, 0, 0]
+
+
+def test_save_state_and_load_state_round_trip():
+    stack = LayerStack(2, 2)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :, :] = [10, 20, 30, 255]
+    layer.meta.opacity = 0.7
+    layer.meta.blend_mode = "multiply"
+    layer.meta.visible = False
+    state = stack.save_state()
+
+    stack.layer("base").pixels[:, :, :] = [255, 255, 255, 255]
+    stack.add_layer("other", "Other")
+    stack.load_state(state)
+
+    restored = stack.layers()
+    assert [layer.meta.id for layer in restored] == ["base"]
+    assert restored[0].pixels.tolist() == [[[10, 20, 30, 255], [10, 20, 30, 255]]] * 2
+    assert restored[0].meta.opacity == 0.7
+    assert restored[0].meta.blend_mode == "multiply"
+    assert restored[0].meta.visible is False
+
+
+def test_save_state_is_a_deep_copy_not_a_live_view():
+    stack = LayerStack(1, 1)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :, :] = [1, 2, 3, 255]
+    state = stack.save_state()
+    layer.pixels[:, :, :] = [9, 9, 9, 255]
+    stack.load_state(state)
+    assert stack.layer("base").pixels[0, 0].tolist() == [1, 2, 3, 255]
