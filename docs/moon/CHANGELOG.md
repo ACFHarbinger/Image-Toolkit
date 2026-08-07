@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added identity-retention correction previews to the selected front/turned
+  character-variation review. Failed cranial, feature-span, ear-height,
+  lower-face, and identity-card checks now produce provisional tutor-owned
+  guides mapped only into the reviewed sheet cell; variants remain descriptive
+  and never receive corrective ranking.
 - Began A3 issue #12 with a versioned offline curriculum graph containing nine
   primary anime head-and-face exercises and four targeted remedial exercises.
   Deterministic prerequisites select the next unlocked exercise; normalized

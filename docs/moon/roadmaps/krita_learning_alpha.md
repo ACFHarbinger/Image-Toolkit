@@ -235,7 +235,9 @@ remain deferred in Review.
   retention off by default. Variants compare descriptively with baseline;
   selected front compares with baseline and selected turned directly with front.
   Card adherence and retention remain numeric while card revision is auditable
-  artist-confirmation evidence. Identity correction previews remain future work.
+  artist-confirmation evidence. Selected front/turned failures now offer
+  tutor-owned identity-retention guides mapped into the reviewed sheet cell;
+  variants remain descriptive and unranked.
 - 🔄 Cel-value curriculum/template: lesson eight is fully authored around an
   explicit light statement, plane-facing map, two-value grouping, form/cast
   causes, subordinate third values, identity preservation, and front-to-turned

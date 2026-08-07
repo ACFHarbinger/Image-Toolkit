@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from .asymmetry_review import REQUIRED_KEYS
-from .model import Evidence, EvidenceSource, Review
+from .model import Evidence, EvidenceSource, Redline, Review, Suggestion
 
 VARIANT_STAGES = {"proportion_variant", "feature_variant", "age_style_variant"}
 SELECTED_STAGES = {"selected_front", "selected_turned"}
@@ -57,6 +57,11 @@ def review_identity_comparison(baseline, candidate, stage, identity_card, review
         if stage in SELECTED_STAGES and scores["identity_card_adherence"] < 0.70:
             failed.append("identity_card_adherence")
     raw = {f"candidate_to_baseline_{key}_ratio": ratio for key, ratio in ratios.items()}
+    redlines = (
+        _identity_redlines(baseline, candidate, failed, stage == "selected_turned")
+        if stage in SELECTED_STAGES
+        else []
+    )
     return Review(
         id=review_id,
         exercise_id="anime-head-variation",
@@ -74,8 +79,73 @@ def review_identity_comparison(baseline, candidate, stage, identity_card, review
             *[Evidence((0, 0, 1, 1), EvidenceSource.GEOMETRY, 1.0, key) for key in failed],
         ],
         explanations=[explanation],
+        redlines=redlines,
+        suggestions=(
+            [
+                Suggestion(
+                    "identity-retention-guides",
+                    "Preview identity-retention guides",
+                    "Tutor — Preview",
+                )
+            ]
+            if redlines
+            else []
+        ),
         measurements=scores | raw,
         targeted_exercise_ids=["anime-head-variation"] if failed else [],
+    )
+
+
+def _identity_redlines(baseline, candidate, failed, turned):
+    guides = []
+    projection = 0.78 if turned else 1.0
+    comparisons = (
+        (
+            "identity_eye_span_retention",
+            "left_eye_center",
+            "right_eye_center",
+            "eye span",
+            projection,
+        ),
+        ("identity_jaw_span_retention", "jaw_left", "jaw_right", "jaw span", projection),
+        ("identity_mouth_span_retention", "mouth_left", "mouth_right", "mouth span", projection),
+        ("identity_ear_height_retention", "right_ear_top", "right_ear_bottom", "ear height", 1.0),
+    )
+    if "identity_cranial_retention" in failed:
+        target = _scaled_endpoint(
+            candidate["cranium_center"],
+            candidate["cranium_edge"],
+            math.dist(baseline["cranium_center"], baseline["cranium_edge"]),
+        )
+        guides.append(_guide("identity cranial radius", candidate["cranium_center"], target))
+    for dimension, first, second, label, scale in comparisons:
+        if dimension in failed:
+            target_span = math.dist(baseline[first], baseline[second]) * scale
+            target = _scaled_endpoint(candidate[first], candidate[second], target_span)
+            guides.append(_guide("identity " + label, candidate[first], target))
+    if "identity_lower_face_retention" in failed:
+        guides.append(
+            _guide("identity lower-face length", candidate["cranium_center"], candidate["chin"])
+        )
+    if "identity_card_adherence" in failed:
+        guides.append(_guide("identity-card audit axis", candidate["axis_top"], candidate["chin"]))
+    return guides
+
+
+def _scaled_endpoint(start, end, target_length):
+    distance = math.dist(start, end)
+    if distance <= 0:
+        raise ValueError("identity guide endpoints must be distinct")
+    x = start[0] + (end[0] - start[0]) / distance * target_length
+    y = start[1] + (end[1] - start[1]) / distance * target_length
+    return max(0.0, min(1.0, x)), max(0.0, min(1.0, y))
+
+
+def _guide(name, start, end):
+    return Redline(
+        "Tutor — " + name,
+        [start, end],
+        "Compare this provisional reconstruction relationship with the selected identity source.",
     )
 
 

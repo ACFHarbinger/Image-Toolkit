@@ -49,3 +49,16 @@ def test_selected_pair_review_uses_card_and_retention_dimensions():
     assert "identity_card_adherence" in review.measurements
     assert "identity_cranial_retention" in review.measurements
     assert review.evidence[0].source.value == "artist_confirmation"
+
+
+def test_failed_selected_pair_offers_identity_retention_preview_guides():
+    candidate = _landmarks(0.45)
+    candidate["right_eye_center"] = (0.53, 0.4)
+    candidate["jaw_right"] = (0.53, 0.65)
+    review = review_identity_comparison(
+        _landmarks(), candidate, "selected_front", _card(), "variation-3"
+    )
+
+    assert review.redlines
+    assert review.suggestions[0].id == "identity-retention-guides"
+    assert all(redline.layer_name.startswith("Tutor — identity") for redline in review.redlines)
