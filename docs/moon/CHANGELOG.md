@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S348 — 2026-08-07 (Orientation redlines and authored cranial/jaw lesson)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with cell-local orientation tutor
+previews (`260152f`) and the fully authored Cranial Volume and Jaw Variation
+lesson (`2f3f9ed`). Failed orientation dimensions now emit principle-linked
+guides mapped only into the confirmed sheet cell and reuse explicit
+Accept/Reject plus portable decision persistence; front-cell reviews retain the
+front rubric identity. Lesson three includes complete theory, stages, drills,
+diagnosed mistakes, completion criteria, self-review, and two original SVGs.
+Verification: 252 tests, Ruff and mypy clean. A3 remains undeployed; A2 #10/#11
+stay in deferred Review.
+
 ## S347 — 2026-08-07 (Selected-head orientation critique)
 
 Advanced Cel-Shaded-Generator A3 issue #12 (`cbc6069`) with dedicated profile
