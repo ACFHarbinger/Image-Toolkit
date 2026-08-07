@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   assets, validate referenced views, remain idempotent, and never delete files.
   Engine/client operations and privacy-safe summaries expose identity and counts
   without pixels. Existing schema-v8 projects migrate to an empty binding list.
+- Opened C3 issue #17 in Backlog for offline Krita style-bible authoring and
+  explicit per-material palette-role application. Learned correspondence and
+  deployment over the reviewed tutor candidate are explicitly out of scope.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative

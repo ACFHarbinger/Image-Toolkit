@@ -67,3 +67,8 @@ adjacent referenced files.
 The portable-project binding is implemented. Next slices should provide a Krita
 material/palette editor, then apply named palettes to explicit region masks
 before attempting learned correspondence.
+
+C3 issue #17 is in Backlog pending owner confirmation of the Docker boundary,
+mask-layer convention, and reference-asset import behavior. Its proposed scope
+is deterministic authoring and per-material preview/accept/reject only; learned
+correspondence remains a later milestone.
