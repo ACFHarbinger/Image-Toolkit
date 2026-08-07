@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S349 — 2026-08-07 (Cranial/jaw design sheet and paired critique)
+
+Advanced Cel-Shaded-Generator A3 issue #12 (`79c6478`) with lesson three's
+practical 2800 × 1600 Krita exercise: four separate front-design layers, a
+fifth selected-variant three-quarter layer, and a locked SVG layout. Individual
+review follows only the explicitly confirmed active layer. An optional paired
+review compares confirmed front and turned landmarks for retained cranial mass,
+lower-face length, jaw character, chin alignment, and perspective adjustment,
+persisting auditable ratios and normalized scores. Verification: 257 tests,
+Ruff and mypy clean. Thresholds remain provisional; A3 stays undeployed and A2
+#10/#11 remain in deferred Review.
+
 ## S348 — 2026-08-07 (Orientation redlines and authored cranial/jaw lesson)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with cell-local orientation tutor
