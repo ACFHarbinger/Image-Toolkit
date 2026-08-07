@@ -253,11 +253,16 @@ class CharacterColorsDocker(DockWidget):
         group = find_named_node(root, MASK_GROUP_NAME)
         if group is None:
             group = document.createNode(MASK_GROUP_NAME, "grouplayer")
-            root.addChildNode(group, None)
+            if group is None or not root.addChildNode(group, None):
+                self._status.setText("Krita could not create the Material Masks group.")
+                return
         for material in bible["materials"]:
             name = material_mask_name(material["id"])
             if find_named_node(group, name) is None:
-                group.addChildNode(document.createNode(name, "paintlayer"), None)
+                layer = document.createNode(name, "paintlayer")
+                if layer is None or not group.addChildNode(layer, None):
+                    self._status.setText("Krita could not create a material mask layer.")
+                    return
         document.refreshProjection()
         self._status.setText("Material mask layers are ready; paint alpha to define regions.")
 

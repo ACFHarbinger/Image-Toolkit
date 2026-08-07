@@ -46,6 +46,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instantiation-time behavior. Verified it fails on an injected bad import
   and passes once reverted. Verification: 392 tests pass; Ruff and core mypy
   are clean.
+- Ran a proactive high-effort code review of both Docker files (they carry no
+  logic-level unit tests themselves — only their pure-Python helper modules
+  do — so a live Krita test is currently the only way this class of bug
+  would otherwise surface). Found and fixed one real inconsistency:
+  `_create_masks` created the `Material Masks` group and its layers without
+  checking `createNode`/`addChildNode` return values, unlike every sibling
+  creation path in the same file (`_create_mask_variant`) and in
+  `segmentation_docker.py`. A Krita creation/attach failure would have left
+  status reporting "ready" while the group was silently unattached or
+  missing layers, with every later lookup via `find_named_node` returning
+  `None` and no error surfaced. Now guards and reports failure the same way
+  every other creation path does. Verification: 392 tests pass; Ruff and
+  core mypy are clean.
 
 ### Added
 
