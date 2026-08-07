@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S327 — 2026-08-07 (Krita A2 guided lesson started)
+
+Started Cel-Shaded-Generator A2 issue #10 (`d4ef412`) with the learner-visible lesson slice: replaced placeholder content with a five-stage offline beginner sequence for the cranial circle, centerline, eye-line, jaw/chin, and structural self-check; added completion criteria and three independent practice attempts; and made the Krita docker scroll its full explanations and checklist. Nine focused adapter tests pass. A live reinstall awaits a closed Krita process, while deterministic geometry review proceeds independently.
+
 ## S326 — 2026-08-07 (Cel-Shaded-Generator A1 complete)
 
 Completed Cel-Shaded-Generator A1 and issue #9 (`85b32f4`) with a stack-neutral, non-executing local model-package manifest and validator. It verifies registry identity, schema, declared entrypoint, safe relative paths, regular non-symlink artifacts, exact byte sizes, configurable resource limits, and SHA-256 content while allowing extensible formats and keeping integrity distinct from provenance and runtime safety. The phase roadmap now records A1 complete and Phase 1 in progress. Verification: 153 core tests, Ruff, mypy, and strict MkDocs all pass. Created A2 issue #10 and moved it to In Progress at P0/L in Project 12; A1 is closed and Done.
