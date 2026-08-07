@@ -42,27 +42,31 @@ and user corrections.
 
 ## Milestones
 
-1. 🔄 Editable segmentation and gap-repair tools in Krita. G1 issue #19 (In
-   review) implements the deterministic baseline plus a Line Art
-   Segmentation Docker: bounded gap closing, single-radius trapped-ball-style
-   region segmentation into renamable layers, and a region-adjacency report.
-   Only the live-Krita checklist remains.
-2. 🔄 Versioned character style-bible format and palette application.
+1. ✅ Editable segmentation and gap-repair tools in Krita. G1 issue #19
+   (Done — live Krita checklist passed) implements the deterministic
+   baseline plus a Line Art Segmentation Docker: bounded gap closing,
+   single-radius trapped-ball-style region segmentation into renamable
+   layers, dust-speck filtering, and a region-adjacency report.
+2. ✅ Versioned character style-bible format and palette application.
    Issue #15 implements the standalone foundation: semantic materials,
    unambiguous aliases, explicit local/light/shadow/optional-accent sRGB roles,
    safe relative reference views, strict future-version refusal, atomic writes,
    and bounded recovery. C2 issue #16 adds portable project schema-v9 bindings,
    validated attach/detach operations, constrained-host summaries, and recovery
-   without deleting assets. Krita authoring and palette application remain.
-3. Manual correspondence workflow and deterministic propagation baseline
-   (C4 issue #18).
+   without deleting assets. C3 issue #17 (Done — live Krita checklist passed)
+   adds the Character Colors Docker: authoring, material masks/variants,
+   overlap-safe palette-role preview, and accept/reject.
+3. ✅ Manual correspondence workflow and deterministic propagation baseline.
+   C4 issue #18 (Done — live Krita checklist passed) adds region-to-material
+   assignment, explicit-target propagation, and preview/accept/reject in the
+   same Character Colors Docker.
 4. Assisted correspondence with confidence and correction learning.
 5. Optional generative proposals through the local model registry.
 6. Batch chapter workflow with review queue and recoverable checkpoints.
 
 ## G1 — segmentation and gap-repair baseline
 
-Issue #19 is In review pending the live-Krita checklist.
+Issue #19 is **Done** — the live Krita checklist passed.
 `src/colorization/segmentation.py` provides the deterministic algorithm
 baseline named in milestone 1: `close_line_gaps` bridges hand-drawn ink gaps
 up to a bounded pixel radius via morphological closing; `segment_regions`
@@ -88,12 +92,11 @@ region layers a reviewer renames become the region ids C4's **Assign Region
 Correspondence** action reads by layer name. Segmentation now takes an artist-chosen minimum region area and discards
 dust-speck regions below it (`filter_small_regions`, implemented in both the
 numpy engine module and the pure-Python Krita adapter), reporting the
-discard count. Only the live-Krita checklist remains before G1 can move to
-Done.
+discard count.
 
 ## C4 — deterministic manual correspondence baseline
 
-Issue #18 is In review pending the live-Krita checklist. The first slice is a standalone
+Issue #18 is **Done** — the live Krita checklist passed. The first slice is a standalone
 `CorrespondenceSet`/`RegionCorrespondence` contract (`src/colorization/correspondence.py`),
 deliberately portable like the C1 style bible: it stores region/material/role
 identifiers and optional panel identity only, never pixels, embeddings, or
@@ -124,11 +127,8 @@ explicit comma-separated target region ids only. **Preview Region
 Correspondence Color** resolves the assigned material/role to a locked
 preview under `Character Colors`, sharing the same accept/reject and
 single-owned-preview machinery as C3's palette-role preview (refactored into
-a shared `_create_preview_layer` helper). The headless semantic gate is
-complete (`region_id_from_layer_name` and the project-binding layer are
-tested); only the live-Krita manual-assignment/propagation/preview/
-accept-reject checklist remains before C4 can move to Done. C4 is moving to
-**In review**.
+a shared `_create_preview_layer` helper). The manual-assignment/propagation/
+preview/accept-reject checklist passed live in Krita.
 
 ## C1 — portable style-bible foundation
 
@@ -143,32 +143,28 @@ The portable-project binding is implemented. Next slices should provide a Krita
 material/palette editor, then apply named palettes to explicit region masks
 before attempting learned correspondence.
 
-C3 issue #17 is In Review with the approved boundary: a separate Character
-Colors Docker, `Material Masks/Material — <canonical-id>` alpha layers, and
-collision-safe project-local reference copies. The first headless slice authors
-and binds bibles through the engine, creates missing semantic masks, and previews
-one explicit palette role as a separate locked preview with accept/reject. Live
-Krita confirmation and stronger undo/reconciliation evidence remain. Accepted
-colors remain separate editable `Color — <canonical-id> — <role>` layers inside
-one `Character Colors` group. Any material-mask overlap blocks preview and
-reports per-material conflict pixels instead of silently applying z-order.
-Materials may be split into named variants (`Material — hair — front`,
-`Material — hair — back`) that share one canonical palette; variants are unioned
-before conflict checks. Reference labels, controlled view types, and notes are
-editable. Accepted layers carry the style-bible ID in host metadata when
-available.
-The Docker exposes variant creation directly, including duplicate-name refusal.
-Existing
-bibles reopen prefilled for editing, including aliases, optional accent roles,
-and preserved reference views; labels, controlled view types, and notes are
-editable.
+C3 issue #17 is **Done** — the live Krita checklist passed. It shipped a
+separate Character Colors Docker, `Material Masks/Material — <canonical-id>`
+alpha layers, and collision-safe project-local reference copies. Bibles are
+authored and bound through the engine; missing semantic masks are created;
+one explicit palette role at a time is previewed as a separate locked
+preview with accept/reject. Accepted colors remain separate editable
+`Color — <canonical-id> — <role>` layers inside one `Character Colors`
+group. Any material-mask overlap blocks preview and reports per-material
+conflict pixels instead of silently applying z-order. Materials may be split
+into named variants (`Material — hair — front`, `Material — hair — back`)
+that share one canonical palette; variants are unioned before conflict
+checks. Reference labels, controlled view types, and notes are editable.
+Accepted layers carry the style-bible ID in host metadata when available.
+The Docker exposes variant creation directly, including duplicate-name
+refusal. Existing bibles reopen prefilled for editing, including aliases,
+optional accent roles, and preserved reference views.
 Schema v2 deterministically migrates v1 references to `other` without guessing.
 Absent accents are not offered as preview roles.
 Failed layer creation/write/removal is visible and cleans partial previews.
-The headless semantic workflow gate is complete: variant unioning, conflict
-blocking, preview ownership, and accepted-layer naming are covered without a
-Krita process. The remaining gate is manual host acceptance only; a pass moves
-the issue to Done and any failure returns it to In Progress.
+A proactive code review (before the live pass) found and fixed one
+inconsistency: mask-layer creation now checks Krita's node-creation return
+values, matching every sibling creation path.
 The offline review procedure is mirrored in `integrations/krita/README.md` so a
 reviewer can follow it without relying on issue comments.
-Learned correspondence is still a later milestone.
+Learned correspondence is still a later milestone (milestone 4).

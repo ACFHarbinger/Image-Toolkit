@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture documentation. The independent Krita plugin identifier remains
   `cel_shaded_generator` for host compatibility.
 
+### Milestone
+
+- **Reference-coloring roadmap milestones 1–3 are complete and live-Krita
+  verified.** C3 (issue #17, Character Colors Docker authoring/masks/preview),
+  C4 (issue #18, manual region-correspondence assignment/propagation/preview),
+  and G1 (issue #19, Line Art Segmentation Docker: gap closing, region
+  segmentation, speck filtering, adjacency reporting) each passed their full
+  live checklist — actual drawing/segmentation/assignment in Krita, not just
+  headless tests. All three issues are closed. Milestone 4 (assisted
+  correspondence with confidence and correction learning) is next and is the
+  first milestone in this phase requiring learned/ML components; it needs a
+  scoping discussion before starting.
+
 ### Fixed
 
 - **Live-discovered bug (issues #17/#18/#19):** the Character Colors and Line

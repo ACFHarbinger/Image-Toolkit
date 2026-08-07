@@ -39,7 +39,7 @@ desktop editor, but it must earn that expansion with a polished narrow alpha.
 | --- | --- | --- |
 | 0 | Truthful, installable standalone foundation | Complete |
 | 1 | Krita anime head-and-face learning alpha | In progress (A1 complete) |
-| 2 | Reference-consistent character coloring | Planned |
+| 2 | Reference-consistent character coloring | In progress (milestones 1–3 done) |
 | 3 | Anime frame-by-frame animation assistance | Deferred |
 | 4 | 2D and 3D game-asset workflows | Deferred |
 | 5 | Standalone professional desktop application | Conditional |
@@ -96,6 +96,14 @@ attempts and useful explanations. Feature count alone cannot satisfy this gate.
 Build a character style bible and correction-oriented coloring workflow after
 the learning loop is polished. See
 [Reference-Consistent Coloring](roadmaps/reference_coloring.md).
+
+Milestones 1–3 are done and live-Krita verified: segmentation/gap-repair
+(G1, issue #19), the character style-bible format and palette application
+(C1/C2/C3, issues #15/#16/#17), and the manual correspondence/propagation
+baseline (C4, issue #18). Milestone 4 (assisted correspondence with
+confidence and correction learning) is next and requires a scoping
+discussion before starting, since it is the first milestone in this phase
+that involves learned/ML components rather than purely deterministic ones.
 
 The existing scribble, Gabor, optimal-transport, graph-cut, quadtree, and
 preference-log modules remain experimental baselines. Their mathematical
