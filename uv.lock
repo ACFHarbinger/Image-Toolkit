@@ -2845,7 +2845,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=12.3.0" },
     { name = "pip", specifier = ">=26.1.2" },
     { name = "psutil", specifier = ">=7.1.3" },
-    { name = "psycopg", extras = ["pool"], marker = "extra == 'legacy-postgres'", specifier = ">=3.2" },
+    { name = "psycopg", extras = ["pool"], marker = "extra == 'legacy-postgres'", specifier = ">=3.3.4" },
     { name = "psycopg2-binary", marker = "extra == 'legacy-postgres'", specifier = ">=2.9.11" },
     { name = "pybind11", specifier = ">=2.11" },
     { name = "pydantic", specifier = ">=2.13.3" },
