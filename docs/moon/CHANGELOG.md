@@ -115,6 +115,10 @@ is absent in the current environment; dependencies were not changed implicitly.
 
 Implemented quantitative seam-photometric diagnosis tooling in `backend/benchmark/diagnose_seams.py`. The tool analyzes borderline fallback datasets (test87, test10, test71, test69, test25, test16, test11) to compute metrics such as seam-crossing luminance/color gradient profiles and per-frame gain deltas, producing non-visual numerical output as requested in Issue #16.
 
+## S362.2 — 2026-08-07 (Fix SAM-2 masks dimension mismatch in HITL)
+
+Implemented Issue #15: Fixed the `_refine_masks_with_clicks` dimension mismatch in `backend/src/ingestion/masking.py`. Threaded a per-frame shape list through the live SAM-2 predictor state that's preserved across the HITL dialog boundary, ensuring every re-propagated SAM-2 mask is correctly resized against its individual per-frame shape rather than a single shared shape.
+
 ## S361 — 2026-08-07 (A3 moved to deferred review)
 
 Moved Cel-Shaded-Generator A3 issue #12 to In Review after completing its
