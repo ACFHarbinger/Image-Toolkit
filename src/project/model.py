@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 9
+CURRENT_SCHEMA_VERSION = 10
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -59,6 +59,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("identity_card", None)
     migrated.setdefault("identity_card_history", [])
     migrated.setdefault("style_bible_assets", [])
+    migrated.setdefault("correspondence_set_assets", [])
     migrated["schema_version"] = CURRENT_SCHEMA_VERSION
     return migrated
 
@@ -379,6 +380,7 @@ class Project:
     identity_card: IdentityCard | None = None
     identity_card_history: list[IdentityCard] = field(default_factory=list)
     style_bible_assets: list[str] = field(default_factory=list)
+    correspondence_set_assets: list[str] = field(default_factory=list)
     progress: ProjectProgress = field(default_factory=ProjectProgress)
 
     def to_dict(self) -> dict[str, Any]:
@@ -421,6 +423,12 @@ class Project:
             path = PurePosixPath(asset)
             if not asset.strip() or path.is_absolute() or ".." in path.parts or "\\" in asset:
                 raise ValueError("style-bible assets must use safe relative POSIX paths")
+        if len(self.correspondence_set_assets) != len(set(self.correspondence_set_assets)):
+            raise ValueError("correspondence-set asset paths must be unique")
+        for asset in self.correspondence_set_assets:
+            path = PurePosixPath(asset)
+            if not asset.strip() or path.is_absolute() or ".." in path.parts or "\\" in asset:
+                raise ValueError("correspondence-set assets must use safe relative POSIX paths")
         for exercise in self.progress.exercises:
             for attempt in exercise.attempts:
                 review_ids = [review.id for review in attempt.reviews]
@@ -520,6 +528,7 @@ class Project:
             identity_card=identity_card,
             identity_card_history=[item for item in identity_card_history if item is not None],
             style_bible_assets=list(payload.get("style_bible_assets", [])),
+            correspondence_set_assets=list(payload.get("correspondence_set_assets", [])),
             progress=ProjectProgress(exercises),
         )
         project.validate()

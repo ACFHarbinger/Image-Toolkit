@@ -9,6 +9,7 @@ from typing import Any
 from project import (
     AdviceRating,
     SuggestionDecision,
+    attach_correspondence_set,
     attach_style_bible,
     configure_capstone_policy,
     configure_feedback_policy,
@@ -16,16 +17,20 @@ from project import (
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
+    detach_correspondence_set,
     detach_style_bible,
     import_compatible_capstone_review,
     import_reference_asset,
+    project_correspondence_set_payload,
     project_progress_snapshot,
     project_style_bible_payload,
+    propagate_project_correspondence,
     record_advice_feedback,
     record_attempt_review,
     revise_capstone_decision_rationale,
     set_attempt_completion,
     upsert_identity_card,
+    upsert_project_correspondence_set,
     upsert_project_style_bible,
 )
 
@@ -192,6 +197,44 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         except KeyError as error:
             raise ValueError("style-bible read request is incomplete") from error
         return _success(request_id, bible)
+    if operation in {"attach_correspondence_set", "detach_correspondence_set"}:
+        try:
+            function = (
+                attach_correspondence_set
+                if operation == "attach_correspondence_set"
+                else detach_correspondence_set
+            )
+            changed = function(payload["directory"], asset_path=payload["asset_path"])
+        except KeyError as error:
+            raise ValueError("correspondence-set binding request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "upsert_project_correspondence_set":
+        try:
+            asset_path = upsert_project_correspondence_set(
+                payload["directory"], payload=payload["correspondence_set"]
+            )
+        except KeyError as error:
+            raise ValueError("correspondence-set authoring request is incomplete") from error
+        return _success(request_id, {"asset_path": asset_path})
+    if operation == "project_correspondence_set_payload":
+        try:
+            correspondence_set = project_correspondence_set_payload(
+                payload["directory"], asset_path=payload["asset_path"]
+            )
+        except KeyError as error:
+            raise ValueError("correspondence-set read request is incomplete") from error
+        return _success(request_id, correspondence_set)
+    if operation == "propagate_project_correspondence":
+        try:
+            propagated = propagate_project_correspondence(
+                payload["directory"],
+                asset_path=payload["asset_path"],
+                source_id=payload["source_id"],
+                target_region_ids=payload["target_region_ids"],
+            )
+        except KeyError as error:
+            raise ValueError("correspondence-propagation request is incomplete") from error
+        return _success(request_id, propagated)
     if operation == "configure_progress_retention":
         try:
             changed = configure_progress_retention(

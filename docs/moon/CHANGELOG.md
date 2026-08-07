@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Advanced C4 issue #18 with project schema-v10 correspondence-set bindings.
+  `attach_correspondence_set`/`detach_correspondence_set`/
+  `upsert_project_correspondence_set`/`project_correspondence_set_payload`
+  mirror the C2 style-bible operations exactly (safe relative paths, no
+  deletion on detach). A new `propagate_project_correspondence` service call
+  loads the bound set, applies `CorrespondenceSet.propagate` onto explicit
+  artist-selected targets, and saves the result with bounded recovery.
+  Privacy-safe project-progress summaries now include correspondence-set
+  identity and counts. The engine protocol and Krita `EngineClient` expose
+  all five operations end to end. Verification: 353 tests pass; Ruff and core
+  mypy are clean. The Docker action, manual region-assignment UI, and the
+  live-Krita checklist remain before Review.
 - Started C4 issue #18 with a standalone `CorrespondenceSet`/`RegionCorrespondence`
   contract (`src/colorization/correspondence.py`). Region/material/role
   assignments are portable and pixel-free, mirroring the C1 style-bible

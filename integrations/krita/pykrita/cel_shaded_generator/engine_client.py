@@ -183,6 +183,48 @@ class EngineClient:
             {"directory": directory, "asset_path": asset_path},
         )
 
+    def attach_correspondence_set(self, request_id, directory, asset_path):
+        return self._execute(
+            request_id,
+            "attach_correspondence_set",
+            {"directory": directory, "asset_path": asset_path},
+        )
+
+    def detach_correspondence_set(self, request_id, directory, asset_path):
+        return self._execute(
+            request_id,
+            "detach_correspondence_set",
+            {"directory": directory, "asset_path": asset_path},
+        )
+
+    def upsert_project_correspondence_set(self, request_id, directory, correspondence_set):
+        return self._execute(
+            request_id,
+            "upsert_project_correspondence_set",
+            {"directory": directory, "correspondence_set": correspondence_set},
+        )
+
+    def project_correspondence_set_payload(self, request_id, directory, asset_path):
+        return self._execute(
+            request_id,
+            "project_correspondence_set_payload",
+            {"directory": directory, "asset_path": asset_path},
+        )
+
+    def propagate_project_correspondence(
+        self, request_id, directory, asset_path, source_id, target_region_ids
+    ):
+        return self._execute(
+            request_id,
+            "propagate_project_correspondence",
+            {
+                "directory": directory,
+                "asset_path": asset_path,
+                "source_id": source_id,
+                "target_region_ids": target_region_ids,
+            },
+        )
+
     def revise_capstone_decision_rationale(
         self, request_id, directory, attempt_id, review_id, rationale
     ):

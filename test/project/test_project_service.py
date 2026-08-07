@@ -4,9 +4,12 @@ import pytest
 
 from colorization import (
     CharacterStyleBible,
+    CorrespondenceSet,
     MaterialPalette,
     ReferenceView,
+    RegionCorrespondence,
     StyleMaterial,
+    save_correspondence_set,
     save_style_bible,
 )
 from project import (
@@ -15,6 +18,7 @@ from project import (
     ExerciseProgress,
     ReviewRecord,
     SuggestionDecision,
+    attach_correspondence_set,
     attach_style_bible,
     configure_capstone_policy,
     configure_feedback_policy,
@@ -22,17 +26,21 @@ from project import (
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
+    detach_correspondence_set,
     detach_style_bible,
     import_compatible_capstone_review,
     import_reference_asset,
     load_project,
+    project_correspondence_set_payload,
     project_progress_snapshot,
+    propagate_project_correspondence,
     record_advice_feedback,
     record_attempt_review,
     revise_capstone_decision_rationale,
     save_project,
     set_attempt_completion,
     upsert_identity_card,
+    upsert_project_correspondence_set,
     upsert_project_style_bible,
 )
 
@@ -353,6 +361,7 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
             "import_candidates": [],
         },
         "style_bibles": [],
+        "correspondence_sets": [],
     }
     assert configure_progress_retention(tmp_path, enabled=True)
     assert not configure_progress_retention(tmp_path, enabled=True)
@@ -431,6 +440,84 @@ def test_import_reference_and_upsert_bible_are_portable_and_idempotent(tmp_path)
         "style-bibles/aiko.json"
     )
     assert load_project(tmp_path).style_bible_assets == ["style-bibles/aiko.json"]
+
+
+def test_attach_and_detach_project_local_correspondence_set_without_deleting_assets(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    set_path = tmp_path / "correspondence/aiko-page-1.json"
+    save_correspondence_set(
+        set_path,
+        CorrespondenceSet(
+            "aiko-page-1",
+            "aiko-tv",
+            [RegionCorrespondence("r1", "hair-front-large", "hair")],
+        ),
+    )
+    assert attach_correspondence_set(tmp_path, asset_path="correspondence/aiko-page-1.json")
+    assert not attach_correspondence_set(tmp_path, asset_path="correspondence/aiko-page-1.json")
+    summary = project_progress_snapshot(tmp_path)["correspondence_sets"][0]
+    assert summary == {
+        "asset_path": "correspondence/aiko-page-1.json",
+        "id": "aiko-page-1",
+        "style_bible_id": "aiko-tv",
+        "correspondence_count": 1,
+    }
+    assert detach_correspondence_set(tmp_path, asset_path="correspondence/aiko-page-1.json")
+    assert set_path.exists()
+
+
+def test_correspondence_set_binding_rejects_missing_escape_and_symlink(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    with pytest.raises(ValueError, match="safe relative"):
+        attach_correspondence_set(tmp_path, asset_path="../outside.json")
+    with pytest.raises(ValueError, match="existing regular"):
+        attach_correspondence_set(tmp_path, asset_path="correspondence/missing.json")
+    outside = tmp_path.parent / "outside-correspondence.json"
+    outside.write_text("{}", encoding="utf-8")
+    link = tmp_path / "correspondence/link.json"
+    link.parent.mkdir()
+    link.symlink_to(outside)
+    with pytest.raises(ValueError, match="non-symlink"):
+        attach_correspondence_set(tmp_path, asset_path="correspondence/link.json")
+
+
+def test_upsert_and_propagate_project_correspondence_set(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    correspondence_set = CorrespondenceSet(
+        "aiko-page-1",
+        "aiko-tv",
+        [RegionCorrespondence("r1", "hair-front-large", "hair")],
+    )
+    relative = upsert_project_correspondence_set(tmp_path, payload=correspondence_set.to_dict())
+    assert relative == "correspondence/aiko-page-1.json"
+    assert load_project(tmp_path).correspondence_set_assets == [relative]
+    assert upsert_project_correspondence_set(tmp_path, payload=correspondence_set.to_dict()) == (
+        relative
+    )
+
+    propagated = propagate_project_correspondence(
+        tmp_path,
+        asset_path=relative,
+        source_id="r1",
+        target_region_ids=["hair-back-large"],
+    )
+    assert {item["region_id"] for item in propagated["correspondences"]} == {
+        "hair-front-large",
+        "hair-back-large",
+    }
+    assert project_correspondence_set_payload(tmp_path, asset_path=relative) == propagated
+
+    with pytest.raises(ValueError, match="not bound"):
+        project_correspondence_set_payload(tmp_path, asset_path="correspondence/missing.json")
 
 
 def test_identity_card_edits_and_optional_history_are_portable(tmp_path):

@@ -68,9 +68,19 @@ Explicit propagation copies an accepted assignment onto artist-selected target
 regions only — it never discovers regions on its own — and refuses to
 overwrite a target that already carries a competing assignment. Saves are
 atomic with bounded JSON recovery, matching the style-bible persistence
-pattern. Project binding (mirroring C2's style-bible attach/detach), the
-engine/Docker operations, and the live-Krita manual-assignment/preview/
-accept-reject checklist remain outstanding before C4 can move to Review.
+pattern.
+
+Project schema v10 adds portable `correspondence_set_assets` bindings,
+mirroring C2's style-bible attach/detach/upsert/read operations exactly:
+`attach_correspondence_set`, `detach_correspondence_set`,
+`upsert_project_correspondence_set`, `project_correspondence_set_payload`,
+and an explicit `propagate_project_correspondence` service call that loads
+the bound set, applies `CorrespondenceSet.propagate`, and saves the result
+with recovery. Privacy-safe project-progress summaries expose correspondence
+identity and counts without pixels. The engine protocol and Krita
+`EngineClient` expose all five operations. The Docker action, manual
+region-assignment UI, per-role preview, and the live-Krita accept/reject
+checklist remain outstanding before C4 can move to Review.
 
 ## C1 — portable style-bible foundation
 

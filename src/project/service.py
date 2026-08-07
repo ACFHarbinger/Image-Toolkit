@@ -12,7 +12,14 @@ from pathlib import Path, PurePosixPath
 from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
-from colorization import CharacterStyleBible, load_style_bible, save_style_bible
+from colorization import (
+    CharacterStyleBible,
+    CorrespondenceSet,
+    load_correspondence_set,
+    load_style_bible,
+    save_correspondence_set,
+    save_style_bible,
+)
 
 from .model import (
     AdviceFeedback,
@@ -289,6 +296,72 @@ def project_style_bible_payload(directory: str | Path, *, asset_path: str) -> di
     return load_style_bible(path).to_dict()
 
 
+def attach_correspondence_set(directory: str | Path, *, asset_path: str) -> bool:
+    """Attach one validated project-local correspondence set without copying assets."""
+    root = Path(directory).resolve()
+    relative, set_path = _resolve_project_asset(root, asset_path)
+    load_correspondence_set(set_path)
+    project = load_project(root)
+    if relative in project.correspondence_set_assets:
+        return False
+    project.correspondence_set_assets.append(relative)
+    save_project(root, project)
+    return True
+
+
+def detach_correspondence_set(directory: str | Path, *, asset_path: str) -> bool:
+    """Remove only a correspondence-set binding; never delete its files."""
+    root = Path(directory).resolve()
+    relative = PurePosixPath(asset_path).as_posix()
+    project = load_project(root)
+    if relative not in project.correspondence_set_assets:
+        return False
+    project.correspondence_set_assets.remove(relative)
+    save_project(root, project)
+    return True
+
+
+def upsert_project_correspondence_set(directory: str | Path, *, payload: dict) -> str:
+    """Validate, atomically save, and attach one project-local correspondence set."""
+    root = Path(directory).resolve()
+    correspondence_set = CorrespondenceSet.from_dict(payload)
+    relative = f"correspondence/{correspondence_set.id}.json"
+    save_correspondence_set(root / relative, correspondence_set)
+    attach_correspondence_set(root, asset_path=relative)
+    return relative
+
+
+def project_correspondence_set_payload(directory: str | Path, *, asset_path: str) -> dict:
+    """Return one bound, validated correspondence set to a constrained local host."""
+    root = Path(directory).resolve()
+    project = load_project(root)
+    if asset_path not in project.correspondence_set_assets:
+        raise ValueError("correspondence set is not bound to this project")
+    _, path = _resolve_project_asset(root, asset_path)
+    return load_correspondence_set(path).to_dict()
+
+
+def propagate_project_correspondence(
+    directory: str | Path,
+    *,
+    asset_path: str,
+    source_id: str,
+    target_region_ids: list[str],
+) -> dict:
+    """Propagate one bound correspondence onto explicitly selected target regions."""
+    root = Path(directory).resolve()
+    project = load_project(root)
+    if asset_path not in project.correspondence_set_assets:
+        raise ValueError("correspondence set is not bound to this project")
+    _, path = _resolve_project_asset(root, asset_path)
+    correspondence_set = load_correspondence_set(path)
+    propagated = correspondence_set.propagate(
+        source_id, target_region_ids, lambda: "correspondence-" + str(uuid4())
+    )
+    save_correspondence_set(path, propagated)
+    return propagated.to_dict()
+
+
 def record_advice_feedback(
     directory: str | Path,
     *,
@@ -339,6 +412,10 @@ def project_progress_snapshot(directory: str | Path) -> dict:
         ),
         "style_bibles": [
             _style_bible_summary(Path(directory), path) for path in project.style_bible_assets
+        ],
+        "correspondence_sets": [
+            _correspondence_set_summary(Path(directory), path)
+            for path in project.correspondence_set_assets
         ],
         "exercises": [
             {
@@ -597,6 +674,16 @@ def _style_bible_summary(root: Path, asset_path: str) -> dict:
         "style_name": bible.style_name,
         "material_count": len(bible.materials),
         "reference_view_count": len(bible.reference_views),
+    }
+
+
+def _correspondence_set_summary(root: Path, asset_path: str) -> dict:
+    correspondence_set = load_correspondence_set(root / asset_path)
+    return {
+        "asset_path": asset_path,
+        "id": correspondence_set.id,
+        "style_bible_id": correspondence_set.style_bible_id,
+        "correspondence_count": len(correspondence_set.correspondences),
     }
 
 

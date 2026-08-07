@@ -227,7 +227,7 @@ def test_version_one_migration_adds_review_records_without_artwork(tmp_path):
         ]
     }
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 9
+    assert migrated["schema_version"] == 10
     assert migrated["progress"]["exercises"][0]["attempts"][0]["reviews"] == []
     assert migrate_project_payload(payload) == migrated
 
@@ -264,7 +264,7 @@ def test_version_two_migration_enables_existing_project_progress_and_feedback_sl
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 9
+    assert migrated["schema_version"] == 10
     assert migrated["consent"]["retain_learning_progress"] is True
     review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
     assert review["artist_feedback"] is None
@@ -277,7 +277,7 @@ def test_version_three_migration_adds_editable_feedback_policy():
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 9
+    assert migrated["schema_version"] == 10
     assert migrated["feedback_policy"] == {
         "retain_revision_history": False,
         "note_character_limit": 2000,
@@ -294,7 +294,7 @@ def test_version_four_migration_adds_identity_card_defaults():
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 9
+    assert migrated["schema_version"] == 10
     assert migrated["identity_card_policy"] == {"retain_revision_history": False}
     assert migrated["identity_card"] is None
     assert migrated["identity_card_history"] == []
@@ -330,7 +330,7 @@ def test_version_five_migration_adds_decision_rationale():
     }
     migrated = migrate_project_payload(payload)
     review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
-    assert migrated["schema_version"] == 9
+    assert migrated["schema_version"] == 10
     assert review["suggestion_decision_rationale"] is None
 
 
@@ -339,7 +339,7 @@ def test_version_six_migration_adds_capstone_rationale_policy_and_history():
     payload["schema_version"] = 6
     del payload["capstone_policy"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 9
+    assert migrated["schema_version"] == 10
     assert migrated["capstone_policy"] == {"retain_rationale_history": False}
 
 
@@ -347,7 +347,7 @@ def test_version_seven_migration_adds_review_import_provenance():
     payload = Project(title="Version seven").to_dict()
     payload["schema_version"] = 7
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 9
+    assert migrated["schema_version"] == 10
 
 
 def test_version_eight_migration_adds_style_bible_assets():
@@ -355,8 +355,17 @@ def test_version_eight_migration_adds_style_bible_assets():
     payload["schema_version"] = 8
     del payload["style_bible_assets"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 9
+    assert migrated["schema_version"] == 10
     assert migrated["style_bible_assets"] == []
+
+
+def test_version_nine_migration_adds_correspondence_set_assets():
+    payload = Project(title="Version nine").to_dict()
+    payload["schema_version"] = 9
+    del payload["correspondence_set_assets"]
+    migrated = migrate_project_payload(payload)
+    assert migrated["schema_version"] == 10
+    assert migrated["correspondence_set_assets"] == []
 
 
 def test_learning_progress_retention_defaults_enabled_but_can_be_disabled():

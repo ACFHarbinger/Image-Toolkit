@@ -82,6 +82,94 @@ def test_protocol_creates_portable_exercise_project(tmp_path):
     assert (tmp_path / "project.json").is_file()
 
 
+def test_protocol_authors_binds_and_propagates_correspondence(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "create-1",
+            "operation": "create_exercise_project",
+            "payload": {
+                "directory": str(tmp_path),
+                "title": "Color project",
+                "document_asset": "artwork/attempt-001.kra",
+                "attempt_id": "attempt-1",
+            },
+        }
+    )
+    upsert = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "upsert-1",
+            "operation": "upsert_project_correspondence_set",
+            "payload": {
+                "directory": str(tmp_path),
+                "correspondence_set": {
+                    "id": "aiko-page-1",
+                    "style_bible_id": "aiko-tv",
+                    "correspondences": [
+                        {"id": "r1", "region_id": "hair-front-large", "material_id": "hair"}
+                    ],
+                    "recovery_revisions": 10,
+                    "schema_version": 1,
+                },
+            },
+        }
+    )
+    assert upsert["ok"]
+    asset_path = upsert["result"]["asset_path"]
+
+    read = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "read-1",
+            "operation": "project_correspondence_set_payload",
+            "payload": {"directory": str(tmp_path), "asset_path": asset_path},
+        }
+    )
+    assert read["result"]["id"] == "aiko-page-1"
+
+    propagate = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "propagate-1",
+            "operation": "propagate_project_correspondence",
+            "payload": {
+                "directory": str(tmp_path),
+                "asset_path": asset_path,
+                "source_id": "r1",
+                "target_region_ids": ["hair-back-large"],
+            },
+        }
+    )
+    assert {item["region_id"] for item in propagate["result"]["correspondences"]} == {
+        "hair-front-large",
+        "hair-back-large",
+    }
+
+    detach = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "detach-1",
+            "operation": "detach_correspondence_set",
+            "payload": {"directory": str(tmp_path), "asset_path": asset_path},
+        }
+    )
+    assert detach["result"]["changed"] is True
+
+    attach = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "attach-1",
+            "operation": "attach_correspondence_set",
+            "payload": {"directory": str(tmp_path), "asset_path": asset_path},
+        }
+    )
+    assert attach["result"]["changed"] is True
+
+
 def test_protocol_records_project_local_advice_feedback(tmp_path):
     artwork = tmp_path / "artwork/attempt-001.kra"
     artwork.parent.mkdir()
