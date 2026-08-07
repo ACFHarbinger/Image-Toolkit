@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S358 — 2026-08-07 (Editable capstone rationale history)
+
+Advanced Cel-Shaded-Generator A3 #12 with schema-v7 editable capstone rationale
+text and existing-docker controls (`87e5dc5`). Final accept/reject/defer decisions
+remain immutable. An independent project setting, default off, controls whether
+timestamped prior rationale revisions are retained; disabling it clears history.
+Rationale content remains project-local and is excluded from the aggregate-only
+learner profile. Verification: 307 tests, Ruff and core mypy clean. A3 remains
+undeployed; #10/#11 remain in deferred Review.
+
 ## S357 — 2026-08-07 (Form/cast review and guided capstone collection)
 
 Advanced Cel-Shaded-Generator A3 #12 with separate front/turned form/cast mask
