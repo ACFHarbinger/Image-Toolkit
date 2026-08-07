@@ -2,6 +2,15 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S371 — 2026-08-07 (Offline C3 review checklist)
+
+Published the Character Colors live-review procedure in the Krita integration
+README (`99f0ee8`) so acceptance criteria are available offline. The checklist
+covers reference metadata, variant masks, overlap blocking, preview ownership,
+accept/reject isolation, editable accepted layers, and optional node metadata.
+Issue #17 remains In review pending manual validation; #10/#11/#12 remain In
+review. Verification: 335 tests, Ruff and core mypy clean.
+
 ## S370 — 2026-08-07 (C3 moved to Review)
 
 Moved Cel-Shaded-Generator C3 issue #17 to Project 12 **In review** after the
