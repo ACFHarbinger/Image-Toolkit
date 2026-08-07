@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Started A2 issue #10 by replacing the placeholder lesson with a five-stage,
+  locally packaged beginner sequence covering cranial mass, centerline,
+  eye-line, jaw/chin construction, structural checking, completion criteria,
+  and three non-traced practice attempts. The Krita docker now scrolls long
+  explanations and checklists instead of clipping them; adapter coverage checks
+  the versioned method and minimum instructional structure.
 - Started alpha A1 issue #9: added a Krita 5.2/Snap plugin skeleton with a
   right-default lesson docker, packaged English-only offline placeholder lesson,
   and scoped install/uninstall tool that refuses unknown overwrites.

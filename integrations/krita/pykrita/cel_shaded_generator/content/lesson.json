@@ -1,7 +1,39 @@
 {
-  "id": "anime-head-front-intro-v1",
+  "id": "anime-head-front-intro",
+  "version": "1.0.0",
   "method_id": "anime-head-construction-v1",
   "schema_version": 1,
-  "summary": "Learn the circle, jaw, centerline, and eye-line used to construct a front-view anime head.",
-  "title": "Anime Head Construction: Front View"
+  "title": "Anime Head Construction: Front View",
+  "summary": "Build a balanced front-view head from simple guides before drawing features. This first exercise values clear construction over a finished picture.",
+  "estimated_minutes": 20,
+  "steps": [
+    {
+      "title": "1. Draw the cranial circle",
+      "explanation": "Draw a light circle for the main skull mass. It does not need to be mechanically perfect: keep the stroke loose and make two or three passes if needed. Leave space below it for the jaw."
+    },
+    {
+      "title": "2. Add the vertical centerline",
+      "explanation": "Draw a straight vertical guide through the circle. In a front view it divides the head into left and right halves and continues down to the chin. If it leans, the face will read as turned or tilted."
+    },
+    {
+      "title": "3. Place the eye-line",
+      "explanation": "Draw a horizontal guide through the center of the cranial circle. Keep it perpendicular to the centerline. This is a construction guide for consistent feature placement, not the final eye shape."
+    },
+    {
+      "title": "4. Construct the jaw and chin",
+      "explanation": "From both lower sides of the circle, taper two jaw lines toward a short, rounded chin on the centerline. Mirror the large angles first; subtle asymmetry can be added deliberately later."
+    },
+    {
+      "title": "5. Check before adding features",
+      "explanation": "Compare the left and right silhouette, confirm that the chin meets the centerline, and check that the eye-line is level. Correct the guides now—features placed on a distorted construction inherit the distortion."
+    }
+  ],
+  "completion_criteria": [
+    "A visible cranial circle is present.",
+    "The centerline passes through the circle and reaches the chin.",
+    "The eye-line crosses the centerline approximately at a right angle.",
+    "Both jaw sides connect the cranial mass to a centered chin.",
+    "Construction remains visible; facial details are optional for this attempt."
+  ],
+  "practice_prompt": "Create three constructions. Draw the first slowly, the second with fewer corrective strokes, and the third from memory. Do not trace the previous attempt."
 }

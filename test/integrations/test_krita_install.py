@@ -1,5 +1,6 @@
 """Tests for the scoped Krita plugin installer."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -53,3 +54,16 @@ def test_snap_target_is_rejected(tmp_path):
     snap_root = tmp_path / "snap/krita/current/.local/share/krita/pykrita"
     with pytest.raises(RuntimeError, match="omits Python plugin support"):
         install(snap_root)
+
+
+def test_packaged_lesson_is_a_complete_offline_beginner_sequence():
+    path = (
+        Path(__file__).parents[2]
+        / "integrations/krita/pykrita/cel_shaded_generator/content/lesson.json"
+    )
+    lesson = json.loads(path.read_text(encoding="utf-8"))
+    assert lesson["schema_version"] == 1
+    assert lesson["method_id"] == "anime-head-construction-v1"
+    assert len(lesson["steps"]) == 5
+    assert len(lesson["completion_criteria"]) == 5
+    assert "memory" in lesson["practice_prompt"].lower()

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from krita import DockWidget, Krita
-from PyQt5.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from .diagnostics import diagnose
 
@@ -19,23 +19,41 @@ class LearningDocker(DockWidget):
         self.setWindowTitle("Cel-Shaded Learning Tutor")
         lesson_path = Path(__file__).parent / "content" / "lesson.json"
         lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
-        container = QWidget(self)
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        container = QWidget(scroll)
         layout = QVBoxLayout(container)
         title = QLabel(lesson["title"], container)
         title.setWordWrap(True)
         body = QLabel(lesson["summary"], container)
         body.setWordWrap(True)
-        status = QLabel("Placeholder lesson — drawing review is not implemented yet.", container)
+        layout.addWidget(title)
+        layout.addWidget(body)
+        for step in lesson["steps"]:
+            heading = QLabel(step["title"], container)
+            explanation = QLabel(step["explanation"], container)
+            heading.setWordWrap(True)
+            explanation.setWordWrap(True)
+            layout.addWidget(heading)
+            layout.addWidget(explanation)
+        checklist = QLabel(
+            "Completion checklist\n• " + "\n• ".join(lesson["completion_criteria"]), container
+        )
+        checklist.setWordWrap(True)
+        practice = QLabel("Practice\n" + lesson["practice_prompt"], container)
+        practice.setWordWrap(True)
+        status = QLabel("Review and redlining arrive in the next A2 slice.", container)
         status.setWordWrap(True)
         report = diagnose(Krita.instance().version())
         diagnostics = QLabel("Diagnostics: " + " ".join(report.messages), container)
         diagnostics.setWordWrap(True)
-        layout.addWidget(title)
-        layout.addWidget(body)
+        layout.addWidget(checklist)
+        layout.addWidget(practice)
         layout.addWidget(status)
         layout.addWidget(diagnostics)
         layout.addStretch(1)
-        self.setWidget(container)
+        scroll.setWidget(container)
+        self.setWidget(scroll)
 
     def canvasChanged(self, canvas) -> None:  # noqa: N802
         """Krita callback; this shell does not inspect the canvas."""

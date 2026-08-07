@@ -128,6 +128,8 @@ not evidence of pedagogical validity.
 
 ### A2 — lesson and overlay vertical slice
 
+**Status: in progress — issue #10.**
+
 - One front-view construction lesson with locally packaged explanations.
 - Exercise template creation in Krita.
 - Manual landmark placement and deterministic review.
