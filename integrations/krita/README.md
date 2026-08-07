@@ -56,7 +56,8 @@ source artwork or masks until the artist accepts a preview.
 For a later live review, bind a portable project, import a reference, and verify
 that the reference label, view type, and optional notes are editable. Create the
 material masks, then optionally use variants such as `Material — hair — front`
-and `Material — hair — back`. If two semantic materials overlap, preview must be
+and `Material — hair — back` using the Docker's **Create Material Mask Variant**
+action. If two semantic materials overlap, preview must be
 blocked with the conflicting material IDs and pixel counts. Correct the overlap
 and preview again: a locked preview should appear under `Character Colors`.
 

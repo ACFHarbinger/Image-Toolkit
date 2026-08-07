@@ -82,6 +82,7 @@ Materials may be split into named variants (`Material — hair — front`,
 before conflict checks. Reference labels, controlled view types, and notes are
 editable. Accepted layers carry the style-bible ID in host metadata when
 available.
+The Docker exposes variant creation directly, including duplicate-name refusal.
 Existing
 bibles reopen prefilled for editing, including aliases, optional accent roles,
 and preserved reference views; labels, controlled view types, and notes are

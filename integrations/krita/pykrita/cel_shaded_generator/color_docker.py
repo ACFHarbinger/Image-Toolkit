@@ -49,6 +49,7 @@ class CharacterColorsDocker(DockWidget):
             ("Import Reference Image", self._import_reference),
             ("Create / Replace Style Bible", self._author_bible),
             ("Create Material Mask Layers", self._create_masks),
+            ("Create Material Mask Variant", self._create_mask_variant),
             ("Preview Active Mask Palette Role", self._preview_palette),
             ("Accept Color Preview", self._accept_preview),
             ("Reject Color Preview", self._reject_preview),
@@ -255,6 +256,43 @@ class CharacterColorsDocker(DockWidget):
                 group.addChildNode(document.createNode(name, "paintlayer"), None)
         document.refreshProjection()
         self._status.setText("Material mask layers are ready; paint alpha to define regions.")
+
+    def _create_mask_variant(self):
+        document = Krita.instance().activeDocument()
+        bible = self._selected_bible()
+        if document is None or bible is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        material_id, accepted = QInputDialog.getItem(
+            self,
+            "Material Mask Variant",
+            "Canonical material:",
+            [item["id"] for item in bible["materials"]],
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        variant = self._text("Material Mask Variant", "Variant name:")
+        if variant is None:
+            return
+        root = document.rootNode()
+        group = find_named_node(root, MASK_GROUP_NAME)
+        if group is None:
+            group = document.createNode(MASK_GROUP_NAME, "grouplayer")
+            if group is None or not root.addChildNode(group, None):
+                self._status.setText("Krita could not create the Material Masks group.")
+                return
+        name = material_mask_name(material_id, variant)
+        if find_named_node(group, name) is not None:
+            self._status.setText("That material-mask variant already exists.")
+            return
+        layer = document.createNode(name, "paintlayer")
+        if layer is None or not group.addChildNode(layer, None):
+            self._status.setText("Krita could not create the material-mask variant.")
+            return
+        document.refreshProjection()
+        self._status.setText("Created " + name + "; paint alpha to define its region.")
 
     def _preview_palette(self):
         document = Krita.instance().activeDocument()

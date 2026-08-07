@@ -66,3 +66,9 @@ def test_union_alpha_buffers_rejects_empty_or_incomparable_inputs():
         _module().union_alpha_buffers(())
     with pytest.raises(ValueError, match="equal-length"):
         _module().union_alpha_buffers((b"\x00", b"\x00\x01"))
+
+
+def test_material_mask_variant_names_preserve_canonical_material_identity():
+    module = _module()
+    assert module.material_mask_name("skin", "face") == "Material — skin — face"
+    assert module.material_mask_parts(Node("Material — skin — face")) == ("skin", "face")
