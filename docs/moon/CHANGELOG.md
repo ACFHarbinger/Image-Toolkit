@@ -90,6 +90,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reuses the existing explicit preview Accept/Reject lifecycle and portable
   decision persistence. Front-cell reviews retain their calibrated front rubric
   identity while receiving the same cell-local mapping.
+  Fully authored curriculum lesson three, Cranial Volume and Jaw Variation. It
+  teaches a stable parent cranial mass, one-variable design changes, nuanced age
+  tendencies, structural jaw attachment, and preservation through rotation via
+  four theory sections, seven stages, three drills, five cause/correction
+  diagnoses, six completion criteria, five self-review questions, and a final
+  labeled variation sheet. Two original SVGs compare four jaw designs and show
+  the pinched-cranium failure against a preserved cranium plus attached jaw.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

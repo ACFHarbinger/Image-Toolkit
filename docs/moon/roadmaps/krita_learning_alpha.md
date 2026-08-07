@@ -169,11 +169,14 @@ remain deferred in Review.
 
 - 🔄 Curriculum v1 content: the versioned core catalog now defines all nine
   primary anime head-and-face exercises plus four focused remedial exercises.
-  The front-construction and head-orientation lessons are fully authored. Head
-  orientation includes spatial theory, seven construction stages, three drills,
-  five diagnosed common mistakes, measurable completion criteria, self-review,
-  and delayed repetition. Remaining lessons, rich media, and multi-lesson Krita
-  content remain; each lesson will be authored fully rather than stubbed. The
+  The front-construction, head-orientation, and cranial-volume/jaw-variation
+  lessons are fully authored. Head orientation includes spatial theory, seven
+  construction stages, three drills, five diagnosed common mistakes, measurable
+  completion criteria, self-review, and delayed repetition. The third lesson
+  separates stable cranial mass from controlled jaw variables, age/design
+  tendencies, and perspective effects with the same instructional depth and two
+  original SVGs. Remaining lessons and rich media remain; each lesson will be
+  authored fully rather than stubbed. The
   existing docker now provides an ordered selector, Previous/Next navigation,
   and selectable scalable SVG diagrams for authored lessons without locking
   later content.

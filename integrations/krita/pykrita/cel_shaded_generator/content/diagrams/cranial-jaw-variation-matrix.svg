@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 360" role="img" aria-labelledby="title desc">
+  <title id="title">Cranial and jaw variation matrix</title><desc id="desc">A stable cranial mass with neutral, soft, tapered, and broad jaw variants.</desc>
+  <rect width="1000" height="360" fill="#f7f4ed"/>
+  <g fill="none" stroke="#30343b" stroke-width="5" stroke-linejoin="round">
+    <g transform="translate(40)"><circle cx="100" cy="115" r="72"/><path d="M42 145L62 245L100 280L138 245L158 145"/></g>
+    <g transform="translate(280)"><circle cx="100" cy="115" r="72"/><path d="M42 145Q55 225 100 260Q145 225 158 145"/></g>
+    <g transform="translate(520)"><circle cx="100" cy="115" r="72"/><path d="M42 145L68 250L100 305L132 250L158 145"/></g>
+    <g transform="translate(760)"><circle cx="100" cy="115" r="72"/><path d="M42 145L48 245L72 285H128L152 245L158 145"/></g>
+  </g>
+  <g fill="#30343b" font-family="sans-serif" font-size="22" text-anchor="middle"><text x="140" y="340">Neutral</text><text x="380" y="340">Soft / short</text><text x="620" y="340">Long / tapered</text><text x="860" y="340">Broad / angular</text></g>
+</svg>
