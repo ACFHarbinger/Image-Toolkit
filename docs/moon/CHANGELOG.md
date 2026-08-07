@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Split cel-value form and cast evidence into four explicit named masks: front
+  form/cast and turned form/cast. The reviewer retains category-specific scalar
+  measurements and derives combined shadow-family readability/consistency.
+  Empty form masks are rejected as incomplete; empty cast masks are valid.
 - Added identity-retention correction previews to the selected front/turned
   character-variation review. Failed cranial, feature-span, ear-height,
   lower-face, and identity-card checks now produce provisional tutor-owned

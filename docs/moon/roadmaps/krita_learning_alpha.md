@@ -247,7 +247,10 @@ remain deferred in Review.
   and turned binary-shadow layers plus an optional third-value accent layer,
   after the artist confirms light direction and boundary hardness. Bounded
   local analysis reports area balance, fragmentation, isolated islands, edge
-  complexity, front/turned consistency, and subordinate third-value area.
+  complexity, front/turned consistency, and subordinate third-value area. Front
+  and turned form/cast shadows now occupy four separate named layers: category
+  measurements remain auditable while their union supplies the large-family
+  read. Empty form masks are rejected; intentionally empty cast masks are valid.
   Pixels and colors are discarded; only scalar measurements persist. Spatial
   light-cause review and beginner calibration remain future work.
 - 🔄 Comprehensive capstone: lesson nine integrates brief, portable identity

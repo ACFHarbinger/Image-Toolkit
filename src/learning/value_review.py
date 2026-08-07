@@ -59,8 +59,10 @@ def analyze_binary_mask(mask: list[int], width: int, height: int) -> BinaryMaskS
 
 
 def review_value_masks(
-    front_mask: list[int],
-    turned_mask: list[int],
+    front_form_mask: list[int],
+    front_cast_mask: list[int],
+    turned_form_mask: list[int],
+    turned_cast_mask: list[int],
     width: int,
     height: int,
     light_direction: str,
@@ -73,8 +75,14 @@ def review_value_masks(
         raise ValueError("unsupported light direction")
     if boundary_hardness not in {"hard", "moderate"}:
         raise ValueError("unsupported boundary hardness")
-    front = analyze_binary_mask(front_mask, width, height)
-    turned = analyze_binary_mask(turned_mask, width, height)
+    front_form = analyze_binary_mask(front_form_mask, width, height)
+    front_cast = analyze_binary_mask(front_cast_mask, width, height)
+    turned_form = analyze_binary_mask(turned_form_mask, width, height)
+    turned_cast = analyze_binary_mask(turned_cast_mask, width, height)
+    if front_form.shadow_area_ratio == 0 or turned_form.shadow_area_ratio == 0:
+        raise ValueError("front and turned form-shadow masks must not be empty")
+    front = analyze_binary_mask(_union(front_form_mask, front_cast_mask), width, height)
+    turned = analyze_binary_mask(_union(turned_form_mask, turned_cast_mask), width, height)
     consistency = max(
         0.0,
         1.0
@@ -82,13 +90,22 @@ def review_value_masks(
         - abs(front.fragmentation - turned.fragmentation) * 0.5
         - abs(front.edge_complexity - turned.edge_complexity) * 0.5,
     )
-    measurements = front.to_dict("front_") | turned.to_dict("turned_")
+    measurements = (
+        front.to_dict("front_combined_")
+        | turned.to_dict("turned_combined_")
+        | front_form.to_dict("front_form_")
+        | front_cast.to_dict("front_cast_")
+        | turned_form.to_dict("turned_form_")
+        | turned_cast.to_dict("turned_cast_")
+    )
     measurements["front_turned_consistency"] = consistency
     explanations = [
         f"The artist confirmed a {light_direction.replace('_', ' ')} light with a "
         f"{boundary_hardness} boundary.",
         "The review measured only binary mask geometry: occupied area, connected "
         "fragments, small islands, boundary complexity, and front/turned consistency.",
+        "Form and cast shadows were measured separately, then combined to audit the "
+        "large shadow-family read. An empty cast mask is valid; an empty form mask is not.",
     ]
     targeted = []
     if max(front.fragmentation, turned.fragmentation) > 0.35:
@@ -149,3 +166,7 @@ def _components(mask: list[int], width: int, height: int) -> list[int]:
                     pending.append(neighbor)
         sizes.append(size)
     return sizes
+
+
+def _union(first: list[int], second: list[int]) -> list[int]:
+    return [int(left or right) for left, right in zip(first, second, strict=True)]

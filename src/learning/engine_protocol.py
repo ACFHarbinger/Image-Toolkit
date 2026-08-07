@@ -248,8 +248,10 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
     if operation == "review_value_masks":
         try:
             review = review_value_masks(
-                payload["front_mask"],
-                payload["turned_mask"],
+                payload["front_form_mask"],
+                payload["front_cast_mask"],
+                payload["turned_form_mask"],
+                payload["turned_cast_mask"],
                 payload["width"],
                 payload["height"],
                 payload["light_direction"],

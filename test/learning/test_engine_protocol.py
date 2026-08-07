@@ -46,8 +46,10 @@ def test_protocol_reviews_binary_value_masks_without_persisting_pixels():
             "request_id": "value-1",
             "operation": "review_value_masks",
             "payload": {
-                "front_mask": mask,
-                "turned_mask": mask,
+                "front_form_mask": mask,
+                "front_cast_mask": [0] * 64,
+                "turned_form_mask": mask,
+                "turned_cast_mask": [0] * 64,
                 "width": 8,
                 "height": 8,
                 "light_direction": "top_left",
@@ -56,7 +58,7 @@ def test_protocol_reviews_binary_value_masks_without_persisting_pixels():
         }
     )
     assert response["result"]["measurements"]["front_turned_consistency"] == 1
-    assert "front_mask" not in response["result"]
+    assert "front_form_mask" not in response["result"]
 
 
 def test_protocol_creates_portable_exercise_project(tmp_path):

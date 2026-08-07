@@ -21,9 +21,19 @@ def test_binary_geometry_reports_area_components_and_edges():
 
 def test_review_combines_confirmation_geometry_consistency_and_optional_third_value():
     review = review_value_masks(
-        _block(), _block(), 8, 8, "top_left", "hard", "value-1", [int(i == 0) for i in range(64)]
+        _block(),
+        [0] * 64,
+        _block(),
+        [0] * 64,
+        8,
+        8,
+        "top_left",
+        "hard",
+        "value-1",
+        [int(i == 0) for i in range(64)],
     )
     assert review.measurements["front_turned_consistency"] == 1
+    assert review.measurements["front_cast_shadow_area_ratio"] == 0
     assert "third_value_to_primary_ratio" in review.measurements
     assert {item.source.value for item in review.evidence} == {"artist_confirmation", "heuristic"}
 
@@ -33,3 +43,18 @@ def test_mask_input_is_strictly_bounded_and_binary():
         analyze_binary_mask([2, 0, 0, 0], 2, 2)
     with pytest.raises(ValueError, match="128x128"):
         analyze_binary_mask([0] * (129 * 2), 129, 2)
+
+
+def test_review_rejects_empty_form_masks_but_allows_empty_cast_masks():
+    with pytest.raises(ValueError, match="form-shadow masks must not be empty"):
+        review_value_masks(
+            [0] * 64,
+            [0] * 64,
+            _block(),
+            [0] * 64,
+            8,
+            8,
+            "top",
+            "hard",
+            "value-empty",
+        )

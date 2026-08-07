@@ -308,11 +308,11 @@ def test_creates_cel_value_grouping_sheet():
     assert "LIGHT STATEMENT AND PLANE MAP" in document.root.children[0][0].children[0][0].svg
     assert [node.name for node, _ in document.root.children][1:] == [
         "01 Light Statement and Plane Map",
-        "02 Front Binary Shadow Mask",
-        "03 Front Cast-Shadow Audit",
+        "02 Front Form-Shadow Mask",
+        "03 Front Cast-Shadow Mask",
         "04 Optional Third-Value Accent Mask",
-        "05 Right Three-Quarter Binary Shadow Mask",
-        "06 Front and Turned Lighting Consistency",
+        "05 Right Three-Quarter Form-Shadow Mask",
+        "06 Right Three-Quarter Cast-Shadow Mask",
     ]
 
 

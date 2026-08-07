@@ -514,15 +514,23 @@ class LearningDocker(DockWidget):
         if not accepted:
             return
         root = document.rootNode()
-        front = find_named_node(root, "02 Front Binary Shadow Mask")
+        front_form = find_named_node(root, "02 Front Form-Shadow Mask")
+        front_cast = find_named_node(root, "03 Front Cast-Shadow Mask")
         third = find_named_node(root, "04 Optional Third-Value Accent Mask")
-        turned = find_named_node(root, "05 Right Three-Quarter Binary Shadow Mask")
-        if front is None or turned is None:
-            self._action_status.setText("The required named binary mask layers were not found.")
+        turned_form = find_named_node(root, "05 Right Three-Quarter Form-Shadow Mask")
+        turned_cast = find_named_node(root, "06 Right Three-Quarter Cast-Shadow Mask")
+        if any(node is None for node in (front_form, front_cast, turned_form, turned_cast)):
+            self._action_status.setText("The required named form/cast mask layers were not found.")
             return
         try:
-            front_mask = sampled_alpha_mask(front, 1, document.width(), document.height())
-            turned_mask = sampled_alpha_mask(turned, 4, document.width(), document.height())
+            front_form_mask = sampled_alpha_mask(front_form, 1, document.width(), document.height())
+            front_cast_mask = sampled_alpha_mask(front_cast, 2, document.width(), document.height())
+            turned_form_mask = sampled_alpha_mask(
+                turned_form, 4, document.width(), document.height()
+            )
+            turned_cast_mask = sampled_alpha_mask(
+                turned_cast, 5, document.width(), document.height()
+            )
             third_mask = (
                 sampled_alpha_mask(third, 3, document.width(), document.height())
                 if third is not None
@@ -534,8 +542,10 @@ class LearningDocker(DockWidget):
             client = EngineClient()
             review = client.review_value_masks(
                 request_id,
-                front_mask,
-                turned_mask,
+                front_form_mask,
+                front_cast_mask,
+                turned_form_mask,
+                turned_cast_mask,
                 MASK_SIDE,
                 MASK_SIDE,
                 direction.replace(" ", "_"),
