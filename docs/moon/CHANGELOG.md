@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S368 — 2026-08-07 (Character Color mask variants)
+
+Advanced Cel-Shaded-Generator C3 #17 with multi-layer material variants,
+editable reference notes, and optional Krita node metadata (`68a2422`). Layers
+such as `Material — hair — front` and `Material — hair — back` share the
+canonical material palette; all variants are unioned before overlap checks.
+Accepted color layers record the originating style-bible ID when the host
+supports node properties. Verification remains 333 tests with Ruff and core
+mypy clean. C3 remains In Progress and undeployed pending headless Docker and
+live Krita acceptance gates.
+
 ## S367 — 2026-08-07 (Conflict-safe Character Colors)
 
 Advanced Cel-Shaded-Generator C3 #17 with conflict-safe semantic palette
