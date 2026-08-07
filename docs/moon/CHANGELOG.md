@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S339 — 2026-08-07 (Adaptive curriculum milestone started)
+
+Opened Cel-Shaded-Generator A3 issue #12 at In Progress P0/XL and recorded it in `c497f65`. A3 covers versioned curriculum progression, deterministic and explainable weakness-to-remediation routing, compatible repeated-attempt comparison, and a private local progress view. A2 issues #10 and #11 remain in owner-deferred Review with explicit test instructions and pass-to-Done/fail-to-In-Progress rules; continued headless A3 work does not block on drawing tests.
+
 ## S338 — 2026-08-07 (Krita A2 follow-up ready for deferred review)
 
 Completed Cel-Shaded-Generator issue #11's automated implementation (`6c41577`): Review/Accept/Reject shortcuts are explicitly opt-in, valid, unique, atomically persisted, and preserve engine configuration; old Qt bindings are replaced on reconfiguration. A failed manifest decision save retains a same-action retry state and blocks the opposite action, preventing silent reconciliation drift. Accept retains only a locked tutor reference and never applies pixels to artist artwork. Verification: 201 tests, Ruff and mypy clean. With Krita confirmed closed, deployed the combined #10/#11 candidate and an engine configuration containing no default shortcuts. #10 remains In Review; #11 moves to In Review with a deferred pass/fail checklist.
