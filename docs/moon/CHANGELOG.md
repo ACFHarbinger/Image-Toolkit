@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S333 — 2026-08-07 (Krita 5.x review redline layers)
+
+Advanced Cel-Shaded-Generator A2 issue #10 (`e41af94`) with Krita 5.x-compatible redline rendering. The adapter avoids Krita 6-only painting methods: it validates and bounds normalized engine geometry, rasterizes transparent U8 BGRA corrections, and writes only to a new locked tutor-owned layer inside the always-relocked feedback group; a failed write removes its partial layer. Artist layers are never selected or modified. Verification: 184 tests, Ruff and mypy clean. With exact process-name confirmation that Krita was closed, the updated plugin and configured engine were safely redeployed. Live redline verification remains.
+
 ## S332 — 2026-08-07 (End-to-end landmark review explanations)
 
 Advanced Cel-Shaded-Generator A2 issue #10 (`22f629d`) through the first end-to-end review path. The installer atomically records an explicitly selected engine executable in XDG configuration; the dependency-free plugin validates/discovers it, submits the nine normalized landmarks under a unique request identifier, and displays deterministic explanations while leaving artwork unchanged. Missing landmarks, engine/configuration failures, and incomplete results are actionable UI states. Verification: 179 tests, Ruff and mypy clean. With Krita confirmed closed by exact process name, the plugin and engine configuration were deployed and a real configured-engine review smoke test passed. Redline layer rendering remains.
