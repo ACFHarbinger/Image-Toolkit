@@ -132,12 +132,22 @@ interchange as the first engine integrations. See
 
 ## Phase 5 — standalone desktop editor
 
-This phase is conditional. Reassess only after the Krita plugin proves which
-workflows require ownership of the canvas, document model, rendering engine,
-or timeline. The likely architecture is a C++ engine, GPU-backed canvas, and
-isolated Python research/model workers; its staged boundary and migration gates
-are defined in the [Engine Architecture Roadmap](roadmaps/engine_architecture.md).
-Browser support is not a justification for choosing the desktop architecture.
+🔄 This phase's original gate was conditional: reassess only after the Krita
+plugin proves which workflows require ownership of the canvas, document
+model, rendering engine, or timeline. That precondition has not been met —
+the owner made an explicit decision (2026-08-07) to start this phase now
+anyway, ahead of the gate; see the "Gate 5 exception" note in the
+[Engine Architecture Roadmap](roadmaps/engine_architecture.md) for the full
+rationale. This is a scope decision, not evidence Krita has proven
+insufficient — the Krita plugin remains the primary, actively-developed
+host. The first slice (issue #25, In review — a PySide6 canvas +
+layer-stack foundation in the existing `gui/` workspace member, backed by a
+new pure-numpy `src/editor/` package) is implemented; no paint tools,
+masks, or segmentation UI yet. The
+likely long-term architecture is still a C++ engine, GPU-backed canvas, and
+isolated Python research/model workers; its staged boundary and migration
+gates are defined in the same document. Browser support is not a
+justification for choosing the desktop architecture.
 
 ## Deferred clients
 

@@ -71,3 +71,31 @@ models.
    becomes a plugin/research worker.
 5. **Standalone editor decision:** proceed only when Krita limitations are
    demonstrated by validated workflows.
+
+### Gate 5 exception (2026-08-07)
+
+Gate 5's precondition has **not** been met — no Krita limitation has been
+demonstrated by a validated workflow. The owner made an explicit, informed
+decision to build a standalone full raster editor now anyway, ahead of that
+gate, rather than in response to a discovered limitation. This is recorded
+here so the history is honest: this is a scope decision, not evidence Krita
+has proven insufficient. The reference-coloring Krita Dockers (Character
+Colors, Line Art Segmentation, Chapter Queue, Learning Tutor) remain the
+primary, actively-developed host; the standalone editor is a second,
+independent host built on the same portable `project`/`colorization` core,
+not a replacement in progress.
+
+**Toolkit:** PySide6, matching the existing `cel_shaded_generator_gui`
+workspace member (`gui/`) — the standalone editor is being built as new
+tabs/elements inside that same package rather than a third Qt-binding
+dependency.
+
+**First slice (issue #25, In review pending a manual desktop-app check):**
+a canvas + layer-stack foundation — `src/editor/`'s
+`LayerStack` (pure numpy, no Qt, mirrors the "portable contract first"
+pattern every other milestone in this project uses) plus a
+`ReferenceColoringTab` in `gui/` wiring a zoomable/pannable `LayerCanvas`
+to an add/remove/reorder/show-hide `LayerListPanel`. No paint tools, masks,
+segmentation, or palette preview yet — those are later slices built on this
+same foundation, the same way every Krita Docker was built on Krita's own
+layer model.

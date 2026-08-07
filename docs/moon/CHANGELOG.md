@@ -31,6 +31,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   signals and a multiplicative-weights correction-learning step, no ML yet
   per explicit scoping — is implemented; see the `### Added` entry below.
   No Docker UI exists for it yet.
+- **Phase 5 (standalone desktop editor, issue #25) started ahead of its
+  documented gate.** That gate ("proceed only when Krita limitations are
+  demonstrated by validated workflows") has not been met; the owner made an
+  explicit decision to start this phase now anyway. See
+  `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
+  full rationale — this is a scope decision, not evidence Krita has proven
+  insufficient. The Krita plugin remains the primary, actively-developed
+  host. The first slice — a canvas + layer-stack foundation — is In review
+  pending a manual desktop-app check (see the `### Added` entry below).
 
 ### Fixed
 
@@ -106,6 +115,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Standalone editor first slice (issue #25, In review): canvas + layer
+  stack foundation.** New `src/editor/` core package: `LayerStack`/`Layer`/
+  `LayerMeta` — pure numpy, no Qt, add/remove/reorder/show-hide layers and
+  composite them bottom-to-top with `normal`/`multiply` blend modes (the
+  multiply mode matches `canvas_editor.py`'s existing line-art-over-color
+  convention: white leaves the layer beneath unchanged, black stays black).
+  New GUI pieces in the existing `cel_shaded_generator_gui` (PySide6)
+  workspace member: `LayerCanvas` (zoomable via mouse wheel, pannable via
+  hand-drag, renders a bound `LayerStack`'s live composite, read-only this
+  slice), `LayerListPanel` (the only thing that mutates a `LayerStack` here
+  — add/remove/reorder/visibility toggle via a checkable `QListWidget`), and
+  `ReferenceColoringTab` wiring both together with a New Canvas action,
+  added as the desktop app's 4th tab. No paint tools, masks, segmentation,
+  or palette-preview UI yet — later slices build on this same foundation,
+  mirroring how every Krita Docker was built on Krita's own layer model.
+  Verification: 15 new core `editor` tests, 21 new headless-Qt `gui` tests
+  (445 core + 120 gui total); Ruff and mypy clean. Needs a manual desktop
+  launch to confirm visually — see issue #25's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

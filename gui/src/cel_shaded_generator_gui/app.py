@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
 from cel_shaded_generator_gui.tabs.animation_tab import MangaAnimationTab
 from cel_shaded_generator_gui.tabs.colorization_tab import MangaColorizationTab
 from cel_shaded_generator_gui.tabs.puppeteering_tab import MangaPuppeteeringTab
+from cel_shaded_generator_gui.tabs.reference_coloring_tab import ReferenceColoringTab
 
 
 def build_window() -> QMainWindow:
@@ -21,6 +22,7 @@ def build_window() -> QMainWindow:
     tabs.addTab(MangaColorizationTab(), "Colorization")
     tabs.addTab(MangaAnimationTab(), "Animation")
     tabs.addTab(MangaPuppeteeringTab(), "Puppeteering")
+    tabs.addTab(ReferenceColoringTab(), "Reference Coloring (Editor)")
 
     window = QMainWindow()
     window.setWindowTitle("Cel-Shaded-Generator")
