@@ -411,6 +411,13 @@ class LearningDocker(DockWidget):
         try:
             renderable_review = review
             if (
+                lesson["exercise_id"] == "anime-head-eyes"
+                and self._orientation_crop_index is not None
+            ):
+                renderable_review = map_review_redlines_to_sheet(
+                    review, self._orientation_crop_index, cell_count=4
+                )
+            elif (
                 lesson["exercise_id"]
                 in {
                     "anime-head-orientation",

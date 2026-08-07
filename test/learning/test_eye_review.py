@@ -56,3 +56,15 @@ def test_eye_review_rejects_unknown_view_or_stage():
         review_eye_pair(_landmarks(), "profile", "structure", "review-3")
     with pytest.raises(ValueError, match="stage"):
         review_eye_pair(_landmarks(), "front", "polish", "review-4")
+
+
+def test_failed_eye_dimensions_emit_principle_linked_preview_guides():
+    base = _landmarks()
+    changed = EyePairLandmarks(
+        **{field: getattr(base, field) for field in base.__dataclass_fields__}
+        | {"right_outer": (0.98, 0.4), "right_lower_peak": (0.69, 0.62)}
+    )
+    review = review_eye_pair(changed, "right_three_quarter", "style_expression", "review-5")
+    assert review.redlines
+    assert review.suggestions[0].id == "eye-study-guides"
+    assert all(len(redline.geometry) >= 2 for redline in review.redlines)

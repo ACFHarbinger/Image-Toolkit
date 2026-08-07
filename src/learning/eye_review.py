@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, fields
 
-from .model import Evidence, EvidenceSource, Review
+from .model import Evidence, EvidenceSource, Redline, Review, Suggestion
 
 Point = tuple[float, float]
 
@@ -110,6 +110,12 @@ def review_eye_pair(landmarks: EyePairLandmarks, view: str, stage: str, review_i
         + (" and style/expression" if stage == "style_expression" else "")
         + " checks. Repeat without tracing to test control."
     ]
+    redlines = _redlines(landmarks, failed, axis_x, target_ratio, left_width, right_width)
+    suggestions = (
+        [Suggestion("eye-study-guides", "Preview eye construction guides", "Tutor — Preview")]
+        if redlines
+        else []
+    )
     return Review(
         id=review_id,
         exercise_id="anime-head-eyes",
@@ -127,6 +133,8 @@ def review_eye_pair(landmarks: EyePairLandmarks, view: str, stage: str, review_i
             for key in failed
         ],
         explanations=explanations,
+        redlines=redlines,
+        suggestions=suggestions,
         measurements={key: scores[key] for key in applicable}
         | {
             "left_eye_width": left_width,
@@ -137,6 +145,78 @@ def review_eye_pair(landmarks: EyePairLandmarks, view: str, stage: str, review_i
         },
         targeted_exercise_ids=["anime-head-eyes"] if failed else [],
     )
+
+
+def _redlines(landmarks, failed, axis_x, target_ratio, left_width, right_width):
+    redlines = []
+    if "eye_line_consistency" in failed:
+        redlines.append(
+            Redline(
+                "Tutor — eye-line corner guide",
+                [
+                    (landmarks.left_inner[0], _line_y(landmarks, landmarks.left_inner[0])),
+                    (landmarks.right_inner[0], _line_y(landmarks, landmarks.right_inner[0])),
+                ],
+                "Align the inner corners to the confirmed cross-contour before styling the lids.",
+            )
+        )
+    if "eye_spacing_balance" in failed:
+        expected_right = (axis_x + abs(axis_x - landmarks.left_inner[0]), landmarks.right_inner[1])
+        redlines.append(
+            Redline(
+                "Tutor — axis-relative spacing guide",
+                [landmarks.right_inner, expected_right],
+                "Compare both inner-corner gaps from the facial axis.",
+            )
+        )
+    if "eye_projected_scale" in failed:
+        direction = 1 if landmarks.right_outer[0] >= landmarks.right_inner[0] else -1
+        expected_outer = (
+            landmarks.right_inner[0] + direction * left_width * target_ratio,
+            landmarks.right_outer[1],
+        )
+        redlines.append(
+            Redline(
+                "Tutor — projected far-eye width",
+                [landmarks.right_inner, expected_outer],
+                "Use the provisional projected-width target as a comparison, "
+                "not a tracing mandate.",
+            )
+        )
+    if "eyelid_rhythm_consistency" in failed:
+        left_ratio = math.dist(landmarks.left_upper_peak, landmarks.left_lower_peak) / max(
+            left_width, 1e-9
+        )
+        center_y = (landmarks.right_upper_peak[1] + landmarks.right_lower_peak[1]) / 2
+        half = right_width * left_ratio / 2
+        redlines.append(
+            Redline(
+                "Tutor — lid-opening rhythm",
+                [
+                    (landmarks.right_upper_peak[0], max(0.0, center_y - half)),
+                    (landmarks.right_lower_peak[0], min(1.0, center_y + half)),
+                ],
+                "Compare normalized lid opening while preserving the chosen expression.",
+            )
+        )
+    if "expression_consistency" in failed:
+        left_exposure = math.dist(landmarks.left_iris_top, landmarks.left_iris_bottom) / max(
+            math.dist(landmarks.left_upper_peak, landmarks.left_lower_peak), 1e-9
+        )
+        opening = math.dist(landmarks.right_upper_peak, landmarks.right_lower_peak)
+        center_y = (landmarks.right_iris_top[1] + landmarks.right_iris_bottom[1]) / 2
+        half = opening * left_exposure / 2
+        redlines.append(
+            Redline(
+                "Tutor — iris-exposure comparison",
+                [
+                    (landmarks.right_iris_top[0], max(0.0, center_y - half)),
+                    (landmarks.right_iris_bottom[0], min(1.0, center_y + half)),
+                ],
+                "Compare iris exposure separately from eye placement and perspective.",
+            )
+        )
+    return redlines
 
 
 def _line_y(landmarks, x):

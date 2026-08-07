@@ -125,6 +125,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   version-compatible retry comparisons. Thresholds are provisional, and this
   slice intentionally emits explanations rather than pretending its first-pass
   geometry can author useful eye redlines.
+  Added conservative eye correction previews for every failed applicable
+  dimension: cross-contour corner alignment, axis-relative spacing, projected
+  far-eye width, normalized lid opening, and iris exposure. Each guide states
+  its teaching principle, maps only into the confirmed quarter-sheet cell, and
+  reuses the explicit Accept/Reject persistence contract. Projected-width text
+  explicitly labels its provisional target as a comparison rather than a tracing
+  mandate.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

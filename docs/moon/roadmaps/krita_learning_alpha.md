@@ -189,8 +189,11 @@ remain deferred in Review.
   session. Separate versioned structure and style/expression rubrics measure
   cross-contour adherence, centerline-based spacing, projected scale, eyelid
   rhythm, and iris-exposure consistency with auditable raw values. Thresholds
-  remain provisional, and geometry-derived eye redlines remain future work;
-  existing head rubrics are never silently reused.
+  remain provisional. Failed dimensions now emit conservative, principle-linked
+  guides for cross-contour corners, axis-relative spacing, projected width, lid
+  opening, and iris exposure into only the confirmed quarter-sheet cell. They
+  reuse explicit Accept/Reject and warn that targets are comparisons rather than
+  tracing mandates; existing head rubrics are never silently reused.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right
