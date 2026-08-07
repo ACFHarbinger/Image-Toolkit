@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S329 — 2026-08-07 (Layered Krita exercise creation)
+
+Advanced Cel-Shaded-Generator A2 issue #10 (`f849b8e`) with a tested Krita exercise-document adapter and tutor action. It creates a new unsaved 1600 × 2000 RGBA document without modifying existing work, separates construction and artwork paint layers, reserves a locked tutor-feedback group, selects the construction layer, and reports host failures in the docker. Exact document arguments, layer ordering/locking, view attachment, active layer, and missing-window behavior are covered by headless stubs. Full verification: 161 tests, Ruff and mypy clean. Live deployment waits for Krita to close.
+
 ## S328 — 2026-08-07 (Deterministic front-head review core)
 
 Advanced Cel-Shaded-Generator A2 issue #10 (`1a23944`) with a host-neutral deterministic reviewer for artist-confirmed normalized landmarks. It measures centerline and eye-line deviation, chin offset, and jaw asymmetry; returns provisional rubric scores, geometry-only evidence, actionable explanations, separate redline geometry, preview suggestions, and remedial routing; and performs no pixel or model analysis. Balanced and intentionally flawed fixtures bring the core suite to 159 passing tests with clean Ruff and mypy. The updated five-stage lesson was also scoped-uninstalled/reinstalled into the live Krita plugin directory with matching source/deployment checksums.
