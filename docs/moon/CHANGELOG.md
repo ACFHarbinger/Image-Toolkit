@@ -2,6 +2,7 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+<<<<<<< HEAD
 ## S373 — 2026-08-07 (C4 correspondence baseline scoped)
 
 Created Cel-Shaded-Generator issue #18 for the next reference-coloring
@@ -110,6 +111,10 @@ relative non-symlink assets, attach/detach engine operations, migration, and
 pixel-free summaries (`79ee7d6`). Verification: 325 tests, Ruff and core mypy
 clean. Strict MkDocs could not start because the optional `mkdocstrings` plugin
 is absent in the current environment; dependencies were not changed implicitly.
+
+## S362.1 — 2026-08-07 (Implement Issue #16 Quantitative Seam Diagnosis)
+
+Implemented quantitative seam-photometric diagnosis tooling in `backend/benchmark/diagnose_seams.py`. The tool analyzes borderline fallback datasets (test87, test10, test71, test69, test25, test16, test11) to compute metrics such as seam-crossing luminance/color gradient profiles and per-frame gain deltas, producing non-visual numerical output as requested in Issue #16.
 
 ## S361 — 2026-08-07 (A3 moved to deferred review)
 
