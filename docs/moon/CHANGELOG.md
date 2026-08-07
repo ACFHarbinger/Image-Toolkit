@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S351 — 2026-08-07 (Eye previews and authored feature-placement matrix)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with conservative cell-local eye
+correction previews (`25b9d8b`) for cross-contour placement, spacing, projected
+width, lid rhythm, and iris exposure. Guides are principle-linked, provisional,
+and reuse explicit Accept/Reject. Fully authored lesson five (`a3f5da9`) for
+nose/muzzle, mouth, and ears from front to three-quarter view, with two offline
+diagrams and a 2400 × 1800 six-layer Krita matrix. Ears receive equal stages,
+practice space, diagnoses, and completion evidence. Verification: 268 tests,
+Ruff and mypy clean. A3 remains undeployed; A2 #10/#11 stay in Review.
+
 ## S350 — 2026-08-07 (Eye-placement lesson, template, and critique)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with a fully authored beginner Eye
