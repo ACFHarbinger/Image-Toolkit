@@ -9,12 +9,14 @@ from typing import Any
 from project import (
     AdviceRating,
     SuggestionDecision,
+    attach_style_bible,
     configure_capstone_policy,
     configure_feedback_policy,
     configure_identity_card_policy,
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
+    detach_style_bible,
     import_compatible_capstone_review,
     project_progress_snapshot,
     record_advice_feedback,
@@ -154,6 +156,15 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             build_curriculum_v1(), completed_ids
         )
         return _success(request_id, snapshot)
+    if operation in {"attach_style_bible", "detach_style_bible"}:
+        try:
+            function = (
+                attach_style_bible if operation == "attach_style_bible" else detach_style_bible
+            )
+            changed = function(payload["directory"], asset_path=payload["asset_path"])
+        except KeyError as error:
+            raise ValueError("style-bible binding request is incomplete") from error
+        return _success(request_id, {"changed": changed})
     if operation == "configure_progress_retention":
         try:
             changed = configure_progress_retention(

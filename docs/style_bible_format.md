@@ -36,3 +36,8 @@ aliases, duplicate identities, and unsafe reference paths rather than guessing.
 Version 1 has no legacy migration because no earlier style-bible format was
 released. Every future writable version must add a deterministic migration and
 retain future-version refusal.
+
+Portable project schema v9 binds bibles through an ordered safe-relative asset
+list. Binding validates the bible and referenced views in place; it does not copy
+or embed them. Detaching removes only the manifest reference. This makes moving
+the whole project directory sufficient to preserve the relationship.

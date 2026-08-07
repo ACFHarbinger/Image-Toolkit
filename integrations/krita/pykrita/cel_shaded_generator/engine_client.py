@@ -148,6 +148,20 @@ class EngineClient:
     def project_progress_snapshot(self, request_id, directory):
         return self._execute(request_id, "project_progress_snapshot", {"directory": directory})
 
+    def attach_style_bible(self, request_id, directory, asset_path):
+        return self._execute(
+            request_id,
+            "attach_style_bible",
+            {"directory": directory, "asset_path": asset_path},
+        )
+
+    def detach_style_bible(self, request_id, directory, asset_path):
+        return self._execute(
+            request_id,
+            "detach_style_bible",
+            {"directory": directory, "asset_path": asset_path},
+        )
+
     def revise_capstone_decision_rationale(
         self, request_id, directory, attempt_id, review_id, rationale
     ):

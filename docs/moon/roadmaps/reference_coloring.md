@@ -47,7 +47,9 @@ and user corrections.
    Issue #15 implements the standalone v1 foundation: semantic materials,
    unambiguous aliases, explicit local/light/shadow/optional-accent sRGB roles,
    safe relative reference views, strict future-version refusal, atomic writes,
-   and bounded recovery. Project/Krita authoring and palette application remain.
+   and bounded recovery. C2 issue #16 adds portable project schema-v9 bindings,
+   validated attach/detach operations, constrained-host summaries, and recovery
+   without deleting assets. Krita authoring and palette application remain.
 3. Manual correspondence workflow and deterministic propagation baseline.
 4. Assisted correspondence with confidence and correction learning.
 5. Optional generative proposals through the local model registry.
@@ -62,6 +64,6 @@ Blender export, and a future C++ engine consume the same reviewed data. JSON is
 preferred for this small Git-friendly manifest; large binary assets remain
 adjacent referenced files.
 
-Next slices should bind one or more bibles into portable projects, provide a
-Krita material/palette editor, then apply named palettes to explicit region
-masks before attempting learned correspondence.
+The portable-project binding is implemented. Next slices should provide a Krita
+material/palette editor, then apply named palettes to explicit region masks
+before attempting learned correspondence.

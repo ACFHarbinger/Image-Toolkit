@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from uuid import uuid4
+
+from colorization import load_style_bible
 
 from .model import (
     AdviceFeedback,
@@ -199,6 +201,33 @@ def configure_capstone_policy(directory: str | Path, *, retain_rationale_history
     return True
 
 
+def attach_style_bible(directory: str | Path, *, asset_path: str) -> bool:
+    """Attach one validated project-local style bible without copying assets."""
+    root = Path(directory).resolve()
+    relative, bible_path = _resolve_project_asset(root, asset_path)
+    bible = load_style_bible(bible_path)
+    for reference in bible.reference_views:
+        _resolve_project_asset(root, reference.asset_path)
+    project = load_project(root)
+    if relative in project.style_bible_assets:
+        return False
+    project.style_bible_assets.append(relative)
+    save_project(root, project)
+    return True
+
+
+def detach_style_bible(directory: str | Path, *, asset_path: str) -> bool:
+    """Remove only a style-bible binding; never delete its files."""
+    root = Path(directory).resolve()
+    relative = PurePosixPath(asset_path).as_posix()
+    project = load_project(root)
+    if relative not in project.style_bible_assets:
+        return False
+    project.style_bible_assets.remove(relative)
+    save_project(root, project)
+    return True
+
+
 def record_advice_feedback(
     directory: str | Path,
     *,
@@ -247,6 +276,9 @@ def project_progress_snapshot(directory: str | Path) -> dict:
             if project.identity_card is not None
             else None
         ),
+        "style_bibles": [
+            _style_bible_summary(Path(directory), path) for path in project.style_bible_assets
+        ],
         "exercises": [
             {
                 "exercise_id": exercise.exercise_id,
@@ -478,3 +510,30 @@ def _find_attempt(project: Project, attempt_id: str) -> Attempt:
 
 def _timestamp() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _resolve_project_asset(root: Path, asset_path: str) -> tuple[str, Path]:
+    relative = PurePosixPath(asset_path)
+    if (
+        not asset_path.strip()
+        or relative.is_absolute()
+        or ".." in relative.parts
+        or "\\" in asset_path
+    ):
+        raise ValueError("project asset must use a safe relative POSIX path")
+    path = root.joinpath(*relative.parts)
+    if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(root):
+        raise ValueError("project asset must be an existing regular non-symlink file")
+    return relative.as_posix(), path
+
+
+def _style_bible_summary(root: Path, asset_path: str) -> dict:
+    bible = load_style_bible(root / asset_path)
+    return {
+        "asset_path": asset_path,
+        "id": bible.id,
+        "character_name": bible.character_name,
+        "style_name": bible.style_name,
+        "material_count": len(bible.materials),
+        "reference_view_count": len(bible.reference_views),
+    }

@@ -21,7 +21,7 @@ project-relative path. This active document is not artwork *history* and does
 not enable historical artwork retention. The creator refuses unrelated files
 or an existing manifest rather than merging into an ambiguous directory.
 
-Schema version 8 separates three concerns:
+Schema version 9 separates three concerns:
 
 - project identity, user-selected autosave policy, and privacy consent;
 - project-local exercises, attempts, feedback, and metrics, which travel with
@@ -57,6 +57,11 @@ copy receives a new review identifier, retains `source_attempt_id` and
 `source_review_id` provenance, clears unrelated feedback/history, and requires a
 fresh capstone accept/reject/defer decision plus rationale. The source record is
 never moved or modified.
+Projects may bind an ordered `style_bible_assets` list of safe relative JSON
+paths. Attachment validates the bible and each referenced view as an existing
+regular non-symlink project asset. Detachment removes only the binding and never
+deletes the bible or reference images. Constrained-host summaries expose bible
+identity, character/style names, and material/reference counts, not pixels.
 Each review may also contain an editable artist rating (`helpful`, `unhelpful`,
 `incorrect`, or `not_applicable`) and an optional non-empty free-text note.
 Ratings and notes stay in the portable project and an identical retry is
@@ -76,8 +81,8 @@ integration and should use content-addressed or copy-on-write storage rather
 than duplicating large files for every manifest snapshot.
 
 Readers reject unknown schema versions. The pre-release version-0 manifest and
-version-1 through version-7 project formats have explicit deterministic
-migrations to version 8; they preserve existing progress, add empty
+version-1 through version-8 project formats have explicit deterministic
+migrations to version 9; they preserve existing progress, add empty
 review/feedback/history fields where required, and enable project-local progress
 for manifests that already contained it. Version-1 learner
 profiles migrate without inventing aggregate data. Every future version must

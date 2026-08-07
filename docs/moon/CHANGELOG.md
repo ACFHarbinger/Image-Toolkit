@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Advanced C2 issue #16 with project schema-v9 style-bible bindings. Validated
+  attach/detach operations accept only existing regular non-symlink project
+  assets, validate referenced views, remain idempotent, and never delete files.
+  Engine/client operations and privacy-safe summaries expose identity and counts
+  without pixels. Existing schema-v8 projects migrate to an empty binding list.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative

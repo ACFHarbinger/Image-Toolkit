@@ -2,18 +2,27 @@
 
 import pytest
 
+from colorization import (
+    CharacterStyleBible,
+    MaterialPalette,
+    ReferenceView,
+    StyleMaterial,
+    save_style_bible,
+)
 from project import (
     AdviceRating,
     Attempt,
     ExerciseProgress,
     ReviewRecord,
     SuggestionDecision,
+    attach_style_bible,
     configure_capstone_policy,
     configure_feedback_policy,
     configure_identity_card_policy,
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
+    detach_style_bible,
     import_compatible_capstone_review,
     load_project,
     project_progress_snapshot,
@@ -341,9 +350,62 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
             "ready_for_manual_completion": False,
             "import_candidates": [],
         },
+        "style_bibles": [],
     }
     assert configure_progress_retention(tmp_path, enabled=True)
     assert not configure_progress_retention(tmp_path, enabled=True)
+
+
+def test_attach_and_detach_project_local_style_bible_without_deleting_assets(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    reference = tmp_path / "references/front.png"
+    reference.parent.mkdir()
+    reference.write_bytes(b"reference")
+    bible_path = tmp_path / "style-bibles/aiko.json"
+    save_style_bible(
+        bible_path,
+        CharacterStyleBible(
+            "aiko",
+            "Aiko",
+            "TV cel",
+            [StyleMaterial("hair", "Hair", MaterialPalette("#332233", "#665566", "#110F18"))],
+            [ReferenceView("front", "Front", "references/front.png")],
+        ),
+    )
+    assert attach_style_bible(tmp_path, asset_path="style-bibles/aiko.json")
+    assert not attach_style_bible(tmp_path, asset_path="style-bibles/aiko.json")
+    summary = project_progress_snapshot(tmp_path)["style_bibles"][0]
+    assert summary == {
+        "asset_path": "style-bibles/aiko.json",
+        "id": "aiko",
+        "character_name": "Aiko",
+        "style_name": "TV cel",
+        "material_count": 1,
+        "reference_view_count": 1,
+    }
+    assert detach_style_bible(tmp_path, asset_path="style-bibles/aiko.json")
+    assert bible_path.exists() and reference.exists()
+
+
+def test_style_bible_binding_rejects_missing_escape_and_symlink(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    with pytest.raises(ValueError, match="safe relative"):
+        attach_style_bible(tmp_path, asset_path="../outside.json")
+    with pytest.raises(ValueError, match="existing regular"):
+        attach_style_bible(tmp_path, asset_path="style-bibles/missing.json")
+    outside = tmp_path.parent / "outside-style-bible.json"
+    outside.write_text("{}", encoding="utf-8")
+    link = tmp_path / "style-bibles/link.json"
+    link.parent.mkdir()
+    link.symlink_to(outside)
+    with pytest.raises(ValueError, match="non-symlink"):
+        attach_style_bible(tmp_path, asset_path="style-bibles/link.json")
 
 
 def test_identity_card_edits_and_optional_history_are_portable(tmp_path):
