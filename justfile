@@ -71,6 +71,7 @@ agent_prompt := """
 mod agent      "tools/agent/justfile"
 mod benchmark  "tools/benchmark/justfile"
 mod build      "tools/build/justfile"
+mod cel_shaded "tools/cel_shaded/justfile"
 mod ci         "tools/ci/justfile"
 mod core       "tools/core/justfile"
 mod database   "tools/database/justfile"
@@ -357,6 +358,20 @@ comfyui *args: helper::_print_header
 # Stop any running ComfyUI instances
 comfyui-stop: helper::_print_header
     just repository::comfyui-stop
+
+# --- Cel-Shaded-Generator Krita plugin ---
+
+# Install the Cel-Shaded-Generator Krita plugin (close Krita first)
+krita-install: helper::_print_header
+    just cel_shaded::krita-install
+
+# Uninstall the Cel-Shaded-Generator Krita plugin (close Krita first)
+krita-uninstall: helper::_print_header
+    just cel_shaded::krita-uninstall
+
+# Reinstall the plugin — use after pulling submodule updates (close Krita first)
+krita-reinstall: helper::_print_header
+    just cel_shaded::krita-reinstall
 
 # --- Desktop GUI ---
 
