@@ -45,7 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   notes are editable, and accepted layers record the bible ID in Krita metadata
   where supported. Extracted and tested the host-neutral variant-union operation,
   completing the headless semantic workflow gate; only live Krita acceptance
-  remains before moving C3 to Done.
+  remains before moving C3 to Done. Mirrored the complete review checklist in
+  the Krita integration README for offline use.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative

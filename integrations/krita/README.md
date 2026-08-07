@@ -1,4 +1,4 @@
-# Krita plugin (A2 pre-alpha)
+# Krita plugin (learning alpha and C3 review)
 
 The plugin requires Krita 5.2+ with Python 3.10+ and contains the first
 English-only offline head-construction lesson plus exercise-document creation.
@@ -45,3 +45,28 @@ Review, Accept, and Reject shortcuts default to unassigned. Configure them from
 the tutor docker; values must be valid and unique, are saved atomically beside
 the engine path, and only become active after the artist explicitly assigns
 them. This avoids silently taking Krita's Tab canvas-only binding.
+
+## Character Colors review checklist
+
+The **Character Colors** Docker is currently in review and remains offline-only.
+It authors portable style bibles, imports project-local references, creates
+semantic material masks, and previews explicit palette roles. It never changes
+source artwork or masks until the artist accepts a preview.
+
+For a later live review, bind a portable project, import a reference, and verify
+that the reference label, view type, and optional notes are editable. Create the
+material masks, then optionally use variants such as `Material — hair — front`
+and `Material — hair — back`. If two semantic materials overlap, preview must be
+blocked with the conflicting material IDs and pixel counts. Correct the overlap
+and preview again: a locked preview should appear under `Character Colors`.
+
+Accepting must create an unlocked editable `Color — <material-id> — <role>`
+layer; rejecting must remove only the owned preview. Source artwork and masks
+must remain unchanged. A second preview cannot be created until the first is
+accepted or rejected. Hosts exposing Krita node properties may also show the
+originating `cel_shaded_generator.style_bible_id` metadata.
+
+Project status rule: keep issue #17 in **In review** until all checks pass, then
+move it to **Done**. If any expected behavior fails, document the step and move
+it back to **In progress**. Issues #10, #11, and #12 remain in **In review**
+until their existing live tutor checklists are performed.

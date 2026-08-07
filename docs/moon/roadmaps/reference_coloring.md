@@ -93,4 +93,6 @@ The headless semantic workflow gate is complete: variant unioning, conflict
 blocking, preview ownership, and accepted-layer naming are covered without a
 Krita process. The remaining gate is manual host acceptance only; a pass moves
 the issue to Done and any failure returns it to In Progress.
+The offline review procedure is mirrored in `integrations/krita/README.md` so a
+reviewer can follow it without relying on issue comments.
 Learned correspondence is still a later milestone.
