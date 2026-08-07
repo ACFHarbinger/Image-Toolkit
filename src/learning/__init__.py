@@ -15,6 +15,7 @@ from .curriculum import (
 )
 from .design_review import review_cranial_jaw_pair
 from .eye_review import EyePairLandmarks, review_eye_pair
+from .feature_review import review_feature_set, review_feature_study
 from .head_review import FrontHeadLandmarks, FrontHeadReviewThresholds, review_front_head
 from .model import (
     LEARNING_SCHEMA_VERSION,
@@ -102,6 +103,8 @@ __all__ = [
     "review_front_head",
     "review_cranial_jaw_pair",
     "review_eye_pair",
+    "review_feature_set",
+    "review_feature_study",
     "review_profile_head",
     "review_three_quarter_head",
 ]

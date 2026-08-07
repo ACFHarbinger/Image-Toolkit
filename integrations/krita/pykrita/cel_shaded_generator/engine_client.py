@@ -50,6 +50,16 @@ class EngineClient:
             {"view": view, "stage": stage, "landmarks": landmarks},
         )
 
+    def review_feature_study(self, request_id, feature, view, landmarks):
+        return self._execute(
+            request_id,
+            "review_feature_study",
+            {"feature": feature, "view": view, "landmarks": landmarks},
+        )
+
+    def review_feature_set(self, request_id, front, turned):
+        return self._execute(request_id, "review_feature_set", {"front": front, "turned": turned})
+
     def create_exercise_project(
         self, request_id, directory, title, attempt_id, exercise_id="anime-head-front-construction"
     ):

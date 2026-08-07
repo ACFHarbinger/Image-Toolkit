@@ -200,8 +200,13 @@ remain deferred in Review.
   receive equal treatment as attached cups with bounds, axes, rims, bowls,
   projection, and occlusion. Two offline diagrams and a 2400 × 1800 six-layer
   Krita matrix give each feature family equal front/turned practice space.
-  Dedicated per-feature landmarks, rubrics, and correction previews remain the
-  next implementation slice rather than reusing eye/head evidence.
+  Every layer now has a specialized landmark workflow and feature-specific
+  rubric. Front ears are reviewed bilaterally; turned-ear review fully evaluates
+  the near ear while far-ear input is only occlusion evidence. After all six
+  studies, an optional combined review compares nose, mouth, ear, and expression
+  retention across views. Raw and normalized results support compatible retry
+  comparisons. Feature-specific correction previews remain future work rather
+  than reusing eye/head geometry.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

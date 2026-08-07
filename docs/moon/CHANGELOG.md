@@ -141,6 +141,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   determined, sad, and surprised expression coordination. Two original offline
   SVGs accompany a 2400 × 1800 Krita matrix with separate front/turned layers
   for nose+muzzle, mouth, and ear beneath a locked vector layout.
+  Added specialized manual review workflows for all six feature layers. Nose,
+  mouth, bilateral front-ear, and near-ear/optional-far-evidence turned-ear
+  studies use distinct prompt contracts and rubric dimensions. Front ears are
+  measured independently so accidental asymmetry is visible; the turned ear
+  receives full near-ear attachment/bowl/side-plane review without requiring an
+  unobscured far ear. An optional combined review activates only after all six
+  studies and compares nose, mouth, ear, and mouth-expression retention across
+  the turn. Raw measurements and normalized dimensions persist and participate
+  in version-compatible retry comparison.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

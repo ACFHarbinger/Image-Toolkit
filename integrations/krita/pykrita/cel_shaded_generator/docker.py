@@ -28,6 +28,7 @@ from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_project
 from .eye_landmarks import EyeLandmarkCollector, selected_eye_view
+from .feature_landmarks import FeatureLandmarkCollector, selected_feature_view
 from .landmark_dialog import LandmarkDialog
 from .orientation_landmarks import (
     OrientationLandmarkCollector,
@@ -81,6 +82,8 @@ class LearningDocker(DockWidget):
         review_button.clicked.connect(self._request_review)
         pair_review_button = QPushButton("Review Front / Turned Design Pair", container)
         pair_review_button.clicked.connect(self._request_pair_review)
+        feature_set_button = QPushButton("Review Complete Front / Turned Feature Set", container)
+        feature_set_button.clicked.connect(self._request_feature_set_review)
         accept_button = QPushButton("Accept Preview", container)
         accept_button.clicked.connect(self._accept_preview)
         reject_button = QPushButton("Reject Preview", container)
@@ -124,6 +127,8 @@ class LearningDocker(DockWidget):
         self._orientation_crop_index = None
         self._design_variant_id = None
         self._eye_stage = None
+        self._feature_id = None
+        self._feature_landmarks = {}
         self._pair_landmarks = {}
         self._preview_layer = None
         self._project_directory = None
@@ -154,6 +159,7 @@ class LearningDocker(DockWidget):
         layout.addWidget(landmark_button)
         layout.addWidget(review_button)
         layout.addWidget(pair_review_button)
+        layout.addWidget(feature_set_button)
         layout.addWidget(accept_button)
         layout.addWidget(reject_button)
         layout.addWidget(helpful_button)
@@ -188,6 +194,8 @@ class LearningDocker(DockWidget):
         self._orientation_crop_index = None
         self._design_variant_id = None
         self._eye_stage = None
+        self._feature_id = None
+        self._feature_landmarks = {}
         self._pair_landmarks = {}
         self._lesson_title.setText(lesson["title"])
         self._lesson_body.setText(render_lesson_text(lesson))
@@ -284,6 +292,7 @@ class LearningDocker(DockWidget):
         self._orientation_view = None
         self._design_variant_id = None
         self._eye_stage = None
+        self._feature_id = None
         if lesson["exercise_id"] == "anime-head-orientation":
             try:
                 view, crop_index = selected_orientation_view(document.activeNode())
@@ -348,6 +357,27 @@ class LearningDocker(DockWidget):
             self._eye_stage = stage
             collector = EyeLandmarkCollector()
             title = "Place " + stage.replace("_", " ").title() + " Eye Landmarks"
+        elif lesson["exercise_id"] == "anime-head-features":
+            try:
+                feature, view, crop_index = selected_feature_view(document.activeNode())
+            except (AttributeError, ValueError) as error:
+                self._action_status.setText(f"Select one feature exercise layer: {error}")
+                return
+            confirmation = QMessageBox.question(
+                self,
+                "Confirm Selected Feature Study",
+                "Review only the active " + feature + " construction layer?",
+                QMessageBox.Yes | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if confirmation != QMessageBox.Yes:
+                self._action_status.setText("Selected feature-study review cancelled.")
+                return
+            self._feature_id = feature
+            self._orientation_view = view
+            self._orientation_crop_index = crop_index
+            collector = FeatureLandmarkCollector(feature, view)
+            title = "Place " + feature.title() + " Review Landmarks"
         dialog = LandmarkDialog(
             document,
             self,
@@ -364,6 +394,8 @@ class LearningDocker(DockWidget):
             self._pair_landmarks[key] = self._landmarks
             if self._design_variant_id != "selected_variant":
                 self._pair_landmarks["variant_id"] = self._design_variant_id
+        elif lesson["exercise_id"] == "anime-head-features":
+            self._feature_landmarks[(self._orientation_view, self._feature_id)] = self._landmarks
         self._action_status.setText(
             "Review landmarks recorded from the current projection. The artwork was not modified."
         )
@@ -379,6 +411,10 @@ class LearningDocker(DockWidget):
             if lesson["exercise_id"] == "anime-head-eyes":
                 review = client.review_eye_pair(
                     request_id, self._orientation_view, self._eye_stage, self._landmarks
+                )
+            elif lesson["exercise_id"] == "anime-head-features":
+                review = client.review_feature_study(
+                    request_id, self._feature_id, self._orientation_view, self._landmarks
                 )
             elif lesson["exercise_id"] in {
                 "anime-head-orientation",
@@ -489,6 +525,58 @@ class LearningDocker(DockWidget):
         self._pending_decision = None
         self._action_status.setText(
             "Front / turned consistency review\n• " + "\n• ".join(explanations)
+        )
+        self._refresh_progress()
+
+    def _request_feature_set_review(self) -> None:
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        if lesson["exercise_id"] != "anime-head-features":
+            self._action_status.setText("Combined feature review is available in lesson five.")
+            return
+        required = {
+            (view, feature)
+            for view in ("front", "right_three_quarter")
+            for feature in ("nose", "mouth", "ear")
+        }
+        if not required <= self._feature_landmarks.keys():
+            self._action_status.setText(
+                "Place landmarks on all six feature layers before combined review."
+            )
+            return
+        if self._project_directory is None or self._attempt_id is None:
+            self._action_status.setText("Create a portable exercise project first.")
+            return
+        front = {
+            feature: self._feature_landmarks[("front", feature)]
+            for feature in ("nose", "mouth", "ear")
+        }
+        turned = {
+            feature: self._feature_landmarks[("right_three_quarter", feature)]
+            for feature in ("nose", "mouth", "ear")
+        }
+        try:
+            client = EngineClient()
+            review = client.review_feature_set(str(uuid.uuid4()), front, turned)
+            client.record_attempt_review(
+                "record-" + review["id"],
+                self._project_directory,
+                self._attempt_id,
+                review,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Combined feature review unavailable: {error}")
+            return
+        explanations = review.get("explanations", [])
+        if not explanations:
+            self._action_status.setText(
+                "Combined feature review returned no explanation; report this bug."
+            )
+            return
+        self._review_id = review["id"]
+        self._preview_layer = None
+        self._pending_decision = None
+        self._action_status.setText(
+            "Front / turned feature consistency review\n• " + "\n• ".join(explanations)
         )
         self._refresh_progress()
         self._refresh_progress()
