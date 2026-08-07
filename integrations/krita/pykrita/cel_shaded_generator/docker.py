@@ -30,7 +30,12 @@ from .exercise import create_exercise_project
 from .landmark_dialog import LandmarkDialog
 from .orientation_landmarks import OrientationLandmarkCollector, selected_orientation_view
 from .progress_view import format_progress
-from .redlines import accept_preview, reject_preview, render_review_redlines
+from .redlines import (
+    accept_preview,
+    map_review_redlines_to_sheet,
+    reject_preview,
+    render_review_redlines,
+)
 from .settings import load_config, save_shortcuts, save_show_raw_measurements
 from .shortcut_dialog import ShortcutDialog
 
@@ -109,6 +114,7 @@ class LearningDocker(DockWidget):
         disable_progress_button.clicked.connect(self._disable_progress)
         self._landmarks = None
         self._orientation_view = None
+        self._orientation_crop_index = None
         self._preview_layer = None
         self._project_directory = None
         self._attempt_id = None
@@ -168,6 +174,7 @@ class LearningDocker(DockWidget):
         lesson = self._lessons[index]
         self._landmarks = None
         self._orientation_view = None
+        self._orientation_crop_index = None
         self._lesson_title.setText(lesson["title"])
         self._lesson_body.setText(render_lesson_text(lesson))
         self._diagram_selector.blockSignals(True)
@@ -278,6 +285,7 @@ class LearningDocker(DockWidget):
                 self._action_status.setText("Selected-head review cancelled.")
                 return
             self._orientation_view = view
+            self._orientation_crop_index = crop_index
             if view != "front":
                 collector = OrientationLandmarkCollector(view)
             title = "Place " + view.replace("_", " ").title() + " Review Landmarks"
@@ -334,7 +342,19 @@ class LearningDocker(DockWidget):
         self._review_id = review["id"]
         document = Krita.instance().activeDocument()
         try:
-            layer = render_review_redlines(document, review) if document is not None else None
+            renderable_review = review
+            if (
+                lesson["exercise_id"] == "anime-head-orientation"
+                and self._orientation_crop_index is not None
+            ):
+                renderable_review = map_review_redlines_to_sheet(
+                    review, self._orientation_crop_index
+                )
+            layer = (
+                render_review_redlines(document, renderable_review)
+                if document is not None
+                else None
+            )
         except (RuntimeError, TypeError, ValueError) as error:
             self._action_status.setText(
                 "Review completed, but redlines could not be rendered: " + str(error)

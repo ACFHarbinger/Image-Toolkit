@@ -187,6 +187,10 @@ remain deferred in Review.
   still require calibration with real beginner drawings; front orientation uses
   the separately calibrated front workflow rather than pretending all views
   share evidence.
+- ✅ Orientation review geometry is returned in selected-head coordinates and
+  mapped into only the confirmed sheet cell before rasterization. Failed rubric
+  dimensions produce tutor-owned preview guides that reuse the explicit
+  accept/reject, locking, persistence, and artist-layer isolation contract.
 - ✅ Prerequisites control only the recommended next exercise. All lesson
   content remains browsable so the tutor never turns progression into a lock.
 - ✅ Completion is an explicit, reversible artist action after consulting the

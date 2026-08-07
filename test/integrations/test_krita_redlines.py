@@ -42,6 +42,19 @@ def test_rejects_unbounded_canvas_allocation():
         _module().rasterize_redlines(20_000, 20_000, [])
 
 
+def test_maps_selected_head_redlines_into_only_its_sheet_cell():
+    module = _module()
+    review = {
+        "id": "r",
+        "redlines": [{"geometry": [[0.0, 0.2], [1.0, 0.8]], "explanation": "guide"}],
+    }
+    mapped = module.map_review_redlines_to_sheet(review, 3)
+    assert mapped["redlines"][0]["geometry"] == [[0.6, 0.2], [0.8, 0.8]]
+    assert review["redlines"][0]["geometry"] == [[0.0, 0.2], [1.0, 0.8]]
+    with pytest.raises(ValueError, match="cell"):
+        module.map_review_redlines_to_sheet(review, 5)
+
+
 class LayerStub:
     def __init__(self, name, remove_result=True):
         self._name = name

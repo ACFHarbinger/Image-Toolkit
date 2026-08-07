@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from enum import StrEnum
 
-from .model import Evidence, EvidenceSource, Review
+from .model import Evidence, EvidenceSource, Redline, Review, Suggestion
 
 Point = tuple[float, float]
 EXERCISE_ID = "anime-head-orientation"
@@ -117,7 +117,15 @@ def review_three_quarter_head(
         "eye_line_deviation_degrees": eye_deviation,
         "jaw_span_radii": jaw_span,
     }
-    return _review(review_id, view, scores, raw)
+    geometries = {
+        "centerline_placement": [landmarks.centerline_top, landmarks.chin],
+        "far_side_compression": [landmarks.left_contour, landmarks.right_contour],
+        "chin_alignment": [landmarks.centerline_top, landmarks.chin],
+        "cross_contour_consistency": [landmarks.eye_line_left, landmarks.eye_line_right],
+        "jaw_attachment": [landmarks.jaw_left, landmarks.jaw_right],
+        "cranial_volume": [landmarks.left_contour, landmarks.right_contour],
+    }
+    return _review(review_id, view, scores, raw, geometries)
 
 
 def review_profile_head(
@@ -162,12 +170,21 @@ def review_profile_head(
         "jaw_hinge_gap_radii": jaw_gap,
         "brow_muzzle_depth_radii": face_depth,
     }
-    return _review(review_id, view, scores, raw)
+    geometries = {
+        "centerline_placement": [landmarks.brow_front, landmarks.muzzle_front],
+        "far_side_compression": [landmarks.brow_front, landmarks.muzzle_front],
+        "chin_alignment": [landmarks.brow_front, landmarks.chin],
+        "cross_contour_consistency": [landmarks.eye_line_back, landmarks.eye_line_front],
+        "jaw_attachment": [landmarks.back_cranium_edge, landmarks.jaw_hinge],
+        "cranial_volume": [landmarks.back_cranium_edge, landmarks.front_cranium_edge],
+    }
+    return _review(review_id, view, scores, raw, geometries)
 
 
-def _review(review_id, view, scores, raw):
+def _review(review_id, view, scores, raw, geometries):
     explanations = []
     evidence = []
+    redlines = []
     principles = {
         "centerline_placement": (
             "Place the facial axis to describe the selected turn before adding features."
@@ -201,11 +218,29 @@ def _review(review_id, view, scores, raw):
                     f"{dimension.replace('_', ' ')} scored {score:.2f} from confirmed landmarks.",
                 )
             )
+            redlines.append(
+                Redline(
+                    "Tutor — " + dimension.replace("_", " "),
+                    geometries[dimension],
+                    explanation,
+                )
+            )
     if not explanations:
         explanations.append(
             "The confirmed landmarks meet the provisional orientation tolerances. Repeat the "
             "selected view without tracing to test consistency."
         )
+    suggestions = (
+        [
+            Suggestion(
+                "orientation-guides-" + view.value,
+                "Preview selected-head construction guides",
+                "Tutor — Orientation Preview",
+            )
+        ]
+        if redlines
+        else []
+    )
     return Review(
         id=review_id,
         exercise_id=EXERCISE_ID,
@@ -215,6 +250,8 @@ def _review(review_id, view, scores, raw):
         rubric_version=RUBRIC_VERSION,
         evidence=evidence,
         explanations=explanations,
+        redlines=redlines,
+        suggestions=suggestions,
         measurements=scores | raw,
         targeted_exercise_ids=["anime-head-perspective-practice"] if evidence else [],
     )

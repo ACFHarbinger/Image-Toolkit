@@ -70,6 +70,14 @@ def test_right_three_quarter_review_has_six_explainable_scores():
             "cranial_volume",
         }
     )
+    assert review.redlines
+    assert review.suggestions[0].preview_layer_name == "Tutor — Orientation Preview"
+    assert all(
+        0 <= coordinate <= 1
+        for redline in review.redlines
+        for point in redline.geometry
+        for coordinate in point
+    )
 
 
 def test_profile_review_uses_profile_specific_cranial_and_jaw_evidence():

@@ -83,6 +83,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bounded engine, and repeated compatible attempts participate in direction
   comparisons. Thresholds are deliberately documented as provisional until
   tested on real beginner work; the front workflow remains separate.
+  Completed the orientation preview loop: every failed dimension emits a
+  principle-linked guide in selected-head coordinates. The host maps those
+  coordinates into only the confirmed fifth of the landscape sheet without
+  mutating the engine response, rasterizes them in the locked tutor group, and
+  reuses the existing explicit preview Accept/Reject lifecycle and portable
+  decision persistence. Front-cell reviews retain their calibrated front rubric
+  identity while receiving the same cell-local mapping.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in
