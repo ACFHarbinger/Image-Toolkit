@@ -43,8 +43,25 @@ and user corrections.
 ## Milestones
 
 1. Editable segmentation and gap-repair tools in Krita.
-2. Versioned character style-bible format and palette application.
+2. 🔄 Versioned character style-bible format and palette application.
+   Issue #15 implements the standalone v1 foundation: semantic materials,
+   unambiguous aliases, explicit local/light/shadow/optional-accent sRGB roles,
+   safe relative reference views, strict future-version refusal, atomic writes,
+   and bounded recovery. Project/Krita authoring and palette application remain.
 3. Manual correspondence workflow and deterministic propagation baseline.
 4. Assisted correspondence with confidence and correction learning.
 5. Optional generative proposals through the local model registry.
 6. Batch chapter workflow with review queue and recoverable checkpoints.
+
+## C1 — portable style-bible foundation
+
+The format is a standalone contract first and a project asset second. It stores
+artist-authored semantic color facts, not image pixels, embeddings, inferred
+identity, or model output. This lets deterministic segmentation, optional ML,
+Blender export, and a future C++ engine consume the same reviewed data. JSON is
+preferred for this small Git-friendly manifest; large binary assets remain
+adjacent referenced files.
+
+Next slices should bind one or more bibles into portable projects, provide a
+Krita material/palette editor, then apply named palettes to explicit region
+masks before attempting learned correspondence.

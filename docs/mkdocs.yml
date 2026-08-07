@@ -55,6 +55,7 @@ nav:
   - Home: index.md
   - Architecture: ARCHITECTURE.md
   - Portable Project Format: project_format.md
+  - Character Style Bible: style_bible_format.md
   - Local Model Packages: model_packages.md
   - Development: DEVELOPMENT.md
   - Testing: TESTING.md

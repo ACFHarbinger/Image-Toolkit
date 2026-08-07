@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Started reference-coloring C1 issue #15 with a standalone version-1 character
+  style-bible contract. It validates canonical semantic materials, unambiguous
+  aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative
+  reference views, and bounded recovery. JSON writes are atomic; interruption
+  preserves the last valid bible. Unknown fields/future versions are rejected,
+  and the manifest deliberately excludes pixels, embeddings, inferred identity,
+  and model output. Added format and roadmap documentation.
 - Moved A3 issue #12 to deferred In Review after completing its headless
   integration. The issue now carries a ten-step live Krita checklist covering
   grouped layers, imports, fresh sequential dispatch, form/cast masks, decisions,
