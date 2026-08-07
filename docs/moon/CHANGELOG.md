@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S336 — 2026-08-07 (Portable tutor review decisions)
+
+Advanced Cel-Shaded-Generator issue #11 (`2f5251b`) with portable project schema v2 review persistence. Attempts now retain stable review/method/rubric versions, numeric measurements, explanations, and final pending/accepted/rejected decisions while deliberately excluding redline geometry, preview metadata, and pixels. Deterministic v0/v1 migrations add empty review lists, identical repeated decisions are idempotent, reversals and duplicate review IDs are rejected, and recovery snapshots preserve the prior pending state. Verification: 190 tests, Ruff and mypy clean. Krita project-folder binding remains; #10 stays frozen in owner-deferred Review and this change is not deployed into it.
+
 ## S335 — 2026-08-07 (Explicit Krita preview decisions)
 
 Started Cel-Shaded-Generator issue #11 (`5adb14e`) while leaving #10's deployed slice unchanged in owner-deferred review. Suggested redlines now use a distinct tutor-owned preview identity; explicit idempotent Accept retains one as a locked reference, while Reject removes only a pending owned preview and refuses unrelated layers. No accept shortcut is assigned by default, avoiding Krita's Tab canvas-only conflict. Verification: 186 tests, Ruff and mypy clean. Persistence, user-configurable shortcuts, and verified undo semantics remain; this slice is not deployed into the review build yet.
