@@ -156,6 +156,33 @@ def test_completed_front_attempt_recommends_orientation_without_locking(tmp_path
     assert after["result"]["recommended_exercise_id"] == "anime-head-orientation"
 
 
+def test_protocol_reviews_one_selected_three_quarter_head():
+    response = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "orientation-review-1",
+            "operation": "review_orientation_head",
+            "payload": {
+                "view": "right_three_quarter",
+                "landmarks": {
+                    "cranium_center": [0.5, 0.38],
+                    "cranium_radius": 0.25,
+                    "centerline_top": [0.575, 0.15],
+                    "chin": [0.575, 0.82],
+                    "eye_line_left": [0.3, 0.4],
+                    "eye_line_right": [0.7, 0.4],
+                    "left_contour": [0.3, 0.4],
+                    "right_contour": [0.7, 0.4],
+                    "jaw_left": [0.36, 0.64],
+                    "jaw_right": [0.65, 0.63],
+                },
+            },
+        }
+    )
+    assert response["result"]["exercise_id"] == "anime-head-orientation"
+    assert response["result"]["rubric_id"] == "anime-head-orientation-structure"
+
+
 @pytest.mark.parametrize(
     "change",
     [

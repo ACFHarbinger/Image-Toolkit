@@ -25,6 +25,13 @@ class EngineClient:
     def review_front_head(self, request_id, landmarks):
         return self._execute(request_id, "review_front_head", {"landmarks": landmarks})
 
+    def review_orientation_head(self, request_id, view, landmarks):
+        return self._execute(
+            request_id,
+            "review_orientation_head",
+            {"view": view, "landmarks": landmarks},
+        )
+
     def create_exercise_project(
         self, request_id, directory, title, attempt_id, exercise_id="anime-head-front-construction"
     ):

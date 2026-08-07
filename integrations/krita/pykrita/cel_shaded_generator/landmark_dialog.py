@@ -40,11 +40,14 @@ class ProjectionLabel(QLabel):
 
 
 class LandmarkDialog(QDialog):
-    def __init__(self, document, parent=None):
+    def __init__(self, document, parent=None, collector=None, title=None, crop_index=None):
         super().__init__(parent)
-        self.setWindowTitle("Place Front-Head Review Landmarks")
-        self.collector = LandmarkCollector()
-        image = document.thumbnail(480, 600)
+        self.setWindowTitle(title or "Place Front-Head Review Landmarks")
+        self.collector = collector or LandmarkCollector()
+        image = document.thumbnail(780 if crop_index is not None else 480, 600)
+        if crop_index is not None:
+            cell_width = image.width() // 5
+            image = image.copy(crop_index * cell_width, 0, cell_width, image.height())
         pixmap = QPixmap.fromImage(image).scaled(
             480, 600, Qt.KeepAspectRatio, Qt.SmoothTransformation
         )

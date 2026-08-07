@@ -21,6 +21,13 @@ from project import (
 
 from .curriculum import build_curriculum_v1, next_primary_exercise
 from .head_review import FrontHeadLandmarks, review_front_head
+from .orientation_review import (
+    OrientationView,
+    ProfileLandmarks,
+    ThreeQuarterLandmarks,
+    review_profile_head,
+    review_three_quarter_head,
+)
 
 ENGINE_PROTOCOL_VERSION = 1
 MAX_REQUEST_BYTES = 1024 * 1024
@@ -132,6 +139,29 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         except KeyError as error:
             raise ValueError("attempt-completion request is incomplete") from error
         return _success(request_id, {"changed": changed})
+    if operation == "review_orientation_head":
+        try:
+            view = OrientationView(payload["view"])
+            raw_landmarks = payload["landmarks"]
+        except KeyError as error:
+            raise ValueError("orientation review request is incomplete") from error
+        if not isinstance(raw_landmarks, dict):
+            raise ValueError("orientation review landmarks must be an object")
+        try:
+            if view in {OrientationView.LEFT_PROFILE, OrientationView.RIGHT_PROFILE}:
+                review = review_profile_head(ProfileLandmarks(**raw_landmarks), view, request_id)
+            elif view in {
+                OrientationView.LEFT_THREE_QUARTER,
+                OrientationView.RIGHT_THREE_QUARTER,
+            }:
+                review = review_three_quarter_head(
+                    ThreeQuarterLandmarks(**raw_landmarks), view, request_id
+                )
+            else:
+                raise ValueError("front orientation uses the front review operation")
+        except TypeError as error:
+            raise ValueError("orientation review has invalid landmark fields") from error
+        return _success(request_id, review.to_dict())
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")
     if not isinstance(payload.get("landmarks"), dict):

@@ -41,6 +41,13 @@ from .model_package import (
     ValidatedModelPackage,
     validate_model_package,
 )
+from .orientation_review import (
+    OrientationView,
+    ProfileLandmarks,
+    ThreeQuarterLandmarks,
+    review_profile_head,
+    review_three_quarter_head,
+)
 from .progress import FeedbackSummary, ProgressSummary, summarize_progress
 from .storage import load_catalog, save_catalog
 
@@ -68,6 +75,8 @@ __all__ = [
     "ModelPackageLimits",
     "ModelPackageManifest",
     "ModelTrust",
+    "OrientationView",
+    "ProfileLandmarks",
     "ProgressSummary",
     "Redline",
     "RemediationRecommendation",
@@ -77,6 +86,7 @@ __all__ = [
     "RubricDimension",
     "Suggestion",
     "TutorSettings",
+    "ThreeQuarterLandmarks",
     "ValidatedModelPackage",
     "build_curriculum_v1",
     "compare_attempts",
@@ -87,4 +97,6 @@ __all__ = [
     "summarize_progress",
     "validate_model_package",
     "review_front_head",
+    "review_profile_head",
+    "review_three_quarter_head",
 ]

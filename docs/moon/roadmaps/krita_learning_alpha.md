@@ -180,9 +180,13 @@ remain deferred in Review.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right
-  profile. The locked vector layout is separate from artist layers. Review of
-  one selected head at a time still needs orientation-specific landmarks and
-  rubric calibration; the front evaluator is not silently reused.
+  profile. The locked vector layout is separate from artist layers. The active
+  named layer selects one head, the docker asks for confirmation, and the dialog
+  crops to that work area. Profiles and three-quarter views have distinct manual
+  landmark prompts and deterministic review contracts. Provisional tolerances
+  still require calibration with real beginner drawings; front orientation uses
+  the separately calibrated front workflow rather than pretending all views
+  share evidence.
 - ✅ Prerequisites control only the recommended next exercise. All lesson
   content remains browsable so the tutor never turns progression into a lock.
 - ✅ Completion is an explicit, reversible artist action after consulting the
@@ -193,7 +197,10 @@ remain deferred in Review.
   Project Progress and does not change the manually selected lesson.
 - 🔄 Rubrics for all supported views: stable normalized dimensions now cover
   axes, jaw/chin structure, perspective compression, feature placement, and
-  value grouping. Only the front-view deterministic evaluator is calibrated.
+  value grouping. Profile and three-quarter evaluators now measure centerline
+  placement, far-side compression/depth, chin alignment, cross-contour
+  consistency, jaw attachment, and preserved cranial volume. Their provisional
+  thresholds remain explicitly uncalibrated pending owner/beginner evidence.
 - ✅ Deterministic prerequisite progression and explainable
   weakness-to-remedial-exercise routing, including stable tie-breaking and
   explicit treatment of missing evidence as unknown rather than failure.

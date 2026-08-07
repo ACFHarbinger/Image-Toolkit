@@ -28,6 +28,7 @@ from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_project
 from .landmark_dialog import LandmarkDialog
+from .orientation_landmarks import OrientationLandmarkCollector, selected_orientation_view
 from .progress_view import format_progress
 from .redlines import accept_preview, reject_preview, render_review_redlines
 from .settings import load_config, save_shortcuts, save_show_raw_measurements
@@ -107,6 +108,7 @@ class LearningDocker(DockWidget):
         disable_progress_button = QPushButton("Disable & Clear Project Progress", container)
         disable_progress_button.clicked.connect(self._disable_progress)
         self._landmarks = None
+        self._orientation_view = None
         self._preview_layer = None
         self._project_directory = None
         self._attempt_id = None
@@ -164,6 +166,8 @@ class LearningDocker(DockWidget):
         if not 0 <= index < len(self._lessons):
             return
         lesson = self._lessons[index]
+        self._landmarks = None
+        self._orientation_view = None
         self._lesson_title.setText(lesson["title"])
         self._lesson_body.setText(render_lesson_text(lesson))
         self._diagram_selector.blockSignals(True)
@@ -249,17 +253,41 @@ class LearningDocker(DockWidget):
 
     def _place_landmarks(self) -> None:
         lesson = self._lessons[self._lesson_selector.currentIndex()]
-        if lesson["exercise_id"] != "anime-head-front-construction":
-            self._action_status.setText(
-                "Orientation review will evaluate one selected head at a time, but its "
-                "landmark rubric is not implemented yet. The front rubric was not reused."
-            )
-            return
         document = Krita.instance().activeDocument()
         if document is None:
             self._action_status.setText("Open or create an exercise document first.")
             return
-        dialog = LandmarkDialog(document, self)
+        collector = None
+        crop_index = None
+        title = None
+        self._orientation_view = None
+        if lesson["exercise_id"] == "anime-head-orientation":
+            try:
+                view, crop_index = selected_orientation_view(document.activeNode())
+            except (AttributeError, ValueError) as error:
+                self._action_status.setText(f"Select one orientation work layer: {error}")
+                return
+            confirmation = QMessageBox.question(
+                self,
+                "Confirm Selected Head",
+                "Review only the active “" + view.replace("_", " ") + "” construction layer?",
+                QMessageBox.Yes | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if confirmation != QMessageBox.Yes:
+                self._action_status.setText("Selected-head review cancelled.")
+                return
+            self._orientation_view = view
+            if view != "front":
+                collector = OrientationLandmarkCollector(view)
+            title = "Place " + view.replace("_", " ").title() + " Review Landmarks"
+        dialog = LandmarkDialog(
+            document,
+            self,
+            collector=collector,
+            title=title,
+            crop_index=crop_index,
+        )
         if dialog.exec_() != dialog.Accepted:
             self._action_status.setText("Landmark placement cancelled; no review was requested.")
             return
@@ -271,16 +299,21 @@ class LearningDocker(DockWidget):
 
     def _request_review(self) -> None:
         lesson = self._lessons[self._lesson_selector.currentIndex()]
-        if lesson["exercise_id"] != "anime-head-front-construction":
-            self._action_status.setText(
-                "Orientation review is not available until its selected-head rubric is calibrated."
-            )
-            return
         if self._landmarks is None:
             self._action_status.setText("Place all nine review landmarks first.")
             return
         try:
-            review = EngineClient().review_front_head(str(uuid.uuid4()), self._landmarks)
+            client = EngineClient()
+            request_id = str(uuid.uuid4())
+            if lesson["exercise_id"] == "anime-head-orientation" and self._orientation_view not in (
+                None,
+                "front",
+            ):
+                review = client.review_orientation_head(
+                    request_id, self._orientation_view, self._landmarks
+                )
+            else:
+                review = client.review_front_head(request_id, self._landmarks)
         except (RuntimeError, ValueError) as error:
             self._action_status.setText(f"Review unavailable: {error}")
             return

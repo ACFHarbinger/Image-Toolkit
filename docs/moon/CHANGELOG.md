@@ -75,6 +75,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   navigation. Orientation review remains deliberately unimplemented until its
   one-head-at-a-time landmark/rubric contract exists; the front rubric is not
   misapplied to turned heads.
+  Added the dedicated selected-head orientation review contract. The active
+  named construction layer determines the candidate view and sheet cell; the
+  artist must confirm it before a cropped landmark dialog opens. Profiles and
+  three-quarter heads use different prompts and geometry. Both return the six
+  approved normalized dimensions plus auditable raw measurements through the
+  bounded engine, and repeated compatible attempts participate in direction
+  comparisons. Thresholds are deliberately documented as provisional until
+  tested on real beginner work; the front workflow remains separate.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

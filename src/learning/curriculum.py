@@ -11,6 +11,21 @@ CURRICULUM_VERSION = "1.0.0"
 METHOD_ID = "anime-head-construction-v1"
 RUBRIC_ID = "anime-head-construction"
 RUBRIC_VERSION = "1.0.0"
+NORMALIZED_SCORE_IDS = {
+    "head_axis_consistency",
+    "eye_line_consistency",
+    "chin_centering",
+    "jaw_symmetry",
+    "perspective_compression",
+    "feature_placement",
+    "value_grouping",
+    "centerline_placement",
+    "far_side_compression",
+    "chin_alignment",
+    "cross_contour_consistency",
+    "jaw_attachment",
+    "cranial_volume",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,11 +192,7 @@ def compare_attempts(
     if identity_before != identity_after:
         raise ValueError("attempts use incompatible exercise, method, or rubric versions")
     shared = sorted(set(before.measurements) & set(after.measurements))
-    score_ids = [
-        item
-        for item in shared
-        if item.endswith("_consistency") or item in {"chin_centering", "jaw_symmetry"}
-    ]
+    score_ids = [item for item in shared if item in NORMALIZED_SCORE_IDS]
     if not score_ids:
         raise ValueError("attempts have no shared normalized rubric scores")
     deltas = {
