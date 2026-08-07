@@ -38,15 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Ten slices — canvas + layer-stack foundation, brush paint tool
-  (issue #26), undo/redo (issue #27), non-destructive layer masks
+  host. Eleven slices — canvas + layer-stack foundation, brush paint
+  tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
   (issue #31), canvas document save/load (issue #32), canvas document
-  recovery-revision rotation (issue #33), and binding a portable project
-  for `SignalWeights` correction learning (issue #34) — are all In
-  review pending a manual desktop-app check (see the `### Added` entries
-  below).
+  recovery-revision rotation (issue #33), binding a portable project for
+  `SignalWeights` correction learning (issue #34), and attaching canvas
+  documents into a bound project (issue #35) — are all In review pending
+  a manual desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -365,6 +365,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `gui` tests (524 core + 184 gui total); Ruff and mypy clean. Needs a
   manual desktop launch to confirm visually — see issue #34's testing
   comment.
+- **Standalone editor eleventh slice (issue #35, In review): attach
+  canvas documents into a bound project.** Follow-up to the tenth slice:
+  the canvas pixel document itself was explicitly left out of the
+  project's asset model there. `src/project/model.py` bumps
+  `CURRENT_SCHEMA_VERSION` to 14, adds `Project.editor_document_assets:
+  list[str]` with the same uniqueness/safe-relative-path validation
+  `style_bible_assets`/`correspondence_set_assets` already get, and a
+  migration default (`[]`) for older manifests. `src/project/service.py`
+  adds `attach_editor_document`/`detach_editor_document`: unlike
+  `attach_style_bible`/`attach_correspondence_set`, the asset is a
+  directory (`editor.document_io.save_document`'s `manifest.json` +
+  per-layer `.npy` files), not a single `colorization`-loadable file —
+  this package stays decoupled from `editor`'s exact on-disk format, the
+  same way an exercise attempt's opaque `document_asset` `.kra` path is
+  never opened by this package either, so only directory existence and
+  path safety are validated here. `ReferenceColoringTab`'s Save Document
+  now attaches the saved directory as a project asset whenever it's
+  saved inside a bound project's own directory; saving elsewhere still
+  works exactly as before, just untracked by the project manifest.
+  Verification: 4 new core `project` tests, 3 new headless-Qt `gui`
+  tests (526 core + 187 gui total); Ruff and mypy clean. Needs a manual
+  desktop launch to confirm visually — see issue #35's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

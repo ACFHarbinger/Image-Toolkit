@@ -302,6 +302,26 @@ project (`upsert_project_correspondence_set`) and reports the artist's
 choice to `record_correspondence_choice`, so `SignalWeights` learn from
 it. Without a bound project, everything behaves exactly as before
 (in-memory, fixed weights) -- purely additive, no behavior change for
-the unbound case. Not in scope: binding the canvas document itself (the
-`.npy`-per-layer format from #32/#33) into the project's asset model --
-that stays a separate lightweight format for now.
+the unbound case. Not in scope as of this slice: binding the canvas
+document itself (the `.npy`-per-layer format from #32/#33) into the
+project's asset model -- the eleventh slice below closes that gap.
+
+**Eleventh slice (issue #35, In review pending a manual desktop-app
+check): attach canvas documents into a bound project.** Follow-up to
+the tenth slice: the canvas pixel document itself was explicitly left
+out of the project's asset model there. `src/project/model.py` bumps
+`CURRENT_SCHEMA_VERSION` to 14, adds `Project.editor_document_assets:
+list[str]` with the same uniqueness/safe-relative-path validation
+`style_bible_assets`/`correspondence_set_assets` already get, and a
+migration default (`[]`) for older manifests. `src/project/service.py`
+adds `attach_editor_document`/`detach_editor_document`: unlike
+`attach_style_bible`/`attach_correspondence_set`, the asset is a
+directory (`editor.document_io.save_document`'s `manifest.json` + per-
+layer `.npy` files), not a single `colorization`-loadable file -- this
+package stays decoupled from `editor`'s exact on-disk format, the same
+way an exercise attempt's opaque `document_asset` `.kra` path is never
+opened by this package either, so only directory existence and path
+safety are validated here. `ReferenceColoringTab`'s Save Document now
+attaches the saved directory as a project asset whenever it's saved
+inside a bound project's own directory; saving elsewhere still works
+exactly as before, just untracked by the project manifest.

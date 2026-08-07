@@ -372,6 +372,51 @@ def project_correspondence_set_payload(directory: str | Path, *, asset_path: str
     return load_correspondence_set(path).to_dict()
 
 
+def attach_editor_document(directory: str | Path, *, asset_path: str) -> bool:
+    """Attach one project-local standalone-editor canvas document without
+    copying files.
+
+    Unlike ``attach_style_bible``/``attach_correspondence_set``, the asset
+    is a directory (``editor.document_io.save_document`` writes a
+    ``manifest.json`` plus per-layer ``.npy`` files), not a single
+    ``colorization``-loadable file -- this package stays decoupled from
+    ``editor``'s exact on-disk format, the same way an exercise attempt's
+    ``document_asset`` is an opaque path this package never opens either.
+    Only directory existence and path safety are validated here.
+    """
+    root = Path(directory).resolve()
+    relative = PurePosixPath(asset_path)
+    if (
+        not asset_path.strip()
+        or relative.is_absolute()
+        or ".." in relative.parts
+        or "\\" in asset_path
+    ):
+        raise ValueError("project asset must use a safe relative POSIX path")
+    path = root.joinpath(*relative.parts)
+    if path.is_symlink() or not path.is_dir() or not path.resolve().is_relative_to(root):
+        raise ValueError("project asset must be an existing directory")
+    project = load_project(root)
+    normalized = relative.as_posix()
+    if normalized in project.editor_document_assets:
+        return False
+    project.editor_document_assets.append(normalized)
+    save_project(root, project)
+    return True
+
+
+def detach_editor_document(directory: str | Path, *, asset_path: str) -> bool:
+    """Remove only an editor-document binding; never delete its files."""
+    root = Path(directory).resolve()
+    relative = PurePosixPath(asset_path).as_posix()
+    project = load_project(root)
+    if relative not in project.editor_document_assets:
+        return False
+    project.editor_document_assets.remove(relative)
+    save_project(root, project)
+    return True
+
+
 def propagate_project_correspondence(
     directory: str | Path,
     *,

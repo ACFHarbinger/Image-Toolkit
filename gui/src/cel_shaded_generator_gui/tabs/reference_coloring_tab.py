@@ -16,17 +16,21 @@ palette roles, and assign+rank region-to-material correspondences
 same way the Krita Character Colors Docker's confidence-ranked material
 dropdown does) so later segmented regions can suggest a default material
 from already-assigned neighbors, and save/load a canvas document to a plain
-directory so work survives closing the app. A canvas document's pixels
-still live in the plain ``.npy``-directory format from slice 8 -- only
-correspondence assignment optionally binds into a portable ``project``
-(``src/project``, the same package the Krita tutor's lesson flow uses).
-When a project is bound and a style bible attached to it, Suggest
-Material/Assign Correspondence delegate to ``project.rank_correspondence_materials``/
+directory so work survives closing the app. Correspondence assignment
+optionally binds into a portable ``project`` (``src/project``, the same
+package the Krita tutor's lesson flow uses). When a project is bound and
+a style bible attached to it, Suggest Material/Assign Correspondence
+delegate to ``project.rank_correspondence_materials``/
 ``record_correspondence_choice`` instead of the fixed-weight local path,
 so suggestions improve from the project's learned ``SignalWeights`` the
 same way the Krita Character Colors Docker's milestone-4 workflow does.
 Without a bound project, correspondence assignment stays in-memory with
-fixed 0.5/0.5 weights, as before.
+fixed 0.5/0.5 weights, as before. Saving a canvas document (still the
+plain ``.npy``-directory format from slice 8) inside a bound project's
+own directory also attaches it as a project asset
+(``project.attach_editor_document``), so the project manifest tracks
+which canvas documents belong to it; saving elsewhere still works, just
+untracked.
 
 New feature, not code motion.
 """
@@ -58,6 +62,7 @@ from editor import (
     segment_layer_into_regions,
 )
 from project import (
+    attach_editor_document,
     create_project,
     rank_correspondence_materials,
     record_correspondence_choice,
@@ -245,7 +250,10 @@ class ReferenceColoringTab(QWidget):
 
     def _save_document(self) -> None:
         """Write the current canvas, plus any in-memory correspondence
-        assignments and region-layer bookkeeping, to a chosen directory."""
+        assignments and region-layer bookkeeping, to a chosen directory. If
+        that directory sits inside a bound project, also attach it as a
+        project asset (``project.attach_editor_document``) so the project
+        manifest tracks it -- saving elsewhere still works, just untracked."""
         layer_stack = self._canvas.layer_stack()
         if layer_stack is None:
             return
@@ -260,7 +268,26 @@ class ReferenceColoringTab(QWidget):
             (destination / "region_layers.json").write_text(
                 json.dumps(self._region_layer_ids), encoding="utf-8"
             )
-        self._status.setText(f"Saved document to {directory}.")
+        attached_note = ""
+        if self._project_directory is not None:
+            relative = self._relative_to_project(destination)
+            if relative is not None:
+                attach_editor_document(self._project_directory, asset_path=relative)
+                attached_note = " (attached to bound project)"
+        self._status.setText(f"Saved document to {directory}{attached_note}.")
+
+    def _relative_to_project(self, path: Path) -> str | None:
+        """``path`` relative to the bound project's root as a POSIX asset
+        path, or ``None`` if unbound, outside the project, or the project
+        root itself (an empty relative path isn't a usable asset name)."""
+        if self._project_directory is None:
+            return None
+        project_root = Path(self._project_directory).resolve()
+        try:
+            relative = path.resolve().relative_to(project_root)
+        except ValueError:
+            return None
+        return relative.as_posix() if relative.parts else None
 
     def _open_document(self) -> None:
         """Replace the current canvas with a document previously written by

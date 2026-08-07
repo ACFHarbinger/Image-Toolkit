@@ -22,6 +22,7 @@ from project import (
     SuggestionDecision,
     add_chapter_page,
     attach_correspondence_set,
+    attach_editor_document,
     attach_style_bible,
     configure_capstone_policy,
     configure_feedback_policy,
@@ -32,6 +33,7 @@ from project import (
     create_project,
     decide_attempt_review,
     detach_correspondence_set,
+    detach_editor_document,
     detach_style_bible,
     import_compatible_capstone_review,
     import_reference_asset,
@@ -137,6 +139,30 @@ def test_create_project_can_bind_a_style_bible_and_correspondence_set(tmp_path):
     loaded = load_project(tmp_path)
     assert bible_asset in loaded.style_bible_assets
     assert correspondence_asset in loaded.correspondence_set_assets
+
+
+def test_attach_and_detach_editor_document_without_deleting_files(tmp_path):
+    create_project(tmp_path, title="Standalone editor doc")
+    document_dir = tmp_path / "canvas" / "main"
+    document_dir.mkdir(parents=True)
+    (document_dir / "manifest.json").write_text("{}", encoding="utf-8")
+
+    assert attach_editor_document(tmp_path, asset_path="canvas/main")
+    assert not attach_editor_document(tmp_path, asset_path="canvas/main")
+    assert load_project(tmp_path).editor_document_assets == ["canvas/main"]
+
+    assert detach_editor_document(tmp_path, asset_path="canvas/main")
+    assert not detach_editor_document(tmp_path, asset_path="canvas/main")
+    assert load_project(tmp_path).editor_document_assets == []
+    assert document_dir.exists()  # detaching never deletes files
+
+
+def test_attach_editor_document_rejects_missing_directory_or_escape(tmp_path):
+    create_project(tmp_path, title="Standalone editor doc")
+    with pytest.raises(ValueError, match="existing directory"):
+        attach_editor_document(tmp_path, asset_path="canvas/missing")
+    with pytest.raises(ValueError, match="safe relative"):
+        attach_editor_document(tmp_path, asset_path="../escape")
 
 
 def test_records_and_decides_privacy_safe_review(tmp_path):

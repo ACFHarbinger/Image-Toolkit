@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 13
+CURRENT_SCHEMA_VERSION = 14
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -60,6 +60,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("identity_card_history", [])
     migrated.setdefault("style_bible_assets", [])
     migrated.setdefault("correspondence_set_assets", [])
+    migrated.setdefault("editor_document_assets", [])
     migrated.setdefault("study_consent", {})
     migrated.setdefault("study_sessions", [])
     migrated.setdefault("chapter_pages", [])
@@ -511,6 +512,7 @@ class Project:
     identity_card_history: list[IdentityCard] = field(default_factory=list)
     style_bible_assets: list[str] = field(default_factory=list)
     correspondence_set_assets: list[str] = field(default_factory=list)
+    editor_document_assets: list[str] = field(default_factory=list)
     study_consent: StudyConsent = field(default_factory=StudyConsent)
     study_sessions: list[StudySession] = field(default_factory=list)
     chapter_pages: list[ChapterPage] = field(default_factory=list)
@@ -563,6 +565,12 @@ class Project:
             path = PurePosixPath(asset)
             if not asset.strip() or path.is_absolute() or ".." in path.parts or "\\" in asset:
                 raise ValueError("correspondence-set assets must use safe relative POSIX paths")
+        if len(self.editor_document_assets) != len(set(self.editor_document_assets)):
+            raise ValueError("editor-document asset paths must be unique")
+        for asset in self.editor_document_assets:
+            path = PurePosixPath(asset)
+            if not asset.strip() or path.is_absolute() or ".." in path.parts or "\\" in asset:
+                raise ValueError("editor-document assets must use safe relative POSIX paths")
         for exercise in self.progress.exercises:
             for attempt in exercise.attempts:
                 review_ids = [review.id for review in attempt.reviews]
@@ -688,6 +696,7 @@ class Project:
             identity_card_history=[item for item in identity_card_history if item is not None],
             style_bible_assets=list(payload.get("style_bible_assets", [])),
             correspondence_set_assets=list(payload.get("correspondence_set_assets", [])),
+            editor_document_assets=list(payload.get("editor_document_assets", [])),
             study_consent=StudyConsent(**payload.get("study_consent", {})),
             study_sessions=[
                 StudySession(

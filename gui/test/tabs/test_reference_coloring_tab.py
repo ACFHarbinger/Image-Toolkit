@@ -577,3 +577,51 @@ def test_suggest_and_assign_correspondence_use_project_learned_weights(
 
     updated_project = load_project(project_dir)
     assert updated_project.signal_weights.update_count == 2
+
+
+def test_save_document_inside_bound_project_attaches_as_asset(q_app, monkeypatch, tmp_path):
+    from project import load_project
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+
+    document_dir = project_dir / "canvas" / "main"
+    _stub_existing_directory(monkeypatch, document_dir)
+    tab._save_document()
+
+    assert "attached to bound project" in tab._status.text()
+    assert load_project(project_dir).editor_document_assets == ["canvas/main"]
+
+
+def test_save_document_outside_bound_project_is_not_attached(q_app, monkeypatch, tmp_path):
+    from project import load_project
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+
+    outside_dir = tmp_path / "outside"
+    _stub_existing_directory(monkeypatch, outside_dir)
+    tab._save_document()
+
+    assert "attached to bound project" not in tab._status.text()
+    assert load_project(project_dir).editor_document_assets == []
+
+
+def test_save_document_without_bound_project_never_attaches(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _stub_existing_directory(monkeypatch, tmp_path / "doc")
+
+    tab._save_document()
+
+    assert "attached to bound project" not in tab._status.text()
