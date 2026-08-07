@@ -282,8 +282,13 @@ remain deferred in Review.
   capstone-local review, and requires a fresh decision/rationale. “Run Next
   Capstone Review” confirms and selects the exact drawing layer inside six
   rubric-oriented groups, offers compatible evidence when available, and
-  otherwise prepares that layer for fresh collection. Automated fresh landmark
-  dispatch for every rubric and live confirmation remain.
+  otherwise starts fresh collection. Fresh dispatch runs front structure,
+  turned structure, identity retention, expression/asymmetry, and cel values in
+  structural-leverage order; multi-rubric layers use sequential rubric-specific
+  dialogs rather than pretending their landmark contracts are interchangeable.
+  Dedicated capstone form/cast/optional-third-value mask layers support the last
+  stage. A finalized decision automatically advances; cancellation preserves a
+  pending review when already saved. Live confirmation remains.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

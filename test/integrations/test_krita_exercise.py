@@ -341,6 +341,14 @@ def test_creates_comprehensive_capstone_sheet():
         "05 Tutor Review and Correction Pass",
         "06 Final Comparison and Self-Review",
     ]
+    value_group = document.root.children[4][0]
+    assert [node.name for node, _ in value_group.children[1:]] == [
+        "Capstone Front Form-Shadow Mask",
+        "Capstone Front Cast-Shadow Mask",
+        "Capstone Turned Form-Shadow Mask",
+        "Capstone Turned Cast-Shadow Mask",
+        "Capstone Optional Third-Value Accent Mask",
+    ]
     assert document.active.name == "01 Brief and Identity Specification"
 
 

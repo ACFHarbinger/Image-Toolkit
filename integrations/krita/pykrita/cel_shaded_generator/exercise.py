@@ -109,6 +109,13 @@ CAPSTONE_RUBRIC_GROUPS = (
     "05 Tutor Correction Evidence",
     "06 Final Comparison and Self-Review",
 )
+CAPSTONE_VALUE_MASKS = (
+    "Capstone Front Form-Shadow Mask",
+    "Capstone Front Cast-Shadow Mask",
+    "Capstone Turned Form-Shadow Mask",
+    "Capstone Turned Cast-Shadow Mask",
+    "Capstone Optional Third-Value Accent Mask",
+)
 
 
 def create_exercise_document(application):
@@ -426,7 +433,8 @@ def create_capstone_exercise_document(application):
     layout = document.createNode("Tutor Capstone Layout (locked)", "vectorlayer")
     groups = [document.createNode(name, "grouplayer") for name in CAPSTONE_RUBRIC_GROUPS]
     work_layers = [document.createNode(name, "paintlayer") for name in CAPSTONE_EXERCISE_VIEWS]
-    if any(node is None for node in (feedback, layout, *groups, *work_layers)):
+    value_masks = [document.createNode(name, "paintlayer") for name in CAPSTONE_VALUE_MASKS]
+    if any(node is None for node in (feedback, layout, *groups, *work_layers, *value_masks)):
         raise RuntimeError("Krita could not create the capstone layers")
     layout.addShapesFromSvg(
         _six_cell_layout_svg(
@@ -442,6 +450,8 @@ def create_capstone_exercise_document(application):
         root.addChildNode(group, above)
         group.addChildNode(work_layer, None)
         above = group
+    for mask in value_masks:
+        groups[3].addChildNode(mask, None)
     window.addView(document)
     document.setActiveNode(work_layers[0])
     document.setModified(False)

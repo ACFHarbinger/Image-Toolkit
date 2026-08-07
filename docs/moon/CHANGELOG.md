@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Completed fresh “Run Next Capstone Review” dispatch in structural-leverage
+  order: front structure; turned structure; identity retention; expression/
+  asymmetry; then cel values. Confirmation opens the rubric-specific landmark
+  dialog immediately. Multi-rubric layers run sequentially rather than mixing
+  incompatible landmark contracts. The capstone group now includes dedicated
+  front/turned form/cast and optional third-value layers. Each fresh review is
+  saved, explained, explicitly decided with a rationale, and then advances to
+  the next unresolved rubric; cancellation leaves recoverable pending state.
 - Added schema v8 compatible capstone-evidence import and a “Run Next Capstone
   Review” Docker action. The action confirms and selects the exact nested rubric
   layer, offers the latest compatible prior review, and otherwise leaves the

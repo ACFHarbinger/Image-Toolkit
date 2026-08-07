@@ -620,10 +620,7 @@ class LearningDocker(DockWidget):
             if item["rubric_id"] == stage["rubric_id"]
         ]
         if not candidates:
-            self._action_status.setText(
-                "Required layer selected. No compatible prior evidence exists; "
-                "place fresh landmarks."
-            )
+            self._collect_fresh_capstone_review(stage, document, snapshot)
             return
         use_import = QMessageBox.question(
             self,
@@ -634,7 +631,7 @@ class LearningDocker(DockWidget):
             QMessageBox.No,
         )
         if use_import != QMessageBox.Yes:
-            self._action_status.setText("Required layer selected for fresh capstone evidence.")
+            self._collect_fresh_capstone_review(stage, document, snapshot)
             return
         decision, accepted = QInputDialog.getItem(
             self,
@@ -670,6 +667,169 @@ class LearningDocker(DockWidget):
             return
         self._action_status.setText("Compatible evidence imported with new capstone rationale.")
         self._refresh_progress()
+        self._run_next_capstone_review()
+
+    def _collect_fresh_capstone_review(self, stage, document, snapshot) -> None:
+        try:
+            if stage["stage_id"] == "front_structure":
+                landmarks = self._capstone_landmarks(document, None, stage["layer_name"], 1)
+                review = EngineClient().review_front_head(str(uuid.uuid4()), landmarks)
+                crop_index = 1
+            elif stage["stage_id"] == "turned_structure":
+                collector = OrientationLandmarkCollector("right_three_quarter")
+                landmarks = self._capstone_landmarks(document, collector, stage["layer_name"], 2)
+                review = EngineClient().review_orientation_head(
+                    str(uuid.uuid4()), "right_three_quarter", landmarks
+                )
+                crop_index = 2
+            elif stage["stage_id"] == "identity_retention":
+                card = snapshot.get("identity_card")
+                if card is None:
+                    raise ValueError("create the portable identity card before identity review")
+                baseline = self._capstone_landmarks(
+                    document,
+                    VariationLandmarkCollector(),
+                    "02 Front Construction",
+                    1,
+                )
+                candidate = self._capstone_landmarks(
+                    document,
+                    VariationLandmarkCollector(),
+                    stage["layer_name"],
+                    2,
+                )
+                review = EngineClient().review_identity_comparison(
+                    str(uuid.uuid4()), baseline, candidate, "selected_turned", card
+                )
+                crop_index = 2
+            elif stage["stage_id"] == "expression_asymmetry":
+                intent = self._collect_asymmetry_intent()
+                if intent is None:
+                    raise ValueError("expression intent is required")
+                control = self._capstone_landmarks(
+                    document,
+                    AsymmetryLandmarkCollector(),
+                    "02 Front Construction",
+                    1,
+                )
+                candidate = self._capstone_landmarks(
+                    document,
+                    AsymmetryLandmarkCollector(),
+                    stage["layer_name"],
+                    3,
+                )
+                review = EngineClient().review_asymmetry_comparison(
+                    str(uuid.uuid4()), control, candidate, "expression", intent
+                )
+                crop_index = 3
+            else:
+                review = self._capstone_value_review(document)
+                crop_index = 3
+        except (AttributeError, RuntimeError, ValueError) as error:
+            self._action_status.setText("Fresh capstone review unavailable: " + str(error))
+            return
+        self._finalize_fresh_capstone_review(review, document, crop_index)
+
+    def _capstone_landmarks(self, document, collector, layer_name, crop_index):
+        layer = find_named_node(document.rootNode(), layer_name)
+        if layer is None:
+            raise ValueError("required capstone drawing layer is missing")
+        document.setActiveNode(layer)
+        dialog = LandmarkDialog(
+            document,
+            self,
+            collector=collector,
+            title="Capstone — " + layer_name,
+            crop_index=crop_index,
+        )
+        if dialog.exec_() != dialog.Accepted:
+            raise ValueError("landmark collection was cancelled")
+        return dialog.landmarks()
+
+    def _capstone_value_review(self, document):
+        names = (
+            "Capstone Front Form-Shadow Mask",
+            "Capstone Front Cast-Shadow Mask",
+            "Capstone Turned Form-Shadow Mask",
+            "Capstone Turned Cast-Shadow Mask",
+            "Capstone Optional Third-Value Accent Mask",
+        )
+        nodes = [find_named_node(document.rootNode(), name) for name in names]
+        if any(node is None for node in nodes):
+            raise ValueError("capstone value-mask layers are missing")
+        direction, accepted = QInputDialog.getItem(
+            self,
+            "Confirm Capstone Light",
+            "Declared light direction:",
+            ["top left", "top", "top right", "left", "right"],
+            0,
+            False,
+        )
+        if not accepted:
+            raise ValueError("light confirmation was cancelled")
+        hardness, accepted = QInputDialog.getItem(
+            self, "Confirm Boundary", "Boundary hardness:", ["hard", "moderate"], 0, False
+        )
+        if not accepted:
+            raise ValueError("boundary confirmation was cancelled")
+        masks = [sampled_alpha_mask(node, 3, document.width(), document.height()) for node in nodes]
+        third = masks[4] if any(masks[4]) else None
+        return EngineClient().review_value_masks(
+            str(uuid.uuid4()),
+            masks[0],
+            masks[1],
+            masks[2],
+            masks[3],
+            MASK_SIDE,
+            MASK_SIDE,
+            direction.replace(" ", "_"),
+            hardness,
+            third,
+        )
+
+    def _finalize_fresh_capstone_review(self, review, document, crop_index) -> None:
+        client = EngineClient()
+        client.record_attempt_review(
+            "record-" + review["id"], self._project_directory, self._attempt_id, review
+        )
+        preview = render_review_redlines(
+            document, map_review_redlines_to_matrix(review, crop_index)
+        )
+        decision, accepted = QInputDialog.getItem(
+            self,
+            "Capstone Review Decision",
+            "Decision after inspecting the explanation and preview:",
+            ["accepted", "rejected", "deferred"],
+            0,
+            False,
+        )
+        if not accepted:
+            self._action_status.setText("Review saved with a pending decision.")
+            self._refresh_progress()
+            return
+        rationale, accepted = QInputDialog.getMultiLineText(
+            self, "Capstone Decision Rationale", "Explain this decision:"
+        )
+        if not accepted or not rationale.strip():
+            self._action_status.setText("Review saved; a rationale is required to finalize it.")
+            self._refresh_progress()
+            return
+        client.decide_attempt_review(
+            "decide-" + review["id"],
+            self._project_directory,
+            self._attempt_id,
+            review["id"],
+            decision,
+            rationale,
+        )
+        if preview is not None:
+            if decision == "accepted":
+                accept_preview(preview)
+            else:
+                reject_preview(preview)
+        self._action_status.setText("Capstone review finalized; advancing to the next rubric.")
+        self._refresh_progress()
+        self._run_next_capstone_review()
 
     def _request_review(self) -> None:
         lesson = self._lessons[self._lesson_selector.currentIndex()]
