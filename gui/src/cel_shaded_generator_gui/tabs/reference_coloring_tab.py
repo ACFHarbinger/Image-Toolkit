@@ -9,27 +9,37 @@ undo/redo any of the above, attach a mask to a layer to paint which of its
 pixels show through, segment a line-art layer's enclosed regions into
 distinctly colored region layers (reusing the same deterministic
 ``colorization.segmentation`` algorithm the Line Art Segmentation Krita
-Docker uses), and bind a portable style bible (``colorization.style_bible``,
+Docker uses), bind a portable style bible (``colorization.style_bible``,
 reused the same way) to recolor a region layer with one of its materials'
-palette roles. No correspondence-assignment/adjacency-suggestion UI yet --
-that is a later slice built on top of this same
-``editor.LayerStack``/``LayerCanvas``/``LayerListPanel``/``editor.brush``/
-``editor.EditHistory``/``editor.segmentation_tools``/``editor.palette_tools``
-foundation, mirroring how the Krita Dockers built on Krita's own layer
-model.
+palette roles, and assign+rank region-to-material correspondences
+(``colorization.correspondence``/``colorization.confidence``, reused the
+same way the Krita Character Colors Docker's confidence-ranked material
+dropdown does) so later segmented regions can suggest a default material
+from already-assigned neighbors. Assignment here is in-memory for the
+editing session only -- there is no project persistence yet for the
+standalone editor, so unlike the Krita docker's flow there is no
+``SignalWeights`` correction-learning step; suggestions always start from
+the same fixed 0.5/0.5 weights.
 
 New feature, not code motion.
 """
 
 from __future__ import annotations
 
+import uuid
+
+from colorization.correspondence import CorrespondenceSet
 from colorization.style_bible import CharacterStyleBible, load_style_bible
 from editor import (
     PALETTE_ROLES,
     EditHistory,
     LayerStack,
+    adjacency_agreement_by_material,
     apply_palette_color_to_region,
+    assign_region_correspondence,
     close_line_gaps_in_layer,
+    rank_material_candidates,
+    region_adjacency_for_regions,
     segment_layer_into_regions,
 )
 from PySide6.QtGui import QColor
@@ -64,6 +74,8 @@ class ReferenceColoringTab(QWidget):
         super().__init__(parent)
         self._history: EditHistory | None = None
         self._style_bible: CharacterStyleBible | None = None
+        self._correspondence_set: CorrespondenceSet | None = None
+        self._region_layer_ids: list[str] = []
         self._status = QLabel("No canvas yet. Click New Canvas to begin.", self)
         self._status.setWordWrap(True)
         self._new_canvas_button = QPushButton("New Canvas", self)
@@ -123,6 +135,11 @@ class ReferenceColoringTab(QWidget):
         self._apply_palette_button = QPushButton("Apply Palette Color", self)
         self._apply_palette_button.clicked.connect(self._apply_palette_color)
 
+        self._suggest_material_button = QPushButton("Suggest Material", self)
+        self._suggest_material_button.clicked.connect(self._suggest_material)
+        self._assign_correspondence_button = QPushButton("Assign Correspondence", self)
+        self._assign_correspondence_button.clicked.connect(self._assign_correspondence)
+
         controls = QHBoxLayout()
         controls.addWidget(self._new_canvas_button)
         controls.addWidget(self._pan_tool)
@@ -151,6 +168,8 @@ class ReferenceColoringTab(QWidget):
         palette_controls.addWidget(QLabel("Role:", self))
         palette_controls.addWidget(self._role_combo)
         palette_controls.addWidget(self._apply_palette_button)
+        palette_controls.addWidget(self._suggest_material_button)
+        palette_controls.addWidget(self._assign_correspondence_button)
         palette_controls.addStretch(1)
 
         right = QVBoxLayout()
@@ -235,6 +254,7 @@ class ReferenceColoringTab(QWidget):
             layer_stack, layer_id, min_region_area=self._min_region_area_spin.value()
         )
         if new_ids:
+            self._region_layer_ids.extend(new_ids)
             self._layer_panel.refresh()
             self._canvas.refresh()
             self._update_status()
@@ -281,6 +301,64 @@ class ReferenceColoringTab(QWidget):
             self._history.record()
         if apply_palette_color_to_region(layer_stack, layer_id, material.palette, role):
             self._canvas.refresh()
+
+    def _suggest_material(self) -> None:
+        """Rank the bound bible's materials for the selected region layer and
+        select the top candidate in the Material combo, without assigning
+        anything -- the artist still confirms via Apply Palette Color and/or
+        Assign Correspondence."""
+        layer_stack = self._canvas.layer_stack()
+        layer_id = self._layer_panel.selected_layer_id()
+        if layer_stack is None or layer_id is None or self._style_bible is None:
+            return
+        pairs = region_adjacency_for_regions(layer_stack, self._region_layer_ids)
+        correspondence_set = self._correspondence_set or self._empty_correspondence_set()
+        agreements = adjacency_agreement_by_material(layer_id, pairs, correspondence_set)
+        ranked = rank_material_candidates(layer_id, self._style_bible, agreements)
+        if not ranked:
+            return
+        top = ranked[0]
+        index = self._material_combo.findData(top["material_id"])
+        if index >= 0:
+            self._material_combo.setCurrentIndex(index)
+        self._status.setText(
+            f"Suggested '{top['material_id']}' for '{layer_id}' "
+            f"(confidence {top['confidence']:.2f})."
+        )
+
+    def _assign_correspondence(self) -> None:
+        """Record the currently selected Material/Role as this region's
+        correspondence, so future ``_suggest_material`` calls can use it as
+        an adjacency signal for neighboring regions. Never recolors
+        anything itself -- use Apply Palette Color for that."""
+        layer_id = self._layer_panel.selected_layer_id()
+        material = self._selected_material()
+        role = self._role_combo.currentText()
+        if layer_id is None or material is None or not role or self._style_bible is None:
+            return
+        correspondence_set = self._correspondence_set or self._empty_correspondence_set()
+        try:
+            updated = assign_region_correspondence(
+                correspondence_set,
+                region_id=layer_id,
+                material_id=material.id,
+                role=role,
+                new_id="correspondence-" + uuid.uuid4().hex[:8],
+            )
+        except ValueError as error:
+            self._status.setText(str(error))
+            return
+        self._correspondence_set = updated
+        self._status.setText(f"Assigned region '{layer_id}' to {material.id}/{role}.")
+
+    def _empty_correspondence_set(self) -> CorrespondenceSet:
+        assert self._style_bible is not None
+        return CorrespondenceSet(
+            id="editor-correspondence", style_bible_id=self._style_bible.id
+        )
+
+    def correspondence_set(self) -> CorrespondenceSet | None:
+        return self._correspondence_set
 
     def _undo(self) -> None:
         if self._history is None or not self._history.undo():

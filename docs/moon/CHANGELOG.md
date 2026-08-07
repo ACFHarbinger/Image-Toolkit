@@ -38,10 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Six slices — canvas + layer-stack foundation, brush paint tool
+  host. Seven slices — canvas + layer-stack foundation, brush paint tool
   (issue #26), undo/redo (issue #27), non-destructive layer masks
-  (issue #28), line-art segmentation (issue #29), and style-bible palette
-  application (issue #30) — are all In review pending a manual desktop-app
+  (issue #28), line-art segmentation (issue #29), style-bible palette
+  application (issue #30), and region-to-material correspondence
+  assignment (issue #31) — are all In review pending a manual desktop-app
   check (see the `### Added` entries below).
 
 ### Fixed
@@ -250,6 +251,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `editor` tests, 6 new headless-Qt `gui` tests (504 core + 168 gui
   total); Ruff and mypy clean. Needs a manual desktop launch to confirm
   visually — see issue #30's testing comment.
+- **Standalone editor seventh slice (issue #31, In review):
+  region-to-material correspondence assignment.** New
+  `src/editor/correspondence_tools.py` reuses `colorization.correspondence`
+  and `colorization.confidence` directly, the same way #29/#30 reused
+  `colorization.segmentation`/`colorization.style_bible`, connecting the
+  fifth slice's region adjacency to the sixth slice's palette application
+  the way both slices' notes anticipated. `adjacency_agreement_by_material`
+  mirrors the Krita Character Colors Docker's
+  `_adjacency_agreement_by_material` (milestone 4, issue #24): the
+  fraction of a region's adjacent regions already assigned to each
+  material. `rank_material_candidates` combines that with
+  `colorization.confidence.name_similarity` via `score_candidate`,
+  matching `project.service.rank_correspondence_materials`'s signal
+  combination, but always starts from the same fixed 0.5/0.5 weights
+  `SignalWeights` itself starts from — the standalone editor has no
+  project binding yet, so there is no correction-learning step this
+  slice. `assign_region_correspondence` returns a copy of a
+  `CorrespondenceSet` with one new region assignment, raising on a
+  conflicting existing assignment — the same rule
+  `CorrespondenceSet.propagate` enforces. `ReferenceColoringTab` adds a
+  Suggest Material button (ranks candidates for the selected region layer
+  and pre-selects the top one in the existing Material combo, never
+  assigns) and an Assign Correspondence button (records the current
+  Material/Role as that region's correspondence in an in-memory
+  `CorrespondenceSet` tracked by the tab). Assignment stays in-memory for
+  the editing session only — no project persistence for the standalone
+  editor yet. Applying the suggested material's palette color remains a
+  separate explicit action (Apply Palette Color, #30) rather than
+  automatic. Verification: 7 new core `editor` tests, 5 new headless-Qt
+  `gui` tests (511 core + 173 gui total); Ruff and mypy clean. Needs a
+  manual desktop launch to confirm visually — see issue #31's testing
+  comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

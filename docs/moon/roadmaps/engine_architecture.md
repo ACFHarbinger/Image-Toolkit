@@ -196,3 +196,34 @@ persisted, propagatable region-to-material binding) or
 adjacency-suggested defaults; this is a direct "pick a material+role,
 click apply" action, not milestone 4's ranked-suggestion workflow.
 Connecting the two remains a possible later slice.
+
+**Seventh slice (issue #31, In review pending a manual desktop-app
+check): region-to-material correspondence assignment.** New
+`src/editor/correspondence_tools.py` reuses `colorization.correspondence`
+and `colorization.confidence` directly, the same way #29/#30 reused
+`colorization.segmentation`/`colorization.style_bible`, connecting the
+fifth slice's region adjacency (#29) to the sixth slice's palette
+application (#30) the way both slices' notes anticipated.
+`adjacency_agreement_by_material` mirrors the Krita Character Colors
+Docker's `_adjacency_agreement_by_material` (milestone 4, issue #24): the
+fraction of a region's adjacent regions already assigned to each
+material. `rank_material_candidates` combines that with
+`colorization.confidence.name_similarity` via `score_candidate`, matching
+`project.service.rank_correspondence_materials`'s signal combination, but
+always starts from the same fixed 0.5/0.5 weights `SignalWeights` itself
+starts from -- the standalone editor has no project binding yet, so there
+is no correction-learning step this slice; wiring one in is a later
+slice, after the standalone editor gains project persistence at all.
+`assign_region_correspondence` returns a copy of a `CorrespondenceSet`
+with one new region assignment, raising on a conflicting existing
+assignment, the same rule `CorrespondenceSet.propagate` enforces.
+`ReferenceColoringTab` adds a **Suggest Material** button (ranks
+candidates for the selected region layer and pre-selects the top one in
+the existing Material combo, never assigns anything) and an **Assign
+Correspondence** button (records the current Material/Role as that
+region's correspondence in an in-memory `CorrespondenceSet` tracked by
+the tab). Assignment stays in-memory for the editing session only -- no
+project persistence for the standalone editor yet, so nothing here is
+saved to disk or shareable across sessions. Applying the suggested
+material's palette color remains a separate explicit action (Apply
+Palette Color, #30) rather than automatic.

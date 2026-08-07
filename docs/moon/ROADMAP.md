@@ -141,7 +141,7 @@ anyway, ahead of the gate; see the "Gate 5 exception" note in the
 [Engine Architecture Roadmap](roadmaps/engine_architecture.md) for the full
 rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
-host. Six slices are implemented, all In review: the first (issue #25 —
+host. Seven slices are implemented, all In review: the first (issue #25 —
 a PySide6 canvas + layer-stack foundation in the existing `gui/` workspace
 member, backed by a new pure-numpy `src/editor/` package), the second
 (issue #26 — a brush paint tool: pure-numpy circular stamping in
@@ -153,12 +153,16 @@ attenuate compositing, with their own Add/Remove Mask controls and a
 mask-painting brush mode), the fifth (issue #29 — line-art gap closing
 and region segmentation, reusing `colorization.segmentation` directly
 rather than reimplementing it, unlike the Krita plugin's numpy-free
-mirror), and the sixth (issue #30 — style-bible palette application,
+mirror), the sixth (issue #30 — style-bible palette application,
 reusing `colorization.style_bible` directly: bind a bible, pick a
-material/role, and recolor any selected layer's opaque pixels). No
-correspondence-assignment UI yet — the Material/Role pick-and-apply here
-is a direct action, not milestone 4's ranked-suggestion workflow. The
-likely long-term architecture is still a C++ engine, GPU-backed
+material/role, and recolor any selected layer's opaque pixels), and the
+seventh (issue #31 — region-to-material correspondence assignment,
+reusing `colorization.correspondence`/`colorization.confidence` directly:
+a Suggest Material button ranks materials by deterministic confidence
+using region adjacency, and an Assign Correspondence button records the
+chosen material as that region's correspondence in an in-memory set, no
+project persistence or correction learning yet). The likely long-term
+architecture is still a C++ engine, GPU-backed
 canvas, and isolated Python research/model workers; its staged boundary and
 migration gates are defined in the same document. Browser support is not a
 justification for choosing the desktop architecture.

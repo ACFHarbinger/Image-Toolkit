@@ -1,6 +1,11 @@
 """Deterministic, Qt-free layer-stack model for the standalone editor."""
 
 from .brush import stamp_dot, stamp_line, stamp_mask_dot, stamp_mask_line
+from .correspondence_tools import (
+    adjacency_agreement_by_material,
+    assign_region_correspondence,
+    rank_material_candidates,
+)
 from .history import EditHistory
 from .layer_stack import Layer, LayerMeta, LayerStack
 from .palette_tools import PALETTE_ROLES, apply_palette_color_to_region, resolve_palette_color
@@ -25,4 +30,7 @@ __all__ = [
     "PALETTE_ROLES",
     "resolve_palette_color",
     "apply_palette_color_to_region",
+    "adjacency_agreement_by_material",
+    "rank_material_candidates",
+    "assign_region_correspondence",
 ]

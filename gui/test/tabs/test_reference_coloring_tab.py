@@ -288,3 +288,107 @@ def test_apply_palette_color_without_a_bible_is_a_no_op(q_app, monkeypatch):
     layer.pixels[0, 0] = [1, 2, 3, 255]
     tab._apply_palette_color()
     assert layer.pixels[0, 0].tolist() == [1, 2, 3, 255]
+
+
+def _add_touching_region_layers(tab):
+    stack = tab.canvas().layer_stack()
+    a = stack.add_layer("layer-1-region-1", "Region 1")
+    a.pixels[:, :3, 3] = 255
+    b = stack.add_layer("layer-1-region-2", "Region 2")
+    b.pixels[:, 3:, 3] = 255
+    tab._region_layer_ids = ["layer-1-region-1", "layer-1-region-2"]
+    tab._layer_panel.refresh()
+
+
+def test_assign_correspondence_records_entry(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._role_combo.setCurrentText("local")
+
+    tab._assign_correspondence()
+
+    correspondence_set = tab.correspondence_set()
+    assert correspondence_set is not None
+    assert len(correspondence_set.correspondences) == 1
+    assert correspondence_set.correspondences[0].region_id == "layer-1-region-1"
+    assert correspondence_set.correspondences[0].material_id == "hair"
+
+
+def test_assign_correspondence_reports_conflicting_assignment(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._assign_correspondence()
+
+    tab._material_combo.setCurrentIndex(1)  # skin
+    tab._assign_correspondence()
+
+    assert len(tab.correspondence_set().correspondences) == 1
+    assert "competing" in tab._status.text()
+
+
+def test_assign_correspondence_without_bible_is_a_no_op(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._assign_correspondence()
+    assert tab.correspondence_set() is None
+
+
+def _bind_bible_skin_first(tab, monkeypatch, tmp_path):
+    from colorization.style_bible import (
+        CharacterStyleBible,
+        MaterialPalette,
+        StyleMaterial,
+        save_style_bible,
+    )
+    from PySide6.QtWidgets import QFileDialog
+
+    bible = CharacterStyleBible(
+        "aiko",
+        "Aiko",
+        "TV cel",
+        [
+            StyleMaterial("skin", "Skin", MaterialPalette("#EEDDCC", "#FFEEDD", "#AA8866")),
+            StyleMaterial("hair", "Hair", MaterialPalette("#332233", "#665566", "#110F18")),
+        ],
+    )
+    path = tmp_path / "aiko.json"
+    save_style_bible(path, bible)
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(path), ""))
+    )
+    tab._bind_style_bible()
+
+
+def test_suggest_material_selects_top_ranked_candidate_from_adjacency(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible_skin_first(tab, monkeypatch, tmp_path)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    hair_index = tab._material_combo.findData("hair")
+    tab._material_combo.setCurrentIndex(hair_index)
+    tab._assign_correspondence()
+
+    # Without adjacency, ties break to list order (skin first); confirm
+    # the assigned neighbor's material ("hair") wins the suggestion instead.
+    tab._layer_panel.select_layer("layer-1-region-2")
+    tab._suggest_material()
+
+    assert tab._material_combo.currentData() == "hair"
+    assert "Suggested 'hair'" in tab._status.text()
+
+
+def test_suggest_material_without_canvas_is_a_no_op(q_app):
+    tab = ReferenceColoringTab()
+    tab._suggest_material()
+    assert tab.correspondence_set() is None
