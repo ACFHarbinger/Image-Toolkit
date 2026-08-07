@@ -26,6 +26,7 @@ _DOCKER_MODULES = [
     "color_docker.py",
     "segmentation_docker.py",
     "docker.py",
+    "chapter_docker.py",
 ]
 
 
@@ -161,7 +162,7 @@ def test_plugin_entry_point_registers_every_docker(monkeypatch):
     monkeypatch.setitem(sys.modules, package_name, package)
     spec.loader.exec_module(package)
 
-    assert len(krita_instance.registered_factories) == 3
+    assert len(krita_instance.registered_factories) == 4
     registered_classes = {
         factory.docker_class for factory in krita_instance.registered_factories
     }

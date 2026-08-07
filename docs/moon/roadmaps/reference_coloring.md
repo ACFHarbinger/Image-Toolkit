@@ -63,9 +63,10 @@ and user corrections.
 4. Assisted correspondence with confidence and correction learning.
 5. Optional generative proposals through the local model registry.
 6. 🔄 Batch chapter workflow with review queue and recoverable checkpoints.
-   Issue #22 started the portable schema: `ChapterPage`/`PageStatus` plus
-   `add_chapter_page`/`set_chapter_page_status`/`next_pending_chapter_page`.
-   Krita Docker/queue-navigation UI and the offline batch-tool path remain.
+   Issue #22 (In review) implements the portable schema plus a Chapter Queue
+   Docker: bind a project, add pages, open the next pending page, and mark
+   pages reviewed/accepted. The offline/CLI batch-tool execution path
+   remains a separate future slice.
 
 ## G1 — segmentation and gap-repair baseline
 
@@ -123,10 +124,24 @@ left off" mechanic a review queue needs. Project schema v12 adds
 `chapter_pages` with unique-id/unique-asset/unique-panel-id validation.
 Privacy-safe `project_progress_snapshot` includes a `chapter` section (page
 list plus the next pending page id). Wired through the engine protocol and
-Krita `EngineClient`; no Docker/UI surface exists yet, matching every prior
-milestone's "portable contract first" sequencing (C1 before C3's Docker, C4
-before its Docker). The Krita queue-navigation UI and the offline
-batch-tool execution path are separate future slices.
+Krita `EngineClient`; matching every prior milestone's "portable contract
+first" sequencing (C1 before C3's Docker, C4 before its Docker).
+
+A new **Chapter Queue** Docker (separate from the other three, same
+one-concern-per-Docker pattern) now exposes the interactive path: **Bind
+Portable Project**, **Add Page to Chapter** (file-picks an existing page
+already inside the project, asks for a panel id), **Open Next Pending
+Page** (opens the queue's first not-yet-accepted page via
+`Krita.openDocument`/`window.addView`, marking it in-progress), **Mark
+Active Page Reviewed/Accepted** (matches the active document's file path
+back to its chapter-page record), and **Refresh Queue**. A proactive code
+review before shipping found and fixed a real cross-platform bug:
+`_relative_to_project` used `str(Path(...).relative_to(...))`, which
+yields backslash-separated paths on Windows that the engine's POSIX-only
+asset validation always rejects and that can never match the
+POSIX-stored `document_asset` when matching the active document back to
+its page record; fixed to use `.as_posix()`. The offline/CLI batch-tool
+execution path remains a separate future slice on the same schema.
 
 ## C4 — deterministic manual correspondence baseline
 

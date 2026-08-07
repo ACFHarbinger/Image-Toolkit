@@ -75,6 +75,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Advanced milestone-6 issue #22 with a new **Chapter Queue** Docker (same
+  one-concern-per-Docker pattern as Character Colors and Line Art
+  Segmentation): **Bind Portable Project**, **Add Page to Chapter**,
+  **Open Next Pending Page** (`Krita.openDocument`/`window.addView`, marks
+  the page in-progress), **Mark Active Page Reviewed/Accepted** (matches the
+  active document's file path back to its chapter-page record), and
+  **Refresh Queue**. A proactive code review before shipping found and
+  fixed a real cross-platform bug: path-relativization used
+  `str(Path(...).relative_to(...))`, which yields backslash-separated paths
+  on Windows that the engine's POSIX-only asset validation always rejects
+  and that can never match the POSIX-stored `document_asset`; fixed to use
+  `.as_posix()`. Verification: 411 tests pass; Ruff and core mypy are
+  clean. Milestone 6 moves to **In review** pending the live-Krita
+  checklist.
 - Opened milestone-6 issue #22: a portable, execution-agnostic batch
   chapter-workflow schema. Project schema v12 adds `ChapterPage`
   (id, safe relative document asset, the existing `RegionCorrespondence`
