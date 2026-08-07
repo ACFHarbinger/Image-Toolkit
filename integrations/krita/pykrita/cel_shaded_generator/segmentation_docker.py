@@ -12,6 +12,7 @@ from .segmentation_masks import (
     REGION_GROUP_NAME,
     REGION_PREFIX,
     close_line_gaps_bytes,
+    filter_small_regions,
     region_adjacency_bytes,
     segment_regions_bytes,
 )
@@ -94,7 +95,15 @@ class SegmentationDocker(DockWidget):
         if ink is None:
             return
         labels = segment_regions_bytes(ink, width, height)
+        min_area, accepted = QInputDialog.getInt(
+            self, "Segment Regions", "Minimum region area (pixels):", 4, 0, 1_000_000, 1
+        )
+        if not accepted:
+            return
+        before = len({value for value in labels if value})
+        labels = filter_small_regions(labels, min_area)
         region_ids = sorted({value for value in labels if value})
+        discarded = before - len(region_ids)
         if not region_ids:
             self._status.setText("No enclosed regions found; close gaps first if needed.")
             return
@@ -120,9 +129,13 @@ class SegmentationDocker(DockWidget):
                 self._status.setText("Krita could not write a region layer safely.")
                 return
         document.refreshProjection()
+        discarded_note = (
+            f" ({discarded} speck(s) below the minimum area were discarded.)" if discarded else ""
+        )
         self._status.setText(
-            f"Created {len(region_ids)} region layer(s) under '{REGION_GROUP_NAME}'. "
-            "Rename each to a meaningful region id before assigning correspondence."
+            f"Created {len(region_ids)} region layer(s) under '{REGION_GROUP_NAME}'."
+            f"{discarded_note} Rename each to a meaningful region id before assigning "
+            "correspondence."
         )
 
     def _report_adjacency(self):

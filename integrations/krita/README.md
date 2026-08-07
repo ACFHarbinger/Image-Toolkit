@@ -119,12 +119,16 @@ Expected: a new locked-looking layer named `Line Art — Gap Closed (radius
 N)` appears under a `Line Art` group with the gap visibly bridged; the
 source line-art layer is unchanged.
 
-Select the gap-closed layer and choose **Segment Regions into Layers**.
-Expected: a `Regions` group appears containing one white-on-transparent
-layer per enclosed region, named `Region — <n>`; a region that touches the
-canvas border must **not** appear, since it is not yet enclosed. Rename a
-couple of region layers to meaningful ids (this is what the Character
-Colors Docker's **Assign Region Correspondence** action reads).
+Select the gap-closed layer and choose **Segment Regions into Layers**;
+enter a minimum region area (default 4px) when prompted. Expected: a
+`Regions` group appears containing one white-on-transparent layer per
+enclosed region at or above that area, named `Region — <n>`; a region that
+touches the canvas border must **not** appear, since it is not yet
+enclosed. Draw one deliberately tiny (1-2px) enclosed speck before running
+this action and confirm it is discarded and reported as discarded in the
+status bar rather than becoming its own region layer. Rename a couple of
+region layers to meaningful ids (this is what the Character Colors Docker's
+**Assign Region Correspondence** action reads).
 
 With the `Regions` group present, choose **Report Region Adjacency** (active
 document, no specific layer needed). Expected: the status bar reports the

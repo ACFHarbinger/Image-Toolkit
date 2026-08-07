@@ -28,6 +28,7 @@ from scipy import ndimage
 __all__ = [
     "close_line_gaps",
     "segment_regions",
+    "filter_small_regions",
     "region_adjacency",
     "region_statistics",
 ]
@@ -76,6 +77,28 @@ def segment_regions(line_mask: np.ndarray) -> np.ndarray:
         labels = labels.copy()
         labels[np.isin(labels, list(border_labels))] = 0
     return labels
+
+
+def filter_small_regions(labels: np.ndarray, min_area: int) -> np.ndarray:
+    """Return a copy of ``labels`` with regions smaller than ``min_area`` cleared.
+
+    Line art routinely produces dust-speck regions from stray anti-aliased
+    pixels or hairline imperfections; this clears them back to ``0`` (ink/
+    unenclosed) without disturbing any region that meets the threshold.
+    """
+    if not isinstance(labels, np.ndarray) or labels.ndim != 2:
+        raise ValueError("labels must be a 2D array")
+    if not isinstance(min_area, int) or isinstance(min_area, bool) or min_area < 0:
+        raise ValueError("min_area must be a non-negative integer")
+    result = labels.copy()
+    if min_area == 0:
+        return result
+    for label in np.unique(labels):
+        if label == 0:
+            continue
+        if int(np.count_nonzero(labels == label)) < min_area:
+            result[labels == label] = 0
+    return result
 
 
 def region_adjacency(labels: np.ndarray) -> set[tuple[int, int]]:

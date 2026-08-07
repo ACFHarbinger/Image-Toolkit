@@ -86,6 +86,33 @@ def test_segment_regions_gap_leaks_rooms_into_one_region():
     assert labels[4 * width + 2] != 0
 
 
+def test_filter_small_regions_clears_only_regions_below_threshold():
+    module = _module()
+    labels = [
+        1, 1, 0, 2,
+        1, 1, 0, 0,
+        0, 0, 0, 0,
+        3, 3, 3, 0,
+    ]
+    filtered = module.filter_small_regions(labels, 3)
+    assert set(filtered) == {0, 1, 3}
+    assert filtered[3] == 0
+
+
+def test_filter_small_regions_zero_threshold_is_a_noop_copy():
+    module = _module()
+    labels = [1, 0, 0, 2]
+    filtered = module.filter_small_regions(labels, 0)
+    assert filtered == labels
+    assert filtered is not labels
+
+
+def test_filter_small_regions_rejects_negative_threshold():
+    module = _module()
+    with pytest.raises(ValueError, match="non-negative integer"):
+        module.filter_small_regions([1, 0], -1)
+
+
 def test_region_adjacency_finds_touching_labels_only():
     module = _module()
     width, height = 4, 4

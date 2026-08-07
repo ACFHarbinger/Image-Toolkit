@@ -62,6 +62,20 @@ def segment_regions_bytes(ink_bytes, width, height):
     return labels
 
 
+def filter_small_regions(labels, min_area):
+    """Return a copy of ``labels`` with regions smaller than ``min_area`` cleared."""
+    if not isinstance(min_area, int) or isinstance(min_area, bool) or min_area < 0:
+        raise ValueError("min_area must be a non-negative integer")
+    if min_area == 0:
+        return list(labels)
+    areas = {}
+    for value in labels:
+        if value:
+            areas[value] = areas.get(value, 0) + 1
+    keep = {label for label, area in areas.items() if area >= min_area}
+    return [value if value in keep else 0 for value in labels]
+
+
 def region_adjacency_bytes(labels, width, height):
     """Return unordered ``(smaller, larger)`` label pairs that share a border."""
     if len(labels) != width * height:

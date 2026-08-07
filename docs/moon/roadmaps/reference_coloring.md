@@ -85,8 +85,11 @@ Krita layer bytes in-process rather than round-tripping through the engine
 subprocess. **Close Line Art Gaps**, **Segment Regions into Layers**, and
 **Report Region Adjacency** create inspectable/renamable layers directly;
 region layers a reviewer renames become the region ids C4's **Assign Region
-Correspondence** action reads by layer name. Only the live-Krita checklist
-remains before G1 can move to Done.
+Correspondence** action reads by layer name. Segmentation now takes an artist-chosen minimum region area and discards
+dust-speck regions below it (`filter_small_regions`, implemented in both the
+numpy engine module and the pure-Python Krita adapter), reporting the
+discard count. Only the live-Krita checklist remains before G1 can move to
+Done.
 
 ## C4 — deterministic manual correspondence baseline
 

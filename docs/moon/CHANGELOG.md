@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Advanced G1 issue #19 with dust-speck filtering: `filter_small_regions`
+  clears labeled regions below an artist-chosen minimum area, implemented
+  identically in both the numpy engine module and the pure-Python Krita
+  adapter. The Line Art Segmentation Docker's **Segment Regions into
+  Layers** action now prompts for a minimum area, applies the filter before
+  creating layers, and reports how many specks were discarded. Verification:
+  379 tests pass; Ruff and core mypy are clean. G1 remains **In review**;
+  no deployment occurred.
 - Completed G1 issue #19's Docker slice with a new, separate Line Art
   Segmentation Docker. A pure-Python, numpy-free `segmentation_masks.py`
   adapter mirrors `colorization/segmentation.py`'s algorithm on flat Krita

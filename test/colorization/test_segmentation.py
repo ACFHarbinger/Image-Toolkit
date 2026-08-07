@@ -3,6 +3,7 @@ import pytest
 
 from colorization.segmentation import (
     close_line_gaps,
+    filter_small_regions,
     region_adjacency,
     region_statistics,
     segment_regions,
@@ -63,6 +64,37 @@ def test_segment_regions_gap_leaks_rooms_into_one_region():
     right = set(np.unique(labels[1:9, 6:9])) - {0}
     assert left == right
     assert len(left) == 1
+
+
+def test_filter_small_regions_clears_only_regions_below_threshold():
+    labels = np.array(
+        [
+            [1, 1, 0, 2],
+            [1, 1, 0, 0],
+            [0, 0, 0, 0],
+            [3, 3, 3, 0],
+        ]
+    )
+    filtered = filter_small_regions(labels, 3)
+    assert set(np.unique(filtered)) == {0, 1, 3}
+    assert np.array_equal(filtered[0:2, 0:2], np.full((2, 2), 1))
+    assert np.array_equal(filtered[3, 0:3], np.full(3, 3))
+    assert filtered[0, 3] == 0
+
+
+def test_filter_small_regions_zero_threshold_is_a_noop_copy():
+    labels = np.array([[1, 0], [0, 2]])
+    filtered = filter_small_regions(labels, 0)
+    assert np.array_equal(filtered, labels)
+    assert filtered is not labels
+
+
+def test_filter_small_regions_rejects_invalid_input():
+    labels = np.array([[1, 0], [0, 2]])
+    with pytest.raises(ValueError, match="2D array"):
+        filter_small_regions(np.zeros((2, 2, 2)), 1)
+    with pytest.raises(ValueError, match="non-negative integer"):
+        filter_small_regions(labels, -1)
 
 
 def test_region_adjacency_finds_touching_labels_only():
