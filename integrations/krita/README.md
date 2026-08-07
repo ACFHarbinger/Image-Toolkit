@@ -71,3 +71,34 @@ Project status rule: keep issue #17 in **In review** until all checks pass, then
 move it to **Done**. If any expected behavior fails, document the step and move
 it back to **In progress**. Issues #10, #11, and #12 remain in **In review**
 until their existing live tutor checklists are performed.
+
+## Region correspondence review checklist (C4, issue #18)
+
+The Character Colors Docker also carries the C4 deterministic manual
+correspondence baseline: **Assign Region Correspondence**, **Propagate
+Correspondence to Regions**, and **Preview Region Correspondence Color**. This
+is still In progress; portable persistence, engine operations, and headless
+tests are complete, but no live Krita review has happened yet.
+
+For a live review, bind a portable project with a bound style bible. Draw or
+select any paint layer representing a target-drawing region (its name becomes
+the region id, normalized to kebab-case) and use **Assign Region
+Correspondence** to pick a canonical material and palette role, with an
+optional panel/page id. Reassigning the same region name to a *different*
+material must be refused rather than silently overwritten — the status bar
+should report the conflict. Use **Propagate Correspondence to Regions** to
+select an existing assignment and enter one or more comma-separated target
+region ids; propagation must never invent target regions on its own, and a
+target that already carries a competing assignment must be refused.
+
+Select a region layer with an assigned correspondence and choose **Preview
+Region Correspondence Color**: a locked preview must appear under `Character
+Colors`, using the mapped material's color for the assigned role, and the
+source region layer and artwork must remain unchanged. Accept/Reject behave
+exactly as they do for material-mask previews (unlocked editable `Color —
+<material-id> — <role>` layer on accept; only the owned preview removed on
+reject). A second preview cannot be created until the first is resolved.
+
+Project status rule: keep issue #18 in **In review** until all the above
+checks pass, then move it to **Done**. If any expected behavior fails, document
+the step and move it back to **In progress**.

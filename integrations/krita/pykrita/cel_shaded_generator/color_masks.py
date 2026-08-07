@@ -1,5 +1,7 @@
 """Host-neutral conventions and rasterization for semantic material masks."""
 
+import re
+
 MASK_GROUP_NAME = "Material Masks"
 MASK_PREFIX = "Material — "
 ACCEPTED_GROUP_NAME = "Character Colors"
@@ -70,6 +72,16 @@ def overlapping_materials(active_id, masks):
         if count:
             conflicts[material_id] = count
     return conflicts
+
+
+def region_id_from_layer_name(name):
+    """Return a normalized kebab-case correspondence region id from a layer name."""
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("layer name must not be empty")
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    if not slug:
+        raise ValueError("layer name has no usable identifier characters")
+    return slug
 
 
 def union_alpha_buffers(buffers):

@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Completed C4 issue #18's headless slice with a Character Colors Docker
+  action set: **Assign Region Correspondence**, **Propagate Correspondence to
+  Regions**, and **Preview Region Correspondence Color**. A new host-neutral
+  `region_id_from_layer_name` helper normalizes arbitrary layer names into
+  kebab-case region ids. Assignment reuses `upsert_project_correspondence_set`
+  and refuses competing assignments via the existing model validation;
+  propagation targets are explicit and never auto-discovered; preview reuses
+  a refactored `_create_preview_layer` helper shared with C3's palette-role
+  preview, so accept/reject/single-owned-preview behavior is identical.
+  Verification: 355 tests pass; Ruff and core mypy are clean. C4 moves to
+  **In review** pending the live-Krita checklist; no deployment occurred.
 - Advanced C4 issue #18 with project schema-v10 correspondence-set bindings.
   `attach_correspondence_set`/`detach_correspondence_set`/
   `upsert_project_correspondence_set`/`project_correspondence_set_payload`

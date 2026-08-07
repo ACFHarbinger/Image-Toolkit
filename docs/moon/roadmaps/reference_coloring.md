@@ -78,9 +78,22 @@ and an explicit `propagate_project_correspondence` service call that loads
 the bound set, applies `CorrespondenceSet.propagate`, and saves the result
 with recovery. Privacy-safe project-progress summaries expose correspondence
 identity and counts without pixels. The engine protocol and Krita
-`EngineClient` expose all five operations. The Docker action, manual
-region-assignment UI, per-role preview, and the live-Krita accept/reject
-checklist remain outstanding before C4 can move to Review.
+`EngineClient` expose all five operations.
+
+The Character Colors Docker now exposes the manual workflow directly:
+**Assign Region Correspondence** derives a region id from the active layer's
+name and records an artist-chosen material/role/optional-panel assignment,
+refusing to silently overwrite a competing assignment for the same region.
+**Propagate Correspondence to Regions** applies an existing assignment onto
+explicit comma-separated target region ids only. **Preview Region
+Correspondence Color** resolves the assigned material/role to a locked
+preview under `Character Colors`, sharing the same accept/reject and
+single-owned-preview machinery as C3's palette-role preview (refactored into
+a shared `_create_preview_layer` helper). The headless semantic gate is
+complete (`region_id_from_layer_name` and the project-binding layer are
+tested); only the live-Krita manual-assignment/propagation/preview/
+accept-reject checklist remains before C4 can move to Done. C4 is moving to
+**In review**.
 
 ## C1 — portable style-bible foundation
 

@@ -27,6 +27,7 @@ from .color_masks import (
     material_mask_parts,
     overlapping_materials,
     palette_preview_bgra,
+    region_id_from_layer_name,
     union_alpha_buffers,
 )
 from .engine_client import EngineClient
@@ -50,6 +51,9 @@ class CharacterColorsDocker(DockWidget):
             ("Create / Replace Style Bible", self._author_bible),
             ("Create Material Mask Layers", self._create_masks),
             ("Create Material Mask Variant", self._create_mask_variant),
+            ("Assign Region Correspondence", self._assign_correspondence),
+            ("Propagate Correspondence to Regions", self._propagate_correspondence),
+            ("Preview Region Correspondence Color", self._preview_correspondence),
             ("Preview Active Mask Palette Role", self._preview_palette),
             ("Accept Color Preview", self._accept_preview),
             ("Reject Color Preview", self._reject_preview),
@@ -350,27 +354,213 @@ class CharacterColorsDocker(DockWidget):
             self._status.setText("Mask overlaps must be corrected: " + details + ".")
             return
         pixels = palette_preview_bgra(raw[3::4], material["palette"][role])
+        if self._create_preview_layer(document, bible, material_id, role, pixels, width, height):
+            self._status.setText("Preview created; source mask and artwork are unchanged.")
+
+    def _assign_correspondence(self):
+        document = Krita.instance().activeDocument()
+        bible = self._selected_bible()
+        if document is None or bible is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        node = document.activeNode()
+        if node is None:
+            self._status.setText("Select the layer representing the target region.")
+            return
+        try:
+            region_id = region_id_from_layer_name(node.name())
+        except ValueError as error:
+            self._status.setText("Could not derive a region id: " + str(error))
+            return
+        material_id, accepted = QInputDialog.getItem(
+            self,
+            "Region Correspondence",
+            "Canonical material:",
+            [item["id"] for item in bible["materials"]],
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        role, accepted = QInputDialog.getItem(
+            self,
+            "Region Correspondence",
+            "Palette role:",
+            ["local", "light", "shadow", "accent"],
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        panel_id = self._text(
+            "Region Correspondence", "Optional panel/page id (kebab-case):", allow_empty=True
+        )
+        if panel_id is None:
+            return
+        correspondence_set = self._correspondence_set(bible["id"])
+        entry = {
+            "id": "correspondence-" + uuid.uuid4().hex[:8],
+            "region_id": region_id,
+            "material_id": material_id,
+            "role": role,
+        }
+        if panel_id:
+            entry["panel_id"] = panel_id
+        correspondence_set["correspondences"].append(entry)
+        try:
+            EngineClient().upsert_project_correspondence_set(
+                str(uuid.uuid4()), self._project_directory, correspondence_set
+            )
+        except (RuntimeError, ValueError) as error:
+            self._status.setText("Could not save region correspondence: " + str(error))
+            return
+        self._status.setText(f"Assigned region '{region_id}' to {material_id}/{role}.")
+
+    def _propagate_correspondence(self):
+        bible = self._selected_bible()
+        if bible is None:
+            self._status.setText("Select a bound style bible first.")
+            return
+        asset_path = f"correspondence/{bible['id']}.json"
+        try:
+            correspondence_set = EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), self._project_directory, asset_path
+            )
+        except (RuntimeError, ValueError) as error:
+            self._status.setText("Assign at least one region correspondence first: " + str(error))
+            return
+        entries = correspondence_set.get("correspondences", [])
+        if not entries:
+            self._status.setText("No region correspondences exist to propagate.")
+            return
+        choices = [
+            f"{item['id']} ({item['region_id']} → {item['material_id']}/{item['role']})"
+            for item in entries
+        ]
+        choice, accepted = QInputDialog.getItem(
+            self, "Propagate Correspondence", "Source assignment:", choices, 0, False
+        )
+        if not accepted:
+            return
+        source_id = choice.split(" ", 1)[0]
+        targets_text = self._text("Propagate Correspondence", "Comma-separated target region ids:")
+        if targets_text is None:
+            return
+        target_region_ids = [item.strip() for item in targets_text.split(",") if item.strip()]
+        if not target_region_ids:
+            self._status.setText("Enter at least one explicit target region id.")
+            return
+        try:
+            propagated = EngineClient().propagate_project_correspondence(
+                str(uuid.uuid4()),
+                self._project_directory,
+                asset_path,
+                source_id,
+                target_region_ids,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._status.setText("Could not propagate correspondence: " + str(error))
+            return
+        self._status.setText(
+            f"Propagated to {len(target_region_ids)} region(s); set now has "
+            f"{len(propagated['correspondences'])} correspondence(s)."
+        )
+
+    def _preview_correspondence(self):
+        document = Krita.instance().activeDocument()
+        bible = self._selected_bible()
+        if document is None or bible is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        if self._preview is not None:
+            self._status.setText("Accept or reject the current color preview first.")
+            return
+        node = document.activeNode()
+        if node is None:
+            self._status.setText("Select the layer representing the target region.")
+            return
+        try:
+            region_id = region_id_from_layer_name(node.name())
+        except ValueError as error:
+            self._status.setText("Could not derive a region id: " + str(error))
+            return
+        asset_path = f"correspondence/{bible['id']}.json"
+        try:
+            correspondence_set = EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), self._project_directory, asset_path
+            )
+        except (RuntimeError, ValueError) as error:
+            self._status.setText("No region correspondences are bound: " + str(error))
+            return
+        matches = [
+            item
+            for item in correspondence_set.get("correspondences", [])
+            if item["region_id"] == region_id
+        ]
+        if len(matches) != 1:
+            self._status.setText("Active region has no unambiguous correspondence assignment.")
+            return
+        correspondence = matches[0]
+        material = next(
+            (item for item in bible["materials"] if item["id"] == correspondence["material_id"]),
+            None,
+        )
+        if material is None:
+            self._status.setText("Assigned material no longer exists in the style bible.")
+            return
+        color = material["palette"].get(correspondence["role"])
+        if color is None:
+            self._status.setText("Assigned palette role is not defined for this material.")
+            return
+        width, height = document.width(), document.height()
+        raw = bytes(node.pixelData(0, 0, width, height))
+        if len(raw) != width * height * 4:
+            self._status.setText("Krita returned an unexpected mask buffer.")
+            return
+        pixels = palette_preview_bgra(raw[3::4], color)
+        material_id, role = correspondence["material_id"], correspondence["role"]
+        if self._create_preview_layer(document, bible, material_id, role, pixels, width, height):
+            self._status.setText(
+                "Correspondence preview created; source region and artwork are unchanged."
+            )
+
+    def _correspondence_set(self, bible_id):
+        asset_path = f"correspondence/{bible_id}.json"
+        try:
+            return EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), self._project_directory, asset_path
+            )
+        except (RuntimeError, ValueError):
+            return {
+                "id": bible_id,
+                "style_bible_id": bible_id,
+                "correspondences": [],
+                "recovery_revisions": 10,
+                "schema_version": 1,
+            }
+
+    def _create_preview_layer(self, document, bible, material_id, role, pixels, width, height):
         preview = document.createNode(PREVIEW_PREFIX + material_id + " — " + role, "paintlayer")
         color_group = find_named_node(document.rootNode(), ACCEPTED_GROUP_NAME)
         if color_group is None:
             color_group = document.createNode(ACCEPTED_GROUP_NAME, "grouplayer")
             if color_group is None or not document.rootNode().addChildNode(color_group, None):
                 self._status.setText("Krita could not create the Character Colors group.")
-                return
+                return False
         if preview is None or not color_group.addChildNode(preview, None):
             self._status.setText("Krita could not create the color preview layer.")
-            return
+            return False
         if not preview.setPixelData(QByteArray(pixels), 0, 0, width, height):
             preview.remove()
             self._status.setText("Krita could not write the color preview safely.")
-            return
+            return False
         preview.setLocked(True)
         set_property = getattr(preview, "setProperty", None)
         if callable(set_property):
             set_property("cel_shaded_generator.style_bible_id", bible["id"])
         self._preview = preview
         document.refreshProjection()
-        self._status.setText("Preview created; source mask and artwork are unchanged.")
+        return True
 
     def _accept_preview(self):
         if self._preview is None:

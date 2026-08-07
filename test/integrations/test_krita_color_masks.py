@@ -72,3 +72,17 @@ def test_material_mask_variant_names_preserve_canonical_material_identity():
     module = _module()
     assert module.material_mask_name("skin", "face") == "Material — skin — face"
     assert module.material_mask_parts(Node("Material — skin — face")) == ("skin", "face")
+
+
+def test_region_id_from_layer_name_normalizes_arbitrary_layer_names():
+    module = _module()
+    assert module.region_id_from_layer_name("Hair Front (Large)") == "hair-front-large"
+    assert module.region_id_from_layer_name("  Skin_Face!!  ") == "skin-face"
+
+
+def test_region_id_from_layer_name_rejects_empty_or_unusable_names():
+    module = _module()
+    with pytest.raises(ValueError, match="must not be empty"):
+        module.region_id_from_layer_name("   ")
+    with pytest.raises(ValueError, match="no usable identifier"):
+        module.region_id_from_layer_name("###")
