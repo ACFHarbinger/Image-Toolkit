@@ -50,7 +50,8 @@ and user corrections.
    and bounded recovery. C2 issue #16 adds portable project schema-v9 bindings,
    validated attach/detach operations, constrained-host summaries, and recovery
    without deleting assets. Krita authoring and palette application remain.
-3. Manual correspondence workflow and deterministic propagation baseline.
+3. Manual correspondence workflow and deterministic propagation baseline
+   (C4 issue #18).
 4. Assisted correspondence with confidence and correction learning.
 5. Optional generative proposals through the local model registry.
 6. Batch chapter workflow with review queue and recoverable checkpoints.

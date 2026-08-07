@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remains before moving C3 to Done. Mirrored the complete review checklist in
   the Krita integration README for offline use. Added a Docker action for
   creating named material-mask variants with duplicate-name protection.
+- Opened C4 issue #18 for the deterministic manual correspondence and
+  correction-propagation baseline. It explicitly requires artist-controlled
+  previews, portable provenance, ambiguity refusal, and headless recovery tests;
+  ML, generative filling, and deployment remain out of scope.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative
