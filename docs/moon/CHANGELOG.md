@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S332 — 2026-08-07 (End-to-end landmark review explanations)
+
+Advanced Cel-Shaded-Generator A2 issue #10 (`22f629d`) through the first end-to-end review path. The installer atomically records an explicitly selected engine executable in XDG configuration; the dependency-free plugin validates/discovers it, submits the nine normalized landmarks under a unique request identifier, and displays deterministic explanations while leaving artwork unchanged. Missing landmarks, engine/configuration failures, and incomplete results are actionable UI states. Verification: 179 tests, Ruff and mypy clean. With Krita confirmed closed by exact process name, the plugin and engine configuration were deployed and a real configured-engine review smoke test passed. Redline layer rendering remains.
+
 ## S331 — 2026-08-07 (Krita manual landmark editor)
 
 Advanced Cel-Shaded-Generator A2 issue #10 (`d5729f5`) with a manual nine-point landmark editor over a public document-projection snapshot. Because Krita's public Python Canvas API exposes no screen-to-image conversion, the adapter avoids private Qt canvas internals; it labels ordered markers, supports undo/reset/cancel, normalizes coordinates, derives cranial radius, and leaves artwork unchanged. Full verification: 176 tests, Ruff and mypy clean. Corrected a false-positive process check that had matched its own shell command, confirmed Krita was closed using its exact process name, and safely deployed the current nine-file plugin.
