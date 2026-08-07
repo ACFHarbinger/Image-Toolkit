@@ -2,6 +2,15 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S369 — 2026-08-07 (C3 headless semantic workflow gate)
+
+Completed Cel-Shaded-Generator C3's headless semantic workflow gate
+(`b7c17bc`). Variant alpha buffers are unioned through a tested host-neutral
+operation before overlap blocking; malformed and partial buffers are handled
+explicitly. The Docker now depends on that contract rather than embedding raster
+merging logic. Verification: 335 tests, Ruff and core mypy clean. C3 is moving
+to Review for later live Krita acceptance; no deployment occurred.
+
 ## S368 — 2026-08-07 (Character Color mask variants)
 
 Advanced Cel-Shaded-Generator C3 #17 with multi-layer material variants,
