@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S354 — 2026-08-07 (Asymmetry previews, identity cards, complete curriculum)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with control-derived reversible
+asymmetry previews (`102478c`); schema-v5 portable editable identity cards and
+baseline/variant/selected-pair comparison (`c804615`); and fully authored cel-
+value plus comprehensive-capstone lessons (`602b0f3`). All nine primary lessons
+are now fully authored. Four new diagrams and 2600 × 1800 value / 3200 × 2000
+capstone templates complete the practical sequence. Verification: 296 tests,
+Ruff and mypy clean. A3 remains undeployed pending later review/calibration work;
+A2 #10/#11 stay in Review.
+
 ## S353 — 2026-08-07 (Feature previews, asymmetry review, identity variation)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with reversible matrix-local nose,
