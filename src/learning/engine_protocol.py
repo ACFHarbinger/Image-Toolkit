@@ -29,8 +29,10 @@ from project import (
     project_progress_snapshot,
     project_style_bible_payload,
     propagate_project_correspondence,
+    rank_correspondence_materials,
     record_advice_feedback,
     record_attempt_review,
+    record_correspondence_choice,
     record_study_session,
     revise_capstone_decision_rationale,
     set_attempt_completion,
@@ -241,6 +243,34 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         except KeyError as error:
             raise ValueError("correspondence-propagation request is incomplete") from error
         return _success(request_id, propagated)
+    if operation == "rank_correspondence_materials":
+        try:
+            ranked = rank_correspondence_materials(
+                payload["directory"],
+                bible_asset_path=payload["bible_asset_path"],
+                region_id=payload["region_id"],
+                adjacency_agreements=payload["adjacency_agreements"],
+            )
+        except KeyError as error:
+            raise ValueError("correspondence-ranking request is incomplete") from error
+        return _success(request_id, {"candidates": ranked})
+    if operation == "record_correspondence_choice":
+        try:
+            weights = record_correspondence_choice(
+                payload["directory"],
+                chosen_material_id=payload["chosen_material_id"],
+                candidates=payload["candidates"],
+            )
+        except KeyError as error:
+            raise ValueError("correspondence-choice request is incomplete") from error
+        return _success(
+            request_id,
+            {
+                "adjacency_weight": weights.adjacency_weight,
+                "name_weight": weights.name_weight,
+                "update_count": weights.update_count,
+            },
+        )
     if operation == "configure_progress_retention":
         try:
             changed = configure_progress_retention(

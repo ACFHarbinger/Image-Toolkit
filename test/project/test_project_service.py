@@ -18,6 +18,7 @@ from project import (
     ExerciseProgress,
     PageStatus,
     ReviewRecord,
+    SignalWeights,
     SuggestionDecision,
     add_chapter_page,
     attach_correspondence_set,
@@ -38,8 +39,10 @@ from project import (
     project_correspondence_set_payload,
     project_progress_snapshot,
     propagate_project_correspondence,
+    rank_correspondence_materials,
     record_advice_feedback,
     record_attempt_review,
+    record_correspondence_choice,
     record_study_session,
     revise_capstone_decision_rationale,
     save_project,
@@ -529,6 +532,97 @@ def test_upsert_and_propagate_project_correspondence_set(tmp_path):
 
     with pytest.raises(ValueError, match="not bound"):
         project_correspondence_set_payload(tmp_path, asset_path="correspondence/missing.json")
+
+
+def _attach_two_material_bible(tmp_path) -> str:
+    reference = tmp_path / "references/front.png"
+    reference.parent.mkdir(exist_ok=True)
+    reference.write_bytes(b"reference")
+    bible = CharacterStyleBible(
+        "aiko",
+        "Aiko",
+        "TV cel",
+        [
+            StyleMaterial("hair", "Hair", MaterialPalette("#332233", "#665566", "#110F18")),
+            StyleMaterial("skin", "Skin", MaterialPalette("#EEDDCC", "#FFEEDD", "#AA8866")),
+        ],
+        [ReferenceView("front", "Front", "references/front.png")],
+    )
+    return upsert_project_style_bible(tmp_path, payload=bible.to_dict())
+
+
+def test_rank_correspondence_materials_orders_by_weighted_confidence(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    bible_asset_path = _attach_two_material_bible(tmp_path)
+
+    ranked = rank_correspondence_materials(
+        tmp_path,
+        bible_asset_path=bible_asset_path,
+        region_id="hair-front-large",
+        adjacency_agreements={"hair": 0.2, "skin": 0.9},
+    )
+    # skin wins on the default even split despite zero name overlap, because
+    # its adjacency agreement (0.9) dominates hair's higher name_score (1/3).
+    assert [item["material_id"] for item in ranked] == ["skin", "hair"]
+    by_material = {item["material_id"]: item for item in ranked}
+    assert by_material["hair"]["name_score"] > by_material["skin"]["name_score"]
+    assert by_material["skin"]["adjacency_score"] > by_material["hair"]["adjacency_score"]
+
+    with pytest.raises(ValueError, match="not bound"):
+        rank_correspondence_materials(
+            tmp_path,
+            bible_asset_path="style-bibles/missing.json",
+            region_id="hair-front-large",
+            adjacency_agreements={},
+        )
+
+
+def test_record_correspondence_choice_shifts_weights_toward_agreeing_signal(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    bible_asset_path = _attach_two_material_bible(tmp_path)
+    assert load_project(tmp_path).signal_weights == SignalWeights()
+
+    ranked = rank_correspondence_materials(
+        tmp_path,
+        bible_asset_path=bible_asset_path,
+        region_id="hair-front-large",
+        adjacency_agreements={"hair": 0.1, "skin": 0.9},
+    )
+    weights = record_correspondence_choice(
+        tmp_path, chosen_material_id="hair", candidates=ranked
+    )
+    assert weights.name_weight > weights.adjacency_weight
+    assert weights.update_count == 1
+    assert load_project(tmp_path).signal_weights == weights
+
+
+def test_record_correspondence_choice_is_a_no_op_without_a_real_alternative(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    starting = load_project(tmp_path).signal_weights
+    assert (
+        record_correspondence_choice(tmp_path, chosen_material_id="hair", candidates=[])
+        == starting
+    )
+    assert (
+        record_correspondence_choice(
+            tmp_path,
+            chosen_material_id="unknown",
+            candidates=[
+                {"material_id": "hair", "adjacency_score": 0.5, "name_score": 0.5},
+                {"material_id": "skin", "adjacency_score": 0.5, "name_score": 0.5},
+            ],
+        )
+        == starting
+    )
 
 
 def test_configure_study_consent_requires_explicit_clear_on_withdrawal(tmp_path):

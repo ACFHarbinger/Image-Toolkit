@@ -21,6 +21,7 @@ from project import (
     Project,
     ProjectProgress,
     ReviewRecord,
+    SignalWeights,
     StudyConsent,
     StudySession,
     SuggestionDecision,
@@ -246,6 +247,31 @@ def test_chapter_page_round_trips_with_status_and_notes(tmp_path):
     assert load_project(tmp_path) == project
 
 
+def test_signal_weights_default_to_an_even_split():
+    weights = SignalWeights()
+    assert weights.adjacency_weight == 0.5
+    assert weights.name_weight == 0.5
+    assert weights.update_count == 0
+
+
+def test_signal_weights_reject_invalid_values():
+    with pytest.raises(ValueError, match="must sum to one"):
+        SignalWeights(adjacency_weight=0.6, name_weight=0.6)
+    with pytest.raises(ValueError, match="adjacency weight"):
+        SignalWeights(adjacency_weight=-0.1, name_weight=1.1)
+    with pytest.raises(ValueError, match="update count"):
+        SignalWeights(update_count=-1)
+
+
+def test_signal_weights_round_trip(tmp_path):
+    project = Project(
+        title="Learning",
+        signal_weights=SignalWeights(adjacency_weight=0.7, name_weight=0.3, update_count=4),
+    )
+    save_project(tmp_path, project)
+    assert load_project(tmp_path) == project
+
+
 def test_defaults_keep_multiple_recovery_revisions():
     project = Project(title="Recovery")
     assert project.autosave.enabled
@@ -333,7 +359,7 @@ def test_version_one_migration_adds_review_records_without_artwork(tmp_path):
         ]
     }
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["progress"]["exercises"][0]["attempts"][0]["reviews"] == []
     assert migrate_project_payload(payload) == migrated
 
@@ -370,7 +396,7 @@ def test_version_two_migration_enables_existing_project_progress_and_feedback_sl
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["consent"]["retain_learning_progress"] is True
     review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
     assert review["artist_feedback"] is None
@@ -383,7 +409,7 @@ def test_version_three_migration_adds_editable_feedback_policy():
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["feedback_policy"] == {
         "retain_revision_history": False,
         "note_character_limit": 2000,
@@ -400,7 +426,7 @@ def test_version_four_migration_adds_identity_card_defaults():
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["identity_card_policy"] == {"retain_revision_history": False}
     assert migrated["identity_card"] is None
     assert migrated["identity_card_history"] == []
@@ -436,7 +462,7 @@ def test_version_five_migration_adds_decision_rationale():
     }
     migrated = migrate_project_payload(payload)
     review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert review["suggestion_decision_rationale"] is None
 
 
@@ -445,7 +471,7 @@ def test_version_six_migration_adds_capstone_rationale_policy_and_history():
     payload["schema_version"] = 6
     del payload["capstone_policy"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["capstone_policy"] == {"retain_rationale_history": False}
 
 
@@ -453,7 +479,7 @@ def test_version_seven_migration_adds_review_import_provenance():
     payload = Project(title="Version seven").to_dict()
     payload["schema_version"] = 7
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
 
 
 def test_version_eight_migration_adds_style_bible_assets():
@@ -461,7 +487,7 @@ def test_version_eight_migration_adds_style_bible_assets():
     payload["schema_version"] = 8
     del payload["style_bible_assets"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["style_bible_assets"] == []
 
 
@@ -470,7 +496,7 @@ def test_version_nine_migration_adds_correspondence_set_assets():
     payload["schema_version"] = 9
     del payload["correspondence_set_assets"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["correspondence_set_assets"] == []
 
 
@@ -480,7 +506,7 @@ def test_version_ten_migration_adds_study_consent_and_sessions():
     del payload["study_consent"]
     del payload["study_sessions"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["study_consent"] == {}
     assert migrated["study_sessions"] == []
 
@@ -490,8 +516,18 @@ def test_version_eleven_migration_adds_chapter_pages():
     payload["schema_version"] = 11
     del payload["chapter_pages"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 12
+    assert migrated["schema_version"] == 13
     assert migrated["chapter_pages"] == []
+
+
+def test_version_twelve_migration_adds_default_signal_weights():
+    payload = Project(title="Version twelve").to_dict()
+    payload["schema_version"] = 12
+    del payload["signal_weights"]
+    migrated = migrate_project_payload(payload)
+    assert migrated["schema_version"] == 13
+    assert migrated["signal_weights"] == {}
+    assert Project.from_dict(migrated).signal_weights == SignalWeights()
 
 
 def test_learning_progress_retention_defaults_enabled_but_can_be_disabled():

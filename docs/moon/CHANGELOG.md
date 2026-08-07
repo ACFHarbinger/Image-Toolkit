@@ -26,9 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   segmentation, speck filtering, adjacency reporting) each passed their full
   live checklist — actual drawing/segmentation/assignment in Krita, not just
   headless tests. All three issues are closed. Milestone 4 (assisted
-  correspondence with confidence and correction learning) is next and is the
-  first milestone in this phase requiring learned/ML components; it needs a
-  scoping discussion before starting.
+  correspondence with confidence and correction learning, issue #24) is now
+  in progress: its portable-contract first slice — deterministic confidence
+  signals and a multiplicative-weights correction-learning step, no ML yet
+  per explicit scoping — is implemented; see the `### Added` entry below.
+  No Docker UI exists for it yet.
 
 ### Fixed
 
@@ -104,6 +106,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Milestone 4 first slice (issue #24): deterministic confidence scoring
+  and correction learning for assisted correspondence.** Portable contract
+  only, no Docker UI yet, following the same sequencing every prior
+  milestone used. `colorization/confidence.py` adds `name_similarity`
+  (Jaccard token similarity between a region id and a material's
+  id/aliases) and `score_candidate` (weighted-sum confidence combining that
+  with C4.1's existing adjacency-agreement signal) — deterministic and
+  stateless, no ML. `project/model.py`'s new `SignalWeights` (schema v13;
+  v12 payloads migrate to an even 50/50 split) holds the two signal
+  weights plus an `update_count`, project-scoped rather than portable.
+  `project/service.py` adds `rank_correspondence_materials` (ranks a bound
+  style bible's materials for one region using the project's current
+  weights) and `record_correspondence_choice` (an online
+  multiplicative-weights update: whichever signal's own top pick matched
+  the artist's actual choice gets boosted, the other decays, weights
+  renormalize; a no-op with fewer than two real candidates or an
+  out-of-band chosen id). Neither function ever assigns anything.
+  `learning/engine_protocol.py` and the Krita `engine_client.py` wire both
+  operations through the existing JSON-RPC transport. Per explicit scoping,
+  any future learned signal added to this framework must be fully
+  offline/local and go through the existing local model registry.
+  Verification: 430 tests pass; Ruff and mypy are clean.
 - Ran a proactive high-effort code review dedicated to `segmentation_docker.py`
   (previously only reviewed jointly with `color_docker.py`) and fixed two of
   its three findings:

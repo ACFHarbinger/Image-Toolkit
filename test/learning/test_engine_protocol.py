@@ -308,6 +308,102 @@ def test_protocol_authors_binds_and_propagates_correspondence(tmp_path):
     assert attach["result"]["changed"] is True
 
 
+def test_protocol_ranks_candidates_and_learns_from_the_artists_choice(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "create-1",
+            "operation": "create_exercise_project",
+            "payload": {
+                "directory": str(tmp_path),
+                "title": "Color project",
+                "document_asset": "artwork/attempt-001.kra",
+                "attempt_id": "attempt-1",
+            },
+        }
+    )
+    reference = tmp_path / "references/front.png"
+    reference.parent.mkdir()
+    reference.write_bytes(b"reference")
+    upsert = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "upsert-bible-1",
+            "operation": "upsert_project_style_bible",
+            "payload": {
+                "directory": str(tmp_path),
+                "style_bible": {
+                    "id": "aiko",
+                    "character_name": "Aiko",
+                    "style_name": "TV cel",
+                    "materials": [
+                        {
+                            "id": "hair",
+                            "label": "Hair",
+                            "palette": {
+                                "local": "#332233",
+                                "light": "#665566",
+                                "shadow": "#110F18",
+                            },
+                        },
+                        {
+                            "id": "skin",
+                            "label": "Skin",
+                            "palette": {
+                                "local": "#EEDDCC",
+                                "light": "#FFEEDD",
+                                "shadow": "#AA8866",
+                            },
+                        },
+                    ],
+                    "reference_views": [
+                        {"id": "front", "label": "Front", "asset_path": "references/front.png"}
+                    ],
+                    "schema_version": 2,
+                },
+            },
+        }
+    )
+    assert upsert["ok"]
+    bible_asset_path = upsert["result"]["asset_path"]
+
+    rank = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "rank-1",
+            "operation": "rank_correspondence_materials",
+            "payload": {
+                "directory": str(tmp_path),
+                "bible_asset_path": bible_asset_path,
+                "region_id": "hair-front-large",
+                "adjacency_agreements": {"hair": 0.1, "skin": 0.9},
+            },
+        }
+    )
+    assert rank["ok"]
+    candidates = rank["result"]["candidates"]
+    assert {item["material_id"] for item in candidates} == {"hair", "skin"}
+
+    choice = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "choice-1",
+            "operation": "record_correspondence_choice",
+            "payload": {
+                "directory": str(tmp_path),
+                "chosen_material_id": "hair",
+                "candidates": candidates,
+            },
+        }
+    )
+    assert choice["ok"]
+    assert choice["result"]["update_count"] == 1
+    assert choice["result"]["name_weight"] > choice["result"]["adjacency_weight"]
+
+
 def test_protocol_records_project_local_advice_feedback(tmp_path):
     artwork = tmp_path / "artwork/attempt-001.kra"
     artwork.parent.mkdir()

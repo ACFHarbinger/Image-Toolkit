@@ -225,6 +225,31 @@ class EngineClient:
             },
         )
 
+    def rank_correspondence_materials(
+        self, request_id, directory, bible_asset_path, region_id, adjacency_agreements
+    ):
+        return self._execute(
+            request_id,
+            "rank_correspondence_materials",
+            {
+                "directory": directory,
+                "bible_asset_path": bible_asset_path,
+                "region_id": region_id,
+                "adjacency_agreements": adjacency_agreements,
+            },
+        )
+
+    def record_correspondence_choice(self, request_id, directory, chosen_material_id, candidates):
+        return self._execute(
+            request_id,
+            "record_correspondence_choice",
+            {
+                "directory": directory,
+                "chosen_material_id": chosen_material_id,
+                "candidates": candidates,
+            },
+        )
+
     def revise_capstone_decision_rationale(
         self, request_id, directory, attempt_id, review_id, rationale
     ):

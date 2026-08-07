@@ -20,6 +20,7 @@ from colorization import (
     save_correspondence_set,
     save_style_bible,
 )
+from colorization.confidence import name_similarity, score_candidate
 
 from .model import (
     AdviceFeedback,
@@ -36,6 +37,7 @@ from .model import (
     Project,
     ProjectProgress,
     ReviewRecord,
+    SignalWeights,
     StudyConsent,
     StudySession,
     SuggestionDecision,
@@ -43,6 +45,8 @@ from .model import (
 from .storage import MANIFEST_NAME, load_project, save_project
 
 FRONT_HEAD_EXERCISE_ID = "anime-head-front-construction"
+_LEARNING_RATE = 0.1
+_MIN_SIGNAL_WEIGHT = 0.05
 CAPSTONE_RUBRICS = (
     ("front_structure", "02 Front Construction", "anime-head-front-structure"),
     (
@@ -364,6 +368,85 @@ def propagate_project_correspondence(
     )
     save_correspondence_set(path, propagated)
     return propagated.to_dict()
+
+
+def rank_correspondence_materials(
+    directory: str | Path,
+    *,
+    bible_asset_path: str,
+    region_id: str,
+    adjacency_agreements: dict[str, float],
+) -> list[dict]:
+    """Rank a bound style bible's materials by deterministic confidence for one region.
+
+    Combines each material's adjacency agreement (the caller already knows
+    this from the current document's segmented regions -- see
+    ``colorization.correspondence``/G1's region adjacency) with
+    ``colorization.confidence.name_similarity`` via the project's learned
+    ``SignalWeights``. Never assigns anything; the caller presents this as
+    a ranked suggestion the artist reviews and explicitly confirms.
+    """
+    root = Path(directory).resolve()
+    project = load_project(root)
+    if bible_asset_path not in project.style_bible_assets:
+        raise ValueError("style bible is not bound to this project")
+    _, path = _resolve_project_asset(root, bible_asset_path)
+    bible = load_style_bible(path)
+    weights = project.signal_weights
+    ranked = []
+    for material in bible.materials:
+        adjacency_score = adjacency_agreements.get(material.id, 0.0)
+        name_score = name_similarity(region_id, material.id, material.aliases)
+        confidence = score_candidate(
+            adjacency_score, name_score, weights.adjacency_weight, weights.name_weight
+        )
+        ranked.append(
+            {
+                "material_id": material.id,
+                "confidence": confidence,
+                "adjacency_score": adjacency_score,
+                "name_score": name_score,
+            }
+        )
+    ranked.sort(key=lambda item: item["confidence"], reverse=True)
+    return ranked
+
+
+def record_correspondence_choice(
+    directory: str | Path, *, chosen_material_id: str, candidates: list[dict]
+) -> SignalWeights:
+    """Apply one multiplicative-weights update from an explicit artist assignment.
+
+    ``candidates`` is the exact list ``rank_correspondence_materials``
+    returned, so the two signals' own best guesses can be compared against
+    what the artist actually chose. Fewer than two candidates, or a chosen
+    id not among them, is a no-op: there is nothing to learn from an
+    assignment with no real alternative or an out-of-band material id.
+    """
+    root = Path(directory)
+    project = load_project(root)
+    ids = {item["material_id"] for item in candidates}
+    if len(candidates) < 2 or chosen_material_id not in ids:
+        return project.signal_weights
+    adjacency_best = max(candidates, key=lambda item: item["adjacency_score"])["material_id"]
+    name_best = max(candidates, key=lambda item: item["name_score"])["material_id"]
+    weights = project.signal_weights
+    adjacency_weight = weights.adjacency_weight * (
+        1 + _LEARNING_RATE if adjacency_best == chosen_material_id else 1 - _LEARNING_RATE
+    )
+    name_weight = weights.name_weight * (
+        1 + _LEARNING_RATE if name_best == chosen_material_id else 1 - _LEARNING_RATE
+    )
+    adjacency_weight = max(_MIN_SIGNAL_WEIGHT, adjacency_weight)
+    name_weight = max(_MIN_SIGNAL_WEIGHT, name_weight)
+    total = adjacency_weight + name_weight
+    project.signal_weights = SignalWeights(
+        adjacency_weight=adjacency_weight / total,
+        name_weight=name_weight / total,
+        update_count=weights.update_count + 1,
+    )
+    save_project(root, project)
+    return project.signal_weights
 
 
 def record_advice_feedback(

@@ -60,7 +60,10 @@ and user corrections.
    C4 issue #18 (Done — live Krita checklist passed) adds region-to-material
    assignment, explicit-target propagation, and preview/accept/reject in the
    same Character Colors Docker.
-4. Assisted correspondence with confidence and correction learning.
+4. 🔄 Assisted correspondence with confidence and correction learning.
+   Issue #24 (In progress) implements the portable contract: deterministic
+   confidence scoring plus a multiplicative-weights correction-learning step.
+   No Docker UI yet.
 5. Optional generative proposals through the local model registry.
 6. 🔄 Batch chapter workflow with review queue and recoverable checkpoints.
    Issue #22 (In review) implements the portable schema plus a Chapter Queue
@@ -248,3 +251,41 @@ values, matching every sibling creation path.
 The offline review procedure is mirrored in `integrations/krita/README.md` so a
 reviewer can follow it without relying on issue comments.
 Learned correspondence is still a later milestone (milestone 4).
+
+## Milestone 4 — assisted correspondence: confidence and correction learning
+
+Issue #24 is In progress. Portable contract only, no Docker UI yet, following
+the same "portable contract first" sequencing as C1-C4/C4.1 and milestone 6's
+schema-only first slice.
+
+`colorization/confidence.py` adds two deterministic, stateless signals:
+`name_similarity` (Jaccard token similarity between a region id and a
+material's id/aliases, e.g. `hair-front-large` vs. `hair`) and
+`score_candidate` (a weighted sum of that name signal and the adjacency
+agreement C4.1's material-default suggestion already computes). Neither
+signal nor their combination is a trained model — this is the explicit
+"deterministic first, ML later" scoping decision, not a placeholder for one.
+
+`project/model.py`'s new `SignalWeights` (schema v13; v12 payloads migrate to
+an even 50/50 split) holds the two signal weights plus an `update_count`,
+project-scoped rather than portable since it reflects one artist's own
+naming and workflow conventions, not a shareable asset. `project/service.py`
+adds `rank_correspondence_materials` (ranks a bound style bible's materials
+for one target region using the project's current weights, returning the
+adjacency/name/confidence breakdown per candidate so it can be replayed
+later) and `record_correspondence_choice` (the "correction learning" step:
+an online multiplicative-weights update — whichever signal's own top pick
+matched what the artist actually chose gets boosted, the other decays,
+weights renormalize to sum to one). Fewer than two real candidates, or a
+chosen id absent from them, is a no-op — there is nothing to learn from an
+assignment with no real alternative. Neither function ever assigns anything;
+both exist purely to feed a future Docker's ranked suggestion list, with
+assignment remaining an explicit artist action exactly like C4/C4.1.
+
+`learning/engine_protocol.py` and the Krita `engine_client.py` wire
+`rank_correspondence_materials`/`record_correspondence_choice` through the
+existing JSON-RPC transport, matching every other milestone's engine-boundary
+pattern. Per the owner's explicit constraint, any future learned signal added
+to this same weighted-signal framework must be fully offline/local and go
+through the existing local model registry — never a network call, never
+outside that registry.

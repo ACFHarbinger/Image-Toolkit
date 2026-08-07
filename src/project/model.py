@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 12
+CURRENT_SCHEMA_VERSION = 13
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -63,6 +63,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("study_consent", {})
     migrated.setdefault("study_sessions", [])
     migrated.setdefault("chapter_pages", [])
+    migrated.setdefault("signal_weights", {})
     migrated["schema_version"] = CURRENT_SCHEMA_VERSION
     return migrated
 
@@ -302,6 +303,39 @@ class ChapterPage:
             raise ValueError("chapter-page notes must be absent or non-empty")
 
 
+_WEIGHT_TOLERANCE = 1e-6
+
+
+@dataclass(slots=True)
+class SignalWeights:
+    """Learned weights for ``colorization.confidence``'s deterministic
+    correspondence-suggestion signals (roadmap milestone 4, issue #24).
+
+    Not a trained model: a multiplicative-weights update after each
+    explicit artist assignment nudges these two weights toward whichever
+    signal (region-name/material-alias similarity, or adjacency agreement
+    with already-assigned neighbors) would have predicted the artist's
+    actual choice. Project-scoped rather than a portable/shareable asset,
+    since it reflects one artist's own naming and workflow conventions.
+    """
+
+    adjacency_weight: float = 0.5
+    name_weight: float = 0.5
+    update_count: int = 0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.adjacency_weight, (int, float)) or not (
+            0 <= self.adjacency_weight <= 1
+        ):
+            raise ValueError("adjacency weight must be between zero and one")
+        if not isinstance(self.name_weight, (int, float)) or not 0 <= self.name_weight <= 1:
+            raise ValueError("name weight must be between zero and one")
+        if abs(self.adjacency_weight + self.name_weight - 1.0) > _WEIGHT_TOLERANCE:
+            raise ValueError("signal weights must sum to one")
+        if not isinstance(self.update_count, int) or self.update_count < 0:
+            raise ValueError("signal-weight update count must be non-negative")
+
+
 @dataclass(frozen=True, slots=True)
 class RationaleRevision:
     text: str
@@ -480,6 +514,7 @@ class Project:
     study_consent: StudyConsent = field(default_factory=StudyConsent)
     study_sessions: list[StudySession] = field(default_factory=list)
     chapter_pages: list[ChapterPage] = field(default_factory=list)
+    signal_weights: SignalWeights = field(default_factory=SignalWeights)
     progress: ProjectProgress = field(default_factory=ProjectProgress)
 
     def to_dict(self) -> dict[str, Any]:
@@ -673,6 +708,7 @@ class Project:
                 ChapterPage(**(item | {"status": PageStatus(item["status"])}))
                 for item in payload.get("chapter_pages", [])
             ],
+            signal_weights=SignalWeights(**payload.get("signal_weights", {})),
             progress=ProjectProgress(exercises),
         )
         project.validate()
