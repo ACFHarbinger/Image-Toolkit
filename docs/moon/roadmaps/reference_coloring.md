@@ -89,4 +89,7 @@ editable.
 Schema v2 deterministically migrates v1 references to `other` without guessing.
 Absent accents are not offered as preview roles.
 Failed layer creation/write/removal is visible and cleans partial previews.
+The headless semantic workflow gate is complete: variant unioning, conflict
+blocking, preview ownership, and accepted-layer naming are covered without a
+Krita process. The remaining gate is manual host acceptance only.
 Learned correspondence is still a later milestone.

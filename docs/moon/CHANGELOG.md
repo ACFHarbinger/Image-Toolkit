@@ -43,7 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   view types and deterministically migrates v1 references to `other`. Materials
   can be split into named mask variants that share a canonical palette; reference
   notes are editable, and accepted layers record the bible ID in Krita metadata
-  where supported.
+  where supported. Extracted and tested the host-neutral variant-union operation,
+  completing the headless semantic workflow gate; only live Krita acceptance
+  remains before moving C3 to Review.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative

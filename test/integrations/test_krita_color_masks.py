@@ -53,3 +53,16 @@ def test_overlapping_materials_reports_each_ambiguous_pixel_count():
 def test_overlapping_materials_rejects_incomparable_buffers():
     with pytest.raises(ValueError, match="equal-length"):
         _module().overlapping_materials("hair", {"hair": b"\x00", "skin": b""})
+
+
+def test_union_alpha_buffers_combines_material_variants():
+    assert _module().union_alpha_buffers((bytes((0, 20, 0)), bytes((10, 0, 30)))) == bytes(
+        (10, 20, 30)
+    )
+
+
+def test_union_alpha_buffers_rejects_empty_or_incomparable_inputs():
+    with pytest.raises(ValueError, match="at least one"):
+        _module().union_alpha_buffers(())
+    with pytest.raises(ValueError, match="equal-length"):
+        _module().union_alpha_buffers((b"\x00", b"\x00\x01"))

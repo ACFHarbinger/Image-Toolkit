@@ -27,6 +27,7 @@ from .color_masks import (
     material_mask_parts,
     overlapping_materials,
     palette_preview_bgra,
+    union_alpha_buffers,
 )
 from .engine_client import EngineClient
 from .value_masks import find_named_node
@@ -294,11 +295,11 @@ class CharacterColorsDocker(DockWidget):
             mask_buffers = self._mask_buffers(mask_group, item["id"], width, height)
             if not mask_buffers:
                 continue
-            union = bytearray(width * height)
-            for alpha in mask_buffers:
-                for index, value in enumerate(alpha):
-                    union[index] = max(union[index], value)
-            masks[item["id"]] = bytes(union)
+            try:
+                masks[item["id"]] = union_alpha_buffers(mask_buffers)
+            except ValueError as error:
+                self._status.setText("Could not combine material mask variants: " + str(error))
+                return
         try:
             conflicts = overlapping_materials(material_id, masks)
         except ValueError as error:

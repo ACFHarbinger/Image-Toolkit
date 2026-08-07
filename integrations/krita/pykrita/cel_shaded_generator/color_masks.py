@@ -70,3 +70,19 @@ def overlapping_materials(active_id, masks):
         if count:
             conflicts[material_id] = count
     return conflicts
+
+
+def union_alpha_buffers(buffers):
+    """Union variant alpha buffers without weakening partial-opacity values."""
+    if not buffers:
+        raise ValueError("at least one alpha buffer is required")
+    if any(not isinstance(buffer, (bytes, bytearray)) for buffer in buffers):
+        raise ValueError("material masks must be bytes")
+    size = len(buffers[0])
+    if any(len(buffer) != size for buffer in buffers):
+        raise ValueError("material masks must be equal-length byte buffers")
+    result = bytearray(size)
+    for buffer in buffers:
+        for index, value in enumerate(buffer):
+            result[index] = max(result[index], value)
+    return bytes(result)
