@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S362 — 2026-08-07 (Fix SAM-2 masks dimension mismatch in HITL)
+
+Implemented Issue #15: Fixed the `_refine_masks_with_clicks` dimension mismatch in `backend/src/ingestion/masking.py`. Threaded a per-frame shape list through the live SAM-2 predictor state that's preserved across the HITL dialog boundary, ensuring every re-propagated SAM-2 mask is correctly resized against its individual per-frame shape rather than a single shared shape.
+
 ## S361 — 2026-08-07 (A3 moved to deferred review)
 
 Moved Cel-Shaded-Generator A3 issue #12 to In Review after completing its
