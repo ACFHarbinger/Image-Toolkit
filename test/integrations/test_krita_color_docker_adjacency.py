@@ -9,6 +9,8 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 REGION_GROUP_NAME = "Regions"
 REGION_PREFIX = "Region — "
 
@@ -235,3 +237,54 @@ def test_ignores_suggested_material_not_in_bible(monkeypatch):
     assert docker._suggested_material_index(
         document, "region-a", correspondence_set, ["skin", "hair"]
     ) == 0
+
+
+def test_adjacency_agreement_is_a_fraction_of_all_adjacent_regions(monkeypatch):
+    docker = _load_color_docker(monkeypatch)
+    width, height = 3, 3
+    # region-b (3) touches region-a (1), region-c (2), and region-d (4).
+    labels = [
+        1, 3, 2,
+        1, 3, 2,
+        4, 3, 0,
+    ]
+    document = _document_with_regions(
+        labels, width, height, {1: "region-a", 2: "region-c", 3: "region-b", 4: "region-d"}
+    )
+    correspondence_set = {
+        "correspondences": [
+            {"id": "c1", "region_id": "region-a", "material_id": "hair"},
+            {"id": "c2", "region_id": "region-c", "material_id": "hair"},
+            # region-d left unassigned -- only 2 of 3 adjacent regions vote.
+        ]
+    }
+    agreement = docker._adjacency_agreement_by_material(document, "region-b", correspondence_set)
+    assert agreement == {"hair": pytest.approx(2 / 3)}
+
+
+def test_adjacency_agreement_is_empty_without_adjacency(monkeypatch):
+    docker = _load_color_docker(monkeypatch)
+    document = _regions_document()
+    correspondence_set = {"correspondences": []}
+    assert docker._adjacency_agreement_by_material(document, "region-c", correspondence_set) == {}
+
+
+def test_adjacency_agreement_splits_across_disagreeing_materials(monkeypatch):
+    docker = _load_color_docker(monkeypatch)
+    width, height = 3, 3
+    labels = [
+        1, 3, 2,
+        1, 3, 2,
+        1, 3, 2,
+    ]
+    document = _document_with_regions(
+        labels, width, height, {1: "region-a", 2: "region-c", 3: "region-b"}
+    )
+    correspondence_set = {
+        "correspondences": [
+            {"id": "c1", "region_id": "region-a", "material_id": "skin"},
+            {"id": "c2", "region_id": "region-c", "material_id": "hair"},
+        ]
+    }
+    agreement = docker._adjacency_agreement_by_material(document, "region-b", correspondence_set)
+    assert agreement == {"skin": pytest.approx(0.5), "hair": pytest.approx(0.5)}

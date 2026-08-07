@@ -61,9 +61,9 @@ and user corrections.
    assignment, explicit-target propagation, and preview/accept/reject in the
    same Character Colors Docker.
 4. 🔄 Assisted correspondence with confidence and correction learning.
-   Issue #24 (In progress) implements the portable contract: deterministic
-   confidence scoring plus a multiplicative-weights correction-learning step.
-   No Docker UI yet.
+   Issue #24 (In review) implements deterministic confidence scoring, a
+   multiplicative-weights correction-learning step, and the Character
+   Colors Docker's confidence-ranked "Canonical material" dropdown.
 5. Optional generative proposals through the local model registry.
 6. 🔄 Batch chapter workflow with review queue and recoverable checkpoints.
    Issue #22 (In review) implements the portable schema plus a Chapter Queue
@@ -254,9 +254,9 @@ Learned correspondence is still a later milestone (milestone 4).
 
 ## Milestone 4 — assisted correspondence: confidence and correction learning
 
-Issue #24 is In progress. Portable contract only, no Docker UI yet, following
-the same "portable contract first" sequencing as C1-C4/C4.1 and milestone 6's
-schema-only first slice.
+Issue #24 is In review pending a live Krita checklist. The portable contract
+landed first (following the same sequencing as C1-C4/C4.1 and milestone 6's
+schema-only first slice), and the Character Colors Docker now consumes it.
 
 `colorization/confidence.py` adds two deterministic, stateless signals:
 `name_similarity` (Jaccard token similarity between a region id and a
@@ -289,3 +289,24 @@ pattern. Per the owner's explicit constraint, any future learned signal added
 to this same weighted-signal framework must be fully offline/local and go
 through the existing local model registry — never a network call, never
 outside that registry.
+
+**Character Colors Docker integration.** `_assign_correspondence`'s
+"Canonical material" dropdown is now ordered by confidence rather than only
+defaulting one index: it first computes a per-material adjacency-agreement
+fraction (`_adjacency_agreement_by_material`, new — how many of the target
+region's adjacent regions are already assigned to each candidate material,
+out of all adjacent regions, generalizing C4.1's unanimous-or-nothing
+`_suggested_material_index` into a `[0, 1]` score per material) and calls
+the engine's `rank_correspondence_materials` to order the whole dropdown by
+combined confidence, not just its default selection. If the engine call
+fails for any reason (offline hiccup, unbound bible), assignment still
+works: the dropdown falls back to the bible's declared material order with
+`_suggested_material_index`'s old unanimous-adjacency default index,
+exactly as it behaved before this milestone. After a successful save, the
+Docker calls `record_correspondence_choice` with the exact ranked list the
+artist chose from, so the project's `SignalWeights` learn from every
+explicit assignment; a learning-update failure is swallowed rather than
+surfaced, since the assignment itself already succeeded and correction
+learning is feedback, not a requirement. Never auto-assigns anything — the
+dropdown remains fully editable, matching every other milestone's decision
+boundary.

@@ -101,12 +101,13 @@ Milestones 1–3 are done and live-Krita verified: segmentation/gap-repair
 (G1, issue #19), the character style-bible format and palette application
 (C1/C2/C3, issues #15/#16/#17), and the manual correspondence/propagation
 baseline (C4/C4.1, issues #18/#21). Milestone 4 (assisted correspondence
-with confidence and correction learning, issue #24) is in progress: a
-portable-contract-only first slice with deterministic confidence signals
-(no ML yet) and a multiplicative-weights correction-learning step, per
-explicit scoping — see the milestone-4 section of
+with confidence and correction learning, issue #24) is In review pending a
+live Krita checklist: deterministic confidence signals (no ML yet) and a
+multiplicative-weights correction-learning step, per explicit scoping, now
+wired into the Character Colors Docker's confidence-ranked material
+dropdown — see the milestone-4 section of
 [Reference-Consistent Coloring](roadmaps/reference_coloring.md) for the
-full design and constraints. No Docker UI exists for it yet.
+full design and constraints.
 
 The existing scribble, Gabor, optimal-transport, graph-cut, quadtree, and
 preference-log modules remain experimental baselines. Their mathematical

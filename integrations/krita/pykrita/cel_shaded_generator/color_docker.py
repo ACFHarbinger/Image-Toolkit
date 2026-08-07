@@ -379,14 +379,37 @@ class CharacterColorsDocker(DockWidget):
             self._status.setText("Could not derive a region id: " + str(error))
             return
         material_ids = [item["id"] for item in bible["materials"]]
-        default_material_index = self._suggested_material_index(
-            document, region_id, self._correspondence_set(bible["id"]), material_ids
+        correspondence_set = self._correspondence_set(bible["id"])
+        adjacency_agreements = self._adjacency_agreement_by_material(
+            document, region_id, correspondence_set
         )
+        ranked_candidates = None
+        try:
+            ranked_candidates = EngineClient().rank_correspondence_materials(
+                str(uuid.uuid4()),
+                self._project_directory,
+                self._bibles.currentData(),
+                region_id,
+                adjacency_agreements,
+            )["candidates"]
+        except (RuntimeError, ValueError):
+            # Ranking is a suggestion, never a requirement -- fall back to the
+            # unordered dropdown plus C4.1's unanimous-adjacency default index
+            # rather than blocking assignment on an engine/network hiccup.
+            ranked_candidates = None
+        if ranked_candidates:
+            ordered_material_ids = [item["material_id"] for item in ranked_candidates]
+            default_material_index = 0
+        else:
+            ordered_material_ids = material_ids
+            default_material_index = self._suggested_material_index(
+                document, region_id, correspondence_set, material_ids
+            )
         material_id, accepted = QInputDialog.getItem(
             self,
             "Region Correspondence",
-            "Canonical material:",
-            material_ids,
+            "Canonical material (ranked by confidence):",
+            ordered_material_ids,
             default_material_index,
             False,
         )
@@ -427,6 +450,17 @@ class CharacterColorsDocker(DockWidget):
         except (RuntimeError, ValueError) as error:
             self._status.setText("Could not save region correspondence: " + str(error))
             return
+        if ranked_candidates:
+            try:
+                EngineClient().record_correspondence_choice(
+                    str(uuid.uuid4()), self._project_directory, material_id, ranked_candidates
+                )
+            except (RuntimeError, ValueError):
+                # Correction learning is best-effort feedback for future
+                # suggestions -- the assignment itself already saved
+                # successfully, so a learning-update failure must not
+                # surface as an assignment failure.
+                pass
         self._status.setText(f"Assigned region '{region_id}' to {material_id}/{role}.")
 
     def _propagate_correspondence(self):
@@ -708,6 +742,36 @@ class CharacterColorsDocker(DockWidget):
             if material_id in material_ids:
                 return material_ids.index(material_id)
         return 0
+
+    @classmethod
+    def _adjacency_agreement_by_material(cls, document, region_id, correspondence_set):
+        """Per-material adjacency-agreement scores for milestone 4's ranked
+        suggestion (roadmap milestone 4, issue #24).
+
+        Unlike ``_suggested_material_index``'s unanimous-or-nothing default,
+        this returns a fraction in ``[0, 1]`` per material -- how many of
+        ``region_id``'s adjacent regions are already assigned to it, out of
+        all adjacent regions (assigned or not) -- so
+        ``colorization.confidence.score_candidate`` can combine partial
+        agreement with the name-similarity signal instead of only ever
+        seeing "unanimous" or "no suggestion". Returns an empty dict (every
+        material scores zero adjacency agreement) when there is no adjacency
+        information, same as ``_suggested_material_index``'s empty-adjacency
+        fallback.
+        """
+        adjacent = cls._adjacent_region_names(document, region_id)
+        if not adjacent:
+            return {}
+        assigned = {
+            item["region_id"]: item["material_id"]
+            for item in correspondence_set.get("correspondences", [])
+        }
+        counts: dict[str, int] = {}
+        for name in adjacent:
+            material_id = assigned.get(name)
+            if material_id is not None:
+                counts[material_id] = counts.get(material_id, 0) + 1
+        return {material_id: count / len(adjacent) for material_id, count in counts.items()}
 
     @staticmethod
     def _mask_buffers(root, material_id, width, height):

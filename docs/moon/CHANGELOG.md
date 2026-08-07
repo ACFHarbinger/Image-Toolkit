@@ -27,10 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   live checklist — actual drawing/segmentation/assignment in Krita, not just
   headless tests. All three issues are closed. Milestone 4 (assisted
   correspondence with confidence and correction learning, issue #24) is now
-  in progress: its portable-contract first slice — deterministic confidence
-  signals and a multiplicative-weights correction-learning step, no ML yet
-  per explicit scoping — is implemented; see the `### Added` entry below.
-  No Docker UI exists for it yet.
+  In review pending a live Krita checklist: deterministic confidence
+  signals, a multiplicative-weights correction-learning step (no ML, per
+  explicit scoping), and the Character Colors Docker's confidence-ranked
+  material dropdown are all implemented; see the `### Added` entries below.
 - **Phase 5 (standalone desktop editor, issue #25) started ahead of its
   documented gate.** That gate ("proceed only when Krita limitations are
   demonstrated by validated workflows") has not been met; the owner made an
@@ -155,6 +155,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   any future learned signal added to this framework must be fully
   offline/local and go through the existing local model registry.
   Verification: 430 tests pass; Ruff and mypy are clean.
+- **Milestone 4 Docker integration (issue #24, In review): confidence-ranked
+  material dropdown and correction learning in Character Colors.** New
+  `_adjacency_agreement_by_material` generalizes C4.1's unanimous-or-nothing
+  `_suggested_material_index` into a per-material `[0, 1]` agreement
+  fraction (how many of a region's adjacent regions are already assigned to
+  each candidate material, out of all adjacent regions). `_assign_correspondence`
+  now calls the engine's `rank_correspondence_materials` with that plus the
+  target region id to order the whole "Canonical material" dropdown by
+  confidence, not just its default selection; on any engine failure it falls
+  back to the bible's declared material order with the old unanimous-adjacency
+  default index, so assignment never blocks on a ranking hiccup. After a
+  successful save, it calls `record_correspondence_choice` with the exact
+  ranked candidates the artist chose from, so `SignalWeights` learns from
+  every explicit assignment — a learning-update failure is swallowed since
+  the assignment itself already succeeded. Never auto-assigns anything; the
+  dropdown stays fully editable. Verification: 448 tests pass (11 new,
+  covering the adjacency-agreement fraction: unanimous, split, and
+  no-adjacency cases); Ruff and mypy are clean. Needs a live Krita checklist
+  to confirm the ranked dropdown and learning loop behave as intended with
+  a real project — see issue #24's testing comment.
 - Ran a proactive high-effort code review dedicated to `segmentation_docker.py`
   (previously only reviewed jointly with `color_docker.py`) and fixed two of
   its three findings:
